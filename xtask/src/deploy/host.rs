@@ -76,10 +76,8 @@ pub trait Host {
     /// Names (never values) of inherited `TRUNK_*` environment variables, which could redirect
     /// the build.
     fn trunk_overrides(&self) -> Vec<String>;
-    /// Nonsecret build input, captured explicitly in the release command and receipt.
-    fn api_origin(&self) -> Result<Option<String>, String> {
-        Ok(None)
-    }
+    /// Raw nonsecret build input. The coordinator requires and validates it before any run.
+    fn api_origin(&self) -> Result<Option<String>, String>;
     fn read_config(&mut self) -> Result<ConfigFiles, String>;
     /// First-line versions of the installed Cargo and Trunk, when they report one.
     fn tool_versions(&mut self) -> (Option<String>, Option<String>);
@@ -127,7 +125,7 @@ impl Host for SystemHost {
 
     fn api_origin(&self) -> Result<Option<String>, String> {
         match std::env::var("CANTOS_API_ORIGIN") {
-            Ok(value) => checked_api_origin(Some(&value)),
+            Ok(value) => Ok(Some(value)),
             Err(std::env::VarError::NotPresent) => Ok(None),
             Err(_) => Err("invalid CANTOS_API_ORIGIN".into()),
         }
@@ -582,15 +580,18 @@ mod tests {
 }
 
 // Hosting is public HTTPS; unlike the local Web proxy, it cannot use loopback HTTP.
-fn checked_api_origin(value: Option<&str>) -> Result<Option<String>, String> {
-    let Some(value) = value else { return Ok(None) };
+pub(super) fn checked_api_origin(value: Option<&str>) -> Result<String, String> {
+    let value = value.ok_or_else(|| {
+        "CANTOS_API_ORIGIN is required for Firebase Hosting; set an exact HTTPS API origin"
+            .to_owned()
+    })?;
     let valid = url::Url::parse(value).is_ok_and(|url| {
         url.scheme() == "https"
             && url.host_str().is_some()
             && url.origin().ascii_serialization() == value
     });
     if valid {
-        Ok(Some(value.into()))
+        Ok(value.into())
     } else {
         Err("invalid CANTOS_API_ORIGIN".into())
     }
@@ -599,11 +600,25 @@ fn checked_api_origin(value: Option<&str>) -> Result<Option<String>, String> {
 mod api_origin_tests {
     use super::checked_api_origin;
     #[test]
-    fn hosting_api_origin_is_nonsecret_exact_https_or_explicitly_absent() {
-        assert_eq!(checked_api_origin(None), Ok(None));
+    fn hosting_api_origin_is_required_before_static_release() {
+        assert_eq!(
+            checked_api_origin(None),
+            Err(
+                "CANTOS_API_ORIGIN is required for Firebase Hosting; set an exact HTTPS API origin"
+                    .into()
+            )
+        );
+    }
+
+    #[test]
+    fn hosting_api_origin_is_nonsecret_exact_https() {
         assert_eq!(
             checked_api_origin(Some("https://api.example.org")),
-            Ok(Some("https://api.example.org".into()))
+            Ok("https://api.example.org".into())
+        );
+        assert_eq!(
+            checked_api_origin(Some("https://api.example.org:8443")),
+            Ok("https://api.example.org:8443".into())
         );
         for value in [
             "",
@@ -611,7 +626,12 @@ mod api_origin_tests {
             "https://API.example.org",
             "https://api.example.org/",
             "https://secret@api.example.org",
+            "https://user:secret@api.example.org",
+            "https://api.example.org/api",
             "https://api.example.org?token=secret",
+            "https://api.example.org#fragment",
+            " https://api.example.org",
+            "https://api.example.org\n",
         ] {
             assert_eq!(
                 checked_api_origin(Some(value)),

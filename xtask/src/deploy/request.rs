@@ -327,7 +327,7 @@ impl Stage {
                 "installed Rust, wasm32 target, Trunk and Git; no inherited TRUNK_* override; nothing is installed"
             }
             Stage::HostingConfig => {
-                "validate the tracked Hosting policy; the operator's .firebaserc must map the target to exactly one site"
+                "require an exact HTTPS CANTOS_API_ORIGIN; validate the tracked Hosting policy and the operator's one-site target mapping"
             }
             Stage::FirebaseCli => {
                 "`firebase --version` must report a documented compatible release"
@@ -661,6 +661,7 @@ mod tests {
         assert!(plan.contains("PUBLIC preview channel"));
         assert!(plan.contains("CLI default (7d"));
         assert!(plan.contains("NOT_RUN deploy firebase"));
+        assert!(plan.contains("require an exact HTTPS CANTOS_API_ORIGIN"));
         assert!(!plan.contains("LIVE release"));
         let live = resolve(&Raw {
             channel: "live".into(),

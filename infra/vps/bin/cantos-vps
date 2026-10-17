@@ -69,6 +69,140 @@ edge_value() {
   printf '%s\n' "$value"
 }
 
+# Browser inputs are explicit deployment policy, independent of transitional Web proxy hosts.
+deployment_value() {
+  local value key=$1
+  value=$(config_value "$CONFIG/edge.env" "$key") || die "$CONFIG/edge.env must define $key exactly once" 66
+  [[ -n $value && $value != REPLACE_WITH_* ]] || die "$CONFIG/edge.env: set $key" 66
+  printf '%s\n' "$value"
+}
+
+browser_origin() {
+  local key=CANTOS_${1^^}_${2}_ORIGIN value last_label
+  value=$(deployment_value "$key") || return $?
+  # Public ingress uses default HTTPS on lowercase DNS names. Refuse normalization, ports,
+  # credentials, paths, queries and fragments instead of changing the operator's input.
+  [[ $value =~ ^https://[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$ &&
+    ${#value} -le 261 ]] || die "$key must be an exact HTTPS origin with a lowercase DNS name and no port" 65
+  # WHATWG URL parsers interpret a numeric final label as IPv4, including shorthand/hex.
+  # The deployment boundary accepts DNS names only; never normalize those inputs silently.
+  last_label=${value##*.}
+  [[ ! $last_label =~ ^([0-9]+|0x[0-9a-f]*)$ ]] ||
+    die "$key must be an exact HTTPS origin with a lowercase DNS name and no numeric final label" 65
+  printf '%s\n' "$value"
+}
+
+validate_browser_configuration() {
+  local api surface web api_origin callback key theatre_web=""
+  api=$(edge_value CANTOS_API_HOST) || return $?
+  for surface in theatre studio; do
+    web=$(browser_origin "$surface" WEB) || return $?
+    api_origin=$(browser_origin "$surface" API) || return $?
+    [[ $api_origin == "https://$api" ]] || die "CANTOS_${surface^^}_API_ORIGIN must match CANTOS_API_HOST (https://$api)" 65
+    key=CANTOS_${surface^^}_OIDC_CALLBACK
+    callback=$(deployment_value "$key") || return $?
+    [[ $callback == "$api_origin/api/v1/$surface/auth/callback" ]] ||
+      die "$key must equal $api_origin/api/v1/$surface/auth/callback" 65
+    if [[ $surface == theatre ]]; then
+      theatre_web=$web
+    else
+      [[ $web != "$theatre_web" ]] || die "Theatre and Studio must have distinct Web origins" 65
+    fi
+  done
+}
+
+render_api_configuration() {
+  local surface web api
+  for surface in theatre studio; do
+    web=$(browser_origin "$surface" WEB) || return $?
+    api=$(browser_origin "$surface" API) || return $?
+    printf 'CANTOS_ENV=production\nCANTOS_BIND_ADDRESS=0.0.0.0:8080\nCANTOS_BROWSER_API_SURFACE=%s\nCANTOS_WEB_ORIGIN=%s\nCANTOS_API_ORIGIN=%s\n' \
+      "$surface" "$web" "$api" >"$CONFIG/api-$surface.env"
+  done
+}
+
+require_runtime_value() {
+  local file=$1 key=$2 expected=$3 actual remedy=${4:-reconcile configuration with bootstrap before deployment}
+  actual=$(config_value "$file" "$key" 2>/dev/null) ||
+    die "$file must define $key exactly once; $remedy" 66
+  [[ $actual == "$expected" ]] || die "$file has stale $key; $remedy" 65
+}
+
+validate_supplemental_environment() {
+  local file=$1 surface=$2 callback line
+  [[ -f $file ]] || die "supplemental API EnvironmentFile is missing: $file" 66
+  if grep -Eq '^[[:space:]]*(CANTOS_ENV|CANTOS_BIND_ADDRESS|CANTOS_WEB_ORIGIN|CANTOS_API_ORIGIN|CANTOS_BROWSER_API_SURFACE)[[:space:]]*=' "$file"; then
+    die "$file overrides protected API browser configuration; keep those keys only in api-$surface.env" 65
+  fi
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ $line =~ ^[[:space:]]*(#|$) ]] && continue
+    # Podman may forward the host value for an unassigned name. Only literal assignments
+    # are supported here; values stay inert and may contain spaces/JSON for registration.
+    [[ $line =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] ||
+      die "$file has an unsupported supplemental API env assignment; use plain KEY=VALUE lines only" 65
+  done <"$file"
+  if grep -Eq '^[[:space:]]*CANTOS_[A-Z_]*OIDC_ISSUER[[:space:]]*=' "$file"; then
+    callback=$(deployment_value CANTOS_${surface^^}_OIDC_CALLBACK) || return $?
+    require_runtime_value "$CONFIG/oidc-callbacks.env" CANTOS_${surface^^}_OIDC_CALLBACK "$callback" \
+      "complete separately authorized identity callback reconciliation before deployment"
+  fi
+}
+
+validate_api_dropins() {
+  local surface=$1 file line path key
+  for file in "$QUADLET_DIR/cantos-api-$surface.container.d/"*.conf; do
+    [[ -e $file ]] || continue
+    while IFS= read -r line || [[ -n $line ]]; do
+      case $line in
+        ''|'#'*|'[Container]'|'[Unit]'|'[Service]') ;;
+        Description=*|Requires=*|After=*|Before=*|Wants=*|Restart=*|RestartSec=*|TimeoutStartSec=*|TimeoutStopSec=*|Volume=*|Network=*|NetworkAlias=*|ReadOnly=*|NoNewPrivileges=*|DropCapability=*|HealthCmd=*|HealthInterval=*|HealthStartPeriod=*|HealthRetries=*|Label=*) ;;
+        EnvironmentFile=*)
+          path=${line#EnvironmentFile=}
+          [[ $path =~ ^/[A-Za-z0-9_./-]+$ && $path != "$CONFIG/api-$surface.env" ]] ||
+            die "$file has an unsupported API EnvironmentFile; use a simple absolute supplemental env-file path" 65
+          validate_supplemental_environment "$path" "$surface"
+          ;;
+        Environment=*)
+          [[ $line =~ ^Environment=([A-Z][A-Z0-9_]*)=([A-Za-z0-9_./:,-]+)$ ]] ||
+            die "$file has an unsupported API Environment assignment; use one simple assignment or a supplemental env file" 65
+          key=${BASH_REMATCH[1]}
+          case $key in
+            CANTOS_ENV|CANTOS_BIND_ADDRESS|CANTOS_WEB_ORIGIN|CANTOS_API_ORIGIN|CANTOS_BROWSER_API_SURFACE)
+              die "$file overrides protected API browser configuration; keep $key only in api-$surface.env" 65 ;;
+            CANTOS_*OIDC_ISSUER)
+              require_runtime_value "$CONFIG/oidc-callbacks.env" CANTOS_${surface^^}_OIDC_CALLBACK \
+                "$(deployment_value CANTOS_${surface^^}_OIDC_CALLBACK)" \
+                "complete separately authorized identity callback reconciliation before deployment" ;;
+          esac
+          ;;
+        "Secret=cantos-$surface-oidc-secret,type=env,target=CANTOS_${surface^^}_OIDC_SECRET") ;;
+        *) die "$file has an unsupported API drop-in directive; reconcile with the supported browser configuration contract" 65 ;;
+      esac
+    done <"$file"
+  done
+}
+
+# Deploy/rollback never rewrite running origin policy. A reviewed bootstrap/identity operation
+# must reconcile it first, so failed image switches cannot strand a changed browser boundary.
+validate_runtime_browser_configuration() {
+  validate_browser_configuration
+  local surface file callback
+  for surface in theatre studio; do
+    file=$CONFIG/api-$surface.env
+    require_runtime_value "$file" CANTOS_ENV production
+    require_runtime_value "$file" CANTOS_BIND_ADDRESS 0.0.0.0:8080
+    require_runtime_value "$file" CANTOS_BROWSER_API_SURFACE "$surface"
+    require_runtime_value "$file" CANTOS_WEB_ORIGIN "$(browser_origin "$surface" WEB)"
+    require_runtime_value "$file" CANTOS_API_ORIGIN "$(browser_origin "$surface" API)"
+    validate_api_dropins "$surface"
+    if [[ -f $CONFIG/api-$surface-oidc.env ]]; then
+      callback=$(deployment_value CANTOS_${surface^^}_OIDC_CALLBACK)
+      require_runtime_value "$CONFIG/oidc-callbacks.env" CANTOS_${surface^^}_OIDC_CALLBACK "$callback" \
+        "complete separately authorized identity callback reconciliation before deployment"
+    fi
+  done
+}
+
 unit_active() { systemctl is-active --quiet "$1.service"; }
 
 # ---------------------------------------------------------------------------------- install
@@ -172,26 +306,22 @@ ensure_kanidm_tls() {
 render_configuration() {
   [[ -f $CONFIG/edge.env ]] || {
     install -m 0600 "$RUNTIME/config.example.env" "$CONFIG/edge.env"
-    die "created $CONFIG/edge.env from the example; set the Firebase site IDs, then rerun" 66
+    die "created $CONFIG/edge.env from the example; review all origins, callbacks and Firebase site IDs, then rerun" 66
   }
-  local theatre studio api idm
-  theatre=$(edge_value CANTOS_THEATRE_HOST)
-  studio=$(edge_value CANTOS_STUDIO_HOST)
-  api=$(edge_value CANTOS_API_HOST)
+  local idm
+  validate_browser_configuration
+  edge_value CANTOS_THEATRE_HOST >/dev/null
+  edge_value CANTOS_STUDIO_HOST >/dev/null
   idm=$(edge_value CANTOS_IDM_HOST)
   edge_value CANTOS_THEATRE_FIREBASE_SITE >/dev/null
   edge_value CANTOS_STUDIO_FIREBASE_SITE >/dev/null
-  printf 'CANTOS_ENV=production\nCANTOS_BIND_ADDRESS=0.0.0.0:8080\nCANTOS_WEB_ORIGIN=https://%s\n' \
-    "$theatre" >"$CONFIG/api-theatre.env"
-  printf 'CANTOS_ENV=production\nCANTOS_BIND_ADDRESS=0.0.0.0:8080\nCANTOS_WEB_ORIGIN=https://%s\n' \
-    "$studio" >"$CONFIG/api-studio.env"
+  render_api_configuration
   sed "s/@IDM_HOST@/$idm/g" "$RUNTIME/kanidm/server.toml.template" >"$KANIDM_DIR/server.toml"
   # APIs and the Kanidm CLI reach the identity provider by its public name on the private
   # network; the edge answers it with the public certificate. No hairpin through the host.
   install -d -m 0755 "$QUADLET_DIR/cantos-edge.container.d"
   printf '[Container]\nNetworkAlias=%s\n' "$idm" >"$QUADLET_DIR/cantos-edge.container.d/10-identity-alias.conf"
   chmod 0644 "$QUADLET_DIR/cantos-edge.container.d/10-identity-alias.conf"
-  : "$api"
 }
 
 provision_database() {
@@ -358,6 +488,7 @@ deploy() {
   local revision=${1:-}
   require_root
   with_lock
+  validate_runtime_browser_configuration
   check_revision "$revision"
   unit_active cantos-postgres || die "cantos-postgres is not running; run cantos-vps bootstrap" 69
   local previous=""
@@ -400,6 +531,7 @@ prune_releases() {
 rollback() {
   require_root
   with_lock
+  validate_runtime_browser_configuration
   [[ -s $STATE/previous ]] || die "no previous revision recorded" 66
   local previous current
   previous=$(<"$STATE/previous")
@@ -465,6 +597,18 @@ ensure_client() { # IDM CLIENT DISPLAY ORIGIN CALLBACK GROUP SECRET-NAME
   log "$client configured; its secret is the Podman secret $secret"
 }
 
+configure_browser_clients() {
+  local idm=$1 studio theatre studio_callback theatre_callback
+  studio=$(browser_origin studio WEB) || return $?
+  theatre=$(browser_origin theatre WEB) || return $?
+  studio_callback=$(deployment_value CANTOS_STUDIO_OIDC_CALLBACK) || return $?
+  theatre_callback=$(deployment_value CANTOS_THEATRE_OIDC_CALLBACK) || return $?
+  ensure_client "$idm" cantos-studio-web-bff "Cantos Studio" "$studio" \
+    "$studio_callback" cantos_studio_admins cantos-studio-oidc-secret
+  ensure_client "$idm" cantos-theatre-web-bff "Cantos" "$theatre" \
+    "$theatre_callback" cantos_theatre_listeners cantos-theatre-oidc-secret
+}
+
 ensure_person() { # IDM NAME DISPLAY GROUP -> prints a one-time reset link to this terminal
   local idm=$1 name=$2 display=$3 group=$4
   [[ $name =~ ^[a-z][a-z0-9_-]{1,63}$ ]] || die "account name must be lowercase [a-z0-9_-]" 65
@@ -499,15 +643,13 @@ identity() {
   [[ -t 1 ]] || die "identity prints one-time links; run it in your own interactive terminal" 64
   with_lock
   unit_active cantos-kanidm && unit_active cantos-edge || die "kanidm and edge must be running" 69
-  local idm studio theatre
+  validate_browser_configuration
+  local idm studio_callback theatre_callback
   idm=$(edge_value CANTOS_IDM_HOST)
-  studio=$(edge_value CANTOS_STUDIO_HOST)
-  theatre=$(edge_value CANTOS_THEATRE_HOST)
+  studio_callback=$(deployment_value CANTOS_STUDIO_OIDC_CALLBACK)
+  theatre_callback=$(deployment_value CANTOS_THEATRE_OIDC_CALLBACK)
   ensure_idm_admin
-  ensure_client "$idm" cantos-studio-web-bff "Cantos Studio" "https://$studio" \
-    "https://$studio/api/v1/studio/auth/callback" cantos_studio_admins cantos-studio-oidc-secret
-  ensure_client "$idm" cantos-theatre-web-bff "Cantos" "https://$theatre" \
-    "https://$theatre/api/v1/theatre/auth/callback" cantos_theatre_listeners cantos-theatre-oidc-secret
+  configure_browser_clients "$idm"
   ensure_person "$idm" "$admin" "${display:-$admin}" cantos_studio_admins
   [[ -z $listener ]] || ensure_person "$idm" "$listener" "$listener" cantos_theatre_listeners
 
@@ -518,6 +660,11 @@ identity() {
     "$idm" "$subject" >"$CONFIG/api-studio-oidc.env"
   printf 'CANTOS_THEATRE_OIDC_ISSUER=https://%s/oauth2/openid/cantos-theatre-web-bff\n' \
     "$idm" >"$CONFIG/api-theatre-oidc.env"
+  # Input receipt only: this records completed client configuration, never live login or the
+  # removal of old provider redirects. Those still require operator reconciliation/acceptance.
+  printf 'CANTOS_STUDIO_OIDC_CALLBACK=%s\nCANTOS_THEATRE_OIDC_CALLBACK=%s\n' \
+    "$studio_callback" "$theatre_callback" >"$CONFIG/oidc-callbacks.env"
+  render_api_configuration
   local surface
   for surface in studio theatre; do
     install -d -m 0755 "$QUADLET_DIR/cantos-api-$surface.container.d"

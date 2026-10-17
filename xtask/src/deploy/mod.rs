@@ -99,6 +99,7 @@ Examples:
   cargo xtask deploy firebase cantos-studio --web --project PROJECT_ID --channel live
 
 Configuration:
+  CANTOS_API_ORIGIN                     required exact HTTPS API origin for an actual deploy
   infra/firebase/hosting/firebase.json   tracked policy (reviewed in Git)
   infra/firebase/hosting/.firebaserc     your target -> site mapping (ignored by Git)
 The Firebase CLI authenticates by its own login or Application Default Credentials; xtask never

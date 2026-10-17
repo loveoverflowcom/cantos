@@ -824,11 +824,14 @@ cargo xtask deploy firebase cantos-theatre --web \
   --project PROJECT_ID --channel review-hosting --dry-run
 
 # Build Theatre Web once, validate the bundle, publish a PUBLIC preview. A REMOTE WRITE.
+CANTOS_API_ORIGIN=https://api.example.org \
 cargo xtask deploy firebase cantos-theatre --web \
   --project PROJECT_ID --channel review-hosting --expires 7d
 
 # A deliberate LIVE release of one app; Studio is independent and never builds Theatre.
+CANTOS_API_ORIGIN=https://api.example.org \
 cargo xtask deploy firebase cantos-theatre --web --project PROJECT_ID --channel live
+CANTOS_API_ORIGIN=https://api.example.org \
 cargo xtask deploy firebase cantos-studio --web --project PROJECT_ID --channel live
 ```
 
@@ -842,7 +845,10 @@ local and manual: no GitHub Actions workflow, secret, `firebase init hosting:git
 trigger exists or is needed. Firebase Hosting serves only the static bundle; the Rust API,
 PostgreSQL, Kanidm and object storage stay outside it. [ADR 0041](../docs/decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting with explicit
 `CANTOS_API_ORIGIN` at Web build time and separately configured API CORS/routing. The receipt records the
-nonsecret build input in `build.api_origin` and the build command. The local unset default keeps relative Trunk-proxy paths;
+nonsecret build input in `build.api_origin` and the build command. A real Hosting deploy requires
+a valid HTTPS API origin before creating a run, reconciling a receipt or building; missing,
+empty, HTTP or malformed values refuse the command. The local unset default for ordinary
+build/run commands keeps relative Trunk-proxy paths;
 cross-site web.app authentication is not accepted. See the [current topology/runbook](../docs/deployment/vps-production.md).
 
 **Request.** The app (`cantos-theatre` or `cantos-studio`, nothing else), `--web`, `--project` and

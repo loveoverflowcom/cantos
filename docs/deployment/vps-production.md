@@ -53,18 +53,63 @@ CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org \
   cargo xtask build cantos-studio --web --release
 ```
 
-For each API process, set `CANTOS_BROWSER_API_SURFACE=theatre` or `studio` and its matching exact
-`CANTOS_WEB_ORIGIN`; do not permit both surfaces through one origin wildcard. The server's optional
-`CANTOS_API_ORIGIN` sets its exact OIDC callback host separately from the fixed Web return origin.
+The host's single nonsecret source is `/root/cantos-services/config/edge.env`, shaped by
+[`config.example.env`](../../infra/vps/config.example.env). Supply all six reviewed browser
+inputs explicitly; legacy `CANTOS_THEATRE_HOST`/`CANTOS_STUDIO_HOST` continue to name transitional
+edge proxies and never fill in missing Web origins.
+
+| Input per surface (`THEATRE` or `STUDIO`) | Required value |
+| --- | --- |
+| `CANTOS_<SURFACE>_WEB_ORIGIN` | Exact reviewed HTTPS Web origin; the two surfaces must differ |
+| `CANTOS_<SURFACE>_API_ORIGIN` | `https://` plus the configured `CANTOS_API_HOST`, for the existing default-port ingress |
+| `CANTOS_<SURFACE>_OIDC_CALLBACK` | That API origin plus `/api/v1/theatre/auth/callback` or `/api/v1/studio/auth/callback`, respectively |
+
+Origins use lowercase DNS names with no port, path, trailing slash, credentials, query or fragment.
+An explicitly authorized bootstrap validates the complete input set before replacing generated
+configuration. It renders `api-theatre.env` and `api-studio.env`, each with
+`CANTOS_BROWSER_API_SURFACE=theatre` or `studio`, the matching exact `CANTOS_WEB_ORIGIN` and
+`CANTOS_API_ORIGIN`. The API origin sets its exact OIDC callback host separately from the fixed
+Web return origin. Do not permit both surfaces through one origin wildcard.
 The API ingress must route `/api/v1/studio/*` to Studio and `/api/v1/theatre/*` to Theatre. Preserve
 host-only HttpOnly/Secure cookies, CSRF Origin checks, PKCE/state/nonce and current authorization.
+
+Deploy and rollback compare the generated API env files to those inputs before backup, migration
+or image switching. Missing, duplicate, invalid or stale settings refuse the operation; they do
+not rewrite running origin policy. Reconcile a legacy install through a separately authorized
+bootstrap/configuration change first. API Quadlet `*.container.d/*.conf` supplemental files may
+not redefine `CANTOS_ENV`, `CANTOS_BIND_ADDRESS`, `CANTOS_WEB_ORIGIN`, `CANTOS_API_ORIGIN` or
+`CANTOS_BROWSER_API_SURFACE`. Supported env syntax is one `EnvironmentFile=/absolute/path`
+per line (no optional-file prefix, quoting or specifiers), or one plain uppercase-key
+`Environment=KEY=VALUE` with a simple value containing letters, digits, `_./:,-`. Move complex
+registration values into a supplemental env file. Each nonempty, noncomment supplemental line
+must be a plain `KEY=VALUE` assignment with an unquoted identifier and no whitespace before or
+inside the key; its same-line value may contain spaces or JSON. Bare names, wildcards, `export`
+and multiline values are refused, so Podman cannot forward host environment by an unassigned
+name. Registration remains disabled unless its
+independent enablement gates are met. The generated OIDC Secret entry is allowed. Ordinary
+tracked Unit/Service, mount, network and health directives are supported; unknown directives,
+environment forwarding, custom commands and raw Podman args fail closed pending review.
+Inspect global Quadlet drop-ins and generated systemd service overrides independently; this
+validation covers the per-surface Quadlet/env-file composition, not arbitrary operator
+replacement of the service.
+
+When generated `api-<surface>-oidc.env` exists, deploy/rollback also require matching callbacks
+in `config/oidc-callbacks.env`. Only separately authorized `cantos-vps identity` writes that input
+receipt after configuring the clients with the Web origins and API callbacks above. Existing
+installations without it fail closed. Review the existing client origin, issuer, allowed redirects
+and obsolete callbacks before reconciliation: identity's add-redirect operation does not delete
+old provider redirects or update an existing client's display/origin metadata. The receipt records
+configured inputs, not live discovery/login or exclusive provider allowlists. Do not hand-write
+it as a shortcut around provider review.
 
 Public anonymous reads can use web.app → DuckDNS after deployment. Authentication cannot be
 accepted on those cross-site names with the retained Strict cookies. Supply reviewed same-site
 custom domains/API alias and a minimal identity gateway as specified by ADR 0041 before activating
-split-origin login. No real custom domain is configured by these instructions. The current host
-script's generated origins still reflect ADR 0039; operator-reviewed configuration/drop-ins and
-issuer redirects must be reconciled before any migration, not overwritten blindly by bootstrap.
+split-origin login. No real custom domain is configured by these instructions. A source change
+does not rewrite the installed legacy inputs, issuer redirects or custom drop-ins; reconcile them
+together in the authorized cutover and retain the reviewed previous configuration for recovery.
+Image rollback leaves origin and identity configuration unchanged; restore those separately when
+rolling back a domain/issuer migration, before restarting the previous image.
 
 ## Explicit remote operations
 
