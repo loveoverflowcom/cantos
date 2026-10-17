@@ -90,3 +90,15 @@ Functions deployment, native Studio surface, publication or listening evidence i
 The private mock has no schema, database migration or compatibility change. The only new
 dependency direction is the debug Studio shell → Studio mock → its plain model/port; it never
 imports another app or a service. Existing shared-admission failures remain separately gated.
+
+### Resumed Mac check during session 4
+
+The user unlocked the Mac; Chrome is now available, so the earlier lock is no longer the
+runtime blocker. The canonical `cargo xtask app cantos-studio --web` attempt refused to start
+because `cantos-server` was not listening on `127.0.0.1:8080`. It started no frontend or API.
+No database/runtime provisioning or substitute listener was used. Forge browser acceptance
+therefore remains pending behind the launcher's existing API prerequisite. The shared gallery
+can run independently: session 4 observed Button/IconButton loading and click/Space/Enter in
+Chrome, but those observations do not accept the Forge flow or dialog. Library materialization
+was retried through the current helper and remained technically unavailable, with zero bytes
+transferred. Keep #227 open; see PR #230 for the combined gate and acceptance ledger.

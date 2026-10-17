@@ -54,6 +54,10 @@ For Web auth, inspect the [phase/action hierarchy](../evidence/theatre-web-auth-
 in the existing no-network auth diagnostic and actual consumer flow. Preserve the distinction
 between contextual Back and explicit Firebase cancellation; qualify shared action icons before
 moving the diagnostic icon mapping into live consumers.
+The [CMP action/Select candidate](../evidence/theatre-cmp-action-icons-229.md) retains native
+Material popup ownership and isolates new auth glyphs in the existing sandbox. Complete
+both-renderer admission and named Android/iOS accessibility observations before product adoption;
+JVM screenshots/tests and a launched Java process do not supply native acceptance.
 
 Do not append completed sessions here. Move their dated handoff to [archive](../archive/README.md)
 and leave a short current pointer. Existing source-bound evidence remains at its original path.
