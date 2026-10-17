@@ -200,6 +200,18 @@ preserve the required image, secrets, identity data, private storage and CA thro
 existing protected recovery procedures. The synchronization stages use standard filesystem
 `fsync` semantics; they do not establish independent hardware or disaster-recovery acceptance.
 
+Ordinary deployment pruning preserves both target and previous image revisions named by every
+retained epoch-2 journal, together with their whole `incoming/<revision>/` directories. This
+protects the original flat bundles and newer nested attempt bundles beyond the normal
+current/previous-image and three-newest-upload windows. Before deleting any release resource,
+the host validates every journal's identity, phase and complete typed metadata. Any malformed,
+unreadable or unknown journal entry skips **all** release pruning and emits a warning; it does
+not turn uncertain recovery references into deletion candidates. Unprotected images require
+exact Cantos API title, matching revision and repository-source OCI labels before deletion;
+foreign or missing labels are left untouched. Unknown or symlink incoming entries are never
+pruned. Keep journals and their protected dependencies until a separate
+retention decision; preserving them does not widen automatic rollback beyond `accepted`.
+
 Before the operation, stage exactly these six nonsecret assignments in the root-only host file
 `/root/cantos-services/config/epoch2-browser.env`:
 

@@ -68,3 +68,12 @@ disaster recovery. Keep independent protected image/secret/identity/media/CA rec
 same target SHA, persisted 32-hex attempt ID and exact incoming attempt tree for the runbook's
 `cutover-recover` invocation. A revision alone cannot select another attempt's recovery. Recovery
 before `accepted` restores the matching installation; after `accepted` it finalizes only.
+
+Release pruning validates all retained epoch-2 journal identities/phases/metadata before any
+deletion. Each journal protects its target and previous images and whole matching incoming
+revision directories, including original flat and nested attempt bundles. These protections
+extend the normal current/previous-image and three-newest-upload windows. Any malformed,
+unreadable or unknown journal skips all release pruning with a warning. Unprotected images
+need exact Cantos API title, matching revision and repository-source OCI labels; foreign/missing
+labels and unknown/symlink incoming entries are left untouched. Journals and their referenced
+recovery resources need a separate retention decision; ordinary deploy does not retire them.

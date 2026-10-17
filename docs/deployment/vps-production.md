@@ -203,6 +203,14 @@ before `accepted`, recovery restores them as a pair. After `accepted`, automatic
 finalizes the new installation. Its off-host tar excludes OCI image bytes, Podman secrets,
 the Kanidm administrator password and private CA. Retaining an old image on the VPS and copying
 that tar does not replace independent image/secret/identity/storage/CA disaster recovery.
+Ordinary deploy pruning validates every retained epoch-2 journal before any image/upload
+deletion. It preserves each journal's target and previous images and whole incoming revision
+directories, in addition to current/previous images and the three newest valid uploads.
+This includes original flat and nested-attempt bundles. A malformed, unreadable or unknown
+journal skips all release pruning with a warning. Image deletion additionally requires the
+exact Cantos API title, matching revision and repository-source OCI labels; foreign/missing
+labels and unknown/symlink incoming entries are left untouched. Retain the journals and their
+dependencies until a separate retention decision.
 Copy each finalized backup off the VPS regularly, keeping **all three siblings** together:
 `FILE.dump`, `FILE.dump.schema-epoch` and `FILE.dump.sha256`. In the destination directory,
 verify `sha256sum -c FILE.dump.sha256` before the separate restore drill. Copying only the dump

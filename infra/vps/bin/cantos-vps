@@ -631,17 +631,86 @@ deploy() {
   die "first deploy of $revision failed health checks; inspect journalctl -u cantos-api-*" 72
 }
 
-# Keep the current and previous API images and the three newest uploads; nothing else.
+cutover_retained_revisions() {
+  local directory=$STATE/epoch2-cutovers journal file phase line key value required
+  [[ -e $directory || -L $directory ]] || return 0
+  [[ -d $directory && ! -L $directory && -r $directory && -x $directory ]] || return 1
+  for journal in "$directory"/* "$directory"/.[!.]* "$directory"/..?*; do
+    [[ -e $journal || -L $journal ]] || continue
+    [[ -d $journal && ! -L $journal && -r $journal && -x $journal ]] || return 1
+    for file in meta phase; do
+      [[ -f $journal/$file && ! -L $journal/$file && -r $journal/$file ]] || return 1
+    done
+    phase=$(<"$journal/phase") || return 1
+    case $phase in
+      initializing|snapshotted|freeze-intent|prepared|browser-intent|rename-intent|health-check|accepted|complete|refused|rolled-back) ;;
+      *) return 1 ;;
+    esac
+    local -A metadata=()
+    while IFS= read -r line || [[ -n $line ]]; do
+      [[ $line == *=* ]] || return 1
+      key=${line%%=*}; value=${line#*=}
+      [[ $key =~ ^[a-z_]+$ ]] || return 1
+      [[ -z ${metadata[$key]+present} ]] || return 1
+      case $key in
+        target|previous) [[ $value =~ ^[0-9a-f]{40}$ ]] || return 1 ;;
+        attempt) [[ $value =~ ^[0-9a-f]{32}$ ]] || return 1 ;;
+        oracle) [[ $value =~ ^cantos_e1_oracle_[a-z0-9_]+$ && ${#value} -le 63 ]] || return 1 ;;
+        rehearsal) [[ $value =~ ^cantos_e1_restore_[a-z0-9_]+$ && ${#value} -le 63 ]] || return 1 ;;
+        staging) [[ $value =~ ^cantos_e2_stage_[a-z0-9_]+$ && ${#value} -le 63 ]] || return 1 ;;
+        retained) [[ $value =~ ^cantos_e1_retained_[a-z0-9_]+$ && ${#value} -le 63 ]] || return 1 ;;
+        old_oid|new_oid) [[ $value =~ ^[0-9]+$ ]] || return 1 ;;
+        old_limit) [[ $value =~ ^(-1|[0-9]+)$ ]] || return 1 ;;
+        *) return 1 ;;
+      esac
+      metadata[$key]=$value
+    done <"$journal/meta" || return 1
+    for required in target previous oracle rehearsal staging retained old_oid old_limit; do
+      [[ -n ${metadata[$required]:-} ]] || return 1
+    done
+    if [[ $phase == accepted || $phase == complete ]]; then
+      [[ -n ${metadata[new_oid]:-} ]] || return 1
+    fi
+    if [[ -n ${metadata[attempt]:-} ]]; then
+      [[ ${journal##*/} == "${metadata[target]:0:12}-${metadata[attempt]}" ]] || return 1
+    else
+      [[ ${journal##*/} =~ ^${metadata[target]:0:12}-[0-9]+-[0-9]+$ ]] || return 1
+    fi
+    printf '%s\n' "${metadata[target]}" "${metadata[previous]}" || return 1
+  done
+}
+
+# Completed/failed cutovers retain paired recovery dependencies across ordinary deploys.
+# Validate every journal before deleting anything: unknown metadata means retain everything.
 prune_releases() {
-  local keep=("$(cat "$STATE/current" 2>/dev/null)" "$(cat "$STATE/previous" 2>/dev/null)") tag
+  local retained tag old name identity
+  if ! retained=$(cutover_retained_revisions); then
+    log "cutover recovery metadata unavailable or invalid; skipping all release pruning"
+    return 0
+  fi
+  local keep=("$(cat "$STATE/current" 2>/dev/null)" "$(cat "$STATE/previous" 2>/dev/null)")
+  while IFS= read -r tag; do
+    [[ -z $tag ]] || keep+=("$tag")
+  done <<<"$retained"
   while IFS= read -r tag; do
     [[ $tag =~ ^[0-9a-f]{40}$ ]] || continue
-    [[ " ${keep[*]} " == *" $tag "* ]] || podman rmi "$(image_for "$tag")" >/dev/null 2>&1 || true
+    [[ " ${keep[*]} " != *" $tag "* ]] || continue
+    identity=$(podman image inspect --format '{{ index .Labels "org.opencontainers.image.title" }}|{{ index .Labels "org.opencontainers.image.revision" }}|{{ index .Labels "org.opencontainers.image.source" }}' "$(image_for "$tag")" 2>/dev/null) || continue
+    [[ $identity == "cantos-api|$tag|https://github.com/loveoverflowcom/cantos" ]] || continue
+    podman rmi "$(image_for "$tag")" >/dev/null 2>&1 || true
   done < <(podman images --format '{{.Tag}}' "$IMAGE_REPO")
-  local old
+  local -a uploads=()
+  for old in "$ROOT"/incoming/*; do
+    name=${old##*/}
+    [[ -d $old && ! -L $old && $name =~ ^[0-9a-f]{40}$ ]] || continue
+    uploads+=("$old")
+  done
+  [[ ${#uploads[@]} -gt 3 ]] || return 0
   while IFS= read -r old; do
+    name=${old##*/}
+    [[ " ${keep[*]} " != *" $name "* ]] || continue
     rm -rf "$old"
-  done < <(ls -1dt "$ROOT"/incoming/*/ 2>/dev/null | tail -n +4)
+  done < <(ls -1dt -- "${uploads[@]}" | tail -n +4)
 }
 
 rollback() {
