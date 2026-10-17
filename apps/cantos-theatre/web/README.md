@@ -14,6 +14,9 @@ A static release bundle of this app can be published to Firebase Hosting with th
 `cargo xtask deploy firebase cantos-theatre --web --project ID --channel NAME`
 ([runbook](../../../docs/deployment/firebase-hosting.md)). Hosting serves no API, so sign-in,
 catalog and playback on that origin are not established; the API-origin gate is separate.
+The preferred shorter static site `cantos.web.app` is conditional on verified allocation; it is
+not a source/module rename or a new full application origin. The [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
+retains the public Caddy host and its same-origin API until independent live acceptance.
 
 The [performance pattern audit](../../../docs/evidence/web-performance-patterns.md) measures
 release assets with `cargo xtask web-performance cantos-theatre` and narrows mock-player/library

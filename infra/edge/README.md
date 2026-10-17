@@ -24,3 +24,8 @@ outside Git under root-only permissions; the token must belong to the named Duck
 A failed DNS lookup is not authorization to change records or credentials. Caddy validates and
 reloads only through an explicitly authorized VPS operation. Preserve `cantos-edge-data` and
 `cantos-edge-config`; certificate/ACME state is persistent data, not disposable build output.
+
+Transitional static upstreams keep Theatre and Studio on distinct verified Firebase Site IDs.
+Follow the [controlled site transition](../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
+before changing their environment; an edge reload alone does not pick up EnvironmentFile changes.
+This does not change ADR 0041 or establish authenticated sessions on cross-site domains.
