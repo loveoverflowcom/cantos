@@ -19,10 +19,14 @@ activation:
   [service-account design and runbook](firebase-enrollment-service-account.md) proposes the narrow
   account, **not executed**. Signing/creation authority stays unaccepted.
 - **Alternatives.** [ADR 0040](../decisions/0040-firebase-email-proof-alternatives.md) (proposed)
-  records why the default handler cannot supply the proof and which probes the owner may authorize.
-- **Cleanup.** The generated key (id prefix `2795eafc`), the test Firebase user, the test Kanidm
-  person, local containers and the project changes are still in place; each deletion needs separate
-  approval.
+  rejects default `VERIFY_EMAIL` polling/continuation as proof. Its controlled `EMAIL_SIGNIN`
+  follow-up observed two usable forwarded codes and refused replays while retaining a dedicated
+  admin-precreated UID. This requires a design amendment and implementation verification;
+  it does not activate the existing `VERIFY_EMAIL` flow.
+- **Cleanup.** The owner deleted the original #206 test Firebase user on 17 October; see the
+  [audit](../evidence/theatre-enrollment-audit-20261017.md). That does not retire the generated key
+  (id prefix `2795eafc`), the test Kanidm person, local containers or project changes; their cleanup
+  still needs its own scope. Later probe accounts have separate cleanup records.
 
 ## Implemented, disabled composition
 

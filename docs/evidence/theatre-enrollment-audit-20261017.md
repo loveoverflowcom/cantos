@@ -4,8 +4,9 @@ Scope: Firebase-mode Theatre enrollment (Firebase mailbox proof, Cantos API as s
 Kanidm for credentials/OIDC) against the production runtime of merged
 [PR #231](https://github.com/loveoverflowcom/cantos/pull/231) /
 [#234](https://github.com/loveoverflowcom/cantos/pull/234). Source: `develop` at `451d3a0` plus this
-branch. This is not activation evidence: registration stays disabled in production, and nothing
-here sent mail, created an account or key, changed IAM or deployed.
+branch. This is not activation evidence: registration stays disabled in production. The hardening
+change did not send mail, create accounts/keys, change IAM or deploy; the separately authorized
+live probes below have their own effect and cleanup boundaries.
 Related: [ADR 0036](../decisions/0036-firebase-enrollment-proof.md),
 [ADR 0040](../decisions/0040-firebase-email-proof-alternatives.md) (proposed),
 [#206 record](theatre-live-auth-206.md), [ADR 0039](../decisions/0039-vps-production-runtime.md).
@@ -24,8 +25,8 @@ Related: [ADR 0036](../decisions/0036-firebase-enrollment-proof.md),
 
 **Security blocker (open, not fixable in code)**
 
-3. *The default Firebase action handler cannot supply the proof.* See
-   [ADR 0040](../decisions/0040-firebase-email-proof-alternatives.md): polling `emailVerified`
+3. *The default `VERIFY_EMAIL` handler plus polling/continuation cannot supply the proof.* See
+   [ADR 0040](../decisions/0040-firebase-email-proof-alternatives.md): for `VERIFY_EMAIL`, polling `emailVerified`
    or following `continueUrl` would hand B's setup capability to A. The accepted design
    (custom handler consuming the code) is blocked by the Spark project's refusal to set the
    action URL.
@@ -38,8 +39,8 @@ Related: [ADR 0036](../decisions/0036-firebase-enrollment-proof.md),
 **Architectural mismatch**
 
 6. ADR 0036 requires a custom action handler on the Cantos origin, which the owner's Firebase
-   plan refused; the accepted direction is therefore unactivatable until decision A or B in
-   ADR 0040 is taken.
+   project refused. The controlled option-4 probe now has positive evidence, but does not amend
+   ADR 0036; an explicit email-link design and its implementation acceptance remain required.
 
 **Production integration gaps**
 
@@ -100,13 +101,64 @@ Cleanup performed by the owner the same day: the #206 test Firebase user `cantos
 deleted and email-link sign-in was restored to disabled; the #206 service-account key, test
 Kanidm person and project changes are not touched by this.
 
+### Controlled fresh-mailbox follow-up
+
+The owner selected a fresh mailbox for a bounded follow-up (at most two new mails). Direct lookup
+confirmed it absent. With `disabledUserSignup=true` preserved, an admin `EMAIL_SIGNIN` send to the
+absent user returned **400 `ADMIN_ONLY_OPERATION`**; no successful mail send was acknowledged.
+Email-link was restored to disabled and read back. This is integration-tested evidence of the
+negative send result on this configuration, not a code-consumption result.
+
+One dedicated, password-free, unverified test UID was then admin-created and read back for the
+fresh mailbox. One mail was accepted at **07:50:20 UTC**, continuing to an already authorized
+loopback origin. The temporary receiver requires explicit confirmation, measures arrival to
+redemption, performs a replay only after a definite first success, and restores email-link after
+completion or timeout. Both actual mails were retrieved through the connected Gmail mailbox
+(both landed in Spam), opened in a browser through the default Firebase handler, and consumed
+server-side through the diagnostic controller's explicit POST to the receiver.
+
+| Claim | Oracle | Level | Result |
+| --- | --- | --- | --- |
+| Default `EMAIL_SIGNIN` handler leaves the forwarded code usable in these two journeys | Two first redemptions **200**, two replays **400 `INVALID_OOB_CODE`** | integration-tested (real Firebase + browser + diagnostic receiver, not Cantos routes) | PASS |
+| Dedicated UID retained with client signup disabled | Exact response UID/email and admin lookup agree with the precreated UID; `isNewUser=false` both times | integration-tested | PASS |
+| Controlled timing | Second handler opening 07:59:09.053 UTC → success 07:59:19.604 UTC (**10.551 s**); first dispatch 41.51 s after arrival only | integration-tested; no first-click timestamp | PASS for second run's requested interval |
+| Replay cannot reuse the consumed code | Each first **200** followed by **400 `INVALID_OOB_CODE`**, before cleanup | integration-tested | PASS |
+| Cleanup and restoration | Exact run-created UID deleted after both runs; lookup empty; `passwordRequired=true`, `disabledUserSignup=true`; authorized domains/action URL unchanged | integration-tested (direct admin read-back) | PASS |
+
+No user deletion or configuration change occurred between either successful send and redemption.
+The local browser-form POST was refused before any provider dispatch in the first run; the
+diagnostic controller's POST performed redemption. This does not qualify the Cantos Web UI,
+production CSRF handling or a scanner journey. Both new mails are spent; the original probe's
+inconclusive result remains inconclusive.
+
+The [ADR follow-up](../decisions/0040-firebase-email-proof-alternatives.md#controlled-follow-up-fresh-mailbox-2026-10-17)
+owns the scope and interpretation. Raw local diagnostics remain ignored at
+`artifacts/agent-runs/2026-10-17-email-link-controlled/`; no codes, tokens, keys or recipient address
+belong in this record or Git.
+
+### Documentation follow-up verification
+
+This follow-up changes only ADR 0040, this record, the enrollment runbook and the current queue,
+on source `b5f8ee23620049a31fd4051022939263566b3743`. The diagnostic receiver is ignored local
+material; no production implementation, contract, migration or UI source changed.
+
+`cargo xtask preflight --changed-only --base b5f8ee23620049a31fd4051022939263566b3743`
+reports **FAIL repository**, with 22 stale preview-qualification findings; **rust-format NOT_RUN**
+because the earlier gate failed. A clean-source `cargo xtask verify repository` at that same HEAD
+produced the identical 22 findings. This is a pre-existing failure, not a passing handoff gate.
+The separate preflight invocation with `--skip repository` runs the remaining docs-only gate;
+its **PASS rust-format / NOT_RUN repository (explicit skip)** does not clear the required failure.
+Detailed logs and the clean-baseline comparison stay in the ignored run record.
+
 ## Not covered / residual risk
 
 - **Live behavior** of every edge change on the VPS, including real Kanidm sign-in and credential
   reset through the management-API filter (the UI's own use of `/v1/*` is unobserved).
 - The trusted CIDR is the whole `cantos` bridge; the Studio API and Kanidm could set the header.
-- Whether any plan lifts the action-URL restriction, and `EMAIL_SIGNIN` semantics (ADR 0040).
-- Least-privilege signing credential, key/user/person cleanup, project/key association,
+- Whether any plan lifts the action-URL restriction; `EMAIL_SIGNIN` now has positive bounded
+  forwarding/consumption/replay evidence, but its design amendment and implementation/production
+  acceptance remain open (ADR 0040).
+- Least-privilege signing credential, remaining #206 key/person/project cleanup, project/key association,
   Kanidm existing-person protection, retention: unchanged operator gates.
 - Web UI interaction, accessibility, mobile and screen-reader evidence were not run.
 - Preflight gates NOT_RUN here: see the PR description for the exact list and reasons.
