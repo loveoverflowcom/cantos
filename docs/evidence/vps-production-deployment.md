@@ -15,8 +15,8 @@ Podman 5.4.2, ufw active) and Firebase project `cantos-a348b`. Commands are in t
 | PostgreSQL | `postgres:17.11-bookworm`, socket-only | 28 migrations applied by `cantos_owner`; runtime grants applied to `cantos_app` |
 | Kanidm | `kanidm/server:1.10.5`, domain `idm.cantoss.duckdns.org` | healthy (exec-form TLS health check); no OAuth2 client or person exists yet |
 | Edge | `caddy:2.11.7-alpine` | Let's Encrypt certificates for all four names (issuer YE2, expiry 2027-01-14) |
-| Theatre Web | Firebase site `cantoss-theatre`, version `2e3a3c7af91ba380` | xtask `deploy firebase … --channel live` PASS, HTTP smoke 8/8 |
-| Studio Web | Firebase site `cantoss-studio`, version `024706b2a5c7b810` | xtask `deploy firebase … --channel live` PASS, HTTP smoke 9/9 |
+| Theatre Web | Firebase site `cantoss-theatre`, version `6d7901291523b61d` (develop `8786bdc` incl. #230; first release `2e3a3c7af91ba380`) | xtask `deploy firebase … --channel live` PASS, HTTP smoke 8/8 |
+| Studio Web | Firebase site `cantoss-studio`, version `ce75f35962351a39` (develop `8786bdc` incl. #230; first release `024706b2a5c7b810`) | xtask `deploy firebase … --channel live` PASS, HTTP smoke 10/10; the DuckDNS name serves the identical bundle |
 
 ## Evidence ledger
 
