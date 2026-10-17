@@ -12,9 +12,11 @@ application authorization. Preserve replaced `X-Forwarded-For`, dropped `Forward
 registration body limits and first-response email-code protections. These protections on a
 legacy Web proxy do not automatically apply to direct Firebase Hosting.
 
-Current source denies listed Kanidm management prefixes to public peers. This is interim
-hardening, not a default-deny browser-route allowlist and not evidence about the installed file.
-Qualify the minimal identity gateway against the pinned issuer before replacing the public
+Current source denies listed Kanidm management prefixes to public peers, including the separate
+HTML and HTMX administration trees `/ui/admin` and `/ui/api/admin` in pinned Kanidm 1.10.5.
+This is interim hardening, not a default-deny browser-route allowlist and not evidence about the
+installed file. The [identity gateway qualification boundary](identity-gateway.md) records pinned
+upstream route owners and the remaining acceptance. Qualify it before replacing the public
 identity proxy; never expose management operations as a workaround for OIDC.
 
 [`duck.sh.example`](duck.sh.example) is an operator-owned DNS updater primitive. Keep its token

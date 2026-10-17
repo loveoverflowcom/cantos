@@ -106,6 +106,10 @@ Notes:
 ## Routine deployment
 
 ```bash
+# Actual preview and live deployments require this reviewed API destination.
+# Use a separate approved test API for a public preview.
+export CANTOS_API_ORIGIN='https://api.example.org'
+
 # 1. Review the plan. Starts no tool, reads no credential, writes nothing.
 cargo xtask deploy firebase cantos-theatre --web \
   --project "$PROJECT_ID" --channel review-hosting --dry-run
@@ -125,6 +129,12 @@ cargo xtask deploy firebase cantos-studio --web --project "$PROJECT_ID" --channe
   live` is the only way to reach the live release; any other value is a *preview channel*. A spelling
   the Firebase CLI would quietly send somewhere else (`Live`, `feature/x`, `a_b`, `issue#1`) is
   refused rather than normalized.
+- **`CANTOS_API_ORIGIN` is required for every actual preview or live deployment.** Supply an
+  exact HTTPS origin, such as `https://api.example.org` or `https://api.example.org:8443`, without
+  credentials, a trailing slash, path, query or fragment. Missing or invalid input fails Hosting
+  configuration before a run directory, site lookup, build or upload. The dry run prints this
+  requirement without reading or validating the environment. Ordinary local builds may still omit
+  the variable to use their Trunk proxy.
 - `--expires` (`30m`, `12h`, `7d`; at most `30d`) applies only to preview channels. Without it the
   CLI's default of 7 days applies to a new channel, and an existing channel is extended to at least
   that. It is refused with `--channel live`.
@@ -139,11 +149,11 @@ Each stage stops the run on failure; unreached stages print `NOT_RUN`. Nothing i
 | # | Stage | Does | Writes remotely? |
 | --- | --- | --- | --- |
 | 1 | local prerequisites | Rust, the wasm32 target, Trunk and Git are installed; no inherited `TRUNK_*` variable could redirect the build | no |
-| 2 | Hosting configuration | the tracked policy is acceptable; `.firebaserc` maps the target to one site in this project | no |
+| 2 | Hosting configuration | an exact HTTPS `CANTOS_API_ORIGIN` is required; the tracked policy is acceptable; `.firebaserc` maps the target to one site in this project | no |
 | 3 | Firebase CLI | `firebase --version` is 15.x and at least 15.34.0 | no |
 | 4 | run record | a private `artifacts/hosting/<run-id>/` with an **effective** `firebase.json` and `.firebaserc` for this one target | no |
 | 5 | Hosting destination | read-only `hosting:sites:list` in the explicit project: the mapped site must exist. Not proof of deploy permission | no (read) |
-| 6 | release build | one locked release Trunk build of the selected app into the run's own `dist` | no |
+| 6 | release build | one locked release Trunk build of the selected app into the run's own `dist`, with the validated API origin pinned in the command and receipt | no |
 | 7 | bundle validation | the exact public bytes are validated and fingerprinted; the source must not have changed during the build | no |
 | 8 | intent receipt | the bundle must be unchanged since validation; intent is recorded | no |
 | 9 | Hosting release | **one** `hosting:channel:deploy` or `deploy` call | **yes** |
@@ -180,8 +190,8 @@ is short on purpose, and xtask refuses to deploy a version of it that weakens an
 - **Two independent targets**, `theatre` and `studio`, each its own site. Static Hosting only: no
   Functions, Cloud Run, Firestore, App Hosting, hooks or redirects. A `site` key would bypass your
   mapping and is refused.
-- **No rewrites.** Both clients navigate by hash and query on `/` and call the API with absolute
-  `/api/v1/…` paths, so there is no path-based client route to rewrite. A blanket
+- **No rewrites.** Both clients navigate by hash and query on `/` and resolve their `/api/v1/…`
+  paths against the required API origin, so there is no path-based client route to rewrite. A blanket
   `** → /index.html` rewrite would answer a missing `.wasm` or `.js` and every `/api/*` request with
   `200` and the page; xtask refuses any rewrite whose source is not a literal route outside `/api`.
   Add a rewrite only together with a real path-based route and a test of the deployed result.
@@ -199,9 +209,10 @@ is short on purpose, and xtask refuses to deploy a version of it that weakens an
 
 ### What a preview or live site can and cannot do
 
-The static pages load. Their requests to `/api/v1/…` go to the Hosting origin, which has no API, and
-answer `404`, so the clients show their honest unavailable states. **That is not login, catalog,
-library or playback acceptance.** A preview URL is also **public** (unlike App Distribution, nothing
+The static pages call the API origin pinned at build time. Hosting itself has no API: a direct
+request to its `/api/v1/…` paths still answers `404`. Correct addressing requires a reachable API
+and its exact per-surface CORS configuration; static smoke is **not login, catalog, library or
+playback acceptance**. A preview URL is also **public** (unlike App Distribution, nothing
 gates testers), expires on its own and is not isolated from any backend: never upload private Studio
 content or credentials, and never point a preview at production services. `--no-authorized-domains`
 keeps the CLI from editing Firebase Authentication's authorized domains as a side effect.
@@ -249,8 +260,8 @@ policy, not Hosting's CDN, TLS or propagation.
 
 The [current production topology/runbook](vps-production.md) owns destinations and operations.
 [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting and Cantos API
-addressing. Build with explicit nonsecret `CANTOS_API_ORIGIN`; the default local build keeps
-relative Trunk-proxy paths. Both release bundles and the API's matching exact-origin CORS need an
+addressing. Firebase deployment requires an explicit nonsecret HTTPS `CANTOS_API_ORIGIN`; the
+default local build keeps relative Trunk-proxy paths. Both release bundles and the API's matching exact-origin CORS need an
 explicitly authorized deployment. The Hosting receipt records `build.api_origin` and the explicit build command; bundle hashes
 identify the actual public bytes, not a clean source revision when the build was dirty.
 
@@ -306,6 +317,8 @@ firebase deploy --only hosting:theatre \
 | `both deploy targets map to site …` | Theatre and Studio need two distinct sites |
 | `firebase-tools X is outside the documented line` | install 15.34.0 or a later 15.x yourself |
 | `inherited Trunk environment variables …` | `unset` the named `TRUNK_*` variables for this command |
+| `CANTOS_API_ORIGIN is required for Firebase Hosting …` | export the reviewed exact HTTPS API origin before deploying; dry run does not validate it |
+| `invalid CANTOS_API_ORIGIN` | supply a canonical HTTPS origin without credentials, path, trailing slash, query or fragment; the rejected value is never printed |
 | `the mapped Hosting site is not in this project` | create the site, or fix `.firebaserc` |
 | `the project has no default Hosting site` | both release commands look up the project's default site first, even though the config names yours; set up Hosting in the console so the default site (named like the project ID) exists |
 | `authentication was rejected` | `firebase login` (or `--no-localhost`) |

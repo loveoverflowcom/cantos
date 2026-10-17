@@ -142,6 +142,9 @@
 	# is the TCP peer and cannot be set by a header. Override the default RFC 1918/loopback set
 	# with CANTOS_INTERNAL_CIDRS in edge.env when the private network is narrower.
 	@kanidm_admin {
+		# Kanidm 1.10.5 also mounts management handlers under its HTML/HTMX UI.
+		# Blocking /v1 management alone leaves these alternate handlers publicly routed.
+		path /ui/admin /ui/admin/* /ui/api/admin /ui/api/admin/*
 		path /v1/person /v1/person/* /v1/service_account /v1/service_account/*
 		path /v1/group /v1/group/* /v1/oauth2 /v1/oauth2/* /v1/system /v1/system/*
 		path /v1/domain /v1/domain/* /v1/schema /v1/schema/* /v1/raw/* /v1/recycle_bin/*

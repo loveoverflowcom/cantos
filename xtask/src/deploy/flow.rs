@@ -17,7 +17,7 @@ use super::{
         self, interpret_release, interpret_sites, release_command, sites_command, Expected,
         Invocation, ReleaseKind, RemoteOutcome,
     },
-    host::Host,
+    host::{checked_api_origin, Host},
     hosting_config::{effective_firebaserc, resolve_mapping, Policy, SiteId, PUBLIC_DIR},
     receipt::{BuildRecord, ConfigRecord, Receipt, SourceRecord, ToolRecord},
     request::{Channel, Request, Stage},
@@ -72,6 +72,7 @@ struct Halt;
 
 /// What the Hosting configuration resolved to, held until the run directory exists.
 struct Prepared {
+    api_origin: String,
     site: SiteId,
     policy_sha256: String,
     firebase_json: String,
@@ -167,6 +168,13 @@ impl Flow<'_> {
     }
 
     fn hosting_config(&mut self) -> Result<(), Halt> {
+        let configured_origin = self
+            .ports
+            .host
+            .api_origin()
+            .map_err(|why| self.halt(Stage::HostingConfig, Status::Fail, why))?;
+        let api_origin = checked_api_origin(configured_origin.as_deref())
+            .map_err(|why| self.halt(Stage::HostingConfig, Status::Fail, why))?;
         let files = match self.ports.host.read_config() {
             Ok(files) => files,
             Err(why) => return Err(self.halt(Stage::HostingConfig, Status::Fail, why)),
@@ -195,6 +203,7 @@ impl Flow<'_> {
             self.request.project.as_str()
         );
         self.prepared = Some(Prepared {
+            api_origin,
             site,
             policy_sha256: sha256_hex(files.policy.as_bytes()),
             firebase_json,
@@ -389,18 +398,21 @@ impl Flow<'_> {
         println!("\n==> {}", Stage::Build.label());
         let dist = self.dist();
         let api_origin = self
-            .ports
-            .host
-            .api_origin()
-            .map_err(|why| self.halt(Stage::Build, Status::Fail, why))?;
-        let command = build::release_bundle(self.workspace, self.request.app, &dist);
-        let command = match api_origin.as_deref() {
-            Some(origin) => command.env("CANTOS_API_ORIGIN", origin),
-            None => command,
-        };
+            .prepared
+            .as_ref()
+            .map(|prepared| prepared.api_origin.clone())
+            .ok_or_else(|| {
+                self.halt(
+                    Stage::Build,
+                    Status::Fail,
+                    "Hosting configuration was not prepared",
+                )
+            })?;
+        let command = build::release_bundle(self.workspace, self.request.app, &dist)
+            .env("CANTOS_API_ORIGIN", &api_origin);
         if let Some(receipt) = &mut self.receipt {
             receipt.build = Some(BuildRecord {
-                api_origin,
+                api_origin: Some(api_origin.clone()),
                 command: command.display(self.workspace.root()),
                 dist: self.workspace.relative(&dist),
             });
@@ -1052,7 +1064,7 @@ mod tests {
                     firebaserc: Some(RC.to_owned()),
                 }),
                 overrides: Vec::new(),
-                api_origin: None,
+                api_origin: Some("https://api.example.org".into()),
                 identities: [Ok(identity(false)), Ok(identity(false))].into(),
                 scans: [Ok(good_scan(app)), Ok(good_scan(app))].into(),
                 hashes: VecDeque::new(),
@@ -2373,6 +2385,53 @@ mod tests {
             assert_eq!(rig.runner.commands[0].program, "trunk");
         }
     }
+    #[test]
+    fn missing_api_origin_refuses_hosting_before_a_run_lookup_or_build() {
+        let mut rig = Rig::preview(HostedApp::CantosTheatre);
+        rig.host.api_origin = None;
+        let report = rig.run(&request_of(HostedApp::CantosTheatre, "review-hosting"));
+        assert_eq!(status_of(&report, Stage::HostingConfig), Status::Fail);
+        assert_eq!(
+            detail_of(&report, Stage::HostingConfig),
+            "CANTOS_API_ORIGIN is required for Firebase Hosting; set an exact HTTPS API origin"
+        );
+        assert_eq!(rig.host.runs_created, 0);
+        assert!(rig.host.persisted.is_empty());
+        assert!(rig.runner.commands.is_empty());
+        assert!(rig.calls_of("hosting:sites:list").is_empty());
+        assert_eq!(rig.release_calls(), 0);
+    }
+
+    #[test]
+    fn invalid_api_origins_refuse_both_apps_and_channels_without_exposing_values() {
+        for app in [HostedApp::CantosTheatre, HostedApp::CantosStudio] {
+            for channel in ["live", "review-hosting"] {
+                for origin in [
+                    "",
+                    "http://127.0.0.1:8080",
+                    "https://user:secret@api.example.org",
+                    "https://api.example.org/api",
+                    "https://api.example.org?token=secret",
+                ] {
+                    let mut rig = Rig::preview(app);
+                    rig.host.api_origin = Some(origin.into());
+                    let report = rig.run(&request_of(app, channel));
+                    assert_eq!(status_of(&report, Stage::HostingConfig), Status::Fail);
+                    assert_eq!(
+                        detail_of(&report, Stage::HostingConfig),
+                        "invalid CANTOS_API_ORIGIN"
+                    );
+                    assert!(!report.render().contains("secret"));
+                    assert_eq!(rig.host.runs_created, 0);
+                    assert!(rig.host.persisted.is_empty());
+                    assert!(rig.runner.commands.is_empty());
+                    assert!(rig.calls_of("hosting:sites:list").is_empty());
+                    assert_eq!(rig.release_calls(), 0);
+                }
+            }
+        }
+    }
+
     #[test]
     fn explicit_api_origin_is_pinned_in_the_build_command_and_receipt() {
         let mut rig = Rig::preview(HostedApp::CantosTheatre);
