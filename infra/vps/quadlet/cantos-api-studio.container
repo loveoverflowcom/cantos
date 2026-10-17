@@ -1,0 +1,34 @@
+# Cantos API serving the Studio Web origin. Studio and Theatre run as two processes of the
+# same image because each process pins exactly one Web origin for Origin/CSRF and OIDC callbacks.
+# OIDC settings arrive as drop-ins in cantos-api-studio.container.d/ written by
+# `cantos-vps identity`; without them this surface has no sign-in.
+[Unit]
+Description=Cantos API (Studio origin)
+Requires=cantos-postgres.service cantos-network.service
+After=cantos-postgres.service cantos-network.service
+
+[Container]
+ContainerName=cantos-api-studio
+Image=localhost/cantos-api:current
+Pull=never
+Network=cantos.network
+NetworkAlias=cantos-api-studio
+Volume=cantos-postgres-socket:/run/postgresql
+Secret=cantos-db-app-url,type=env,target=DATABASE_URL
+EnvironmentFile=/root/cantos-services/config/api-studio.env
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+HealthCmd=curl -fsS -o /dev/null --max-time 5 http://127.0.0.1:8080/api/v1/theatre/works
+HealthInterval=30s
+HealthStartPeriod=15s
+HealthRetries=3
+Notify=healthy
+Label=io.cantos.owner=cantos-vps
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

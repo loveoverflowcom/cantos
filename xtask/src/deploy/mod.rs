@@ -50,6 +50,7 @@ mod hosting_config;
 mod receipt;
 mod request;
 mod smoke;
+mod vps;
 
 use std::process::ExitCode;
 
@@ -73,6 +74,8 @@ pub struct DeployArgs {
 pub enum Provider {
     /// Build one Leptos Web app once and deploy it to Firebase Hosting (preview or live).
     Firebase(FirebaseArgs),
+    /// Build the API image locally and deploy it to the production VPS over SSH.
+    Vps(vps::VpsArgs),
 }
 
 const FIREBASE_HELP: &str = "\
@@ -130,7 +133,10 @@ pub fn execute(
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
-    let Provider::Firebase(args) = &args.provider;
+    let args = match &args.provider {
+        Provider::Firebase(args) => args,
+        Provider::Vps(args) => return vps::execute(workspace, args, runner),
+    };
     let raw = Raw {
         app: args.target,
         surface: args.surface.surface(),
@@ -536,7 +542,9 @@ mod tests {
         ];
         match parse(&base).unwrap().command {
             Task::Deploy(args) => {
-                let Provider::Firebase(args) = args.provider;
+                let Provider::Firebase(args) = args.provider else {
+                    panic!("not a firebase deploy");
+                };
                 assert_eq!(args.target.app(), App::Theatre);
                 assert!(args.surface.web && !args.surface.mobile);
                 assert_eq!(

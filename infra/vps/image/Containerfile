@@ -1,0 +1,33 @@
+# Cantos API production image. Built on the developer machine (or CI) by
+# `cargo xtask deploy vps cantos-api`, never on the VPS. The build context is a `git archive`
+# of exactly the deployed commit, so untracked or private files cannot enter the image.
+# Base images are pinned by digest; an upgrade is a reviewed edit of these lines.
+
+FROM docker.io/library/rust:1.98.1-slim-trixie@sha256:fce83543909cd5409924a61ce296bdf5bab0fca37f004c0f6c8ef6f4a37bbc59 AS build
+# The repository toolchain file also requests wasm/clippy/rustfmt; the server needs none of them.
+ENV RUSTUP_TOOLCHAIN=1.98.1 CARGO_TERM_COLOR=never
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,id=cantos-api-cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cantos-api-target,target=/src/target \
+    cargo build --locked --release -p cantos-api --bin cantos-server --bin cantos-migrate \
+ && install -d /out \
+ && install -m 0755 target/release/cantos-server target/release/cantos-migrate /out/
+
+FROM docker.io/library/debian:trixie-slim@sha256:918311b7b6c4c6f68b232ba516584925f6c78ad82b6fd534b98979df6438e483
+# curl serves only the container health probe; ca-certificates backs outbound OIDC TLS.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10001 cantos \
+ && useradd --system --uid 10001 --gid cantos --home-dir /nonexistent --shell /usr/sbin/nologin cantos
+COPY --from=build /out/cantos-server /out/cantos-migrate /usr/local/bin/
+ARG CANTOS_REVISION=unknown
+LABEL org.opencontainers.image.title="cantos-api" \
+      org.opencontainers.image.source="https://github.com/loveoverflowcom/cantos" \
+      org.opencontainers.image.revision="${CANTOS_REVISION}"
+ENV CANTOS_ENV=production CANTOS_BIND_ADDRESS=0.0.0.0:8080 RUST_BACKTRACE=0
+USER 10001:10001
+EXPOSE 8080
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/cantos-server"]

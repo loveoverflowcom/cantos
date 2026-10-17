@@ -1,0 +1,29 @@
+# PostgreSQL 17 with no TCP listener: clients reach it only through the shared socket volume.
+[Unit]
+Description=Cantos PostgreSQL (Unix socket only)
+
+[Container]
+ContainerName=cantos-postgres
+Image=docker.io/library/postgres:17.11-bookworm
+Pull=missing
+Network=none
+Volume=cantos-postgres-data:/var/lib/postgresql/data
+Volume=cantos-postgres-socket:/var/run/postgresql
+Secret=cantos-postgres-superuser,type=mount,target=/run/secrets/postgres-password,mode=0400
+Environment=POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
+Environment=POSTGRES_INITDB_ARGS=--auth-local=scram-sha-256 --auth-host=scram-sha-256
+Exec=postgres -c listen_addresses= -c max_connections=40 -c shared_buffers=128MB
+HealthCmd=pg_isready -h /var/run/postgresql -p 5432
+HealthInterval=30s
+HealthStartPeriod=60s
+HealthRetries=3
+Notify=healthy
+StopTimeout=60
+Label=io.cantos.owner=cantos-vps
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

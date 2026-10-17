@@ -1,0 +1,28 @@
+# Public HTTPS edge (Caddy). The only container with published ports.
+[Unit]
+Description=Cantos public HTTPS edge
+Requires=cantos-network.service
+After=cantos-network.service
+
+[Container]
+ContainerName=cantos-edge
+Image=docker.io/library/caddy:2.11.7-alpine
+Pull=missing
+Network=cantos.network
+NetworkAlias=cantos-edge
+PublishPort=80:80
+PublishPort=443:443
+PublishPort=443:443/udp
+EnvironmentFile=/root/cantos-services/config/edge.env
+Volume=/root/cantos-services/edge/Caddyfile:/etc/caddy/Caddyfile:ro
+Volume=/root/cantos-services/edge/internal-ca.pem:/etc/caddy/internal-ca.pem:ro
+Volume=cantos-edge-data:/data
+Volume=cantos-edge-config:/config
+Label=io.cantos.owner=cantos-vps
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

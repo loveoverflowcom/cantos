@@ -24,14 +24,17 @@ pub(super) fn routes() -> Router<AppState> {
 
 pub(in crate::interfaces::http) use crate::interfaces::http::cookies::unique_cookie;
 
-async fn configuration(State(state): State<AppState>) -> Json<StudioAuthenticationConfiguration> {
-    Json(StudioAuthenticationConfiguration {
-        mode: if state.store.studio_oidc().is_some() {
-            StudioAuthenticationMode::Oidc
-        } else {
-            StudioAuthenticationMode::Development
-        },
-    })
+/// A production host without Studio OIDC has no Studio credential; it never reports the
+/// development token mode it cannot honor.
+async fn configuration(State(state): State<AppState>) -> Response {
+    let mode = if state.store.studio_oidc().is_some() {
+        StudioAuthenticationMode::Oidc
+    } else if state.store.development_sessions_enabled() {
+        StudioAuthenticationMode::Development
+    } else {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    };
+    Json(StudioAuthenticationConfiguration { mode }).into_response()
 }
 
 fn cookie_count(headers: &HeaderMap, name: &str) -> usize {

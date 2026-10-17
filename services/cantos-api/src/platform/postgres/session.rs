@@ -42,6 +42,14 @@ pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, Sto
 }
 
 impl Store {
+    /// Production composition: refuse every development Studio session token and token login.
+    pub fn without_development_sessions(mut self) -> Self {
+        self.development_sessions = false;
+        self
+    }
+    pub fn development_sessions_enabled(&self) -> bool {
+        self.development_sessions
+    }
     /// Public correlation only; knowing this UUID never authenticates a caller.
     pub async fn studio_session_id(&self, token: &str) -> Result<Option<String>, StoreError> {
         let client = self.connection().await?;
@@ -78,6 +86,9 @@ impl Store {
                     | AuthError::Replay
                     | AuthError::Inactive => StoreError::Unauthenticated,
                 })?;
+        }
+        if self.studio_oidc().is_none() && !self.development_sessions {
+            return Err(StoreError::Unauthenticated);
         }
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;

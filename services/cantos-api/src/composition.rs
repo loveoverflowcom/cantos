@@ -50,4 +50,7 @@ pub struct Store {
         Option<Arc<crate::platform::theatre_registration::firebase_enrollment::runtime::FirebaseEnrollmentRuntime>>,
     pub(crate) theatre_registration:
         Option<Arc<crate::platform::theatre_registration::runtime::RegistrationRuntime>>,
+    /// Development Studio session tokens (`auth_kind = development`). A production host clears
+    /// it, so without Studio OIDC the Studio surface has no credential at all.
+    pub(crate) development_sessions: bool,
 }

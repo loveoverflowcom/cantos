@@ -1,0 +1,8 @@
+# Private bridge for the Cantos production containers. Only cantos-edge publishes ports.
+# PostgreSQL is not on this network at all (Unix socket only).
+[Unit]
+Description=Cantos private container network
+
+[Network]
+NetworkName=cantos
+Label=io.cantos.owner=cantos-vps

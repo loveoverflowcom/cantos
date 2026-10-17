@@ -1,0 +1,529 @@
+#!/usr/bin/env bash
+# cantos-vps: root-owned automation on the Cantos production VPS (ADR 0039).
+#
+# Installed at /usr/local/sbin/cantos-vps by `cantos-vps install`, which `cargo xtask deploy vps`
+# runs from an uploaded bundle. Every command is explicit; nothing here runs on a schedule except
+# `backup scheduled` (cantos-backup.timer). Secrets are generated on the host, stored root-only
+# and handed to containers as Podman secrets; none is printed, logged or passed as an argument.
+#
+#   install TREE_DIR          install Quadlet units, edge/Kanidm/SQL policy and this script
+#   bootstrap                 idempotent host setup: dirs, secrets, private CA, roles, base services
+#   deploy REVISION           backup, migrate, grant, switch the API image, health-gate, auto-rollback
+#   rollback                  switch the API back to the previous image and health-gate it
+#   backup [LABEL]            pg_dump (custom format) with checksum and retention
+#   restore FILE --yes-replace-database
+#                             replace the cantos database from a backup (APIs stopped meanwhile)
+#   status                    units, health, revisions and recent backups
+#   identity --studio-admin NAME [--display TEXT] [--listener NAME]
+#                             OPERATOR-RUN: Kanidm OAuth2 clients, groups and people; prints
+#                             one-time credential reset links to the operator's own terminal
+set -Eeuo pipefail
+umask 077
+
+readonly ROOT=${CANTOS_VPS_ROOT:-/root/cantos-services}
+readonly RUNTIME=$ROOT/runtime
+readonly CONFIG=$ROOT/config
+readonly STATE=$ROOT/state
+readonly SECRETS=$ROOT/secrets
+readonly BACKUPS=$ROOT/backups
+readonly KANIDM_DIR=$ROOT/kanidm
+readonly EDGE_DIR=$ROOT/edge
+readonly CA_DIR=$ROOT/internal-ca
+readonly QUADLET_DIR=/etc/containers/systemd
+readonly SYSTEMD_DIR=/etc/systemd/system
+readonly IMAGE_REPO=localhost/cantos-api
+readonly KANIDM_TOOLS=docker.io/kanidm/tools:1.10.5
+readonly LOCK=/run/lock/cantos-vps.lock
+readonly BACKUP_KEEP=${CANTOS_BACKUP_KEEP:-14}
+readonly API_UNITS=(cantos-api-theatre cantos-api-studio)
+readonly SOCKET_URL_SUFFIX='@/cantos?host=/run/postgresql'
+
+log() { printf '[cantos-vps] %s\n' "$*" >&2; }
+die() {
+  log "ERROR: $1"
+  exit "${2:-1}"
+}
+
+require_root() { [[ ${EUID:-$(id -u)} -eq 0 ]] || die "run as root" 77; }
+
+with_lock() {
+  exec 9>"$LOCK"
+  flock -n 9 || die "another cantos-vps operation holds $LOCK" 75
+}
+
+# KEY=VALUE reader that never sources the file (values stay inert).
+config_value() {
+  local file=$1 key=$2
+  awk -v key="$key" -F= '
+    /^[[:space:]]*(#|$)/ { next }
+    $1 == key { sub(/^[^=]*=/, ""); value = $0; count++ }
+    END { if (count == 1) print value; else exit 1 }
+  ' "$file"
+}
+
+edge_value() {
+  local value
+  value=$(config_value "$CONFIG/edge.env" "$1") || die "$CONFIG/edge.env must define $1 exactly once" 66
+  [[ -n $value && $value != REPLACE_WITH_* ]] || die "$CONFIG/edge.env: set $1" 66
+  [[ $value =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]] || die "$1 must be a lowercase DNS name" 65
+  printf '%s\n' "$value"
+}
+
+unit_active() { systemctl is-active --quiet "$1.service"; }
+
+# ---------------------------------------------------------------------------------- install
+
+install_bundle() {
+  local tree=${1:?usage: cantos-vps install TREE_DIR}
+  require_root
+  with_lock
+  # TREE_DIR is an extracted `git archive` subset: REVISION, infra/vps and infra/edge/Caddyfile.
+  [[ -f $tree/infra/vps/bin/cantos-vps && -d $tree/infra/vps/quadlet && -f $tree/infra/edge/Caddyfile ]] ||
+    die "not a cantos-vps bundle tree: $tree" 66
+  install -d -m 0700 "$ROOT" "$EDGE_DIR"
+  rm -rf "$RUNTIME.new"
+  install -d -m 0700 "$RUNTIME.new/edge"
+  cp -a "$tree/infra/vps/." "$RUNTIME.new/"
+  cp "$tree/infra/edge/Caddyfile" "$RUNTIME.new/edge/Caddyfile"
+  cp "$tree/REVISION" "$RUNTIME.new/REVISION" 2>/dev/null || true
+  [[ -d $RUNTIME ]] && { rm -rf "$RUNTIME.previous"; mv "$RUNTIME" "$RUNTIME.previous"; }
+  mv "$RUNTIME.new" "$RUNTIME"
+
+  local changed=() file name
+  for file in "$RUNTIME"/quadlet/*; do
+    name=$(basename "$file")
+    if ! cmp -s "$file" "$QUADLET_DIR/$name"; then
+      install -D -m 0644 "$file" "$QUADLET_DIR/$name"
+      changed+=("${name%.*}")
+    fi
+  done
+  for file in "$RUNTIME"/systemd/*; do
+    install -m 0644 "$file" "$SYSTEMD_DIR/$(basename "$file")"
+  done
+  install -m 0750 "$RUNTIME/bin/cantos-vps" /usr/local/sbin/cantos-vps
+  local caddy_changed=false
+  if ! cmp -s "$RUNTIME/edge/Caddyfile" "$EDGE_DIR/Caddyfile"; then
+    install -m 0644 "$RUNTIME/edge/Caddyfile" "$EDGE_DIR/Caddyfile"
+    caddy_changed=true
+  fi
+  systemctl daemon-reload
+
+  # API units restart during `deploy`; other running services pick up a changed unit now.
+  local unit
+  for unit in "${changed[@]}"; do
+    case $unit in
+      cantos-api-*|cantos) ;;
+      *) if unit_active "$unit"; then log "restarting changed $unit"; systemctl restart "$unit.service"; fi ;;
+    esac
+  done
+  if $caddy_changed && unit_active cantos-edge; then
+    podman exec cantos-edge caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+    podman exec cantos-edge caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+    log "edge configuration reloaded"
+  fi
+  log "installed bundle ($(cat "$RUNTIME/REVISION" 2>/dev/null || echo unknown))"
+}
+
+# -------------------------------------------------------------------------------- bootstrap
+
+ensure_password() {
+  local file=$SECRETS/$1.password
+  [[ -s $file ]] || { openssl rand -hex 32 >"$file"; chmod 0600 "$file"; log "generated $1 password"; }
+}
+
+put_secret() { # NAME VALUE-from-stdin; replaces so a rotated file propagates on next restart
+  podman secret create --replace "$1" - >/dev/null
+}
+
+ensure_internal_ca() {
+  if [[ ! -s $CA_DIR/ca.key ]]; then
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 3650 \
+      -subj "/CN=Cantos VPS internal CA" \
+      -addext basicConstraints=critical,CA:TRUE,pathlen:0 \
+      -addext keyUsage=critical,keyCertSign,cRLSign \
+      -keyout "$CA_DIR/ca.key" -out "$CA_DIR/ca.pem" 2>/dev/null
+    log "created private CA for container-internal TLS"
+  fi
+  install -m 0644 "$CA_DIR/ca.pem" "$EDGE_DIR/internal-ca.pem"
+}
+
+ensure_kanidm_tls() {
+  local leaf=$KANIDM_DIR/leaf.pem
+  if [[ -s $leaf ]] && openssl x509 -checkend $((30 * 86400)) -noout -in "$leaf" >/dev/null &&
+    openssl verify -CAfile "$CA_DIR/ca.pem" "$leaf" >/dev/null 2>&1; then
+    return
+  fi
+  local csr
+  csr=$(mktemp)
+  openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj /CN=cantos-kanidm \
+    -keyout "$KANIDM_DIR/key.pem" -out "$csr" 2>/dev/null
+  openssl x509 -req -in "$csr" -CA "$CA_DIR/ca.pem" -CAkey "$CA_DIR/ca.key" -CAcreateserial \
+    -days 397 -out "$leaf" -extfile <(printf '%s\n' \
+      'subjectAltName=DNS:cantos-kanidm,DNS:localhost' 'basicConstraints=critical,CA:FALSE' \
+      'keyUsage=critical,digitalSignature' 'extendedKeyUsage=serverAuth') 2>/dev/null
+  rm -f "$csr"
+  cat "$leaf" "$CA_DIR/ca.pem" >"$KANIDM_DIR/chain.pem"
+  chmod 0600 "$KANIDM_DIR/key.pem" "$KANIDM_DIR/chain.pem" "$leaf"
+  log "issued Kanidm internal certificate"
+  if unit_active cantos-kanidm; then systemctl restart cantos-kanidm.service; fi
+}
+
+render_configuration() {
+  [[ -f $CONFIG/edge.env ]] || {
+    install -m 0600 "$RUNTIME/config.example.env" "$CONFIG/edge.env"
+    die "created $CONFIG/edge.env from the example; set the Firebase site IDs, then rerun" 66
+  }
+  local theatre studio api idm
+  theatre=$(edge_value CANTOS_THEATRE_HOST)
+  studio=$(edge_value CANTOS_STUDIO_HOST)
+  api=$(edge_value CANTOS_API_HOST)
+  idm=$(edge_value CANTOS_IDM_HOST)
+  edge_value CANTOS_THEATRE_FIREBASE_SITE >/dev/null
+  edge_value CANTOS_STUDIO_FIREBASE_SITE >/dev/null
+  printf 'CANTOS_ENV=production\nCANTOS_BIND_ADDRESS=0.0.0.0:8080\nCANTOS_WEB_ORIGIN=https://%s\n' \
+    "$theatre" >"$CONFIG/api-theatre.env"
+  printf 'CANTOS_ENV=production\nCANTOS_BIND_ADDRESS=0.0.0.0:8080\nCANTOS_WEB_ORIGIN=https://%s\n' \
+    "$studio" >"$CONFIG/api-studio.env"
+  sed "s/@IDM_HOST@/$idm/g" "$RUNTIME/kanidm/server.toml.template" >"$KANIDM_DIR/server.toml"
+  # APIs and the Kanidm CLI reach the identity provider by its public name on the private
+  # network; the edge answers it with the public certificate. No hairpin through the host.
+  install -d -m 0755 "$QUADLET_DIR/cantos-edge.container.d"
+  printf '[Container]\nNetworkAlias=%s\n' "$idm" >"$QUADLET_DIR/cantos-edge.container.d/10-identity-alias.conf"
+  chmod 0644 "$QUADLET_DIR/cantos-edge.container.d/10-identity-alias.conf"
+  : "$api"
+}
+
+provision_database() {
+  local owner app
+  owner=$(<"$SECRETS/db-owner.password")
+  app=$(<"$SECRETS/db-app.password")
+  psql_superuser postgres <"$RUNTIME/postgres/roles.sql" >/dev/null
+  # Passwords travel on stdin only; hex values need no quoting.
+  printf "ALTER ROLE cantos_owner PASSWORD '%s';\nALTER ROLE cantos_app PASSWORD '%s';\n" \
+    "$owner" "$app" | psql_superuser postgres >/dev/null
+  log "database roles and ownership provisioned"
+}
+
+psql_superuser() { # DB; SQL on stdin
+  podman exec -i cantos-postgres sh -c \
+    'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$1"' \
+    sh "$1"
+}
+
+open_firewall() {
+  if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then
+    ufw allow 80/tcp >/dev/null
+    ufw allow 443/tcp >/dev/null
+    ufw allow 443/udp >/dev/null
+    log "ufw allows 80/tcp, 443/tcp and 443/udp (edge only)"
+  fi
+}
+
+bootstrap() {
+  require_root
+  with_lock
+  [[ -d $RUNTIME ]] || die "run cantos-vps install TREE_DIR first" 66
+  install -d -m 0700 "$ROOT" "$CONFIG" "$STATE" "$SECRETS" "$BACKUPS" "$KANIDM_DIR" "$EDGE_DIR" "$CA_DIR"
+  render_configuration
+  ensure_password postgres-superuser
+  ensure_password db-owner
+  ensure_password db-app
+  put_secret cantos-postgres-superuser <"$SECRETS/postgres-superuser.password"
+  printf 'postgresql://cantos_owner:%s%s' "$(<"$SECRETS/db-owner.password")" "$SOCKET_URL_SUFFIX" |
+    put_secret cantos-db-owner-url
+  printf 'postgresql://cantos_app:%s%s' "$(<"$SECRETS/db-app.password")" "$SOCKET_URL_SUFFIX" |
+    put_secret cantos-db-app-url
+  ensure_internal_ca
+  ensure_kanidm_tls
+  open_firewall
+  systemctl daemon-reload
+  systemctl start cantos-network.service cantos-postgres.service
+  provision_database
+  systemctl start cantos-kanidm.service cantos-edge.service
+  systemctl enable --now cantos-backup.timer >/dev/null
+  log "bootstrap complete; deploy an API image with: cargo xtask deploy vps cantos-api"
+}
+
+# ----------------------------------------------------------------------------------- backup
+
+backup() {
+  local label=${1:-manual}
+  [[ $label =~ ^[A-Za-z0-9._-]{1,64}$ ]] || die "invalid backup label" 65
+  unit_active cantos-postgres || die "cantos-postgres is not running" 69
+  install -d -m 0700 "$BACKUPS"
+  local stamp file
+  stamp=$(date -u +%Y%m%dT%H%M%SZ)
+  file=$BACKUPS/cantos-$stamp-$label.dump
+  podman exec cantos-postgres sh -c \
+    'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec pg_dump -U postgres -d cantos -Fc' \
+    >"$file.partial"
+  [[ -s $file.partial ]] || die "empty backup" 70
+  mv "$file.partial" "$file"
+  (cd "$BACKUPS" && sha256sum "$(basename "$file")" >"$(basename "$file").sha256")
+  log "backup $file ($(du -h "$file" | cut -f1))"
+  local old
+  while IFS= read -r old; do
+    rm -f "$old" "$old.sha256"
+  done < <(ls -1t "$BACKUPS"/cantos-*.dump 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)))
+  printf '%s\n' "$file"
+}
+
+restore() {
+  local file=${1:-} confirm=${2:-}
+  require_root
+  with_lock
+  [[ $confirm == --yes-replace-database ]] || die "restore replaces the cantos database; pass --yes-replace-database" 64
+  [[ -f $file && -f $file.sha256 ]] || die "backup or checksum missing: $file" 66
+  (cd "$(dirname "$file")" && sha256sum -c --quiet "$(basename "$file").sha256") || die "checksum mismatch" 65
+  backup pre-restore >/dev/null
+  systemctl stop "${API_UNITS[@]/%/.service}"
+  podman exec -i cantos-postgres sh -c \
+    'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec pg_restore -U postgres -d cantos --clean --if-exists --single-transaction' \
+    <"$file"
+  apply_grants
+  systemctl start "${API_UNITS[@]/%/.service}"
+  log "restored $file"
+}
+
+# ----------------------------------------------------------------------------------- deploy
+
+image_for() { printf '%s:%s' "$IMAGE_REPO" "$1"; }
+
+check_revision() {
+  local revision=$1
+  [[ $revision =~ ^[0-9a-f]{40}$ ]] || die "revision must be a full 40-hex commit" 65
+  podman image exists "$(image_for "$revision")" || die "image not loaded: $(image_for "$revision")" 66
+  local label
+  label=$(podman image inspect --format '{{ index .Labels "org.opencontainers.image.revision" }}' "$(image_for "$revision")")
+  [[ $label == "$revision" ]] || die "image revision label $label does not match $revision" 65
+}
+
+migrate() {
+  podman run --rm --network none --pull never \
+    --secret cantos-db-owner-url,type=env,target=DATABASE_URL \
+    -v cantos-postgres-socket:/run/postgresql \
+    --entrypoint /usr/local/bin/cantos-migrate "$(image_for "$1")"
+}
+
+apply_grants() {
+  { printf 'SET ROLE cantos_owner;\n'; cat "$RUNTIME/postgres/runtime-grants.sql"; } |
+    psql_superuser cantos >/dev/null
+  log "runtime grants applied"
+}
+
+switch_to() {
+  podman tag "$(image_for "$1")" "$(image_for current)"
+  local unit failed=0
+  for unit in "${API_UNITS[@]}"; do
+    # Notify=healthy: restart returns only after the container's health check passes.
+    if ! systemctl restart "$unit.service"; then
+      log "$unit did not become healthy"
+      failed=1
+    fi
+  done
+  return "$failed"
+}
+
+edge_probe() {
+  unit_active cantos-edge || { log "edge not running; skipped public probe"; return 0; }
+  local api theatre studio
+  api=$(edge_value CANTOS_API_HOST)
+  theatre=$(edge_value CANTOS_THEATRE_HOST)
+  studio=$(edge_value CANTOS_STUDIO_HOST)
+  curl -fsS -o /dev/null --max-time 15 --resolve "$api:443:127.0.0.1" "https://$api/api/v1/theatre/works" &&
+    curl -fsS -o /dev/null --max-time 15 --resolve "$theatre:443:127.0.0.1" "https://$theatre/api/v1/theatre/works" &&
+    curl -sS -o /dev/null --max-time 15 --resolve "$studio:443:127.0.0.1" -w '%{http_code}' \
+      "https://$studio/api/v1/studio/auth/configuration" | grep -Eq '^(200|503)$'
+}
+
+deploy() {
+  local revision=${1:-}
+  require_root
+  with_lock
+  check_revision "$revision"
+  unit_active cantos-postgres || die "cantos-postgres is not running; run cantos-vps bootstrap" 69
+  local previous=""
+  [[ -s $STATE/current ]] && previous=$(<"$STATE/current")
+  log "deploying $revision (previous: ${previous:-none})"
+  local dump
+  dump=$(backup "pre-${revision:0:12}")
+  migrate "$revision" || die "migration failed; database unchanged by the failed transaction, backup $dump" 70
+  apply_grants
+  if switch_to "$revision" && edge_probe; then
+    [[ -n $previous && $previous != "$revision" ]] && printf '%s\n' "$previous" >"$STATE/previous"
+    printf '%s\n' "$revision" >"$STATE/current"
+    printf '%s deploy %s ok\n' "$(date -u +%FT%TZ)" "$revision" >>"$STATE/history"
+    prune_releases
+    log "deployed $revision"
+    return 0
+  fi
+  printf '%s deploy %s failed\n' "$(date -u +%FT%TZ)" "$revision" >>"$STATE/history"
+  if [[ -n $previous ]]; then
+    log "health gate failed; rolling back to $previous (schema stays migrated; backup $dump)"
+    switch_to "$previous" || die "rollback to $previous is unhealthy too; inspect journalctl -u cantos-api-*" 71
+    die "deploy of $revision failed and was rolled back to $previous" 72
+  fi
+  die "first deploy of $revision failed health checks; inspect journalctl -u cantos-api-*" 72
+}
+
+# Keep the current and previous API images and the three newest uploads; nothing else.
+prune_releases() {
+  local keep=("$(cat "$STATE/current" 2>/dev/null)" "$(cat "$STATE/previous" 2>/dev/null)") tag
+  while IFS= read -r tag; do
+    [[ $tag =~ ^[0-9a-f]{40}$ ]] || continue
+    [[ " ${keep[*]} " == *" $tag "* ]] || podman rmi "$(image_for "$tag")" >/dev/null 2>&1 || true
+  done < <(podman images --format '{{.Tag}}' "$IMAGE_REPO")
+  local old
+  while IFS= read -r old; do
+    rm -rf "$old"
+  done < <(ls -1dt "$ROOT"/incoming/*/ 2>/dev/null | tail -n +4)
+}
+
+rollback() {
+  require_root
+  with_lock
+  [[ -s $STATE/previous ]] || die "no previous revision recorded" 66
+  local previous current
+  previous=$(<"$STATE/previous")
+  current=$(<"$STATE/current")
+  check_revision "$previous"
+  switch_to "$previous" || die "previous revision $previous is unhealthy" 71
+  printf '%s\n' "$current" >"$STATE/previous"
+  printf '%s\n' "$previous" >"$STATE/current"
+  printf '%s rollback %s\n' "$(date -u +%FT%TZ)" "$previous" >>"$STATE/history"
+  log "rolled back to $previous (schema unchanged; restore a backup only if required)"
+}
+
+status() {
+  local unit
+  for unit in cantos-network cantos-postgres cantos-kanidm cantos-edge "${API_UNITS[@]}"; do
+    printf '%-22s %s\n' "$unit" "$(systemctl is-active "$unit.service" 2>/dev/null || true)"
+  done
+  podman ps --filter label=io.cantos.owner=cantos-vps --format '{{.Names}}\t{{.Status}}'
+  printf 'current  %s\nprevious %s\n' "$(cat "$STATE/current" 2>/dev/null || echo -)" \
+    "$(cat "$STATE/previous" 2>/dev/null || echo -)"
+  ls -1t "$BACKUPS"/cantos-*.dump 2>/dev/null | head -3 || true
+}
+
+# --------------------------------------------------------------------------------- identity
+
+kanidm_cli() { # runs the pinned CLI on the private network as idm_admin; args are the command
+  local idm=$1
+  shift
+  KANIDM_PASSWORD=$(<"$SECRETS/kanidm-idm-admin.password") podman run --rm -i --network cantos \
+    --pull missing -e KANIDM_PASSWORD -e KANIDM_URL="https://$idm" -e KANIDM_NAME=idm_admin \
+    -v cantos-kanidm-cli:/root/.cache "$KANIDM_TOOLS" sh -c \
+    'kanidm login -D idm_admin >/dev/null && exec "$@"' sh "$@"
+}
+
+ensure_idm_admin() {
+  [[ -s $SECRETS/kanidm-idm-admin.password ]] && return
+  podman exec cantos-kanidm /sbin/kanidmd recover-account idm_admin -c /config/server.toml -o json 2>/dev/null |
+    python3 -c 'import json,sys
+for line in sys.stdin:
+    line=line.strip()
+    if line.startswith("{"):
+        value=json.loads(line).get("password")
+        if value: print(value); break' >"$SECRETS/kanidm-idm-admin.password"
+  chmod 0600 "$SECRETS/kanidm-idm-admin.password"
+  [[ -s $SECRETS/kanidm-idm-admin.password ]] || die "could not recover idm_admin" 70
+  log "idm_admin recovered; its password stays in $SECRETS (root only)"
+}
+
+ensure_client() { # IDM CLIENT DISPLAY ORIGIN CALLBACK GROUP SECRET-NAME
+  local idm=$1 client=$2 display=$3 origin=$4 callback=$5 group=$6 secret=$7
+  kanidm_cli "$idm" kanidm group get "$group" >/dev/null 2>&1 ||
+    kanidm_cli "$idm" kanidm group create "$group" >/dev/null
+  kanidm_cli "$idm" kanidm system oauth2 get "$client" >/dev/null 2>&1 ||
+    kanidm_cli "$idm" kanidm system oauth2 create "$client" "$display" "$origin" >/dev/null
+  kanidm_cli "$idm" kanidm system oauth2 add-redirect-url "$client" "$callback" >/dev/null
+  kanidm_cli "$idm" kanidm system oauth2 update-scope-map "$client" "$group" openid >/dev/null
+  kanidm_cli "$idm" kanidm system oauth2 show-basic-secret "$client" 2>/dev/null |
+    tail -n 1 | tr -d '\r\n' | put_secret "$secret"
+}
+
+ensure_person() { # IDM NAME DISPLAY GROUP -> prints a one-time reset link to this terminal
+  local idm=$1 name=$2 display=$3 group=$4
+  [[ $name =~ ^[a-z][a-z0-9_-]{1,63}$ ]] || die "account name must be lowercase [a-z0-9_-]" 65
+  kanidm_cli "$idm" kanidm person get "$name" >/dev/null 2>&1 ||
+    kanidm_cli "$idm" kanidm person create "$name" "$display" >/dev/null
+  kanidm_cli "$idm" kanidm group add-members "$group" "$name" >/dev/null
+  printf '\nOne-time credential setup for %s (open it yourself; do not share it):\n' "$name"
+  kanidm_cli "$idm" kanidm person credential create-reset-token "$name" 86400
+}
+
+person_uuid() {
+  kanidm_cli "$1" kanidm person get "$2" -o json | python3 -c 'import json,sys
+for line in sys.stdin:
+    line=line.strip()
+    if line.startswith("{"):
+        attrs=json.loads(line).get("attrs", {})
+        print(attrs["uuid"][0]); break'
+}
+
+identity() {
+  require_root
+  local admin="" display="" listener=""
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --studio-admin) admin=${2:-}; shift 2 ;;
+      --display) display=${2:-}; shift 2 ;;
+      --listener) listener=${2:-}; shift 2 ;;
+      *) die "unknown identity option $1" 64 ;;
+    esac
+  done
+  [[ -n $admin ]] || die "usage: cantos-vps identity --studio-admin NAME [--display TEXT] [--listener NAME]" 64
+  [[ -t 1 ]] || die "identity prints one-time links; run it in your own interactive terminal" 64
+  with_lock
+  unit_active cantos-kanidm && unit_active cantos-edge || die "kanidm and edge must be running" 69
+  local idm studio theatre
+  idm=$(edge_value CANTOS_IDM_HOST)
+  studio=$(edge_value CANTOS_STUDIO_HOST)
+  theatre=$(edge_value CANTOS_THEATRE_HOST)
+  ensure_idm_admin
+  ensure_client "$idm" cantos-studio-web-bff "Cantos Studio" "https://$studio" \
+    "https://$studio/api/v1/studio/auth/callback" cantos_studio_admins cantos-studio-oidc-secret
+  ensure_client "$idm" cantos-theatre-web-bff "Cantos" "https://$theatre" \
+    "https://$theatre/api/v1/theatre/auth/callback" cantos_theatre_listeners cantos-theatre-oidc-secret
+  ensure_person "$idm" "$admin" "${display:-$admin}" cantos_studio_admins
+  [[ -z $listener ]] || ensure_person "$idm" "$listener" "$listener" cantos_theatre_listeners
+
+  local subject
+  subject=$(person_uuid "$idm" "$admin")
+  [[ $subject =~ ^[0-9a-f-]{36}$ ]] || die "could not read the Studio administrator subject" 70
+  printf 'CANTOS_STUDIO_OIDC_ISSUER=https://%s/oauth2/openid/cantos-studio-web-bff\nCANTOS_STUDIO_ADMIN_SUBJECTS=["%s"]\n' \
+    "$idm" "$subject" >"$CONFIG/api-studio-oidc.env"
+  printf 'CANTOS_THEATRE_OIDC_ISSUER=https://%s/oauth2/openid/cantos-theatre-web-bff\n' \
+    "$idm" >"$CONFIG/api-theatre-oidc.env"
+  local surface
+  for surface in studio theatre; do
+    install -d -m 0755 "$QUADLET_DIR/cantos-api-$surface.container.d"
+    printf '[Container]\nEnvironmentFile=%s\nSecret=cantos-%s-oidc-secret,type=env,target=CANTOS_%s_OIDC_SECRET\n' \
+      "$CONFIG/api-$surface-oidc.env" "$surface" "${surface^^}" \
+      >"$QUADLET_DIR/cantos-api-$surface.container.d/20-oidc.conf"
+    chmod 0644 "$QUADLET_DIR/cantos-api-$surface.container.d/20-oidc.conf"
+  done
+  systemctl daemon-reload
+  if podman image exists "$(image_for current)"; then
+    systemctl restart "${API_UNITS[@]/%/.service}"
+  fi
+  log "Studio OIDC admits only subject $subject; Theatre sign-in is limited to cantos_theatre_listeners"
+}
+
+main() {
+  local command=${1:-}
+  shift || true
+  case $command in
+    install) install_bundle "$@" ;;
+    bootstrap) bootstrap ;;
+    deploy) deploy "$@" ;;
+    rollback) rollback ;;
+    backup) require_root; backup "$@" >/dev/null ;;
+    restore) restore "$@" ;;
+    status) status ;;
+    identity) identity "$@" ;;
+    *) sed -n '2,22p' "$0" >&2; exit 64 ;;
+  esac
+}
+
+main "$@"
