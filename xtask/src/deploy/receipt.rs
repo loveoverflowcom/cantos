@@ -70,6 +70,7 @@ pub struct ConfigRecord {
 #[derive(Debug, Clone, Serialize)]
 pub struct BuildRecord {
     pub command: String,
+    pub api_origin: Option<String>,
     pub dist: String,
 }
 

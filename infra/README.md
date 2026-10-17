@@ -20,6 +20,10 @@ packaging feasibility gate remain distinct from deployment. There is no Function
 configuration or deployment command here today.
 Do not infer native Rust Functions support or deploy readiness from this target directory.
 
+The [current production topology/runbook](../docs/deployment/vps-production.md) is the sole
+current destination/operation guide. ADR 0041's direct Hosting direction supersedes the old
+Web-proxy default; retained source assets and installed assets must be reconciled separately.
+
 ## Boundaries and path resolution
 
 - Hosting builds/publishes exactly one selected Web app. App Distribution builds/distributes the

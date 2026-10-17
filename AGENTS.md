@@ -113,8 +113,10 @@ Static Web deployment of one app (Theatre or Studio) to Firebase Hosting is the 
 remote write that publishes a PUBLIC preview URL or replaces a live site: `--dry-run` shows the plan,
 and an agent runs the real command only on the user's explicit request naming the Firebase project,
 the channel and the app. Build, run, verify, preflight and ci never invoke it, and it serves static
-files only; browsers reach them through the VPS edge on the same origin as the API
-([ADR 0039](docs/decisions/0039-vps-production-runtime.md)).
+files only. [ADR 0041](docs/decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting
+with an explicit API origin and exact per-surface CORS; installed legacy proxies are transitional.
+Cross-site web.app sessions remain unaccepted until reviewed domain/gateway and browser acceptance.
+Use the [current production runbook](docs/deployment/vps-production.md), not old deployment records.
 An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
 
 Production API deployment to the VPS is the explicit, opt-in

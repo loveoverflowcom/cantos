@@ -44,7 +44,8 @@ pub async fn execute(
     if matches!(command, Command::UploadImage { .. }) {
         return artwork::platform::upload(command, controller, session_fence, progress).await;
     }
-    let path = command.path()?;
+    let path =
+        crate::api_endpoint::endpoint(&command.path()?).map_err(|_| ClientError::InvalidInput)?;
     let deadline = Deadline::new(controller)?;
     let signal = deadline.controller.signal();
     let mut request = Request::get(&path)
@@ -55,7 +56,7 @@ pub async fn execute(
                 .map_err(|_| ClientError::InvalidInput)?,
         )
         .credentials(match command.credentials() {
-            Credentials::SameOrigin => RequestCredentials::SameOrigin,
+            Credentials::SameOrigin => RequestCredentials::Include,
             Credentials::Omit => RequestCredentials::Omit,
         })
         .header("Accept", "application/json")

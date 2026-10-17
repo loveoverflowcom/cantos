@@ -35,20 +35,22 @@ class InfrastructureLayout(unittest.TestCase):
 
     def test_edge_imports_are_in_file_and_container_roots_stay_absolute(self):
         source = (ROOT / "infra/edge/Caddyfile").read_text()
-        snippets = set(re.findall(r"^\((cantos_\w+)\) \{", source, re.MULTILINE))
+        snippets = set(re.findall(r"^\(([a-z_]+)\) \{", source, re.MULTILINE))
         imports = re.findall(r"^\s*import (\S+)", source, re.MULTILINE)
         self.assertTrue(imports)
         self.assertTrue(set(imports).issubset(snippets), "no relative external includes to rebase")
-        for root in ["/srv/theatre", "/srv/studio"]:
-            self.assertIn(f"import cantos_spa {root}", source)
-        guide = (ROOT / "infra/edge/README.md").read_text()
+        # Firebase owns static bytes; the edge no longer mounts local Web dist directories.
+        self.assertNotIn("/srv/theatre", source)
+        self.assertNotIn("/srv/studio", source)
+        unit = (ROOT / "infra/vps/quadlet/cantos-edge.container").read_text()
         for mount in [
-            "/root/cantos-services/edge/Caddyfile:/etc/caddy/Caddyfile:ro",
-            "/root/cantos-services/edge/www/theatre:/srv/theatre:ro",
-            "/root/cantos-services/edge/www/studio:/srv/studio:ro",
+            "/root/cantos-services/edge:/etc/caddy:ro",
             "cantos-edge-data:/data",
+            "cantos-edge-config:/config",
         ]:
-            self.assertIn(mount, guide)
+            self.assertIn(f"Volume={mount}", unit)
+        self.assertNotIn("/edge/Caddyfile:/etc/caddy/Caddyfile", unit,
+                         "directory mount must observe replaced files on reload")
 
     def test_private_mapping_logs_and_generated_staging_are_ignored(self):
         paths = [

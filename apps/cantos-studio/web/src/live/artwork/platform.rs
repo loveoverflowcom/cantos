@@ -131,8 +131,12 @@ pub async fn upload(
     };
     let fence = fence.ok_or(ClientError::SessionChanged)?;
     let xhr = XmlHttpRequest::new().map_err(|_| ClientError::Transport)?;
-    xhr.open_with_async("PUT", &command.path()?, true)
-        .map_err(|_| ClientError::Transport)?;
+    xhr.open_with_async(
+        "PUT",
+        &crate::api_endpoint::endpoint(&command.path()?).map_err(|_| ClientError::InvalidInput)?,
+        true,
+    )
+    .map_err(|_| ClientError::Transport)?;
     xhr.set_timeout(60_000);
     xhr.set_with_credentials(true);
     xhr.set_response_type(web_sys::XmlHttpRequestResponseType::Arraybuffer);
@@ -249,14 +253,15 @@ pub async fn preview(
         return Err(ClientError::InvalidInput);
     }
     let _deadline = crate::live::browser::Deadline::new(controller.clone())?;
-    let base = format!(
+    let base = crate::api_endpoint::endpoint(&format!(
         "{}/works/{work}/image-assets/{}",
         routes::STUDIO_BASE,
         selection.image_asset_id
-    );
+    ))
+    .map_err(|_| ClientError::InvalidInput)?;
     let get = |url: &str, accept: &str| {
         Request::get(url)
-            .credentials(web_sys::RequestCredentials::SameOrigin)
+            .credentials(web_sys::RequestCredentials::Include)
             .header(crate::api::SESSION_HEADER, &fence.header())
             .header("Accept", accept)
             .abort_signal(Some(&controller.signal()))

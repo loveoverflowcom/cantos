@@ -274,7 +274,14 @@ async fn callback(
             .cancel_callback(&state.store, &query.state, &browser)
             .await
         {
-            Ok(()) => redirect(&callback_location(true, intent.as_deref()), &cleared),
+            Ok(()) => redirect(
+                &format!(
+                    "{}{}",
+                    oidc.web_return_origin(),
+                    callback_location(true, intent.as_deref())
+                ),
+                &cleared,
+            ),
             Err(e) => error(e),
         };
     }
@@ -292,7 +299,14 @@ async fn callback(
         Ok(complete) => {
             let mut values = cleared;
             values.push(complete.cookie);
-            redirect(&callback_location(false, intent.as_deref()), &values)
+            redirect(
+                &format!(
+                    "{}{}",
+                    oidc.web_return_origin(),
+                    callback_location(false, intent.as_deref())
+                ),
+                &values,
+            )
         }
         Err(e) => error(e),
     }

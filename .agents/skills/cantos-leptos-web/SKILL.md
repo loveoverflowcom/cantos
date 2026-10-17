@@ -60,6 +60,8 @@ the browser renders and drives it, the owner decides what is true.
   Its [scenario contract](../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay)
   owns supported recipe/mode/state inputs; build, verify and serve diagnostics with
   `cargo xtask ui-preview leptos build|verify|run`.
+  Both Web clients have optional nonsecret `CANTOS_API_ORIGIN` addressing (ADR 0041); an unset
+  build retains the local proxy. Direct cross-site session acceptance remains a separate gate.
   Browser observations remain separately recorded. Discover manifests, scripts and CI before citing a command. Other commands, crates, paths and
   types in this skill and its references are **proposed** or **candidates** until the repository
   implements them; a library becomes a dependency only through a recorded decision

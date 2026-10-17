@@ -95,6 +95,9 @@ impl StudioOidc {
     fn administrators(&self) -> Result<&administrators::StudioAdministrators, AuthError> {
         self.administrators.as_ref().ok_or(AuthError::Configuration)
     }
+    pub(crate) fn web_return_origin(&self) -> &str {
+        self.config.web_return_origin()
+    }
     pub fn web_origin(&self) -> &str {
         &self.config.web_origin
     }

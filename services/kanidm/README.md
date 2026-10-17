@@ -1,5 +1,11 @@
 # Kanidm opt-in evaluation runtime
 
+Current production operations are owned only by the [production runbook](../../docs/deployment/vps-production.md).
+[ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md) keeps Kanidm private and
+requires a qualified minimal browser-auth gateway; the existing public identity proxy is
+transitional. Cantos Web calls Cantos API for orchestration/session authority; Kanidm retains
+password/MFA and the browser interaction required by OIDC. No broad management proxy is accepted.
+
 Kanidm remains a **proposed production identity provider**. The API now implements an opt-in
 [Studio OIDC BFF](../../docs/architecture/studio-oidc.md), with signed mocked-provider/local-SQL
 evidence. Live account/group synchronization, client registration, Kanidm login and production

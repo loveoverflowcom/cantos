@@ -1,4 +1,4 @@
-//! Same-origin Theatre BFF transport. No provider token reaches the browser.
+//! Cantos API BFF transport. No provider token reaches the browser.
 use crate::application::account::AccountScope;
 pub use crate::application::account_view::AccountFailure as Failure;
 use crate::application::account_view::CleanupIntent;
@@ -9,13 +9,16 @@ pub async fn session() -> Result<AccountScope, Failure> {
     let controller = AbortController::new().map_err(|_| Failure::Unavailable)?;
     let deadline = super::browser::deadline(controller).map_err(|_| Failure::Unavailable)?;
     let signal = deadline.controller.signal();
-    let response = Request::get("/api/v1/theatre/session")
-        .credentials(RequestCredentials::SameOrigin)
-        .abort_signal(Some(&signal))
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|_| Failure::Unavailable)?;
+    let response = Request::get(
+        &crate::api_endpoint::endpoint("/api/v1/theatre/session")
+            .map_err(|_| Failure::Unavailable)?,
+    )
+    .credentials(RequestCredentials::Include)
+    .abort_signal(Some(&signal))
+    .header("Accept", "application/json")
+    .send()
+    .await
+    .map_err(|_| Failure::Unavailable)?;
     match response.status() {
         401 => return Err(Failure::SignedOut),
         200 => (),
@@ -40,16 +43,22 @@ pub fn navigate_login(intent: &str) -> Result<(), Failure> {
     web_sys::window()
         .ok_or(Failure::Navigation)?
         .location()
-        .set_href(&format!("/api/v1/theatre/auth/login?intent={intent}"))
+        .set_href(
+            &crate::api_endpoint::endpoint(&format!("/api/v1/theatre/auth/login?intent={intent}"))
+                .map_err(|_| Failure::Navigation)?,
+        )
         .map_err(|_| Failure::Navigation)
 }
 pub async fn delete_session(intent: &CleanupIntent) -> Result<(), Failure> {
     let controller = AbortController::new().map_err(|_| Failure::Unavailable)?;
     let deadline = super::browser::deadline(controller).map_err(|_| Failure::Unavailable)?;
     let signal = deadline.controller.signal();
-    let request = Request::delete("/api/v1/theatre/session")
-        .credentials(RequestCredentials::SameOrigin)
-        .abort_signal(Some(&signal));
+    let request = Request::delete(
+        &crate::api_endpoint::endpoint("/api/v1/theatre/session")
+            .map_err(|_| Failure::Unavailable)?,
+    )
+    .credentials(RequestCredentials::Include)
+    .abort_signal(Some(&signal));
     let request = match intent {
         CleanupIntent::ExpectedSession(session) => {
             request.header("X-Cantos-Theatre-Session", session)

@@ -27,6 +27,8 @@ use crate::platform::postgres::{Store, StoreError};
 mod admin;
 pub(crate) mod audio_transport;
 mod cookies;
+mod cors;
+pub use cors::with_browser_cors;
 mod studio;
 mod theatre;
 mod theatre_auth;

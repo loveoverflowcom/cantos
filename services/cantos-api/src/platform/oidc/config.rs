@@ -89,6 +89,24 @@ impl OidcConfig {
         })
     }
 
+    /// A browser served by static Hosting returns through the API BFF, then to the fixed Web
+    /// origin. This never changes the issuer, client, state/nonce or cookie policy.
+    pub fn with_api_callback_origin(mut self, api_origin: &str) -> Result<Self, AuthError> {
+        let api = checked_url(api_origin)?;
+        if api.origin().ascii_serialization() != api_origin
+            || api.scheme() != if self.secure { "https" } else { "http" }
+        {
+            return Err(AuthError::Configuration);
+        }
+        let surface = match self.client_id {
+            STUDIO_CLIENT_ID => "studio",
+            THEATRE_WEB_CLIENT_ID => "theatre",
+            _ => return Err(AuthError::Configuration),
+        };
+        self.redirect = format!("{api_origin}/api/v1/{surface}/auth/callback");
+        Ok(self)
+    }
+
     /// Private anchors only make sense for an HTTPS issuer; unused trust is a configuration error.
     pub fn with_trust(self, trust: IssuerTrust) -> Result<Self, AuthError> {
         if self.origin.scheme() != "https" {
@@ -115,6 +133,16 @@ impl OidcConfig {
     pub fn issuer(&self) -> &str {
         &self.issuer
     }
+    pub(crate) fn web_return_origin(&self) -> &str {
+        if self
+            .redirect
+            .starts_with(&format!("{}/api/v1/", self.web_origin))
+        {
+            ""
+        } else {
+            &self.web_origin
+        }
+    }
     pub fn redirect_uri(&self) -> &str {
         &self.redirect
     }
@@ -138,4 +166,71 @@ fn checked_url(value: &str) -> Result<Url, AuthError> {
         return Err(AuthError::Configuration);
     }
     Ok(url)
+}
+
+#[cfg(test)]
+mod api_origin_tests {
+    use super::*;
+    #[test]
+    fn api_callback_is_pinned_separately_from_the_web_return_origin() {
+        let config = OidcConfig::new(
+            "https://auth.example.org/oauth2/openid/cantos-studio-web-bff",
+            "https://studio.example.org",
+            "secret".into(),
+        )
+        .unwrap()
+        .with_api_callback_origin("https://api.example.org")
+        .unwrap();
+        assert_eq!(
+            config.redirect_uri(),
+            "https://api.example.org/api/v1/studio/auth/callback"
+        );
+        assert_eq!(config.web_origin, "https://studio.example.org");
+        assert!(config.secure);
+        assert_eq!(config.web_return_origin(), "https://studio.example.org");
+        let theatre = OidcConfig::theatre_web(
+            "https://auth.example.org/oauth2/openid/cantos-theatre-web-bff",
+            "https://listen.example.org",
+            "secret".into(),
+        )
+        .unwrap()
+        .with_api_callback_origin("https://api.example.org")
+        .unwrap();
+        assert_eq!(
+            theatre.redirect_uri(),
+            "https://api.example.org/api/v1/theatre/auth/callback"
+        );
+    }
+    #[test]
+    fn callback_config_refuses_origin_normalization_downgrade_and_native_reuse() {
+        for origin in [
+            "https://api.example.org/",
+            "https://API.example.org",
+            "https://api.example.org?next=evil",
+            "https://api.example.org/evil",
+            "http://127.0.0.1:8080",
+        ] {
+            let config = OidcConfig::new(
+                "https://auth.example.org/oauth2/openid/cantos-studio-web-bff",
+                "https://studio.example.org",
+                "secret".into(),
+            )
+            .unwrap();
+            assert!(
+                matches!(
+                    config.with_api_callback_origin(origin),
+                    Err(AuthError::Configuration)
+                ),
+                "{origin}"
+            );
+        }
+        let native = OidcConfig::theatre_native(
+            "https://auth.example.org/oauth2/openid/cantos-theatre-native",
+        )
+        .unwrap();
+        assert!(matches!(
+            native.with_api_callback_origin("https://api.example.org"),
+            Err(AuthError::Configuration)
+        ));
+    }
 }

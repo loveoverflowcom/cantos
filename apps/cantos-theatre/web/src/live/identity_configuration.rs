@@ -34,13 +34,16 @@ pub async fn load() -> Result<Configuration, ConfigurationFailure> {
     let deadline =
         super::browser::deadline(controller).map_err(|_| ConfigurationFailure::Unavailable)?;
     let signal = deadline.controller.signal();
-    let response = Request::get("/api/v1/theatre/auth/configuration")
-        .credentials(RequestCredentials::SameOrigin)
-        .abort_signal(Some(&signal))
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|_| ConfigurationFailure::Unavailable)?;
+    let response = Request::get(
+        &crate::api_endpoint::endpoint("/api/v1/theatre/auth/configuration")
+            .map_err(|_| ConfigurationFailure::Unavailable)?,
+    )
+    .credentials(RequestCredentials::Include)
+    .abort_signal(Some(&signal))
+    .header("Accept", "application/json")
+    .send()
+    .await
+    .map_err(|_| ConfigurationFailure::Unavailable)?;
     let status = response.status();
     let content_type = response.headers().get("content-type");
     let body = response

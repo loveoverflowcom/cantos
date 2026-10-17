@@ -840,9 +840,10 @@ this section is the contract. It is the second opt-in exception to "xtask publis
 asserts that no ordinary gate, CI or build plan contains a Firebase, Hosting or deploy command. It is
 local and manual: no GitHub Actions workflow, secret, `firebase init hosting:github` or automatic
 trigger exists or is needed. Firebase Hosting serves only the static bundle; the Rust API,
-PostgreSQL, Kanidm and object storage stay outside it. Browsers reach the deployed bundles through
-the VPS edge, which serves each app's pages from its site and its `/api/*` from the API on the same
-origin ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md)); no client API-origin setting exists.
+PostgreSQL, Kanidm and object storage stay outside it. [ADR 0041](../docs/decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting with explicit
+`CANTOS_API_ORIGIN` at Web build time and separately configured API CORS/routing. The receipt records the
+nonsecret build input in `build.api_origin` and the build command. The local unset default keeps relative Trunk-proxy paths;
+cross-site web.app authentication is not accepted. See the [current topology/runbook](../docs/deployment/vps-production.md).
 
 **Request.** The app (`cantos-theatre` or `cantos-studio`, nothing else), `--web`, `--project` and
 `--channel` are required and never defaulted; `cantos-api`, `cantos-forge`, `all` and mobile are
@@ -921,10 +922,10 @@ keep it out of shared CI artifacts.
 
 Deliberately absent from this first delivery: `--no-build`, an arbitrary artifact path, deploy-all,
 automatic promotion, rollback or channel/site deletion, a provider framework, long-lived caching of
-hashed assets, an API-origin setting and any Firebase SDK, Functions, Cloud Run or App Hosting
-adapter. A live deployment of each app ran on 2026-10-17
-([deployment record](../docs/evidence/vps-production-deployment.md)); a real preview channel is still
-**`NOT_RUN`** ([evidence record](../docs/evidence/issue199-firebase-hosting.md)).
+hashed assets, any Firebase SDK, Functions, Cloud Run or App Hosting adapter. An explicit Web
+API-origin setting now exists under ADR 0041; this command still deploys static bytes only.
+Read current release state from Firebase, and keep user-journey acceptance separate from smoke.
+Historical tool evidence is [source-bound](../docs/evidence/issue199-firebase-hosting.md).
 
 ### deploy vps
 
