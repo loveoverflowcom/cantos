@@ -1,9 +1,10 @@
-//! Selected Firebase enrollment capability with the same direct-peer attempt boundary.
+//! Selected Firebase enrollment capability with the same attempt boundary and peer policy.
 use super::application::FirebaseEnrollmentService;
 use crate::platform::theatre_registration::{
-    domain::{NetworkKey, RegistrationError},
+    domain::{NetworkKey, PeerPolicy, RegistrationError},
     runtime::{AttemptPolicy, RegistrationAdmission},
 };
+use axum::http::HeaderMap;
 use std::{net::IpAddr, sync::Arc};
 use tokio::sync::OwnedSemaphorePermit;
 
@@ -35,8 +36,17 @@ impl FirebaseEnrollmentRuntime {
     pub fn web_origin(&self) -> &str {
         self.admission.web_origin()
     }
-    pub fn network_key(&self, peer: IpAddr) -> Result<NetworkKey, RegistrationError> {
-        self.admission.network_key(peer)
+    /// Replace the default direct-peer quota identity with an explicit, validated policy.
+    pub fn with_peer_policy(mut self, policy: PeerPolicy) -> Self {
+        self.admission.set_peer_policy(policy);
+        self
+    }
+    pub fn network_key(
+        &self,
+        peer: IpAddr,
+        headers: &HeaderMap,
+    ) -> Result<NetworkKey, RegistrationError> {
+        self.admission.network_key(peer, headers)
     }
     pub fn admit(&self, key: NetworkKey) -> bool {
         self.admission.admit(key)

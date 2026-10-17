@@ -42,6 +42,16 @@ restart. The edge forwards Firebase's `Cache-Control: no-cache`, drops its `Alt-
 `web.app` and adds this host's HSTS and default security headers (`?` defaults never override
 the API's stricter `Referrer-Policy`). Studio additionally sends `X-Frame-Options: DENY`.
 
+## Identity, forwarding and email actions
+
+- `X-Forwarded-For` to the APIs is *set* to the TCP peer Caddy saw; `Forwarded`/`X-Real-IP` are
+  dropped. The API honors it only for a configured trusted-proxy network
+  ([runbook](../../docs/deployment/vps-production.md#theatre-registration-behind-the-edge-not-enabled)).
+- The identity host proxies Kanidm's browser surface publicly and answers 404 for its management
+  REST API unless the TCP peer is private (`CANTOS_INTERNAL_CIDRS` overrides the default set).
+- A request carrying `oobCode` gets `no-store` and `no-referrer`, and the code is stripped from
+  the upstream URL. Registration bodies are capped at 16 KB before reaching the API.
+
 ## Operate
 
 `cantos-vps install` validates and reloads a changed Caddyfile in place

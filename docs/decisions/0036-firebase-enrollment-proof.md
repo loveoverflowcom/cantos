@@ -133,6 +133,13 @@ Origins/CSRF, action leakage and cross-device continuation remain separate gates
   target protection, existing-email behavior, numeric policy/retention, safe action ingress,
   recipient/mail budget, origins and the real proof→setup→OIDC→session journey.
 
+## Amendment note (2026-10-17)
+
+[ADR 0040](0040-firebase-email-proof-alternatives.md) (proposed) re-examines the
+default-handler question against the #206 result: it finds the default hosted handler unable to
+provide this proof and lists the owner decisions that could unblock the custom-handler gate. It
+changes nothing accepted here.
+
 ## Validation and revisit conditions
 
 The [runtime evidence ledger](../evidence/firebase-enrollment-runtime.md) and [earlier prototype ledger](../evidence/firebase-enrollment-proof.md) separates pure/fixture results

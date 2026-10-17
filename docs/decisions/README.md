@@ -48,6 +48,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0037 — Private storage](0037-provider-independent-private-storage.md) | Proposed adoption; implemented bounded slice | Former duplicate storage 0022; real-provider/publication acceptance separate |
 | [0038 — Delivery evidence gates](0038-publication-streaming-evidence-gates.md) | Proposed | Former duplicate publication 0028; real delivery/native evidence required |
 | [0039 — VPS production runtime](0039-vps-production-runtime.md) | Accepted | Production host mode, two single-origin API processes, same-origin edge in front of Firebase Hosting, Podman Quadlet VPS |
+| [0040 — Firebase email-proof alternatives](0040-firebase-email-proof-alternatives.md) | Proposed | Default Firebase handler cannot prove mailbox possession; owner probes requested; no behavior change |
 
 ## ID allocation and historical references
 

@@ -7,8 +7,9 @@
 -- (services/cantos-api/tests/*_postgres.rs and the services/kanidm operator contract).
 -- Deliberately absent: DDL, TRUNCATE, actor/registry writes, legacy durable_* and
 -- speech_clips tables, Admin functions/tables (Admin stays unconfigured), Theatre native
--- identity, Theatre registration/Firebase enrollment (both stay disabled). Enabling one of
--- those needs its own reviewed grant block here before its configuration is set.
+-- identity, Theatre registration (SMTP mode has no block). Firebase enrollment has its own
+-- optional block, theatre-registration-grants.sql, applied only when registration is enabled
+-- (cantos-vps apply_grants); a block for any other feature must be reviewed before it is set.
 -- A new migration that adds a table read or written at runtime must extend this file.
 
 GRANT USAGE ON SCHEMA public TO cantos_app;

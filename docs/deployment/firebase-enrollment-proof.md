@@ -18,9 +18,15 @@ activation:
   (implemented, fixture-tested; the one-hour limitation is gone), and the
   [service-account design and runbook](firebase-enrollment-service-account.md) proposes the narrow
   account, **not executed**. Signing/creation authority stays unaccepted.
-- **Cleanup.** The generated key (id prefix `2795eafc`), the test Firebase user, the test Kanidm
-  person, local containers and the project changes are still in place; each deletion needs separate
-  approval.
+- **Alternatives.** [ADR 0040](../decisions/0040-firebase-email-proof-alternatives.md) (proposed)
+  rejects default `VERIFY_EMAIL` polling/continuation as proof. Its controlled `EMAIL_SIGNIN`
+  follow-up observed two usable forwarded codes and refused replays while retaining a dedicated
+  admin-precreated UID. This requires a design amendment and implementation verification;
+  it does not activate the existing `VERIFY_EMAIL` flow.
+- **Cleanup.** The owner deleted the original #206 test Firebase user on 17 October; see the
+  [audit](../evidence/theatre-enrollment-audit-20261017.md). That does not retire the generated key
+  (id prefix `2795eafc`), the test Kanidm person, local containers or project changes; their cleanup
+  still needs its own scope. Later probe accounts have separate cleanup records.
 
 ## Implemented, disabled composition
 
@@ -38,7 +44,7 @@ All following suffixes use `CANTOS_THEATRE_REGISTRATION_`:
 | `ENABLED`, `PROVIDER` | Explicit `true`, `firebase`; keep disabled until acceptance |
 | `POLICY_APPROVED`, `ISSUER_ACCESS_APPROVED` | Operator declarations for the exact deployment policy and effective Kanidm target protection, both `true` |
 | `TOKEN` | Existing Kanidm onboarding bearer from the operator's secret store; never a browser credential |
-| `NETWORK_KEY`, `PEER_POLICY` | Existing nonzero 32-byte hex HMAC secret; only `direct_peer` is supported |
+| `NETWORK_KEY`, `PEER_POLICY`, `TRUSTED_PROXIES` | Existing nonzero 32-byte hex HMAC secret; `direct_peer`, or `trusted_proxy` with a required comma-separated list of proxy CIDRs (refused with `direct_peer`; see the [edge runbook](vps-production.md#theatre-registration-behind-the-edge-not-enabled)) |
 | `VERIFICATION_SECONDS`, `RESEND_SECONDS`, `WINDOW_SECONDS`, `MAX_GLOBAL_REQUESTS`, `MAX_NETWORK_REQUESTS` | Explicit bounded durable lifetime/cooldown/mail budgets; resends consume the same budget |
 | `SETUP_SECONDS`, `MAX_INFLIGHT`, `ATTEMPT_WINDOW_SECONDS`, `ATTEMPT_MAX_GLOBAL`, `ATTEMPT_MAX_NETWORK` | Explicit bounded setup lifetime and process-local admission policy |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY` | Exact verified project/key association; API key stays server-side in this design |
@@ -60,7 +66,10 @@ Migration0028 requires operator-reviewed grants for the runtime role: SELECT/INS
 `phase,last_sent_at,person_id,block_reason` on enrollments, and USAGE on the send receipt
 sequence. Transition receipts are written by the fixed-search-path trigger; grant no direct
 INSERT/UPDATE/DELETE on those receipts, no table DELETE/TRUNCATE, and no migration authority.
-Tests grant only this narrow set in a new disposable database; they change no deployed role.
+The VPS ships exactly this set as the optional
+[`theatre-registration-grants.sql`](../../infra/vps/postgres/theatre-registration-grants.sql)
+(applied only when registration is enabled); the repository's PostgreSQL tests run against that
+file in a new disposable database and change no deployed role.
 
 ## Flow and recovery contract
 

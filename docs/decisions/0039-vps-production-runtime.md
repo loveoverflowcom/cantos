@@ -74,8 +74,11 @@ and bootstrap are explicit subcommands; CircleCI only offers a manual pipeline t
 - Studio sign-in requires an operator-run `cantos-vps identity` (OAuth2 clients, one Studio
   administrator, its exact subject roster) and a credential set by the owner through Kanidm's
   reset link. Until then the Studio host reports authentication unavailable.
-- Theatre registration, Theatre native identity, Admin and object storage stay unconfigured;
-  their grant blocks are absent and must be reviewed before enabling them.
+- Theatre registration, Theatre native identity, Admin and object storage stay unconfigured.
+  Only Firebase-mode registration has a reviewed, optional grant block (applied when it is
+  enabled); the others' blocks are absent and must be reviewed before enabling them. The edge
+  also restricts Kanidm's management API to the private network and sets `X-Forwarded-For`
+  for a trusted-proxy peer policy.
 - Migrations are forward-only. An automatic rollback switches the image back over an already
   migrated schema; restoring a backup is an explicit, confirmed operator action.
 - Changing `idm.cantoss.duckdns.org` after initialization is a Kanidm domain migration.

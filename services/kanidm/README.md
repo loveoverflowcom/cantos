@@ -285,7 +285,7 @@ The accepted ranges below are constructor bounds, **not recommended production s
 | `ENABLED` | Exact `true` to request composition; absent or standalone `false` leaves it off. |
 | `POLICY_APPROVED` | Exact `true` operator declaration that the candidate email/naming/abuse/retention/recovery policies were reviewed for this environment. |
 | `ISSUER_ACCESS_APPROVED` | Exact `true` operator declaration after reviewing the concrete principal, grants and existing-account target protection. This is not proof of effective issuer permissions. |
-| `PEER_POLICY` | Exact `direct_peer`; no forwarded-header or trusted-proxy mode is implemented. |
+| `PEER_POLICY`, `TRUSTED_PROXIES` | `direct_peer` (socket peer owns the quota), or `trusted_proxy` with a required comma-separated list of proxy CIDRs: `X-Forwarded-For` is believed only from a peer inside the list and is otherwise ignored. The list is refused with `direct_peer`; no default; `/0`, host names and more than 16 entries are refused. |
 | `TOKEN` | Separately delivered server-only Kanidm service bearer; never a Theatre user credential, CLI argument or repository fixture. |
 | `NETWORK_KEY` | Separately delivered nonzero 32-byte HMAC key encoded as 64 lowercase hexadecimal characters; protect and review rotation because it partitions personal quota metadata. |
 | `VERIFICATION_SECONDS` | Explicit mailbox-proof TTL, 60–3600 seconds. |

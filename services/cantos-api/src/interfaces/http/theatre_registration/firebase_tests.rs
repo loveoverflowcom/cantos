@@ -23,6 +23,7 @@ use crate::{
         theatre_identity::TheatreIdentity,
         theatre_registration::{
             application::test_support::fixture_store,
+            domain::{PeerPolicy, TrustedProxies},
             firebase_enrollment::{
                 domain::Phase,
                 runtime::FirebaseEnrollmentRuntime,
@@ -39,6 +40,14 @@ const CONFIRM: &str = "/api/v1/theatre/auth/registration/firebase/confirm";
 const CANCEL: &str = "/api/v1/theatre/auth/registration/firebase/cancel";
 
 async fn fixture(awaiting: bool) -> (Router, Arc<Memory>, ActionServer, Events) {
+    fixture_with_peers(awaiting, PeerPolicy::DirectPeer, 100).await
+}
+
+async fn fixture_with_peers(
+    awaiting: bool,
+    peers: PeerPolicy,
+    per_network: u32,
+) -> (Router, Arc<Memory>, ActionServer, Events) {
     let events = Arc::new(Mutex::new(Vec::new()));
     let memory = Arc::new(if awaiting {
         Memory::awaiting(events.clone())
@@ -62,9 +71,10 @@ async fn fixture(awaiting: bool) -> (Router, Arc<Memory>, ActionServer, Events) 
                 ORIGIN,
                 [1; 32],
                 4,
-                AttemptPolicy::new(60, 100, 100).unwrap(),
+                AttemptPolicy::new(60, 100, per_network).unwrap(),
             )
-            .unwrap(),
+            .unwrap()
+            .with_peer_policy(peers),
         );
     (
         router(
@@ -321,4 +331,84 @@ async fn action_bound_cancel_returns_generic_receipt_and_never_provisions() {
     assert_eq!(server.bodies.lock().unwrap().len(), 2);
     assert!(!events.lock().unwrap().contains(&"create"));
     assert!(!events.lock().unwrap().contains(&"setup"));
+}
+
+fn unknown_operation() -> Value {
+    json!({"operation_id":Uuid::from_u128(99).to_string(),"oob_code":"code"})
+}
+
+fn from_peer(peer: [u8; 4], forwarded: &[&str]) -> Request<Body> {
+    let mut req = request(Method::POST, CONFIRM, unknown_operation(), false);
+    req.extensions_mut()
+        .insert(ConnectInfo(SocketAddr::from((peer, 4321))));
+    for line in forwarded {
+        req.headers_mut()
+            .append("x-forwarded-for", line.parse().unwrap());
+    }
+    req
+}
+
+#[tokio::test]
+async fn trusted_edge_partitions_quota_by_client_while_direct_access_cannot_spoof_it() {
+    let edge = PeerPolicy::TrustedProxy(TrustedProxies::parse("10.89.0.0/24").unwrap());
+    let (app, ..) = fixture_with_peers(false, edge, 1).await;
+    let admitted = (StatusCode::OK, json!({"status":"unavailable"}));
+    let refused = |app: Router, peer, lines: &[&str]| {
+        let req = from_peer(peer, lines);
+        async move { receipt(app, req).await.0 }
+    };
+    // Two users behind the same edge address have separate budgets.
+    assert_eq!(
+        receipt(app.clone(), from_peer([10, 89, 0, 2], &["198.51.100.1"])).await,
+        admitted
+    );
+    assert_eq!(
+        refused(app.clone(), [10, 89, 0, 2], &["198.51.100.1"]).await,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(
+        receipt(app.clone(), from_peer([10, 89, 0, 2], &["203.0.113.8"])).await,
+        admitted
+    );
+    // A client-written left entry cannot choose the identity the edge appended.
+    assert_eq!(
+        refused(app.clone(), [10, 89, 0, 2], &["9.9.9.9, 198.51.100.1"]).await,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    // The edge without exactly one usable header fails closed instead of pooling users.
+    for lines in [&[][..], &["198.51.100.1", "203.0.113.8"][..], &["junk"][..]] {
+        assert_eq!(
+            refused(app.clone(), [10, 89, 0, 2], lines).await,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
+    // Direct API access is its own identity: rotating the header buys no new budget.
+    assert_eq!(
+        receipt(app.clone(), from_peer([192, 0, 2, 7], &["198.51.100.50"])).await,
+        admitted
+    );
+    for spoof in ["198.51.100.51", "203.0.113.99", "10.89.0.2"] {
+        assert_eq!(
+            refused(app.clone(), [192, 0, 2, 7], &[spoof]).await,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "{spoof}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn direct_peer_policy_ignores_forwarded_headers_entirely() {
+    let (app, ..) = fixture_with_peers(false, PeerPolicy::DirectPeer, 1).await;
+    assert_eq!(
+        receipt(app.clone(), from_peer([192, 0, 2, 7], &["198.51.100.1"]))
+            .await
+            .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        receipt(app, from_peer([192, 0, 2, 7], &["203.0.113.8"]))
+            .await
+            .0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
 }

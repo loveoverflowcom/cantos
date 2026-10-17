@@ -17,6 +17,10 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 const GRANTS: &str = include_str!("../../../infra/vps/postgres/runtime-grants.sql");
+const REGISTRATION_GRANTS: &str =
+    include_str!("../../../infra/vps/postgres/theatre-registration-grants.sql");
+const REGISTRATION_REVOKE: &str =
+    include_str!("../../../infra/vps/postgres/theatre-registration-revoke.sql");
 const ORIGIN: &str = "http://127.0.0.1:8080";
 const TOKEN: &str = "5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e5a1e";
 
@@ -178,4 +182,159 @@ async fn deployed_runtime_grants_alone_serve_studio_and_theatre_requests() {
         .unwrap()
         .get(0);
     assert!(!creates, "cantos_app must not create schema objects");
+}
+
+async fn table_privilege(owner: &Client, table: &str, privilege: &str) -> bool {
+    owner
+        .query_one(
+            "SELECT has_table_privilege('cantos_app', $1, $2)",
+            &[&table, &privilege],
+        )
+        .await
+        .unwrap()
+        .get(0)
+}
+
+async fn column_update(owner: &Client, table: &str, column: &str) -> bool {
+    owner
+        .query_one(
+            "SELECT has_column_privilege('cantos_app', $1, $2, 'UPDATE')",
+            &[&table, &column],
+        )
+        .await
+        .unwrap()
+        .get(0)
+}
+
+/// The optional registration block is separate from the base file, grants only what the
+/// Firebase enrollment repository executes, and is withdrawn by the revoke counterpart.
+#[tokio::test]
+#[ignore = "requires cargo xtask verify postgres"]
+async fn registration_grants_are_separate_minimal_idempotent_and_revocable() {
+    let mut config =
+        local_config(&env::var("CANTOS_TEST_CLUSTER_URL").expect("cargo xtask verify postgres"))
+            .unwrap();
+    let database = format!("cantos_test_{}", Uuid::new_v4().simple());
+    connect(&config)
+        .await
+        .batch_execute(&format!("CREATE DATABASE {database}"))
+        .await
+        .unwrap();
+    config.dbname(&database);
+    migrate(&config).await.unwrap();
+    let owner = connect(&config).await;
+    owner.batch_execute(GRANTS).await.unwrap();
+
+    let enrollments = "theatre_firebase_enrollments";
+    let starts = "theatre_firebase_send_starts";
+    let receipts = "theatre_firebase_enrollment_receipts";
+    // Non-vacuity: the base file alone leaves registration without any privilege.
+    assert!(!table_privilege(&owner, enrollments, "SELECT").await);
+    assert!(!table_privilege(&owner, starts, "INSERT").await);
+
+    owner.batch_execute(REGISTRATION_GRANTS).await.unwrap();
+    owner
+        .batch_execute(REGISTRATION_GRANTS)
+        .await
+        .expect("registration grants are idempotent");
+    for (table, privilege) in [
+        (enrollments, "SELECT"),
+        (enrollments, "INSERT"),
+        (starts, "SELECT"),
+        (starts, "INSERT"),
+    ] {
+        assert!(
+            table_privilege(&owner, table, privilege).await,
+            "{privilege} on {table}"
+        );
+    }
+    for column in ["phase", "last_sent_at", "person_id", "block_reason"] {
+        assert!(column_update(&owner, enrollments, column).await, "{column}");
+    }
+    // Binding, lifetime and identity columns stay immutable for the runtime role.
+    for column in [
+        "namespace",
+        "id",
+        "project",
+        "uid",
+        "email",
+        "email_key",
+        "accepted_at",
+        "expires_at",
+    ] {
+        assert!(
+            !column_update(&owner, enrollments, column).await,
+            "{column}"
+        );
+    }
+    for (table, privilege) in [
+        (enrollments, "DELETE"),
+        (enrollments, "TRUNCATE"),
+        (enrollments, "UPDATE"),
+        (starts, "UPDATE"),
+        (starts, "DELETE"),
+        (starts, "TRUNCATE"),
+        (receipts, "SELECT"),
+        (receipts, "INSERT"),
+        (receipts, "UPDATE"),
+        (receipts, "DELETE"),
+        ("theatre_registrations", "SELECT"),
+        ("theatre_registration_mail_starts", "INSERT"),
+        ("admin_audit", "SELECT"),
+        ("actors", "INSERT"),
+    ] {
+        assert!(
+            !table_privilege(&owner, table, privilege).await,
+            "cantos_app must not hold {privilege} on {table}"
+        );
+    }
+    for (sequence, expected) in [
+        ("theatre_firebase_send_starts_receipt_id_seq", true),
+        ("theatre_firebase_enrollment_receipts_receipt_id_seq", false),
+    ] {
+        let usage: bool = owner
+            .query_one(
+                "SELECT has_sequence_privilege('cantos_app', $1, 'USAGE')",
+                &[&sequence],
+            )
+            .await
+            .unwrap()
+            .get(0);
+        assert_eq!(usage, expected, "{sequence}");
+    }
+    for function in [
+        "theatre_firebase_enrollment_guard()",
+        "theatre_firebase_enrollment_receipt()",
+    ] {
+        let execute: bool = owner
+            .query_one(
+                "SELECT has_function_privilege('cantos_app', $1, 'EXECUTE')",
+                &[&function],
+            )
+            .await
+            .unwrap()
+            .get(0);
+        assert!(!execute, "{function}");
+    }
+    let creates: bool = owner
+        .query_one(
+            "SELECT has_schema_privilege('cantos_app','public','CREATE')",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert!(!creates);
+
+    owner.batch_execute(REGISTRATION_REVOKE).await.unwrap();
+    owner
+        .batch_execute(REGISTRATION_REVOKE)
+        .await
+        .expect("registration revoke is idempotent");
+    for (table, privilege) in [(enrollments, "SELECT"), (starts, "INSERT")] {
+        assert!(!table_privilege(&owner, table, privilege).await);
+    }
+    assert!(!column_update(&owner, enrollments, "phase").await);
+    // The base grants are untouched by the revoke counterpart.
+    assert!(table_privilege(&owner, "catalog_works", "INSERT").await);
 }

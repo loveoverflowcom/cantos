@@ -69,11 +69,11 @@ async fn start(
     if Email::parse(&body.email).is_err() {
         return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
     }
-    // Only the socket peer is trusted. Forwarded headers never choose a quota identity.
+    // The socket peer decides whether `X-Forwarded-For` is evidence; see `PeerPolicy`.
     let Some(Extension(ConnectInfo(peer))) = peer else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
-    let Ok(network) = runtime.network_key(peer.ip()) else {
+    let Ok(network) = runtime.network_key(peer.ip(), &headers) else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
     if !runtime.admit(network) {
@@ -119,7 +119,7 @@ async fn verify(
     let Some(Extension(ConnectInfo(peer))) = peer else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
-    let Ok(network) = runtime.network_key(peer.ip()) else {
+    let Ok(network) = runtime.network_key(peer.ip(), &headers) else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
     if !runtime.admit(network) {
@@ -155,7 +155,7 @@ async fn cancel(
     let Some(Extension(ConnectInfo(peer))) = peer else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
-    let Ok(network) = runtime.network_key(peer.ip()) else {
+    let Ok(network) = runtime.network_key(peer.ip(), &headers) else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
     if !runtime.admit(network) {
@@ -192,7 +192,7 @@ async fn firebase_start(
     let Some(Extension(ConnectInfo(peer))) = peer else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
-    let Ok(network) = runtime.network_key(peer.ip()) else {
+    let Ok(network) = runtime.network_key(peer.ip(), &headers) else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
     if !runtime.admit(network) {
@@ -243,7 +243,7 @@ async fn firebase_confirm(
     let Some(Extension(ConnectInfo(peer))) = peer else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
-    let Ok(network) = runtime.network_key(peer.ip()) else {
+    let Ok(network) = runtime.network_key(peer.ip(), &headers) else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
     if !runtime.admit(network) {
@@ -296,7 +296,7 @@ async fn firebase_cancel(
     let Some(Extension(ConnectInfo(peer))) = peer else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
-    let Ok(network) = runtime.network_key(peer.ip()) else {
+    let Ok(network) = runtime.network_key(peer.ip(), &headers) else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };
     if !runtime.admit(network) {
