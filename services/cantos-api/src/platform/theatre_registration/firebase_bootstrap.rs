@@ -1,6 +1,8 @@
 //! Privileged Firebase bootstrap and verification-mail transport, never a session issuer.
 //! The application commits a durable one-winner fence before each separate remote effect.
-//! No retry, account adoption, credential refresh, endpoint override or file access occurs here.
+//! No retry, account adoption, endpoint override or file access occurs here. The only
+//! credential minting is the in-RAM `access` module: a fixed-origin service-account JWT-bearer
+//! exchange for the single bearer that Auth user creation needs.
 
 use std::time::Duration;
 
@@ -12,6 +14,9 @@ use reqwest::{header, Client, Response, StatusCode};
 use ring::{rand::SystemRandom, signature};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
+
+mod access;
+use access::AccessTokenSource;
 
 use super::{
     domain::{Email, RegistrationError},
@@ -38,6 +43,7 @@ pub enum BootstrapError {
     WrongBinding,
     WrongClient,
     Signing,
+    AccessDenied,
     Conflict,
     Disabled,
     Rejected,
@@ -71,12 +77,13 @@ macro_rules! redacted_debug {
     )+};
 }
 
-/// Operator-supplied existing OAuth bearer. Its expiry and renewal are operator concerns.
-/// This adapter neither exchanges private keys for OAuth credentials nor auto-renews them.
-pub struct AdminAccessToken(String);
+/// Short-lived OAuth bearer minted in RAM from the service-account key by `access`.
+/// It has no public constructor from configuration, file, argv or environment input.
+#[derive(Clone)]
+pub(super) struct AdminAccessToken(String);
 
 impl AdminAccessToken {
-    pub fn parse(value: &str) -> Result<Self, BootstrapError> {
+    fn parse(value: &str) -> Result<Self, BootstrapError> {
         if value.is_empty() || value.len() > 8192 || !value.bytes().all(|b| b.is_ascii_graphic()) {
             return Err(BootstrapError::InvalidCredential);
         }
@@ -192,6 +199,10 @@ impl FirebaseBootstrapConfig {
             uid: identity.uid(),
         })
         .map_err(|_| BootstrapError::Signing)?;
+        self.sign_claims(&claims)
+    }
+
+    fn sign_claims(&self, claims: &[u8]) -> Result<String, BootstrapError> {
         let unsigned = format!(
             "{}.{}",
             URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT"}"#),
@@ -294,6 +305,7 @@ pub struct FirebaseBootstrapClient {
     client: Client,
     base: Url,
     config: FirebaseBootstrapConfig,
+    access: AccessTokenSource,
 }
 
 impl FirebaseBootstrapClient {
@@ -301,6 +313,7 @@ impl FirebaseBootstrapClient {
         Self::build(
             config,
             Url::parse(PROVIDER_ENDPOINT).map_err(|_| BootstrapError::Configuration)?,
+            AccessTokenSource::new()?,
             Duration::from_secs(5),
         )
     }
@@ -308,22 +321,15 @@ impl FirebaseBootstrapClient {
     fn build(
         config: FirebaseBootstrapConfig,
         base: Url,
+        access: AccessTokenSource,
         timeout: Duration,
     ) -> Result<Self, BootstrapError> {
-        let client = Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .no_proxy()
-            // reqwest's HTTP/2 GOAWAY retry can transparently repeat a mutation.
-            .http1_only()
-            .pool_max_idle_per_host(0)
-            .connect_timeout(Duration::from_secs(2))
-            .timeout(timeout)
-            .build()
-            .map_err(|_| BootstrapError::Configuration)?;
+        let client = fixed_origin_client(timeout)?;
         Ok(Self {
             client,
             base,
             config,
+            access,
         })
     }
 
@@ -332,7 +338,6 @@ impl FirebaseBootstrapClient {
     pub async fn create_user(
         &self,
         identity: &BootstrapIdentity,
-        access: &AdminAccessToken,
     ) -> Result<CreatedFirebaseUser, BootstrapFailure> {
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
@@ -348,6 +353,12 @@ impl FirebaseBootstrapClient {
             local_id: String,
             email: String,
         }
+        // Minting is a read-only token exchange; a failure here dispatches no Auth mutation.
+        let access = self
+            .access
+            .token(&self.config)
+            .await
+            .map_err(BootstrapFailure::BeforeDispatch)?;
         let created: Created = self
             .request(
                 "accounts:signUp",
@@ -357,7 +368,7 @@ impl FirebaseBootstrapClient {
                     email_verified: false,
                     target_project_id: &self.config.project,
                 },
-                Some(access),
+                Some(&access),
             )
             .await?;
         if created.local_id != identity.uid() || created.email != identity.email().as_str() {
@@ -527,10 +538,31 @@ impl FirebaseBootstrapClient {
         })
     }
 
+    /// Test-only loopback constructors; neither exists in a production build. This one holds a
+    /// pre-seeded bearer and an unreachable token endpoint, so an accidental mint fails loudly.
     #[cfg(test)]
     fn fixture(
         config: FirebaseBootstrapConfig,
         address: std::net::SocketAddr,
+        timeout: Duration,
+    ) -> Result<Self, BootstrapError> {
+        Self::fixture_with_access(
+            config,
+            address,
+            AccessTokenSource::fixture_seeded(
+                "127.0.0.1:1".parse().unwrap(),
+                AdminAccessToken::parse("synthetic-access-token")?,
+                timeout,
+            )?,
+            timeout,
+        )
+    }
+
+    #[cfg(test)]
+    fn fixture_with_access(
+        config: FirebaseBootstrapConfig,
+        address: std::net::SocketAddr,
+        access: AccessTokenSource,
         timeout: Duration,
     ) -> Result<Self, BootstrapError> {
         if !address.ip().is_loopback() || address.port() == 0 {
@@ -540,23 +572,38 @@ impl FirebaseBootstrapClient {
             config,
             Url::parse(&format!("http://{address}/v1/"))
                 .map_err(|_| BootstrapError::Configuration)?,
+            access,
             timeout,
         )
     }
 }
 
-/// Concrete application port. Existing OAuth credential lifetime is supplied by the operator;
-/// no credential minting/renewal, secret storage, user adoption or hidden retries occur here.
+/// One fixed-origin HTTP policy for every Google call: no redirects, no inherited proxies, fresh
+/// HTTP/1 connections (reqwest's HTTP/2 GOAWAY retry can transparently repeat a mutation) and
+/// bounded connect/total time.
+fn fixed_origin_client(timeout: Duration) -> Result<Client, BootstrapError> {
+    Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
+        .http1_only()
+        .pool_max_idle_per_host(0)
+        .connect_timeout(Duration::from_secs(2))
+        .timeout(timeout)
+        .build()
+        .map_err(|_| BootstrapError::Configuration)
+}
+
+/// Concrete application port. The Auth-create bearer is minted and renewed in RAM by the
+/// client's `access` module from the service-account key; no secret storage, user adoption or
+/// hidden retries occur here.
 pub struct FirebaseMailboxProvider {
     client: FirebaseBootstrapClient,
-    access: AdminAccessToken,
     web_origin: Url,
 }
 
 impl FirebaseMailboxProvider {
     pub fn new(
         client: FirebaseBootstrapClient,
-        access: AdminAccessToken,
         web_origin: &str,
     ) -> Result<Self, RegistrationError> {
         let origin = Url::parse(web_origin).map_err(|_| RegistrationError::Configuration)?;
@@ -573,7 +620,6 @@ impl FirebaseMailboxProvider {
         }
         Ok(Self {
             client,
-            access,
             web_origin: origin,
         })
     }
@@ -606,7 +652,7 @@ impl MailboxProvider for FirebaseMailboxProvider {
         Box::pin(async move {
             let identity = self.identity(&enrollment)?;
             self.client
-                .create_user(&identity, &self.access)
+                .create_user(&identity)
                 .await
                 .map(|_| ())
                 .map_err(|failure| match failure {
@@ -692,7 +738,8 @@ fn transport_failure(error: reqwest::Error) -> BootstrapError {
     }
 }
 
-async fn decode<T: DeserializeOwned>(mut response: Response) -> Result<T, BootstrapError> {
+/// Shared bounded JSON body reader: no redirect, oversize or non-JSON body is ever interpreted.
+async fn read_json_body(mut response: Response) -> Result<(StatusCode, Vec<u8>), BootstrapError> {
     let status = response.status();
     if status.is_redirection() {
         return Err(BootstrapError::Redirect);
@@ -719,6 +766,11 @@ async fn decode<T: DeserializeOwned>(mut response: Response) -> Result<T, Bootst
         }
         bytes.extend_from_slice(&chunk);
     }
+    Ok((status, bytes))
+}
+
+async fn decode<T: DeserializeOwned>(response: Response) -> Result<T, BootstrapError> {
+    let (status, bytes) = read_json_body(response).await?;
     if status == StatusCode::TOO_MANY_REQUESTS {
         return Err(BootstrapError::Quota);
     }

@@ -14,7 +14,10 @@ activation:
   the default hosted handler. The requirement that the default handler never consumes the code first
   is unaccepted, and the first mail's code was invalid for an undetermined reason.
 - **Least privilege.** The default Admin SDK key was used; a dedicated narrow service account, role
-  and binding were never created. Signing/creation authority is unaccepted.
+  and binding were never created. The API now mints its own Auth-create bearer from the key
+  (implemented, fixture-tested; the one-hour limitation is gone), and the
+  [service-account design and runbook](firebase-enrollment-service-account.md) proposes the narrow
+  account, **not executed**. Signing/creation authority stays unaccepted.
 - **Cleanup.** The generated key (id prefix `2795eafc`), the test Firebase user, the test Kanidm
   person, local containers and the project changes are still in place; each deletion needs separate
   approval.
@@ -39,14 +42,15 @@ All following suffixes use `CANTOS_THEATRE_REGISTRATION_`:
 | `VERIFICATION_SECONDS`, `RESEND_SECONDS`, `WINDOW_SECONDS`, `MAX_GLOBAL_REQUESTS`, `MAX_NETWORK_REQUESTS` | Explicit bounded durable lifetime/cooldown/mail budgets; resends consume the same budget |
 | `SETUP_SECONDS`, `MAX_INFLIGHT`, `ATTEMPT_WINDOW_SECONDS`, `ATTEMPT_MAX_GLOBAL`, `ATTEMPT_MAX_NETWORK` | Explicit bounded setup lifetime and process-local admission policy |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY` | Exact verified project/key association; API key stays server-side in this design |
-| `FIREBASE_SERVICE_ACCOUNT_FILE` | Absolute existing secret-store file, regular and at most64KiB; service-account JSON with exact project, client email and RSA PKCS8 private key; only read at startup |
-| `FIREBASE_ADMIN_ACCESS_TOKEN` | Existing short-lived OAuth bearer with reviewed Auth-create authority; the API performs no OAuth refresh or CLI-login import |
+| `FIREBASE_SERVICE_ACCOUNT_FILE` | Absolute existing secret-store file, regular and at most64KiB; service-account JSON with exact project, client email and RSA PKCS8 private key; only read at startup. The API signs a JWT-bearer assertion with it and exchanges it at the fixed `https://oauth2.googleapis.com/token` for the `identitytoolkit`-scoped bearer that Auth create needs; the token is RAM-only, renewed 5 minutes before expiry, single-flight |
 | `FIREBASE_PROJECT_BINDING_APPROVED`, `FIREBASE_ACTION_HANDLER_APPROVED`, `FIREBASE_PROVIDER_ACCESS_APPROVED` | Explicit `true` declarations after the corresponding independent acceptance; declarations alone prove none of them |
 
 Existing Theatre OIDC issuer/client secret and exact Web origin must also match. Firebase
 requires the retained `/oauth2/openid/cantos-theatre-web-bff` issuer. The action origin and API
 are the existing same-origin BFF origin; cross-origin/Hosting authentication is not introduced.
-Tenant, emulator-host, endpoint and independent action-origin inputs are refused. Provider
+Tenant, emulator-host, endpoint, independent action-origin and the **retired**
+`FIREBASE_ADMIN_ACCESS_TOKEN` inputs are refused: a static bearer expires within about an hour and
+a second credential path would only preserve that failure, so it is not an alternative mode. Provider
 network origins are fixed Google HTTPS endpoints with certificate validation, no redirects,
 no inherited proxies and fresh HTTP/1 connections; test-only loopback constructors do not exist
 in production builds. Credentials, OOB codes and setup links are never persisted in receipts.
@@ -96,6 +100,10 @@ No background recovery/cleanup is supplied; PII/budget/audit retention needs ope
   Auth users/template consumers with separately authorized read access. Do not switch projects
   if it is unavailable. Existing CLI authentication, which can read project metadata, is not
   server bootstrap authority. A failed login must be repaired by the operator, never silently.
+- Create the dedicated account, one-permission role and key by the
+  [reviewed runbook](firebase-enrollment-service-account.md) (not executed), prove with one
+  approved real enrollment that its token and role suffice, then retire the broad default Admin SDK
+  key (id prefix `2795eafc`).
 - Independently establish API-key/project association and service-account effective authority.
   Google's read-only [key lookup](https://docs.cloud.google.com/api-keys/docs/reference/rest/v2/keys/lookupKey)
   requires existing `apikeys.keys.lookup`/OAuth permission; it is not a request to grant one.

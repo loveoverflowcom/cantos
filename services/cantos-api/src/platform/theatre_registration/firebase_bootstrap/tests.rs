@@ -17,7 +17,7 @@ pub(crate) fn service_account() -> Value {
     })
 }
 
-fn config() -> FirebaseBootstrapConfig {
+pub(super) fn config() -> FirebaseBootstrapConfig {
     FirebaseBootstrapConfig::parse(
         "candidate-project",
         "synthetic-api-key",
@@ -204,31 +204,30 @@ fn fixed_origin_and_debug_never_expose_service_key_tokens_or_recipient() {
         "https://example.test/#fragment",
     ] {
         assert_eq!(
-            FirebaseMailboxProvider::new(
-                FirebaseBootstrapClient::new(config()).unwrap(),
-                AdminAccessToken::parse("synthetic-access-token").unwrap(),
-                invalid,
-            )
-            .err(),
+            FirebaseMailboxProvider::new(FirebaseBootstrapClient::new(config()).unwrap(), invalid,)
+                .err(),
             Some(RegistrationError::Configuration)
         );
     }
 }
 
 #[derive(Debug)]
-struct Captured {
-    path: String,
-    authorization: Option<String>,
-    body: Value,
+pub(super) struct Captured {
+    pub(super) path: String,
+    pub(super) authorization: Option<String>,
+    pub(super) content_type: Option<String>,
+    pub(super) raw: Vec<u8>,
+    /// JSON body; `Null` for a non-JSON (form) request body.
+    pub(super) body: Value,
 }
 
-struct Reply {
-    status: u16,
-    content_type: &'static str,
-    body: String,
+pub(super) struct Reply {
+    pub(super) status: u16,
+    pub(super) content_type: &'static str,
+    pub(super) body: String,
 }
 
-fn ok(body: Value) -> Reply {
+pub(super) fn ok(body: Value) -> Reply {
     Reply {
         status: 200,
         content_type: "application/json",
@@ -236,7 +235,7 @@ fn ok(body: Value) -> Reply {
     }
 }
 
-async fn server(
+pub(super) async fn server(
     replies: Vec<Reply>,
 ) -> (std::net::SocketAddr, tokio::task::JoinHandle<Vec<Captured>>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -302,7 +301,14 @@ async fn read_request(socket: &mut tokio::net::TcpStream) -> Captured {
             key.eq_ignore_ascii_case("authorization")
                 .then(|| value.trim().to_owned())
         }),
-        body: serde_json::from_slice(&bytes[header_end..header_end + length]).unwrap(),
+        content_type: headers.lines().find_map(|line| {
+            let (key, value) = line.split_once(':')?;
+            key.eq_ignore_ascii_case("content-type")
+                .then(|| value.trim().to_owned())
+        }),
+        raw: bytes[header_end..header_end + length].to_vec(),
+        body: serde_json::from_slice(&bytes[header_end..header_end + length])
+            .unwrap_or(Value::Null),
     }
 }
 
@@ -316,7 +322,6 @@ async fn bootstrap_exchange_send_use_exact_minimal_requests_and_server_only_toke
     ]).await;
     let provider = FirebaseMailboxProvider::new(
         FirebaseBootstrapClient::fixture(config(), address, Duration::from_secs(1)).unwrap(),
-        AdminAccessToken::parse("synthetic-access-token").unwrap(),
         "https://cantos.example.test",
     )
     .unwrap();
@@ -407,13 +412,7 @@ async fn create_mismatch_and_conflict_never_produce_a_create_witness() {
         let (address, task) = server(vec![reply]).await;
         let client =
             FirebaseBootstrapClient::fixture(config(), address, Duration::from_secs(1)).unwrap();
-        assert_eq!(
-            client
-                .create_user(&identity(), &AdminAccessToken::parse("access").unwrap())
-                .await
-                .err(),
-            Some(expected)
-        );
+        assert_eq!(client.create_user(&identity()).await.err(), Some(expected));
         assert_eq!(task.await.unwrap().len(), 1);
     }
 }
@@ -510,7 +509,6 @@ async fn prepared_mail_credential_is_ram_only_and_bound_to_the_exact_enrollment(
     .await;
     let provider = FirebaseMailboxProvider::new(
         FirebaseBootstrapClient::fixture(config(), address, Duration::from_secs(1)).unwrap(),
-        AdminAccessToken::parse("synthetic-access-token").unwrap(),
         "https://cantos.example.test",
     )
     .unwrap();
@@ -603,11 +601,7 @@ async fn malformed_oversized_redirect_and_remote_failures_remain_sanitized() {
         let (address, task) = server(vec![reply]).await;
         let client =
             FirebaseBootstrapClient::fixture(config(), address, Duration::from_secs(1)).unwrap();
-        let error = client
-            .create_user(&identity(), &AdminAccessToken::parse("access").unwrap())
-            .await
-            .err()
-            .unwrap();
+        let error = client.create_user(&identity()).await.err().unwrap();
         assert_eq!(error, expected);
         assert!(!format!("{error:?}").contains("synthetic-unrecognized-private-detail"));
         assert_eq!(task.await.unwrap().len(), 1);
