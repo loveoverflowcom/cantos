@@ -71,9 +71,15 @@ COMMIT;" >"$2"
 }
 
 epoch2_guard_legacy() {
-  local database=$1 journal=$2 tree=$3
+  local database=$1 journal=$2 tree=$3 expected_schema=${4:-schema-oracle.sql}
+  case $expected_schema in
+    schema-oracle.sql|schema-oracle-restored.sql) ;;
+    *) die "unsupported legacy schema oracle" 65 ;;
+  esac
+  [[ $database != cantos || $expected_schema == schema-oracle.sql ]] ||
+    die "live database must match the fresh source oracle without normalization" 65
   epoch2_schema "$database" "$journal/schema-$database.sql"
-  cmp -s "$journal/schema-oracle.sql" "$journal/schema-$database.sql" ||
+  cmp -s "$journal/$expected_schema" "$journal/schema-$database.sql" ||
     die "legacy schema differs from the checked 28-migration image; unknown objects/columns require review" 65
   epoch2_registry "$database" "$journal/registry-$database.tsv"
   cmp -s "$journal/registry-expected.tsv" "$journal/registry-$database.tsv" ||
@@ -227,7 +233,7 @@ epoch2_record_pending() {
 epoch2_prepare() (
   set -Eeuo pipefail
   local revision=$1 tree=$2 journal previous suffix oracle rehearsal target old
-  require_root; with_lock
+  require_root; with_lock cutover
   if epoch2_pending; then
     epoch2_load "$revision"
     die "a cutover journal is pending; recover it before preparing another attempt" 75
@@ -266,10 +272,19 @@ PY
   epoch2_schema "$oracle" "$journal/schema-oracle.sql"
   epoch2_registry "$oracle" "$journal/registry-oracle.tsv"
   cmp -s "$journal/registry-expected.tsv" "$journal/registry-oracle.tsv" || die "legacy oracle checksum mismatch" 65
+  # PostgreSQL reparses CHECK expressions during restore and can flatten associative AND
+  # parentheses. Compare restored databases against an independently restored source oracle,
+  # never a text rewrite that could conceal a changed constraint in the live installation.
+  local restored_oracle=cantos_e1_normalized_$suffix
+  epoch2_dump "$oracle" "$journal/oracle.dump"
+  epoch2_restore_dump "$restored_oracle" "$journal/oracle.dump"
+  epoch2_schema "$restored_oracle" "$journal/schema-oracle-restored.sql"
+  epoch2_registry "$restored_oracle" "$journal/registry-oracle-restored.tsv"
+  cmp -s "$journal/registry-expected.tsv" "$journal/registry-oracle-restored.tsv" || die "restored legacy oracle checksum mismatch" 65
   epoch2_guard_legacy cantos "$journal" "$tree"
   epoch2_dump cantos "$journal/rehearsal.dump"
   epoch2_restore_dump "$rehearsal" "$journal/rehearsal.dump"
-  epoch2_guard_legacy "$rehearsal" "$journal" "$tree"
+  epoch2_guard_legacy "$rehearsal" "$journal" "$tree" schema-oracle-restored.sql
   epoch2_create_database "$target"
   printf 'new_oid=%s\n' "$(epoch2_database_oid "$target")" >>"$journal/meta"
   epoch2_migrate_database "$revision" "$target"
@@ -284,7 +299,7 @@ PY
   # A final restore drill verifies the exact frozen recovery media, not an earlier snapshot.
   local final_restore=cantos_e1_final_$suffix
   epoch2_restore_dump "$final_restore" "$journal/legacy-final.dump"
-  epoch2_guard_legacy "$final_restore" "$journal" "$tree"
+  epoch2_guard_legacy "$final_restore" "$journal" "$tree" schema-oracle-restored.sql
   epoch2_import "$final_restore" "$target" "$journal"
   epoch2_rows cantos "$journal/rows-frozen.jsonl"
   cmp -s "$journal/rows-frozen.jsonl" "$journal/rows-target.jsonl" || die "final recovery dump differs from frozen source" 65
@@ -302,7 +317,7 @@ PY
 epoch2_commit() (
   set -Eeuo pipefail
   local revision=$1 tree=$2 journal incoming=${2%/tree} target retained old_oid new_oid
-  require_root; with_lock; epoch2_load "$revision"; journal=$EPOCH2_JOURNAL
+  require_root; with_lock cutover; epoch2_load "$revision"; journal=$EPOCH2_JOURNAL
   [[ $(<"$journal/phase") == prepared ]] || die "cutover is not prepared; recover/reconcile before continuing" 75
   [[ -f $incoming/cutover-offhost.sha256 ]] &&
     cmp -s "$incoming/cutover-backup.tar.sha256" "$incoming/cutover-offhost.sha256" || die "verified off-host recovery copy acknowledgement missing" 65
@@ -417,6 +432,6 @@ epoch2_recover_impl() {
 
 epoch2_recover() (
   set -Eeuo pipefail
-  require_root; with_lock
+  require_root; with_lock cutover
   epoch2_recover_impl "$1" "$2"
 )

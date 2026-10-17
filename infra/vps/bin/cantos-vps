@@ -55,6 +55,11 @@ with_lock() {
   exec 9>"$LOCK"
   flock -n 9 || die "another cantos-vps operation holds $LOCK" 75
   CANTOS_VPS_LOCK_OWNER=$BASHPID
+  # A shell may have passed main's guard before preparation acquired/released the
+  # lock. Recheck under the lock so that stale process cannot mutate a prepared host.
+  if [[ ${1:-ordinary} != cutover && -s $STATE/epoch2-cutover.pending ]]; then
+    die 'epoch2 cutover pending; ordinary mutations are refused under the operation lock' 75
+  fi
 }
 
 # KEY=VALUE reader that never sources the file (values stay inert).
@@ -827,7 +832,7 @@ main() {
     bootstrap) bootstrap ;;
     deploy) deploy "$@" ;;
     rollback) rollback ;;
-    backup) require_root; backup "$@" >/dev/null ;;
+    backup) require_root; with_lock; backup "$@" >/dev/null ;;
     restore) restore "$@" ;;
     status) status ;;
     identity) identity "$@" ;;

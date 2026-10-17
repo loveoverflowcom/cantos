@@ -3,6 +3,7 @@
 These assertions exercise the real recovery/commit decisions. They are not PostgreSQL or
 VPS acceptance; the separate restored-database rehearsal owns those claims.
 """
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -18,7 +19,7 @@ JOURNAL = "aaaaaaaaaaaa-123-456"
 
 
 class Epoch2CutoverTests(unittest.TestCase):
-    def shell(self, body, *, phase="prepared", old_name="cantos", new_name="cantos_e2_stage_test"):
+    def shell(self, body, *, phase="prepared", old_name="cantos", new_name="cantos_e2_stage_test", extra_env=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             journal = root / "state/epoch2-cutovers" / JOURNAL
@@ -81,6 +82,7 @@ edge_probe() { event edge-probe; }
 sha256sum() { [[ ${FAIL_ARCHIVE_HASH:-0} == 0 ]]; }
 '''
             env = dict(os.environ, FIXTURE_ROOT=directory, TARGET=TARGET, PREVIOUS=PREVIOUS)
+            env.update(extra_env or {})
             result = subprocess.run(["bash"], input=prelude + HELPER + doubles + body,
                                     capture_output=True, text=True, env=env, check=False)
             events = (root / "events").read_text().splitlines() if (root / "events").exists() else []
@@ -192,6 +194,41 @@ epoch2_guard_legacy cantos "$STATE/epoch2-cutovers/aaaaaaaaaaaa-123-456" "$ROOT/
         self.assertEqual(result.returncode, 65, result.stderr)
         self.assertIn("unknown objects/columns", result.stderr)
         self.assertNotIn("registry", events)
+
+    def test_restored_schema_uses_an_independently_restored_oracle_without_rewriting_checks(self):
+        fixture = json.loads((ROOT / "scripts/fixtures/epoch2-pg17-restore-checks.json").read_text())
+        raw = "\n".join(row["fresh_source"] for row in fixture["constraints"])
+        restored = "\n".join(row["restored_source"] for row in fixture["constraints"])
+        self.assertNotEqual(raw, restored)
+        actual_guard = HELPER[HELPER.index("epoch2_guard_legacy() {"):
+                              HELPER.index("\nepoch2_dump()")]
+        setup = r'''
+directory=$STATE/epoch2-cutovers/aaaaaaaaaaaa-123-456
+printf '%s' "$FRESH_SCHEMA" >"$directory/schema-oracle.sql"
+printf '%s' "$RESTORED_SCHEMA" >"$directory/schema-oracle-restored.sql"
+printf checked >"$directory/registry-expected.tsv"
+mkdir -p "$ROOT/incoming/$TARGET/tree/infra/vps/postgres"
+: >"$ROOT/incoming/$TARGET/tree/infra/vps/postgres/epoch2-empty-business-guard.sql"
+epoch2_schema() { printf '%s' "$ACTUAL_SCHEMA" >"$2"; }
+epoch2_registry() { printf checked >"$2"; }
+psql_superuser() { event data-guard; cat >/dev/null; }
+'''
+        cases = (
+            ("fresh-live", "cantos", "schema-oracle.sql", raw, 0),
+            ("restored", "cantos_e1_restore_test", "schema-oracle-restored.sql", restored, 0),
+            ("changed-check", "cantos_e1_restore_test", "schema-oracle-restored.sql",
+             restored.replace("octet_length(issuer) <= 1024", "octet_length(issuer) <= 1023"), 65),
+            ("no-text-normalizer", "cantos_e1_restore_test", "schema-oracle.sql", restored, 65),
+            ("never-normalize-live", "cantos", "schema-oracle-restored.sql", restored, 65),
+        )
+        for name, database, expected_schema, observed, status in cases:
+            with self.subTest(name=name):
+                body = (actual_guard + setup +
+                        f'epoch2_guard_legacy {database} "$directory" "$ROOT/incoming/$TARGET/tree" {expected_schema}\n')
+                result, events, _ = self.shell(body, extra_env={
+                    "FRESH_SCHEMA": raw, "RESTORED_SCHEMA": restored, "ACTUAL_SCHEMA": observed})
+                self.assertEqual(result.returncode, status, result.stderr)
+                self.assertEqual("data-guard" in events, status == 0)
 
     def test_transfer_never_disables_constraints_or_triggers(self):
         self.assertNotIn("session_replication_role", HELPER)

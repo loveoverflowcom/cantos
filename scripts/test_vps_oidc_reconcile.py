@@ -43,6 +43,22 @@ else:attrs['oauth2_strict_redirect_uri']=['true' if action.startswith('enable') 
 
 
 class VpsOidcReconcileTests(unittest.TestCase):
+    def test_pending_created_between_entry_guard_and_lock_refuses_stale_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "state").mkdir()
+            script = HOST.replace("readonly LOCK=/run/lock/cantos-vps.lock",
+                                  f"readonly LOCK={root}/operation.lock")
+            script += '''
+flock() { command flock "$@"; printf pending >"$STATE/epoch2-cutover.pending"; }
+with_lock
+printf unexpected-mutation
+'''
+            result = subprocess.run(["bash"], input=script, capture_output=True,
+                text=True, check=False, env=dict(os.environ, CANTOS_VPS_ROOT=directory))
+            self.assertEqual(result.returncode, 75, result.stderr)
+            self.assertNotIn("unexpected-mutation", result.stdout)
+
     def test_nested_operations_reuse_the_same_lock_descriptor(self):
         with tempfile.TemporaryDirectory() as directory:
             lock = Path(directory) / "operation.lock"
@@ -62,7 +78,8 @@ with open(sys.argv[1],'a') as file:
 PY
 '''
             result = subprocess.run(["bash"], input=script, capture_output=True,
-                                    text=True, check=False)
+                                    text=True, check=False,
+                                    env=dict(os.environ, CANTOS_VPS_ROOT=directory))
             self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_pending_cutover_blocks_mutation_before_provider_or_runtime_effects(self):

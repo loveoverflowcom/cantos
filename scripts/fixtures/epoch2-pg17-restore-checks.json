@@ -1,0 +1,29 @@
+{
+  "provenance": {
+    "legacy_revision": "883e188095227f04fb92cf4dcd29c659ac9de1fe",
+    "server": "PostgreSQL 17.11",
+    "observation": "Source image oracle and live schema matched exactly; restoring the custom dump flattened associative AND parentheses in these four CHECK expressions. This fixture contains DDL only."
+  },
+  "constraints": [
+    {
+      "constraint": "actor_external_identities_issuer_check",
+      "fresh_source": "    CONSTRAINT actor_external_identities_issuer_check CHECK ((((octet_length(issuer) >= 1) AND (octet_length(issuer) <= 1024)) AND (issuer !~ '^[ \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$'::text) AND (issuer !~ '[\u0001-\u001f\u007f-\u009f]'::text))),",
+      "restored_source": "    CONSTRAINT actor_external_identities_issuer_check CHECK (((octet_length(issuer) >= 1) AND (octet_length(issuer) <= 1024) AND (issuer !~ '^[ \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$'::text) AND (issuer !~ '[\u0001-\u001f\u007f-\u009f]'::text))),"
+    },
+    {
+      "constraint": "actor_external_identities_subject_check",
+      "fresh_source": "    CONSTRAINT actor_external_identities_subject_check CHECK ((((octet_length(subject) >= 1) AND (octet_length(subject) <= 512)) AND (subject !~ '^[ \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$'::text) AND (subject !~ '[\u0001-\u001f\u007f-\u009f]'::text)))",
+      "restored_source": "    CONSTRAINT actor_external_identities_subject_check CHECK (((octet_length(subject) >= 1) AND (octet_length(subject) <= 512) AND (subject !~ '^[ \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$'::text) AND (subject !~ '[\u0001-\u001f\u007f-\u009f]'::text)))"
+    },
+    {
+      "constraint": "media_work_artwork_changes_alt_text_check",
+      "fresh_source": "    CONSTRAINT media_work_artwork_changes_alt_text_check CHECK (((alt_text IS NULL) OR (((octet_length(alt_text) >= 1) AND (octet_length(alt_text) <= 1024)) AND (length(btrim(alt_text)) > 0) AND (alt_text !~ '[[:cntrl:]]'::text)))),",
+      "restored_source": "    CONSTRAINT media_work_artwork_changes_alt_text_check CHECK (((alt_text IS NULL) OR ((octet_length(alt_text) >= 1) AND (octet_length(alt_text) <= 1024) AND (length(btrim(alt_text)) > 0) AND (alt_text !~ '[[:cntrl:]]'::text)))),"
+    },
+    {
+      "constraint": "theatre_firebase_enrollments_project_check",
+      "fresh_source": "    CONSTRAINT theatre_firebase_enrollments_project_check CHECK ((((length(project) >= 6) AND (length(project) <= 30)) AND (project ~ '^[a-z][a-z0-9-]*[a-z0-9]$'::text)))",
+      "restored_source": "    CONSTRAINT theatre_firebase_enrollments_project_check CHECK (((length(project) >= 6) AND (length(project) <= 30) AND (project ~ '^[a-z][a-z0-9-]*[a-z0-9]$'::text)))"
+    }
+  ]
+}
