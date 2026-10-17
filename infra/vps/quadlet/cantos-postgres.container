@@ -14,7 +14,7 @@ Environment=POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
 Environment=POSTGRES_INITDB_ARGS=--auth-local=scram-sha-256 --auth-host=scram-sha-256
 Exec=postgres -c listen_addresses= -c max_connections=40 -c shared_buffers=128MB
 HealthCmd=pg_isready -h /var/run/postgresql -p 5432
-HealthInterval=30s
+HealthInterval=15s
 HealthStartPeriod=60s
 HealthRetries=3
 Notify=healthy

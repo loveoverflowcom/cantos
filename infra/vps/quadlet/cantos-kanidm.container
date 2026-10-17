@@ -16,7 +16,7 @@ Volume=/root/cantos-services/kanidm:/config:ro
 Exec=/sbin/kanidmd server -c /config/server.toml
 # Exec form: the image has no /bin/sh for a shell-form health command.
 HealthCmd=["/sbin/kanidmd","scripting","healthcheck","--verify-tls","-c","/config/server.toml"]
-HealthInterval=60s
+HealthInterval=15s
 HealthStartPeriod=60s
 HealthRetries=3
 Notify=healthy
