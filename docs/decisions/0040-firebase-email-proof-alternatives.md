@@ -51,7 +51,7 @@ Required outcome: **A never receives B's credential-setup capability**, and S ca
 | 1. Default hosted handler; API reads `emailVerified` or the user record (polling) | Only that *someone* applied *a* code for the UID. A, polling from the initiating browser, would then be handed B's setup link; S can flip the flag. | **Rejected: unsafe.** This is the exact A-enters-B scenario. |
 | 2. Default hosted handler; user lands on `continueUrl` | Nothing: the page can be opened by A directly, carries no code or token, and the code is already consumed. | **Rejected: unsafe.** |
 | 3. Custom action handler on the Cantos origin, stock mail (ADR 0036) | Possession of the actual `oobCode`: a non-consuming purpose check, then the API consumes the same code and requires the exact dedicated UID and email. Initiator cookie, polling and tokens grant nothing. | **Safe, and already implemented**, but **blocked** on the Spark project. Unknown whether a plan change lifts it. |
-| 4. Email-link sign-in (`EMAIL_SIGNIN`) with a per-send `continueUrl`; the Cantos origin receives the link and the API calls `accounts:signInWithEmailLink` | Possession of the emailed link, consumed server-side; the response carries the ID token whose `email` is the recipient. The action URL is chosen per request, not as a template setting, so the Spark restriction may not apply. | **Unverified.** Not shown to avoid the default handler consuming the code first; no non-consuming inspection is known; Firebase assigns the UID, so ADR 0036's dedicated-UID exclusivity must be redesigned; needs Email-link sign-in enabled. Candidate only. |
+| 4. Email-link sign-in (`EMAIL_SIGNIN`) with a per-send `continueUrl`; the Cantos origin receives the link and the API calls `accounts:signInWithEmailLink` | Possession of the emailed link, consumed server-side; the response carries the ID token whose `email` is the recipient. The action URL is chosen per request, not as a template setting. | **Partly observed (probe B):** accepted on the current project and the hosted handler forwarded the code to the continue origin. Not shown: code still unconsumed; no non-consuming inspection is known; Firebase assigns the UID, so ADR 0036's dedicated-UID exclusivity must be redesigned; needs Email-link sign-in enabled. Candidate for a new ADR. |
 | 5. Cantos mints a custom token for the initiator who then proves the email | The initiator, not the mailbox owner, holds the token. | **Forbidden** by the task and unsafe. |
 | 6. Another mail path (SMTP) | Proof by delivery of Cantos' own message | Outside the owner's constraint (no second provider); remains the existing ADR 0034 mode. |
 
@@ -68,19 +68,19 @@ time window, project, revocation or disabled state, and the operation binding.
 2. The safe path is possession of a code or link that only the mailbox owner holds, **consumed
    by Cantos** (options 3 or 4). Option 3 is built and tested but needs a Firebase project that
    accepts a custom action URL; option 4 needs an owner-authorized experiment and a new design.
-3. Proven here: the threat model, why options 1, 2 and 5 fail, and that option 3 satisfies the
-   binding in fixtures, emulator and one live run with the action URL copied by hand.
-   Not proven: that the default hosted handler never consumes an `EMAIL_SIGNIN` code before
-   redirecting, what a plan change does to the action-URL restriction, and project/key
-   association.
+3. Proven here: the threat model, why options 1, 2 and 5 fail, that option 3 satisfies the
+   binding in fixtures, emulator and one live run with the action URL copied by hand, and (probe B)
+   that the default handler forwards an `EMAIL_SIGNIN` code to the continue origin.
+   Not proven: that the forwarded code is unconsumed, what a plan change does to the action-URL
+   restriction, and project/key association.
 
 ## Requested decisions (none taken by this record)
 
 - **A.** Authorize a bounded probe of whether `cantos-a348b` accepts the action URL after the
   owner's chosen plan or project change, using at most the approved recipient and mail budget.
-- **B.** Or authorize a probe (at most two mails to the approved recipient) of option 4: does
-  the default handler redirect an `EMAIL_SIGNIN` link to the Cantos origin with the code
-  unconsumed? A positive result opens a new ADR for that design; a negative result closes it.
+- **B.** *(Partly done, see probe B.)* To finish it, authorize redeeming one forwarded code
+  (it signs in or creates one Firebase user for the approved recipient) to show it was unconsumed.
+  A positive result opens a new ADR for the option 4 design; a negative result closes it.
 - **C.** If neither yields a safe proof, keep Firebase mode disabled and use the existing
   SMTP enrollment (ADR 0034) when a mail relay is acceptable.
 
@@ -94,6 +94,33 @@ shows the project unchanged (`https://cantos-a348b.firebaseapp.com/__/auth/actio
 not re-inspected, so the cause stays unestablished; no mail was sent. Option 3 therefore remains
 blocked on this project, and the remaining choices are a different project/plan the owner names,
 probe B, or C.
+
+## Probe B result (2026-10-17)
+
+With the owner's authorization (one recipient, at most two mails, email-link enabled temporarily,
+no plan or authorized-domain change), one `EMAIL_SIGNIN` mail was sent through the admin
+`accounts:sendOobCode` endpoint with `continueUrl=https://cantos-a348b.web.app/?probe=1`
+(an already-authorized domain) and `canHandleCodeInApp:true`. The owner then opened the mail's
+link and reported the browser's final URL. Observed (the code itself is deliberately not recorded):
+
+- the send succeeded on this project, so a **per-request `continueUrl` is accepted where the
+  project-wide action URL is refused** (probe A);
+- the browser ended on the `continueUrl` origin, carrying `probe=1`, `apiKey`, `mode=signIn`,
+  `oobCode` and `lang`: the default hosted handler **forwarded the code to the application instead
+  of keeping it**;
+- `signIn.email.passwordRequired` was restored to `true` by the owner right after (output seen).
+
+Not shown: that the forwarded code was still **unconsumed**. The documented client flow
+(`isSignInWithEmailLink` then `signInWithEmailLink` on the redirected page) implies it, but
+proving it means redeeming a code, which would sign in or create a Firebase user and was not
+authorized. Also unobserved: behavior for a recipient without a Firebase user while client
+sign-up is disabled, the server-side `accounts:signInWithEmailLink` response shape, and
+whether any non-consuming inspection exists. One of the two approved mails remains unused.
+
+Effect on the options: option 4 is now the only candidate with observed support on the current
+project; it is still a **new design** (UID is assigned by Firebase, the code is redeemed rather than
+inspected first, dedicated-UID exclusivity and the operation binding must be redone) and needs its
+own ADR and owner decision before any code.
 
 ## Consequences
 

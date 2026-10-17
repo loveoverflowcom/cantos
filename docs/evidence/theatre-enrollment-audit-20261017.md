@@ -90,6 +90,12 @@ rejected again with `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`; read-back confirmed no 
 was sent (details in ADR 0040). Evidence level: integration-tested against the real Identity
 Toolkit admin API for the negative result only.
 
+Second probe (`EMAIL_SIGNIN`, one mail to the approved recipient, email-link enabled then restored
+by the owner): the send succeeded with a per-request `continueUrl`, and the default hosted handler
+forwarded the code to the continue origin (details and limits in ADR 0040). Run by the owner on
+their machine from scripts written for this purpose after the automatic permission classifier
+refused the agent-run call; the agent saw only the owner-pasted output.
+
 ## Not covered / residual risk
 
 - **Live behavior** of every edge change on the VPS, including real Kanidm sign-in and credential
