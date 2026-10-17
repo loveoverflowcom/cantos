@@ -115,8 +115,9 @@ def reap_completed_databases(env, cluster_url, retained):
     if any(not re.fullmatch(r"cantos_test_[a-z0-9_]+", name) for name in candidates):
         raise ValueError("unsafe disposable database name")
     for name in candidates:
+        # Durable DROP can wait for the current checkpoint; observed local sync exceeds 10s.
         subprocess.run(command + [f'DROP DATABASE "{name}"'], env=env, text=True,
-                       capture_output=True, check=True, timeout=10)
+                       capture_output=True, check=True, timeout=60)
     print(f"Released {len(candidates)} completed disposable test databases", flush=True)
 
 
