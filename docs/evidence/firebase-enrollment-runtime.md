@@ -207,3 +207,34 @@ allowlist and scoped Firebase CLI/gate coexist. Reviewer read the resolved docum
 unchanged Firebase source; this review is not a full re-review or live acceptance of upstream
 features. Final merge-commit identity is recorded in the PR. Keep Draft/default-off; no merge
 into develop is justified by these partial aggregate results.
+
+## Follow-up: minted Auth-create bearer (no more one-hour operator token)
+
+Branch `claude/firebase-sa-token-009524` from develop `8786bdc`. Code and docs only: no call to
+Firebase or Google Cloud, no account, role, key or grant created, no deployment, no VPS access.
+Design and runbook: [service-account design](../deployment/firebase-enrollment-service-account.md).
+
+| Claim | Status |
+| --- | --- |
+| **Implemented** | `firebase_bootstrap/access.rs` signs a JWT-bearer assertion (`identitytoolkit` scope) with the already-read service-account key, exchanges it at the fixed `https://oauth2.googleapis.com/token` and caches the bearer in RAM. Refresh is lazy at 5 minutes before expiry, single-flight under one async mutex, and a failed refresh drops the stale value. HTTP policy is shared with the Identity Toolkit client (no redirects, proxies or pooled connections; 2s/5s). `FIREBASE_ADMIN_ACCESS_TOKEN` is retired and refused at startup; the bearer has no public constructor from configuration. |
+| **Fixture-tested** | `cargo test --locked -p cantos-api --lib theatre_registration::firebase` PASS69, 17 ignored (12 new `firebase_bootstrap::access` + 1 new config test). Covers exact assertion claims and signature, request form shape, grant parsing and margin boundaries (`expires_in` ≤300 or >3600, wrong type, empty or oversized token rejected), provider/transport error mapping and redaction, reuse/expiry/refresh sequence, stale-not-served after failed refresh, 16 concurrent callers sharing one request, timeout/unreachable, fixed production origin, loopback-only test constructors, and `create_user` sending the minted bearer and dispatching nothing after a refused mint. `cargo clippy --locked -p cantos-api --all-targets -- -D warnings` PASS. Local fake token endpoints only. |
+| **Proposed, not executed** | Dedicated account `cantos-enrollment`, a one-permission (`firebaseauth.users.create`) custom role and its binding, key handling as a root-only Podman secret, rotation and retirement of the broad default Admin SDK key (id prefix `2795eafc`). |
+| **Not verified** | Google accepting the `identitytoolkit` scope and the one-permission role for `accounts:signUp`; the custom-token signer needing no extra grant; real token lifetimes; key creation not blocked by org policy; the Podman secret mount; deletion of the old key. |
+
+Gates as printed (Linux, Rust 1.98.1, `CFLAGS=-std=gnu17`, `TMPDIR` outside any checkout):
+`cargo xtask verify rust` **PASS** (rust-format, rust-lint workspace, rust-tests workspace);
+`verify contracts` NOT_RUN (no contract touched). `cargo xtask preflight --changed-only`:
+**UNSUPPORTED** (`postgres` missing `initdb`/`pg_ctl`/`psql`; nothing else started). With
+`--skip postgres`: **FAIL** `repository` (`check_repository.py`: stale Leptos component
+qualification and adoption lines for UI files this change does not touch; the identical 16 adoption
+lines and header are reproduced on a clean checkout of the base commit), so rust-format,
+rust-lint, rust-tests, dbsp, wav-reference and audio-inspection were NOT_RUN by preflight (the
+rust ones were run through `verify rust` above). `verify postgres` was not run: no SQL changed.
+
+Behavioral note: a mint refusal happens before the Auth create is dispatched and is mapped, like any
+pre-dispatch failure, to a rejected create for that enrollment (no automatic retry, no user
+created); a fresh attempt gets a new UID. There is no backoff between mint attempts; admission
+limits bound the rate.
+
+Unchanged and still unaccepted: custom Action URL on the Spark project, live IAM, project/API-key
+binding, the real journey with the new credential, and cleanup of the live-test artifacts.

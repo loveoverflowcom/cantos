@@ -108,9 +108,13 @@ Origins/CSRF, action leakage and cross-device continuation remain separate gates
 - Compatibility: additive migration0028 and capability `firebase_email_verification`; existing
   SMTP contract and historical migration bytes remain intact. Web is the first consumer;
   native consumption and device acceptance are not inferred.
-- Operations: existing service-account signing material and an existing short-lived admin
-  OAuth bearer must be supplied securely by an operator. The code creates neither, refreshes
-  no OAuth credential and never uses Firebase CLI login as server authority.
+- Operations: an operator must supply service-account signing material securely. The API mints
+  and renews its own short-lived `identitytoolkit`-scoped bearer from it in RAM (JWT-bearer
+  exchange at the fixed Google token origin; single-flight, expiry margin, fail closed) and
+  never uses Firebase CLI login as server authority. The earlier operator-supplied bearer input
+  is retired, not kept as a mode; the code creates no account, role or key. A dedicated
+  one-permission account and key lifecycle are proposed in the
+  [service-account runbook](../deployment/firebase-enrollment-service-account.md), not executed.
 - Storage: business state, effect fences, budgets and audit remain in PostgreSQL. Firebase has
   necessary Auth UID/email records. No action code, provider token or setup secret is persisted.
   Current receipts are retained; age-based cleanup requires a separate reviewed procedure.
@@ -122,7 +126,8 @@ Origins/CSRF, action leakage and cross-device continuation remain separate gates
   Email/Password provider enabled (reported as a 503 configuration fault). It does not accept
   activation, and these gates remain **open**: a custom action handler (the Spark project refused the
   action URL, so the default hosted handler still receives the link), a least-privilege
-  signing/creation credential (the broad default Admin SDK key was used) and cleanup of that key,
+  signing/creation credential (the broad default Admin SDK key was used; the narrow account is
+  designed but not created, and the old key not retired) and cleanup of that key,
   the test user and the test person.
 - Unaccepted activation gates: exact project/API-key association, effective Auth and Kanidm
   target protection, existing-email behavior, numeric policy/retention, safe action ingress,

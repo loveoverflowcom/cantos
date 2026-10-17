@@ -10,8 +10,7 @@ use crate::platform::{
         domain::{RegistrationError, RegistrationPolicy},
         firebase_action::{ApiKey, FirebaseActionClient, FirebaseProjectId},
         firebase_bootstrap::{
-            AdminAccessToken, FirebaseBootstrapClient, FirebaseBootstrapConfig,
-            FirebaseMailboxProvider,
+            FirebaseBootstrapClient, FirebaseBootstrapConfig, FirebaseMailboxProvider,
         },
         kanidm::{KanidmConfig, KanidmIssuer},
         mail_config::SmtpConfig,
@@ -20,12 +19,19 @@ use crate::platform::{
 };
 use std::{collections::BTreeMap, io::Read, path::Path, sync::Arc};
 const PREFIX: &str = "CANTOS_THEATRE_REGISTRATION_FIREBASE_";
-const UNSUPPORTED: &[&str] = &["TENANT_ID", "EMULATOR_HOST", "ENDPOINT", "ACTION_ORIGIN"];
+// ADMIN_ACCESS_TOKEN is retired: a hand-supplied bearer expires in about an hour. The API mints
+// its own short-lived token from SERVICE_ACCOUNT_FILE, so a static token is refused, never mixed.
+const UNSUPPORTED: &[&str] = &[
+    "TENANT_ID",
+    "EMULATOR_HOST",
+    "ENDPOINT",
+    "ACTION_ORIGIN",
+    "ADMIN_ACCESS_TOKEN",
+];
 const FIELDS: &[&str] = &[
     "PROJECT_ID",
     "API_KEY",
     "SERVICE_ACCOUNT_FILE",
-    "ADMIN_ACCESS_TOKEN",
     "PROJECT_BINDING_APPROVED",
     "ACTION_HANDLER_APPROVED",
     "PROVIDER_ACCESS_APPROVED",
@@ -153,13 +159,8 @@ pub fn from_lookup(
             .map_err(|_| RegistrationError::Configuration)?,
     )
     .map_err(|_| RegistrationError::Configuration)?;
-    let mailbox = FirebaseMailboxProvider::new(
-        bootstrap,
-        AdminAccessToken::parse(firebase("ADMIN_ACCESS_TOKEN")?)
-            .map_err(|_| RegistrationError::Configuration)?,
-        web_origin,
-    )
-    .map_err(|_| RegistrationError::Configuration)?;
+    let mailbox = FirebaseMailboxProvider::new(bootstrap, web_origin)
+        .map_err(|_| RegistrationError::Configuration)?;
     let issuer_adapter = KanidmIssuer::new(
         KanidmConfig::new(
             &issuer,
@@ -220,6 +221,16 @@ mod tests {
                 .unwrap(),
         )
         .unwrap()
+    }
+    #[test]
+    fn retired_static_bearer_counts_as_an_input_and_is_refused_alone() {
+        let lookup = |name: &str| {
+            (name == format!("{PREFIX}ADMIN_ACCESS_TOKEN"))
+                .then(|| "synthetic-admin-bearer".to_owned())
+        };
+        assert!(has_inputs(&mut |name| lookup(name)));
+        assert!(!FIELDS.contains(&"ADMIN_ACCESS_TOKEN"));
+        assert!(from_lookup(store(), "https://cantos.example", lookup).is_err());
     }
     #[tokio::test]
     async fn selected_firebase_requires_explicit_enable_and_refuses_every_partial_or_smtp_fallback()
@@ -307,7 +318,6 @@ mod tests {
             ("ATTEMPT_MAX_NETWORK", "10"),
             ("FIREBASE_PROJECT_ID", "candidate-project"),
             ("FIREBASE_API_KEY", "synthetic-key"),
-            ("FIREBASE_ADMIN_ACCESS_TOKEN", "synthetic-admin-bearer"),
             ("FIREBASE_PROJECT_BINDING_APPROVED", "true"),
             ("FIREBASE_ACTION_HANDLER_APPROVED", "true"),
             ("FIREBASE_PROVIDER_ACCESS_APPROVED", "true"),
@@ -370,6 +380,11 @@ mod tests {
             (
                 "CANTOS_THEATRE_REGISTRATION_FIREBASE_TENANT_ID",
                 "unsupported",
+            ),
+            // The retired static bearer is refused, never mixed with the minting path.
+            (
+                "CANTOS_THEATRE_REGISTRATION_FIREBASE_ADMIN_ACCESS_TOKEN",
+                "synthetic-admin-bearer",
             ),
             ("FIREBASE_AUTH_EMULATOR_HOST", "127.0.0.1:9099"),
             ("CANTOS_THEATRE_REGISTRATION_SMTP_HOST", "127.0.0.1"),
