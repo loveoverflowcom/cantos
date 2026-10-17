@@ -8,8 +8,11 @@ remote status and Hosting releases before every operation; this document is not 
 **Schema transition:** current source requires epoch 2. Ordinary deploy/rollback refuses the
 previous epoch-1 database and images; it cannot convert the deployed installation. Read the
 [controlled cutover runbook](postgres-schema-cutover.md) before packaging this source for a
-live host. Inventory, backup/restore and approved data conversion remain separate from source
-verification. PostgreSQL 17.11 stays pinned until a separate major-upgrade acceptance.
+live host. The separate `--cutover-epoch2` lane supports only the checked legacy
+`883e188`/28-migration installation with empty business/session tables and the specified clock
+and OIDC-flow rows. It rehearses a sibling restore/import and verifies an off-host recovery
+copy before switching. A general populated-data transformer remains unimplemented; live
+cutover acceptance is NOT_RUN in this source description. PostgreSQL 17.11 stays pinned.
 
 ## Destinations and remaining transition
 
@@ -100,13 +103,15 @@ validation covers the per-surface Quadlet/env-file composition, not arbitrary op
 replacement of the service.
 
 When generated `api-<surface>-oidc.env` exists, deploy/rollback also require matching callbacks
-in `config/oidc-callbacks.env`. Only separately authorized `cantos-vps identity` writes that input
-receipt after configuring the clients with the Web origins and API callbacks above. Existing
-installations without it fail closed. Review the existing client origin, issuer, allowed redirects
-and obsolete callbacks before reconciliation: identity's add-redirect operation does not delete
-old provider redirects or update an existing client's display/origin metadata. The receipt records
-configured inputs, not live discovery/login or exclusive provider allowlists. Do not hand-write
-it as a shortcut around provider review.
+in `config/oidc-callbacks.env`. Existing installations without it fail closed. For the two
+existing clients, `cantos-vps identity --reconcile-existing` updates landing URLs, replaces
+obsolete callbacks with the exact reviewed callback set and enables strict redirect matching.
+It checks provider readback, protected client attributes, group membership, the unchanged
+Studio roster file and the basic-secret digest before writing the receipt. The epoch cutover
+uses the same reconciler with the six staged inputs described in the
+[cutover procedure](postgres-schema-cutover.md#implemented-narrow-epoch-1-cutover).
+The receipt establishes those observed configuration inputs, not live discovery/login or
+underlying bytes hidden by provider redaction. Never hand-write it as a shortcut.
 
 Public anonymous reads can use web.app → DuckDNS after deployment. Authentication cannot be
 accepted on those cross-site names with the retained Strict cookies. Supply reviewed same-site
@@ -126,6 +131,7 @@ host, or Firebase project/channel/app. An audit/PR request is not deployment per
 ```bash
 cargo xtask deploy vps cantos-api --host root@42.96.18.245 --dry-run
 cargo xtask deploy vps cantos-api --host root@42.96.18.245 --bootstrap --dry-run
+cargo xtask deploy vps cantos-api --host root@42.96.18.245 --cutover-epoch2 --dry-run
 CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org \
   cargo xtask deploy firebase cantos-theatre --web --project cantos-a348b --channel live --dry-run
 CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org \
@@ -137,13 +143,26 @@ backs up, migrates as `cantos_owner`, reapplies runtime grants, switches both AP
 health-gates and switches back on failure. Migrations remain forward-only. Unknown outcomes require
 status/console reconciliation before replay. Never initialize/start/change a local Podman machine
 as an audit side effect. CircleCI remains manual; CI is not user acceptance.
+The narrow cutover is a separate operation: preserve its pending journal, incoming source tree
+and private local off-host archive. Its [state-aware recovery command](postgres-schema-cutover.md#implemented-narrow-epoch-1-cutover)
+uses the same full revision and incoming tree; an accepted cutover can only be finalized,
+because returning to legacy data could discard new writes.
 
 ## Identity: Studio administrator and Theatre sign-in (operator-run)
 
-Existing accounts only for acceptance. `cantos-vps identity` changes accounts, clients, groups,
-secrets, roster and API units: it requires separate explicit delegation naming host/accounts.
-Deployment authorization does not grant it. Password/passkey/MFA setup belongs to the operator's
-interactive browser. Never put credentials or reset links in chat, Git, screenshots or shared logs.
+Existing accounts only for acceptance. The account-provisioning form
+`cantos-vps identity --studio-admin NAME [--display TEXT] [--listener NAME]` changes accounts,
+clients, groups, secrets, roster and API units; its delegation names the host/accounts.
+`cantos-vps identity --reconcile-existing` instead preserves those accounts, roster, group
+membership, scopes, passwords and existing secrets, and has no reset/account-creation path.
+It requires the existing administrator credential and both confidential clients/Podman secrets.
+Raw `show-basic-secret` output stays in a transient root-only file; only digests survive the
+preservation checks. Failure restores the captured provider/API configuration or retains the
+private snapshot for reconciliation if protected state changed concurrently. It does not
+restart APIs by itself; the coordinated deployment applies the rendered API inputs.
+Deployment authorization alone does not include identity changes. Password/passkey/MFA setup
+belongs to the operator's interactive browser. Never put credentials or reset links in chat,
+Git, screenshots or shared logs.
 Theatre registration stays disabled until [Firebase enrollment](firebase-enrollment-proof.md),
 [least privilege](firebase-enrollment-service-account.md) and ADR 0040 gates are independently met.
 An authorized test email alone neither enables signup nor creates a Studio administrator.
@@ -176,6 +195,11 @@ and restores in one transaction.
 It checks the restored schema before applying grants/restarting; rejection leaves the APIs stopped.
 Historical backups require their matching legacy bundle and a separately reviewed recovery plan,
 not fabricated epoch metadata. Cross-epoch recovery follows the [cutover plan](postgres-schema-cutover.md).
+For the narrow cutover, the old database, image/runtime and recovery journal remain retained;
+before `accepted`, recovery restores them as a pair. After `accepted`, automatic recovery only
+finalizes the new installation. Its off-host tar excludes OCI image bytes, Podman secrets,
+the Kanidm administrator password and private CA. Retaining an old image on the VPS and copying
+that tar does not replace independent image/secret/identity/storage/CA disaster recovery.
 Copy each finalized backup off the VPS regularly, keeping **all three siblings** together:
 `FILE.dump`, `FILE.dump.schema-epoch` and `FILE.dump.sha256`. In the destination directory,
 verify `sha256sum -c FILE.dump.sha256` before the separate restore drill. Copying only the dump

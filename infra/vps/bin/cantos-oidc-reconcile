@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+# Sourced by cantos-vps. Reconcile existing confidential clients without account,
+# roster, group, scope, credential or signing-key changes. Never print provider JSON.
+
+oidc_config() { python3 "$CANTOS_VPS_HELPERS/cantos-oidc-config.py" "$@"; }
+
+oidc_read_client() {
+  local client=$1 output=$2 raw=$2.raw idm
+  idm=$(edge_value CANTOS_IDM_HOST) || return $?
+  if ! kanidm_cli "$idm" kanidm system oauth2 get "$client" -o json >"$raw" 2>"$raw.stderr"; then
+    rm -f "$raw" "$raw.stderr"
+    log "cannot read existing OAuth client $client"
+    return 70
+  fi
+  if oidc_config snapshot "$client" <"$raw" >"$output.new"; then
+    rm -f "$raw" "$raw.stderr"
+    mv "$output.new" "$output"
+  else
+    rm -f "$raw" "$raw.stderr" "$output.new"
+    return 65
+  fi
+}
+
+oidc_read_group() {
+  local group=$1 output=$2 raw=$2.raw idm
+  idm=$(edge_value CANTOS_IDM_HOST) || return $?
+  if ! kanidm_cli "$idm" kanidm group get "$group" -o json >"$raw" 2>"$raw.stderr"; then
+    rm -f "$raw" "$raw.stderr"
+    log "cannot read existing OAuth group $group"
+    return 70
+  fi
+  if oidc_config group-fingerprint <"$raw" >"$output.new"; then
+    rm -f "$raw" "$raw.stderr"
+    mv "$output.new" "$output"
+  else
+    rm -f "$raw" "$raw.stderr" "$output.new"
+    return 65
+  fi
+}
+
+oidc_read_secret_digest() {
+  local client=$1 output=$2 raw=$2.raw idm
+  idm=$(edge_value CANTOS_IDM_HOST) || return $?
+  # oauth2 get redacts basic secrets as "hidden". Read the dedicated endpoint only
+  # into this root-only transient file and retain its digest, never the credential.
+  if ! kanidm_cli "$idm" kanidm system oauth2 show-basic-secret "$client" >"$raw" 2>"$raw.stderr"; then
+    rm -f "$raw" "$raw.stderr"
+    log "cannot verify existing OAuth secret for $client"
+    return 70
+  fi
+  if oidc_config secret-fingerprint <"$raw" >"$output.new"; then
+    rm -f "$raw" "$raw.stderr"
+    mv "$output.new" "$output"
+  else
+    rm -f "$raw" "$raw.stderr" "$output.new"
+    return 65
+  fi
+}
+
+oidc_check_existing_configuration() {
+  local idm surface roster
+  [[ -s $SECRETS/kanidm-idm-admin.password ]] || {
+    log 'existing idm_admin credential is required; reconciliation never recovers accounts'
+    return 66
+  }
+  idm=$(edge_value CANTOS_IDM_HOST) || return $?
+  for surface in theatre studio; do
+    require_runtime_value "$CONFIG/api-$surface-oidc.env" "CANTOS_${surface^^}_OIDC_ISSUER" \
+      "https://$idm/oauth2/openid/cantos-$surface-web-bff" || return $?
+    podman secret inspect "cantos-$surface-oidc-secret" >/dev/null || return 66
+  done
+  roster=$(config_value "$CONFIG/api-studio-oidc.env" CANTOS_STUDIO_ADMIN_SUBJECTS) || return 66
+  # The existing roster remains byte-for-byte; only validate it, never print subjects.
+  printf '%s' "$roster" | python3 -c 'import json,sys,uuid
+try:
+ values=json.load(sys.stdin)
+ assert isinstance(values,list) and values and len(values)==len(set(values))
+ assert all(isinstance(v,str) and str(uuid.UUID(v))==v for v in values)
+except (ValueError,TypeError,AssertionError):
+ sys.exit("existing Studio roster is invalid")' || return 65
+}
+
+oidc_snapshot_existing() {
+  local directory=$1 surface
+  oidc_check_existing_configuration || return $?
+  install -d -m 0700 "$directory" || return $?
+  for surface in theatre studio; do
+    oidc_read_client "cantos-$surface-web-bff" "$directory/$surface.before.json" || return $?
+    oidc_read_group "cantos_${surface}_$([[ $surface == studio ]] && printf admins || printf listeners)" \
+      "$directory/$surface.group-before.sha256" || return $?
+    oidc_read_secret_digest "cantos-$surface-web-bff" "$directory/$surface.secret-before.sha256" || return $?
+  done
+  sha256sum "$CONFIG/api-studio-oidc.env" >"$directory/studio-roster-config.sha256" || return $?
+}
+
+oidc_apply_plan() {
+  local client=$1 before=$2 desired=$3 directory=$4 idm action value
+  idm=$(edge_value CANTOS_IDM_HOST) || return $?
+  oidc_config plan "$client" "$before" "$desired" >"$directory/actions.tsv" || return $?
+  while IFS=$'\t' read -r action value; do
+    case $action in
+      set-landing-url|add-redirect-url|remove-redirect-url)
+        [[ -n $value ]] || return 65
+        kanidm_cli "$idm" kanidm system oauth2 "$action" "$client" "$value" \
+          >/dev/null 2>"$directory/provider-error.log" || return 70
+        ;;
+      enable-strict-redirect-url|disable-strict-redirect-url)
+        [[ -z $value ]] || return 65
+        kanidm_cli "$idm" kanidm system oauth2 "$action" "$client" \
+          >/dev/null 2>"$directory/provider-error.log" || return 70
+        ;;
+      *) log 'unsupported OAuth reconciliation action'; return 65 ;;
+    esac
+  done <"$directory/actions.tsv"
+}
+
+oidc_verify_preserved_access() {
+  local surface=$1 directory=$2
+  oidc_read_group "cantos_${surface}_$([[ $surface == studio ]] && printf admins || printf listeners)" \
+    "$directory/$surface.group-after.sha256" || return $?
+  cmp -s "$directory/$surface.group-before.sha256" "$directory/$surface.group-after.sha256" || {
+    log "OAuth $surface group membership changed concurrently; reconciliation refused"
+    return 65
+  }
+  oidc_read_secret_digest "cantos-$surface-web-bff" "$directory/$surface.secret-after.sha256" || return $?
+  cmp -s "$directory/$surface.secret-before.sha256" "$directory/$surface.secret-after.sha256" || {
+    log "OAuth $surface secret changed concurrently; reconciliation refused"
+    return 65
+  }
+}
+
+oidc_reconcile_from_snapshot() {
+  local directory=$1 surface web callback
+  validate_browser_configuration || return $?
+  oidc_check_existing_configuration || return $?
+  for surface in theatre studio; do
+    web=$(browser_origin "$surface" WEB) || return $?
+    callback=$(deployment_value "CANTOS_${surface^^}_OIDC_CALLBACK") || return $?
+    oidc_config target "cantos-$surface-web-bff" "$web" "$callback" \
+      >"$directory/$surface.desired.json" || return $?
+    oidc_read_client "cantos-$surface-web-bff" "$directory/$surface.current.json" || return $?
+    oidc_config verify "$directory/$surface.before.json" "$directory/$surface.current.json" || return $?
+    oidc_verify_preserved_access "$surface" "$directory" || return $?
+    oidc_apply_plan "cantos-$surface-web-bff" "$directory/$surface.current.json" \
+      "$directory/$surface.desired.json" "$directory" || return $?
+    oidc_read_client "cantos-$surface-web-bff" "$directory/$surface.after.json" || return $?
+    oidc_config verify "$directory/$surface.before.json" "$directory/$surface.after.json" \
+      "$directory/$surface.desired.json" || return $?
+    oidc_verify_preserved_access "$surface" "$directory" || return $?
+  done
+  sha256sum -c --quiet "$directory/studio-roster-config.sha256" || return 65
+  # The receipt follows provider readback and preservation checks; it is never fabricated.
+  {
+    printf 'CANTOS_STUDIO_OIDC_CALLBACK=%s\n' "$(deployment_value CANTOS_STUDIO_OIDC_CALLBACK)"
+    printf 'CANTOS_THEATRE_OIDC_CALLBACK=%s\n' "$(deployment_value CANTOS_THEATRE_OIDC_CALLBACK)"
+  } >"$CONFIG/oidc-callbacks.env.new" || return $?
+  mv "$CONFIG/oidc-callbacks.env.new" "$CONFIG/oidc-callbacks.env" || return $?
+  render_api_configuration || return $?
+  validate_runtime_browser_configuration || return $?
+  log 'existing OAuth clients reconciled; accounts, roster, groups and credentials preserved'
+}
+
+oidc_restore_from_snapshot() {
+  local directory=$1 surface
+  for surface in theatre studio; do
+    [[ -s $directory/$surface.before.json ]] || continue
+    oidc_read_client "cantos-$surface-web-bff" "$directory/$surface.restore-current.json" || return $?
+    oidc_config verify "$directory/$surface.before.json" "$directory/$surface.restore-current.json" || return $?
+    oidc_apply_plan "cantos-$surface-web-bff" "$directory/$surface.restore-current.json" \
+      "$directory/$surface.before.json" "$directory" || return $?
+    oidc_read_client "cantos-$surface-web-bff" "$directory/$surface.restored.json" || return $?
+    oidc_config verify "$directory/$surface.before.json" "$directory/$surface.restored.json" \
+      "$directory/$surface.before.json" || return $?
+    oidc_verify_preserved_access "$surface" "$directory" || return $?
+  done
+}
+
+# Epoch-cutover hooks run under its lock and paired database/config recovery journal.
+epoch2_snapshot_browser() { oidc_snapshot_existing "$1/oidc"; }
+
+epoch2_reconcile_browser() {
+  local journal=$1 staged=$CONFIG/epoch2-browser.env
+  [[ -s $staged ]] || { log 'reviewed epoch2-browser.env inputs are required'; return 66; }
+  oidc_config merge-browser "$staged" "$CONFIG/edge.env" >"$CONFIG/edge.env.new" || return $?
+  mv "$CONFIG/edge.env.new" "$CONFIG/edge.env" || return $?
+  oidc_reconcile_from_snapshot "$journal/oidc"
+}
+
+epoch2_restore_browser() { oidc_restore_from_snapshot "$1/oidc"; }
+
+reconcile_existing_identity() {
+  require_root
+  with_lock
+  validate_browser_configuration || return $?
+  local snapshot status file
+  install -d -m 0700 "$STATE" || return $?
+  snapshot=$(mktemp -d "$STATE/oidc-reconcile-XXXXXX") || return $?
+  install -d -m 0700 "$snapshot/config" || return $?
+  for file in api-theatre.env api-studio.env oidc-callbacks.env; do
+    if [[ -f $CONFIG/$file ]]; then cp -a "$CONFIG/$file" "$snapshot/config/$file" || return $?; fi
+  done
+  oidc_snapshot_existing "$snapshot" || return $?
+  # Host validators deliberately exit on refusal. Isolate that exit so standalone
+  # reconciliation can restore the exact previous provider/config snapshot too.
+  if (oidc_reconcile_from_snapshot "$snapshot"); then return 0; else status=$?; fi
+  if ! oidc_restore_from_snapshot "$snapshot"; then
+    log "OAuth recovery requires operator reconciliation; private snapshot: $snapshot"
+    return 71
+  fi
+  for file in api-theatre.env api-studio.env oidc-callbacks.env; do
+    if [[ -f $snapshot/config/$file ]]; then cp -a "$snapshot/config/$file" "$CONFIG/$file" || return $?;
+    else rm -f "$CONFIG/$file"; fi
+  done
+  log 'OAuth reconciliation failed; previous provider and API configuration restored'
+  return "$status"
+}

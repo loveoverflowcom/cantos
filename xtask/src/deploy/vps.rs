@@ -35,6 +35,8 @@ Operations (exactly one; deploy is the default):
   --bootstrap   upload the host bundle and run the idempotent host setup (no image)
   --rollback    switch the API back to the previous image on the VPS
   --status      print the VPS service status
+  --cutover-epoch2  explicitly convert the inventoried empty-business epoch-1 installation;
+                rehearse, freeze, verify an off-host recovery copy, then switch DB/image together
 
 Examples:
   cargo xtask deploy vps cantos-api --host root@203.0.113.10 --dry-run
@@ -61,14 +63,17 @@ pub struct VpsArgs {
     #[arg(long, value_name = "USER@HOST")]
     pub host: String,
     /// Upload the host bundle and run the idempotent host setup only.
-    #[arg(long, conflicts_with_all = ["rollback", "status"])]
+    #[arg(long, conflicts_with_all = ["rollback", "status", "cutover_epoch2"])]
     pub bootstrap: bool,
     /// Switch the API back to the previously deployed image.
-    #[arg(long, conflicts_with_all = ["bootstrap", "status"])]
+    #[arg(long, conflicts_with_all = ["bootstrap", "status", "cutover_epoch2"])]
     pub rollback: bool,
     /// Print the VPS service status (read-only).
-    #[arg(long, conflicts_with_all = ["bootstrap", "rollback"])]
+    #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "cutover_epoch2"])]
     pub status: bool,
+    /// Explicit two-phase, lossless epoch-1 (28 migrations) to epoch-2 cutover.
+    #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "status"])]
+    pub cutover_epoch2: bool,
     /// Public API origin probed from this machine afterwards, e.g. https://api.example.org.
     #[arg(long, value_name = "ORIGIN")]
     pub smoke_origin: Option<String>,
@@ -83,6 +88,7 @@ pub enum Operation {
     Bootstrap,
     Rollback,
     Status,
+    CutoverEpoch2,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -120,10 +126,16 @@ pub fn resolve(args: &VpsArgs) -> Result<Request, Refusal> {
             ));
         }
     }
-    let operation = match (args.bootstrap, args.rollback, args.status) {
-        (true, _, _) => Operation::Bootstrap,
-        (_, true, _) => Operation::Rollback,
-        (_, _, true) => Operation::Status,
+    let operation = match (
+        args.bootstrap,
+        args.rollback,
+        args.status,
+        args.cutover_epoch2,
+    ) {
+        (true, _, _, _) => Operation::Bootstrap,
+        (_, true, _, _) => Operation::Rollback,
+        (_, _, true, _) => Operation::Status,
+        (_, _, _, true) => Operation::CutoverEpoch2,
         _ => Operation::Deploy,
     };
     if operation == Operation::Status && args.smoke_origin.is_some() {
@@ -231,6 +243,7 @@ pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path
             "REVISION".into(),
             "infra/vps".into(),
             "infra/edge/Caddyfile".into(),
+            "services/cantos-api/schema/legacy-epoch-1-manifest.json".into(),
         ],
     );
     let upload_dir = ssh(
@@ -260,7 +273,7 @@ pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path
 
     let mut steps = Vec::new();
     match request.operation {
-        Operation::Deploy => {
+        Operation::Deploy | Operation::CutoverEpoch2 => {
             steps.extend(source);
             let context = path("context");
             steps.push(local(
@@ -321,12 +334,60 @@ pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path
                 format!("zstd -dc {incoming}/cantos-api.tar.zst | podman load -q"),
                 true,
             ));
-            steps.push(ssh("remote install", install, true));
-            steps.push(ssh(
-                "remote deploy",
-                format!("{HOST_SCRIPT} deploy {revision}"),
-                true,
-            ));
+            if request.operation == Operation::CutoverEpoch2 {
+                let extracted = format!("d={incoming}; install -d -m 0700 \"$d/tree\" && tar -xf \"$d/bundle.tar\" -C \"$d/tree\"");
+                steps.push(ssh("extract cutover bundle", extracted, true));
+                let cutover = format!("{incoming}/tree/infra/vps/bin/cantos-vps");
+                steps.push(ssh(
+                    "remote cutover prepare",
+                    format!("{cutover} cutover-prepare {revision} {incoming}/tree"),
+                    true,
+                ));
+                steps.push(Step {
+                    name: "off-host recovery copy",
+                    command: CommandSpec::new("scp", root).args([
+                        "-q".into(),
+                        "-o".into(),
+                        "BatchMode=yes".into(),
+                        format!("{}:{incoming}/cutover-backup.tar", request.host),
+                        format!("{}:{incoming}/cutover-backup.tar.sha256", request.host),
+                        run.display().to_string(),
+                    ]),
+                    remote_write: false,
+                });
+                steps.push(Step {
+                    name: "verify off-host recovery copy",
+                    command: CommandSpec::new("sha256sum", run).args([
+                        "--check",
+                        "--strict",
+                        "cutover-backup.tar.sha256",
+                    ]),
+                    remote_write: false,
+                });
+                steps.push(Step {
+                    name: "acknowledge verified off-host copy",
+                    command: CommandSpec::new("scp", root).args([
+                        "-q".into(),
+                        "-o".into(),
+                        "BatchMode=yes".into(),
+                        path("cutover-backup.tar.sha256"),
+                        format!("{}:{incoming}/cutover-offhost.sha256", request.host),
+                    ]),
+                    remote_write: true,
+                });
+                steps.push(ssh(
+                    "remote cutover commit",
+                    format!("{cutover} cutover-commit {revision} {incoming}/tree"),
+                    true,
+                ));
+            } else {
+                steps.push(ssh("remote install", install, true));
+                steps.push(ssh(
+                    "remote deploy",
+                    format!("{HOST_SCRIPT} deploy {revision}"),
+                    true,
+                ));
+            }
             steps.extend(smoke);
         }
         Operation::Bootstrap => {
@@ -407,6 +468,10 @@ const NEEDED: &[(Operation, &[&str])] = &[
     (Operation::Bootstrap, &["git", "tar", "ssh", "scp"]),
     (Operation::Rollback, &["ssh"]),
     (Operation::Status, &["ssh"]),
+    (
+        Operation::CutoverEpoch2,
+        &["git", "tar", "podman", "zstd", "ssh", "scp", "sha256sum"],
+    ),
 ];
 
 pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -> Result<ExitCode> {
@@ -414,7 +479,10 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
         Ok(request) => request,
         Err(refusal) => return Ok(crate::refuse(refusal)),
     };
-    let needs_source = matches!(request.operation, Operation::Deploy | Operation::Bootstrap);
+    let needs_source = matches!(
+        request.operation,
+        Operation::Deploy | Operation::Bootstrap | Operation::CutoverEpoch2
+    );
     let revision = if needs_source {
         head_revision(workspace.root())?
     } else {
@@ -460,8 +528,14 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
         }
         std::fs::create_dir_all(run.join("context"))
             .with_context(|| format!("could not create {}", run.display()))?;
+        #[cfg(unix)]
+        if request.operation == Operation::CutoverEpoch2 {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700))?;
+        }
     }
     let mut failed = false;
+    let mut cutover_prepare_attempted = false;
     for step in &steps {
         if failed {
             report.record(step.name, Status::NotRun, "an earlier step failed");
@@ -469,6 +543,9 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
         }
         if step.name == "host bundle" {
             std::fs::write(run.join("context/REVISION"), format!("{revision}\n"))?;
+        }
+        if step.name == "remote cutover prepare" {
+            cutover_prepare_attempted = true;
         }
         match runner.run(&step.command) {
             Ok(()) => report.record(step.name, Status::Pass, ""),
@@ -481,6 +558,19 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
                 };
                 report.record(step.name, Status::Fail, detail);
             }
+        }
+    }
+    if failed && cutover_prepare_attempted {
+        // Recovery is state-aware: before acceptance it restores the paired legacy DB/image;
+        // after acceptance it finalizes only, because the new database may have accepted writes.
+        let incoming = format!("{REMOTE_ROOT}/incoming/{revision}");
+        let recovery = CommandSpec::new("ssh", workspace.root()).args([
+            "-o".to_owned(), "BatchMode=yes".to_owned(), request.host.clone(),
+            format!("{incoming}/tree/infra/vps/bin/cantos-vps cutover-recover {revision} {incoming}/tree"),
+        ]);
+        match runner.run(&recovery) {
+            Ok(()) => report.record("remote cutover recovery", Status::Pass, "state-aware recovery completed; original failure remains FAIL"),
+            Err(error) => report.record("remote cutover recovery", Status::Fail, format!("{error:#}; stop and inspect the retained cutover journal before another operation")),
         }
     }
     if needs_source {
@@ -625,6 +715,68 @@ mod tests {
             .args
             .iter()
             .any(|arg| arg.contains("cantos-api.tar")));
+    }
+
+    #[test]
+    fn epoch2_cutover_copies_and_verifies_recovery_off_host_before_commit() {
+        let request = resolve(&args(&["--cutover-epoch2"])).unwrap();
+        assert_eq!(request.operation, Operation::CutoverEpoch2);
+        let steps = plan(&workspace(), &request, REV, Path::new("/tmp/private-run"));
+        let names = names(&steps);
+        assert!(!names.contains(&"remote install"));
+        assert!(!names.contains(&"remote deploy"));
+        let prepare = names
+            .iter()
+            .position(|name| *name == "remote cutover prepare")
+            .unwrap();
+        assert_eq!(
+            &names[prepare..],
+            [
+                "remote cutover prepare",
+                "off-host recovery copy",
+                "verify off-host recovery copy",
+                "acknowledge verified off-host copy",
+                "remote cutover commit",
+            ]
+        );
+        assert_eq!(
+            steps[prepare + 2].command.cwd,
+            Path::new("/tmp/private-run")
+        );
+        assert_eq!(steps[prepare + 2].command.program, "sha256sum");
+        assert!(!steps[prepare + 1].remote_write);
+        assert!(!steps[prepare + 2].remote_write);
+        let commit = steps.last().unwrap().command.args.last().unwrap();
+        assert_eq!(commit, &format!("/root/cantos-services/incoming/{REV}/tree/infra/vps/bin/cantos-vps cutover-commit {REV} /root/cantos-services/incoming/{REV}/tree"));
+        assert!(steps
+            .iter()
+            .find(|step| step.name == "host bundle")
+            .unwrap()
+            .command
+            .args
+            .contains(&"services/cantos-api/schema/legacy-epoch-1-manifest.json".to_owned()));
+    }
+
+    #[test]
+    fn epoch2_cutover_is_explicit_and_conflicts_with_other_operations() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Probe {
+            #[command(flatten)]
+            vps: VpsArgs,
+        }
+        for other in ["--status", "--rollback", "--bootstrap"] {
+            assert!(Probe::try_parse_from([
+                "probe",
+                "cantos-api",
+                "--host",
+                "root@h",
+                "--cutover-epoch2",
+                other
+            ])
+            .is_err());
+        }
+        assert_eq!(resolve(&args(&[])).unwrap().operation, Operation::Deploy);
     }
 
     #[test]

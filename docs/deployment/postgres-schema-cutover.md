@@ -1,10 +1,11 @@
 # PostgreSQL schema epoch 2 and controlled cutover
 
-**Implemented source boundary; live cutover not executed.** Issues
+**Implemented fresh-schema boundary and narrow legacy cutover; live cutover acceptance is NOT_RUN.** Issues
 [#238](https://github.com/loveoverflowcom/cantos/issues/238) and
 [#239](https://github.com/loveoverflowcom/cantos/issues/239) remove retired API TTS execution
-and establish one current fresh-install schema. They do not authorize replacing production
-data. [ADR 0018](../decisions/0018-external-audio-production.md) preserves external production;
+and establish one current fresh-install schema. The explicit `--cutover-epoch2` operation below
+supports one checked empty-business installation; a general populated-data transformer remains
+unimplemented. [ADR 0018](../decisions/0018-external-audio-production.md) preserves external production;
 [ADR 0039](../decisions/0039-vps-production-runtime.md) owns VPS runtime/durability;
 [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md) owns direct Hosting/API addressing.
 
@@ -56,17 +57,18 @@ lists PostgreSQL 18.6 and 17.11 as supported current minors; PostgreSQL 19 RC1 i
 The [18.6 release notes](https://www.postgresql.org/docs/release/18.6/) are an upgrade input,
 not local integration evidence. Record the actual version used by every test run separately.
 
-## Inventory gate — not yet performed on the VPS
+## Inventory gate
 
 The [historical 2026-10-17 deployment record](https://github.com/loveoverflowcom/cantos/blob/3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a/docs/evidence/vps-production-deployment.md) observed
 PostgreSQL 17.11 and 28 historical migrations at that time. It does not establish today's
 rows, applied migration 0029, sessions, grants, extensions or available recovery media.
-**Live inventory, backup restore validation, data transformation and production approval
-remain pending.** Source inspection cannot establish that the deployed database is empty.
+Source inspection cannot establish that the deployed database is empty. Repeat the private
+inventory for the exact operation; retain its results with the run record and PR, rather than
+treating an earlier deployment record as current evidence.
 
-An operator must name the host/database and authorize read-only inventory before collecting
-the following private evidence. Use an existing read-only PostgreSQL service entry/secret
-file; do not place connection passwords in argv, chat or Git. Set `ON_ERROR_STOP=1`, enforce a
+Collect the following private evidence within the named host/database operation. Use an
+existing read-only PostgreSQL service entry/secret file; do not place connection passwords in
+argv, chat or Git. Set `ON_ERROR_STOP=1`, enforce a
 read-only transaction, use a bounded statement/lock timeout and save results outside Git.
 Large exact counts need an operator-approved window; estimates alone do not settle data loss.
 
@@ -138,7 +140,87 @@ Record every timed-out/unreadable relation as unknown. Count coverage does not r
 foreign-key, caller and media reconciliation. Explicitly inventory scheduler extensions if
 present; `pg_stat_activity` does not discover offline clients or future scheduled work.
 
-## Source classification and one-time import design
+## Implemented narrow epoch-1 cutover
+
+`cargo xtask deploy vps cantos-api --host USER@HOST --cutover-epoch2` builds committed `HEAD`
+locally and executes the two-phase host procedure. Ordinary deploy/rollback retains its epoch
+refusal; this flag is a separate operation, mutually exclusive with `--bootstrap`, `--rollback`
+and `--status`. `--dry-run` prints the plan without building, uploading or changing the host.
+
+The supported source is exactly revision `883e188095227f04fb92cf4dcd29c659ac9de1fe` with 28
+historical migrations. The procedure creates an isolated schema oracle with that retained image
+and compares the live schema and migration checksums against it and the retained manifest.
+The [data guard](../../infra/vps/postgres/epoch2-empty-business-guard.sql) requires expected
+object ownership, no unexpected extensions/prepared transactions/replication, **zero business
+and session rows**, one `catalog_clock` row, two `studio_oidc_flows` rows and three
+`theatre_identity_flows` rows. Any different source, object, checksum or row count refuses the
+operation. The five flow rows are preserved security state, not authenticated sessions.
+
+The [host helper](../../infra/vps/bin/cantos-epoch2-cutover) performs these stages:
+
+1. Snapshot the exact installed runtime/configuration and existing OIDC clients without
+   changing accounts or credentials. Retain the old API image on the host.
+2. Dump the legacy database, restore it to a separate sibling database and repeat the source
+   guards. Create an independent epoch-2 sibling, import only the clock and five flow rows,
+   compare their exact values and check the target schema. Constraints stay enabled.
+3. Stop both APIs, refuse unknown remaining clients, freeze legacy connections, take a final
+   dump, restore it to another sibling and repeat the guard/import/comparison against frozen
+   source. No source database or volume is dropped.
+4. Copy the recovery archive and SHA-256 manifest to the private local
+   `artifacts/vps/<run>/` directory. Verify those exact bytes locally and acknowledge that
+   checksum on the host before commit can proceed. A failed transfer/check stops commit and
+   invokes state-aware recovery; it never becomes an accepted recovery copy.
+5. Reconcile the staged browser/OIDC inputs, install the candidate runtime, rename the
+   databases using their recorded OIDs and health-check the new APIs while runtime database
+   access is read-only. Before acceptance, failure restores the matching legacy database,
+   image, runtime and browser/client configuration.
+6. Durably record `accepted` before enabling application writes. From that point recovery
+   finalizes the new installation; it never automatically returns to the legacy database,
+   because new writes may exist. Retain the legacy database, image, runtime and journal.
+
+The archive contains database dumps, configuration/runtime snapshots and sanitized OIDC
+observations/digests. It excludes OCI image bytes, Podman secrets, the Kanidm administrator
+password and private CA material. The retained old image is a **host-local** recovery
+dependency. An off-host archive alone does not provide complete disaster recovery: separately
+preserve the required image, secrets, identity data, private storage and CA through their
+existing protected recovery procedures.
+
+Before the operation, stage exactly these six nonsecret assignments in the root-only host file
+`/root/cantos-services/config/epoch2-browser.env`:
+
+```dotenv
+CANTOS_THEATRE_WEB_ORIGIN=https://cantoss-theatre.web.app
+CANTOS_STUDIO_WEB_ORIGIN=https://cantoss-studio.web.app
+CANTOS_THEATRE_API_ORIGIN=https://api.cantoss.duckdns.org
+CANTOS_STUDIO_API_ORIGIN=https://api.cantoss.duckdns.org
+CANTOS_THEATRE_OIDC_CALLBACK=https://api.cantoss.duckdns.org/api/v1/theatre/auth/callback
+CANTOS_STUDIO_OIDC_CALLBACK=https://api.cantoss.duckdns.org/api/v1/studio/auth/callback
+```
+
+The existing-client reconciler consumes the same input rules as
+[direct Hosting configuration](vps-production.md#direct-hosting--api-configuration). It checks
+existing issuer/roster/Podman-secret prerequisites, snapshots client/group attributes and basic
+secret digests, then updates only landing URLs, exact callback allowlists and strict redirect
+matching. Provider readback and preservation checks precede `oidc-callbacks.env`; the receipt is
+never hand-written. Accounts, roster, group membership, scopes, passwords and secrets remain
+unchanged. Raw `show-basic-secret` output is transient and root-only; only its digest is retained.
+Masked attributes do not establish underlying signing-key byte equality; no reset command is
+issued. This operation does not accept cross-site browser authentication.
+
+If execution or its response is interrupted, inspect status and the retained pending journal.
+Recover with the **same full target revision and its exact incoming tree**, using the uploaded
+helper rather than an older installed script. With `REVISION` set to that checked 40-hex SHA:
+
+```bash
+ssh root@42.96.18.245 "/root/cantos-services/incoming/$REVISION/tree/infra/vps/bin/cantos-vps cutover-recover $REVISION /root/cantos-services/incoming/$REVISION/tree"
+```
+
+The pending journal blocks ordinary mutations until recovery resolves it. Recovery verifies
+recorded database identities; unknown state leaves the APIs stopped and retains the journal.
+`accepted`/`complete` recovery only finalizes the epoch-2 installation. Do not replay a new
+cutover or use image-only rollback to cross this boundary.
+
+## General populated-data import design — unimplemented
 
 The current baseline and adapters are the source classification oracle. Inventory must resolve
 every deployed table and column into an explicit import allowlist, archive-only set or unknown
@@ -157,7 +239,8 @@ is not an executable export/import allowlist.
 | `durable_*`, `speech_clips`, old DBSP change capture and provider adaptation `a1` | Retired runtime. Preserve complete historical backup/audit source; exclude from the new database. Check inbound/outbound FKs before any future explicit deletion |
 | Historical `cantos_migrations` | Archive with exact old checksums. Never import its rows into the epoch 2 registry or rewrite checksums to pretend the old schema is current |
 
-The one-time authoritative-data transformer is **not implemented** by this change. After live
+The general authoritative-data transformer is **not implemented**. The narrow lane above does
+not support populated business/session tables. After live
 inventory, review a concrete column-by-column mapping with immutable-field preservation,
 explicit table order, cyclic/deferred-FK handling, constraints enabled, sequence restoration,
 expected counts and digest checks. Do not globally disable triggers or use blind `CASCADE`.
@@ -169,7 +252,8 @@ upgrade acceptance.
 If the owner instead chooses reinitialization, the approval must name the exact database,
 archived data/retention location, accepted losses and session/publication effects. That is a
 destructive operator operation, not a `migrate`, build, Web deployment or verification option.
-No current command automatically drops legacy tables or switches a live database to epoch 2.
+No current command automatically drops legacy tables. Only the explicit, guarded narrow
+operation above switches a supported legacy installation to epoch 2.
 
 ## Separate PostgreSQL 17 → 18.6 decision
 
@@ -206,13 +290,14 @@ backups, historical objects or media as part of this PR.
 
 | Layer | Evidence required before its claim is accepted |
 | --- | --- |
-| Source behavior | Focused host-command doubles for empty/current/legacy/refused image/rollback/restore boundaries; these are mock boundary checks, not VPS execution |
+| Source behavior | Focused host-command doubles for epoch refusal, exact import guards, partial OIDC changes, pending recovery, failed-health paired rollback and accepted-state finalization; these are mock boundary checks, not VPS execution |
 | Current database | `cargo xtask verify postgres --suite schema` for bootstrap/replay/epoch refusal, plus the full `cargo xtask verify postgres` for constraints, transactional routes and grants; record actual server version |
 | PostgreSQL 18.6 | Full affected integration suite on an isolated 18.6 server; PostgreSQL 17 PASS does not accept this layer |
-| Legacy data conversion | Completed inventory, reviewed allowlist/transformer, full backup/restore drill and current behavior/digest comparison on restored representative data |
+| Narrow legacy conversion | Exact supported-source/data guards, sibling restore/import rehearsal, frozen row equivalence, verified off-host archive and paired recovery evidence |
+| Populated legacy conversion | Completed inventory, reviewed general transformer, full backup/restore drill and current behavior/digest comparison on restored representative data; transformer remains unimplemented |
 | Production | Named operator, host/database, approved plan/window, off-host recovery evidence and explicit authority for the state-changing cutover/major upgrade |
 
-This document records no live inventory, production backup verification, schema conversion,
-PostgreSQL installation/upgrade, restore, data deletion or deployment result. Those actions
-remain **NOT_RUN** until their exact scope is authorized and performed. The current code fails
-closed at the legacy boundary so source cleanup can be reviewed without silently crossing it.
+This source description records no successful live cutover or PostgreSQL upgrade: production
+cutover acceptance is **NOT_RUN**. Keep executed inventory, recovery and deployment results in
+private attributable run records and the owning PR. Ordinary operations continue to fail closed
+at the legacy boundary; source cleanup alone never crosses it.

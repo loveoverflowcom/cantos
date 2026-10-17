@@ -38,6 +38,7 @@ readonly BACKUP_KEEP=${CANTOS_BACKUP_KEEP:-14}
 readonly API_UNITS=(cantos-api-theatre cantos-api-studio)
 readonly SOCKET_URL_SUFFIX='@/cantos?host=/run/postgresql'
 readonly SCHEMA_EPOCH=2
+CANTOS_VPS_LOCK_OWNER=
 
 log() { printf '[cantos-vps] %s\n' "$*" >&2; }
 die() {
@@ -48,8 +49,12 @@ die() {
 require_root() { [[ ${EUID:-$(id -u)} -eq 0 ]] || die "run as root" 77; }
 
 with_lock() {
+  # Internal install/recovery shares the caller's lock; reopening fd 9 would briefly
+  # release it and permit another operator between the two cutover phases.
+  [[ $CANTOS_VPS_LOCK_OWNER != "$BASHPID" ]] || return 0
   exec 9>"$LOCK"
   flock -n 9 || die "another cantos-vps operation holds $LOCK" 75
+  CANTOS_VPS_LOCK_OWNER=$BASHPID
 }
 
 # KEY=VALUE reader that never sources the file (values stay inert).
@@ -668,7 +673,7 @@ status() {
 kanidm_cli() { # runs the pinned CLI on the private network as idm_admin; args are the command
   local idm=$1
   shift
-  KANIDM_PASSWORD=$(<"$SECRETS/kanidm-idm-admin.password") podman run --rm -i --network cantos \
+  KANIDM_PASSWORD=$(<"$SECRETS/kanidm-idm-admin.password") podman run --rm --network cantos \
     --pull missing -e KANIDM_PASSWORD -e KANIDM_URL="https://$idm" -e KANIDM_NAME=idm_admin \
     -e RUST_LOG=error -v cantos-kanidm-cli:/root/.cache "$KANIDM_TOOLS" sh -c \
     'kanidm login -D idm_admin >/dev/null && exec "$@"' sh "$@"
@@ -738,6 +743,13 @@ for line in sys.stdin:
 
 identity() {
   require_root
+  if [[ ${1:-} == --reconcile-existing ]]; then
+    [[ $# -eq 1 ]] || die 'identity --reconcile-existing takes no account or reset options' 64
+    CANTOS_VPS_HELPERS=$RUNTIME/bin
+    source "$CANTOS_VPS_HELPERS/cantos-oidc-reconcile"
+    reconcile_existing_identity
+    return
+  fi
   local admin="" display="" listener=""
   while [[ $# -gt 0 ]]; do
     case $1 in
@@ -791,7 +803,26 @@ identity() {
 main() {
   local command=${1:-}
   shift || true
+  if [[ -s $STATE/epoch2-cutover.pending ]]; then
+    case $command in
+      status|cutover-prepare|cutover-commit|cutover-recover) ;;
+      *) die 'epoch2 cutover pending; reconcile through its incoming cutover-recover command' 75 ;;
+    esac
+  fi
   case $command in
+    cutover-prepare|cutover-commit|cutover-recover)
+      [[ $# -eq 2 && $1 =~ ^[0-9a-f]{40}$ && $2 == "$ROOT/incoming/$1/tree" ]] ||
+        die 'cutover requires REVISION and its exact incoming bundle tree' 64
+      [[ -f $2/REVISION && $(<"$2/REVISION") == "$1" ]] || die 'cutover bundle revision mismatch' 65
+      CANTOS_VPS_HELPERS=$2/infra/vps/bin
+      source "$CANTOS_VPS_HELPERS/cantos-oidc-reconcile"
+      source "$CANTOS_VPS_HELPERS/cantos-epoch2-cutover"
+      case $command in
+        cutover-prepare) epoch2_prepare "$@" ;;
+        cutover-commit) epoch2_commit "$@" ;;
+        cutover-recover) epoch2_recover "$@" ;;
+      esac
+      ;;
     install) install_bundle "$@" ;;
     bootstrap) bootstrap ;;
     deploy) deploy "$@" ;;
