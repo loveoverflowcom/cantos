@@ -2042,7 +2042,7 @@ async fn studio_editor_import_proposal_edit_accept_review_save_and_reopen_preser
         "proposal_request":proposal_intent,"acceptance":acceptance,"first":first,
         "save_request":save_intent,"second":second,"review_request":review_intent,"review":review,
         "linked_source":linked_source,"history_first":history,"history_last":last,
-        "counts":{"runs":1,"attempts":0,"submissions":1,"proposals":1,"acceptances":1,"revisions":2,"reviews":1,"review_operations":1,"sources":1,"evidence":3,"scripts":1},
+        "counts":{"runs":1,"submissions":1,"proposals":1,"acceptances":1,"revisions":2,"reviews":1,"review_operations":1,"sources":1,"evidence":3,"scripts":1},
         "provenance":"repository-authored synthetic Vietnamese source/proposal; no inference"
     })).unwrap()).unwrap();
 }

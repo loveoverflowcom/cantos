@@ -587,7 +587,7 @@ class PostgresRunnerTests(unittest.TestCase):
 
     def test_editor_row_oracle_uses_declared_local_database_and_fails_closed_on_psql_failure(self):
         local_url = "postgresql://cantos_app@127.0.0.1:12345/cantos_test_studio_editor"
-        expected = {"revisions": 2, "acceptances": 1, "attempts": 0}
+        expected = {"revisions": 2, "acceptances": 1}
         completed = subprocess.CompletedProcess([], 0, json.dumps(expected), "")
         with patch.object(runner.subprocess, "run", return_value=completed) as execute:
             self.assertEqual(runner.editor_snapshot({"PATH": "/synthetic"}, local_url), expected)
@@ -596,6 +596,7 @@ class PostgresRunnerTests(unittest.TestCase):
         self.assertIn("ON_ERROR_STOP=1", command)
         self.assertIn("count(*) FROM script_reviews", command[-1])
         self.assertIn("count(*) FROM script_revisions", command[-1])
+        self.assertNotIn("attempts", command[-1])
         self.assertEqual(execute.call_args.kwargs["timeout"], 10)
         failed = subprocess.CompletedProcess([], 1, "", "database unavailable")
         with patch.object(runner.subprocess, "run", return_value=failed), \
