@@ -50,6 +50,10 @@ The [Studio Forge debug mock](../evidence/studio-forge-mock-ui.md) now supplies 
 controller/composition review surface. Inspect its real renderer and reference, including
 raw-text recovery, exact sync identity and dialog focus, before live-client implementation;
 mock receipts do not satisfy the worker's invocation or API-admission gates.
+For Web auth, inspect the [phase/action hierarchy](../evidence/theatre-web-auth-actions-224.md)
+in the existing no-network auth diagnostic and actual consumer flow. Preserve the distinction
+between contextual Back and explicit Firebase cancellation; qualify shared action icons before
+moving the diagnostic icon mapping into live consumers.
 
 Do not append completed sessions here. Move their dated handoff to [archive](../archive/README.md)
 and leave a short current pointer. Existing source-bound evidence remains at its original path.
