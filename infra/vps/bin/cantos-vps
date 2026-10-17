@@ -211,8 +211,8 @@ psql_superuser() { # DB; SQL on stdin
     sh "$1"
 }
 
-# ufw's routed policy is deny; Podman's nftables rules cannot override it. Route only the
-# cantos0 bridge: published edge ports in, container egress (ACME, Firebase, Kanidm) out.
+# ufw denies routed and unsolicited input traffic; Podman's nftables rules cannot override it.
+# Route only the cantos0 bridge: published edge ports in, container egress (ACME, Firebase) out.
 open_firewall() {
   if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then
     ufw allow 80/tcp >/dev/null
@@ -220,7 +220,9 @@ open_firewall() {
     ufw allow 443/udp >/dev/null
     ufw route allow in on cantos0 >/dev/null
     ufw route allow out on cantos0 >/dev/null
-    log "ufw allows 80/tcp, 443/tcp, 443/udp and routing for the cantos0 bridge"
+    # Container name resolution is Podman's aardvark-dns on the bridge gateway (host input).
+    ufw allow in on cantos0 to any port 53 >/dev/null
+    log "ufw allows 80/tcp, 443/tcp, 443/udp, cantos0 routing and cantos0 DNS"
   fi
 }
 
