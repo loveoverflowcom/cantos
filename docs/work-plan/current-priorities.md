@@ -28,6 +28,11 @@ first establish project ownership/availability for the requested short Site IDs,
 per-app site allocation/deploy and edge mapping acceptance through the
 [Hosting runbook](../deployment/firebase-hosting.md). Keep the current Caddy application origins
 and Studio/Theatre isolation until a real origin change is explicitly reviewed.
+Before combining [#240](https://github.com/loveoverflowcom/cantos/pull/240) and
+[#241](https://github.com/loveoverflowcom/cantos/pull/241), reconcile their overlapping Caddy,
+API startup and Hosting/deployment guidance. The latter's unmerged ADR 0041 records direct
+Hosting/API direction; short Site IDs alone establish neither compatible session domains nor
+authentication acceptance. Keep schema cutover independent of that topology reconciliation.
 
 ## Recommended next boundaries
 

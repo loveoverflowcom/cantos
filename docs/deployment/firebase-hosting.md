@@ -283,6 +283,18 @@ before registration activation; VPS-only query protection does not cover a direc
 
 ## Shorter site names: controlled transition (#237)
 
+**Concurrent topology merge gate:** [PR #241](https://github.com/loveoverflowcom/cantos/pull/241),
+reviewed at `e856ac55e18e07f16887f454487310cefc01b291`, records owner-selected direct Hosting
+in [ADR 0041](https://github.com/loveoverflowcom/cantos/blob/e856ac55e18e07f16887f454487310cefc01b291/docs/decisions/0041-direct-hosting-api-boundary.md)
+(marked accepted there, still unmerged). Its explicit API addressing/CORS/callback direction
+overlaps this branch's retained same-origin setup. Reconcile both PRs' Caddy, API startup,
+Hosting receipt/configuration and owning docs before merging or deploying their combined tree.
+The proxy-specific steps 4–6 below describe the retained compatibility topology only; they are
+not the rollout plan for direct Hosting. No origin/cookie/callback choice is made by changing
+a Site ID. In particular, `web.app` and the DuckDNS API are cross-site: CORS does not make
+SameSite=Strict sessions work across them. Domain selection and actual login/reload/logout,
+surface isolation and callback acceptance remain a separate owner decision and live gate.
+
 **2026-10-17 read-only inspection:** `firebase hosting:sites:list --project cantos-a348b --json
 --non-interactive` returned exit **2**, JSON status `error`: the existing Firebase authentication
 was not accepted. No site was created, mapped or deployed by this work. The previously recorded
