@@ -59,6 +59,25 @@ class BenchmarkTests(unittest.TestCase):
         self.assertIn("canonical_export, content_digest, export_digest", queries["revision"])
         self.assertIn("accepted_by=$2 AND operation_id=$3", queries["replay"])
         self.assertIn("owner_id=$1 AND kind=$2 AND id=$3", queries["evidence"])
+        self.assertEqual(queries["migration"],
+                         "SELECT version,checksum FROM public.cantos_migrations ORDER BY version")
+
+    def test_query_extraction_ignores_unrelated_multiline_rust_and_refuses_ambiguous_registry(self):
+        expected = bench.source_queries()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative in bench.REVISION_READ_SOURCES:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes((bench.ROOT / relative).read_bytes())
+            schema_source = root / "services/cantos-api/src/platform/postgres/migrations.rs"
+            schema_source.write_text(schema_source.read_text() + '\nlet unrelated = "line one\nline two";\n')
+            with patch.object(bench, "ROOT", root):
+                self.assertEqual(bench.source_queries(), expected)
+                schema_source.write_text(schema_source.read_text() +
+                                         'let drift = "SELECT version,checksum FROM public.cantos_migrations ORDER BY version DESC";\n')
+                with self.assertRaisesRegex(RuntimeError, "SQL extraction ambiguous/missing: migration"):
+                    bench.source_queries()
 
     def test_phase_databases_clone_the_same_seed_instead_of_prior_writes(self):
         with patch.object(bench, "free_port", return_value=54321), tempfile.TemporaryDirectory() as directory:

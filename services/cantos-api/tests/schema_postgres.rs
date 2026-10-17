@@ -227,6 +227,205 @@ async fn foreign_epoch_and_unexpected_version_are_refused() {
 
 #[tokio::test]
 #[ignore = "cargo xtask verify postgres --suite schema"]
+async fn malformed_registry_values_return_typed_errors_without_panicking_or_mutation() {
+    for (ddl, expected) in [
+        (
+            "CREATE TABLE cantos_schema(epoch text); INSERT INTO cantos_schema VALUES('2')",
+            SchemaError::IncompatibleEpoch,
+        ),
+        (
+            "CREATE TABLE cantos_schema(epoch integer); INSERT INTO cantos_schema VALUES(NULL)",
+            SchemaError::IncompatibleEpoch,
+        ),
+        (
+            "CREATE TABLE cantos_schema(epoch integer); INSERT INTO cantos_schema VALUES(2);
+             CREATE TABLE cantos_migrations(version bigint,checksum bytea);
+             INSERT INTO cantos_migrations VALUES(1,decode('aa','hex'))",
+            SchemaError::RegistryMismatch,
+        ),
+        (
+            "CREATE TABLE cantos_schema(epoch integer); INSERT INTO cantos_schema VALUES(2);
+             CREATE TABLE cantos_migrations(version integer,checksum text);
+             INSERT INTO cantos_migrations VALUES(1,'not-bytea')",
+            SchemaError::RegistryMismatch,
+        ),
+    ] {
+        let (config, admin) = database().await;
+        admin.batch_execute(ddl).await.unwrap();
+        let snapshot = "SELECT json_build_object('epoch',(SELECT json_agg(s) FROM cantos_schema s),
+            'tables',(SELECT json_agg(tablename ORDER BY tablename) FROM pg_tables
+                WHERE schemaname='public'))::text";
+        let before: String = admin.query_one(snapshot, &[]).await.unwrap().get(0);
+        assert_eq!(migrate(&config).await, Err(expected));
+        assert_eq!(verify_schema(&config).await, Err(expected));
+        let after: String = admin.query_one(snapshot, &[]).await.unwrap().get(0);
+        assert_eq!(after, before);
+    }
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite schema"]
+async fn failed_baseline_rolls_back_registry_and_ddl_then_allows_clean_retry() {
+    let (mut config, admin) = database().await;
+    let role = format!("cantos_schema_probe_{}", Uuid::new_v4().simple());
+    let name = config.get_dbname().unwrap();
+    admin
+        .batch_execute(&format!(
+            "CREATE ROLE {role} LOGIN; ALTER DATABASE {name} OWNER TO {role};
+             REVOKE USAGE ON LANGUAGE sql FROM PUBLIC"
+        ))
+        .await
+        .unwrap();
+    config.user(&role);
+    // Registry tables are created first, then the first SQL function is denied. The same
+    // transaction must undo both registries and every preceding DDL statement.
+    assert_eq!(
+        migrate(&config).await,
+        Err(SchemaError::DatabaseUnavailable)
+    );
+    assert_eq!(
+        admin
+            .query_one(
+                "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                 WHERE n.nspname='public'",
+                &[]
+            )
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        0
+    );
+    admin
+        .batch_execute("GRANT USAGE ON LANGUAGE sql TO PUBLIC")
+        .await
+        .unwrap();
+    migrate(&config).await.unwrap();
+    verify_schema(&config).await.unwrap();
+    assert_eq!(registry(&admin).await.len(), 1);
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite schema"]
+async fn baseline_keeps_security_definers_pinned_and_public_without_execution_privileges() {
+    let (config, admin) = database().await;
+    migrate(&config).await.unwrap();
+    let functions = admin
+        .query(
+            "SELECT proname,proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+             WHERE n.nspname='public' AND prosecdef ORDER BY proname COLLATE \"C\"",
+            &[],
+        )
+        .await
+        .unwrap();
+    let names: Vec<String> = functions.iter().map(|row| row.get(0)).collect();
+    assert_eq!(
+        names,
+        [
+            "admin_append_audit",
+            "admin_identity_facts",
+            "admin_operation",
+            "admin_revoke_access",
+            "catalog_lock_actor",
+            "catalog_lock_member",
+            "listener_lock_actor",
+            "production_lock_actor",
+            "production_lock_member",
+            "studio_oidc_finish",
+            "theatre_firebase_enrollment_receipt",
+            "theatre_identity_finish",
+            "theatre_native_finish",
+        ]
+    );
+    for function in functions {
+        let settings: Vec<String> = function.get(1);
+        assert!(settings
+            .iter()
+            .any(|setting| setting == "search_path=pg_catalog"));
+    }
+    let public_execution: Vec<String> = admin
+        .query(
+            "SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace,
+                LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+             WHERE n.nspname='public' AND a.grantee=0 AND a.privilege_type='EXECUTE'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|row| row.get(0))
+        .collect();
+    assert_eq!(public_execution, Vec::<String>::new());
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite schema"]
+async fn identity_schema_rejects_every_unicode_whitespace_only_issuer_and_subject() {
+    let (config, admin) = database().await;
+    migrate(&config).await.unwrap();
+    admin
+        .batch_execute("INSERT INTO actors(id) VALUES('unicode-owner')")
+        .await
+        .unwrap();
+    // Independent identity boundary vectors. U+2028/U+2029 can be silently split into
+    // newlines by source materialization tools, weakening the SQL regex while it still parses.
+    for whitespace in [
+        " ",
+        "\u{00a0}",
+        "\u{1680}",
+        "\u{2000}",
+        "\u{2001}",
+        "\u{2002}",
+        "\u{2003}",
+        "\u{2004}",
+        "\u{2005}",
+        "\u{2006}",
+        "\u{2007}",
+        "\u{2008}",
+        "\u{2009}",
+        "\u{200a}",
+        "\u{2028}",
+        "\u{2029}",
+        "\u{202f}",
+        "\u{205f}",
+        "\u{3000}",
+        " \u{2028}\u{2029} ",
+    ] {
+        for (issuer, subject) in [(whitespace, "subject"), ("issuer", whitespace)] {
+            let error = admin
+                .execute(
+                    "INSERT INTO actor_external_identities(issuer,subject,actor_id)
+                     VALUES($1,$2,'unicode-owner')",
+                    &[&issuer, &subject],
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.code(),
+                Some(&tokio_postgres::error::SqlState::CHECK_VIOLATION),
+                "issuer={issuer:?} subject={subject:?}"
+            );
+        }
+    }
+    assert_eq!(
+        admin
+            .query_one("SELECT count(*) FROM actor_external_identities", &[])
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        0
+    );
+    admin
+        .execute(
+            "INSERT INTO actor_external_identities(issuer,subject,actor_id)
+             VALUES('Nhà hát Vọng Đài','Người kể chuyện','unicode-owner')",
+            &[],
+        )
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite schema"]
 async fn concurrent_bootstrap_commits_one_epoch_and_read_only_app_check_needs_no_ddl() {
     let (config, admin) = database().await;
     let (left, right) = tokio::join!(migrate(&config), migrate(&config));

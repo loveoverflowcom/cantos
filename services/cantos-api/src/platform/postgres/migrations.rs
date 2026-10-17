@@ -70,7 +70,12 @@ async fn check_registry(tx: &Transaction<'_>) -> Result<(), SchemaError> {
     let epochs = tx
         .query("SELECT epoch FROM public.cantos_schema", &[])
         .await?;
-    if epochs.len() != 1 || epochs[0].get::<_, i32>(0) != SCHEMA_EPOCH {
+    if epochs.len() != 1
+        || epochs[0]
+            .try_get::<_, i32>(0)
+            .map_err(|_| SchemaError::IncompatibleEpoch)?
+            != SCHEMA_EPOCH
+    {
         return Err(SchemaError::IncompatibleEpoch);
     }
     let registered: bool = tx
@@ -89,10 +94,18 @@ async fn check_registry(tx: &Transaction<'_>) -> Result<(), SchemaError> {
             &[],
         )
         .await?;
-    if rows.len() != 1 || rows[0].get::<_, i32>(0) != 1 {
+    if rows.len() != 1
+        || rows[0]
+            .try_get::<_, i32>(0)
+            .map_err(|_| SchemaError::RegistryMismatch)?
+            != 1
+    {
         return Err(SchemaError::RegistryMismatch);
     }
-    if rows[0].get::<_, Vec<u8>>(1) != Sha256::digest(BASELINE.as_bytes()).to_vec() {
+    let checksum = rows[0]
+        .try_get::<_, Vec<u8>>(1)
+        .map_err(|_| SchemaError::RegistryMismatch)?;
+    if checksum != Sha256::digest(BASELINE.as_bytes()).to_vec() {
         return Err(SchemaError::ChecksumMismatch);
     }
     Ok(())

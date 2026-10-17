@@ -494,12 +494,17 @@ CREATE TABLE public.actor_external_identities (
     subject text NOT NULL COLLATE pg_catalog."C",
     actor_id text NOT NULL,
     linked_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT actor_external_identities_issuer_check CHECK ((((octet_length(issuer) >= 1) AND (octet_length(issuer) <= 1024)) AND (issuer !~ '^[    - 
-
-  　]*$'::text) AND (issuer !~ '[--]'::text))),
-    CONSTRAINT actor_external_identities_subject_check CHECK ((((octet_length(subject) >= 1) AND (octet_length(subject) <= 512)) AND (subject !~ '^[    - 
-
-  　]*$'::text) AND (subject !~ '[--]'::text)))
+    -- Keep Unicode escapes literal: line splitting must not turn U+2028/U+2029 into LF.
+    CONSTRAINT actor_external_identities_issuer_check CHECK (
+        octet_length(issuer) BETWEEN 1 AND 1024
+        AND issuer !~ U&'^[\0020\00A0\1680\2000-\200A\2028\2029\202F\205F\3000]*$'
+        AND issuer !~ U&'[\0001-\001F\007F-\009F]'
+    ),
+    CONSTRAINT actor_external_identities_subject_check CHECK (
+        octet_length(subject) BETWEEN 1 AND 512
+        AND subject !~ U&'^[\0020\00A0\1680\2000-\200A\2028\2029\202F\205F\3000]*$'
+        AND subject !~ U&'[\0001-\001F\007F-\009F]'
+    )
 );
 
 CREATE TABLE public.actors (

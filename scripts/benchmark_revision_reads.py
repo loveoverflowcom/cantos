@@ -99,12 +99,14 @@ def source_queries():
     for label, prefix in [("auth", "SELECT a.id,coalesce(to_jsonb(s)->>'auth_kind','development') FROM sessions"),
                           ("member", "SELECT role FROM script_members"),
                           ("evidence", "SELECT id FROM script_evidence WHERE"),
-                          ("migration", "SELECT checksum FROM cantos_migrations"),
+                          ("migration", "SELECT version,checksum FROM public.cantos_migrations ORDER BY version"),
                           ("head_lock", "SELECT owner_id,head_revision FROM scripts"),
                           ("revision", "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"),
                           ("replay", "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND accepted_by=$2")]:
         literals = re.findall(r'"(?:\\.|[^"\\])*"', source)
-        matches = [json.loads(item) for item in literals if json.loads(item).startswith(prefix)]
+        # Only decode the selected query: unrelated Rust literals may contain physical
+        # newlines (valid Rust, invalid JSON). Selected-query drift still fails closed.
+        matches = [json.loads(item) for item in literals if item.startswith('"' + prefix)]
         if not matches or len(set(matches)) != 1:
             raise RuntimeError(f"SQL extraction ambiguous/missing: {label}")
         queries[label] = matches[0].replace("{REVISION_COLUMNS}", columns).replace("{lock}", "SHARE")
