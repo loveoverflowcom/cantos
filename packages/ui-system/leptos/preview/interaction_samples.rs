@@ -27,9 +27,9 @@ pub fn SelectionContractSamples(
         _ => ChoiceState::Enabled,
     });
     view! {
-        <Stack gap=Space::Sm>
+        <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
             <div data-preview-scenario="empty-options missing-value reordered-options unsupported-option interrupted">
-                <Stack gap=Space::Sm>
+                <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
                     <h3>"Lựa chọn theo stable value"</h3>
                     <Select id="gallery-option-mode" label="Tình huống danh sách" value=mode
                         on_input=Callback::new(move |next: String| mode.set(next))>
@@ -76,10 +76,10 @@ pub fn SelectionContractSamples(
 pub fn LayoutFeedbackContractSamples() -> impl IntoView {
     let retries = RwSignal::new(0u32);
     view! {
-        <Stack gap=Space::Lg>
+        <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Lg>
             <div data-preview-scenario="gap-lg inset-none">
                 <Surface tone=SurfaceTone::Reading inset=Space::None>
-                    <Stack direction=StackDirection::Horizontal gap=Space::Lg>
+                    <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" direction=StackDirection::Horizontal gap=Space::Lg>
                         <Button id="gallery-wrap-narrator" on_press=Callback::new(|_| {})>"Người dẫn chuyện"</Button>
                         <Button id="gallery-wrap-minh-phuong" on_press=Callback::new(|_| {})>"Nguyễn Thị Minh Phương · Ỗ, Ữ"</Button>
                         <p>"Vùng đọc có chân dùng shape.reading; các nhóm ngang xuống dòng ở kích thước nội dung."</p>
@@ -96,7 +96,7 @@ pub fn LayoutFeedbackContractSamples() -> impl IntoView {
             <div data-preview-scenario="recovery-slot announcement">
                 <ErrorState title="Không thể nạp bản nháp" announcement=Announcement::Off>
                     <p>"Ghi chú vẫn còn. Chủ ứng dụng chọn cách khôi phục và thời điểm thông báo."</p>
-                    <Stack direction=StackDirection::Horizontal gap=Space::Sm>
+                    <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" direction=StackDirection::Horizontal gap=Space::Sm>
                         <Button id="gallery-recovery-retry" variant=ButtonVariant::Secondary
                             on_press=Callback::new(move |_| retries.update(|n| *n += 1))>"Thử lại"</Button>
                         <Button id="gallery-recovery-notes" variant=ButtonVariant::Text

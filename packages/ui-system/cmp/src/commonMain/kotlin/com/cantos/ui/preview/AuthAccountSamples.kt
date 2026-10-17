@@ -85,7 +85,7 @@ internal fun AuthActionSample(state: String, onPress: () -> Unit, modifier: Modi
             else -> null
         },
     ) {
-        Text(label)
+        Text(vietnameseSpecimenText(label))
     }
     if (state == "auth-error") FieldError("Không mở được Cantos ID. Dữ liệu trong phiên vẫn được giữ lại.")
 }
@@ -102,8 +102,8 @@ internal fun AuthAccountSpecimen(
         BackButton(AccessibleName.of("Quay lại Tài khoản"), { onEvent("back:account") })
         Surface(tone = SurfaceTone.Surface, variant = SurfaceVariant.Auth, inset = com.cantos.ui.Space.Lg) {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-                Text("Câu chuyện đang đợi bạn.", style = CantosTypography.authHeading)
-                Text("Nội dung công khai vẫn có thể nghe ngay. Đây là mẫu UI, không mở xác thực hay gửi thông tin.")
+                Text(vietnameseSpecimenText("Câu chuyện đang đợi bạn."), style = CantosTypography.authHeading)
+                Text(PreviewToolCopy.AuthFixtureHelp)
                 AuthActionSample(if (state == "idle") "auth-primary" else state, { onEvent("auth:primary") })
                 AuthActionSample("auth-secondary", { onEvent("auth:secondary") })
                 TextField(
@@ -121,9 +121,9 @@ internal fun AuthAccountSpecimen(
         }
         Surface(tone = SurfaceTone.PrimaryContainer, variant = SurfaceVariant.Profile, inset = com.cantos.ui.Space.Lg) {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-                Text("Chào, Nguyễn Thị Minh Phương.", style = MaterialTheme.typography.headlineSmall)
-                Text("Giữ những câu chuyện đã chọn, tìm lại những đoạn kể còn ngân. · Ỗ, Ữ")
-                FieldHelp("Thông tin minh họa trên nền primary-container dùng đúng cặp chữ, không dùng muted thiếu tương phản.")
+                Text(vietnameseSpecimenText("Chào, Nguyễn Thị Minh Phương."), style = MaterialTheme.typography.headlineSmall)
+                Text(vietnameseSpecimenText("Giữ những câu chuyện đã chọn, tìm lại những đoạn kể còn ngân. · Ỗ, Ữ"))
+                FieldHelp(PreviewToolCopy.AuthContrastHelp)
                 Button("Mở tủ sách", { onEvent("profile:library") }, variant = ButtonVariant.AuthPrimary,
                     controlModifier = Modifier.fillMaxWidth())
                 Button("Đồng bộ tủ sách minh họa", {}, variant = ButtonVariant.AuthSecondary,
@@ -133,13 +133,13 @@ internal fun AuthAccountSpecimen(
         Surface(tone = SurfaceTone.Container, variant = SurfaceVariant.Membership, inset = com.cantos.ui.Space.Lg) {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
                 Text("Cantos Membership", style = MaterialTheme.typography.titleLarge)
-                Text("Một người nghe. Một người đồng hành.", style = CantosTypography.membershipTitle)
-                FieldHelp("Mẫu giao diện, không tự cấp quyền hội viên hay phát sinh thanh toán.")
+                Text(vietnameseSpecimenText("Một người nghe. Một người đồng hành."), style = CantosTypography.membershipTitle)
+                FieldHelp(PreviewToolCopy.MembershipFixtureHelp)
                 Button("Tìm hiểu Membership", { onEvent("membership:learn") }, variant = ButtonVariant.AuthSecondary)
             }
         }
         Surface(tone = SurfaceTone.Surface, variant = SurfaceVariant.AccountGroup) {
-            Text("Giao diện và cài đặt nghe thuộc một nhóm yên tĩnh. Không có viền trang trí.")
+            Text(PreviewToolCopy.AccountGroupHelp)
         }
     }
 }

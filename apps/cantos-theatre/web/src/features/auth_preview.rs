@@ -8,7 +8,7 @@ use crate::{
             SessionCompletion, SessionPhase,
         },
     },
-    messages::Locale,
+    messages::{text, Key, Locale},
 };
 use leptos::prelude::*;
 
@@ -113,98 +113,23 @@ fn outcome(result: Result<(), AccountError>) -> Outcome {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-enum Copy {
-    Heading,
-    Notice,
-    Guest,
-    SignedA,
-    SignedB,
-    LogoutPending,
-    CleanupFail,
-    CleanupAck,
-    BeginDelayed,
-    CompleteDelayed,
-    Cancel,
-    CleanupHelp,
-    DelayHelp,
-    Ready,
-    Applied,
-    NeedsCleanup,
-    RequestPending,
-    Rejected,
-    Delayed,
-    Ignored,
-    CleanupFailed,
-    Cancelled,
-}
-
-fn text(key: Copy, locale: Locale) -> &'static str {
-    match (key, locale) {
-        (Copy::Heading, Locale::Vietnamese) => "Auth preview · Chỉ dữ liệu mẫu",
-        (Copy::Heading, Locale::English) => "Auth preview · Fixtures only",
-        (Copy::Notice, Locale::Vietnamese) => "Công cụ kiểm tra riêng: không gọi mạng, Cantos ID, timer hoặc mật khẩu. A/B là tài khoản mẫu; không chứng nhận đăng nhập hoặc đăng ký thực.",
-        (Copy::Notice, Locale::English) => "Isolated diagnostics: no network, Cantos ID, timers or passwords. A/B are fixture accounts; this does not verify real sign-in or registration.",
-        (Copy::Guest, Locale::Vietnamese) => "Mẫu khách · cleanup đã xác nhận",
-        (Copy::Guest, Locale::English) => "Guest fixture · cleanup acknowledged",
-        (Copy::SignedA, Locale::Vietnamese) => "Mẫu đăng nhập A",
-        (Copy::SignedA, Locale::English) => "Signed-in fixture A",
-        (Copy::SignedB, Locale::Vietnamese) => "Mẫu đăng nhập B",
-        (Copy::SignedB, Locale::English) => "Signed-in fixture B",
-        (Copy::LogoutPending, Locale::Vietnamese) => "Bắt đầu mẫu đăng xuất",
-        (Copy::LogoutPending, Locale::English) => "Begin logout fixture",
-        (Copy::CleanupFail, Locale::Vietnamese) => "Mẫu cleanup thất bại",
-        (Copy::CleanupFail, Locale::English) => "Fail cleanup fixture",
-        (Copy::CleanupAck, Locale::Vietnamese) => "Xác nhận cleanup mẫu",
-        (Copy::CleanupAck, Locale::English) => "Acknowledge cleanup fixture",
-        (Copy::BeginDelayed, Locale::Vietnamese) => "Giữ phản hồi phiên A",
-        (Copy::BeginDelayed, Locale::English) => "Hold session A response",
-        (Copy::CompleteDelayed, Locale::Vietnamese) => "Trả phản hồi A đã giữ",
-        (Copy::CompleteDelayed, Locale::English) => "Deliver held A response",
-        (Copy::Cancel, Locale::Vietnamese) => "Hủy yêu cầu mẫu và rời auth",
-        (Copy::Cancel, Locale::English) => "Cancel fixture request and leave auth",
-        (Copy::CleanupHelp, Locale::Vietnamese) => "Bắt đầu mẫu đăng xuất trước khi thử phản hồi cleanup; xác nhận thành công mới mở lại Login.",
-        (Copy::CleanupHelp, Locale::English) => "Begin the logout fixture before delivering cleanup responses; only acknowledgement re-enables Login.",
-        (Copy::DelayHelp, Locale::Vietnamese) => "Giữ phản hồi A trước khi trả phản hồi. Sau khi hủy hoặc chuyển khách → B, phản hồi A cũ phải được bỏ qua.",
-        (Copy::DelayHelp, Locale::English) => "Hold A before delivering its response. After cancellation or a Guest → B switch, the old A response must be ignored.",
-        (Copy::Ready, Locale::Vietnamese) => "Sẵn sàng kiểm tra trạng thái mẫu.",
-        (Copy::Ready, Locale::English) => "Ready to inspect fixture states.",
-        (Copy::Applied, Locale::Vietnamese) => "Đã áp dụng chuyển trạng thái mẫu qua AccountViewState.",
-        (Copy::Applied, Locale::English) => "Fixture transition applied through AccountViewState.",
-        (Copy::NeedsCleanup, Locale::Vietnamese) => "Core chặn thao tác: phải xác nhận cleanup trước.",
-        (Copy::NeedsCleanup, Locale::English) => "Core refused the action: acknowledge cleanup first.",
-        (Copy::RequestPending, Locale::Vietnamese) => "Core chặn yêu cầu trùng trong khi phản hồi cũ còn chờ.",
-        (Copy::RequestPending, Locale::English) => "Core refused a duplicate request while a response is pending.",
-        (Copy::Rejected, Locale::Vietnamese) => "Core từ chối chuyển trạng thái mẫu; phiên hiện tại được giữ.",
-        (Copy::Rejected, Locale::English) => "Core refused the fixture transition; the current session is retained.",
-        (Copy::Delayed, Locale::Vietnamese) => "Đã giữ generation của yêu cầu A. Hủy hoặc chuyển khách → B rồi trả A để kiểm tra phản hồi trễ.",
-        (Copy::Delayed, Locale::English) => "Captured request A's generation. Cancel or switch Guest → B, then deliver A to inspect a stale response.",
-        (Copy::Ignored, Locale::Vietnamese) => "Core đã bỏ qua phản hồi A cũ; trạng thái hiện tại được giữ.",
-        (Copy::Ignored, Locale::English) => "Core ignored the old A response; the current state is retained.",
-        (Copy::CleanupFailed, Locale::Vietnamese) => "Cleanup mẫu chưa xác nhận; Login vẫn bị khóa, có thể thử hoàn tất đăng xuất.",
-        (Copy::CleanupFailed, Locale::English) => "Fixture cleanup remains unacknowledged; Login stays blocked and sign-out can be retried.",
-        (Copy::Cancelled, Locale::Vietnamese) => "Đã hủy generation mẫu và rời auth. Phản hồi A đã giữ có thể được trả để kiểm tra việc bỏ qua.",
-        (Copy::Cancelled, Locale::English) => "Fixture generation cancelled and auth closed. Deliver the held A response to inspect rejection.",
-    }
-}
-
-fn status_key(status: Outcome) -> Copy {
+fn status_key(status: Outcome) -> Key {
     match status {
-        Outcome::Ready => Copy::Ready,
-        Outcome::Applied => Copy::Applied,
-        Outcome::Blocked(AccountError::LogoutPending) => Copy::NeedsCleanup,
-        Outcome::Blocked(AccountError::RequestPending) => Copy::RequestPending,
+        Outcome::Ready => Key::AuthPreviewReady,
+        Outcome::Applied => Key::AuthPreviewApplied,
+        Outcome::Blocked(AccountError::LogoutPending) => Key::AuthPreviewNeedsCleanup,
+        Outcome::Blocked(AccountError::RequestPending) => Key::AuthPreviewRequestPending,
         Outcome::Blocked(
             AccountError::InvalidScope
             | AccountError::Exhausted
             | AccountError::SignedOut
             | AccountError::WrongAccount
             | AccountError::DuplicateIntent,
-        ) => Copy::Rejected,
-        Outcome::Delayed => Copy::Delayed,
-        Outcome::Ignored => Copy::Ignored,
-        Outcome::CleanupFailed => Copy::CleanupFailed,
-        Outcome::Cancelled => Copy::Cancelled,
+        ) => Key::AuthPreviewRejected,
+        Outcome::Delayed => Key::AuthPreviewDelayed,
+        Outcome::Ignored => Key::AuthPreviewIgnored,
+        Outcome::CleanupFailed => Key::AuthPreviewCleanupFailed,
+        Outcome::Cancelled => Key::AuthPreviewCancelled,
     }
 }
 
@@ -218,15 +143,15 @@ pub(crate) fn AuthPreviewControls(
     let delayed = RwSignal::new(None::<AccountGeneration>);
     view! {
         <aside class="theatre-auth-preview theatre-panel" aria-labelledby="theatre-auth-preview-heading">
-            <h2 id="theatre-auth-preview-heading">{move || text(Copy::Heading, locale.get())}</h2>
-            <p>{move || text(Copy::Notice, locale.get())}</p>
+            <h2 id="theatre-auth-preview-heading">{move || text(Key::AuthPreviewHeading, locale.get())}</h2>
+            <p>{move || text(Key::AuthPreviewNotice, locale.get())}</p>
             <details>
-                <summary>{move || text(Copy::Ready, locale.get())}</summary>
+                <summary>{move || text(Key::AuthPreviewReady, locale.get())}</summary>
                 <div class="theatre-actions">
-                    <button id="theatre-preview-guest" type="button" class="theatre-action" on:click=move |_| status.set(outcome(guest(state)))>{move || text(Copy::Guest, locale.get())}</button>
-                    <button id="theatre-preview-signed-a" type="button" class="theatre-action" on:click=move |_| status.set(outcome(signed_in(state, PreviewActor::A)))>{move || text(Copy::SignedA, locale.get())}</button>
-                    <button id="theatre-preview-signed-b" type="button" class="theatre-action" on:click=move |_| status.set(outcome(signed_in(state, PreviewActor::B)))>{move || text(Copy::SignedB, locale.get())}</button>
-                    <button id="theatre-preview-logout-pending" type="button" class="theatre-action" on:click=move |_| status.set(outcome(logout_pending(state)))>{move || text(Copy::LogoutPending, locale.get())}</button>
+                    <button id="theatre-preview-guest" type="button" class="theatre-action" on:click=move |_| status.set(outcome(guest(state)))>{move || text(Key::AuthPreviewGuest, locale.get())}</button>
+                    <button id="theatre-preview-signed-a" type="button" class="theatre-action" on:click=move |_| status.set(outcome(signed_in(state, PreviewActor::A)))>{move || text(Key::AuthPreviewSignedA, locale.get())}</button>
+                    <button id="theatre-preview-signed-b" type="button" class="theatre-action" on:click=move |_| status.set(outcome(signed_in(state, PreviewActor::B)))>{move || text(Key::AuthPreviewSignedB, locale.get())}</button>
+                    <button id="theatre-preview-logout-pending" type="button" class="theatre-action" on:click=move |_| status.set(outcome(logout_pending(state)))>{move || text(Key::AuthPreviewLogoutPending, locale.get())}</button>
                     <button id="theatre-preview-cleanup-fail" type="button" class="theatre-action"
                         aria-describedby="theatre-preview-cleanup-help"
                         disabled=move || state.get().phase() != SessionPhase::LogoutPending on:click=move |_| {
@@ -234,21 +159,21 @@ pub(crate) fn AuthPreviewControls(
                             let _ = logout_ack(state, false);
                             status.set(Outcome::CleanupFailed);
                         }
-                    }>{move || text(Copy::CleanupFail, locale.get())}</button>
+                    }>{move || text(Key::AuthPreviewCleanupFail, locale.get())}</button>
                     <button id="theatre-preview-cleanup-ack" type="button" class="theatre-action"
                         aria-describedby="theatre-preview-cleanup-help"
                         disabled=move || state.get().phase() != SessionPhase::LogoutPending on:click=move |_| {
                         if state.get_untracked().phase() == SessionPhase::LogoutPending {
                             status.set(if logout_ack(state, true) { Outcome::Applied } else { Outcome::Ignored });
                         }
-                    }>{move || text(Copy::CleanupAck, locale.get())}</button>
+                    }>{move || text(Key::AuthPreviewCleanupAck, locale.get())}</button>
                     <button id="theatre-preview-delay-begin" type="button" class="theatre-action" on:click=move |_| {
                         let result = state.write().begin_refresh();
                         match result {
                             Ok(issued) => { delayed.set(Some(issued)); status.set(Outcome::Delayed); }
                             Err(error) => status.set(Outcome::Blocked(error)),
                         }
-                    }>{move || text(Copy::BeginDelayed, locale.get())}</button>
+                    }>{move || text(Key::AuthPreviewBeginDelayed, locale.get())}</button>
                     <button id="theatre-preview-delay-complete" type="button" class="theatre-action"
                         aria-describedby="theatre-preview-delay-help"
                         disabled=move || delayed.get().is_none() on:click=move |_| {
@@ -260,16 +185,16 @@ pub(crate) fn AuthPreviewControls(
                                     Err(error) => Outcome::Blocked(error),
                                 });
                             }
-                        }>{move || text(Copy::CompleteDelayed, locale.get())}</button>
+                        }>{move || text(Key::AuthPreviewCompleteDelayed, locale.get())}</button>
                     <button id="theatre-preview-cancel" type="button" class="theatre-action" on:click=move |_| {
                         match guest(state) {
                             Ok(()) => { on_cancel.run(()); status.set(Outcome::Cancelled); }
                             Err(error) => status.set(Outcome::Blocked(error)),
                         }
-                    }>{move || text(Copy::Cancel, locale.get())}</button>
+                    }>{move || text(Key::AuthPreviewCancel, locale.get())}</button>
                 </div>
-                <p id="theatre-preview-cleanup-help">{move || text(Copy::CleanupHelp, locale.get())}</p>
-                <p id="theatre-preview-delay-help">{move || text(Copy::DelayHelp, locale.get())}</p>
+                <p id="theatre-preview-cleanup-help">{move || text(Key::AuthPreviewCleanupHelp, locale.get())}</p>
+                <p id="theatre-preview-delay-help">{move || text(Key::AuthPreviewDelayHelp, locale.get())}</p>
             </details>
             <p id="theatre-auth-preview-status" role="status" aria-live="polite">{move || text(status_key(status.get()), locale.get())}</p>
         </aside>
@@ -332,5 +257,55 @@ mod tests {
                 assert!(!html.contains(absent), "{absent}");
             }
         });
+    }
+
+    #[test]
+    fn preview_labels_and_all_typed_outcomes_resolve_in_both_locales() {
+        for (locale, heading, button) in [
+            (
+                Locale::Vietnamese,
+                "Auth preview · Chỉ dữ liệu mẫu",
+                "Trả phản hồi A đã giữ",
+            ),
+            (
+                Locale::English,
+                "Auth preview · Fixtures only",
+                "Deliver held A response",
+            ),
+        ] {
+            Owner::new().with(|| {
+                let html = view! { <AuthPreviewControls state=RwSignal::new(AccountViewState::default()) locale=RwSignal::new(locale) on_cancel=Callback::new(|()| ())/ > }.to_html();
+                assert!(html.contains(heading) && html.contains(button), "{html}");
+            });
+            for status in [
+                Outcome::Ready,
+                Outcome::Applied,
+                Outcome::Delayed,
+                Outcome::Ignored,
+                Outcome::CleanupFailed,
+                Outcome::Cancelled,
+            ] {
+                assert!(
+                    !text(status_key(status), locale).trim().is_empty(),
+                    "{status:?}"
+                );
+            }
+            for error in [
+                AccountError::InvalidScope,
+                AccountError::Exhausted,
+                AccountError::SignedOut,
+                AccountError::WrongAccount,
+                AccountError::DuplicateIntent,
+                AccountError::LogoutPending,
+                AccountError::RequestPending,
+            ] {
+                assert!(
+                    !text(status_key(Outcome::Blocked(error)), locale)
+                        .trim()
+                        .is_empty(),
+                    "{error:?}"
+                );
+            }
+        }
     }
 }

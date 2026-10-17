@@ -7,9 +7,8 @@ use crate::{
     features::{
         auth_copy::{self, CopyKey},
         common::clock,
-        public_home::kind_label,
     },
-    messages::{self, Locale},
+    messages::{self, text, Key, Locale},
 };
 use cantos_contracts::theatre::{UnitKind, UnitSummary, WorkKind, WorkSummary};
 use cantos_ui::{AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason};
@@ -24,121 +23,10 @@ pub(crate) fn unit_heading_id(unit_id: &str) -> String {
     format!("theatre-public-unit-{unit_id}")
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Copy {
-    Loading,
-    About,
-    NotFound,
-    NotFoundHelp,
-    Unavailable,
-    UnavailableHelp,
-    Protocol,
-    ProtocolHelp,
-    Retry,
-    Chapter,
-    Episode,
-    Chapters,
-    Episodes,
-    Listen,
-    ListenUnavailable,
-    UnitsLoading,
-    UnitsRestarting,
-    ChaptersEmpty,
-    EpisodesEmpty,
-    UnitsComplete,
-    UnitsMoreAvailable,
-    UnitsFailed,
-    UnitsUnavailableHelp,
-    UnitsProtocolHelp,
-    PageUnavailable,
-    PageProtocol,
-    Restarted,
-    MoreChapters,
-    MoreEpisodes,
-    LoadingMore,
-    RetryPage,
-    Duration,
-    DurationUnknown,
-    RowUnavailable,
-}
-
-fn text(key: Copy, locale: Locale) -> &'static str {
-    match (key, locale) {
-        (Copy::Loading, Locale::Vietnamese) => "Đang mở tác phẩm…",
-        (Copy::Loading, Locale::English) => "Opening the story…",
-        (Copy::About, Locale::Vietnamese) => "Về tác phẩm",
-        (Copy::About, Locale::English) => "About the story",
-        (Copy::NotFound, Locale::Vietnamese) => "Tác phẩm này hiện không mở công khai.",
-        (Copy::NotFound, Locale::English) => "This story is not publicly available right now.",
-        (Copy::NotFoundHelp, Locale::Vietnamese) => "Cantos không thể hiển thị tác phẩm này cho người nghe lúc này. Bạn có thể quay về Trang chủ để khám phá những câu chuyện khác.",
-        (Copy::NotFoundHelp, Locale::English) => "Cantos cannot show this story to listeners right now. You can return Home to explore other stories.",
-        (Copy::Unavailable, Locale::Vietnamese) => "Chưa mở được tác phẩm.",
-        (Copy::Unavailable, Locale::English) => "The story could not be opened.",
-        (Copy::UnavailableHelp, Locale::Vietnamese) => "Kết nối hiện chưa sẵn sàng. Hãy thử lại; bạn không cần đăng nhập để xem nội dung công khai.",
-        (Copy::UnavailableHelp, Locale::English) => "The connection is unavailable. Try again; public stories do not require sign-in.",
-        (Copy::Protocol, Locale::Vietnamese) => "Chưa đọc được thông tin tác phẩm.",
-        (Copy::Protocol, Locale::English) => "The story details could not be read.",
-        (Copy::ProtocolHelp, Locale::Vietnamese) => "Phản hồi chưa hợp lệ. Hãy thử lại để tải tác phẩm từ Cantos.",
-        (Copy::ProtocolHelp, Locale::English) => "The response was invalid. Try loading the story from Cantos again.",
-        (Copy::Retry, Locale::Vietnamese) => "Thử lại",
-        (Copy::Retry, Locale::English) => "Try again",
-        (Copy::Chapter, Locale::Vietnamese) => "Chương",
-        (Copy::Chapter, Locale::English) => "Chapter",
-        (Copy::Episode, Locale::Vietnamese) => "Tập",
-        (Copy::Episode, Locale::English) => "Episode",
-        (Copy::Chapters, Locale::Vietnamese) => "Các chương",
-        (Copy::Chapters, Locale::English) => "Chapters",
-        (Copy::Episodes, Locale::Vietnamese) => "Các tập",
-        (Copy::Episodes, Locale::English) => "Episodes",
-        (Copy::Listen, Locale::Vietnamese) => "Nghe",
-        (Copy::Listen, Locale::English) => "Listen",
-        (Copy::ListenUnavailable, Locale::Vietnamese) => "Cantos Web chưa phát được âm thanh. Bạn vẫn có thể xem danh sách đã công bố bên dưới.",
-        (Copy::ListenUnavailable, Locale::English) => "Cantos Web cannot play audio yet. You can still browse the published list below.",
-        (Copy::UnitsLoading, Locale::Vietnamese) => "Đang tải danh sách…",
-        (Copy::UnitsLoading, Locale::English) => "Loading the list…",
-        (Copy::UnitsRestarting, Locale::Vietnamese) => "Đang tải lại danh sách từ đầu…",
-        (Copy::UnitsRestarting, Locale::English) => "Reloading the list from the start…",
-        (Copy::ChaptersEmpty, Locale::Vietnamese) => "Tác phẩm này chưa có chương nào mở công khai.",
-        (Copy::ChaptersEmpty, Locale::English) => "This story has no publicly available chapters yet.",
-        (Copy::EpisodesEmpty, Locale::Vietnamese) => "Podcast này chưa có tập nào mở công khai.",
-        (Copy::EpisodesEmpty, Locale::English) => "This podcast has no publicly available episodes yet.",
-        (Copy::UnitsComplete, Locale::Vietnamese) => "Đã hiển thị hết danh sách.",
-        (Copy::UnitsComplete, Locale::English) => "You have reached the end of the list.",
-        (Copy::UnitsMoreAvailable, Locale::Vietnamese) => "Danh sách vẫn còn phần tiếp theo.",
-        (Copy::UnitsMoreAvailable, Locale::English) => "More of the list is available.",
-        (Copy::UnitsFailed, Locale::Vietnamese) => "Chưa tải được danh sách.",
-        (Copy::UnitsFailed, Locale::English) => "The list could not be loaded.",
-        (Copy::UnitsUnavailableHelp, Locale::Vietnamese) => "Kết nối hiện chưa sẵn sàng. Hãy thử lại.",
-        (Copy::UnitsUnavailableHelp, Locale::English) => "The connection is unavailable. Try again.",
-        (Copy::UnitsProtocolHelp, Locale::Vietnamese) => "Phản hồi chưa hợp lệ. Hãy thử lại.",
-        (Copy::UnitsProtocolHelp, Locale::English) => "The response was invalid. Try again.",
-        (Copy::PageUnavailable, Locale::Vietnamese) => "Chưa tải được phần tiếp theo. Những mục đã hiển thị vẫn được giữ nguyên.",
-        (Copy::PageUnavailable, Locale::English) => "The next part could not be loaded. Items already shown are kept.",
-        (Copy::PageProtocol, Locale::Vietnamese) => "Phần tiếp theo trả về dữ liệu chưa hợp lệ. Những mục đã hiển thị vẫn được giữ nguyên.",
-        (Copy::PageProtocol, Locale::English) => "The next part returned invalid data. Items already shown are kept.",
-        (Copy::Restarted, Locale::Vietnamese) => "Phiên duyệt danh sách đã hết hạn nên Cantos tải lại từ đầu; các mục đã hiển thị được giữ và không lặp lại.",
-        (Copy::Restarted, Locale::English) => "The list session expired, so Cantos reloaded it from the start; items already shown are kept without duplicates.",
-        (Copy::MoreChapters, Locale::Vietnamese) => "Tải thêm chương",
-        (Copy::MoreChapters, Locale::English) => "Load more chapters",
-        (Copy::MoreEpisodes, Locale::Vietnamese) => "Tải thêm tập",
-        (Copy::MoreEpisodes, Locale::English) => "Load more episodes",
-        (Copy::LoadingMore, Locale::Vietnamese) => "Đang tải phần tiếp theo…",
-        (Copy::LoadingMore, Locale::English) => "Loading the next part…",
-        (Copy::RetryPage, Locale::Vietnamese) => "Thử lại phần này",
-        (Copy::RetryPage, Locale::English) => "Retry this part",
-        (Copy::Duration, Locale::Vietnamese) => "Thời lượng",
-        (Copy::Duration, Locale::English) => "Duration",
-        (Copy::DurationUnknown, Locale::Vietnamese) => "Chưa rõ thời lượng",
-        (Copy::DurationUnknown, Locale::English) => "Duration not known yet",
-        (Copy::RowUnavailable, Locale::Vietnamese) => "Mục này không còn trong danh sách công khai.",
-        (Copy::RowUnavailable, Locale::English) => "This item is no longer in the public list.",
-    }
-}
-
-const fn unit_label(kind: UnitKind) -> Copy {
+const fn unit_label(kind: UnitKind) -> Key {
     match kind {
-        UnitKind::Chapter => Copy::Chapter,
-        UnitKind::Episode => Copy::Episode,
+        UnitKind::Chapter => Key::PublicWorkChapter,
+        UnitKind::Episode => Key::PublicWorkEpisode,
     }
 }
 
@@ -186,23 +74,25 @@ pub(crate) fn page_focus_target(state: &WorkDetailState) -> String {
 fn status_line(units: &UnitList, work_kind: WorkKind, locale: Locale) -> String {
     let rows = !units.rows().is_empty();
     let status = match units.status() {
-        PageStatus::Loading if !units.walk_started() && rows => Some(Copy::UnitsRestarting),
-        PageStatus::Loading if !rows => Some(Copy::UnitsLoading),
+        PageStatus::Loading if !units.walk_started() && rows => {
+            Some(Key::PublicWorkUnitsRestarting)
+        }
+        PageStatus::Loading if !rows => Some(Key::PublicWorkUnitsLoading),
         // The Load more control announces its own busy reason.
         PageStatus::Loading => None,
         PageStatus::Failed(_) if !rows => None,
-        PageStatus::Failed(ReadFailure::Unavailable) => Some(Copy::PageUnavailable),
-        PageStatus::Failed(ReadFailure::Protocol) => Some(Copy::PageProtocol),
+        PageStatus::Failed(ReadFailure::Unavailable) => Some(Key::PublicWorkPageUnavailable),
+        PageStatus::Failed(ReadFailure::Protocol) => Some(Key::PublicWorkPageProtocol),
         PageStatus::Idle if units.is_empty_terminal() => Some(match work_kind {
-            WorkKind::Podcast => Copy::EpisodesEmpty,
-            WorkKind::Novel | WorkKind::Story => Copy::ChaptersEmpty,
+            WorkKind::Podcast => Key::PublicWorkEpisodesEmpty,
+            WorkKind::Novel | WorkKind::Story => Key::PublicWorkChaptersEmpty,
         }),
-        PageStatus::Idle if units.is_complete() => Some(Copy::UnitsComplete),
-        PageStatus::Idle if !rows && units.has_more() => Some(Copy::UnitsMoreAvailable),
-        PageStatus::Idle if !units.walk_started() => Some(Copy::UnitsLoading),
+        PageStatus::Idle if units.is_complete() => Some(Key::PublicWorkUnitsComplete),
+        PageStatus::Idle if !rows && units.has_more() => Some(Key::PublicWorkUnitsMoreAvailable),
+        PageStatus::Idle if !units.walk_started() => Some(Key::PublicWorkUnitsLoading),
         PageStatus::Idle => None,
     };
-    let notice = units.notice().map(|_| Copy::Restarted);
+    let notice = units.notice().map(|_| Key::PublicWorkRestarted);
     [notice, status]
         .into_iter()
         .flatten()
@@ -228,20 +118,20 @@ pub(crate) fn PublicWorkDetail(
             })}
             {move || match current.get() {
                 Shape::Loading => view! {
-                    <h1 id=HEADING_ID tabindex="-1">{move || text(Copy::About, locale.get())}</h1>
-                    <p class="theatre-public-state" role="status">{move || text(Copy::Loading, locale.get())}</p>
+                    <h1 id=HEADING_ID tabindex="-1">{move || text(Key::AboutWork, locale.get())}</h1>
+                    <p class="theatre-public-state" role="status">{move || text(Key::PublicWorkLoading, locale.get())}</p>
                 }.into_any(),
                 Shape::NotFound => view! {
                     <div class="theatre-public-state theatre-panel">
-                        <h1 id=HEADING_ID tabindex="-1">{move || text(Copy::NotFound, locale.get())}</h1>
-                        <p>{move || text(Copy::NotFoundHelp, locale.get())}</p>
+                        <h1 id=HEADING_ID tabindex="-1">{move || text(Key::PublicWorkNotFound, locale.get())}</h1>
+                        <p>{move || text(Key::PublicWorkNotFoundHelp, locale.get())}</p>
                         <a class="theatre-text-link" href="#discover">{move || auth_copy::text(CopyKey::ReturnHome, locale.get())}</a>
                     </div>
                 }.into_any(),
                 Shape::Failed(failure) => {
                     let (heading, help) = match failure {
-                        ReadFailure::Unavailable => (Copy::Unavailable, Copy::UnavailableHelp),
-                        ReadFailure::Protocol => (Copy::Protocol, Copy::ProtocolHelp),
+                        ReadFailure::Unavailable => (Key::PublicWorkUnavailable, Key::PublicConnectionUnavailableHelp),
+                        ReadFailure::Protocol => (Key::PublicWorkProtocol, Key::PublicWorkProtocolHelp),
                     };
                     view! {
                         <div class="theatre-public-state theatre-panel" role="status">
@@ -249,7 +139,7 @@ pub(crate) fn PublicWorkDetail(
                             <p>{move || text(help, locale.get())}</p>
                             <Button id="theatre-public-work-retry" variant=ButtonVariant::Tonal
                                 on_press=Callback::new(move |_| on_retry.run(()))>
-                                {move || text(Copy::Retry, locale.get())}
+                                {move || text(Key::PublicRetry, locale.get())}
                             </Button>
                         </div>
                     }.into_any()
@@ -278,8 +168,8 @@ fn ReadyWork(
     let lang = work.language.clone();
     let row_lang = StoredValue::new(work.language.clone());
     let (list_heading, more_label) = match kind {
-        WorkKind::Podcast => (Copy::Episodes, Copy::MoreEpisodes),
-        WorkKind::Novel | WorkKind::Story => (Copy::Chapters, Copy::MoreChapters),
+        WorkKind::Podcast => (Key::PublicWorkEpisodes, Key::PublicWorkMoreEpisodes),
+        WorkKind::Novel | WorkKind::Story => (Key::PublicWorkChapters, Key::PublicWorkMoreChapters),
     };
     let rows = move || {
         state
@@ -317,13 +207,15 @@ fn ReadyWork(
             .unwrap_or(false)
     };
     let more_state = Signal::derive(move || match status() {
-        Some(PageStatus::Loading) => DisabledReason::new(text(Copy::LoadingMore, locale.get()))
-            .map(ButtonState::Loading)
-            .unwrap_or_default(),
+        Some(PageStatus::Loading) => {
+            DisabledReason::new(text(Key::PublicWorkLoadingMore, locale.get()))
+                .map(ButtonState::Loading)
+                .unwrap_or_default()
+        }
         _ => ButtonState::Enabled,
     });
     let listen_state = Signal::derive(move || {
-        DisabledReason::new(text(Copy::ListenUnavailable, locale.get()))
+        DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
             .map(ButtonState::Disabled)
             .unwrap_or_default()
     });
@@ -333,14 +225,14 @@ fn ReadyWork(
             <div class="theatre-cover" aria-hidden="true">
                 <span class="theatre-cover-moon"></span>
                 <strong lang=lang.clone()>{work.title.clone()}</strong>
-                <small>{move || kind_label(kind, locale.get())}</small>
+                <small>{move || text(messages::work_kind_key(kind), locale.get())}</small>
             </div>
             <div>
-                <p class="theatre-eyebrow">{move || kind_label(kind, locale.get())}</p>
+                <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h1 id=HEADING_ID tabindex="-1" lang=lang.clone()>{work.title.clone()}</h1>
                 {description.map(|text| view! { <p class="theatre-synopsis" lang=lang.clone()>{text}</p> })}
                 <Button id="theatre-public-work-listen" state=listen_state>
-                    {move || text(Copy::Listen, locale.get())}
+                    {move || text(Key::PublicWorkListen, locale.get())}
                 </Button>
             </div>
         </header>
@@ -353,16 +245,16 @@ fn ReadyWork(
             </ol>
             {move || first_page_failure().map(|failure| {
                 let help = match failure {
-                    ReadFailure::Unavailable => Copy::UnitsUnavailableHelp,
-                    ReadFailure::Protocol => Copy::UnitsProtocolHelp,
+                    ReadFailure::Unavailable => Key::PublicWorkUnitsUnavailableHelp,
+                    ReadFailure::Protocol => Key::PublicWorkUnitsProtocolHelp,
                 };
                 view! {
                     <div class="theatre-public-state theatre-panel">
-                        <h3>{move || text(Copy::UnitsFailed, locale.get())}</h3>
+                        <h3>{move || text(Key::PublicWorkUnitsFailed, locale.get())}</h3>
                         <p>{move || text(help, locale.get())}</p>
                         <Button id=UNITS_RETRY_ID variant=ButtonVariant::Tonal
                             on_press=Callback::new(move |_| on_retry.run(()))>
-                            {move || text(Copy::Retry, locale.get())}
+                            {move || text(Key::PublicRetry, locale.get())}
                         </Button>
                     </div>
                 }
@@ -373,7 +265,7 @@ fn ReadyWork(
             <Show when=more_visible>
                 <Button id=UNITS_MORE_ID variant=ButtonVariant::Tonal state=more_state
                     on_press=Callback::new(move |_| on_load_more.run(()))>
-                    {move || text(if matches!(status(), Some(PageStatus::Failed(_))) { Copy::RetryPage } else { more_label }, locale.get())}
+                    {move || text(if matches!(status(), Some(PageStatus::Failed(_))) { Key::PublicWorkRetryPage } else { more_label }, locale.get())}
                 </Button>
             </Show>
         </section>
@@ -402,13 +294,13 @@ fn UnitRow(
                     {move || if known {
                         view! {
                             <span aria-hidden="true">{clock(seconds)}</span>
-                            <span class="cui-sr-only">{format!("{}: {}", text(Copy::Duration, locale.get()), messages::spoken_time(locale.get(), seconds))}</span>
+                            <span class="cui-sr-only">{messages::format(Key::PublicWorkDurationDescription, locale.get(), &[("duration", messages::spoken_time(locale.get(), seconds))])}</span>
                         }.into_any()
                     } else {
-                        text(Copy::DurationUnknown, locale.get()).into_any()
+                        text(Key::PublicWorkDurationUnknown, locale.get()).into_any()
                     }}
                 </p>
-                {unavailable.then(|| view! { <p class="theatre-muted">{move || text(Copy::RowUnavailable, locale.get())}</p> })}
+                {unavailable.then(|| view! { <p class="theatre-muted">{move || text(Key::PublicWorkRowUnavailable, locale.get())}</p> })}
             </div>
         </li>
     }
@@ -653,42 +545,114 @@ mod tests {
     fn copy_is_complete_and_nonblank_in_both_locales() {
         for locale in Locale::ALL {
             for key in [
-                Copy::Loading,
-                Copy::About,
-                Copy::NotFound,
-                Copy::NotFoundHelp,
-                Copy::Unavailable,
-                Copy::UnavailableHelp,
-                Copy::Protocol,
-                Copy::ProtocolHelp,
-                Copy::Retry,
-                Copy::Chapter,
-                Copy::Episode,
-                Copy::Chapters,
-                Copy::Episodes,
-                Copy::Listen,
-                Copy::ListenUnavailable,
-                Copy::UnitsLoading,
-                Copy::UnitsRestarting,
-                Copy::ChaptersEmpty,
-                Copy::EpisodesEmpty,
-                Copy::UnitsComplete,
-                Copy::UnitsMoreAvailable,
-                Copy::UnitsFailed,
-                Copy::UnitsUnavailableHelp,
-                Copy::UnitsProtocolHelp,
-                Copy::PageUnavailable,
-                Copy::PageProtocol,
-                Copy::Restarted,
-                Copy::MoreChapters,
-                Copy::MoreEpisodes,
-                Copy::LoadingMore,
-                Copy::RetryPage,
-                Copy::Duration,
-                Copy::DurationUnknown,
-                Copy::RowUnavailable,
+                Key::PublicWorkLoading,
+                Key::AboutWork,
+                Key::PublicWorkNotFound,
+                Key::PublicWorkNotFoundHelp,
+                Key::PublicWorkUnavailable,
+                Key::PublicConnectionUnavailableHelp,
+                Key::PublicWorkProtocol,
+                Key::PublicWorkProtocolHelp,
+                Key::PublicRetry,
+                Key::PublicWorkChapter,
+                Key::PublicWorkEpisode,
+                Key::PublicWorkChapters,
+                Key::PublicWorkEpisodes,
+                Key::PublicWorkListen,
+                Key::PublicWorkListenUnavailable,
+                Key::PublicWorkUnitsLoading,
+                Key::PublicWorkUnitsRestarting,
+                Key::PublicWorkChaptersEmpty,
+                Key::PublicWorkEpisodesEmpty,
+                Key::PublicWorkUnitsComplete,
+                Key::PublicWorkUnitsMoreAvailable,
+                Key::PublicWorkUnitsFailed,
+                Key::PublicWorkUnitsUnavailableHelp,
+                Key::PublicWorkUnitsProtocolHelp,
+                Key::PublicWorkPageUnavailable,
+                Key::PublicWorkPageProtocol,
+                Key::PublicWorkRestarted,
+                Key::PublicWorkMoreChapters,
+                Key::PublicWorkMoreEpisodes,
+                Key::PublicWorkLoadingMore,
+                Key::PublicWorkRetryPage,
+                Key::PublicWorkDurationDescription,
+                Key::PublicWorkDurationUnknown,
+                Key::PublicWorkRowUnavailable,
             ] {
                 assert!(!text(key, locale).trim().is_empty(), "{key:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn both_locales_preserve_content_and_map_each_read_failure_and_duration() {
+        for (locale, kind, chapters, duration, listen_reason, not_found, unavailable, protocol) in [
+            (
+                Locale::Vietnamese,
+                ">Truyện<",
+                "Các chương",
+                "Thời lượng: 12 phút 34 giây",
+                "Cantos Web chưa phát được âm thanh.",
+                "Tác phẩm này hiện không mở công khai.",
+                "Chưa mở được tác phẩm.",
+                "Chưa đọc được thông tin tác phẩm.",
+            ),
+            (
+                Locale::English,
+                ">Story<",
+                "Chapters",
+                "Duration: 12 minutes 34 seconds",
+                "Cantos Web cannot play audio yet.",
+                "This story is not publicly available right now.",
+                "The story could not be opened.",
+                "The story details could not be read.",
+            ),
+        ] {
+            let mut work = fixture_work();
+            work.title = "Lời hẹn {time} <cuối>".into();
+            let (mut ready, first) = opened(work);
+            ready.finish_page(&first, Ok(page(vec![unit(1, "Tập {duration}")], None)));
+            let html = render(ready, locale);
+            for expected in [
+                kind,
+                chapters,
+                duration,
+                listen_reason,
+                "Lời hẹn {time} &lt;cuối&gt;",
+                "Tập {duration}",
+                "lang=\"vi-VN\"",
+                "aria-describedby=\"theatre-public-work-listen-reason\"",
+            ] {
+                assert!(html.contains(expected), "{expected}: {html}");
+            }
+            for (failure, heading) in [
+                (CatalogReadError::NotFound, not_found),
+                (CatalogReadError::Unavailable, unavailable),
+                (CatalogReadError::Protocol, protocol),
+            ] {
+                let mut failed = WorkDetailState::default();
+                let ticket = failed.open(PublicWorkId::parse(WORK).unwrap()).unwrap();
+                failed.finish_work(&ticket, Err(failure));
+                assert!(render(failed, locale).contains(heading), "{heading}");
+            }
+            for (failure, help) in [
+                (
+                    CatalogReadError::Unavailable,
+                    text(Key::PublicWorkUnitsUnavailableHelp, locale),
+                ),
+                (
+                    CatalogReadError::Protocol,
+                    text(Key::PublicWorkUnitsProtocolHelp, locale),
+                ),
+            ] {
+                let (mut failed, first) = opened(fixture_work());
+                failed.finish_page(&first, Err(failure));
+                let html = render(failed, locale);
+                assert!(
+                    html.contains(help) && html.contains(UNITS_RETRY_ID),
+                    "{html}"
+                );
             }
         }
     }

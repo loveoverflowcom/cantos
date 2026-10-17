@@ -1,4 +1,5 @@
 //! Preview-only composition root. Recipes select production controls; no services are built.
+use super::messages::{fixture_label, specimen, tool, SpecimenKey};
 use super::{motion_probe, platform, recipe::*, Gallery};
 use cantos_ui::{
     AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant, ChoiceState,
@@ -28,22 +29,6 @@ impl Host {
     fn restore(self) {
         self.reset.update(|epoch| *epoch = epoch.wrapping_add(1));
         self.events.set(Vec::new());
-    }
-}
-
-fn copy(locale: Locale, vi: &'static str, en: &'static str) -> &'static str {
-    match locale {
-        Locale::Vi => vi,
-        Locale::En => en,
-    }
-}
-
-fn fixture_label(recipe: Recipe) -> &'static str {
-    match (recipe.locale, recipe.fixture) {
-        (Locale::Vi, Fixture::Standard) => "Ngày mai, mình có diễn tiếp không?",
-        (Locale::En, Fixture::Standard) => "Shall we perform again tomorrow?",
-        (Locale::Vi, Fixture::LongVietnamese) => "Nguyễn Thị Ánh Nguyệt — Ánh đèn cuối sân khấu và lời hẹn dưới chân Thanh Vân Sơn. Ngày mai, mình có diễn tiếp không?",
-        (Locale::En, Fixture::LongVietnamese) => "Nguyễn Thị Ánh Nguyệt — The last stage light and a promise beneath Thanh Vân Sơn. Shall we perform again tomorrow?",
     }
 }
 
@@ -77,9 +62,7 @@ pub fn Workbench(#[prop(optional)] initial_query: Option<String>) -> impl IntoVi
     };
     let theme = RwSignal::new(initial.theme);
     let density = RwSignal::new(initial.density);
-    let facts = RwSignal::new(String::from(
-        "Browser facts not captured; refresh after fonts are ready.",
-    ));
+    let facts = RwSignal::new(String::from(tool::BROWSER_PENDING));
     let notice = RwSignal::new(String::new());
     let frame_ref = NodeRef::<leptos::html::Section>::new();
     let motion_frames = RwSignal::new(Vec::<String>::new());
@@ -121,26 +104,24 @@ pub fn Workbench(#[prop(optional)] initial_query: Option<String>) -> impl IntoVi
             motion_frames.get_untracked(),
         );
         match platform::download_text("cantos-preview-evidence.txt", &report) {
-            Ok(()) => notice.set(
-                "Metadata exported. Capture/open pixels and record input separately.".to_owned(),
-            ),
+            Ok(()) => notice.set(tool::EXPORTED.to_owned()),
             Err(error) => notice.set(format!("Export unavailable: {error:?}")),
         }
     });
     view! {
         <UiRoot theme=theme density=density>
-            <main class="cui-workbench" lang="en" data-preview-workbench="v1">
-                <header><p>"Cantos · Leptos · local diagnostics"</p><h1>"Scenario workbench"</h1>
-                    <p>"Select a recipe, copy its link, drive real input, then capture and inspect. No network, identity or audio effects."</p>
+            <main class="cui-workbench" lang=tool::LANGUAGE_TAG data-preview-workbench="v1">
+                <header><p>{tool::WORKBENCH_BRAND}</p><h1>{tool::WORKBENCH_TITLE}</h1>
+                    <p>{tool::WORKBENCH_INTRO}</p>
                 </header>
                 {fallback.map(|message| view! { <p id="scenario-fallback" role="alert">{message}</p> })}
-                <section aria-label="Scenario recipe" class="cui-recipe-controls">
-                    <RecipeSelect id="recipe-component" label="Component / variant" values=ComponentId::ALL.iter().map(|v| v.as_str()).collect()
+                <section aria-label=tool::RECIPE class="cui-recipe-controls">
+                    <RecipeSelect id="recipe-component" label=tool::COMPONENT values=ComponentId::ALL.iter().map(|v| v.as_str()).collect()
                         value=Signal::derive(move || recipe.get().component.as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(component) = ComponentId::from_attribute(&value) {
                             recipe.update(|recipe| { recipe.component = component; recipe.state = component.default_state(); });
                         } })/>
-                    <Select id="recipe-state" label="Initial state"
+                    <Select id="recipe-state" label=tool::INITIAL_STATE
                         value=Signal::derive(move || recipe.get().state.as_str().to_owned())
                         on_input=Callback::new(move |value: String| { if let Some(state) = ScenarioState::from_attribute(&value) {
                             let mut next = recipe.get_untracked(); next.state = state;
@@ -148,45 +129,45 @@ pub fn Workbench(#[prop(optional)] initial_query: Option<String>) -> impl IntoVi
                         } })>
                         {move || state_component.get().states().iter().map(|state| view! { <option value=state.as_str()>{state.as_str()}</option> }).collect_view()}
                     </Select>
-                    <RecipeSelect id="recipe-mode" label="View mode" values=PreviewMode::ALL.iter().map(|v| v.as_str()).collect()
+                    <RecipeSelect id="recipe-mode" label=tool::MODE values=PreviewMode::ALL.iter().map(|v| v.as_str()).collect()
                         value=Signal::derive(move || recipe.get().mode.as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(mode) = PreviewMode::from_attribute(&value) { recipe.update(|recipe| recipe.mode = mode); } })/>
-                    <RecipeSelect id="recipe-fixture" label="Fixture" values=Fixture::ALL.iter().map(|v| v.as_str()).collect()
+                    <RecipeSelect id="recipe-fixture" label=tool::FIXTURE values=Fixture::ALL.iter().map(|v| v.as_str()).collect()
                         value=Signal::derive(move || recipe.get().fixture.as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(fixture) = Fixture::from_attribute(&value) { recipe.update(|recipe| recipe.fixture = fixture); host.restore(); } })/>
-                    <RecipeSelect id="recipe-theme" label="Theme" values=vec!["system", "light", "dark"]
+                    <RecipeSelect id="recipe-theme" label=tool::THEME values=vec!["system", "light", "dark"]
                         value=Signal::derive(move || theme.get().as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(value) = Theme::from_attribute(&value) { theme.set(value); } })/>
-                    <RecipeSelect id="recipe-density" label="Density" values=vec!["compact", "comfortable"]
+                    <RecipeSelect id="recipe-density" label=tool::DENSITY values=vec!["compact", "comfortable"]
                         value=Signal::derive(move || density.get().as_str().to_owned())
                         on_change=Callback::new(move |value: String| density.set(if value == "comfortable" { Density::Comfortable } else { Density::Compact }))/>
-                    <RecipeSelect id="recipe-locale" label="Specimen language" values=Locale::ALL.iter().map(|v| v.as_str()).collect()
+                    <RecipeSelect id="recipe-locale" label=tool::SPECIMEN_LANGUAGE values=Locale::ALL.iter().map(|v| v.as_str()).collect()
                         value=Signal::derive(move || recipe.get().locale.as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(locale) = Locale::from_attribute(&value) { recipe.update(|recipe| recipe.locale = locale); } })/>
-                    <RecipeSelect id="recipe-text" label="Specimen text scale (%)" values=TextScale::ALL.iter().map(|v| v.as_str()).collect()
+                    <RecipeSelect id="recipe-text" label=tool::SPECIMEN_TEXT values=TextScale::ALL.iter().map(|v| v.as_str()).collect()
                         value=Signal::derive(move || recipe.get().text_scale.as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(scale) = TextScale::from_attribute(&value) { recipe.update(|recipe| recipe.text_scale = scale); } })/>
-                    <RecipeSelect id="recipe-frame" label="Frame width (CSS px, not viewport)" values=FrameWidth::ALL.iter().map(|v| v.as_str()).collect()
+                    <RecipeSelect id="recipe-frame" label=tool::FRAME values=FrameWidth::ALL.iter().map(|v| v.as_str()).collect()
                         value=Signal::derive(move || recipe.get().frame.as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(frame) = FrameWidth::from_attribute(&value) { recipe.update(|recipe| recipe.frame = frame); } })/>
-                    <RecipeSelect id="recipe-motion" label="Motion (force-full overrides OS: opt-in diagnostic)" values=Motion::ALL.iter().map(|v| v.as_str()).collect()
+                    <RecipeSelect id="recipe-motion" label=tool::MOTION values=Motion::ALL.iter().map(|v| v.as_str()).collect()
                         value=Signal::derive(move || recipe.get().motion.as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(motion) = Motion::from_attribute(&value) { recipe.update(|recipe| recipe.motion = motion); } })/>
-                    <RecipeSelect id="recipe-playback" label="Review: replay resets, drive real input" values=Playback::ALL.iter().map(|v| v.as_str()).collect()
+                    <RecipeSelect id="recipe-playback" label=tool::PLAYBACK values=Playback::ALL.iter().map(|v| v.as_str()).collect()
                         value=Signal::derive(move || recipe.get().playback.as_str().to_owned())
                         on_change=Callback::new(move |value: String| { if let Some(playback) = Playback::from_attribute(&value) { recipe.update(|recipe| recipe.playback = playback); if playback == Playback::Replay { host.restore(); } } })/>
                 </section>
                 <Stack direction=cantos_ui::StackDirection::Horizontal gap=Space::Sm>
-                    <Button id="recipe-reset" on_press=Callback::new(move |_| host.restore())>"Reset to selected recipe"</Button>
-                    <Button id="recipe-replay" on_press=Callback::new(move |_| { host.restore(); notice.set("Replay ready: press/release/cancel or use keyboard on the actual control. No synthetic pressed state.".to_owned()); })>"Replay input"</Button>
-                    <Button id="recipe-facts" on_press=refresh>"Refresh browser / font facts"</Button>
-                    <Button id="recipe-export" on_press=export>"Export metadata"</Button>
+                    <Button id="recipe-reset" on_press=Callback::new(move |_| host.restore())>{tool::RESET}</Button>
+                    <Button id="recipe-replay" on_press=Callback::new(move |_| { host.restore(); notice.set(tool::REPLAY_NOTICE.to_owned()); })>{tool::REPLAY}</Button>
+                    <Button id="recipe-facts" on_press=refresh>{tool::REFRESH}</Button>
+                    <Button id="recipe-export" on_press=export>{tool::EXPORT}</Button>
                 </Stack>
                 <p id="recipe-notice" role="status">{move || notice.get()}</p>
-                <a id="recipe-link" href=move || recipe.get().encode_query()>"Copy scenario link / reload recipe"</a>
-                <details><summary>"Recipe and capture provenance"</summary><code id="recipe-query">{move || recipe.get().encode_query()}</code><pre id="recipe-facts-output">{move || facts.get()}</pre></details>
-                <p>"Native activation policy: click/Enter/Space; browser-owned slop, axis and cancel. No custom drag threshold or velocity. Dialog: Escape/close, native focus containment/restore. Sheet and mini↔full player gestures have no shared consumer here and remain unsupported."</p>
-                <div class="cui-specimen-scroll" tabindex="0" aria-label="Specimen frame, horizontal scroll when wider than browser">
+                <a id="recipe-link" href=move || recipe.get().encode_query()>{tool::LINK}</a>
+                <details><summary>{tool::PROVENANCE}</summary><code id="recipe-query">{move || recipe.get().encode_query()}</code><pre id="recipe-facts-output">{move || facts.get()}</pre></details>
+                <p>{tool::NATIVE_POLICY}</p>
+                <div class="cui-specimen-scroll" tabindex="0" aria-label=tool::FRAME_NAME>
                     <section class="cui-specimen-frame" id="recipe-frame-content" node_ref=frame_ref
                         lang=move || recipe.get().locale.language_tag()
                         style=move || format!("--cui-frame-width: {}px", recipe.get().frame.as_str())
@@ -204,13 +185,13 @@ pub fn Workbench(#[prop(optional)] initial_query: Option<String>) -> impl IntoVi
                         }).collect_view()}
                     </section>
                 </div>
-                <section aria-label="Real component intents"><h2>"Intent log"</h2><ol id="recipe-events" aria-live="polite">
+                <section aria-label=tool::INTENTS_NAME><h2>{tool::INTENTS}</h2><ol id="recipe-events" aria-live="polite">
                     {move || host.events.get().into_iter().map(|event| view! { <li>{event}</li> }).collect_view()}
                 </ol></section>
-                <section aria-label="Motion observations">
-                    <h2>"Trusted input frame profile"</h2>
-                    <TextField id="recipe-capture-label" label="Capture label (local diagnostic text)" value=capture_label on_input=Callback::new(move |value| capture_label.set(value))/>
-                    <p>"Computed styles at start/middle/end; interruptions and unavailable middle frames stay explicit. This is a bounded observation, not a video or pixel review."</p>
+                <section aria-label=tool::MOTION_NAME>
+                    <h2>{tool::MOTION_PROFILE}</h2>
+                    <TextField id="recipe-capture-label" label=tool::CAPTURE_LABEL value=capture_label on_input=Callback::new(move |value| capture_label.set(value))/>
+                    <p>{tool::MOTION_DESCRIPTION}</p>
                     <pre id="recipe-motion-frames">{move || motion_frames.get().join("\n")}</pre>
                 </section>
             </main>
@@ -267,12 +248,8 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
             .set(component == ComponentId::Dialog && state == ScenarioState::Open && active.get());
     });
     let blocked_reason = Signal::derive(move || {
-        DisabledReason::new(copy(
-            host.recipe.get().locale,
-            "Trạng thái mẫu bị khóa; đổi recipe để tiếp tục.",
-            "This sample is blocked; change its recipe to continue.",
-        ))
-        .expect("nonempty sample copy")
+        DisabledReason::new(specimen(host.recipe.get().locale, SpecimenKey::Blocked))
+            .expect("nonempty sample copy")
     });
     let button_state = Signal::derive(move || match state {
         ScenarioState::Disabled => ButtonState::Disabled(blocked_reason.get()),
@@ -301,19 +278,12 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
             });
             let email_label = Signal::derive(move || {
                 let recipe = host.recipe.get();
-                match (recipe.locale, recipe.fixture) {
-                    (Locale::Vi, Fixture::Standard) => "Email của bạn",
-                    (Locale::En, Fixture::Standard) => "Your email",
-                    (Locale::Vi, Fixture::LongVietnamese) => "Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe",
-                    (Locale::En, Fixture::LongVietnamese) => "Nguyễn Thị Ánh Nguyệt’s email to continue the story you are listening to",
-                }.to_owned()
+                specimen(recipe.locale, if recipe.fixture == Fixture::LongVietnamese {
+                    SpecimenKey::EmailLong
+                } else { SpecimenKey::Email }).to_owned()
             });
-            let help = Signal::derive(move || Some(copy(host.recipe.get().locale,
-                "Mẫu cục bộ giữ giá trị; không gửi email hoặc tạo tài khoản.",
-                "Local sample preserves your value; no email or account is created.").to_owned()));
-            let error = Signal::derive(move || (state == ScenarioState::Error).then(|| copy(host.recipe.get().locale,
-                "Kiểm tra địa chỉ email. Nội dung đã nhập được giữ nguyên.",
-                "Check the email address. Your entered value is preserved.").to_owned()));
+            let help = Signal::derive(move || Some(specimen(host.recipe.get().locale, SpecimenKey::EmailHelp).to_owned()));
+            let error = Signal::derive(move || (state == ScenarioState::Error).then(|| specimen(host.recipe.get().locale, SpecimenKey::EmailError).to_owned()));
             let baseline_id = format!("{control_id}-baseline");
             let cta_id = format!("{control_id}-cta");
             let baseline_cta_id = format!("{control_id}-baseline-cta");
@@ -322,16 +292,16 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
                 // Do not export entered text in diagnostics.
                 host.log(format!("{} input", log_id.get_value()));
             });
-            let cta = Signal::derive(move || copy(host.recipe.get().locale, "Tiếp tục — mẫu cục bộ", "Continue — local sample").to_owned());
+            let cta = Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::Continue).to_owned());
             view! {
-                <p class="cui-gallery-note">"AuthTonalSpacious Web candidate — unqualified. Real input required for hover/focus/autofill/forced-colors. CTA logs an intent only."</p>
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::AUTH_RHYTHM}</p>
                 <Stack gap=Space::Lg class="cui-auth-field-rhythm" attr:data-preview-scenario="auth-tonal-spacious auth-field-focus auth-field-error auth-field-cta autofill forced-colors">
                     <TextField id=control_id variant=TextFieldVariant::AuthTonalSpacious kind=TextFieldKind::Email
                         name="email" required=true autocomplete="email" label=email_label value=text
                         state=field_state help=help error=error on_input=edit/>
                     <Button id=cta_id variant=ButtonVariant::AuthPrimary state=button_state on_press=press>{move || cta.get()}</Button>
                 </Stack>
-                <p class="cui-gallery-note">"Existing AuthTonal presentation and 16-unit field→CTA gap (compatibility baseline):"</p>
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::AUTH_RHYTHM_BASELINE}</p>
                 <Stack gap=Space::Md>
                     <TextField id=baseline_id variant=TextFieldVariant::AuthTonal kind=TextFieldKind::Email
                         name="baseline-email" required=true autocomplete="off" label=email_label value=text
@@ -343,14 +313,11 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
         ComponentId::BackButton => {
             let name = Signal::derive(move || {
                 let recipe = host.recipe.get();
-                AccessibleName::new(match (recipe.locale, recipe.fixture) {
-                    (Locale::Vi, Fixture::Standard) => "Về Tài khoản",
-                    (Locale::En, Fixture::Standard) => "Back to Account",
-                    (Locale::Vi, Fixture::LongVietnamese) => "Về Tài khoản của Nguyễn Thị Ánh Nguyệt, giữ nguyên ý định đăng ký Membership",
-                    (Locale::En, Fixture::LongVietnamese) => "Back to Nguyễn Thị Ánh Nguyệt’s account, keeping the Membership registration context",
-                }).expect("nonblank localized preview name")
+                AccessibleName::new(specimen(recipe.locale, if recipe.fixture == Fixture::LongVietnamese {
+                    SpecimenKey::AccountLong
+                } else { SpecimenKey::Account })).expect("nonblank localized preview name")
             });
-            let login_name = Signal::derive(move || AccessibleName::new(copy(host.recipe.get().locale, "Về Đăng nhập", "Back to Sign in")).expect("nonblank localized preview name"));
+            let login_name = Signal::derive(move || AccessibleName::new(specimen(host.recipe.get().locale, SpecimenKey::SignIn)).expect("nonblank localized preview name"));
             let login_id = format!("{control_id}-login");
             let icon_id = format!("{control_id}-icon");
             let baseline_id = format!("{control_id}-baseline");
@@ -358,17 +325,17 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
                 <BackButton id=control_id variant=BackButtonVariant::Unified name=name state=button_state on_back=press/>
                 <BackButton id=login_id variant=BackButtonVariant::Unified name=login_name state=button_state on_back=press/>
                 <BackButton id=icon_id variant=BackButtonVariant::Unified name=name icon_only=true state=button_state on_back=press/>
-                <p class="cui-gallery-note">"Unified Web candidate — unqualified. Hover, pressed and keyboard focus require real input. Every sample records a host intent only; no route/history effect."</p>
-                <p class="cui-gallery-note">"Existing IconTonal presentation (compatibility baseline):"</p>
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::BACK_CANDIDATE}</p>
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::ICON_BASELINE}</p>
                 <BackButton id=baseline_id name=name state=button_state on_back=press/>
             }.into_any()
         }
         ComponentId::Button | ComponentId::AuthPrimary => view! {
             <Button id=control_id variant=if component == ComponentId::AuthPrimary { ButtonVariant::AuthPrimary } else { ButtonVariant::Primary }
                 icon=if component == ComponentId::AuthPrimary { IconName::Login } else { IconName::Save }
-                state=button_state on_press=press>{move || format!("{}: {}", copy(host.recipe.get().locale,
-                    if component == ComponentId::AuthPrimary { "Đăng nhập Cantos" } else { "Lưu bản nháp" },
-                    if component == ComponentId::AuthPrimary { "Sign in to Cantos" } else { "Save draft" }), label.get())}</Button>
+                state=button_state on_press=press>{move || super::messages::format_specimen(host.recipe.get().locale,
+                    if component == ComponentId::AuthPrimary { SpecimenKey::SignInTitle } else { SpecimenKey::SaveDraft },
+                    &[("title", label.get().as_str())])}</Button>
         }.into_any(),
         ComponentId::FilterChip => view! {
             <FilterChip id=control_id selected=selected state=button_state on_change=change>{move || label.get()}</FilterChip>
@@ -382,26 +349,26 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
                 vec![
                     SelectOption::new("system", if recipe.fixture == Fixture::LongVietnamese {
                         fixture_label(recipe)
-                    } else { copy(recipe.locale, "Theo hệ thống", "System default") }),
-                    SelectOption::new("light", copy(recipe.locale, "Sáng", "Light")),
-                    SelectOption { disabled: true, ..SelectOption::new("unavailable", copy(recipe.locale, "Không khả dụng", "Unavailable")) },
-                    SelectOption::new("dark", copy(recipe.locale, "Tối", "Dark")),
+                    } else { specimen(recipe.locale, SpecimenKey::System) }),
+                    SelectOption::new("light", specimen(recipe.locale, SpecimenKey::Light)),
+                    SelectOption { disabled: true, ..SelectOption::new("unavailable", specimen(recipe.locale, SpecimenKey::Unavailable)) },
+                    SelectOption::new("dark", specimen(recipe.locale, SpecimenKey::Dark)),
                 ]
             });
             view! {
-                <Select id=control_id label=Signal::derive(move || copy(host.recipe.get().locale, "Giao diện", "Theme").to_owned())
+                <Select id=control_id label=Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::Theme).to_owned())
                     value=select_value options=options state=choice_state
-                    placeholder=Signal::derive(move || copy(host.recipe.get().locale, "Chọn giao diện", "Choose a theme").to_owned())
-                    help=Signal::derive(move || Some(copy(host.recipe.get().locale, "Dùng bàn phím hoặc chạm để chọn. Escape giữ lựa chọn cũ.", "Use the keyboard or touch to choose. Escape keeps the previous value.").to_owned()))
-                    error=Signal::derive(move || (state == ScenarioState::Error).then(|| copy(host.recipe.get().locale, "Lựa chọn không hợp lệ; chọn lại giao diện.", "Invalid choice; choose a theme again.").to_owned()))
+                    placeholder=Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::ThemePlaceholder).to_owned())
+                    help=Signal::derive(move || Some(specimen(host.recipe.get().locale, SpecimenKey::ThemeHelp).to_owned()))
+                    error=Signal::derive(move || (state == ScenarioState::Error).then(|| specimen(host.recipe.get().locale, SpecimenKey::ThemeError).to_owned()))
                     on_input=Callback::new(move |value: String| { select_value.set(value.clone()); host.log(format!("{} input={value}", log_id.get_value())); })/>
-                <p class="cui-gallery-note">{move || format!("Controlled value: {}", select_value.get())}</p>
-                <Select id=language_id label=Signal::derive(move || copy(host.recipe.get().locale, "Ngôn ngữ", "Language").to_owned())
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{move || tool::controlled_value(&select_value.get())}</p>
+                <Select id=language_id label=Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::Language).to_owned())
                     value=language_value state=choice_state
                     options=vec![SelectOption { lang: Some("vi-VN".to_owned()), ..SelectOption::new("vi-VN", "Tiếng Việt") },
                         SelectOption { lang: Some("en".to_owned()), ..SelectOption::new("en", "English") }]
                     on_input=Callback::new(move |value: String| { language_value.set(value.clone()); host.log(format!("{} locale={value}", log_id.get_value())); })/>
-                <p class="cui-gallery-note">"Web menu candidate — unqualified. Native fallback on unsupported engines. Expanded/hover/focus require real input; this recipe does not force visual states."</p>
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::MENU_CANDIDATE}</p>
             }.into_any()
         }
         ComponentId::Dialog => {
@@ -409,14 +376,14 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
             let draft_id = format!("{id}-draft");
             view! {
                 <Button id=control_id focus_on_press=true on_press=Callback::new(move |_| { opened.set(true); host.log(format!("{} open", log_id.get_value())); })>
-                    {move || copy(host.recipe.get().locale, "Mở hộp thoại mẫu", "Open sample dialog")}
+                    {move || specimen(host.recipe.get().locale, SpecimenKey::OpenDialog)}
                 </Button>
-                <Dialog id=dialog_id title="Hộp thoại mẫu / Sample dialog" close_label="Đóng mẫu / Close sample" open=opened
+                <div lang=tool::LANGUAGE_TAG><Dialog id=dialog_id title=tool::SAMPLE_DIALOG close_label=tool::CLOSE_SAMPLE open=opened
                     on_close_request=Callback::new(move |reason| { opened.set(false); host.log(format!("{} close={reason:?}", log_id.get_value())); })
                     on_error=Callback::new(move |error| { opened.set(false); host.log(format!("{} error={error:?}", log_id.get_value())); })>
-                    <TextField id=draft_id label=Signal::derive(move || copy(host.recipe.get().locale, "Văn bản được giữ", "Preserved text").to_owned()) value=text
-                        on_input=Callback::new(move |value| { text.set(value); host.log(format!("{} input", log_id.get_value())); })/>
-                </Dialog>
+                    <div lang=move || host.recipe.get().locale.language_tag()><TextField id=draft_id label=Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::PreservedText).to_owned()) value=text
+                        on_input=Callback::new(move |value| { text.set(value); host.log(format!("{} input", log_id.get_value())); })/></div>
+                </Dialog></div>
             }.into_any()
         }
     };

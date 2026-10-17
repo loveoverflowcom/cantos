@@ -62,7 +62,7 @@ internal fun DesignInventoryView(
         Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
             InventoryHeader(counts)
             InventoryFilters(filter, counts, { filter = it })
-            FieldLabel("${specimens.size} of ${counts.total} specimens")
+            FieldLabel(PreviewToolCopy.specimenCount(specimens.size, counts.total))
             if (expanded) {
                 InventoryPanes(specimens, selected?.id, select, onOpenComponent, Modifier.fillMaxWidth().height(PreviewGeometry.twoPaneBody))
             } else {
@@ -73,7 +73,7 @@ internal fun DesignInventoryView(
         Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
             InventoryHeader(counts)
             InventoryFilters(filter, counts, { filter = it })
-            FieldLabel("${specimens.size} of ${counts.total} specimens")
+            FieldLabel(PreviewToolCopy.specimenCount(specimens.size, counts.total))
             InventoryPanes(specimens, selected?.id, select, onOpenComponent, Modifier.fillMaxWidth().weight(1f))
         }
     }
@@ -108,25 +108,23 @@ private fun InventoryStack(
     onSelect: (String) -> Unit,
     onOpenComponent: (String) -> Unit,
 ) {
-    Select("Specimen", specimens.map { SelectOption(it.id, "${it.name} · ${it.id}") }, selected?.id, onSelect,
-        expandedDescription = "Danh sách specimen đang mở",
-        collapsedDescription = "Danh sách specimen đang đóng",
-        placeholder = "Chọn specimen",
-        emptyDescription = "Không có specimen khớp bộ lọc")
+    Select(PreviewToolCopy.Specimen, specimens.map { SelectOption(it.id, "${it.name} · ${it.id}") }, selected?.id, onSelect,
+        expandedDescription = PreviewToolCopy.SpecimensOpen,
+        collapsedDescription = PreviewToolCopy.SpecimensClosed,
+        placeholder = PreviewToolCopy.ChooseSpecimen,
+        emptyDescription = PreviewToolCopy.NoMatchingSpecimen)
     SpecimenDetail(selected, onOpenComponent)
 }
 
 @Composable
 private fun InventoryHeader(counts: InventoryCounts) {
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        Text("Design v3 inventory", style = MaterialTheme.typography.titleLarge)
+        Text(PreviewToolCopy.InventoryTitle, style = MaterialTheme.typography.titleLarge)
         FieldHelp(
-            "Design export ${DesignInventory.version} · manifest ${DesignInventory.sourceSha256.take(12)} · offline proposal, " +
-                "not a pixel oracle.",
+            PreviewToolCopy.inventorySource(DesignInventory.version, DesignInventory.sourceSha256),
         )
         FieldHelp(
-            "${counts.total} specimens = ${counts.existing} in the shared registry + ${counts.proposed} proposals. " +
-                "A proposal is not a public API, has no sample and is never qualified here.",
+            PreviewToolCopy.inventoryCounts(counts.total, counts.existing, counts.proposed),
         )
     }
 }
@@ -134,14 +132,14 @@ private fun InventoryHeader(counts: InventoryCounts) {
 @Composable
 private fun InventoryFilters(filter: InventoryFilter, counts: InventoryCounts, onChange: (InventoryFilter) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        TextField("Find specimen", filter.query, { onChange(filter.copy(query = it)) })
+        TextField(PreviewToolCopy.FindSpecimen, filter.query, { onChange(filter.copy(query = it)) })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
             verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            FilterChip("Existing ${counts.existing}", filter.designStatus == "existing",
+            FilterChip(PreviewToolCopy.existingCount(counts.existing), filter.designStatus == "existing",
                 { onChange(filter.copy(designStatus = if (it) "existing" else null)) })
-            FilterChip("Proposed ${counts.proposed}", filter.designStatus == "proposed",
+            FilterChip(PreviewToolCopy.proposedCount(counts.proposed), filter.designStatus == "proposed",
                 { onChange(filter.copy(designStatus = if (it) "proposed" else null)) })
-            FilterChip("CMP only ${counts.cmpApplicable}", filter.cmpOnly, { onChange(filter.copy(cmpOnly = it)) })
+            FilterChip(PreviewToolCopy.cmpCount(counts.cmpApplicable), filter.cmpOnly, { onChange(filter.copy(cmpOnly = it)) })
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
             verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
@@ -156,7 +154,7 @@ private fun InventoryFilters(filter: InventoryFilter, counts: InventoryCounts, o
 @Composable
 private fun SpecimenDetail(specimen: DesignSpecimen?, onOpenComponent: (String) -> Unit, modifier: Modifier = Modifier) {
     if (specimen == null) {
-        EmptyState("Không có specimen", "Bỏ bộ lọc để xem lại toàn bộ inventory.", modifier)
+        EmptyState(PreviewToolCopy.NoSpecimens, PreviewToolCopy.ClearInventoryFilters, modifier)
         return
     }
     key(specimen.id) {
@@ -165,35 +163,35 @@ private fun SpecimenDetail(specimen: DesignSpecimen?, onOpenComponent: (String) 
             FieldHelp("${specimen.family} · ${specimen.id}")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                Badge("design: ${specimen.designStatus}")
-                Badge("scope: ${specimen.scope}", tone = if (specimen.scope == "app-owned") StatusTone.Info else StatusTone.Neutral)
-                Badge("owner: ${specimen.owner}")
-                Badge("platforms: ${specimen.platforms.joinToString(" · ")}",
+                Badge(PreviewToolCopy.designStatus(specimen.designStatus))
+                Badge(PreviewToolCopy.scope(specimen.scope), tone = if (specimen.scope == "app-owned") StatusTone.Info else StatusTone.Neutral)
+                Badge(PreviewToolCopy.owner(specimen.owner))
+                Badge(PreviewToolCopy.platforms(specimen.platforms),
                     tone = if ("cmp" in specimen.platforms) StatusTone.Neutral else StatusTone.Warning)
             }
             FieldHelp(specimen.reason)
-            FieldHelp("Consumer: ${specimen.consumer}")
+            FieldHelp(PreviewToolCopy.consumer(specimen.consumer))
             if ("cmp" !in specimen.platforms) {
-                FieldHelp("Web only: Studio and Admin compositions never target CMP and do not authorize a Studio mobile client.")
+                FieldHelp(PreviewToolCopy.WebOnly)
             }
             if (specimen.designStatus == "existing") {
-                FieldHelp("Registered in the shared preview registry. Registration is not qualification; the Components tab shows its actual states and examples.")
-                Button("Open ${specimen.name} in Components", { onOpenComponent(specimen.id) }, variant = ButtonVariant.Secondary)
+                FieldHelp(PreviewToolCopy.RegisteredHelp)
+                Button(PreviewToolCopy.openInComponents(specimen.name), { onOpenComponent(specimen.id) }, variant = ButtonVariant.Secondary)
             } else {
-                FieldHelp("No native sample: a proposal is not a public API and is never qualified here. Declare it in both previews and pass admission before product use.")
-                FieldLabel("Reuses registered components")
+                FieldHelp(PreviewToolCopy.ProposalHelp)
+                FieldLabel(PreviewToolCopy.ReusedComponents)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
                     verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                     specimen.componentIds.forEach { id ->
-                        Button(AccessibleName.of("Open $id in Components"), { onOpenComponent(id) }, variant = ButtonVariant.Text) { Text(id) }
+                        Button(AccessibleName.of(PreviewToolCopy.openInComponents(id)), { onOpenComponent(id) }, variant = ButtonVariant.Text) { Text(id) }
                     }
                 }
             }
-            FieldLabel("Design description (verbatim)")
+            FieldLabel(PreviewToolCopy.DesignDescription)
             FieldHelp(specimen.description)
-            DetailList("Design states (verbatim)", specimen.states, separator = " · ")
-            DetailList("Anatomy", specimen.anatomy, separator = " · ")
-            DetailList("Canonical token roles", specimen.tokenRoles, separator = " · ")
+            DetailList(PreviewToolCopy.DesignStates, specimen.states, separator = " · ")
+            DetailList(PreviewToolCopy.Anatomy, specimen.anatomy, separator = " · ")
+            DetailList(PreviewToolCopy.TokenRoles, specimen.tokenRoles, separator = " · ")
         }
     }
 }

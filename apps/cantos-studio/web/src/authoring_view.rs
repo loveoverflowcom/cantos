@@ -235,6 +235,13 @@ pub fn StructuredEditor(
     children: ChildrenFn,
 ) -> impl IntoView {
     let document = Memo::new(move |_| Document::parse(&draft.get()).ok());
+    let content_language =
+        Signal::derive(move || document.get().map(|document| document.metadata().language));
+    let baseline_language = Signal::derive(move || {
+        Document::parse(&baseline.get())
+            .ok()
+            .map(|document| document.metadata().language)
+    });
     let history = RwSignal::new(None::<History>);
     let emitted = RwSignal::new(String::new());
     let notice = RwSignal::new(None::<AuthoringError>);
@@ -343,14 +350,14 @@ pub fn StructuredEditor(
                                 <div class="authoring-act">
                                         <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Act(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Act(id.get_value()))); } }>
                                         <span class="authoring-nav-kind">{move || copy().act}</span>
-                                        <span lang="vi-VN">{move || document.get().and_then(|document| document.acts().into_iter().find(|act| act.id == id.get_value())).map(|act| act.title).unwrap_or_default()}</span>
+                                        <crate::ui::ContentText language=content_language text=Signal::derive(move || document.get().and_then(|document| document.acts().into_iter().find(|act| act.id == id.get_value())).map(|act| act.title).unwrap_or_default())/>
                                     </button>
                                     <For each=move || document.get().and_then(|document| document.acts().into_iter().find(|act| act.id == id.get_value())).map(|act| act.scenes).unwrap_or_default() key=|scene| scene.id.clone() children=move |scene| {
                                         let scene_id = StoredValue::new(scene.id);
                                         view! {
                                             <button type="button" class="cui-button authoring-nav-item authoring-nav-scene" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Scene(scene_id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Scene(scene_id.get_value()))); } }>
                                                 <span class="authoring-nav-kind">{move || copy().scene}</span>
-                                                <span lang="vi-VN">{move || document.get().and_then(|document| crate::authoring_view::scene(&document, &scene_id.get_value())).map(|scene| scene.title).unwrap_or_default()}</span>
+                                                <crate::ui::ContentText language=content_language text=Signal::derive(move || document.get().and_then(|document| crate::authoring_view::scene(&document, &scene_id.get_value())).map(|scene| scene.title).unwrap_or_default())/>
                                             </button>
                                         }
                                     } />
@@ -367,7 +374,7 @@ pub fn StructuredEditor(
                             let id = StoredValue::new(character.id);
                             view! {
                                 <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Character(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Character(id.get_value()))); } }>
-                                    <span lang="vi-VN">{move || document.get().and_then(|document| document.characters().into_iter().find(|character| character.id == id.get_value())).map(|character| character.name).unwrap_or_default()}</span>
+                                    <crate::ui::ContentText language=content_language text=Signal::derive(move || document.get().and_then(|document| document.characters().into_iter().find(|character| character.id == id.get_value())).map(|character| character.name).unwrap_or_default())/>
                                 </button>
                             }
                         } />
@@ -415,7 +422,7 @@ pub fn StructuredEditor(
                             else { view! { <div class="authoring-comparison">{changes.into_iter().map(|change| view! {
                                 <details class="authoring-change">
                                     <summary>{match change.kind { ChangeKind::Added => copy().added, ChangeKind::Removed => copy().removed, ChangeKind::Changed => copy().changed, ChangeKind::Reordered => copy().reordered }}<code>{change.entity_id.clone().unwrap_or(change.path.clone())}</code><code>{change.path}</code></summary>
-                                    <dl><dt>{move || copy().before}</dt><dd lang="vi-VN">{change.before.unwrap_or_default()}</dd><dt>{move || copy().after}</dt><dd lang="vi-VN">{change.after.unwrap_or_default()}</dd></dl>
+                                    <dl><dt>{move || copy().before}</dt><dd><crate::ui::ContentText language=baseline_language text=Signal::stored(change.before.unwrap_or_default())/></dd><dt>{move || copy().after}</dt><dd><crate::ui::ContentText language=content_language text=Signal::stored(change.after.unwrap_or_default())/></dd></dl>
                                 </details>
                             }).collect_view()}</div> }.into_any() }
                         }}

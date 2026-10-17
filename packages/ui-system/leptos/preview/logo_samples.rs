@@ -1,4 +1,5 @@
 //! Official local artwork in paired surfaces; no app adoption or remote asset fixture.
+use super::messages::tool;
 use cantos_ui::{
     AccessibleName, Grid, GridColumns, Logo, LogoTone, LogoVariant, Space, Stack, Surface,
     SurfaceTone, Theme, UiRoot,
@@ -8,11 +9,11 @@ use leptos::prelude::*;
 #[component]
 pub fn LogoSamples() -> impl IntoView {
     view! {
-        <div data-preview-component="logo"
+        <div lang=tool::LANGUAGE_TAG data-preview-component="logo"
             data-preview-scenario="cantos-light cantos-dark cantos-mono studio-light studio-dark studio-mono symbol-light symbol-dark symbol-mono decorative named aspect-fit transparent-knockout">
             <Stack gap=Space::Sm>
-                <h3>"Logo chính thức · vector nội bộ"</h3>
-                <p class="cui-gallery-note">"Chữ đã là path. Mỗi nền bên dưới thuộc bản mẫu, không được vẽ vào logo. Bản đơn sắc giữ khoảng âm trong suốt."</p>
+                <h3>{tool::LOGO_HEADING}</h3>
+                <p class="cui-gallery-note">{tool::LOGO_HELP}</p>
                 <Grid columns=GridColumns::Two>
                     {LogoVariant::ALL.iter().copied().flat_map(|variant| {
                         LogoTone::ALL.iter().copied().map(move |tone| {
@@ -21,12 +22,12 @@ pub fn LogoSamples() -> impl IntoView {
                             let label = match variant {
                                 LogoVariant::Cantos => "Cantos",
                                 LogoVariant::CantosStudio => "Cantos Studio",
-                                LogoVariant::Symbol => "Biểu tượng",
+                                LogoVariant::Symbol => tool::LOGO_SYMBOL,
                             };
                             let tone_label = match tone {
-                                LogoTone::Light => "nền sáng",
-                                LogoTone::Dark => "nền tối",
-                                LogoTone::Mono => "đơn sắc / khoảng âm trong suốt",
+                                LogoTone::Light => tool::LOGO_LIGHT,
+                                LogoTone::Dark => tool::LOGO_DARK,
+                                LogoTone::Mono => tool::LOGO_MONO,
                             };
                             view! {
                                 <UiRoot theme=theme>
@@ -48,16 +49,16 @@ pub fn LogoSamples() -> impl IntoView {
                 <div data-logo-state="decorative">
                     <Stack direction=cantos_ui::StackDirection::Horizontal gap=Space::Md>
                         <Logo variant=LogoVariant::Symbol/>
-                        <p>"Cantos · biểu tượng trang trí bên cạnh tên"</p>
+                        <p>{tool::LOGO_DECORATIVE}</p>
                     </Stack>
                 </div>
-                <div data-logo-state="named">
-                    <p>"Biểu tượng độc lập có tên cho công nghệ hỗ trợ"</p>
+                <div lang="vi-VN" data-preview-fixture="vietnamese" data-logo-state="named">
+                    <p lang=tool::LANGUAGE_TAG>{tool::LOGO_NAMED}</p>
                     <Logo variant=LogoVariant::Symbol
                         accessible_name=AccessibleName::new("Biểu tượng Cantos").expect("preview name")/>
                 </div>
                 <div data-logo-state="aspect-fit" style="max-inline-size: 140px">
-                    <p>"Khung hẹp vẫn giữ đúng tỷ lệ"</p>
+                    <p>{tool::LOGO_ASPECT}</p>
                     <Logo variant=LogoVariant::CantosStudio/>
                 </div>
                 </Surface>

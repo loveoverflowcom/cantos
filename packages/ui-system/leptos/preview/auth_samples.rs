@@ -1,4 +1,5 @@
 //! Auth/account design-v2 specimens only. No identity, navigation or payment effects.
+use super::messages::tool;
 use cantos_ui::{
     AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant,
     DisabledReason, FieldState, IconName, Select, Space, Stack, Status, Surface, SurfaceTone,
@@ -28,15 +29,15 @@ pub fn AuthActionSamples(
     let press = Callback::new(move |_| presses.update(|count| *count += 1));
     view! {
         <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Auth inset=Space::Lg>
-            <Stack gap=Space::Sm class="cui-auth-specimen">
-                <h3>"Hành động auth/account · Design v2"</h3>
-                <p>"Nhấn giữ để quan sát shape; dùng Tab để quan sát focus. Đây là intent mẫu, không đăng nhập hoặc tạo tài khoản."</p>
-                <Select id="auth-action-state" label="Trạng thái hành động auth mẫu" value=mode
+            <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm class="cui-auth-specimen">
+                <h3 lang=tool::LANGUAGE_TAG>{tool::AUTH_ACTIONS}</h3>
+                <p lang=tool::LANGUAGE_TAG>{tool::AUTH_ACTION_HELP}</p>
+                <div lang=tool::LANGUAGE_TAG><Select id="auth-action-state" label=tool::AUTH_ACTION_STATE value=mode
                     on_input=Callback::new(move |value| mode.set(value))>
-                    <option value="enabled">"Sẵn sàng"</option>
-                    <option value="loading">"Đang chờ"</option>
-                    <option value="disabled">"Bị khóa"</option>
-                </Select>
+                    <option value="enabled">{tool::READY}</option>
+                    <option value="loading">{tool::WAITING}</option>
+                    <option value="disabled">{tool::DISABLED}</option>
+                </Select></div>
                 <div data-preview-scenario="auth-primary auth-focus auth-pressed auth-long-label auth-loading auth-disabled">
                     <Button id="auth-primary" variant=ButtonVariant::AuthPrimary icon=IconName::Login
                         state=state on_press=press>
@@ -53,7 +54,7 @@ pub fn AuthActionSamples(
                         "Thử lại hành động mẫu, giữ nguyên thông tin đã nhập"
                     </Button>
                 </div>
-                <p id="auth-action-output" class="cui-gallery-output">{move || format!("Số intent được nhận: {}", presses.get())}</p>
+                <p lang=tool::LANGUAGE_TAG id="auth-action-output" class="cui-gallery-output">{move || tool::received_intents(presses.get())}</p>
                 <Button id="auth-regular-control" on_press=press>"Hành động thường không đổi hình/kích thước"</Button>
             </Stack>
         </Surface>
@@ -84,18 +85,18 @@ pub fn AuthFieldSamples(
     });
     view! {
         <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Auth>
-            <Stack gap=Space::Sm>
-                <h3>"Trường tonal auth · nhãn luôn hiện"</h3>
-                <Select id="auth-field-state" label="Trạng thái trường auth mẫu" value=mode
+            <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
+                <h3 lang=tool::LANGUAGE_TAG>{tool::AUTH_FIELDS}</h3>
+                <div lang=tool::LANGUAGE_TAG><Select id="auth-field-state" label=tool::AUTH_FIELD_STATE value=mode
                     on_input=Callback::new(move |value| mode.set(value))>
-                    <option value="editable">"Có thể nhập"</option>
-                    <option value="readonly">"Chỉ đọc, có thể chọn/sao chép"</option>
-                    <option value="disabled">"Bị khóa"</option>
-                    <option value="loading">"Đang chờ"</option>
-                </Select>
-                <Button id="auth-field-toggle-error" variant=ButtonVariant::Text
-                    on_press=Callback::new(move |_| invalid.update(|value| *value = !*value))>"Bật/tắt lỗi mẫu"</Button>
-                <p>"AuthTonalSpacious · Web candidate, chưa qualified. Dùng Tab để so focus với AuthTonal hiện hành bên dưới."</p>
+                    <option value="editable">{tool::AUTH_EDITABLE}</option>
+                    <option value="readonly">{tool::AUTH_READONLY}</option>
+                    <option value="disabled">{tool::DISABLED}</option>
+                    <option value="loading">{tool::WAITING}</option>
+                </Select></div>
+                <div lang=tool::LANGUAGE_TAG><Button id="auth-field-toggle-error" variant=ButtonVariant::Text
+                    on_press=Callback::new(move |_| invalid.update(|value| *value = !*value))>{tool::TOGGLE_ERROR}</Button></div>
+                <p lang=tool::LANGUAGE_TAG>{tool::AUTH_CANDIDATE}</p>
                 <Stack gap=Space::Lg>
                 <div data-preview-scenario="auth-tonal auth-tonal-spacious auth-error auth-field-focus auth-field-disabled auth-field-loading auth-field-readonly autofill forced-colors">
                     <TextField id="auth-email" variant=TextFieldVariant::AuthTonalSpacious kind=TextFieldKind::Email
@@ -114,15 +115,15 @@ pub fn AuthFieldSamples(
                         _ => ButtonState::Enabled,
                     }) on_press=Callback::new(|_| {})>"Tiếp tục — mẫu cục bộ, không gửi email"</Button>
                 </Stack>
-                <p>"AuthTonal hiện hành · compatibility baseline:"</p>
+                <p lang=tool::LANGUAGE_TAG>{tool::AUTH_BASELINE}</p>
                 <TextField id="auth-email-baseline" variant=TextFieldVariant::AuthTonal kind=TextFieldKind::Email
                     label="Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe"
                     value=text state=state error=error autocomplete="off"
                     help="Nhãn, giá trị và lỗi được giữ khi đổi trạng thái. Không có yêu cầu mạng."
                     on_input=Callback::new(move |value| text.set(value))/>
-                <p id="auth-field-output" class="cui-gallery-output">{move || format!("Số lần nhận input: {} · Giá trị: {}", edits.get(), text.get())}</p>
-                <TextField id="auth-regular-field" label="Trường thường không đổi geometry" value="Sơn Hà Ký"
-                    on_input=Callback::new(|_: String| {})/>
+                <p lang=tool::LANGUAGE_TAG id="auth-field-output" class="cui-gallery-output">{move || tool::input_events(edits.get(), &text.get())}</p>
+                <div lang=tool::LANGUAGE_TAG><TextField id="auth-regular-field" label=tool::AUTH_REGULAR value="Sơn Hà Ký"
+                    on_input=Callback::new(|_: String| {})/></div>
             </Stack>
         </Surface>
     }
@@ -131,7 +132,7 @@ pub fn AuthFieldSamples(
 #[component]
 pub fn AuthSurfaceSamples() -> impl IntoView {
     view! {
-        <Stack gap=Space::Sm>
+        <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
             <div data-preview-scenario="auth-container">
                 <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Auth inset=Space::Lg>
                     <h3 class="cui-auth-heading">"Auth · vùng nội dung yên tĩnh"</h3>
@@ -184,27 +185,27 @@ pub fn BackButtonSamples(
     // Compare the unified candidate with the unchanged compatibility presentation.
     view! {
         <Surface tone=SurfaceTone::Plain variant=SurfaceVariant::AccountGroup>
-            <Stack gap=Space::Sm>
-                <h3>"Back theo ngữ cảnh · host sở hữu nơi trở về"</h3>
-                <Select id="auth-back-state" label="Trạng thái Back mẫu" value=mode
+            <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
+                <h3 lang=tool::LANGUAGE_TAG>{tool::BACK_HEADING}</h3>
+                <div lang=tool::LANGUAGE_TAG><Select id="auth-back-state" label=tool::BACK_STATE value=mode
                     on_input=Callback::new(move |value| mode.set(value))>
-                    <option value="enabled">"Sẵn sàng"</option>
-                    <option value="loading">"Đang chờ"</option>
-                    <option value="disabled">"Bị khóa"</option>
-                </Select>
+                    <option value="enabled">{tool::READY}</option>
+                    <option value="loading">{tool::WAITING}</option>
+                    <option value="disabled">{tool::DISABLED}</option>
+                </Select></div>
                 <div data-preview-scenario="back-visible-label back-hover back-focus back-pressed back-loading back-disabled back-unified-web">
                     <BackButton id="auth-back-visible" variant=BackButtonVariant::Unified name=name state=state on_back=on_back/>
                 </div>
                 <div data-preview-scenario="back-icon-only">
                     <BackButton id="auth-back-icon" variant=BackButtonVariant::Unified name=name icon_only=true state=state on_back=on_back/>
                 </div>
-                <p>"Unified Web candidate · chưa qualified. Mẫu IconTonal hiện hành để đối chiếu:"</p>
+                <p lang=tool::LANGUAGE_TAG>{tool::BACK_BASELINE}</p>
                 <BackButton id="auth-back-baseline" name=name state=state on_back=on_back/>
-                <Button id="auth-back-change-context" variant=ButtonVariant::Text
+                <div lang=tool::LANGUAGE_TAG><Button id="auth-back-change-context" variant=ButtonVariant::Text
                     on_press=Callback::new(move |_| name.set(AccessibleName::new("Về Tài khoản, giữ nguyên ý định đăng ký Membership").expect("nonblank alternate name")))>
-                    "Đổi nơi quay về trong mẫu"
-                </Button>
-                <Status><p id="auth-back-output">{move || format!("Host nhận {} intent Back; không gọi history, đăng xuất hoặc đăng nhập.", returns.get())}</p></Status>
+                    {tool::BACK_CONTEXT}
+                </Button></div>
+                <Status><p lang=tool::LANGUAGE_TAG id="auth-back-output">{move || tool::back_events(returns.get())}</p></Status>
             </Stack>
         </Surface>
     }

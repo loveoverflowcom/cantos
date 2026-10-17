@@ -388,7 +388,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 Route::Membership(member) => view! {
                                     <section class="theatre-membership-information" aria-labelledby="theatre-membership-heading">
                                         {move || AccessibleName::new(crate::features::auth_copy::text(membership_back_key(member),locale.get())).ok().map(|name| view! { <BackButton id="theatre-membership-back" name on_back=Callback::new(move |_| nav.back())/> })}
-                                        <h1 id="theatre-membership-heading">"Membership"</h1>
+                                        <h1 id="theatre-membership-heading">{move || messages::text(Key::MembershipHeading,locale.get())}</h1>
                                         <p>{move || messages::text(Key::MembershipUnavailable,locale.get())}</p>
                                         <Button id="theatre-membership-login" variant=ButtonVariant::Tonal focus_on_press=true on_press=Callback::new(move |_| nav.open_auth(AuthRoute::login(nav.origin())))>{move || messages::text(Key::SignIn,locale.get())}</Button>
                                     </section>

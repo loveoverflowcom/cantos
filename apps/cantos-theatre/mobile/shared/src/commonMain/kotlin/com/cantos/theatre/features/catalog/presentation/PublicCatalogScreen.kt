@@ -149,10 +149,10 @@ private fun WorkCard(work: PublicWork, copy: ShellCopy, onOpen: () -> Unit) {
     ) {
         Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             Badge(copy.text(work.kind.label()), tone = StatusTone.Info)
-            Text(work.title, style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
+            Text(contentText(work.title, work.language), style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
                 maxLines = 3, overflow = TextOverflow.Ellipsis)
             if (work.description.isNotBlank()) {
-                Text(work.description, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                Text(contentText(work.description, work.language), maxLines = 3, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             languageLabel(work.language, copy)?.let {
@@ -211,7 +211,7 @@ private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (Publ
                         onRetry = { onIntent(PublicCatalogIntent.RetryUnits) },
                         key = { it.id.value },
                         notFound = CopyKey.WorkNotFound to CopyKey.WorkNotFoundNote,
-                    ) { unit -> UnitRow(unit, copy) }
+                    ) { unit -> UnitRow(unit, phase.work.language, copy) }
                 }
             }
         }
@@ -222,27 +222,27 @@ private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (Publ
 private fun WorkHeader(work: PublicWork, copy: ShellCopy) {
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         Badge(copy.text(work.kind.label()), tone = StatusTone.Info)
-        Text(work.title, Modifier.semantics { heading() }.testTag("catalog-detail-title"),
+        Text(contentText(work.title, work.language), Modifier.semantics { heading() }.testTag("catalog-detail-title"),
             style = MaterialTheme.typography.headlineMedium.copy(fontFamily = LocalEditorialFontFamily.current))
         languageLabel(work.language, copy)?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (work.description.isNotBlank()) Text(work.description, Modifier.testTag("catalog-detail-description"))
+        if (work.description.isNotBlank()) Text(contentText(work.description, work.language), Modifier.testTag("catalog-detail-description"))
     }
 }
 
 /** Not interactive: there is no production player, so a row never offers Play. */
 @Composable
-private fun UnitRow(unit: PublicUnit, copy: ShellCopy) {
+private fun UnitRow(unit: PublicUnit, contentLanguage: String, copy: ShellCopy) {
     Surface(
         Modifier.fillMaxWidth().testTag("catalog-unit-${unit.id.value}"),
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-            Text(unit.title, style = MaterialTheme.typography.titleMedium)
+            Text(contentText(unit.title, contentLanguage), style = MaterialTheme.typography.titleMedium)
             if (unit.description.isNotBlank()) {
-                Text(unit.description, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                Text(contentText(unit.description, contentLanguage), maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(durationLabel(unit.durationMs, copy), style = MaterialTheme.typography.bodySmall,

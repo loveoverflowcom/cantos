@@ -2,91 +2,14 @@
 use crate::{
     app::routes::Route,
     application::public_discovery::{
-        PublicDiscoveryFailure, PublicDiscoveryPhase, PublicDiscoveryState,
+        PublicDiscoveryFailure, PublicDiscoveryPhase, PublicDiscoveryState, PUBLIC_WORK_PAGE_LIMIT,
     },
     core::public_ids::PublicWorkId,
-    messages::Locale,
+    features::auth_copy::{self, CopyKey},
+    messages::{self, text, Key, Locale},
 };
-use cantos_contracts::theatre::WorkKind;
 use cantos_ui::{Button, ButtonVariant};
 use leptos::prelude::*;
-
-#[derive(Clone, Copy, Debug)]
-enum Copy {
-    Eyebrow,
-    Heading,
-    Introduction,
-    SignIn,
-    Register,
-    Shelf,
-    Loading,
-    Empty,
-    EmptyHelp,
-    Unavailable,
-    UnavailableHelp,
-    Protocol,
-    ProtocolHelp,
-    Retry,
-    Refresh,
-    More,
-    Novel,
-    Story,
-    Podcast,
-}
-
-fn text(key: Copy, locale: Locale) -> &'static str {
-    match (key, locale) {
-        (Copy::Eyebrow, Locale::Vietnamese) => "VỌNG ĐÀI · NHỮNG MIỀN THANH ÂM",
-        (Copy::Eyebrow, Locale::English) => "VỌNG ĐÀI · WORLDS OF SOUND",
-        (Copy::Heading, Locale::Vietnamese) => "Mở một miền tưởng tượng.",
-        (Copy::Heading, Locale::English) => "Open a world of imagination.",
-        (Copy::Introduction, Locale::Vietnamese) => "Một câu chuyện hay không cần đợi bạn đăng nhập. Khám phá nội dung công khai ngay tại đây.",
-        (Copy::Introduction, Locale::English) => "A good story does not need to wait for sign-in. Explore public stories here.",
-        (Copy::SignIn, Locale::Vietnamese) => "Đăng nhập",
-        (Copy::SignIn, Locale::English) => "Sign in",
-        (Copy::Register, Locale::Vietnamese) => "Tạo tài khoản Cantos",
-        (Copy::Register, Locale::English) => "Create a Cantos account",
-        (Copy::Shelf, Locale::Vietnamese) => "Mỗi câu chuyện, một thế giới",
-        (Copy::Shelf, Locale::English) => "Every story, a world",
-        (Copy::Loading, Locale::Vietnamese) => "Đang mở những câu chuyện đã công bố…",
-        (Copy::Loading, Locale::English) => "Opening published stories…",
-        (Copy::Empty, Locale::Vietnamese) => "Những câu chuyện đang được chuẩn bị.",
-        (Copy::Empty, Locale::English) => "Stories are being prepared.",
-        (Copy::EmptyHelp, Locale::Vietnamese) => "Danh mục công khai chưa có tác phẩm. Bạn có thể quay lại hoặc cập nhật sau.",
-        (Copy::EmptyHelp, Locale::English) => "The public catalog has no stories yet. You can return or refresh later.",
-        (Copy::Unavailable, Locale::Vietnamese) => "Chưa mở được danh mục công khai.",
-        (Copy::Unavailable, Locale::English) => "The public catalog could not be opened.",
-        (Copy::UnavailableHelp, Locale::Vietnamese) => "Kết nối hiện chưa sẵn sàng. Hãy thử lại; bạn không cần đăng nhập để xem nội dung công khai.",
-        (Copy::UnavailableHelp, Locale::English) => "The connection is unavailable. Try again; public stories do not require sign-in.",
-        (Copy::Protocol, Locale::Vietnamese) => "Chưa đọc được danh mục công khai.",
-        (Copy::Protocol, Locale::English) => "The public catalog response could not be read.",
-        (Copy::ProtocolHelp, Locale::Vietnamese) => "Phản hồi chưa hợp lệ. Hãy thử lại để tải danh mục từ Cantos.",
-        (Copy::ProtocolHelp, Locale::English) => "The response was invalid. Try loading the Cantos catalog again.",
-        (Copy::Retry, Locale::Vietnamese) => "Thử lại",
-        (Copy::Retry, Locale::English) => "Try again",
-        (Copy::Refresh, Locale::Vietnamese) => "Cập nhật danh mục",
-        (Copy::Refresh, Locale::English) => "Refresh catalog",
-        (Copy::More, Locale::Vietnamese) => "Đang hiển thị tối đa 20 tác phẩm đã công bố; còn nội dung ngoài trang này.",
-        (Copy::More, Locale::English) => "Showing up to 20 published stories; more content exists beyond this page.",
-        (Copy::Novel, Locale::Vietnamese) => "Tiểu thuyết",
-        (Copy::Novel, Locale::English) => "Novel",
-        (Copy::Story, Locale::Vietnamese) => "Truyện",
-        (Copy::Story, Locale::English) => "Story",
-        (Copy::Podcast, _) => "Podcast",
-    }
-}
-
-fn kind_key(kind: WorkKind) -> Copy {
-    match kind {
-        WorkKind::Novel => Copy::Novel,
-        WorkKind::Story => Copy::Story,
-        WorkKind::Podcast => Copy::Podcast,
-    }
-}
-
-pub(crate) fn kind_label(kind: WorkKind, locale: Locale) -> &'static str {
-    text(kind_key(kind), locale)
-}
 
 /// Stable focus target for returning from that Work's detail.
 pub(crate) fn work_link_id(work: PublicWorkId) -> String {
@@ -112,32 +35,32 @@ pub(crate) fn PublicHome(
     view! {
         <section class="theatre-public-home" aria-labelledby="theatre-public-home-heading">
             <header class="theatre-public-hero theatre-page-heading">
-                <p class="theatre-eyebrow">{move || text(Copy::Eyebrow, locale.get())}</p>
-                <h1 id="theatre-public-home-heading">{move || text(Copy::Heading, locale.get())}</h1>
-                <p class="theatre-muted">{move || text(Copy::Introduction, locale.get())}</p>
+                <p class="theatre-eyebrow">{move || text(Key::PublicHomeEyebrow, locale.get())}</p>
+                <h1 id="theatre-public-home-heading">{move || text(Key::HomeHeading, locale.get())}</h1>
+                <p class="theatre-muted">{move || text(Key::PublicHomeIntroduction, locale.get())}</p>
                 <div class="theatre-home-auth-actions">
                     <Button id="theatre-home-login" variant=ButtonVariant::Tonal
                         focus_on_press=true on_press=Callback::new(move |_| on_login.run(()))>
-                        {move || text(Copy::SignIn, locale.get())}
+                        {move || text(Key::SignIn, locale.get())}
                     </Button>
                     <Button id="theatre-home-register" variant=ButtonVariant::Text
                         focus_on_press=true on_press=Callback::new(move |_| on_register.run(()))>
-                        {move || text(Copy::Register, locale.get())}
+                        {move || auth_copy::text(CopyKey::CreateAccount, locale.get())}
                     </Button>
                 </div>
             </header>
             <section class="theatre-public-catalog" aria-labelledby="theatre-public-shelf-heading"
                 aria-busy=move || matches!(state.get().phase(), PublicDiscoveryPhase::Idle | PublicDiscoveryPhase::Loading)>
-                <h2 id="theatre-public-shelf-heading">{move || text(Copy::Shelf, locale.get())}</h2>
+                <h2 id="theatre-public-shelf-heading">{move || text(Key::StoryShelf, locale.get())}</h2>
                 {move || match state.get().phase().clone() {
                     PublicDiscoveryPhase::Idle | PublicDiscoveryPhase::Loading => view! {
-                        <p class="theatre-public-state" role="status">{move || text(Copy::Loading, locale.get())}</p>
+                        <p class="theatre-public-state" role="status">{move || text(Key::PublicHomeLoading, locale.get())}</p>
                     }.into_any(),
                     PublicDiscoveryPhase::Ready(page) => view! {
                         <div class="theatre-public-work-grid">
                             {page.items.into_iter().map(|work| view! {
                                 <article class="theatre-public-work theatre-panel" data-work-id=work.work_id.clone()>
-                                    <p class="theatre-eyebrow">{move || text(kind_key(work.kind), locale.get())}</p>
+                                    <p class="theatre-eyebrow">{move || text(messages::work_kind_key(work.kind), locale.get())}</p>
                                     <h3 lang=work.language.clone()>{match PublicWorkId::parse(&work.work_id) {
                                         Some(id) => view! {
                                             <a id=work_link_id(id) class="theatre-public-work-link" href=Route::PublicWork(id).hash()
@@ -156,23 +79,23 @@ pub(crate) fn PublicHome(
                             }).collect_view()}
                         </div>
                         {page.next_cursor.is_some().then(|| view! {
-                            <p class="theatre-muted">{move || text(Copy::More, locale.get())}</p>
+                            <p class="theatre-muted">{move || messages::format(Key::PublicHomeMore, locale.get(), &[("limit", PUBLIC_WORK_PAGE_LIMIT.to_string())])}</p>
                         })}
                     }.into_any(),
                     PublicDiscoveryPhase::Empty => view! {
                         <div class="theatre-public-state theatre-panel" role="status">
-                            <h3>{move || text(Copy::Empty, locale.get())}</h3>
-                            <p>{move || text(Copy::EmptyHelp, locale.get())}</p>
+                            <h3>{move || text(Key::PublicHomeEmpty, locale.get())}</h3>
+                            <p>{move || text(Key::PublicHomeEmptyHelp, locale.get())}</p>
                             <Button id="theatre-home-refresh" variant=ButtonVariant::Tonal
                                 on_press=Callback::new(move |_| on_refresh.run(()))>
-                                {move || text(Copy::Refresh, locale.get())}
+                                {move || text(Key::PublicHomeRefresh, locale.get())}
                             </Button>
                         </div>
                     }.into_any(),
                     PublicDiscoveryPhase::Failed(failure) => {
                         let (heading, help) = match failure {
-                            PublicDiscoveryFailure::Unavailable => (Copy::Unavailable, Copy::UnavailableHelp),
-                            PublicDiscoveryFailure::Protocol => (Copy::Protocol, Copy::ProtocolHelp),
+                            PublicDiscoveryFailure::Unavailable => (Key::PublicHomeUnavailable, Key::PublicConnectionUnavailableHelp),
+                            PublicDiscoveryFailure::Protocol => (Key::PublicHomeProtocol, Key::PublicHomeProtocolHelp),
                         };
                         view! {
                             <div class="theatre-public-state theatre-panel" role="status">
@@ -180,7 +103,7 @@ pub(crate) fn PublicHome(
                                 <p>{move || text(help, locale.get())}</p>
                                 <Button id="theatre-home-retry" variant=ButtonVariant::Tonal
                                     on_press=Callback::new(move |_| on_refresh.run(()))>
-                                    {move || text(Copy::Retry, locale.get())}
+                                    {move || text(Key::PublicRetry, locale.get())}
                                 </Button>
                             </div>
                         }.into_any()
@@ -194,7 +117,7 @@ pub(crate) fn PublicHome(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cantos_contracts::theatre::{WorkPage, WorkSummary};
+    use cantos_contracts::theatre::{WorkKind, WorkPage, WorkSummary};
 
     fn render(state: PublicDiscoveryState, locale: Locale) -> String {
         Owner::new().with(|| {
@@ -268,5 +191,78 @@ mod tests {
         ] {
             assert!(!html.contains(absent), "{absent}");
         }
+    }
+
+    #[test]
+    fn public_home_renders_each_typed_state_in_both_locales() {
+        for (locale, loading, empty, unavailable, protocol, retry, refresh) in [
+            (
+                Locale::Vietnamese,
+                "Đang mở những câu chuyện đã công bố…",
+                "Những câu chuyện đang được chuẩn bị.",
+                "Chưa mở được danh mục công khai.",
+                "Chưa đọc được danh mục công khai.",
+                "Thử lại",
+                "Cập nhật danh mục",
+            ),
+            (
+                Locale::English,
+                "Opening published stories…",
+                "Stories are being prepared.",
+                "The public catalog could not be opened.",
+                "The public catalog response could not be read.",
+                "Try again",
+                "Refresh catalog",
+            ),
+        ] {
+            assert!(render(PublicDiscoveryState::default(), locale).contains(loading));
+            let mut empty_state = PublicDiscoveryState::default();
+            let issued = empty_state.begin_refresh().unwrap();
+            empty_state.finish(
+                issued,
+                Ok(WorkPage {
+                    items: vec![],
+                    next_cursor: None,
+                }),
+            );
+            let html = render(empty_state, locale);
+            assert!(html.contains(empty) && html.contains(refresh), "{html}");
+            for (failure, heading) in [
+                (PublicDiscoveryFailure::Unavailable, unavailable),
+                (PublicDiscoveryFailure::Protocol, protocol),
+            ] {
+                let mut failed = PublicDiscoveryState::default();
+                let issued = failed.begin_refresh().unwrap();
+                failed.finish(issued, Err(failure));
+                let html = render(failed, locale);
+                assert!(html.contains(heading) && html.contains(retry), "{html}");
+                assert!(html.contains("role=\"status\""));
+            }
+        }
+    }
+
+    #[test]
+    fn locale_projection_keeps_public_content_language_and_page_identity() {
+        Owner::new().with(|| {
+            let locale = RwSignal::new(Locale::Vietnamese);
+            let mut initial = PublicDiscoveryState::default();
+            let issued = initial.begin_refresh().unwrap();
+            initial.finish(issued, Ok(WorkPage { items: vec![WorkSummary {
+                work_id: "00000000-0000-0000-0000-000000000001".into(), kind: WorkKind::Story,
+                title: "Lời hẹn {time}".into(), description: "Giữ nguyên tiếng Việt.".into(),
+                language: "vi-VN".into(), first_published_at_ms: 1,
+            }], next_cursor: Some("opaque-page".into()) }));
+            let state = RwSignal::new(initial.clone());
+            for (next, label, notice) in [
+                (Locale::Vietnamese, "Đăng nhập", "Đang hiển thị tối đa 20"),
+                (Locale::English, "Sign in", "Showing up to 20"),
+            ] {
+                locale.set(next);
+                let html = view! { <PublicHome state locale on_login=Callback::new(|()| ()) on_register=Callback::new(|()| ()) on_refresh=Callback::new(|()| ()) on_open_work=Callback::new(|_| ())/ > }.to_html();
+                assert!(html.contains(label) && html.contains(notice), "{html}");
+                assert!(html.contains("Lời hẹn {time}") && html.contains("lang=\"vi-VN\""));
+                assert_eq!(state.get_untracked(), initial);
+            }
+        });
     }
 }

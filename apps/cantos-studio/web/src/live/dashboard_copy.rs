@@ -36,13 +36,13 @@ pub enum Key {
     OpenEditor,
     Draft,
     Archived,
-    Novel,
-    Story,
-    Podcast,
+    UnknownLifecycle,
 }
 
 pub fn text(key: Key, en: bool) -> &'static str {
     match (key, en) {
+        (Key::UnknownLifecycle, true) => "Unknown status",
+        (Key::UnknownLifecycle, false) => "Trạng thái chưa xác định",
         (Key::Title, true) => "Writing desk",
         (Key::Title, false) => "Bàn viết",
         (Key::Lead, true) => "Your private place to write, prepare production instructions and review audio.",
@@ -113,11 +113,5 @@ pub fn text(key: Key, en: bool) -> &'static str {
         (Key::Draft, false) => "Bản nháp",
         (Key::Archived, true) => "Archived",
         (Key::Archived, false) => "Đã lưu trữ",
-        (Key::Novel, true) => "Novel",
-        (Key::Novel, false) => "Tiểu thuyết",
-        (Key::Story, true) => "Story",
-        (Key::Story, false) => "Truyện",
-        (Key::Podcast, true) => "Podcast",
-        (Key::Podcast, false) => "Podcast",
     }
 }

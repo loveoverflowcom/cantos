@@ -21,7 +21,7 @@ and all replacement approaches as candidates pending
 
 | Surface | Existing source of UI copy | Known gap |
 |---|---|---|
-| Theatre Web | [`messages.rs`](../../../../apps/cantos-theatre/web/src/messages.rs) (`Locale`, `resources!`, tests), [`features/auth_copy.rs`](../../../../apps/cantos-theatre/web/src/features/auth_copy.rs), [`membership_preview/copy.rs`](../../../../apps/cantos-theatre/web/src/membership_preview/copy.rs) | Multiple macros; `format()` folds `String::replace` over evolving output, risking substitution inside inserted titles; locale is session memory |
+| Theatre Web | [`messages.rs`](../../../../apps/cantos-theatre/web/src/messages.rs) (`Locale`, `resources!`, public catalog and auth-diagnostic keys, single-pass formatting tests), [`features/auth_copy.rs`](../../../../apps/cantos-theatre/web/src/features/auth_copy.rs), [`membership_preview/copy.rs`](../../../../apps/cantos-theatre/web/src/membership_preview/copy.rs) | Multiple existing macros; locale is session memory; catalog/runtime unification remains open |
 | Studio Web | [`messages.rs`](../../../../apps/cantos-studio/web/src/messages.rs), [`messages/`](../../../../apps/cantos-studio/web/src/messages), [`live/copy.rs`](../../../../apps/cantos-studio/web/src/live/copy.rs), [`live/dashboard_copy.rs`](../../../../apps/cantos-studio/web/src/live/dashboard_copy.rs), [`live/delegation/copy.rs`](../../../../apps/cantos-studio/web/src/live/delegation/copy.rs), [`live/artwork/copy.rs`](../../../../apps/cantos-studio/web/src/live/artwork/copy.rs) | Structs, keys and `english: bool` coexist; root locale is session memory |
 | Theatre CMP shared presentation | [`ShellCopy.kt`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellCopy.kt) (`CopyKey`, `ShellText`, `ShellCopy`), [`AuthCopy.kt`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/AuthCopy.kt), [`MembershipCopy.kt`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/membership/presentation/MembershipCopy.kt) | [`ShellLocale`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellState.kt) and [`PreferenceLocale`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/preferences/PreferencesController.kt) are separate representations; application preference has explicit native key/value adapters; [#169 evidence](../../../../docs/evidence/issue169-cmp-locale-acceptance.md) distinguishes native/JVM acceptance from pending architecture adoption |
 | Theatre CMP sandbox copy | [`preview-sandbox/.../app/DemoShellCopy.kt`](../../../../apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/app/DemoShellCopy.kt) injects `DemoShellCopyOverrides` into shared presentation | Demo diagnostics belong in the sandbox, not the shared catalog; production release exclusion is not yet accepted ([isolation record](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md)) |
@@ -30,6 +30,12 @@ and all replacement approaches as candidates pending
 This is a source inventory, not a new ownership architecture or a runtime test result.
 Follow the caller to its actual owner; do not restore the removed `demo/DemoCopy.kt` or
 move sandbox-only wording into `:shared` to satisfy this map.
+
+The shared Leptos and CMP development galleries own their tool copy under
+`preview/messages.rs` and `preview/PreviewToolCopy.kt`, respectively. Their tool interface
+uses English; recipe locale selects component specimens, not an application preference.
+Vietnamese typography/content fixtures remain Vietnamese. This bounded preview policy
+does not choose an app catalog architecture or authorize shared packages to import app copy.
 
 **While the decision is open:** search the current app/feature copy owner and existing
 semantic key **before** adding any UI, preview, accessibility or error string. Reuse the
@@ -226,9 +232,9 @@ accessibility name, description and alternative text. When in doubt it is visibl
 
 | Check | How | Level |
 |---|---|---|
-| no string literal in views | a literal scan over view and composable sources, with a reviewed allow-list (proposed) | `statically-checked` |
-| key parity | every key exists in every required locale; no orphan keys | `statically-checked` (proposed) |
-| placeholder parity | the same parameter names in every locale for one key | `statically-checked` (proposed) |
+| new displayed literals | bounded changed-line tokenizer checks known Web/Compose/HTML sinks with reviewed owners/exceptions in `scripts/localization_allowlist.json`, through the repository gate | `statically-checked`; indirect arbitrary dataflow still needs review |
+| key parity | nonblank vi-VN/en pairs for recognized changed catalog forms; renderer catalog tests cover their typed APIs | `statically-checked`, `example-tested`; not a universal orphan-key check |
+| placeholder parity | matching named parameter multiplicities in recognized paired resources | `statically-checked`, `example-tested` |
 | plural coverage | each locale supplies the categories it needs | `example-tested` |
 | error and reason mapping | table test: every variant maps to a key that exists | `example-tested` |
 | `lang` and locale tags | a DOM or semantics test that mixed-language spans are tagged | `DOM-tested`, `semantics-tested` |
@@ -237,16 +243,20 @@ accessibility name, description and alternative text. When in doubt it is visibl
 Partial checks exist already; their source is not proof they ran in a particular report:
 - Theatre Web [`messages.rs`](../../../../apps/cantos-theatre/web/src/messages.rs),
   `every_resource_has_both_locales_and_matching_parameters`, checks nonblank pairs and
-  placeholder **sets** plus selected count/duration/speed examples. It does not check
-  placeholder multiplicity, literal title braces or every Web copy owner.
+  placeholder multiplicities plus selected count/duration/speed examples. Separate tests
+  preserve literal title braces and original-template interpolation. These tests alone do
+  not cover every Web copy owner.
 - CMP [`preview-sandbox/.../DemoCopyTest.kt`](../../../../apps/cantos-theatre/mobile/preview-sandbox/src/commonTest/kotlin/com/cantos/theatre/demo/DemoCopyTest.kt)
   exercises shared `ShellCopy`: nonblank pairs, placeholder names/multiplicity, literal
   title braces, selected numeric labels and spoken time. It does not establish all
   auth/membership/launch or sandbox-override parity, or native locale switching.
 
 There is **no unified cross-renderer parity gate or `cargo xtask i18n check` command** yet.
-Use the existing renderer gates in [xtask](../../../../xtask/README.md); a candidate
-test/scan above is not an implemented command. Report only checks actually run.
+The bounded localization primitive is integrated into `cargo xtask verify repository`;
+its fixtures test regressions and allowed technical/diagnostic/content examples before
+integration. It does not prove runtime locale switching or complete dynamic error mapping.
+Use the existing renderer gates in [xtask](../../../../xtask/README.md) for those layers.
+Report only checks actually run.
 Prefer a focused resource test during DEV, affected renderer evidence at CHECKPOINT,
 and handoff preflight on the final diff; no full verification after each small edit.
 

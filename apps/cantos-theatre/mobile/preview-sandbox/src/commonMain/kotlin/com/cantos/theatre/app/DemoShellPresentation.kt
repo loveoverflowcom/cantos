@@ -30,7 +30,6 @@ import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellState
-import com.cantos.theatre.presentation.model.ShellText
 import com.cantos.ui.tokenDp
 
 /** The sandbox owns sample wording, notices, fixture artwork selection and diagnostic controls. */
@@ -60,8 +59,8 @@ fun WithDemoShellPresentation(content: @Composable () -> Unit) {
 }
 
 private val demoDiagnostics = ShellDiagnosticsSlot(
-    title = ShellText("Công cụ bản xem thử", "Demo tools"),
-    summary = ShellText("Trạng thái khám phá", "Discovery scenario"),
+    title = DemoShellText.DiagnosticsTitle.resource,
+    summary = DemoShellText.DiagnosticsSummary.resource,
     content = { state, dispatch, onDismiss -> DemoDiagnostics(state, dispatch, onDismiss) },
 )
 
@@ -102,19 +101,4 @@ private fun DemoDiagnostics(state: ShellState, dispatch: (ShellEvent) -> Unit, o
     ) {
         Text(DemoShellText.Reset.localized(state.locale))
     }
-}
-
-private enum class DemoShellText(val vi: String, val en: String) {
-    Notice("Dữ liệu minh họa · Không có âm thanh thật", "Sample data · No real audio"),
-    CatalogStateNote("Chọn một trạng thái, rồi trở về Khám phá hoặc Tìm kiếm.", "Choose a state, then return to Discover or Search."),
-    Ready("Bình thường", "Ready"),
-    Loading("Đang tải", "Loading"),
-    Empty("Rỗng", "Empty"),
-    Error("Lỗi", "Error"),
-    IntegrationsPending("Đăng nhập, tải xuống, audio nền và đồng bộ sẽ cần adapter native và API riêng.", "Sign-in, downloads, background audio and sync need native adapters and their own API."),
-    Reset("Đặt lại bản xem thử", "Reset demo"),
-    ResetNote("Khôi phục nội dung, điểm nghe, dấu trang và tùy chọn ban đầu.", "Restore initial content, position, bookmarks and preferences."),
-    ;
-
-    fun localized(locale: ShellLocale): String = if (locale == ShellLocale.Vietnamese) vi else en
 }

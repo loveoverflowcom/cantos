@@ -761,3 +761,66 @@ fn server_replies_preserve_preview_handle_until_lifecycle_retires_it_once() {
         ]
     );
 }
+
+#[test]
+fn artwork_named_facts_preserve_literal_braces_and_localize_units() {
+    let name = "Lời hẹn {time}.png";
+    assert_eq!(
+        copy::media_facts(1, 1, 1, "image/png", true),
+        "1 byte · 1 × 1 px · image/png"
+    );
+    assert_eq!(copy::transferred_bytes(0, 1, true), "0 / 1 byte");
+    assert_eq!(
+        copy::file_facts(name, 128, 320, 240, "image/png", false),
+        "Lời hẹn {time}.png · 128 byte · 320 × 240 px · image/png"
+    );
+    assert_eq!(
+        copy::file_facts(name, 128, 320, 240, "image/png", true),
+        "Lời hẹn {time}.png · 128 bytes · 320 × 240 px · image/png"
+    );
+    assert_eq!(
+        copy::media_facts(128, 320, 240, "image/png", false),
+        "128 byte · 320 × 240 px · image/png"
+    );
+    assert_eq!(
+        copy::media_facts(128, 320, 240, "image/png", true),
+        "128 bytes · 320 × 240 px · image/png"
+    );
+    assert_eq!(copy::transferred_bytes(64, 128, false), "64 / 128 byte");
+    assert_eq!(copy::transferred_bytes(64, 128, true), "64 / 128 bytes");
+}
+
+#[test]
+fn artwork_locale_projection_updates_labels_errors_and_accessible_names_without_editing_draft() {
+    use leptos::prelude::*;
+    let owner = Owner::new();
+    owner.with(|| {
+        let original = Draft { alt: "Lời hẹn {time}".into(), provenance: "Bản vẽ gốc".into(), rights: "rights_1".into() };
+        let draft = RwSignal::new(original.clone());
+        let english = RwSignal::new(false);
+        let model = Projection {
+            local: Some(LocalImage { name: "Lời hẹn {time}.png".into(), ..local_image() }),
+            problem: Some(Problem::Alt),
+            transferred: Some(1),
+            ..Projection::default()
+        };
+        for (en, title, label, error, action) in [
+            (false, "Ảnh bìa của tác phẩm", "Mô tả thay thế", "Mô tả không được trống", "Bỏ chọn tệp local"),
+            (true, "Work cover artwork", "Alternative description", "Alt text must be nonblank", "Discard local selection"),
+        ] {
+            english.set(en);
+            let model = model.clone();
+            let html = view! { <form::ArtworkForm model=Signal::derive(move ||model.clone()) draft=draft
+                english=Signal::derive(move ||english.get()) owner=Signal::derive(||true) blocked=Signal::derive(||false)
+                on_intent=Callback::new(|_|{}) on_file=Callback::new(|_|{}) clear_open=RwSignal::new(false)/>
+            }.to_html();
+            for expected in [title, label, error, action, "Lời hẹn {time}", "Bản vẽ gốc", "rights_1"] {
+                assert!(html.contains(expected), "missing {expected}: {html}");
+            }
+            assert!(html.contains("for=\"artwork-alt\""), "{html}");
+            assert!(html.contains("aria-labelledby=\"artwork-title\""), "{html}");
+            assert!(html.contains("1 / 1 byte"), "{html}");
+            assert_eq!(draft.get_untracked(), original);
+        }
+    });
+}

@@ -49,14 +49,3 @@ fun MembershipFixtureControls(
         }
     }
 }
-
-private enum class MembershipFixtureText(val vi: String, val en: String) {
-    FixtureTools("Công cụ fixture · Chọn kết quả thủ công", "Fixture tools · Choose an outcome manually"),
-    ConfirmFixture("Fixture: xác nhận đã nhận đăng ký", "Fixture: confirm receipt"),
-    FailFixture("Fixture: lỗi chưa nhận đăng ký", "Fixture: request failed"),
-    TimeoutFixture("Fixture: timeout, kết quả chưa biết", "Fixture: timeout, outcome unknown"),
-    AccountFixtureAction("Fixture: đăng ký tài khoản hoàn tất", "Fixture: account registration complete"),
-    ClearSession("Fixture: đăng xuất / đổi tài khoản / hết phiên", "Fixture: logout / switch account / session expired");
-
-    fun localized(locale: ShellLocale): String = if (locale == ShellLocale.English) en else vi
-}

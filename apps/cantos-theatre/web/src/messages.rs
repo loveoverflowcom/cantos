@@ -1,4 +1,6 @@
 //! Typed resources for live and mock listener surfaces; story fixtures retain their language.
+use cantos_contracts::theatre::WorkKind;
+
 use crate::{
     app::routes::Route,
     core::{
@@ -77,6 +79,76 @@ macro_rules! resources {
 }
 
 resources! {
+    PublicHomeEyebrow => ("VỌNG ĐÀI · NHỮNG MIỀN THANH ÂM", "VỌNG ĐÀI · WORLDS OF SOUND"),
+    PublicHomeIntroduction => ("Một câu chuyện hay không cần đợi bạn đăng nhập. Khám phá nội dung công khai ngay tại đây.", "A good story does not need to wait for sign-in. Explore public stories here."),
+    PublicHomeLoading => ("Đang mở những câu chuyện đã công bố…", "Opening published stories…"),
+    PublicHomeEmpty => ("Những câu chuyện đang được chuẩn bị.", "Stories are being prepared."),
+    PublicHomeEmptyHelp => ("Danh mục công khai chưa có tác phẩm. Bạn có thể quay lại hoặc cập nhật sau.", "The public catalog has no stories yet. You can return or refresh later."),
+    PublicHomeUnavailable => ("Chưa mở được danh mục công khai.", "The public catalog could not be opened."),
+    PublicConnectionUnavailableHelp => ("Kết nối hiện chưa sẵn sàng. Hãy thử lại; bạn không cần đăng nhập để xem nội dung công khai.", "The connection is unavailable. Try again; public stories do not require sign-in."),
+    PublicHomeProtocol => ("Chưa đọc được danh mục công khai.", "The public catalog response could not be read."),
+    PublicHomeProtocolHelp => ("Phản hồi chưa hợp lệ. Hãy thử lại để tải danh mục từ Cantos.", "The response was invalid. Try loading the Cantos catalog again."),
+    PublicRetry => ("Thử lại", "Try again"),
+    PublicHomeRefresh => ("Cập nhật danh mục", "Refresh catalog"),
+    PublicHomeMore => ("Đang hiển thị tối đa {limit} tác phẩm đã công bố; còn nội dung ngoài trang này.", "Showing up to {limit} published stories; more content exists beyond this page."),
+    PublicWorkKindNovel => ("Tiểu thuyết", "Novel"),
+    PublicWorkKindStory => ("Truyện", "Story"),
+    PublicWorkKindPodcast => ("Podcast", "Podcast"),
+    PublicWorkLoading => ("Đang mở tác phẩm…", "Opening the story…"),
+    PublicWorkNotFound => ("Tác phẩm này hiện không mở công khai.", "This story is not publicly available right now."),
+    PublicWorkNotFoundHelp => ("Cantos không thể hiển thị tác phẩm này cho người nghe lúc này. Bạn có thể quay về Trang chủ để khám phá những câu chuyện khác.", "Cantos cannot show this story to listeners right now. You can return Home to explore other stories."),
+    PublicWorkUnavailable => ("Chưa mở được tác phẩm.", "The story could not be opened."),
+    PublicWorkProtocol => ("Chưa đọc được thông tin tác phẩm.", "The story details could not be read."),
+    PublicWorkProtocolHelp => ("Phản hồi chưa hợp lệ. Hãy thử lại để tải tác phẩm từ Cantos.", "The response was invalid. Try loading the story from Cantos again."),
+    PublicWorkChapter => ("Chương", "Chapter"),
+    PublicWorkEpisode => ("Tập", "Episode"),
+    PublicWorkChapters => ("Các chương", "Chapters"),
+    PublicWorkEpisodes => ("Các tập", "Episodes"),
+    PublicWorkListen => ("Nghe", "Listen"),
+    PublicWorkListenUnavailable => ("Cantos Web chưa phát được âm thanh. Bạn vẫn có thể xem danh sách đã công bố bên dưới.", "Cantos Web cannot play audio yet. You can still browse the published list below."),
+    PublicWorkUnitsLoading => ("Đang tải danh sách…", "Loading the list…"),
+    PublicWorkUnitsRestarting => ("Đang tải lại danh sách từ đầu…", "Reloading the list from the start…"),
+    PublicWorkChaptersEmpty => ("Tác phẩm này chưa có chương nào mở công khai.", "This story has no publicly available chapters yet."),
+    PublicWorkEpisodesEmpty => ("Podcast này chưa có tập nào mở công khai.", "This podcast has no publicly available episodes yet."),
+    PublicWorkUnitsComplete => ("Đã hiển thị hết danh sách.", "You have reached the end of the list."),
+    PublicWorkUnitsMoreAvailable => ("Danh sách vẫn còn phần tiếp theo.", "More of the list is available."),
+    PublicWorkUnitsFailed => ("Chưa tải được danh sách.", "The list could not be loaded."),
+    PublicWorkUnitsUnavailableHelp => ("Kết nối hiện chưa sẵn sàng. Hãy thử lại.", "The connection is unavailable. Try again."),
+    PublicWorkUnitsProtocolHelp => ("Phản hồi chưa hợp lệ. Hãy thử lại.", "The response was invalid. Try again."),
+    PublicWorkPageUnavailable => ("Chưa tải được phần tiếp theo. Những mục đã hiển thị vẫn được giữ nguyên.", "The next part could not be loaded. Items already shown are kept."),
+    PublicWorkPageProtocol => ("Phần tiếp theo trả về dữ liệu chưa hợp lệ. Những mục đã hiển thị vẫn được giữ nguyên.", "The next part returned invalid data. Items already shown are kept."),
+    PublicWorkRestarted => ("Phiên duyệt danh sách đã hết hạn nên Cantos tải lại từ đầu; các mục đã hiển thị được giữ và không lặp lại.", "The list session expired, so Cantos reloaded it from the start; items already shown are kept without duplicates."),
+    PublicWorkMoreChapters => ("Tải thêm chương", "Load more chapters"),
+    PublicWorkMoreEpisodes => ("Tải thêm tập", "Load more episodes"),
+    PublicWorkLoadingMore => ("Đang tải phần tiếp theo…", "Loading the next part…"),
+    PublicWorkRetryPage => ("Thử lại phần này", "Retry this part"),
+    PublicWorkDurationDescription => ("Thời lượng: {duration}", "Duration: {duration}"),
+    PublicWorkDurationUnknown => ("Chưa rõ thời lượng", "Duration not known yet"),
+    PublicWorkRowUnavailable => ("Mục này không còn trong danh sách công khai.", "This item is no longer in the public list."),
+    AuthPreviewHeading => ("Auth preview · Chỉ dữ liệu mẫu", "Auth preview · Fixtures only"),
+    AuthPreviewNotice => ("Công cụ kiểm tra riêng: không gọi mạng, Cantos ID, timer hoặc mật khẩu. A/B là tài khoản mẫu; không chứng nhận đăng nhập hoặc đăng ký thực.", "Isolated diagnostics: no network, Cantos ID, timers or passwords. A/B are fixture accounts; this does not verify real sign-in or registration."),
+    AuthPreviewGuest => ("Mẫu khách · cleanup đã xác nhận", "Guest fixture · cleanup acknowledged"),
+    AuthPreviewSignedA => ("Mẫu đăng nhập A", "Signed-in fixture A"),
+    AuthPreviewSignedB => ("Mẫu đăng nhập B", "Signed-in fixture B"),
+    AuthPreviewLogoutPending => ("Bắt đầu mẫu đăng xuất", "Begin logout fixture"),
+    AuthPreviewCleanupFail => ("Mẫu cleanup thất bại", "Fail cleanup fixture"),
+    AuthPreviewCleanupAck => ("Xác nhận cleanup mẫu", "Acknowledge cleanup fixture"),
+    AuthPreviewBeginDelayed => ("Giữ phản hồi phiên A", "Hold session A response"),
+    AuthPreviewCompleteDelayed => ("Trả phản hồi A đã giữ", "Deliver held A response"),
+    AuthPreviewCancel => ("Hủy yêu cầu mẫu và rời auth", "Cancel fixture request and leave auth"),
+    AuthPreviewCleanupHelp => ("Bắt đầu mẫu đăng xuất trước khi thử phản hồi cleanup; xác nhận thành công mới mở lại Login.", "Begin the logout fixture before delivering cleanup responses; only acknowledgement re-enables Login."),
+    AuthPreviewDelayHelp => ("Giữ phản hồi A trước khi trả phản hồi. Sau khi hủy hoặc chuyển khách → B, phản hồi A cũ phải được bỏ qua.", "Hold A before delivering its response. After cancellation or a Guest → B switch, the old A response must be ignored."),
+    AuthPreviewReady => ("Sẵn sàng kiểm tra trạng thái mẫu.", "Ready to inspect fixture states."),
+    AuthPreviewApplied => ("Đã áp dụng chuyển trạng thái mẫu qua AccountViewState.", "Fixture transition applied through AccountViewState."),
+    AuthPreviewNeedsCleanup => ("Core chặn thao tác: phải xác nhận cleanup trước.", "Core refused the action: acknowledge cleanup first."),
+    AuthPreviewRequestPending => ("Core chặn yêu cầu trùng trong khi phản hồi cũ còn chờ.", "Core refused a duplicate request while a response is pending."),
+    AuthPreviewRejected => ("Core từ chối chuyển trạng thái mẫu; phiên hiện tại được giữ.", "Core refused the fixture transition; the current session is retained."),
+    AuthPreviewDelayed => ("Đã giữ generation của yêu cầu A. Hủy hoặc chuyển khách → B rồi trả A để kiểm tra phản hồi trễ.", "Captured request A's generation. Cancel or switch Guest → B, then deliver A to inspect a stale response."),
+    AuthPreviewIgnored => ("Core đã bỏ qua phản hồi A cũ; trạng thái hiện tại được giữ.", "Core ignored the old A response; the current state is retained."),
+    AuthPreviewCleanupFailed => ("Cleanup mẫu chưa xác nhận; Login vẫn bị khóa, có thể thử hoàn tất đăng xuất.", "Fixture cleanup remains unacknowledged; Login stays blocked and sign-out can be retried."),
+    AuthPreviewCancelled => ("Đã hủy generation mẫu và rời auth. Phản hồi A đã giữ có thể được trả để kiểm tra việc bỏ qua.", "Fixture generation cancelled and auth closed. Deliver the held A response to inspect rejection."),
+    CoverArtName => ("{title}: {description}", "{title}: {description}"),
+    MembershipHeading => ("Membership", "Membership"),
     PageTitle => ("{page} · Cantos", "{page} · Cantos"),
     SkipContent => ("Đến nội dung chính", "Skip to main content"),
     MainNavigation => ("Điều hướng chính", "Main navigation"),
@@ -373,6 +445,15 @@ pub fn speed_label(locale: Locale, speed: u16) -> String {
     }
 }
 
+/// Public catalog kinds have one app-owned mapping, independent of either feature.
+pub fn work_kind_key(kind: WorkKind) -> Key {
+    match kind {
+        WorkKind::Novel => Key::PublicWorkKindNovel,
+        WorkKind::Story => Key::PublicWorkKindStory,
+        WorkKind::Podcast => Key::PublicWorkKindPodcast,
+    }
+}
+
 pub fn genre_key(genre: Genre) -> Key {
     match genre {
         Genre::All => Key::All,
@@ -415,14 +496,18 @@ pub fn status_key(status: Status) -> Key {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
+    use std::collections::BTreeMap;
 
-    fn placeholders(value: &str) -> BTreeSet<&str> {
-        value
+    fn placeholders(value: &str) -> BTreeMap<&str, usize> {
+        let mut names = BTreeMap::new();
+        for name in value
             .split('{')
             .skip(1)
             .filter_map(|part| part.split_once('}').map(|pair| pair.0))
-            .collect()
+        {
+            *names.entry(name).or_default() += 1;
+        }
+        names
     }
 
     #[test]
@@ -555,6 +640,41 @@ mod tests {
         ] {
             assert_eq!(spoken_time(Locale::Vietnamese, seconds), vi);
             assert_eq!(spoken_time(Locale::English, seconds), en);
+        }
+    }
+
+    #[test]
+    fn public_kind_mapping_and_named_templates_have_both_locales() {
+        for (kind, key, vi, en) in [
+            (
+                WorkKind::Novel,
+                Key::PublicWorkKindNovel,
+                "Tiểu thuyết",
+                "Novel",
+            ),
+            (WorkKind::Story, Key::PublicWorkKindStory, "Truyện", "Story"),
+            (
+                WorkKind::Podcast,
+                Key::PublicWorkKindPodcast,
+                "Podcast",
+                "Podcast",
+            ),
+        ] {
+            assert_eq!(work_kind_key(kind), key);
+            assert_eq!(text(key, Locale::Vietnamese), vi);
+            assert_eq!(text(key, Locale::English), en);
+        }
+        for locale in Locale::ALL {
+            assert_eq!(
+                placeholders(text(Key::PublicHomeMore, locale)),
+                BTreeMap::from([("limit", 1)])
+            );
+            let label = format(
+                Key::CoverArtName,
+                locale,
+                &named(&[("title", "Lời hẹn {description}"), ("description", "Bìa")]),
+            );
+            assert_eq!(label, "Lời hẹn {description}: Bìa");
         }
     }
 }

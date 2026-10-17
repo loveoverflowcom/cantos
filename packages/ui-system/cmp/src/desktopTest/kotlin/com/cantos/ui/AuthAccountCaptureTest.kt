@@ -141,7 +141,7 @@ class AuthAccountCaptureTest {
             mainClock.advanceTimeBy(400)
             waitForIdle()
             if (wholeScene) {
-                val footerNode = onNodeWithText("Giao diện và cài đặt nghe thuộc một nhóm yên tĩnh. Không có viền trang trí.")
+                val footerNode = onNodeWithText("Appearance and listening settings form a quiet group without a decorative border.")
                     .assertIsDisplayed()
                 val footer = footerNode.fetchSemanticsNode().boundsInRoot
                 assertTrue(footer.width > 0f && footer.height > 0f, "Offscreen zero bounds cannot establish complete visibility")

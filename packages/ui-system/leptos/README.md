@@ -165,7 +165,7 @@ is implied. Native disclosure controls keep this detailed inventory compact.
 State, error, theme and density controls exercise reactive contracts; event counts and values
 remain visible. [`preview/gallery.css`](preview/gallery.css) scopes discovery layout to this
 diagnostic app and consumes shared token roles; it does not alter production component styles.
-Developer-only catalogue copy stays local to the preview. Add new APIs to the shared registration
+Developer-only tool copy is owned by [`preview/messages.rs`](preview/messages.rs). The tool shell uses fixed English, matching the CMP preview, including the boot document and accessibility names. Recipe locale selects bilingual component specimens only; it does not introduce an app locale preference. Legacy Vietnamese typography, form and content fixtures remain verbatim inside `lang="vi-VN"` fixture regions. Registry identifiers and diagnostic output remain developer evidence rather than app resources. Add new APIs to the shared registration
 source and provide actual examples/tests in both renderer previews before seeking production
 qualification; do not copy the gallery into an app route.
 
@@ -245,7 +245,7 @@ Frame width is local specimen geometry; narrow browser windows may need to scrol
 frame. It does not resize the browser viewport or alter DPR. Text 200% changes injected font
 scale and does not claim native browser page zoom. Record both the selected frame/scale and
 actual browser viewport/DPR/zoom in evidence. Long Vietnamese deliberately exercises wrapping.
-Locale applies to workbench fixture copy; the full legacy catalog keeps its Vietnamese samples.
+Locale applies to workbench specimen copy through typed preview-owned resources; the fixed English tool shell and legacy Vietnamese samples keep their own language tags. Changing specimen locale does not reset the mounted controls or their host-owned values.
 
 System motion preserves `prefers-reduced-motion`; Reduced further suppresses nonessential
 transitions. Force full is a labelled opt-in diagnostic override and must be attributed in the

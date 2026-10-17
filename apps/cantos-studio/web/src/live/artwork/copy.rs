@@ -1,6 +1,6 @@
 //! Studio artwork locale resources (vi-VN / en).
 use super::{Problem, Stage};
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
     NeedFile,
     NeedIntent,
@@ -40,9 +40,24 @@ pub enum Key {
     UnavailablePreview,
     Operation,
     PreparedHelp,
+    PreviewTitle,
+    PreviewHelp,
+    PreviewScenario,
+    PreviewTheme,
+    PreviewLocale,
+    PreviewLight,
+    PreviewDark,
 }
 pub fn text(key: Key, en: bool) -> &'static str {
     match (key, en) {
+        (Key::PreviewTitle, false) => "studio-artwork · xem trước được cấp dữ liệu mẫu (chỉ debug)", (Key::PreviewTitle, true) => "studio-artwork · injected preview (debug only)",
+        (Key::PreviewHelp, false) => "Recipe v1 · dữ liệu giả lập · không gọi API/storage. Chọn tình huống sẽ đặt lại trạng thái; giao diện và ngôn ngữ giữ nguyên văn bản.", (Key::PreviewHelp, true) => "Recipe v1 · synthetic fixture · no API/storage. Selecting a scenario explicitly resets its projection; theme and locale retain text.",
+        (Key::PreviewScenario, false) => "Tình huống", (Key::PreviewScenario, true) => "Scenario",
+        (Key::PreviewTheme, false) => "Giao diện", (Key::PreviewTheme, true) => "Theme",
+        (Key::PreviewLocale, false) => "Ngôn ngữ", (Key::PreviewLocale, true) => "Locale",
+        (Key::PreviewLight, false) => "Sáng", (Key::PreviewLight, true) => "Light",
+        (Key::PreviewDark, false) => "Tối", (Key::PreviewDark, true) => "Dark",
+
         (Key::NeedFile,false)=>"Chọn ảnh hợp lệ; hoàn tất hoặc đối soát thao tác đang chờ trước khi tiếp tục.",
         (Key::NeedFile,true)=>"Choose a valid image; finish or reconcile any pending operation first.",
         (Key::NeedIntent,false)=>"Chuẩn bị intent còn hạn và giữ đúng tệp; hoàn tất thao tác đang chờ trước khi tải.",
@@ -148,5 +163,137 @@ pub fn problem(p: Problem, en: bool) -> &'static str {
         (Problem::Rights, false) => "Kiểm tra 1–64 ID quyền phân biệt và đúng định dạng.", (Problem::Rights, true) => "Check 1–64 distinct, valid rights IDs.",
         (Problem::Alt, false) => "Mô tả không được trống, vượt 1024 byte hoặc có ký tự điều khiển / ngắt dòng.",
         (Problem::Alt, true) => "Alt text must be nonblank, at most 1024 bytes, without controls or line separators.",
+    }
+}
+
+/// These technical facts use byte counts (base 1); English alone distinguishes one/other.
+fn byte_unit(count: u64, en: bool) -> &'static str {
+    if en && count != 1 {
+        "bytes"
+    } else {
+        "byte"
+    }
+}
+
+/// Named Rust format parameters expand once, so braces inside a file name remain literal.
+pub fn media_facts(byte_length: u64, width: u32, height: u32, mime: &str, en: bool) -> String {
+    format!(
+        "{byte_length} {unit} · {width} × {height} px · {mime}",
+        unit = byte_unit(byte_length, en)
+    )
+}
+
+pub fn file_facts(
+    name: &str,
+    byte_length: u64,
+    width: u32,
+    height: u32,
+    mime: &str,
+    en: bool,
+) -> String {
+    format!(
+        "{name} · {byte_length} {unit} · {width} × {height} px · {mime}",
+        unit = byte_unit(byte_length, en)
+    )
+}
+
+pub fn transferred_bytes(transferred: u64, total: u64, en: bool) -> String {
+    format!(
+        "{transferred} / {total} {unit}",
+        unit = byte_unit(total, en)
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_artwork_label_stage_and_problem_has_both_locales() {
+        for key in [
+            Key::NeedFile,
+            Key::NeedIntent,
+            Key::NeedAsset,
+            Key::NeedCurrent,
+            Key::NeedLocal,
+            Key::NeedRecovery,
+            Key::NeedOwner,
+            Key::IntentReceipt,
+            Key::Title,
+            Key::Private,
+            Key::Current,
+            Key::Replacement,
+            Key::Empty,
+            Key::File,
+            Key::Bounds,
+            Key::Alt,
+            Key::AltHelp,
+            Key::Provenance,
+            Key::ProvenanceHelp,
+            Key::Rights,
+            Key::RightsHelp,
+            Key::Prepare,
+            Key::Upload,
+            Key::Select,
+            Key::Clear,
+            Key::Discard,
+            Key::Refresh,
+            Key::Reconcile,
+            Key::Replay,
+            Key::Confirm,
+            Key::Cancel,
+            Key::ClearHelp,
+            Key::PendingHelp,
+            Key::Compare,
+            Key::Owner,
+            Key::UnavailablePreview,
+            Key::Operation,
+            Key::PreparedHelp,
+            Key::PreviewTitle,
+            Key::PreviewHelp,
+            Key::PreviewScenario,
+            Key::PreviewTheme,
+            Key::PreviewLocale,
+            Key::PreviewLight,
+            Key::PreviewDark,
+        ] {
+            for en in [false, true] {
+                assert!(!text(key, en).trim().is_empty(), "{key:?} / {en}");
+            }
+        }
+        for value in [
+            Stage::Empty,
+            Stage::Current,
+            Stage::Replacement,
+            Stage::Validating,
+            Stage::Preparing,
+            Stage::Prepared,
+            Stage::Uploading,
+            Stage::AwaitingAcknowledgement,
+            Stage::Admitted,
+            Stage::Saved,
+            Stage::Failed,
+            Stage::Expired,
+            Stage::Unknown,
+            Stage::Conflict,
+            Stage::Loading,
+            Stage::Forbidden,
+        ] {
+            for en in [false, true] {
+                assert!(!stage(value, en).trim().is_empty(), "{value:?} / {en}");
+            }
+        }
+        for value in [
+            Problem::File,
+            Problem::Dimensions,
+            Problem::Decode,
+            Problem::Provenance,
+            Problem::Rights,
+            Problem::Alt,
+        ] {
+            for en in [false, true] {
+                assert!(!problem(value, en).trim().is_empty(), "{value:?} / {en}");
+            }
+        }
     }
 }

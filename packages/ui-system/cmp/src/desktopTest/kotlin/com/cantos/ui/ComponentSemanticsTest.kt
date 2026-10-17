@@ -188,7 +188,7 @@ class ComponentSemanticsTest {
         compose.onNodeWithText("Tên tác phẩm").assertExists()
         search.performTextReplacement("không tồn tại")
         compose.onNodeWithText("Tên tác phẩm").assertDoesNotExist()
-        compose.onNodeWithText("Không có kết quả").assertExists()
+        compose.onNodeWithText("No results").assertExists()
         search.performTextReplacement("")
         compose.onNodeWithContentDescription("Component: Button").assertExists()
         compose.onNodeWithText("Lưu · Primary").assertExists()

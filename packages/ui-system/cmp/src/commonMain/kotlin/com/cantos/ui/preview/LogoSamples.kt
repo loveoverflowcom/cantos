@@ -36,16 +36,16 @@ internal fun LogoSamples(state: String) {
     CantosTheme(LocalUiPreferences.current.copy(theme = theme)) {
         Surface(tone = if (tone == LogoTone.Mono) SurfaceTone.PrimaryContainer else SurfaceTone.Surface) {
             Stack(gap = Space.Md) {
-                Text("Logo chính thức · $state · không có font hoặc ảnh mạng")
+                Text(PreviewToolCopy.logoState(state))
                 if (state == "aspect-fit") {
                     Box(Modifier.size(160.dp)) { Logo(variant, modifier = Modifier.size(160.dp), tone = tone) }
-                    Text("Khung vuông giữ nguyên tỷ lệ của lockup, không kéo giãn chữ.")
+                    Text(PreviewToolCopy.LogoAspectHelp)
                 } else {
                     Logo(variant, tone = tone, modifier = Modifier.width(if (variant == LogoVariant.Symbol) 64.dp else 283.dp),
                         accessibleName = if (state == "named") AccessibleName.of("Biểu tượng Cantos") else null)
                 }
-                if (state == "decorative") Text("Cantos · tên liền kề, logo không đọc lặp lại")
-                if (state == "transparent-knockout") Text("Khoảng âm để lộ surface thật, không tô nền giấy vào biểu tượng.")
+                if (state == "decorative") Text(PreviewToolCopy.LogoDecorativeHelp)
+                if (state == "transparent-knockout") Text(PreviewToolCopy.LogoKnockoutHelp)
             }
         }
     }

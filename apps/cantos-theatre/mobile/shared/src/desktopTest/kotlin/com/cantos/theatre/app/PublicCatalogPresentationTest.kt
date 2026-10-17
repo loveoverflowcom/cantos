@@ -14,6 +14,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
@@ -25,6 +26,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.intl.LocaleList
 import com.cantos.theatre.application.catalog.PublicCatalogEvent
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.catalog.PublicCatalogState
@@ -148,6 +150,50 @@ class PublicCatalogPresentationTest {
             onNodeWithTag("catalog-detail").performScrollToNode(hasText("Tập mở đầu"))
             onNodeWithText("1 minute").assertExists()
             onNodeWithTag("catalog-load-more").assertDoesNotExist()
+        }
+    }
+
+    @Test
+    fun locale_switch_relabels_the_mounted_detail_without_changing_content_language_or_catalog_state() {
+        val literalTitle = work(9, title = "Lời hẹn {time}")
+        val state = fold(
+            PublicCatalogIntent.OpenWork(literalTitle),
+            WorkResolved(1, PublicCatalogRead.Ready(literalTitle)),
+            UnitsResolved(2, PublicCatalogRead.Ready(unitsPage(literalTitle, emptyList()))),
+        )
+        val intents = mutableListOf<PublicCatalogIntent>()
+        val locale = mutableStateOf(ShellLocale.Vietnamese)
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { PublicCatalogScreen(state, { intents += it }, UiPreferences(), locale = locale.value) }
+            onNodeWithTag("catalog-back").assertContentDescriptionEquals("Quay lại")
+            onNodeWithText("Ngôn ngữ: Tiếng Việt").assertExists()
+            val before = onNodeWithTag("catalog-detail-title").fetchSemanticsNode().config[SemanticsProperties.Text].single()
+            assertEquals("Lời hẹn {time}", before.text)
+            assertEquals(LocaleList("vi-VN"), before.spanStyles.single().item.localeList)
+            runOnIdle { locale.value = ShellLocale.English }
+            onNodeWithTag("catalog-back").assertContentDescriptionEquals("Back")
+            onNodeWithText("Language: Tiếng Việt").assertExists()
+            val after = onNodeWithTag("catalog-detail-title").fetchSemanticsNode().config[SemanticsProperties.Text].single()
+            assertEquals(before, after)
+            runOnIdle { locale.value = ShellLocale.Vietnamese }
+            onNodeWithTag("catalog-back").assertContentDescriptionEquals("Quay lại")
+            assertEquals(literalTitle, state.detail?.summary)
+        }
+        assertTrue(intents.isEmpty(), "changing presentation locale never issues catalog or navigation commands")
+    }
+
+    @Test
+    fun locale_switch_relabels_catalog_failure_and_recovery_on_the_same_mounted_screen() {
+        val state = fold(PublicCatalogIntent.Start, WorksResolved(1, PublicCatalogRead.Transport))
+        val locale = mutableStateOf(ShellLocale.Vietnamese)
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { PublicCatalogScreen(state, {}, UiPreferences(), locale = locale.value) }
+            onNodeWithText("Chưa kết nối được danh sách").assertExists()
+            onNodeWithTag("catalog-retry").assertTextEquals("Thử lại")
+            runOnIdle { locale.value = ShellLocale.English }
+            onNodeWithText("The list couldn’t be reached").assertExists()
+            onNodeWithText("Check your connection and try again.").assertExists()
+            onNodeWithTag("catalog-retry").assertTextEquals("Retry")
         }
     }
 

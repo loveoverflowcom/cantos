@@ -60,7 +60,7 @@ pub fn ArtworkForm(
                         Some(art) => view! { <div>{match &m.current_url {
                             Some(url) => view!{<img class="artwork-image" src=url.clone() alt=art.alt_text.clone()/>}.into_any(),
                             None => view!{<p>{label(Key::UnavailablePreview)}</p>}.into_any(),
-                        }}<p>{art.alt_text.clone()}</p>{m.current_media.as_ref().map(|media|view!{<p>{format!("{} bytes · {} × {} px · {}",media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type))}</p>})}<small>{format!("r{} · {}",current.work_revision,art.image_asset_id)}</small></div>}.into_any(),
+                        }}<p>{art.alt_text.clone()}</p>{m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),english.get())}</p>})}<small>{format!("r{} · {}",current.work_revision,art.image_asset_id)}</small></div>}.into_any(),
                         None => view!{<p class="artwork-placeholder">{label(Key::Empty)}</p><small>{format!("r{}",current.work_revision)}</small>}.into_any(),
                     },
                     None => view!{<p class="artwork-placeholder">{copy::stage(m.stage,english.get())}</p>}.into_any(),
@@ -75,9 +75,9 @@ pub fn ArtworkForm(
                 <p id="artwork-file-error" class="cui-field-error" role="alert" hidden=move ||!model.with(|m|matches!(m.problem,Some(super::Problem::File|super::Problem::Dimensions|super::Problem::Decode)))>{move ||model.with(|m|m.problem).filter(|p|matches!(p,super::Problem::File|super::Problem::Dimensions|super::Problem::Decode)).map(|p|copy::problem(p,english.get()))}</p>
                 {move ||model.with(|m|m.local.clone()).map(|file|view!{
                     <img class="artwork-image" src=file.url alt=""/>
-                    <p class="artwork-file-facts">{format!("{} · {} bytes · {} × {} px · {}",file.name,file.bytes.len(),file.width,file.height,super::mime_name(file.mime))}</p>
+                    <p class="artwork-file-facts">{copy::file_facts(&file.name,file.bytes.len() as u64,file.width,file.height,super::mime_name(file.mime),english.get())}</p>
                 })}
-                <Show when=move ||model.with(|m|m.transferred.is_some())><p>{move ||model.with(|m|m.transferred.zip(m.local.as_ref()).map(|(bytes,f)|format!("{bytes} / {} bytes",f.bytes.len())))}</p></Show>
+                <Show when=move ||model.with(|m|m.transferred.is_some())><p>{move ||model.with(|m|m.transferred.zip(m.local.as_ref()).map(|(bytes,f)|copy::transferred_bytes(bytes,f.bytes.len() as u64,english.get())))}</p></Show>
                 <ActionButton id="artwork-discard" english=english reason=BlockReason::Artwork(Key::NeedLocal) blocked=Signal::derive(move ||locked.get()||model.with(|m|m.local.is_none())) variant=ButtonVariant::Text
                     on_press=Callback::new(move |_|on_intent.run(Intent::DiscardLocal))>{move ||label(Key::Discard)}</ActionButton>
             </div>

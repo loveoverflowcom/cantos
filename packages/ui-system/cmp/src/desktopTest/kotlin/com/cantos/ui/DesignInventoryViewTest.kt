@@ -115,7 +115,7 @@ class DesignInventoryViewTest {
         compose.onNodeWithText("Tooltip & supporting text").assertExists()
         compose.onNodeWithText("scope: shared-primitive").assertExists()
         findSpecimen("không tồn tại")
-        compose.onNodeWithText("Không có specimen").assertExists()
+        compose.onNodeWithText("No specimens").assertExists()
         findSpecimen("")
         compose.onNodeWithText("102 of 102 specimens").assertExists()
     }

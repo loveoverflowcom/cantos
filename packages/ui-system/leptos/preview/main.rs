@@ -9,6 +9,7 @@ use cantos_ui::{
     Surface, SurfaceTone, Switch, TextArea, TextField, TextFieldKind, Theme, UiRoot,
 };
 use leptos::prelude::*;
+use messages::tool;
 
 /// Offline sample picture; real hosts pass an authorized same-origin or object URL.
 const PREVIEW_AVATAR_IMAGE: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23886638'/%3E%3Ccircle cx='32' cy='26' r='12' fill='%23f6e7ca'/%3E%3Cpath d='M12 60c2-14 12-20 20-20s18 6 20 20z' fill='%23f6e7ca'/%3E%3C/svg%3E";
@@ -20,6 +21,7 @@ mod discovery;
 pub mod foundation_samples;
 pub mod interaction_samples;
 mod logo_samples;
+pub mod messages;
 pub mod motion_probe;
 pub mod platform;
 #[path = "../src/preview_catalog.rs"]
@@ -86,7 +88,7 @@ pub fn Gallery(
     let dialog_open = RwSignal::new(false);
     let dialog_count = RwSignal::new(0u32);
     let dialog_text = RwSignal::new("Lời hẹn vẫn còn ở đây khi đóng rồi mở lại.".to_owned());
-    let dialog_message = RwSignal::new("Hộp thoại chưa mở.".to_owned());
+    let dialog_message = RwSignal::new(tool::DIALOG_NOT_OPENED.to_owned());
     let current_anchor = RwSignal::new("actions".to_owned());
     let catalog_family = RwSignal::new(catalog::family_key(initial_family));
     let catalog_query = RwSignal::new(initial_query.to_owned());
@@ -126,19 +128,19 @@ pub fn Gallery(
 
     view! {
         <UiRoot theme=theme density=density>
-            <main class="cui-preview" lang="vi-VN" id="gallery-main"
+            <main class="cui-preview" lang=tool::LANGUAGE_TAG id="gallery-main"
                 data-text-scale=move || if large_text.get() { "200" } else { "100" }
                 data-motion=move || if reduced_motion.get() { "reduced" } else { "system" }>
                 <Container width=ContainerWidth::Wide class="cui-gallery-page">
                     <Stack gap=Space::Lg>
                         <header class="cui-gallery-header">
                             <p class="cui-gallery-eyebrow">"Cantos · UI system · Leptos"</p>
-                            <h1 class="cui-preview-title">"Phòng mẫu component"</h1>
-                            <p>"Một nơi thử trạng thái, nội dung Việt dài và thao tác bàn phím. Mọi thay đổi chỉ nằm trong bản mẫu đang mở."</p>
-                            <nav class="cui-gallery-index" aria-label="Các vùng phòng mẫu">
-                                <a href="#gallery-settings">"Hiển thị"</a>
+                            <h1 lang=tool::LANGUAGE_TAG class="cui-preview-title">{tool::GALLERY_TITLE}</h1>
+                            <p lang=tool::LANGUAGE_TAG>{tool::GALLERY_INTRO}</p>
+                            <nav class="cui-gallery-index" aria-label=tool::GALLERY_NAV>
+                                <a href="#gallery-settings">{tool::DISPLAY}</a>
                                 <a href="#gallery-design">"Design v3"</a>
-                                <a href="#gallery-catalog">"API hiện có"</a>
+                                <a href="#gallery-catalog">{tool::EXISTING_API}</a>
                                 <a href="#gallery-tokens">"Tokens"</a>
                             </nav>
                         </header>
@@ -146,37 +148,37 @@ pub fn Gallery(
                         <Surface tone=SurfaceTone::Container>
                             <section id="gallery-settings" data-sample-family="foundation" aria-labelledby="gallery-settings-heading">
                                 <Stack>
-                                    <h2 id="gallery-settings-heading">"Thiết lập hiển thị"</h2>
+                                    <h2 lang=tool::LANGUAGE_TAG id="gallery-settings-heading">{tool::SETTINGS}</h2>
                                     <Grid columns=GridColumns::Three>
-                                        <Select id="gallery-theme" label="Theme"
+                                        <div lang=tool::LANGUAGE_TAG><Select id="gallery-theme" label=tool::THEME
                                             value=Signal::derive(move || theme.get().as_str().to_owned())
                                             on_input=Callback::new(move |value: String| {
                                                 if let Some(next) = Theme::from_attribute(&value) { theme.set(next); }
                                             })>
-                                            <option value="light">"Sáng"</option>
-                                            <option value="dark">"Tối"</option>
-                                            <option value="system">"Theo hệ thống"</option>
-                                        </Select>
-                                        <Switch id="gallery-density" label="Mật độ thoải mái"
+                                            <option value="light">{tool::LIGHT}</option>
+                                            <option value="dark">{tool::DARK}</option>
+                                            <option value="system">{tool::SYSTEM}</option>
+                                        </Select></div>
+                                        <Switch id="gallery-density" label=tool::COMFORTABLE
                                             checked=Signal::derive(move || density.get() == Density::Comfortable)
                                             on_change=Callback::new(move |value| density.set(if value { Density::Comfortable } else { Density::Compact }))
-                                            help=Some("Tắt để dùng mật độ gọn; vùng chạm vẫn theo hợp đồng component.".to_owned())/>
-                                        <Switch id="gallery-errors" label="Hiển thị lỗi minh họa"
+                                            help=Some(tool::DENSITY_HELP.to_owned())/>
+                                        <Switch id="gallery-errors" label=tool::SHOW_ERRORS
                                             checked=show_errors on_change=Callback::new(move |value| show_errors.set(value))
-                                            help=Some("Lỗi được liên kết với các trường; không tự xác thực dữ liệu nhập.".to_owned())/>
+                                            help=Some(tool::ERRORS_HELP.to_owned())/>
                                     </Grid>
                                     <Grid columns=GridColumns::Two>
-                                        <Switch id="gallery-large-text" label="Chữ 200%" checked=large_text
+                                        <Switch id="gallery-large-text" label=tool::TEXT_SCALE checked=large_text
                                             on_change=Callback::new(move |next| large_text.set(next))
-                                            help=Some("Phóng chữ qua composition root; bố cục xuống cột và giữ nguyên dữ liệu nhập.".to_owned())/>
-                                        <Switch id="gallery-reduced-motion" label="Giảm chuyển động minh họa" checked=reduced_motion
+                                            help=Some(tool::TEXT_SCALE_HELP.to_owned())/>
+                                        <Switch id="gallery-reduced-motion" label=tool::REDUCED_MOTION checked=reduced_motion
                                             on_change=Callback::new(move |next| reduced_motion.set(next))
-                                            help=Some("Tắt travel và lặp không thiết yếu; tắt tùy chọn để theo policy trình duyệt.".to_owned())/>
+                                            help=Some(tool::MOTION_HELP.to_owned())/>
                                     </Grid>
                                     <details class="cui-foundation-details">
-                                    <summary>"Font tiếng Việt và theme lồng"</summary>
-                                    <p class="cui-gallery-note">"Locale vi-VN · Noto Sans / Noto Serif 400 và 700 được tải từ bundle có license, không phụ thuộc font cài trên máy. Kiểm tra font đã tải trước khi chụp; gallery không tải artwork hoặc âm thanh từ dịch vụ."</p>
-                                    <div id="gallery-font-proof" data-preview-scenario="noto-vietnamese">
+                                    <summary lang=tool::LANGUAGE_TAG>{tool::FONT_THEME}</summary>
+                                    <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::FONT_HELP}</p>
+                                    <div lang="vi-VN" id="gallery-font-proof" data-preview-scenario="noto-vietnamese">
                                         <p>"Noto Sans 400 · Nguyễn Thị Ánh Nguyệt · Ỗ, Ẫ, ặ · "<strong>"Noto Sans 700 · Người dẫn chuyện"</strong></p>
                                         <p class="cui-font-editorial">"Noto Serif 400 · Lời hẹn dưới chân Thanh Vân Sơn · "<strong>"Noto Serif 700 · Ỗ, Ẫ, ặ"</strong></p>
                                     </div>
@@ -193,29 +195,29 @@ pub fn Gallery(
                         <ComponentCatalog query=catalog_query family=catalog_family current_anchor=current_anchor/>
                         <PrototypeCompositions/>
 
-                        <section id="gallery-navigation" data-sample-family="navigation" data-preview-scenario="overflow keyboard disabled"
+                        <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-navigation" data-sample-family="navigation" data-preview-scenario="overflow keyboard disabled"
                             aria-labelledby="gallery-navigation-heading">
                             <Stack gap=Space::Sm>
                                 <BackButtonSamples/>
-                                <h2 id="gallery-navigation-heading">"Điều hướng native bằng liên kết"</h2>
+                                <h2 lang=tool::LANGUAGE_TAG id="gallery-navigation-heading">{tool::NAVIGATION}</h2>
                                 <FamilyNavigation current_anchor=current_anchor family=catalog_family query=catalog_query/>
-                                <Link id="gallery-link" href=href("#gallery-fields")
-                                    on_press=Callback::new(move |_| { catalog_family.set("fields"); catalog_query.set(String::new()); current_anchor.set("fields".to_owned()); })>"Đi đến nhóm nhập liệu"</Link>
-                                <p class="cui-gallery-note">"CMP có disabled native tabs và callback tại chỗ; HTML anchors vẫn điều hướng khi action bị khóa. NavTabs là vùng điều hướng bằng link, không phải ARIA tabs. Tab và Enter dùng hành vi trình duyệt; Ctrl/Cmd-click và sao chép link vẫn có hiệu lực. Thiết lập và điều hướng luôn ở lại để đổi nhóm mà không ẩn control đang giữ focus."</p>
+                                <div lang=tool::LANGUAGE_TAG><Link id="gallery-link" href=href("#gallery-fields")
+                                    on_press=Callback::new(move |_| { catalog_family.set("fields"); catalog_query.set(String::new()); current_anchor.set("fields".to_owned()); })>{tool::GO_FIELDS}</Link></div>
+                                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::NAV_HELP}</p>
                             </Stack>
                         </section>
 
-                        <section id="gallery-actions" class="cui-gallery-family" data-sample-family="actions" aria-labelledby="gallery-actions-heading"
+                        <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-actions" class="cui-gallery-family" data-sample-family="actions" aria-labelledby="gallery-actions-heading"
                             hidden=move || !catalog::family_matches("actions", catalog_family.get(), &catalog_query.get())>
                             <Stack>
                                 <AuthActionSamples/>
-                                    <h2 id="gallery-actions-heading">"Hành động và bộ lọc"</h2>
-                                <Select id="gallery-action-state" label="Trạng thái các nút và chip"
+                                    <h2 lang=tool::LANGUAGE_TAG id="gallery-actions-heading">{tool::ACTIONS}</h2>
+                                <div lang=tool::LANGUAGE_TAG><Select id="gallery-action-state" label=tool::ACTION_STATE
                                     value=action_mode on_input=Callback::new(move |value| action_mode.set(value))>
-                                    <option value="enabled">"Sẵn sàng"</option>
-                                    <option value="disabled">"Bị khóa — có giải thích"</option>
-                                    <option value="loading">"Đang chờ — có giải thích"</option>
-                                </Select>
+                                    <option value="enabled">{tool::READY}</option>
+                                    <option value="disabled">{tool::DISABLED_REASON}</option>
+                                    <option value="loading">{tool::LOADING_REASON}</option>
+                                </Select></div>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm>
                                     <Button id="gallery-primary" state=action_state on_press=press icon=IconName::Save>
                                         "Lưu bản nháp mẫu"
@@ -233,29 +235,29 @@ pub fn Gallery(
                                     </FilterChip>
                                 </Stack>
                                 <Status tone=StatusTone::Info announcement=Announcement::Polite>
-                                    <p class="cui-gallery-output" id="gallery-action-output">
-                                        {move || format!("Thao tác nút: {} · Bộ lọc: {} · Trạng thái: {}", action_count.get(), if selected_chip.get() { "đã chọn" } else { "chưa chọn" }, action_mode.get())}
+                                    <p lang=tool::LANGUAGE_TAG class="cui-gallery-output" id="gallery-action-output">
+                                        {move || format!("Button intents: {} · Filter: {} · State: {}", action_count.get(), if selected_chip.get() { "selected" } else { "unselected" }, action_mode.get())}
                                     </p>
                                 </Status>
-                                <p class="cui-gallery-note">"Dùng Tab, Enter và Space để thử native controls; hãy quan sát hover, pressed và focus-visible trực tiếp. Liên kết vẫn điều hướng khi các hành động bị khóa."</p>
+                                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::NATIVE_HELP}</p>
                                 <ComposedButtonSample state=action_state/>
                             </Stack>
                         </section>
 
-                        <section id="gallery-fields" data-preview-scenario="label-activation" class="cui-gallery-family" data-sample-family="fields" aria-labelledby="gallery-fields-heading"
+                        <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-fields" data-preview-scenario="label-activation" class="cui-gallery-family" data-sample-family="fields" aria-labelledby="gallery-fields-heading"
                             hidden=move || !catalog::family_matches("fields", catalog_family.get(), &catalog_query.get())>
                             <Surface tone=SurfaceTone::Plain>
                                 <Stack>
                                     <AuthFieldSamples/>
-                                    <h2 id="gallery-fields-heading">"Trường nhập và lựa chọn điều khiển"</h2>
-                                    <Select id="gallery-field-state" label="Trạng thái các trường mẫu"
+                                    <h2 lang=tool::LANGUAGE_TAG id="gallery-fields-heading">{tool::FIELDS}</h2>
+                                    <div lang=tool::LANGUAGE_TAG><Select id="gallery-field-state" label=tool::FIELD_STATE
                                         value=field_mode on_input=Callback::new(move |value| field_mode.set(value))>
-                                        <option value="editable">"Có thể sửa"</option>
-                                        <option value="readonly">"Chỉ đọc — vẫn chọn và sao chép văn bản"</option>
-                                        <option value="disabled">"Bị khóa — có giải thích"</option>
-                                        <option value="loading">"Đang chờ — có giải thích"</option>
-                                    </Select>
-                                    <p class="cui-gallery-note">"Chỉ đọc áp dụng cho text, textarea và number. Select, checkbox, radio, switch và range dùng trạng thái native enabled/disabled/loading."</p>
+                                        <option value="editable">{tool::EDITABLE}</option>
+                                        <option value="readonly">{tool::READONLY}</option>
+                                        <option value="disabled">{tool::DISABLED_REASON}</option>
+                                        <option value="loading">{tool::LOADING_REASON}</option>
+                                    </Select></div>
+                                    <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::FIELD_HELP}</p>
                                     <Grid columns=GridColumns::Two>
                                         <TextField id="gallery-title" label="Tên dài có dấu tiếng Việt" value=title_value
                                             state=field_state error=error required=true
@@ -325,8 +327,8 @@ pub fn Gallery(
                                             <FieldError id="gallery-composed-error">"Lỗi minh họa do app chọn thời điểm hiển thị."</FieldError>
                                         </div>
                                     </div>
-                                    <output id="gallery-input-output" class="cui-gallery-output" aria-live="off">
-                                        {move || format!("Sự kiện nhập: {} · Sự kiện chọn: {}\nNumber = {:?} · Range = {:?} · Select = {}\nCheckbox = {} · Switch = {} · Radio = {}\nIME đang ghép = {} · Số lần compositionend = {}\nTên hiện tại: {}", input_count.get(), selection_count.get(), number_value.get(), range_value.get(), select_value.get(), checkbox_value.get(), switch_value.get(), radio_value.get(), composition_active.get(), composition_count.get(), title_value.get())}
+                                    <output lang=tool::LANGUAGE_TAG id="gallery-input-output" class="cui-gallery-output" aria-live="off">
+                                        {move || format!("Input events: {} · Selection events: {}\nNumber = {:?} · Range = {:?} · Select = {}\nCheckbox = {} · Switch = {} · Radio = {}\nIME composing = {} · compositionend count = {}\nCurrent title: {}", input_count.get(), selection_count.get(), number_value.get(), range_value.get(), select_value.get(), checkbox_value.get(), switch_value.get(), radio_value.get(), composition_active.get(), composition_count.get(), title_value.get())}
                                     </output>
                                     <FieldFoundationSamples state=field_state/>
                                     <SelectionContractSamples/>
@@ -334,10 +336,10 @@ pub fn Gallery(
                             </Surface>
                         </section>
 
-                        <section id="gallery-feedback" class="cui-gallery-family" data-sample-family="feedback" aria-labelledby="gallery-feedback-heading"
+                        <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-feedback" class="cui-gallery-family" data-sample-family="feedback" aria-labelledby="gallery-feedback-heading"
                             hidden=move || !catalog::family_matches("feedback", catalog_family.get(), &catalog_query.get())>
                             <Stack>
-                                <h2 id="gallery-feedback-heading">"Badge, status, tải, rỗng và lỗi"</h2>
+                                <h2 lang=tool::LANGUAGE_TAG id="gallery-feedback-heading">{tool::FEEDBACK}</h2>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm>
                                     <Badge>"Trung tính"</Badge>
                                     <Badge tone=StatusTone::Info>"Thông tin"</Badge>
@@ -352,14 +354,14 @@ pub fn Gallery(
                                     <Status tone=StatusTone::Warning>"Ví dụ cảnh báo với giải thích đủ dài để thử xuống dòng trên màn hình hẹp."</Status>
                                     <Status tone=StatusTone::Error>"Ví dụ lỗi: nội dung đã nhập vẫn được giữ."</Status>
                                 </Grid>
-                                <Select id="gallery-feedback-state" label="Trạng thái vùng nội dung mẫu" value=feedback_mode
+                                <div lang=tool::LANGUAGE_TAG><Select id="gallery-feedback-state" label=tool::FEEDBACK_STATE value=feedback_mode
                                     on_input=Callback::new(move |value| feedback_mode.set(value))>
-                                    <option value="empty">"Rỗng"</option>
-                                    <option value="loading">"Đang tải"</option>
-                                    <option value="announcement">"Đang tải · thông báo lịch sự"</option>
-                                    <option value="error">"Lỗi"</option>
-                                    <option value="success">"Thành công"</option>
-                                </Select>
+                                    <option value="empty">{tool::EMPTY}</option>
+                                    <option value="loading">{tool::LOADING}</option>
+                                    <option value="announcement">{tool::LOADING_ANNOUNCEMENT}</option>
+                                    <option value="error">{tool::ERROR}</option>
+                                    <option value="success">{tool::SUCCESS}</option>
+                                </Select></div>
                                 <div aria-live="polite" aria-atomic="true">
                                     {move || match feedback_mode.get().as_str() {
                                         "loading" => view! { <LoadingState>"Đang chờ trong ví dụ. Chọn trạng thái khác để kết thúc; không có yêu cầu mạng."</LoadingState> }.into_any(),
@@ -384,12 +386,12 @@ pub fn Gallery(
                             </Stack>
                         </section>
 
-                        <section id="gallery-layout" data-preview-scenario="gap-lg inset-none" class="cui-gallery-family" data-sample-family="layout" aria-labelledby="gallery-layout-heading"
+                        <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-layout" data-preview-scenario="gap-lg inset-none" class="cui-gallery-family" data-sample-family="layout" aria-labelledby="gallery-layout-heading"
                             hidden=move || !catalog::family_matches("layout", catalog_family.get(), &catalog_query.get())>
                             <Stack>
                                 <LayoutFeedbackContractSamples/>
                                     <AuthSurfaceSamples/>
-                                    <h2 id="gallery-layout-heading">"Bố cục ghép và vùng đọc"</h2>
+                                    <h2 lang=tool::LANGUAGE_TAG id="gallery-layout-heading">{tool::LAYOUT}</h2>
                                 <Grid columns=GridColumns::Three>
                                     <Surface tone=SurfaceTone::Plain inset=Space::Sm><p>"Surface · Plain · Sm"</p><p>"Một nhóm yên tĩnh, không mặc định thêm viền."</p></Surface>
                                     <Surface tone=SurfaceTone::Container inset=Space::Md><p>"Surface · Container · Md"</p><p>"Grid tối đa ba cột tự chuyển theo không gian khả dụng."</p></Surface>
@@ -423,19 +425,19 @@ pub fn Gallery(
                             </Stack>
                         </section>
 
-                        <section id="gallery-icons" class="cui-gallery-family" data-sample-family="icons" aria-labelledby="gallery-icons-heading"
+                        <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-icons" class="cui-gallery-family" data-sample-family="icons" aria-labelledby="gallery-icons-heading"
                             hidden=move || !catalog::family_matches("icons", catalog_family.get(), &catalog_query.get())>
                             <Stack gap=Space::Sm>
                                 <logo_samples::LogoSamples/>
-                                <h2 id="gallery-icons-heading">"Biểu tượng outlined chính thức"</h2>
-                                <p class="cui-gallery-note">"Icon là nội dung trang trí và không tự tạo accessible name; ví dụ luôn có văn bản bên cạnh. Tập offline dùng đúng hình học từ nguồn đã ghi nhận."</p>
+                                <h2 lang=tool::LANGUAGE_TAG id="gallery-icons-heading">{tool::ICONS}</h2>
+                                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::ICONS_HELP}</p>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Xs class="cui-gallery-icons">
                                     {IconName::ALL.iter().copied().map(|icon| view! {
                                         <span><Icon name=icon/>{icon.as_str()}</span>
                                     }).collect_view()}
                                 </Stack>
-                                <h3>"Avatar chữ"</h3>
-                                <p class="cui-gallery-note">"Một chữ cái mặc định như tài khoản Google/YouTube; màu ổn định theo mã người dùng. Ảnh mẫu là data URI offline; ảnh lỗi trở về chữ cái."</p>
+                                <h3 lang=tool::LANGUAGE_TAG>{tool::AVATARS}</h3>
+                                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::AVATARS_HELP}</p>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm class="cui-gallery-avatars">
                                     <span data-avatar-state="initials-single"><Avatar display_name="Nguyễn Thị Ánh" stable_id=Some("user-42".to_owned())/>"Nguyễn Thị Ánh"</span>
                                     <span data-avatar-state="initials-pair"><Avatar display_name="Người dẫn chuyện" initials=AvatarInitials::Pair/>"Người dẫn chuyện"</span>
@@ -454,23 +456,23 @@ pub fn Gallery(
                             </Stack>
                         </section>
 
-                        <section id="gallery-dialog-samples" data-preview-scenario="retained-input" class="cui-gallery-family" data-sample-family="dialog" aria-labelledby="gallery-dialog-heading"
+                        <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-dialog-samples" data-preview-scenario="retained-input" class="cui-gallery-family" data-sample-family="dialog" aria-labelledby="gallery-dialog-heading"
                             hidden=move || !catalog::family_matches("dialog", catalog_family.get(), &catalog_query.get())>
                             <Surface tone=SurfaceTone::Container inset=Space::Xs>
                                 <Stack gap=Space::Sm>
-                                    <h2 id="gallery-dialog-heading">"Hộp thoại native điều khiển từ bên ngoài"</h2>
-                                    <p>"Mở rồi thử Tab / Shift+Tab, Escape và đóng bằng nút. Quan sát focus có quay về nút mở; văn bản trong hộp thoại phải còn khi mở lại."</p>
+                                    <h2 lang=tool::LANGUAGE_TAG id="gallery-dialog-heading">{tool::DIALOG}</h2>
+                                    <p lang=tool::LANGUAGE_TAG>{tool::DIALOG_HELP}</p>
                                     <Button id="gallery-dialog-open" variant=ButtonVariant::Tonal
                                         focus_on_press=true
                                         aria_controls="gallery-dialog"
                                         on_press=Callback::new(move |_| {
                                             dialog_count.update(|count| *count += 1);
-                                            dialog_message.set("Đã yêu cầu mở hộp thoại mẫu.".to_owned());
+                                            dialog_message.set(tool::DIALOG_REQUEST_OPEN.to_owned());
                                             dialog_open.set(true);
                                         })>"Mở hộp thoại mẫu"</Button>
                                     <Status tone=StatusTone::Info announcement=Announcement::Polite>
-                                        <p id="gallery-dialog-output" class="cui-gallery-output">
-                                            {move || format!("Số lần mở: {} · {}", dialog_count.get(), dialog_message.get())}
+                                        <p lang=tool::LANGUAGE_TAG id="gallery-dialog-output" class="cui-gallery-output">
+                                            {move || tool::dialog_events(dialog_count.get(), &dialog_message.get())}
                                         </p>
                                     </Status>
                                 </Stack>
@@ -480,33 +482,33 @@ pub fn Gallery(
                         <TokenCatalog query=token_query/>
 
                         <footer class="cui-gallery-note">
-                            <p>"Gallery chỉ minh họa component Leptos. Kiểm tra render, bàn phím, focus, screen reader và reduced motion là các bước quan sát riêng."</p>
+                            <p lang=tool::LANGUAGE_TAG>{tool::FOOTER}</p>
                             <Link id="gallery-back-to-top" href=href("#gallery-main")
-                                on_press=Callback::new(move |_| current_anchor.set(String::new()))>"Về đầu phòng mẫu"</Link>
+                                on_press=Callback::new(move |_| current_anchor.set(String::new()))>{tool::TOP}</Link>
                         </footer>
                     </Stack>
                 </Container>
-                <Dialog id="gallery-dialog" title="Một lời hẹn dưới chân Thanh Vân Sơn — hộp thoại mẫu"
+                <div lang="vi-VN" data-preview-fixture="vietnamese"><Dialog id="gallery-dialog" title="Một lời hẹn dưới chân Thanh Vân Sơn — hộp thoại mẫu"
                     close_label="Đóng hộp thoại mẫu" open=dialog_open
                     description="Ví dụ kiểm tra focus và giữ dữ liệu nhập. Không có hành động lưu hoặc gửi đến dịch vụ."
                     on_close_request=Callback::new(move |close_reason| {
                         dialog_open.set(false);
-                        dialog_message.set(format!("Đã yêu cầu đóng: {close_reason:?}."));
+                        dialog_message.set(tool::dialog_closed(close_reason));
                     })
                     on_error=Callback::new(move |error| {
                         dialog_open.set(false);
-                        dialog_message.set(format!("Không thực hiện được thao tác hộp thoại: {error:?}."));
+                        dialog_message.set(tool::dialog_error(error));
                     })
                     actions=ViewFn::from(move || view! {
                         <Button id="gallery-dialog-done" variant=ButtonVariant::Secondary
                             on_press=Callback::new(move |_| {
                                 dialog_open.set(false);
-                                dialog_message.set("Đã đóng bằng hành động trong nội dung mẫu.".to_owned());
+                                dialog_message.set(tool::DIALOG_FINISHED.to_owned());
                             })>"Hoàn tất ví dụ"</Button>
                     })>
                     <TextField id="gallery-dialog-text" label="Văn bản được giữ sau khi đóng" value=dialog_text
                         on_input=Callback::new(move |value| dialog_text.set(value))/>
-                </Dialog>
+                </Dialog></div>
             </main>
         </UiRoot>
     }

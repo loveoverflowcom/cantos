@@ -1,7 +1,7 @@
 //! App-local forms compose established Studio controls; no shared component is introduced.
 use super::{
     browser,
-    copy::{text, Key},
+    copy::{self, text, Key},
     *,
 };
 use crate::ui::{ActionButton, BlockReason};
@@ -561,26 +561,26 @@ pub fn ContentWorkspace(
         </div>
         <div hidden=move || dashboard.get() inert=move || dashboard.get()>
         <h2 id="live-title" tabindex="-1">{move ||text(Key::Pane,english.get())}</h2><p>{move ||text(Key::Help,english.get())}</p>
-        <p role="status">{move ||if file_error.get(){if english.get(){"Could not read the file; check size and try again."}else{"Không đọc được tệp; kiểm tra kích thước và thử lại."}}else{""}}</p>
+        <p role="status">{move ||if file_error.get(){text(Key::FileReadFailed,english.get())}else{""}}</p>
         <div class="live-status" role="status" aria-live="polite"><p>{move ||state.with(|s|text(match s.phase() {Phase::Idle=>Key::Idle,Phase::Pending=>Key::Pending,Phase::Ready=>Key::Ready,Phase::Failed=>Key::Failed,Phase::Ambiguous=>Key::Ambiguous},english.get()))}</p>
-            {move ||state.with(|s|s.error().map(|error|error_message(error,english.get())).unwrap_or_default())}
+            {move ||state.with(|s|s.error().map(|error|text(copy::error_key(error),english.get())).unwrap_or_default())}
             <p>{move ||if state.with(RequestState::is_empty){text(Key::Empty,english.get())}else{""}}</p>
             <ul>{move ||state.with(|s|match s.error() {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]}).into_iter().map(|issue|view! {<li><code>{issue.path}</code>" · "{issue.rule}</li>}).collect_view()}</ul>
             <div class="toolbar"><ActionButton id="live-cancel" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|cancel_request.run(()))>{move ||text(Key::Cancel,english.get())}</ActionButton>
-            <ActionButton id="live-reconcile" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_reconcile())) on_press=Callback::new(move |_|dispatch.reconcile())>{move ||if english.get(){"Reconcile exact private receipt"}else{"Đối chiếu đúng biên nhận riêng tư"}}</ActionButton>
+            <ActionButton id="live-reconcile" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_reconcile())) on_press=Callback::new(move |_|dispatch.reconcile())>{move ||text(Key::Reconcile,english.get())}</ActionButton>
             <ActionButton id="live-retry" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_retry())) on_press=Callback::new(move |_|dispatch.retry())>{move ||text(Key::Retry,english.get())}</ActionButton></div>
         </div>
         <div class="toolbar"><ActionButton id="live-works" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|read_works.run(None))>{move ||text(Key::Refresh,english.get())}</ActionButton>
         <ActionButton id="live-works-next" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.works_next.is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })>{move ||text(Key::Next,english.get())}</ActionButton></div>
-        <ul class="live-list">{move ||facts.with(|f|f.works.clone()).into_iter().map(|w| {let id=w.id.clone();view! {<li><button class="cui-button" type="button" disabled=move ||blocked.get() on:click=move |_|pick_work.run(id.clone())>{w.details.title}<small>{format!("{} · r{}",w.kind,w.revision)}</small></button></li>}}).collect_view()}</ul>
+        <ul class="live-list">{move ||facts.with(|f|f.works.clone()).into_iter().map(|w| {let id=w.id.clone();view! {<li><button class="cui-button" type="button" disabled=move ||blocked.get() on:click=move |_|pick_work.run(id.clone())><span lang=w.details.language.clone()>{w.details.title}</span><small>{move ||format!("{} · r{}",copy::work_kind(&w.kind,english.get()),w.revision)}</small></button></li>}}).collect_view()}</ul>
         <details id="live-create-work-form"><summary>{move ||text(Key::CreateWork,english.get())}</summary><div class="live-grid">
             <Field id="live-work-title" label=Key::Title value=title english=english/><Field id="live-work-synopsis" label=Key::Synopsis value=synopsis english=english multiline=true/>
-            <SelectField id="live-work-kind" label=Key::Kind value=kind english=english><crate::ui::WorkKindOptions value=kind/></SelectField>
+            <SelectField id="live-work-kind" label=Key::Kind value=kind english=english><crate::ui::WorkKindOptions value=kind english=english/></SelectField>
             <Field id="live-rights" label=Key::Rights value=rights english=english/>
         </div><ActionButton id="live-create-work" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((||Ok(Command::CreateWork(CreateWorkRequest {operation_id:uuid()?,id:uuid()?,kind:kind.get_untracked(),details:WorkDetailsDto {title:title.get_untracked(),synopsis:synopsis.get_untracked(),language:"vi-VN".into(),visibility:"private".into(),rights_refs:refs(rights.get_untracked())}})))()))>{move ||text(Key::CreateWork,english.get())}</ActionButton></details>
         <Show when=move ||facts.with(|f|f.work.is_some())>
-            <h3>{move ||facts.with(|f|f.work.as_ref().map(|w|format!("{} · r{}",w.details.title,w.revision)).unwrap_or_default())}</h3>
-            <ul class="live-list">{move ||facts.with(|f|f.units.clone()).into_iter().map(|u| {let id=u.id.clone();view! {<li><button type="button" class="cui-button" disabled=move ||blocked.get() on:click=move |_|pick_unit.run(id.clone())>{u.details.title}<small>{format!("{} · r{}",u.kind,u.revision)}</small></button></li>}}).collect_view()}</ul>
+            <h3 lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move ||facts.with(|f|f.work.as_ref().map(|w|format!("{} · r{}",w.details.title,w.revision)).unwrap_or_default())}</h3>
+            <ul class="live-list">{move ||facts.with(|f|f.units.clone()).into_iter().map(|u| {let id=u.id.clone();view! {<li><button type="button" class="cui-button" disabled=move ||blocked.get() on:click=move |_|pick_unit.run(id.clone())><span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{u.details.title}</span><small>{move ||format!("{} · r{}",copy::unit_kind(&u.kind,english.get()),u.revision)}</small></button></li>}}).collect_view()}</ul>
             <ActionButton id="live-units-next" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.units_next.is_none())) on_press=Callback::new(move |_| {if let Some(work)=facts.with_untracked(|f|f.work.clone()) {dispatch.send(Command::Units {work:work.id,cursor:facts.with_untracked(|f|f.units_next.clone())});}})>{move ||text(Key::Next,english.get())}</ActionButton>
             <details><summary>{move ||text(Key::CreateUnit,english.get())}</summary><Field id="live-unit-title" label=Key::Title value=unit_title english=english/><Field id="live-unit-description" label=Key::Synopsis value=description english=english multiline=true/>
                 <ActionButton id="live-create-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((|| {let w=facts.with_untracked(|f|f.work.clone()).ok_or(ClientError::InvalidInput)?;Ok(Command::CreateUnit {work:w.id,request:CreateContentUnitRequest {operation_id:uuid()?,id:uuid()?,kind:if w.kind=="podcast" {"episode"}else {"chapter"}.into(),expected_work_revision:w.revision,details:UnitDetailsDto {title:unit_title.get_untracked(),description:description.get_untracked(),source:None,script:None,content_digest:None}}})})()))>{move ||text(Key::CreateUnit,english.get())}</ActionButton>
@@ -595,7 +595,7 @@ pub fn ContentWorkspace(
         <super::delegation::panel::DelegationPanel actor=actor work=Signal::derive(move || facts.with(|f| f.work.clone())) english=english
             session_pending=session_pending unresolved=delegation_unresolved busy=delegation_busy dirty=dirty/>
         <Show when=move ||facts.with(|f|f.unit.is_some())>
-            <h3>{move ||facts.with(|f|f.unit.as_ref().map(|u|format!("{} · r{}",u.details.title,u.revision)).unwrap_or_default())}</h3><p><code>{move ||facts.with(Facts::unit_id)}</code></p>
+            <h3 lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move ||facts.with(|f|f.unit.as_ref().map(|u|format!("{} · r{}",u.details.title,u.revision)).unwrap_or_default())}</h3><p><code>{move ||facts.with(Facts::unit_id)}</code></p>
             <ActionButton id="live-patch-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((|| {let (w,u)=context(facts)?;Ok(Command::PatchUnit {unit:u.id,request:PatchContentUnitRequest {operation_id:uuid()?,expected_revision:u.revision,expected_work_revision:w.revision,details:UnitPatchDto {title:PatchField::Value(unit_title.get_untracked()),description:PatchField::Value(description.get_untracked()),..UnitPatchDto::default()}}})})()))>{move ||text(Key::SaveMetadata,english.get())}</ActionButton>
             <section class="live-section"><h3>{move ||text(Key::Content,english.get())}</h3><p>{move ||text(Key::NoContent,english.get())}</p>
                 <div class="toolbar"><ActionButton id="live-content-head" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::ContentHead {unit:facts.with_untracked(Facts::unit_id)}))>{move ||text(Key::ReadHead,english.get())}</ActionButton><ActionButton id="live-content-history" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::ContentHistory {unit:facts.with_untracked(Facts::unit_id),after:0}))>{move ||text(Key::History,english.get())}</ActionButton></div>
@@ -629,8 +629,8 @@ pub fn ContentWorkspace(
                 <pre>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|serde_json::to_string_pretty(s).ok()).unwrap_or_default())}</pre>
             </section>
             <section class="live-section"><h3>{move ||text(Key::Review,english.get())}</h3><div class="live-grid">
-                <SelectField id="live-review-kind" label=Key::ReviewKind value=review_kind english=english><option value="qc">"QC"</option><option value="rights">{move ||if english.get(){"Rights"}else{"Quyền sử dụng"}}</option><option value="editorial">{move ||if english.get(){"Editorial"}else{"Biên tập"}}</option></SelectField>
-                <SelectField id="live-decision" label=Key::Decision value=decision english=english><option value="rejected">{move ||if english.get(){"Rejected"}else{"Từ chối"}}</option><option value="approved">{move ||if english.get(){"Approved"}else{"Chấp thuận"}}</option><option value="withdrawn">{move ||if english.get(){"Withdrawn"}else{"Rút lại"}}</option></SelectField>
+                <SelectField id="live-review-kind" label=Key::ReviewKind value=review_kind english=english><option value="qc">{move ||copy::review_kind(AudioReviewKind::Qc,english.get())}</option><option value="rights">{move ||copy::review_kind(AudioReviewKind::Rights,english.get())}</option><option value="editorial">{move ||copy::review_kind(AudioReviewKind::Editorial,english.get())}</option></SelectField>
+                <SelectField id="live-decision" label=Key::Decision value=decision english=english><option value="rejected">{move ||copy::review_decision(AudioReviewDecision::Rejected,english.get())}</option><option value="approved">{move ||copy::review_decision(AudioReviewDecision::Approved,english.get())}</option><option value="withdrawn">{move ||copy::review_decision(AudioReviewDecision::Withdrawn,english.get())}</option></SelectField>
                 <Field id="live-review-notes" label=Key::Notes value=review_notes english=english multiline=true/><Field id="live-evidence" label=Key::Evidence value=evidence english=english/>
             </div><label class="adaptation-confirm" for="live-review-confirm"><input id="live-review-confirm" type="checkbox" prop:checked=move ||confirmed.get() on:change=move |e|consent.set(if event_target_checked(&e){current_review.get_untracked()}else{None})/><span>{move ||text(Key::Confirm,english.get())}</span></label><p>{move ||text(Key::ConfirmHelp,english.get())}</p>
                 <ActionButton id="live-review" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||!confirmed.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|dispatch.build((|| {let current=current_review.get_untracked().ok_or(ClientError::InvalidInput)?;if !consent.with_untracked(|c|c.as_ref().is_some_and(|c|c.authorizes(&current))) {return Err(ClientError::InvalidInput)};Ok(Command::Review {unit:current.unit.clone(),submission:current.submission.clone(),request:current.request(uuid()?)})})()))>{move ||text(Key::Review,english.get())}</ActionButton>
@@ -660,101 +660,4 @@ fn focus_workspace_field(id: &'static str, details: Option<&'static str>) {
             let _ = target.focus();
         }
     });
-}
-fn error_message(error: &ClientError, en: bool) -> String {
-    match error {
-        ClientError::InvalidInput => if en {
-            "Check required fields, exact IDs and file bounds."
-        } else {
-            "Kiểm tra các trường bắt buộc, ID cụ thể và giới hạn tệp."
-        }
-        .into(),
-        ClientError::Cancelled
-        | ClientError::SessionChanged
-        | ClientError::ReceiptNotEstablished
-        | ClientError::Transport => if en {
-            "Connection interrupted or timed out."
-        } else {
-            "Kết nối bị gián đoạn hoặc hết thời gian."
-        }
-        .into(),
-        ClientError::ReplyMismatch => if en {
-            "Unexpected response; no acknowledgement."
-        } else {
-            "Phản hồi không hợp lệ; chưa có xác nhận."
-        }
-        .into(),
-        ClientError::Protocol { status } => format!(
-            "{} ({status})",
-            if en {
-                "Unexpected response; no acknowledgement."
-            } else {
-                "Phản hồi không hợp lệ; chưa có xác nhận."
-            }
-        ),
-        ClientError::Http { status, error } => {
-            let message = match status {
-                401 => {
-                    if en {
-                        "Sign in again."
-                    } else {
-                        "Đăng nhập lại."
-                    }
-                }
-                403 => {
-                    if en {
-                        "Permission or request origin refused."
-                    } else {
-                        "Quyền hoặc nguồn yêu cầu bị từ chối."
-                    }
-                }
-                404 => {
-                    if en {
-                        "Resource absent or inaccessible."
-                    } else {
-                        "Tài nguyên chưa có hoặc không được phép đọc."
-                    }
-                }
-                409 => {
-                    if en {
-                        "Conflict: refresh exact inputs; keep the current draft."
-                    } else {
-                        "Xung đột: đọc lại đúng dữ liệu; giữ bản nháp hiện tại."
-                    }
-                }
-                413 => {
-                    if en {
-                        "Payload exceeds the server limit."
-                    } else {
-                        "Dữ liệu vượt giới hạn server."
-                    }
-                }
-                415 => {
-                    if en {
-                        "Unsupported media or representation."
-                    } else {
-                        "Định dạng dữ liệu chưa được hỗ trợ."
-                    }
-                }
-                422 => {
-                    if en {
-                        "Input or media admission refused. Review declarations and evidence."
-                    } else {
-                        "Dữ liệu hoặc âm thanh bị từ chối. Kiểm tra khai báo và bằng chứng."
-                    }
-                }
-                _ => {
-                    if en {
-                        "Service unavailable or request refused."
-                    } else {
-                        "Dịch vụ chưa khả dụng hoặc yêu cầu bị từ chối."
-                    }
-                }
-            };
-            format!(
-                "{message} HTTP {status} · {:?} · revision {:?}",
-                error.code, error.current_revision
-            )
-        }
-    }
 }

@@ -6,6 +6,14 @@ use cantos_ui::{
 use leptos::prelude::*;
 
 #[allow(dead_code)]
+#[path = "../preview/recipe.rs"]
+mod recipe;
+
+#[allow(dead_code)]
+#[path = "../preview/messages.rs"]
+mod messages;
+
+#[allow(dead_code)]
 #[path = "../preview/auth_samples.rs"]
 mod samples;
 
@@ -287,7 +295,7 @@ fn package_samples_expose_held_values_counts_and_recovery_without_service_effect
         );
     }
     assert!(html.contains("nguyen-thi-anh-nguyet@example.test"));
-    assert!(html.contains("Số intent được nhận: 0"));
-    assert!(html.contains("Host nhận 0 intent Back"));
+    assert!(html.contains("Received intents: 0"));
+    assert!(html.contains("Host received Back intents: 0"));
     assert!(html.contains("Giữ những câu chuyện đã chọn"));
 }

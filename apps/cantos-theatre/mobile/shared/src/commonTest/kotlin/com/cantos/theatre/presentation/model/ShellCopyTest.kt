@@ -2,8 +2,24 @@ package com.cantos.theatre.presentation.model
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class ShellCopyTest {
+    @Test
+    fun every_shell_resource_has_nonblank_locales_and_identical_named_parameter_multiplicity() {
+        val placeholder = Regex("\\{([^{}]+)\\}")
+        fun parameters(value: String) = placeholder.findAll(value).map { it.groupValues[1] }.groupingBy { it }.eachCount()
+        CopyKey.entries.forEach { key ->
+            assertTrue(key.vi.isNotBlank(), "${key.name}: vi-VN")
+            assertTrue(key.en.isNotBlank(), "${key.name}: en")
+            assertEquals(parameters(key.vi), parameters(key.en), key.name)
+            key.enOne?.let { one ->
+                assertTrue(one.isNotBlank(), "${key.name}: en one")
+                assertEquals(parameters(key.en), parameters(one), key.name)
+            }
+        }
+    }
+
     @Test
     fun episode_quantities_use_english_one_other_and_vietnamese_other() {
         val english = ShellCopy(ShellLocale.English)
