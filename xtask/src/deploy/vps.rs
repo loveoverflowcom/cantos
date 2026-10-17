@@ -373,9 +373,13 @@ pub fn render_plan(
     steps: &[Step],
 ) -> String {
     let mut text = format!(
-        "deploy vps cantos-api: {:?} on {} at revision {revision}\n",
+        "deploy vps cantos-api: {:?} on {}",
         request.operation, request.host
     );
+    if is_revision(revision) {
+        text.push_str(&format!(" at revision {revision}"));
+    }
+    text.push('\n');
     for (index, step) in steps.iter().enumerate() {
         let marker = if step.remote_write {
             "REMOTE WRITE"

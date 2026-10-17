@@ -14,8 +14,9 @@ PublishPort=80:80
 PublishPort=443:443
 PublishPort=443:443/udp
 EnvironmentFile=/root/cantos-services/config/edge.env
-Volume=/root/cantos-services/edge/Caddyfile:/etc/caddy/Caddyfile:ro
-Volume=/root/cantos-services/edge/internal-ca.pem:/etc/caddy/internal-ca.pem:ro
+# The directory, not single files: a replaced file gets a new inode that a file bind mount
+# would never show, so `caddy reload` must see the directory (Caddyfile, internal-ca.pem).
+Volume=/root/cantos-services/edge:/etc/caddy:ro
 Volume=cantos-edge-data:/data
 Volume=cantos-edge-config:/config
 Label=io.cantos.owner=cantos-vps
