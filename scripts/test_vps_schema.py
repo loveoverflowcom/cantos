@@ -120,13 +120,127 @@ restore "$ROOT/backup.dump" --yes-replace-database
         self.assertIn("not covered by the backup checksum", result.stderr)
         self.assertEqual(events, [])
 
+    def test_dump_itself_must_be_bound_to_the_backup_checksum(self):
+        body = """
+sha256sum() { return 0; }
+restore "$ROOT/backup.dump" --yes-replace-database
+"""
+        result, events = self.run_shell(body, files={
+            "backup.dump": "unchecked dump",
+            "backup.dump.sha256": "1" * 64 + "  backup.dump.schema-epoch\n",
+            "backup.dump.schema-epoch": "2\n", "state/current": CURRENT})
+        self.assertEqual(result.returncode, 65, result.stderr)
+        self.assertIn("backup checksum", result.stderr)
+        self.assertEqual(events, [])
+
+    def test_failed_nonempty_dump_never_finalizes_or_prunes_backup(self):
+        backup_function = SCRIPT[SCRIPT.index("backup() {"):SCRIPT.index("\nrestore() {")]
+        body = backup_function + """
+podman() { event dump-failed; printf 'incomplete archive'; return 1; }
+database_schema_epoch() { event epoch; printf '2\\n'; }
+sha256sum() { event checksum; }
+# Production deploy captures the path in a substitution, which disables implicit errexit
+# within backup on Bash. It must still refuse a nonempty failed dump explicitly.
+fixture_dump=$(backup test)
+"""
+        result, events = self.run_shell(body, files={"backups/cantos-old.dump": "preserve"})
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(events, ["dump-failed"])
+
+    def test_failed_backup_checksum_stops_before_retention_and_success_receipt(self):
+        backup_function = SCRIPT[SCRIPT.index("backup() {"):SCRIPT.index("\nrestore() {")]
+        body = backup_function + """
+database_schema_epoch() { printf '2\\n'; }
+sha256sum() { event checksum-failed; return 1; }
+rm() { event retention; }
+fixture_dump=$(backup test)
+event "backup-receipt $fixture_dump"
+"""
+        result, events = self.run_shell(body)
+        self.assertEqual(result.returncode, 70, result.stderr)
+        self.assertIn("checksum-failed", events)
+        self.assertNotIn("retention", events)
+        self.assertFalse(any(event.startswith("backup-receipt ") for event in events), events)
+
+    def test_unknown_backup_epoch_stops_before_retention_and_deploy_receipt(self):
+        backup_function = SCRIPT[SCRIPT.index("backup() {"):SCRIPT.index("\nrestore() {")]
+        body = backup_function + """
+database_schema_epoch() { return 1; }
+sha256sum() { event checksum; }
+rm() { event retention; }
+fixture_dump=$(backup test)
+event "backup-receipt $fixture_dump"
+"""
+        result, events = self.run_shell(body)
+        self.assertEqual(result.returncode, 70, result.stderr)
+        self.assertNotIn("retention", events)
+        self.assertFalse(any(event.startswith("backup-receipt ") for event in events), events)
+
+    def test_manifest_refuses_duplicate_foreign_malformed_or_extra_entries_before_hashing(self):
+        dump = "0" * 64 + "  backup.dump\n"
+        epoch = "1" * 64 + "  backup.dump.schema-epoch\n"
+        for manifest in [dump + dump, epoch + epoch, dump + epoch + dump,
+                         dump + epoch.replace("backup.dump", "foreign.dump"),
+                         dump.replace("0", "z") + epoch,
+                         dump + epoch + "2" * 64 + "  ../foreign\n"]:
+            with self.subTest(manifest=manifest):
+                result, events = self.run_shell("""
+sha256sum() { event checksum; return 0; }
+restore "$ROOT/backup.dump" --yes-replace-database
+""", files={"backup.dump": "archive", "backup.dump.sha256": manifest,
+            "backup.dump.schema-epoch": "2\n", "state/current": CURRENT})
+                self.assertEqual(result.returncode, 65, result.stderr)
+                self.assertEqual(events, [])
+
+    def test_failed_archive_integrity_stops_before_schema_checks_or_database_writes(self):
+        result, events = self.run_shell("""
+sha256sum() { event checksum; return 1; }
+restore "$ROOT/backup.dump" --yes-replace-database
+""", files={"backup.dump": "corrupt", "backup.dump.sha256": BACKUP_CHECKSUM,
+            "backup.dump.schema-epoch": "2\n", "state/current": CURRENT})
+        self.assertEqual(result.returncode, 65, result.stderr)
+        self.assertIn("checksum mismatch", result.stderr)
+        self.assertEqual(events, ["checksum"])
+
+    def test_deploy_never_migrates_or_switches_after_failed_backup(self):
+        result, events = self.run_shell(f"""
+backup() {{ event backup-failed; return 70; }}
+deploy {CURRENT}
+""")
+        self.assertEqual(result.returncode, 70, result.stderr)
+        self.assertIn("backup-failed", events)
+        self.assertNotIn("migrate", events)
+        self.assertFalse(any(event.startswith("switch ") for event in events), events)
+
+    def test_current_restore_checks_both_sides_before_grants_and_restart(self):
+        result, events = self.run_shell("""
+sha256sum() { event checksum; return 0; }
+restore "$ROOT/backup.dump" --yes-replace-database
+""", files={"backup.dump": "archive", "backup.dump.sha256": BACKUP_CHECKSUM,
+            "backup.dump.schema-epoch": "2\n", "state/current": CURRENT})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        checks = [index for index, event in enumerate(events) if event == f"check {CURRENT}"]
+        self.assertEqual(len(checks), 2, events)
+        stopped = events.index("systemctl stop cantos-api-theatre.service cantos-api-studio.service")
+        restored = next(index for index, event in enumerate(events) if "exec pg_restore " in event)
+        self.assertLess(events.index("checksum"), checks[0])
+        self.assertLess(checks[0], events.index("backup"))
+        self.assertLess(stopped, restored)
+        self.assertLess(restored, checks[1])
+        self.assertLess(checks[1], events.index("grants"))
+        self.assertLess(events.index("grants"), events.index(
+            "systemctl start cantos-api-theatre.service cantos-api-studio.service"))
+
     def test_backup_preserves_dump_when_schema_metadata_is_unavailable(self):
         backup_function = SCRIPT[SCRIPT.index("backup() {"):SCRIPT.index("\nrestore() {")]
         body = backup_function + """
 database_schema_epoch() { return 1; }
 sha256sum() { event "checksum $*"; }
-fixture_dump=$(backup test)
-[[ -s $fixture_dump && $(<"$fixture_dump.schema-epoch") == unrecognized ]]
+if fixture_dump=$(backup test); then exit 99; fi
+[[ -z $fixture_dump ]]
+archives=("$BACKUPS"/*.dump)
+[[ ${#archives[@]} -eq 1 && -s ${archives[0]} &&
+   $(<"${archives[0]}.schema-epoch") == unrecognized && -f ${archives[0]}.sha256 ]]
 """
         result, events = self.run_shell(body)
         self.assertEqual(result.returncode, 0, result.stderr)

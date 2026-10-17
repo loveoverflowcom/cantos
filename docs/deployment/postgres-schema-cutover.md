@@ -28,7 +28,12 @@ its database lock. The previous image must also declare epoch 2 and pass the cur
 check before it can be an automatic rollback target. Explicit rollback checks compatibility
 before switching images. These checks intentionally refuse an old image with a missing label.
 
-Backups now carry a `.schema-epoch` sidecar included in their SHA-256 manifest. The current
+Backups now carry a `.schema-epoch` sidecar. Their SHA-256 manifest must name exactly the dump
+and that sidecar; a valid sidecar hash alone never authenticates the dump being restored.
+Copy all three finalized files together for off-host recovery. Dump/checksum failure or unknown
+schema metadata refuses success before retention/deployment, including when the caller captures
+the backup path. An unknown-epoch archive is preserved for investigation, never called usable.
+The current
 restore command requires epoch 2 metadata, a compatible current image and a successful
 pre-restore schema check; it checks the restored schema again before grants or API restart.
 A rejected post-restore check leaves both APIs stopped for operator recovery. Historical
@@ -50,7 +55,7 @@ not local integration evidence. Record the actual version used by every test run
 
 ## Inventory gate — not yet performed on the VPS
 
-The [2026-10-17 deployment record](../evidence/vps-production-deployment.md) observed
+The [historical 2026-10-17 deployment record](https://github.com/loveoverflowcom/cantos/blob/3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a/docs/evidence/vps-production-deployment.md) observed
 PostgreSQL 17.11 and 28 historical migrations at that time. It does not establish today's
 rows, applied migration 0029, sessions, grants, extensions or available recovery media.
 **Live inventory, backup restore validation, data transformation and production approval

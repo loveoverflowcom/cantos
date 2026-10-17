@@ -170,14 +170,21 @@ The edge publishes 80/443; host SSH is separately operator managed. Never prune 
 
 API rollback: `cargo xtask deploy vps cantos-api --host root@42.96.18.245 --rollback` (remote write).
 Rollback swaps the API image only after its epoch label and read-only schema check pass.
-Restore requires a checksum-covered `.schema-epoch` sidecar for epoch 2 and a compatible current
-image/database, takes a `pre-restore` backup, stops both APIs and restores in one transaction.
+Restore requires exactly the dump and its `.schema-epoch` sidecar in the checksum manifest,
+epoch 2 and a compatible current image/database, takes a `pre-restore` backup, stops both APIs
+and restores in one transaction.
 It checks the restored schema before applying grants/restarting; rejection leaves the APIs stopped.
 Historical backups require their matching legacy bundle and a separately reviewed recovery plan,
 not fabricated epoch metadata. Cross-epoch recovery follows the [cutover plan](postgres-schema-cutover.md).
-Copy backups
-off the VPS regularly (`scp root@…:/root/cantos-services/backups/*.dump …`); they live on the
-same disk. Kanidm keeps its own daily online backup (7 versions) in `cantos-kanidm-data`.
+Copy each finalized backup off the VPS regularly, keeping **all three siblings** together:
+`FILE.dump`, `FILE.dump.schema-epoch` and `FILE.dump.sha256`. In the destination directory,
+verify `sha256sum -c FILE.dump.sha256` before the separate restore drill. Copying only the dump
+loses the metadata required by ordinary restore. The originals live on the same VPS disk.
+Failed dump/checksum creation or unreadable schema metadata stops before retention or deployment.
+An unknown-epoch archive is retained with its metadata for investigation and returns failure;
+it never establishes a usable recovery point. `.partial` files are incomplete evidence,
+never usable backups. Kanidm keeps its own daily online backup
+(7 versions) in `cantos-kanidm-data`.
 Configuration rollback: the previous bundle stays at `/root/cantos-services/runtime.previous`.
 Hosting rollback uses the selected site's console release history. A scheduled same-disk
 backup is not disaster-recovery acceptance.
