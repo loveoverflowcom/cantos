@@ -59,6 +59,7 @@ cargo xtask verify repository|rust|forge|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
 cargo xtask verify postgres [--keep]
 cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
+cargo xtask verify postgres --suite legacy-dbsp      # legacy capture-retirement migrations only
 cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger]...
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
@@ -369,6 +370,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | cargo, python3, initdb, pg_ctl, psql, ffmpeg, ffprobe |
 | `postgres (theatre-firebase)` | `scripts/test_postgres.py --suite theatre-firebase` (new disposable cluster; Firebase enrollment and SMTP registration SQL only) | cargo, python3, initdb, pg_ctl, psql |
+| `postgres (legacy-dbsp)` | `scripts/test_postgres.py --suite legacy-dbsp` (new disposable cluster; legacy DBSP capture-retirement migrations only) | cargo, python3, initdb, pg_ctl, psql |
 
 | `verify` suite | Gates |
 | --- | --- |
@@ -422,6 +424,16 @@ nor accepts an external database URL. Its logs and scope record are under
 restart campaign remain unrun by this command. A `PASS` for `postgres (theatre-firebase)` never
 satisfies the full `postgres` gate: default verification, preflight and CI still select the full
 gate and retain their ffmpeg/ffprobe prerequisites.
+
+`cargo xtask verify postgres --suite legacy-dbsp` selects the separately named migration
+acceptance gate. It runs `cantos-api`'s ignored `legacy_dbsp_postgres` target with locked,
+offline Cargo and requires at least one passing test. It uses the same isolated native cluster
+and cleanup path as the other PostgreSQL scopes; no inherited database URL, containers or
+media tools are used. Logs and its scope record are under
+`target/revision-evidence/legacy-dbsp/`; `--keep` is refused. Its `PASS` establishes only the
+legacy capture-retirement assertions exercised by that target. Other database contexts,
+media, HTTP hosts and the full restart campaign remain `NOT_RUN`. The full `postgres` gate
+also runs this target; the focused command never replaces full-gate acceptance.
 
 ### Outcome vocabulary
 

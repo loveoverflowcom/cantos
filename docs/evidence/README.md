@@ -20,6 +20,7 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 | Theatre catalog integration | [Seeded catalog → API → Web/CMP](theatre-seeded-catalog-integration.md); synthetic dev seed in disposable PostgreSQL, browser-tested Web detail, native runtime and playback not run |
 | Identity | [Studio OIDC](studio-oidc.md), [Theatre activation](theatre-auth-activation.md), [Theatre identity](theatre-identity.md), [Firebase runtime](firebase-enrollment-runtime.md), [Theatre live sign-in](theatre-live-auth-206.md); live mail/provider/device gates stay explicit |
 | Behavior | [Quint foundation](quint-behavior-foundation.md), [pure-core observations](quint-code-conformance.md); draft model PASS is not accepted behavior or DB/API/client conformance |
+| Optional incremental platform | [DBSP review](dbsp-platform-review.md); current grouped-count core and forward-only legacy capture retirement, with future-consumer and production gates kept separate |
 | Develop consistency | [Eight-commit review](develop-eight-commit-review-20261016.md); pinned merge-aware scope, receipt-wait expiry repair and independently reported local gates |
 | Localization ownership | [17 October audit](i18n-audit-20261017/README.md); baseline-addressed five-scope inventory, existing-owner repairs, bounded changed-source guard and separate renderer/runtime acceptance |
 | Deployment tooling | [Hosting](issue199-firebase-hosting.md); local adapter tests do not establish a deployed-origin journey |

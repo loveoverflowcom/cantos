@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Run full integration or named registration SQL tests in a new disposable cluster.
+"""Run full integration or named SQL tests in a new disposable cluster.
 
 Never reads DATABASE_URL or connects to an existing database. --keep retains this
 test cluster for local Studio and Theatre inspection; its explicit stop command is printed.
 --suite theatre-firebase runs only Firebase and SMTP registration SQL acceptance.
+--suite legacy-dbsp runs only legacy DBSP capture-retirement migration acceptance.
 """
 import argparse
 import hashlib
@@ -149,10 +150,20 @@ def registration_postgres_tests(env, evidence):
             raise RuntimeError(f"FAIL: {name} selected no passing SQL tests")
 
 
+def legacy_dbsp_postgres_tests(env, evidence):
+    """The migration target owns its synthetic databases inside this runner's cluster."""
+    output = run(["cargo", "test", "-p", "cantos-api", "--test", "legacy_dbsp_postgres",
+                  "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"],
+                 env=env, output=evidence / "legacy-dbsp-postgres-tests.log")
+    summary = re.search(r"test result: ok\. ([0-9]+) passed; ([0-9]+) failed;", output)
+    if summary is None or int(summary[1]) == 0 or int(summary[2]) != 0:
+        raise RuntimeError("FAIL: legacy-dbsp-postgres-tests selected no passing SQL tests")
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--keep", action="store_true")
-    parser.add_argument("--suite", choices=("full", "theatre-firebase"), default="full")
+    parser.add_argument("--suite", choices=("full", "theatre-firebase", "legacy-dbsp"), default="full")
     args = parser.parse_args(argv)
     if args.keep and args.suite != "full":
         parser.error("--keep requires the full PostgreSQL suite")
@@ -756,7 +767,7 @@ def main():
     for tool in ("initdb", "pg_ctl", "psql", "cargo"):
         if not shutil.which(tool):
             raise RuntimeError(f"unavailable: {tool}")
-    evidence = EVIDENCE if args.suite == "full" else EVIDENCE / "theatre-firebase"
+    evidence = EVIDENCE if args.suite == "full" else EVIDENCE / args.suite
     evidence.mkdir(parents=True, exist_ok=True)
     cluster = evidence / f"cluster-{time.time_ns()}"
     cluster.mkdir()
@@ -791,6 +802,18 @@ def main():
             print("PASS: PostgreSQL theatre-firebase SQL and SMTP registration compatibility; "
                   "full PostgreSQL/media/HTTP/restart campaign NOT_RUN")
             return
+        if args.suite == "legacy-dbsp":
+            legacy_dbsp_postgres_tests(env, evidence)
+            (evidence / "run.json").write_text(json.dumps({
+                "suite": args.suite, "cluster": str(cluster), "port": port,
+                "retained": False, "full_suite": "NOT_RUN",
+                "checks": ["legacy-dbsp-postgres-tests"],
+            }, indent=2) + "\n")
+            print("PASS: PostgreSQL legacy DBSP capture-retirement migration acceptance; "
+                  "full PostgreSQL/media/HTTP/restart campaign NOT_RUN")
+            return
+        legacy_dbsp_postgres_tests(env, EVIDENCE)
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "admin_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture", "--skip", "admin_recovery_after_database_restart"], env=env, output=EVIDENCE / "admin-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-identity-postgres-tests.log")

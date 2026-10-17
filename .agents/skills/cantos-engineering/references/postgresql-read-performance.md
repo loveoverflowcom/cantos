@@ -9,7 +9,7 @@
 
 ## Reality, terminology and authority
 
-The backend, its PostgreSQL schema and one **implemented experimental** DBSP adapter now exist
+The backend, its PostgreSQL schema and an **implemented experimental** DBSP grouped-count circuit exist
 ([ADR 0017](../../../../docs/decisions/0017-experimental-dbsp-job-summary.md),
 [evidence](../../../../docs/evidence/dbsp-job-summary.md)). The `dbsp` crate (0.198.0, selected against the original
 Rust 1.87 baseline) is an optional dependency of `cantos-api` behind the `dbsp-experimental` feature; default
@@ -24,11 +24,17 @@ reusable evidence for another engine path, not a live read model:
 
 - `services/cantos-api/src/platform/incremental` — engine-independent signed changes, the count view, whole
   transaction paging and the pure fence/shadow decisions; `incremental::dbsp` — the circuit.
-- Migration `0009_durable_step_changes.sql` — a trigger-written, read-only transactional outbox
-  stamped with `xid8`; positions are `{frontier, bootstrap snapshot}`, never a sequence number.
-  It stays applied but unused.
+- Migration `0009_durable_step_changes.sql` — the historical trigger-written transactional outbox
+  stamped with `xid8`; positions were `{frontier, bootstrap snapshot}`, never a sequence number.
+  Forward migration `0029_retire_durable_step_capture.sql` disables only its capture trigger,
+  retaining historical rows and integrity protections. The retained outbox is not a complete
+  feed after retirement; a new consumer needs its own snapshot/adapter, not a replay of this table.
 - `cargo xtask verify dbsp`. The `summary_view` maintainer, its PostgreSQL tests and
   `scripts/benchmark_job_summary_dbsp.py` are gone; recover them from commit `2de8c69`.
+
+The [current platform review](../../../../docs/evidence/dbsp-platform-review.md) inventories
+the remaining sample, migration compatibility and future-consumer acceptance gaps. The old
+two-Boolean grouped-count shape is not a general projection framework or current business model.
 
 A new consumer still needs its own fit decision below; the existing slice is evidence about one
 small aggregate, not a general license to route reads through the engine.
@@ -206,9 +212,11 @@ Execution gaps:         passed | failed | blocked | not-run | unavailable | zero
 - [ ] The report distinguishes documented method, implemented adapter and tested behavior;
   remaining work is routed to its owning slice in the [queue](../../../../docs/work-plan/README.md).
 
-**Enforcement:** inventory and fit assessment are manual requirements. The experimental job
-summary has real runners (`verify dbsp`, the PostgreSQL gate's DBSP tests and the benchmark
-script); other engine automation is proposed until code and runners exist. The repository
+**Enforcement:** inventory and fit assessment are manual requirements. `verify dbsp` runs the
+remaining circuit/core tests. `verify postgres --suite legacy-dbsp` checks capture retirement,
+not a live PostgreSQL-to-DBSP adapter. The retired job-summary integration tests and benchmark
+script are historical, not current runners. Other engine automation is proposed until code
+and runners exist. The repository
 checker enforces skill/link hygiene only. A documented exception needs workload rationale and an oracle;
 unavailable prerequisites are a gap, not a waiver of adoption evidence.
 
