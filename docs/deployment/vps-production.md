@@ -78,7 +78,11 @@ cold, cached afterwards), uploads it with the host bundle and runs `cantos-vps d
 
 1. a logical backup `pre-<sha>`;
 2. `cantos-migrate` as `cantos_owner` (checksummed, transactional);
-3. [`runtime-grants.sql`](../../infra/vps/postgres/runtime-grants.sql) for `cantos_app`;
+3. [`runtime-grants.sql`](../../infra/vps/postgres/runtime-grants.sql) for `cantos_app`, plus
+   [`theatre-registration-grants.sql`](../../infra/vps/postgres/theatre-registration-grants.sql)
+   only when the Theatre API configuration contains `CANTOS_THEATRE_REGISTRATION_ENABLED=true`
+   (otherwise [`theatre-registration-revoke.sql`](../../infra/vps/postgres/theatre-registration-revoke.sql)
+   withdraws them);
 4. retag `localhost/cantos-api:current`, restart both API units; `Notify=healthy` makes each
    restart wait for its health check (`GET /api/v1/theatre/works`, a real database read);
 5. a probe of all three API hosts through the edge;
@@ -87,7 +91,50 @@ cold, cached afterwards), uploads it with the host bundle and runs `cantos-vps d
 
 A new migration that adds a table read or written at runtime **must** extend the grants file;
 `production_grants_postgres` in `cargo xtask verify postgres` proves the file alone serves real
-Studio and Theatre requests and grants nothing on excluded surfaces.
+Studio and Theatre requests and grants nothing on excluded surfaces. The optional registration
+block is tested separately (`registration_grants_are_separate_minimal_idempotent_and_revocable`)
+and the Firebase enrollment repository tests run against that same file.
+
+## Theatre registration behind the edge (not enabled)
+
+Nothing here enables registration; it records what an operator must satisfy first and which
+parts are already implemented. ADR 0040 explains why the Firebase-mode activation gate on the
+action handler is still open.
+
+- **Quota identity.** The API normally keys anonymous attempt limits on the socket peer, which
+  behind Caddy is the edge container for every user. Set
+  `CANTOS_THEATRE_REGISTRATION_PEER_POLICY=trusted_proxy` and
+  `CANTOS_THEATRE_REGISTRATION_TRUSTED_PROXIES=<cidr>[,<cidr>...]` (exact container-network
+  CIDRs, at most 16, no `/0`, no host names; get it from `podman network inspect cantos`).
+  The edge *replaces* `X-Forwarded-For` with the TCP peer it saw. The API believes that header
+  only when its own socket peer is inside the listed networks, reads it right to left skipping
+  trusted hops, and fails closed (503) when a trusted proxy sends no single usable value. A
+  direct connection from any other address keys on its own address, so rotating the header buys
+  no budget. Every container on the `cantos` network counts as inside the list; the network
+  holds only the edge, the APIs and Kanidm; the Studio API and Kanidm could therefore also set the
+  header, which is accepted for these operator-run components. Pin a narrower list if that changes.
+- **Ingress limits.** Stock Caddy has no rate limiter. The edge caps registration request bodies
+  at 16 KB; per-address and global limits are the application's rolling window plus durable
+  PostgreSQL budgets. They reset per process and do not coordinate across hosts. A second
+  Theatre process would need its own review.
+- **Kanidm.** Public browser flows (`/ui/*`, `/oauth2/*`, `/v1/auth`, `/v1/credential/*`,
+  `/status`) stay open at the identity host. Kanidm's management API (`/v1/person`,
+  `/v1/service_account`, `/v1/group`, `/v1/oauth2`, `/v1/system`, `/v1/domain` and the other
+  administration prefixes in the Caddyfile) answers 404 unless the TCP peer is in
+  `private_ranges` (override with `CANTOS_INTERNAL_CIDRS` in `edge.env`). The APIs and the
+  operator CLI use the edge alias from the private network, so they keep working. Observed
+  with the pinned Caddy against stub upstreams only; a real Kanidm sign-in through this filter
+  is not yet observed.
+- **Email action codes.** The Theatre host marks any response to a request carrying `oobCode`
+  `Cache-Control: no-store` and `Referrer-Policy: no-referrer` and removes the code before
+  proxying to Firebase Hosting. Do not add an access log that records the query string; if one
+  is added, delete `oobCode` in its filter.
+- **Service account.** `CANTOS_THEATRE_REGISTRATION_FIREBASE_SERVICE_ACCOUNT_FILE` must be an
+  absolute path to a mode-0600 file mounted into `cantos-api-theatre`; the Quadlet unit has no
+  such mount today, so enabling needs an operator drop-in (Podman secret or read-only volume).
+  The API mints its own short-lived bearer from it; it needs the dedicated one-permission
+  account of the [service-account runbook](firebase-enrollment-service-account.md), never the
+  Hosting CI credential. Add the production Web origin to the Firebase authorized domains.
 
 ## Deploy the Web apps
 
@@ -184,4 +231,5 @@ See the [deployment record](../evidence/vps-production-deployment.md) for observ
 Not accepted yet: real Studio/Theatre sign-in and logout against this Kanidm (needs the
 operator-run identity step and a human credential), a reboot test, off-host backup copies,
 an automatic-rollback drill, CircleCI runs (needs the context), object storage, publication
-delivery, Theatre registration, native identity and Admin.
+delivery, Theatre registration (tooling and grants above exist; activation gates remain open,
+see [ADR 0040](../decisions/0040-firebase-email-proof-alternatives.md)), native identity and Admin.

@@ -102,15 +102,19 @@ suppressed duplicates, cooldown/quota decisions and existing local receipts do n
 account-existence response. This does not constitute a measured network timing proof or solve
 Internet abuse. Every registration POST requires socket peer metadata and process-local rolling
 global/peer attempt admission plus bounded concurrent effects. IPv4-mapped IPv6 is normalized
-before a private-key HMAC partitions the actual peer; forwarded headers are ignored. These
+before a private-key HMAC partitions the client address: the socket peer under `direct_peer`,
+or, under `trusted_proxy`, the `X-Forwarded-For` value set by a configured proxy network (the
+header is ignored from every other peer). These
 attempt counters reset on restart and do not coordinate across hosts. Durable accepted-mail
 budgets/cooldown remain a separate PostgreSQL boundary. Deployment-wide ingress limiting,
-reverse-proxy behavior, personal quota-metadata retention and cleanup need explicit review;
-only `direct_peer` is implemented.
+personal quota-metadata retention and cleanup need explicit review. `trusted_proxy` is
+implemented and unit/HTTP-tested; the VPS edge's address and live behavior remain operator
+acceptance ([runbook](../deployment/vps-production.md#theatre-registration-behind-the-edge-not-enabled)).
 
 Host composition defaults off. `platform::theatre_registration::config` requires an existing
 Theatre Web identity adapter, explicit provider bearer/HMAC/SMTP inputs, all bounded lifetime,
-budget and attempt values, and `PEER_POLICY=direct_peer`. Missing or standalone false `ENABLED`
+budget and attempt values, and `PEER_POLICY=direct_peer` or `trusted_proxy` with
+`TRUSTED_PROXIES` (the list is refused with `direct_peer`). Missing or standalone false `ENABLED`
 disables only when no other registration/SMTP inputs are present; partial/orphan setup fails
 startup. `POLICY_APPROVED=true` and `ISSUER_ACCESS_APPROVED=true` under the
 `CANTOS_THEATRE_REGISTRATION_` prefix are required operator declarations. They cannot establish

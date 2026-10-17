@@ -6,7 +6,7 @@ use super::{
 use crate::platform::{
     postgres::Store,
     theatre_registration::{
-        config::FIELDS as COMMON_FIELDS,
+        config::{peer_policy, FIELDS as COMMON_FIELDS, TRUSTED_PROXIES},
         domain::{RegistrationError, RegistrationPolicy},
         firebase_action::{ApiKey, FirebaseActionClient, FirebaseProjectId},
         firebase_bootstrap::{
@@ -19,6 +19,8 @@ use crate::platform::{
 };
 use std::{collections::BTreeMap, io::Read, path::Path, sync::Arc};
 const PREFIX: &str = "CANTOS_THEATRE_REGISTRATION_FIREBASE_";
+#[cfg(test)]
+const PREFIX_COMMON: &str = "CANTOS_THEATRE_REGISTRATION_";
 // ADMIN_ACCESS_TOKEN is retired: a hand-supplied bearer expires in about an hour. The API mints
 // its own short-lived token from SERVICE_ACCOUNT_FILE, so a static token is refused, never mixed.
 const UNSUPPORTED: &[&str] = &[
@@ -73,10 +75,12 @@ pub fn from_lookup(
     {
         return Err(RegistrationError::Configuration);
     }
+    let proxies = lookup(TRUSTED_PROXIES);
     if common.get("ENABLED").map(String::as_str) != Some("true") {
         if common.get("ENABLED").map(String::as_str) == Some("false")
             && common.len() == 1
             && fields.is_empty()
+            && proxies.is_none()
         {
             return Ok(None);
         }
@@ -108,12 +112,10 @@ pub fn from_lookup(
             return Err(RegistrationError::Configuration);
         }
     }
-    if value("POLICY_APPROVED")? != "true"
-        || value("ISSUER_ACCESS_APPROVED")? != "true"
-        || value("PEER_POLICY")? != "direct_peer"
-    {
+    if value("POLICY_APPROVED")? != "true" || value("ISSUER_ACCESS_APPROVED")? != "true" {
         return Err(RegistrationError::Configuration);
     }
+    let peer_policy = peer_policy(value("PEER_POLICY")?, proxies.as_deref())?;
     let issuer = lookup("CANTOS_THEATRE_OIDC_ISSUER").ok_or(RegistrationError::Configuration)?;
     if !store.theatre_identity().is_some_and(|identity| {
         identity.registration_issuer_matches(&issuer) && identity.web_origin() == web_origin
@@ -186,7 +188,7 @@ pub fn from_lookup(
         number("MAX_INFLIGHT")?,
         attempts,
     )
-    .map(Some)
+    .map(|runtime| Some(runtime.with_peer_policy(peer_policy)))
 }
 
 fn read_existing_secret(value: &str) -> Result<Vec<u8>, RegistrationError> {
@@ -368,6 +370,34 @@ mod tests {
                 "{field}"
             );
         }
+        // A proxy list is evidence only with `trusted_proxy`, and `trusted_proxy` needs the list.
+        let peer = |policy: &str, proxies: Option<&str>| {
+            let mut candidate = fields.clone();
+            candidate.insert(format!("{PREFIX_COMMON}PEER_POLICY"), policy.into());
+            if let Some(list) = proxies {
+                candidate.insert(format!("{PREFIX_COMMON}TRUSTED_PROXIES"), list.into());
+            }
+            super::super::super::config::from_lookup(
+                identity_store(),
+                "https://cantos.example",
+                |name| candidate.get(name).cloned(),
+            )
+            .is_ok()
+        };
+        assert!(peer("trusted_proxy", Some("10.89.0.0/24")));
+        assert!(!peer("trusted_proxy", None));
+        assert!(!peer("trusted_proxy", Some("0.0.0.0/0")));
+        assert!(!peer("trusted_proxy", Some("edge.internal/24")));
+        assert!(!peer("direct_peer", Some("10.89.0.0/24")));
+        assert!(!peer("x_forwarded_for", Some("10.89.0.0/24")));
+        assert!(
+            super::super::super::config::from_lookup(store(), "https://cantos.example", |name| {
+                (name == "CANTOS_THEATRE_REGISTRATION_TRUSTED_PROXIES")
+                    .then(|| "10.89.0.0/24".to_owned())
+            })
+            .is_err(),
+            "an orphan proxy list never leaves registration quietly disabled"
+        );
         for (field, value) in [
             (
                 "CANTOS_THEATRE_REGISTRATION_FIREBASE_PROJECT_ID",

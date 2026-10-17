@@ -8,6 +8,8 @@ use crate::platform::postgres::{local_config, migrate};
 
 const NAMESPACE: &str = "https://identity.example.test/oauth2/openid/cantos-theatre-web-bff";
 const PROJECT: &str = "cantos-fixture";
+const PRODUCTION_REGISTRATION_GRANTS: &str =
+    include_str!("../../../../../../../infra/vps/postgres/theatre-registration-grants.sql");
 
 async fn connect(config: &Config) -> Client {
     let (client, connection) = config.connect(NoTls).await.unwrap();
@@ -38,11 +40,12 @@ impl Harness {
         config.dbname(&database);
         migrate(&config).await.unwrap();
         let admin = connect(&config).await;
-        admin.batch_execute(
-            "GRANT SELECT,INSERT ON theatre_firebase_enrollments,theatre_firebase_send_starts TO cantos_app;
-             GRANT UPDATE(phase,last_sent_at,person_id,block_reason) ON theatre_firebase_enrollments TO cantos_app;
-             GRANT USAGE ON SEQUENCE theatre_firebase_send_starts_receipt_id_seq TO cantos_app;",
-        ).await.unwrap();
+        // The deployed optional grant file, not a hand-written copy: these tests prove it is
+        // exactly sufficient for the repository.
+        admin
+            .batch_execute(PRODUCTION_REGISTRATION_GRANTS)
+            .await
+            .unwrap();
         let mut app_config = config.clone();
         app_config.user("cantos_app");
         let repository = PostgresFirebaseEnrollmentRepository::new(

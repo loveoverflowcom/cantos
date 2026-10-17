@@ -312,10 +312,21 @@ migrate() {
     --entrypoint /usr/local/bin/cantos-migrate "$(image_for "$1")"
 }
 
+# Registration is configured outside this script (a drop-in or EnvironmentFile for the Theatre
+# API). Only an explicit ENABLED=true grants the registration tables; anything else revokes them.
+registration_enabled() {
+  grep -rqsE '^[[:space:]]*(Environment=)?"?CANTOS_THEATRE_REGISTRATION_ENABLED=true"?[[:space:]]*$' \
+    "$CONFIG" "$QUADLET_DIR/cantos-api-theatre.container.d"
+}
+
 apply_grants() {
-  { printf 'SET ROLE cantos_owner;\n'; cat "$RUNTIME/postgres/runtime-grants.sql"; } |
-    psql_superuser cantos >/dev/null
-  log "runtime grants applied"
+  local registration=theatre-registration-revoke.sql
+  registration_enabled && registration=theatre-registration-grants.sql
+  {
+    printf 'SET ROLE cantos_owner;\n'
+    cat "$RUNTIME/postgres/runtime-grants.sql" "$RUNTIME/postgres/$registration"
+  } | psql_superuser cantos >/dev/null
+  log "runtime grants applied (${registration%.sql})"
 }
 
 switch_to() {

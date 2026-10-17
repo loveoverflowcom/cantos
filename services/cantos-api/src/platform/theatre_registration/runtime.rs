@@ -1,8 +1,9 @@
 //! Trusted host boundary: bounded anonymous attempts and direct-peer abuse keys.
 use super::{
     application::RegistrationService,
-    domain::{NetworkKey, RegistrationError},
+    domain::{NetworkKey, PeerPolicy, RegistrationError},
 };
+use axum::http::HeaderMap;
 use std::{
     collections::{BTreeMap, VecDeque},
     net::IpAddr,
@@ -76,6 +77,7 @@ pub struct RegistrationRuntime {
 pub(crate) struct RegistrationAdmission {
     web_origin: String,
     network_key: [u8; 32],
+    peer_policy: PeerPolicy,
     slots: Arc<Semaphore>,
     attempts: Mutex<Attempts>,
     attempt_policy: AttemptPolicy,
@@ -104,8 +106,17 @@ impl RegistrationRuntime {
     pub fn service(&self) -> &Arc<RegistrationService> {
         &self.service
     }
-    pub fn network_key(&self, peer: IpAddr) -> Result<NetworkKey, RegistrationError> {
-        self.admission.network_key(peer)
+    /// Replace the default direct-peer quota identity with an explicit, validated policy.
+    pub fn with_peer_policy(mut self, policy: PeerPolicy) -> Self {
+        self.admission.set_peer_policy(policy);
+        self
+    }
+    pub fn network_key(
+        &self,
+        peer: IpAddr,
+        headers: &HeaderMap,
+    ) -> Result<NetworkKey, RegistrationError> {
+        self.admission.network_key(peer, headers)
     }
     pub fn admit(&self, key: NetworkKey) -> bool {
         self.admission.admit(key)
@@ -134,6 +145,7 @@ impl RegistrationAdmission {
         Ok(Self {
             web_origin: web_origin.into(),
             network_key,
+            peer_policy: PeerPolicy::DirectPeer,
             slots: Arc::new(Semaphore::new(max_inflight as usize)),
             attempts: Mutex::new(Attempts::default()),
             attempt_policy,
@@ -142,8 +154,26 @@ impl RegistrationAdmission {
     pub(crate) fn web_origin(&self) -> &str {
         &self.web_origin
     }
-    pub(crate) fn network_key(&self, peer: IpAddr) -> Result<NetworkKey, RegistrationError> {
-        NetworkKey::from_peer(peer, &self.network_key)
+    pub(crate) fn set_peer_policy(&mut self, policy: PeerPolicy) {
+        self.peer_policy = policy;
+    }
+    /// Quota identity of the caller. Header lines are only evidence under a trusted proxy.
+    pub(crate) fn network_key(
+        &self,
+        peer: IpAddr,
+        headers: &HeaderMap,
+    ) -> Result<NetworkKey, RegistrationError> {
+        let forwarded = headers
+            .get_all("x-forwarded-for")
+            .iter()
+            .map(|line| line.to_str().map_err(|_| RegistrationError::Unavailable))
+            .collect::<Result<Vec<_>, _>>();
+        let client = match (&self.peer_policy, forwarded) {
+            (PeerPolicy::DirectPeer, _) => peer,
+            (policy, Ok(lines)) => policy.client_ip(peer, &lines)?,
+            (_, Err(error)) => return Err(error),
+        };
+        NetworkKey::from_peer(client, &self.network_key)
     }
     pub(crate) fn admit(&self, key: NetworkKey) -> bool {
         self.attempts.lock().is_ok_and(|mut attempts| {

@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 use axum::{
     body::Body,
     extract::ConnectInfo,
-    http::{header, Method, Request, StatusCode},
+    http::{header, HeaderMap, Method, Request, StatusCode},
     Router,
 };
 use http_body_util::BodyExt;
@@ -447,7 +447,7 @@ async fn absent_socket_peer_cannot_be_replaced_by_forwarded_headers_or_json() {
     assert_eq!(
         runtime
             .unwrap()
-            .network_key("192.0.2.1".parse().unwrap())
+            .network_key("192.0.2.1".parse().unwrap(), &HeaderMap::new())
             .unwrap(),
         NetworkKey::from_peer("192.0.2.1".parse().unwrap(), &[1; 32]).unwrap()
     );

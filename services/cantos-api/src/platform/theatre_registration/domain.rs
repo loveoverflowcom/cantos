@@ -3,6 +3,9 @@ use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+mod peer;
+pub use peer::{PeerPolicy, TrustedProxies};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RegistrationError {
     InvalidEmail,
