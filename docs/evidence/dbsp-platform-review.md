@@ -65,23 +65,47 @@ runtime source has no caller. Migration0008 still refers to durable sources for 
 clip constraints, so those sources and their safety triggers are intentionally retained.
 Repository search cannot establish external database dependencies or authorize data removal.
 
-## Architecture and follow-up review boundary
+## Architecture and bounded core hardening
 
 The retained platform is a two-flag grouped-count sample. Do not introduce a generic
 projection trait, schema or service without a concrete consumer. A future adapter owns the
 business projection and typed mapping; domain code stays independent of DBSP. The API must
 continue to authorize using current PostgreSQL facts before consulting a read model.
 
-The following source findings are bounded follow-up inputs, not implemented fixes in this
-retirement slice:
+The source findings below are addressed within the existing optional sample. None selects a
+consumer, changes an authorized SQL query or adds an adapter/projection framework:
 
-| Finding | Proposed next step / scope |
+| Confirmed finding | Implementation boundary / regression |
 | --- | --- |
-| Dead `ReadModel::VARIABLE = CANTOS_JOB_SUMMARY_READ_MODEL` and parser remain in `incremental/mod.rs:454–490` | Remove obsolete configuration after confirming no callers; do not create a general environment knob without a consumer |
-| `Member` documentation still uses job/step terminology, while its payload fixes `[bool; 2]` | Describe the actual grouped-count sample and keep projection-specific semantics out of its platform contract |
-| `DbspCounts::step` mutates its runtime before checking errors; discard is a caller precondition | Reproduce reuse after an integrity failure, then make the instance refuse every subsequent step with an exact typed outcome; do not claim a production defect with no current consumer |
-| `Snapshot::parse` discards empty xip tokens, accepting malformed comma lists | Add exact malformed-position regressions before tightening construction; verify PostgreSQL's actual text representation and preserve valid empty lists |
-| Freshness docs omit request-snapshot ordering relative to bootstrap publication | State the old READ COMMITTED/view-before-statement precondition or require independently established snapshot visibility; frontier comparison alone does not prove bootstrap rows visible to an older snapshot |
+| Dead `ReadModel::VARIABLE = CANTOS_JOB_SUMMARY_READ_MODEL` and parser in baseline `incremental/mod.rs:454–490` | No source callers; removed with its self-test. No replacement environment setting; historical ADR/benchmark records remain unchanged |
+| `Member` describes job/step semantics while fixing `[bool; 2]` | Describes two-flag grouped counts and identity scoped by `(group, id)`; future domain-to-projection mapping belongs to a concrete adapter |
+| A duplicate insertion returns `Integrity`, then an empty step can succeed on the same invalid engine | Preserves the first error and permanently refuses subsequent steps with `EngineError::Poisoned`, before appending input; regression covers empty, corrective and unrelated batches plus a fresh engine |
+| `Snapshot::parse` silently drops empty xip items and accepts descending IDs | Rejects malformed items, descending lists, zero bounds and out-of-range/overflow values; preserves empty lists, equal IDs and PostgreSQL's optional trailing comma |
+| Frontier comparison omits visibility of committed transactions represented by bootstrap | `Fence` requires independent `covers_bootstrap` evidence as well as `covers_frontier`; tests cover an older request with the same xmin and every Boolean combination |
+
+An engine step is not rolled back on error. `Step`, `Integrity` or `InvalidCount` permanently
+poisons the instance; no compensating delta or empty step can restore it. The owner drops it
+to release the runtime and rebuilds from authoritative state before publishing another view.
+An error applying output to `CountView` still requires the owner to discard that engine;
+the circuit cannot observe a caller's view failure. No restart/checkpoint implementation is
+added here and no current production path calls this circuit.
+
+Snapshot text rules were checked against PostgreSQL17's
+[snapshot contract](https://www.postgresql.org/docs/17/functions-info.html#FUNCTIONS-TXID-SNAPSHOT)
+and the [17.4 parser source](https://github.com/postgres/postgres/blob/REL_17_4/src/backend/utils/adt/xid8funcs.c#L246-L304).
+The Rust value retains supplied text, validates decimal bounds/list structure and is not a
+SQL-expression parser or a claim of accepting every PostgreSQL input spelling. Synthetic
+zero frontiers may still be used by paging values, but zero cannot construct a snapshot.
+
+`Fence` remains a pure decision over trusted adapter facts, not a snapshot visibility or
+authorization executor. An older request `10:20:10,15` cannot see committed transaction15
+included by a later bootstrap `10:20:10`, although both have xmin10. Unknown bootstrap
+coverage must be false, producing `Ahead` and preventing a shadow equality claim. Acquiring
+an atomic view/position before taking a new READ COMMITTED statement snapshot can establish
+the ordering precondition. Merely opening a transaction later, reusing an older REPEATABLE
+READ/exported snapshot or comparing frontiers cannot. A future adapter must also establish
+complete committed input, view/position coherence, current authorization and a safe
+authoritative fallback; these tests supply none of those I/O guarantees.
 
 No DBSP capability is registered in the [Quint catalog](../../specs/behavior/catalog.json).
 The private-admission model covers a different owner; no model-only test is used to certify
@@ -95,6 +119,11 @@ amplification, lag, memory, fallback capacity, replay/restart and authorization/
 Neither Catalog nor Discovery is selected by this audit.
 
 ## Verification scope
+
+The optional-feature checkpoint also exposed ambiguous `.parse()` inference in two existing
+host test assertions: DBSP's transitive `rkyv` supplies another `SocketAddr` equality impl.
+Both assertions now explicitly parse `SocketAddr`; host behavior is unchanged. This is a
+test-only prerequisite for exercising the optional core on the pinned Rust1.98.1 toolchain.
 
 `tests/legacy_dbsp_postgres.rs` seeds the original0001–0009 schema with SQL-valid synthetic
 legacy bytes, then invokes the actual migration registry. Those retired records have no

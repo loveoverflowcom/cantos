@@ -5,8 +5,8 @@
 //! group's `(members, flagged…)` row; nothing is recomputed from the full input. Two more
 //! operators maintain the integrated weight of each member row and of each member id, and report
 //! any that is not exactly one: a change applied twice, a retraction of a row that was never
-//! inserted, or two rows for one member. Such a step is refused and the engine must be discarded,
-//! never patched.
+//! inserted, or two rows for one group-scoped member id. Any failed step permanently poisons
+//! the instance; its owner must drop it and rebuild from authority, never patch it.
 use dbsp::{
     typed_batch::SpineSnapshot,
     utils::{Tup2, Tup3, Tup4},
@@ -26,7 +26,7 @@ type MemberKey = Tup2<String, String>;
 pub enum EngineError {
     Start(String),
     Step(String),
-    /// Member rows or member ids whose integrated weight is not exactly one after the step.
+    /// Member rows or group-scoped member ids whose integrated weight is not exactly one.
     Integrity {
         rows: usize,
         members: usize,
@@ -35,13 +35,16 @@ pub enum EngineError {
     InvalidCount {
         group: String,
     },
+    /// A previous step failed; this instance must be dropped and rebuilt from authority.
+    Poisoned,
 }
 
 /// The whole output of one transaction. A transaction may run several internal steps (DBSP
 /// splits a large input), and a plain `output()` handle keeps only the last step's delta.
 type Accumulated<K, V> = OutputHandle<SpineSnapshot<OrdIndexedZSet<K, V>>>;
 
-/// One single-worker, in-memory DBSP runtime. Not checkpointed: a lost engine is rebuilt.
+/// One single-worker, in-memory DBSP runtime. Not checkpointed: a lost or poisoned engine is
+/// dropped and rebuilt. A failed step does not roll back the circuit's internal state.
 pub struct DbspCounts {
     // Dropping the handle stops the runtime's worker thread.
     handle: DBSPHandle,
@@ -49,6 +52,7 @@ pub struct DbspCounts {
     counts: Accumulated<String, CountRow>,
     row_anomalies: Accumulated<MemberRow, ZWeight>,
     member_anomalies: Accumulated<MemberKey, ZWeight>,
+    poisoned: bool,
 }
 
 impl DbspCounts {
@@ -86,11 +90,23 @@ impl DbspCounts {
             counts,
             row_anomalies,
             member_anomalies,
+            poisoned: false,
         })
     }
 
-    /// Feeds one batch and returns only the groups whose counts changed.
+    /// Feeds one batch and returns only the groups whose counts changed. The first failure
+    /// retains its exact cause; every later call refuses input with `EngineError::Poisoned`.
+    /// The owner must also discard this engine if its output is rejected by `CountView`.
     pub fn step(&mut self, changes: Vec<MemberChange>) -> Result<Vec<CountChange>, EngineError> {
+        if self.poisoned {
+            return Err(EngineError::Poisoned);
+        }
+        let result = self.step_once(changes);
+        self.poisoned = result.is_err();
+        result
+    }
+
+    fn step_once(&mut self, changes: Vec<MemberChange>) -> Result<Vec<CountChange>, EngineError> {
         let mut batch: Vec<Tup2<MemberRow, ZWeight>> = changes
             .into_iter()
             .map(|change| Tup2(member_row(change.member), change.sign.weight()))
@@ -99,8 +115,8 @@ impl DbspCounts {
         self.handle
             .transaction()
             .map_err(|error| EngineError::Step(error.to_string()))?;
-        // The anomaly views are empty before every step, or the engine was already refused, so
-        // any inserted anomaly is a current one.
+        // Every earlier step succeeded, so the integrated anomaly views were empty. Any
+        // inserted anomaly is current; an error prevents every subsequent circuit step.
         let rows = inserted(&self.row_anomalies.concat().consolidate());
         let members = inserted(&self.member_anomalies.concat().consolidate());
         if rows > 0 || members > 0 {
@@ -334,6 +350,38 @@ mod tests {
                 rows: 0,
                 members: 1
             })
+        );
+    }
+
+    #[test]
+    fn an_integrity_failure_permanently_refuses_empty_repair_and_valid_steps() {
+        let mut engine = DbspCounts::start().unwrap();
+        let row = member("a", "1", [false, false]);
+        engine.step(vec![insert(row.clone())]).unwrap();
+        assert_eq!(
+            engine.step(vec![insert(row.clone())]),
+            Err(EngineError::Integrity {
+                rows: 1,
+                members: 1,
+            })
+        );
+        for changes in [
+            vec![],
+            vec![retract(row.clone())],
+            vec![insert(member("b", "2", [true, true]))],
+        ] {
+            assert_eq!(engine.step(changes), Err(EngineError::Poisoned));
+        }
+        drop(engine);
+
+        let mut rebuilt = DbspCounts::start().unwrap();
+        assert_eq!(
+            rebuilt.step(vec![insert(row)]).unwrap(),
+            [CountChange {
+                sign: Sign::Insert,
+                group: "a".into(),
+                counts: counts(1, 0, 0),
+            }]
         );
     }
 
