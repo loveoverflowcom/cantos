@@ -113,8 +113,18 @@ Static Web deployment of one app (Theatre or Studio) to Firebase Hosting is the 
 remote write that publishes a PUBLIC preview URL or replaces a live site: `--dry-run` shows the plan,
 and an agent runs the real command only on the user's explicit request naming the Firebase project,
 the channel and the app. Build, run, verify, preflight and ci never invoke it, and it serves static
-files only: sign-in, the API origin and playback on the deployed origin are a separate, unmet gate.
+files only; browsers reach them through the VPS edge on the same origin as the API
+([ADR 0039](docs/decisions/0039-vps-production-runtime.md)).
 An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
+
+Production API deployment to the VPS is the explicit, opt-in
+`cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status]`
+([contract](xtask/README.md#deploy-vps), [runbook](docs/deployment/vps-production.md)). It builds the
+image locally from committed `HEAD`, then the uploaded `infra/vps/bin/cantos-vps` backs up, migrates,
+grants, switches and health-gates with automatic switch-back. It is a remote write: `--dry-run` shows
+the plan, and an agent runs it only on the user's explicit request naming the host. Never create
+Kanidm accounts or credentials for the user: `cantos-vps identity` is operator-run. CircleCI
+(`.circleci/config.yml`) only offers a manual pipeline that calls these commands.
 
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
@@ -166,7 +176,8 @@ code and `xtask` orchestration; the [layout](docs/architecture/repository-layout
 current paths from future consumers. Follow [the service inventory](services/README.md) and
 [ADR 0021](docs/decisions/0021-podman-service-runtime.md). Podman is the standard OCI runtime;
 Docker Engine/Desktop/daemon and Compose are not dependencies (`docker.io` remains an allowed
-registry). Only explicit `cargo xtask services up` starts local infrastructure. Build/test/run
+registry). Only explicit `cargo xtask services up` starts local infrastructure; the production VPS runs its own
+Quadlet units from [`infra/vps`](infra/vps/README.md). Build/test/run
 never auto-start it. Native disposable PostgreSQL verification stays independent. Never install
 Podman, initialize/start a machine or change its connection without explicit consent. Manage
 only exact Cantos-owned labeled resources; stop never deletes persistent volumes. Keep secrets,

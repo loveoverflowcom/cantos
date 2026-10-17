@@ -6,9 +6,8 @@ Mac or Linux machine. The command contract is the
 [xtask README](../../xtask/README.md#deploy-firebase); this page is the setup, the routine, the
 verification and the recovery.
 
-> **Status — implemented, with live acceptance `NOT_RUN`.** The command, its tests and a local
-> Hosting-emulator check exist. No real preview or live deployment has been performed: that needs
-> your Firebase project and your go-ahead. See [what is and is not accepted](#acceptance-status).
+> **Status — implemented; live releases of both apps ran on 2026-10-17.** Preview channels are
+> still unexercised. See [what is and is not accepted](#acceptance-status).
 > Creating a site or running a deploy changes **your** Firebase project; nothing here does it for
 > you, and nothing here changes DNS, billing or IAM.
 
@@ -246,34 +245,17 @@ firebase emulators:start --only hosting --project demo-cantos \
 Remove or replace that `.firebaserc` with your real mapping afterwards. The emulator proves the
 policy, not Hosting's CDN, TLS or propagation.
 
-## API origin and authentication: a separate gate
+## API origin and authentication
 
-Static upload alone cannot connect the clients to an API. The development proxies in both
-`Trunk.toml` files are dev-server behavior and are not part of the static build. Firebase Hosting's
-backend rewrites target Cloud Functions or Cloud Run, not an arbitrary external server, and a
-redirect is not an equivalent same-origin proxy. The clients use relative `/api/v1/…` URLs and
-same-origin credentials, so moving them to another API origin is a client change plus a
-security design, not configuration.
-
-Before claiming an integrated deployment, review these and record the choice in an ADR:
-
-1. **Custom web and API hosts under one registrable domain you own.** Firebase serves the web hosts
-   and the VPS serves the API host. They are different origins: explicit API URL resolution,
-   credentialed `fetch`/CORS, CSRF and origin validation and OIDC callback configuration are all
-   required. Same-site is not same-origin. Keep Studio and Theatre sessions and authorization
-   separate; do not widen a cookie `Domain` to share privileges.
-2. **Free `*.web.app` web origin with an external API.** Fine for static or anonymous inspection;
-   authenticated access is cross-site and subject to third-party-cookie policy. `SameSite=None;
-   Secure` plus CORS alone do not establish reliable login. No wildcard credentialed origins, and no
-   disabling browser protections.
-3. **Keep the existing same-origin VPS edge for authenticated production** and use Firebase only for
-   static previews until a reviewed contract exists. A Cloud Run proxy is not added silently.
-
-Do not invent an environment variable and assume the WASM reads it: an API-origin setting needs an
-actual client reader, validation, tests and coverage of catalog, library, artwork, auth navigation,
-callbacks and every protected request. Never expose the development-only API to satisfy this gate.
-Until it passes, the VPS route in [`infra/edge`](../../infra/edge/README.md) remains the
-authenticated alternative and is untouched by this feature.
+Static upload alone cannot connect the clients to an API: they use relative `/api/v1/…` URLs and
+same-origin credentials, and Firebase Hosting rewrites reach only Cloud Functions or Cloud Run.
+[ADR 0039](../decisions/0039-vps-production-runtime.md) records the chosen design: the VPS edge
+serves `cantoss.duckdns.org` and `studio.cantoss.duckdns.org`, fetching each app's pages from its
+Firebase site and routing `/api/*` to the API process pinned to that origin. Cookies, OIDC
+callbacks and CSRF Origin checks therefore stay same-origin, with no CORS or client API setting.
+The raw `*.web.app` URLs remain static-only (their `/api/*` is Hosting's 404). Never expose the
+development API to work around this, and do not add a cross-site API origin without a new decision.
+The [VPS runbook](vps-production.md) covers the edge and API side.
 
 ## Recovery and reconciliation
 
@@ -337,10 +319,11 @@ firebase deploy --only hosting:theatre \
 | Command contract, plan, request validation, configuration policy, bundle validation, Firebase adapter, receipt, coordinator ordering, redaction | tested with fixtures, fakes and local files (`mock-integration-tested`) |
 | Real release build and validation of both apps | `integration-tested` on a capable host (real Trunk, real files) |
 | Tracked policy under the Hosting emulator (headers, MIME, 404 behavior) | observed locally (emulator, not production Hosting) |
-| One real preview deployment per app, one real live deployment, unselected site unchanged | **`NOT_RUN`**: needs your Firebase project and explicit go-ahead |
-| Firebase CLI response shapes from a real run | **`NOT_RUN`**: fixtures are reconstructed from the CLI sources |
-| HTTP smoke against real Hosting (media types, headers, propagation) | **`NOT_RUN`** |
-| API origin and authentication | **separate gate**, not delivered by this feature |
+| One real live deployment per app (project `cantos-a348b`, sites `cantoss-theatre`, `cantoss-studio`) | **ran 2026-10-17**, PASS; see the [deployment record](../evidence/vps-production-deployment.md) |
+| One real preview deployment per app | **`NOT_RUN`** |
+| Firebase CLI response shapes from a real run | live `deploy --json` parsed successfully on 2026-10-17; preview shapes `NOT_RUN` |
+| HTTP smoke against real Hosting (media types, headers, propagation) | PASS on both live sites (xtask smoke, 2026-10-17) |
+| API origin and authentication | same-origin edge ([ADR 0039](../decisions/0039-vps-production-runtime.md)); live sign-in acceptance pending identity provisioning |
 
 The ledger, evidence, owners, prerequisites and exact commands are in
 [the evidence record](../evidence/issue199-firebase-hosting.md). Each unaccepted part is also marked

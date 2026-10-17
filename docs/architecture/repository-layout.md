@@ -60,7 +60,8 @@ services/
   postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
   kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
 infra/                     Deployment/runtime assets; no application domain logic
-  edge/                    Public edge and host DNS updater assets                         CONFIG ONLY
+  vps/                     Production VPS image, Quadlet units, grants, host script         DEPLOYED
+  edge/                    Public HTTPS edge (Caddy) and host DNS updater assets            DEPLOYED
   firebase/
     hosting/               Static Web Hosting policy and operator site-mapping example     CONFIG ONLY
     app-distribution/      Existing CLI-only operator inputs; no new config format         DOCUMENTED
@@ -171,9 +172,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 - **Firebase Hosting is configuration, not code.** `infra/firebase/hosting/` holds the tracked
   Hosting policy and a mapping example for the explicit, manual
   `cargo xtask deploy firebase` ([runbook](../deployment/firebase-hosting.md)). It serves only each
-  Web app's static bundle: the API, PostgreSQL, Kanidm and storage stay outside it, and the
-  API-origin and authentication contract for a deployed origin is a separate unmet gate. The VPS
-  [edge](../../infra/edge/README.md) remains the authenticated same-origin route.
+  Web app's static bundle: the API, PostgreSQL, Kanidm and storage stay outside it. The VPS
+  [edge](../../infra/edge/README.md) serves those bundles and the API on one origin per app
+  ([ADR 0039](../decisions/0039-vps-production-runtime.md)).
 - **Infrastructure and command orchestration are separate.** [`infra/`](../../infra/README.md)
   owns deployment/runtime assets, including the edge configuration and Firebase Hosting policy.
   `xtask/` owns typed command planning, validation and explicit execution, not a second copy of

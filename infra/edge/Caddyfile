@@ -20,10 +20,11 @@
 	admin localhost:2019
 }
 
+# `?` sets a default only: the API's stricter `Referrer-Policy: no-referrer` must survive.
 (cantos_security) {
 	header {
-		X-Content-Type-Options nosniff
-		Referrer-Policy strict-origin-when-cross-origin
+		?X-Content-Type-Options nosniff
+		?Referrer-Policy strict-origin-when-cross-origin
 		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}

@@ -1,10 +1,13 @@
 # Studio OIDC credential and session boundary
 
-Implemented as an opt-in **development-host integration**, with signed mocked-provider and
-local PostgreSQL evidence recorded [separately](../evidence/studio-oidc.md). Production activation
-remains closed: `cantos-server` requires `CANTOS_ENV=development`, a loopback bind and local
-PostgreSQL. This slice changes none of those restrictions. No Kanidm instance/client/grant/account
-was provisioned. [Surface boundaries](../decisions/0015-api-surface-boundaries.md) and the
+Implemented as an opt-in integration, with signed mocked-provider and local PostgreSQL evidence
+recorded [separately](../evidence/studio-oidc.md). `cantos-server` now has a validated
+`CANTOS_ENV=production` host mode ([ADR 0039](../decisions/0039-vps-production-runtime.md)): an
+explicit bind, one exact HTTPS Web origin, a Unix-socket/loopback PostgreSQL and **no development
+Studio credential**, so Studio OIDC is the only Studio sign-in there. The production Kanidm
+clients, roster and credentials are created by the operator-run `cantos-vps identity`
+([runbook](../deployment/vps-production.md#identity-studio-administrator-and-theatre-sign-in-operator-run));
+live sign-in acceptance is recorded only when it has actually run. [Surface boundaries](../decisions/0015-api-surface-boundaries.md) and the
 [identity registry](identity-registry.md) remain authoritative.
 
 ## Closed Studio enrollment
@@ -37,8 +40,8 @@ Roster entries authorize admission only after credential verification. The exist
 actor binding may be created atomically on the first authorized login; this creates no provider
 account, credentials, provider grant or application role. Theatre-issued credentials/sessions,
 Theatre signup and arbitrary provider groups cannot add roster entries. The isolated development
-token mode remains a local fixture/operator tool under the existing development-only host gate;
-it is neither public registration nor a production account-bootstrap mechanism.
+token mode remains a local fixture/operator tool on a development host only; a production host
+refuses development tokens and token login. It is neither public registration nor an account-bootstrap mechanism.
 
 Real provisioning requires a separate approval naming the environment, account identity and
 intended Studio access. An operator must securely provision the accounts on the existing issuer,
@@ -95,7 +98,7 @@ recovery or automatic bootstrap. Primary protocol sources:
 | Cookie source/host scope | Session fixation, insecure namespace fallback, CSRF | Exact configured cookie name; duplicates/mixed names rejected; Origin guard and HTTPS policy tests |
 | Remote provider active | Disabled/revoked provider credential continues indefinitely | Authenticated introspection per request; outage/expiry/disabled refusal |
 | Surface separation | Studio grants Listener/Admin or producer authority | Current Studio OIDC routes only; reserved-route HTTP tests; producer grants unchanged |
-| Production stays closed | Mock evidence enables deployment | Development/loopback/local DB host checks remain; live gates NOT_RUN |
+| Production host closes development credentials | A deployed host accepts development tokens | `platform::host` closed mode table tests; production router refuses token login/cookies before any SQL; live gates recorded separately |
 
 ## Callback and recovery
 

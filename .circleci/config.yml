@@ -1,0 +1,237 @@
+version: 2.1
+
+# Manual production deployment only (ADR 0039, docs/deployment/vps-production.md).
+#
+# Trigger a pipeline on the `develop` config branch with:
+#   target    = a branch name or commit SHA already merged into origin/develop
+#   component = api | theatre-web | studio-web | web | all
+# Ordinary pushes and pull requests leave `target` empty and run no jobs. Repository checks stay
+# in GitHub Actions (`cargo xtask ci`); nothing here runs on a push. Deployment logic lives in
+# `cargo xtask deploy vps|firebase` and the VPS host script, not in this file.
+#
+# Context `production` must provide (never commit any of them):
+#   API:  VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY (dedicated deploy key), VPS_KNOWN_HOSTS
+#         (`ssh-keyscan -t ed25519 <host>` checked against the host), CANTOS_API_ORIGIN
+#   Web:  FIREBASE_PROJECT, FIREBASE_THEATRE_SITE, FIREBASE_STUDIO_SITE and
+#         FIREBASE_SERVICE_ACCOUNT_JSON (a key limited to Firebase Hosting Admin on that project)
+
+parameters:
+  target:
+    type: string
+    default: ""
+    description: "Deploy this branch or commit (full/short SHA), already merged into develop. Empty = no jobs."
+  component:
+    type: enum
+    enum: [api, theatre-web, studio-web, web, all]
+    default: api
+    description: "What to deploy."
+
+commands:
+  resolve-target:
+    description: Check out the immutable commit named by `target`, which must be in origin/develop.
+    steps:
+      - run:
+          name: Resolve deployment target
+          environment:
+            DEPLOY_TARGET: << pipeline.parameters.target >>
+          command: |
+            set -Eeuo pipefail
+            if [[ "${CIRCLE_BRANCH:-}" != "develop" ]]; then
+              echo "Run this pipeline from the develop config branch." >&2
+              exit 1
+            fi
+            # Treat the parameter as data; never interpolate it into shell source.
+            target="${DEPLOY_TARGET:-}"
+            target="${target#"${target%%[![:space:]]*}"}"
+            target="${target%"${target##*[![:space:]]}"}"
+            target="${target#refs/heads/}"
+            target="${target#origin/}"
+            if [[ -z "$target" || "$target" == -* ]] || ! git check-ref-format "refs/heads/$target"; then
+              echo "Enter a branch name or commit SHA in target." >&2
+              exit 1
+            fi
+            fetch_options=()
+            if [[ "$(git rev-parse --is-shallow-repository)" == true ]]; then
+              fetch_options+=(--unshallow)
+            fi
+            git fetch --prune --no-tags "${fetch_options[@]}" origin '+refs/heads/*:refs/remotes/origin/*'
+            if git show-ref --verify --quiet "refs/remotes/origin/$target"; then
+              sha="$(git rev-parse --verify "refs/remotes/origin/$target^{commit}")"
+            elif [[ "$target" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+              sha="$(git rev-parse --verify "${target,,}^{commit}")"
+            else
+              echo "Target branch not found: $target" >&2
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$sha" refs/remotes/origin/develop; then
+              echo "Target must be merged into origin/develop." >&2
+              exit 1
+            fi
+            git checkout --detach "$sha"
+            echo "Deploying immutable commit: $sha"
+
+  require-env:
+    parameters:
+      names:
+        type: string
+    steps:
+      - run:
+          name: Check required context variables
+          environment:
+            REQUIRED: << parameters.names >>
+          command: |
+            set -Eeuo pipefail
+            for var in $REQUIRED; do
+              if [[ -z "${!var:-}" ]]; then
+                echo "Missing production context variable: $var" >&2
+                exit 1
+              fi
+            done
+
+jobs:
+  deploy-api:
+    # A VM, because the release image is built with Podman (no Docker daemon, ADR 0021).
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    steps:
+      - checkout
+      - resolve-target
+      - require-env:
+          names: VPS_HOST VPS_USER VPS_SSH_PRIVATE_KEY VPS_KNOWN_HOSTS CANTOS_API_ORIGIN
+      - run:
+          name: Configure the production SSH identity
+          command: |
+            set -Eeuo pipefail
+            install -d -m 0700 ~/.ssh
+            printf '%s\n' "${VPS_SSH_PRIVATE_KEY}" > ~/.ssh/cantos_deploy
+            chmod 0600 ~/.ssh/cantos_deploy
+            printf '%s\n' "${VPS_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+            chmod 0600 ~/.ssh/known_hosts
+            printf 'Host %s\n  IdentityFile ~/.ssh/cantos_deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' \
+              "${VPS_HOST}" > ~/.ssh/config
+            chmod 0600 ~/.ssh/config
+      - run:
+          name: Install Podman, zstd and the pinned Rust toolchain
+          command: |
+            set -Eeuo pipefail
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq podman zstd
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.98.1
+            echo 'source "$HOME/.cargo/env"' >> "$BASH_ENV"
+      - restore_cache:
+          keys:
+            - v1-cantos-xtask-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Review the deployment plan
+          command: cargo xtask deploy vps cantos-api --host "${VPS_USER}@${VPS_HOST}" --smoke-origin "${CANTOS_API_ORIGIN}" --dry-run
+      - run:
+          name: Build the release image here and deploy it to the VPS
+          no_output_timeout: 30m
+          command: cargo xtask deploy vps cantos-api --host "${VPS_USER}@${VPS_HOST}" --smoke-origin "${CANTOS_API_ORIGIN}"
+      - save_cache:
+          key: v1-cantos-xtask-{{ checksum "Cargo.lock" }}
+          paths:
+            - ~/.cargo/registry
+            - target/debug
+      - run:
+          name: Remove the deploy key
+          when: always
+          command: rm -f ~/.ssh/cantos_deploy
+
+  deploy-web:
+    parameters:
+      app:
+        type: enum
+        enum: [cantos-theatre, cantos-studio]
+    docker:
+      - image: cimg/rust:1.98.1-node
+    resource_class: large
+    steps:
+      - checkout
+      - resolve-target
+      - require-env:
+          names: FIREBASE_PROJECT FIREBASE_THEATRE_SITE FIREBASE_STUDIO_SITE FIREBASE_SERVICE_ACCOUNT_JSON
+      - run:
+          name: Provide Firebase credentials and the site mapping outside Git
+          command: |
+            set -Eeuo pipefail
+            umask 077
+            install -d -m 0700 ~/.config/cantos-ci
+            printf '%s' "${FIREBASE_SERVICE_ACCOUNT_JSON}" > ~/.config/cantos-ci/firebase-hosting.json
+            echo "export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/cantos-ci/firebase-hosting.json" >> "$BASH_ENV"
+            # infra/firebase/hosting/.firebaserc is ignored by Git; xtask reads it as strict JSON.
+            python3 - \<<'EOF'
+            import json, os
+            mapping = {"targets": {os.environ["FIREBASE_PROJECT"]: {"hosting": {
+                "theatre": [os.environ["FIREBASE_THEATRE_SITE"]],
+                "studio": [os.environ["FIREBASE_STUDIO_SITE"]]}}}}
+            with open("infra/firebase/hosting/.firebaserc", "w") as handle:
+                json.dump(mapping, handle)
+            EOF
+      - restore_cache:
+          keys:
+            - v1-cantos-web-tools-trunk-0.21.14
+      - run:
+          name: Install the pinned Firebase CLI, Trunk and wasm target
+          command: |
+            set -Eeuo pipefail
+            npm install -g --prefix "$HOME/.npm-global" firebase-tools@15.34.0
+            echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$BASH_ENV"
+            command -v trunk >/dev/null || cargo install trunk --version 0.21.14 --locked
+            rustup show active-toolchain
+      - save_cache:
+          key: v1-cantos-web-tools-trunk-0.21.14
+          paths:
+            - ~/.cargo/bin/trunk
+      - run:
+          name: Build once and release << parameters.app >> live
+          no_output_timeout: 30m
+          command: cargo xtask deploy firebase << parameters.app >> --web --project "${FIREBASE_PROJECT}" --channel live
+      - run:
+          name: Remove Firebase credentials
+          when: always
+          command: rm -rf ~/.config/cantos-ci
+
+workflows:
+  deploy-api:
+    when:
+      and:
+        - << pipeline.parameters.target >>
+        - or:
+            - equal: [api, << pipeline.parameters.component >>]
+            - equal: [all, << pipeline.parameters.component >>]
+    jobs:
+      - deploy-api:
+          context: [production]
+          serial-group: << pipeline.project.slug >>/production-api
+
+  deploy-theatre-web:
+    when:
+      and:
+        - << pipeline.parameters.target >>
+        - or:
+            - equal: [theatre-web, << pipeline.parameters.component >>]
+            - equal: [web, << pipeline.parameters.component >>]
+            - equal: [all, << pipeline.parameters.component >>]
+    jobs:
+      - deploy-web:
+          name: deploy-theatre-web
+          app: cantos-theatre
+          context: [production]
+          serial-group: << pipeline.project.slug >>/production-theatre-web
+
+  deploy-studio-web:
+    when:
+      and:
+        - << pipeline.parameters.target >>
+        - or:
+            - equal: [studio-web, << pipeline.parameters.component >>]
+            - equal: [web, << pipeline.parameters.component >>]
+            - equal: [all, << pipeline.parameters.component >>]
+    jobs:
+      - deploy-web:
+          name: deploy-studio-web
+          app: cantos-studio
+          context: [production]
+          serial-group: << pipeline.project.slug >>/production-studio-web

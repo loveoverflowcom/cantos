@@ -419,19 +419,22 @@ kanidm_cli() { # runs the pinned CLI on the private network as idm_admin; args a
   shift
   KANIDM_PASSWORD=$(<"$SECRETS/kanidm-idm-admin.password") podman run --rm -i --network cantos \
     --pull missing -e KANIDM_PASSWORD -e KANIDM_URL="https://$idm" -e KANIDM_NAME=idm_admin \
-    -v cantos-kanidm-cli:/root/.cache "$KANIDM_TOOLS" sh -c \
+    -e RUST_LOG=error -v cantos-kanidm-cli:/root/.cache "$KANIDM_TOOLS" sh -c \
     'kanidm login -D idm_admin >/dev/null && exec "$@"' sh "$@"
+}
+
+# `kanidm ... get` exits 0 for a missing entry too; only JSON output with attrs proves existence.
+kanidm_exists() { # IDM KIND... NAME
+  local idm=$1
+  shift
+  kanidm_cli "$idm" kanidm "$@" -o json 2>/dev/null | grep -q '"attrs"'
 }
 
 ensure_idm_admin() {
   [[ -s $SECRETS/kanidm-idm-admin.password ]] && return
-  podman exec cantos-kanidm /sbin/kanidmd recover-account idm_admin -c /config/server.toml -o json 2>/dev/null |
-    python3 -c 'import json,sys
-for line in sys.stdin:
-    line=line.strip()
-    if line.startswith("{"):
-        value=json.loads(line).get("password")
-        if value: print(value); break' >"$SECRETS/kanidm-idm-admin.password"
+  # The pinned server prints `new_password: "..."`; capture it straight into a root-only file.
+  podman exec cantos-kanidm /sbin/kanidmd recover-account idm_admin -c /config/server.toml 2>&1 |
+    sed -nE 's/.*new_password: "([^"]+)".*/\1/p' >"$SECRETS/kanidm-idm-admin.password"
   chmod 0600 "$SECRETS/kanidm-idm-admin.password"
   [[ -s $SECRETS/kanidm-idm-admin.password ]] || die "could not recover idm_admin" 70
   log "idm_admin recovered; its password stays in $SECRETS (root only)"
@@ -439,24 +442,26 @@ for line in sys.stdin:
 
 ensure_client() { # IDM CLIENT DISPLAY ORIGIN CALLBACK GROUP SECRET-NAME
   local idm=$1 client=$2 display=$3 origin=$4 callback=$5 group=$6 secret=$7
-  kanidm_cli "$idm" kanidm group get "$group" >/dev/null 2>&1 ||
-    kanidm_cli "$idm" kanidm group create "$group" >/dev/null
-  kanidm_cli "$idm" kanidm system oauth2 get "$client" >/dev/null 2>&1 ||
+  kanidm_exists "$idm" group get "$group" || kanidm_cli "$idm" kanidm group create "$group" >/dev/null
+  kanidm_exists "$idm" system oauth2 get "$client" ||
     kanidm_cli "$idm" kanidm system oauth2 create "$client" "$display" "$origin" >/dev/null
   kanidm_cli "$idm" kanidm system oauth2 add-redirect-url "$client" "$callback" >/dev/null
   kanidm_cli "$idm" kanidm system oauth2 update-scope-map "$client" "$group" openid >/dev/null
-  kanidm_cli "$idm" kanidm system oauth2 show-basic-secret "$client" 2>/dev/null |
-    tail -n 1 | tr -d '\r\n' | put_secret "$secret"
+  local value
+  value=$(kanidm_cli "$idm" kanidm system oauth2 show-basic-secret "$client" 2>/dev/null | tail -n 1 | tr -d '\r\n')
+  [[ $value =~ ^[A-Za-z0-9_-]{16,}$ ]] || die "could not read the $client client secret" 70
+  printf '%s' "$value" | put_secret "$secret"
+  log "$client configured; its secret is the Podman secret $secret"
 }
 
 ensure_person() { # IDM NAME DISPLAY GROUP -> prints a one-time reset link to this terminal
   local idm=$1 name=$2 display=$3 group=$4
   [[ $name =~ ^[a-z][a-z0-9_-]{1,63}$ ]] || die "account name must be lowercase [a-z0-9_-]" 65
-  kanidm_cli "$idm" kanidm person get "$name" >/dev/null 2>&1 ||
+  kanidm_exists "$idm" person get "$name" ||
     kanidm_cli "$idm" kanidm person create "$name" "$display" >/dev/null
   kanidm_cli "$idm" kanidm group add-members "$group" "$name" >/dev/null
-  printf '\nOne-time credential setup for %s (open it yourself; do not share it):\n' "$name"
-  kanidm_cli "$idm" kanidm person credential create-reset-token "$name" 86400
+  printf '\nOne-time credential setup for %s, valid 24 hours (open it yourself; do not share it):\n' "$name"
+  kanidm_cli "$idm" kanidm person credential create-reset-token --ttl 86400 "$name"
 }
 
 person_uuid() {

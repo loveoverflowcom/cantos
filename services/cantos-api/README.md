@@ -177,6 +177,18 @@ becomes a release. Migration0014 adds immutable Content/Brief submissions, revoc
 renditions, reviews and candidates; its application-role grants are SELECT/INSERT only.
 Brief read-grant issuance also needs SELECT on `audio_submissions` for credential-separation checks.
 
+## Production host
+
+`CANTOS_ENV=production` ([`platform::host`](src/platform/host.rs), [ADR 0039](../../docs/decisions/0039-vps-production-runtime.md))
+requires an explicit `CANTOS_BIND_ADDRESS` and one exact HTTPS `CANTOS_WEB_ORIGIN`, serves no
+static files, refuses development Studio tokens and token login, `CANTOS_WEB_DIST`,
+`CANTOS_AUDIO_ROOT` and a private issuer CA, and keeps PostgreSQL local (a Unix socket in the
+deployed image). Without Studio OIDC a production host has no Studio sign-in and
+`/api/v1/studio/auth/configuration` answers 503. The deployed runtime grants for `cantos_app`
+are [`infra/vps/postgres/runtime-grants.sql`](../../infra/vps/postgres/runtime-grants.sql);
+`tests/production_grants_postgres.rs` proves they alone serve Studio and Theatre requests.
+Deployment is [`cargo xtask deploy vps`](../../docs/deployment/vps-production.md).
+
 ## Local verification
 
 From the repository root, using Rust 1.98.1 and PostgreSQL 17 where needed:

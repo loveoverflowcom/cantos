@@ -106,9 +106,11 @@ silently enroll users. See [official Kanidm OAuth2 policy](https://kanidm.github
 Opt-in local server configuration is `CANTOS_STUDIO_OIDC_ISSUER`, operator-delivered
 `CANTOS_STUDIO_OIDC_SECRET`, exact `CANTOS_WEB_ORIGIN` and required nonsecret
 `CANTOS_STUDIO_ADMIN_SUBJECTS` (a JSON array of one or two exact, distinct Studio OIDC subjects).
-Secrets never belong in Git, command arguments, browser storage or logs. The host still requires
-development/loopback/local PostgreSQL;
-there is no production activation flag. Studio reads the bounded current-mount
+Secrets never belong in Git, command arguments, browser storage or logs. A production host
+(`CANTOS_ENV=production`, [ADR 0039](../../docs/decisions/0039-vps-production-runtime.md)) takes the
+same inputs from its OIDC drop-in, Podman secret and env file written by the operator-run
+`cantos-vps identity`, which also creates the clients, groups and people described below; the
+development host keeps loopback/local PostgreSQL. Studio reads the bounded current-mount
 `/api/v1/studio/auth/configuration`, confirms the actual cookie with GET `/api/v1/studio/session`,
 and shows the provider sign-in control in OIDC mode. That control performs same-origin DELETE
 `/api/v1/studio/session` before navigating, so expired/legacy cookies can recover. Development

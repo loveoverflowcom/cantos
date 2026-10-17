@@ -7,7 +7,8 @@ validation, build/capture, provider invocation and attributable receipts.
 
 | Location | Owns | Explicit operation |
 | --- | --- | --- |
-| [`edge/`](edge/README.md) | Caddy ingress/TLS/routing policy and a DuckDNS updater example | operator-managed Podman edge; never an implicit deploy side effect |
+| [`vps/`](vps/README.md) | Production VPS runtime: API image, Podman Quadlet units, PostgreSQL roles/grants, Kanidm template, host script | `cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap\|--rollback\|--status]` |
+| [`edge/`](edge/README.md) | Caddy ingress/TLS/routing policy (run as the `cantos-edge` Quadlet unit) and a DuckDNS updater example | installed by `cantos-vps`; never an implicit deploy side effect |
 | [`firebase/hosting/`](firebase/hosting/README.md) | Static Hosting policy and placeholder project/site mapping | `cargo xtask deploy firebase <app> --web --project ID --channel CHANNEL` |
 | [`firebase/app-distribution/`](firebase/app-distribution/README.md) | Existing Android distribution inputs; no invented Firebase configuration section | `cargo xtask distribute firebase cantos-theatre --channel demo --app-id ID --groups GROUPS` |
 

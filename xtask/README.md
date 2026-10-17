@@ -73,6 +73,8 @@ cargo xtask distribute firebase cantos-theatre --channel demo [--artifact apk] \
   (--groups ALIASES | --testers EMAILS)... [--app-id ID] [--release-notes TEXT | --release-notes-file PATH] [--dry-run]
 cargo xtask deploy firebase cantos-theatre|cantos-studio --web --project PROJECT_ID \
   --channel live|PREVIEW_CHANNEL [--expires 7d] [--dry-run]   # explicit static Web deploy to Firebase Hosting
+cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status] \
+  [--smoke-origin https://API_HOST] [--dry-run]               # explicit API deploy to the production VPS
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 cargo xtask visual-compare --reference PNG --actual PNG --scenario ID \
@@ -826,8 +828,9 @@ this section is the contract. It is the second opt-in exception to "xtask publis
 asserts that no ordinary gate, CI or build plan contains a Firebase, Hosting or deploy command. It is
 local and manual: no GitHub Actions workflow, secret, `firebase init hosting:github` or automatic
 trigger exists or is needed. Firebase Hosting serves only the static bundle; the Rust API,
-PostgreSQL, Kanidm and object storage stay outside it, and the API-origin and authentication
-contract is a separate, unmet gate ([runbook](../docs/deployment/firebase-hosting.md#api-origin-and-authentication-a-separate-gate)).
+PostgreSQL, Kanidm and object storage stay outside it. Browsers reach the deployed bundles through
+the VPS edge, which serves each app's pages from its site and its `/api/*` from the API on the same
+origin ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md)); no client API-origin setting exists.
 
 **Request.** The app (`cantos-theatre` or `cantos-studio`, nothing else), `--web`, `--project` and
 `--channel` are required and never defaulted; `cantos-api`, `cantos-forge`, `all` and mobile are
@@ -907,9 +910,34 @@ keep it out of shared CI artifacts.
 Deliberately absent from this first delivery: `--no-build`, an arbitrary artifact path, deploy-all,
 automatic promotion, rollback or channel/site deletion, a provider framework, long-lived caching of
 hashed assets, an API-origin setting and any Firebase SDK, Functions, Cloud Run or App Hosting
-adapter. A live preview and live deployment of each app are **`NOT_RUN`**; see the
-[evidence record](../docs/evidence/issue199-firebase-hosting.md) and the `ACCEPTANCE(NOT_RUN)` markers
-in `xtask/src/deploy`.
+adapter. A live deployment of each app ran on 2026-10-17
+([deployment record](../docs/evidence/vps-production-deployment.md)); a real preview channel is still
+**`NOT_RUN`** ([evidence record](../docs/evidence/issue199-firebase-hosting.md)).
+
+### deploy vps
+
+```sh
+# Plan only: resolves HEAD and prints every step; builds, uploads and runs nothing.
+cargo xtask deploy vps cantos-api --host root@HOST --dry-run
+# One-time and idempotent host setup from the committed infra/vps bundle (no image).
+cargo xtask deploy vps cantos-api --host root@HOST --bootstrap
+# Build HEAD's image here, upload, then backup -> migrate -> grants -> switch -> health gate.
+cargo xtask deploy vps cantos-api --host root@HOST --smoke-origin https://api.example.org
+cargo xtask deploy vps cantos-api --host root@HOST --rollback   # previous image
+cargo xtask deploy vps cantos-api --host root@HOST --status     # read-only
+```
+
+The third opt-in remote write ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md),
+[runbook](../docs/deployment/vps-production.md)). Never invoked by `build`, `run`, `verify`,
+`preflight` or `ci`. The plan (`xtask/src/deploy/vps.rs`) is pure and unit-tested: every local
+step (git archive of the **committed** `HEAD`, digest-pinned Podman build, export, compression,
+bundle) precedes the first remote write, and the remote side only calls the uploaded
+`infra/vps/bin/cantos-vps`, which owns backup, migration, grants, the image switch, health gating
+and automatic switch-back. SSH runs with `BatchMode=yes` and the operator's own agent/config;
+xtask never reads, stores or prints a key, password or token, and the host generates its own
+secrets. `--host` accepts only `user@host` (no options or ports); `--smoke-origin` only an exact
+`https` origin. A failed remote step reports that the remote state may have changed: run
+`--status` before retrying. Run records stay in ignored `artifacts/vps/<stamp>-<sha>/`.
 
 ### theatre-demo
 
