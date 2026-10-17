@@ -10,9 +10,8 @@ use crate::{
 };
 use cantos_contracts::{
     AdaptationContextResponse, AdaptationCoverageDisposition, AdaptationFindingCode,
-    AdaptationProposal, AdaptationProviderMetadata, AdaptationReviewResponse,
-    AdaptationRunResponse, AdaptationStatus, AdaptationSubmissionReceipt, ImportOutcome,
-    ImportResponse,
+    AdaptationProposal, AdaptationReviewResponse, AdaptationStatus, AdaptationSubmissionReceipt,
+    ImportOutcome, ImportResponse,
 };
 use leptos::{prelude::*, task::spawn_local};
 use std::sync::Arc;
@@ -204,33 +203,9 @@ pub fn ScriptAdaptation(
 }
 
 #[component]
-fn ProviderDetails(metadata: AdaptationProviderMetadata, english: Signal<bool>) -> impl IntoView {
-    let metadata = StoredValue::new(metadata);
-    let copy = move || messages::adaptation_copy(english.get());
-    view! {
-        <dl class="source-identity">
-            <dt>{move || copy().provider}</dt><dd>{metadata.with_value(|metadata| metadata.provider.clone())}</dd>
-            <dt>{move || copy().model}</dt><dd>{metadata.with_value(|metadata| metadata.model.clone())}</dd>
-            <dt>{move || messages::adaptation_model_evidence_label(english.get())}</dt><dd>
-                {metadata.with_value(|metadata| metadata.local_model_digest.clone()).map(|digest| view! { <code>{digest}</code> })}
-                <p class="help">{move || metadata.with_value(|metadata| messages::adaptation_model_evidence(metadata.local_model_digest.is_some(), english.get()))}</p>
-            </dd>
-            <dt>{move || copy().endpoint}</dt><dd>{metadata.with_value(|metadata| metadata.endpoint.clone())}</dd>
-            <dt>{move || copy().prompt}</dt><dd>{metadata.with_value(|metadata| format!("{} / {}", metadata.prompt_version, metadata.contract_version))}</dd>
-            <dt>{move || copy().config}</dt><dd><code>{metadata.with_value(|metadata| serde_json::to_string(&metadata.config).unwrap_or_default())}</code></dd>
-        </dl>
-    }
-}
-
-#[component]
 fn ReviewDetails(response: Arc<AdaptationReviewResponse>, english: Signal<bool>) -> impl IntoView {
-    match response.as_ref() {
-        AdaptationReviewResponse::Caller { context } => view! { <CallerContextDetails context=Arc::new(context.as_ref().clone()) english=english /> }.into_any(),
-        AdaptationReviewResponse::Legacy { run, .. } => view! {
-            <p class="help">{move || messages::host_copy(english.get()).legacy}</p>
-            <LegacyRunDetails run=Arc::new(run.as_ref().clone()) english=english />
-        }.into_any(),
-    }
+    let AdaptationReviewResponse::Caller { context } = response.as_ref();
+    view! { <CallerContextDetails context=Arc::new(context.as_ref().clone()) english=english /> }
 }
 
 #[component]
@@ -294,38 +269,6 @@ fn CallerReceiptDetails(
             <h4>{move || copy().problem}</h4><p>{move || messages::adaptation_problem(&problem.code, english.get())}</p>
             <ul>{problem.issues.into_iter().map(|issue| view! { <li><code>{issue.path}</code>" · "<code>{issue.rule}</code></li> }).collect_view()}</ul>
         })}
-    }
-}
-
-#[component]
-fn LegacyRunDetails(run: Arc<AdaptationRunResponse>, english: Signal<bool>) -> impl IntoView {
-    let run = StoredValue::new(run);
-    let copy = move || messages::adaptation_copy(english.get());
-    view! {
-        <section aria-labelledby="adaptation-provenance-title">
-            <h3 id="adaptation-provenance-title">{move || copy().provenance}</h3>
-            <p class="status" role="status" aria-live="polite">{move || run.with_value(|run| messages::adaptation_run_status(run.status, english.get()))}</p>
-            <dl class="source-identity">
-                <dt>{move || copy().run_id}</dt><dd>{run.with_value(|run| run.id.clone())}</dd>
-                <dt>{move || copy().operation}</dt><dd>{run.with_value(|run| run.request.operation_id.clone())}</dd>
-                <dt>{move || copy().source_id}</dt><dd>{run.with_value(|run| run.request.source_id.clone())}</dd>
-                <dt>{move || copy().checksum}</dt><dd><code>{run.with_value(|run| run.source_sha256.clone())}</code></dd>
-                <dt>{move || copy().extraction}</dt><dd>{run.with_value(|run| run.extractor_version.clone())}</dd>
-                <dt>{move || copy().script_id}</dt><dd>{run.with_value(|run| run.request.script_id.clone())}</dd>
-                <dt>{move || copy().base}</dt><dd>{run.with_value(|run| run.request.expected_revision)}</dd>
-                <dt>{move || copy().input_digest}</dt><dd>{move || run.with_value(|run| format!("{} / {}", run.input_content_digest.as_deref().unwrap_or(copy().unknown), run.input_export_digest.as_deref().unwrap_or(copy().unknown)))}</dd>
-                <dt>{move || copy().records}</dt><dd>{run.with_value(|run| format!("{} / {}", run.generation_record_id, run.rights_record_id))}</dd>
-                <dt>{move || copy().cost}</dt><dd>{move || run.with_value(|run| messages::adaptation_cost(run.cost.as_ref(), english.get()))}</dd>
-                <dt>{move || copy().usage}</dt><dd>{move || run.with_value(|run| format!("{} / {}", run.usage.as_ref().and_then(|usage| usage.input_tokens).map(|value| value.to_string()).unwrap_or_else(|| copy().unknown.into()), run.usage.as_ref().and_then(|usage| usage.output_tokens).map(|value| value.to_string()).unwrap_or_else(|| copy().unknown.into())))}</dd>
-            </dl>
-            <ProviderDetails metadata=run.with_value(|run| run.provider.clone()) english=english />
-            {run.with_value(|run| run.problem.clone()).map(|problem| view! {
-                <h4>{move || copy().problem}</h4><p>{move || messages::adaptation_problem(&problem.code, english.get())}</p>
-                <ul>{problem.issues.into_iter().map(|issue| view! { <li><code>{issue.path}</code>" · "<code>{issue.rule}</code></li> }).collect_view()}</ul>
-            })}
-            {run.with_value(|run| run.proposal.clone()).map(|proposal| view! { <ProposalFindings proposal=proposal english=english /> })}
-
-        </section>
     }
 }
 

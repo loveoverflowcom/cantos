@@ -26,8 +26,9 @@ and [report](../cantos-engineering/SKILL.md#9-completion-report) without redefin
 ## Ground rules
 
 - **Implemented slice.** [Script IR 0.1.0](../../../packages/contracts/README.md), its schema/validator,
-  immutable PostgreSQL revisions and a minimal Studio exist. Import/adaptation and production
-  remain planned. [`episode-draft.json`](../../../packages/contracts/examples/episode-draft.json) is a
+  immutable PostgreSQL revisions, bounded import and caller-authored adaptation exist.
+  Provider inference and historical `a1` runtime adapters are outside the API; production
+  planning and external media acceptance have their own current contracts. [`episode-draft.json`](../../../packages/contracts/examples/episode-draft.json) is a
   historical `0.1.0-draft` sample rejected by the reader. Inspect current code/tests before
   treating the proposed types and examples below as implemented.
 - **Docs win for product behavior.** When this skill and an owning document disagree, follow the

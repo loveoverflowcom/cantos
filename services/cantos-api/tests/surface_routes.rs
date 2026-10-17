@@ -127,7 +127,7 @@ async fn studio_routes_require_authentication_at_the_current_and_legacy_paths() 
         format!("/scripts/{SCRIPT}/head"),
         format!("/scripts/{SCRIPT}/history"),
         "/production/catalog".to_owned(),
-        "/adaptations/provider".to_owned(),
+        format!("/adaptations/{SCRIPT}/context"),
     ] {
         let current = call("GET", &format!("{STUDIO_BASE}{suffix}"), false, "").await;
         let legacy = call("GET", &format!("{API_BASE}{suffix}"), false, "").await;
@@ -316,5 +316,24 @@ async fn private_audio_reads_require_studio_authentication_and_have_no_other_sur
         let response = app().oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{suffix}");
         assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    }
+}
+
+#[tokio::test]
+async fn retired_provider_adaptation_routes_are_not_mounted_on_any_surface() {
+    for base in [STUDIO_BASE, API_BASE, THEATRE_BASE, ADMIN_BASE] {
+        for (method, suffix) in [
+            ("GET", "/adaptations/provider".to_owned()),
+            ("POST", "/adaptations".to_owned()),
+            ("GET", format!("/adaptations/{SCRIPT}")),
+            ("POST", format!("/adaptations/{SCRIPT}/cancel")),
+        ] {
+            for cookie in [false, true] {
+                let path = format!("{base}{suffix}");
+                let reply = call(method, &path, cookie, "{}").await;
+                assert_eq!(reply.status, StatusCode::NOT_FOUND, "{method} {path}");
+                assert_eq!(reply.body["code"], "not_found", "{method} {path}");
+            }
+        }
     }
 }

@@ -5,20 +5,6 @@ use crate::{FieldIssue, RevisionResponse};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct StartAdaptationRequest {
-    pub operation_id: String,
-    pub source_id: String,
-    pub script_id: String,
-    pub expected_revision: u64,
-    /// The displayed, authorized destination and generation configuration must still match.
-    pub expected_provider: AdaptationProviderMetadata,
-    /// The creator explicitly authorizes processing this source by the displayed integration.
-    /// This assertion never establishes production or publication eligibility.
-    pub rights_authorization: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
 pub struct AcceptAdaptationRequest {
     pub operation_id: String,
     pub expected_revision: u64,
@@ -36,44 +22,9 @@ pub struct CancelAdaptationRequest {
 #[serde(rename_all = "snake_case")]
 pub enum AdaptationStatus {
     AwaitingProposal,
-    Queued,
-    Running,
     Succeeded,
-    InvalidOutput,
-    Failed,
-    Ambiguous,
     Cancelled,
     Accepted,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct AdaptationConfig {
-    pub temperature_milli: u16,
-    pub seed: u32,
-    pub num_context: u32,
-    pub num_predict: u32,
-    pub timeout_seconds: u32,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct AdaptationProviderMetadata {
-    pub provider: String,
-    pub endpoint: String,
-    pub model: String,
-    /// Legacy recorded model evidence; retained verbatim for frozen v1/a1 record compatibility.
-    /// This optional value does not attest the current integration or a cloud destination.
-    pub local_model_digest: Option<String>,
-    pub prompt_version: String,
-    pub contract_version: String,
-    pub config: AdaptationConfig,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct AdaptationProviderResponse {
-    pub provider: Option<AdaptationProviderMetadata>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -164,29 +115,6 @@ pub struct AdaptationProposal {
     pub coverage: Vec<AdaptationCoverage>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct AdaptationRunResponse {
-    pub id: String,
-    pub created_by: String,
-    pub recorded_at: String,
-    pub updated_at: String,
-    pub request: StartAdaptationRequest,
-    pub source_sha256: String,
-    pub extractor_version: String,
-    pub input_content_digest: Option<String>,
-    pub input_export_digest: Option<String>,
-    pub generation_record_id: String,
-    pub rights_record_id: String,
-    pub provider: AdaptationProviderMetadata,
-    pub status: AdaptationStatus,
-    pub proposal: Option<AdaptationProposal>,
-    pub problem: Option<AdaptationProblem>,
-    pub usage: Option<AdaptationUsage>,
-    pub cost: Option<AdaptationCost>,
-    pub accepted_revision: Option<RevisionResponse>,
-}
-
 /// Caller-owned adaptation. Cantos exports data but does not invoke the caller's model.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -272,16 +200,11 @@ pub struct AdaptationContextResponse {
     pub accepted_revision: Option<RevisionResponse>,
 }
 
-/// The review surface distinguishes preserved legacy evidence from caller-owned contexts.
+/// The review surface returns a frozen caller-owned context.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "workflow", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AdaptationReviewResponse {
     Caller {
         context: Box<AdaptationContextResponse>,
-    },
-    Legacy {
-        run: Box<AdaptationRunResponse>,
-        source: Box<crate::ImportResponse>,
-        input_revision: Option<Box<RevisionResponse>>,
     },
 }

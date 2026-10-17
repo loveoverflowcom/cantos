@@ -157,14 +157,9 @@ mod tests {
 
     use super::*;
 
-    const ALL_STATUSES: [AdaptationStatus; 9] = [
+    const ALL_STATUSES: [AdaptationStatus; 4] = [
         AdaptationStatus::AwaitingProposal,
-        AdaptationStatus::Queued,
-        AdaptationStatus::Running,
         AdaptationStatus::Succeeded,
-        AdaptationStatus::InvalidOutput,
-        AdaptationStatus::Failed,
-        AdaptationStatus::Ambiguous,
         AdaptationStatus::Cancelled,
         AdaptationStatus::Accepted,
     ];

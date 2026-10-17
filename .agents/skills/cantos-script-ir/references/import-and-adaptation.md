@@ -1,9 +1,9 @@
 # Import and AI adaptation as untrusted input
 
 > **Scope.** Admitting TXT, Markdown, DOCX and structured scripts safely; preserving the source
-> byte-exactly with provenance and a lossy-conversion log; the provider-neutral adaptation port;
+> byte-exactly with provenance and a lossy-conversion log; the caller-owned adaptation context/submission boundary;
 > treating AI adaptation output as hostile, unvalidated draft content; findings for invented
-> speakers, omitted text and narration confusion; adaptation attempts and cost records; and
+> speakers, omitted text and narration confusion; caller-declared generation and cost records; and
 > failure behavior that never loses the source or the last valid script. Use when building or
 > reviewing an importer, an extractor, an adaptation prompt or output parser, or the proposal
 > review flow.
@@ -12,7 +12,10 @@ Product rules: the Import and Adapt rows of the
 [production pipeline](../../../../docs/product/production-pipeline.md#end-to-end-flow),
 [business rules 2, 9 and 10](../../../../docs/product/business-rules.md) and the
 [Script/editor scope, acceptance criteria and risks](../../../../docs/assurance/script-editor-acceptance.md).
-Nothing below is implemented; parsers and providers are candidates that need an ADR.
+Inspect the current [adaptation contract](../../../../packages/contracts/adaptation-v1.md) and source.
+The caller-authored data pipeline exists; broader parser examples below are illustrative.
+[ADR 0018](../../../../docs/decisions/0018-external-audio-production.md) forbids inference in the
+API. Do not restore a provider port, disabled provider route or historical `a1` adapter.
 
 ## Contents
 
@@ -32,8 +35,9 @@ upload bytes                       untrusted; size-limited while streaming
 SourceDocument                     immutable, byte-exact, checksum, rights reference (pending)
    ↓ pure: sniff format → extract
 Extraction                         immutable: NFC text blocks, extractor version, conversion log
-   ↓ optional: AdaptationDrafter port (shell)
-AdaptationProposal                 untrusted, narrower than Script IR, tied to its attempt
+   ↓ authorized frozen context exported to an external caller
+   ↓ caller submits bounded untrusted proposal + declared generation metadata
+AdaptationProposal                 untrusted, narrower than Script IR, tied to its frozen context and submission receipt
    ↓ pure: parse → validate → coverage → findings
 proposed DraftScript               stored beside the draft head; applied only by a creator save
 ```
@@ -41,7 +45,7 @@ proposed DraftScript               stored beside the draft head; applied only by
 Every arrow produces a new value; nothing upstream is edited. The proposal never writes the
 draft head: applying it is an ordinary save with a base
 ([`revision-lifecycle.md`](revision-lifecycle.md#2-saves-compare-and-swap-with-idempotent-retry)),
-so a draft that moved while the provider was working produces a conflict, not a silent overwrite.
+so a draft that moved while the external caller was working produces a conflict, not a silent overwrite.
 
 ## 2. Hardening the entry path
 
@@ -122,31 +126,12 @@ conversion. Never convert silently: a wrong guess corrupts every line.
 
 ## 5. AI adaptation output is hostile
 
-The port is provider-neutral and named for the capability, as in
-[`decoupling.md`](../../cantos-engineering/references/decoupling.md):
-
-```rust
-// Illustrative and proposed.
-pub trait AdaptationDrafter {
-    async fn draft(&self, request: &AdaptationRequest) -> Result<AdaptationResponse, AdaptationError>;
-}
-
-pub struct AdaptationRequest {
-    pub attempt: AttemptId,
-    pub language: LanguageTag,
-    pub blocks: Vec<SourceBlock>,
-    pub known_characters: Vec<CharacterHint>,
-    pub output_contract: AdaptationContractVersion,
-}
-
-pub struct AdaptationResponse {
-    pub raw_output: Vec<u8>,                 // parsed by Cantos, not by the adapter's caller
-    pub provider: ProviderRef,
-    pub model: ModelRef,
-    pub provider_request_id: Option<String>,
-    pub usage: ReportedUsage,                // Reported { … } | Unavailable { reason }
-}
-```
+Cantos exports a source/revision-bound context through authenticated tools. The external host
+owns inference, provider configuration, attempts, cost and retries. The API validates a submitted
+proposal and its caller-declared generation metadata; it does not call a provider. Unknown usage
+or cost stays absent, and declarations are not platform attestations. Use the current
+[shared DTOs](../../../../packages/contracts/api/src/adaptations.rs) rather than inventing a
+provider execution port.
 
 The output contract is **narrower than Script IR**: proposed scenes and lines with a speaker
 label, text, cited source spans and optional delivery labels. It has no IDs, rights, lifecycle
@@ -174,25 +159,20 @@ the content digest ([`canonical-digest.md`](canonical-digest.md#2-field-classifi
 Which findings block submission is product policy; the proposal is that invalid references block
 and coverage, divergence and narration findings require review.
 
-## 6. Attempts, cost and failure
+## 6. Caller generation, cost and failure
 
-- **Record before calling.** Persist `AdaptationAttempt { id, extraction, provider, model,
-  request digest, estimate }` with status `Dispatched` before the provider call, so a crash or
-  timeout leaves evidence instead of an invisible charge.
-- **Outcomes are distinct.** `Succeeded { usage }`, `InvalidOutput`, `ProviderFailed { class }`
-  and `OutcomeUnknown` (a timeout after dispatch: the provider may have run and billed). An
-  unknown outcome is reconciled or explicitly resolved before an equivalent paid call repeats,
-  per [AGENTS.md](../../../../AGENTS.md).
-- **Costs are typed.** `Known(Money)`, `Estimated(Money)` or `Unavailable { reason }`; never `0`
-  for unknown. The cost and budget model is the pipeline's
-  ([`cost-and-budget.md`](../../cantos-production-pipeline/references/cost-and-budget.md)); if
-  adaptation runs as a durable job it follows
-  [`durable-jobs.md`](../../cantos-production-pipeline/references/durable-jobs.md).
-- **Raw output retention** is a policy decision. When retained for diagnosis it is private,
-  tied to the attempt and treated like source content in logs.
-- **Failure preserves everything.** An adaptation failure, an invalid output or an interrupted
-  save leaves the source, the extraction and the draft head byte-identical. The proposal is the
-  only new record.
+- Freeze source identity, base revision and instructions before export. A submission pins that
+  exact immutable context digest and a distinct operation ID; a retry reuses the same arguments.
+- Generation host/provider/model/configuration, usage and cost are unverified caller declarations.
+  Only `caller_declared` cost is admitted; missing usage/cost remains unknown. Actual provider
+  attempts, ambiguous external outcomes, retries and billing belong to the caller.
+- Invalid domain output creates an immutable invalid submission receipt and leaves the context
+  awaiting a new explicit correction. The first valid proposal commits atomically; a distinct
+  later submission cannot replace it. A lost response is reconciled by exact operation replay.
+- Source, extraction and accepted head remain unchanged on failed submission or acceptance.
+  Acceptance rechecks owner, source/bindings, head and explicit review before appending a revision.
+- Historical `a1` provider execution and its compatibility adapters are retired. Do not retain
+  runtime decoders solely to preserve history; follow the controlled schema/cutover owner.
 
 ## 7. Tests
 
@@ -202,9 +182,9 @@ and coverage, divergence and narration findings require review.
 | lossy steps are visible | DOCX fixture with tracked changes, comments, footnotes and a table → exact notes | `example-tested` |
 | hostile output becomes findings | recorded real outputs (provider, model, capture date noted) plus crafted cases → exact findings | `differentially-tested` for recorded, `example-tested` for crafted |
 | omissions are detected | property: removing one line's citations uncovers exactly its blocks | `property-tested` |
-| failure preserves state | invalid output, timeout and crash cases leave head digest and source checksum unchanged and an attempt recorded | `example-tested`; `fault-injected` when injected at named points |
-| the flow works against a fake drafter | end-to-end with a deterministic fake | `example-tested`, never `provider-live-tested` |
-| one real provider works | a live call under a cost limit, output stored as a recorded fixture | `provider-live-tested` |
+| failure preserves state | invalid output and interrupted/retried writes leave head digest and source checksum unchanged, with exact operation receipts | `example-tested`; `fault-injected` when injected at named points |
+| the flow admits caller-created output | context → submission → acceptance with synthetic caller output | `example-tested`, never `provider-live-tested` |
+| external host quality acceptance | a separately authorized external live call, output stored as a permitted recorded fixture | `provider-live-tested` |
 
 Fixtures use original or permitted text. A recorded provider output is regenerated only by
 capturing again from the provider and saying so in the PR — never by running Cantos code

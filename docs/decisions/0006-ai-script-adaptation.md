@@ -66,16 +66,18 @@ transport does not imply production identity/TLS or a configured public ChatGPT/
 
 ## Compatibility and persistence
 
-Migration 0005 extends the same adaptation run/proposal/acceptance authority with immutable input
-version and append-only submission receipts. Historical a1 frozen inputs keep their exact typed
-decoder and digest preimage; c1 inputs have a distinct type/label. Keep optional
-`local_model_digest` and legacy configuration keys for stored-record compatibility. Never rewrite
-immutable rows or rename/default-skip their nested serialized fields.
+The original migration 0005 extended adaptation runs with immutable input versions and
+append-only caller submission receipts. Its old `a1` compatibility policy is superseded by the
+owner decision in [#238](https://github.com/loveoverflowcom/cantos/issues/238), dated 2026-10-17:
+current runtime exposes only caller-authored `c1` contexts, proposals and reviewed acceptance.
+Provider-run starts/reads/cancellations, `a1` decoding and legacy review DTOs are removed, without
+rewriting existing immutable receipts. The `workflow: "caller"` review shape is unchanged.
 
-Historical run/proposal/acceptance reads remain supported. Retired start/provider compatibility
-endpoints fail unavailable/null and have no inference implementation. Expired historical dispatched
-attempts may reconcile to ambiguity; nothing redispatches them. Existing source/revision exports,
-migrations and Script IR schema remain unchanged.
+The distinct [#239](https://github.com/loveoverflowcom/cantos/issues/239) owns fresh-schema
+replacement and controlled deployed-database transition. Historical migration bytes and evidence
+remain auditable; runtime compatibility is not a prerequisite to retaining that history.
+Production inventory, backup/restore validation and approved cutover remain separate gates.
+This clarification does not promote this ADR's proposed production adoption status.
 
 ## Alternatives and consequences
 

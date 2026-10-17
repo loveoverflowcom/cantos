@@ -7,7 +7,6 @@ use cantos_contracts::{
 use super::super::domain::{admit_edited_proposal, decide_acceptance, AcceptanceDecision};
 use super::super::postgres::{self, ActorLock};
 use super::context::context_in_transaction;
-use super::legacy::run_in_transaction;
 use crate::contexts::editorial::append_revision;
 use crate::platform::postgres::{authenticate, checked_number, normalized_uuid, Store, StoreError};
 
@@ -31,37 +30,13 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
         postgres::lock_actor(&tx, ActorLock::Accept, &actor).await?;
-        let version = postgres::input_version(&tx, &actor, id)
-            .await?
-            .ok_or(StoreError::NotFound)?;
-        let (status, expected_revision, script_id, source, binding, accepted_revision) =
-            match version.as_str() {
-                "a1" => {
-                    let (response, frozen) = run_in_transaction(&tx, &actor, id).await?;
-                    let binding = frozen.binding(id);
-                    (
-                        response.status,
-                        frozen.request.expected_revision,
-                        frozen.request.script_id,
-                        frozen.source,
-                        binding,
-                        response.accepted_revision,
-                    )
-                }
-                "c1" => {
-                    let (response, context) = context_in_transaction(&tx, &actor, id).await?;
-                    let binding = context.binding(id);
-                    (
-                        response.status,
-                        context.request.expected_revision,
-                        context.request.script_id,
-                        context.source,
-                        binding,
-                        response.accepted_revision,
-                    )
-                }
-                _ => return Err(StoreError::CorruptRevision),
-            };
+        let (response, context) = context_in_transaction(&tx, &actor, id).await?;
+        let binding = context.binding(id);
+        let status = response.status;
+        let expected_revision = context.request.expected_revision;
+        let script_id = context.request.script_id;
+        let source = context.source;
+        let accepted_revision = response.accepted_revision;
         authenticate(&tx, token).await?;
         let prior = postgres::acceptance_by_operation(&tx, &actor, &request.operation_id).await?;
         let prior = prior.as_ref().map(|(run, prior)| (run.as_str(), prior));

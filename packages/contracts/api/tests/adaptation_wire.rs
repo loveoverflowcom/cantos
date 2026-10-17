@@ -1,47 +1,11 @@
-use cantos_contracts::{AdaptationFindingCode, AdaptationStatus, StartAdaptationRequest};
-use serde_json::{json, Value};
-
-// Independently authored historical v1 destination assertion, retained as a compatibility oracle.
-// It does not configure a current generation integration; no backend serializer produced it.
-const START: &str = r#"{
-  "operation_id":"00000000-0000-4000-8000-000000000003",
-  "source_id":"src_synthetic", "script_id":"00000000-0000-4000-8000-000000000004",
-  "expected_revision":0, "rights_authorization":true,
-  "expected_provider":{
-    "provider":"ollama-local", "endpoint":"http://127.0.0.1:11434", "model":"fixture:latest",
-    "local_model_digest":null,
-    "prompt_version":"cantos-radio-adapt-1", "contract_version":"cantos-adaptation-1",
-    "config":{"temperature_milli":200,"seed":0,"num_context":8192,"num_predict":4096,"timeout_seconds":120}
-  }
-}"#;
-
-#[test]
-fn start_round_trip_retains_explicit_destination_model_and_scope_assertion() {
-    let request: StartAdaptationRequest = serde_json::from_str(START).unwrap();
-    assert_eq!(request.expected_provider.endpoint, "http://127.0.0.1:11434");
-    assert_eq!(request.expected_provider.model, "fixture:latest");
-    assert!(request.rights_authorization);
-    assert_eq!(
-        serde_json::to_value(request).unwrap(),
-        serde_json::from_str::<Value>(START).unwrap()
-    );
-    let mut raw: Value = serde_json::from_str(START).unwrap();
-    raw.as_object_mut().unwrap().remove("expected_provider");
-    assert!(serde_json::from_value::<StartAdaptationRequest>(raw).is_err());
-    let mut raw: Value = serde_json::from_str(START).unwrap();
-    raw["approved"] = json!(true);
-    assert!(serde_json::from_value::<StartAdaptationRequest>(raw).is_err());
-}
+use cantos_contracts::{AdaptationFindingCode, AdaptationReviewResponse, AdaptationStatus};
+use serde_json::json;
 
 #[test]
 fn status_and_review_findings_are_closed_and_have_independent_wire_spellings() {
     for (value, expected) in [
-        ("queued", AdaptationStatus::Queued),
-        ("running", AdaptationStatus::Running),
+        ("awaiting_proposal", AdaptationStatus::AwaitingProposal),
         ("succeeded", AdaptationStatus::Succeeded),
-        ("invalid_output", AdaptationStatus::InvalidOutput),
-        ("failed", AdaptationStatus::Failed),
-        ("ambiguous", AdaptationStatus::Ambiguous),
         ("cancelled", AdaptationStatus::Cancelled),
         ("accepted", AdaptationStatus::Accepted),
     ] {
@@ -112,4 +76,48 @@ fn caller_submission_status_and_cost_basis_have_closed_distinct_spellings() {
         json!("provider_reported")
     );
     assert!(serde_json::from_value::<AdaptationSubmissionStatus>(json!("accepted")).is_err());
+}
+
+#[test]
+fn retired_provider_statuses_and_legacy_review_shapes_are_rejected() {
+    for status in ["queued", "running", "invalid_output", "failed", "ambiguous"] {
+        assert!(serde_json::from_value::<AdaptationStatus>(json!(status)).is_err());
+    }
+    let retired = json!({"workflow":"legacy","run":{},"source":{},"input_revision":null});
+    let error = serde_json::from_value::<AdaptationReviewResponse>(retired).unwrap_err();
+    assert!(error.to_string().contains("unknown variant `legacy`"));
+}
+
+#[test]
+fn current_schema_accepts_caller_context_input_and_refuses_provider_execution_shapes() {
+    let schema: serde_json::Value =
+        serde_json::from_str(include_str!("../../schema/adaptation/v1.schema.json")).unwrap();
+    for retired in [
+        "Start",
+        "Run",
+        "ProviderMetadata",
+        "ProviderResponse",
+        "LegacyReview",
+    ] {
+        assert!(schema["$defs"].get(retired).is_none(), "{retired}");
+    }
+    let mut request_schema = schema.clone();
+    request_schema["$ref"] = json!("#/$defs/ContextRequest");
+    let request = json!({
+        "operation_id":"00000000-0000-4000-8000-000000000005",
+        "source_id":"src_synthetic", "source_sha256":"0".repeat(64),
+        "extractor_version":"cantos-text-1", "script_id":"00000000-0000-4000-8000-000000000004",
+        "expected_revision":0, "rights_authorization":true
+    });
+    let validator = jsonschema::validator_for(&request_schema).unwrap();
+    assert!(validator.is_valid(&request));
+    let mut provider_input = request;
+    provider_input["expected_provider"] = json!({"provider":"retired-execution"});
+    assert!(!validator.is_valid(&provider_input));
+    let mut review_schema = schema;
+    review_schema["$ref"] = json!("#/$defs/Review");
+    let validator = jsonschema::validator_for(&review_schema).unwrap();
+    assert!(!validator.is_valid(&json!({
+        "workflow":"legacy", "run":{}, "source":{}, "input_revision":null
+    })));
 }

@@ -21,8 +21,8 @@ pub use commands::{
 };
 pub use evidence::{admit_edited_proposal, TrustedBinding};
 pub use frozen::{
-    generation_record_id, rights_record_id, typed_digest, FrozenAdaptation, FrozenContext,
-    Observation, INPUT_A1_DIGEST, INPUT_C1_DIGEST, PROPOSAL_DIGEST, SUBMISSION_DIGEST,
+    generation_record_id, rights_record_id, typed_digest, FrozenContext, INPUT_C1_DIGEST,
+    PROPOSAL_DIGEST, SUBMISSION_DIGEST,
 };
 pub use generation::{validate_caller_generation, MAX_CALLER_CONFIGURATION_BYTES};
 pub use materialize::{admit_output_with_ids, admit_output_with_minter, MAX_FINDINGS};

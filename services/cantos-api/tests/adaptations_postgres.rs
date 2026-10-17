@@ -7,22 +7,19 @@ use axum::{
     Router,
 };
 use cantos_api::{
-    contexts::adaptation::{admit_output, TrustedBinding},
     interfaces::http::{router, AppState},
     platform::postgres::{local_config, migrate, token_hash, Store, StoreError},
     script_ir::read_script,
 };
 use cantos_contracts::{
-    AcceptAdaptationRequest, AdaptationConfig, AdaptationContextRequest, AdaptationContextResponse,
-    AdaptationCost, AdaptationCostBasis, AdaptationCurrency, AdaptationProviderMetadata,
-    AdaptationRunResponse, AdaptationStatus, AdaptationSubmissionReceipt,
+    AcceptAdaptationRequest, AdaptationContextRequest, AdaptationContextResponse, AdaptationCost,
+    AdaptationCostBasis, AdaptationCurrency, AdaptationStatus, AdaptationSubmissionReceipt,
     AdaptationSubmissionStatus, AdaptationUsage, CallerGenerationMetadata, CancelAdaptationRequest,
     HistoryResponse, ImportFormat, ImportMetadata, ImportOutcome, ImportRequest, ImportResponse,
     ReviewRequest, ReviewResponse, RevisionResponse, SaveRevisionRequest, ScriptValidationResponse,
-    SourceResponse, StartAdaptationRequest, SubmitAdaptationProposalRequest, ValidateScriptRequest,
+    SourceResponse, SubmitAdaptationProposalRequest, ValidateScriptRequest,
 };
 use http_body_util::BodyExt;
-use serde::Serialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -101,7 +98,7 @@ impl Harness {
         migrate(&config).await.unwrap();
         let admin = connect(&config).await;
         admin.batch_execute("GRANT USAGE ON SCHEMA public TO cantos_app; GRANT SELECT ON actors,sessions,script_members,script_evidence,script_revisions,revision_evidence,scripts,source_records,script_reviews,script_review_operations TO cantos_app; GRANT INSERT ON scripts,script_revisions,revision_evidence,script_evidence,source_records TO cantos_app; GRANT UPDATE(head_revision) ON scripts TO cantos_app; GRANT UPDATE(revoked) ON sessions TO cantos_app; INSERT INTO actors(id) VALUES('alice'),('bob');").await.unwrap();
-        admin.batch_execute("GRANT SELECT,INSERT ON adaptation_runs,adaptation_attempts,adaptation_observations,adaptation_proposals,adaptation_cancellations,adaptation_acceptances,adaptation_submissions TO cantos_app; GRANT UPDATE(status,problem,dispatch_deadline,updated_at) ON adaptation_runs TO cantos_app;").await.unwrap();
+        admin.batch_execute("GRANT SELECT,INSERT ON adaptation_runs,adaptation_proposals,adaptation_cancellations,adaptation_acceptances,adaptation_submissions TO cantos_app; GRANT UPDATE(status,updated_at) ON adaptation_runs TO cantos_app;").await.unwrap();
         for (actor, token) in [("alice", ALICE), ("bob", BOB)] {
             admin.execute("INSERT INTO sessions(token_hash,actor_id,expires_at) VALUES($1,$2,CURRENT_TIMESTAMP+interval '1 hour')",&[&token_hash(token),&actor]).await.unwrap();
         }
@@ -143,9 +140,9 @@ impl Harness {
             .unwrap()
     }
 
-    async fn counts(&self) -> (i64, i64, i64, i64, i64) {
-        let row=self.admin.query_one("SELECT (SELECT count(*) FROM adaptation_runs),(SELECT count(*) FROM adaptation_attempts),(SELECT count(*) FROM adaptation_proposals),(SELECT count(*) FROM adaptation_acceptances),(SELECT count(*) FROM script_revisions)",&[]).await.unwrap();
-        (row.get(0), row.get(1), row.get(2), row.get(3), row.get(4))
+    async fn counts(&self) -> (i64, i64, i64, i64) {
+        let row=self.admin.query_one("SELECT (SELECT count(*) FROM adaptation_runs),(SELECT count(*) FROM adaptation_proposals),(SELECT count(*) FROM adaptation_acceptances),(SELECT count(*) FROM script_revisions)",&[]).await.unwrap();
+        (row.get(0), row.get(1), row.get(2), row.get(3))
     }
     async fn submissions(&self) -> i64 {
         self.admin
@@ -371,7 +368,7 @@ async fn context_exports_frozen_source_and_valid_submission_requires_explicit_re
         serde_json::from_str::<Value>(&context.proposal_schema_json).unwrap()["type"],
         "object"
     );
-    assert_eq!(h.counts().await, (1, 0, 0, 0, 0));
+    assert_eq!(h.counts().await, (1, 0, 0, 0));
 
     let intent = submission(&context, document());
     let (status, value) = h
@@ -434,7 +431,7 @@ async fn context_exports_frozen_source_and_valid_submission_requires_explicit_re
             "{code}"
         );
     }
-    assert_eq!(h.counts().await, (1, 0, 1, 0, 0));
+    assert_eq!(h.counts().await, (1, 1, 0, 0));
     let reviews: i64 = h
         .admin
         .query_one("SELECT count(*) FROM script_reviews", &[])
@@ -476,7 +473,7 @@ async fn context_exports_frozen_source_and_valid_submission_requires_explicit_re
     assert_eq!(accepted.accepted_revision, Some(saved.clone()));
     assert_eq!(accepted.proposal, proposed.proposal);
     assert_eq!(h.store.load(ALICE, &script, Some(1)).await.unwrap(), saved);
-    assert_eq!(h.counts().await, (1, 0, 1, 1, 1));
+    assert_eq!(h.counts().await, (1, 1, 1, 1));
     h.originals_unchanged(&source).await;
 }
 
@@ -536,7 +533,7 @@ async fn concurrent_context_and_submission_retries_are_exact_and_changed_operati
             .await,
         Err(StoreError::ProposalAlreadySubmitted)
     ));
-    assert_eq!(h.counts().await, (1, 0, 1, 0, 0));
+    assert_eq!(h.counts().await, (1, 1, 0, 0));
     assert_eq!(
         h.store
             .submit_adaptation_proposal(ALICE, &context.id, intent)
@@ -595,7 +592,7 @@ async fn invalid_model_bytes_record_immutable_caller_receipts_and_new_operation_
         assert_eq!(reloaded.status, AdaptationStatus::AwaitingProposal);
         assert_eq!(reloaded.proposal, None);
         assert_eq!(reloaded.latest_submission, Some(receipt));
-        assert_eq!(h.counts().await, (1, 0, 0, 0, 0));
+        assert_eq!(h.counts().await, (1, 0, 0, 0));
     }
     let intent = submission(&context, document());
     let receipt = h
@@ -605,7 +602,7 @@ async fn invalid_model_bytes_record_immutable_caller_receipts_and_new_operation_
         .unwrap();
     assert_eq!(receipt.status, AdaptationSubmissionStatus::Valid);
     assert_eq!(h.submissions().await, 5);
-    assert_eq!(h.counts().await, (1, 0, 1, 0, 0));
+    assert_eq!(h.counts().await, (1, 1, 0, 0));
     h.originals_unchanged(&source).await;
 }
 
@@ -626,7 +623,7 @@ async fn source_checksum_extractor_rights_and_bounds_are_checked_before_context_
             h.store.create_adaptation_context(ALICE, request).await,
             Err(StoreError::InvalidRequestFields(_))
         ));
-        assert_eq!(h.counts().await, (0, 0, 0, 0, 0));
+        assert_eq!(h.counts().await, (0, 0, 0, 0));
     }
     for (bytes, absent_claim) in [
         (ORIGINAL.as_bytes().to_vec(), true),
@@ -670,7 +667,7 @@ async fn source_checksum_extractor_rights_and_bounds_are_checked_before_context_
             assert!(matches!(result, Err(StoreError::InvalidRequestFields(_))));
         }
     }
-    assert_eq!(h.counts().await, (0, 0, 0, 0, 0));
+    assert_eq!(h.counts().await, (0, 0, 0, 0));
     h.originals_unchanged(&source).await;
 }
 
@@ -725,7 +722,7 @@ async fn context_digest_prompt_version_and_caller_metadata_cannot_be_forged() {
     assert_eq!(receipt.generation.cost, intent.generation.cost);
     assert_eq!(receipt.generation.provider, None);
     assert_eq!(receipt.generation.model, None);
-    assert_eq!(h.counts().await, (2, 0, 1, 0, 0));
+    assert_eq!(h.counts().await, (2, 1, 0, 0));
 }
 
 #[tokio::test]
@@ -779,7 +776,7 @@ async fn hostile_http_unknown_fields_malformed_json_bad_origin_and_oversized_bod
         .0,
         StatusCode::PAYLOAD_TOO_LARGE
     );
-    assert_eq!(h.counts().await, (0, 0, 0, 0, 0));
+    assert_eq!(h.counts().await, (0, 0, 0, 0));
     let context = h.context(&source, &operation(), 0).await;
     let path = format!("/adaptations/{}/proposals", context.id);
     let mut forged = json!(submission(&context, document()));
@@ -816,7 +813,7 @@ async fn hostile_http_unknown_fields_malformed_json_bad_origin_and_oversized_bod
             .await,
         Err(StoreError::InvalidRequestFields(_))
     ));
-    assert_eq!(h.counts().await, (1, 0, 0, 0, 0));
+    assert_eq!(h.counts().await, (1, 0, 0, 0));
     assert_eq!(h.submissions().await, 0);
 }
 
@@ -912,7 +909,7 @@ async fn anonymous_foreign_revoked_and_expired_sessions_cannot_export_submit_rev
             .await,
         Err(StoreError::Unauthenticated)
     ));
-    assert_eq!(h.counts().await, (1, 0, 1, 0, 0));
+    assert_eq!(h.counts().await, (1, 1, 0, 0));
     assert_eq!(h.submissions().await, 1);
 }
 
@@ -983,7 +980,7 @@ async fn frozen_base_stale_acceptance_and_concurrent_exact_acceptance_preserve_a
     ));
     assert_eq!(h.store.load(ALICE, &script, Some(1)).await.unwrap(), base);
     assert_eq!(h.store.load(ALICE, &script, Some(2)).await.unwrap(), edited);
-    assert_eq!(h.counts().await, (4, 0, 3, 2, 3));
+    assert_eq!(h.counts().await, (4, 3, 2, 3));
     h.originals_unchanged(&source).await;
 }
 
@@ -1007,7 +1004,7 @@ async fn failed_context_creation_rolls_back_run_and_registered_evidence_then_exa
             .await,
         Err(StoreError::Unavailable)
     ));
-    assert_eq!(h.counts().await, (0, 0, 0, 0, 0));
+    assert_eq!(h.counts().await, (0, 0, 0, 0));
     assert_eq!(
         h.admin
             .query_one("SELECT count(*) FROM script_evidence", &[])
@@ -1034,7 +1031,7 @@ async fn failed_context_creation_rolls_back_run_and_registered_evidence_then_exa
             .unwrap(),
         context
     );
-    assert_eq!(h.counts().await, (1, 0, 0, 0, 0));
+    assert_eq!(h.counts().await, (1, 0, 0, 0));
 }
 
 #[tokio::test]
@@ -1054,7 +1051,7 @@ async fn failed_submission_receipt_or_proposal_insert_rolls_back_whole_transitio
             Err(StoreError::Unavailable)
         ));
         assert_eq!(h.submissions().await, 0);
-        assert_eq!(h.counts().await, (1, 0, 0, 0, 0));
+        assert_eq!(h.counts().await, (1, 0, 0, 0));
         assert_eq!(
             h.store
                 .load_adaptation_context(ALICE, &context.id)
@@ -1076,7 +1073,7 @@ async fn failed_submission_receipt_or_proposal_insert_rolls_back_whole_transitio
             receipt
         );
         assert_eq!(h.submissions().await, 1);
-        assert_eq!(h.counts().await, (1, 0, 1, 0, 0));
+        assert_eq!(h.counts().await, (1, 1, 0, 0));
     }
 }
 
@@ -1094,7 +1091,7 @@ async fn failed_acceptance_insert_rolls_back_revision_head_and_receipt_then_exac
             .await,
         Err(StoreError::Unavailable)
     ));
-    assert_eq!(h.counts().await, (1, 0, 1, 0, 0));
+    assert_eq!(h.counts().await, (1, 1, 0, 0));
     assert_eq!(
         h.admin
             .query_one("SELECT count(*) FROM scripts", &[])
@@ -1123,7 +1120,7 @@ async fn failed_acceptance_insert_rolls_back_revision_head_and_receipt_then_exac
             .unwrap(),
         saved
     );
-    assert_eq!(h.counts().await, (1, 0, 1, 1, 1));
+    assert_eq!(h.counts().await, (1, 1, 1, 1));
 }
 
 #[tokio::test]
@@ -1193,7 +1190,7 @@ async fn context_and_submission_replay_after_reopened_store_never_dispatch_or_re
     );
     assert_eq!(accepted.accepted_revision, Some(saved));
     assert_eq!(h.submissions().await, 2);
-    assert_eq!(h.counts().await, (1, 0, 1, 1, 1));
+    assert_eq!(h.counts().await, (1, 1, 1, 1));
     h.originals_unchanged(&source).await;
 }
 
@@ -1246,7 +1243,7 @@ async fn cancellation_fences_late_external_submission_and_exact_cancel_receipts_
                 Err(StoreError::InvalidRequest)
             ));
         }
-        assert_eq!(h.counts().await, (1, 0, if proposed { 1 } else { 0 }, 0, 0));
+        assert_eq!(h.counts().await, (1, if proposed { 1 } else { 0 }, 0, 0));
         h.originals_unchanged(&source).await;
     }
 }
@@ -1415,7 +1412,7 @@ async fn frozen_source_checksum_extractor_prompt_contract_and_base_digest_tamper
                 .unwrap(),
             saved
         );
-        assert_eq!(h.counts().await, (2, 0, 1, 1, 1));
+        assert_eq!(h.counts().await, (2, 1, 1, 1));
         assert_eq!(h.submissions().await, 1);
         h.originals_unchanged(&source).await;
     }
@@ -1510,204 +1507,6 @@ async fn authorization_expiry_and_revocation_after_lock_wait_roll_back_context_s
     }
 }
 
-/// This independent typed record preserves the historical a1 serialized field order.
-// No current caller metadata is fabricated from these old provider fields.
-#[derive(Serialize)]
-struct LegacyFrozen {
-    request: StartAdaptationRequest,
-    source: ImportResponse,
-    base: Option<RevisionResponse>,
-    provider: AdaptationProviderMetadata,
-    generation_record_id: String,
-    rights_record_id: String,
-}
-fn labelled_digest<T: Serialize>(label: &[u8], value: &T) -> String {
-    let mut digest = Sha256::new();
-    digest.update(label);
-    digest.update(serde_json::to_vec(value).unwrap());
-    format!("{:x}", digest.finalize())
-}
-async fn seed_legacy(
-    h: &Harness,
-    source: &ImportResponse,
-    accepted: bool,
-) -> (String, StartAdaptationRequest, Option<RevisionResponse>) {
-    let id = operation();
-    let script = operation();
-    let provider = AdaptationProviderMetadata {
-        provider: "preserved-historical-record".into(),
-        endpoint: "http://127.0.0.1:historical-only".into(),
-        model: "archived-model-name".into(),
-        local_model_digest: Some("archived-weight-record".into()),
-        prompt_version: "cantos-radio-adapt-1".into(),
-        contract_version: "cantos-adaptation-1".into(),
-        config: AdaptationConfig {
-            temperature_milli: 100,
-            seed: 7,
-            num_context: 8192,
-            num_predict: 1024,
-            timeout_seconds: 120,
-        },
-    };
-    let request = StartAdaptationRequest {
-        operation_id: operation(),
-        source_id: source.id.clone(),
-        script_id: script.clone(),
-        expected_revision: 0,
-        expected_provider: provider.clone(),
-        rights_authorization: true,
-    };
-    let frozen = LegacyFrozen {
-        request: request.clone(),
-        source: source.clone(),
-        base: None,
-        provider,
-        generation_record_id: format!("gen_{}", id.replace('-', "")),
-        rights_record_id: format!("rights_{}", id.replace('-', "")),
-    };
-    for (kind, evidence) in [
-        ("generation", &frozen.generation_record_id),
-        ("rights", &frozen.rights_record_id),
-    ] {
-        h.admin.execute("INSERT INTO script_evidence(owner_id,kind,id,description) VALUES('alice',$1,$2,'independently seeded historical record; no current generation or publication claim')",&[&kind,&evidence]).await.unwrap();
-    }
-    let proposal = admit_output(
-        document().as_bytes(),
-        source,
-        &TrustedBinding {
-            source_id: source.id.clone(),
-            source_sha256: source.sha256.clone(),
-            generation_record_id: frozen.generation_record_id.clone(),
-            rights_record_id: frozen.rights_record_id.clone(),
-            id_namespace: id.replace('-', ""),
-            base_script_json: None,
-        },
-    )
-    .unwrap();
-    let input_digest = labelled_digest(b"cantos/adaptation-input/a1\n", &frozen);
-    let json = serde_json::to_string(&frozen).unwrap();
-    h.admin.execute("INSERT INTO adaptation_runs(id,owner_id,operation_id,source_id,script_id,frozen_input,input_digest,status) VALUES($1,'alice',$2,$3,$4,$5::text::jsonb,$6,$7)",&[&id,&request.operation_id,&source.id,&script,&json,&input_digest,&if accepted{"accepted"}else{"succeeded"}]).await.unwrap();
-    h.admin
-        .execute("INSERT INTO adaptation_attempts(run_id) VALUES($1)", &[&id])
-        .await
-        .unwrap();
-    let observation=json!({"problem":null,"usage":{"input_tokens":87,"output_tokens":123},"cost":null,"output_sha256":sha(document().as_bytes()),"output_byte_len":document().len()}).to_string();
-    h.admin.execute("INSERT INTO adaptation_observations(run_id,kind,observation) VALUES($1,'provider_result',$2::text::jsonb)",&[&id,&observation]).await.unwrap();
-    h.admin.execute("INSERT INTO adaptation_proposals(run_id,proposal,digest) VALUES($1,$2::text::jsonb,$3)",&[&id,&serde_json::to_string(&proposal).unwrap(),&labelled_digest(b"cantos/adaptation-proposal/p1\n",&proposal)]).await.unwrap();
-    let saved = if accepted {
-        let acceptance = AcceptAdaptationRequest {
-            operation_id: operation(),
-            expected_revision: 0,
-            script_json: proposal.script_json,
-            reviewed_findings: true,
-        };
-        let saved = h
-            .store
-            .save(
-                ALICE,
-                &script,
-                SaveRevisionRequest {
-                    operation_id: acceptance.operation_id.clone(),
-                    expected_revision: 0,
-                    script_json: acceptance.script_json.clone(),
-                },
-            )
-            .await
-            .unwrap();
-        h.admin.execute("INSERT INTO adaptation_acceptances(run_id,owner_id,operation_id,request,script_id,revision) VALUES($1,'alice',$2,$3::text::jsonb,$4,1)",&[&id,&acceptance.operation_id,&serde_json::to_string(&acceptance).unwrap(),&script]).await.unwrap();
-        Some(saved)
-    } else {
-        None
-    };
-    (id, request, saved)
-}
-
-#[tokio::test]
-#[ignore = "disposable PostgreSQL cluster required"]
-async fn historical_a1_valid_and_accepted_records_keep_frozen_metadata_receipts_and_exports_readable(
-) {
-    let h = Harness::new(None).await;
-    let source = h.import(ALICE).await;
-    for accepted in [false, true] {
-        let (id, request, saved) = seed_legacy(&h, &source, accepted).await;
-        let value = h.store.load_adaptation(ALICE, &id).await.unwrap();
-        assert_eq!(value.request, request);
-        assert_eq!(value.provider, request.expected_provider);
-        assert_eq!(value.source_sha256, source.sha256);
-        assert_eq!(value.extractor_version, "cantos-import-1");
-        assert_eq!(
-            value.status,
-            if accepted {
-                AdaptationStatus::Accepted
-            } else {
-                AdaptationStatus::Succeeded
-            }
-        );
-        assert_eq!(value.accepted_revision, saved);
-        assert_eq!(
-            value.usage,
-            Some(AdaptationUsage {
-                input_tokens: Some(87),
-                output_tokens: Some(123)
-            })
-        );
-        assert_eq!(value.cost, None);
-        assert_eq!(
-            h.reopened().load_adaptation(ALICE, &id).await.unwrap(),
-            value
-        );
-        let (status, review) = h
-            .http(
-                "GET",
-                &format!("/adaptations/{id}/review"),
-                Some(ALICE),
-                None,
-            )
-            .await;
-        assert_eq!(status, StatusCode::OK);
-        assert_eq!(review["workflow"], "legacy");
-        assert_eq!(
-            serde_json::from_value::<AdaptationRunResponse>(review["run"].clone()).unwrap(),
-            value
-        );
-        assert_eq!(
-            serde_json::from_value::<ImportResponse>(review["source"].clone()).unwrap(),
-            source
-        );
-        if accepted {
-            let acceptance: AcceptAdaptationRequest = serde_json::from_str(
-                &h.admin
-                    .query_one(
-                        "SELECT request::text FROM adaptation_acceptances WHERE run_id=$1",
-                        &[&id],
-                    )
-                    .await
-                    .unwrap()
-                    .get::<_, String>(0),
-            )
-            .unwrap();
-            assert_eq!(
-                h.reopened()
-                    .accept_adaptation(ALICE, &id, acceptance)
-                    .await
-                    .unwrap(),
-                saved.unwrap()
-            );
-        }
-        let (status, _) = h
-            .http("POST", "/adaptations", Some(ALICE), Some(json!(request)))
-            .await;
-        assert_eq!(
-            status,
-            StatusCode::SERVICE_UNAVAILABLE,
-            "retired inference cannot create or dispatch an old request"
-        );
-    }
-    assert_eq!(h.counts().await, (2, 2, 2, 1, 1));
-    assert_eq!(h.submissions().await, 0);
-    h.originals_unchanged(&source).await;
-}
-
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
 async fn bounded_caller_context_reads_keep_application_role_authorized_index_baseline() {
@@ -1720,7 +1519,7 @@ async fn bounded_caller_context_reads_keep_application_role_authorized_index_bas
     }
     let seed_ms = seeded_at.elapsed().as_secs_f64() * 1000.0;
     let context = last.unwrap();
-    assert_eq!(h.counts().await, (1000, 0, 1000, 0, 0));
+    assert_eq!(h.counts().await, (1000, 1000, 0, 0));
     assert_eq!(h.submissions().await, 1000);
     h.admin.batch_execute("ANALYZE adaptation_runs; ANALYZE adaptation_submissions; ANALYZE adaptation_proposals; ANALYZE source_records; ANALYZE sessions; ANALYZE actors").await.unwrap();
     let mut config = h.config.clone();
@@ -1795,7 +1594,7 @@ async fn connection_death_after_receipt_insert_before_commit_rolls_back_and_exac
     blocked_connections(&h.admin, 1).await;
     let pid:i32=h.admin.query_one("SELECT pid FROM pg_stat_activity WHERE application_name='cantos-adaptation-test' AND wait_event_type='Lock' AND query LIKE 'INSERT INTO adaptation_proposals%'",&[]).await.unwrap().get(0);
     assert_eq!(h.submissions().await, 0, "uncommitted receipt is invisible");
-    assert_eq!(h.counts().await, (1, 0, 0, 0, 0));
+    assert_eq!(h.counts().await, (1, 0, 0, 0));
     let terminated: bool = h
         .admin
         .query_one("SELECT pg_terminate_backend($1)", &[&pid])
@@ -1810,7 +1609,7 @@ async fn connection_death_after_receipt_insert_before_commit_rolls_back_and_exac
     tx.commit().await.unwrap();
     h.admin.batch_execute("DROP TRIGGER test_submission_barrier ON adaptation_proposals; DROP FUNCTION test_submission_barrier();").await.unwrap();
     assert_eq!(h.submissions().await, 0);
-    assert_eq!(h.counts().await, (1, 0, 0, 0, 0));
+    assert_eq!(h.counts().await, (1, 0, 0, 0));
     assert_eq!(
         h.reopened()
             .load_adaptation_context(ALICE, &context.id)
@@ -1832,7 +1631,7 @@ async fn connection_death_after_receipt_insert_before_commit_rolls_back_and_exac
         receipt
     );
     assert_eq!(h.submissions().await, 1);
-    assert_eq!(h.counts().await, (1, 0, 1, 0, 0));
+    assert_eq!(h.counts().await, (1, 1, 0, 0));
     h.originals_unchanged(&source).await;
 }
 
@@ -2070,7 +1869,7 @@ async fn studio_editor_import_proposal_edit_accept_review_save_and_reopen_preser
         .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(validation_receipt, json!({"issues":[]}));
-    assert_eq!(h.counts().await, (1, 0, 1, 0, 0));
+    assert_eq!(h.counts().await, (1, 1, 0, 0));
     let acceptance = AcceptAdaptationRequest {
         operation_id: operation(),
         expected_revision: 0,
@@ -2143,7 +1942,7 @@ async fn studio_editor_import_proposal_edit_accept_review_save_and_reopen_preser
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert_eq!(error["code"], "forbidden");
     }
-    assert_eq!(h.counts().await, (1, 0, 1, 1, 1));
+    assert_eq!(h.counts().await, (1, 1, 1, 1));
     let (status, value) = h
         .http("POST", &save_path, Some(ALICE), Some(json!(save_intent)))
         .await;
@@ -2170,7 +1969,7 @@ async fn studio_editor_import_proposal_edit_accept_review_save_and_reopen_preser
         error,
         json!({"code":"stale_revision","current_revision":2,"issues":[]})
     );
-    assert_eq!(h.counts().await, (1, 0, 1, 1, 2));
+    assert_eq!(h.counts().await, (1, 1, 1, 2));
     // Exact repeated actions produce their original receipt even after the head moved.
     assert_eq!(
         h.http("POST", &accept_path, Some(ALICE), Some(json!(acceptance)))
@@ -2227,7 +2026,7 @@ async fn studio_editor_import_proposal_edit_accept_review_save_and_reopen_preser
         .unwrap();
     assert_eq!(accepted.proposal, proposed.proposal);
     assert_eq!(accepted.accepted_revision, Some(first.clone()));
-    assert_eq!(h.counts().await, (1, 0, 1, 1, 2));
+    assert_eq!(h.counts().await, (1, 1, 1, 2));
     h.originals_unchanged(&source).await;
     let reviews: i64 = h
         .admin

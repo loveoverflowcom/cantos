@@ -1,9 +1,8 @@
 use super::*;
 use cantos_contracts::{
-    AdaptationConfig, AdaptationContextRequest, AdaptationContextResponse,
-    AdaptationProviderMetadata, AdaptationRunResponse, AdaptationSubmissionReceipt,
+    AdaptationContextRequest, AdaptationContextResponse, AdaptationSubmissionReceipt,
     AdaptationSubmissionStatus, CallerGenerationMetadata, Extraction, ImportBlock, ImportBlockKind,
-    ImportMetadata, StartAdaptationRequest,
+    ImportMetadata,
 };
 
 const SCRIPT: &str = "00000000-0000-4000-8000-000000000001";
@@ -111,55 +110,6 @@ fn caller() -> AdaptationReviewResponse {
     }
 }
 
-fn legacy() -> AdaptationReviewResponse {
-    let provider = AdaptationProviderMetadata {
-        provider: "historical-test-fixture".into(),
-        endpoint: "historical inert destination".into(),
-        model: "fixture".into(),
-        prompt_version: "test-a1".into(),
-        contract_version: "test-a1".into(),
-        local_model_digest: None,
-        config: AdaptationConfig {
-            temperature_milli: 0,
-            seed: 1,
-            num_context: 1024,
-            num_predict: 512,
-            timeout_seconds: 1,
-        },
-    };
-    AdaptationReviewResponse::Legacy {
-        run: Box::new(AdaptationRunResponse {
-            id: RUN.into(),
-            created_by: "alice".into(),
-            recorded_at: "2026-10-10T10:00:00Z".into(),
-            updated_at: "2026-10-10T10:01:00Z".into(),
-            request: StartAdaptationRequest {
-                operation_id: "historical-op".into(),
-                source_id: SOURCE.into(),
-                script_id: SCRIPT.into(),
-                expected_revision: 0,
-                expected_provider: provider.clone(),
-                rights_authorization: true,
-            },
-            source_sha256: "test-checksum".into(),
-            extractor_version: "test-extraction".into(),
-            input_content_digest: None,
-            input_export_digest: None,
-            generation_record_id: "gen_test".into(),
-            rights_record_id: "rights_test".into(),
-            provider,
-            status: AdaptationStatus::Succeeded,
-            proposal: Some(proposal()),
-            problem: None,
-            usage: None,
-            cost: None,
-            accepted_revision: None,
-        }),
-        source: Box::new(source()),
-        input_revision: None,
-    }
-}
-
 fn reading() -> AdaptationReview {
     AdaptationReview::default()
         .signed_in_as("alice".into())
@@ -200,9 +150,7 @@ fn error(code: ErrorCode) -> ApiError {
 #[test]
 fn awaiting_context_has_source_and_input_but_no_acceptance_or_generation_intent() {
     let mut response = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut response else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut response;
     context.status = AdaptationStatus::AwaitingProposal;
     context.proposal = None;
     context.latest_submission = None;
@@ -214,37 +162,29 @@ fn awaiting_context_has_source_and_input_but_no_acceptance_or_generation_intent(
 }
 
 #[test]
-fn caller_and_legacy_reads_share_pinned_source_review_and_acceptance_only() {
-    for response in [caller(), legacy()] {
-        let state = open(response);
-        assert_eq!(state.status, ReviewStatus::RunOpened);
-        assert_eq!(state.draft, proposal().script_json);
-        assert_eq!(state.baseline, proposal().script_json);
-        assert_eq!(state.source.as_deref(), Some(&source()));
-        assert!(state.start_accept("accept".into()).is_none());
-        assert!(state
-            .review_findings(true)
-            .start_accept("accept".into())
-            .is_some());
-    }
+fn caller_review_requires_pinned_source_and_explicit_acceptance() {
+    let state = opened();
+    assert_eq!(state.status, ReviewStatus::RunOpened);
+    assert_eq!(state.draft, proposal().script_json);
+    assert_eq!(state.baseline, proposal().script_json);
+    assert_eq!(state.source.as_deref(), Some(&source()));
+    assert!(state.start_accept("accept".into()).is_none());
+    assert!(state
+        .review_findings(true)
+        .start_accept("accept".into())
+        .is_some());
 }
 
 #[test]
 fn source_checksum_extraction_and_input_revision_must_match_the_frozen_context() {
     let mut bad_checksum = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut bad_checksum else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut bad_checksum;
     context.source.sha256 = "different".into();
     let mut bad_extraction = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut bad_extraction else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut bad_extraction;
     context.request.extractor_version = "different".into();
     let mut missing_input = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut missing_input else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut missing_input;
     context.request.expected_revision = 3;
     for response in [bad_checksum, bad_extraction, missing_input] {
         let rejected = open(response);
@@ -255,9 +195,7 @@ fn source_checksum_extraction_and_input_revision_must_match_the_frozen_context()
         assert!(rejected.stored.is_none());
     }
     let mut pinned = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut pinned else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut pinned;
     let mut input = accepted_revision();
     input.revision = 3;
     context.request.expected_revision = 3;
@@ -279,9 +217,7 @@ fn source_checksum_extraction_and_input_revision_must_match_the_frozen_context()
 fn caller_receipt_is_bound_to_context_actor_and_digest() {
     for variant in 0..3 {
         let mut response = caller();
-        let AdaptationReviewResponse::Caller { context } = &mut response else {
-            unreachable!()
-        };
+        let AdaptationReviewResponse::Caller { context } = &mut response;
         let receipt = context.latest_submission.as_mut().unwrap();
         match variant {
             0 => receipt.run_id = SCRIPT.into(),
@@ -301,9 +237,7 @@ fn caller_receipt_is_bound_to_context_actor_and_digest() {
 fn changed_actor_wrong_cookie_and_stale_tickets_cannot_admit_private_data() {
     let read = reading();
     let mut wrong_actor = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut wrong_actor else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut wrong_actor;
     context.created_by = "bob".into();
     assert_eq!(
         read.loaded(read.ticket, "alice", wrong_actor).status,
@@ -354,9 +288,7 @@ fn editing_or_native_undo_always_requires_review_again() {
 fn changed_read_proposal_cannot_inherit_review_of_previous_text() {
     let read = opened().review_findings(true).start_read().unwrap();
     let mut changed = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut changed else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut changed;
     context.proposal.as_mut().unwrap().script_json = "changed proposal".into();
     let refreshed = read.loaded(read.ticket, "alice", changed);
     assert_eq!(refreshed.draft, "changed proposal");
@@ -406,25 +338,17 @@ fn reviewed_local_edits_become_clean_after_their_acceptance_is_acknowledged() {
 }
 
 #[test]
-fn accepted_runs_open_the_accepted_script_instead_of_the_original_proposal() {
-    for mut response in [caller(), legacy()] {
-        match &mut response {
-            AdaptationReviewResponse::Caller { context } => {
-                context.status = AdaptationStatus::Accepted;
-                context.accepted_revision = Some(accepted_revision());
-            }
-            AdaptationReviewResponse::Legacy { run, .. } => {
-                run.status = AdaptationStatus::Accepted;
-                run.accepted_revision = Some(accepted_revision());
-            }
-        }
-        let opened = open(response);
-        assert_eq!(opened.draft, accepted_revision().script_json);
-        assert_eq!(opened.baseline, accepted_revision().script_json);
-        assert!(!opened.draft_changed);
-        assert_eq!(opened.status, ReviewStatus::Accepted);
-        assert_eq!(opened.accepted.as_deref(), Some(&accepted_revision()));
-    }
+fn accepted_context_opens_the_accepted_script_instead_of_the_original_proposal() {
+    let mut response = caller();
+    let AdaptationReviewResponse::Caller { context } = &mut response;
+    context.status = AdaptationStatus::Accepted;
+    context.accepted_revision = Some(accepted_revision());
+    let opened = open(response);
+    assert_eq!(opened.draft, accepted_revision().script_json);
+    assert_eq!(opened.baseline, accepted_revision().script_json);
+    assert!(!opened.draft_changed);
+    assert_eq!(opened.status, ReviewStatus::Accepted);
+    assert_eq!(opened.accepted.as_deref(), Some(&accepted_revision()));
 }
 
 #[test]
@@ -494,9 +418,7 @@ fn a_proposal_read_preserves_clean_reducer_rows_until_native_text_is_committed()
         "../../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
     );
     let mut initial_response = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut initial_response else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut initial_response;
     context.proposal.as_mut().unwrap().script_json = original.into();
     let opened = open(initial_response).review_findings(true);
     assert!(!opened.draft_changed);
@@ -512,9 +434,7 @@ fn a_proposal_read_preserves_clean_reducer_rows_until_native_text_is_committed()
         }
         let remote_json = serde_json::to_string(&document).unwrap();
         let mut updated_response = caller();
-        let AdaptationReviewResponse::Caller { context } = &mut updated_response else {
-            unreachable!()
-        };
+        let AdaptationReviewResponse::Caller { context } = &mut updated_response;
         context.proposal.as_mut().unwrap().script_json = remote_json.clone();
         let reading = opened.start_read().unwrap();
         let preserved =
@@ -699,9 +619,7 @@ fn accepted_export_reopens_only_the_exact_immutable_receipt() {
 fn composition_start_protects_text_during_refresh_and_acceptance_acknowledgement() {
     let read = opened().start_read().unwrap().begin_composition();
     let mut refreshed = caller();
-    let AdaptationReviewResponse::Caller { context } = &mut refreshed else {
-        unreachable!()
-    };
+    let AdaptationReviewResponse::Caller { context } = &mut refreshed;
     context.proposal.as_mut().unwrap().script_json = "server proposal".into();
     let preserved = read.loaded(read.ticket, "alice", refreshed);
     assert_eq!(preserved.draft, proposal().script_json);
@@ -749,14 +667,15 @@ fn literal_acceptance_wire_is_an_immutable_revision_not_a_generation_run() {
 }
 
 #[test]
-fn unified_review_wire_requires_a_workflow_tag_and_known_fields() {
-    for response in [caller(), legacy()] {
-        let mut wire = serde_json::to_value(&response).unwrap();
-        assert_eq!(
-            serde_json::from_value::<AdaptationReviewResponse>(wire.clone()).unwrap(),
-            response
-        );
-        wire.as_object_mut().unwrap().remove("workflow");
-        assert!(serde_json::from_value::<AdaptationReviewResponse>(wire).is_err());
-    }
+fn caller_review_wire_requires_its_workflow_tag_and_rejects_retired_workflow() {
+    let response = caller();
+    let mut wire = serde_json::to_value(&response).unwrap();
+    assert_eq!(
+        serde_json::from_value::<AdaptationReviewResponse>(wire.clone()).unwrap(),
+        response
+    );
+    wire["workflow"] = "legacy".into();
+    assert!(serde_json::from_value::<AdaptationReviewResponse>(wire.clone()).is_err());
+    wire.as_object_mut().unwrap().remove("workflow");
+    assert!(serde_json::from_value::<AdaptationReviewResponse>(wire).is_err());
 }
