@@ -283,17 +283,13 @@ before registration activation; VPS-only query protection does not cover a direc
 
 ## Shorter site names: controlled transition (#237)
 
-**Concurrent topology merge gate:** [PR #241](https://github.com/loveoverflowcom/cantos/pull/241),
-reviewed at `e856ac55e18e07f16887f454487310cefc01b291`, records owner-selected direct Hosting
-in [ADR 0041](https://github.com/loveoverflowcom/cantos/blob/e856ac55e18e07f16887f454487310cefc01b291/docs/decisions/0041-direct-hosting-api-boundary.md)
-(marked accepted there, still unmerged). Its explicit API addressing/CORS/callback direction
-overlaps this branch's retained same-origin setup. Reconcile both PRs' Caddy, API startup,
-Hosting receipt/configuration and owning docs before merging or deploying their combined tree.
-The proxy-specific steps 4–6 below describe the retained compatibility topology only; they are
-not the rollout plan for direct Hosting. No origin/cookie/callback choice is made by changing
-a Site ID. In particular, `web.app` and the DuckDNS API are cross-site: CORS does not make
-SameSite=Strict sessions work across them. Domain selection and actual login/reload/logout,
-surface isolation and callback acceptance remain a separate owner decision and live gate.
+[ADR 0041](../decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting with
+explicit API addressing, exact per-surface CORS and API-host callbacks. Follow the
+[current production runbook](vps-production.md) for the combined configuration, origin-drift
+checks and rollout authority. Changing a Site ID selects no cookie or callback policy.
+`web.app` and the DuckDNS API remain cross-site: CORS cannot make SameSite=Strict sessions work
+across them. Same-site domain selection, the minimal identity gateway and actual
+login/reload/logout, surface isolation and callback acceptance remain separate gates.
 
 **2026-10-17 read-only inspection:** `firebase hosting:sites:list --project cantos-a348b --json
 --non-interactive` returned exit **2**, JSON status `error`: the existing Firebase authentication
@@ -320,26 +316,29 @@ working operator mapping and Caddy upstreams until the following gates pass.
    Require each new static site's own receipt and smoke: correct HTML/CSS/JS/WASM bytes, MIME and
    revalidation headers, missing assets as 404, and `/api/*` as 404. These checks do not accept
    login, catalog or playback on a raw Firebase URL.
-4. A separately authorized VPS operator changes only `CANTOS_THEATRE_FIREBASE_SITE` and
-   `CANTOS_STUDIO_FIREBASE_SITE` in `/root/cantos-services/config/edge.env` to the verified IDs,
-   keeping them distinct. Validate Caddy and perform the controlled recreation described in
-   the [edge operation instructions](../../infra/edge/README.md#operate); its environment is captured by the container, so an edit
-   followed only by `caddy reload` must not be assumed to load new environment values. Retain the
-   two public application hosts. Check same-origin `/api/*`, Studio OIDC callback/logout and
-   host-only cookies, and enabled Theatre registration/email-action/referrer behavior on those
-   public Caddy hosts. Missing identity provisioning or disabled features stay `NOT_RUN`.
-5. A static upstream change does not change a browser origin: do not edit CORS, Kanidm callbacks,
-   Firebase auth authorized domains, email-action URLs or cookies for that change alone. Moving
-   the public application hosts is a separate decision requiring matching origin/callback settings
-   and live authentication acceptance. Do not point public application links at raw Firebase
-   URLs while `/api/*` remains unavailable there.
-6. If a new static site or edge check fails, restore the private mapping and old site IDs, recreate
-   the edge with its previous environment, validate and smoke both original application hosts.
-   Where a release changed on the same site, use its recorded known-good release through the
-   manual recovery below. Reconcile any uncertain remote result before a retry. Redirecting or
-   deprecating old URLs requires a separate reviewed policy and operator action: the current
-   static deploy policy rejects redirects. Keep old sites and release history until acceptance
-   and a separately approved retention decision; never delete them to obtain a shorter name.
+4. For the selected direct-Hosting topology, separately review the new exact Web origins,
+   per-surface API CORS, fixed Web return origins and API-host OIDC callbacks through the
+   [production configuration procedure](vps-production.md#direct-hosting--api-configuration).
+   Supply the required HTTPS `CANTOS_API_ORIGIN` during each app's build/deploy. Preserve
+   host-only Strict session cookies and existing CSRF checks. A shorter `web.app` URL still
+   requires the independent same-site domain/gateway gate before authenticated use; a static
+   release or CORS response cannot accept it. Missing identity provisioning or disabled features
+   stay `NOT_RUN`.
+5. If the operator explicitly retains a transitional Caddy static proxy, changing its upstream
+   Site ID changes no public browser origin. Back up `edge.env`, validate the candidate Caddy
+   configuration with the new environment and restart only `cantos-edge.service` to load it;
+   a reload alone does not refresh the container's EnvironmentFile. Preserve its certificate
+   volumes and check the original public hosts and their same-origin APIs. This optional
+   compatibility step does not replace ADR 0041's direct-Hosting rollout or authorize origin,
+   identity, cookie, email-action or DNS changes.
+6. If acceptance fails, restore the private mapping and known-good release IDs. For an authorized
+   transitional proxy change, also restore its site IDs/environment, restart that same edge unit
+   and repeat the checks. Restore origin/identity configuration separately through the reviewed
+   migration procedure; image rollback does not restore it. Reconcile uncertain outcomes before
+   retrying. Redirecting/deprecating old URLs requires separate reviewed policy and authority:
+   the current static deploy policy rejects redirects. Keep old sites and release history until
+   acceptance and a separately approved retention decision; never delete them to obtain a shorter
+   name.
 
 ## Recovery and reconciliation
 

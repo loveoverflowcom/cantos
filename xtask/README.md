@@ -900,7 +900,8 @@ domains or URLs; every configured target is validated so an ambiguous other-app 
 conceal a shared site. Shorter desired names remain conditional on verified allocation; see the
 [transition/rollback runbook](../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237).
 Nothing is edited. xtask validates the policy (only `hosting`; no `site`, hooks, redirects or
-rewrites; a `Cache-Control: no-cache` rule for every path and no long-lived caching) and renders a
+non-static rewrites; no rewrite that is not a literal route outside `/api`; a
+`Cache-Control: no-cache` rule for every path and no long-lived caching) and renders a
 run-specific effective `firebase.json` and `.firebaserc` in the private run directory holding that
 one target, that one site and a run-relative `public`. Every Firebase subprocess except the initial `firebase --version` probe (run from the checkout root, with no project) gets an explicit
 `--project`, `--config` and the run directory as its working directory, so no active or default

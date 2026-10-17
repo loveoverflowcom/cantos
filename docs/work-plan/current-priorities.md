@@ -25,14 +25,13 @@ build does not authorize deploying over an epoch-1 database or rewriting its mig
 
 [#237](https://github.com/loveoverflowcom/cantos/issues/237) is an independent Hosting track:
 first establish project ownership/availability for the requested short Site IDs, then approve
-per-app site allocation/deploy and edge mapping acceptance through the
-[Hosting runbook](../deployment/firebase-hosting.md). Keep the current Caddy application origins
-and Studio/Theatre isolation until a real origin change is explicitly reviewed.
-Before combining [#240](https://github.com/loveoverflowcom/cantos/pull/240) and
-[#241](https://github.com/loveoverflowcom/cantos/pull/241), reconcile their overlapping Caddy,
-API startup and Hosting/deployment guidance. The latter's unmerged ADR 0041 records direct
-Hosting/API direction; short Site IDs alone establish neither compatible session domains nor
-authentication acceptance. Keep schema cutover independent of that topology reconciliation.
+per-app site allocation/deploy and exact-origin acceptance through the
+[Hosting runbook](../deployment/firebase-hosting.md) and accepted
+[ADR 0041](../decisions/0041-direct-hosting-api-boundary.md). Preserve the direct-Hosting/API
+boundary, origin/callback drift safeguards and Studio/Theatre isolation. Short Site IDs alone
+establish neither compatible session domains nor authentication acceptance; qualify same-site
+domains and the minimal identity gateway separately. Keep the schema cutover independent of
+that rollout.
 
 ## Recommended next boundaries
 

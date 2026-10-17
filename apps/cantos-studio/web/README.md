@@ -48,13 +48,14 @@ cargo xtask deploy firebase cantos-studio --web --project ID --channel NAME --dr
 ```
 
 The explicit, manual `deploy firebase` can publish this app's static bundle to Firebase Hosting
-([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves no API, so Studio shows its
-unavailable states there and sign-in is not established. Never upload private Studio content to a
-preview, which is public.
-Studio must keep a distinct Hosting site and public origin. The preferred default site name is
-`cantos-studio.web.app`, conditional on verified allocation; `studio.cantos.web.app` is not a
-supported Firebase default name. The [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
-does not change Studio's public Caddy origin, OIDC callbacks or host-only cookies.
+([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves static files and clients
+use the explicit Cantos API origin. Direct-origin sign-in remains gated by domain/cookie/gateway
+acceptance. Never upload private Studio content to a preview, which is public.
+Studio keeps its own Hosting site and browser origin. The preferred `cantos-studio.web.app`
+name is conditional on verified allocation; `studio.cantos.web.app` is not supported. The
+[site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
+requires exact API-origin/CORS/return/callback review under ADR 0041. Short names alone establish
+no authenticated session or same-site domain.
 
 Trunk fetches its matching wasm-bindgen helper on its first build. An offline build requires
 that helper on `PATH` as well as the Cargo cache; the Mac run used
