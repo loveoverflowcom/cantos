@@ -71,16 +71,17 @@ time window, project, revocation or disabled state, and the operation binding.
 3. Proven here: the threat model, why options 1, 2 and 5 fail, that option 3 satisfies the
    binding in fixtures, emulator and one live run with the action URL copied by hand, and (probe B)
    that the default handler forwards an `EMAIL_SIGNIN` code to the continue origin.
-   Not proven: that the forwarded code is unconsumed, what a plan change does to the action-URL
+   Not proven (the redemption attempt was inconclusive): that the forwarded code is unconsumed, what a plan change does to the action-URL
    restriction, and project/key association.
 
 ## Requested decisions (none taken by this record)
 
 - **A.** Authorize a bounded probe of whether `cantos-a348b` accepts the action URL after the
   owner's chosen plan or project change, using at most the approved recipient and mail budget.
-- **B.** *(Partly done, see probe B.)* To finish it, authorize redeeming one forwarded code
-  (it signs in or creates one Firebase user for the approved recipient) to show it was unconsumed.
-  A positive result opens a new ADR for the option 4 design; a negative result closes it.
+- **B.** *(Spent, inconclusive; see probe B.)* To finish it, authorize a fresh budget (two mails)
+  and redeem the forwarded code within a minute of the click, with no deletion or other change in
+  between and for a recipient with no Firebase user. Redeeming signs in or creates one Firebase
+  user. A positive result opens a new ADR for option 4; a negative result closes it.
 - **C.** If neither yields a safe proof, keep Firebase mode disabled and use the existing
   SMTP enrollment (ADR 0034) when a mail relay is acceptable.
 
@@ -117,8 +118,19 @@ authorized. Also unobserved: behavior for a recipient without a Firebase user wh
 sign-up is disabled, the server-side `accounts:signInWithEmailLink` response shape, and
 whether any non-consuming inspection exists. One of the two approved mails remains unused.
 
-Effect on the options: option 4 is now the only candidate with observed support on the current
-project; it is still a **new design** (UID is assigned by Firebase, the code is redeemed rather than
+Redemption attempt (second mail, same day): the owner first ran an unrelated cleanup that deleted
+the leftover #206 test Firebase user for the approved recipient, and then, some minutes after the
+click, re-enabled email-link and redeemed the forwarded code once. Firebase answered
+`400 INVALID_OOB_CODE` for the first redemption and for the replay. This is **inconclusive**: the
+code may have been consumed by the hosted handler or a scanner, invalidated by the user deletion,
+or expired, and the run cannot tell these apart. It also resembles #206's first mail, whose code was
+invalid for an undetermined reason, so it is a reason for caution, not proof of either outcome.
+Both approved mails are spent; both times email-link was disabled again (output seen). Both mails
+went to an email that already had a Firebase user, so the no-user case is unobserved.
+
+Effect on the options: option 4 has partial observed support on the current
+project (send accepted, code forwarded) but its decisive property is **unproven**; it is also a
+**new design** (UID is assigned by Firebase, the code is redeemed rather than
 inspected first, dedicated-UID exclusivity and the operation binding must be redone) and needs its
 own ADR and owner decision before any code.
 

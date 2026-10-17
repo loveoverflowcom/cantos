@@ -94,7 +94,11 @@ Second probe (`EMAIL_SIGNIN`, one mail to the approved recipient, email-link ena
 by the owner): the send succeeded with a per-request `continueUrl`, and the default hosted handler
 forwarded the code to the continue origin (details and limits in ADR 0040). Run by the owner on
 their machine from scripts written for this purpose after the automatic permission classifier
-refused the agent-run call; the agent saw only the owner-pasted output.
+refused the agent-run call; the agent saw only the owner-pasted output. The redemption of the
+forwarded code was inconclusive (`INVALID_OOB_CODE`, with a confounding user deletion and delay).
+Cleanup performed by the owner the same day: the #206 test Firebase user `cantos_4f25019f…` was
+deleted and email-link sign-in was restored to disabled; the #206 service-account key, test
+Kanidm person and project changes are not touched by this.
 
 ## Not covered / residual risk
 
