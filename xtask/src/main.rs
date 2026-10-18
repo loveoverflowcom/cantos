@@ -21,6 +21,7 @@ mod pipeline;
 mod preflight;
 mod probe;
 mod process;
+mod release_build;
 mod report;
 mod run;
 mod run_files;
@@ -69,6 +70,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
     let tools = SystemTools::new(workspace.root());
     let mut runner = SystemRunner::new(workspace.root());
     match task {
+        Task::ReleaseBuild(args) => release_build::run(&workspace, &args, &tools, &mut runner),
         Task::Deploy(args) => deploy::execute(&workspace, &args, &tools, &mut runner),
         Task::Distribute(args) => distribute::execute(&workspace, &args, &tools, &mut runner),
         Task::Kanidm(args) => kanidm::run(&workspace, &args, &mut runner),

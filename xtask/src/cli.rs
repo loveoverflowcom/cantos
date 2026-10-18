@@ -53,6 +53,8 @@ impl SurfaceArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Task {
+    /// Build source-bound release artifacts locally or in CI; never deploys or signs.
+    ReleaseBuild(crate::release_build::ReleaseBuildArgs),
     /// Explicit static Web deployment of one app to Firebase Hosting (preview or live). A remote
     /// write; never invoked by build, run, verify, preflight or ci.
     Deploy(crate::deploy::DeployArgs),

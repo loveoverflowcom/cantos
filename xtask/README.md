@@ -117,6 +117,15 @@ production readiness.)
 Trunk runs with `NO_COLOR=true`, matching the documented commands (Trunk 0.21 rejects an
 inherited `NO_COLOR=1`).
 
+### Build-only release artifacts
+
+`cargo xtask release-build <api|theatre-web|studio-web|android> [--dry-run]` packages clean
+HEAD outputs under ignored `artifacts/release-build`, with hashes/source/version manifests.
+`cargo xtask release-build --self-test` runs deterministic packaging regressions.
+It never signs, deploys or distributes; API image packaging requires installed Linux amd64
+Podman. See [CircleCI build boundaries](../docs/deployment/circleci-builds.md) for pins,
+artifact limits, fresh-output refusal and pending account/runtime acceptance.
+
 ### Optional Web release inventory
 
 ```sh
