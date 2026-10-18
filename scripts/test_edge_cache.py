@@ -60,7 +60,7 @@ class EdgeCachePolicy(unittest.TestCase):
         self.config = statements(self.source)
 
     def test_api_ingress_keeps_the_studio_process_separate_from_theatre(self):
-        api = block(self.config, "{$CANTOS_API_HOST}")
+        api = block(self.config, "{$CANTOS_API_HOST} {$CANTOS_API_ALIAS_HOST:}")
         self.assertEqual(block(api, "handle /api/v1/studio/*"),
                          [("import cantos_api cantos-api-studio", None)])
         self.assertIn("import cantos_theatre_api", lines(api))

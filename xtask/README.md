@@ -1024,6 +1024,8 @@ Historical tool evidence is [source-bound](../docs/evidence/issue199-firebase-ho
 cargo xtask deploy vps cantos-api --host root@HOST --dry-run
 # One-time and idempotent host setup from the committed infra/vps bundle (no image).
 cargo xtask deploy vps cantos-api --host root@HOST --bootstrap
+# Existing host only: validate/restart installed browser configuration, no SQL or secrets.
+cargo xtask deploy vps cantos-api --host root@HOST --reload-browser
 # Build HEAD's image here, upload, then backup -> migrate -> grants -> switch -> health gate.
 cargo xtask deploy vps cantos-api --host root@HOST --smoke-origin https://api.example.org
 cargo xtask deploy vps cantos-api --host root@HOST --rollback   # previous image
@@ -1043,6 +1045,19 @@ xtask never reads, stores or prints a key, password or token, and the host gener
 secrets. `--host` accepts only `user@host` (no options or ports); `--smoke-origin` only an exact
 `https` origin. A failed remote step reports that the remote state may have changed: run
 `--status` before retrying. Run records stay in ignored `artifacts/vps/<stamp>-<sha>/`.
+
+`--reload-browser` uploads the committed host bundle and runs its source-bound browser validator.
+It validates the
+already reconciled browser env files, exact OIDC callback receipt, supported API drop-ins and
+candidate Caddy configuration before replacing the edge file and restarting the existing edge
+and two API units. It preserves the previous Caddyfile and leaves installed runtime/Quadlet
+assets unchanged. API restarts use
+their existing healthy-notification gate. It never builds/switches an API image, runs SQL,
+creates credentials, bootstraps identity or changes OAuth clients. Keep a private copy of the
+previous config before a domain migration; failed restart requires restoring that reviewed
+configuration and rerunning this explicit lane. Like other remote operations, reconcile status
+before retrying an uncertain
+outcome. This lane does not establish browser login or Firebase SSL acceptance.
 
 `--cutover-epoch2` is mutually exclusive with bootstrap/rollback/status and is never selected
 by ordinary deploy. It supports exactly legacy revision

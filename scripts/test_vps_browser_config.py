@@ -19,8 +19,10 @@ class VpsBrowserConfiguration(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        for directory in ("config", "kanidm", "runtime/kanidm", "quadlet"):
+        for directory in ("config", "kanidm", "runtime/kanidm", "quadlet", "edge", "bundle/infra/edge"):
             (self.root / directory).mkdir(parents=True)
+        (self.root / "edge/Caddyfile").write_text("previous edge\n")
+        (self.root / "bundle/infra/edge/Caddyfile").write_text("reviewed edge\n")
         (self.root / "runtime/kanidm/server.toml.template").write_text('domain = "@IDM_HOST@"\n')
         self.inputs = {
             "CANTOS_THEATRE_HOST": "legacy.example.test",
@@ -80,6 +82,59 @@ class VpsBrowserConfiguration(unittest.TestCase):
         self.assertEqual(result.returncode, 65, result.stderr)
         self.assertIn("CANTOS_THEATRE_API_ORIGIN must match CANTOS_API_HOST", result.stderr)
         self.assertFalse((self.root / "config/api-theatre.env").exists())
+
+    def test_api_alias_is_optional_but_never_a_wildcard_duplicate_or_primary(self):
+        for alias in ("*.example.test", "api.example.test", "",
+                      "other.example.test\nCANTOS_API_ALIAS_HOST=third.example.test"):
+            with self.subTest(alias=alias):
+                self.inputs["CANTOS_API_ALIAS_HOST"] = alias
+                result = self.run_host("validate_browser_configuration\n")
+                self.assertEqual(result.returncode, 65, result.stderr)
+        self.inputs["CANTOS_API_ALIAS_HOST"] = "legacy-api.example.test"
+        self.assertEqual(self.run_host("validate_browser_configuration\n").returncode, 0)
+
+    def test_browser_reload_validates_before_restart_and_cannot_touch_sql_or_secrets(self):
+        commands = '''
+require_root() { :; }
+with_lock() { :; }
+unit_active() { return 0; }
+systemctl() { printf 'systemctl %s\\n' "$*"; }
+podman() { printf 'podman %s\\n' "$*" >>"$ROOT/actions"; }
+validate_runtime_browser_configuration() { return 65; }
+main reload-browser "$ROOT/bundle"
+'''
+        result = self.run_host(commands)
+        self.assertEqual(result.returncode, 65)
+        self.assertEqual(result.stdout, "")
+        self.assertFalse((self.root / "actions").exists())
+        commands = commands.replace('return 65;', 'return 0;')
+        result = self.run_host(commands)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), [
+            'systemctl restart cantos-edge.service',
+            'systemctl restart cantos-api-theatre.service',
+            'systemctl restart cantos-api-studio.service',
+        ])
+        self.assertEqual((self.root / "actions").read_text().splitlines(), [
+            f'podman exec --env-file {self.root}/config/edge.env cantos-edge caddy validate --config /etc/caddy/Caddyfile.browser-candidate --adapter caddyfile',
+        ])
+        self.assertEqual((self.root / "edge/Caddyfile").read_text(), "reviewed edge\n")
+        self.assertEqual((self.root / "edge/Caddyfile.before-browser-reload").read_text(), "previous edge\n")
+
+    def test_invalid_candidate_never_replaces_edge_or_restarts_services(self):
+        result = self.run_host('''
+require_root() { :; }
+with_lock() { :; }
+unit_active() { return 0; }
+validate_runtime_browser_configuration() { return 0; }
+systemctl() { printf 'unexpected restart\\n'; return 99; }
+podman() { return 1; }
+reload_browser "$ROOT/bundle"
+''')
+        self.assertEqual(result.returncode, 65, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual((self.root / "edge/Caddyfile").read_text(), "previous edge\n")
+        self.assertFalse((self.root / "edge/Caddyfile.browser-candidate").exists())
 
     def test_legacy_host_input_does_not_substitute_for_a_missing_web_origin(self):
         del self.inputs["CANTOS_THEATRE_WEB_ORIGIN"]

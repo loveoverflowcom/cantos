@@ -18,7 +18,7 @@ generated on the VPS and kept root-only there.
 | [`postgres/runtime-grants.sql`](postgres/runtime-grants.sql) | Least-privilege runtime grants, checked by `production_grants_postgres` |
 | [`kanidm/server.toml.template`](kanidm/server.toml.template) | Kanidm configuration rendered with the identity host name |
 | [`systemd/`](systemd) | Daily logical backup timer |
-| [`bin/cantos-vps`](bin/cantos-vps) | Root host automation: install, bootstrap, deploy, rollback, backup, restore, status, operator-run identity |
+| [`bin/cantos-vps`](bin/cantos-vps) | Root host automation: install, bootstrap, deploy, rollback, backup, restore, status, operator-run identity; source-bound `reload-browser TREE` validates/copies only Caddy and restarts edge/API without SQL, secret or image changes |
 | [`bin/cantos-epoch2-cutover`](bin/cantos-epoch2-cutover), [`postgres/epoch2-empty-business-guard.sql`](postgres/epoch2-empty-business-guard.sql) | Narrow explicit legacy-883e188/28-migration cutover: sibling rehearsal, frozen-row import, off-host recovery acknowledgement, paired recovery and post-acceptance finalization |
 | [`bin/cantos-oidc-reconcile`](bin/cantos-oidc-reconcile), [`bin/cantos-oidc-config.py`](bin/cantos-oidc-config.py) | Existing-client URL/callback reconciliation, secret-redacting plans, preservation checks and readback receipt; no accounts, resets, new grants or secret rotation |
 | [`config.example.env`](config.example.env) | Single nonsecret origin/callback input file `/root/cantos-services/config/edge.env`; reviewed values are required |

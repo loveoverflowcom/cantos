@@ -55,6 +55,41 @@ change that identity; report the deployed revision and final PR revision separat
 
 ## Direct Hosting → API configuration
 
+### Selected custom domains
+
+The owner selected `https://cantos.cc` for Theatre, `https://studio.cantos.cc` for Studio and
+`https://api.cantos.cc` for the API. The Hosting sites remain `cantoss-theatre` and
+`cantoss-studio` in project `cantos-a348b`. Register each custom domain on its own site and use
+the DNS records returned by Firebase; certificate issuance and real browser acceptance are
+separate observations. The VPS API A record uses the inventoried `42.96.18.245`; add AAAA only
+after observing a usable public IPv6 address and end-to-end IPv6 ingress.
+
+For the first HTTPS stage keep `CANTOS_API_HOST=api.cantoss.duckdns.org` and add
+`CANTOS_API_ALIAS_HOST=api.cantos.cc`. Both hosts use the same surface-separated API routes;
+the optional alias does not add a CORS origin or change callbacks. After new TLS is observed,
+set the primary host to `api.cantos.cc`, retain the old host as the alias, and reconcile:
+
+```text
+CANTOS_THEATRE_WEB_ORIGIN=https://cantos.cc
+CANTOS_STUDIO_WEB_ORIGIN=https://studio.cantos.cc
+CANTOS_THEATRE_API_ORIGIN=https://api.cantos.cc
+CANTOS_STUDIO_API_ORIGIN=https://api.cantos.cc
+CANTOS_THEATRE_OIDC_CALLBACK=https://api.cantos.cc/api/v1/theatre/auth/callback
+CANTOS_STUDIO_OIDC_CALLBACK=https://api.cantos.cc/api/v1/studio/auth/callback
+```
+
+Keep a root-only copy of the previous edge/API/callback files. The existing authorized
+`cantos-vps identity --reconcile-existing` updates only existing clients, preserves accounts,
+groups, roster and credential digests, and renders API env files. Apply the reviewed config
+with `cargo xtask deploy vps cantos-api --host root@42.96.18.245 --reload-browser`; this lane
+avoids bootstrap, SQL, migrations, secret changes and image replacement. Build/deploy both Web
+apps with `CANTOS_API_ORIGIN=https://api.cantos.cc` through their existing explicit Hosting
+commands. Preserve host-only Secure/HttpOnly Strict sessions, Lax flow cookies and CSRF guards.
+
+Do not add `idm.cantos.cc`, rename Kanidm's initialized domain, or change WebAuthn credentials.
+The existing identity ingress remains transitional; the ADR 0041 default-deny gateway and
+real login/logout acceptance remain separate work. Domain selection alone does not accept it.
+
 Build/deploy each app with explicit nonsecret `CANTOS_API_ORIGIN`. Invalid input fails closed in
 the client; unset keeps local Trunk paths. The Hosting receipt records this input in `build.api_origin` and the explicit build command.
 
