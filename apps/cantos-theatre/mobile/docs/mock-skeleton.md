@@ -39,8 +39,9 @@ contracts keep the owners in the existing mobile architecture.
   not an approved production platform-support decision.
 - Consume canonical theme/tokens and native Material controls in private app-screen compositions.
   Registered Cantos wrappers stay unused while **0/29 qualified**; no admission gate,
-  compatibility baseline or registry is relaxed. Official outlined icon vectors use the pinned
-  common/JVM/Android/iOS `material-icons-extended:1.7.3` artifact.
+  compatibility baseline or registry is relaxed. Official outlined icon vectors come from the shared
+  offline registry (`CantosIcons`, generated from pinned Google SVGs); `material-icons-extended` is
+  deliberately not a dependency ([#245](https://github.com/loveoverflowcom/cantos/issues/245)).
 - Use a small closed resource enum with both vi/en strings and parameter tests. Story labels
   remain Vietnamese. Other fixture content is original/synthetic. Art/fonts/audio stay outside
   Git; canonical platform-font fallback stays explicit.

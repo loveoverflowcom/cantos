@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -45,6 +42,7 @@ import com.cantos.theatre.presentation.model.clockTime
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
+import com.cantos.ui.rememberCantosIconVector
 
 @Composable
 internal fun PlayerScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
@@ -132,7 +130,7 @@ internal fun MiniPlayer(state: ShellState, catalog: ShellCatalogView, copy: Shel
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = tokenColor("color.playerAccent"), contentColor = tokenColor("color.playerSurface")),
                 modifier = Modifier.size(tokenDp("size.control")).testTag("mini-transport")) {
-                Icon(if (state.transportRequested) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                Icon(if (state.transportRequested) rememberCantosIconVector("pause") else rememberCantosIconVector("play_arrow"),
                     copy.text(if (state.transportRequested) CopyKey.PauseEpisode else CopyKey.PlayEpisode, "title" to episode.title))
             }
         }

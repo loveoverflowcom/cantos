@@ -17,16 +17,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -94,6 +84,7 @@ import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
+import com.cantos.ui.rememberCantosIconVector
 
 /** Optional host-owned presentation additions; absent in an ordinary application mount. */
 typealias ShellNoticeContent = @Composable (ShellState, ShellCopy) -> Unit
@@ -266,7 +257,7 @@ private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEven
         if (canGoBack(state)) {
             IconButton(onClick = { dispatch(ShellEvent.Back) }, modifier = Modifier.size(tokenDp("size.control")).testTag("back")) {
                 Icon(
-                    if (state.route == ShellRoute.Player) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.ArrowBack,
+                    if (state.route == ShellRoute.Player) rememberCantosIconVector("close") else rememberCantosIconVector("arrow_back"),
                     copy.text(if (state.route == ShellRoute.Player) CopyKey.ClosePlayer else CopyKey.Back),
                 )
             }
@@ -283,7 +274,7 @@ private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEven
         if (state.route != ShellRoute.Account) {
             IconButton(onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
                 modifier = Modifier.size(tokenDp("size.control")).focusRequester(accountFocus).testTag("account")) {
-                Icon(Icons.Outlined.AccountCircle, copy.text(CopyKey.Account))
+                Icon(rememberCantosIconVector("account_circle"), copy.text(CopyKey.Account))
             }
         }
     }
@@ -299,7 +290,7 @@ private fun DiscoveryScreen(state: ShellState, catalog: ShellCatalogView, copy: 
         val point = continuingProgress(state).firstOrNull()
         if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
         TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Search)) }, modifier = Modifier.testTag("search")) {
-            Icon(Icons.Outlined.Search, null)
+            Icon(rememberCantosIconVector("search"), null)
             Text(copy.text(CopyKey.Search))
         }
     }
@@ -389,10 +380,10 @@ private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: She
         modifier = Modifier.fillMaxWidth().testTag("search-input"),
         label = { Text(copy.text(CopyKey.SearchLabel)) },
         placeholder = { Text(copy.text(CopyKey.SearchHint)) },
-        leadingIcon = { Icon(Icons.Outlined.Search, null) },
+        leadingIcon = { Icon(rememberCantosIconVector("search"), null) },
         trailingIcon = {
             if (state.query.isNotEmpty()) IconButton(onClick = { dispatch(ShellEvent.Search("")) }) {
-                Icon(Icons.Outlined.Close, copy.text(CopyKey.SearchClear))
+                Icon(rememberCantosIconVector("close"), copy.text(CopyKey.SearchClear))
             }
         },
     )
@@ -477,7 +468,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
         val firstEpisode = work.episodes.firstOrNull()
         Button(shape = MaterialTheme.shapes.medium, enabled = firstEpisode != null && firstEpisode.durationSeconds > 0,
             onClick = { firstEpisode?.let { dispatch(ShellEvent.OpenEpisode(it.id)) } }) {
-            Icon(Icons.Outlined.PlayArrow, null)
+            Icon(rememberCantosIconVector("play_arrow"), null)
             Text(copy.text(CopyKey.StartEpisode))
         }
         SaveWorkButton(work, state, copy, dispatch, "save-work")
@@ -523,7 +514,7 @@ internal fun EpisodeSelection(episode: ShellEpisode, state: ShellState, copy: Sh
                 Text(durationCaption(episode.durationSeconds, copy), style = MaterialTheme.typography.bodySmall)
                 if (selected) Text(copy.text(CopyKey.CurrentEpisode), style = MaterialTheme.typography.bodySmall)
             }
-            Icon(Icons.Outlined.PlayArrow, null)
+            Icon(rememberCantosIconVector("play_arrow"), null)
         }
     }
     if (episode.durationSeconds <= 0) Text(copy.text(CopyKey.SelectionUnavailableNote), style = MaterialTheme.typography.bodySmall)
@@ -539,7 +530,7 @@ private fun SaveWorkButton(work: ShellWork, state: ShellState, copy: ShellCopy, 
             stateDescription = copy.text(if (saved) CopyKey.SavedTab else CopyKey.Save)
         },
     ) {
-        Icon(Icons.Outlined.Star, null)
+        Icon(rememberCantosIconVector("star"), null)
         Text(copy.text(if (saved) CopyKey.Saved else CopyKey.Save))
     }
 }
@@ -556,8 +547,8 @@ private fun ShellTabs(state: ShellState, copy: ShellCopy, dispatch: (ShellEvent)
     val root = state.stack.firstOrNull()
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface, windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) {
         NavigationBarItem(selected = root == ShellRoute.Discovery || root == ShellRoute.Search, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) },
-            icon = { Icon(Icons.Outlined.Home, null) }, label = { Text(copy.text(CopyKey.Discover)) }, modifier = Modifier.testTag("nav-discovery"))
+            icon = { Icon(rememberCantosIconVector("home"), null) }, label = { Text(copy.text(CopyKey.Discover)) }, modifier = Modifier.testTag("nav-discovery"))
         NavigationBarItem(selected = root == ShellRoute.Library || root == ShellRoute.History, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Library)) },
-            icon = { Icon(Icons.AutoMirrored.Outlined.MenuBook, null) }, label = { Text(copy.text(CopyKey.Library)) }, modifier = Modifier.testTag("nav-library"))
+            icon = { Icon(rememberCantosIconVector("menu_book"), null) }, label = { Text(copy.text(CopyKey.Library)) }, modifier = Modifier.testTag("nav-library"))
     }
 }
