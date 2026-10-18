@@ -4,7 +4,7 @@ The [Caddyfile](Caddyfile) is tracked routing policy for `cantos-edge` on the VP
 production topology and all operator steps live in the [production runbook](../../docs/deployment/vps-production.md).
 [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md) selects direct Firebase Hosting
 and API ingress. This source still includes the transitional ADR 0039 Web/identity proxies;
-editing it neither deploys it nor qualifies the pending minimal Kanidm gateway.
+editing it neither deploys it nor qualifies the minimal Kanidm gateway against a real issuer.
 
 The API host routes Studio paths to `cantos-api-studio` and Theatre paths to
 `cantos-api-theatre`; each process pins its own Web origin/CORS surface. The edge adds no
@@ -12,12 +12,12 @@ application authorization. Preserve replaced `X-Forwarded-For`, dropped `Forward
 registration body limits and first-response email-code protections. These protections on a
 legacy Web proxy do not automatically apply to direct Firebase Hosting.
 
-Current source denies listed Kanidm management prefixes to public peers, including the separate
-HTML and HTMX administration trees `/ui/admin` and `/ui/api/admin` in pinned Kanidm 1.10.5.
-This is interim hardening, not a default-deny browser-route allowlist and not evidence about the
-installed file. The [identity gateway qualification boundary](identity-gateway.md) records pinned
-upstream route owners and the remaining acceptance. Qualify it before replacing the public
-identity proxy; never expose management operations as a workaround for OIDC.
+Current source admits only named Kanidm browser paths/methods and static assets, ending in
+an edge404 for everything else. Management and OAuth back-channel routes require explicitly
+inventoried TCP-peer CIDRs; forwarding headers cannot grant private access. The
+[identity gateway qualification boundary](identity-gateway.md) records pinned upstream owners,
+local Caddy routing tests and remaining live issuer/browser acceptance. Source support does not
+identify or qualify the installed policy; no identity-domain migration or credential is created.
 
 [`duck.sh.example`](duck.sh.example) is an operator-owned DNS updater primitive. Keep its token
 outside Git under root-only permissions; the token must belong to the named DuckDNS account.

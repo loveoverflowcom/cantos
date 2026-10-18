@@ -1,60 +1,91 @@
 # Kanidm browser gateway qualification
 
-Status: source inventory and interim management-path hardening only. The reviewed default-deny
-gateway, authority/domain migration and live browser acceptance required by
-[ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md) remain pending. No replacement
-gateway is enabled by this document; the [production runbook](../../docs/deployment/vps-production.md)
-owns deployment and operator authorization. Keep registration disabled under its independent gates.
+Status: default-deny method/path gateway source implemented for pinned Kanidm 1.10.5,
+with local Caddy 2.11.7 routing evidence. Live deployment, sanitized real browser traces,
+issuer/callback and credential-mechanism acceptance remain separate gates. No running
+configuration changes when this file or the Caddyfile changes. The
+[production runbook](../../docs/deployment/vps-production.md) owns rollout authority.
+Registration remains disabled under its independent gates.
 
-## Pinned source boundaries
+## Authority and upstream boundary
 
-Inspect the official `v1.10.5` source matching the image pin in
-[`services/manifest.toml`](../../services/manifest.toml). A path existing upstream does not make it
-necessary for Cantos or sufficient for an allowlist.
+Preserve the existing `CANTOS_IDM_HOST`, initialized Kanidm origin/domain, issuer and
+WebAuthn relying party. No new hostname, path prefix, provider client, account, credential,
+role or grant is selected by this gateway. Do not rename the initialized identity domain.
+The source policy narrows the existing general identity proxy; it does not provision identity.
 
-| Owner | Observed routes and review implication |
+Only `(cantos_kanidm_upstream)` in the [Caddyfile](Caddyfile) proxies to Kanidm. It retains
+private-CA validation and `tls_server_name cantos-kanidm`; there is no TLS bypass.
+An explicitly configured `CANTOS_INTERNAL_CIDRS` identifies the inventoried Cantos TCP peers,
+not forwarded headers. No RFC1918-wide default is supplied. Missing ranges admit no private
+management/back-channel requests, so inventory the actual network/peer scope before activation.
+Never set this variable to a public/default route or broaden it merely to make login pass.
+
+## Public admission
+
+The exact paths and methods live once in the Caddyfile's named matchers:
+
+| Matcher | Admitted scope |
 | --- | --- |
-| [HTTPS composition](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/mod.rs) | The HTML router is nested at `/ui`; assets at `/pkg`; images and manifest are separate routes. `/ui/*` therefore cannot be admitted as one harmless static tree. |
-| [HTML/HTMX router](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/views/mod.rs) | Authentication, OAuth consent and credential updates share this router with management. It nests independent management routers at `/ui/admin` and `/ui/api/admin`. The interim edge filter covers each root and subtree for every method, before its reverse proxy, for nonprivate TCP peers. |
-| [OIDC router](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/oauth2.rs) | Discovery, keys, authorization, userinfo, token, introspection and revocation have distinct routes. Enumerate actual client IDs and methods; a public `/oauth2/*` wildcard also admits back-channel operations. |
+| `kanidm_browser_get` | GET/HEAD of named login/landing, consent/resume, existing setup/recovery/logout UI, domain/two existing Web-client images, manifest/robots and individually named bundled static assets |
+| `kanidm_browser_post` | POST of named password/MFA/passkey login, consent, existing recovery/revoke and credential-update form/commit/cancel handlers |
+| Fallback | Every other path or method receives edge 404/no-store before upstream routing |
 
-The management filter deliberately retains browser `/ui/login`, `/ui/oauth2`, `/ui/reset` and
-credential-update `/ui/api` routes. It is still a denylist: unlisted or future management paths
-remain a risk. Static regression checks prove the checked-in entries and ordering, not Caddy
-matching/normalization, upstream authorization or the installed edge policy. Narrow the current
-`CANTOS_INTERNAL_CIDRS` to reviewed Cantos peers; forwarded headers never grant private ingress.
+There is no public `/ui/*`, `/ui/api/*`, `/pkg/*`, `/oauth2/*`, REST or SCIM wildcard.
+The shared OAuth login/consent UI still delegates client/state/nonce/PKCE, CSRF and user
+credential checks to Kanidm; path admission itself authenticates nobody. Discovery/keys,
+exchange/userinfo/introspection/revocation and all management stay on private ingress.
+Unix/SSH credential management, RADIUS, profile editing and provider administration are
+not public Cantos browser requirements and remain refused.
+No native direct-to-provider back-channel is introduced; Cantos API retains those effects.
+The existing two Web image names do not create a native client or invent its live issuer.
 
-## Required evidence before an allowlist replaces the transitional proxy
+Public percent-encoded path spellings, repeated separators, dot segments and backslashes
+are refused before upstream routing. Query encoding required for OIDC state/PKCE remains
+available. Refused requests have no-store; the identity authority uses no-referrer. No
+access logging of authorization URLs, reset codes or credentials is enabled by this policy.
 
-1. Select the gateway authority with the same-site Web/API domain plan. Preserve or explicitly
-   migrate the initialized Kanidm origin, issuer, exact callbacks and WebAuthn relying-party
-   domain. Do not place Kanidm beneath a guessed path prefix.
-2. Capture sanitized requests from pinned Kanidm 1.10.5 for actual Cantos OIDC login, every
-   enabled credential mechanism, consent/refusal, logout and operator-issued credential setup.
-   Start with the exact source routes below, then reconcile templates, JavaScript, images,
-   manifest and redirects against the browser trace. Do not save credential/reset tokens.
+## Pinned source inventory
 
-   | Candidate route family | Methods to qualify from the pinned router |
-   | --- | --- |
-   | `/ui/login`, `/ui/login/oauth2_landing` | GET |
-   | `/ui/login/{begin,mech_choose,pw,totp,backup_code,seckey,passkey}` | Explicit GET redirects and POST handlers; select only enabled mechanisms |
-   | `/ui/oauth2`, `/ui/oauth2/resume`, `/ui/oauth2/consent` | GET, GET, POST respectively |
-   | `/ui/enrol`, `/ui/reset`, `/ui/recover`, `/ui/revoke`, `/ui/update_credentials` | Distinct entry/recovery flows; review each method and capability rather than admit `/ui/*` |
-   | `/ui/reset/*`, `/ui/api/*` | Credential forms and commit/cancel endpoints require individual names; never wildcard because management shares `/ui/api` |
+These are primary source owners, not evidence about the installed server:
 
-3. Pin exact OIDC clients for Web, native and any approved operator consumer. Decide which
-   discovery/key routes need public access; route API token exchange, introspection, revocation
-   and onboarding management through private ingress while preserving issuer/TLS validation.
-4. Build a method/path allowlist ending in an unconditional edge refusal. Test management and
-   unknown routes across all methods, including HTML/HTMX admin, REST, SCIM, alternate discovery
-   paths, encoded separators and normalized dot segments. A Kanidm 401 is upstream routing,
-   not edge refusal. Verify private API/CLI access separately, with spoofed forwarding headers
-   unable to become a private TCP peer.
-5. Adapt/validate with the deployed pinned Caddy, then run real browser acceptance on the
-   selected authorities: callback, reload/session, logout/revocation, roster refusal and
-   Theatre-to-Studio denial with restrictive browser cookie settings. Inspect CSP, asset MIME
-   types, redirects and WebAuthn. Source tests and reachable login HTML do not satisfy this gate.
+- [HTTPS composition 1.10.5](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/mod.rs):
+  HTML at `/ui`, independently mounted static directory, domain/client images and manifest.
+- [HTML/HTMX router 1.10.5](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/views/mod.rs):
+  named login/setup routes coexist with `/ui/admin` and `/ui/api/admin`; wildcard UI admission
+  would expose management routing.
+- [OIDC router 1.10.5](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/oauth2.rs):
+  browser and back-channel operations are separate; a public OAuth wildcard is unnecessary.
+- [Base template](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/templates/base.html)
+  and [icons](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/templates/base_icons.html):
+  static asset names; query cache-busters do not require wildcard paths.
 
-No production domain is selected here. Without that decision and the sanitized pinned browser
-trace, completing or deploying an allowlist would invent missing acceptance; the bounded source
-hardening must not be reported as a completed gateway or authentication rollout.
+## Verification and remaining rollout gates
+
+The repository gate discovers `scripts/test_edge_gateway.py` and `test_edge_cache.py`.
+With an already installed binary supplied as `CANTOS_CADDY_BIN`, the optional tests require
+Caddy 2.11.7 (matching the Quadlet pin) and execute actual Caddy request matching against a
+recording loopback HTTP double. They cover public unknown/management/back-channel paths
+across eight methods, spoofed forwarding headers, encoded/dot/separator paths, named allowed
+methods, empty private ranges and private-peer access. No test downloads tools or starts
+Podman/Kanidm. Without the binary, the optional runtime tests skip explicitly.
+
+That is real edge routing with a mocked upstream, not Kanidm authentication, TLS, browser
+or device acceptance. Before live activation:
+
+1. Verify SSH host identity independently and inspect current edge/API/source/schema/config
+   and operation ownership. Preserve existing configuration and recovery artifacts.
+2. Inventory the actual Cantos TCP peers and existing initialized authority. Validate/adapt
+   the candidate with the pinned deployed Caddy and private CA; an empty peer list breaks
+   API back-channel access. Do not use broad ranges or spoofed headers as a workaround.
+3. Reconcile only the existing clients' exact legacy/Bearer callbacks through the guarded
+   owner, preserving roster, grants and secret digests. Native issuer/client registration
+   must be verified separately; source names are not live registration evidence.
+4. Capture sanitized actual login, consent/refusal, enabled credential setup/MFA, redirect,
+   logout and popup/opener traffic. Reconcile every required asset and method with the
+   pinned inventory. Never retain passwords, provider codes or reset tokens in evidence.
+5. Confirm edge refusal of management/unknown/alternate paths and private back-channel
+   access, then actual callback/reload/logout, signed recent-auth proof, surface isolation
+   and restrictive-browser behavior. Kanidm 401 or reachable HTML is not edge refusal or
+   authenticated acceptance. Missing routes must be reviewed individually, never replaced
+   by a permissive proxy fallback.

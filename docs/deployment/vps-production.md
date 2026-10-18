@@ -59,6 +59,31 @@ Keep observations in ignored artifacts and the review PR, not a growing deployme
 Receipts retain the commit actually built/deployed. Later documentation-only commits do not
 change that identity; report the deployed revision and final PR revision separately.
 
+## Bearer rollout preconditions
+
+Before deploying the Bearer clients, establish the installed API image revision and current
+schema registry through trusted read-only access. Merge state and a 403 admission refusal do
+not establish a deployed route. In particular, use the actual methods in
+[Bearer v1](../../packages/contracts/bearer-v1.md); a GET of the POST-only flow path is only a
+routing diagnostic. Do not run a consuming login/exchange/refresh merely as a presence probe.
+
+The new API requires epoch 2 migrations 0001 and 0002. `preflight_schema` currently invokes the
+strict target `--check` before backup/migration: an existing 0001-only registry is refused by
+ordinary deployment. Do not bypass that guard, edit registry rows or run a production migration
+by hand to force a rollout. A separately reviewed additive-upgrade/recovery path is required
+if the live inventory shows that prefix. The old 0001-only binary rejects the expanded registry;
+its pre-migration health does not establish a usable image-only rollback after 0002. Preserve
+checked backups and verified data-preserving recovery; never promise ordinary binary rollback
+across this boundary or automatically restore/drop production data.
+
+The [restricted gateway source](../../infra/edge/identity-gateway.md) retains the existing
+initialized identity authority and private CA. Inventory explicit existing Cantos TCP peers for
+`CANTOS_INTERNAL_CIDRS` before activation; there is no broad private-network default. Validate
+with the pinned deployed Caddy and separately qualify actual login/setup/consent and API
+back-channel behavior. Callback reconciliation is limited to the existing clients' exact
+legacy/Bearer URLs and preservation checks. No provider account, grant, secret or domain change
+is implied by API, gateway or static Hosting deployment.
+
 ## Direct Hosting → API configuration
 
 ### Selected custom domains
