@@ -127,7 +127,7 @@ fn unsupported(subject: &str, reason: impl Into<String>) -> ExitCode {
     report.exit_code()
 }
 
-fn native_compiler_prerequisite(compiler_home: &Path) -> Result<(), &'static str> {
+pub(crate) fn native_compiler_prerequisite(compiler_home: &Path) -> Result<(), &'static str> {
     if !compiler_home.is_absolute() || compiler_home.to_str().is_none() {
         return Err("--kotlin-native-home must be an absolute UTF-8 path to an installed compiler");
     }
@@ -211,7 +211,7 @@ pub fn android_sdk_prerequisite(sdk: Option<&Path>) -> Result<(), &'static str> 
 
 /// A valid simulator SDK distinguishes full Xcode from command-line tools alone. This probe
 /// reads installed tool output only and cannot install or configure Xcode.
-fn ios_sdk_available() -> bool {
+pub(crate) fn ios_sdk_available() -> bool {
     if !cfg!(target_os = "macos") {
         return false;
     }

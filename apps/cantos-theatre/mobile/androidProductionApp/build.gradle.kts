@@ -18,8 +18,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        // Public API origin for the live catalog, consumed today only by the debug manifest
-        // overlay (release declares neither the origin nor INTERNET). Explicit Gradle property
+        // Optional public API origin for both production variants. Explicit Gradle property
         // overrides the environment (an empty property opts out). Manifest merger substitutes
         // the attribute; no source is generated. Runtime admits https:// for any build and
         // loopback http:// only for a debuggable build with the debug network config.

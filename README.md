@@ -41,12 +41,15 @@ and the isolated [UI mock](docs/evidence/theatre-web-mock.md) is selected explic
 [CMP mock](apps/cantos-theatre/mobile/README.md), with production-safe UI/domain/application
 code in `:shared` and explicit demo adapters/composition in the separate `:preview-sandbox`
 KMP module, plus a tested common/JVM listener transport seam;
-native audio and live client integration remain deferred; public media delivery is fail-closed. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
+native audio and native catalog/API acceptance remain deferred; public media delivery is fail-closed. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
 The [native identity configuration slice](docs/evidence/theatre-auth-activation.md) supplies
 nonsecret Android metadata/iOS plist build inputs and typed missing/invalid configuration
 diagnostics. Source regression evidence does not establish a configured artifact or live login.
-A production Android host composes `:shared` only and, until production listening adapters
-exist, states that listening is unavailable. `cargo xtask theatre-host android-release` inspects
+A production Android host composes `:shared` only and can browse/search the anonymous catalog
+through a configured HTTPS origin; missing configuration remains unavailable. A separate iOS
+production host consumes the same catalog presentation and a native HTTP bridge, with native
+compilation/runtime acceptance recorded separately. Library and listening adapters remain
+unconnected. `cargo xtask theatre-host android-release` inspects
 its release classpaths and unsigned APK/AAB bytes for sandbox, mock and test content; the demo
 APK establishes no production isolation.
 See the [sandbox isolation record](docs/evidence/issue122-cmp-sandbox-isolation.md) for current checks.

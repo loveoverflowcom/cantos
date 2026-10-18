@@ -32,10 +32,9 @@ import kotlinx.coroutines.cancel
  *
  * Origin policy: a non-debuggable (release) app admits only `https://`; a debuggable build whose
  * debug source set sets `cantos_loopback_origin_allowed` also admits explicit loopback `http://`
- * (with the debug-only network security config). The `CantosApiOrigin` meta-data and the INTERNET
- * permission are declared only by the debug manifest overlay today, because the release
- * inspection (`cargo xtask theatre-host android-release`) admits no network permission. So a
- * release build keeps the unavailable state; this code still enforces https-only for it.
+ * (with the debug-only network security config). Both variants declare the optional nonsecret
+ * `CantosApiOrigin` meta-data and INTERNET permission; absent/rejected configuration keeps the
+ * explicit unavailable state. Release never admits cleartext or overrides platform TLS trust.
  */
 
 /** The admitted origin, or `null` (not configured, rejected, or no network permission). */

@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Production host. Release declares no permission, no API origin and never permits
-     cleartext: the live public catalog composes only where INTERNET and an origin are declared
-     (today only the debug overlay, src/debug/AndroidManifest.xml). Launcher artwork stays with
-     the demo host (#122). -->
+<!-- Production host. A configured HTTPS origin enables the anonymous live catalog in both
+     variants. Missing/invalid configuration renders unavailable, never a mock. Release never
+     permits cleartext; only the debug overlay has an explicit loopback network policy. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:allowBackup="false"
         android:label="Cantos"
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Cantos">
+        <meta-data android:name="CantosApiOrigin" android:value="${cantosApiOrigin}" />
         <activity
             android:name=".app.TheatreActivity"
             android:exported="true">

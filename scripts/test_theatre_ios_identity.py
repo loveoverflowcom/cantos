@@ -80,5 +80,35 @@ class TheatreIosIdentityConfigurationTest(unittest.TestCase):
         self.assertLess(owner.index("scope.cancel()"), owner.index("identity.close()"))
 
 
+class TheatreIosProductionCatalogTest(unittest.TestCase):
+    def test_production_target_links_shared_framework_and_preserves_default_tls(self):
+        project = (MOBILE / "iosApp/CantosProduction.xcodeproj/project.pbxproj").read_text()
+        self.assertNotIn("preview-sandbox", project)
+        self.assertNotIn("CantosTheatreDemo", project)
+        self.assertNotIn("TheatreIdentity.swift", project)
+        self.assertEqual(re.findall(r"PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);", project),
+                         ["com.cantos.theatre", "com.cantos.theatre"])
+        self.assertEqual(project.count('"-framework", CantosTheatre'), 2)
+        self.assertEqual(project.count('INFOPLIST_FILE = "CantosProduction/Info.plist";'), 2)
+        self.assertIn("CantosProductionApp.swift in Sources", project)
+        self.assertIn("TheatreCatalog.swift in Sources", project)
+        self.assertNotIn("NSAppTransportSecurity", project)
+        with (MOBILE / "iosApp/CantosProduction/Info.plist").open("rb") as source:
+            self.assertEqual(plistlib.load(source), {"CantosApiOrigin": "$(CANTOS_API_ORIGIN)"})
+
+    def test_production_composition_uses_the_configured_catalog_and_no_demo(self):
+        swift = (MOBILE / "iosApp/CantosProduction/CantosProductionApp.swift").read_text()
+        self.assertIn("import CantosTheatre\n", swift)
+        self.assertIn("IosCatalogOwner(apiOrigin: origin, platform: transport)", swift)
+        self.assertNotIn("IosDemoOwner", swift)
+        self.assertNotIn("IosNativeOwner", swift)
+        owner = (MOBILE / "shared/src/iosMain/kotlin/com/cantos/theatre/app/IosCatalogOwner.kt").read_text()
+        self.assertIn("selectCatalogOrigin(apiOrigin, allowLoopbackHttp = false)", owner)
+        self.assertIn("PublicCatalogHttpAdapter(it, IosCatalogTransport(platform))", owner)
+        self.assertIn("CantosListeningUnavailable", owner)
+        self.assertIn("PublicCatalogScreen(state, controller::dispatch", owner)
+        self.assertNotIn("mockAppContainer", owner)
+
+
 if __name__ == "__main__":
     unittest.main()

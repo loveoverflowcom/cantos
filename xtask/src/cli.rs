@@ -605,7 +605,7 @@ mod tests {
         assert!(matches!(
             parse("theatre-host android-release").unwrap(),
             Task::TheatreHost {
-                action: HostAction::AndroidRelease
+                action: HostAction::AndroidRelease { api_origin: None }
             }
         ));
         assert!(matches!(
@@ -613,6 +613,18 @@ mod tests {
             Task::TheatreHost {
                 action: HostAction::AndroidDebug { api_origin }
             } if api_origin == "http://127.0.0.1:8080"
+        ));
+        assert!(matches!(
+            parse("theatre-host android-release --api-origin https://api.cantos.example").unwrap(),
+            Task::TheatreHost {
+                action: HostAction::AndroidRelease { api_origin: Some(api_origin) }
+            } if api_origin == "https://api.cantos.example"
+        ));
+        assert!(matches!(
+            parse("theatre-host ios-build --kotlin-native-home /installed/native").unwrap(),
+            Task::TheatreHost {
+                action: HostAction::IosBuild { kotlin_native_home }
+            } if kotlin_native_home == std::path::Path::new("/installed/native")
         ));
         for line in [
             "theatre-host",

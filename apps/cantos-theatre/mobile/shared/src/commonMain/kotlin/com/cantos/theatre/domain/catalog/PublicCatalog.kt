@@ -18,6 +18,7 @@ enum class CatalogViolation {
     MalformedUnitId,
     MalformedPublicationId,
     MalformedCursor,
+    InvalidSearchQuery,
     BlankTitle,
     PositionOutOfRange,
     NonPositiveDuration,
@@ -80,6 +81,22 @@ value class CatalogCursor private constructor(val value: String) {
         fun parse(raw: String): CatalogCheck<CatalogCursor> =
             if (cursorShape.matches(raw)) CatalogCheck.Valid(CatalogCursor(raw))
             else CatalogCheck.Invalid(CatalogViolation.MalformedCursor)
+    }
+}
+
+/**
+ * A submitted discovery query, bounded by the existing API's 512 UTF-8 byte/control rule.
+ * Case folding and Unicode normalization belong to the server; the UI locale is unrelated.
+ */
+@JvmInline
+value class CatalogSearchQuery private constructor(val value: String) {
+    companion object {
+        val Empty: CatalogSearchQuery = CatalogSearchQuery("")
+
+        fun parse(raw: String): CatalogCheck<CatalogSearchQuery> =
+            if (raw.encodeToByteArray().size > 512 || raw.any { it.code in 0..31 || it.code in 127..159 }) {
+                CatalogCheck.Invalid(CatalogViolation.InvalidSearchQuery)
+            } else CatalogCheck.Valid(CatalogSearchQuery(raw.trim()))
     }
 }
 

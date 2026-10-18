@@ -3,6 +3,8 @@ package com.cantos.theatre.adapters.http
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.cursor
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.work
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.workId
+import com.cantos.theatre.domain.catalog.PublicCatalogSamples.valid
+import com.cantos.theatre.domain.catalog.CatalogSearchQuery
 import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.ports.CatalogProtocolFault
 import com.cantos.theatre.ports.PublicCatalogRead
@@ -60,6 +62,24 @@ class PublicCatalogHttpAdapterTest {
         val body = corpus.getValue("works.json").substringAfter("[").substringBeforeLast("]").trim()
         val adapter = PublicCatalogHttpAdapter(origin, Scripted { json(200, body) })
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Invalid), adapter.work(workId(2)))
+    }
+
+    @Test
+    fun server_search_percent_encodes_utf8_and_keeps_the_same_query_for_cursor_reads() = runTest {
+        val transport = Scripted { json(200, corpus.getValue("works.json")) }
+        val adapter = PublicCatalogHttpAdapter(origin, transport)
+        val query = CatalogSearchQuery.parse(" Đèn & q=khác?#/+ ").valid()
+        assertIs<PublicCatalogRead.Ready<*>>(adapter.search(query, null))
+        adapter.search(query, cursor(2))
+        adapter.search(CatalogSearchQuery.Empty, null)
+        assertEquals(
+            listOf(
+                "https://api.cantos.example/api/v1/theatre/search?limit=20&q=%C4%90%C3%A8n%20%26%20q%3Dkh%C3%A1c%3F%23%2F%2B",
+                "https://api.cantos.example/api/v1/theatre/search?limit=20&cursor=${cursor(2).value}&q=%C4%90%C3%A8n%20%26%20q%3Dkh%C3%A1c%3F%23%2F%2B",
+                "https://api.cantos.example/api/v1/theatre/works?limit=20",
+            ),
+            transport.urls,
+        )
     }
 
     @Test

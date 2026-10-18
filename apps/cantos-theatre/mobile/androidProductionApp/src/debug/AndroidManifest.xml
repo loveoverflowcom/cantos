@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Debug-only overlay: API origin and network access for the live public catalog; cleartext limited to
-     loopback (127.0.0.1 / localhost, e.g. `adb reverse tcp:8080 tcp:8080`). Release keeps
-     neither. Android 6 (API 23) ignores networkSecurityConfig, so loopback http there stays
+<!-- Debug-only cleartext override, limited to loopback (127.0.0.1 / localhost,
+     e.g. `adb reverse tcp:8080 tcp:8080`). Android 6 (API 23) ignores networkSecurityConfig, so loopback http there stays
      blocked by usesCleartextTraffic=false; use API 24+ or an https origin. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.INTERNET" />
-    <application android:networkSecurityConfig="@xml/cantos_loopback_network_security">
-        <!-- Substituted by manifest merger from cantos.apiOrigin / CANTOS_API_ORIGIN; empty by default. -->
-        <meta-data android:name="CantosApiOrigin" android:value="${cantosApiOrigin}" />
-    </application>
+    <application android:networkSecurityConfig="@xml/cantos_loopback_network_security" />
 </manifest>

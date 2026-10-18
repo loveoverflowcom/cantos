@@ -130,6 +130,60 @@ class PublicCatalogHttpTransportTest {
     }
 
     @Test
+    fun search_walks_unloaded_works_retries_the_same_cursor_and_opens_the_exact_server_work() = runBlocking {
+        val requests = Collections.synchronizedList(mutableListOf<String>())
+        val pageAttempts = AtomicInteger()
+        val encoded = "%C4%90%C3%AAm%20%26x%3D1"
+        Server { exchange ->
+            val path = exchange.requestURI.rawPath
+            val query = exchange.requestURI.rawQuery
+            requests += "$path?$query"
+            when {
+                path == "/api/v1/theatre/works" -> exchange.json(200, """{"items":[],"next_cursor":null}""")
+                path == "/api/v1/theatre/search" && query == "limit=20&q=$encoded" ->
+                    exchange.json(200, """{"items":[${workJson(work3, "novel", "Đêm xa lạ")}],"next_cursor":"$cursor1"}""")
+                path == "/api/v1/theatre/search" && query == "limit=20&cursor=$cursor1&q=$encoded" ->
+                    if (pageAttempts.incrementAndGet() == 1) exchange.json(503, """{"code":"unavailable","retryable":true}""")
+                    else exchange.json(200, """{"items":[${workJson(work2, "podcast", "Một tác phẩm khác")}],"next_cursor":null}""")
+                path == "/api/v1/theatre/works/$work3" -> exchange.json(200, workJson(work3, "novel", "Đêm xa lạ"))
+                path == "/api/v1/theatre/works/$work3/units" -> exchange.json(200, """{"work_id":"$work3","items":[],"next_cursor":null}""")
+                else -> exchange.json(404, """{"code":"not_found","retryable":false}""")
+            }
+        }.use { server ->
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val controller = PublicCatalogController(scope, PublicCatalogHttpAdapter(server.origin, JvmCatalogTransport()))
+            try {
+                withTimeout(10_000) {
+                    controller.dispatch(PublicCatalogIntent.Start)
+                    assertTrue(controller.state.first { it.works.isEmptyResult }.works.items.isEmpty())
+                    controller.dispatch(PublicCatalogIntent.Search("Đêm &x=1"))
+                    val first = controller.state.first { it.works.phase == WalkPhase.More }.works.items.single()
+                    assertEquals(work3, first.id.value)
+                    controller.dispatch(PublicCatalogIntent.LoadMoreWorks)
+                    assertEquals(listOf(first), controller.state.first { it.works.phase is WalkPhase.Failed }.works.items)
+                    controller.dispatch(PublicCatalogIntent.RetryWorks)
+                    assertEquals(listOf(work3, work2), controller.state.first { it.works.phase == WalkPhase.Complete }.works.items.map { it.id.value })
+                    controller.dispatch(PublicCatalogIntent.OpenWork(first))
+                    val detail = controller.state.first { it.detail?.units?.isEmptyResult == true }.detail!!
+                    assertEquals(work3, detail.id.value)
+                    assertEquals("Đêm &x=1", controller.state.value.searchQuery)
+                }
+            } finally {
+                controller.close()
+                scope.cancel()
+            }
+            assertEquals(listOf(
+                "/api/v1/theatre/works?limit=20",
+                "/api/v1/theatre/search?limit=20&q=$encoded",
+                "/api/v1/theatre/search?limit=20&cursor=$cursor1&q=$encoded",
+                "/api/v1/theatre/search?limit=20&cursor=$cursor1&q=$encoded",
+                "/api/v1/theatre/works/$work3?null",
+                "/api/v1/theatre/works/$work3/units?limit=20",
+            ), requests.toList())
+        }
+    }
+
+    @Test
     fun oversized_bodies_are_refused_with_or_without_content_length() = runBlocking {
         var chunked = false
         Server { exchange ->

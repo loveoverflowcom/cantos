@@ -185,6 +185,12 @@ evidence; host rendering does not replace Android/iOS runtime or screen-reader g
 
 Do not report an app build, mobile test, audio quality result or end-to-end production run unless it actually ran. Record limitations and required follow-ups with evidence.
 
+Production catalog host packaging uses `cargo xtask theatre-host android-release
+[--api-origin HTTPS_ORIGIN]` for the unsigned Android release and sandbox exclusion inspection,
+and `cargo xtask theatre-host ios-build --kotlin-native-home PATH` for the shared-only iOS
+simulator framework. Missing origins keep an explicit unavailable state; release/iOS admit
+HTTPS only. Framework linking is not Swift host, device, network or listening acceptance.
+
 ## Service runtime ownership
 
 A service is a runnable process or independently managed infrastructure, not necessarily a Rust
