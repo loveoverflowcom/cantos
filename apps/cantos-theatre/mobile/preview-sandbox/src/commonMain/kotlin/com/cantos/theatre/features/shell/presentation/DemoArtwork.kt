@@ -3,8 +3,6 @@ package com.cantos.theatre.features.shell.presentation
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -19,6 +17,7 @@ import com.cantos.theatre.demo.DemoWorkIds
 import com.cantos.theatre.preview.resources.Res
 import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import com.cantos.ui.rememberCantosIconVector
 
 @Composable
 fun WithDemoArtwork(content: @Composable () -> Unit) {
@@ -28,8 +27,8 @@ fun WithDemoArtwork(content: @Composable () -> Unit) {
 @Composable
 private fun DemoWorkArtwork(id: ShellWorkId, modifier: Modifier, shape: Shape) {
     val path = when (id) {
-        DemoWorkIds.SonHa -> "drawable/son_ha_moon.png"
-        DemoWorkIds.DenKhua -> "drawable/den_khuya.png"
+        DemoWorkIds.SonHa -> "drawable/son_ha_moon.webp"
+        DemoWorkIds.DenKhua -> "drawable/den_khuya.webp"
         else -> null
     }
     val bitmap by produceState<ImageBitmap?>(null, path) {
@@ -39,7 +38,7 @@ private fun DemoWorkArtwork(id: ShellWorkId, modifier: Modifier, shape: Shape) {
         val image = bitmap
         if (image == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.AutoMirrored.Outlined.MenuBook, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(rememberCantosIconVector("menu_book"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             Image(image, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)

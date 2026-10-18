@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,10 +40,9 @@ import com.cantos.ui.SurfaceTone
 import com.cantos.ui.SurfaceVariant
 import com.cantos.ui.tokenDp
 import androidx.compose.ui.unit.Dp
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import com.cantos.ui.rememberCantosIconVector
 
 /** Explicit listener intents. The app root owns every decision; this layer only emits them. */
 sealed interface AuthIntent {
@@ -106,7 +104,7 @@ fun AuthHeader(
         )
         IconButton(onClick = { onIntent(AuthIntent.ToggleTheme) }, modifier = Modifier.size(tokenDp("size.backControl")).testTag("auth-theme")) {
             Icon(
-                if (theme == ShellTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
                 contentDescription = copy.text(AuthText.ToggleTheme),
             )
         }

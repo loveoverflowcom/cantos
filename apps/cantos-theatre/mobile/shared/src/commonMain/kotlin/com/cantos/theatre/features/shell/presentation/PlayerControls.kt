@@ -6,15 +6,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
-import androidx.compose.material.icons.outlined.FastForward
-import androidx.compose.material.icons.outlined.FastRewind
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -46,6 +37,7 @@ import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.tokenDp
+import com.cantos.ui.rememberCantosIconVector
 
 @Composable
 internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
@@ -72,7 +64,7 @@ internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: Shel
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(ShellEvent.Seek(-15)) },
                     modifier = Modifier.size(tokenDp("size.control")).testTag("rewind")) {
-                    Icon(Icons.Outlined.FastRewind, copy.text(CopyKey.Rewind))
+                    Icon(rememberCantosIconVector("fast_rewind"), copy.text(CopyKey.Rewind))
                 }
                 Text(copy.text(CopyKey.SeekStep), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.clearAndSetSemantics { })
@@ -83,13 +75,13 @@ internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: Shel
                         contentDescription = copy.text(if (state.transportRequested) CopyKey.PauseEpisode else CopyKey.PlayEpisode,
                             "title" to episode.title)
                     }) {
-                Icon(if (state.transportRequested) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
+                Icon(if (state.transportRequested) rememberCantosIconVector("pause") else rememberCantosIconVector("play_arrow"), null,
                     modifier = Modifier.size(tokenDp("size.icon") + tokenDp("space.sm")))
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(ShellEvent.Seek(15)) },
                     modifier = Modifier.size(tokenDp("size.control")).testTag("forward")) {
-                    Icon(Icons.Outlined.FastForward, copy.text(CopyKey.Forward))
+                    Icon(rememberCantosIconVector("fast_forward"), copy.text(CopyKey.Forward))
                 }
                 Text(copy.text(CopyKey.SeekStep), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.clearAndSetSemantics { })
@@ -104,7 +96,7 @@ internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: Shel
             modifier = Modifier.testTag("player-speed").focusRequester(speedFocus).semantics {
                 contentDescription = copy.text(CopyKey.SpeedCaption, "speed" to copy.speed(state.speedPercent))
             }) {
-            Icon(Icons.Outlined.Speed, null)
+            Icon(rememberCantosIconVector("speed"), null)
             Text(copy.speed(state.speedPercent))
         }
         FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { panel = PreferencePanel.Timer },
@@ -112,18 +104,18 @@ internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: Shel
                 contentDescription = copy.text(CopyKey.Timer)
                 stateDescription = copy.text(timerKey(state.timer))
             }) {
-            Icon(Icons.Outlined.Timer, null)
+            Icon(rememberCantosIconVector("timer"), null)
             Text(copy.text(timerKey(state.timer)))
         }
         if (LocalShellCapabilities.current.bookmarks) {
             val bookmarked = ShellBookmark(state.selectedEpisode, state.positionSeconds, state.positionMs) in state.bookmarks
             FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Bookmark) }, modifier = Modifier.testTag("bookmark")) {
-                Icon(Icons.Outlined.Star, null)
+                Icon(rememberCantosIconVector("star"), null)
                 Text(copy.text(if (bookmarked) CopyKey.Bookmarked else CopyKey.Bookmark))
             }
         }
         FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Queue)) }, modifier = Modifier.testTag("queue")) {
-            Icon(Icons.AutoMirrored.Outlined.QueueMusic, null)
+            Icon(rememberCantosIconVector("queue_music"), null)
             Text(copy.text(CopyKey.Queue))
         }
     }

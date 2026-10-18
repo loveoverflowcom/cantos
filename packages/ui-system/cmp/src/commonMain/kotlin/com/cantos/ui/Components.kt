@@ -54,20 +54,31 @@ fun FieldError(text: String, modifier: Modifier = Modifier) {
 /** Decorative official Material SVG paths; the enclosing control supplies its name. */
 @Composable
 fun Icon(name: String, modifier: Modifier = Modifier, tint: Color = LocalContentColor.current) {
+    val vector = remember(name, tint) { buildCantosIconVector(name, tint) }
+    MaterialIcon(vector, contentDescription = null, modifier = modifier.size(tokenDp("size.icon")), tint = tint)
+}
+
+/**
+ * Registry glyph as a tint-free vector for a Material `Icon(imageVector, contentDescription)`
+ * call site that owns its own size, tint and accessible name. Unknown names fail closed.
+ */
+@Composable
+fun rememberCantosIconVector(name: String): ImageVector = remember(name) { buildCantosIconVector(name) }
+
+/** Pure builder shared by both entry points; paint comes from `tint` (black when tinted later). */
+fun buildCantosIconVector(name: String, tint: Color = Color.Black): ImageVector {
     val icon = CantosIcons.icons.firstOrNull { it.name == name }
     require(icon != null) { "Unknown official icon: $name" }
-    val vector = remember(name, tint) {
-        val bounds = icon.viewBox.split(Regex("\\s+")).map { it.toFloat() }
-        ImageVector.Builder(
-            name = name,
-            defaultWidth = CantosTokens.number("size.icon").toFloat().dp,
-            defaultHeight = CantosTokens.number("size.icon").toFloat().dp,
-            viewportWidth = bounds[2], viewportHeight = bounds[3],
-        ).apply {
-            icon.pathData.forEach { pathData ->
-                addPath(pathData = PathParser().parsePathString(pathData).toNodes(), fill = SolidColor(tint))
-            }
-        }.build()
-    }
-    MaterialIcon(vector, contentDescription = null, modifier = modifier.size(tokenDp("size.icon")), tint = tint)
+    val bounds = icon.viewBox.split(Regex("\\s+")).map { it.toFloat() }
+    return ImageVector.Builder(
+        name = name,
+        defaultWidth = CantosTokens.number("size.icon").toFloat().dp,
+        defaultHeight = CantosTokens.number("size.icon").toFloat().dp,
+        viewportWidth = bounds[2], viewportHeight = bounds[3],
+        autoMirror = icon.autoMirror,
+    ).apply {
+        icon.pathData.forEach { pathData ->
+            addPath(pathData = PathParser().parsePathString(pathData).toNodes(), fill = SolidColor(tint))
+        }
+    }.build()
 }
