@@ -39,6 +39,7 @@ cargo xtask build cantos-forge [--release]        # cargo build --locked -p cant
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
 cargo xtask web-performance cantos-studio|cantos-theatre  # release build + offline asset inventory
+cargo xtask theatre-size --apk PATH [--baseline report.json]  # offline APK size groups/deltas (no upload or install)
 cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
 cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
@@ -150,6 +151,37 @@ shape never establishes immutable eligibility; expected MIME and loader text do 
 HTTP headers or streaming execution. HTML-linked totals are a subset of initial network work.
 Browser timings, V8 cache hits, host compression/headers and deploy/rollback acceptance remain
 `NOT_RUN`. See the [pattern audit and limits](../docs/evidence/web-performance-patterns.md).
+
+### Optional Theatre APK size report
+
+```sh
+cargo xtask theatre-size --apk apps/cantos-theatre/mobile/androidApp/build/outputs/apk/debug/androidApp-debug.apk \
+  --output artifacts/apk-size/demo-debug-baseline
+cargo xtask theatre-size --apk path/to/candidate.apk --baseline artifacts/apk-size/demo-debug-baseline/report.json
+cargo xtask theatre-size --apk path/to/any.apk --dry-run
+```
+
+Measures one explicit APK (never a glob, never a build) and writes `report.json` plus
+`summary.txt` to a fresh directory beneath ignored `artifacts/apk-size`; existing evidence is
+never overwritten. The report records the exact SHA-256, byte count with decimal MB and MiB,
+package/version/debuggable from `apkanalyzer`, ZIP compressed and uncompressed bytes per group
+(DEX, native libs and per ABI, `resources.arsc`, `res`, fonts, assets, manifest, signature/
+`META-INF`, other), top entries and the largest DEX packages with notable prefixes
+(`androidx.compose.material.icons`, tooling, Compose, Kotlin). Container overhead is file bytes
+minus entry compressed bytes and is never added to a group. DEX package bytes are an
+uncompressed estimate; they are attribution, not download savings. APK file bytes, the
+Analyzer's estimated download size and installed footprint (`NOT_MEASURED`, needs a named
+device) stay separate metrics.
+
+Variant comes only from the Gradle `output-metadata.json` beside the APK when it names exactly
+that file; otherwise it is `unknown`. `--source-revision` is recorded only when supplied. The
+signer digest comes from `apksigner` when installed, else `NOT_CHECKED`. A missing or failing
+`apkanalyzer` yields a `PARTIAL` report and a non-zero exit, never a pass. `--baseline` adds
+absolute and percent deltas per metric and group plus every input difference (package, version,
+debuggable, variant, signer, source revision, tool version); differing inputs mark the
+comparison not comparable. The command resolves no Gradle dependency graph, builds nothing and
+adds no required gate: the primitive tests run in `repository`, the command-plan tests in
+`rust-tests`.
 
 ### run and app
 
@@ -745,6 +777,7 @@ separates the original mock adapter checks from real rendering recorded in the
 
 | Module | Responsibility |
 | --- | --- |
+| `theatre_size.rs` | optional single-step plan around `scripts/apk_size.py`; reads one explicit APK and writes an ignored local report, never distributes |
 | `web_performance.rs` | optional fresh release-build/inventory plans; the Python primitive records byte identities/estimates, never browser or deployment acceptance |
 | `behavior.rs` | narrow model/optional conformance command and read-only probe plans; Quint owns expectations |
 | `main.rs`, `cli.rs` | clap definitions and dispatch; usage errors exit 2 |

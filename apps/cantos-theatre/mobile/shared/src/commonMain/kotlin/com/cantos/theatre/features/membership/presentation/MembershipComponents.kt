@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +39,7 @@ import com.cantos.ui.SurfaceTone
 import com.cantos.ui.SurfaceVariant
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
+import com.cantos.ui.rememberCantosIconVector
 
 /** App composition over shared design-v2 primitives; no Membership decisions or state owner. */
 @Composable
@@ -68,7 +65,7 @@ fun MembershipHeader(
             )
         }
         IconButton(onClick = onToggleTheme, modifier = Modifier.size(tokenDp("size.backControl")).testTag("membership-theme")) {
-            Icon(if (theme == ShellTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+            Icon(if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
                 contentDescription = copy.text(MembershipText.ToggleTheme))
         }
     }
@@ -91,7 +88,7 @@ internal fun MembershipSuccessSymbol() {
         contentColor = tokenColor("color.success"),
         shape = RoundedCornerShape(tokenDp("shape.statusSymbol")),
     ) {
-        Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Check, null, Modifier.size(tokenDp("size.authIcon"))) }
+        Box(contentAlignment = Alignment.Center) { Icon(rememberCantosIconVector("check"), null, Modifier.size(tokenDp("size.authIcon"))) }
     }
 }
 

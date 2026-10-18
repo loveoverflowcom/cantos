@@ -11,13 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,6 +41,7 @@ import com.cantos.ui.SurfaceTone
 import com.cantos.ui.SurfaceVariant
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
+import com.cantos.ui.rememberCantosIconVector
 
 /**
  * Guest or signed-in Account. It shows only facts the account owner may project: no actor, no
@@ -76,7 +70,7 @@ fun AccountContent(
                     Modifier.size(tokenDp("size.avatarLarge")).clip(CircleShape)
                         .background(tokenColor("color.primary")).testTag("account-avatar"),
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Outlined.Person, null, tint = tokenColor("color.onPrimary")) }
+                ) { Icon(rememberCantosIconVector("person"), null, tint = tokenColor("color.onPrimary")) }
                 Badge(copy.text(if (signedIn) AuthText.SignedBadge else AuthText.GuestBadge),
                     tone = if (signedIn) StatusTone.Success else StatusTone.Neutral)
             }
@@ -132,12 +126,12 @@ fun AccountContent(
         variant = SurfaceVariant.AccountGroup, inset = Space.Sm) {
         Column {
             AccountRow(
-                if (theme == ShellTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
                 copy.text(AuthText.Appearance),
                 copy.text(if (theme == ShellTheme.Dark) AuthText.AppearanceDark else AuthText.AppearanceLight),
                 "theme-toggle",
             ) { onIntent(AuthIntent.ToggleTheme) }
-            AccountRow(Icons.Outlined.Settings, copy.text(AuthText.ListeningSettings),
+            AccountRow(rememberCantosIconVector("settings"), copy.text(AuthText.ListeningSettings),
                 copy.text(AuthText.ListeningSettingsHint), "settings") { onIntent(AuthIntent.OpenSettings) }
             if (signedIn) {
                 if (previewActionIcons) Button(
@@ -145,7 +139,7 @@ fun AccountContent(
                     variant = ButtonVariant.Text, icon = authActionIcon(AuthIntent.Logout),
                     controlModifier = Modifier.fillMaxWidth().testTag("logout")
                         .semantics { stateDescription = copy.text(AuthText.LogoutHint) },
-                ) else AccountRow(Icons.AutoMirrored.Outlined.Logout, copy.text(AuthText.Logout),
+                ) else AccountRow(rememberCantosIconVector("logout"), copy.text(AuthText.Logout),
                     copy.text(AuthText.LogoutHint), "logout") { onIntent(AuthIntent.Logout) }
             }
         }
@@ -166,6 +160,6 @@ private fun AccountRow(icon: ImageVector, title: String, value: String, tag: Str
             Text(title, style = MaterialTheme.typography.labelLarge)
             Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
+        Icon(rememberCantosIconVector("keyboard_arrow_right"), null)
     }
 }

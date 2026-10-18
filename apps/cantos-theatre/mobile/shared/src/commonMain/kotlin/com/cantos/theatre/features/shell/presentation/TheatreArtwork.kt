@@ -2,8 +2,6 @@ package com.cantos.theatre.features.shell.presentation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,6 +18,7 @@ import com.cantos.theatre.resources.noto_sans_regular
 import com.cantos.theatre.resources.noto_serif_bold
 import com.cantos.theatre.resources.noto_serif_regular
 import org.jetbrains.compose.resources.Font
+import com.cantos.ui.rememberCantosIconVector
 
 @Composable
 internal fun theatreSans(): FontFamily = FontFamily(
@@ -45,7 +44,7 @@ internal fun WorkArtwork(id: ShellWorkId, modifier: Modifier = Modifier, shape: 
     } else {
         Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = shape) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.AutoMirrored.Outlined.MenuBook, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(rememberCantosIconVector("menu_book"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

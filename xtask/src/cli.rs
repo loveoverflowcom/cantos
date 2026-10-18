@@ -71,6 +71,8 @@ pub enum Task {
     VisualCompare(crate::visual_compare::VisualCompareArgs),
     /// Build a release Web bundle and inventory bytes; no browser or cache-hit claim.
     WebPerformance(crate::web_performance::WebPerformanceArgs),
+    /// Measure one explicit Theatre APK's size groups and deltas offline; no upload or install.
+    TheatreSize(crate::theatre_size::TheatreSizeArgs),
     /// Build a target with Cargo (API, Forge) or Trunk (Web); dev profile unless --release.
     Build {
         #[arg(value_enum)]

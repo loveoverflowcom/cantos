@@ -4,6 +4,7 @@ use leptos::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IconName {
+    AccountCircle,
     Add,
     Archive,
     ArrowBack,
@@ -14,7 +15,10 @@ pub enum IconName {
     DarkMode,
     DeleteOutline,
     ExpandMore,
+    FastForward,
+    FastRewind,
     Home,
+    KeyboardArrowRight,
     LightMode,
     Login,
     Logout,
@@ -22,17 +26,23 @@ pub enum IconName {
     MenuBook,
     Mic,
     Pause,
+    Person,
     PersonAdd,
     PlayArrow,
+    QueueMusic,
     Refresh,
     Save,
     Search,
     Settings,
+    Speed,
+    Star,
+    Timer,
     WarningAmber,
 }
 
 impl IconName {
     pub const ALL: &'static [Self] = &[
+        Self::AccountCircle,
         Self::Add,
         Self::Archive,
         Self::ArrowBack,
@@ -43,7 +53,10 @@ impl IconName {
         Self::DarkMode,
         Self::DeleteOutline,
         Self::ExpandMore,
+        Self::FastForward,
+        Self::FastRewind,
         Self::Home,
+        Self::KeyboardArrowRight,
         Self::LightMode,
         Self::Login,
         Self::Logout,
@@ -51,17 +64,23 @@ impl IconName {
         Self::MenuBook,
         Self::Mic,
         Self::Pause,
+        Self::Person,
         Self::PersonAdd,
         Self::PlayArrow,
+        Self::QueueMusic,
         Self::Refresh,
         Self::Save,
         Self::Search,
         Self::Settings,
+        Self::Speed,
+        Self::Star,
+        Self::Timer,
         Self::WarningAmber,
     ];
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AccountCircle => "account_circle",
             Self::Add => "add",
             Self::Archive => "archive",
             Self::ArrowBack => "arrow_back",
@@ -72,7 +91,10 @@ impl IconName {
             Self::DarkMode => "dark_mode",
             Self::DeleteOutline => "delete_outline",
             Self::ExpandMore => "expand_more",
+            Self::FastForward => "fast_forward",
+            Self::FastRewind => "fast_rewind",
             Self::Home => "home",
+            Self::KeyboardArrowRight => "keyboard_arrow_right",
             Self::LightMode => "light_mode",
             Self::Login => "login",
             Self::Logout => "logout",
@@ -80,12 +102,17 @@ impl IconName {
             Self::MenuBook => "menu_book",
             Self::Mic => "mic",
             Self::Pause => "pause",
+            Self::Person => "person",
             Self::PersonAdd => "person_add",
             Self::PlayArrow => "play_arrow",
+            Self::QueueMusic => "queue_music",
             Self::Refresh => "refresh",
             Self::Save => "save",
             Self::Search => "search",
             Self::Settings => "settings",
+            Self::Speed => "speed",
+            Self::Star => "star",
+            Self::Timer => "timer",
             Self::WarningAmber => "warning_amber",
         }
     }
@@ -98,6 +125,7 @@ pub fn Icon(name: IconName) -> impl IntoView {
         <svg class="cui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
             fill="currentColor" aria-hidden="true" focusable="false">
             {match name {
+                IconName::AccountCircle => view! { <g><g ><rect fill="none" height="24" width="24"></rect></g><g ><g ><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM7.35 18.5C8.66 17.56 10.26 17 12 17s3.34.56 4.65 1.5c-1.31.94-2.91 1.5-4.65 1.5s-3.34-.56-4.65-1.5zm10.79-1.38C16.45 15.8 14.32 15 12 15s-4.45.8-6.14 2.12C4.7 15.73 4 13.95 4 12c0-4.42 3.58-8 8-8s8 3.58 8 8c0 1.95-.7 3.73-1.86 5.12z"></path><path d="M12 6c-1.93 0-3.5 1.57-3.5 3.5S10.07 13 12 13s3.5-1.57 3.5-3.5S13.93 6 12 6zm0 5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11 12 11z"></path></g></g></g> }.into_any(),
                 IconName::Add => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></g> }.into_any(),
                 IconName::Archive => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM6.24 5h11.52l.81.97H5.44l.8-.97zM5 19V8h14v11H5zm8.45-9h-2.9v3H8l4 4 4-4h-2.55z"></path></g> }.into_any(),
                 IconName::ArrowBack => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></g> }.into_any(),
@@ -108,7 +136,10 @@ pub fn Icon(name: IconName) -> impl IntoView {
                 IconName::DarkMode => view! { <g><rect fill="none" height="24" width="24"></rect><path d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"></path></g> }.into_any(),
                 IconName::DeleteOutline => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"></path></g> }.into_any(),
                 IconName::ExpandMore => view! { <g><path d="M24 24H0V0h24v24z" fill="none" opacity=".87"></path><path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6-1.41-1.41z"></path></g> }.into_any(),
+                IconName::FastForward => view! { <g><g ><rect fill="none" height="24" width="24"></rect><rect fill="none" height="24" width="24"></rect><rect fill="none" height="24" width="24"></rect></g><g ><g ></g><path d="M15,9.86L18.03,12L15,14.14V9.86 M6,9.86L9.03,12L6,14.14V9.86 M13,6v12l8.5-6L13,6L13,6z M4,6v12l8.5-6L4,6L4,6z"></path></g></g> }.into_any(),
+                IconName::FastRewind => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M18 9.86v4.28L14.97 12 18 9.86m-9 0v4.28L5.97 12 9 9.86M20 6l-8.5 6 8.5 6V6zm-9 0l-8.5 6 8.5 6V6z"></path></g> }.into_any(),
                 IconName::Home => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"></path></g> }.into_any(),
+                IconName::KeyboardArrowRight => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"></path></g> }.into_any(),
                 IconName::LightMode => view! { <g><rect fill="none" height="24" width="24"></rect><path d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"></path></g> }.into_any(),
                 IconName::Login => view! { <g><g ><rect fill="none" height="24" width="24"></rect></g><g ><path d="M11,7L9.6,8.4l2.6,2.6H2v2h10.2l-2.6,2.6L11,17l5-5L11,7z M20,19h-8v2h8c1.1,0,2-0.9,2-2V5c0-1.1-0.9-2-2-2h-8v2h8V19z"></path></g></g> }.into_any(),
                 IconName::Logout => view! { <g><g ><path d="M0,0h24v24H0V0z" fill="none"></path></g><g ><path d="M17,8l-1.41,1.41L17.17,11H9v2h8.17l-1.58,1.58L17,16l4-4L17,8z M5,5h7V3H5C3.9,3,3,3.9,3,5v14c0,1.1,0.9,2,2,2h7v-2H5V5z"></path></g></g> }.into_any(),
@@ -116,12 +147,17 @@ pub fn Icon(name: IconName) -> impl IntoView {
                 IconName::MenuBook => view! { <g><g ><rect fill="none" height="24" width="24"></rect></g><g ><g ></g><g ><path d="M21,5c-1.11-0.35-2.33-0.5-3.5-0.5c-1.95,0-4.05,0.4-5.5,1.5c-1.45-1.1-3.55-1.5-5.5-1.5S2.45,4.9,1,6v14.65 c0,0.25,0.25,0.5,0.5,0.5c0.1,0,0.15-0.05,0.25-0.05C3.1,20.45,5.05,20,6.5,20c1.95,0,4.05,0.4,5.5,1.5c1.35-0.85,3.8-1.5,5.5-1.5 c1.65,0,3.35,0.3,4.75,1.05c0.1,0.05,0.15,0.05,0.25,0.05c0.25,0,0.5-0.25,0.5-0.5V6C22.4,5.55,21.75,5.25,21,5z M21,18.5 c-1.1-0.35-2.3-0.5-3.5-0.5c-1.7,0-4.15,0.65-5.5,1.5V8c1.35-0.85,3.8-1.5,5.5-1.5c1.2,0,2.4,0.15,3.5,0.5V18.5z"></path><g ><path d="M17.5,10.5c0.88,0,1.73,0.09,2.5,0.26V9.24C19.21,9.09,18.36,9,17.5,9c-1.7,0-3.24,0.29-4.5,0.83v1.66 C14.13,10.85,15.7,10.5,17.5,10.5z"></path><path d="M13,12.49v1.66c1.13-0.64,2.7-0.99,4.5-0.99c0.88,0,1.73,0.09,2.5,0.26V11.9c-0.79-0.15-1.64-0.24-2.5-0.24 C15.8,11.66,14.26,11.96,13,12.49z"></path><path d="M17.5,14.33c-1.7,0-3.24,0.29-4.5,0.83v1.66c1.13-0.64,2.7-0.99,4.5-0.99c0.88,0,1.73,0.09,2.5,0.26v-1.52 C19.21,14.41,18.36,14.33,17.5,14.33z"></path></g></g></g></g> }.into_any(),
                 IconName::Mic => view! { <g><g ><rect fill="none" height="24" width="24"></rect><rect fill="none" height="24" width="24"></rect><rect fill="none" height="24" width="24"></rect></g><g ><g ></g><g ><path d="M12,14c1.66,0,3-1.34,3-3V5c0-1.66-1.34-3-3-3S9,3.34,9,5v6C9,12.66,10.34,14,12,14z"></path><path d="M17,11c0,2.76-2.24,5-5,5s-5-2.24-5-5H5c0,3.53,2.61,6.43,6,6.92V21h2v-3.08c3.39-0.49,6-3.39,6-6.92H17z"></path></g></g></g> }.into_any(),
                 IconName::Pause => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></g> }.into_any(),
+                IconName::Person => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M12 6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2m0 10c2.7 0 5.8 1.29 6 2H6c.23-.72 3.31-2 6-2m0-12C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></g> }.into_any(),
                 IconName::PersonAdd => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0-6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 8c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm-6 4c.22-.72 3.31-2 6-2 2.7 0 5.8 1.29 6 2H9zm-3-3v-3h3v-2H6V7H4v3H1v2h3v3z"></path></g> }.into_any(),
                 IconName::PlayArrow => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M10 8.64L15.27 12 10 15.36V8.64M8 5v14l11-7L8 5z"></path></g> }.into_any(),
+                IconName::QueueMusic => view! { <g><g ><rect fill="none" height="24" width="24"></rect></g><g ><path d="M22,6h-5v8.18C16.69,14.07,16.35,14,16,14c-1.66,0-3,1.34-3,3s1.34,3,3,3s3-1.34,3-3V8h3V6z M15,6H3v2h12V6z M15,10H3v2h12 V10z M11,14H3v2h8V14z"></path></g></g> }.into_any(),
                 IconName::Refresh => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path></g> }.into_any(),
                 IconName::Save => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm2 16H5V5h11.17L19 7.83V19zm-7-7c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zM6 6h9v4H6z"></path></g> }.into_any(),
                 IconName::Search => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></g> }.into_any(),
                 IconName::Settings => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M19.43 12.98c.04-.32.07-.64.07-.98 0-.34-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.09-.16-.26-.25-.44-.25-.06 0-.12.01-.17.03l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.06-.02-.12-.03-.18-.03-.17 0-.34.09-.43.25l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98 0 .33.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.09.16.26.25.44.25.06 0 .12-.01.17-.03l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.06.02.12.03.18.03.17 0 .34-.09.43-.25l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zm-1.98-1.71c.04.31.05.52.05.73 0 .21-.02.43-.05.73l-.14 1.13.89.7 1.08.84-.7 1.21-1.27-.51-1.04-.42-.9.68c-.43.32-.84.56-1.25.73l-1.06.43-.16 1.13-.2 1.35h-1.4l-.19-1.35-.16-1.13-1.06-.43c-.43-.18-.83-.41-1.23-.71l-.91-.7-1.06.43-1.27.51-.7-1.21 1.08-.84.89-.7-.14-1.13c-.03-.31-.05-.54-.05-.74s.02-.43.05-.73l.14-1.13-.89-.7-1.08-.84.7-1.21 1.27.51 1.04.42.9-.68c.43-.32.84-.56 1.25-.73l1.06-.43.16-1.13.2-1.35h1.39l.19 1.35.16 1.13 1.06.43c.43.18.83.41 1.23.71l.91.7 1.06-.43 1.27-.51.7 1.21-1.07.85-.89.7.14 1.13zM12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"></path></g> }.into_any(),
+                IconName::Speed => view! { <g><path d="M0 0h24v24H0z" fill="none"></path><path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44z"></path><path d="M10.59 15.41a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"></path></g> }.into_any(),
+                IconName::Star => view! { <g><g ><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M0 0h24v24H0V0z" fill="none"></path></g><g ><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27z"></path></g></g> }.into_any(),
+                IconName::Timer => view! { <g><g ><rect fill="none" height="24" width="24"></rect></g><g ><g ><g ><path d="M15,1H9v2h6V1z M11,14h2V8h-2V14z M19.03,7.39l1.42-1.42c-0.43-0.51-0.9-0.99-1.41-1.41l-1.42,1.42 C16.07,4.74,14.12,4,12,4c-4.97,0-9,4.03-9,9s4.02,9,9,9s9-4.03,9-9C21,10.88,20.26,8.93,19.03,7.39z M12,20c-3.87,0-7-3.13-7-7 s3.13-7,7-7s7,3.13,7,7S15.87,20,12,20z"></path></g></g></g></g> }.into_any(),
                 IconName::WarningAmber => view! { <g><path d="M12 5.99L19.53 19H4.47L12 5.99M12 2L1 21h22L12 2zm1 14h-2v2h2v-2zm0-6h-2v4h2v-4z"></path></g> }.into_any(),
             }}
         </svg>

@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +37,7 @@ import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellTimer
 import com.cantos.theatre.presentation.model.SupportedUiSpeedPercents
 import com.cantos.ui.tokenDp
+import com.cantos.ui.rememberCantosIconVector
 
 internal enum class PreferencePanel(val title: CopyKey?) {
     Theme(CopyKey.Theme), Language(CopyKey.Language), Speed(CopyKey.Speed), Timer(CopyKey.Timer),
@@ -62,7 +61,7 @@ internal fun PreferenceRow(title: String, value: String, onClick: () -> Unit, mo
                 Text(title, style = MaterialTheme.typography.labelLarge)
                 Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
+            Icon(rememberCantosIconVector("keyboard_arrow_right"), null)
         }
     }
 }

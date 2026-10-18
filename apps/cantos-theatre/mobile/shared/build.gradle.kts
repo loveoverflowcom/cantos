@@ -365,9 +365,8 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.ui)
                 implementation("org.jetbrains.compose.material3:material3:1.8.2")
-                // Official outlined icon vectors, published for common/JVM/Android/iOS targets.
-                // This pinned artifact adds no Cantos component or shared registry declaration.
-                implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
+                // Glyphs come from the shared offline registry (CantosIcons); the large
+                // material-icons-extended artifact is deliberately not a dependency (#245).
             }
         }
         commonTest {

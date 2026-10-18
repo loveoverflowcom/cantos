@@ -30,6 +30,7 @@ mod services;
 mod theatre_auth;
 mod theatre_demo;
 mod theatre_host;
+mod theatre_size;
 mod tools;
 mod ui_preview;
 mod visual_compare;
@@ -77,6 +78,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),
         Task::VisualCompare(args) => visual_compare::run(&workspace, &args),
         Task::WebPerformance(args) => web_performance::run(&workspace, &args, &tools, &mut runner),
+        Task::TheatreSize(args) => theatre_size::run(&workspace, &args, &tools, &mut runner),
         Task::Build {
             target,
             surface,

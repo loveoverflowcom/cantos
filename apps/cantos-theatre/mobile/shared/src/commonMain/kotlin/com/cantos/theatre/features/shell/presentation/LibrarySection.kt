@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -40,6 +38,7 @@ import com.cantos.theatre.presentation.model.clockTime
 import com.cantos.theatre.presentation.model.continuingProgress
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.tokenDp
+import com.cantos.ui.rememberCantosIconVector
 
 @Composable
 internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
@@ -113,7 +112,7 @@ internal fun ListeningPoint(
                 Text(copy.text(CopyKey.PositionCaption, "elapsed" to clockTime(point.positionSeconds),
                     "total" to clockTime(episode.durationSeconds)), style = MaterialTheme.typography.bodySmall)
             }
-            Icon(Icons.Outlined.PlayArrow, null)
+            Icon(rememberCantosIconVector("play_arrow"), null)
         }
     }
 }
