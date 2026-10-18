@@ -21,7 +21,10 @@ archived handoffs and source-bound evidence are not active plans; proposed ADRs 
 policy. Inspect actual code before treating a module, schema, command or API as implemented.
 
 The current user's instructions take priority. The current fresh PostgreSQL schema is epoch 2;
-legacy epoch-1 databases fail closed and require the [controlled cutover](docs/deployment/postgres-schema-cutover.md).
+ordinary deploy/rollback refuses legacy epoch-1 databases. The explicit narrow
+`--cutover-epoch2` lane and its same-revision/attempt incoming-tree recovery are owned by the
+[controlled cutover](docs/deployment/postgres-schema-cutover.md); populated-data conversion
+remains unimplemented.
 Retired SQL is auditable through its manifest and original Git history, never silently replayed.
  Preserve Cantos Studio and Cantos Theatre terminology, Rust/Axum/PostgreSQL/Leptos/CMP choices and native mobile playback. Keep docs in English unless the task requests otherwise; retain correct Vietnamese names and representative content.
 
@@ -129,7 +132,7 @@ Use the [current production runbook](docs/deployment/vps-production.md), not old
 An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
 
 Production API deployment to the VPS is the explicit, opt-in
-`cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status]`
+`cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2]`
 ([contract](xtask/README.md#deploy-vps), [runbook](docs/deployment/vps-production.md)). It builds the
 image locally from committed `HEAD`, then the uploaded `infra/vps/bin/cantos-vps` backs up, migrates,
 grants, switches and health-gates with automatic switch-back. It is a remote write: `--dry-run` shows
@@ -141,6 +144,8 @@ confirmation. Deployment authorization alone does not authorize identity changes
 and one-time credential links out of chat, agent logs and Git; the operator completes personal
 password/passkey setup in their own interactive session. CircleCI (`.circleci/config.yml`) only
 offers a manual pipeline that calls the deployment commands.
+The existing-client `identity --reconcile-existing` lane has no account/reset path; its exact
+callback readback, preservation checks and cutover recovery follow the same runbook.
 
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 

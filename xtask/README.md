@@ -75,7 +75,7 @@ cargo xtask distribute firebase cantos-theatre --channel demo [--artifact apk] \
   (--groups ALIASES | --testers EMAILS)... [--app-id ID] [--release-notes TEXT | --release-notes-file PATH] [--dry-run]
 cargo xtask deploy firebase cantos-theatre|cantos-studio --web --project PROJECT_ID \
   --channel live|PREVIEW_CHANNEL [--expires 7d] [--dry-run]   # explicit static Web deploy to Firebase Hosting
-cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status] \
+cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2] \
   [--smoke-origin https://API_HOST] [--dry-run]               # explicit API deploy to the production VPS
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
@@ -937,7 +937,9 @@ project, other product or `firebase-debug.log` in the checkout can be involved.
    --json`. The preview command refuses `live`, so the two are different commands.
 10. *HTTP smoke*: read-only HTTPS GETs (no redirects, `https` only) to the URL the CLI reported,
     judged on status, media type (notably `application/wasm`), `Cache-Control` and the SHA-256 of the
-    served bytes; plus a missing `.wasm` and an `/api/` path that must answer `404` rather than the
+    served bytes. Curl negotiates transfer compression with `--compressed` and hashes the decoded
+    response against the built bytes; wire compression does not change the bundle identity.
+    A missing `.wasm` and an `/api/` path must answer `404` rather than the
     page. Up to 3 attempts, 5 s apart, while a release propagates; the write is never repeated. Needs
     `curl`; without it the row is `NOT_RUN`. Static delivery only.
 11. *Final receipt*: the observed outcome.
@@ -979,6 +981,8 @@ cargo xtask deploy vps cantos-api --host root@HOST --bootstrap
 cargo xtask deploy vps cantos-api --host root@HOST --smoke-origin https://api.example.org
 cargo xtask deploy vps cantos-api --host root@HOST --rollback   # previous image
 cargo xtask deploy vps cantos-api --host root@HOST --status     # read-only
+# Explicit narrow legacy conversion; inspect the complete plan first.
+cargo xtask deploy vps cantos-api --host root@HOST --cutover-epoch2 --dry-run
 ```
 
 The third opt-in remote write ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md),
@@ -992,6 +996,48 @@ xtask never reads, stores or prints a key, password or token, and the host gener
 secrets. `--host` accepts only `user@host` (no options or ports); `--smoke-origin` only an exact
 `https` origin. A failed remote step reports that the remote state may have changed: run
 `--status` before retrying. Run records stay in ignored `artifacts/vps/<stamp>-<sha>/`.
+
+`--cutover-epoch2` is mutually exclusive with bootstrap/rollback/status and is never selected
+by ordinary deploy. It supports exactly legacy revision
+`883e188095227f04fb92cf4dcd29c659ac9de1fe`, 28 matching migrations, checked schema/ownership,
+zero business/session rows and one clock/two Studio-flow/three Theatre-flow rows. The host
+rehearses restoration/import in sibling databases, freezes the APIs/source, verifies a final
+restore and exact preserved rows, then pauses for xtask to copy the recovery tar/manifest
+off-host, verify SHA-256 and acknowledge those bytes. Only then does commit reconcile the six
+staged browser inputs/existing OIDC clients and switch the database/runtime/image together.
+The [cutover runbook](../docs/deployment/postgres-schema-cutover.md#implemented-narrow-epoch-1-cutover)
+owns prerequisites, the precise import boundary and the exact incoming-tree recovery command.
+The general populated-data transformer remains unimplemented; PostgreSQL stays at 17.11.
+Each cutover execution creates a fresh 32-hex attempt ID, persists it in the private
+`artifacts/vps/<stamp>-<revision12>-<attempt>/cutover-attempt` and scopes remote files to
+`/root/cantos-services/incoming/<revision>/<attempt>/`. Prepare, commit and recovery require
+the same `REVISION TREE ATTEMPT_ID`; mismatched attempts cannot select a pending journal,
+archive or acknowledgement. Dry runs show an all-zero planning placeholder only. Retained
+older journals use their exact original bundle/protocol; there is no revision-only fallback.
+Local cutover prerequisites include Python 3. Before any remote work, `persist cutover attempt`
+uses filesystem `fsync` on the attempt file and context/run/ancestor directory entries through
+the workspace. After SHA-256 verification, `persist off-host recovery copy` synchronizes the
+archive, manifest and directory entries before any acknowledgement. Synchronization failure
+reports `FAIL` and leaves acknowledgement/commit `NOT_RUN`; once prepare has been attempted,
+recovery retains the original failure and uses only that invocation's revision/tree/attempt.
+This is filesystem durability, not hardware or complete disaster-recovery acceptance.
+
+Failure after prepare triggers state-aware recovery without hiding the original `FAIL`.
+Before durable `accepted`, recovery restores the matching legacy database/image/runtime and
+browser/client settings; afterwards it only finalizes epoch 2, because writes may exist.
+Unknown state retains the pending journal and stopped APIs for reconciliation. Ordinary
+mutations refuse a pending cutover. Keep the old database/image/runtime and private run records.
+The off-host archive excludes OCI image bytes, Podman secrets, the Kanidm administrator
+password and private CA; the host-local old image and separate protected disaster-recovery
+copies remain necessary. Cutover runtime/production acceptance is separate from command tests.
+
+The host primitive `identity --reconcile-existing` updates only existing-client landing URLs,
+exact callbacks and strict redirect matching, using provider readback and a callback receipt.
+It preserves accounts, roster, groups, scopes, passwords and existing secrets; no reset is
+issued. A dedicated basic-secret read is transient/root-only and retained as a digest for
+comparison. This differs from account-provisioning identity and from the plan-only
+[`cargo xtask kanidm reconcile`](#studio-kanidm-operator-tools). Neither establishes
+cross-site `web.app`/DuckDNS authentication with Strict session cookies.
 
 ### theatre-demo
 
