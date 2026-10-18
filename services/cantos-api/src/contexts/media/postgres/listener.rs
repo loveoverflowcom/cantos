@@ -7,7 +7,7 @@ use super::super::{
     },
     listener_application::ListenerError,
     listener_cursor::Keyset,
-    listener_projection::publication_manifest,
+    listener_projection::{audio_presentation, publication_manifest, work_presentation},
 };
 use crate::{
     contexts::catalog::{
@@ -86,6 +86,24 @@ pub(in crate::contexts::media) struct ReadItem {
     pub publication: ListenerPublication,
     pub first_at: i64,
     pub position: u32,
+    pub presentation: Option<PresentationStats>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::contexts::media) struct PresentationStats {
+    pub unit_count: u64,
+    pub ordinal: u64,
+}
+impl PresentationStats {
+    fn new(unit_count: i64, ordinal: i64) -> Result<Self, ListenerError> {
+        const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+        if !(1..=MAX_SAFE_INTEGER).contains(&unit_count) || !(1..=unit_count).contains(&ordinal) {
+            return Err(ListenerError::Corrupt);
+        }
+        Ok(Self {
+            unit_count: u64::try_from(unit_count).map_err(|_| ListenerError::Corrupt)?,
+            ordinal: u64::try_from(ordinal).map_err(|_| ListenerError::Corrupt)?,
+        })
+    }
 }
 fn decode(
     row: &Row,
@@ -251,6 +269,7 @@ fn decode(
         publication,
         first_at,
         position,
+        presentation: None,
     }))
 }
 const FROM: &str = r#"FROM audio_listener_releases x
@@ -329,6 +348,139 @@ async fn batch(
         }
     }
     Ok((items, next))
+}
+
+async fn presented_batch(
+    tx: &Tx<'_>,
+    rows: Vec<Row>,
+    limit: usize,
+    works: bool,
+    now: i64,
+) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
+    let mut stats = std::collections::BTreeMap::new();
+    for row in rows.iter().take(limit) {
+        let release: String = row
+            .try_get("release_id")
+            .map_err(|_| ListenerError::Corrupt)?;
+        let count = row
+            .try_get("unit_count")
+            .map_err(|_| ListenerError::Corrupt)?;
+        let ordinal = row.try_get("ordinal").map_err(|_| ListenerError::Corrupt)?;
+        if stats
+            .insert(release, PresentationStats::new(count, ordinal)?)
+            .is_some()
+        {
+            return Err(ListenerError::Corrupt);
+        }
+    }
+    let (mut items, next) = batch(tx, rows, limit, works, now).await?;
+    for item in &mut items {
+        item.presentation = Some(
+            stats
+                .remove(&item.publication.release().document().id)
+                .ok_or(ListenerError::Corrupt)?,
+        );
+    }
+    Ok((items, next))
+}
+
+/// Rank/count the eligible relation before representative selection, cursor or page limit.
+/// The opt-in queries alone pay for these window aggregates.
+fn presented_relation() -> String {
+    let from = FROM
+        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
+    format!("SELECT {COLUMNS},count(*) OVER (PARTITION BY x.work_id) AS unit_count,row_number() OVER (PARTITION BY x.work_id ORDER BY ordering.first_position,x.unit_id COLLATE \"C\") AS ordinal {from}")
+}
+
+pub(in crate::contexts::media) async fn presented_works(
+    tx: &Tx<'_>,
+    q: &DiscoveryQuery,
+    after: Option<&Keyset>,
+    now: i64,
+) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
+    let (mut items, next) = works(tx, q, after, now).await?;
+    if items.is_empty() {
+        return Ok((items, next));
+    }
+    // Select at most one page of representatives first; aggregate only their Works.
+    let works: Vec<_> = items
+        .iter()
+        .map(|r| r.publication.work().id().as_str().to_owned())
+        .collect();
+    let releases: Vec<_> = items
+        .iter()
+        .map(|r| r.publication.release().document().id.clone())
+        .collect();
+    let relation = presented_relation();
+    let sql = format!("WITH eligible AS ({relation} AND x.work_id=ANY($2)) SELECT release_id,unit_count,ordinal FROM eligible WHERE release_id=ANY($3)");
+    let rows = tx
+        .query(&sql, &[&now, &works, &releases])
+        .await
+        .map_err(|_| ListenerError::Unavailable)?;
+    let mut stats = std::collections::BTreeMap::new();
+    for row in rows {
+        let release: String = row
+            .try_get("release_id")
+            .map_err(|_| ListenerError::Corrupt)?;
+        let count = row
+            .try_get("unit_count")
+            .map_err(|_| ListenerError::Corrupt)?;
+        let ordinal = row.try_get("ordinal").map_err(|_| ListenerError::Corrupt)?;
+        if stats
+            .insert(release, PresentationStats::new(count, ordinal)?)
+            .is_some()
+        {
+            return Err(ListenerError::Corrupt);
+        }
+    }
+    for item in &mut items {
+        item.presentation = Some(
+            stats
+                .remove(&item.publication.release().document().id)
+                .ok_or(ListenerError::Corrupt)?,
+        );
+    }
+    Ok((items, next))
+}
+
+pub(in crate::contexts::media) async fn presented_work(
+    tx: &Tx<'_>,
+    work: &str,
+    now: i64,
+) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
+    let relation = presented_relation();
+    let sql = format!("WITH eligible AS ({relation} AND x.work_id=$2) SELECT * FROM eligible ORDER BY published_at DESC,release_id COLLATE \"C\" ASC LIMIT 1");
+    let rows = tx
+        .query(&sql, &[&now, &work])
+        .await
+        .map_err(|_| ListenerError::Unavailable)?;
+    presented_batch(tx, rows, 1, false, now).await
+}
+
+pub(in crate::contexts::media) async fn presented_units(
+    tx: &Tx<'_>,
+    work: &str,
+    after: Option<&Keyset>,
+    limit: usize,
+    now: i64,
+) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
+    let (position, id) = match after {
+        None => (None, None),
+        Some(Keyset::Units {
+            work: w,
+            position,
+            id,
+        }) if w == work => (Some(i64::from(*position)), Some(id.as_str())),
+        Some(_) => return Err(ListenerError::InvalidCursor),
+    };
+    let relation = presented_relation();
+    let sql = format!("WITH eligible AS ({relation} AND x.work_id=$2) SELECT * FROM eligible WHERE ($3::bigint IS NULL OR (first_position,unit_id COLLATE \"C\")>($3,$4::text COLLATE \"C\")) ORDER BY first_position,unit_id COLLATE \"C\" LIMIT $5");
+    let rows = tx
+        .query(&sql, &[&now, &work, &position, &id, &((limit + 1) as i64)])
+        .await
+        .map_err(|_| ListenerError::Unavailable)?;
+    presented_batch(tx, rows, limit, false, now).await
 }
 pub(in crate::contexts::media) async fn works(
     tx: &Tx<'_>,
@@ -451,6 +603,13 @@ impl ListenerRead for PgRead {
                 ReadRequest::Units { work, after, limit } => {
                     units(&tx, &work, after.as_ref(), limit, now).await?
                 }
+                ReadRequest::PresentedWork { work } => presented_work(&tx, &work, now).await?,
+                ReadRequest::PresentedWorks { query, after } => {
+                    presented_works(&tx, &query, after.as_ref(), now).await?
+                }
+                ReadRequest::PresentedUnits { work, after, limit } => {
+                    presented_units(&tx, &work, after.as_ref(), limit, now).await?
+                }
                 ReadRequest::Publication { id } => (
                     publication(&tx, &id, now).await?.into_iter().collect(),
                     None,
@@ -482,6 +641,41 @@ pub(crate) async fn library_publications(
     units: &[String],
     now: i64,
 ) -> Result<Vec<cantos_contracts::theatre::PublicationManifest>, ListenerError> {
+    Ok(library_current_items(tx, units, now)
+        .await?
+        .into_iter()
+        .map(|r| publication_manifest(&r.publication))
+        .collect())
+}
+
+pub(crate) async fn library_presentations(
+    tx: &Tx<'_>,
+    units: &[String],
+    now: i64,
+) -> Result<
+    Vec<(
+        cantos_contracts::theatre::PublicationManifest,
+        cantos_contracts::listener_library::AudioPresentation,
+    )>,
+    ListenerError,
+> {
+    Ok(library_current_items(tx, units, now)
+        .await?
+        .into_iter()
+        .map(|r| {
+            (
+                publication_manifest(&r.publication),
+                audio_presentation(&r.publication),
+            )
+        })
+        .collect())
+}
+
+async fn library_current_items(
+    tx: &Tx<'_>,
+    units: &[String],
+    now: i64,
+) -> Result<Vec<ReadItem>, ListenerError> {
     if units.len() > 50 {
         return Err(ListenerError::InvalidRequest);
     }
@@ -504,9 +698,40 @@ pub(crate) async fn library_publications(
         .try_get(0)
         .map_err(|_| ListenerError::Corrupt)?;
     items.retain(|r| r.publication.valid_at(fresh));
+    Ok(items)
+}
+
+/// One representative per requested Work, selected by the same release order as detail.
+pub(crate) async fn library_work_presentations(
+    tx: &Tx<'_>,
+    works: &[String],
+    now: i64,
+) -> Result<Vec<cantos_contracts::listener_library::WorkPresentation>, ListenerError> {
+    if works.len() > 50 {
+        return Err(ListenerError::InvalidRequest);
+    }
+    let from = FROM
+        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
+    let sql = format!("SELECT DISTINCT ON (x.work_id COLLATE \"C\") {COLUMNS} {from} AND x.work_id=ANY($2) ORDER BY x.work_id COLLATE \"C\",x.published_at DESC,x.release_id COLLATE \"C\" ASC");
+    let rows = tx
+        .query(&sql, &[&now, &works])
+        .await
+        .map_err(|_| ListenerError::Unavailable)?;
+    let mut items = batch(tx, rows, 50, true, now).await?.0;
+    let fresh: i64 = tx
+        .query_one(
+            "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint",
+            &[],
+        )
+        .await
+        .map_err(|_| ListenerError::Unavailable)?
+        .try_get(0)
+        .map_err(|_| ListenerError::Corrupt)?;
+    items.retain(|r| r.publication.valid_at(fresh));
     Ok(items
         .into_iter()
-        .map(|r| publication_manifest(&r.publication))
+        .map(|r| work_presentation(&r.publication))
         .collect())
 }
 pub(crate) async fn library_public_work(
@@ -515,4 +740,33 @@ pub(crate) async fn library_public_work(
     now: i64,
 ) -> Result<bool, ListenerError> {
     Ok(!work(tx, work_id, now).await?.0.is_empty())
+}
+
+#[cfg(test)]
+mod presentation_tests {
+    use super::*;
+
+    #[test]
+    fn presentation_stats_reject_zero_negative_unsafe_and_out_of_count_rank() {
+        for (count, ordinal) in [
+            (0, 1),
+            (-1, 1),
+            (1, 0),
+            (1, -1),
+            (1, 2),
+            (9_007_199_254_740_992, 1),
+        ] {
+            assert_eq!(
+                PresentationStats::new(count, ordinal),
+                Err(ListenerError::Corrupt)
+            );
+        }
+        assert_eq!(
+            PresentationStats::new(9_007_199_254_740_991, 9_007_199_254_740_991),
+            Ok(PresentationStats {
+                unit_count: 9_007_199_254_740_991,
+                ordinal: 9_007_199_254_740_991
+            })
+        );
+    }
 }

@@ -8,7 +8,10 @@ use super::{
     },
     listener_cursor::{CursorVault, Keyset},
     listener_delivery::{OriginPlayback, PlaybackDelivery, PlaybackPermit, UnavailablePlayback},
-    listener_projection::{publication_manifest, unit_summary, work_summary},
+    listener_projection::{
+        presented_unit_summary, presented_work_summary, publication_manifest, unit_summary,
+        work_summary,
+    },
     postgres::listener::{PgRead, ReadItem},
 };
 use crate::platform::{
@@ -83,6 +86,18 @@ pub(super) enum ReadRequest {
         after: Option<Keyset>,
         limit: usize,
     },
+    PresentedWork {
+        work: String,
+    },
+    PresentedWorks {
+        query: DiscoveryQuery,
+        after: Option<Keyset>,
+    },
+    PresentedUnits {
+        work: String,
+        after: Option<Keyset>,
+        limit: usize,
+    },
     Publication {
         id: String,
     },
@@ -101,6 +116,7 @@ pub(super) trait ListenerRead: Send + Sync {
 pub struct ListenerService {
     read: Arc<dyn ListenerRead>,
     cursors: Arc<CursorVault>,
+    presented_cursors: Arc<CursorVault>,
     delivery: Arc<dyn PlaybackDelivery>,
     /// Present only when trusted composition enabled origin delivery (proposed ADR 0032).
     pub(super) media: Option<OriginPlayback>,
@@ -153,6 +169,7 @@ impl ListenerService {
         Self {
             read,
             cursors: Arc::new(CursorVault::default()),
+            presented_cursors: Arc::new(CursorVault::default()),
             delivery,
             media: None,
             media_lanes: Arc::new(Semaphore::new(MEDIA_LANES)),
@@ -260,6 +277,9 @@ impl ListenerService {
         }
         let mut items = Vec::new();
         for r in snapshot.items {
+            if r.publication.work().id().as_str() != work {
+                return Err(ListenerError::Corrupt);
+            }
             let summary = unit_summary(&r.publication, r.position);
             if let Some(Keyset::Units {
                 position,
@@ -285,6 +305,145 @@ impl ListenerService {
             .map(|key| self.cursors.issue(&query, key, clock()?))
             .transpose()?;
         Ok(dto::UnitPage {
+            work_id: work,
+            items,
+            next_cursor,
+        })
+    }
+
+    pub async fn presented_works(
+        &self,
+        search: &str,
+        kind: Option<&str>,
+        language: Option<&str>,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<dto::PresentedWorkPage, ListenerError> {
+        let query = DiscoveryQuery::new(search, kind, language, limit)?;
+        let after = cursor
+            .map(|v| self.presented_cursors.read(v, &query, clock()?))
+            .transpose()?;
+        if after
+            .as_ref()
+            .is_some_and(|k| !matches!(k, Keyset::Works { .. }))
+        {
+            return Err(ListenerError::InvalidCursor);
+        }
+        let snapshot = self
+            .read
+            .read(ReadRequest::PresentedWorks {
+                query: query.clone(),
+                after: after.clone(),
+            })
+            .await?;
+        let mut items = Vec::new();
+        for row in snapshot.items {
+            if !query.matches(&row.publication.discoverable()) {
+                return Err(ListenerError::Corrupt);
+            }
+            let stats = row.presentation.ok_or(ListenerError::Corrupt)?;
+            let summary = presented_work_summary(&row.publication, row.first_at, stats.unit_count);
+            if let Some(Keyset::Works { time, id: after_id }) = &after {
+                let current = uuid::Uuid::parse_str(&summary.work_id)
+                    .map_err(|_| ListenerError::Corrupt)?
+                    .as_u128();
+                let old = uuid::Uuid::parse_str(after_id)
+                    .map_err(|_| ListenerError::Corrupt)?
+                    .as_u128();
+                if !after_work(row.first_at, current, *time, old) {
+                    return Err(ListenerError::Corrupt);
+                }
+            }
+            items.push(summary);
+        }
+        items.truncate(query.limit());
+        let next_cursor = snapshot
+            .next_key
+            .map(|key| self.presented_cursors.issue(&query, key, clock()?))
+            .transpose()?;
+        Ok(dto::PresentedWorkPage { items, next_cursor })
+    }
+
+    pub async fn presented_work(
+        &self,
+        work: &str,
+    ) -> Result<dto::PresentedWorkSummary, ListenerError> {
+        let work = id(work)?;
+        let snapshot = self
+            .read
+            .read(ReadRequest::PresentedWork { work: work.clone() })
+            .await?;
+        let row = snapshot.items.first().ok_or(ListenerError::NotFound)?;
+        if row.publication.work().id().as_str() != work {
+            return Err(ListenerError::Corrupt);
+        }
+        let stats = row.presentation.ok_or(ListenerError::Corrupt)?;
+        Ok(presented_work_summary(
+            &row.publication,
+            row.first_at,
+            stats.unit_count,
+        ))
+    }
+
+    pub async fn presented_units(
+        &self,
+        work: &str,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<dto::PresentedUnitPage, ListenerError> {
+        let work = id(work)?;
+        let query = DiscoveryQuery::new("", None, None, limit)?;
+        let after = cursor
+            .map(|v| self.presented_cursors.read(v, &query, clock()?))
+            .transpose()?;
+        if after
+            .as_ref()
+            .is_some_and(|k| !matches!(k, Keyset::Units { work: w, .. } if w == &work))
+        {
+            return Err(ListenerError::InvalidCursor);
+        }
+        let snapshot = self
+            .read
+            .read(ReadRequest::PresentedUnits {
+                work: work.clone(),
+                after: after.clone(),
+                limit: query.limit(),
+            })
+            .await?;
+        if snapshot.items.is_empty() && snapshot.next_key.is_none() && cursor.is_none() {
+            return Err(ListenerError::NotFound);
+        }
+        let mut items = Vec::new();
+        for row in snapshot.items {
+            if row.publication.work().id().as_str() != work {
+                return Err(ListenerError::Corrupt);
+            }
+            let stats = row.presentation.ok_or(ListenerError::Corrupt)?;
+            let summary = presented_unit_summary(&row.publication, row.position, stats.ordinal);
+            if let Some(Keyset::Units {
+                position,
+                id: after_id,
+                ..
+            }) = &after
+            {
+                let current = uuid::Uuid::parse_str(&summary.unit_id)
+                    .map_err(|_| ListenerError::Corrupt)?
+                    .as_u128();
+                let old = uuid::Uuid::parse_str(after_id)
+                    .map_err(|_| ListenerError::Corrupt)?
+                    .as_u128();
+                if !after_unit(row.position, current, *position, old) {
+                    return Err(ListenerError::Corrupt);
+                }
+            }
+            items.push(summary);
+        }
+        items.truncate(query.limit());
+        let next_cursor = snapshot
+            .next_key
+            .map(|key| self.presented_cursors.issue(&query, key, clock()?))
+            .transpose()?;
+        Ok(dto::PresentedUnitPage {
             work_id: work,
             items,
             next_cursor,
@@ -433,6 +592,7 @@ pub(super) mod tests {
             publication: p,
             first_at: 5000,
             position: 1,
+            presentation: None,
         })
     }
 
@@ -627,6 +787,92 @@ pub(super) mod tests {
                 ListenerError::Corrupt
             );
         }
+    }
+
+    struct PresentedRead;
+    impl ListenerRead for PresentedRead {
+        fn read(&self, request: ReadRequest) -> ReadFuture {
+            assert!(matches!(
+                request,
+                ReadRequest::PresentedWork { .. }
+                    | ReadRequest::PresentedWorks { .. }
+                    | ReadRequest::PresentedUnits { .. }
+            ));
+            Box::pin(async move {
+                let mut row = item();
+                row.position = 9;
+                row.presentation = Some(super::super::postgres::listener::PresentationStats {
+                    unit_count: 3,
+                    ordinal: 2,
+                });
+                Ok(ReadSnapshot {
+                    now: 5000,
+                    items: vec![row],
+                    next_key: None,
+                })
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn presented_catalog_requires_explicit_read_facts_and_requested_work_binding() {
+        let s = ListenerService::from_parts(Arc::new(PresentedRead), Arc::new(UnavailablePlayback));
+        let work = item().publication.work().id().as_str().to_owned();
+        let page = s.presented_works("", None, None, 1, None).await.unwrap();
+        assert_eq!(page.items[0].unit_count, 3);
+        assert_eq!(s.presented_work(&work).await.unwrap(), page.items[0]);
+        let units = s.presented_units(&work, 1, None).await.unwrap();
+        assert_eq!((units.items[0].position, units.items[0].ordinal), (9, 2));
+        let foreign = "90000000-0000-4000-8000-000000000009";
+        assert_eq!(
+            s.presented_work(foreign).await.unwrap_err(),
+            ListenerError::Corrupt
+        );
+        assert_eq!(
+            s.presented_units(foreign, 1, None).await.unwrap_err(),
+            ListenerError::Corrupt
+        );
+        let missing =
+            ListenerService::from_parts(Arc::new(AnchoredRead(9)), Arc::new(UnavailablePlayback));
+        assert_eq!(
+            missing.presented_work(&work).await.unwrap_err(),
+            ListenerError::Corrupt
+        );
+        assert_eq!(
+            missing.units(foreign, 1, None).await.unwrap_err(),
+            ListenerError::Corrupt
+        );
+    }
+
+    #[tokio::test]
+    async fn presentation_and_default_cursors_cannot_cross_representations() {
+        // No read is allowed: the empty sequence panics if cursor validation reaches I/O.
+        let s = service(vec![], Arc::new(UnavailablePlayback));
+        let work = item().publication.work().id().as_str().to_owned();
+        let query = DiscoveryQuery::new("", None, None, 1).unwrap();
+        let key = Keyset::Units {
+            work: work.clone(),
+            position: 1,
+            id: ID.into(),
+        };
+        let original = s
+            .cursors
+            .issue(&query, key.clone(), clock().unwrap())
+            .unwrap();
+        let presented = s
+            .presented_cursors
+            .issue(&query, key, clock().unwrap())
+            .unwrap();
+        assert_eq!(
+            s.presented_units(&work, 1, Some(&original))
+                .await
+                .unwrap_err(),
+            ListenerError::InvalidCursor
+        );
+        assert_eq!(
+            s.units(&work, 1, Some(&presented)).await.unwrap_err(),
+            ListenerError::InvalidCursor
+        );
     }
 
     /// Models eligibility loss after a bounded scan, then a fresh read of the remaining units.

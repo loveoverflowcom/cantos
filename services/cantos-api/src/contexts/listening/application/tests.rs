@@ -157,6 +157,7 @@ impl LibraryRepository for MemoryRepository {
                     kind,
                     limit,
                     anchor,
+                    presentation: _,
                 } => {
                     let epoch = state
                         .history_state
@@ -216,7 +217,8 @@ impl LibraryRepository for MemoryRepository {
                     let data = match kind {
                         PageKind::Saved => PageData::Saved(
                             keys.iter()
-                                .map(|(_, work)| dto::SavedItem {
+                                .map(|(_, work)| dto::PresentedSavedItem {
+                                    presentation: None,
                                     saved: state.saved[work].raw().clone(),
                                 })
                                 .collect(),
@@ -227,7 +229,8 @@ impl LibraryRepository for MemoryRepository {
                             );
                             PageData::Continue(
                                 keys.iter()
-                                    .map(|(_, work)| dto::ContinueItem {
+                                    .map(|(_, work)| dto::PresentedContinueItem {
+                                        presentation: None,
                                         progress: latest
                                             .iter()
                                             .find(|r| &r.raw().audio.work_id == work)
@@ -248,7 +251,8 @@ impl LibraryRepository for MemoryRepository {
                                 .iter()
                                 .map(|(order, work)| {
                                     let (audio, _) = &state.history[work];
-                                    dto::HistoryItem {
+                                    dto::PresentedHistoryItem {
+                                        presentation: None,
                                         audio: audio.clone(),
                                         started_at_ms: 1000,
                                         listener_order: *order,
@@ -305,6 +309,7 @@ fn service(repository: &MemoryRepository) -> LibraryService {
     LibraryService {
         repository: Arc::new(repository.clone()),
         cursors: Arc::new(CursorVault::default()),
+        presented_cursors: Arc::new(CursorVault::default()),
     }
 }
 #[tokio::test]
@@ -575,6 +580,60 @@ async fn uncertain_precommit_failure_never_commits_effect_or_receipt_and_retry_i
 #[test]
 fn exact_audio_identity_constructor_preserves_full_timing_binding() {
     assert_eq!(AudioIdentity::new(&audio()).unwrap().raw(), audio());
+}
+
+#[tokio::test]
+async fn presentation_is_explicit_and_cursors_cannot_cross_response_contracts() {
+    let repo = MemoryRepository::default();
+    let svc = service(&repo);
+    let listener = principal("alice");
+    for n in 1..=2 {
+        svc.set_saved(
+            &listener,
+            &uid(n),
+            dto::SavedWrite {
+                operation: intent(n),
+                base_revision: 0,
+                saved: true,
+            },
+        )
+        .await
+        .unwrap();
+    }
+    let legacy = svc.saved_works(&listener, 1, None).await.unwrap();
+    let presented = svc.presented_saved_works(&listener, 1, None).await.unwrap();
+    let legacy_json = serde_json::to_value(&legacy).unwrap();
+    let presented_json = serde_json::to_value(&presented).unwrap();
+    assert!(legacy_json["items"][0].get("presentation").is_none());
+    // This repository double supplies no public metadata; absence is explicit, never invented.
+    assert_eq!(
+        presented_json["items"][0]["presentation"],
+        serde_json::Value::Null
+    );
+    assert_eq!(legacy.items[0].saved, presented.items[0].saved);
+    assert_eq!(
+        svc.presented_saved_works(&listener, 1, legacy.next_cursor.as_deref())
+            .await,
+        Err(LibraryError::InvalidCursor)
+    );
+    assert_eq!(
+        svc.saved_works(&listener, 1, presented.next_cursor.as_deref())
+            .await,
+        Err(LibraryError::InvalidCursor)
+    );
+    assert_eq!(
+        svc.presented_saved_works(&listener, 1, presented.next_cursor.as_deref())
+            .await
+            .unwrap()
+            .items
+            .len(),
+        1
+    );
+    assert_eq!(
+        svc.presented_saved_works(&principal("bob"), 1, presented.next_cursor.as_deref())
+            .await,
+        Err(LibraryError::InvalidCursor)
+    );
 }
 
 #[tokio::test]

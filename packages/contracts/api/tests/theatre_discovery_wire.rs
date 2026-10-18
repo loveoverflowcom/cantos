@@ -52,6 +52,91 @@ fn public_fixtures_match_strict_schema_and_shared_rust_types() {
     }
 }
 #[test]
+fn presentation_opt_in_fixtures_match_separate_strict_wire_types() {
+    fixture::<PresentedWorkPage>(
+        "PresentedWorkPage",
+        include_str!("../../fixtures/theatre/discovery/v1/presented_works.json"),
+    );
+    fixture::<PresentedUnitPage>(
+        "PresentedUnitPage",
+        include_str!("../../fixtures/theatre/discovery/v1/presented_units.json"),
+    );
+}
+#[test]
+fn presentation_fields_are_negotiated_and_positive_safe_integers() {
+    let work: Value = serde_json::from_str(include_str!(
+        "../../fixtures/theatre/discovery/v1/presented_works.json"
+    ))
+    .unwrap();
+    let unit: Value = serde_json::from_str(include_str!(
+        "../../fixtures/theatre/discovery/v1/presented_units.json"
+    ))
+    .unwrap();
+    assert!(!schema_accepts("WorkPage", &work));
+    assert!(serde_json::from_value::<WorkPage>(work.clone()).is_err());
+    assert!(!schema_accepts("UnitPage", &unit));
+    assert!(serde_json::from_value::<UnitPage>(unit.clone()).is_err());
+    for (name, field, mut value) in [
+        (
+            "PresentedWorkSummary",
+            "unit_count",
+            work["items"][0].clone(),
+        ),
+        ("PresentedUnitSummary", "ordinal", unit["items"][0].clone()),
+    ] {
+        for invalid in [json!(0), json!(-1), json!(1.5), json!(9007199254740992_u64)] {
+            value[field] = invalid;
+            assert!(
+                !schema_accepts(name, &value),
+                "{name} admits invalid {field}"
+            );
+            let rust_rejects = match name {
+                "PresentedWorkSummary" => {
+                    serde_json::from_value::<PresentedWorkSummary>(value.clone()).is_err()
+                }
+                "PresentedUnitSummary" => {
+                    serde_json::from_value::<PresentedUnitSummary>(value.clone()).is_err()
+                }
+                _ => unreachable!(),
+            };
+            assert!(rust_rejects, "{name} reader admits invalid {field}");
+        }
+        value.as_object_mut().unwrap().remove(field);
+        assert!(
+            !schema_accepts(name, &value),
+            "{name} admits missing {field}"
+        );
+    }
+}
+#[test]
+fn presented_summaries_reject_private_and_undecided_metadata() {
+    let work: Value = serde_json::from_str(include_str!(
+        "../../fixtures/theatre/discovery/v1/presented_works.json"
+    ))
+    .unwrap();
+    let unit: Value = serde_json::from_str(include_str!(
+        "../../fixtures/theatre/discovery/v1/presented_units.json"
+    ))
+    .unwrap();
+    for field in [
+        "owner_id",
+        "object_key",
+        "url",
+        "genre",
+        "season",
+        "episode_number",
+    ] {
+        let mut w = work["items"][0].clone();
+        w[field] = json!("injected");
+        assert!(!schema_accepts("PresentedWorkSummary", &w));
+        assert!(serde_json::from_value::<PresentedWorkSummary>(w).is_err());
+        let mut u = unit["items"][0].clone();
+        u[field] = json!("injected");
+        assert!(!schema_accepts("PresentedUnitSummary", &u));
+        assert!(serde_json::from_value::<PresentedUnitSummary>(u).is_err());
+    }
+}
+#[test]
 fn public_manifest_rejects_audit_and_disposable_grant_fields() {
     let mut v: Value = serde_json::from_str(include_str!(
         "../../fixtures/theatre/discovery/v1/manifest.json"

@@ -87,6 +87,7 @@ pub(super) enum ReadRequest {
         kind: PageKind,
         limit: usize,
         anchor: Option<PageAnchor>,
+        presentation: bool,
     },
 }
 pub(super) enum ReadResult {
@@ -96,11 +97,11 @@ pub(super) enum ReadResult {
     Page(PageSnapshot),
 }
 pub(super) enum PageData {
-    Continue(Vec<dto::ContinueItem>),
-    Saved(Vec<dto::SavedItem>),
+    Continue(Vec<dto::PresentedContinueItem>),
+    Saved(Vec<dto::PresentedSavedItem>),
     History {
         state: dto::HistoryState,
-        items: Vec<dto::HistoryItem>,
+        items: Vec<dto::PresentedHistoryItem>,
     },
 }
 pub(super) struct PageSnapshot {
@@ -119,6 +120,7 @@ pub(super) trait LibraryRepository: Send + Sync {
 pub struct LibraryService {
     pub(super) repository: Arc<dyn LibraryRepository>,
     pub(super) cursors: Arc<CursorVault>,
+    pub(super) presented_cursors: Arc<CursorVault>,
 }
 fn now() -> Result<i64, LibraryError> {
     i64::try_from(
@@ -265,14 +267,28 @@ impl LibraryService {
         limit: u16,
         cursor: Option<&str>,
     ) -> Result<(PageData, Option<String>), LibraryError> {
+        self.page_with_presentation(principal, kind, limit, cursor, false)
+            .await
+    }
+    async fn page_with_presentation(
+        &self,
+        principal: &AuthenticatedListener,
+        kind: PageKind,
+        limit: u16,
+        cursor: Option<&str>,
+        presentation: bool,
+    ) -> Result<(PageData, Option<String>), LibraryError> {
         if !(1..=50).contains(&limit) {
             return Err(LibraryError::InvalidRequest);
         }
+        // Separate opaque vaults bind cursors to the selected response contract.
+        let cursors = if presentation {
+            &self.presented_cursors
+        } else {
+            &self.cursors
+        };
         let anchor = cursor
-            .map(|v| {
-                self.cursors
-                    .read(v, principal.listener(), kind, limit, now()?)
-            })
+            .map(|v| cursors.read(v, principal.listener(), kind, limit, now()?))
             .transpose()?;
         let ReadResult::Page(snapshot) = self
             .repository
@@ -282,6 +298,7 @@ impl LibraryService {
                     kind,
                     limit: usize::from(limit),
                     anchor,
+                    presentation,
                 },
             )
             .await?
@@ -298,10 +315,7 @@ impl LibraryService {
         }
         let next = snapshot
             .next
-            .map(|a| {
-                self.cursors
-                    .issue(principal.listener(), kind, limit, a, now()?)
-            })
+            .map(|a| cursors.issue(principal.listener(), kind, limit, a, now()?))
             .transpose()?;
         Ok((snapshot.data, next))
     }
@@ -317,7 +331,16 @@ impl LibraryService {
         else {
             return Err(LibraryError::Corrupt);
         };
-        Ok(dto::ContinuePage { items, next_cursor })
+        Ok(dto::ContinuePage {
+            items: items
+                .into_iter()
+                .map(|item| dto::ContinueItem {
+                    progress: item.progress,
+                    resume: item.resume,
+                })
+                .collect(),
+            next_cursor,
+        })
     }
     pub async fn saved_works(
         &self,
@@ -330,7 +353,13 @@ impl LibraryService {
         else {
             return Err(LibraryError::Corrupt);
         };
-        Ok(dto::SavedPage { items, next_cursor })
+        Ok(dto::SavedPage {
+            items: items
+                .into_iter()
+                .map(|item| dto::SavedItem { saved: item.saved })
+                .collect(),
+            next_cursor,
+        })
     }
     pub async fn history(
         &self,
@@ -345,6 +374,61 @@ impl LibraryService {
             return Err(LibraryError::Corrupt);
         };
         Ok(dto::HistoryPage {
+            state,
+            items: items
+                .into_iter()
+                .map(|item| dto::HistoryItem {
+                    audio: item.audio,
+                    started_at_ms: item.started_at_ms,
+                    listener_order: item.listener_order,
+                    progress: item.progress,
+                    resume: item.resume,
+                })
+                .collect(),
+            next_cursor,
+        })
+    }
+    pub async fn presented_continue_listening(
+        &self,
+        principal: &AuthenticatedListener,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<dto::PresentedContinuePage, LibraryError> {
+        let (PageData::Continue(items), next_cursor) = self
+            .page_with_presentation(principal, PageKind::Continue, limit, cursor, true)
+            .await?
+        else {
+            return Err(LibraryError::Corrupt);
+        };
+        Ok(dto::PresentedContinuePage { items, next_cursor })
+    }
+    pub async fn presented_saved_works(
+        &self,
+        principal: &AuthenticatedListener,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<dto::PresentedSavedPage, LibraryError> {
+        let (PageData::Saved(items), next_cursor) = self
+            .page_with_presentation(principal, PageKind::Saved, limit, cursor, true)
+            .await?
+        else {
+            return Err(LibraryError::Corrupt);
+        };
+        Ok(dto::PresentedSavedPage { items, next_cursor })
+    }
+    pub async fn presented_history(
+        &self,
+        principal: &AuthenticatedListener,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<dto::PresentedHistoryPage, LibraryError> {
+        let (PageData::History { state, items }, next_cursor) = self
+            .page_with_presentation(principal, PageKind::History, limit, cursor, true)
+            .await?
+        else {
+            return Err(LibraryError::Corrupt);
+        };
+        Ok(dto::PresentedHistoryPage {
             state,
             items,
             next_cursor,

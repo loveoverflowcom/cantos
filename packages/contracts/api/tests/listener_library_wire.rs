@@ -53,6 +53,77 @@ fn strict_library_v1_fixtures_decode_and_reencode_without_drift() {
     }
 }
 #[test]
+fn presentation_opt_in_fixtures_decode_with_available_and_missing_metadata() {
+    for bytes in [
+        fixture!("presentation/presented_continue"),
+        fixture!("presentation/presented_continue_unavailable"),
+    ] {
+        check::<dto::PresentedContinuePage>("PresentedContinuePage", bytes);
+    }
+    for bytes in [
+        fixture!("presentation/presented_saved"),
+        fixture!("presentation/presented_saved_unavailable"),
+    ] {
+        check::<dto::PresentedSavedPage>("PresentedSavedPage", bytes);
+    }
+    for bytes in [
+        fixture!("presentation/presented_history"),
+        fixture!("presentation/presented_history_unavailable"),
+    ] {
+        check::<dto::PresentedHistoryPage>("PresentedHistoryPage", bytes);
+    }
+}
+#[test]
+fn library_presentation_requires_opt_in_and_explicit_nullable_member() {
+    let continued: Value =
+        serde_json::from_str(fixture!("presentation/presented_continue")).unwrap();
+    let saved: Value = serde_json::from_str(fixture!("presentation/presented_saved")).unwrap();
+    let history: Value = serde_json::from_str(fixture!("presentation/presented_history")).unwrap();
+    assert!(serde_json::from_value::<dto::ContinuePage>(continued.clone()).is_err());
+    assert!(serde_json::from_value::<dto::SavedPage>(saved.clone()).is_err());
+    assert!(serde_json::from_value::<dto::HistoryPage>(history.clone()).is_err());
+    let missing = |mut value: Value| {
+        value["items"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("presentation");
+        value
+    };
+    assert!(serde_json::from_value::<dto::PresentedContinuePage>(missing(continued)).is_err());
+    assert!(serde_json::from_value::<dto::PresentedSavedPage>(missing(saved)).is_err());
+    assert!(serde_json::from_value::<dto::PresentedHistoryPage>(missing(history)).is_err());
+}
+#[test]
+fn library_presentation_binds_released_audio_and_rejects_private_fields() {
+    let continued: dto::PresentedContinuePage =
+        serde_json::from_str(fixture!("presentation/presented_continue")).unwrap();
+    let item = &continued.items[0];
+    let presentation = item.presentation.as_ref().unwrap();
+    assert_eq!(presentation.work.work_id, item.progress.audio.work_id);
+    assert_eq!(
+        presentation.work.publication_id,
+        item.progress.audio.publication_id
+    );
+    assert_eq!(presentation.unit_id, item.progress.audio.unit_id);
+    let root: Value = serde_json::from_str(SCHEMA).unwrap();
+    for field in [
+        "owner_id",
+        "object_key",
+        "url",
+        "rights_refs",
+        "provider",
+        "draft_title",
+    ] {
+        let mut v: Value = serde_json::from_str(fixture!("presentation/presented_saved")).unwrap();
+        v["items"][0]["presentation"][field] = Value::String("private".into());
+        let mut schema = root.clone();
+        schema["$ref"] = Value::String("#/$defs/PresentedSavedPage".into());
+        schema.as_object_mut().unwrap().remove("anyOf");
+        assert!(!jsonschema::validator_for(&schema).unwrap().is_valid(&v));
+        assert!(serde_json::from_value::<dto::PresentedSavedPage>(v).is_err());
+    }
+}
+#[test]
 fn raw_authority_and_unconfirmed_history_events_never_decode() {
     let mut v: Value = serde_json::from_str(fixture!("progress_write")).unwrap();
     v["actor_id"] = Value::String("alice".into());

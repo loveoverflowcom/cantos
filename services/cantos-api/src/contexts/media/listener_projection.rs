@@ -3,6 +3,7 @@
 //! private envelope fields (owner, candidate, delivery object, binding, review evidence).
 use super::domain::listening::ListenerPublication;
 use crate::contexts::catalog::domain::{ContentUnitKind, WorkKind};
+use cantos_contracts::listener_library::{AudioPresentation, WorkPresentation};
 use cantos_contracts::theatre as dto;
 
 /// `first_published_at_ms` is the work's immutable discovery anchor, not this release's time.
@@ -34,6 +35,61 @@ pub(super) fn unit_summary(publication: &ListenerPublication, position: u32) -> 
         publication_id: d.id.clone(),
         published_at_ms: d.published_at,
         duration_ms: d.manifest.media.duration_ms,
+    }
+}
+
+pub(super) fn presented_work_summary(
+    publication: &ListenerPublication,
+    first_published_at_ms: i64,
+    unit_count: u64,
+) -> dto::PresentedWorkSummary {
+    let work = work_summary(publication, first_published_at_ms);
+    dto::PresentedWorkSummary {
+        work_id: work.work_id,
+        kind: work.kind,
+        title: work.title,
+        description: work.description,
+        language: work.language,
+        first_published_at_ms: work.first_published_at_ms,
+        unit_count,
+    }
+}
+
+pub(super) fn presented_unit_summary(
+    publication: &ListenerPublication,
+    position: u32,
+    ordinal: u64,
+) -> dto::PresentedUnitSummary {
+    let unit = unit_summary(publication, position);
+    dto::PresentedUnitSummary {
+        unit_id: unit.unit_id,
+        kind: unit.kind,
+        position: unit.position,
+        title: unit.title,
+        description: unit.description,
+        publication_id: unit.publication_id,
+        published_at_ms: unit.published_at_ms,
+        duration_ms: unit.duration_ms,
+        ordinal,
+    }
+}
+
+pub(super) fn work_presentation(publication: &ListenerPublication) -> WorkPresentation {
+    let work = publication.discoverable();
+    WorkPresentation {
+        work_id: publication.work().id().as_str().into(),
+        publication_id: publication.release().document().id.clone(),
+        title: work.title.into(),
+        kind: work_kind(work.kind),
+        language: work.language.into(),
+    }
+}
+
+pub(super) fn audio_presentation(publication: &ListenerPublication) -> AudioPresentation {
+    AudioPresentation {
+        work: work_presentation(publication),
+        unit_id: publication.unit().id().as_str().into(),
+        unit_title: publication.unit().details().title.clone(),
     }
 }
 
@@ -189,6 +245,34 @@ mod tests {
             release.document().manifest.media.duration_ms
         );
         assert_schema("UnitSummary", &serde_json::to_value(&unit).unwrap());
+    }
+
+    #[test]
+    fn presentation_uses_exact_released_metadata_and_separate_list_facts() {
+        let (publication, release) = resolved("en-US");
+        let work = presented_work_summary(&publication, 4321, 3);
+        let unit = presented_unit_summary(&publication, 9, 2);
+        assert_eq!(work.unit_count, 3);
+        assert_eq!(work.language, "vi-VN");
+        assert_eq!((unit.position, unit.ordinal), (9, 2));
+        assert_schema(
+            "PresentedWorkSummary",
+            &serde_json::to_value(&work).unwrap(),
+        );
+        assert_schema(
+            "PresentedUnitSummary",
+            &serde_json::to_value(&unit).unwrap(),
+        );
+        let display = audio_presentation(&publication);
+        assert_eq!(display.work.publication_id, release.document().id);
+        assert_eq!(display.work.work_id, work.work_id);
+        assert_eq!(display.work.title, work.title);
+        assert_eq!(display.work.language, "vi-VN");
+        assert_eq!(display.unit_id, unit.unit_id);
+        assert_eq!(display.unit_title, unit.title);
+        let fields = serde_json::to_value(display).unwrap();
+        assert_eq!(fields.as_object().unwrap().len(), 3);
+        assert_eq!(fields["work"].as_object().unwrap().len(), 5);
     }
 
     #[test]

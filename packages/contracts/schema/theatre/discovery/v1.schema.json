@@ -313,6 +313,174 @@
           "type": "boolean"
         }
       }
+    },
+    "PresentedWorkSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "work_id",
+        "kind",
+        "title",
+        "description",
+        "language",
+        "first_published_at_ms",
+        "unit_count"
+      ],
+      "properties": {
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "kind": {
+          "enum": [
+            "novel",
+            "story",
+            "podcast"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "language": {
+          "type": "string",
+          "maxLength": 63
+        },
+        "first_published_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unit_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "PresentedUnitSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "kind",
+        "position",
+        "title",
+        "description",
+        "publication_id",
+        "published_at_ms",
+        "duration_ms",
+        "ordinal"
+      ],
+      "properties": {
+        "unit_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "kind": {
+          "enum": [
+            "chapter",
+            "episode"
+          ]
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "publication_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "published_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "PresentedWorkPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/PresentedWorkSummary"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^lc1_[a-f0-9]{64}$"
+            }
+          ]
+        }
+      }
+    },
+    "PresentedUnitPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "work_id",
+        "items",
+        "next_cursor"
+      ],
+      "properties": {
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/PresentedUnitSummary"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^lc1_[a-f0-9]{64}$"
+            }
+          ]
+        }
+      }
     }
   }
 }

@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "progress": {
+        "audio": {
+          "work_id": "00000000-0000-4000-8000-000000000001",
+          "unit_id": "00000000-0000-4000-8000-000000000002",
+          "publication_id": "00000000-0000-4000-8000-000000000003",
+          "rendition_id": "00000000-0000-4000-8000-000000000004",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "duration_ms": 60000
+        },
+        "position_ms": 15000,
+        "completion": "in_progress",
+        "revision": 1,
+        "accepted_at_ms": 1000,
+        "listener_order": 1,
+        "written_by": "00000000-0000-4000-8000-00000000000b",
+        "kind": "checkpoint"
+      },
+      "resume": "exact_available",
+      "presentation": {
+        "work": {
+          "work_id": "00000000-0000-4000-8000-000000000001",
+          "publication_id": "00000000-0000-4000-8000-000000000003",
+          "title": "Ánh đèn cuối sân khấu — Một lời hẹn chưa nói",
+          "kind": "story",
+          "language": "vi-VN"
+        },
+        "unit_id": "00000000-0000-4000-8000-000000000002",
+        "unit_title": "Một tiếng chuông trong sương"
+      }
+    }
+  ],
+  "next_cursor": null
+}

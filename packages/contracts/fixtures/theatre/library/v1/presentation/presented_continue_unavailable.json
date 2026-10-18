@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "progress": {
+        "audio": {
+          "work_id": "00000000-0000-4000-8000-000000000001",
+          "unit_id": "00000000-0000-4000-8000-000000000002",
+          "publication_id": "00000000-0000-4000-8000-000000000003",
+          "rendition_id": "00000000-0000-4000-8000-000000000004",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "duration_ms": 60000
+        },
+        "position_ms": 15000,
+        "completion": "in_progress",
+        "revision": 1,
+        "accepted_at_ms": 1000,
+        "listener_order": 1,
+        "written_by": "00000000-0000-4000-8000-00000000000b",
+        "kind": "checkpoint"
+      },
+      "resume": "access_unavailable",
+      "presentation": null
+    }
+  ],
+  "next_cursor": null
+}

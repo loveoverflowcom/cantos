@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "saved": {
+        "work_id": "00000000-0000-4000-8000-000000000001",
+        "saved": true,
+        "revision": 1,
+        "listener_order": 1,
+        "accepted_at_ms": 1000
+      },
+      "presentation": {
+        "work_id": "00000000-0000-4000-8000-000000000001",
+        "publication_id": "00000000-0000-4000-8000-000000000003",
+        "title": "Ánh đèn cuối sân khấu — Một lời hẹn chưa nói",
+        "kind": "story",
+        "language": "vi-VN"
+      }
+    }
+  ],
+  "next_cursor": null
+}

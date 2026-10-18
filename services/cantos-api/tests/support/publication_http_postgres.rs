@@ -900,6 +900,9 @@ impl PublishedFixture {
             self.a.h.config.clone(),
         )
     }
+    pub(crate) fn listener_submission_id(&self) -> &str {
+        self.submission["id"].as_str().unwrap()
+    }
     pub(crate) async fn listener_publish(&self, version: u64, active: Value) -> Value {
         self.a
             .h
