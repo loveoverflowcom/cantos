@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Production catalog host: anonymous network reads, explicit origin and HTTPS-only release.
-     Debug adds only its loopback cleartext policy. -->
+<!-- Cantos Theatre: live catalog, account, durable Library and native streaming; explicit API origin
+     and HTTPS-only release. Debug adds only its loopback cleartext policy. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -8,7 +8,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
         android:label="Cantos"
+        android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Cantos">
@@ -20,6 +22,7 @@
             android:foregroundServiceType="mediaPlayback" />
         <activity
             android:name=".app.TheatreActivity"
+            android:theme="@style/Theme.Cantos.Starting"
             android:launchMode="singleTask"
             android:exported="true">
             <intent-filter>

@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
 import com.cantos.theatre.R
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.http.CatalogOriginSelection
@@ -23,9 +21,10 @@ import com.cantos.theatre.adapters.playback.AndroidMediaEngine
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.adapters.library.nativeLibraryController
-import com.cantos.theatre.app.NativeCatalogScreen
-import com.cantos.theatre.presentation.model.ShellLocale
-import com.cantos.ui.UiPreferences
+import com.cantos.theatre.adapters.preferences.AndroidLocalePreferenceStore
+import com.cantos.theatre.application.preferences.PreferenceTheme
+import com.cantos.theatre.application.preferences.PreferencesController
+import com.cantos.theatre.application.preferences.PreferencesState
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +46,7 @@ private fun Context.nativeMetadata(key: String): String? = try {
 } catch (_: PackageManager.NameNotFoundException) { null }
 
 /** Application-context singleton: Activity/navigation recreation never constructs another player. */
-internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin) {
+internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, systemDark: Boolean) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val app = context.applicationContext
     private val http = AndroidNativeHttp(scope, origin.toString())
@@ -62,6 +61,12 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin) {
     private val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, http), it,
         { UUID.randomUUID().toString() }, onSessionInvalidated = { expected -> account?.revalidate(expected) },
         nowMs = { System.currentTimeMillis() }) }
+    /** Language is stored; the theme starts from the system and is then the listener's in-app choice. */
+    val preferences = PreferencesController(
+        PreferencesState(theme = if (systemDark) PreferenceTheme.Dark else PreferenceTheme.Light),
+        AndroidLocalePreferenceStore(app),
+    )
+    var systemDark: Boolean = systemDark
     val runtime = NativeSessionRuntime(scope,
         nativeFactory = { onControl -> AndroidMediaEngine(app, onControl) },
         access = PlaybackAccessHttp(origin, http) { System.currentTimeMillis() },
@@ -73,25 +78,28 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin) {
                 catalog.dispatch(PublicCatalogIntent.AccountChanged)
             }
         })
+    /** Navigation and typed route text outlive Activity recreation, like every other owner here. */
+    val shell = TheatreShell(scope, catalog, runtime, preferences)
 }
 
 internal object ProductionProcess {
     private var owner: AndroidProductionOwner? = null
-    fun obtain(context: Context, origin: ApiOrigin): AndroidProductionOwner {
+    fun obtain(context: Context, origin: ApiOrigin, systemDark: Boolean): AndroidProductionOwner {
         val existing = owner
         if (existing != null) {
             check(existing.origin == origin) { "Process API environment cannot change" }
+            // A system theme change recreates the Activity; the user's in-app choice is kept otherwise.
+            if (existing.systemDark != systemDark) {
+                existing.systemDark = systemDark
+                existing.preferences.setTheme(if (systemDark) PreferenceTheme.Dark else PreferenceTheme.Light)
+            }
             return existing
         }
-        return AndroidProductionOwner(context, origin).also { owner = it }
+        return AndroidProductionOwner(context, origin, systemDark).also { owner = it }
     }
     fun current(): AndroidProductionOwner? = owner
 }
 
-internal fun ComponentActivity.setLiveCatalogContent(origin: ApiOrigin, preferences: UiPreferences, locale: ShellLocale) {
-    val owner = ProductionProcess.obtain(applicationContext, origin)
-    setContent {
-        NativeCatalogScreen(owner.catalog, owner.runtime, preferences, locale,
-            backHandler = { enabled, onBack -> BackHandler(enabled = enabled, onBack = onBack) }, cache = owner.cache)
-    }
-}
+/** The process owner for [origin]; the Activity composes [CantosTheatreApp] over its shell. */
+internal fun ComponentActivity.theatreOwner(origin: ApiOrigin, systemDark: Boolean): AndroidProductionOwner =
+    ProductionProcess.obtain(applicationContext, origin, systemDark)

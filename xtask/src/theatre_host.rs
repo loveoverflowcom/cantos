@@ -36,13 +36,14 @@ const SANDBOX_CLASSES: &str = "preview-sandbox/build/tmp/kotlin-classes/release"
 const SANDBOX_RESOURCES: &str = "preview-sandbox/src/commonMain/composeResources";
 const COMPOSE_RESOURCE_PACKAGE: &str = "com.cantos.theatre.resources";
 /// Production classes whose absence would make a finding-free inspection vacuous.
-const REQUIRED_CLASSES: [&str; 8] = [
+const REQUIRED_CLASSES: [&str; 9] = [
     "Lcom/cantos/theatre/app/TheatreActivity;",
     "Lcom/cantos/theatre/app/AppContainer;",
     "Lcom/cantos/theatre/features/launch/presentation/CantosListeningUnavailableKt;",
-    "Lcom/cantos/theatre/app/LiveCatalogHostKt;",
-    "Lcom/cantos/theatre/features/catalog/presentation/PublicCatalogScreenKt;",
-    "Lcom/cantos/theatre/features/auth/presentation/NativeAccountPanelKt;",
+    "Lcom/cantos/theatre/app/TheatreProcessKt;",
+    "Lcom/cantos/theatre/app/CantosTheatreAppKt;",
+    "Lcom/cantos/theatre/app/TheatreShell;",
+    "Lcom/cantos/theatre/features/shell/presentation/CantosPresentationKt;",
     "Lcom/cantos/theatre/adapters/playback/AndroidMediaEngine;",
     "Lcom/cantos/theatre/adapters/playback/CantosPlaybackService;",
 ];

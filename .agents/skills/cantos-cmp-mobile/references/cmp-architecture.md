@@ -84,8 +84,8 @@ The implementation keeps ARC-01's production-safe UI/domain/application/ports in
 mock adapters, fixtures, previews, diagnostic composition and workbench in `:preview-sandbox`.
 The sandbox depends on shared; shared has no reverse dependency or implicit mock fallback.
 `androidApp` and the desktop/iOS hosts are demo hosts. The production host `androidProductionApp`
-consumes shared plus production adapters only (today the anonymous public catalog in its debug
-build; release renders an explicit unavailable state) and establishes release graph and actual APK/AAB exclusion independently
+consumes shared plus production adapters only (`CantosTheatreApp` over the live catalog, account,
+Library and native player; without an API origin it renders an explicit unavailable state) and establishes release graph and actual APK/AAB exclusion independently
 through `cargo xtask theatre-host android-release`. Build/verify integrate
 `:shared:assertProductionSafeDependencies` for resolved shared desktop and opt-in Android
 release compile/runtime graphs; its report is `shared/build/reports/production-boundary/resolved-dependencies.txt`.

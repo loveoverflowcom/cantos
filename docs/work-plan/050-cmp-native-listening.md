@@ -7,7 +7,10 @@ identity configuration fails closed. Android packaging/JVM/SQLite results do not
 playback, native force-stop, cross-client sync or iOS Ogg/Opus compatibility. Keep #14/#15/#17/#35/
 #191/#174/#184/#179/#180 open for their actual gates. The explicit demo and #122 artifact
 exclusion remain independent; downloads/bookmarks are not fabricated. Review the exact source
-and evidence before widening activation or declaring this work complete.
+and evidence before widening activation or declaring this work complete. The production roots
+now mount the demo's `CantosPresentation` experience as `CantosTheatreApp` over those owners
+([unified application](../evidence/theatre-cmp-unified-application.md)); the simplified
+catalog-only screens are gone and no second production UI is to be reintroduced.
 
 ## Why
 

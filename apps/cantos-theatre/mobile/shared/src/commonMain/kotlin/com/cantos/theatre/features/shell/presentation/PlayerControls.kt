@@ -115,10 +115,12 @@ internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: Shel
             Icon(Icons.Outlined.Timer, null)
             Text(copy.text(timerKey(state.timer)))
         }
-        val bookmarked = ShellBookmark(state.selectedEpisode, state.positionSeconds, state.positionMs) in state.bookmarks
-        FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Bookmark) }, modifier = Modifier.testTag("bookmark")) {
-            Icon(Icons.Outlined.Star, null)
-            Text(copy.text(if (bookmarked) CopyKey.Bookmarked else CopyKey.Bookmark))
+        if (LocalShellCapabilities.current.bookmarks) {
+            val bookmarked = ShellBookmark(state.selectedEpisode, state.positionSeconds, state.positionMs) in state.bookmarks
+            FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Bookmark) }, modifier = Modifier.testTag("bookmark")) {
+                Icon(Icons.Outlined.Star, null)
+                Text(copy.text(if (bookmarked) CopyKey.Bookmarked else CopyKey.Bookmark))
+            }
         }
         FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Queue)) }, modifier = Modifier.testTag("queue")) {
             Icon(Icons.AutoMirrored.Outlined.QueueMusic, null)

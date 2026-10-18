@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellCopy
+import com.cantos.theatre.presentation.model.ShellEpisode
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
@@ -55,7 +56,7 @@ internal fun PlayerScreen(state: ShellState, catalog: ShellCatalogView, copy: Sh
     }
     WorkArtwork(work.id, Modifier.fillMaxWidth().widthIn(max = tokenDp("breakpoint.medium")).aspectRatio(1.32f))
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        Text(copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(), "title" to work.title), style = MaterialTheme.typography.labelLarge,
+        Text(episodeLabel(episode, work.title, copy), style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.tertiary)
         Text(episode.title, style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.semantics { heading() })
@@ -143,6 +144,12 @@ private fun playbackStatusKey(status: PlaybackUiStatus): CopyKey = when (status)
     PlaybackUiStatus.Loading -> CopyKey.PlaybackLoading
     PlaybackUiStatus.Paused -> CopyKey.PlaybackPaused
     PlaybackUiStatus.Simulating -> CopyKey.PlaybackSimulating
+    PlaybackUiStatus.Playing -> CopyKey.PlaybackPlaying
+    PlaybackUiStatus.Failed -> CopyKey.PlaybackFailed
     PlaybackUiStatus.Buffering -> CopyKey.PlaybackBuffering
     PlaybackUiStatus.Ended -> CopyKey.PlaybackEnded
 }
+
+/** "Episode 3 · Work" for numbered samples; only the work title when the source has no real number. */
+internal fun episodeLabel(episode: ShellEpisode, workTitle: String, copy: ShellCopy): String =
+    if (episode.numbered) copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(), "title" to workTitle) else workTitle

@@ -46,9 +46,8 @@ and never infer client/device acceptance from model simulation.
   The sole mobile product is Theatre; Studio is Web-only under the
   [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
   Shared libraries may serve Theatre Mobile and Studio Web.
-- Production host `androidProductionApp` composes `:shared` only and shows `CantosListeningUnavailable`
-  until #14's adapters exist, never a mock; rerun `cargo xtask theatre-host android-release`
-  ([testing](references/cmp-testing.md), [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)).
+- Production host `androidProductionApp` composes `:shared` only and mounts `CantosTheatreApp` (the one `CantosPresentation`
+  over live catalog/account/Library/player; `CantosListeningUnavailable` without an origin; never a mock). Rerun `cargo xtask theatre-host android-release` ([testing](references/cmp-testing.md), [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)).
   A demo APK, debug flag or R8 removal cannot accept production exclusion.
   Use `Mock` for Cantos-owned adapters/fixtures; retain third-party names such as Okio
   `FakeFileSystem`. Add no directory, SQLite, file-system or HTTP mock dependency without a consumer.

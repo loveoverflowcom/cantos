@@ -5,7 +5,7 @@
         android:name=".CantosDemoApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="Cantos"
+        android:label="Cantos Sandbox"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.Cantos">
