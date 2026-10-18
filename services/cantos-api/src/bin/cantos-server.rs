@@ -1,5 +1,5 @@
 use cantos_api::{
-    interfaces::http::{api_router, router, AppState},
+    interfaces::http::{api_router, router, router_with_public_media, AppState},
     platform::host::{host_settings, HostMode},
     platform::postgres::{local_config, verify_schema, Store},
     platform::studio_oidc::{OidcConfig, StudioOidc},
@@ -131,10 +131,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ) => store.with_theatre_firebase_enrollment(runtime),
         };
     }
+    let public_media =
+        cantos_api::contexts::media::public_media::from_lookup(|name| env::var(name).ok())
+            .map_err(|error| error.message())?;
     let state = AppState { store, web_origin };
-    let app = match host.web_dist() {
-        Some(dist) => router(state, dist),
-        None => api_router(state),
+    let app = match public_media {
+        Some(runtime) => {
+            let publication =
+                cantos_api::contexts::media::PublicationService::new(state.store.clone())
+                    .with_origin_publication(runtime.storage);
+            router_with_public_media(state, publication, runtime.playback)
+        }
+        None => match host.web_dist() {
+            Some(dist) => router(state, dist),
+            None => api_router(state),
+        },
     };
     let app = match env::var("CANTOS_BROWSER_API_SURFACE") {
         Ok(surface) => {

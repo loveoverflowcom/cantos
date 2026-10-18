@@ -40,7 +40,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0029 — Visual comparison](0029-local-visual-comparison.md) | Proposed; local MVP implemented | Advisory pixel metric, no baseline/UX acceptance |
 | [0030 — Public metadata](0030-release-safe-public-metadata.md) | Proposed | No P1 field/source policy accepted |
 | [0031 — Interest receipts](0031-membership-interest-receipts.md) | Proposed | Privacy/submitter/persistence decisions pending |
-| [0032 — Origin delivery](0032-theatre-origin-playback-delivery.md) | Proposed; composition-gated core implemented | No accepted live public delivery |
+| [0032 — Origin delivery](0032-theatre-origin-playback-delivery.md) | Accepted for step-1 origin integration; configured filesystem adapter/server | Deployed TLS/proxy/performance and native playback acceptance pending |
 | [0033 — Public cover](0033-release-pinned-public-cover.md) | Proposed; pure kernel only | No public cover wire/storage/delivery activation |
 | [0034 — Account policy](0034-theatre-signup-and-provisioned-studio.md) | Accepted product/onboarding direction | Theatre signup, provisioned-only Studio; live issuer activation separate |
 | [0035 — Unit availability](0035-theatre-catalog-unit-availability.md) | Accepted owner decision | Version-aware metadata policy; implementation/consumer acceptance remains separate |

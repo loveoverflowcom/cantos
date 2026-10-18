@@ -46,13 +46,14 @@ cargo xtask run cantos-studio --web [--test-cluster] [--web-origin URL] [--open]
 cargo xtask run cantos-theatre --web [--test-cluster] [--web-origin URL] [--open]
 cargo xtask app cantos-studio --web [--open]
 cargo xtask app cantos-theatre --web [--open]
-cargo xtask seed theatre [--reset]                 # synthetic Theatre catalog in the retained disposable cluster
+cargo xtask seed theatre [--reset]                 # synthetic Theatre catalog + media in the retained disposable cluster
 
 cargo xtask ui-preview leptos build|run|verify       # package-local Leptos gallery
 cargo xtask ui-preview leptos run --open             # loopback browser preview on 8083
 cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop preview
 cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
-cargo xtask theatre-host android-release             # production host release APK/AAB + boundary inspection
+cargo xtask theatre-host android-release [--api-origin HTTPS_ORIGIN] # production catalog APK/AAB + boundary/origin inspection
+cargo xtask theatre-host ios-build --kotlin-native-home PATH # shared-only simulator frameworks; macOS + Xcode
 cargo xtask theatre-host android-debug --api-origin URL  # production host debug APK for the live catalog; installs nothing
 
 cargo xtask verify repository|rust|forge|web|contracts|mutation|dbsp
@@ -175,7 +176,9 @@ bind address; the server itself refuses anything else. Theatre selects
 the disposable audio fixture with bounded public-discovery read grants. That fixture has no
 published Work. After an explicit `cargo xtask seed theatre` (below), `serve_studio.py` serves
 the recorded seed database instead, but only when its record names the same retained cluster
-and port; it prints which one it serves. Neither enables public media delivery. A retained
+and port; it prints which one it serves. A new seed receipt also binds separate private/publication roots and a local grant key; the host
+composes actual origin media for API path checks. Its HTTPS grant origin needs separately
+configured TLS for native playback; local loopback HTTP checks do not establish TLS/proxy acceptance. A retained
 record predating `theatre_app_url` must be recreated by an explicit fresh
 `verify postgres --keep`, never patched to point to another DB.
 
@@ -238,15 +241,33 @@ without retaining its database. The primitive `scripts/seed_theatre.py`:
 - runs `cargo test -p cantos-api --test catalog_http_postgres -- --ignored --exact
   …::theatre_development_catalog_seed` with `CANTOS_TEST_CLUSTER_URL` set to the retained
   admin URL. The test publishes through the real Studio HTTP routes, app-role SQL and private
-  Ogg/Opus intake; only the public-delivery observer is the test-only fake;
+  Ogg/Opus intake, automatic promotion to a separate publication filesystem, and actual-byte delivery;
 - writes `target/revision-evidence/theatre-seed.json` atomically and then drops the previous
   seed database recorded for the same cluster.
 
 `--reset` drops only that recorded seed database and removes the record. Requirements: Python 3
 and `psql`; seeding also needs Cargo, `ffmpeg` and `ffprobe`. Work and unit IDs are stable across
 reseeds, publication IDs are new releases. The [runbook](../docs/deployment/theatre-seeded-catalog.md)
-lists the dataset, Web/Android steps, a live withdrawal and troubleshooting. A seeded catalog
-is discovery data only: playback authorization stays `rendition_unavailable`.
+lists the dataset, Web/Android steps, a live withdrawal and troubleshooting. A new seeded catalog supports manifest → grant → exact full/Range byte checks; synthetic
+rights/QC records and a 125-second owned tone do not establish native playback or human listening.
+
+A persistent lane requires every explicit input and performs no schema administration or reset:
+
+```sh
+cargo xtask seed theatre --environment NAME --database-url-env DB_VARIABLE \
+  --studio-token-env TOKEN_VARIABLE --rights-ref EVIDENCE_ID \
+  --api-origin https://api.example.test --web-origin https://studio.example.test \
+  --private-root /absolute/private --publication-root /absolute/publication \
+  --record /absolute/private-records/theatre-seed.json
+```
+
+The private fsynced journal replays exact operation IDs, binds environment/connection/actor/roots,
+refuses unowned dataset collisions and checks current records for drift. Keep it for uncertain
+outcome recovery. Persistent requests use the configured real Studio HTTP host and its existing
+session/fence authentication; they never bypass OIDC with a development-session store. See the
+runbook for credential, evidence and pre-existing-schema prerequisites.
+The cookie name defaults to `__Secure-cantos_studio`; only an explicitly configured development
+host uses `--studio-cookie-name cantos_session`. No dual-cookie or authentication fallback is attempted.
 
 ### Explicit local service infrastructure
 
@@ -421,7 +442,8 @@ native PostgreSQL cluster. The runner strips inherited database/libpq/Cantos con
 stops only its owned cluster on success, failure or interruption. It neither starts containers
 nor accepts an external database URL. Its logs and scope record are under
 `target/revision-evidence/theatre-firebase/`; it does not overwrite retained full-suite fixtures.
-`--keep` is refused for this scope. Media, other database contexts, HTTP hosts and the complete
+An explicit `--keep` retains only an independently recorded owned cluster (see below).
+Media, other database contexts, HTTP hosts and the complete
 restart campaign remain unrun by this command. A `PASS` for `postgres (theatre-firebase)` never
 satisfies the full `postgres` gate: default verification, preflight and CI still select the full
 gate and retain their ffmpeg/ffprobe prerequisites.
@@ -433,13 +455,22 @@ identity, native credentials,
 Studio OIDC and both registration SQL owners. It uses a new owned cluster, locked/offline Cargo
 and nonzero passing-test checks per target. It never takes
 an inherited database URL or performs a live cutover. Logs and the exact selected scope are under
-`target/revision-evidence/schema/`; `--keep` is refused. The scope record lists all integration
+`target/revision-evidence/schema/`; an explicit `--keep` retains it. The scope record lists all integration
 targets, registration selectors and skipped tests. Catalog HTTP's nested `audio_lifecycle_http::`
 tests (including publication/discovery media fixtures) are excluded because they require real
 `ffmpeg`/`ffprobe`. Restart-only tests and their full-suite fixture writers are skipped to preserve
 retained fixture records; completed disposable databases are
 released between targets. Full media, actual HTTP process/restart and PostgreSQL 18.6 acceptance
 remain separate; this gate never replaces full `postgres`.
+
+For retained full or narrow runs, `target/revision-evidence/retained-cluster.json` records
+resource ownership independently of acceptance. It contains the exact cluster/port, inactive
+runner identity and scoped/full outcomes, with no application fixture URLs. A failed run stays
+`FAIL`; narrow runs always record full `NOT_RUN`. After the runner exits, `seed theatre` can
+create a new seed DB in that proven cluster, and only a matching seeded Theatre context can
+start without the full success-only `run.json`. Active, stale, foreign, stopped or swapped
+targets are refused. This does not change required full-gate selection or turn resource
+retention into passing evidence. See the [seed runbook](../docs/deployment/theatre-seeded-catalog.md).
 The retired `legacy-dbsp` suite is no longer accepted. Generic `verify dbsp` remains optional
 incremental-core evidence, without a PostgreSQL feed or production consumer.
 
@@ -1075,13 +1106,14 @@ Details and evidence live in the [mock guide](../apps/cantos-theatre/mobile/READ
 ### theatre-host
 
 The production Theatre Android host (`androidProductionApp`, `com.cantos.theatre`) composes
-`:shared` only, with no mock, sample or diagnostic fallback. Its debug build browses the live
-public catalog when built with an API origin (below); release declares no network permission or
-origin and renders an explicit unavailable state until listening adapters and a production
-origin exist (#14).
+`:shared` only, with no mock, sample or diagnostic fallback. Debug and release browse the real
+public catalog when built with an API origin; release accepts HTTPS only. Both declare INTERNET
+and origin metadata; release forbids cleartext. An omitted release origin is passed as an explicit
+empty Gradle property, overriding ambient settings, and renders unavailable. Native listening,
+Library and account remain capability gaps (#14/#35/#191).
 
 ```sh
-cargo xtask theatre-host android-release
+cargo xtask theatre-host android-release --api-origin https://api.cantoss.duckdns.org
 # 1. gradle -Pcantos.android=true :androidProductionApp:assertReleaseDependencyBoundary
 #      :androidProductionApp:assembleRelease :androidProductionApp:bundleRelease
 #      :preview-sandbox:compileReleaseKotlinAndroid
@@ -1095,7 +1127,8 @@ and no test, mock or Compose tooling module. The sandbox is compiled only as the
 class inventory. The inspector reads the actual unsigned, unshrunk APK and AAB: DEX
 `class_defs`, sandbox class names and resource bytes, Compose resource packages, entry paths and
 the `aapt2`-decoded manifest. It also checks package, launcher, debuggable/test-only flags and
-allowlisted permissions. Its APK/AAB class sets must match and named production classes must
+allowlisted permissions, exact requested origin metadata and release cleartext refusal. Its
+APK/AAB class sets must match and named production catalog classes must
 exist; an empty inventory or unreadable artifact exits 2, never `PASS`. A failed build
 stops before inspection, so stale outputs are never inspected. Reports are written under
 `apps/cantos-theatre/mobile/androidProductionApp/build/reports/release-boundary/`.
@@ -1103,9 +1136,15 @@ stops before inspection, so stale outputs are never inspected. Reports are writt
 `theatre-host android-debug --api-origin ORIGIN` builds only `:androidProductionApp:assembleDebug`
 with `-Pcantos.apiOrigin=ORIGIN`. It accepts `https://` or `http://127.0.0.1|localhost:<port>`
 (for `adb reverse`) and refuses anything else with exit 2 before Gradle. The debug manifest overlay
-adds INTERNET, the origin meta-data and a cleartext policy limited to those loopback hosts; release
-declares none of them. The APK composes the live public catalog only (no playback, progress or
+adds only a cleartext policy limited to those loopback hosts. The APK composes the live public catalog only (no playback, progress or
 identity); installing it on a device is the developer's own `adb install`.
+
+`theatre-host ios-build --kotlin-native-home PATH` checks the installed Kotlin/Native 2.2.20
+compiler and Xcode simulator SDK, then links only `:shared` debug/release iOS simulator frameworks
+named `CantosTheatre`. The production `iosApp/Cantos.xcodeproj` / `Cantos` scheme consumes these
+frameworks and shared resources; it imports no `CantosTheatreDemo` or sandbox. Set the scheme's
+nonsecret `CANTOS_API_ORIGIN` to an HTTPS origin. No compiler, Xcode or SDK is installed/selected;
+missing prerequisites are `UNSUPPORTED`. Framework compilation is separate from app/device acceptance.
 
 Nothing is signed, installed, shrunk or distributed; this is release-isolation evidence, not a
 production release or listening acceptance. Preflight does not run it (it selects only the JVM
@@ -1119,6 +1158,8 @@ private root; it does not provision identity/storage or use an inherited databas
 PostgreSQL verification now discards completed suite databases only after their tests pass,
 retaining all five restart fixtures for the existing crash/replay assertions. This bounds local
 disk consumption without removing any test or weakening PostgreSQL durability settings.
+Completed-database cleanup permits up to 60 seconds for a durable checkpoint; it never uses
+`DROP ... FORCE` or closes an unrelated connection.
 
 ### Studio Kanidm operator tools
 

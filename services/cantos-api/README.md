@@ -48,7 +48,12 @@ or in-backend mixing should remain.
 - [Publication v1](../../packages/contracts/publication-v1.md): owner distribution decisions,
   exact approval/readiness, immutable release snapshots, atomic CAS active pointers and withdrawal.
   [Core evidence](../../docs/evidence/publication-core.md) is CORE_VERIFIED / IO_ACCEPTANCE_PENDING:
-  the initial real PostgreSQL acceptance attempt was blocked and default public delivery is unavailable.
+  default public delivery remains unavailable unless the separate origin-delivery configuration below is complete.
+- Opt-in origin public media: `FilesystemPublicationStorage` promotes inspected audio to a
+  distinct immutable byte class; the actual host composes publication readiness, HMAC grants
+  and GET/HEAD/Range with per-request expiry and current-release checks.
+  [ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md) separates source/local
+  evidence from deployed TLS/proxy, throughput and native playback acceptance.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   contains Discovery/Library and separate opt-in Web/native identity routes; `/api/v1/admin/*`
   provides the independent opt-in [Admin capability/revocation and audit](../../docs/architecture/admin-authorization.md)
@@ -72,7 +77,7 @@ from deferred Kanidm, unobserved runtime/accessibility and production acceptance
 ## Planned functionality (not implemented)
 
 Broader Studio Web acceptance, production identity/credential delivery, real-provider/CDN
-acceptance, stronger rights/QC policy, public publication delivery and Theatre identity/native
+acceptance, stronger rights/QC policy, S3 publication promotion and Theatre identity/native
 listening acceptance.
 [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) implements development upload permissions/private admission, named review and private candidates. Read the
 [external handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) before
@@ -153,7 +158,7 @@ startup, including historical read targets, with no provider fallback. The prece
 an error. Without either option, private storage is unavailable.
 
 For filesystem targets, the Unix adapter creates only
-its final root directory and `objects` child; existing directories must be owned by the process
+its final root directory, immutable class marker and `objects` child; existing directories must be owned by the process
 user and mode 0700. An intake-enabled API host disables all same-process static serving,
 including nested public symlinks; `CANTOS_WEB_DIST` is unused for delivery in that mode.
 Serve Studio separately through its existing Trunk proxy and set the matching
@@ -174,6 +179,60 @@ writes never migrates old bytes. No producer receives a Studio cookie and no upl
 becomes a release. Migration0014 adds immutable Content/Brief submissions, revocations,
 renditions, reviews and candidates; its application-role grants are SELECT/INSERT only.
 Brief read-grant issuance also needs SELECT on `audio_submissions` for credential-separation checks.
+
+## Origin public media storage
+
+The default host grants no public playback. An operator can opt in by supplying all three:
+
+- `CANTOS_PUBLICATION_ROOT`: absolute owner-only filesystem root, disjoint from every configured
+  private filesystem root. Ancestors and descendants are refused too. Only the final root and
+  its `objects` child are created; existing directory ownership/mode must already be correct.
+- `CANTOS_PUBLIC_MEDIA_ORIGIN`: the exact bare HTTPS API origin as listeners reach it, without
+  a trailing slash, path, query or credentials. This is trusted configuration, never inferred
+  from a request's Host/Forwarded headers.
+- `CANTOS_PLAYBACK_KEY_FILE`: absolute regular file, owned by the process user, mode 0400 or
+  0600, containing exactly 32 raw key bytes (the all-zero key is refused). Symlink paths and
+  partial configuration fail startup. Keep this file outside Git; key rotation invalidates
+  outstanding grants and requires clients to refresh authorization.
+
+This selects the production source composition, with no same-process static serving. It does
+not deploy or provision storage, credentials, TLS, a proxy or a CDN. Production private intake
+still uses `CANTOS_STORAGE_CONFIG`, independently of this publication class.
+
+The origin-enabled `PublicationService` prepares a copy during authenticated Studio readiness
+or publish, only when every existing candidate, rights, QC, approval and private-object gate
+passes apart from delivery. It reads the exact accepted private rendition under a 60-second
+bounded stream, checks its complete SHA-256/length and re-inspects the profile off the async
+executor before calling `FilesystemPublicationStorage::promote(rendition_id, VerifiedAudio)`.
+Promotion copies only fully inspected Ogg/Opus bytes, conditionally
+creates and synchronizes a read-only content-addressed object, and checks exact replay. A crash
+before metadata commit leaves an unreferenced object; no request deletes it. Publication
+readiness reopens and hashes the actual bytes and checks the versioned audio profile before
+returning short-lived delivery evidence. This does not create clearance, review, approval or
+an active release: the existing Studio use case and commit-time gates still own all of them.
+The commit transaction re-reads all authority and repeats every gate after promotion; a revoked
+right or edited input can leave only an inaccessible unreferenced copy. Listener requests and
+active-release reads never prepare copies. An S3 publication adapter remains separate work.
+
+The root carries one atomically created `.cantos-storage-class-v1` marker. A private root can
+never be reused as a publication root, or vice versa; an unmarked legacy `objects` directory
+is adopted only by private storage. The public object's internal identity is
+`publication-{rendition UUID}-{sha256}`, and never appears in a grant URL or public manifest.
+
+The listener path is immutable manifest → playback authorization → `/api/v1/theatre/media/{grant}`.
+Each media GET/HEAD rechecks current public eligibility and authenticates the complete immutable
+identity. Byte opens check exact SHA-256/length, retain the hashed descriptor for streaming and
+repeat eligibility after the open. Existing strong ETag, single Range/206/416 and cache policy
+apply: `private, no-store, no-transform`, `audio/ogg`, no content encoding. Expiry, withdrawal,
+supersession and owner disablement deny subsequent requests; this is not remote deletion of
+bytes already received. No listener operation invokes a decoder, synthesis or transcode.
+Read-only decoder inspection occurs only during admission/readiness, outside listening.
+
+Local loopback HTTP acceptance may fetch the exact path from an HTTPS grant against the local
+host; that proves API/storage semantics, without claiming TLS or deployed-proxy acceptance.
+Real HTTPS/proxy logs, CORS, restart/key rotation, capacity and startup/seek measurements retain
+[ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md)'s deployment gates.
+Native playback belongs to the following CMP step.
 
 ## Production host
 

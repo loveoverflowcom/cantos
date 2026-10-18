@@ -34,6 +34,8 @@ pub const API_SERVER_BIN: &str = "cantos-server";
 pub const API_PORT: u16 = 8080;
 /// Written by `scripts/test_postgres.py --keep`; read by `scripts/serve_studio.py`.
 pub const TEST_CLUSTER_RECORD: &str = "target/revision-evidence/run.json";
+/// Ownership only, emitted by an explicit retained full/narrow run; never full-suite acceptance.
+pub const RETAINED_CLUSTER_RECORD: &str = "target/revision-evidence/retained-cluster.json";
 
 pub fn loopback(port: u16) -> SocketAddr {
     SocketAddr::from((Ipv4Addr::LOCALHOST, port))

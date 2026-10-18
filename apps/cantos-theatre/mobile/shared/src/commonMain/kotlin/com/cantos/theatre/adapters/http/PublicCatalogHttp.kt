@@ -1,5 +1,7 @@
 package com.cantos.theatre.adapters.http
 
+import com.cantos.theatre.domain.catalog.PublicCatalogQuery
+
 import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.CatalogCursor
 import com.cantos.theatre.domain.catalog.PublicUnit
@@ -234,8 +236,15 @@ class PublicCatalogHttpAdapter(
 ) : PublicCatalogPort {
     private val base = "${origin.probeUrl}/works"
 
-    override suspend fun works(cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage> =
-        read(pageUrl(base, cursor), cursor != null, WorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
+    override suspend fun works(cursor: CatalogCursor?, query: PublicCatalogQuery): PublicCatalogRead<PublicWorkPage> {
+        // /search and /works share the v1 query/response contract. The server searches the full
+        // eligible catalog, never only the pages already present on this device.
+        val path = if (query.text.isEmpty()) base else "${base.removeSuffix("/works")}/search"
+        val url = pageUrl(path, cursor) +
+            (if (query.text.isNotEmpty()) "&q=${query.text.queryEncoded()}" else "") +
+            (query.kind?.let { "&kind=${it.name.lowercase()}" } ?: "")
+        return read(url, cursor != null, WorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
+    }
 
     override suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork> =
         read("$base/${id.value}", false, WorkSummaryWire.serializer()) { wire ->
@@ -320,4 +329,17 @@ private fun <W> decodeOrNull(serializer: KSerializer<W>, text: String): W? = try
     null
 } catch (_: IllegalArgumentException) {
     null
+}
+
+/** RFC 3986 UTF-8 query component; never lets user text create parameters or fragments. */
+private fun String.queryEncoded(): String = buildString {
+    for (byte in this@queryEncoded.encodeToByteArray()) {
+        val value = byte.toInt() and 255
+        if (value in 65..90 || value in 97..122 || value in 48..57 || value in listOf(45, 46, 95, 126)) append(value.toChar())
+        else {
+            append('%')
+            append("0123456789ABCDEF"[value ushr 4])
+            append("0123456789ABCDEF"[value and 15])
+        }
+    }
 }

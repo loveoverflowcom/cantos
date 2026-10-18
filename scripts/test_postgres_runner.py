@@ -21,9 +21,9 @@ class PostgresRunnerTests(unittest.TestCase):
         self.assertEqual(runner.parse_args(["--suite", "theatre-firebase"]).suite,
                          "theatre-firebase")
         self.assertEqual(runner.parse_args(["--suite", "schema"]).suite, "schema")
-        for arguments in (["--suite", "theatre-firebase", "--keep"],
-                          ["--suite", "schema", "--keep"],
-                          ["--suite", "legacy-dbsp"],
+        for scope in ("schema","theatre-firebase"):
+            self.assertTrue(runner.parse_args(["--suite",scope,"--keep"]).keep)
+        for arguments in (["--suite", "legacy-dbsp"],
                           ["--suite", "unregistered"]):
             with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), \
                     patch.object(runner.shutil, "which") as probe:
@@ -230,6 +230,79 @@ class PostgresRunnerTests(unittest.TestCase):
                         self.assertRaisesRegex(RuntimeError, f"{target} selected no passing SQL tests"):
                     runner.schema_postgres_tests({"CANTOS_TEST_CLUSTER_URL": "owned"},
                                                  Path("/synthetic/evidence"), include_current=True)
+
+    def test_full_catalog_http_keeps_seed_as_exact_separate_selection_before_cleanup(self):
+        environment={"CANTOS_TEST_CLUSTER_URL":"owned-disposable"}
+        evidence=Path("/synthetic/evidence")
+        summaries=["test result: ok. 51 passed; 0 failed; 0 ignored;\n",
+                   "test result: ok. 1 passed; 0 failed; 0 ignored;\n"]
+        with patch.object(runner,"run",side_effect=summaries) as execute:
+            runner.catalog_http_postgres_tests(environment,evidence)
+        self.assertEqual(execute.call_count,2)
+        ordinary,seed=execute.call_args_list
+        prefix=["cargo","test","-p","cantos-api","--test","catalog_http_postgres",
+                "--locked","--offline","--","--ignored","--test-threads=1"]
+        self.assertEqual(ordinary.args[0],prefix+["--skip","catalog_http_recovery_after_server_restart",
+                                                "--skip","theatre_development_catalog_seed"])
+        self.assertEqual(seed.args[0],prefix+["--exact",runner.SEED_TEST])
+        self.assertEqual(ordinary.kwargs,{"env":environment,"output":evidence/"catalog-http-postgres-tests.log"})
+        self.assertEqual(seed.kwargs,{"env":environment,"output":evidence/"theatre-seed-postgres-tests.log"})
+
+    def test_exact_seed_selection_refuses_zero_or_failed_or_multiple_tests(self):
+        ordinary="test result: ok. 51 passed; 0 failed; 0 ignored;\n"
+        for summary in ("compiled only", "test result: ok. 0 passed; 0 failed;",
+                        "test result: ok. 1 passed; 1 failed;", "test result: ok. 2 passed; 0 failed;"):
+            with self.subTest(summary=summary), patch.object(runner,"run",side_effect=[ordinary,summary]), \
+                    self.assertRaisesRegex(RuntimeError,"exact Theatre seed selected no single passing test"):
+                runner.catalog_http_postgres_tests({},Path("/synthetic/evidence"))
+
+    def test_failed_explicit_narrow_keep_writes_only_independent_ownership_receipt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            evidence=Path(directory)
+            def execute(command,env=None,output=None):
+                if command[0]=="initdb":
+                    data=Path(command[2]);data.mkdir(parents=True);(data/"PG_VERSION").write_text("18\n")
+                if command[0]=="cargo":raise RuntimeError("synthetic narrow failure")
+                return ""
+            with patch.object(runner,"EVIDENCE",evidence), \
+                    patch.object(sys,"argv",["test_postgres.py","--suite","schema","--keep"]), \
+                    patch.object(runner.shutil,"which",return_value="/installed/tool"), \
+                    patch.object(runner,"free_port",return_value=12345), \
+                    patch.object(runner,"run",side_effect=execute), \
+                    patch.object(runner,"reap_completed_databases"), \
+                    contextlib.redirect_stdout(io.StringIO()), \
+                    self.assertRaisesRegex(RuntimeError,"synthetic narrow failure"):
+                runner.main()
+            ownership=json.loads((evidence/"retained-cluster.json").read_text())
+            self.assertEqual(ownership["scope"],"schema")
+            self.assertEqual((ownership["gate_status"],ownership["full_gate_status"]),("FAIL","NOT_RUN"))
+            self.assertFalse(ownership["runner_active"])
+            self.assertTrue(Path(ownership["cluster"]).is_relative_to(evidence/"schema"))
+            self.assertFalse((evidence/"run.json").exists())
+            self.assertFalse((evidence/"schema"/"run.json").exists())
+            self.assertFalse(any("url" in name for name in ownership))
+
+    def test_ownership_write_failure_cannot_skip_owned_host_cleanup(self):
+        hosts=[MagicMock(),MagicMock()]
+        ownership={"path":Path("/synthetic/receipt"),"cluster":Path("/synthetic/cluster"),"port":12345,"scope":"schema"}
+        def fail_after_cleanup(**kwargs):
+            for host in hosts:
+                host.kill.assert_called_once_with()
+                host.wait.assert_called_once_with(timeout=5)
+            raise OSError("synthetic disk pressure")
+        with patch.object(runner,"write_ownership",side_effect=fail_after_cleanup),self.assertRaisesRegex(OSError,"disk pressure"):
+            runner.finish_owned_run(hosts,True,True,Path("/synthetic/data"),{},ownership,True)
+
+    def test_cleanup_failure_attempts_remaining_hosts_and_never_records_success(self):
+        failed,other=MagicMock(),MagicMock()
+        failed.kill.side_effect=OSError("synthetic cleanup failure")
+        ownership={"path":Path("/synthetic/receipt"),"cluster":Path("/synthetic/cluster"),"port":12345,"scope":"schema"}
+        with patch.object(runner,"write_ownership") as write,self.assertRaisesRegex(OSError,"cleanup failure"):
+            runner.finish_owned_run([failed,other],True,True,Path("/synthetic/data"),{},ownership,True)
+        other.kill.assert_called_once_with()
+        other.wait.assert_called_once_with(timeout=5)
+        self.assertTrue(write.call_args.kwargs["active"])
+        self.assertEqual(write.call_args.kwargs["status"],"FAIL")
 
     def test_full_postgres_gate_includes_schema_before_existing_acceptance(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -463,7 +536,17 @@ class PostgresRunnerTests(unittest.TestCase):
     def test_completed_database_cleanup_preserves_restart_fixtures_and_other_names(self):
         listed = subprocess.CompletedProcess([], 0, "postgres\ncantos_test_completed\ncantos_test_recovery\nother_database\n", "")
         dropped = subprocess.CompletedProcess([], 0, "", "")
-        with patch.object(runner.subprocess, "run", side_effect=[listed, dropped]) as execute:
+        def checkpoint_delay(command, **options):
+            if command[-1] == "SELECT datname FROM pg_database":
+                return listed
+            # An observed durable checkpoint took 35 seconds; cleanup must tolerate it
+            # while retaining a finite minute budget. No real delay is needed here.
+            self.assertLessEqual(options["timeout"], 60)
+            if options["timeout"] < 35:
+                raise subprocess.TimeoutExpired(command, options["timeout"])
+            return dropped
+
+        with patch.object(runner.subprocess, "run", side_effect=checkpoint_delay) as execute:
             runner.reap_completed_databases({}, "postgresql://cantos_test_admin@127.0.0.1:12345/postgres", {"cantos_test_recovery"})
         self.assertEqual(execute.call_count, 2)
         self.assertEqual(execute.call_args.args[0][-1], 'DROP DATABASE "cantos_test_completed"')

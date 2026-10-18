@@ -10,6 +10,7 @@ use super::{
     lifecycle_application,
     postgres::{lifecycle as lifecycle_sql, publication as sql},
     publication_delivery::*,
+    publication_storage::FilesystemPublicationStorage,
 };
 use crate::{
     contexts::{
@@ -24,7 +25,8 @@ use crate::{
     platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx},
 };
 use cantos_contracts as dto;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
+use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -163,14 +165,111 @@ pub(super) struct Observations {
     pub object: ObjectObservation,
     pub delivery: DeliveryObservation,
 }
+struct PromotionAuthority {
+    rights: Option<DistributionClearance>,
+    approval: Option<PublicationApproval>,
+    now: i64,
+}
+impl PromotionAuthority {
+    async fn read(tx: &Tx<'_>, subject: &Subject) -> Result<Self, PublicationStoreError> {
+        Ok(Self {
+            rights: sql::latest_clearance(tx, &subject.c).await?,
+            approval: sql::latest_approval(tx, &subject.c).await?,
+            now: lifecycle_sql::now(tx).await?,
+        })
+    }
+    fn allows(&self, subject: &Subject, object: &ObjectObservation) -> bool {
+        let observations = Observations {
+            object: object.clone(),
+            delivery: DeliveryObservation::Unavailable,
+        };
+        // Only delivery may be missing before promotion. Every candidate/rights/QC/approval
+        // gate already applies here; the final transaction independently repeats all gates.
+        ready_for_promotion(&subject.facts(
+            self.rights.as_ref(),
+            self.approval.as_ref(),
+            &observations,
+            self.now,
+        ))
+    }
+}
+fn ready_for_promotion(facts: &PublicationFacts<'_>) -> bool {
+    evaluate(facts) == vec![dto::PublicationBlocker::DeliveryUnavailable]
+}
 async fn observe(
     store: &Store,
     delivery: &dyn PublicationDelivery,
     subject: &Subject,
+    promotion: Option<(&FilesystemPublicationStorage, &PromotionAuthority)>,
 ) -> Result<Observations, PublicationStoreError> {
     let object = observe_private(store, &subject.r, &subject.location).await?;
+    if let Some((target, authority)) = promotion {
+        if authority.allows(subject, &object) {
+            promote_private(store, target, subject).await?;
+        }
+    }
     let delivery = observe_delivery(delivery, &subject.r).await?;
     Ok(Observations { object, delivery })
+}
+
+static PROMOTION_LANES: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(4)));
+async fn promote_private(
+    store: &Store,
+    target: &FilesystemPublicationStorage,
+    subject: &Subject,
+) -> Result<(), PublicationStoreError> {
+    use futures_util::StreamExt;
+    let lane = PROMOTION_LANES
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| StoreError::Unavailable)?;
+    let metadata = &subject.r.document().verified_media;
+    let mut read = storage(store)?
+        .open_verified(&subject.location, None)
+        .await?;
+    if read.byte_length != metadata.byte_length {
+        return Err(StoreError::CorruptRevision.into());
+    }
+    let expected = metadata.byte_length;
+    let bytes = tokio::time::timeout(std::time::Duration::from_secs(60), async move {
+        let mut bytes = Vec::with_capacity(expected as usize);
+        while let Some(chunk) = read.stream.next().await {
+            let chunk = chunk?;
+            if chunk.len() > (expected as usize).saturating_sub(bytes.len()) {
+                return Err(StorageError::LengthMismatch);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        Ok::<_, StorageError>(bytes)
+    })
+    .await
+    .map_err(|_| StoreError::Storage(StorageError::Timeout))?
+    .map_err(StoreError::Storage)?;
+    subject
+        .location
+        .integrity()
+        .verify_bytes(&bytes)
+        .map_err(StoreError::Storage)?;
+    let profile = super::audio_intake::DeliveryProfile::from_id(&metadata.profile_id)
+        .ok_or(StoreError::CorruptRevision)?;
+    let verified = tokio::task::spawn_blocking(move || {
+        let _lane = lane;
+        super::audio_intake::inspect_audio(&bytes, profile)
+    })
+    .await
+    .map_err(|_| StoreError::Unavailable)?
+    .map_err(|error| {
+        if error.is_unavailable() {
+            StoreError::AudioInspectionUnavailable(error.code())
+        } else {
+            StoreError::AudioRejected(error.code())
+        }
+    })?;
+    target
+        .promote(&subject.r.document().id, verified)
+        .await
+        .map_err(StoreError::Storage)?;
+    Ok(())
 }
 async fn observe_private(
     store: &Store,
@@ -327,17 +426,27 @@ async fn commit(
 pub struct PublicationService {
     store: Store,
     delivery: Arc<dyn PublicationDelivery>,
+    promotion: Option<Arc<FilesystemPublicationStorage>>,
 }
 impl PublicationService {
     pub fn new(store: Store) -> Self {
         Self {
             store,
             delivery: Arc::new(UnavailableDelivery),
+            promotion: None,
         }
     }
     /// Explicit injection by the trusted host, never by a request/producer.
     pub fn with_publication_delivery(mut self, delivery: Arc<dyn PublicationDelivery>) -> Self {
         self.delivery = delivery;
+        self.promotion = None;
+        self
+    }
+    /// Trusted origin host: readiness/publish may copy only the authenticated, fully approved
+    /// private rendition into this separate byte class. Listener requests never promote.
+    pub fn with_origin_publication(mut self, storage: Arc<FilesystemPublicationStorage>) -> Self {
+        self.delivery = storage.clone();
+        self.promotion = Some(storage);
         self
     }
     pub async fn audio_publication_readiness(
@@ -349,9 +458,20 @@ impl PublicationService {
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
+        let promotion = if self.promotion.is_some() {
+            Some(PromotionAuthority::read(&tx, &initial).await?)
+        } else {
+            None
+        };
         tx.commit().await?;
         drop(client);
-        let observations = observe(&self.store, self.delivery.as_ref(), &initial).await?;
+        let observations = observe(
+            &self.store,
+            self.delivery.as_ref(),
+            &initial,
+            self.promotion.as_deref().zip(promotion.as_ref()),
+        )
+        .await?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, candidate, LockMode::Share).await?;
@@ -548,9 +668,20 @@ impl PublicationService {
                 release: Some(release.document().clone()),
             });
         }
+        let promotion = if self.promotion.is_some() {
+            Some(PromotionAuthority::read(&tx, &initial).await?)
+        } else {
+            None
+        };
         tx.commit().await?;
         drop(client);
-        let observations = observe(&self.store, self.delivery.as_ref(), &initial).await?;
+        let observations = observe(
+            &self.store,
+            self.delivery.as_ref(),
+            &initial,
+            self.promotion.as_deref().zip(promotion.as_ref()),
+        )
+        .await?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, candidate, LockMode::Update).await?;
@@ -631,7 +762,7 @@ impl PublicationService {
         let release = bound_release(&tx, id, &initial).await?;
         tx.commit().await?;
         drop(client);
-        let observations = observe(&self.store, self.delivery.as_ref(), &initial).await?;
+        let observations = observe(&self.store, self.delivery.as_ref(), &initial, None).await?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, &candidate, LockMode::Share).await?;

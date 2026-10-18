@@ -5,8 +5,12 @@ Status: production listening boundaries and acceptance requirements remain propo
 application/ports/mock-adapter/presentation layers, Gradle Android and JVM hosts, and a SwiftUI/
 Xcode host. Kotlin 2.2.20 / Compose 1.9.0 / Material3 1.8.2 and mock platform build floors are
 pinned there; production native media libraries and platform support policy remain unselected.
-The mock connects no production API, native audio, downloads or durable sync. A framework link
-or JVM test does not establish iOS runtime verification.
+The mock remains isolated. Separate production Android and iOS catalog hosts compose the existing
+JSON catalog adapter/controller directly from `:shared`, with server search/filter, Work/unit
+pagination and explicit unavailable listening/account/Library capabilities. Android release pins
+an optional HTTPS API origin; iOS has its own shared-only framework/project/scheme. Neither host
+creates a fake playback session for startup. Native audio, downloads and durable sync remain
+unimplemented; a framework link or JVM test does not establish native runtime verification.
 
 ## Scope
 

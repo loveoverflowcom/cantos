@@ -34,7 +34,7 @@ routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v
 [Content Identity](packages/contracts/content-v1.md) adds immutable text/source/script/recording
 revisions with separate metadata/content sequences and full revision pinning.
 [Production Brief v1](packages/contracts/production-brief-v1.md) adds immutable instructions
-and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). [Audio Lifecycle v1](packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound private submissions, real Opus-byte inspection, immutable renditions, named review and private candidates. Publication, Discovery and Library have backend cores; public media delivery remains unavailable.
+and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). [Audio Lifecycle v1](packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound private submissions, real Opus-byte inspection, immutable renditions, named review and private candidates. Publication, Discovery and Library have backend cores; opt-in origin delivery promotes approved bytes to separate publication storage and serves release-bound grants. Unconfigured delivery stays unavailable.
 Studio Web retains the editorial flow and adds a real Catalog/text-or-recording Content/Brief/
 private-audio review workspace. The [client boundary](docs/work-plan/live-client-api-matrix.md)
 distinguishes connected forms from deferred controls and user acceptance. Theatre Web opens
@@ -44,12 +44,13 @@ and the isolated [UI mock](docs/evidence/theatre-web-mock.md) is selected explic
 [CMP mock](apps/cantos-theatre/mobile/README.md), with production-safe UI/domain/application
 code in `:shared` and explicit demo adapters/composition in the separate `:preview-sandbox`
 KMP module, plus a tested common/JVM listener transport seam;
-native audio and live client integration remain deferred; public media delivery is fail-closed. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
+production catalog hosts use the real API on Android and iOS; native audio remains deferred. Public media delivery is opt-in and fail-closed when unconfigured. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
 The [native identity configuration slice](docs/evidence/theatre-auth-activation.md) supplies
 nonsecret Android metadata/iOS plist build inputs and typed missing/invalid configuration
 diagnostics. Source regression evidence does not establish a configured artifact or live login.
-A production Android host composes `:shared` only and, until production listening adapters
-exist, states that listening is unavailable. `cargo xtask theatre-host android-release` inspects
+Production Android and iOS catalog hosts compose `:shared` only, without a playback seed. Android
+release accepts an explicit HTTPS API origin; listening, account and Library remain unavailable.
+`cargo xtask theatre-host android-release --api-origin https://api.cantoss.duckdns.org` inspects
 its release classpaths and unsigned APK/AAB bytes for sandbox, mock and test content; the demo
 APK establishes no production isolation.
 See the [sandbox isolation record](docs/evidence/issue122-cmp-sandbox-isolation.md) for current checks.
@@ -202,8 +203,9 @@ to redistribute narrative or voice material.
 
 [Theatre Discovery/Playback v1](packages/contracts/theatre-discovery-v1.md) adds anonymous
 current-public works/search/detail, ordered units and immutable manifest projections. Media
-authorization remains fail-closed with unavailable public delivery. PostgreSQL/runtime and
-Web/CMP live adapter acceptance are still required. Theatre Web consumes the bounded anonymous
+authorization remains fail-closed unless explicit origin delivery is configured. The
+[step-1 handoff](docs/evidence/theatre-live-catalog-step1.md) distinguishes local catalog/storage
+evidence from deployed and native playback acceptance. Theatre Web consumes the bounded anonymous
 Work list; its explicit mock and real playback boundary remain separate.
 [Evidence and boundaries](docs/evidence/theatre-discovery.md).
 

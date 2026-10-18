@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -22,10 +23,12 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.intl.LocaleList
 import com.cantos.theatre.application.catalog.PublicCatalogEvent
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
@@ -253,14 +256,43 @@ class PublicCatalogPresentationTest {
                             PublicCatalogScreen(state, {}, UiPreferences(theme = theme, textScale = textScale))
                         }
                     }
+                    val navigationEvidence = mutableListOf<String>()
                     val root = onNodeWithTag("capture-root").fetchSemanticsNode().boundsInRoot
                     val tag = if (scenario == "list") "catalog-work-${story.id.value}" else "catalog-detail-title"
                     val bounds = onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
                     assertTrue(bounds.left >= root.left && bounds.right <= root.right, "$name clips $tag: $bounds outside $root")
+                    for (label in listOf("Khám phá", "Của tôi")) {
+                        val node = onNodeWithText(label, useUnmergedTree = true)
+                        val labelBounds = node.fetchSemanticsNode().boundsInRoot
+                        assertTrue(labelBounds.top >= root.top && labelBounds.bottom <= root.bottom,
+                            "$name clips navigation label $label: $labelBounds outside $root")
+                        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { getLayout ->
+                            val layouts = mutableListOf<TextLayoutResult>()
+                            assertTrue(getLayout(layouts), "$name has no navigation text layout for $label")
+                            val layout = layouts.single()
+                            val lineWidth = (0 until layout.lineCount).maxOf { layout.getLineRight(it) - layout.getLineLeft(it) }
+                            // TextLayoutResult.size is integer pixels while line extents are floats.
+                            // Check actual line width with a single-pixel rounding allowance; the
+                            // strict hasVisualOverflow width comparison also flags subpixel rounding.
+                            assertTrue(lineWidth <= layout.size.width + 1f,
+                                "$name overflows navigation label $label: line=$lineWidth, size=${layout.size}, bounds=$labelBounds")
+                            assertTrue(!layout.didOverflowHeight,
+                                "$name vertically overflows navigation label $label: size=${layout.size}, paragraph=${layout.multiParagraph.height}, bounds=$labelBounds")
+                            navigationEvidence += "$label: size=${layout.size}, line_width=$lineWidth, paragraph=${layout.multiParagraph.width}×${layout.multiParagraph.height}, bounds=$labelBounds"
+                            assertTrue(labelBounds.height + 0.5f >= layout.size.height,
+                                "$name clips the navigation text layout for $label: ${layout.size} within $labelBounds")
+                        }
+                    }
+                    if (scenario == "list") {
+                        val account = onNodeWithTag("catalog-account").fetchSemanticsNode().boundsInRoot
+                        assertTrue(account.width >= 48f && account.height >= 48f,
+                            "$name Account target is smaller than 48dp at the JVM renderer density1: $account")
+                    }
                     val bitmap = onNodeWithTag("capture-root").captureToImage()
                     val data = requireNotNull(Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG))
                     File(output, "$name.png").writeBytes(data.bytes)
-                    File(output, "$name.semantics.txt").writeText(onNodeWithTag("capture-root").printToString())
+                    File(output, "$name.semantics.txt").writeText(onNodeWithTag("capture-root").printToString() +
+                        "\nNavigation text layouts (pixel-rounding allowance ≤1px):\n" + navigationEvidence.joinToString("\n"))
                 }
             }
         }

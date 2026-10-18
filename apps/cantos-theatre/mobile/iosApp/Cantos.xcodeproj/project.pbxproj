@@ -1,0 +1,275 @@
+// !$*UTF8*$!
+{
+    archiveVersion = 1;
+    classes = {};
+    objectVersion = 56;
+    objects = {
+
+/* Begin PBXBuildFile section */
+        A10000000000000000000019 /* PrivacyInfo.xcprivacy in Resources */ = {
+            isa = PBXBuildFile;
+            fileRef = A1000000000000000000001A;
+        };
+        A10000000000000000000015 /* LaunchScreen.storyboard in Resources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000016;
+        };
+        A10000000000000000000017 /* Assets.xcassets in Resources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000018;
+        };
+        A10000000000000000000001 /* CantosApp.swift in Sources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000002 /* CantosApp.swift */;
+        };
+        A10000000000000000000013 /* CatalogTransport.swift in Sources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000014 /* CatalogTransport.swift */;
+        };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+        A1000000000000000000001A /* PrivacyInfo.xcprivacy */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = text.xml;
+            path = ../CantosDemo/PrivacyInfo.xcprivacy;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000016 /* LaunchScreen.storyboard */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = file.storyboard;
+            path = ../CantosDemo/LaunchScreen.storyboard;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000018 /* Assets.xcassets */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = folder.assetcatalog;
+            path = ../CantosDemo/Assets.xcassets;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000002 /* CantosApp.swift */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = sourcecode.swift;
+            path = CantosApp.swift;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000014 /* CatalogTransport.swift */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = sourcecode.swift;
+            path = CatalogTransport.swift;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000003 /* Cantos.app */ = {
+            isa = PBXFileReference;
+            explicitFileType = wrapper.application;
+            includeInIndex = 0;
+            path = Cantos.app;
+            sourceTree = BUILT_PRODUCTS_DIR;
+        };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+        A10000000000000000000004 /* Frameworks */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = ();
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+        A10000000000000000000005 = {
+            isa = PBXGroup;
+            children = (
+                A10000000000000000000006 /* Cantos */,
+                A10000000000000000000007 /* Products */,
+            );
+            sourceTree = "<group>";
+        };
+        A10000000000000000000006 /* Cantos */ = {
+            isa = PBXGroup;
+            children = (A10000000000000000000002 /* CantosApp.swift */, A10000000000000000000014 /* CatalogTransport.swift */, A10000000000000000000016 /* LaunchScreen.storyboard */, A10000000000000000000018 /* Assets.xcassets */, A1000000000000000000001A /* PrivacyInfo.xcprivacy */);
+            path = Cantos;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000007 /* Products */ = {
+            isa = PBXGroup;
+            children = (A10000000000000000000003 /* Cantos.app */);
+            name = Products;
+            sourceTree = "<group>";
+        };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+        A10000000000000000000008 /* Cantos */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = A10000000000000000000009;
+            buildPhases = (
+                A1000000000000000000000A /* Sources */,
+                A10000000000000000000004 /* Frameworks */,
+                A1000000000000000000000B /* Resources */,
+                A10000000000000000000012 /* Copy Compose resources */,
+            );
+            buildRules = ();
+            dependencies = ();
+            name = Cantos;
+            productName = Cantos;
+            productReference = A10000000000000000000003 /* Cantos.app */;
+            productType = "com.apple.product-type.application";
+        };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+        A1000000000000000000000C /* Project object */ = {
+            isa = PBXProject;
+            attributes = {
+                BuildIndependentTargetsInParallel = YES;
+                LastSwiftUpdateCheck = 1630;
+                LastUpgradeCheck = 1630;
+            };
+            buildConfigurationList = A1000000000000000000000D;
+            compatibilityVersion = "Xcode 14.0";
+            developmentRegion = vi;
+            hasScannedForEncodings = 0;
+            knownRegions = (vi, en, Base);
+            mainGroup = A10000000000000000000005;
+            productRefGroup = A10000000000000000000007 /* Products */;
+            projectDirPath = "";
+            projectRoot = "";
+            targets = (A10000000000000000000008 /* Cantos */);
+        };
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+        A1000000000000000000000B /* Resources */ = {
+            isa = PBXResourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (A10000000000000000000015 /* LaunchScreen.storyboard in Resources */, A10000000000000000000017 /* Assets.xcassets in Resources */, A10000000000000000000019 /* PrivacyInfo.xcprivacy in Resources */);
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+        A10000000000000000000012 /* Copy Compose resources */ = {
+            isa = PBXShellScriptBuildPhase;
+            buildActionMask = 2147483647;
+            files = ();
+            inputPaths = ("$(SRCROOT)/../shared/src/commonMain/composeResources");
+            name = "Copy Compose resources";
+            outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/com.cantos.theatre.resources");
+            runOnlyForDeploymentPostprocessing = 0;
+            shellPath = /bin/sh;
+            shellScript = "set -eu\n# This host links a prebuilt static framework, so Xcode owns its common resource copy.\ncantos_resource_input=\"${SRCROOT}/../shared/src/commonMain/composeResources\"\ncantos_resource_output=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/compose-resources/composeResources/com.cantos.theatre.resources\"\nmkdir -p \"$cantos_resource_output\"\n/usr/bin/ditto \"$cantos_resource_input\" \"$cantos_resource_output\"\n";
+        };
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+        A1000000000000000000000A /* Sources */ = {
+            isa = PBXSourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (A10000000000000000000001 /* CantosApp.swift in Sources */, A10000000000000000000013 /* CatalogTransport.swift in Sources */);
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+        A1000000000000000000000E /* Debug project */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                CLANG_ENABLE_MODULES = YES;
+                DEBUG_INFORMATION_FORMAT = dwarf;
+                "EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+                IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+                SDKROOT = iphoneos;
+                SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+                SWIFT_VERSION = 5.0;
+            };
+            name = Debug;
+        };
+        A1000000000000000000000F /* Release project */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                CLANG_ENABLE_MODULES = YES;
+                DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+                "EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+                IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+                SDKROOT = iphoneos;
+                SWIFT_VERSION = 5.0;
+            };
+            name = Release;
+        };
+        A10000000000000000000010 /* Debug target */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CANTOS_API_ORIGIN = "";
+                CANTOS_FRAMEWORK_BUILD_TYPE = debug;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 1;
+                "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosSimulatorArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
+                "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = "Cantos/Info.plist";
+                INFOPLIST_KEY_CFBundleDisplayName = Cantos;
+                INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+                INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                MARKETING_VERSION = 0.1.0;
+                OTHER_LDFLAGS = ("$(inherited)", "-framework", CantosTheatre);
+                PRODUCT_BUNDLE_IDENTIFIER = com.cantos.theatre;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+                TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = Debug;
+        };
+        A10000000000000000000011 /* Release target */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CANTOS_API_ORIGIN = "";
+                CANTOS_FRAMEWORK_BUILD_TYPE = release;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 1;
+                "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosSimulatorArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
+                "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = "Cantos/Info.plist";
+                INFOPLIST_KEY_CFBundleDisplayName = Cantos;
+                INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+                INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                MARKETING_VERSION = 0.1.0;
+                OTHER_LDFLAGS = ("$(inherited)", "-framework", CantosTheatre);
+                PRODUCT_BUNDLE_IDENTIFIER = com.cantos.theatre;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                SWIFT_COMPILATION_MODE = wholemodule;
+                TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = Release;
+        };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+        A10000000000000000000009 /* Target configuration list */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (A10000000000000000000010, A10000000000000000000011);
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Debug;
+        };
+        A1000000000000000000000D /* Project configuration list */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (A1000000000000000000000E, A1000000000000000000000F);
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Debug;
+        };
+/* End XCConfigurationList section */
+    };
+    rootObject = A1000000000000000000000C /* Project object */;
+}

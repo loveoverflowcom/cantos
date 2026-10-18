@@ -1,4 +1,4 @@
-# Cantos Theatre CMP mock
+# Cantos Theatre CMP
 
 The [PR137 Membership design follow-up](../../../docs/evidence/pr137-cmp-design-v2.md) composes
 six reviewed shared primitives through scoped v0.5.0 tokens and permanently labeled tonal
@@ -8,7 +8,7 @@ Build them with `cargo xtask theatre-demo android-build`; capture through `cargo
 compose-preview cantos-theatre` only with a ready IDE. JVM image output remains a separate
 renderer and does not establish device, IME, OS Back or screen-reader acceptance.
 
-This is an isolated, memory-only **Cantos** listener demo: shared Kotlin screens, an Android
+The demo is an isolated, memory-only **Cantos** listener application: shared Kotlin screens, an Android
 host, an iOS SwiftUI host and a JVM diagnostic window. It does not complete native listening
 in [050](../../../docs/work-plan/050-cmp-native-listening.md). A fake engine acknowledges mock
 commands; the default mock has no API, authentication, native media engine, audio, downloads,
@@ -22,8 +22,8 @@ owns domain/application logic, ports, non-mock adapters and the actual `CantosPr
 UI with neutral immutable `ShellState`/`ShellEvent` models. The sandbox owns synthetic data,
 mock adapters, `CantosDemoApp`, diagnostic session/projector wiring and previews. It depends on
 `:shared`; shared main sources never depend back on it and provide no implicit mock factory.
-Demo hosts select the sandbox explicitly. The production Android host `androidProductionApp`
-(`com.cantos.theatre`) composes `:shared` only. With an admitted API origin it composes the
+Demo hosts select the sandbox explicitly. Production Android `androidProductionApp` and iOS
+`Cantos` (`com.cantos.theatre`) compose `:shared` only. With an admitted API origin it composes the
 [live public catalog](#live-public-catalog) (browse only: no production player, progress or
 media adapter exists); otherwise it renders the explicit `CantosListeningUnavailable` state.
 It never falls back to a mock.
@@ -577,7 +577,10 @@ work list → work detail → chapter/episode list, keyed only by the server's U
   status/code/retryable error table and `PublicCatalogHttpAdapter`. Requests are anonymous GETs with
   `limit=20`, no cookie, credential or redirect, and a 4 MiB body bound. `jvmHttpMain/.../JvmCatalogTransport.kt`
   (HttpURLConnection, shared by desktop and Android) refuses ambient cookies and disconnects on
-  cancellation. iOS has no catalog transport yet (honest unsupported; `iosMain` is unchanged).
+  cancellation. iOS production injects a bounded ephemeral URLSession delegate from
+  `iosApp/Cantos/CatalogTransport.swift` into `IosCatalogOwner`; it uses HTTPS, no cookies,
+  credentials/cache or redirects and cancels the request with its coroutine. Invalid UTF-8 and
+  oversized bodies remain protocol failures.
 - `PublicCatalogWireDriftTest` is a **drift check, not code generation**: the build embeds the
   strict schema and every original fixture (`generateDiscoveryCorpus`), and the test pins each DTO's
   property names, required set, JSON types, nullability and enum values to the schema and
@@ -587,23 +590,48 @@ work list → work detail → chapter/episode list, keyed only by the server's U
   same cursor; an empty intermediate page (or one adding no new id) is followed automatically up
   to 5 times per action; `invalid_cursor` restarts from page one and merges by id (a repeat in the
   same action stops with a retryable "list changed"); a changed `publication_id` replaces its row.
-- `features/catalog/presentation/PublicCatalogScreen.kt`: stateless Compose surface (vi/en copy in
-  `ShellCopy`), Load more, Retry, empty/not-found/unavailable states and an explicit "listening not
-  yet available" note. No row is playable.
+  Validated query/kind changes discard rows and cursors, start `/search?q=...&kind=...` or
+  `/works?kind=...` on the server and fence the old response. Pagination and retries retain the
+  exact query; refresh rereads page one. Detail refresh rereads the Work and then restarts units,
+  so a withdrawn Work cannot keep its old playable-unit projection.
+- `features/catalog/presentation/PublicCatalogScreen.kt`: Compose presentation with local
+  navigation/field state and immutable catalog facts (vi/en copy in `ShellCopy`), server
+  search/kind filters, Load more, Retry, refresh,
+  empty/not-found/unavailable states and an explicit "listening not yet available" note. Existing
+  shared TextField/Button/BackButton/Badge APIs and Lavender Stage tokens are reused. Discovery,
+  Library navigation and the header Account action retain the shell's existing structure;
+  Library/Account explain their unavailable capability. No row is playable, no account is
+  inferred and no saved content is invented.
 
-Production host origin policy: the debug source set of `androidProductionApp` adds INTERNET, the
-`CantosApiOrigin` meta-data and a network security config that permits cleartext only to
-`127.0.0.1`/`localhost`. Runtime admits `https://` for any build and loopback `http://` only for a
-debuggable build. Release declares neither INTERNET nor an origin and keeps `usesCleartextTraffic=false`,
-so it renders the unavailable state: the release inspection admits no network permission yet.
+Production host origin policy: `androidProductionApp` main declares INTERNET and the explicit
+`CantosApiOrigin` metadata for both variants. Runtime admits `https://` in release; only a
+debuggable build also admits `http://127.0.0.1|localhost` through its loopback-only network security
+config. Missing/rejected configuration renders the unavailable state. There is no default origin,
+fixture fallback, playback source or sandbox dependency. API failure/empty data stays a real
+failure/empty state. Release keeps `usesCleartextTraffic=false`.
+
+The separate shipping iOS project/scheme is `iosApp/Cantos.xcodeproj` / `Cantos`, bundle identifier
+`com.cantos.theatre`. It imports the static `CantosTheatre` framework built directly by `:shared`,
+links only `shared/build/bin/...` and copies only shared Compose resources. The independent
+`CantosDemo` project continues to import `CantosTheatreDemo` from `:preview-sandbox`; it remains a
+mock and is not the shipping target. Shipping `CANTOS_API_ORIGIN` is an explicit Xcode build
+setting (empty by default), consumed through `Cantos/Info.plist`; HTTPS is required on every iOS
+configuration. It creates no native identity/session or media engine. The application owner closes
+all catalog requests with its lifecycle. Xcode/Apple SDK builds and runtime observations require
+macOS and are separate from JVM evidence.
 
 ```sh
 # Debug production host against a local API through adb reverse (API 24+ for loopback http).
 cargo xtask theatre-host android-debug --api-origin http://127.0.0.1:8080
 adb install -r apps/cantos-theatre/mobile/androidProductionApp/build/outputs/apk/debug/androidProductionApp-debug.apk
 adb reverse tcp:8080 tcp:8080
-# Opt-in live walk of a running API from the JVM (skipped unless the variable is set).
-CANTOS_THEATRE_LIVE_ORIGIN=http://127.0.0.1:8080 cargo xtask theatre-demo verify
+# Production release catalog against an explicit HTTPS origin (no install/distribution).
+cargo xtask theatre-host android-release --api-origin https://api.example.org
+# Production iOS debug/release simulator frameworks (installed macOS toolchain required).
+cargo xtask theatre-host ios-build --kotlin-native-home /absolute/installed/native-2.2.20
+# Open iosApp/Cantos.xcodeproj, choose the Cantos scheme and set CANTOS_API_ORIGIN.
+# Opt-in live API walk and production Compose flow (skipped unless the variable is set).
+CANTOS_THEATRE_LIVE_ORIGIN=http://127.0.0.1:8080 CANTOS_THEATRE_REQUIRE_SEEDED=true cargo xtask theatre-demo verify
 ```
 
 `android-debug` refuses any origin other than `https://` or loopback `http://` with a port, and
@@ -613,7 +641,19 @@ provides a local API with published synthetic Works.
 Evidence boundaries: reducer/domain/drift tests are JVM unit tests; `PublicCatalogHttpTransportTest`
 is mock-integration against a JDK loopback server; `PublicCatalogPresentationTest` is the JVM
 Compose renderer; `theatre-host android-release` is static packaging inspection. Android device,
-TalkBack and iOS runtime remain not run.
+TalkBack and iOS runtime remain not run. `PublicCatalogProductionFlowTest` mounts the production
+screen/controller/HTTP adapter against a named fake HTTP peer to prove cold state, an arbitrary
+UUID, Unicode server query, kind filter, error/retry, changed server title without rebuilding and
+honest Library/Account presentation. It is `mock-integration-tested` on the JVM, never native or
+live API evidence. `PublicCatalogLivePresentationTest` separately mounts the same production
+composition against the configured running API, captures live list/detail/empty states and walks
+unit pages and server search. `CANTOS_THEATRE_REQUIRE_SEEDED=true` requires a nonempty initial
+catalog. For a backend-change/Refresh proof without rebuilding the client, set
+`CANTOS_THEATRE_LIVE_REFRESH_DIR` to a fresh ignored directory: the test writes `catalog-ready`
+with the first Work ID, waits up to 60 seconds for `catalog-changed`, clicks Refresh, requires a
+changed first-page ID/title projection, captures it and writes `catalog-refreshed`. Only signal
+after adding/republishing an eligible release through backend use cases; draft metadata alone
+must not alter immutable released metadata. These optional tests do not add an app fallback.
 
 ## Listener HTTP boundary
 
@@ -624,13 +664,14 @@ shared with the opt-in Android source set. It probes only the actual reserved
 fake catalog or media. Publication, identity, playback, downloads and progress report explicit
 unsupported capabilities. No Studio cookie, producer bearer or Studio DTO enters this port.
 
-The existing Android/iOS/desktop app hosts remain **isolated mock previews** through
+The demo Android/iOS/desktop app hosts remain **isolated mock previews** through
 the sandbox's explicit `mockAppContainer`; they do not mount this adapter as a real player. Constructing a
 `ListenerClient(ApiOrigin.parse(...), JvmHttpTransport())` crosses a real HTTP boundary but
 cannot fetch any listener resource yet. TLS checks stay platform-default; HTTP is limited to
 explicit loopback development. Redirects, caches and ambient cookie runtimes are refused;
 responses are bounded to8KiB. The future iOS concrete HTTP adapter and listener session require
-the reviewed Theatre backend contract before app wiring. No iOS transport integration is claimed.
+the reviewed Theatre backend contract before probe wiring. This legacy probe is independent of
+the implemented iOS public-catalog transport above.
 
 `cargo xtask theatre-demo verify` compiles the common/JVM code, executes the shared
 [error fixtures](../../../packages/contracts/fixtures/client-boundary/v1/README.md), exercises

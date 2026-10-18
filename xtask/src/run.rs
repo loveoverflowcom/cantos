@@ -14,7 +14,9 @@ use clap::ValueEnum;
 use crate::{
     build::{self, app_surface, Profile, Refusal, Surface},
     command::{CommandSpec, Runner},
-    config::{loopback, App, API_PORT, API_SERVER_BIN, TEST_CLUSTER_RECORD},
+    config::{
+        loopback, App, API_PORT, API_SERVER_BIN, RETAINED_CLUSTER_RECORD, TEST_CLUSTER_RECORD,
+    },
     pipeline::{self, Step},
     probe::{self, Readiness},
     process::{Supervisor, Wait},
@@ -25,6 +27,7 @@ use crate::{
 const API_READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// Trunk compiles the WASM bundle before it serves the first page.
 const TRUNK_READY_TIMEOUT: Duration = Duration::from_secs(900);
+const THEATRE_SEED_RECORD: &str = "target/revision-evidence/theatre-seed.json";
 
 #[allow(clippy::enum_variant_names)] // CLI names mirror the package names
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -125,12 +128,18 @@ fn api_service(
     profile: Profile,
     test_cluster: bool,
     web_origin: Option<&str>,
-) -> (Requirement, Service) {
+    theatre_context: bool,
+) -> Result<(Requirement, Service), Refusal> {
+    let (record, owned_seed) = if test_cluster {
+        test_cluster_record(workspace, theatre_context)?
+    } else {
+        (workspace.path(TEST_CLUSTER_RECORD), false)
+    };
     let (requirement, command) = if test_cluster {
         // The primitive validates that the record names the disposable test database.
         (
             Requirement::File {
-                path: workspace.path(TEST_CLUSTER_RECORD),
+                path: record,
                 hint: "create and retain one with `cargo xtask verify postgres --keep`".into(),
             },
             CommandSpec::new("python3", workspace.root()).args(["scripts/serve_studio.py"]),
@@ -160,7 +169,11 @@ fn api_service(
         name: API_SERVER_BIN.into(),
         command,
         tools: if test_cluster {
-            vec![Tool::Python3]
+            if owned_seed {
+                vec![Tool::Python3, Tool::Psql]
+            } else {
+                vec![Tool::Python3]
+            }
         } else {
             Vec::new()
         },
@@ -168,7 +181,55 @@ fn api_service(
         readiness: Readiness::Tcp,
         timeout: API_READY_TIMEOUT,
     };
-    (requirement, service)
+    Ok((requirement, service))
+}
+
+fn inherited_theatre_context() -> bool {
+    std::env::var("CANTOS_TEST_CONTEXT").is_ok_and(|context| context == "theatre")
+}
+
+/// The serving primitive performs the ownership and live-cluster validation before exec.
+/// Planning only admits this alternate prerequisite for an explicitly seeded Theatre target.
+fn test_cluster_record(
+    workspace: &Workspace,
+    theatre_context: bool,
+) -> Result<(PathBuf, bool), Refusal> {
+    let ownership_path = workspace.path(RETAINED_CLUSTER_RECORD);
+    let seed_path = workspace.path(THEATRE_SEED_RECORD);
+    if theatre_context && ownership_path.is_file() && seed_path.is_file() {
+        let read = |path: &std::path::Path| -> Result<serde_json::Value, Refusal> {
+            std::fs::read_to_string(path)
+                .map_err(|_| {
+                    Refusal::Usage(format!(
+                        "cannot read retained Theatre record {}",
+                        path.display()
+                    ))
+                })
+                .and_then(|text| {
+                    serde_json::from_str(&text).map_err(|_| {
+                        Refusal::Usage(format!(
+                            "invalid retained Theatre record {}",
+                            path.display()
+                        ))
+                    })
+                })
+        };
+        let ownership = read(&ownership_path)?;
+        let seed = read(&seed_path)?;
+        let cluster = ownership.get("cluster").and_then(serde_json::Value::as_str);
+        let port = ownership.get("port").and_then(serde_json::Value::as_u64);
+        if cluster.is_some()
+            && port.is_some()
+            && cluster == seed.get("cluster").and_then(serde_json::Value::as_str)
+            && port == seed.get("port").and_then(serde_json::Value::as_u64)
+        {
+            return Ok((ownership_path, true));
+        }
+        return Err(Refusal::Usage(
+            "Theatre seed does not match retained cluster ownership; seed again".into(),
+        ));
+    }
+    Ok((workspace.path(TEST_CLUSTER_RECORD), false))
 }
 
 fn trunk_service(workspace: &Workspace, app: App, profile: Profile) -> Service {
@@ -236,7 +297,8 @@ pub fn plan_run(
                 profile,
                 options.test_cluster,
                 options.web_origin.as_deref(),
-            );
+                inherited_theatre_context(),
+            )?;
             Ok(LaunchPlan {
                 requirements: vec![requirement],
                 prepare: vec![api_build(workspace, profile)],
@@ -269,8 +331,13 @@ fn run_web(
             app.cli_name()
         )));
     }
-    let (requirement, mut api) =
-        api_service(workspace, profile, options.test_cluster, Some(&origin));
+    let (requirement, mut api) = api_service(
+        workspace,
+        profile,
+        options.test_cluster,
+        Some(&origin),
+        app == App::Theatre || inherited_theatre_context(),
+    )?;
     let mut frontend = trunk_service(workspace, app, profile);
     if app == App::Theatre {
         api.readiness = Readiness::TheatreCatalog;
@@ -511,6 +578,42 @@ fn open_browser(url: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::{command::testing::RecordingRunner, tools::testing::FakeTools};
+    use std::fs;
+
+    struct TemporaryWorkspace(PathBuf);
+
+    impl Drop for TemporaryWorkspace {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn workspace_with_ownership() -> (TemporaryWorkspace, Workspace) {
+        let root = std::env::temp_dir().join(format!(
+            "cantos-xtask-run-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(root.join("target/revision-evidence")).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+        let cluster = root.join("target/revision-evidence/schema/cluster-1");
+        let ownership = serde_json::json!({ "cluster": cluster, "port": 12345 });
+        fs::write(root.join(RETAINED_CLUSTER_RECORD), ownership.to_string()).unwrap();
+        let workspace = Workspace::fixture(&root).unwrap();
+        (TemporaryWorkspace(root), workspace)
+    }
+
+    fn write_matching_seed(workspace: &Workspace) {
+        let seed = serde_json::json!({
+            "cluster": workspace.path("target/revision-evidence/schema/cluster-1"),
+            "port": 12345,
+            "database": "cantos_test_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        });
+        fs::write(workspace.path(THEATRE_SEED_RECORD), seed.to_string()).unwrap();
+    }
 
     fn workspace() -> Workspace {
         Workspace::discover().unwrap()
@@ -578,6 +681,91 @@ mod tests {
             plan_run(&workspace, RunTarget::CantosApi, &release),
             Err(Refusal::Usage(_))
         ));
+    }
+
+    #[test]
+    fn ownership_alone_never_substitutes_for_the_full_fixture_record() {
+        let (_root, workspace) = workspace_with_ownership();
+        assert!(!workspace.path(TEST_CLUSTER_RECORD).exists());
+        for theatre_context in [false, true] {
+            assert_eq!(
+                test_cluster_record(&workspace, theatre_context).unwrap(),
+                (workspace.path(TEST_CLUSTER_RECORD), false)
+            );
+        }
+    }
+
+    #[test]
+    fn matching_seed_allows_only_theatre_to_plan_without_the_full_fixture_record() {
+        let (_root, workspace) = workspace_with_ownership();
+        write_matching_seed(&workspace);
+        assert_eq!(
+            test_cluster_record(&workspace, false).unwrap(),
+            (workspace.path(TEST_CLUSTER_RECORD), false)
+        );
+        let plan = plan_run(
+            &workspace,
+            RunTarget::CantosTheatre,
+            &web(LaunchOptions {
+                test_cluster: true,
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+        assert!(matches!(
+            &plan.requirements[..],
+            [Requirement::File { path, .. }] if *path == workspace.path(RETAINED_CLUSTER_RECORD)
+        ));
+        assert_eq!(plan.services[0].tools, [Tool::Python3, Tool::Psql]);
+        assert_eq!(
+            env_of(&plan.services[0], "CANTOS_TEST_CONTEXT").as_deref(),
+            Some("theatre")
+        );
+        assert!(!workspace.path(TEST_CLUSTER_RECORD).exists());
+        let (requirement, api) = api_service(&workspace, Profile::Dev, true, None, true).unwrap();
+        assert!(matches!(requirement, Requirement::File { path, .. }
+            if path == workspace.path(RETAINED_CLUSTER_RECORD)));
+        assert_eq!(api.tools, [Tool::Python3, Tool::Psql]);
+        let (requirement, api) = api_service(&workspace, Profile::Dev, true, None, false).unwrap();
+        assert!(matches!(requirement, Requirement::File { path, .. }
+            if path == workspace.path(TEST_CLUSTER_RECORD)));
+        assert_eq!(api.tools, [Tool::Python3]);
+    }
+
+    #[test]
+    fn stale_or_malformed_seed_refuses_even_when_a_valid_full_fixture_exists() {
+        let (_root, workspace) = workspace_with_ownership();
+        fs::write(
+            workspace.path(TEST_CLUSTER_RECORD),
+            serde_json::json!({
+                "retained": true,
+                "theatre_app_url": "postgresql://cantos_app@127.0.0.1:12346/cantos_test_old"
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let cluster = workspace.path("target/revision-evidence/schema/cluster-1");
+        for seed in [
+            serde_json::json!({ "cluster": cluster, "port": 12346 }),
+            serde_json::json!({ "cluster": "/other/cluster-1", "port": 12345 }),
+            serde_json::json!({}),
+        ] {
+            fs::write(workspace.path(THEATRE_SEED_RECORD), seed.to_string()).unwrap();
+            let refusal = plan_run(
+                &workspace,
+                RunTarget::CantosTheatre,
+                &web(LaunchOptions {
+                    test_cluster: true,
+                    ..Default::default()
+                }),
+            )
+            .unwrap_err();
+            assert!(matches!(refusal, Refusal::Usage(message)
+                if message == "Theatre seed does not match retained cluster ownership; seed again"));
+        }
+        fs::write(workspace.path(THEATRE_SEED_RECORD), "invalid JSON").unwrap();
+        assert!(matches!(test_cluster_record(&workspace, true),
+            Err(Refusal::Usage(message)) if message.starts_with("invalid retained Theatre record ")));
     }
 
     #[test]

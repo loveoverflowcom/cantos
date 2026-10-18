@@ -3,6 +3,8 @@ package com.cantos.theatre.adapters.http
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.cursor
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.work
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.workId
+import com.cantos.theatre.domain.catalog.PublicCatalogQuery
+import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.ports.CatalogProtocolFault
 import com.cantos.theatre.ports.PublicCatalogRead
@@ -53,6 +55,21 @@ class PublicCatalogHttpAdapterTest {
             transport.urls,
         )
         assertEquals(setOf(CatalogBodyLimitBytes), transport.bounds.toSet())
+    }
+
+    @Test
+    fun search_and_filter_go_to_server_and_encode_unicode_and_query_delimiters() = runTest {
+        val transport = Scripted { json(200, corpus.getValue("works.json")) }
+        val adapter = PublicCatalogHttpAdapter(origin, transport)
+        val query = assertIs<CatalogCheck.Valid<PublicCatalogQuery>>(PublicCatalogQuery.of("á &?#", PublicWorkKind.Podcast)).value
+        adapter.works(null, query)
+        adapter.works(cursor(2), query)
+        adapter.works(null, assertIs<CatalogCheck.Valid<PublicCatalogQuery>>(PublicCatalogQuery.of("", PublicWorkKind.Story)).value)
+        assertEquals(listOf(
+            "https://api.cantos.example/api/v1/theatre/search?limit=20&q=%C3%A1%20%26%3F%23&kind=podcast",
+            "https://api.cantos.example/api/v1/theatre/search?limit=20&cursor=${cursor(2).value}&q=%C3%A1%20%26%3F%23&kind=podcast",
+            "https://api.cantos.example/api/v1/theatre/works?limit=20&kind=story",
+        ), transport.urls)
     }
 
     @Test

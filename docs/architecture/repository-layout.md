@@ -31,8 +31,10 @@ production-safe `:shared` KMP module contains the UI/domain/application and port
 separate `:preview-sandbox` module contains mock adapters, fixtures and demo composition.
 A production Android host composes `:shared` only. Its debug build browses the anonymous public
 catalog through a production HTTP adapter when an API origin is configured (`cargo xtask
-theatre-host android-debug`); release keeps an explicit unavailable state, and its release graph
+theatre-host android-debug`); release accepts an explicit HTTPS origin, and its release graph
 and unsigned APK/AAB exclusion are inspected by `cargo xtask theatre-host android-release`.
+The separate iOS `Cantos` project/scheme links the `CantosTheatre` production framework from
+`:shared`, with no sandbox dependency.
 Native audio and the remaining listener resources stay absent; a common/JVM HTTP boundary exists. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
@@ -49,7 +51,7 @@ apps/
       shared/              Production-safe UI/domain/application, ports and non-mock adapters
       preview-sandbox/     Separate KMP mock adapters, fixtures, previews and demo hosts
       androidApp/          Explicit demo Android host (com.cantos.theatre.demo)
-      androidProductionApp/ Production Android host: :shared only, unavailable state     RELEASE BOUNDARY
+      androidProductionApp/ Production Android catalog host: :shared only     RELEASE BOUNDARY
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
@@ -93,9 +95,9 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   module/source checks from the production host's release artifact checks; a demo build never
   stands for them.
 - **RELEASE BOUNDARY** is the production Android host (`com.cantos.theatre`): a real application
-  module that composes `:shared` only and, without production listening adapters, renders an
-  explicit unavailable state. It exists so its unsigned release graph and APK/AAB can be inspected
-  for sandbox exclusion; it is a skeleton, not a listening feature, signed release or distribution.
+  module that composes `:shared` only and browses the real catalog when an API origin is configured.
+  Its unsigned release graph and APK/AAB are inspected for sandbox exclusion; catalog integration
+  does not establish native listening, a signed release or distribution.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration, not live deployment or
   integration acceptance. For Kanidm, the API has opt-in [Studio OIDC](studio-oidc.md) and separate

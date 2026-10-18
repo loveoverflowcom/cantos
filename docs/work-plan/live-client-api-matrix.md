@@ -22,18 +22,20 @@ consumers and outstanding acceptance; it is not proof that the deployed environm
 
 | Capability / contract | Web / CMP consumer | Boundary and next owner |
 | --- | --- | --- |
-| [Discovery](../../packages/contracts/theatre-discovery-v1.md) | Web Home, Work detail and unit walk, and the CMP production host's debug build, read the actual contract; explicit `?mode=mock` is a separate preview | Work/search/units/manifest APIs exist. `cargo xtask seed theatre` publishes a synthetic local catalog ([runbook](../deployment/theatre-seeded-catalog.md), [record](../evidence/theatre-seeded-catalog-integration.md)). #172 owns state/pagination gaps; #158/#159 own the W01/M01–M02 design and remaining states; Android runtime is not yet observed |
+| [Discovery](../../packages/contracts/theatre-discovery-v1.md) | Web Home, Work detail and unit walk, and the production Android/iOS catalog hosts, read the actual contract; explicit `?mode=mock` is a separate preview | Work/search/units/manifest APIs exist. `cargo xtask seed theatre` publishes a synthetic local catalog ([runbook](../deployment/theatre-seeded-catalog.md), [record](../evidence/theatre-seeded-catalog-integration.md)). #172 owns state/pagination gaps; #158/#159 own the W01/M01–M02 design and remaining states; Android runtime is not yet observed |
 | [Theatre identity](../../packages/contracts/theatre-identity-v1.md) | Separate Web BFF and native resource credentials; no Studio-cookie reuse | Backend/Web/native adapters and enrollment state exist. #174/#191 own real login/signup; [current handoff](theatre-identity-handoff.md) |
 | [Library/Progress](../../packages/contracts/listener-library-v1.md) | Separate authenticated listener; Web account/readonly Library boundary; CMP common transport seam | Backend exists; full Web/native sync/offline acceptance remains #12/#17/#35 |
-| Public audio bytes | Theatre player only from publication-bound authorization, never private Studio preview | Origin-mode core/route exist behind [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md)'s composition/decision gate; #170 real delivery, #13 Web and #14 native listening |
+| Public audio bytes | Theatre player only from publication-bound authorization, never private Studio preview | Explicit filesystem promotion + origin-mode server composition under [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md); [step-1 API/storage evidence](../evidence/theatre-live-catalog-step1.md), #170 deployed delivery, #13 Web and #14 native listening |
 | Public Work cover / P1 metadata | Web W01–W03 and CMP M01–M06 | #157 → #171 and #177/#178; no public fields inferred from private artwork or bundled mock images |
 | Background/offline/native media | Platform adapters plus durable local state | #15/#16/#17; no native audio or durable production sync from preview reducers or unsigned host builds |
 
 Theatre Web defaults to anonymous live discovery and opens a live Work detail by `work_id`. An API
 outage remains an explicit error/unavailable state, not an automatic mock fallback. The production
-CMP host browses the same catalog only in its debug build; release stays unavailable until real
-listening adapters and a production origin are present. A seeded catalog, a successful empty Work
-page or a mounted mock player is not audio acceptance.
+CMP hosts browse the same catalog without sandbox mapping. Android release accepts a configured
+HTTPS origin and iOS has a separate production catalog target. Search/filter, refresh and cursor
+recovery use the actual server contract; unconfigured hosts show unavailable. Listening, account
+and Library remain explicit capability gaps. A seeded catalog, a successful empty Work page or a
+mounted mock player is not native audio acceptance.
 
 ## Local and deployed acceptance
 

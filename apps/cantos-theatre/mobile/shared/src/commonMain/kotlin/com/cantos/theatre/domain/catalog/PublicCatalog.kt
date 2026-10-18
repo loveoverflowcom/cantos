@@ -14,6 +14,7 @@ import kotlin.jvm.JvmInline
 
 /** Why a server value was refused at the public-catalog boundary. */
 enum class CatalogViolation {
+    InvalidSearch,
     MalformedWorkId,
     MalformedUnitId,
     MalformedPublicationId,
@@ -217,5 +218,22 @@ class PublicUnitPage private constructor(val work: PublicWorkId, items: List<Pub
                 else -> CatalogCheck.Valid(PublicUnitPage(requested.id, copy, next))
             }
         }
+    }
+}
+
+/** Immutable server walk identity; a different query must start without a previous cursor. */
+@ConsistentCopyVisibility
+data class PublicCatalogQuery private constructor(val text: String, val kind: PublicWorkKind?) {
+    init {
+        require(text.encodeToByteArray().size <= 512 && text.none { it.isISOControl() })
+    }
+    val isDiscovery: Boolean get() = text.isEmpty() && kind == null
+
+    companion object {
+        val All = PublicCatalogQuery("", null)
+        fun of(text: String, kind: PublicWorkKind? = null): CatalogCheck<PublicCatalogQuery> =
+            if (text.encodeToByteArray().size > 512 || text.any { it.isISOControl() }) {
+                CatalogCheck.Invalid(CatalogViolation.InvalidSearch)
+            } else CatalogCheck.Valid(PublicCatalogQuery(text.trim(), kind))
     }
 }

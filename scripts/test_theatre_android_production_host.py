@@ -17,8 +17,9 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
     def setUp(self):
         self.manifest = ET.parse(MANIFEST).getroot()
 
-    def test_manifest_declares_no_permission_callback_metadata_or_process_owner(self):
-        self.assertEqual(self.manifest.findall("uses-permission"), [])
+    def test_manifest_declares_only_catalog_network_with_no_identity_or_process_owner(self):
+        self.assertEqual([p.get(ANDROID + "name") for p in self.manifest.findall("uses-permission")],
+                         ["android.permission.INTERNET"])
         self.assertEqual(self.manifest.findall("permission"), [])
         application = self.manifest.find("application")
         # No Application subclass: there are no process owners until production adapters exist.
@@ -27,7 +28,9 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
         self.assertEqual(application.get(ANDROID + "theme"), "@style/Theme.Cantos")
         self.assertIsNone(application.get(ANDROID + "debuggable"))
         self.assertIsNone(application.get(ANDROID + "networkSecurityConfig"))
-        self.assertEqual(application.findall("meta-data"), [])
+        self.assertEqual(application.get(ANDROID + "usesCleartextTraffic"), "false")
+        self.assertEqual([(m.get(ANDROID + "name"), m.get(ANDROID + "value"))
+                          for m in application.findall("meta-data")], [("CantosApiOrigin", "${cantosApiOrigin}")])
         for component in ("service", "receiver", "provider", "activity-alias"):
             self.assertEqual(application.findall(component), [], component)
 
@@ -65,6 +68,7 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
         activity = (HOST / "src/main/kotlin/com/cantos/theatre/app/TheatreActivity.kt").read_text()
         self.assertIn("PreferencesController(localePreferenceStore = AndroidLocalePreferenceStore(this))", activity)
         self.assertIn("setContent { CantosListeningUnavailable(preferences, locale = locale) }", activity)
+        self.assertIn("setLiveCatalogContent(origin, preferences, locale)", activity)
         # Comment-aware source/import policy belongs to check_theatre_architecture.
         self.assertEqual(sorted(set(re.findall(r"^import ([\w.]+)\.\w+$", activity, re.M))), [
             "android.content.res", "android.os", "androidx.activity", "androidx.activity.compose",

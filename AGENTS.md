@@ -109,8 +109,13 @@ acceptance; the `firebase-web-e2e` lane reports `UNSUPPORTED` until that fixture
 
 Synthetic Theatre catalog data for local Web/CMP integration is the explicit
 `cargo xtask seed theatre [--reset]` ([runbook](docs/deployment/theatre-seeded-catalog.md)). It
-writes only a new database in the disposable cluster retained by `verify postgres --keep`, refuses
-any other target and is never a gate; seeded data is not publication, playback or rights evidence.
+defaults to a new database in a proven disposable cluster retained by `verify postgres --keep`
+(including an explicit narrow scope). The ownership receipt preserves verification outcomes;
+retention never establishes a passing gate.
+The explicit named `--environment` lane reconciles only its journal-owned dataset in an existing
+epoch-2 environment and never resets, migrates, grants or drops persistent data; see the runbook
+for mandatory API/auth/storage inputs. Seeding is never a gate, and synthetic rights/QC records
+and stored signal bytes are not native playback or human-listening evidence.
 
 Tester distribution of the Theatre Android **demo** APK is the explicit, opt-in
 `cargo xtask distribute firebase cantos-theatre --channel demo ...` ([contract](xtask/README.md#distribute-firebase)).

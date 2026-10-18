@@ -1,0 +1,62 @@
+Printing with useUnmergedTree = 'false'
+Node #307 at (l=0.0, t=0.0, r=320.0, b=568.0)px, Tag: 'capture-root'
+ |-Node #308 at (l=0.0, t=0.0, r=320.0, b=568.0)px
+   IsContainer = 'true'
+    |-Node #311 at (l=0.0, t=0.0, r=320.0, b=486.0)px, Tag: 'catalog-works'
+    | CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@7e928e2f'
+    | IsTraversalGroup = 'true'
+    | PaneTitle = 'Khám phá'
+    | VerticalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=100.0, reverseScrolling=false)'
+    | Actions = [GetScrollViewportLength, IndexForKey, ScrollBy, ScrollByOffset, ScrollToIndex]
+    |  |-Node #335 at (l=16.0, t=16.0, r=256.0, b=249.0)px
+    |  | Text = '[Một thế giới để nghe]'
+    |  | [Heading]
+    |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |-Node #336 at (l=256.0, t=109.0, r=304.0, b=157.0)px, Tag: 'catalog-account'
+    |  | ContentDescription = '[Tài khoản]'
+    |  | Focused = 'false'
+    |  | Role = 'Button'
+    |  | Actions = [OnClick, RequestFocus]
+    |  | MergeDescendants = 'true'
+    |  |-Node #341 at (l=16.0, t=257.0, r=169.0, b=305.0)px, Tag: 'catalog-search-open'
+    |  | ContentDescription = '[Tìm kiếm]'
+    |  | Focused = 'false'
+    |  | Role = 'Button'
+    |  | Text = '[Tìm kiếm]'
+    |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |  | MergeDescendants = 'true'
+    |  |-Node #345 at (l=16.0, t=305.0, r=162.0, b=353.0)px, Tag: 'catalog-refresh'
+    |  | ContentDescription = '[Làm mới]'
+    |  | Focused = 'false'
+    |  | Role = 'Button'
+    |  | Text = '[Làm mới]'
+    |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |  | MergeDescendants = 'true'
+    |  |-Node #349 at (l=16.0, t=369.0, r=304.0, b=766.0)px, Tag: 'catalog-work-10000000-0000-4000-8000-000000000001'
+    |    ContentDescription = '[Khám phá tác phẩm Ánh đèn cuối sân khấu]'
+    |    Focused = 'false'
+    |    IsContainer = 'true'
+    |    Text = '[Truyện, Ánh đèn cuối sân khấu, Một lời hẹn chưa bao giờ nói ra., Ngôn ngữ: Tiếng Việt]'
+    |    Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |    MergeDescendants = 'true'
+    |-Node #312 at (l=0.0, t=486.0, r=320.0, b=568.0)px
+      IsContainer = 'true'
+       |-Node #313 at (l=0.0, t=486.0, r=320.0, b=568.0)px
+         [SelectableGroup]
+          |-Node #314 at (l=0.0, t=486.0, r=156.0, b=568.0)px, Tag: 'catalog-nav-discover'
+          | Focused = 'false'
+          | Role = 'Tab'
+          | Selected = 'true'
+          | Text = '[Khám phá]'
+          | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+          | MergeDescendants = 'true'
+          |-Node #323 at (l=164.0, t=486.0, r=320.0, b=568.0)px, Tag: 'catalog-nav-library'
+            Focused = 'false'
+            Role = 'Tab'
+            Selected = 'false'
+            Text = '[Của tôi]'
+            Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+            MergeDescendants = 'true'
+Navigation text layouts (pixel-rounding allowance ≤1px):
+Khám phá: size=141 x 42, line_width=140.81256, paragraph=156.0×42.0, bounds=Rect.fromLTRB(7.0, 522.0, 148.0, 564.0)
+Của tôi: size=99 x 42, line_width=98.25241, paragraph=156.0×42.0, bounds=Rect.fromLTRB(192.0, 522.0, 291.0, 564.0)
