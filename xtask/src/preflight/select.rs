@@ -307,7 +307,8 @@ fn classify_script(script: &str, impact: &mut Impact) {
         | "prepare_story_workspace.py"
         | "benchmark_revision_reads.py"
         | "serve_studio.py"
-        | "seed_theatre.py" => {}
+        | "seed_theatre.py"
+        | "apk_size.py" => {}
         _ if script.starts_with("test_") && script.ends_with(".py") => {}
         _ => impact.broaden = Some(format!("scripts/{script} has no known impact")),
     }
