@@ -29,6 +29,7 @@ import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.PublicWorkId
 import com.cantos.theatre.domain.identity.LoginSecret
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackIntent
@@ -68,8 +69,10 @@ class TheatreShellLibraryTest {
     }
 
     private class Fixture(scope: CoroutineScope, private val resume: ResumeStatus) {
-        val actor = "actor-A"
-        private val bearer = "a".repeat(64)
+        val actor = "actor-a"
+        private val bearer = "ca1_n_" + "a".repeat(64)
+        private val grant = requireNotNull(NativeGrant.create(bearer, "cr1_" + "c".repeat(64), actor,
+            "00000000-0000-4000-8000-000000000001", 121, 601, 901, 1, now = 1))
         private var sequence = 10
         private fun uuid() = "90000000-0000-4000-8000-${sequence++.toString().padStart(12, '0')}"
         private val folder = Files.createTempDirectory("cantos-shell-library").toFile()
@@ -98,9 +101,12 @@ class TheatreShellLibraryTest {
             requireNotNull(NativeClientConfiguration.create("https://api.invalid", "https://identity.invalid/oauth2/openid/cantos-theatre-native")),
             object : NativeIdentityApi {
                 override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
-                override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeSession> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
+                override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeGrant> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
+                override suspend fun refresh(refreshToken: String, session: String): NativeApiResult<NativeGrant> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
+                override suspend fun revokeFamily(refreshToken: String, session: String) = NativeApiResult.Accepted(Unit)
+                override suspend fun cancel(flow: String, state: String, verifier: String) = NativeApiResult.Accepted(Unit)
                 override suspend fun session(credential: String): NativeApiResult<NativeSession> =
-                    NativeApiResult.Accepted(NativeSession(actor, "00000000-0000-4000-8000-000000000001", Long.MAX_VALUE, null))
+                    NativeApiResult.Accepted(grant.view)
                 override suspend fun revoke(credential: String) = NativeApiResult.Accepted(Unit)
                 override suspend fun saved(credential: String, session: String): NativeApiResult<Int> = error("unused")
             }, object : IdentityCrypto {
@@ -109,10 +115,11 @@ class TheatreShellLibraryTest {
             }, object : SystemBrowser {
                 override fun open(url: String) = false
                 override fun cancel() = Unit
-            }, object : CredentialStore {
-                override fun read(): CredentialRead = CredentialRead.Found(bearer)
-                override fun write(value: String): CredentialFailure? = null
-                override fun clear(): CredentialFailure? = null
+            }, object : NativeCredentialJournal {
+                private var record: NativeCredentialRecord? = NativeCredentialRecord.Active(grant)
+                override fun read(): NativeJournalRead = record?.let(NativeJournalRead::Found) ?: NativeJournalRead.Missing
+                override fun write(record: NativeCredentialRecord): CredentialFailure? { this.record = record; return null }
+                override fun clear(): CredentialFailure? { record = null; return null }
             }, object : LogoutBarrier {
                 override fun read() = LogoutBarrierRead.Clear
                 override fun mark(): CredentialFailure? = null

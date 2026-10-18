@@ -56,6 +56,23 @@ pub(super) struct Credential {
     pub provider_access: String,
     pub session: Session,
 }
+/// A durable, locally fenced owner of a provider artifact awaiting revocation.
+pub(super) enum Revocation {
+    Flow { id: String, access: String },
+    Family { id: String, access: String },
+}
+impl Revocation {
+    pub fn access(&self) -> &str {
+        match self {
+            Self::Flow { access, .. } | Self::Family { access, .. } => access,
+        }
+    }
+}
+pub(super) enum Cancellation {
+    Complete,
+    Pending,
+    Revoke(Revocation),
+}
 const CREDENTIAL: &str = include_str!("credential.sql");
 pub(super) async fn begin(
     store: &Store,
@@ -94,7 +111,7 @@ pub(super) async fn complete_callback(
     store: &Store,
     config: &OidcConfig,
     id: &str,
-    exchange: Exchange,
+    exchange: &Exchange,
     absolute: u64,
     handoff: &str,
 ) -> Result<(), AuthError> {
@@ -334,7 +351,7 @@ pub(super) async fn revoke(
     token: &str,
     session: Option<&str>,
     refresh: bool,
-) -> Result<Option<(String, String)>, AuthError> {
+) -> Result<Option<Revocation>, AuthError> {
     let mut connection = store.connection().await.map_err(unavailable)?;
     let tx = connection.transaction().await.map_err(unavailable)?;
     let sql = if refresh {
@@ -357,7 +374,10 @@ pub(super) async fn revoke(
     let result = if let Some(row) = row {
         let id: String = row.get(0);
         revoke_family(&tx, &id).await?;
-        Some((id, row.get(1)))
+        Some(Revocation::Family {
+            id,
+            access: row.get(1),
+        })
     } else {
         None
     };
@@ -370,32 +390,73 @@ pub(super) async fn cancel(
     flow: &str,
     state: &str,
     challenge: &str,
-) -> Result<(), AuthError> {
+) -> Result<Cancellation, AuthError> {
     let mut connection = store.connection().await.map_err(unavailable)?;
     let tx = connection.transaction().await.map_err(unavailable)?;
-    let count=tx.execute("UPDATE bearer_flows SET cancelled=true WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND client_state=$4 AND challenge=$5",&[&flow,&config.client_id,&config.issuer,&state,&challenge]).await.map_err(unavailable)?;
-    if count != 1 {
-        return Err(AuthError::State);
-    }
+    let row=tx.query_opt("UPDATE bearer_flows SET cancelled=true,nonce='',verifier='' WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND client_state=$4 AND challenge=$5 RETURNING provider_access,consumed AND NOT completed AS uncertain",&[&flow,&config.client_id,&config.issuer,&state,&challenge]).await.map_err(unavailable)?.ok_or(AuthError::State)?;
     // Flow before family matches issuance. A cancelled callback/exchange cannot issue later.
-    tx.execute(
-        "UPDATE bearer_families SET revoked=true,revocation_pending=true WHERE id=$1::text::uuid",
-        &[&flow],
-    )
-    .await
-    .map_err(unavailable)?;
+    let receipt = cancel_receipt(&tx, flow, row.get(0)).await?;
     tx.commit().await.map_err(unavailable)?;
-    Ok(())
+    Ok(match receipt {
+        Some(receipt) => Cancellation::Revoke(receipt),
+        // A consumed exchange can still be in provider I/O. A missing artifact is not a
+        // provider acknowledgement; successful token-cleared retries are conservative too.
+        None if row.get("uncertain") => Cancellation::Pending,
+        None => Cancellation::Complete,
+    })
 }
-pub(super) async fn revocation_completed(store: &Store, id: &str) -> Result<(), AuthError> {
+/// An exchange may return after cancel/expiry or fail a local authorization check. Keep the
+/// verified upstream artifact in the already consumed flow before any best-effort network I/O.
+pub(super) async fn abandon_exchange(
+    store: &Store,
+    config: &OidcConfig,
+    flow: &str,
+    access: &str,
+) -> Result<Option<Revocation>, AuthError> {
+    let mut connection = store.connection().await.map_err(unavailable)?;
+    let tx = connection.transaction().await.map_err(unavailable)?;
+    let row=tx.query_opt("UPDATE bearer_flows SET cancelled=true,nonce='',verifier='',provider_access=CASE WHEN completed THEN provider_access ELSE $4 END WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND redirect_uri=$5 AND return_origin=$6 AND consumed AND (completed OR provider_access IS NULL OR provider_access=$4) RETURNING provider_access",&[&flow,&config.client_id,&config.issuer,&access,&config.redirect,&config.web_origin]).await.map_err(unavailable)?.ok_or(AuthError::State)?;
+    let receipt = cancel_receipt(&tx, flow, row.get(0)).await?;
+    tx.commit().await.map_err(unavailable)?;
+    Ok(receipt)
+}
+async fn cancel_receipt(
+    tx: &Transaction<'_>,
+    id: &str,
+    flow_access: Option<String>,
+) -> Result<Option<Revocation>, AuthError> {
+    // Do not turn an acknowledged provider revoke back into pending on a repeated cancel.
+    let family = tx.query_opt(
+        "UPDATE bearer_families SET revoked=true,revocation_pending=true WHERE id=$1::text::uuid AND (NOT revoked OR revocation_pending) RETURNING provider_access",
+        &[&id],
+    ).await.map_err(unavailable)?;
+    Ok(if let Some(row) = family {
+        Some(Revocation::Family {
+            id: id.into(),
+            access: row.get(0),
+        })
+    } else {
+        flow_access.map(|access| Revocation::Flow {
+            id: id.into(),
+            access,
+        })
+    })
+}
+pub(super) async fn revocation_completed(
+    store: &Store,
+    receipt: &Revocation,
+) -> Result<(), AuthError> {
+    let (id, access, sql) = match receipt {
+        Revocation::Flow { id, access } => (id, access,
+            "UPDATE bearer_flows SET provider_access=NULL WHERE id=$1::text::uuid AND cancelled AND provider_access=$2"),
+        Revocation::Family { id, access } => (id, access,
+            "UPDATE bearer_families SET revocation_pending=false WHERE id=$1::text::uuid AND revoked AND provider_access=$2"),
+    };
     store
         .connection()
         .await
         .map_err(unavailable)?
-        .execute(
-            "UPDATE bearer_families SET revocation_pending=false WHERE id=$1::text::uuid",
-            &[&id],
-        )
+        .execute(sql, &[&id, &access])
         .await
         .map_err(unavailable)?;
     Ok(())

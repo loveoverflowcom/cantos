@@ -30,12 +30,17 @@ if action=='show-basic-secret':
  sys.exit(0)
 assert action in ['set-landing-url','add-redirect-url','remove-redirect-url',
  'enable-strict-redirect-url','disable-strict-redirect-url'], 'account/credential mutation forbidden'
-if action==os.environ.get('TEST_OIDC_FAIL_ACTION') and not (root/'failed-once').exists():
+if (action==os.environ.get('TEST_OIDC_FAIL_ACTION')
+ and client==os.environ.get('TEST_OIDC_FAIL_CLIENT',client)
+ and (len(args)<=5 or args[5]==os.environ.get('TEST_OIDC_FAIL_VALUE',args[5]))
+ and not (root/'failed-once').exists()):
  (root/'failed-once').write_text('1')
  sys.exit(1)
 attrs=state[client]
 if action=='set-landing-url':attrs['oauth2_rs_origin_landing']=[args[5]]
-elif action=='add-redirect-url':attrs['oauth2_rs_origin']=sorted(set(attrs['oauth2_rs_origin']+[args[5]]))
+elif action=='add-redirect-url':
+ if not (os.environ.get('TEST_OIDC_DROP_BEARER')=='1' and args[5].endswith('/auth/bearer/callback')):
+  attrs['oauth2_rs_origin']=sorted(set(attrs['oauth2_rs_origin']+[args[5]]))
 elif action=='remove-redirect-url':attrs['oauth2_rs_origin'].remove(args[5])
 else:attrs['oauth2_strict_redirect_uri']=['true' if action.startswith('enable') else 'false']
 (root/'provider.json').write_text(json.dumps(state))
@@ -130,10 +135,15 @@ PY
         (root / "provider.py").write_text(PROVIDER)
         return provider, originals
 
-    def run_case(self, *, failure=None, validator_exit=False, missing_client=False):
+    def run_case(self, *, failure=None, failure_client=None, failure_value=None,
+                 validator_exit=False, missing_client=False, drop_bearer=False,
+                 previous_receipt=None, repeat=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             provider, originals = self.fixture(root)
+            if previous_receipt is not None:
+                originals["oidc-callbacks.env"] = previous_receipt
+                (root / "config/oidc-callbacks.env").write_text(previous_receipt)
             if missing_client:
                 state = dict(provider)
                 del state["cantos-studio-web-bff"]
@@ -142,6 +152,12 @@ PY
                        TEST_OIDC_ROOT=directory, CANTOS_VPS_HELPERS=str(TOOLS))
             if failure:
                 env["TEST_OIDC_FAIL_ACTION"] = failure
+            if failure_client:
+                env["TEST_OIDC_FAIL_CLIENT"] = failure_client
+            if failure_value:
+                env["TEST_OIDC_FAIL_VALUE"] = failure_value
+            if drop_bearer:
+                env["TEST_OIDC_DROP_BEARER"] = "1"
             script = HOST.replace("readonly QUADLET_DIR=/etc/containers/systemd",
                                   f"readonly QUADLET_DIR={root}/quadlet")
             script += '''
@@ -154,6 +170,8 @@ source "$CANTOS_VPS_HELPERS/cantos-oidc-reconcile"
             if validator_exit:
                 script += 'validate_runtime_browser_configuration() { exit 65; }\n'
             script += "reconcile_existing_identity\n"
+            if repeat:
+                script += "reconcile_existing_identity\n"
             result = subprocess.run(["bash"], input=script, capture_output=True,
                                     text=True, env=env, check=False)
             after = json.loads((root / "provider.json").read_text())
@@ -167,15 +185,45 @@ source "$CANTOS_VPS_HELPERS/cantos-oidc-reconcile"
         for surface in ("theatre", "studio"):
             client = f"cantos-{surface}-web-bff"
             self.assertEqual(after[client]["oauth2_rs_origin"],
-                             [f"https://api.example.test/api/v1/{surface}/auth/callback"])
+                             [f"https://api.example.test/api/v1/{surface}/auth/bearer/callback",
+                              f"https://api.example.test/api/v1/{surface}/auth/callback"])
             self.assertEqual(after[client]["oauth2_rs_origin_landing"], [f"https://{surface}.web.app/"])
             for key in ("oauth2_rs_basic_secret", "key_internal_data", "oauth2_rs_scope_map", "uuid"):
                 self.assertEqual(after[client][key], before[client][key])
             self.assertIn(f"CANTOS_BROWSER_API_SURFACE={surface}\n", files[f"api-{surface}.env"])
-        self.assertIn("oidc-callbacks.env", files)
+        self.assertEqual(files["oidc-callbacks.env"], "".join(
+            f"CANTOS_{surface.upper()}_OIDC_CALLBACK=https://api.example.test/api/v1/{surface}/auth/callback\n"
+            f"CANTOS_{surface.upper()}_OIDC_BEARER_CALLBACK=https://api.example.test/api/v1/{surface}/auth/bearer/callback\n"
+            for surface in ("studio", "theatre")))
         self.assertFalse(any("person " in e or "group add" in e or "reset" in e for e in events))
         self.assertNotIn("fixture-client-secret", result.stdout + result.stderr)
         self.assertNotIn("fixture-signing-key", result.stdout + result.stderr)
+
+    def test_repeated_reconciliation_does_not_repeat_callback_mutations(self):
+        result, _, _, _, _, events = self.run_case(repeat=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        additions = [event for event in events if " add-redirect-url " in event]
+        self.assertEqual(len(additions), 4)
+        self.assertEqual(len(set(additions)), 4)
+
+    def test_second_client_bearer_failure_restores_both_clients_and_existing_receipt(self):
+        receipt = "previous-verified-callback-receipt\n"
+        result, before, after, originals, files, _ = self.run_case(
+            failure="add-redirect-url", failure_client="cantos-studio-web-bff",
+            failure_value="https://api.example.test/api/v1/studio/auth/bearer/callback",
+            previous_receipt=receipt)
+        self.assertEqual(result.returncode, 70, result.stderr)
+        self.assertEqual(after, before)
+        for name, value in originals.items():
+            self.assertEqual(files[name], value)
+
+    def test_missing_bearer_readback_restores_without_creating_a_receipt(self):
+        result, before, after, originals, files, _ = self.run_case(drop_bearer=True)
+        self.assertEqual(result.returncode, 65, result.stderr)
+        self.assertEqual(after, before)
+        for name, value in originals.items():
+            self.assertEqual(files[name], value)
+        self.assertNotIn("oidc-callbacks.env", files)
 
     def test_partial_provider_failure_restores_previous_clients_and_config_without_receipt(self):
         result, before, after, originals, files, _ = self.run_case(failure="remove-redirect-url")

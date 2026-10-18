@@ -3,6 +3,7 @@ package com.cantos.theatre.app
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeIdentityAvailability
 import com.cantos.theatre.adapters.http.NativeIdentityClient
+import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.domain.identity.LoginSecret
 import com.cantos.theatre.domain.identity.NativeCallback
@@ -48,7 +49,8 @@ class IosNativeIdentityOwner(apiOrigin: String?, issuer: String?, platform: IosI
     val availability = NativeClientConfiguration.resolve(apiOrigin, issuer)
     val controller = when (val resolved = availability) {
         is NativeIdentityAvailability.Available -> resolved.configuration.let {
-            NativeAccountController(scope, it, NativeIdentityClient(it, platform),
+            val now = { NSDate().timeIntervalSince1970.toLong() }
+            NativeAccountController(scope, it, NativeIdentityClient(it, platform, now),
                 object : IdentityCrypto {
                     override fun secret(): LoginSecret? = platform.secureSecret()?.let(LoginSecret::parse)
                     override fun challenge(verifier: LoginSecret): String? = platform.s256(verifier.value)
@@ -57,7 +59,7 @@ class IosNativeIdentityOwner(apiOrigin: String?, issuer: String?, platform: IosI
                     override fun open(url: String): Boolean = platform.openBrowser(url)
                     override fun cancel() = platform.cancelBrowser()
                 },
-                object : CredentialStore {
+                SecureNativeCredentialJournal(object : CredentialStore {
                     override fun read(): CredentialRead {
                         val result = platform.readCredential()
                         val error = failure(result.failure)
@@ -65,7 +67,7 @@ class IosNativeIdentityOwner(apiOrigin: String?, issuer: String?, platform: IosI
                     }
                     override fun write(value: String): CredentialFailure? = failure(platform.writeCredential(value))
                     override fun clear(): CredentialFailure? = failure(platform.clearCredential())
-                },
+                }, it.apiOrigin, it.identity.issuer),
                 object : LogoutBarrier {
                     override fun read(): LogoutBarrierRead = when (platform.readLogoutBarrier()) {
                         "clear" -> LogoutBarrierRead.Clear
@@ -74,7 +76,7 @@ class IosNativeIdentityOwner(apiOrigin: String?, issuer: String?, platform: IosI
                     }
                     override fun mark(): CredentialFailure? = failure(platform.markLogoutBarrier())
                     override fun clear(): CredentialFailure? = failure(platform.clearLogoutBarrier())
-                }, now = { NSDate().timeIntervalSince1970.toLong() })
+                }, now = now)
         }
         is NativeIdentityAvailability.Missing, is NativeIdentityAvailability.Invalid -> null
     }

@@ -5,6 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import android.util.AtomicFile
 import android.util.Base64
 import com.cantos.theatre.domain.identity.LoginSecret
@@ -32,6 +35,13 @@ class AndroidCredentialStore(context: Context) : CredentialStore {
     private val file = AtomicFile(File(context.noBackupFilesDir, "theatre-identity-v1"))
     private val alias = "com.cantos.theatre.identity.v1"
     private val aad = "cantos-theatre-native-v1".toByteArray(Charsets.UTF_8)
+    private fun syncDirectory() {
+        val descriptor = Os.open(file.baseFile.parentFile?.path ?: throw IOException("Missing identity directory"), OsConstants.O_RDONLY, 0)
+        try {
+            if (!OsConstants.S_ISDIR(Os.fstat(descriptor).st_mode)) throw IOException("Identity parent is not a directory")
+            Os.fsync(descriptor)
+        } finally { Os.close(descriptor) }
+    }
     private fun key(create: Boolean): SecretKey? {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(alias, null) as? SecretKey)?.let { return it }
@@ -78,8 +88,9 @@ class AndroidCredentialStore(context: Context) : CredentialStore {
             cipher.updateAAD(aad)
             val encoded = byteArrayOf(1) + cipher.iv + cipher.doFinal(plain)
             val output = file.startWrite()
-            try { output.write(encoded); file.finishWrite(output) }
+            try { output.write(encoded); output.fd.sync(); file.finishWrite(output) }
             catch (failure: IOException) { file.failWrite(output); throw failure }
+            syncDirectory()
             when (val check = read()) {
                 is CredentialRead.Found -> if (check.value == value) null else CredentialFailure.Corrupt
                 is CredentialRead.Failed -> check.reason
@@ -87,13 +98,17 @@ class AndroidCredentialStore(context: Context) : CredentialStore {
             }
         } catch (_: GeneralSecurityException) { CredentialFailure.Unavailable }
           catch (_: ProviderException) { CredentialFailure.Unavailable }
+          catch (_: ErrnoException) { CredentialFailure.Unavailable }
           catch (_: IOException) { CredentialFailure.Unavailable }
           catch (_: SecurityException) { CredentialFailure.Denied }
     }
     @Synchronized override fun clear(): CredentialFailure? = try {
         file.delete()
+        syncDirectory()
         if (listOf(file.baseFile, File(file.baseFile.path + ".bak"), File(file.baseFile.path + ".new")).any { it.exists() }) CredentialFailure.Unavailable else null
     } catch (_: SecurityException) { CredentialFailure.Denied }
+      catch (_: IOException) { CredentialFailure.Unavailable }
+      catch (_: ErrnoException) { CredentialFailure.Unavailable }
 }
 
 class AndroidIdentityCrypto : IdentityCrypto {

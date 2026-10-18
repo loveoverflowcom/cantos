@@ -57,6 +57,7 @@ internal class NativeLibrarySync(
     private val store: LibraryLocalPort,
     private val newOperation: () -> String,
     private val onSessionInvalidated: (String) -> Unit = {},
+    private val ownsAuthorization: (LibraryAuthorization) -> Boolean = { true },
     private val nowMs: () -> Long,
 ) : LibrarySessionPort {
     private val json = LibraryCodec.json
@@ -74,9 +75,11 @@ internal class NativeLibrarySync(
     private var lastCheckpointPublication: String? = null
     companion object { const val CHECKPOINT_INTERVAL_MS = 30_000L }
     override fun enter(session: NativeSession, bearer: String) {
+        val candidate = LibraryAuthorization(session.actor, session.session, bearer)
+        if (!ownsAuthorization(candidate)) { leave(); return }
         if (auth?.let { it.account == session.actor && it.session == session.session && it.bearer == bearer } == true) return
         leave()
-        auth = LibraryAuthorization(session.actor, session.session, bearer)
+        auth = candidate
         publish()
         refresh()
         drain()
@@ -89,7 +92,13 @@ internal class NativeLibrarySync(
         pageCursors.clear()
         mutableState.value = LibraryState()
     }
-    private fun current(issued: Long, owner: LibraryAuthorization) = generation == issued && auth === owner
+    private fun current(issued: Long, owner: LibraryAuthorization) =
+        generation == issued && auth === owner && ownsAuthorization(owner)
+    private fun liveOwner(): LibraryAuthorization? {
+        val owner = auth ?: return null
+        if (!ownsAuthorization(owner)) { leave(); return null }
+        return owner
+    }
     private fun wire(audio: AudioIdentity) = WireAudio(audio.workId, audio.unitId, audio.publicationId, audio.renditionId, audio.sha256, audio.durationMs)
     private fun domain(audio: WireAudio) = AudioIdentity.of(audio.work_id, audio.unit_id, audio.publication_id, audio.rendition_id, audio.sha256, audio.duration_ms)
     private fun resume(value: ResumeStatus) = when (value) { ResumeStatus.exact_available -> LibraryResume.ExactAvailable; ResumeStatus.release_replaced -> LibraryResume.ReleaseReplaced; ResumeStatus.access_unavailable -> LibraryResume.AccessUnavailable }
@@ -100,7 +109,7 @@ internal class NativeLibrarySync(
         return Operation(id, device, sequence, nowMs().coerceAtLeast(0))
     }
     private fun <T> local(block: LibraryTransaction.() -> T): T? {
-        val owner = auth ?: return null
+        val owner = liveOwner() ?: return null
         return try { store.transaction(owner.account, block) } catch (_: Exception) {
             mutableState.value = mutableState.value.copy(failure = "storage")
             null
@@ -169,14 +178,15 @@ internal class NativeLibrarySync(
     override fun refresh() { mutableState.value = mutableState.value.copy(failure = null); LibrarySection.entries.forEach { loadPage(it, false) } }
     override fun nextPage(section: LibrarySection) { loadPage(section, true) }
     private fun loadPage(section: LibrarySection, next: Boolean) {
-        val owner = auth ?: return
+        val owner = liveOwner() ?: return
         val issued = generation
         val read = (reads[section] ?: 0L) + 1
         reads[section] = read
         fun accepts() = current(issued, owner) && reads[section] == read
         val cursor = if (next) mutableState.value.cursors[section] ?: return else null
         jobs += scope.launch {
-            if (accepts()) mutableState.value = mutableState.value.copy(refreshing = true)
+            if (!accepts()) return@launch
+            mutableState.value = mutableState.value.copy(refreshing = true)
             when (section) {
                 LibrarySection.Continue -> when (val result = api.continuePage(owner, cursor)) {
                     is LibraryResult.Failed -> if (accepts()) { failedRead(issued, owner, result); if (next && result.code == "invalid_cursor") loadPage(section, false) }
@@ -223,18 +233,30 @@ internal class NativeLibrarySync(
         onSessionInvalidated(owner.session)
     }
     override fun refreshSaved(workId: String) {
-        val owner = auth ?: return; val issued = generation
-        jobs += scope.launch { when (val result = api.saved(owner, workId)) {
-            is LibraryResult.Failed -> failedRead(issued, owner, result)
-            is LibraryResult.Value -> if (current(issued, owner)) { local { adoptSaved(this, result.value); put(LocalLibraryRecord("saved", workId, json.encodeToString(result.value), result.value.revision)) }; publish() }
-        } }
+        val owner = liveOwner() ?: return; val issued = generation
+        jobs += scope.launch {
+            if (!current(issued, owner)) return@launch
+            when (val result = api.saved(owner, workId)) {
+                is LibraryResult.Failed -> failedRead(issued, owner, result)
+                is LibraryResult.Value -> if (current(issued, owner)) {
+                    local { adoptSaved(this, result.value); put(LocalLibraryRecord("saved", workId, json.encodeToString(result.value), result.value.revision)) }
+                    publish()
+                }
+            }
+        }
     }
     override fun refreshProgress(publicationId: String) {
-        val owner = auth ?: return; val issued = generation
-        jobs += scope.launch { when (val result = api.progress(owner, publicationId)) {
-            is LibraryResult.Failed -> failedRead(issued, owner, result)
-            is LibraryResult.Value -> if (current(issued, owner)) { result.value.current?.let { record -> local { adoptProgress(this, record) } }; publish() }
-        } }
+        val owner = liveOwner() ?: return; val issued = generation
+        jobs += scope.launch {
+            if (!current(issued, owner)) return@launch
+            when (val result = api.progress(owner, publicationId)) {
+                is LibraryResult.Failed -> failedRead(issued, owner, result)
+                is LibraryResult.Value -> if (current(issued, owner)) {
+                    result.value.current?.let { record -> local { adoptProgress(this, record) } }
+                    publish()
+                }
+            }
+        }
     }
     private fun adoptSaved(tx: LibraryTransaction, value: SavedRecord, receipt: Boolean = false) {
         val key = "saved:${value.work_id}"
@@ -248,7 +270,7 @@ internal class NativeLibrarySync(
     }
     /** At most one dispatch loop; sent rows always read receipt before byte-identical replay. */
     override fun drain() {
-        val owner = auth ?: return
+        val owner = liveOwner() ?: return
         if (draining) return
         retryJob?.cancel(); retryJob = null
         val issued = generation; draining = true
@@ -367,7 +389,7 @@ internal class NativeLibrarySync(
         publish(); drain()
     }
     private fun publish() {
-        val owner = auth ?: return
+        val owner = liveOwner() ?: return
         val snapshot = local {
             val records = records(); val pending = intents()
             val saved = records.filter { it.resource == "saved" }.mapNotNull { LibraryCodec.decode<SavedRecord>("SavedRecord", it.body) }.associateBy { it.work_id }.toMutableMap()
@@ -416,14 +438,17 @@ internal class NativeLibrarySync(
     override fun close() { leave(); store.close() }
 }
 
-/** Native composition constructs the transport/SQLite shell behind the domain-only session port. */
+/** Native composition constructs the transport/SQLite shell behind the domain-only session port.
+ * Production supplies [ownsAuthorization] from the process identity owner to fence same-turn
+ * logout. Its permissive default is for isolated storage/controller fixtures without identity. */
 fun nativeLibraryController(
     scope: CoroutineScope,
     api: LibraryApi,
     store: LibraryLocalPort,
     newOperation: () -> String,
     onSessionInvalidated: (String) -> Unit = {},
+    ownsAuthorization: (LibraryAuthorization) -> Boolean = { true },
     nowMs: () -> Long,
 ): NativeLibraryController = NativeLibraryController(
-    NativeLibrarySync(scope, api, store, newOperation, onSessionInvalidated, nowMs),
+    NativeLibrarySync(scope, api, store, newOperation, onSessionInvalidated, ownsAuthorization, nowMs),
 )

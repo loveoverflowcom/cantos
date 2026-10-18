@@ -32,8 +32,9 @@ per-app site allocation/deploy and exact-origin acceptance through the
 [Hosting runbook](../deployment/firebase-hosting.md) and accepted
 [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md). Preserve the direct-Hosting/API
 boundary, origin/callback drift safeguards and Studio/Theatre isolation. Short Site IDs alone
-establish neither compatible session domains nor authentication acceptance; qualify same-site
-domains and the minimal identity gateway separately. Keep the schema cutover independent of
+establish neither Bearer authentication nor issuer acceptance; #253 removes same-site domains
+as an authentication prerequisite. Qualify the minimal identity gateway and exact client/origin
+contracts separately. Keep the schema cutover independent of
 that rollout.
 
 ## Recommended next boundaries

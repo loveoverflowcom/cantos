@@ -15,9 +15,11 @@ fun createAndroidNativeAccount(
     issuer: String?,
 ): NativeAccountController? = when (val resolved = NativeClientConfiguration.resolve(apiOrigin, issuer)) {
     is NativeIdentityAvailability.Available -> resolved.configuration.let { configuration ->
-        NativeAccountController(scope, configuration, NativeIdentityClient(configuration, AndroidNativeHttp(scope, configuration.apiOrigin)),
-            AndroidIdentityCrypto(), AndroidSystemBrowser(context.applicationContext), AndroidCredentialStore(context),
-            AndroidLogoutBarrier(context), now = { System.currentTimeMillis() / 1000 })
+        val now = { System.currentTimeMillis() / 1000 }
+        NativeAccountController(scope, configuration, NativeIdentityClient(configuration, AndroidNativeHttp(scope, configuration.apiOrigin), now),
+            AndroidIdentityCrypto(), AndroidSystemBrowser(context.applicationContext),
+            SecureNativeCredentialJournal(AndroidCredentialStore(context), configuration.apiOrigin, configuration.identity.issuer),
+            AndroidLogoutBarrier(context), now = now)
     }
     is NativeIdentityAvailability.Missing, is NativeIdentityAvailability.Invalid -> null
 }

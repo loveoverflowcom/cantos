@@ -11,6 +11,7 @@ import com.cantos.theatre.adapters.identity.AndroidIdentityCrypto
 import com.cantos.theatre.adapters.identity.AndroidLogoutBarrier
 import com.cantos.theatre.adapters.identity.AndroidNativeHttp
 import com.cantos.theatre.adapters.identity.AndroidSystemBrowser
+import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
 import com.cantos.theatre.app.AppContainer
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.application.identity.NativeAccountController
@@ -47,17 +48,19 @@ class CantosDemoApplication : Application() {
         }
     }
 
-    private fun createNativeIdentity(configuration: NativeClientConfiguration): NativeAccountController =
-        NativeAccountController(
+    private fun createNativeIdentity(configuration: NativeClientConfiguration): NativeAccountController {
+        val now = { System.currentTimeMillis() / 1000 }
+        return NativeAccountController(
             scope = scope,
             configuration = configuration,
-            api = NativeIdentityClient(configuration, AndroidNativeHttp(scope, configuration.apiOrigin)),
+            api = NativeIdentityClient(configuration, AndroidNativeHttp(scope, configuration.apiOrigin), now),
             crypto = AndroidIdentityCrypto(),
             browser = AndroidSystemBrowser(this),
-            store = AndroidCredentialStore(this),
+            store = SecureNativeCredentialJournal(AndroidCredentialStore(this), configuration.apiOrigin, configuration.identity.issuer),
             barrier = AndroidLogoutBarrier(this),
-            now = { System.currentTimeMillis() / 1000 },
+            now = now,
         )
+    }
 
     override fun onTerminate() {
         // Emulator shutdown only; ordinary process death loses all mock memory.

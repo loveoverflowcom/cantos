@@ -105,10 +105,11 @@ establishes a real adapter's cross-process fencing or provider behavior.
 
 ## Cantos Bearer lifecycle (#253)
 
-`cantos.identity.bearer-lifecycle` is a **draft** finite expectation for one family, generations
-0–3, active/expired authority and one immutable authentication timestamp. Approved direction:
-owner-selected rotation, bounded authority and logout; concrete policy is in
-[Bearer v1](../../packages/contracts/bearer-v1.md). Native production mappings:
+`cantos.identity.bearer-lifecycle` remains **draft**. Approved direction is owner-selected
+rotation, bounded authority, durable native cleanup, single-flight refresh and late-result/account
+isolation; concrete policy is in [Bearer v1](../../packages/contracts/bearer-v1.md). The API
+projection models one family, generations 0–3, active/expired authority and one immutable
+authentication timestamp. Independent Rust/API implementation mappings:
 
 | Stable run | Executable production-code oracle |
 | --- | --- |
@@ -122,7 +123,44 @@ unknown refresh, single-flight and late-waiter/logout/account fences; the explic
 web-bearer` fixture drives actual Web modules against mocked API/issuer HTTP. These are client
 implementation evidence, not model trace conformance or real issuer/SQL proof.
 
+The same capability also has a finite native shell projection: Active/Refreshing/Cleared journal
+classes, two actor aliases, intent classes 0–3 and at most two modeled dispatches across the
+history. These are equality/history bounds, not production account IDs, counter ranges or a new
+refresh policy. A recorded journal write, API confirmation/revocation and fresh authorization
+are supplied facts; the model does not execute those adapters. `pendingPair` is an in-process
+point between response and durable replacement, not a persisted record. Prior access can remain
+admitted during its one refresh flight; a restart discards that in-process admission. An
+interrupted Refreshing record or cleanup barrier permits cleanup only, never another refresh.
+The Cleared marker must be durable before the cleanup barrier can clear. Marker deletion and
+missing/corrupt storage, byte decoding, entropy, clocks, full-pair validation and platform atomicity
+remain independent native tests. Reaching intent class 3 permits cleanup but no new modeled login;
+it is a finite terminal abstraction, not acceptance of real counter exhaustion.
+
+The following stable runs map to actual [NativeAccountController tests](../../apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeAccountControllerTest.kt).
+Mappings express shared requirements; these tests do not consume model traces or prove model
+conformance. Source presence does not report that any native test ran.
+
+| Stable run | Property / reachable witness | Independent native implementation oracle |
+| --- | --- | --- |
+| `run.native-journal-before-refresh` | `property.native-journal-before-refresh` / `witness.native-refresh-dispatched` | `failed_rotation_journal_write_stops_before_spending_refresh` |
+| `run.native-single-flight` | `property.native-single-flight` / `witness.native-joined` | `concurrent_waiters_spend_once_and_cancelled_waiter_does_not_cancel_rotation` |
+| `run.native-unknown-refresh` | `property.native-unknown-cleanup-only` / `witness.native-unknown-stopped` | `unknown_refresh_revokes_old_family_and_never_replays` |
+| `run.native-pair-write-failure` | `property.native-persist-before-admission` / `witness.native-pair-write-refused` | `failed_pair_replacement_revokes_family_and_never_adopts_new_access` |
+| `run.native-interrupted-refresh` | `property.native-restart-needs-confirmation` / `witness.native-interrupted` | `interrupted_refresh_record_is_cleanup_only_after_restart` |
+| `run.native-restore-confirmation` | `property.native-restart-needs-confirmation` / `witness.native-interrupted` plus explicit successful confirmation checkpoints | `restore_requires_exact_api_confirmation_before_private_authority`; `wrong_actor_family_or_deadline_cannot_restore_local_record` |
+| `run.native-logout-late-result` | `property.native-late-result-fenced` / `witness.native-late-ignored` | `logout_hides_and_marks_synchronously_then_late_refresh_cannot_restore`; `cancelled_restore_late_A_cannot_replace_B` |
+| `run.native-durable-cleanup` | `property.native-marker-before-barrier-clear` / `witness.native-durable-cleanup` | `cleanup_retries_exact_family_and_cleared_record_recovers_delete_failure`; `orphan_barrier_missing_or_corrupt_storage_never_starts_new_authorization` |
+
+[Native journal tests](../../apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt)
+independently exercise full-pair/Flow/Cleared records, decoding, readback, API/issuer binding and
+storage failure outcomes. They do not establish Android KeyStore/iOS Keychain behavior on a device.
+The catalog's seven new negative controls respectively inject dispatch without a Refreshing
+journal, duplicate flight, unknown-result retry, adoption after failed pair write, admission after
+restart, disabled actor/intent response fencing and barrier clearing before the durable marker.
+
 The catalog owns named runs, witnesses and one sensitive negative control per property.
-These native tests call real core/SQL/API code independently; this capability has **no registered
-trace-observer conformance adapter**. Model execution is sampled model evidence only, not proof
-of SQL isolation, account-switch controllers, refresh single-flight or secure-storage behavior.
+This capability has **no registered trace-observer conformance adapter**. Model execution is sampled
+model evidence only. It does not establish SQL isolation, native controller/transport/storage
+conformance, actual process death, browser/issuer acceptance, Library/media isolation, native
+playback or installed Android/iOS secure storage. Those claims require their own attributable
+implementation, integration and named-device evidence.

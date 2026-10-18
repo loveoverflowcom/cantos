@@ -18,6 +18,7 @@ import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
+import com.cantos.theatre.adapters.http.NativeAuthorizedHttpPort
 import com.cantos.theatre.adapters.library.AccountCatalogCache
 import com.cantos.theatre.adapters.library.NativeLibraryClient
 import com.cantos.theatre.adapters.library.iosLibraryStore
@@ -88,8 +89,14 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
     }
     private val runtime = (selectedOrigin as? CatalogOriginSelection.Configured)?.let { configured ->
         val origin = configured.origin
-        val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, identityPlatform), it,
+        val authorizedHttp = identity.controller?.let { NativeAuthorizedHttpPort(scope, origin, it, identityPlatform) }
+            ?: identityPlatform
+        val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), it,
             { NSUUID().UUIDString.lowercase() }, onSessionInvalidated = { expected -> identity.controller?.revalidate(expected) },
+            ownsAuthorization = { owner -> identity.controller?.let { account ->
+                account.belongsToCurrent(owner.bearer, owner.session) &&
+                    account.verifiedSession.value?.session?.actor == owner.account
+            } == true },
             nowMs = { (NSDate().timeIntervalSince1970 * 1000).toLong() }) }
         NativeSessionRuntime(scope, { onControl -> IosMediaEngine(mediaDriver, onControl) },
             PlaybackAccessHttp(origin, identityPlatform) { (NSDate().timeIntervalSince1970 * 1000).toLong() },

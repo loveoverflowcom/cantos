@@ -3,9 +3,10 @@
 > **#253 Bearer amendment (2026-10-18):** the target API credential is a Cantos-issued opaque
 > Bearer with rotating refresh. The [Bearer v1 contract](../../packages/contracts/bearer-v1.md) owns new routes/lifecycle,
 > JSON-only identity wire, fresh-auth evidence, RAM/F5 and compatibility cutover. Cookie-only
-> statements below describe the retained **legacy compatibility** flow until the Web migration;
+> statements below describe the retained **legacy compatibility** server flow;
 > they no longer impose a same-site domain or cookie prerequisite on the target architecture.
-> Client migration and real gateway/issuer/browser/native acceptance remain separate.
+> Web and native consumers use Bearer. Legacy server issuance cutover and real
+> gateway/issuer/browser/native acceptance remain separate.
 
 Implemented PR3 boundary for #12/#35; issue #34 has no accepted guest-import policy.
 Public Discovery/Playback stays guest where its existing policy permits. Persistent Saved,
@@ -14,6 +15,22 @@ Library domain, progress store, guest merge, native audio player or gateway. The
 [#129 Web presentation follow-up](../evidence/theatre-web-auth-account.md) mounts public Home and
 contextual auth/account over the existing identity owner; its runtime evidence remains distinct
 from live-provider and native acceptance.
+
+## Native Bearer consumer (#253)
+
+The production Android/iOS composition uses the [native lifecycle and secure journal](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity).
+One process owner coordinates exchange, API-confirmed restore, single-flight refresh and
+family revoke. An interrupted exchange/rotation is cleanup-only; the environment-bound encrypted
+record is replaced and read back before authority is published. Logout invalidates local intent
+before IO, and private HTTP/SQLite effects check account, family and rotation leases. Same-family
+rotation preserves the existing full production listener UI, player and durable operation IDs.
+The current public native media path uses narrow release capabilities, not account-token URLs.
+
+Original proof/provider expiry remains the ceiling. Issuer-specific account links are not
+inferred from email or display name. Exact new Web callback reconciliation is implemented
+locally; rollout requires a separately authorized operator reconciliation. The default-deny
+gateway source and real browser/issuer/Android/iOS acceptance remain open. Legacy issuance is
+retained only for the explicit server cutover; no target client falls back to it.
 
 ## Accepted enrollment policy and current capability
 

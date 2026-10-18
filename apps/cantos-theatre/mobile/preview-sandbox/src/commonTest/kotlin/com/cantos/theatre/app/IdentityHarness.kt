@@ -3,10 +3,12 @@ package com.cantos.theatre.app
 import com.cantos.theatre.adapters.mock.sandbox.sessions.MockStorageSession
 import com.cantos.theatre.adapters.mock.sandbox.sessions.seed
 import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.domain.identity.LoginSecret
 import com.cantos.theatre.domain.identity.NativeCallback
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.CredentialRead
 import com.cantos.theatre.ports.CredentialStore
@@ -16,6 +18,7 @@ import com.cantos.theatre.ports.LogoutBarrierRead
 import com.cantos.theatre.ports.NativeApiResult
 import com.cantos.theatre.ports.NativeFlow
 import com.cantos.theatre.ports.NativeIdentityApi
+import com.cantos.theatre.ports.NativeCredentialRecord
 import com.cantos.theatre.ports.NativeSession
 import com.cantos.theatre.ports.SystemBrowser
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +31,9 @@ import kotlinx.coroutines.CoroutineScope
 internal class IdentityHarness(scope: CoroutineScope, seed: ShellState = MockStorageSession.Demo.seed()) {
     val actor = "00000000-0000-4000-8000-000000000001"
     val session = "00000000-0000-4000-8000-000000000002"
-    val token = "a".repeat(64)
+    val token = "ca1_n_" + "a".repeat(64)
+    val grant = requireNotNull(NativeGrant.create(token, "cr1_" + "b".repeat(64), actor, session,
+        200, 700, 1000, 100, now = 100))
     val configuration = NativeClientConfiguration.create(
         "https://api.example", "https://idm.example/oauth2/openid/cantos-theatre-native",
     )!!
@@ -74,27 +79,34 @@ internal class IdentityHarness(scope: CoroutineScope, seed: ShellState = MockSto
                     "&redirect_uri=com.cantos.theatre%3A%2Foauth2%2Fcallback&state=$state&nonce=$nonce" +
                     "&code_challenge_method=S256&code_challenge=$challenge"))
         }
-        override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeSession> {
+        override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeGrant> {
             exchanges += 1
-            return NativeApiResult.Accepted(NativeSession(actor, session, 200, token))
+            return NativeApiResult.Accepted(grant)
         }
+        override suspend fun refresh(refreshToken: String, session: String): NativeApiResult<NativeGrant> =
+            NativeApiResult.Refused(com.cantos.theatre.ports.NativeApiFailure.Unavailable)
+        override suspend fun revokeFamily(refreshToken: String, session: String): NativeApiResult<Unit> = NativeApiResult.Accepted(Unit)
+        override suspend fun cancel(flow: String, state: String, verifier: String): NativeApiResult<Unit> = NativeApiResult.Accepted(Unit)
         override suspend fun session(credential: String): NativeApiResult<NativeSession> =
-            NativeApiResult.Accepted(NativeSession(actor, session, 200, null))
+            NativeApiResult.Accepted(grant.view)
         override suspend fun revoke(credential: String): NativeApiResult<Unit> = NativeApiResult.Accepted(Unit)
         override suspend fun saved(credential: String, session: String): NativeApiResult<Int> = NativeApiResult.Accepted(0)
     }
 
     val browser = Browser()
     val store = Store()
+    private val journal = SecureNativeCredentialJournal(store, configuration.apiOrigin, configuration.identity.issuer)
     val barrier = Barrier()
     val api = Api()
-    val account = NativeAccountController(scope, configuration, api, Crypto(), browser, store, barrier) { 100 }
+    val account = NativeAccountController(scope, configuration, api, Crypto(), browser, journal, barrier) { 100 }
     val app = mockAppContainer(scope, seed, account = account)
 
     /** The provider return for the first attempt: its secret state is the first generated secret. */
     fun first(hasError: Boolean = false) = NativeCallback(
         configuration.identity.redirect, "a".repeat(64), if (hasError) "" else "code", hasError,
     )
+
+    fun persistSession() { check(journal.write(NativeCredentialRecord.Active(grant)) == null) }
 
     fun close() { app.close(); account.close() }
 }

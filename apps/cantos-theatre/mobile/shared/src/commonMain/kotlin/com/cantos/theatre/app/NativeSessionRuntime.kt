@@ -1,6 +1,7 @@
 package com.cantos.theatre.app
 
 import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.NativeVerifiedSession
 import com.cantos.theatre.application.library.NativeLibraryController
 import com.cantos.theatre.application.playback.NativeListeningController
 import com.cantos.theatre.domain.library.ProgressIntent
@@ -66,12 +67,31 @@ class NativeSessionRuntime(
         }
         listening = owner
         accountJob = account?.let { identity -> scope.launch {
+            var previous: NativeVerifiedSession? = null
             identity.verifiedSession.collect { verified ->
+                val sameFamily = verified != null && previous?.let {
+                    it.intent == verified.intent && it.session.actor == verified.session.actor &&
+                        it.session.session == verified.session.session
+                } == true
+                previous = verified
+                if (sameFamily) {
+                    // Rotation changes credentials, not the account or playback session. The
+                    // authorized transport renews the Library's existing authorization in place.
+                    // A temporary Library read fence can reopen its partition without moving
+                    // the player. Revalidation changes the admission epoch and takes the reset
+                    // path below, including when StateFlow conflates its intermediate null.
+                    if (library?.state?.value?.account != verified?.session?.actor) {
+                        verified?.let { library?.enter(it.session, it.bearer) }
+                    }
+                    return@collect
+                }
                 onAccountChanged(verified?.session?.actor)
                 listening.cancelSelection()
+                // A new admission (login, account switch or revalidation) clears the old engine
+                // even if its intermediate null authority was conflated by StateFlow.
+                listening.playback.dispatch(PlaybackEvent.SessionCleared)
                 if (verified == null) {
                     library?.leave()
-                    listening.playback.dispatch(PlaybackEvent.SessionCleared)
                 } else {
                     library?.enter(verified.session, verified.bearer)
                     library?.state?.value?.restoredPaused?.let { saved ->

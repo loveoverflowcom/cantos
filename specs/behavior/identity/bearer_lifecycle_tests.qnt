@@ -1,10 +1,41 @@
 module bearer_lifecycle_tests {
   import bearer_lifecycle.* from "./bearer_lifecycle"
-  action check(predicate: bool): bool = all { assert(predicate), state'=state, before'=state, last'=Assertion, outcome'=NoOutcome }
+  action check(predicate: bool): bool = all { assert(predicate), state'=state, before'=state, last'=Assertion, outcome'=NoOutcome,
+    native'=native, beforeNative'=native, nativeLast'=NoNativeEvent, nativeOutcome'=NoNativeOutcome }
   run refreshTest = init.then(refresh(0)).then(check(rotated and boundedAuthority and authTimeUnchanged))
     .then(refresh(1)).then(check(rotated and state.generation == 2 and boundedAuthority and authTimeUnchanged))
   run replayTest = init.then(refresh(0)).then(refresh(0)).then(check(replayed and singleUse))
     .then(refresh(1)).then(check(revocationSticky and outcome == Denied))
   run logoutTest = init.then(logout).then(refresh(0)).then(check(logoutRefused and revocationSticky))
   run expiryTest = init.then(expire).then(refresh(0)).then(check(expiryRefused and boundedAuthority))
+
+  run nativeJournalBeforeRefreshTest = init.then(nativeRestore).then(check(not(native.admitted)))
+    .then(nativeConfirm(1, 0, true)).then(nativeStart(false))
+    .then(check(native.calls == 0 and not(native.admitted) and native.cleanup and nativeJournalBeforeRefresh))
+  run nativeSingleFlightTest = init.then(nativeConfirm(1, 0, true)).then(nativeStart(true))
+    .then(check(nativeRefreshDispatched and nativeJournalBeforeRefresh)).then(nativeStart(true))
+    .then(check(nativeJoined and nativeSingleFlight and native.calls == 1))
+  run nativeUnknownRefreshTest = init.then(nativeConfirm(1, 0, true)).then(nativeStart(true))
+    .then(nativeResult(1, 0, false)).then(check(nativeUnknownStopped and nativeUnknownCleanupOnly))
+    .then(nativeStart(true)).then(check(native.calls == 1 and not(native.admitted) and native.cleanup))
+  run nativePairWriteFailureTest = init.then(nativeConfirm(1, 0, true)).then(nativeStart(true))
+    .then(nativeResult(1, 0, true)).then(nativePersist(false))
+    .then(check(nativePairWriteRefused and nativePersistBeforeAdmission))
+  run nativeInterruptedRefreshTest = init.then(nativeConfirm(1, 0, true)).then(nativeStart(true))
+    .then(nativeRestart).then(check(nativeInterrupted and nativeRestartNeedsConfirmation))
+    .then(nativeStart(true)).then(check(native.calls == 1 and not(native.admitted) and native.cleanup))
+  run nativeRestoreConfirmationTest = init.then(nativeRestore).then(check(not(native.admitted)))
+    .then(nativeConfirm(1, 0, true)).then(check(native.admitted)).then(nativeRestart)
+    .then(check(not(native.admitted) and nativeRestartNeedsConfirmation))
+    .then(nativeConfirm(1, 1, true)).then(check(native.admitted))
+  run nativeLogoutLateResultTest = init.then(nativeConfirm(1, 0, true)).then(nativeStart(true))
+    .then(nativeLogout).then(check(not(native.admitted) and native.barrier))
+    .then(nativeCleanup(true)).then(nativeClearBarrier(true)).then(nativeAuthorize(2))
+    .then(nativeResult(1, 0, true)).then(check(nativeLateIgnored and nativeLateResultFenced))
+    .then(nativeConfirm(1, 0, false)).then(check(native.admitted and native.actor == 2 and nativeLateResultFenced))
+  run nativeDurableCleanupTest = init.then(nativeConfirm(1, 0, true)).then(nativeLogout)
+    .then(nativeClearBarrier(true)).then(check(native.barrier and nativeMarkerBeforeBarrierClear))
+    .then(nativeCleanup(false)).then(check(native.barrier and native.cleanup and not(native.admitted)))
+    .then(nativeCleanup(true)).then(nativeClearBarrier(false)).then(check(native.barrier))
+    .then(nativeClearBarrier(true)).then(check(nativeDurableCleanup and nativeMarkerBeforeBarrierClear))
 }
