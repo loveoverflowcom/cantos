@@ -45,12 +45,74 @@ struct WorkQuery {
     language: Option<String>,
     limit: Option<u16>,
     cursor: Option<String>,
+    presentation: Option<Presentation>,
 }
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 struct UnitQuery {
     limit: Option<u16>,
     cursor: Option<String>,
+    presentation: Option<Presentation>,
+}
+#[derive(Deserialize)]
+enum Presentation {
+    #[serde(rename = "1")]
+    Released,
+}
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct WorkDetailQuery {
+    presentation: Option<Presentation>,
+}
+
+#[cfg(test)]
+mod presentation_query_tests {
+    use super::*;
+    use axum::http::Uri;
+
+    #[test]
+    fn presentation_query_is_an_explicit_closed_opt_in() {
+        for query in ["", "?presentation=1"] {
+            let uri: Uri = format!("/works{query}").parse().unwrap();
+            assert_eq!(
+                Query::<WorkQuery>::try_from_uri(&uri)
+                    .unwrap()
+                    .presentation
+                    .is_some(),
+                !query.is_empty()
+            );
+            assert_eq!(
+                Query::<UnitQuery>::try_from_uri(&uri)
+                    .unwrap()
+                    .presentation
+                    .is_some(),
+                !query.is_empty()
+            );
+            assert_eq!(
+                Query::<WorkDetailQuery>::try_from_uri(&uri)
+                    .unwrap()
+                    .presentation
+                    .is_some(),
+                !query.is_empty()
+            );
+        }
+        for query in [
+            "presentation=0",
+            "presentation=2",
+            "presentation=true",
+            "presentation=",
+            "presentation=1&presentation=1",
+            "other=1",
+        ] {
+            let uri: Uri = format!("/works?{query}").parse().unwrap();
+            assert!(Query::<WorkQuery>::try_from_uri(&uri).is_err(), "{query}");
+            assert!(Query::<UnitQuery>::try_from_uri(&uri).is_err(), "{query}");
+            assert!(
+                Query::<WorkDetailQuery>::try_from_uri(&uri).is_err(),
+                "{query}"
+            );
+        }
+    }
 }
 pub(super) fn error(e: ListenerError) -> Response {
     let (status, code, retryable) = match e {
@@ -94,6 +156,21 @@ async fn works(
     let Ok(Query(q)) = query else {
         return error(ListenerError::InvalidRequest);
     };
+    if q.presentation.is_some() {
+        return match service
+            .presented_works(
+                q.q.as_deref().unwrap_or(""),
+                q.kind.as_deref(),
+                q.language.as_deref(),
+                q.limit.unwrap_or(20),
+                q.cursor.as_deref(),
+            )
+            .await
+        {
+            Ok(v) => Json(v).into_response(),
+            Err(e) => error(e),
+        };
+    }
     match service
         .works(
             q.q.as_deref().unwrap_or(""),
@@ -111,7 +188,17 @@ async fn works(
 async fn work(
     Extension(service): Extension<ListenerService>,
     Path(work): Path<String>,
+    query: Result<Query<WorkDetailQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Response {
+    let Ok(Query(q)) = query else {
+        return error(ListenerError::InvalidRequest);
+    };
+    if q.presentation.is_some() {
+        return match service.presented_work(&work).await {
+            Ok(v) => Json(v).into_response(),
+            Err(e) => error(e),
+        };
+    }
     match service.work(&work).await {
         Ok(v) => Json(v).into_response(),
         Err(e) => error(e),
@@ -125,6 +212,15 @@ async fn units(
     let Ok(Query(q)) = query else {
         return error(ListenerError::InvalidRequest);
     };
+    if q.presentation.is_some() {
+        return match service
+            .presented_units(&work, q.limit.unwrap_or(20), q.cursor.as_deref())
+            .await
+        {
+            Ok(v) => Json(v).into_response(),
+            Err(e) => error(e),
+        };
+    }
     match service
         .units(&work, q.limit.unwrap_or(20), q.cursor.as_deref())
         .await

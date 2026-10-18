@@ -1,6 +1,6 @@
 # Listener Library and Progress v1
 
-Schema version **1.0.0**, additive resources under `/api/v1/theatre`. This reviewed core
+Schema version **1.1.0**, additive opt-in resources under `/api/v1/theatre`. This reviewed core
 contract is shared by Web/CMP; their current mock reducers are not production consumers.
 JSON Schema, strict Rust DTO fixture conformance and HTTP tests accompany it. OpenAPI,
 generated/drift-checked Kotlin and real-client adoption remain acceptance work.
@@ -28,6 +28,43 @@ no guest persistence/import or automatic guest merge is implemented.
 GET progress returns the strict `{"resource":"progress","current":record|null}` envelope;
 GET Saved returns its register (including false revision0 when absent), not a mutation receipt.
 Unknown operation receipts return not_found in the authenticated account scope.
+
+## Presentation metadata v1.1.0 (explicit opt-in)
+
+[#251](https://github.com/loveoverflowcom/cantos/issues/251) adds the closed query
+`presentation=1` to the Continue, Saved and History **page reads**. Omitting it retains the
+exact default v1 shapes, including strict decoding by current clients. Other values return
+`invalid_request`. Cursor identity binds the opt-in as well as the existing account, route,
+limit and history state; changing it during a walk returns `invalid_cursor`.
+No mutation, receipt, individual progress read or individual Saved register changes shape.
+
+The separate `PresentedContinuePage`, `PresentedSavedPage` and `PresentedHistoryPage` contain
+the same register/audio/resume fields as their default counterparts plus one **required,
+nullable** `presentation` on each item. Null retains the owned record without revealing
+whether a private, withdrawn, expired or absent publication exists. Missing is not null and
+does not conform to the contract.
+
+- `WorkPresentation` contains only `work_id`, the metadata source `publication_id`, released
+  Work `title`, `kind` (`novel|story|podcast`) and actual released audio `language`.
+- `AudioPresentation` contains `work:WorkPresentation`, `unit_id` and released `unit_title`.
+  Continue/History use this only for the **exact stored publication**, after current public
+  eligibility is rechecked; unavailable or superseded audio has `presentation:null`. Another
+  unit or a replacement release never supplies fallback metadata for stored audio.
+- Saved uses `WorkPresentation` from the same deterministic currently eligible representative
+  as public Work discovery. If none is eligible, its retained Saved register has
+  `presentation:null`. The representative's `publication_id` makes that source explicit.
+
+These projections never expose editable head titles, storage keys, signed URLs, ownership,
+rights/QC evidence, provider data or other private fields. They are read snapshots, not new
+stored registers or authorization: metadata may disappear or change on refresh as eligibility,
+rights-window time or the current public representative changes. Continue/History preserve
+their exact `AudioIdentity`, resume status and progress even when metadata is null; no automatic
+publication substitution, progress migration or playback is introduced.
+
+Schemas and fixtures use separate `Presented*` definitions because adding even an optional
+response field breaks existing strict readers. This capability is additive only for explicitly
+opted-in callers; existing clients are not switched here. Client adoption and #177's genres,
+credits, seasons and numbering remain separate follow-ups.
 
 ## Identity, concurrency and receipts
 

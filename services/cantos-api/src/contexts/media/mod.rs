@@ -55,4 +55,6 @@ pub use listener_delivery::{
 };
 pub use listener_media::AuthorizedMedia;
 
-pub(crate) use postgres::listener::{library_public_work, library_publications};
+pub(crate) use postgres::listener::{
+    library_presentations, library_public_work, library_publications, library_work_presentations,
+};

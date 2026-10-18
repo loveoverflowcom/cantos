@@ -223,6 +223,17 @@ async fn theatre_units_walk_survives_mid_walk_withdraw_publish_and_republish() {
     let first = world.page(&base).await;
     assert_eq!(first["items"][0]["unit_id"], unit_ids[0]);
     assert_eq!(first["items"][0]["position"], 0);
+    assert!(first["items"][0].get("ordinal").is_none());
+    let initial_presented = world.page(&format!("/works/{wid}?presentation=1")).await;
+    assert_eq!(
+        initial_presented["unit_count"], 3,
+        "staged unit is not counted"
+    );
+    assert!(world
+        .page(&format!("/works/{wid}"))
+        .await
+        .get("unit_count")
+        .is_none());
     let original_publication = first["items"][0]["publication_id"].clone();
     let cursor = first["next_cursor"].as_str().unwrap().to_owned();
     world.withdraw(&mut work.units[1]).await;
@@ -269,6 +280,41 @@ async fn theatre_units_walk_survives_mid_walk_withdraw_publish_and_republish() {
         work.units[0].release.as_ref().unwrap()["id"]
     );
     assert_eq!(fresh["items"][0]["unit_id"], first["items"][0]["unit_id"]);
+    let presented_base = format!("/works/{wid}/units?presentation=1&limit=1");
+    let presented_first = world.page(&presented_base).await;
+    let presented = world.walk(&presented_base, presented_first).await;
+    assert_eq!(
+        ids(&presented, "unit_id"),
+        [unit_ids[0], unit_ids[3], unit_ids[2]]
+    );
+    assert_eq!(
+        presented
+            .iter()
+            .map(|unit| unit["position"].as_u64().unwrap())
+            .collect::<Vec<_>>(),
+        [0, 0, 2],
+        "the regression includes both duplicate and gapped immutable public positions"
+    );
+    assert_eq!(
+        presented
+            .iter()
+            .map(|unit| unit["ordinal"].as_u64().unwrap())
+            .collect::<Vec<_>>(),
+        [1, 2, 3],
+        "each page ranks all eligible units before applying its cursor"
+    );
+    assert_eq!(
+        world.page(&format!("/works/{wid}?presentation=1")).await["unit_count"],
+        3
+    );
+    for path in [
+        "/works?presentation=1&limit=1",
+        "/search?q=%C4%90%C6%B0%E1%BB%9Dng&presentation=1&limit=1",
+    ] {
+        let page = world.page(path).await;
+        assert_eq!(page["items"][0]["work_id"], wid);
+        assert_eq!(page["items"][0]["unit_count"], 3);
+    }
     let continuation = format!("{base}&cursor={cursor}");
     let second = world.page(&continuation).await;
     let retried = world.page(&continuation).await;
@@ -300,6 +346,48 @@ async fn theatre_units_walk_survives_mid_walk_withdraw_publish_and_republish() {
         world.page(&continuation).await["items"],
         json!(fresh["items"].as_array().unwrap()[1..2])
     );
+    let latest_work = world
+        .h
+        .json("GET", &format!("/works/{wid}"), Some(ALICE), None)
+        .await
+        .success(StatusCode::OK);
+    let latest_unit = world
+        .h
+        .json(
+            "GET",
+            &format!("/content-units/{}", unit_ids[2]),
+            Some(ALICE),
+            None,
+        )
+        .await
+        .success(StatusCode::OK);
+    world
+        .h
+        .json(
+            "DELETE",
+            &format!("/content-units/{}", unit_ids[2]),
+            Some(ALICE),
+            Some(json!({
+                "operation_id":operation(),
+                "expected_revision":latest_unit["revision"],
+                "expected_work_revision":latest_work["revision"]
+            })),
+        )
+        .await
+        .success(StatusCode::OK);
+    assert_eq!(
+        world.page(&format!("/works/{wid}?presentation=1")).await["unit_count"],
+        2,
+        "a currently archived unit cannot contribute its title or count"
+    );
+    let after_archive = world
+        .page(&format!("/works/{wid}/units?presentation=1&limit=10"))
+        .await;
+    assert_eq!(
+        ids(after_archive["items"].as_array().unwrap(), "unit_id"),
+        [unit_ids[0], unit_ids[3]]
+    );
+    assert_eq!(after_archive["items"][1]["ordinal"], 2);
 }
 
 #[tokio::test]

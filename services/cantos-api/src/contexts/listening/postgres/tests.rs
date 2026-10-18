@@ -2,6 +2,10 @@
 use super::*;
 use crate::{
     contexts::{
+        catalog::{
+            domain::{ContentUnitId, UnitPatch, Visibility, WorkId, WorkPatch},
+            CatalogCommand,
+        },
         listening::auth::{
             AuthenticatedListener, AuthenticationFuture, ListenerAuthenticator, ListenerCredentials,
         },
@@ -111,15 +115,295 @@ async fn request(
     let status = r.status();
     assert_eq!(r.headers()["cache-control"], "no-store");
     let value = serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    let root: Value = serde_json::from_str(include_str!(
+    let mut root: Value = serde_json::from_str(include_str!(
         "../../../../../../packages/contracts/schema/theatre/library/v1.schema.json"
     ))
     .unwrap();
+    if status.is_success() && path.contains("presentation=1") {
+        let definition = if path.starts_with("/library/continue") {
+            "PresentedContinuePage"
+        } else if path.starts_with("/library/saved") {
+            "PresentedSavedPage"
+        } else if path.starts_with("/library/history") {
+            "PresentedHistoryPage"
+        } else {
+            panic!("unexpected presentation route: {path}");
+        };
+        root = json!({"$defs":root["$defs"],"$ref":format!("#/$defs/{definition}")});
+    }
     assert!(
         jsonschema::validator_for(&root).unwrap().is_valid(&value),
         "{value}"
     );
     (status, value)
+}
+
+async fn remember_audio(
+    service: &LibraryService,
+    listener: &AuthenticatedListener,
+    audio: &dto::AudioIdentity,
+) {
+    service
+        .put_progress(
+            listener,
+            &audio.publication_id,
+            write(audio, 1, 90, 0, 100, dto::ProgressKind::Checkpoint),
+        )
+        .await
+        .unwrap();
+    service
+        .set_saved(
+            listener,
+            &audio.work_id,
+            dto::SavedWrite {
+                operation: intent(1, 90),
+                base_revision: 0,
+                saved: true,
+            },
+        )
+        .await
+        .unwrap();
+    service
+        .playback_started(
+            listener,
+            dto::HistoryStart {
+                operation: intent(1, 90),
+                audio: audio.clone(),
+                engine_session_id: uid(99),
+                event: dto::PlaybackEvent::PlaybackStarted,
+                history_epoch: 0,
+            },
+        )
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; no native-engine or live-delivery claim"]
+async fn presented_library_survives_restart_and_does_not_disclose_edited_studio_heads() {
+    const STUDIO: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let (f, service, a) = world().await;
+    let listener = principal("alice");
+    remember_audio(&service, &listener, &a).await;
+    let expected = dto::AudioPresentation {
+        work: dto::WorkPresentation {
+            work_id: a.work_id.clone(),
+            publication_id: a.publication_id.clone(),
+            title: "Ánh đèn cuối sân khấu".into(),
+            kind: cantos_contracts::theatre::WorkKind::Podcast,
+            language: "vi-VN".into(),
+        },
+        unit_id: a.unit_id.clone(),
+        unit_title: "Tập có âm thanh riêng tư".into(),
+    };
+    let (_, store, mut config) = f.listener_handles();
+    let work_id = WorkId::parse(&a.work_id).unwrap();
+    let unit_id = ContentUnitId::parse(&a.unit_id).unwrap();
+    let work = store.catalog_work(STUDIO, &work_id).await.unwrap();
+    let unit = store.catalog_unit(STUDIO, &unit_id).await.unwrap();
+    let edited = store
+        .catalog_execute(
+            STUDIO,
+            &Uuid::new_v4().to_string(),
+            CatalogCommand::PatchWork {
+                id: work_id,
+                expected_revision: work.revision(),
+                patch: WorkPatch {
+                    title: Some("Bản nháp riêng chưa phát hành".into()),
+                    ..WorkPatch::default()
+                },
+            },
+        )
+        .await
+        .unwrap();
+    store
+        .catalog_execute(
+            STUDIO,
+            &Uuid::new_v4().to_string(),
+            CatalogCommand::PatchUnit {
+                id: unit_id,
+                expected_revision: unit.revision(),
+                expected_work_revision: edited.work.revision(),
+                patch: UnitPatch {
+                    title: Some("Tên tập riêng chưa phát hành".into()),
+                    ..UnitPatch::default()
+                },
+            },
+        )
+        .await
+        .unwrap();
+    config.user("cantos_app");
+    let restarted_store = Store::new(config).unwrap();
+    let restarted = LibraryService::new(restarted_store.clone());
+    let continued = restarted
+        .presented_continue_listening(&listener, 1, None)
+        .await
+        .unwrap();
+    assert_eq!(continued.items[0].presentation, Some(expected.clone()));
+    assert_eq!(continued.items[0].progress.audio, a);
+    assert_eq!(continued.items[0].resume, dto::ResumeStatus::ExactAvailable);
+    assert_eq!(
+        restarted
+            .presented_saved_works(&listener, 1, None)
+            .await
+            .unwrap()
+            .items[0]
+            .presentation,
+        Some(expected.work.clone())
+    );
+    assert_eq!(
+        restarted
+            .presented_history(&listener, 1, None)
+            .await
+            .unwrap()
+            .items[0]
+            .presentation,
+        Some(expected.clone())
+    );
+    let router = app(restarted_store);
+    for (path, presentation) in [
+        (
+            "/library/continue",
+            serde_json::to_value(&expected).unwrap(),
+        ),
+        (
+            "/library/saved",
+            serde_json::to_value(&expected.work).unwrap(),
+        ),
+        ("/library/history", serde_json::to_value(&expected).unwrap()),
+    ] {
+        let (status, legacy) = request(&router, "GET", path, "alice", None).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(legacy["items"][0].get("presentation").is_none());
+        let (status, presented) = request(
+            &router,
+            "GET",
+            &format!("{path}?presentation=1&limit=1"),
+            "alice",
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(presented["items"][0]["presentation"], presentation);
+        let (_, bob) = request(
+            &router,
+            "GET",
+            &format!("{path}?presentation=1&limit=1"),
+            "bob",
+            None,
+        )
+        .await;
+        assert_eq!(bob["items"], json!([]));
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; no retained-release or public-byte claim"]
+async fn presented_library_never_substitutes_replacement_titles_for_owned_audio() {
+    let (f, service, a) = world().await;
+    let listener = principal("alice");
+    remember_audio(&service, &listener, &a).await;
+    let replacement = f.listener_publish(1, json!(a.publication_id)).await;
+    let replacement_id = replacement["release"]["id"].as_str().unwrap();
+    let continued = service
+        .presented_continue_listening(&listener, 1, None)
+        .await
+        .unwrap();
+    assert_eq!(continued.items[0].progress.audio, a);
+    assert_eq!(
+        continued.items[0].resume,
+        dto::ResumeStatus::ReleaseReplaced
+    );
+    assert_eq!(continued.items[0].presentation, None);
+    let history = service.presented_history(&listener, 1, None).await.unwrap();
+    assert_eq!(history.items[0].audio, a);
+    assert_eq!(history.items[0].resume, dto::ResumeStatus::ReleaseReplaced);
+    assert_eq!(history.items[0].presentation, None);
+    let saved = service
+        .presented_saved_works(&listener, 1, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        saved.items[0].presentation.as_ref().unwrap().publication_id,
+        replacement_id
+    );
+    assert_eq!(saved.items[0].saved.work_id, a.work_id);
+    f.listener_withdraw(replacement_id, 2).await;
+    let router = app(f.listener_handles().1);
+    for path in ["/library/continue", "/library/saved", "/library/history"] {
+        let (_, page) = request(
+            &router,
+            "GET",
+            &format!("{path}?presentation=1"),
+            "alice",
+            None,
+        )
+        .await;
+        assert_eq!(page["items"].as_array().unwrap().len(), 1);
+        assert_eq!(page["items"][0]["presentation"], Value::Null);
+        if path != "/library/saved" {
+            assert_eq!(page["items"][0]["resume"], "access_unavailable");
+        }
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; changes affect only the disposable synthetic fixture"]
+async fn presented_library_hides_titles_after_current_privacy_or_submission_revocation() {
+    const STUDIO: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    for revoke in [false, true] {
+        let (f, service, a) = world().await;
+        let listener = principal("alice");
+        remember_audio(&service, &listener, &a).await;
+        let (_, store, _) = f.listener_handles();
+        if revoke {
+            store
+                .revoke_audio_submission(STUDIO, &a.unit_id, f.listener_submission_id())
+                .await
+                .unwrap();
+        } else {
+            let id = WorkId::parse(&a.work_id).unwrap();
+            let current = store.catalog_work(STUDIO, &id).await.unwrap();
+            store
+                .catalog_execute(
+                    STUDIO,
+                    &Uuid::new_v4().to_string(),
+                    CatalogCommand::PatchWork {
+                        id,
+                        expected_revision: current.revision(),
+                        patch: WorkPatch {
+                            visibility: Some(Visibility::Private),
+                            ..WorkPatch::default()
+                        },
+                    },
+                )
+                .await
+                .unwrap();
+        }
+        let continued = service
+            .presented_continue_listening(&listener, 1, None)
+            .await
+            .unwrap();
+        assert_eq!(continued.items[0].progress.audio, a);
+        assert_eq!(
+            continued.items[0].resume,
+            dto::ResumeStatus::AccessUnavailable
+        );
+        assert_eq!(continued.items[0].presentation, None);
+        let saved = service
+            .presented_saved_works(&listener, 1, None)
+            .await
+            .unwrap();
+        assert_eq!(saved.items[0].saved.work_id, a.work_id);
+        assert_eq!(saved.items[0].presentation, None);
+        let history = service.presented_history(&listener, 1, None).await.unwrap();
+        assert_eq!(history.items[0].audio, a);
+        assert_eq!(
+            history.items[0].resume,
+            dto::ResumeStatus::AccessUnavailable
+        );
+        assert_eq!(history.items[0].presentation, None);
+    }
 }
 #[tokio::test]
 #[ignore = "requires xtask disposable PostgreSQL; no production issuer or physical-engine claim"]

@@ -63,6 +63,14 @@ their own decision/acceptance gates; none requires rebuilding the completed foun
 | [#221](https://github.com/loveoverflowcom/cantos/issues/221) → [#222](https://github.com/loveoverflowcom/cantos/issues/222) → [#223](https://github.com/loveoverflowcom/cantos/issues/223) | Complete shared preview admission before consumer migration in the combined PR. Retain existing presentation while the [Select](../evidence/web-select-221.md), [BackButton](../evidence/web-back-button-222.md) and [AuthTonal](../evidence/web-auth-tonal-223.md) candidates lack required design/accessibility/renderer acceptance; then inspect the actual preference, Back and signup flows. Keep component evidence separate |
 | [#175](https://github.com/loveoverflowcom/cantos/issues/175), [#176](https://github.com/loveoverflowcom/cantos/issues/176) | Decide interest-receipt/privacy and read-only plan publication separately; no inferred payment or entitlement implementation |
 
+For [#251](https://github.com/loveoverflowcom/cantos/issues/251), review the opt-in
+`presentation=1` [Library](../../packages/contracts/listener-library-v1.md#presentation-metadata-v110-explicit-opt-in)
+and [discovery](../../packages/contracts/theatre-discovery-v1.md#presentation-metadata-v110-explicit-opt-in)
+contracts before the separate CMP projection follow-up. Keep default strict v1 consumers on
+their unchanged representation; qualify release-pinned row names and current-public counts/ranks
+against the PostgreSQL boundary before client adoption. Authored episode labels and seasons stay
+with #177; a list rank supplies neither.
+
 For the action-icon and Forge UI track, review the shared registry, Button/submit adapters and
 existing previews in [#228](https://github.com/loveoverflowcom/cantos/issues/228) before the
 Studio Forge mock [#227](https://github.com/loveoverflowcom/cantos/issues/227), Theatre Web

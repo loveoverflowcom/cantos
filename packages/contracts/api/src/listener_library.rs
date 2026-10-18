@@ -163,6 +163,72 @@ pub struct HistoryPage {
     #[serde(deserialize_with = "required_nullable")]
     pub next_cursor: Option<String>,
 }
+/// Released public metadata, never the current editable Work head.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WorkPresentation {
+    pub work_id: String,
+    pub publication_id: String,
+    pub title: String,
+    pub kind: crate::theatre::WorkKind,
+    pub language: String,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct AudioPresentation {
+    pub work: WorkPresentation,
+    pub unit_id: String,
+    pub unit_title: String,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PresentedContinueItem {
+    pub progress: ProgressRecord,
+    pub resume: ResumeStatus,
+    #[serde(deserialize_with = "required_nullable")]
+    pub presentation: Option<AudioPresentation>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PresentedSavedItem {
+    pub saved: SavedRecord,
+    #[serde(deserialize_with = "required_nullable")]
+    pub presentation: Option<WorkPresentation>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PresentedHistoryItem {
+    pub audio: AudioIdentity,
+    pub started_at_ms: i64,
+    pub listener_order: u64,
+    #[serde(deserialize_with = "required_nullable")]
+    pub progress: Option<ProgressRecord>,
+    pub resume: ResumeStatus,
+    #[serde(deserialize_with = "required_nullable")]
+    pub presentation: Option<AudioPresentation>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PresentedContinuePage {
+    pub items: Vec<PresentedContinueItem>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PresentedSavedPage {
+    pub items: Vec<PresentedSavedItem>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PresentedHistoryPage {
+    pub state: HistoryState,
+    pub items: Vec<PresentedHistoryItem>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WriteOutcome {

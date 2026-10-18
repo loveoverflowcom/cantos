@@ -141,6 +141,38 @@ player UX issues (#154/#155) own player integration; none is implemented by this
 
 ## Errors and compatibility
 
+### Presentation metadata v1.1.0 (explicit opt-in)
+
+[#251](https://github.com/loveoverflowcom/cantos/issues/251) adds the closed query
+`presentation=1` to `GET /works`, `GET /search`, `GET /works/{work}` and
+`GET /works/{work}/units`. Omitting the query preserves every default v1 field and value;
+existing strict Rust and Kotlin readers reject unknown fields, so enriched responses use
+separate reviewed DTOs rather than adding fields to `WorkSummary` or `UnitSummary`.
+Any other presentation value is `invalid_request`. The capability is part of cursor identity:
+a cursor cannot switch between default and presentation responses.
+
+| Opt-in DTO | Added field | Meaning |
+| --- | --- | --- |
+| `PresentedWorkSummary` / `PresentedWorkPage` | `unit_count` | Positive number of currently eligible public units in the Work; drafts, withdrawn, expired and otherwise ineligible releases do not count |
+| `PresentedUnitSummary` / `PresentedUnitPage` | `ordinal` | Positive one-based rank among currently eligible units ordered by immutable first-published position, then unit UUID |
+
+Both integers are bounded by JSON's exact integer maximum `9,007,199,254,740,991`.
+`ordinal` is a display rank, never an identity, an authored episode number or a season number.
+Sparse/duplicate editorial positions still produce consecutive ranks. It is independent of the
+page boundary and applies across the whole currently eligible Work list. An eligible single-unit
+Work has `unit_count=1` and `ordinal=1`; no zero/unknown sentinel is emitted.
+
+Counts and ordinals describe eligibility at each request's evaluation time. They are not frozen
+for the lifetime of a cursor: publication, withdrawal or a rights-window expiry can change them
+between pages. Immutable anchors and existing keyset traversal remain authoritative; clients
+must not use count/rank as a cursor, completion check or playback authorization. Republish does
+not change the immutable public ordering anchor. Metadata uses released public revisions and
+actual audio language, with the same admission rules as default discovery.
+
+These are backend presentation contracts only. Existing clients continue using default v1;
+client decoding/adoption and runtime UI acceptance require separate work. Genres, credits,
+seasons and authored episode numbering remain with #177 and its decision gate below.
+
 `ListenerError` contains only `code` and `retryable`. Exact mapping:
 
 | Code | HTTP | Retryable |

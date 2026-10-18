@@ -15,7 +15,10 @@ use super::{
 use crate::{
     contexts::{
         catalog::{domain::WorkId, lock_listener_catalog},
-        media::{library_public_work, library_publications, ListenerError},
+        media::{
+            library_presentations, library_public_work, library_publications,
+            library_work_presentations, ListenerError,
+        },
     },
     platform::postgres::{Store, StoreError, Tx},
 };
@@ -30,6 +33,7 @@ impl LibraryService {
         Self {
             repository: Arc::new(PgLibrary(store)),
             cursors: Arc::new(CursorVault::default()),
+            presented_cursors: Arc::new(CursorVault::default()),
         }
     }
 }
@@ -603,7 +607,10 @@ impl LibraryRepository for PgLibrary {
                     kind,
                     limit,
                     anchor,
-                } => ReadResult::Page(page(&tx, &listener, kind, limit, anchor).await?),
+                    presentation,
+                } => {
+                    ReadResult::Page(page(&tx, &listener, kind, limit, anchor, presentation).await?)
+                }
             };
             tx.commit().await.map_err(database)?;
             Ok(result)
@@ -616,6 +623,7 @@ async fn page(
     kind: PageKind,
     limit: usize,
     anchor: Option<PageAnchor>,
+    presentation: bool,
 ) -> Result<PageSnapshot, LibraryError> {
     let (order, history) = account(tx, listener, false).await?;
     if anchor
@@ -660,15 +668,35 @@ async fn page(
         None
     };
     let data = match kind {
-        PageKind::Saved => PageData::Saved(
-            rows.iter()
-                .map(|r| {
-                    saved(r, listener).map(|v| dto::SavedItem {
-                        saved: v.raw().clone(),
+        PageKind::Saved => {
+            let records = rows
+                .iter()
+                .map(|r| saved(r, listener))
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut metadata: BTreeMap<_, _> = if presentation {
+                let works = records
+                    .iter()
+                    .map(|r| r.raw().work_id.clone())
+                    .collect::<Vec<_>>();
+                library_work_presentations(tx, &works, clock(tx).await?)
+                    .await
+                    .map_err(media)?
+                    .into_iter()
+                    .map(|m| (m.work_id.clone(), m))
+                    .collect()
+            } else {
+                BTreeMap::new()
+            };
+            PageData::Saved(
+                records
+                    .into_iter()
+                    .map(|r| dto::PresentedSavedItem {
+                        presentation: metadata.remove(&r.raw().work_id),
+                        saved: r.raw().clone(),
                     })
-                })
-                .collect::<Result<_, _>>()?,
-        ),
+                    .collect(),
+            )
+        }
         PageKind::Continue => {
             let records = rows
                 .iter()
@@ -683,22 +711,25 @@ async fn page(
                 .iter()
                 .map(|r| AudioIdentity::new(&r.raw().audio).map_err(|_| LibraryError::Corrupt))
                 .collect::<Result<Vec<_>, _>>()?;
-            let current = current_audio(tx, &identities).await?;
+            let (current, metadata) = current_audio(tx, &identities, presentation).await?;
             PageData::Continue(
                 records
                     .into_iter()
                     .zip(identities)
-                    .map(|(r, a)| dto::ContinueItem {
-                        resume: resume_status(
-                            &a,
-                            current
-                                .get(a.unit().as_str())
-                                .filter(|v| v.publication() == a.publication()),
-                            current.get(a.unit().as_str()),
-                        ),
-                        progress: r.raw().clone(),
+                    .map(|(r, a)| {
+                        Ok(dto::PresentedContinueItem {
+                            presentation: exact_presentation(&a, &current, &metadata)?,
+                            resume: resume_status(
+                                &a,
+                                current
+                                    .get(a.unit().as_str())
+                                    .filter(|v| v.publication() == a.publication()),
+                                current.get(a.unit().as_str()),
+                            ),
+                            progress: r.raw().clone(),
+                        })
                     })
-                    .collect(),
+                    .collect::<Result<_, LibraryError>>()?,
             )
         }
         PageKind::History => {
@@ -723,12 +754,13 @@ async fn page(
                 if order == 0 {
                     return Err(LibraryError::Corrupt);
                 }
-                items.push(dto::HistoryItem {
+                items.push(dto::PresentedHistoryItem {
                     audio: raw,
                     started_at_ms: started_at,
                     listener_order: order,
                     progress: None,
                     resume: dto::ResumeStatus::AccessUnavailable,
+                    presentation: None,
                 });
                 identities.push(a);
             }
@@ -744,7 +776,7 @@ async fn page(
                         .map(|v| (v.raw().audio.publication_id.clone(), v.raw().clone()))
                 })
                 .collect::<Result<BTreeMap<_, _>, _>>()?;
-            let current = current_audio(tx, &identities).await?;
+            let (current, metadata) = current_audio(tx, &identities, presentation).await?;
             for (item, a) in items.iter_mut().zip(identities) {
                 item.progress = progress.get(a.publication().as_str()).cloned();
                 if item
@@ -761,6 +793,7 @@ async fn page(
                         .filter(|v| v.publication() == a.publication()),
                     current.get(a.unit().as_str()),
                 );
+                item.presentation = exact_presentation(&a, &current, &metadata)?;
             }
             PageData::History {
                 state: history.raw(),
@@ -773,19 +806,129 @@ async fn page(
 async fn current_audio(
     tx: &Tx<'_>,
     identities: &[AudioIdentity],
-) -> Result<BTreeMap<String, AudioIdentity>, LibraryError> {
+    presentation: bool,
+) -> Result<
+    (
+        BTreeMap<String, AudioIdentity>,
+        BTreeMap<String, dto::AudioPresentation>,
+    ),
+    LibraryError,
+> {
     let units = identities
         .iter()
         .map(|a| a.unit().as_str().to_owned())
         .collect::<Vec<_>>();
-    let manifests = library_publications(tx, &units, clock(tx).await?)
-        .await
-        .map_err(media)?;
-    manifests
+    let (manifests, metadata) = if presentation {
+        library_presentations(tx, &units, clock(tx).await?)
+            .await
+            .map_err(media)?
+            .into_iter()
+            .unzip::<_, _, Vec<_>, Vec<_>>()
+    } else {
+        (
+            library_publications(tx, &units, clock(tx).await?)
+                .await
+                .map_err(media)?,
+            Vec::new(),
+        )
+    };
+    let current = manifests
         .iter()
         .map(|m| audio(m).map(|a| (a.unit().as_str().to_owned(), a)))
-        .collect()
+        .collect::<Result<_, _>>()?;
+    let metadata = metadata
+        .into_iter()
+        .map(|m| (m.unit_id.clone(), m))
+        .collect();
+    Ok((current, metadata))
+}
+
+/// An account record keeps its exact audio. Replacement metadata cannot label that audio.
+fn exact_presentation(
+    identity: &AudioIdentity,
+    current: &BTreeMap<String, AudioIdentity>,
+    metadata: &BTreeMap<String, dto::AudioPresentation>,
+) -> Result<Option<dto::AudioPresentation>, LibraryError> {
+    if current.get(identity.unit().as_str()) != Some(identity) {
+        return Ok(None);
+    }
+    let Some(metadata) = metadata.get(identity.unit().as_str()) else {
+        return Ok(None);
+    };
+    if metadata.work.work_id != identity.work().as_str()
+        || metadata.work.publication_id != identity.publication().as_str()
+        || metadata.unit_id != identity.unit().as_str()
+    {
+        return Err(LibraryError::Corrupt);
+    }
+    Ok(Some(metadata.clone()))
 }
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod presentation_tests {
+    use super::*;
+    fn identity() -> AudioIdentity {
+        AudioIdentity::new(&dto::AudioIdentity {
+            work_id: "00000000-0000-4000-8000-000000000001".into(),
+            unit_id: "00000000-0000-4000-8000-000000000002".into(),
+            publication_id: "00000000-0000-4000-8000-000000000003".into(),
+            rendition_id: "00000000-0000-4000-8000-000000000004".into(),
+            sha256: "a".repeat(64),
+            duration_ms: 60000,
+        })
+        .unwrap()
+    }
+    #[test]
+    fn presentation_requires_the_entire_exact_audio_identity_and_matching_release() {
+        let a = identity();
+        let metadata = dto::AudioPresentation {
+            work: dto::WorkPresentation {
+                work_id: a.work().as_str().into(),
+                publication_id: a.publication().as_str().into(),
+                title: "Ánh đèn cuối sân khấu".into(),
+                kind: cantos_contracts::theatre::WorkKind::Story,
+                language: "vi-VN".into(),
+            },
+            unit_id: a.unit().as_str().into(),
+            unit_title: "Một lời hẹn".into(),
+        };
+        let current = BTreeMap::from([(a.unit().as_str().into(), a.clone())]);
+        let mut presentations = BTreeMap::from([(a.unit().as_str().into(), metadata.clone())]);
+        assert_eq!(
+            exact_presentation(&a, &current, &presentations),
+            Ok(Some(metadata.clone()))
+        );
+        assert_eq!(
+            exact_presentation(&a, &BTreeMap::new(), &presentations),
+            Ok(None)
+        );
+        let mut changed = a.raw();
+        changed.rendition_id = "00000000-0000-4000-8000-000000000005".into();
+        let replacement = BTreeMap::from([(
+            a.unit().as_str().into(),
+            AudioIdentity::new(&changed).unwrap(),
+        )]);
+        assert_eq!(
+            exact_presentation(&a, &replacement, &presentations),
+            Ok(None)
+        );
+        for field in ["work", "unit", "publication"] {
+            let mut invalid = metadata.clone();
+            let foreign = "00000000-0000-4000-8000-000000000006".into();
+            match field {
+                "work" => invalid.work.work_id = foreign,
+                "unit" => invalid.unit_id = foreign,
+                "publication" => invalid.work.publication_id = foreign,
+                _ => unreachable!(),
+            }
+            presentations.insert(a.unit().as_str().into(), invalid);
+            assert_eq!(
+                exact_presentation(&a, &current, &presentations),
+                Err(LibraryError::Corrupt)
+            );
+        }
+    }
+}

@@ -122,6 +122,12 @@ fn write_response(result: Result<dto::Receipt, LibraryError>) -> Response {
 struct PageQuery {
     limit: Option<u16>,
     cursor: Option<String>,
+    presentation: Option<Presentation>,
+}
+#[derive(Deserialize)]
+enum Presentation {
+    #[serde(rename = "1")]
+    V1,
 }
 type PageInput = Result<Query<PageQuery>, axum::extract::rejection::QueryRejection>;
 type RawJson<T> = Result<Json<T>, axum::extract::rejection::JsonRejection>;
@@ -139,6 +145,15 @@ async fn continue_listening(
     let Ok(Query(q)) = query else {
         return error(LibraryError::InvalidRequest);
     };
+    if q.presentation.is_some() {
+        return match service
+            .presented_continue_listening(&p, q.limit.unwrap_or(20), q.cursor.as_deref())
+            .await
+        {
+            Ok(v) => Json(v).into_response(),
+            Err(e) => error(e),
+        };
+    }
     match service
         .continue_listening(&p, q.limit.unwrap_or(20), q.cursor.as_deref())
         .await
@@ -161,6 +176,15 @@ async fn saved_works(
     let Ok(Query(q)) = query else {
         return error(LibraryError::InvalidRequest);
     };
+    if q.presentation.is_some() {
+        return match service
+            .presented_saved_works(&p, q.limit.unwrap_or(20), q.cursor.as_deref())
+            .await
+        {
+            Ok(v) => Json(v).into_response(),
+            Err(e) => error(e),
+        };
+    }
     match service
         .saved_works(&p, q.limit.unwrap_or(20), q.cursor.as_deref())
         .await
@@ -183,6 +207,15 @@ async fn history(
     let Ok(Query(q)) = query else {
         return error(LibraryError::InvalidRequest);
     };
+    if q.presentation.is_some() {
+        return match service
+            .presented_history(&p, q.limit.unwrap_or(20), q.cursor.as_deref())
+            .await
+        {
+            Ok(v) => Json(v).into_response(),
+            Err(e) => error(e),
+        };
+    }
     match service
         .history(&p, q.limit.unwrap_or(20), q.cursor.as_deref())
         .await
@@ -331,6 +364,27 @@ pub(super) fn bearer_mutation(method: &axum::http::Method, path: &str) -> bool {
 mod tests {
     use super::*;
     use http_body_util::BodyExt;
+    #[test]
+    fn library_presentation_query_requires_the_exact_supported_opt_in() {
+        use axum::http::Uri;
+        let q = Query::<PageQuery>::try_from_uri(&Uri::from_static("/?presentation=1&limit=1"));
+        assert!(q.unwrap().presentation.is_some());
+        assert!(
+            Query::<PageQuery>::try_from_uri(&Uri::from_static("/?limit=1"))
+                .unwrap()
+                .presentation
+                .is_none()
+        );
+        for raw in [
+            "/?presentation=0",
+            "/?presentation=true",
+            "/?presentation=2",
+            "/?presentation=",
+            "/?private=true",
+        ] {
+            assert!(Query::<PageQuery>::try_from_uri(&raw.parse::<Uri>().unwrap()).is_err());
+        }
+    }
     #[tokio::test]
     async fn error_projection_is_total_and_never_leaks_private_or_sql_fields() {
         for (e, status, code, retryable) in [
