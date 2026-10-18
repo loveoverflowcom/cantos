@@ -10,6 +10,7 @@ use crate::platform::postgres::Store;
 
 pub struct TheatreIdentity {
     config: OidcConfig,
+    bearer: crate::platform::bearer::BearerIdentity,
     provider: Provider,
     admission_slots: tokio::sync::Semaphore,
 }
@@ -33,6 +34,9 @@ pub enum GuardedLogout {
 }
 
 impl TheatreIdentity {
+    pub(crate) fn bearer(&self) -> &crate::platform::bearer::BearerIdentity {
+        &self.bearer
+    }
     pub fn new(issuer: &str, web_origin: &str, secret: String) -> Result<Self, AuthError> {
         Self::with_trust(issuer, web_origin, secret, None)
     }
@@ -62,6 +66,10 @@ impl TheatreIdentity {
             config = config.with_trust(trust)?;
         }
         Ok(Self {
+            bearer: crate::platform::bearer::BearerIdentity::new(
+                config.clone(),
+                crate::platform::bearer::core::Client::TheatreWeb,
+            )?,
             provider: Provider::new(config.clone())?,
             // At most3 leases in the existing8-connection pool leaves capacity for dispatch.
             admission_slots: tokio::sync::Semaphore::new(3),

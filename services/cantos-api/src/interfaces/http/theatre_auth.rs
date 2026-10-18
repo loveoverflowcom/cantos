@@ -451,6 +451,15 @@ pub(super) async fn bff_identity(
         || path.starts_with("/progress/")
         || path.starts_with("/operations/")
         || path == "/session";
+    if account
+        && request
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.starts_with("Bearer ca1_"))
+    {
+        return super::bearer::theatre(state, request, next).await;
+    }
     if !account
         || (path == "/session" && request.method() == axum::http::Method::DELETE)
         || (state.store.theatre_identity().is_none() && state.store.theatre_native().is_none())
@@ -564,7 +573,7 @@ pub(super) async fn bff_identity(
 
 /// The client declares which nonsecret session owns its intent. The header grants no authority;
 /// it rejects a cookie/bearer account switch after dispatch, before any resource mutation.
-fn session_fence_refusal(headers: &HeaderMap, actual: &str) -> Option<Response> {
+pub(super) fn session_fence_refusal(headers: &HeaderMap, actual: &str) -> Option<Response> {
     let mut values = headers.get_all("x-cantos-theatre-session").iter();
     let value = values.next()?;
     if values.next().is_some() || value.to_str().ok() != Some(actual) {
@@ -576,7 +585,7 @@ fn session_fence_refusal(headers: &HeaderMap, actual: &str) -> Option<Response> 
         None
     }
 }
-fn stamp_session(mut response: Response, session: &str) -> Response {
+pub(super) fn stamp_session(mut response: Response, session: &str) -> Response {
     if let Ok(value) = HeaderValue::from_str(session) {
         response
             .headers_mut()

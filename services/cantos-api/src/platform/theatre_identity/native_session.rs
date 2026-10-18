@@ -16,14 +16,22 @@ use cantos_contracts::theatre_identity::{
 
 pub struct NativeIdentity {
     config: OidcConfig,
+    bearer: crate::platform::bearer::BearerIdentity,
     provider: Provider,
     admission_slots: tokio::sync::Semaphore,
 }
 impl NativeIdentity {
+    pub(crate) fn bearer(&self) -> &crate::platform::bearer::BearerIdentity {
+        &self.bearer
+    }
     /// Explicit development composition only. No secret, dynamic client, redirect or issuer.
     pub fn new(issuer: &str) -> Result<Self, AuthError> {
         let config = OidcConfig::theatre_native(issuer)?;
         Ok(Self {
+            bearer: crate::platform::bearer::BearerIdentity::new(
+                config.clone(),
+                crate::platform::bearer::core::Client::TheatreNative,
+            )?,
             provider: Provider::new(config.clone())?,
             config,
             admission_slots: tokio::sync::Semaphore::new(3),

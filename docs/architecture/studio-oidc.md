@@ -1,5 +1,12 @@
 # Studio OIDC credential and session boundary
 
+> **#253 Bearer amendment (2026-10-18):** the target API credential is a Cantos-issued opaque
+> Bearer with rotating refresh. The [Bearer v1 contract](../../packages/contracts/bearer-v1.md) owns new routes/lifecycle,
+> JSON-only identity wire, fresh-auth evidence, RAM/F5 and compatibility cutover. Cookie-only
+> statements below describe the retained **legacy compatibility** flow until the Web migration;
+> they no longer impose a same-site domain or cookie prerequisite on the target architecture.
+> Client migration and real gateway/issuer/browser/native acceptance remain separate.
+
 Implemented as an opt-in integration, with signed mocked-provider and local PostgreSQL evidence
 recorded [separately](../evidence/studio-oidc.md). `cantos-server` now has a validated
 `CANTOS_ENV=production` host mode ([ADR 0039](../decisions/0039-vps-production-runtime.md)): an

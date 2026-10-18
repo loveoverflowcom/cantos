@@ -837,7 +837,7 @@ async fn baseline_replay_preserves_checksums_and_smtp_registration_rows() {
         .into_iter()
         .map(|row| (row.get(0), row.get(1)))
         .collect();
-    assert_eq!(before.len(), 1);
+    assert_eq!(before.len(), 2);
     h.admin.batch_execute(
         "INSERT INTO actors(id) VALUES('firebase-legacy-fixture');
          INSERT INTO theatre_registrations(namespace,id,email,email_key,token_hash,expires_at,last_sent_at,phase)

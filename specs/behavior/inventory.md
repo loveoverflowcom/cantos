@@ -102,3 +102,22 @@ establishes a real adapter's cross-process fencing or provider behavior.
 | Implemented independently: default-disabled Firebase (#206) | [ADR0036](../../docs/decisions/0036-firebase-enrollment-proof.md#decision) accepts the code/test direction with one-shot setup continuation. The existing registration owner now includes the [Firebase application](../../services/cantos-api/src/platform/theatre_registration/firebase_enrollment/application.rs), [SQL fences](../../services/cantos-api/src/platform/theatre_registration/firebase_enrollment/postgres.rs) and [current schema](../../services/cantos-api/schema/0001_current.sql); [runtime evidence](../../docs/evidence/firebase-enrollment-runtime.md) separates local checks from unaccepted live activation. | This draft model does not represent the complete Firebase phase machine, dedicated UID/action binding or RAM-only handoff. Native tests own those implemented boundaries; there is no registered registration observer or Firebase runtime-conformance claim. The model's setup-mail phase does not establish Firebase setup delivery. |
 | Abstract provider-status expectation | Historical provider status, including Firebase `emailVerified=true`, is not possession of the actual email action proof and grants no claim, provisioning, setup or session authority. | `observeProviderStatus` preserves the entire registration state before and after abstract proof consumption, completion or blocking. This expectation originated in the test-only prototype and remains narrower than the independently implemented runtime; simulation accepts no provider adapter or proof handoff. |
 | Finite assumptions | One operation; four distinct proof epochs; expiry is an input fact; exact positive person acknowledgement and committed SQL fences are abstract facts. Rejected and uncertain effects both enter the non-retryable blocked class. | Native tests own parsing, quotas, race/clock/SQL semantics, transport, actual mailbox and issuer acknowledgement shape. No model action creates an account, sends mail, establishes credential completion or proves effective least privilege. |
+
+## Cantos Bearer lifecycle (#253)
+
+`cantos.identity.bearer-lifecycle` is a **draft** finite expectation for one family, generations
+0–3, active/expired authority and one immutable authentication timestamp. Approved direction:
+owner-selected rotation, bounded authority and logout; concrete policy is in
+[Bearer v1](../../packages/contracts/bearer-v1.md). Native production mappings:
+
+| Stable run | Executable production-code oracle |
+| --- | --- |
+| `run.refresh` | `core::tests::access_is_short_and_refresh_never_exceeds_initial_authority`; `all_surfaces_issue_rotate_revoke_with_exact_scope_and_stable_session` |
+| `run.replay` | `core::tests::replay_revokes_and_logout_expiry_cannot_be_renewed`; `lost_response_and_simultaneous_refresh_revoke_every_generation` |
+| `run.logout` | `all_surfaces_issue_rotate_revoke_with_exact_scope_and_stable_session`; `cancelled_or_lost_exchange_cannot_restore_and_does_not_cancel_another_account` |
+| `run.expiry` | `expiry_disable_wrong_binding_provider_outage_and_recent_auth_fail_closed` |
+
+The catalog owns named runs, witnesses and one sensitive negative control per property.
+These native tests call real core/SQL/API code independently; this capability has **no registered
+trace-observer conformance adapter**. Model execution is sampled model evidence only, not proof
+of SQL isolation, account-switch controllers, refresh single-flight or secure-storage behavior.

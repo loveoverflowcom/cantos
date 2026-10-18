@@ -51,6 +51,7 @@ impl BrowserInventory {
 
 pub struct StudioOidc {
     config: OidcConfig,
+    bearer: crate::platform::bearer::BearerIdentity,
     provider: Provider,
     administrators: Option<administrators::StudioAdministrators>,
 }
@@ -71,11 +72,18 @@ pub struct LogoutComplete {
 }
 
 impl StudioOidc {
+    pub(crate) fn bearer(&self) -> &crate::platform::bearer::BearerIdentity {
+        &self.bearer
+    }
     pub fn new(config: OidcConfig) -> Result<Self, AuthError> {
         if config.client_id != CLIENT_ID {
             return Err(AuthError::Configuration);
         }
         Ok(Self {
+            bearer: crate::platform::bearer::BearerIdentity::new(
+                config.clone(),
+                crate::platform::bearer::core::Client::Studio,
+            )?,
             provider: Provider::new(config.clone())?,
             config,
             administrators: None,
@@ -92,6 +100,14 @@ impl StudioOidc {
         Ok(self)
     }
 
+    pub(crate) fn authorize_bearer_subject(&self, subject: &str) -> Result<(), AuthError> {
+        let key = crate::platform::identity::domain::ExternalIdentityKey::new(
+            &self.config.issuer,
+            subject,
+        )
+        .map_err(|_| AuthError::Subject)?;
+        self.administrators()?.authorize(&key)
+    }
     fn administrators(&self) -> Result<&administrators::StudioAdministrators, AuthError> {
         self.administrators.as_ref().ok_or(AuthError::Configuration)
     }

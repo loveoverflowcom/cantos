@@ -162,6 +162,7 @@ def registration_postgres_tests(env, evidence):
 def schema_sql_targets(include_current=False):
     targets = [
         ("schema_postgres", "schema-postgres-tests", ()),
+        ("bearer_postgres", "bearer-postgres-tests", ()),
         ("production_grants_postgres", "production-grants-postgres-tests", ()),
     ]
     if include_current:

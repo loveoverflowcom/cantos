@@ -3,7 +3,9 @@
 `0001_current.sql` is the canonical **epoch 2, version 1** fresh-install DDL. It materializes
 current constraints/functions/triggers/indexes without replaying retired provider migrations.
 The metadata registries are created by `platform/postgres/migrations.rs` in the same transaction.
-There is no historical upgrade chain in the executable or a parallel SQL bootstrap command.
+`0002_bearer.sql` is the additive epoch-2 version 2 expansion. The migrator validates every
+applied checksum and applies only the exact missing suffix, atomically. There is no executable
+epoch-1 upgrade chain or parallel SQL bootstrap command. Runtime verification requires both versions.
 Use `cantos-migrate` through the owning deployment/test commands; server startup is read-only.
 
 An applied version's SHA-256 is immutable within its epoch. Future changes need a separately

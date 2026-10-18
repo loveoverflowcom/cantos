@@ -104,6 +104,9 @@ pub struct Data {
     pub last_id_token: Mutex<Option<String>>,
     pub introspection_calls: AtomicUsize,
     pub introspection_fail: AtomicBool,
+    pub introspection_pause: AtomicBool,
+    pub introspection_started: tokio::sync::Notify,
+    pub introspection_release: tokio::sync::Notify,
     pub revoke_calls: AtomicUsize,
     pub expected_secret: Mutex<String>,
     pub token_pauses: Mutex<HashMap<String, Arc<TokenPause>>>,
@@ -141,6 +144,9 @@ impl MockProvider {
             last_id_token: Mutex::new(None),
             introspection_calls: AtomicUsize::new(0),
             introspection_fail: AtomicBool::new(false),
+            introspection_pause: AtomicBool::new(false),
+            introspection_started: tokio::sync::Notify::new(),
+            introspection_release: tokio::sync::Notify::new(),
             revoke_calls: AtomicUsize::new(0),
             expected_secret: Mutex::new("fixture".into()),
             token_pauses: Mutex::new(HashMap::new()),
@@ -401,6 +407,10 @@ async fn introspect(
     Form(form): Form<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     data.introspection_calls.fetch_add(1, Ordering::SeqCst);
+    if data.introspection_pause.swap(false, Ordering::SeqCst) {
+        data.introspection_started.notify_one();
+        data.introspection_release.notified().await;
+    }
     if data.introspection_fail.load(Ordering::SeqCst) {
         return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({})));
     }

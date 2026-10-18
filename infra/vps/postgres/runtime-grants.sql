@@ -91,3 +91,11 @@ GRANT UPDATE (position_ms, completion, revision, listener_order, accepted_at, sn
 GRANT UPDATE (publication_id, unit_id, listener_order, started_at, snapshot, snapshot_digest),
     DELETE ON listener_history TO cantos_app;
 GRANT UPDATE (sequence) ON listener_device_sequences TO cantos_app;
+
+-- Cantos-issued surface-scoped Bearer families. No direct registry write privilege.
+GRANT SELECT, INSERT ON bearer_flows, bearer_families, bearer_tokens TO cantos_app;
+GRANT UPDATE (consumed, cancelled, completed, handoff_hash, subject, proof_hash, provider_access,
+    authority_expires, authenticated_at, verifier, nonce) ON bearer_flows TO cantos_app;
+GRANT UPDATE (revoked, revocation_pending, idle_expires) ON bearer_families TO cantos_app;
+GRANT UPDATE (used) ON bearer_tokens TO cantos_app;
+GRANT EXECUTE ON FUNCTION bearer_register(uuid,text,text,text) TO cantos_app;

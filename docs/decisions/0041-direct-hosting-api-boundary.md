@@ -1,8 +1,8 @@
 # ADR 0041: Direct Firebase Hosting and the Cantos API browser boundary
 
 - Status: accepted owner direction; API addressing/CORS/callback support implemented in this slice;
-  domain selection, minimal identity gateway and production acceptance remain pending
-- Date: 2026-10-17
+  Bearer API foundation implemented; client migration, minimal identity gateway and production acceptance remain pending
+- Date: 2026-10-17; Bearer amendment accepted by the owner on 2026-10-18 (#253)
 - Decision owner: Cantos product owner (production-audit request and API-mediated Web clarification)
 - Related: [0034](0034-theatre-signup-and-provisioned-studio.md),
   [0036](0036-firebase-enrollment-proof.md), [0040](0040-firebase-email-proof-alternatives.md)
@@ -30,9 +30,11 @@ Both Web clients resolve only their own `/api/v1/theatre/*` or `/api/v1/studio/*
 an explicit, nonsecret build input `CANTOS_API_ORIGIN`; absence preserves the local Trunk proxy.
 An invalid origin or cross-surface path fails closed. The implementation reuses locked `url`
 2.5.8 to refuse silently normalized origins, userinfo, paths, queries and fragments. Fetch/XHR and
-login navigation go to Cantos API, never to a client-configured identity provider. Anonymous and
-producer-bearer requests omit cookies; owner/session requests retain their fences and use Fetch
-`credentials: include`. This changes no authorization rule or token-storage policy.
+login navigation go to Cantos API, never to a client-configured identity provider. All target protected client requests use `Authorization: Bearer` with cookies omitted and
+retain account/session fences. [Bearer v1](../../packages/contracts/bearer-v1.md) owns the
+Cantos-issued opaque credentials, bounded rotation/revoke and staged compatibility contract.
+Provider artifacts stay in the API. Legacy cookie clients remain temporarily supported until
+the Web/CMP migration in #253; mixed credentials are refused.
 
 Each API process may opt into `CANTOS_BROWSER_API_SURFACE=theatre|studio`, with its one exact
 `CANTOS_WEB_ORIGIN` as the CORS allowlist. Preflight accepts only the declared surface, methods and
@@ -43,24 +45,31 @@ routes Studio paths to the Studio process and Theatre paths to the Theatre proce
 
 For split-origin OIDC, the API runtime's explicit `CANTOS_API_ORIGIN` pins the callback on the API
 host; completion returns only to the fixed configured Web origin. It never reflects a caller's
-return URL. Confidential clients, exact issuer/audience, state, nonce, PKCE S256, consumed-flow
-fences, roster checks, introspection and session expiry remain authoritative. The existing
-cross-site login refusal and host-only HttpOnly/Secure cookies remain: sessions use SameSite=Strict,
-flow cookies Lax; flow lifetime is 300 seconds, session lifetime at most 900 seconds/provider expiry.
-There is no Domain cookie, browser-held provider token or localStorage credential.
+return URL. Confidential clients, exact issuer/audience, state, nonce, PKCE S256, consumed-flow fences, roster checks,
+introspection and original proof/provider authority remain authoritative. The new Web flow uses
+independent client/provider PKCE legs; its API callback returns only a one-use handoff code to the
+fixed Web origin. Exchange returns access/refresh via no-store JSON, never URLs. Native retains
+its distinct public OIDC client and exact system-browser redirect.
 
-### Cookie and domain gate
+### Owner-selected Bearer transport and reload policy (#253)
 
-`*.web.app` and the DuckDNS API are cross-site. CORS and `credentials: include` cannot override
-SameSite=Strict or browser third-party-cookie policy. This slice therefore does **not** establish
-login/session persistence on those hostnames. Do not change cookies to None, remove CSRF checks,
-or move credentials into localStorage to make the audit pass.
+The owner selected Cantos-issued opaque Bearer for Theatre Web/CMP and Studio Web on 2026-10-18.
+**A same-site custom domain and third-party session cookie are no longer prerequisites for
+client API authentication.** Firebase Hosting and API may be cross-site. Exact per-surface CORS,
+restricted interactive identity ingress and browser acceptance remain required; CORS itself
+never authenticates. Existing custom domains remain valid optional addressing decisions.
 
-The proposed stable solution is operator-owned DNS: separate Firebase custom domains for Cantos
-and Cantos Studio, and a browser API alias under the **same registrable domain**, with an exact
-allowlist per surface. The DuckDNS API may remain for native/producer compatibility. No owned
-domain or alias has been selected, created or verified here. Firebase's domain/TLS setup and a
-reviewed issuer/callback migration are prerequisites to activation, not implied by this ADR.
+Web access and optional refresh credentials live only in RAM. In-tab refresh single-flights;
+F5/new tab loses RAM and performs controlled top-level authorization/SSO or login. Temporary
+PKCE/state with TTL/consume-once may survive navigation, never access/refresh credentials.
+Native uses its secure storage/cleanup barriers. Refresh rotation, reuse-family revocation,
+unknown-response reauthorization and actual signed recent-authentication proof are specified
+in Bearer v1. This initial implementation never extends the original provider/proof lifetime.
+
+The API foundation is implemented; Web/CMP migration, removal of legacy cookie compatibility
+and real restrictive-browser/issuer/device acceptance remain unfinished. Legacy cookies retain
+Strict/Lax, Secure/HttpOnly and their CSRF rules during that explicit staging window. Relaxing
+cookies or persisting Web tokens in localStorage is not part of this decision.
 
 ### Minimal public identity gateway (design pending; not implemented)
 
@@ -88,7 +97,8 @@ operator deployment authority. No security or identity configuration is deployed
 | --- | --- |
 | Continue the Web → VPS → Firebase proxy | Existing compatibility path; superseded as the target by the owner's direct-Hosting direction |
 | Direct web.app → DuckDNS with relaxed cookies | Public anonymous reads can use CORS; reliable authenticated sessions are not accepted under third-party-cookie restrictions |
-| Same-site custom domains and exact CORS | Recommended next domain decision; requires operator-owned DNS and full browser/issuer qualification |
+| Cantos opaque Bearer and exact CORS | Owner-selected target; cross-site Hosting/API supported by design, client/issuer/browser acceptance pending |
+| Same-site custom domains | Optional stable naming/topology; no longer an authentication prerequisite |
 | Firebase Functions/Cloud Run proxy | Adds another runtime/cost/credential boundary; not selected or provisioned |
 
 ## Validation and revisit conditions
@@ -97,8 +107,8 @@ Verify URL refusal partitions and CORS allow/deny boundaries locally, then inspe
 requests after explicitly authorized deployment. Accept auth only with real callback, reload,
 logout/revocation, roster refusal and Theatre-to-Studio denial, including restrictive cookie
 settings. Registration stays disabled under its independent ADR 0036/0040 gates. Native production
-acceptance remains separate. Revisit this decision if no same-site browser domain can be supplied;
-that requires an explicit alternative identity/session design, not a CORS workaround.
+acceptance remains separate. The Bearer amendment supersedes the original cookie/same-site gate;
+no domain purchase or cookie workaround is required to implement it.
 
 Primary references: [Firebase custom domains](https://firebase.google.com/docs/hosting/custom-domain),
 [Hosting rewrite targets](https://firebase.google.com/docs/hosting/full-config),

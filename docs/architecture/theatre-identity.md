@@ -1,5 +1,12 @@
 # Theatre identity and account isolation
 
+> **#253 Bearer amendment (2026-10-18):** the target API credential is a Cantos-issued opaque
+> Bearer with rotating refresh. The [Bearer v1 contract](../../packages/contracts/bearer-v1.md) owns new routes/lifecycle,
+> JSON-only identity wire, fresh-auth evidence, RAM/F5 and compatibility cutover. Cookie-only
+> statements below describe the retained **legacy compatibility** flow until the Web migration;
+> they no longer impose a same-site domain or cookie prerequisite on the target architecture.
+> Client migration and real gateway/issuer/browser/native acceptance remain separate.
+
 Implemented PR3 boundary for #12/#35; issue #34 has no accepted guest-import policy.
 Public Discovery/Playback stays guest where its existing policy permits. Persistent Saved,
 History and Continue/Progress requires a verified account. The identity boundary introduces no

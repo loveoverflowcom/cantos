@@ -22,6 +22,15 @@ Read the [Theatre architecture](../architecture/theatre-identity.md),
 [Kanidm runbook](../../services/kanidm/README.md#theatre-registration-activation-runbook--approval-required-before-execution)
 before changing that boundary. Do not rebuild auth from the mock screen or treat a build as login.
 
+## #253 migration dependency
+
+[Bearer v1](../../packages/contracts/bearer-v1.md) owns the API foundation and exact client handoff.
+Implement sequentially API/contracts → Leptos Web (including private resources) → CMP lifecycle.
+The owner selected cross-site opaque Bearer, RAM-only Web credentials and controlled reload/SSO;
+the old cookie/same-site activation prerequisite is superseded. Browser/native/live issuer and
+restricted gateway acceptance remain explicit, and enrollment keeps its independent gates.
+Do not close #253 or infer cross-client account linking from a merged API foundation.
+
 ## Recommended next order
 
 1. Verify exact nonsecret Web/native configuration and capability/error mapping using existing

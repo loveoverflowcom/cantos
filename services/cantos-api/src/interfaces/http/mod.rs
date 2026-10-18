@@ -29,6 +29,7 @@ pub(crate) mod audio_transport;
 mod cookies;
 mod cors;
 pub use cors::with_browser_cors;
+mod bearer;
 mod studio;
 mod theatre;
 mod theatre_auth;
@@ -197,6 +198,12 @@ fn router_with_identity_and_artwork(
                 .merge(theatre_native_auth::routes(
                     state.store.theatre_native().is_some(),
                 ))
+                .merge(bearer::routes(
+                    crate::platform::bearer::core::Client::TheatreWeb,
+                ))
+                .merge(bearer::routes(
+                    crate::platform::bearer::core::Client::TheatreNative,
+                ))
                 .merge(theatre_library::routes())
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
@@ -239,10 +246,19 @@ async fn not_found() -> Response {
 }
 
 fn cookie_token(headers: &HeaderMap, store: &Store) -> Result<String, StoreError> {
+    if headers.contains_key(header::AUTHORIZATION) {
+        return bearer::access(headers)
+            .map(str::to_owned)
+            .map_err(|_| StoreError::Unauthenticated);
+    }
     let name = store
         .studio_oidc()
         .map_or("cantos_session", |oidc| oidc.session_name());
-    cookie_token_for_name(headers, name)
+    let token = cookie_token_for_name(headers, name)?;
+    if token.starts_with("ca1_") {
+        return Err(StoreError::Unauthenticated);
+    }
+    Ok(token)
 }
 
 fn cookie_token_for_name(headers: &HeaderMap, expected: &str) -> Result<String, StoreError> {
@@ -261,6 +277,9 @@ fn cookie_token_for_name(headers: &HeaderMap, expected: &str) -> Result<String, 
 }
 
 async fn authenticated(State(state): State<AppState>, request: Request, next: Next) -> Response {
+    if request.headers().contains_key(header::AUTHORIZATION) {
+        return bearer_studio(state, request, next).await;
+    }
     let token = match cookie_token(request.headers(), &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
@@ -272,28 +291,78 @@ async fn authenticated(State(state): State<AppState>, request: Request, next: Ne
         Ok(id) => id,
         Err(error) => return error_response(error),
     };
-    let mut query_fences = url::form_urlencoded::parse(
-        request
-            .uri()
-            .path_and_query()
-            .and_then(axum::http::uri::PathAndQuery::query)
-            .unwrap_or("")
-            .as_bytes(),
-    )
-    .filter(|(name, _)| name == "studio_session_id");
-    let query_matches = match query_fences.next() {
-        None => true,
-        Some((_, value)) => {
-            query_fences.next().is_none() && Some(value.as_ref()) == session_id.as_deref()
-        }
-    };
-    if !query_matches || !studio_fence_matches(request.headers(), session_id.as_deref()) {
+    if !studio_query_fence_matches(request.uri(), session_id.as_deref())
+        || !studio_fence_matches(request.headers(), session_id.as_deref())
+    {
         return studio_fenced_response(
             failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
             session_id.as_deref(),
         );
     }
     studio_fenced_response(next.run(request).await, session_id.as_deref())
+}
+
+fn studio_query_fence_matches(uri: &axum::http::Uri, session_id: Option<&str>) -> bool {
+    let mut query_fences = url::form_urlencoded::parse(
+        uri.path_and_query()
+            .and_then(axum::http::uri::PathAndQuery::query)
+            .unwrap_or("")
+            .as_bytes(),
+    )
+    .filter(|(name, _)| name == "studio_session_id");
+    match query_fences.next() {
+        None => true,
+        Some((_, value)) => query_fences.next().is_none() && Some(value.as_ref()) == session_id,
+    }
+}
+
+async fn bearer_studio(state: AppState, request: Request, next: Next) -> Response {
+    if !bearer::browser_origin_allowed(request.headers(), &state.web_origin) {
+        return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
+    }
+    let token = match bearer::access(request.headers()) {
+        Ok(v) => v.to_owned(),
+        Err(e) => return bearer::error(e),
+    };
+    if crate::platform::bearer::core::access_client(&token)
+        != Some(crate::platform::bearer::core::Client::Studio)
+    {
+        return bearer::error(crate::platform::studio_oidc::AuthError::InvalidToken);
+    }
+    let Some(service) = state
+        .store
+        .bearer(crate::platform::bearer::core::Client::Studio)
+    else {
+        return bearer::error(crate::platform::studio_oidc::AuthError::Configuration);
+    };
+    if let Err(e) = service.authenticate(&state.store, &token).await {
+        return bearer::error(e);
+    }
+    match service
+        .with_admission(&state.store, &token, |session| async move {
+            if !studio_query_fence_matches(request.uri(), Some(&session.session_id))
+                || !studio_fence_matches(request.headers(), Some(&session.session_id))
+            {
+                return studio_fenced_response(
+                    failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+                    Some(&session.session_id),
+                );
+            }
+            if bearer::sensitive(request.method(), request.uri().path())
+                && !bearer::recent(&session)
+            {
+                return studio_fenced_response(
+                    failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN),
+                    Some(&session.session_id),
+                );
+            }
+            studio_fenced_response(next.run(request).await, Some(&session.session_id))
+        })
+        .await
+    {
+        Ok(v) => v,
+        Err(e) => bearer::error(e),
+    }
 }
 
 pub(super) const STUDIO_SESSION_HEADER: &str = "x-cantos-studio-session";
@@ -339,6 +408,12 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
     let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
     let native_mutation = theatre_native_auth::native_mutation(request.method(), original_path);
+    let scoped_bearer = bearer::mutation(
+        request.method(),
+        original_path,
+        request.headers(),
+        &state.web_origin,
+    );
     let delegated_mutation = studio::delegation::bearer_mutation(request.method(), original_path);
     let mut response = if !valid_config
         || (!read
@@ -346,7 +421,8 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
             && !anonymous_playback
             && !bearer_mutation
             && !native_mutation
-            && !delegated_mutation)
+            && !delegated_mutation
+            && !scoped_bearer)
     {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {

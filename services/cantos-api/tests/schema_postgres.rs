@@ -102,7 +102,7 @@ async fn fresh_epoch_has_only_current_tables_and_replay_preserves_authoritative_
         .await
         .unwrap();
     let before = registry(&admin).await;
-    assert_eq!(before.len(), 1);
+    assert_eq!(before.len(), 2);
     migrate(&config).await.unwrap();
     assert_eq!(registry(&admin).await, before);
     assert_eq!(
@@ -217,12 +217,12 @@ async fn foreign_epoch_and_unexpected_version_are_refused() {
     admin
         .batch_execute(
             "UPDATE cantos_schema SET epoch=2;
-        INSERT INTO cantos_migrations VALUES(2,decode(repeat('11',32),'hex'))",
+        INSERT INTO cantos_migrations VALUES(3,decode(repeat('11',32),'hex'))",
         )
         .await
         .unwrap();
     assert_eq!(migrate(&config).await, Err(SchemaError::RegistryMismatch));
-    assert_eq!(registry(&admin).await.len(), 2);
+    assert_eq!(registry(&admin).await.len(), 3);
 }
 
 #[tokio::test]
@@ -301,7 +301,7 @@ async fn failed_baseline_rolls_back_registry_and_ddl_then_allows_clean_retry() {
         .unwrap();
     migrate(&config).await.unwrap();
     verify_schema(&config).await.unwrap();
-    assert_eq!(registry(&admin).await.len(), 1);
+    assert_eq!(registry(&admin).await.len(), 2);
 }
 
 #[tokio::test]
@@ -325,6 +325,7 @@ async fn baseline_keeps_security_definers_pinned_and_public_without_execution_pr
             "admin_identity_facts",
             "admin_operation",
             "admin_revoke_access",
+            "bearer_register",
             "catalog_lock_actor",
             "catalog_lock_member",
             "listener_lock_actor",
@@ -431,7 +432,7 @@ async fn concurrent_bootstrap_commits_one_epoch_and_read_only_app_check_needs_no
     let (left, right) = tokio::join!(migrate(&config), migrate(&config));
     left.unwrap();
     right.unwrap();
-    assert_eq!(registry(&admin).await.len(), 1);
+    assert_eq!(registry(&admin).await.len(), 2);
     admin
         .batch_execute(
             "GRANT USAGE ON SCHEMA public TO cantos_app;
@@ -458,5 +459,43 @@ async fn concurrent_bootstrap_commits_one_epoch_and_read_only_app_check_needs_no
     assert_eq!(
         error.code(),
         Some(&tokio_postgres::error::SqlState::INSUFFICIENT_PRIVILEGE)
+    );
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite schema"]
+async fn bearer_expansion_preserves_exact_baseline_and_refuses_runtime_upgrade() {
+    use sha2::{Digest, Sha256};
+    let (config, admin) = database().await;
+    let baseline = include_str!("../schema/0001_current.sql");
+    admin.batch_execute("CREATE TABLE cantos_schema(singleton boolean PRIMARY KEY CHECK(singleton),epoch integer NOT NULL CHECK(epoch=2)); CREATE TABLE cantos_migrations(version integer PRIMARY KEY,checksum bytea NOT NULL); INSERT INTO cantos_schema VALUES(true,2);").await.unwrap();
+    admin.batch_execute(baseline).await.unwrap();
+    admin
+        .execute(
+            "INSERT INTO cantos_migrations VALUES(1,$1)",
+            &[&Sha256::digest(baseline.as_bytes()).to_vec()],
+        )
+        .await
+        .unwrap();
+    admin
+        .batch_execute("INSERT INTO actors(id) VALUES('preserved-owner')")
+        .await
+        .unwrap();
+    let old = registry(&admin).await;
+    assert_eq!(
+        verify_schema(&config).await,
+        Err(SchemaError::RegistryMismatch)
+    );
+    assert_eq!(registry(&admin).await, old);
+    migrate(&config).await.unwrap();
+    verify_schema(&config).await.unwrap();
+    assert_eq!(registry(&admin).await[0], old[0]);
+    assert_eq!(
+        admin
+            .query_one("SELECT id FROM actors", &[])
+            .await
+            .unwrap()
+            .get::<_, String>(0),
+        "preserved-owner"
     );
 }

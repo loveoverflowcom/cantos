@@ -10,6 +10,9 @@ pub fn token_hash(token: &str) -> Vec<u8> {
 }
 
 pub(crate) async fn session_token_registered(tx: &Tx<'_>, token: &str) -> Result<bool, StoreError> {
+    if token.starts_with("ca1_") {
+        return Ok(true);
+    }
     Ok(tx
         .query_opt(
             "SELECT token_hash FROM sessions WHERE token_hash=$1",
@@ -21,6 +24,9 @@ pub(crate) async fn session_token_registered(tx: &Tx<'_>, token: &str) -> Result
 
 /// Locks the session row for the transaction, so a concurrent revocation waits for it.
 pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, StoreError> {
+    if token.starts_with("ca1_") {
+        return crate::platform::bearer::postgres::admit_studio(tx, token).await;
+    }
     if token.len() != 64 || !token.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(StoreError::Unauthenticated);
     }
@@ -53,6 +59,9 @@ impl Store {
     /// Public correlation only; knowing this UUID never authenticates a caller.
     pub async fn studio_session_id(&self, token: &str) -> Result<Option<String>, StoreError> {
         let client = self.connection().await?;
+        if token.starts_with("ca1_") {
+            return client.query_opt("SELECT f.id::text FROM bearer_tokens t JOIN bearer_families f ON f.id=t.family_id WHERE t.access_hash=$1 AND f.client_id='cantos-studio-web-bff'",&[&token_hash(token)]).await.map(|row|row.map(|r|r.get(0))).map_err(Into::into);
+        }
         let row = client
             .query_opt(
                 "SELECT to_jsonb(s)->>'session_id' FROM sessions s WHERE token_hash=$1",
@@ -62,6 +71,21 @@ impl Store {
         Ok(row.and_then(|row| row.get(0)))
     }
     pub async fn authenticate(&self, token: &str) -> Result<String, StoreError> {
+        if token.starts_with("ca1_") {
+            let service = self
+                .bearer(crate::platform::bearer::core::Client::Studio)
+                .ok_or(StoreError::Unauthenticated)?;
+            return service
+                .authenticate(self, token)
+                .await
+                .map(|view| view.actor_id)
+                .map_err(|error| match error {
+                    AuthError::Unavailable | AuthError::ProviderUnavailable => {
+                        StoreError::Unavailable
+                    }
+                    _ => StoreError::Unauthenticated,
+                });
+        }
         if let Some(oidc) = self.studio_oidc() {
             oidc.authenticate(self, token)
                 .await

@@ -23,6 +23,7 @@ pub use audio_intake::*;
 mod artwork;
 pub use artwork::*;
 pub mod admin;
+pub mod bearer;
 pub mod protobuf;
 pub mod routes;
 pub mod theatre;
