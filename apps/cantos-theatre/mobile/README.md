@@ -354,7 +354,9 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
 
 To hand the **demo** APK to testers through Firebase App Distribution use the explicit
 `cargo xtask distribute firebase` workflow; see [Firebase distribution](docs/firebase-distribution.md).
-The `demo` channel distributes this mock only. The `production` channel builds the
+The `demo` channel distributes this mock only; `demo-qa` distributes the same mock as an
+optimized, non-debuggable, operator-signed build (`:androidApp:assembleQa`, R8 and resource
+shrinking; `:androidApp:assembleQaAudit` is its unshrunk, unsigned audit twin). The `production` channel builds the
 `com.cantos.theatre` application (`CantosTheatreApp`); neither establishes native runtime
 acceptance, and production release distribution still needs the named app, certificate and
 recipients. A new applicationId cannot update the demo app in place: it installs beside it.

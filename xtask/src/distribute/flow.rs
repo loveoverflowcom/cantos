@@ -18,7 +18,7 @@ use super::{
     },
     host::{sha256_hex, Host, RunDir, Staged},
     receipt::{NotesRecord, Receipt},
-    request::{generated_notes, LiveRequest, NotesChoice, Stage},
+    request::{generated_notes, generated_qa_notes, LiveRequest, NotesChoice, Stage},
 };
 use crate::{
     capture::{Capture, CaptureError, Captured},
@@ -117,7 +117,9 @@ impl Flow<'_> {
             problems.push("captured execution and private run files need a POSIX host".to_owned());
         }
         let required_tools = match self.request.policy {
-            super::request::Policy::DemoApk => theatre_demo::tools(),
+            super::request::Policy::DemoApk | super::request::Policy::DemoQaApk => {
+                theatre_demo::tools()
+            }
             super::request::Policy::ProductionApk => crate::theatre_host::tools(),
         };
         let missing = self.ports.tools.missing(&required_tools);
@@ -131,13 +133,23 @@ impl Flow<'_> {
         let sdk = self.ports.host.android_sdk();
         let project = self.workspace.path(THEATRE_MOBILE_DIR);
         let prerequisite = match self.request.policy {
-            super::request::Policy::DemoApk => {
+            super::request::Policy::DemoApk | super::request::Policy::DemoQaApk => {
                 theatre_demo::android_prerequisite(&project, sdk.as_deref())
             }
             super::request::Policy::ProductionApk => {
                 crate::theatre_host::prerequisite(&project, sdk.as_deref())
             }
         };
+        if self.request.policy == super::request::Policy::DemoQaApk {
+            let missing = self.ports.host.missing_qa_signing_inputs();
+            if !missing.is_empty() {
+                problems.push(format!(
+                    "the QA signing key is operator-provided and was not supplied: set {} \
+                     (xtask never creates a key and never falls back to the debug or production key)",
+                    missing.join(", ")
+                ));
+            }
+        }
         match prerequisite {
             Err(reason) => problems.push(reason.to_owned()),
             Ok(()) => {
@@ -419,6 +431,27 @@ impl Flow<'_> {
         if let Some(receipt) = &mut self.receipt {
             receipt.set_artifact(&facts, expected.as_deref(), &relative);
         }
+        if policy.shrinks() {
+            // A shrunk build without its mapping cannot be diagnosed, so it is not distributed.
+            match self.ports.host.stage_shrinker_mapping(policy, &run) {
+                Ok(mapping) => {
+                    let relative = self.workspace.relative(&mapping.path);
+                    if let Some(receipt) = &mut self.receipt {
+                        receipt.set_shrinker_mapping(
+                            &mapping.sha256,
+                            mapping.size_bytes,
+                            &relative,
+                        );
+                    }
+                }
+                Err(error) => {
+                    return Err(fail(
+                        self,
+                        format!("the R8 mapping of the shrunk build could not be staged: {error}"),
+                    ))
+                }
+            }
+        }
         self.pass(
             Stage::Inspect,
             format!(
@@ -466,6 +499,13 @@ impl Flow<'_> {
                     "generated".to_owned(),
                     if self.request.policy == super::request::Policy::ProductionApk {
                         format!("Cantos production composition, debug signed QA artifact.\nVersion: {} ({})\nSource: {}{}\nAPI: {}\n", declared.version_name, declared.version_code, commit, if dirty { " (uncommitted changes)" } else { "" }, self.request.api_origin.as_deref().unwrap_or_default())
+                    } else if self.request.policy == super::request::Policy::DemoQaApk {
+                        generated_qa_notes(
+                            &declared.version_name,
+                            &declared.version_code,
+                            &commit,
+                            dirty,
+                        )
                     } else {
                         generated_notes(
                             &declared.version_name,
@@ -784,6 +824,8 @@ mod tests {
         identity: Result<SourceIdentity, String>,
         metadata: Result<Vec<u8>, OutputError>,
         stage: Result<Staged, OutputError>,
+        missing_qa_signing: Vec<&'static str>,
+        mapping: Result<Staged, OutputError>,
         rehash: Result<(String, u64), String>,
         fail_persist_from: Option<usize>,
         fail_create_run: bool,
@@ -804,6 +846,12 @@ mod tests {
                 }),
                 metadata: Ok(METADATA.as_bytes().to_vec()),
                 stage: Ok(staged()),
+                missing_qa_signing: Vec::new(),
+                mapping: Ok(Staged {
+                    path: PathBuf::from("/repo/artifacts/distributions/RUN/mapping.txt"),
+                    sha256: "cd".repeat(32),
+                    size_bytes: 31_000_000,
+                }),
                 rehash: Ok(("ab".repeat(32), 4096)),
                 fail_persist_from: None,
                 fail_create_run: false,
@@ -856,6 +904,13 @@ mod tests {
         fn stage_output(&mut self, _: Policy, _: &RunDir, _: &str) -> Result<Staged, OutputError> {
             self.order.push("stage");
             self.stage.clone()
+        }
+        fn missing_qa_signing_inputs(&self) -> Vec<&'static str> {
+            self.missing_qa_signing.clone()
+        }
+        fn stage_shrinker_mapping(&mut self, _: Policy, _: &RunDir) -> Result<Staged, OutputError> {
+            self.order.push("stage_mapping");
+            self.mapping.clone()
         }
         fn write_private(
             &mut self,
@@ -1050,6 +1105,149 @@ mod tests {
         assert!(rig.host.persisted[1].contains("\"state\": \"write_pending\""));
         assert!(rig.host.persisted[2].contains("\"state\": \"confirmed\""));
         assert!(rig.host.persisted[2].contains("releases/0a1b2c3d4e5f6"));
+    }
+
+    const METADATA_QA: &str = r#"{"version":3,"artifactType":{"type":"APK","kind":"Directory"},
+      "applicationId":"com.cantos.theatre.demo","variantName":"qa",
+      "elements":[{"type":"SINGLE","filters":[],"attributes":[],"versionCode":1,
+      "versionName":"0.1.0-demo-qa","outputFile":"androidApp-qa.apk"}]}"#;
+    const BADGING_QA: &str = include_str!("../../fixtures/android/badging-demo-qa.txt");
+
+    /// A rig for the optimized QA lane: QA metadata/badging, the fixture's signer pinned.
+    fn qa_rig(name: &str) -> (Rig, LiveRequest) {
+        let mut rig = Rig::new(name);
+        rig.host.metadata = Ok(METADATA_QA.as_bytes().to_vec());
+        rig.capture.results.clear();
+        rig.capture
+            .push_ok(0, "15.34.0\n", "")
+            .push_ok(0, SDK_REGISTERED, "")
+            .push_ok(0, BADGING_QA, "")
+            .push_ok(0, SIGNER, "WARNING: x")
+            .push_ok(0, &CREATED.replace("0.1.0-demo", "0.1.0-demo-qa"), "");
+        let mut request = live(&[TESTER]);
+        request.policy = Policy::DemoQaApk;
+        request.expected_cert = Some(CertFingerprint::parse(&"a".repeat(64)).unwrap());
+        (rig, request)
+    }
+
+    #[test]
+    fn the_optimized_qa_lane_builds_its_own_task_stages_the_r8_mapping_and_distributes_once() {
+        let (mut rig, request) = qa_rig("qa-happy");
+        let report = rig.run(&request);
+        assert!(report.succeeded(), "{}", report.render());
+        assert_eq!(rig.runner.commands.len(), 1);
+        let build = &rig.runner.commands[0];
+        assert!(build.args.contains(&":androidApp:assembleQa".to_owned()));
+        assert!(!build.args.contains(&":androidApp:assembleDebug".to_owned()));
+        // The mapping is staged after inspection and before the intent receipt / remote write.
+        let stage = rig
+            .host
+            .order
+            .iter()
+            .position(|step| *step == "stage")
+            .unwrap();
+        let mapping = rig
+            .host
+            .order
+            .iter()
+            .position(|step| *step == "stage_mapping")
+            .unwrap();
+        assert!(stage < mapping);
+        assert_eq!(rig.distribute_calls(), 1);
+        let intent = &rig.host.persisted[1];
+        assert!(intent.contains("\"channel\": \"demo-qa\""), "{intent}");
+        assert!(intent.contains("\"variant\": \"qa\""), "{intent}");
+        assert!(intent.contains("\"debuggable\": false"), "{intent}");
+        assert!(intent.contains("\"shrinker_mapping\""), "{intent}");
+        assert!(intent.contains(&"cd".repeat(32)), "{intent}");
+        let (_, notes) = rig
+            .host
+            .private_files
+            .iter()
+            .find(|(name, _)| name == "release-notes.txt")
+            .unwrap();
+        let notes = String::from_utf8_lossy(notes);
+        assert!(
+            notes.contains("optimized") && notes.contains("0.1.0-demo-qa (1)"),
+            "{notes}"
+        );
+        assert!(notes.contains("uninstall"), "{notes}");
+    }
+
+    #[test]
+    fn the_qa_lane_needs_the_operators_key_before_any_run_record_or_build() {
+        let (mut rig, request) = qa_rig("qa-no-key");
+        rig.host.missing_qa_signing = vec!["CANTOS_QA_KEYSTORE", "CANTOS_QA_KEY_PASSWORD"];
+        let report = rig.run(&request);
+        assert_eq!(
+            status_of(&report, Stage::Prerequisites),
+            Status::Unsupported
+        );
+        let detail = detail_of(&report, Stage::Prerequisites);
+        assert!(
+            detail.contains("CANTOS_QA_KEYSTORE, CANTOS_QA_KEY_PASSWORD"),
+            "{detail}"
+        );
+        assert!(detail.contains("never creates a key"), "{detail}");
+        assert!(rig.runner.commands.is_empty());
+        assert_eq!(rig.distribute_calls(), 0);
+        assert_eq!(rig.host.runs_created, 0);
+        assert_eq!(status_of(&report, Stage::Build), Status::NotRun);
+    }
+
+    #[test]
+    fn a_debuggable_wrongly_signed_or_mappingless_qa_artifact_is_never_distributed() {
+        // Debuggable bytes (the Debug demo APK) under the QA policy.
+        let (mut rig, request) = qa_rig("qa-debuggable");
+        rig.capture.results.clear();
+        rig.capture
+            .push_ok(0, "15.34.0\n", "")
+            .push_ok(0, SDK_REGISTERED, "")
+            .push_ok(
+                0,
+                &BADGING_QA
+                    .to_owned()
+                    .replace("main\n", "application-debuggable\nmain\n"),
+                "",
+            )
+            .push_ok(0, SIGNER, "");
+        let report = rig.run(&request);
+        assert_eq!(status_of(&report, Stage::Inspect), Status::Fail);
+        assert!(detail_of(&report, Stage::Inspect).contains("debuggable"));
+        assert_eq!(rig.distribute_calls(), 0);
+
+        // A certificate other than the pinned one.
+        let (mut rig, mut request) = qa_rig("qa-wrong-signer");
+        request.expected_cert = Some(CertFingerprint::parse(&"b".repeat(64)).unwrap());
+        let report = rig.run(&request);
+        assert_eq!(status_of(&report, Stage::Inspect), Status::Fail);
+        assert!(
+            detail_of(&report, Stage::Inspect).contains("differs from the configured expectation")
+        );
+        assert_eq!(rig.distribute_calls(), 0);
+        assert!(
+            !rig.host.order.contains(&"stage_mapping"),
+            "no mapping before validation"
+        );
+
+        // A shrunk build whose R8 mapping is missing cannot be diagnosed.
+        let (mut rig, request) = qa_rig("qa-no-mapping");
+        rig.host.mapping = Err(OutputError::FileMissing("mapping.txt".into()));
+        let report = rig.run(&request);
+        assert_eq!(status_of(&report, Stage::Inspect), Status::Fail);
+        assert!(detail_of(&report, Stage::Inspect).contains("R8 mapping"));
+        assert_eq!(rig.distribute_calls(), 0);
+        assert_eq!(status_of(&report, Stage::Distribution), Status::NotRun);
+    }
+
+    #[test]
+    fn the_debug_demo_lane_stages_no_mapping_and_needs_no_operator_key() {
+        let mut rig = Rig::new("demo-no-mapping");
+        rig.host.missing_qa_signing = vec!["CANTOS_QA_KEYSTORE"];
+        let report = rig.run(&live(&[TESTER]));
+        assert!(report.succeeded(), "{}", report.render());
+        assert!(!rig.host.order.contains(&"stage_mapping"));
+        assert!(rig.host.persisted[1].contains("\"shrinker_mapping\": null"));
     }
 
     #[test]

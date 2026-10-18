@@ -1,0 +1,17 @@
+package: name='com.cantos.theatre.demo' versionCode='1' versionName='0.1.0-demo-qa' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+minSdkVersion:'23'
+targetSdkVersion:'35'
+uses-permission: name='android.permission.INTERNET'
+uses-permission: name='com.cantos.theatre.demo.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+application-label:'Cantos Sandbox'
+application: label='Cantos Sandbox' icon='res/BW.xml'
+launchable-activity: name='com.cantos.theatre.demo.MainActivity'  label='' icon=''
+feature-group: label=''
+  uses-feature: name='android.hardware.faketouch'
+  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'
+main
+other-receivers
+supports-screens: 'small' 'normal' 'large' 'xlarge'
+supports-any-density: 'true'
+densities: '160' '240' '320' '480' '640' '65534'
+native-code: 'arm64-v8a' 'armeabi-v7a' 'x86' 'x86_64'

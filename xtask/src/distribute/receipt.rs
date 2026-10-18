@@ -12,7 +12,8 @@ use super::{
 };
 use crate::report::Status;
 
-pub const SCHEMA_VERSION: u32 = 1;
+/// 2: `artifact.shrinker_mapping` (the optimized QA lane stages its R8 mapping).
+pub const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Receipt {
@@ -78,6 +79,15 @@ pub struct ArtifactRecord {
     pub signing_cert_sha256: String,
     pub expected_cert_sha256: Option<String>,
     pub signature_schemes: Vec<&'static str>,
+    pub staged_file: String,
+    /// The R8 mapping of a shrunk build, staged beside the APK; `None` for unshrunk variants.
+    pub shrinker_mapping: Option<MappingRecord>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MappingRecord {
+    pub sha256: String,
+    pub size_bytes: u64,
     pub staged_file: String,
 }
 
@@ -194,7 +204,19 @@ impl Receipt {
                 .filter_map(|(present, name)| present.then_some(name))
                 .collect(),
             staged_file: staged_file.to_owned(),
+            shrinker_mapping: None,
         });
+    }
+
+    /// Attach the staged R8 mapping to the recorded artifact (a no-op before an artifact exists).
+    pub fn set_shrinker_mapping(&mut self, sha256: &str, size_bytes: u64, staged_file: &str) {
+        if let Some(artifact) = &mut self.artifact {
+            artifact.shrinker_mapping = Some(MappingRecord {
+                sha256: sha256.to_owned(),
+                size_bytes,
+                staged_file: staged_file.to_owned(),
+            });
+        }
     }
 
     /// Intent is recorded before the write, so a lost response is reconcilable from the file.
@@ -390,6 +412,55 @@ mod tests {
             Some("cd".repeat(32).as_str())
         );
         assert_eq!(artifact.size_bytes, 25);
+    }
+
+    #[test]
+    fn the_qa_receipt_names_its_variant_non_debuggable_identity_and_staged_r8_mapping() {
+        let mut qa_request = request();
+        qa_request.policy = Policy::DemoQaApk;
+        let mut receipt = Receipt::new("r", "t", &qa_request);
+        let json = String::from_utf8(receipt.to_json()).unwrap();
+        assert!(json.contains("\"channel\": \"demo-qa\""), "{json}");
+        assert!(json.contains("\"variant\": \"qa\""), "{json}");
+        assert!(
+            json.contains("\"task\": \":androidApp:assembleQa\""),
+            "{json}"
+        );
+        // A mapping cannot be attached before an artifact exists.
+        receipt.set_shrinker_mapping(&"11".repeat(32), 7, "mapping.txt");
+        assert!(receipt.artifact.is_none());
+        let facts = ApkFacts {
+            sha256: "ab".repeat(32),
+            size_bytes: 25,
+            badging: Badging {
+                package: "com.cantos.theatre.demo".into(),
+                version_code: "1".into(),
+                version_name: "0.1.0-demo-qa".into(),
+                debuggable: false,
+            },
+            signing: Signing {
+                signer_count: 1,
+                cert_sha256: "cd".repeat(32),
+                v1: true,
+                v2: true,
+                v3: false,
+            },
+        };
+        receipt.set_artifact(&facts, Some(&"cd".repeat(32)), "artifact/androidApp-qa.apk");
+        assert!(receipt
+            .artifact
+            .as_ref()
+            .unwrap()
+            .shrinker_mapping
+            .is_none());
+        receipt.set_shrinker_mapping(&"11".repeat(32), 7, "mapping.txt");
+        let json = String::from_utf8(receipt.to_json()).unwrap();
+        assert!(json.contains("\"debuggable\": false"), "{json}");
+        assert!(json.contains("\"shrinker_mapping\""), "{json}");
+        assert!(json.contains(&"11".repeat(32)), "{json}");
+        assert!(json.contains("\"schema_version\": 2"), "{json}");
+        // The signing key and its passwords are never part of a receipt.
+        assert!(!json.contains("PASSWORD"), "{json}");
     }
 
     #[test]
