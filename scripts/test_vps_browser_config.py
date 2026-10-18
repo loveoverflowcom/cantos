@@ -101,7 +101,7 @@ unit_active() { return 0; }
 systemctl() { printf 'systemctl %s\\n' "$*"; }
 podman() { printf 'podman %s\\n' "$*" >>"$ROOT/actions"; }
 validate_runtime_browser_configuration() { return 65; }
-reload_browser "$ROOT/bundle"
+main reload-browser "$ROOT/bundle"
 '''
         result = self.run_host(commands)
         self.assertEqual(result.returncode, 65)

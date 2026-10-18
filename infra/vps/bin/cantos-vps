@@ -934,7 +934,7 @@ main() {
       ;;
     install) install_bundle "$@" ;;
     bootstrap) bootstrap ;;
-    reload-browser) reload_browser ;;
+    reload-browser) reload_browser "$@" ;;
     deploy) deploy "$@" ;;
     rollback) rollback ;;
     backup) require_root; with_lock; backup "$@" >/dev/null ;;
