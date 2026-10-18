@@ -1489,7 +1489,7 @@ async fn private_binder_expiry_while_receipt_lock_waits_cannot_revoke_observed_b
         .1
         .to_owned();
     let source = cantos_api::platform::postgres::token_hash(&state);
-    h.admin.execute("UPDATE studio_oidc_flows SET expires_at=clock_timestamp()+interval '3 seconds' WHERE state_hash=$1",&[&source]).await.unwrap();
+    h.admin.execute("UPDATE studio_oidc_flows SET expires_at=clock_timestamp()+interval '1 second' WHERE state_hash=$1",&[&source]).await.unwrap();
     let app = router(
         AppState {
             store: h.store.clone(),
@@ -1532,6 +1532,18 @@ async fn private_binder_expiry_while_receipt_lock_waits_cannot_revoke_observed_b
             tokio::task::yield_now().await;
         }
     }).await.expect("logout must wait at the actual receipt lock, after collecting its private binder proof");
+    let live: bool = tx
+        .query_one(
+            "SELECT expires_at>clock_timestamp() FROM studio_oidc_flows WHERE state_hash=$1",
+            &[&source],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert!(
+        live,
+        "the private binder must expire during the observed receipt wait"
+    );
     tokio::time::timeout(std::time::Duration::from_secs(4),async {
         loop {
             let expired:bool=tx.query_one("SELECT expires_at<=clock_timestamp() FROM studio_oidc_flows WHERE state_hash=$1",&[&source]).await.unwrap().get(0);
@@ -1539,7 +1551,9 @@ async fn private_binder_expiry_while_receipt_lock_waits_cannot_revoke_observed_b
             tokio::task::yield_now().await;
         }
     }).await.unwrap();
-    tx.commit().await.unwrap();
+    // This fixture holds only a row lock. Release without a durable commit racing the
+    // production 3-second lock timeout after the 1-second binder expiry.
+    tx.rollback().await.unwrap();
     let response = logout.await.unwrap();
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert!(!response.headers().contains_key(header::SET_COOKIE));

@@ -11,7 +11,10 @@ The current direction is governed by [ADR 0018](docs/decisions/0018-external-aud
 and the [external audio handoff proposal](packages/contracts/external-audio-handoff-v1.md).
 Older TTS experiments and job migrations are historical evidence, **not current runtime scope**.
 The [current schema and cutover policy](docs/deployment/postgres-schema-cutover.md) makes fresh
-initialization explicit and refuses legacy databases; source cleanup never authorizes a live reset.
+initialization explicit and ordinary deployment refuses legacy databases. An explicit narrow
+`--cutover-epoch2` lane checks the known 28-migration empty-business source, rehearses a sibling
+restore/import and verifies off-host recovery before switching. A general populated-data
+transformer remains unimplemented; PostgreSQL stays at 17.11 and source cleanup never resets data.
 
 ## Product surfaces
 

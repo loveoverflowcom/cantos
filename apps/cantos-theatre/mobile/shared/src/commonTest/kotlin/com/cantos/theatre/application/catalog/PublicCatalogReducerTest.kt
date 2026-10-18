@@ -251,6 +251,27 @@ class PublicCatalogReducerTest {
     }
 
     @Test
+    fun foreign_detail_is_protocol_failure_without_unit_effect_and_retry_keeps_the_requested_work() {
+        val requested = work(1)
+        val foreign = work(2)
+        send(PublicCatalogIntent.OpenWork(requested))
+        val before = state
+        assertEquals(emptyList(), send(WorkResolved(1, PublicCatalogRead.Ready(foreign))))
+        assertEquals(before.copy(detail = before.detail!!.copy(
+            phase = DetailPhase.Failed(CatalogFailure.Protocol), awaiting = null,
+        )), state)
+        assertNull(state.detail!!.units)
+
+        assertEquals(listOf(PublicCatalogEffect.FetchWork(2, requested.id)), send(PublicCatalogIntent.RetryWork))
+        val retrying = state
+        assertEquals(emptyList(), send(WorkResolved(1, PublicCatalogRead.Ready(foreign))))
+        assertEquals(retrying, state, "the refused response token stays stale during retry")
+        assertEquals(listOf(PublicCatalogEffect.FetchUnits(3, requested, null)),
+            send(WorkResolved(2, PublicCatalogRead.Ready(requested))))
+        assertEquals(DetailPhase.Ready(requested), state.detail!!.phase)
+    }
+
+    @Test
     fun units_not_found_after_detail_keeps_the_detail_and_reports_the_list() {
         val story = work(1)
         openReady(story)

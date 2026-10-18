@@ -1,0 +1,446 @@
+#!/usr/bin/env bash
+# Sourced only by cantos-vps's explicit two-phase epoch2 commands. This is an implementation
+# primitive, not another orchestration entrypoint. Every sibling database and recovery record
+# is retained; this file never drops a database or a volume.
+
+epoch2_phase() {
+  printf '%s\n' "$2" >"$1/phase.partial" || return
+  mv "$1/phase.partial" "$1/phase" || return
+  sync -f "$1/phase" || return
+}
+
+epoch2_pending() { [[ -s $STATE/epoch2-cutover.pending ]]; }
+
+epoch2_refuse_pending() {
+  ! epoch2_pending || die "epoch2 cutover journal pending; use cutover-recover before ordinary mutations" 75
+}
+
+epoch2_load() {
+  local revision=$1 attempt=$2 journal
+  [[ $revision =~ ^[0-9a-f]{40}$ ]] || die "invalid cutover revision" 65
+  [[ $attempt =~ ^[0-9a-f]{32}$ ]] || die "invalid cutover attempt" 65
+  local name
+  name=$(<"$STATE/epoch2-cutover.pending")
+  [[ $name =~ ^[0-9a-f]{12}-[0-9a-f]{32}$ ]] || die "invalid cutover journal identity" 65
+  # Reject a different invocation before opening its journal, even at the same revision.
+  [[ $name == "${revision:0:12}-$attempt" ]] || die "another attempt owns the cutover journal" 75
+  journal=$STATE/epoch2-cutovers/$name
+  [[ $(config_value "$journal/meta" target) == "$revision" &&
+     $(config_value "$journal/meta" attempt) == "$attempt" ]] || die "cutover journal ownership mismatch" 65
+  EPOCH2_JOURNAL=$journal
+}
+
+epoch2_query() {
+  printf '\\pset tuples_only on\n\\pset format unaligned\n%s\n' "$2" | psql_superuser "$1"
+}
+
+epoch2_database_name() {
+  [[ $1 =~ ^cantos(_e[12]_[a-z0-9_]+)?$ ]] || die "invalid cutover database name" 65
+}
+
+epoch2_migrate_database() {
+  local revision=$1 database=$2
+  shift 2
+  epoch2_database_name "$database"
+  # Rewrite only the known database component inside the container. Credentials remain in
+  # Podman's secret/environment boundary, never argv, a report, or the recovery archive.
+  podman run --rm --network none --pull never \
+    --secret cantos-db-owner-url,type=env,target=DATABASE_URL \
+    -v cantos-postgres-socket:/run/postgresql --entrypoint /bin/sh "$(image_for "$revision")" \
+    -ec 'case "$DATABASE_URL" in */cantos\?host=/run/postgresql) ;; *) exit 65;; esac
+      DATABASE_URL="${DATABASE_URL%/cantos\?host=/run/postgresql}/$1?host=/run/postgresql"
+      export DATABASE_URL; shift; exec /usr/local/bin/cantos-migrate "$@"' sh "$database" "$@"
+}
+
+epoch2_create_database() {
+  epoch2_database_name "$1"
+  epoch2_query postgres "CREATE DATABASE $1 OWNER cantos_owner TEMPLATE template0 ENCODING 'UTF8';
+REVOKE ALL ON DATABASE $1 FROM PUBLIC;
+GRANT CONNECT ON DATABASE $1 TO cantos_owner,cantos_app;" >/dev/null
+}
+
+epoch2_schema() {
+  local database=$1 output=$2
+  podman exec cantos-postgres sh -c \
+    'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec pg_dump -U postgres -d "$1" --schema-only --no-owner --no-privileges' \
+    sh "$database" >"$output.partial" || return
+  # PostgreSQL's randomized psql restriction token is transport metadata, not DDL.
+  sed '/^\\restrict /d; /^\\unrestrict /d' "$output.partial" >"$output"
+  rm "$output.partial"
+}
+
+epoch2_registry() {
+  epoch2_query "$1" "BEGIN READ ONLY; SET LOCAL statement_timeout='30s';
+SELECT version || '|' || encode(checksum,'hex') FROM public.cantos_migrations ORDER BY version;
+COMMIT;" >"$2"
+}
+
+epoch2_guard_legacy() {
+  local database=$1 journal=$2 tree=$3 expected_schema=${4:-schema-oracle.sql}
+  case $expected_schema in
+    schema-oracle.sql|schema-oracle-restored.sql) ;;
+    *) die "unsupported legacy schema oracle" 65 ;;
+  esac
+  [[ $database != cantos || $expected_schema == schema-oracle.sql ]] ||
+    die "live database must match the fresh source oracle without normalization" 65
+  epoch2_schema "$database" "$journal/schema-$database.sql"
+  cmp -s "$journal/$expected_schema" "$journal/schema-$database.sql" ||
+    die "legacy schema differs from the checked 28-migration image; unknown objects/columns require review" 65
+  epoch2_registry "$database" "$journal/registry-$database.tsv"
+  cmp -s "$journal/registry-expected.tsv" "$journal/registry-$database.tsv" ||
+    die "legacy registry differs from the retained migration manifest" 65
+  psql_superuser "$database" <"$tree/infra/vps/postgres/epoch2-empty-business-guard.sql" >/dev/null
+}
+
+epoch2_dump() {
+  local database=$1 file=$2
+  podman exec cantos-postgres sh -c \
+    'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec pg_dump -U postgres -d "$1" -Fc' \
+    sh "$database" >"$file.partial" || return
+  [[ -s $file.partial ]] || die "empty cutover recovery dump" 70
+  mv "$file.partial" "$file"
+  (cd "$(dirname "$file")" && sha256sum "$(basename "$file")" >"$(basename "$file").sha256")
+}
+
+epoch2_restore_dump() {
+  local database=$1 file=$2
+  (cd "$(dirname "$file")" && sha256sum --check --strict "$(basename "$file").sha256") >/dev/null
+  epoch2_create_database "$database"
+  podman exec -i cantos-postgres sh -c \
+    'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec pg_restore -U postgres -d "$1" --single-transaction --exit-on-error' \
+    sh "$database" <"$file"
+}
+
+epoch2_rows() {
+  epoch2_query "$1" "BEGIN READ ONLY; SET LOCAL timezone='UTC';
+SELECT 'catalog_clock|' || row_to_json(t)::text FROM public.catalog_clock t ORDER BY singleton;
+SELECT 'studio_oidc_flows|' || row_to_json(t)::text FROM public.studio_oidc_flows t ORDER BY state_hash;
+SELECT 'theatre_identity_flows|' || row_to_json(t)::text FROM public.theatre_identity_flows t ORDER BY state_hash;
+COMMIT;" >"$2"
+}
+
+epoch2_import() {
+  local source=$1 target=$2 journal=$3
+  podman exec cantos-postgres sh -c \
+    'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec pg_dump -U postgres -d "$1" --data-only --column-inserts --no-owner --no-privileges --table=public.catalog_clock --table=public.studio_oidc_flows --table=public.theatre_identity_flows' \
+    sh "$source" >"$journal/preserved-rows.sql.partial" || return
+  mv "$journal/preserved-rows.sql.partial" "$journal/preserved-rows.sql"
+  {
+    printf 'BEGIN; SET ROLE cantos_owner; DELETE FROM public.theatre_identity_flows; DELETE FROM public.studio_oidc_flows; DELETE FROM public.catalog_clock;\n'
+    cat "$journal/preserved-rows.sql"
+    printf '\nCOMMIT;\n'
+  } | psql_superuser "$target" >/dev/null
+  epoch2_rows "$source" "$journal/rows-source.jsonl"
+  epoch2_rows "$target" "$journal/rows-target.jsonl"
+  cmp -s "$journal/rows-source.jsonl" "$journal/rows-target.jsonl" ||
+    die "clock/OIDC rows changed during import; target not accepted" 65
+}
+
+epoch2_snapshot_host() {
+  local journal=$1 tree=$2 path source name unit overrides
+  local -a paths=(runtime edge/Caddyfile)
+  for path in runtime.previous config/edge.env config/api-theatre.env config/api-studio.env \
+      config/api-theatre-oidc.env config/api-studio-oidc.env config/oidc-callbacks.env \
+      config/epoch2-browser.env state/current state/previous state/history; do
+    [[ ! -e $ROOT/$path ]] || paths+=("$path")
+  done
+  tar -C "$ROOT" -cf "$journal/host-root.tar" "${paths[@]}"
+  # The union of the exact old/new bundle files owns the restore boundary. A prefix such as
+  # cantos* must never grant authority over another operator-created service.
+  : >"$journal/all-system-paths"
+  for source in "$RUNTIME"/quadlet/* "$tree"/infra/vps/quadlet/* \
+      "$RUNTIME"/systemd/* "$tree"/infra/vps/systemd/*; do
+    [[ -f $source && ! -L $source ]] || die "unsupported runtime source entry" 65
+    name=$(basename "$source")
+    [[ $name =~ ^cantos(-[a-z0-9-]+)?\.(container|network|service|timer)$ ]] || die "unsupported runtime filename" 65
+    case $source in
+      */quadlet/*) path=$QUADLET_DIR/$name ;;
+      */systemd/*) path=$SYSTEMD_DIR/$name ;;
+    esac
+    printf '%s\n' "$path" >>"$journal/all-system-paths"
+  done
+  printf '%s\n' "$QUADLET_DIR/cantos-api-theatre.container.d" \
+    "$QUADLET_DIR/cantos-api-studio.container.d" "$QUADLET_DIR/cantos-edge.container.d" \
+    /usr/local/sbin/cantos-vps >>"$journal/all-system-paths"
+  sort -u "$journal/all-system-paths" -o "$journal/all-system-paths"
+  local -a system_paths=()
+  while IFS= read -r path; do
+    [[ ! -e $path ]] || system_paths+=("${path#/}")
+  done <"$journal/all-system-paths"
+  [[ ${#system_paths[@]} -gt 0 ]] || die "no installed Cantos runtime to preserve" 65
+  printf '%s\n' "${system_paths[@]}" >"$journal/system-paths"
+  tar -C / -cf "$journal/host-system.tar" "${system_paths[@]}"
+  cp /usr/local/sbin/cantos-vps "$journal/installed-host"
+  : >"$journal/runtime-overrides"
+  for unit in cantos-api-theatre cantos-api-studio cantos-postgres cantos-kanidm cantos-edge cantos-network; do
+    overrides=$(systemctl show --property=DropInPaths --value "$unit.service")
+    printf '%s|%s\n' "$unit" "$overrides" >>"$journal/runtime-overrides"
+    [[ -z $overrides ]] || die "unsupported systemd overrides require review before cutover" 65
+  done
+  for path in "$QUADLET_DIR/container.d" "$QUADLET_DIR/network.d"; do
+    [[ ! -d $path || -z $(find "$path" -mindepth 1 -print -quit) ]] ||
+      die "global Quadlet overrides require review before cutover" 65
+  done
+  if unit_active cantos-edge; then touch "$journal/edge-was-active"; fi
+}
+
+epoch2_install_pending_guard() {
+  local journal=$1
+  {
+    printf '#!/usr/bin/env bash\nset -Eeuo pipefail\numask 077\n'
+    printf 'pending=%q\noriginal=%q\n' "$STATE/epoch2-cutover.pending" "$journal/installed-host"
+    printf 'if [[ -s $pending && ${1:-} != status ]]; then printf "epoch2 cutover pending; use incoming cutover-recover\\n" >&2; exit 75; fi\nexec "$original" "$@"\n'
+  } >"$journal/pending-guard"
+  install -m 0750 "$journal/pending-guard" /usr/local/sbin/cantos-vps.partial
+  mv /usr/local/sbin/cantos-vps.partial /usr/local/sbin/cantos-vps
+}
+
+epoch2_restore_host() {
+  local journal=$1 path unit
+  # Only files changed by installation/browser reconciliation are replaced. Secrets, identity
+  # data, certificates, media and persistent volumes are never removed or exported.
+  rm -rf "$RUNTIME" "$RUNTIME.previous" || return
+  rm -f "$EDGE_DIR/Caddyfile" "$CONFIG/edge.env" "$CONFIG/api-theatre.env" \
+    "$CONFIG/api-studio.env" "$CONFIG/api-theatre-oidc.env" "$CONFIG/api-studio-oidc.env" \
+    "$CONFIG/oidc-callbacks.env" "$STATE/current" "$STATE/previous" "$STATE/history" || return
+  tar -C "$ROOT" -xf "$journal/host-root.tar" || return
+  while IFS= read -r path; do
+    [[ ! -e $path ]] || rm -rf "$path" || return
+  done <"$journal/all-system-paths" || return
+  tar -C / -xf "$journal/host-system.tar" || return
+  systemctl daemon-reload || return
+  if [[ -f $journal/runtime-restarted-units ]]; then
+    while IFS= read -r unit; do
+      [[ $unit =~ ^cantos-(postgres|kanidm|edge|network)$ ]] || return 65
+      systemctl restart "$unit.service" || return
+    done <"$journal/runtime-restarted-units" || return
+  fi
+  if [[ -f $journal/edge-was-active ]]; then
+    podman exec cantos-edge caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null || return
+    podman exec cantos-edge caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || return
+  fi
+}
+
+epoch2_database_oid() { epoch2_query postgres "SELECT oid FROM pg_database WHERE datname='$1';"; }
+epoch2_database_by_oid() { epoch2_query postgres "SELECT datname FROM pg_database WHERE oid=$1;"; }
+
+epoch2_no_clients() {
+  [[ $(epoch2_query postgres "SELECT count(*) FROM pg_stat_activity WHERE datname='$1';") == 0 ]] ||
+    die "unexpected database clients remain; cutover refuses to terminate unknown clients" 65
+}
+
+epoch2_record_pending() {
+  printf '%s\n' "$(basename "$1")" >"$STATE/epoch2-cutover.pending.partial"
+  mv "$STATE/epoch2-cutover.pending.partial" "$STATE/epoch2-cutover.pending"
+  sync -f "$STATE/epoch2-cutover.pending"
+}
+
+epoch2_prepare() (
+  set -Eeuo pipefail
+  local revision=$1 tree=$2 attempt=$3 journal previous suffix oracle rehearsal target old
+  [[ $attempt =~ ^[0-9a-f]{32}$ ]] || die "invalid cutover attempt" 65
+  require_root; with_lock cutover
+  if epoch2_pending; then
+    epoch2_load "$revision" "$attempt"
+    die "a cutover journal is pending; recover it before preparing another attempt" 75
+  fi
+  check_revision "$revision"; require_schema_image "$revision"
+  previous=$(<"$STATE/current"); check_revision "$previous"
+  # The reviewed source/image oracle is bounded to the deployed pre-cleanup revision.
+  [[ $previous == 883e188095227f04fb92cf4dcd29c659ac9de1fe ]] || die "unsupported legacy source revision" 65
+  command -v python3 >/dev/null || die "python3 is required to validate the retained manifest" 69
+  suffix=$attempt
+  journal=$STATE/epoch2-cutovers/${revision:0:12}-$attempt
+  install -d -m 0700 "$STATE/epoch2-cutovers"
+  mkdir -m 0700 "$journal"
+  oracle=cantos_e1_oracle_$suffix; rehearsal=cantos_e1_restore_$suffix
+  target=cantos_e2_stage_$suffix; old=cantos_e1_retained_$suffix
+  printf 'target=%s\nattempt=%s\nprevious=%s\noracle=%s\nrehearsal=%s\nstaging=%s\nretained=%s\nold_oid=%s\nold_limit=%s\n' \
+    "$revision" "$attempt" "$previous" "$oracle" "$rehearsal" "$target" "$old" \
+    "$(epoch2_database_oid cantos)" "$(epoch2_query postgres "SELECT datconnlimit FROM pg_database WHERE datname='cantos';")" >"$journal/meta"
+  epoch2_phase "$journal" initializing
+  epoch2_record_pending "$journal"
+  trap 'status=$?; trap - EXIT; if ((status != 0)); then epoch2_recover_impl "$revision" "$tree" "$attempt" || log "cutover recovery incomplete; retain journal and inspect"; fi; exit "$status"' EXIT
+  epoch2_snapshot_host "$journal" "$tree"
+  epoch2_phase "$journal" snapshotted
+  epoch2_install_pending_guard "$journal"
+  epoch2_snapshot_browser "$journal"
+  podman image inspect --format '{{.Id}} {{ index .Labels "org.opencontainers.image.revision" }}' "$(image_for "$previous")" >"$journal/legacy-image"
+  python3 - "$tree/services/cantos-api/schema/legacy-epoch-1-manifest.json" >"$journal/registry-expected.tsv" <<'PY'
+import json,sys
+manifest=json.load(open(sys.argv[1],encoding='utf-8'))
+rows=[row for row in manifest['migrations'] if row['version'] <= 28]
+assert manifest['schemaEpoch'] == 1 and [row['version'] for row in rows] == list(range(1,29))
+for row in rows:
+    print(f"{row['version']}|{row['sha256']}")
+PY
+  epoch2_create_database "$oracle"
+  epoch2_migrate_database "$previous" "$oracle"
+  epoch2_schema "$oracle" "$journal/schema-oracle.sql"
+  epoch2_registry "$oracle" "$journal/registry-oracle.tsv"
+  cmp -s "$journal/registry-expected.tsv" "$journal/registry-oracle.tsv" || die "legacy oracle checksum mismatch" 65
+  # PostgreSQL reparses CHECK expressions during restore and can flatten associative AND
+  # parentheses. Compare restored databases against an independently restored source oracle,
+  # never a text rewrite that could conceal a changed constraint in the live installation.
+  local restored_oracle=cantos_e1_normalized_$suffix
+  epoch2_dump "$oracle" "$journal/oracle.dump"
+  epoch2_restore_dump "$restored_oracle" "$journal/oracle.dump"
+  epoch2_schema "$restored_oracle" "$journal/schema-oracle-restored.sql"
+  epoch2_registry "$restored_oracle" "$journal/registry-oracle-restored.tsv"
+  cmp -s "$journal/registry-expected.tsv" "$journal/registry-oracle-restored.tsv" || die "restored legacy oracle checksum mismatch" 65
+  epoch2_guard_legacy cantos "$journal" "$tree"
+  epoch2_dump cantos "$journal/rehearsal.dump"
+  epoch2_restore_dump "$rehearsal" "$journal/rehearsal.dump"
+  epoch2_guard_legacy "$rehearsal" "$journal" "$tree" schema-oracle-restored.sql
+  epoch2_create_database "$target"
+  printf 'new_oid=%s\n' "$(epoch2_database_oid "$target")" >>"$journal/meta"
+  epoch2_migrate_database "$revision" "$target"
+  epoch2_import "$rehearsal" "$target" "$journal"
+  epoch2_migrate_database "$revision" "$target" --check
+  epoch2_phase "$journal" freeze-intent
+  systemctl stop "${API_UNITS[@]/%/.service}"
+  epoch2_query postgres 'ALTER DATABASE cantos CONNECTION LIMIT 0;' >/dev/null
+  epoch2_no_clients cantos
+  epoch2_guard_legacy cantos "$journal" "$tree"
+  epoch2_dump cantos "$journal/legacy-final.dump"
+  # A final restore drill verifies the exact frozen recovery media, not an earlier snapshot.
+  local final_restore=cantos_e1_final_$suffix
+  epoch2_restore_dump "$final_restore" "$journal/legacy-final.dump"
+  epoch2_guard_legacy "$final_restore" "$journal" "$tree" schema-oracle-restored.sql
+  epoch2_import "$final_restore" "$target" "$journal"
+  epoch2_rows cantos "$journal/rows-frozen.jsonl"
+  cmp -s "$journal/rows-frozen.jsonl" "$journal/rows-target.jsonl" || die "final recovery dump differs from frozen source" 65
+  epoch2_query postgres "ALTER DATABASE $target CONNECTION LIMIT 0;" >/dev/null
+  epoch2_phase "$journal" prepared
+  local incoming=${tree%/tree}
+  rm -f "$incoming/cutover-offhost.sha256"
+  tar -C "$(dirname "$journal")" -cf "$incoming/cutover-backup.tar.partial" "$(basename "$journal")"
+  mv "$incoming/cutover-backup.tar.partial" "$incoming/cutover-backup.tar"
+  (cd "$incoming" && sha256sum cutover-backup.tar >cutover-backup.tar.sha256)
+  sync -f "$incoming/cutover-backup.tar"
+  log "epoch2 prepared; APIs stopped pending verified off-host copy and commit; journal $(basename "$journal")"
+)
+
+epoch2_commit() (
+  set -Eeuo pipefail
+  local revision=$1 tree=$2 attempt=$3 journal incoming=${2%/tree} target retained old_oid new_oid
+  [[ $attempt =~ ^[0-9a-f]{32}$ ]] || die "invalid cutover attempt" 65
+  require_root; with_lock cutover; epoch2_load "$revision" "$attempt"; journal=$EPOCH2_JOURNAL
+  [[ $(<"$journal/phase") == prepared ]] || die "cutover is not prepared; recover/reconcile before continuing" 75
+  [[ -f $incoming/cutover-offhost.sha256 ]] &&
+    cmp -s "$incoming/cutover-backup.tar.sha256" "$incoming/cutover-offhost.sha256" || die "verified off-host recovery copy acknowledgement missing" 65
+  (cd "$incoming" && sha256sum --check --strict cutover-backup.tar.sha256) >/dev/null
+  target=$(config_value "$journal/meta" staging); retained=$(config_value "$journal/meta" retained)
+  old_oid=$(config_value "$journal/meta" old_oid); new_oid=$(config_value "$journal/meta" new_oid)
+  [[ $(epoch2_database_oid cantos) == "$old_oid" && $(epoch2_database_oid "$target") == "$new_oid" ]] || die "prepared database identities changed" 65
+  trap 'status=$?; trap - EXIT; if ((status != 0)); then epoch2_recover_impl "$revision" "$tree" "$attempt" || log "cutover recovery incomplete; retain journal and inspect"; fi; exit "$status"' EXIT
+  epoch2_guard_legacy cantos "$journal" "$tree"
+  epoch2_rows cantos "$journal/rows-commit.jsonl"
+  cmp -s "$journal/rows-frozen.jsonl" "$journal/rows-commit.jsonl" || die "frozen source changed after off-host copy" 65
+  epoch2_phase "$journal" browser-intent
+  epoch2_reconcile_browser "$journal"
+  : >"$journal/runtime-restarted-units"
+  local source unit
+  for source in "$tree"/infra/vps/quadlet/*; do
+    unit=$(basename "$source"); unit=${unit%.*}
+    case $unit in
+      cantos-postgres|cantos-kanidm|cantos-edge|cantos-network)
+        if ! cmp -s "$source" "$QUADLET_DIR/$(basename "$source")" && unit_active "$unit"; then
+          printf '%s\n' "$unit" >>"$journal/runtime-restarted-units"
+        fi ;;
+    esac
+  done
+  install_bundle "$tree"
+  validate_runtime_browser_configuration
+  epoch2_phase "$journal" rename-intent
+  epoch2_no_clients cantos; epoch2_no_clients "$target"
+  epoch2_query postgres "ALTER ROLE cantos_app IN DATABASE $target SET default_transaction_read_only=on;" >/dev/null
+  epoch2_query postgres "ALTER DATABASE cantos RENAME TO $retained;" >/dev/null
+  epoch2_query postgres "ALTER DATABASE $target RENAME TO cantos;" >/dev/null
+  epoch2_query postgres "ALTER DATABASE cantos CONNECTION LIMIT $(config_value "$journal/meta" old_limit);" >/dev/null
+  check_schema "$revision"
+  apply_grants
+  epoch2_phase "$journal" health-check
+  switch_to "$revision"; edge_probe
+  printf '%s\n' "$revision" >"$STATE/current"
+  rm -f "$STATE/previous"
+  printf '%s cutover-epoch2 %s retained %s\n' "$(date -u +%FT%TZ)" "$revision" "$retained" >>"$STATE/history"
+  # This is the point of no automatic rollback. A crash afterwards can only finalize the new
+  # installation: permitting writes and then restoring the legacy DB would discard new data.
+  epoch2_phase "$journal" accepted
+  epoch2_query postgres 'ALTER ROLE cantos_app IN DATABASE cantos RESET default_transaction_read_only;' >/dev/null
+  systemctl restart "${API_UNITS[@]/%/.service}"
+  epoch2_phase "$journal" complete
+  rm "$STATE/epoch2-cutover.pending"
+  log "epoch2 cutover completed; original database, image, runtime and recovery archive retained"
+)
+
+epoch2_recover_impl() {
+  local revision=$1 tree=$2 attempt=$3 journal phase previous target retained old_oid new_oid old_name new_name
+  epoch2_pending || return 0
+  epoch2_load "$revision" "$attempt"; journal=$EPOCH2_JOURNAL; phase=$(<"$journal/phase")
+  case $phase in
+    initializing|snapshotted|freeze-intent|prepared|browser-intent|rename-intent|health-check|accepted|complete|refused|rolled-back) ;;
+    *) log "unknown cutover phase; explicit journal investigation required"; return 65 ;;
+  esac
+  if [[ $phase == refused || $phase == rolled-back ]]; then
+    rm "$STATE/epoch2-cutover.pending" || return
+    return
+  fi
+  if [[ $phase == initializing ]]; then
+    epoch2_phase "$journal" refused || return
+    rm "$STATE/epoch2-cutover.pending" || return
+    return
+  fi
+  previous=$(config_value "$journal/meta" previous)
+  target=$(config_value "$journal/meta" staging); retained=$(config_value "$journal/meta" retained)
+  old_oid=$(config_value "$journal/meta" old_oid)
+  new_oid=$(config_value "$journal/meta" new_oid 2>/dev/null) || new_oid=""
+  [[ $previous =~ ^[0-9a-f]{40}$ && $old_oid =~ ^[0-9]+$ ]] || return 65
+  epoch2_database_name "$target"; epoch2_database_name "$retained"
+  if [[ $phase == accepted || $phase == complete ]]; then
+    [[ $new_oid =~ ^[0-9]+$ && $(epoch2_database_oid cantos) == "$new_oid" && $(<"$STATE/current") == "$revision" ]] || return 65
+    check_schema "$revision" || return
+    epoch2_query postgres 'ALTER ROLE cantos_app IN DATABASE cantos RESET default_transaction_read_only;' >/dev/null || return
+    systemctl restart "${API_UNITS[@]/%/.service}" || return
+    epoch2_phase "$journal" complete || return
+    rm "$STATE/epoch2-cutover.pending" || return
+    log "accepted cutover finalized; rollback refused because new writes may exist"
+    return
+  fi
+  systemctl stop "${API_UNITS[@]/%/.service}" || return
+  old_name=$(epoch2_database_by_oid "$old_oid") || return
+  if [[ -n $new_oid ]]; then
+    [[ $new_oid =~ ^[0-9]+$ ]] || return 65
+    new_name=$(epoch2_database_by_oid "$new_oid") || return
+  else new_name=""; fi
+  case $old_name:$new_name in
+    cantos:* ) [[ -z $new_name || $new_name == "$target" ]] || return 65 ;;
+    "$retained":cantos )
+      epoch2_no_clients cantos || return
+      epoch2_query postgres "ALTER DATABASE cantos RENAME TO $target;" >/dev/null || return
+      epoch2_query postgres "ALTER DATABASE $retained RENAME TO cantos;" >/dev/null || return ;;
+    "$retained":"$target" )
+      [[ -z $(epoch2_database_oid cantos) ]] || return 65
+      epoch2_query postgres "ALTER DATABASE $retained RENAME TO cantos;" >/dev/null || return ;;
+    * ) log "unknown cutover database identity; APIs remain stopped for operator recovery"; return 65 ;;
+  esac
+  # Preparation only reads provider state. Its snapshot may be incomplete after a read
+  # failure, so restore the provider only after the write-ahead browser-mutation intent.
+  case $phase in
+    browser-intent|rename-intent|health-check) epoch2_restore_browser "$journal" || return ;;
+  esac
+  epoch2_restore_host "$journal" || return
+  epoch2_query postgres "ALTER DATABASE cantos CONNECTION LIMIT $(config_value "$journal/meta" old_limit);" >/dev/null || return
+  switch_to "$previous" || return
+  epoch2_phase "$journal" rolled-back || return
+  rm "$STATE/epoch2-cutover.pending" || return
+  log "cutover rolled back as a database/image/runtime pair; all sibling databases retained"
+}
+
+epoch2_recover() (
+  set -Eeuo pipefail
+  [[ ${3:-} =~ ^[0-9a-f]{32}$ ]] || die "invalid cutover attempt" 65
+  require_root; with_lock cutover
+  epoch2_recover_impl "$1" "$2" "$3"
+)

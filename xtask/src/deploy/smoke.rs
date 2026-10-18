@@ -11,13 +11,10 @@
 //!
 //! A smoke failure after a confirmed release is a separate local result: the release stays known.
 
-// ACCEPTANCE(NOT_RUN): this judge has only seen fixtures. It has not been run against a real
-// Firebase Hosting response, so the media types Hosting assigns (`.wasm`, `.js`, `.css`), the
-// `Cache-Control` it emits for the policy in infra/firebase/hosting and its CDN propagation
-// delay after a release are unobserved. The verified local counterpart is the Firebase Hosting
-// emulator run recorded in docs/evidence/issue199-firebase-hosting.md. Owner: the operator of the
-// first live preview deploy; command: `cargo xtask deploy firebase <app> --web --project <id>
-// --channel <name>` and read the `HTTP smoke` row of its report.
+// Fixtures establish the judge, not acceptance of a deployment. Each live run records actual
+// media types, cache headers and decoded file digests in its private receipt. Read that run's
+// `HTTP smoke` result separately from release confirmation and browser/API acceptance. The
+// source-bound emulator evidence is in docs/evidence/issue199-firebase-hosting.md.
 
 use std::{path::Path, time::Duration};
 
@@ -135,8 +132,9 @@ pub fn url_for(base: &str, path: &str) -> Option<String> {
     (host_ok && path_ok).then(|| format!("{base}{path}"))
 }
 
-/// One read-only HTTPS GET. `--dump-header -` puts the headers on stdout; the body goes to
-/// `body` so its digest can be compared. Redirects are not followed and only `https` is allowed.
+/// One read-only HTTPS GET. Negotiate transfer compression and let curl decode the response
+/// before hashing it against the built bytes. `--dump-header -` puts the headers on stdout;
+/// the body goes to `body`. Redirects are not followed and only `https` is allowed.
 pub fn curl_command(url: &str, body: &Path, cwd: &Path) -> CommandSpec {
     // `--disable` must be the first argument: it ignores `~/.curlrc`, so ambient configuration
     // (for example `location`) cannot make the request follow a redirect to another host.
@@ -144,6 +142,7 @@ pub fn curl_command(url: &str, body: &Path, cwd: &Path) -> CommandSpec {
         "--disable",
         "--silent",
         "--show-error",
+        "--compressed",
         "--proto",
         "=https",
         "--proto-redir",
@@ -480,6 +479,10 @@ mod tests {
         let args = command.args.join(" ");
         assert!(args.contains("--proto =https --proto-redir =https"));
         assert!(args.contains("--dump-header -"));
+        assert!(
+            command.args.contains(&"--compressed".to_owned()),
+            "large bundles must negotiate transfer compression while hashing decoded bytes"
+        );
         assert!(!args.contains("--location") && !args.contains(" -L"));
         assert_eq!(
             command.args[0], "--disable",

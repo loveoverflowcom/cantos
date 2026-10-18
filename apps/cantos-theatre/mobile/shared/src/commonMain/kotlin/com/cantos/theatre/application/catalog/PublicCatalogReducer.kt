@@ -226,6 +226,7 @@ private fun resolveWork(state: PublicCatalogState, event: WorkResolved): PublicC
     if (detail == null || detail.awaiting != event.token) return PublicCatalogTransition(state)
     return when (val outcome = event.outcome) {
         is PublicCatalogRead.Ready -> {
+            // The HTTP adapter checks this too; a matching token cannot bind a foreign port's Work.
             if (outcome.value.id != detail.id) return state.failDetail(detail, CatalogFailure.Protocol)
             val (token, issued) = state.issue()
             val units = PageWalk<PublicUnit>().request(token, null, replace = false, resetCounters = true)

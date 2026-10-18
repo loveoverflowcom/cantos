@@ -17,11 +17,14 @@ See [product status](../product/brief.md#implementation-status) and the [contrac
 
 [#238](https://github.com/loveoverflowcom/cantos/issues/238) removes retired provider runtime
 before [#239](https://github.com/loveoverflowcom/cantos/issues/239)'s current fresh schema is used.
-Review source cleanup and fresh/refusal SQL evidence together, then inventory the deployed
-schema/data, rehearse authoritative-data conversion and backup restore, and approve the exact
-cutover separately. The [cutover runbook](../deployment/postgres-schema-cutover.md) preserves
-PostgreSQL authority and keeps the PostgreSQL 17 → 18.6 decision independent. An epoch-2 source
-build does not authorize deploying over an epoch-1 database or rewriting its migration checksums.
+Review source cleanup and fresh/refusal SQL evidence together, then qualify the explicit narrow
+`--cutover-epoch2` lane against its exact legacy-883e188/28-migration and empty-business guards,
+sibling restore/import, frozen-row comparison, off-host recovery and paired rollback boundaries.
+Reconcile the six browser inputs and existing OIDC clients through the same operation before
+direct Hosting/API acceptance. The [cutover runbook](../deployment/postgres-schema-cutover.md)
+preserves PostgreSQL authority and keeps PostgreSQL 17 → 18.6 independent. Populated business/session
+data still requires a reviewed general transformer, which remains unimplemented; a fresh source
+build does not authorize rewriting migration checksums or bypassing the guards.
 
 [#237](https://github.com/loveoverflowcom/cantos/issues/237) is an independent Hosting track:
 first establish project ownership/availability for the requested short Site IDs, then approve
@@ -41,7 +44,7 @@ that rollout.
 | 2 | [#10](https://github.com/loveoverflowcom/cantos/issues/10), [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#11](https://github.com/loveoverflowcom/cantos/issues/11) | Verify private-provider isolation and exact rights/review/publication bindings; preserve old releases on failure | [030](030-mix-review-and-publish.md); [Long Vân blocker](../evidence/longvan-s3-acceptance.md#offline-harness-hardening-and-live-blocker) is evidence to reconcile, not a successful provider gate |
 | 3 | [#170](https://github.com/loveoverflowcom/cantos/issues/170), [#120](https://github.com/loveoverflowcom/cantos/issues/120) | Qualify configured filesystem promotion and origin Range/expiry/withdrawal, then hand exact releases to native playback | [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md), [step-1 handoff](../evidence/theatre-live-catalog-step1.md); unconfigured delivery stays fail-closed and deployment/native acceptance remain separate |
 | 4 | [#172](https://github.com/loveoverflowcom/cantos/issues/172) | Review the multi-Work/unit PostgreSQL walk regressions, then accept client recovery against the existing public contract | [State matrix](theatre-catalog-state-handoff.md#postgresql-walk-follow-up), accepted [ADR 0035](../decisions/0035-theatre-catalog-unit-availability.md); local SQL results belong to the PR, Web/CMP behavior and duration-schema tightening remain separate |
-| 5 | [#13](https://github.com/loveoverflowcom/cantos/issues/13), [#14](https://github.com/loveoverflowcom/cantos/issues/14), [#158](https://github.com/loveoverflowcom/cantos/issues/158), [#159](https://github.com/loveoverflowcom/cantos/issues/159) | Connect one real discovery → episode → playback slice per client with typed unavailable/error states | #170/#172; [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md). The discovery → detail → unit-list part exists on Web and the CMP debug host against a [seeded local catalog](../deployment/theatre-seeded-catalog.md); the [step-2 runtime](../evidence/theatre-native-step2.md) adds native/account/Library/SQLDelight integration against unmerged #247; next are exact-artifact device/codec/identity/two-client acceptance; follow with #15/#16/#17/#35 background/offline/sync |
+| 5 | [#13](https://github.com/loveoverflowcom/cantos/issues/13), [#14](https://github.com/loveoverflowcom/cantos/issues/14), [#158](https://github.com/loveoverflowcom/cantos/issues/158), [#159](https://github.com/loveoverflowcom/cantos/issues/159) | Connect one real discovery → episode → playback slice per client with typed unavailable/error states | #170/#172; [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md). The discovery → detail → unit-list part exists on Web and the CMP debug host against a [seeded local catalog](../deployment/theatre-seeded-catalog.md); the [step-2 runtime](../evidence/theatre-native-step2.md) adds native/account/Library/SQLDelight integration while preserving the independent [detail-identity guard](../evidence/issue159-cmp-live-catalog.md); next are exact-artifact device/codec/identity/two-client acceptance; follow with #15/#16/#17/#35 background/offline/sync |
 
 Order expresses capability dependencies. The following tracks can proceed independently within
 their own decision/acceptance gates; none requires rebuilding the completed foundation.
