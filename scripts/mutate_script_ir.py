@@ -73,7 +73,7 @@ MUTANTS = (
 )
 
 
-def run(workspace, env):
+def run(workspace, env, *, timeout=60):
     return subprocess.run(
         ["cargo", "test", "-p", "cantos-api", "--offline", "--locked", "--test", "script_ir"],
         cwd=workspace,
@@ -81,7 +81,7 @@ def run(workspace, env):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        timeout=60,
+        timeout=timeout,
         check=False,
     )
 
@@ -103,7 +103,14 @@ def main():
                        "apps/cantos-studio/web", "packages/contracts", "packages/ui-system", "xtask"):
             shutil.copytree(ROOT / member, workspace / member, ignore=shutil.ignore_patterns("dist"))
         env = dict(os.environ, CARGO_TARGET_DIR=str(Path(temp) / "target"))
-        baseline = run(workspace, env)
+        # Only the unmutated baseline may need a cold isolated-target compilation.
+        try:
+            baseline = run(workspace, env, timeout=600)
+        except subprocess.TimeoutExpired as failure:
+            output = failure.stdout or ""
+            if isinstance(output, bytes):
+                output = output.decode("utf-8", errors="replace")
+            raise SystemExit("Mutation baseline timed out after 600s before mutations:\n" + output)
         summary = f"test result: ok. {EXPECTED_CONTRACT_TESTS} passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
         if baseline.returncode != 0 or summary not in baseline.stdout:
             raise SystemExit(f"Mutation baseline did not pass all {EXPECTED_CONTRACT_TESTS} tests:\n" + baseline.stdout)

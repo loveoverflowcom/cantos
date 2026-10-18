@@ -17,11 +17,14 @@ See [product status](../product/brief.md#implementation-status) and the [contrac
 
 [#238](https://github.com/loveoverflowcom/cantos/issues/238) removes retired provider runtime
 before [#239](https://github.com/loveoverflowcom/cantos/issues/239)'s current fresh schema is used.
-Review source cleanup and fresh/refusal SQL evidence together, then inventory the deployed
-schema/data, rehearse authoritative-data conversion and backup restore, and approve the exact
-cutover separately. The [cutover runbook](../deployment/postgres-schema-cutover.md) preserves
-PostgreSQL authority and keeps the PostgreSQL 17 → 18.6 decision independent. An epoch-2 source
-build does not authorize deploying over an epoch-1 database or rewriting its migration checksums.
+Review source cleanup and fresh/refusal SQL evidence together, then qualify the explicit narrow
+`--cutover-epoch2` lane against its exact legacy-883e188/28-migration and empty-business guards,
+sibling restore/import, frozen-row comparison, off-host recovery and paired rollback boundaries.
+Reconcile the six browser inputs and existing OIDC clients through the same operation before
+direct Hosting/API acceptance. The [cutover runbook](../deployment/postgres-schema-cutover.md)
+preserves PostgreSQL authority and keeps PostgreSQL 17 → 18.6 independent. Populated business/session
+data still requires a reviewed general transformer, which remains unimplemented; a fresh source
+build does not authorize rewriting migration checksums or bypassing the guards.
 
 [#237](https://github.com/loveoverflowcom/cantos/issues/237) is an independent Hosting track:
 first establish project ownership/availability for the requested short Site IDs, then approve
