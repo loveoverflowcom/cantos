@@ -33,6 +33,7 @@ Operations (exactly one; deploy is the default):
   (none)        build HEAD's API image here, upload it with the host bundle, then on the VPS:
                 backup -> migrate -> grants -> switch image -> health gate (auto-rollback)
   --bootstrap   upload the host bundle and run the idempotent host setup (no image)
+  --reload-browser upload the host bundle; validate/restart existing edge/API, no SQL or secrets
   --rollback    switch the API back to the previous image on the VPS
   --status      print the VPS service status
   --cutover-epoch2  explicitly convert the inventoried empty-business epoch-1 installation;
@@ -63,16 +64,19 @@ pub struct VpsArgs {
     #[arg(long, value_name = "USER@HOST")]
     pub host: String,
     /// Upload the host bundle and run the idempotent host setup only.
-    #[arg(long, conflicts_with_all = ["rollback", "status", "cutover_epoch2"])]
+    #[arg(long, conflicts_with_all = ["rollback", "status", "cutover_epoch2", "reload_browser"])]
     pub bootstrap: bool,
+    /// Apply installed browser configuration without SQL, secret or image changes.
+    #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "status", "cutover_epoch2"])]
+    pub reload_browser: bool,
     /// Switch the API back to the previously deployed image.
-    #[arg(long, conflicts_with_all = ["bootstrap", "status", "cutover_epoch2"])]
+    #[arg(long, conflicts_with_all = ["bootstrap", "status", "cutover_epoch2", "reload_browser"])]
     pub rollback: bool,
     /// Print the VPS service status (read-only).
-    #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "cutover_epoch2"])]
+    #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "cutover_epoch2", "reload_browser"])]
     pub status: bool,
     /// Explicit two-phase, lossless epoch-1 (28 migrations) to epoch-2 cutover.
-    #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "status"])]
+    #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "status", "reload_browser"])]
     pub cutover_epoch2: bool,
     /// Public API origin probed from this machine afterwards, e.g. https://api.example.org.
     #[arg(long, value_name = "ORIGIN")]
@@ -86,6 +90,7 @@ pub struct VpsArgs {
 pub enum Operation {
     Deploy,
     Bootstrap,
+    ReloadBrowser,
     Rollback,
     Status,
     CutoverEpoch2,
@@ -215,11 +220,13 @@ pub fn resolve(args: &VpsArgs) -> Result<Request, Refusal> {
         args.rollback,
         args.status,
         args.cutover_epoch2,
+        args.reload_browser,
     ) {
-        (true, _, _, _) => Operation::Bootstrap,
-        (_, true, _, _) => Operation::Rollback,
-        (_, _, true, _) => Operation::Status,
-        (_, _, _, true) => Operation::CutoverEpoch2,
+        (true, _, _, _, _) => Operation::Bootstrap,
+        (_, true, _, _, _) => Operation::Rollback,
+        (_, _, true, _, _) => Operation::Status,
+        (_, _, _, true, _) => Operation::CutoverEpoch2,
+        (_, _, _, _, true) => Operation::ReloadBrowser,
         _ => Operation::Deploy,
     };
     if operation == Operation::Status && args.smoke_origin.is_some() {
@@ -341,9 +348,10 @@ pub fn plan(
         format!("install -d -m 0700 {REMOTE_ROOT}/incoming {incoming}"),
         true,
     );
-    let install = format!(
-        "d={incoming}; install -d -m 0700 \"$d/tree\" && tar -xf \"$d/bundle.tar\" -C \"$d/tree\" && \"$d/tree/infra/vps/bin/cantos-vps\" install \"$d/tree\""
+    let unpack = format!(
+        "d={incoming}; install -d -m 0700 \"$d/tree\" && tar -xf \"$d/bundle.tar\" -C \"$d/tree\""
     );
+    let install = format!("{unpack} && \"$d/tree/infra/vps/bin/cantos-vps\" install \"$d/tree\"");
     let smoke = request.smoke_origin.as_ref().map(|origin| {
         local(
             "public smoke",
@@ -484,7 +492,7 @@ pub fn plan(
             }
             steps.extend(smoke);
         }
-        Operation::Bootstrap => {
+        Operation::Bootstrap | Operation::ReloadBrowser => {
             steps.extend(source);
             steps.push(bundle);
             steps.push(upload_dir);
@@ -499,12 +507,23 @@ pub fn plan(
                 ]),
                 remote_write: true,
             });
-            steps.push(ssh("remote install", install, true));
-            steps.push(ssh(
-                "remote bootstrap",
-                format!("{HOST_SCRIPT} bootstrap"),
-                true,
-            ));
+            if request.operation == Operation::ReloadBrowser {
+                steps.push(ssh(
+                    "remote browser reload",
+                    format!(
+                    "{unpack} && \"$d/tree/infra/vps/bin/cantos-vps\" reload-browser \"$d/tree\""
+                ),
+                    true,
+                ));
+            } else {
+                steps.push(ssh("remote install", install, true));
+                steps.push(ssh(
+                    "remote bootstrap",
+                    format!("{HOST_SCRIPT} bootstrap"),
+                    true,
+                ));
+            }
+            steps.extend(smoke);
         }
         Operation::Rollback => {
             steps.push(ssh(
@@ -563,6 +582,7 @@ const NEEDED: &[(Operation, &[&str])] = &[
         &["git", "tar", "podman", "zstd", "ssh", "scp"],
     ),
     (Operation::Bootstrap, &["git", "tar", "ssh", "scp"]),
+    (Operation::ReloadBrowser, &["git", "tar", "ssh", "scp"]),
     (Operation::Rollback, &["ssh"]),
     (Operation::Status, &["ssh"]),
     (
@@ -587,7 +607,10 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
     };
     let needs_source = matches!(
         request.operation,
-        Operation::Deploy | Operation::Bootstrap | Operation::CutoverEpoch2
+        Operation::Deploy
+            | Operation::Bootstrap
+            | Operation::ReloadBrowser
+            | Operation::CutoverEpoch2
     );
     let revision = if needs_source {
         head_revision(workspace.root())?
@@ -850,6 +873,28 @@ mod tests {
         let deploy = steps[10].command.args.last().unwrap();
         assert_eq!(deploy, &format!("/usr/local/sbin/cantos-vps deploy {REV}"));
         assert!(steps[10].command.args.contains(&"BatchMode=yes".to_owned()));
+    }
+
+    #[test]
+    fn browser_reload_uploads_configuration_without_building_or_deploying_an_image() {
+        let request = resolve(&args(&["--reload-browser"])).unwrap();
+        assert_eq!(request.operation, Operation::ReloadBrowser);
+        let steps = plan(&workspace(), &request, REV, Path::new("/tmp/run"), &ATTEMPT);
+        assert_eq!(
+            names(&steps),
+            [
+                "source archive",
+                "source tree",
+                "host bundle",
+                "remote upload directory",
+                "upload",
+                "remote browser reload"
+            ]
+        );
+        assert!(steps.iter().all(|step| step.command.program != "podman"));
+        let remote = steps.last().unwrap().command.args.last().unwrap();
+        assert!(remote.ends_with("reload-browser \"$d/tree\""));
+        assert!(!remote.contains("cantos-vps\" install "));
     }
 
     #[test]
@@ -1153,7 +1198,7 @@ mod tests {
             #[command(flatten)]
             vps: VpsArgs,
         }
-        for other in ["--status", "--rollback", "--bootstrap"] {
+        for other in ["--status", "--rollback", "--bootstrap", "--reload-browser"] {
             assert!(Probe::try_parse_from([
                 "probe",
                 "cantos-api",

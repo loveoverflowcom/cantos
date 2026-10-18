@@ -122,7 +122,7 @@
 	}
 }
 
-{$CANTOS_API_HOST} {
+{$CANTOS_API_HOST} {$CANTOS_API_ALIAS_HOST:} {
 	import cantos_security
 	import cantos_errors
 	# Direct Hosting uses this API ingress; each group retains its own origin-pinned process.
