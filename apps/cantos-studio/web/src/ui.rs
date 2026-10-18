@@ -138,6 +138,12 @@ impl WorkspacePane {
         Self::Content,
     ];
 
+    pub fn from_hash(hash: &str) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|pane| format!("#{}", pane.id()) == hash)
+            .unwrap_or(Self::Dashboard)
+    }
     pub const fn id(self) -> &'static str {
         match self {
             Self::Dashboard => "workspace-dashboard",
@@ -686,6 +692,28 @@ mod tests {
                 assert_eq!(html.contains("aria-describedby=\"session-submit-reason\""), blocked);
                 assert!(html.contains(text(Key::ControlBlocked, false)));
             });
+        }
+    }
+}
+
+#[cfg(test)]
+mod pane_return_tests {
+    use super::*;
+    #[test]
+    fn reload_restores_only_canonical_nonsecret_workspace_routes() {
+        for pane in WorkspacePane::ALL {
+            assert_eq!(WorkspacePane::from_hash(&format!("#{}", pane.id())), pane);
+        }
+        for malformed in [
+            "#workspace-import?actor=b",
+            "//evil.example",
+            "#auth/bearer/complete",
+            "#unknown",
+        ] {
+            assert_eq!(
+                WorkspacePane::from_hash(malformed),
+                WorkspacePane::Dashboard
+            );
         }
     }
 }

@@ -93,34 +93,6 @@ pub(crate) fn back(route: RwSignal<Route>, destination: Route) {
     go(route, destination, true);
 }
 
-pub(crate) fn save_provider_return(auth: AuthRoute) -> Option<String> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let window = web_sys::window()?;
-        let mut bytes = [0u8; 16];
-        window
-            .crypto()
-            .ok()?
-            .get_random_values_with_u8_array(&mut bytes)
-            .ok()?;
-        let intent: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-        window
-            .session_storage()
-            .ok()??
-            .set_item(
-                "cantos.auth-return.v1",
-                &ProviderReturn::new(auth, intent.clone())?.serialize(),
-            )
-            .ok()?;
-        Some(intent)
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let _ = auth;
-        None
-    }
-}
-
 pub(crate) fn clear_provider_return() {
     #[cfg(target_arch = "wasm32")]
     if let Some(storage) = web_sys::window().and_then(|w| w.session_storage().ok().flatten()) {
@@ -159,15 +131,6 @@ pub(crate) fn hash() -> String {
     String::new()
 }
 
-pub(crate) fn save_return_snapshot(route: Route, snapshot: ReturnSnapshot) {
-    #[cfg(target_arch = "wasm32")]
-    if let Some(storage) = web_sys::window().and_then(|w| w.session_storage().ok().flatten()) {
-        let data = serde_json::json!([route.hash(), snapshot.scroll_y, snapshot.focus_id]);
-        let _ = storage.set_item("cantos.auth-focus.v1", &data.to_string());
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    let _ = (route, snapshot);
-}
 pub(crate) fn take_return_snapshot() -> Option<(Route, ReturnSnapshot)> {
     #[cfg(target_arch = "wasm32")]
     {

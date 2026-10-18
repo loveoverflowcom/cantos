@@ -3,3 +3,10 @@ use cantos_contracts::web_api::{api_url, AddressError, WebSurface};
 pub(crate) fn endpoint(path: &str) -> Result<String, AddressError> {
     api_url(option_env!("CANTOS_API_ORIGIN"), WebSurface::Studio, path)
 }
+
+pub(crate) fn auth() -> Result<cantos_web_auth::browser::Client, cantos_web_auth::Failure> {
+    cantos_web_auth::browser::client(
+        cantos_web_auth::Surface::Studio,
+        option_env!("CANTOS_API_ORIGIN"),
+    )
+}

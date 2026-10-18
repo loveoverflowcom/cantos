@@ -48,46 +48,54 @@ fn refresh_with_budget(state: RwSignal<AccountViewState>, session_change_budget:
     state.set(current);
     leptos::task::spawn_local(async move {
         let result = super::account::session().await;
-        let mut completion = None;
-        let mut cleanup_intent = CleanupIntent::StaleOnly;
-        if state
-            .try_update(|current| {
-                completion = Some(current.finish_session(issued, result));
-                cleanup_intent = current.cleanup_intent().clone();
-            })
-            .is_none()
-        {
-            return;
-        }
-        match completion {
-            Some(Ok(SessionCompletion::Authenticated(fence))) => {
-                let result = super::library::load(fence.session()).await;
-                let session_changed = matches!(&result, Err(AccountFailure::SessionChanged));
-                let mut completed = None;
-                let _ = state.try_update(|current| {
-                    completed = Some(current.finish_library(&fence, result));
-                    cleanup_intent = current.cleanup_intent().clone();
-                });
-                match completed {
-                    Some(Ok(LibraryCompletion::Cleanup(issued))) => {
-                        cleanup(state, issued, cleanup_intent, session_change_budget).await
-                    }
-                    Some(Ok(LibraryCompletion::Applied))
-                        if session_changed && session_change_budget > 0 =>
-                    {
-                        refresh_with_budget(state, session_change_budget - 1);
-                    }
-                    Some(Ok(LibraryCompletion::Applied | LibraryCompletion::Ignored))
-                    | Some(Err(_))
-                    | None => (),
-                }
-            }
-            Some(Ok(SessionCompletion::Cleanup(issued))) => {
-                cleanup(state, issued, cleanup_intent, session_change_budget).await
-            }
-            Some(Ok(SessionCompletion::Ignored)) | Some(Err(_)) | None => (),
-        }
+        finish_lookup(state, issued, result, session_change_budget).await;
     });
+}
+async fn finish_lookup(
+    state: RwSignal<AccountViewState>,
+    issued: AccountGeneration,
+    result: Result<crate::application::account::AccountScope, AccountFailure>,
+    session_change_budget: u8,
+) {
+    let mut completion = None;
+    let mut cleanup_intent = CleanupIntent::StaleOnly;
+    if state
+        .try_update(|current| {
+            completion = Some(current.finish_session(issued, result));
+            cleanup_intent = current.cleanup_intent().clone();
+        })
+        .is_none()
+    {
+        return;
+    }
+    match completion {
+        Some(Ok(SessionCompletion::Authenticated(fence))) => {
+            let result = super::library::load(fence.session()).await;
+            let session_changed = matches!(&result, Err(AccountFailure::SessionChanged));
+            let mut completed = None;
+            let _ = state.try_update(|current| {
+                completed = Some(current.finish_library(&fence, result));
+                cleanup_intent = current.cleanup_intent().clone();
+            });
+            match completed {
+                Some(Ok(LibraryCompletion::Cleanup(issued))) => {
+                    cleanup(state, issued, cleanup_intent, session_change_budget).await
+                }
+                Some(Ok(LibraryCompletion::Applied))
+                    if session_changed && session_change_budget > 0 =>
+                {
+                    refresh_with_budget(state, session_change_budget - 1);
+                }
+                Some(Ok(LibraryCompletion::Applied | LibraryCompletion::Ignored))
+                | Some(Err(_))
+                | None => (),
+            }
+        }
+        Some(Ok(SessionCompletion::Cleanup(issued))) => {
+            cleanup(state, issued, cleanup_intent, session_change_budget).await
+        }
+        Some(Ok(SessionCompletion::Ignored)) | Some(Err(_)) | None => (),
+    }
 }
 
 pub fn logout(state: RwSignal<AccountViewState>) {
@@ -101,21 +109,85 @@ pub fn logout(state: RwSignal<AccountViewState>) {
     };
     let intent = current.cleanup_intent().clone();
     state.set(current);
+    let expected = match &intent {
+        CleanupIntent::ExpectedSession(session) => Some(session.as_str()),
+        CleanupIntent::StaleOnly => None,
+    };
+    if let Ok(client) = crate::api_endpoint::auth() {
+        let _ = client.begin_logout(expected);
+    }
     leptos::task::spawn_local(cleanup(state, issued, intent, 1));
 }
 
-pub fn login(state: RwSignal<AccountViewState>, intent: &str) {
+pub fn login(state: RwSignal<AccountViewState>) {
     if !state.get_untracked().can_login() {
         return;
     }
-    if super::account::navigate_login(intent).is_err() {
-        state.update(AccountViewState::navigation_failed);
+    let login = match super::account::reserve_login() {
+        Ok(login) => login,
+        Err(_) => {
+            state.update(AccountViewState::navigation_failed);
+            return;
+        }
+    };
+    let mut current = state.get_untracked();
+    let Ok(issued) = current.begin_refresh() else {
+        return;
+    };
+    state.set(current);
+    leptos::task::spawn_local(async move {
+        let result = match login.run().await {
+            Ok(()) => super::account::session().await,
+            Err(cantos_web_auth::Failure::Cancelled | cantos_web_auth::Failure::Changed) => {
+                Err(AccountFailure::SignedOut)
+            }
+            Err(error) => Err(super::account::auth_error(error)),
+        };
+        finish_lookup(state, issued, result, 1).await;
+    });
+}
+pub fn cancel_login() {
+    if let Ok(client) = crate::api_endpoint::auth() {
+        if client.cancel_authorization().is_ok() {
+            let _ = client.invalidate();
+            leptos::task::spawn_local(async move {
+                let _ = client.settled_cleanup().await;
+            });
+        }
     }
 }
 
+fn credentials_lost(state: RwSignal<AccountViewState>) {
+    let Some(mut current) = state.try_get_untracked() else {
+        return;
+    };
+    if current.phase() != SessionPhase::SignedIn {
+        return;
+    }
+    let Ok(issued) = current.begin_logout() else {
+        return;
+    };
+    state.set(current);
+    leptos::task::spawn_local(async move {
+        let result = match crate::api_endpoint::auth() {
+            Ok(client) => client
+                .settled_cleanup()
+                .await
+                .map_err(super::account::auth_error),
+            Err(error) => Err(super::account::auth_error(error)),
+        };
+        let _ = state.try_update(|current| {
+            current.finish_logout(issued, result);
+        });
+    });
+}
 pub fn mount(state: RwSignal<AccountViewState>) {
     use leptos::leptos_dom::helpers::window_event_listener_untyped;
 
+    let credential_loss = window_event_listener_untyped(
+        cantos_web_auth::browser::invalidation_event(cantos_web_auth::Surface::Theatre),
+        move |_| credentials_lost(state),
+    );
     let focus = window_event_listener_untyped("focus", move |_| refresh(state));
     let timer = StoredValue::new_local(None::<(web_sys::Window, i32, Closure<dyn FnMut()>)>);
     if let Some(window) = web_sys::window() {
@@ -140,6 +212,7 @@ pub fn mount(state: RwSignal<AccountViewState>) {
     }
     on_cleanup(move || {
         focus.remove();
+        credential_loss.remove();
         timer.update_value(|timer| {
             if let Some((window, handle, callback)) = timer.take() {
                 window.clear_interval_with_handle(handle);

@@ -7,7 +7,7 @@ use std::sync::Arc;
 pub const MAX_AUDIO_BYTES: u64 = 32 * 1024 * 1024;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Credentials {
-    SameOrigin,
+    OwnerBearer,
     Omit,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -22,13 +22,13 @@ pub enum ClientError {
     Http { status: u16, error: ApiError },
 }
 impl ClientError {
-    /// Producer capability expiry says nothing about the Studio owner's cookie session.
+    /// Producer capability expiry says nothing about the Studio owner's Bearer session.
     pub fn owner_session_denial(&self, command: &Command) -> Option<&ApiError> {
         match self {
             Self::Http {
                 status: 401 | 409,
                 error,
-            } if command.credentials() == Credentials::SameOrigin
+            } if command.credentials() == Credentials::OwnerBearer
                 && error.code == ErrorCode::Unauthenticated =>
             {
                 Some(error)
@@ -230,7 +230,7 @@ pub enum Command {
         work: String,
         request: SetWorkArtworkRequest,
     },
-    /// Owner-only Work delegation (ADR 0028), on the Studio cookie session.
+    /// Owner-only Work delegation (ADR 0028), on the Studio owner Bearer session.
     Delegations {
         work: String,
         after: Option<String>,
@@ -423,7 +423,7 @@ impl Command {
     pub fn credentials(&self) -> Credentials {
         match self {
             Self::ProducerStatus { .. } | Self::Upload { .. } => Credentials::Omit,
-            _ => Credentials::SameOrigin,
+            _ => Credentials::OwnerBearer,
         }
     }
     pub fn json(&self) -> Result<Option<String>, ClientError> {

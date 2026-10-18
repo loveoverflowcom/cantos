@@ -11,6 +11,7 @@ default = []
 revision-protobuf = []
 
 [dependencies]
+cantos-web-auth = { path = "../../../packages/web-auth" }
 cantos-contracts = { path = "../../../packages/contracts/api" }
 serde_json = "=1.0.145"
 serde = "=1.0.228"
@@ -21,7 +22,7 @@ leptos = { version = "=0.7.8", default-features = false }
 cantos-ui = { path = "../../../packages/ui-system/leptos", features = ["csr"] }
 leptos = { version = "=0.7.8", features = ["csr"] }
 gloo-net = { version = "=0.6.0", features = ["http"] }
-web-sys = { version = "=0.3.77", features = ["Crypto", "Window", "Location", "File", "FileList", "Blob", "HtmlInputElement", "HtmlTextAreaElement", "HtmlElement", "Document", "Element", "EventTarget", "CompositionEvent", "BeforeUnloadEvent", "AbortController", "AbortSignal", "RequestCredentials", "SubtleCrypto", "Navigator", "Clipboard", "Url", "HtmlImageElement", "XmlHttpRequest", "XmlHttpRequestUpload", "XmlHttpRequestEventTarget", "XmlHttpRequestResponseType", "ProgressEvent"] }
+web-sys = { version = "=0.3.77", features = ["Crypto", "Window", "Location", "File", "FileList", "Blob", "HtmlInputElement", "HtmlTextAreaElement", "HtmlElement", "Document", "Element", "EventTarget", "CompositionEvent", "BeforeUnloadEvent", "AbortController", "AbortSignal", "RequestCredentials", "RequestRedirect", "History", "HtmlAnchorElement", "SubtleCrypto", "Navigator", "Clipboard", "Url", "HtmlImageElement", "XmlHttpRequest", "XmlHttpRequestUpload", "XmlHttpRequestEventTarget", "XmlHttpRequestResponseType", "ProgressEvent"] }
 wasm-bindgen = "=0.2.100"
 wasm-bindgen-futures = "=0.4.50"
 js-sys = "=0.3.77"

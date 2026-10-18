@@ -872,6 +872,7 @@ version = "0.1.0"
 dependencies = [
  "cantos-contracts",
  "cantos-ui",
+ "cantos-web-auth",
  "gloo-net",
  "js-sys",
  "leptos",
@@ -888,6 +889,7 @@ version = "0.1.0"
 dependencies = [
  "cantos-contracts",
  "cantos-ui",
+ "cantos-web-auth",
  "gloo-net",
  "leptos",
  "serde_json",
@@ -901,6 +903,24 @@ name = "cantos-ui"
 version = "0.2.0"
 dependencies = [
  "leptos",
+ "web-sys",
+]
+
+[[package]]
+name = "cantos-web-auth"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "cantos-contracts",
+ "futures-util",
+ "gloo-net",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "url",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

@@ -200,26 +200,36 @@ impl LiveNavigation {
                 if accepted {
                     browser::go(
                         self.route,
-                        Route::from_target(fence.route().origin.target()),
+                        self.returned
+                            .get_value()
+                            .map(|(destination, _)| destination)
+                            .unwrap_or_else(|| Route::from_target(fence.route().origin.target())),
                         true,
                     );
                 }
             }
         } else if matches!(phase, SessionPhase::Failed(_))
             || (phase == SessionPhase::Guest
-                && matches!(
-                    self.pending.get_untracked(),
-                    Some(PendingAuthRequest::ConfirmingReturn(_))
-                ))
+                && match self.pending.get_untracked() {
+                    Some(PendingAuthRequest::ConfirmingReturn(_)) => true,
+                    Some(PendingAuthRequest::Outbound(_)) => !self.preview,
+                    None => false,
+                })
         {
-            // Guest after callback confirmation means cookie cleanup was acknowledged.
-            // An outbound redirect can still be in flight while the current session is Guest.
+            // Actual popup attempts enter Checking synchronously; Guest means cleanup finished.
+            // The isolated preview retains its deliberately staged Outbound/Guest scenario.
             self.cancel();
         }
     }
 
     pub fn open_auth(self, auth: AuthRoute) {
-        if !matches!(self.route.get_untracked(), Route::Auth(_)) {
+        if !matches!(self.route.get_untracked(), Route::Auth(_))
+            && !(self.route.get_untracked() == Route::Account
+                && self
+                    .returned
+                    .get_value()
+                    .is_some_and(|(route, _)| matches!(route, Route::Library | Route::History)))
+        {
             self.returned.set_value(Some((
                 self.route.get_untracked(),
                 browser::capture_return(),
@@ -227,6 +237,13 @@ impl LiveNavigation {
         }
         self.cancel();
         browser::go(self.route, Route::Auth(auth), false);
+    }
+    pub fn open_account(self) {
+        self.returned.set_value(Some((
+            self.route.get_untracked(),
+            browser::capture_return(),
+        )));
+        browser::go(self.route, Route::Account, false);
     }
     /// Open a public Work from Home, remembering the activating card for the return trip.
     pub fn open_work(self, work: PublicWorkId, return_focus: String) {
@@ -242,6 +259,10 @@ impl LiveNavigation {
         browser::back(self.route, Route::Discover);
     }
     pub fn cancel(self) {
+        #[cfg(target_arch = "wasm32")]
+        if !self.preview && self.pending.get_untracked().is_some() {
+            crate::live::runtime::cancel_login();
+        }
         self.intents.update(|s| {
             let _ = s.invalidate();
         });
@@ -276,19 +297,9 @@ impl LiveNavigation {
             self.pending.set(Some(PendingAuthRequest::Outbound(fence)));
             return;
         }
-        let Some(intent) = browser::save_provider_return(auth) else {
-            self.cancel();
-            state.update(AccountViewState::navigation_failed);
-            return;
-        };
-        if let Some((destination, snapshot)) = self.returned.get_value() {
-            browser::save_return_snapshot(destination, snapshot);
-        }
         self.pending.set(Some(PendingAuthRequest::Outbound(fence)));
         #[cfg(target_arch = "wasm32")]
-        crate::live::runtime::login(state, &intent);
-        #[cfg(not(target_arch = "wasm32"))]
-        let _ = intent;
+        crate::live::runtime::login(state);
     }
     pub fn logout(self, state: RwSignal<AccountViewState>) {
         self.cancel();
@@ -406,6 +417,17 @@ mod tests {
         });
     }
 
+    #[test]
+    fn completed_popup_guest_releases_live_outbound_intent_for_retry() {
+        Owner::new().with(|| {
+            let (mut nav, fence) = returned_login();
+            nav.preview = false;
+            nav.pending.set(Some(PendingAuthRequest::Outbound(fence)));
+            nav.observe_session(SessionPhase::Guest);
+            assert_eq!(nav.pending.get_untracked(), None);
+            assert!(!nav.intents.get_untracked().accepts(fence));
+        });
+    }
     #[test]
     fn outbound_login_is_retained_while_guest_and_during_unacknowledged_cleanup() {
         Owner::new().with(|| {

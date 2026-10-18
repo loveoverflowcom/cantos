@@ -96,7 +96,7 @@ fn owner_routes_come_from_shared_templates_and_reject_unsafe_ids() {
     assert!(revoke.expects_no_content());
     // The browser never presents a delegation bearer; owner routes ride the Studio session.
     for command in [&list, &next, &issue(), &revoke] {
-        assert_eq!(command.credentials(), Credentials::SameOrigin);
+        assert_eq!(command.credentials(), Credentials::OwnerBearer);
     }
     for bad in [
         "../works",

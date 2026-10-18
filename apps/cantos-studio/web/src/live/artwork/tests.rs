@@ -316,7 +316,7 @@ fn prepare_payload_does_not_send_alt_and_admission_does_not_change_the_cover() {
         work: i.work_id.clone(),
         request: i.request.clone(),
     };
-    assert_eq!(c.credentials(), crate::live::Credentials::SameOrigin);
+    assert_eq!(c.credentials(), crate::live::Credentials::OwnerBearer);
     let payload = c.json().unwrap().unwrap();
     assert!(!payload.contains("alt"));
     let current = WorkArtworkResponse {

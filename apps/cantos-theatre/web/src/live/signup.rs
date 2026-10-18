@@ -93,7 +93,7 @@ async fn post(
     let request = Request::post(
         &crate::api_endpoint::endpoint(path).map_err(|_| SignupFailure::Unavailable)?,
     )
-    .credentials(RequestCredentials::Include)
+    .credentials(RequestCredentials::Omit)
     .abort_signal(Some(&signal))
     .header("Accept", "application/json")
     .header("Content-Type", "application/json")

@@ -32,6 +32,7 @@ mod theatre_host;
 mod tools;
 mod ui_preview;
 mod visual_compare;
+mod web_bearer;
 mod web_performance;
 mod workspace;
 
@@ -152,6 +153,9 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             theatre_host::execute(&workspace, action, &tools, &mut runner)
         }
         Task::Verify { suite } => {
+            if let cli::VerifySuite::WebBearer { dry_run } = suite {
+                return web_bearer::execute(&workspace, dry_run, &tools, &mut runner);
+            }
             if let cli::VerifySuite::TheatreAuth { suite, dry_run } = suite {
                 return theatre_auth::execute(&workspace, suite, dry_run);
             }

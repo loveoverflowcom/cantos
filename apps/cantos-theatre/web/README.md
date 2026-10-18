@@ -14,11 +14,11 @@ A static release bundle of this app can be published to Firebase Hosting with th
 `cargo xtask deploy firebase cantos-theatre --web --project ID --channel NAME`
 ([runbook](../../../docs/deployment/firebase-hosting.md)). Hosting serves static files; clients call
 the explicit Cantos API origin. Catalog and authentication require separate API deployment and
-domain/cookie/gateway acceptance; static delivery establishes no playback.
+Bearer/gateway/issuer acceptance; static delivery establishes no playback.
 The preferred shorter site `cantos.web.app` is conditional on verified allocation; the technical
 module stays `cantos-theatre`. Its [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
 follows ADR 0041 direct Hosting/API addressing and exact-origin review. Cross-site authentication
-remains unavailable until the independent domain/cookie/gateway acceptance.
+remains unavailable until the independent Bearer/gateway/issuer acceptance.
 
 The [performance pattern audit](../../../docs/evidence/web-performance-patterns.md) measures
 release assets with `cargo xtask web-performance cantos-theatre` and narrows mock-player/library
@@ -375,15 +375,19 @@ automatically within a small budget; a failed page keeps its rows and retries th
 position number is shown. Playback is not integrated: the Listen control is disabled with a visible
 reason, and nothing autoplays or is marked completed. Back returns to the opening card's focus.
 
-The account owner independently bootstraps with `GET /api/v1/theatre/session`. The explicit Login
-route starts `/api/v1/theatre/auth/login` only after the existing cookie-cleanup barrier allows it;
-logout uses `DELETE /api/v1/theatre/session`. Provider tokens never reach JavaScript or browser
-storage. Provider return context stores a canonical internal route and a nonsecret correlation
-intent in session storage; only its matching callback consumes it. The fixed callback return hash
-grants no authority: the mounted owner must confirm the current session before completing
-navigation. Contextual Back/cancel invalidates old presentation requests and restores the original
-entry's focus/scroll within the mounted session. Deep links without accepted context fall back to
-Home.
+The account owner admits only the RAM credential through
+`GET /api/v1/theatre/auth/bearer/session`. Explicit Login reserves a popup before network work,
+begins the JSON Bearer flow, carries TTL/consume-once PKCE protocol state through issuer page
+navigation and exchanges its handoff only in the original opener. The callback query is scrubbed
+before product effects; exact message origin, WindowProxy and flow/intent are checked. Provider
+tokens never reach JavaScript. Access/refresh tokens never enter persistent storage or URLs.
+
+Refresh is single-flight, rotating and bounded by original server authority. Unknown outcomes
+revoke the original family or cancel the exact flow; no spent token/code is replayed. Explicit
+logout clears local admission before the server call. Cleanup and late results cannot bind A to
+B. Reload/new tab requires controlled authorization/SSO or login; guests never auto-loop. The
+mounted shell keeps canonical return/focus context, including entry from Library; a callback or
+cached route is never session evidence. See the [shared Web owner](../../../packages/web-auth/README.md).
 
 [ADR 0034](../../../docs/decisions/0034-theatre-signup-and-provisioned-studio.md) accepts
 listener self-registration and provisioned-only Studio administrators. Web independently reads
@@ -397,11 +401,10 @@ shows no account success from a route or capability read. Auth preview explicitl
 The account view uses Vietnamese/English resources and distinguishes pending, guest, authenticated,
 unavailable/protocol failure and unacknowledged logout. An expired session hides private data
 immediately and requires acknowledged session revocation before another login. Cleanup is stale-only;
-explicit logout pins the observed session. A cookie rotated in another tab is rechecked rather
-than revoked by a delayed request.
+explicit logout pins the observed session. A rotated token or a different account is never invalidated by a delayed old denial or cleanup.
 
 The authenticated session reads the first 20 Continue, Saved and History items through their actual
-Library endpoints, using JSON and same-origin cookies. The UI shows accepted progress positions
+Library endpoints, using JSON and scoped Bearer with cookies omitted. The UI shows accepted progress positions
 and bounded page information; the Account profile uses a truthful signed-in fallback without
 exposing an actor UUID as a name, inventing totals or asserting Membership status. No Library
 mutation, pagination UI, real playback, history-start event, automatic
@@ -423,11 +426,10 @@ Build with nonsecret `CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org` through
 `cargo xtask build|app|deploy` command. Unset retains the local Trunk proxy. All live HTTP,
 XHR/private reads and login navigation resolve within this app's own API group; invalid origins
 fail closed. The client never takes an identity-provider URL or provider token as configuration.
-Cookie requests use Include while anonymous/producer-bearer requests retain Omit and existing
-session fences. The server needs its matching exact Web-origin/CORS surface and ingress route.
-
-[ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md) keeps cross-site web.app
-sessions unaccepted: Strict cookies, CSRF and cross-site login refusal remain. Same-site custom
-domains/API alias, API callback registration and a minimal private-Kanidm gateway are separate
-activation gates. The [current production runbook](../../../docs/deployment/vps-production.md)
-owns destinations; a successful local build is not deployed-user acceptance.
+All requests omit cookies. Protected effects use scoped Bearer and existing session fences;
+anonymous discovery and enrollment keep their separate contracts. The server needs matching exact
+Web-origin/CORS and Bearer callbacks. [ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md)
+removes the cookie/same-site prerequisite. Gateway, callback reconciliation and real issuer/
+cross-site browser acceptance remain separate from mocked client journeys. The
+[current production runbook](../../../docs/deployment/vps-production.md) owns destinations;
+a successful local build is not deployed-user acceptance.

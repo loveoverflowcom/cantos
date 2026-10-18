@@ -97,6 +97,11 @@ pub async fn load(expected_session: &str) -> Result<LibraryProjection, AccountFa
     use gloo_net::http::Request;
     use web_sys::{AbortController, RequestCredentials};
 
+    let credential = crate::api_endpoint::auth()
+        .map_err(super::account::auth_error)?
+        .access(Some(expected_session))
+        .await
+        .map_err(super::account::auth_error)?;
     let controller = AbortController::new().map_err(|_| AccountFailure::Unavailable)?;
     let deadline = super::browser::deadline(controller).map_err(|_| AccountFailure::Unavailable)?;
     let signal = deadline.controller.signal();
@@ -110,13 +115,18 @@ pub async fn load(expected_session: &str) -> Result<LibraryProjection, AccountFa
         let response = Request::get(
             &crate::api_endpoint::endpoint(path).map_err(|_| AccountFailure::Unavailable)?,
         )
-        .credentials(RequestCredentials::Include)
+        .credentials(RequestCredentials::Omit)
+        .redirect(web_sys::RequestRedirect::Error)
+        .header("Authorization", &credential.header())
         .abort_signal(Some(&signal))
         .header("Accept", "application/json")
         .header("X-Cantos-Theatre-Session", expected_session)
         .send()
         .await
         .map_err(|_| AccountFailure::Unavailable)?;
+        credential
+            .response(response.status())
+            .map_err(super::account::auth_error)?;
         check_response(
             response.status(),
             response.headers().get("content-type").as_deref(),
@@ -133,6 +143,7 @@ pub async fn load(expected_session: &str) -> Result<LibraryProjection, AccountFa
         if body.len() > 65_536 {
             return Err(AccountFailure::Protocol);
         }
+        credential.check().map_err(super::account::auth_error)?;
         bodies.push(body);
     }
     decode_projection(&bodies[0], &bodies[1], &bodies[2])

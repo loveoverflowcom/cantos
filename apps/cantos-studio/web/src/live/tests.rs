@@ -49,7 +49,7 @@ fn only_owner_authentication_denials_invalidate_not_producer_or_permission_denia
     let (sending, ticket) = state.begin(producer).unwrap();
     let unknown = sending.finish(ticket, Err(ClientError::Transport));
     let (reconciling, ticket, owner_read) = unknown.begin_reconcile().unwrap();
-    assert_eq!(owner_read.credentials(), Credentials::SameOrigin);
+    assert_eq!(owner_read.credentials(), Credentials::OwnerBearer);
     assert_eq!(
         denied.owner_session_denial(&owner_read).unwrap().code,
         ErrorCode::Unauthenticated
@@ -172,7 +172,7 @@ fn upload_is_bounded_credential_separated_and_uses_only_derived_paths() {
     );
     assert_eq!(
         Command::Work { id: ID.into() }.credentials(),
-        Credentials::SameOrigin
+        Credentials::OwnerBearer
     );
 }
 #[test]
@@ -409,7 +409,7 @@ fn unknown_upload_is_reconciled_by_exact_owner_receipt_after_bearer_revocation()
     let unknown = pending.finish(ticket, Err(ClientError::Transport));
     assert!(unknown.can_reconcile());
     let (checking, ticket, read) = unknown.begin_reconcile().unwrap();
-    assert_eq!(read.credentials(), Credentials::SameOrigin);
+    assert_eq!(read.credentials(), Credentials::OwnerBearer);
     assert_eq!(read.method(), "GET");
     let reconciled = checking.finish(ticket, Ok(Reply::Submission(Box::new(status.clone()))));
     assert_eq!(reconciled.phase(), Phase::Ready);

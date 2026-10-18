@@ -383,7 +383,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {
                                     <LiveLibrary state locale/>
-                                    <LibraryAccountEntry state locale/>
+                                    <LibraryAccountEntry state locale on_account=Callback::new(move |_|nav.open_account())/>
                                 }.into_any(),
                                 Route::Membership(member) => view! {
                                     <section class="theatre-membership-information" aria-labelledby="theatre-membership-heading">
@@ -407,12 +407,13 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
 
 #[component]
 fn LibraryAccountEntry(
+    #[prop(optional)] on_account: Option<Callback<()>>,
     state: RwSignal<AccountViewState>,
     locale: RwSignal<Locale>,
 ) -> impl IntoView {
     view! {
         <Show when=move || state.get().phase() != SessionPhase::SignedIn>
-            <a id="theatre-library-account" class="theatre-action theatre-action-tonal" href="#account">
+            <a id="theatre-library-account" class="theatre-action theatre-action-tonal" href="#account" on:click=move |event|{if let Some(callback)=on_account{event.prevent_default();callback.run(());}}>
                 {move || crate::features::auth_copy::text(crate::features::auth_copy::CopyKey::OpenAccount, locale.get())}
             </a>
         </Show>

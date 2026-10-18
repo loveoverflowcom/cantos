@@ -242,17 +242,7 @@ fn SourcePreview(
     english: Signal<bool>,
     session_pending: Signal<bool>,
 ) -> impl IntoView {
-    let api = expect_context::<StudioContext>().api;
     let record = StoredValue::new(record);
-    // A retained owner's preview can survive a new login by that same owner. The link must
-    // adopt that newly confirmed session, while an unconfirmed/different owner gets no URL.
-    let download = Memo::new(move |_| {
-        if session_pending.get() {
-            None
-        } else {
-            record.with_value(|record| api.snapshot().original_import_path(&record.id).ok())
-        }
-    });
     let copy = move || messages::import_copy(english.get());
     view! {
         <section aria-labelledby="import-stored-title" class="import-stored">
@@ -276,9 +266,8 @@ fn SourcePreview(
                     <h3 id="import-original-title">{move || copy().original}</h3>
                     {record.with_value(|record| record.original_text.clone()).map(|text| view! { <pre tabindex="0" lang="vi-VN">{text}</pre> })}
                     <Show when=move || record.with_value(|record| record.original_text.is_none())><p>{move || copy().binary}</p></Show>
-                    <Show when=move || download.with(Option::is_some)>
-                        <a class="download-original" href=move || download.get().unwrap_or_default() download=record.with_value(|record| record.metadata.file_name.clone())>{move || copy().download}</a>
-                    </Show>
+                    <crate::download::DownloadOriginal namespace="import" id=record.with_value(|r|r.id.clone()) file_name=record.with_value(|r|r.metadata.file_name.clone()) sha256=record.with_value(|r|r.sha256.clone()) english blocked=session_pending/>
+
                 </section>
                 <section aria-labelledby="import-parsed-title">
                     <h3 id="import-parsed-title">{move || copy().parsed}</h3>

@@ -49,7 +49,7 @@ cargo xtask deploy firebase cantos-studio --web --project ID --channel NAME --dr
 
 The explicit, manual `deploy firebase` can publish this app's static bundle to Firebase Hosting
 ([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves static files and clients
-use the explicit Cantos API origin. Direct-origin sign-in remains gated by domain/cookie/gateway
+use the explicit Cantos API origin. Direct-origin sign-in remains gated by Bearer/gateway/issuer
 acceptance. Never upload private Studio content to a preview, which is public.
 Studio keeps its own Hosting site and browser origin. The preferred `cantos-studio.web.app`
 name is conditional on verified allocation; `studio.cantos.web.app` is not supported. The
@@ -75,9 +75,9 @@ API that is already listening. That proxy mode was not used as browser evidence.
 
 ## Login entry and writing desk
 
-Studio opens a login-only entry while its current cookie is unconfirmed. Production OIDC
-shows **Sign in with Cantos ID**; the token form exists only in the explicitly configured
-development mode. Checking, unavailable, explicit permission-denied and retained-owner states
+Studio opens a login-only entry while its RAM Bearer session is unconfirmed. OIDC shows
+**Sign in with Cantos ID**; legacy development-cookie token login is explicitly unavailable
+in this client. Checking, unavailable, explicit permission-denied and retained-owner states
 keep every private workspace hidden/inert. Cancel returns to Studio sign-in and invalidates
 that observation, so a delayed response cannot reopen the workspace. There is no Theatre Back,
 registration, access-request, invitation or Membership flow.
@@ -98,23 +98,28 @@ reference's raster illustration and aggregate metrics are not imported as produc
 ## Interaction and ownership
 
 On mount and idle browser-history restoration, Studio reads its public authentication mode and
-checks the actual same-origin cookie. In development mode, an operator-issued development token
-becomes an HttpOnly/SameSite=Strict cookie and the token form clears it after exchange. In opt-in
-OIDC mode, the provider sign-in control performs local logout to revoke the old session, then navigates
-to the provider through the Studio BFF; returning to the app triggers actual cookie confirmation.
-Explicit check-session and logout controls support expiry/recovery. Epoch-fenced replies cannot
-restore an account after logout/switch, while authoring drafts and ambiguous requests keep their
-original actor. All private workspaces hide while authentication is unconfirmed or another actor
-is observed; dirty owner drafts survive. Explicit refresh can restore retained dirty owners; idle history restoration
-defers while dirty drafts or operations remain. Immutable request UUID/epoch fences reject a cookie change across
-tabs; a missing/mismatched successful response echo preserves ambiguous operation reconciliation.
-Explicit logout requires a cookie-confirmed actor and uses bounded immutable
-flow binders to cancel pending/issued callbacks. Guarded logout leaves only a revoked inert
-cookie instead of expiry headers that could delete a newer tab's cookie; unsigned stale cleanup
-preserves another tab's pending guest flow. Credentials are never kept in local storage or build-time config. No fake backend
-or fallback dataset exists. The visible mode label identifies the live development backend.
-See the [OIDC boundary](../../../docs/architecture/studio-oidc.md) for the closed production gate;
-compiled or pure-state evidence does not establish browser/provider acceptance.
+confirms only a Cantos-issued Bearer through `/api/v1/studio/auth/bearer/session`. Credentials
+live in RAM, rotate through the single shared refresh flight and are omitted from storage/URLs.
+Every protected request sends Authorization and its immutable UUID fence with cookies omitted.
+Unknown refresh/exchange outcomes revoke/cancel before a new authorization; business writes keep
+their existing operation receipt and are never blindly replayed.
+
+A trusted click reserves an authentication popup. The opener stays mounted with its owner-bound
+drafts and pane/focus state; the popup carries only TTL-limited PKCE protocol artifacts through
+full issuer pages. A one-use completion is scrubbed and returned to the exact opener/origin;
+API session admission confirms the account before exposing private workspaces. Retained drafts
+require their original actor. Cancel/logout invalidate intent before asynchronous cleanup; late
+success/401/body/refresh results cannot reopen an old account. The account menu has a distinct
+sensitive-action reauthentication intent; refresh is never recent authentication.
+
+Reload/new tab has no credential and requires explicit authorization, potentially using valid
+issuer SSO. Canonical pane IDs survive in history, while confirmed reload/close discards RAM
+drafts under the existing unsaved-work warning. No manuscript backup is silently persisted.
+Original downloads use authenticated byte fetch and SHA-256 before an ephemeral local Blob;
+private artwork fetch/XHR uses the same credential owner. See the [shared Web boundary and
+resource inventory](../../../packages/web-auth/README.md), [Bearer contract](../../../packages/contracts/bearer-v1.md)
+and [OIDC authority](../../../docs/architecture/studio-oidc.md). Gateway/callback reconciliation
+and real issuer/browser/deployment acceptance remain separate; no cookie fallback is used here.
 
 The pure `authoring.rs` patches known leaves of the complete JSON value, preserving stable IDs,
 unknown metadata, provenance, rights and selected asset fields. It rejects duplicate keys,
@@ -278,7 +283,7 @@ SSR is a native test feature only. Browser builds remain CSR.
 
 ## Catalog, immutable content and private audio workspace
 
-The **Content & audio** pane calls the actual JSON Studio owner APIs with same-origin cookies
+The **Content & audio** pane calls the actual JSON Studio owner APIs with surface-scoped Bearer
 and normal browser Origin enforcement. It lists bounded work/unit pages, creates work/chapter/
 episode metadata, edits the selected unit, reads current/exact/history content and appends
 text or recording revisions. It creates/reads exact narration/recording briefs with an explicit
@@ -313,7 +318,7 @@ acceptance. [Capability matrix](../../../docs/work-plan/live-client-api-matrix.m
 A selected Work in **Content & audio** shows **Ủy quyền theo tác phẩm** when the signed-in actor
 is its `owner_id`; members see a short explanation and no request is sent. The panel calls only
 the [delegation v1](../../../packages/contracts/delegation-v1.md) owner routes, built from the
-shared `routes::STUDIO_WORK_DELEGATIONS`/`STUDIO_WORK_DELEGATION` templates with the Studio cookie,
+shared `routes::STUDIO_WORK_DELEGATIONS`/`STUDIO_WORK_DELEGATION` templates with the Studio owner Bearer,
 session fence and Origin: it pages grants by `after` (20 per page), issues a grant for a
 registered delegate actor with any of `work:read`, `content:read`, `content:write` and a 1/7/14/30
 day lifetime, and revokes after a native confirmation dialog. The browser decides no admission
@@ -357,7 +362,7 @@ Pilot requests offer `application/protobuf, application/json;q=0.5`. A successfu
 read by its actual Content-Type; JSON success/errors remain accepted. Malformed, mislabeled or
 unoffered binary successes remain ambiguous `unavailable`. Errors remain JSON ApiError. There
 is one fetch per call and no automatic codec fallback, retry or reauthentication. Existing
-request deadlines, same-origin cookies/Origin, immutable operation identity, draft retention and
+request deadlines, Bearer credentials/Origin, immutable operation identity, draft retention and
 actor fences are unchanged. All other APIs remain on their existing JSON helpers; the client
 continues to call Studio routes rather than introducing a legacy-alias consumer.
 
@@ -408,11 +413,10 @@ Build with nonsecret `CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org` through
 `cargo xtask build|app|deploy` command. Unset retains the local Trunk proxy. All live HTTP,
 XHR/private reads and login navigation resolve within this app's own API group; invalid origins
 fail closed. The client never takes an identity-provider URL or provider token as configuration.
-Cookie requests use Include while anonymous/producer-bearer requests retain Omit and existing
-session fences. The server needs its matching exact Web-origin/CORS surface and ingress route.
-
-[ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md) keeps cross-site web.app
-sessions unaccepted: Strict cookies, CSRF and cross-site login refusal remain. Same-site custom
-domains/API alias, API callback registration and a minimal private-Kanidm gateway are separate
-activation gates. The [current production runbook](../../../docs/deployment/vps-production.md)
-owns destinations; a successful local build is not deployed-user acceptance.
+Every Web request omits cookies. Owner Bearer, producer capability and anonymous requests retain
+their separate authority and fences. The server needs exact per-surface Web CORS and configured
+Bearer callbacks. [ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md) no longer
+requires same-site/custom domains for authentication. The restricted identity gateway, new
+callback reconciliation and real cross-site issuer/browser acceptance remain activation gates.
+The [current production runbook](../../../docs/deployment/vps-production.md) owns destinations;
+a successful local build or mocked browser run is not deployed-user acceptance.

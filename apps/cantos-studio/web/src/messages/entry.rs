@@ -22,6 +22,11 @@ pub enum Key {
     Cancel,
     Retry,
     Session,
+    BearerUnavailable,
+    MemoryHelp,
+    Reauthenticate,
+    CleanupPending,
+    AuthorizationComplete,
 }
 
 pub fn title(entry: Entry) -> Key {
@@ -47,6 +52,16 @@ pub fn help(entry: Entry) -> Key {
 
 pub fn text(key: Key, english: bool) -> &'static str {
     match (key, english) {
+        (Key::CleanupPending,false)=>"Đang thu hồi phiên trước khi tiếp tục đăng nhập…",
+        (Key::CleanupPending,true)=>"Revoking the previous session before sign-in continues…",
+        (Key::Reauthenticate,false)=>"Xác thực lại cho thao tác nhạy cảm",
+        (Key::Reauthenticate,true)=>"Authenticate again for sensitive actions",
+        (Key::BearerUnavailable,false)=>"Đăng nhập cần dịch vụ Cantos ID được cấu hình. Chế độ token phát triển cũ không cấp phiên Web.",
+        (Key::BearerUnavailable,true)=>"Sign-in requires configured Cantos ID. Legacy development tokens do not issue Web sessions.",
+        (Key::MemoryHelp,false)=>"Cho phép cửa sổ đăng nhập để tiếp tục. Phiên chỉ giữ trong tab này; sau khi tải lại trang hoặc mở tab mới, hãy đăng nhập lại. Bản nháp đang sửa vẫn ở tab gốc khi xác thực.",
+        (Key::MemoryHelp,true)=>"Allow the sign-in window to continue. Your session stays in this tab only; sign in again after reload or in a new tab. Drafts stay in the original tab during authentication.",
+        (Key::AuthorizationComplete,false)=>"Quay lại tab Cantos Studio ban đầu. Nếu tab đã đóng hoặc tải lại, hãy đóng cửa sổ này và bắt đầu đăng nhập lại.",
+        (Key::AuthorizationComplete,true)=>"Return to the original Cantos Studio tab. If it was closed or reloaded, close this window and start sign-in again.",
         (Key::LoginTitle, false) => "Đăng nhập Cantos Studio",
         (Key::LoginTitle, true) => "Sign in to Cantos Studio",
         (Key::LoginHelp, false) => "Dành cho tài khoản đã được cấp quyền biên tập tại Cantos Studio.",
