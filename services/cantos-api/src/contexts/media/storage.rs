@@ -32,7 +32,7 @@ use port::{PrivateStorage, StorageFuture, StorageRead, VerifiedPayload};
 // closure owns its permit, so dropping its caller never admits a replacement while it runs.
 static IO_LANES: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(4)));
 
-fn bounded_filesystem_io<T: Send + 'static>(
+pub(super) fn bounded_filesystem_io<T: Send + 'static>(
     lanes: Arc<Semaphore>,
     operation: impl FnOnce() -> Result<T, StorageError> + Send + 'static,
 ) -> StorageFuture<T> {
@@ -53,7 +53,7 @@ fn bounded_filesystem_io<T: Send + 'static>(
 #[derive(Clone)]
 pub(crate) struct FilesystemStorage {
     #[cfg(unix)]
-    inner: std::sync::Arc<unix::PrivateDirectories>,
+    inner: std::sync::Arc<unix::ObjectDirectories>,
 }
 
 impl PrivateStorage for FilesystemStorage {
@@ -125,7 +125,7 @@ impl PrivateStorage for FilesystemStorage {
 
 /// The original synchronous compatibility surface uses the shared StoreError vocabulary.
 /// New capability consumers receive the storage port's typed failures directly.
-fn storage_error(error: StoreError) -> StorageError {
+pub(super) fn storage_error(error: StoreError) -> StorageError {
     match error {
         StoreError::Storage(error) => error,
         StoreError::NotFound => StorageError::NotFound,
@@ -160,7 +160,7 @@ impl FilesystemStorage {
         #[cfg(unix)]
         {
             Ok(Self {
-                inner: std::sync::Arc::new(unix::PrivateDirectories::new(root)?),
+                inner: std::sync::Arc::new(unix::ObjectDirectories::new(root)?),
             })
         }
         #[cfg(not(unix))]
@@ -222,7 +222,7 @@ impl FilesystemStorage {
 }
 
 #[cfg(unix)]
-mod unix {
+pub(super) mod unix {
     use std::{
         ffi::{CStr, CString},
         fs::File,
@@ -241,14 +241,22 @@ mod unix {
         MAX_OBJECT_BYTES,
     };
 
-    pub(super) struct PrivateDirectories {
+    pub(crate) struct ObjectDirectories {
         // Pin both directory inodes: object operations never traverse a mutable absolute path.
         root: File,
         objects: File,
     }
 
-    impl PrivateDirectories {
-        pub(super) fn new(root: &Path) -> Result<Self, StoreError> {
+    impl ObjectDirectories {
+        pub(crate) fn new(root: &Path) -> Result<Self, StoreError> {
+            Self::for_class(root, false)
+        }
+
+        pub(crate) fn publication(root: &Path) -> Result<Self, StoreError> {
+            Self::for_class(root, true)
+        }
+
+        fn for_class(root: &Path, publication: bool) -> Result<Self, StoreError> {
             if !root.is_absolute() {
                 return Err(StoreError::InvalidRequest);
             }
@@ -272,13 +280,76 @@ mod unix {
             }
             let root = open_or_create_directory(&parent, &root_name)?;
             check_private_directory(&root).map_err(|_| StoreError::InvalidRequest)?;
+            // One atomically created class marker prevents concurrent constructors from
+            // admitting the same empty root into both capabilities. Unmarked legacy private
+            // roots may be adopted only by the private adapter.
+            let class = if publication {
+                b"publication".as_slice()
+            } else {
+                b"private".as_slice()
+            };
+            let marker_name =
+                CString::new(".cantos-storage-class-v1").map_err(|_| StoreError::InvalidRequest)?;
+            let marker = match open_file(root.as_raw_fd(), &marker_name, libc::O_RDONLY, 0) {
+                Ok(marker) => marker,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    if publication {
+                        let objects =
+                            CString::new("objects").map_err(|_| StoreError::InvalidRequest)?;
+                        match open_directory(root.as_raw_fd(), &objects) {
+                            Ok(_) => return Err(StoreError::InvalidRequest),
+                            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                            Err(_) => return Err(StoreError::InvalidRequest),
+                        }
+                    }
+                    match open_file(
+                        root.as_raw_fd(),
+                        &marker_name,
+                        libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
+                        0o600,
+                    ) {
+                        Ok(mut created) => {
+                            created
+                                .write_all(class)
+                                .map_err(|_| StoreError::Unavailable)?;
+                            // SAFETY: created owns this descriptor for the entire call.
+                            if unsafe { libc::fchmod(created.as_raw_fd(), 0o400) } != 0 {
+                                return Err(StoreError::Unavailable);
+                            }
+                            created.sync_all().map_err(|_| StoreError::Unavailable)?;
+                            root.sync_all().map_err(|_| StoreError::Unavailable)?;
+                        }
+                        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                        Err(_) => return Err(StoreError::InvalidRequest),
+                    }
+                    open_file(root.as_raw_fd(), &marker_name, libc::O_RDONLY, 0)
+                        .map_err(|_| StoreError::InvalidRequest)?
+                }
+                Err(_) => return Err(StoreError::InvalidRequest),
+            };
+            let metadata = marker.metadata().map_err(|_| StoreError::Unavailable)?;
+            let mut contents = Vec::new();
+            if !metadata.is_file()
+                || metadata.uid() != effective_uid()
+                || metadata.mode() & 0o7777 != 0o400
+                || metadata.len() != class.len() as u64
+            {
+                return Err(StoreError::InvalidRequest);
+            }
+            marker
+                .take(12)
+                .read_to_end(&mut contents)
+                .map_err(|_| StoreError::Unavailable)?;
+            if contents != class {
+                return Err(StoreError::InvalidRequest);
+            }
             let objects_name = CString::new("objects").map_err(|_| StoreError::InvalidRequest)?;
             let objects = open_or_create_directory(&root, &objects_name)?;
             check_private_directory(&objects).map_err(|_| StoreError::InvalidRequest)?;
             Ok(Self { root, objects })
         }
 
-        pub(super) fn persist_audio(
+        pub(crate) fn persist_audio(
             &self,
             verified: &VerifiedAudio,
         ) -> Result<StoredObject, StoreError> {
@@ -295,6 +366,15 @@ mod unix {
         }
 
         // Kept private: tests exercise storage semantics without forging media-admission proof.
+        #[cfg(test)]
+        pub(crate) fn inject_test_bytes(
+            &self,
+            bytes: &[u8],
+            sha: &str,
+        ) -> Result<StoredObject, StoreError> {
+            self.persist_bytes(bytes, sha, bytes.len() as u64)
+        }
+
         fn persist_bytes(
             &self,
             bytes: &[u8],
@@ -392,7 +472,7 @@ mod unix {
                 })
         }
 
-        pub(super) fn verified_file(
+        pub(crate) fn verified_file(
             &self,
             object_key: &str,
             sha256: &str,
@@ -594,8 +674,8 @@ mod unix {
                 Self(parent.join(format!("cantos-private-storage-{}", uuid::Uuid::new_v4())))
             }
 
-            fn storage(&self) -> PrivateDirectories {
-                PrivateDirectories::new(&self.0).unwrap()
+            fn storage(&self) -> ObjectDirectories {
+                ObjectDirectories::new(&self.0).unwrap()
             }
 
             fn object(&self, digest: &str) -> PathBuf {
@@ -1057,30 +1137,30 @@ mod unix {
         #[test]
         fn root_and_objects_must_be_private_owned_directories_without_symlinks() {
             assert!(matches!(
-                PrivateDirectories::new(Path::new("relative-root")),
+                ObjectDirectories::new(Path::new("relative-root")),
                 Err(StoreError::InvalidRequest)
             ));
             let scratch = Scratch::new();
             fs::create_dir(&scratch.0).unwrap();
             fs::set_permissions(&scratch.0, Permissions::from_mode(0o755)).unwrap();
             assert!(matches!(
-                PrivateDirectories::new(&scratch.0),
+                ObjectDirectories::new(&scratch.0),
                 Err(StoreError::InvalidRequest)
             ));
             fs::set_permissions(&scratch.0, Permissions::from_mode(0o700)).unwrap();
             let linked = scratch.0.join("linked-root");
             symlink(&scratch.0, &linked).unwrap();
             assert!(matches!(
-                PrivateDirectories::new(&linked),
+                ObjectDirectories::new(&linked),
                 Err(StoreError::InvalidRequest)
             ));
             assert!(matches!(
-                PrivateDirectories::new(&linked.join("child")),
+                ObjectDirectories::new(&linked.join("child")),
                 Err(StoreError::InvalidRequest)
             ));
             symlink(&scratch.0, scratch.0.join("objects")).unwrap();
             assert!(matches!(
-                PrivateDirectories::new(&scratch.0),
+                ObjectDirectories::new(&scratch.0),
                 Err(StoreError::InvalidRequest)
             ));
         }
@@ -1152,4 +1232,31 @@ mod unix {
             ));
         }
     }
+}
+
+/// Checked host configuration must keep publication roots outside every private filesystem
+/// target. A distinct object-storage class marker also refuses same-root aliasing at open.
+pub fn validate_publication_separation(
+    publication: &Path,
+    private_root: Option<&Path>,
+    private_config: Option<&Path>,
+) -> Result<(), StorageError> {
+    let separate = |private: &Path| {
+        if publication.starts_with(private) || private.starts_with(publication) {
+            Err(StorageError::InvalidTarget)
+        } else {
+            Ok(())
+        }
+    };
+    if let Some(root) = private_root {
+        separate(root)?;
+    }
+    if let Some(path) = private_config {
+        for target in config::StorageConfig::load(path)?.targets.values() {
+            if let config::TargetConfig::Filesystem(root) = target {
+                separate(root)?;
+            }
+        }
+    }
+    Ok(())
 }

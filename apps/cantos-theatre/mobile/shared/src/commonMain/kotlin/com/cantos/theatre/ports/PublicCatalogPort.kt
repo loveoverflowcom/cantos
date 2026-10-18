@@ -1,5 +1,6 @@
 package com.cantos.theatre.ports
 
+import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 import com.cantos.theatre.domain.catalog.CatalogCursor
 import com.cantos.theatre.domain.catalog.PublicUnitPage
 import com.cantos.theatre.domain.catalog.PublicWork
@@ -38,7 +39,7 @@ sealed interface PublicCatalogRead<out T> {
  * with the same cursor is safe. Cancellation propagates; every other failure is a typed value.
  */
 interface PublicCatalogPort {
-    suspend fun works(cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage>
+    suspend fun works(cursor: CatalogCursor?, query: PublicCatalogQuery = PublicCatalogQuery.All): PublicCatalogRead<PublicWorkPage>
     suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork>
     /** Units of [work], validated against its id and kind. */
     suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage>

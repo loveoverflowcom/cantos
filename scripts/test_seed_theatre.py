@@ -114,6 +114,20 @@ class RetainedClusterTest(unittest.TestCase):
                 with self.subTest(config=config), self.assertRaises(seed_theatre.Refusal):
                     seed_theatre.retained_cluster(config)
 
+    def test_independent_failed_narrow_ownership_can_seed_a_new_database(self):
+        with Workspace() as w:
+            cluster=w.evidence/"schema"/"cluster-2"
+            (cluster/"pgdata").mkdir(parents=True)
+            (cluster/"pgdata"/"PG_VERSION").write_text("18\n")
+            proof={"format":1,"purpose":"retained-disposable-cluster","scope":"schema",
+                   "cluster":str(cluster),"port":54321,"retained":True,"runner_pid":99999999,
+                   "runner_identity":None,"runner_active":False,"gate_status":"FAIL","full_gate_status":"NOT_RUN"}
+            self.assertEqual(seed_theatre.retained_cluster(proof),(54321,cluster/"pgdata"))
+            with self.assertRaisesRegex(seed_theatre.Refusal,"still active"):
+                seed_theatre.retained_cluster(dict(proof,runner_active=True))
+            with self.assertRaisesRegex(seed_theatre.Refusal,"scope/directory"):
+                seed_theatre.retained_cluster(dict(proof,scope="full",full_gate_status="FAIL"))
+
     def test_the_port_must_still_be_served_by_the_retained_data_directory(self):
         with Workspace() as w, patch.object(subprocess, "run", FakeProcesses(w, data_directory="/var/lib/postgresql/data")):
             with self.assertRaisesRegex(seed_theatre.Refusal, "another PostgreSQL data directory"):
@@ -154,6 +168,21 @@ class SeedRecordTest(unittest.TestCase):
             for result in broken:
                 with self.subTest(result=result), self.assertRaises(seed_theatre.Refusal):
                     seed_theatre.validated_result(result, w.config)
+
+    def test_ownership_reset_preserves_matching_complete_runner_fixture_blacklist(self):
+        with Workspace() as w,patch.object(subprocess,"run") as execute:
+            ownership={"purpose":"retained-disposable-cluster","cluster":w.config["cluster"],"port":54321}
+            fixture=PREVIOUS
+            w.config["audio_app_url"]=f"postgresql://cantos_app@127.0.0.1:54321/{fixture}"
+            w.run_record.write_text(json.dumps(w.config))
+            seed={"cluster":w.config["cluster"],"port":54321,"database":fixture}
+            with self.assertRaisesRegex(seed_theatre.Refusal,"verification fixture") :
+                seed_theatre.owned_seed_database(ownership,seed)
+            with self.assertRaises(seed_theatre.Refusal):
+                seed_theatre.drop({},54321,fixture,ownership)
+            self.assertIn(fixture,seed_theatre.protected_databases(ownership))
+            self.assertNotIn("audio_app_url",ownership)
+            execute.assert_not_called()
 
     def test_drop_never_targets_a_verification_fixture(self):
         with Workspace() as w, patch.object(subprocess, "run") as run:
@@ -253,6 +282,73 @@ class SeedFlowTest(unittest.TestCase):
                 self.assertEqual(seed_theatre.main(["--reset"]), 1)
             run.assert_not_called()
             self.assertIn("cargo xtask verify postgres --keep", err.getvalue())
+
+
+class PersistentSeedTest(unittest.TestCase):
+    def arguments(self, root, *extra):
+        return ["--environment", "catalog-local", "--api-origin", "https://api.example.org",
+                "--web-origin", "https://studio.example.org", "--database-url-env", "SEED_DB",
+                "--studio-token-env", "SEED_TOKEN", "--rights-ref", "synthetic-owned",
+                "--private-root", str(root / "private"), "--publication-root", str(root / "publication"),
+                "--record", str(root / "receipt.json"), *extra]
+
+    def test_persistent_lane_uses_only_explicit_credentials_and_never_runs_database_admin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root / "private").mkdir(mode=0o700)
+            (root / "publication").mkdir(mode=0o700)
+            calls=[]
+            def run(command, **kwargs):
+                calls.append((command,kwargs))
+                self.assertEqual(command[0],"cargo")
+                env=kwargs["env"]
+                self.assertNotIn("DATABASE_URL",env)
+                self.assertNotIn("PGHOST",env)
+                self.assertNotIn("CANTOS_TEST_CLUSTER_URL",env)
+                self.assertEqual(env["CANTOS_THEATRE_SEED_DATABASE_URL"],"postgresql://chosen")
+                self.assertEqual(env["CANTOS_THEATRE_SEED_STUDIO_TOKEN"],"chosen-secret")
+                self.assertEqual(env["CANTOS_THEATRE_SEED_STUDIO_COOKIE_NAME"],"__Secure-cantos_studio")
+                receipt=dict(seed_result(database="existing"),dataset="theatre-catalog-v2",environment="catalog-local")
+                Path(env["CANTOS_THEATRE_SEED_RECORD"]).write_text(json.dumps(receipt))
+                return subprocess.CompletedProcess(command,0)
+            inherited={"SEED_DB":"postgresql://chosen","SEED_TOKEN":"chosen-secret",
+                       "DATABASE_URL":"postgresql://wrong","PGHOST":"wrong","CANTOS_TEST_CLUSTER_URL":"wrong"}
+            with patch.dict(os.environ,inherited,clear=True), patch.object(subprocess,"run",run), patch.object(sys,"stdout",io.StringIO()):
+                self.assertEqual(seed_theatre.main(self.arguments(root)),0)
+            self.assertEqual(len(calls),1)
+            self.assertEqual((root / "receipt.lock").stat().st_mode & 0o777,0o600)
+
+    def test_persistent_reset_and_missing_inputs_never_run_a_process(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(subprocess,"run") as run, patch.object(sys,"stderr",io.StringIO()):
+            root=Path(directory)
+            self.assertEqual(seed_theatre.main(self.arguments(root,"--reset")),1)
+            self.assertEqual(seed_theatre.main(["--environment","catalog-local"]),1)
+            self.assertEqual(seed_theatre.main(["--record",str(root / "receipt.json")]),1)
+            run.assert_not_called()
+
+    def test_unknown_or_injected_cookie_name_is_refused_before_any_process(self):
+        with patch.object(subprocess,"run") as run, patch.object(sys,"stderr",io.StringIO()):
+            for name in ("arbitrary","cantos_session;evil=x","cantos_session\r\nX-Evil: x"):
+                with self.assertRaises(SystemExit) as stopped:
+                    seed_theatre.main(["--environment","catalog-local","--studio-cookie-name",name])
+                self.assertEqual(stopped.exception.code,2)
+            run.assert_not_called()
+
+    def test_persistent_lane_refuses_plaintext_remote_or_credential_origins(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(subprocess,"run") as run, patch.object(sys,"stderr",io.StringIO()):
+            for origin in ("http://api.example.org", "https://user:secret@api.example.org", "https://api.example.org/path"):
+                args=self.arguments(Path(directory))
+                args[args.index("--api-origin")+1]=origin
+                self.assertEqual(seed_theatre.main(args),1)
+            run.assert_not_called()
+
+    def test_persistent_lane_refuses_overlapping_storage_roots(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(subprocess,"run") as run, patch.object(sys,"stderr",io.StringIO()), patch.dict(os.environ,{"SEED_DB":"chosen","SEED_TOKEN":"secret"},clear=True):
+            root=Path(directory)
+            args=self.arguments(root)
+            args[args.index("--publication-root")+1]=str(root / "private" / "public")
+            self.assertEqual(seed_theatre.main(args),1)
+            run.assert_not_called()
 
 
 class ServeSeedTest(unittest.TestCase):

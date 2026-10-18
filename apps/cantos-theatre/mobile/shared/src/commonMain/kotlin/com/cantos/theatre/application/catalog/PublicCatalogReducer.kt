@@ -1,5 +1,6 @@
 package com.cantos.theatre.application.catalog
 
+import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 import com.cantos.theatre.domain.catalog.CatalogCursor
 import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicUnitPage
@@ -87,6 +88,7 @@ data class WorkDetailState internal constructor(
 @ConsistentCopyVisibility
 data class PublicCatalogState internal constructor(
     val works: PageWalk<PublicWork> = PageWalk(),
+    val query: PublicCatalogQuery = PublicCatalogQuery.All,
     /** `null` is the work list route; otherwise the open work. */
     val detail: WorkDetailState? = null,
     internal val issued: Long = 0,
@@ -102,11 +104,13 @@ sealed interface PublicCatalogEvent
 sealed interface PublicCatalogIntent : PublicCatalogEvent {
     /** Load the first page once; repeated Start is a no-op. */
     data object Start : PublicCatalogIntent
+    data class Query(val query: PublicCatalogQuery) : PublicCatalogIntent
     data object RefreshWorks : PublicCatalogIntent
     data object LoadMoreWorks : PublicCatalogIntent
     data object RetryWorks : PublicCatalogIntent
     data class OpenWork(val work: PublicWork) : PublicCatalogIntent
     data object Back : PublicCatalogIntent
+    data object RefreshWork : PublicCatalogIntent
     data object RetryWork : PublicCatalogIntent
     data object LoadMoreUnits : PublicCatalogIntent
     data object RetryUnits : PublicCatalogIntent
@@ -117,7 +121,7 @@ data class WorkResolved(val token: Long, val outcome: PublicCatalogRead<PublicWo
 data class UnitsResolved(val token: Long, val outcome: PublicCatalogRead<PublicUnitPage>) : PublicCatalogEvent
 
 sealed interface PublicCatalogEffect {
-    data class FetchWorks(val token: Long, val cursor: CatalogCursor?) : PublicCatalogEffect
+    data class FetchWorks(val token: Long, val cursor: CatalogCursor?, val query: PublicCatalogQuery = PublicCatalogQuery.All) : PublicCatalogEffect
     data class FetchWork(val token: Long, val id: PublicWorkId) : PublicCatalogEffect
     data class FetchUnits(val token: Long, val work: PublicWork, val cursor: CatalogCursor?) : PublicCatalogEffect
     /** Cancel any in-flight detail or unit read; its result would be stale anyway. */
@@ -129,6 +133,9 @@ data class PublicCatalogTransition(val state: PublicCatalogState, val effects: L
 fun reducePublicCatalog(state: PublicCatalogState, event: PublicCatalogEvent): PublicCatalogTransition = when (event) {
     PublicCatalogIntent.Start ->
         if (state.works.phase == WalkPhase.NotStarted) state.requestWorks(null, replace = false) else PublicCatalogTransition(state)
+    is PublicCatalogIntent.Query ->
+        if (event.query == state.query) state.requestWorks(null, replace = true)
+        else state.copy(query = event.query, works = PageWalk()).requestWorks(null, replace = true)
     PublicCatalogIntent.RefreshWorks -> state.requestWorks(null, replace = true)
     PublicCatalogIntent.LoadMoreWorks ->
         if (state.works.canLoadMore) state.requestWorks(state.works.next, replace = false)
@@ -147,13 +154,13 @@ fun reducePublicCatalog(state: PublicCatalogState, event: PublicCatalogEvent): P
     PublicCatalogIntent.Back ->
         if (state.detail == null) PublicCatalogTransition(state)
         else PublicCatalogTransition(state.copy(detail = null), listOf(PublicCatalogEffect.CancelDetail))
-    PublicCatalogIntent.RetryWork -> {
+    PublicCatalogIntent.RefreshWork, PublicCatalogIntent.RetryWork -> {
         val detail = state.detail
-        if (detail == null || detail.phase !is DetailPhase.Failed) PublicCatalogTransition(state)
+        if (detail == null || (event == PublicCatalogIntent.RetryWork && detail.phase !is DetailPhase.Failed)) PublicCatalogTransition(state)
         else {
             val (token, issued) = state.issue()
             PublicCatalogTransition(
-                issued.copy(detail = detail.copy(phase = DetailPhase.Loading, awaiting = token)),
+                issued.copy(detail = detail.copy(phase = DetailPhase.Loading, units = null, awaiting = token)),
                 listOf(PublicCatalogEffect.FetchWork(token, detail.id)),
             )
         }
@@ -181,7 +188,7 @@ private fun PublicCatalogState.issue(): Pair<Long, PublicCatalogState> {
 private fun PublicCatalogState.requestWorks(cursor: CatalogCursor?, replace: Boolean): PublicCatalogTransition {
     val (token, issued) = issue()
     val walk = works.request(token, cursor, replace, resetCounters = true)
-    return PublicCatalogTransition(issued.copy(works = walk), listOf(PublicCatalogEffect.FetchWorks(token, cursor)))
+    return PublicCatalogTransition(issued.copy(works = walk), listOf(PublicCatalogEffect.FetchWorks(token, cursor, query)))
 }
 
 private fun resolveWorks(state: PublicCatalogState, event: WorksResolved): PublicCatalogTransition {
@@ -193,7 +200,7 @@ private fun resolveWorks(state: PublicCatalogState, event: WorksResolved): Publi
             val (token, issued) = state.issue()
             PublicCatalogTransition(
                 issued.copy(works = step.walk.request(token, follow.cursor, follow.replace, resetCounters = false)),
-                listOf(PublicCatalogEffect.FetchWorks(token, follow.cursor)),
+                listOf(PublicCatalogEffect.FetchWorks(token, follow.cursor, state.query)),
             )
         }
     }

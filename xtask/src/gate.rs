@@ -102,10 +102,14 @@ pub enum Gate {
         keep: bool,
     },
     /// Narrow SQL acceptance only; never replaces the complete PostgreSQL gate.
-    TheatreFirebasePostgres,
+    TheatreFirebasePostgres {
+        keep: bool,
+    },
     /// Current baseline, least-privilege and selected current-owner SQL without media tools;
     /// never replaces the complete PostgreSQL gate.
-    SchemaPostgres,
+    SchemaPostgres {
+        keep: bool,
+    },
     Kani(Kernel),
 }
 
@@ -149,9 +153,9 @@ impl Gate {
             Gate::CmpUiPreview => GateKind::CmpUiPreview,
             Gate::TheatreCmpDemo => GateKind::TheatreCmpDemo,
             Gate::Mutation => GateKind::Mutation,
-            Gate::Postgres { .. } | Gate::TheatreFirebasePostgres | Gate::SchemaPostgres => {
-                GateKind::Postgres
-            }
+            Gate::Postgres { .. }
+            | Gate::TheatreFirebasePostgres { .. }
+            | Gate::SchemaPostgres { .. } => GateKind::Postgres,
             Gate::Kani(_) => GateKind::Kani,
         }
     }
@@ -172,8 +176,8 @@ impl Gate {
             }
             Gate::WebBuild(app) => format!("{kind} ({})", app.cli_name()),
             Gate::Kani(kernel) => format!("kani ({})", kernel.name()),
-            Gate::TheatreFirebasePostgres => "postgres (theatre-firebase)".into(),
-            Gate::SchemaPostgres => "postgres (schema)".into(),
+            Gate::TheatreFirebasePostgres { .. } => "postgres (theatre-firebase)".into(),
+            Gate::SchemaPostgres { .. } => "postgres (schema)".into(),
             _ => kind,
         }
     }
@@ -222,7 +226,7 @@ impl Gate {
                 Tool::Ffmpeg,
                 Tool::Ffprobe,
             ],
-            Gate::TheatreFirebasePostgres | Gate::SchemaPostgres => vec![
+            Gate::TheatreFirebasePostgres { .. } | Gate::SchemaPostgres { .. } => vec![
                 Tool::Cargo,
                 Tool::Python3,
                 Tool::Initdb,
@@ -390,13 +394,15 @@ impl Gate {
             Gate::Postgres { keep } => {
                 vec![python(&["scripts/test_postgres.py"]).arg_if(*keep, "--keep")]
             }
-            Gate::TheatreFirebasePostgres => vec![python(&[
-                "scripts/test_postgres.py",
-                "--suite",
-                "theatre-firebase",
-            ])],
-            Gate::SchemaPostgres => {
-                vec![python(&["scripts/test_postgres.py", "--suite", "schema"])]
+            Gate::TheatreFirebasePostgres { keep } => {
+                vec![
+                    python(&["scripts/test_postgres.py", "--suite", "theatre-firebase"])
+                        .arg_if(*keep, "--keep"),
+                ]
+            }
+            Gate::SchemaPostgres { keep } => {
+                vec![python(&["scripts/test_postgres.py", "--suite", "schema"])
+                    .arg_if(*keep, "--keep")]
             }
         }
     }
@@ -484,8 +490,10 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
         VerifySuite::Dbsp => vec![Gate::Dbsp],
         VerifySuite::Postgres { keep, suite } => match suite {
             None => vec![Gate::Postgres { keep: *keep }],
-            Some(PostgresScope::TheatreFirebase) => vec![Gate::TheatreFirebasePostgres],
-            Some(PostgresScope::Schema) => vec![Gate::SchemaPostgres],
+            Some(PostgresScope::TheatreFirebase) => {
+                vec![Gate::TheatreFirebasePostgres { keep: *keep }]
+            }
+            Some(PostgresScope::Schema) => vec![Gate::SchemaPostgres { keep: *keep }],
         },
     }
 }
@@ -750,7 +758,7 @@ mod tests {
         use crate::{
             command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
         };
-        let gate = Gate::TheatreFirebasePostgres;
+        let gate = Gate::TheatreFirebasePostgres { keep: false };
         assert_eq!(gate.name(), "postgres (theatre-firebase)");
         assert_eq!(gate.kind(), GateKind::Postgres);
         assert_eq!(
@@ -772,7 +780,7 @@ mod tests {
                 keep: false,
                 suite: Some(PostgresScope::TheatreFirebase),
             }),
-            [Gate::TheatreFirebasePostgres]
+            [Gate::TheatreFirebasePostgres { keep: false }]
         );
         assert!(!full().contains(&gate));
         let mut runner = RecordingRunner::default();
@@ -793,10 +801,13 @@ mod tests {
         use crate::{
             command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
         };
-        let gate = Gate::SchemaPostgres;
+        let gate = Gate::SchemaPostgres { keep: false };
         assert_eq!(gate.name(), "postgres (schema)");
         assert_eq!(gate.kind(), GateKind::Postgres);
-        assert_eq!(gate.tools(), Gate::TheatreFirebasePostgres.tools());
+        assert_eq!(
+            gate.tools(),
+            (Gate::TheatreFirebasePostgres { keep: false }).tools()
+        );
         assert_eq!(
             lines(&gate),
             ["python3 scripts/test_postgres.py --suite schema"]
@@ -806,7 +817,7 @@ mod tests {
                 keep: false,
                 suite: Some(PostgresScope::Schema),
             }),
-            [Gate::SchemaPostgres]
+            [Gate::SchemaPostgres { keep: false }]
         );
         assert!(!full().contains(&gate));
         let mut runner = RecordingRunner::default();
@@ -915,8 +926,8 @@ mod tests {
         for gate in full().into_iter().chain([
             Gate::ContractTests,
             Gate::Postgres { keep: true },
-            Gate::TheatreFirebasePostgres,
-            Gate::SchemaPostgres,
+            Gate::TheatreFirebasePostgres { keep: false },
+            Gate::SchemaPostgres { keep: false },
         ]) {
             for command in gate.commands(&workspace) {
                 for arg in command
@@ -962,5 +973,20 @@ mod tests {
             }),
             [Gate::Postgres { keep: false }]
         );
+    }
+    #[test]
+    fn narrow_keep_retains_only_explicit_ownership_without_selecting_full_gate() {
+        for scope in [PostgresScope::Schema, PostgresScope::TheatreFirebase] {
+            let gates = verify_suite(&VerifySuite::Postgres {
+                keep: true,
+                suite: Some(scope),
+            });
+            assert_eq!(gates.len(), 1);
+            let commands = lines(&gates[0]);
+            assert_eq!(commands.len(), 1);
+            assert!(commands[0].contains("--suite"));
+            assert!(commands[0].ends_with("--keep"));
+            assert!(!matches!(gates[0], Gate::Postgres { .. }));
+        }
     }
 }

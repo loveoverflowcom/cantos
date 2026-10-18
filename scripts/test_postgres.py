@@ -27,6 +27,8 @@ import zipfile
 from production_oracle import production_after_restart, production_before_restart
 import reference_msgpack
 import reference_protobuf
+from seed_theatre import SEED_TEST
+from retained_postgres import OWNERSHIP_RECORD, write_ownership
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "target" / "revision-evidence"
@@ -115,8 +117,10 @@ def reap_completed_databases(env, cluster_url, retained):
     if any(not re.fullmatch(r"cantos_test_[a-z0-9_]+", name) for name in candidates):
         raise ValueError("unsafe disposable database name")
     for name in candidates:
+        # DROP may wait for a durable checkpoint on a busy test disk. Keep a finite budget
+        # without disabling fsync or force-closing another connection.
         subprocess.run(command + [f'DROP DATABASE "{name}"'], env=env, text=True,
-                       capture_output=True, check=True, timeout=10)
+                       capture_output=True, check=True, timeout=60)
     print(f"Released {len(candidates)} completed disposable test databases", flush=True)
 
 
@@ -208,13 +212,28 @@ def schema_postgres_tests(env, evidence, include_current=False):
     return checks
 
 
+def catalog_http_postgres_tests(env, evidence):
+    """Keep the long actual-byte seed inside the full gate with its own finite run budget."""
+    base = ["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres",
+            "--locked", "--offline", "--", "--ignored", "--test-threads=1"]
+    ordinary = base + ["--skip", "catalog_http_recovery_after_server_restart",
+                       "--skip", SEED_TEST.rsplit("::", 1)[-1]]
+    selected = run(ordinary, env=env, output=evidence / "catalog-http-postgres-tests.log")
+    summary = re.search(r"test result: ok\. ([0-9]+) passed; ([0-9]+) failed;", selected)
+    if summary is None or int(summary[1]) == 0 or int(summary[2]) != 0:
+        raise RuntimeError("FAIL: catalog HTTP selected no passing tests")
+    selected = run(base + ["--exact", SEED_TEST], env=env,
+                   output=evidence / "theatre-seed-postgres-tests.log")
+    summary = re.search(r"test result: ok\. ([0-9]+) passed; ([0-9]+) failed;", selected)
+    if summary is None or int(summary[1]) != 1 or int(summary[2]) != 0:
+        raise RuntimeError("FAIL: exact Theatre seed selected no single passing test")
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--keep", action="store_true")
     parser.add_argument("--suite", choices=("full", "theatre-firebase", "schema"), default="full")
     args = parser.parse_args(argv)
-    if args.keep and args.suite != "full":
-        parser.error("--keep requires the full PostgreSQL suite")
     return args
 
 
@@ -805,6 +824,34 @@ def start_host(env, port, log, fixture, readiness=None):
         raise
 
 
+def finish_owned_run(hosts, started, keep, data, env, ownership, succeeded):
+    """Cleanup always precedes final receipt I/O, and every owned host gets an attempt."""
+    cleanup_error = None
+    for host in hosts:
+        if host is not None:
+            try:
+                host.kill()
+                host.wait(timeout=5)
+            except BaseException as error:
+                if cleanup_error is None:
+                    cleanup_error = error
+    if started and not keep:
+        try:
+            run(["pg_ctl", "-D", str(data), "-m", "fast", "-w", "stop"], env=env)
+        except BaseException as error:
+            if cleanup_error is None:
+                cleanup_error = error
+    if ownership is not None:
+        # An unsuccessful cleanup cannot yield a consumable ownership proof, even if all
+        # selected tests passed. A write failure cannot skip the cleanup already attempted.
+        write_ownership(**ownership, active=cleanup_error is not None,
+                        status="PASS" if succeeded and cleanup_error is None else "FAIL")
+    if cleanup_error is not None:
+        raise cleanup_error
+    if keep and started:
+        print(f"Retained test cluster. Stop with: pg_ctl -D {data} -m fast -w stop")
+
+
 def main():
     if not __debug__:
         raise RuntimeError("PostgreSQL assertions are required; run Python without -O")
@@ -822,6 +869,8 @@ def main():
     url = f"postgresql://cantos_test_admin@127.0.0.1:{port}/postgres"
     env["CANTOS_TEST_CLUSTER_URL"] = url
     started = False
+    ownership_written = False
+    succeeded = False
     host = None
     editor_host = None
     catalog_host = None
@@ -837,13 +886,17 @@ def main():
         run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-o", server_options, "-w", "start"], env=env)
         started = True
         run(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c", "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; SELECT version();"], env=env)
+        if args.keep:
+            write_ownership(EVIDENCE / Path(OWNERSHIP_RECORD).name, cluster, port, args.suite, True, "NOT_RUN")
+            ownership_written = True
         if args.suite == "theatre-firebase":
             registration_postgres_tests(env, evidence)
             (evidence / "run.json").write_text(json.dumps({
                 "suite": args.suite, "cluster": str(cluster), "port": port,
-                "retained": False, "full_suite": "NOT_RUN",
+                "retained": args.keep, "full_suite": "NOT_RUN",
                 "checks": ["theatre-firebase-postgres-tests", "theatre-registration-postgres-tests"],
             }, indent=2) + "\n")
+            succeeded = True
             print("PASS: PostgreSQL theatre-firebase SQL and SMTP registration compatibility; "
                   "full PostgreSQL/media/HTTP/restart campaign NOT_RUN")
             return
@@ -851,13 +904,14 @@ def main():
             checks = schema_postgres_tests(env, evidence, include_current=True)
             (evidence / "run.json").write_text(json.dumps({
                 "suite": args.suite, "cluster": str(cluster), "port": port,
-                "retained": False, "full_suite": "NOT_RUN",
+                "retained": args.keep, "full_suite": "NOT_RUN",
                 "checks": checks,
                 "integration_targets": [target for target, _, _ in schema_sql_targets(True)],
                 "registration_selectors": [selector for _, selector in REGISTRATION_SQL_TARGETS],
                 "skipped_tests": {target: list(skipped) for target, _, skipped in schema_sql_targets(True)
                                   if skipped},
             }, indent=2) + "\n")
+            succeeded = True
             print("PASS: PostgreSQL current schema baseline, least-privilege and selected current-owner SQL acceptance; "
                   "full PostgreSQL/media/HTTP/restart campaign NOT_RUN")
             return
@@ -882,7 +936,7 @@ def main():
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_http_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-http-postgres-tests.log")
+        catalog_http_postgres_tests(env, EVIDENCE)
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "delegation_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "delegation-http-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
@@ -1034,23 +1088,13 @@ def main():
             "app_url": editor_app_url, "script": editor["script"],
             "run_id": editor["context"]["id"], "source_id": editor["source"]["id"],
             "token": editor["token"], "retained": args.keep}, indent=2) + "\n")
+        succeeded = True
     finally:
-        if audio_host is not None:
-            audio_host.kill()
-            audio_host.wait(timeout=5)
-        if host is not None:
-            host.kill()
-            host.wait(timeout=5)
-        if editor_host is not None:
-            editor_host.kill()
-            editor_host.wait(timeout=5)
-        if catalog_host is not None:
-            catalog_host.kill()
-            catalog_host.wait(timeout=5)
-        if started and not args.keep:
-            run(["pg_ctl", "-D", str(data), "-m", "fast", "-w", "stop"], env=env)
-        if args.keep and started:
-            print(f"Retained test cluster. Stop with: pg_ctl -D {data} -m fast -w stop")
+        ownership = {"path":EVIDENCE / Path(OWNERSHIP_RECORD).name,"cluster":cluster,
+                     "port":port,"scope":args.suite} if ownership_written else None
+        finish_owned_run([audio_host,host,editor_host,catalog_host],started,args.keep,data,env,
+                         ownership,succeeded)
+
 
 
 if __name__ == "__main__":

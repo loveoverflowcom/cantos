@@ -1,12 +1,13 @@
 # ADR 0032: Theatre origin playback delivery (mode A)
 
-- Status: **proposed** — recommendation with implemented, composition-gated core; not accepted
+- Status: **accepted for step-1 origin integration** — owner requested configured API/storage
+  and production catalog composition; deployed delivery/performance and native playback acceptance remain pending
 - Date: 2026-10-16
-- Decision owner: unassigned — Publication/Media owner and deployment owner review required
+- Decision owner: Cantos product owner (step-1 real-data integration request); deployment owner retains activation acceptance
 - Related issue or PR: [#170](https://github.com/loveoverflowcom/cantos/issues/170), RFC
   [#120](https://github.com/loveoverflowcom/cantos/issues/120), prerequisites #10/#11
 - Supersedes / superseded by: N/A; selects one row of [ADR 0038](0038-publication-streaming-evidence-gates.md)'s
-  "Authorized delivery" track **for review only**. ADR 0028's evidence gates still apply.
+  "Authorized delivery" track. ADR 0028's evidence gates still apply to deployment acceptance.
 
 ## Context
 
@@ -26,7 +27,7 @@ Facts that constrain the choice, inspected on `develop` `f3619bf`:
 
 ## Decision
 
-**Recommendation:** select **mode A — origin/API-controlled Range** as the first delivery mode,
+Select **mode A — origin/API-controlled Range** as the first delivery mode,
 with an HMAC-sealed short-lived grant per playback authorization:
 
 1. `POST …/playback-authorizations` resolves the eligible release, bounds the grant to
@@ -43,10 +44,15 @@ with an HMAC-sealed short-lived grant per playback authorization:
    no content encoding, strong SHA ETag, GET/HEAD, single range, 200/206/304/412/416.
    Multi-range requests are answered in full (200). No shared or browser cache is relied on.
 5. Composition: one trusted `OriginPlayback` value enables grant issuance and the media route
-   together. The default host composes neither; the route answers `not_found`.
+   together. The unconfigured host composes neither; the route answers `not_found`.
+   The configured server requires a separate publication filesystem root, HTTPS media origin and
+   operator-owned raw 32-byte key file. The same adapter promotes inspected immutable renditions
+   for publication admission and opens their exact verified bytes for delivery. Private and
+   publication roots cannot overlap. Incomplete or invalid configuration fails startup.
 
-This ADR does **not** select a publication-class storage adapter, CDN, cache policy beyond
-no-store, seek index, prebuffer, offline lifecycle, codec/profile or client player.
+The first adapter is a separate local publication filesystem class; it does not widen access to
+private storage. CDN, cache policy beyond no-store, seek index, prebuffer, offline lifecycle,
+codec/profile and client player remain outside this decision.
 
 ## Alternatives
 
@@ -64,10 +70,10 @@ no-store, seek index, prebuffer, offline lifecycle, codec/profile or client play
 | Clock rollback | A grant expiring more than one TTL after the read clock is `Unbounded` and denied; clients refresh | Implemented; operational impact NOT_RUN |
 | Concurrent media responses | 32 lanes per process, held until the body ends or is dropped; exhaustion is retryable 503 | Implemented starting bound, **not measured** |
 | Body deadline | Existing 60 s demand-polled transport deadline | Existing; slow-client policy still pending (ADR 0028) |
-| Key | 32 random bytes from operator secret storage; rotation invalidates outstanding grants (≤120 s); clients refresh | Type implemented; no key loading/config path exists |
-| Rollback | Do not compose `OriginPlayback`; playback returns `rendition_unavailable` and media `not_found` | Default host behavior today |
+| Key | 32 random bytes from operator secret storage; rotation invalidates outstanding grants (≤120 s); clients refresh | Explicit private key-file loader; deployed rotation acceptance pending |
+| Rollback | Remove all public-media configuration; playback returns `rendition_unavailable` and media `not_found` | Unconfigured host remains fail-closed |
 
-Acceptance before any host composes mode A (owner: Publication/Media + deployment):
+Deployment acceptance before public activation (owner: Publication/Media + deployment):
 publication-class promotion and a `PublicationObjects` adapter (#10/#11) reading the exact
 version-pinned object; real-bytes GET/HEAD/206/416 with checksum through the deployed proxy;
 withdrawal/expiry/restart/key-rotation behavior; access logs that redact `/theatre/media/*`;

@@ -76,9 +76,7 @@ fn router_with_publication(
     dist: Option<&str>,
     publication: PublicationService,
 ) -> Router {
-    // TODO(issue170, #10/#11): production composition stays unavailable until proposed ADR
-    // 0032 is accepted and a promoted publication-class object adapter has live byte/Range/
-    // expiry/withdrawal acceptance. Without it the media route answers not_found.
+    // Unconfigured hosts grant no publication delivery or playback authority.
     let listener = ListenerService::new(state.store.clone());
     router_with_services(state, dist, publication, listener)
 }
@@ -94,12 +92,23 @@ pub fn router_with_theatre_delivery(
     router_with_services(state, Some(dist), publication, listener)
 }
 
-/// Trusted origin-delivery composition (proposed ADR 0032 mode A). One value enables grant
+/// Trusted origin-delivery composition (ADR 0032 mode A). One value enables grant
 /// issuance and the `/theatre/media/{grant}` reader together; the default host never does.
 pub fn router_with_origin_playback(state: AppState, dist: &str, origin: OriginPlayback) -> Router {
     let publication = PublicationService::new(state.store.clone());
     let listener = ListenerService::new(state.store.clone()).with_origin_playback(origin);
     router_with_services(state, Some(dist), publication, listener)
+}
+
+/// Origin delivery and publication eligibility share the same separately configured byte class.
+/// No static fallback is exposed by a media-enabled host, including in development.
+pub fn router_with_public_media(
+    state: AppState,
+    publication: PublicationService,
+    origin: OriginPlayback,
+) -> Router {
+    let listener = ListenerService::new(state.store.clone()).with_origin_playback(origin);
+    router_with_services(state, None, publication, listener)
 }
 
 fn router_with_services(

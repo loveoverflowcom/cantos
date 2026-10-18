@@ -11,7 +11,7 @@ use crate::{
     gate::GateKind,
     kani::Kernel,
     run::{AppTarget, RunTarget},
-    seed::SeedTarget,
+    seed::{SeedOptions, SeedTarget},
     theatre_demo::DemoAction,
     theatre_host::HostAction,
     ui_preview::{PreviewAction, Renderer},
@@ -105,9 +105,8 @@ pub enum Task {
     Seed {
         #[arg(value_enum)]
         target: SeedTarget,
-        /// Drop only the recorded seed database and its record.
-        #[arg(long)]
-        reset: bool,
+        #[command(flatten)]
+        options: SeedOptions,
     },
     /// Serve only Web; Studio requires an API, Theatre warns if anonymous catalog is unavailable.
     App {
@@ -223,7 +222,7 @@ pub enum VerifySuite {
         #[arg(long)]
         keep: bool,
         /// Explicit narrow acceptance; omission runs the complete PostgreSQL gate.
-        #[arg(long, value_enum, conflicts_with = "keep")]
+        #[arg(long, value_enum)]
         suite: Option<PostgresScope>,
     },
 }
@@ -284,14 +283,23 @@ mod tests {
             parse("seed theatre").unwrap(),
             Task::Seed {
                 target: SeedTarget::Theatre,
-                reset: false
+                options: SeedOptions { reset: false, .. }
             }
         ));
         assert!(matches!(
             parse("seed theatre --reset").unwrap(),
-            Task::Seed { reset: true, .. }
+            Task::Seed {
+                options: SeedOptions { reset: true, .. },
+                ..
+            }
         ));
-        for invalid in ["seed", "seed studio", "seed theatre --database-url x"] {
+        for invalid in [
+            "seed",
+            "seed studio",
+            "seed theatre --database-url x",
+            "seed theatre --studio-cookie-name arbitrary",
+            "seed theatre --studio-cookie-name cantos_session;evil=x",
+        ] {
             assert!(parse(invalid).is_err(), "{invalid}");
         }
     }
@@ -325,9 +333,18 @@ mod tests {
                 }
             }
         ));
+        for scope in ["schema", "theatre-firebase"] {
+            assert!(matches!(
+                parse(&format!("verify postgres --suite {scope} --keep")).unwrap(),
+                Task::Verify {
+                    suite: VerifySuite::Postgres {
+                        keep: true,
+                        suite: Some(_)
+                    }
+                }
+            ));
+        }
         for line in [
-            "verify postgres --suite theatre-firebase --keep",
-            "verify postgres --suite schema --keep",
             "verify postgres --suite legacy-dbsp",
             "verify postgres --suite audio",
             "verify postgres --suite all",
@@ -601,18 +618,30 @@ mod tests {
     }
 
     #[test]
-    fn theatre_host_has_only_the_release_inspection_and_an_explicit_debug_origin_build() {
+    fn theatre_host_exposes_configured_release_and_explicit_debug_catalog_builds() {
         assert!(matches!(
             parse("theatre-host android-release").unwrap(),
             Task::TheatreHost {
-                action: HostAction::AndroidRelease
+                action: HostAction::AndroidRelease { api_origin: None }
             }
+        ));
+        assert!(matches!(
+            parse("theatre-host android-release --api-origin https://api.cantos.example").unwrap(),
+            Task::TheatreHost {
+                action: HostAction::AndroidRelease { api_origin: Some(origin) }
+            } if origin == "https://api.cantos.example"
         ));
         assert!(matches!(
             parse("theatre-host android-debug --api-origin http://127.0.0.1:8080").unwrap(),
             Task::TheatreHost {
                 action: HostAction::AndroidDebug { api_origin }
             } if api_origin == "http://127.0.0.1:8080"
+        ));
+        assert!(matches!(
+            parse("theatre-host ios-build --kotlin-native-home /installed/native").unwrap(),
+            Task::TheatreHost {
+                action: HostAction::IosBuild { .. }
+            }
         ));
         for line in [
             "theatre-host",

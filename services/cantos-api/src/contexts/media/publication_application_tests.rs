@@ -164,3 +164,19 @@ fn storage_failures_remain_publication_blockers_without_fabricating_verified_byt
         Err(StoreError::Unauthenticated)
     ));
 }
+
+#[test]
+fn promotion_requires_every_existing_gate_except_delivery_it_will_prepare() {
+    let fixture = fixture();
+    let mut facts = fixture.facts();
+    facts.delivery = &DeliveryObservation::Unavailable;
+    assert!(ready_for_promotion(&facts));
+    facts.approval = None;
+    assert!(!ready_for_promotion(&facts));
+    facts.approval = Some(&fixture.approval);
+    facts.object = &ObjectObservation::IntegrityMismatch;
+    assert!(!ready_for_promotion(&facts));
+    facts.object = &fixture.object;
+    facts.rights = None;
+    assert!(!ready_for_promotion(&facts));
+}

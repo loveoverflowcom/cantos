@@ -109,6 +109,24 @@ class DexParserTest(unittest.TestCase):
             with self.assertRaises(inspector.InspectionError):
                 inspector.dex_defined_classes(broken)
 
+    def test_configured_catalog_requires_exact_origin_internet_and_no_cleartext(self):
+        origin = "https://api.cantos.example"
+        configured = APK_MANIFEST.replace(
+            '      E: application (line=21)\n',
+            f'      E: uses-permission (line=20)\n        A: {ANDROID}name="android.permission.INTERNET"\n'
+            '      E: application (line=21)\n'
+            f'        A: {ANDROID}usesCleartextTraffic=false\n'
+            '        E: meta-data (line=22)\n'
+            f'          A: {ANDROID}name="CantosApiOrigin"\n'
+            f'          A: {ANDROID}value="{origin}"\n',
+        )
+        elements = inspector.parse_xmltree(configured)
+        self.assertEqual(inspector.catalog_origin_findings(elements, origin), [])
+        self.assertTrue(inspector.catalog_origin_findings(elements, "https://other.example"))
+        self.assertTrue(inspector.catalog_origin_findings(inspector.parse_xmltree(APK_MANIFEST), origin))
+        cleartext = inspector.parse_xmltree(configured.replace("usesCleartextTraffic=false", "usesCleartextTraffic=true"))
+        self.assertIn("release catalog permits cleartext traffic", inspector.catalog_origin_findings(cleartext, origin))
+
     def test_class_inventory_maps_compiled_files_to_descriptors(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

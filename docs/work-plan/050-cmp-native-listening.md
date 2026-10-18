@@ -3,7 +3,11 @@
 Current review boundary: #14/#159 real native listening, followed by #15/#16/#17 lifecycle,
 offline and sync. The production-safe `:shared`, isolated `:preview-sandbox` and production
 Android host already exist; #122's sandbox/release exclusion slice is completed. The host
-truthfully renders unavailable until real listening adapters exist. See the
+now has a real catalog composition for debug and configured HTTPS release; the separate iOS
+production host also links only `:shared`. Listening, account and Library actions remain
+explicitly unavailable until their adapters are connected. Qualify the
+[step-1 catalog/API/storage handoff](../evidence/theatre-live-catalog-step1.md) before native
+playback, then retain per-platform device acceptance. See the
 [current platform matrix](../architecture/repository-layout.md#platform-scope).
 
 ## Why

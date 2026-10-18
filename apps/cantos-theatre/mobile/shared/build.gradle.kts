@@ -295,7 +295,12 @@ kotlin {
                 // Missing local LLVM/libffi dependencies fail; they are never downloaded.
                 freeCompilerArgs.add("-Xoverride-konan-properties=airplaneMode=true")
             }
-
+            // Shipping framework has no dependency on the separately named sandbox framework.
+            target.binaries.framework {
+                baseName = "CantosTheatre"
+                isStatic = true
+                binaryOption("bundleId", "com.cantos.theatre.shared")
+            }
         }
     }
 

@@ -170,6 +170,22 @@ def manifest_findings(elements, application_id, launcher, allowed_permissions):
     return findings
 
 
+def catalog_origin_findings(elements, expected_origin):
+    """Check the built manifest, so a configured build cannot silently ship unavailable."""
+    origins = [attrs.get("value", "") for _, tag, attrs in elements
+               if tag == "meta-data" and attrs.get("name") == "CantosApiOrigin"]
+    findings = []
+    if origins != [expected_origin]:
+        findings.append("catalog API origin metadata does not match the requested build origin")
+    permissions = {attrs.get("name") for _, tag, attrs in elements if tag == "uses-permission"}
+    if "android.permission.INTERNET" not in permissions:
+        findings.append("configured catalog has no INTERNET permission")
+    for _, tag, attrs in elements:
+        if tag == "application" and attrs.get("usesCleartextTraffic", "false") not in {"false", "0", "0x0"}:
+            findings.append("release catalog permits cleartext traffic")
+    return findings
+
+
 def archive_findings(entries, forbidden_hashes, compose_package):
     findings = []
     for name, digest in sorted(entries.items()):
@@ -246,6 +262,9 @@ def inspect(args, dump=dump_manifest):
                                 args.launcher, set(args.allowed_permission)))]
         own += [f"{label}: required production class {name} is absent"
                 for name in args.require_class if name not in classes]
+        if getattr(args, "api_origin", None) is not None:
+            own += [f"{label}: {finding}" for finding in catalog_origin_findings(
+                parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.api_origin)]
         findings += own
     if defined["apk"] != defined["aab"]:
         findings.append("apk and aab define different class sets; they are not the same release build")
@@ -265,6 +284,7 @@ def main(argv=None):
     parser.add_argument("--forbidden-resources", action="append", default=[], type=Path)
     parser.add_argument("--require-class", action="append", default=[])
     parser.add_argument("--allowed-permission", action="append", default=[])
+    parser.add_argument("--api-origin", help="expected production HTTPS catalog origin in both manifests")
     parser.add_argument("--report", required=True, type=Path)
     args = parser.parse_args(argv)
     try:

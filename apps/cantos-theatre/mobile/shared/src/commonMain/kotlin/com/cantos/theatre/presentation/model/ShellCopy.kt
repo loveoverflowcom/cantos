@@ -124,6 +124,11 @@ enum class CopyKey(val vi: String, val en: String, val enOne: String? = null) {
     Timer30("30 phút", "30 minutes"),
     TimerEnd("Hết tập này", "End of episode"),
     // Live public catalog (production host). Failures never name a reason the server did not give.
+    AllKinds("Tất cả", "All"),
+    CatalogSearchLabel("Tên hoặc mô tả tác phẩm", "Work title or description"),
+    CatalogSearchInvalid("Từ khóa quá dài hoặc có ký tự không hợp lệ.", "The search is too long or contains unsupported characters."),
+    CatalogQuery("{kind} · {query}", "{kind} · {query}"),
+    PersonalFeaturesUnavailable("Tài khoản, tác phẩm đã lưu và điểm nghe chưa khả dụng trong bản này. Bạn có thể xem các tác phẩm được phát hành ở Khám phá.", "Accounts, saved works and listening positions aren’t available in this version yet. You can browse released works in Discover."),
     Refresh("Làm mới", "Refresh"),
     LoadMore("Tải thêm", "Load more"),
     LoadingMore("Đang tải thêm…", "Loading more…"),

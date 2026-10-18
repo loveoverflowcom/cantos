@@ -119,8 +119,8 @@ fn dispatch(task: Task) -> Result<ExitCode> {
                 Err(refusal) => Ok(refuse(refusal)),
             }
         }
-        Task::Seed { target, reset } => {
-            match seed::execute(&workspace, target, reset, &tools, &mut runner)? {
+        Task::Seed { target, options } => {
+            match seed::execute(&workspace, target, &options, &tools, &mut runner)? {
                 Ok(code) => Ok(code),
                 Err(refusal) => Ok(refuse(refusal)),
             }

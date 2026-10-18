@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Seed or reset the synthetic Theatre catalog in ONLY the retained disposable cluster.
+"""Seed synthetic Theatre data through Studio use cases and real publication storage.
 
-Primitive of `cargo xtask seed theatre`. It never reads DATABASE_URL or any inherited
-PostgreSQL setting. The data comes from the `theatre_development_catalog_seed` PostgreSQL
-test: real Studio HTTP and app-role writes through the domain's rights, approval and
-publication rules, with only the test-only public-delivery observer substituted. The host
-that later serves the database keeps publication delivery and playback unavailable.
+Default/reset operate only on the proven retained disposable cluster. Named persistent
+inputs select an existing app DB/session explicitly, with no database administration;
+a private write-ahead journal makes interrupted effects replay their original operations.
 """
 import argparse
+import fcntl
 import json
 import os
 import re
@@ -16,6 +15,7 @@ import sys
 import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
+from retained_postgres import OWNERSHIP_RECORD, validate_ownership
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "target" / "revision-evidence"
@@ -34,6 +34,11 @@ class Refusal(Exception):
 
 def retained_cluster(config):
     """(port, data directory) only for a cluster this repository's runner created and kept."""
+    if config.get("purpose") == "retained-disposable-cluster":
+        try:
+            return validate_ownership(config,EVIDENCE)
+        except ValueError as error:
+            raise Refusal(str(error)) from None
     if config.get("retained") is not True or "theatre_app_url" not in config:
         raise Refusal(f"no retained disposable cluster with a Theatre fixture; {KEEP_HINT}")
     port = config.get("port")
@@ -60,10 +65,17 @@ def app_url(port, database):
 def protected_databases(config):
     """The verification fixtures the record still points at; a seed never drops them."""
     names = set()
-    for key in ("app_url", "catalog_app_url", "audio_app_url", "theatre_app_url"):
-        value = config.get(key)
-        if isinstance(value, str):
-            names.add(urlsplit(value).path.lstrip("/"))
+    records=[config]
+    if config.get("purpose")=="retained-disposable-cluster":
+        complete=load(RUN_RECORD)
+        if isinstance(complete,dict) and complete.get("cluster")==config.get("cluster") \
+                and complete.get("port")==config.get("port"):
+            records.append(complete)
+    for record in records:
+        for key in ("app_url", "catalog_app_url", "audio_app_url", "theatre_app_url"):
+            value = record.get(key)
+            if isinstance(value, str):
+                names.add(urlsplit(value).path.lstrip("/"))
     return names
 
 
@@ -144,8 +156,11 @@ def summary(record):
             1 for unit in work["units"] if unit["publication_id"] and not unit["withdrawn"])
         lines.append(f"  {work['fate']:<11} {work['kind']:<7} {work['work_id']}  "
                      f"{visible}/{len(work['units'])} public units  {work['title']}")
-    lines.append("Serve it with `cargo xtask run cantos-theatre --web --test-cluster`; "
-                 "publication delivery and playback stay unavailable.")
+    for work in record["works"]:
+        for unit in work["units"]:
+            lines.append(f"    unit={unit['unit_id']} publication={unit['publication_id']} "
+                         f"rendition={unit.get('rendition_id', 'unknown')}")
+    lines.append("Manifest/grant/byte acceptance is separate from native playback.")
     return "\n".join(lines)
 
 
@@ -155,7 +170,7 @@ def load(path):
     try:
         return json.loads(path.read_text())
     except (OSError, ValueError) as error:
-        raise Refusal(f"{path.name} is unreadable; remove it and run the command again") from error
+        raise Refusal(f"{path.name} is unreadable; reconcile it before running the command again") from error
 
 
 def seed(config, env):
@@ -164,8 +179,20 @@ def seed(config, env):
     previous = owned_seed_database(config, load(SEED_RECORD))
     with tempfile.TemporaryDirectory(dir=EVIDENCE) as directory:
         output = Path(directory) / "seed.json"
+        media = Path(tempfile.mkdtemp(prefix="theatre-seed-", dir=data.parent))
+        os.chmod(media,0o700)
+        private, publication = media / "private", media / "publication"
+        private.mkdir(mode=0o700)
+        publication.mkdir(mode=0o700)
+        key = media / "playback.key"
+        descriptor = os.open(key, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor,"wb") as stream:
+            stream.write(os.urandom(32))
         test_env = dict(env, CANTOS_TEST_CLUSTER_URL=admin_url(port),
-                        CANTOS_THEATRE_SEED_RECORD=str(output))
+                        CANTOS_THEATRE_SEED_RECORD=str(output),
+                        CANTOS_THEATRE_SEED_PRIVATE_ROOT=str(private),
+                        CANTOS_THEATRE_SEED_PUBLICATION_ROOT=str(publication),
+                        CANTOS_THEATRE_SEED_PLAYBACK_KEY_FILE=str(key))
         command = ["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres",
                    "--locked", "--offline", "--", "--ignored", "--exact", SEED_TEST,
                    "--test-threads=1"]
@@ -175,12 +202,18 @@ def seed(config, env):
             raise Refusal("the seed test selected nothing or wrote no record")
         result = validated_result(json.loads(output.read_text()), config)
     record = dict(result, cluster=config["cluster"], port=port,
+                  cluster_ownership=config.get("purpose"),
+                  verification_scope=config.get("scope","full"),
+                  verification_status=config.get("gate_status","PASS"),
+                  full_postgres_status=config.get("full_gate_status","PASS"),
                   app_url=app_url(port, result["database"]))
     write_record(SEED_RECORD, record)
     if previous and previous != record["database"]:
         drop(env, port, previous, config)
         print(f"Dropped the previous seed database {previous}.")
     print(summary(record))
+    print(f"Cluster verification: {record['verification_scope']} {record['verification_status']}; "
+          f"full PostgreSQL gate {record['full_postgres_status']} (ownership never implies acceptance).")
 
 
 def reset(config, env):
@@ -199,13 +232,95 @@ def reset(config, env):
     print("`cargo xtask run cantos-theatre --web --test-cluster` serves the empty fixture again.")
 
 
+
+def persistent_seed(args, inherited):
+    """No database administration: use the chosen app connection and existing Studio session."""
+    required = (args.api_origin, args.web_origin, args.database_url_env, args.studio_token_env, args.rights_ref,
+                args.private_root, args.publication_root, args.record)
+    if args.reset or not all(required):
+        raise Refusal("persistent seed requires all explicit inputs and never permits --reset")
+    cookie_name=args.studio_cookie_name or "__Secure-cantos_studio"
+    if cookie_name not in ("__Secure-cantos_studio","cantos_session"):
+        raise Refusal("unsupported Studio cookie name")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", args.environment):
+        raise Refusal("environment must be a lowercase name")
+    for origin in (args.api_origin, args.web_origin):
+        parsed = urlsplit(origin)
+        loopback = parsed.hostname in ("127.0.0.1", "localhost", "::1")
+        if parsed.scheme not in ("https", "http") or parsed.scheme == "http" and not loopback \
+                or not parsed.hostname or parsed.username or parsed.password \
+                or parsed.path or parsed.query or parsed.fragment or any(c.isspace() for c in origin):
+            raise Refusal("API/Web origins must be bare HTTPS origins (HTTP only for loopback development)")
+    selected = {}
+    for flag, name in (("DATABASE_URL", args.database_url_env), ("STUDIO_TOKEN", args.studio_token_env)):
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]*", name) or name not in inherited or not inherited[name]:
+            raise Refusal("explicit credential variable is absent or invalid (values are never printed)")
+        selected["CANTOS_THEATRE_SEED_" + flag] = inherited[name]
+    paths = [Path(value) for value in (args.private_root, args.publication_root, args.record)]
+    if any(not path.is_absolute() or path.is_symlink() for path in paths):
+        raise Refusal("persistent roots and receipt must be absolute and not symbolic links")
+    private, publication, receipt = [path.resolve() for path in paths]
+    if private == publication or private in publication.parents or publication in private.parents:
+        raise Refusal("private and publication storage roots must be separate")
+    if receipt == ROOT or ROOT in receipt.parents and "artifacts" not in receipt.relative_to(ROOT).parts:
+        raise Refusal("keep the persistent receipt outside Git or under ignored artifacts/")
+    if not private.is_dir() or not publication.is_dir() or not receipt.parent.is_dir():
+        raise Refusal("operator must create the private roots and receipt directory first")
+    env = isolated_environment(inherited)
+    env.update(selected)
+    env.update(CANTOS_THEATRE_SEED_ENVIRONMENT=args.environment,
+               CANTOS_THEATRE_SEED_API_ORIGIN=args.api_origin,
+               CANTOS_THEATRE_SEED_WEB_ORIGIN=args.web_origin,
+               CANTOS_THEATRE_SEED_STUDIO_COOKIE_NAME=cookie_name,
+               CANTOS_THEATRE_SEED_RIGHTS_REF=args.rights_ref,
+               CANTOS_THEATRE_SEED_PRIVATE_ROOT=str(private),
+               CANTOS_THEATRE_SEED_PUBLICATION_ROOT=str(publication),
+               CANTOS_THEATRE_SEED_RECORD=str(receipt),
+               CANTOS_THEATRE_SEED_JOURNAL=str(receipt.with_suffix(".journal.json")))
+    lock_path = receipt.with_suffix(".lock")
+    with lock_path.open("a") as lock:
+        os.chmod(lock_path, 0o600)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise Refusal("this seed receipt is already in use") from error
+        command = ["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres",
+                   "--locked", "--offline", "--", "--ignored", "--exact", SEED_TEST,
+                   "--test-threads=1"]
+        if subprocess.run(command, cwd=ROOT, env=env).returncode:
+            raise Refusal("seed incomplete; keep the private journal and rerun the same command to reconcile; "
+                          "do not delete the journal or reset the database")
+        result = load(receipt)
+        if not isinstance(result, dict) or result.get("environment") != args.environment \
+                or result.get("dataset") != "theatre-catalog-v2":
+            raise Refusal("seed produced no matching persistent receipt")
+    print(summary(result))
+    print(f"Receipt: {receipt} (keep its private recovery journal; no database was reset).")
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reset", action="store_true",
                         help="drop only the recorded seed database and its record")
+    parser.add_argument("--environment")
+    parser.add_argument("--api-origin")
+    parser.add_argument("--web-origin")
+    parser.add_argument("--database-url-env")
+    parser.add_argument("--studio-token-env")
+    parser.add_argument("--studio-cookie-name",choices=("__Secure-cantos_studio","cantos_session"))
+    parser.add_argument("--rights-ref")
+    parser.add_argument("--private-root")
+    parser.add_argument("--publication-root")
+    parser.add_argument("--record")
     args = parser.parse_args(argv)
     try:
-        config = load(RUN_RECORD)
+        if args.environment:
+            persistent_seed(args, os.environ)
+            return 0
+        if any((args.api_origin, args.web_origin, args.database_url_env, args.studio_token_env, args.studio_cookie_name, args.rights_ref,
+                args.private_root, args.publication_root, args.record)):
+            raise Refusal("persistent inputs require --environment")
+        ownership_path=ROOT / OWNERSHIP_RECORD
+        config = load(ownership_path) if ownership_path.is_file() else load(RUN_RECORD)
         if config is None:
             raise Refusal(f"no retained cluster record; {KEEP_HINT}")
         env = isolated_environment(os.environ)

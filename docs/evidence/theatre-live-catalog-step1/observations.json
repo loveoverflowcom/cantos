@@ -1,0 +1,107 @@
+{
+  "source_base": "e4d6ca23a51d3f1c1465c7c2da5c2a198f1c3e14",
+  "renderer": "Desktop Compose on Linux/JVM; not Android/iOS",
+  "source_roots": [
+    "apps/cantos-theatre/mobile/shared/src",
+    "apps/cantos-theatre/mobile/shared/build.gradle.kts",
+    "apps/cantos-theatre/mobile/androidProductionApp/src",
+    "apps/cantos-theatre/mobile/iosApp/Cantos",
+    "packages/ui-system/cmp/src",
+    "packages/ui-system/shared/tokens.json"
+  ],
+  "source_digest_rule": "SHA256 of sorted relative path + NUL + hex SHA256(file bytes) + newline",
+  "source_sha256": "124b07d58a1ca7da6f97e41dcdbd1c332e7dfa8f6d32c1932d448f35e4b799d3",
+  "api_origin": "http://127.0.0.1:8080",
+  "command": "CANTOS_THEATRE_LIVE_ORIGIN=http://127.0.0.1:8080 CANTOS_THEATRE_REQUIRE_SEEDED=true CANTOS_THEATRE_LIVE_REFRESH_DIR=FRESH_DIR cargo xtask theatre-demo verify",
+  "refresh": "Backend Work visibility changed and restored over Studio HTTP while the same mounted Compose controller refreshed; no client rebuild during mutation.",
+  "images": [
+    {
+      "file": "catalog-live-list-vi-390x844.png",
+      "sha256": "2907f5ae38174cd8cb4a61f3f9dd39e32c0eecbf46243e61a0070d37947e0f40",
+      "image_pixels": [
+        390,
+        764
+      ],
+      "viewport": [
+        390,
+        844
+      ],
+      "font_scale": 1,
+      "crop": "catalog content only; navigation bar excluded",
+      "data_source": "actual local API / PostgreSQL / production controller and HTTP adapter",
+      "theme": "light",
+      "locale": "vi-VN"
+    },
+    {
+      "file": "catalog-live-refreshed-vi-390x844.png",
+      "sha256": "956aa81e3f68819e4f2da2b065d2c2ddb08634eb4d16d032475a44989a27ff40",
+      "image_pixels": [
+        390,
+        764
+      ],
+      "viewport": [
+        390,
+        844
+      ],
+      "font_scale": 1,
+      "crop": "catalog content only; navigation bar excluded",
+      "data_source": "actual local API / PostgreSQL / production controller and HTTP adapter",
+      "theme": "light",
+      "locale": "vi-VN"
+    },
+    {
+      "file": "catalog-live-detail-vi-390x844.png",
+      "sha256": "4a09aab975afff3690fadccf7be5c50fb548bdab2eec7e2ff386c11a8a52a613",
+      "image_pixels": [
+        390,
+        764
+      ],
+      "viewport": [
+        390,
+        844
+      ],
+      "font_scale": 1,
+      "crop": "catalog content only; navigation bar excluded",
+      "data_source": "actual local API / PostgreSQL / production controller and HTTP adapter",
+      "theme": "light",
+      "locale": "vi-VN"
+    },
+    {
+      "file": "catalog-live-empty-vi-390x844.png",
+      "sha256": "41e84df175d7b84747eb5d0b3e7e5f98d16340cf10cacdfdba9d99422d488422",
+      "image_pixels": [
+        390,
+        764
+      ],
+      "viewport": [
+        390,
+        844
+      ],
+      "font_scale": 1,
+      "crop": "catalog content only; navigation bar excluded",
+      "data_source": "actual local API / PostgreSQL / production controller and HTTP adapter",
+      "theme": "light",
+      "locale": "vi-VN"
+    },
+    {
+      "file": "catalog-list-light-320x568-text2.0.png",
+      "sha256": "604e15c72f4e6f74b0c0e0eec9b5d6d5aa70add821244e65c312d235ea3b7dbc",
+      "image_pixels": [
+        320,
+        568
+      ],
+      "viewport": [
+        320,
+        568
+      ],
+      "font_scale": 2,
+      "crop": "full test root",
+      "data_source": "immutable test projections / production presentation",
+      "theme": "light",
+      "locale": "vi-VN"
+    }
+  ],
+  "native_runtime": "NOT_RUN",
+  "screen_readers": "NOT_RUN",
+  "shared_component_admission": "FAIL: existing qualifications stale; this artifact does not grant admission"
+}

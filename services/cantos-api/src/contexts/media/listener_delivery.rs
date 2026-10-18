@@ -107,10 +107,9 @@ pub type PlaybackDeliveryFuture =
 /// audio/ogg, cache isolation and signed Range semantics. A signer alone is insufficient.
 /// `OriginPlayback` is the only non-test implementation; it satisfies these obligations only
 /// together with the Theatre media route, which rechecks eligibility before and after reads.
-/// TODO(issue170, #10/#11): compose it in a real host only after ADR 0032 is accepted and a
-/// promoted publication-class `PublicationObjects` adapter has live byte/Range/expiry/
-/// withdrawal acceptance. Never adapt PrivateStorage or a Studio preview grant into listener
-/// authority.
+/// The host opts in only with separate publication storage, an explicit HTTPS origin and
+/// an operator-owned key. Local acceptance is separate from deployed TLS/proxy/capacity gates
+/// in ADR 0032. Never adapt PrivateStorage or a Studio preview grant into listener authority.
 pub trait PlaybackDelivery: Send + Sync {
     fn grant(&self, permit: PlaybackPermit) -> PlaybackDeliveryFuture;
 }
@@ -184,8 +183,8 @@ impl fmt::Debug for PublicationObjectRef {
 /// for this exact SHA/length (PublicationDelivery's observation), pinned by object version, and
 /// returns exactly the requested range or a typed failure. It performs no authorization; the
 /// listener application rechecks current eligibility after every open.
-/// TODO(issue170, #10/#11): the S3-compatible publication-bucket adapter arrives with
-/// promotion. Until then only named test doubles implement this port.
+/// The filesystem publication class implements this port; S3 publication promotion remains
+/// separate work. Named test doubles establish transport behavior, never deployed acceptance.
 pub trait PublicationObjects: Send + Sync {
     fn open(
         &self,
@@ -194,7 +193,7 @@ pub trait PublicationObjects: Send + Sync {
     ) -> StorageFuture<StorageRead>;
 }
 
-/// Proposed ADR 0032 mode A. One trusted value enables grant issuance and the media route
+/// ADR 0032 mode A source composition. One trusted value enables grant issuance and the media route
 /// together, so no grant can name the route without its key and publication reader.
 #[derive(Clone)]
 pub struct OriginPlayback {

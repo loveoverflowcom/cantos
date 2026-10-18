@@ -11,6 +11,7 @@ pub use image_application::{
 };
 mod postgres;
 mod process;
+pub mod public_media;
 pub mod storage;
 mod structure;
 
@@ -31,6 +32,8 @@ pub(crate) mod read {
     pub(crate) use super::read_application::AudioReadScope;
     pub(crate) use super::storage::port::{StorageRead, StorageStream};
 }
+mod publication_storage;
+pub use publication_storage::FilesystemPublicationStorage;
 mod publication_application;
 pub(crate) mod publication_delivery;
 pub use publication_application::{PublicationService, PublicationStoreError};

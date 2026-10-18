@@ -1,5 +1,7 @@
 package com.cantos.theatre.features.catalog.presentation
 
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,16 +11,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -28,6 +43,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +54,8 @@ import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.catalog.PublicCatalogState
 import com.cantos.theatre.application.catalog.WalkPhase
 import com.cantos.theatre.application.catalog.WorkDetailState
+import com.cantos.theatre.domain.catalog.CatalogCheck
+import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicUnitKind
 import com.cantos.theatre.domain.catalog.PublicWork
@@ -56,6 +74,9 @@ import com.cantos.ui.BackButton
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonVariant
+import com.cantos.ui.ButtonState
+import com.cantos.ui.DisabledReason
+import com.cantos.ui.TextField
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.LocalEditorialFontFamily
 import com.cantos.ui.StatusTone
@@ -79,15 +100,48 @@ fun PublicCatalogScreen(
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
 ) {
     val copy = ShellCopy(locale)
-    backHandler(state.detail != null) { onIntent(PublicCatalogIntent.Back) }
+    var destination by remember { mutableStateOf(CatalogDestination.Discover) }
+    backHandler(state.detail != null || destination != CatalogDestination.Discover) {
+        if (state.detail != null) onIntent(PublicCatalogIntent.Back) else destination = CatalogDestination.Discover
+    }
     CantosTheme(preferences, uiFontFamily = catalogSans(), editorialFontFamily = catalogSerif()) {
         Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
-                val detail = state.detail
-                if (detail == null) WorkList(state.works, copy, onIntent) else WorkDetail(detail, copy, onIntent)
+            Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    val detail = state.detail
+                    when {
+                        detail != null -> WorkDetail(detail, copy, onIntent)
+                        destination == CatalogDestination.Discover -> WorkList(state, copy, onIntent) { destination = CatalogDestination.Account }
+                        else -> CatalogColumn("catalog-capability", copy.text(destination.label)) {
+                            item {
+                                Explanation(copy.text(destination.label), copy.text(CopyKey.PersonalFeaturesUnavailable),
+                                    Modifier.testTag("catalog-personal-unavailable"))
+                            }
+                        }
+                    }
+                }
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface, windowInsets = WindowInsets(0)) {
+                    CatalogDestination.entries.filter { it != CatalogDestination.Account }.forEach { item ->
+                        NavigationBarItem(
+                            selected = destination == item,
+                            onClick = { destination = item; onIntent(PublicCatalogIntent.Back) },
+                            icon = { Icon(when (item) {
+                                CatalogDestination.Discover -> Icons.Outlined.Home
+                                CatalogDestination.Library -> Icons.AutoMirrored.Outlined.MenuBook
+                                CatalogDestination.Account -> Icons.Outlined.PersonOutline
+                            }, null) },
+                            label = { Text(copy.text(item.label)) },
+                            modifier = Modifier.testTag("catalog-nav-${item.name.lowercase()}"),
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+private enum class CatalogDestination(val label: CopyKey) {
+    Discover(CopyKey.Discover), Library(CopyKey.Library), Account(CopyKey.Account),
 }
 
 @Composable
@@ -113,28 +167,80 @@ private fun CatalogColumn(tag: String, title: String, content: LazyListScope.() 
 }
 
 @Composable
-private fun WorkList(works: PageWalk<PublicWork>, copy: ShellCopy, onIntent: (PublicCatalogIntent) -> Unit) {
+private fun WorkList(
+    state: PublicCatalogState,
+    copy: ShellCopy,
+    onIntent: (PublicCatalogIntent) -> Unit,
+    onAccount: () -> Unit,
+) {
+    val works = state.works
+    var searchExpanded by remember { mutableStateOf(false) }
     CatalogColumn("catalog-works", copy.text(CopyKey.Discover)) {
         item(key = "heading") {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    copy.text(CopyKey.DiscoverHeading),
-                    Modifier.weight(1f).semantics { heading() },
-                    style = MaterialTheme.typography.headlineSmall.copy(fontFamily = LocalEditorialFontFamily.current),
-                )
-                if (works.received && works.phase != WalkPhase.Loading) {
-                    Button(copy.text(CopyKey.Refresh), { onIntent(PublicCatalogIntent.RefreshWorks) },
-                        variant = ButtonVariant.Text, controlModifier = Modifier.testTag("catalog-refresh"))
+            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        copy.text(CopyKey.DiscoverHeading),
+                        Modifier.weight(1f).semantics { heading() },
+                        style = MaterialTheme.typography.headlineSmall.copy(fontFamily = LocalEditorialFontFamily.current),
+                    )
+                    IconButton(onClick = onAccount, modifier = Modifier.size(tokenDp("size.control")).testTag("catalog-account")) {
+                        Icon(Icons.Outlined.PersonOutline, contentDescription = copy.text(CopyKey.Account))
+                    }
                 }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                    Button(copy.text(CopyKey.Search), { searchExpanded = !searchExpanded },
+                        variant = ButtonVariant.Text, controlModifier = Modifier.testTag("catalog-search-open"))
+                    if (works.received && works.phase != WalkPhase.Loading) {
+                        Button(copy.text(CopyKey.Refresh), { onIntent(PublicCatalogIntent.RefreshWorks) },
+                            variant = ButtonVariant.Text, controlModifier = Modifier.testTag("catalog-refresh"))
+                    }
+                }
+            }
+        }
+        if (searchExpanded) item(key = "search") {
+            SearchFilters(state.query, copy) { onIntent(PublicCatalogIntent.Query(it)) }
+        }
+        if (!state.query.isDiscovery) item(key = "query") {
+            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                Text(copy.text(CopyKey.CatalogQuery, "query" to state.query.text,
+                    "kind" to copy.text(state.query.kind?.label() ?: CopyKey.AllKinds)),
+                    Modifier.testTag("catalog-query"))
+                Button(copy.text(CopyKey.SearchClear), { onIntent(PublicCatalogIntent.Query(PublicCatalogQuery.All)) },
+                    variant = ButtonVariant.Text, controlModifier = Modifier.testTag("catalog-search-clear"))
             }
         }
         walk(
             works, copy,
-            emptyTitle = CopyKey.CatalogEmpty, emptyNote = CopyKey.CatalogEmptyNote,
+            emptyTitle = if (state.query.isDiscovery) CopyKey.CatalogEmpty else CopyKey.Empty,
+            emptyNote = if (state.query.isDiscovery) CopyKey.CatalogEmptyNote else CopyKey.EmptyNote,
             onLoadMore = { onIntent(PublicCatalogIntent.LoadMoreWorks) },
             onRetry = { onIntent(PublicCatalogIntent.RetryWorks) },
             key = { it.id.value },
         ) { work -> WorkCard(work, copy) { onIntent(PublicCatalogIntent.OpenWork(work)) } }
+    }
+}
+
+@Composable
+private fun SearchFilters(query: PublicCatalogQuery, copy: ShellCopy, onSearch: (PublicCatalogQuery) -> Unit) {
+    var text by remember(query) { mutableStateOf(query.text) }
+    var kind by remember(query) { mutableStateOf(query.kind) }
+    val checked = PublicCatalogQuery.of(text, kind)
+    val error = if (checked is CatalogCheck.Invalid) copy.text(CopyKey.CatalogSearchInvalid) else null
+    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        TextField(copy.text(CopyKey.CatalogSearchLabel), text, { text = it },
+            error = error, controlModifier = Modifier.testTag("catalog-search-input"))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
+            verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+            (listOf<PublicWorkKind?>(null) + PublicWorkKind.entries).forEach { option ->
+                Button(copy.text(option?.label() ?: CopyKey.AllKinds), { kind = option },
+                    variant = if (kind == option) ButtonVariant.Tonal else ButtonVariant.Text,
+                    controlModifier = Modifier.testTag("catalog-kind-${option?.name?.lowercase() ?: "all"}").semantics { selected = kind == option })
+            }
+        }
+        Button(copy.text(CopyKey.Search), { if (checked is CatalogCheck.Valid) onSearch(checked.value) },
+            state = if (error == null) ButtonState.Enabled else ButtonState.Disabled(DisabledReason.of(error)),
+            controlModifier = Modifier.testTag("catalog-search-submit"))
     }
 }
 
@@ -167,8 +273,14 @@ private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (Publ
     val ready = (detail.phase as? DetailPhase.Ready)?.work
     CatalogColumn("catalog-detail", (ready ?: detail.summary)?.title ?: copy.text(CopyKey.Work)) {
         item(key = "back") {
-            BackButton(AccessibleName.of(copy.text(CopyKey.Back)), { onIntent(PublicCatalogIntent.Back) },
-                controlModifier = Modifier.testTag("catalog-back"))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                BackButton(AccessibleName.of(copy.text(CopyKey.Back)), { onIntent(PublicCatalogIntent.Back) },
+                    controlModifier = Modifier.testTag("catalog-back"))
+                if (detail.phase != DetailPhase.Loading) {
+                    Button(copy.text(CopyKey.Refresh), { onIntent(PublicCatalogIntent.RefreshWork) },
+                        variant = ButtonVariant.Text, controlModifier = Modifier.testTag("catalog-detail-refresh"))
+                }
+            }
         }
         when (val phase = detail.phase) {
             DetailPhase.Loading -> {

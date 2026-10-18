@@ -1,5 +1,7 @@
 package com.cantos.theatre.application.catalog
 
+import com.cantos.theatre.domain.catalog.CatalogCheck
+import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 import com.cantos.theatre.domain.catalog.CatalogCursor
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.cursor
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.unit
@@ -41,7 +43,8 @@ class PublicCatalogControllerTest {
                 throw cancelled
             }
         }
-        override suspend fun works(cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage> = gate("works:${cursor?.value}")
+        override suspend fun works(cursor: CatalogCursor?, query: PublicCatalogQuery): PublicCatalogRead<PublicWorkPage> =
+            gate(if (query.isDiscovery) "works:${cursor?.value}" else "search:${query.text}:${cursor?.value}")
         override suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork> = gate("work:${id.value}")
         override suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage> =
             gate("units:${work.id.value}:${cursor?.value}")
@@ -104,7 +107,7 @@ class PublicCatalogControllerTest {
         val story = work(1)
         var unitCalls = 0
         val port = object : PublicCatalogPort {
-            override suspend fun works(cursor: CatalogCursor?) = PublicCatalogRead.Ready(worksPage(listOf(story), null))
+            override suspend fun works(cursor: CatalogCursor?, query: PublicCatalogQuery) = PublicCatalogRead.Ready(worksPage(listOf(story), null))
             override suspend fun work(id: PublicWorkId) = PublicCatalogRead.Ready(story)
             override suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage> {
                 unitCalls++
@@ -123,6 +126,27 @@ class PublicCatalogControllerTest {
         runCurrent()
         assertEquals(listOf(unit(1), unit(2)), controller.state.value.detail!!.units!!.items)
         assertEquals(WalkPhase.Complete, controller.state.value.detail!!.units!!.phase)
+    }
+
+    @Test
+    fun search_cancels_discovery_and_the_old_query_cannot_replace_new_server_rows() = runTest(StandardTestDispatcher()) {
+        val port = GatedPort()
+        val controller = controller(port)
+        controller.dispatch(PublicCatalogIntent.Start)
+        runCurrent()
+        val query = (PublicCatalogQuery.of("ngoài bộ mẫu") as CatalogCheck.Valid).value
+        controller.dispatch(PublicCatalogIntent.Query(query))
+        runCurrent()
+        assertTrue(port.calls.first().cancelled)
+        assertEquals("search:ngoài bộ mẫu:null", port.calls.last().label)
+        port.calls.first().answer.complete(PublicCatalogRead.Ready(worksPage(listOf(work(1)), null)))
+        port.answer("search:ngoài bộ mẫu:null", PublicCatalogRead.Ready(worksPage(emptyList(), null)))
+        runCurrent()
+        assertTrue(controller.state.value.works.isEmptyResult)
+        assertEquals(query, controller.state.value.query)
+        controller.dispatch(PublicCatalogIntent.RetryWorks)
+        runCurrent()
+        assertEquals(2, port.calls.size, "a genuine empty result never falls back or retries itself")
     }
 
     @Test
