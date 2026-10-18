@@ -101,41 +101,24 @@ class EdgeCachePolicy(unittest.TestCase):
         self.assertIn("?X-Content-Type-Options nosniff", lines(headers))
         self.assertFalse(any("Cache-Control" in line for line in lines(headers)))
 
-    def test_kanidm_management_ui_is_private_before_upstream_routing(self):
+    def test_kanidm_private_peer_gate_precedes_public_default_deny(self):
         identity = block(self.config, "{$CANTOS_IDM_HOST}")
-        management = block(identity, "@kanidm_admin")
-        paths = {
-            path
-            for line in lines(management) if line.startswith("path ")
-            for path in line.split()[1:]
-        }
-        # Kanidm 1.10.5 nests independent management handlers under both UI paths.
-        for prefix in ("/ui/admin", "/ui/api/admin"):
-            with self.subTest(prefix=prefix):
-                self.assertIn(prefix, paths)
-                self.assertIn(f"{prefix}/*", paths)
-        self.assertIn("not remote_ip {$CANTOS_INTERNAL_CIDRS:private_ranges}",
-                      lines(management))
-        self.assertFalse(any(line.startswith("method ") for line in lines(management)))
-        directives = lines(identity)
-        self.assertLess(directives.index("respond @kanidm_admin 404"),
-                        directives.index("reverse_proxy https://cantos-kanidm:8443"))
-
-    def test_kanidm_management_filter_preserves_login_and_credential_paths(self):
-        identity = block(self.config, "{$CANTOS_IDM_HOST}")
-        management = block(identity, "@kanidm_admin")
-        paths = {
-            path
-            for line in lines(management) if line.startswith("path ")
-            for path in line.split()[1:]
-        }
-        for required in ("/ui/login", "/ui/oauth2", "/ui/reset", "/ui/api/cu_commit"):
-            with self.subTest(required=required):
-                for pattern in paths:
-                    if pattern.endswith("/*"):
-                        self.assertFalse(required.startswith(pattern[:-1]))
-                    else:
-                        self.assertNotEqual(required, pattern)
+        self.assertIn("@kanidm_private remote_ip {$CANTOS_INTERNAL_CIDRS}", lines(identity))
+        self.assertFalse(any("private_ranges" in line for line in lines(identity)))
+        self.assertEqual(block(identity, "handle @kanidm_private"),
+                         [("import cantos_kanidm_upstream", None)])
+        self.assertEqual(block(identity, "handle"), [
+            ("header Cache-Control no-store", None), ('respond "Not found" 404', None)])
+        self.assertLess(lines(identity).index("handle @kanidm_private"),
+                        lines(identity).index("handle @kanidm_browser_get"))
+        for name in ("@kanidm_browser_get", "@kanidm_browser_post"):
+            matcher = lines(block(identity, name))
+            self.assertEqual(len([line for line in matcher if line.startswith("method ")]), 1)
+            paths = [path for line in matcher if line.startswith("path ")
+                     for path in line.split()[1:]]
+            self.assertFalse(any("*" in path for path in paths))
+            self.assertFalse(any(path.startswith(("/v1", "/oauth2", "/scim", "/ui/admin",
+                                                  "/ui/api/admin")) for path in paths))
 
 
 class FirebaseBrowserHeaders(unittest.TestCase):

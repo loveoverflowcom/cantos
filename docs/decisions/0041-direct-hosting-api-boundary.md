@@ -1,7 +1,7 @@
 # ADR 0041: Direct Firebase Hosting and the Cantos API browser boundary
 
 - Status: accepted owner direction; API addressing/CORS/callback support implemented in this slice;
-  Bearer API and Web/CMP consumer migration implemented; minimal identity gateway, server compatibility cutover and production acceptance remain pending
+  Bearer API and Web/CMP consumer migration implemented; minimal identity gateway source implemented; server compatibility cutover and production acceptance remain pending
 - Date: 2026-10-17; Bearer amendment accepted by the owner on 2026-10-18 (#253)
 - Decision owner: Cantos product owner (production-audit request and API-mediated Web clarification)
 - Related: [0034](0034-theatre-signup-and-provisioned-studio.md),
@@ -73,7 +73,7 @@ acceptance remain unfinished. Legacy cookies retain
 Strict/Lax, Secure/HttpOnly and their CSRF rules during that explicit staging window. Relaxing
 cookies or persisting Web tokens in localStorage is not part of this decision.
 
-### Minimal public identity gateway (design pending; not implemented)
+### Minimal public identity gateway (source implemented; live qualification pending)
 
 Cantos API orchestrates identity and enforces application authorization; Kanidm owns passwords,
 MFA, credential setup and OIDC. A browser must still reach Kanidm's authentication UI through a
@@ -84,8 +84,9 @@ Before deployment, qualify a default-deny gateway against pinned Kanidm 1.10.5. 
 inventory must include only required UI/static assets, browser authentication and credential-setup
 operations and the exact OIDC client endpoints. Token, introspection, revocation and onboarding
 management operations should use private ingress. Person/group/client/system/schema/raw/recycle
-management must never be publicly routed, including new or alternate API paths. The current
-management-prefix denylist is an interim source hardening, not this allowlist design.
+management must never be publicly routed, including new or alternate API paths. The [gateway source](../../infra/edge/identity-gateway.md) implements explicit method/path
+admission and private TCP-peer back-channel access, with pinned-Caddy local routing tests.
+Those tests use a recording upstream and do not establish real Kanidm/browser acceptance.
 
 Choose the gateway authority and confirm Kanidm's issuer, origin, CSP, asset and redirect behavior
 before writing routing rules. Do not assume Kanidm works under an arbitrary `/identity` prefix;

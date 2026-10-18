@@ -135,31 +135,64 @@
 	}
 }
 
-{$CANTOS_IDM_HOST} {
-	import cantos_security
-	# The sign-in pages, OIDC endpoints and credential-reset links must be public, but Kanidm's
-	# management REST API is not a browser surface: person/group/OAuth2-client administration and
-	# credential-reset intent creation. Only the private container network (the Cantos APIs and
-	# the operator CLI, which reach this host through the edge alias) may call it. `remote_ip`
-	# is the TCP peer and cannot be set by a header. Override the default RFC 1918/loopback set
-	# with CANTOS_INTERNAL_CIDRS in edge.env when the private network is narrower.
-	@kanidm_admin {
-		# Kanidm 1.10.5 also mounts management handlers under its HTML/HTMX UI.
-		# Blocking /v1 management alone leaves these alternate handlers publicly routed.
-		path /ui/admin /ui/admin/* /ui/api/admin /ui/api/admin/*
-		path /v1/person /v1/person/* /v1/service_account /v1/service_account/*
-		path /v1/group /v1/group/* /v1/oauth2 /v1/oauth2/* /v1/system /v1/system/*
-		path /v1/domain /v1/domain/* /v1/schema /v1/schema/* /v1/raw/* /v1/recycle_bin/*
-		path /v1/sync_account /v1/sync_account/* /v1/application /v1/application/*
-		path /v1/client_certificate /v1/client_certificate/*
-		not remote_ip {$CANTOS_INTERNAL_CIDRS:private_ranges}
-	}
-	respond @kanidm_admin 404
-	# Kanidm serves TLS itself with a certificate from the host's private CA.
+# Keep the initialized authority/issuer and private-CA validation unchanged. Only this
+# snippet reaches Kanidm; the identity site below admits private peers or named public routes.
+(cantos_kanidm_upstream) {
 	reverse_proxy https://cantos-kanidm:8443 {
 		transport http {
 			tls_trust_pool file /etc/caddy/internal-ca.pem
 			tls_server_name cantos-kanidm
 		}
+	}
+}
+
+{$CANTOS_IDM_HOST} {
+	import cantos_security
+	header Referrer-Policy no-referrer
+	# Required explicit TCP peer CIDRs, inventoried from the existing Cantos network.
+	# No private_ranges default and no trust in client-supplied forwarding headers.
+	@kanidm_private remote_ip {$CANTOS_INTERNAL_CIDRS}
+	handle @kanidm_private {
+		import cantos_kanidm_upstream
+	}
+	# Refuse ambiguous public path spellings before decoded/normalized matching. Query
+	# encoding remains available for OIDC state/PKCE; no request URL is logged here.
+	@kanidm_noncanonical expression `{http.request.orig_uri}.matches('^[^?]*%') || {http.request.orig_uri}.matches('^[^?]*//') || {http.request.orig_uri}.matches('^[^?]*/[.]{1,2}(/|[?]|$)') || {http.request.orig_uri}.matches('^[^?]*\\\\')`
+	handle @kanidm_noncanonical {
+		header Cache-Control no-store
+		respond "Not found" 404
+	}
+	# Kanidm 1.10.5 source-pinned browser login, consent and existing credential setup.
+	# No /ui/*, /ui/api/*, /oauth2/*, /v1/* or /pkg/* wildcard is admitted publicly.
+	@kanidm_browser_get {
+		method GET HEAD
+		path / /ui /ui/ /ui/login /ui/login/oauth2_landing /ui/apps /ui/logout
+		path /ui/login/begin /ui/login/mech_choose /ui/login/pw /ui/login/totp /ui/login/backup_code /ui/login/seckey /ui/login/passkey
+		path /ui/oauth2 /ui/oauth2/resume /ui/enrol /ui/reset /ui/recover /ui/revoke /ui/update_credentials /ui/unlock
+		path /ui/images/domain /ui/images/oauth2/cantos-studio-web-bff /ui/images/oauth2/cantos-theatre-web-bff
+		path /manifest.webmanifest /robots.txt
+		path /pkg/external/bootstrap.min.css /pkg/external/bootstrap.bundle.min.js /pkg/external/htmx.min.1.9.12.js /pkg/external/htmx_bs_validation.js /pkg/external/forms.js /pkg/external/confetti.js /pkg/external/base64.js
+		path /pkg/modules/cred_update.mjs /pkg/csrf.js /pkg/pkhtml.js /pkg/style.js /pkg/style.css /pkg/override.css
+		path /pkg/img/favicon.png /pkg/img/apple-touch-icon.png /pkg/img/logo.svg /pkg/img/logo-square.svg /pkg/img/logo-180.png /pkg/img/logo-192.png /pkg/img/logo-256.png /pkg/img/logo-512.png /pkg/img/kani-waving.svg
+		path /pkg/img/icons/building-lock.svg /pkg/img/icons/key.svg /pkg/img/icons/person.svg /pkg/img/icons/phone-flip.svg /pkg/img/icons/shield-lock.svg /pkg/img/icons/wifi.svg
+	}
+	handle @kanidm_browser_get {
+		import cantos_kanidm_upstream
+	}
+	@kanidm_browser_post {
+		method POST
+		path /ui/login/begin /ui/login/mech_choose /ui/login/pw /ui/login/totp /ui/login/backup_code /ui/login/seckey /ui/login/passkey
+		path /ui/oauth2/consent /ui/recover /ui/revoke
+		path /ui/reset/add_totp /ui/reset/add_password /ui/reset/change_password /ui/reset/add_passkey
+		path /ui/api/delete_alt_creds /ui/api/add_totp /ui/api/remove_totp /ui/api/remove_passkey /ui/api/finish_passkey /ui/api/cancel_mfareg /ui/api/cu_cancel /ui/api/cu_commit
+	}
+	handle @kanidm_browser_post {
+		import cantos_kanidm_upstream
+	}
+	# Discovery/key reads belong to the API's private ingress, like exchange/userinfo/
+	# introspection/revocation and every management operation. Unlisted methods fail here.
+	handle {
+		header Cache-Control no-store
+		respond "Not found" 404
 	}
 }
