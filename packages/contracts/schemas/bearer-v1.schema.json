@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/bearer-v1.schema.json",
+  "title": "Cantos Bearer v1 response",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token_type",
+        "access_token",
+        "refresh_token",
+        "actor_id",
+        "session_id",
+        "expires_at",
+        "refresh_expires_at",
+        "absolute_expires_at",
+        "authenticated_at"
+      ],
+      "properties": {
+        "token_type": {
+          "const": "Bearer"
+        },
+        "access_token": {
+          "type": "string",
+          "pattern": "^ca1_[stn]_[a-f0-9]{64}$"
+        },
+        "refresh_token": {
+          "type": "string",
+          "pattern": "^cr1_[a-f0-9]{64}$"
+        },
+        "actor_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "refresh_expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "absolute_expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "authenticated_at": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_id",
+        "session_id",
+        "expires_at",
+        "absolute_expires_at",
+        "authenticated_at"
+      ],
+      "properties": {
+        "actor_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "absolute_expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "authenticated_at": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    }
+  ]
+}

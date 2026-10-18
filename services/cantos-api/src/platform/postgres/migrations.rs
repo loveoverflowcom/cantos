@@ -5,6 +5,8 @@ use sha2::{Digest, Sha256};
 use tokio_postgres::{Config, NoTls, Transaction};
 
 pub const SCHEMA_EPOCH: i32 = 2;
+const BEARER: &str = include_str!("../../../schema/0002_bearer.sql");
+const MIGRATIONS: [&str; 2] = [BASELINE, BEARER];
 const BASELINE: &str = include_str!("../../../schema/0001_current.sql");
 
 /// Static diagnostics deliberately contain no connection strings or database contents.
@@ -66,7 +68,7 @@ async fn marker_exists(tx: &Transaction<'_>) -> Result<bool, SchemaError> {
         .get(0))
 }
 
-async fn check_registry(tx: &Transaction<'_>) -> Result<(), SchemaError> {
+async fn check_registry(tx: &Transaction<'_>, allow_prefix: bool) -> Result<usize, SchemaError> {
     let epochs = tx
         .query("SELECT epoch FROM public.cantos_schema", &[])
         .await?;
@@ -94,21 +96,29 @@ async fn check_registry(tx: &Transaction<'_>) -> Result<(), SchemaError> {
             &[],
         )
         .await?;
-    if rows.len() != 1
-        || rows[0]
-            .try_get::<_, i32>(0)
-            .map_err(|_| SchemaError::RegistryMismatch)?
-            != 1
+    if rows.is_empty()
+        || rows.len() > MIGRATIONS.len()
+        || (!allow_prefix && rows.len() != MIGRATIONS.len())
     {
         return Err(SchemaError::RegistryMismatch);
     }
-    let checksum = rows[0]
-        .try_get::<_, Vec<u8>>(1)
-        .map_err(|_| SchemaError::RegistryMismatch)?;
-    if checksum != Sha256::digest(BASELINE.as_bytes()).to_vec() {
-        return Err(SchemaError::ChecksumMismatch);
+    for (index, row) in rows.iter().enumerate() {
+        if row
+            .try_get::<_, i32>(0)
+            .map_err(|_| SchemaError::RegistryMismatch)?
+            != (index + 1) as i32
+        {
+            return Err(SchemaError::RegistryMismatch);
+        }
+        if row
+            .try_get::<_, Vec<u8>>(1)
+            .map_err(|_| SchemaError::RegistryMismatch)?
+            != Sha256::digest(MIGRATIONS[index].as_bytes()).to_vec()
+        {
+            return Err(SchemaError::ChecksumMismatch);
+        }
     }
-    Ok(())
+    Ok(rows.len())
 }
 
 async fn unmarked_database(tx: &Transaction<'_>) -> Result<(), SchemaError> {
@@ -156,7 +166,7 @@ pub async fn migrate(config: &Config) -> Result<(), SchemaError> {
         .await?;
     supported_server(&tx).await?;
     if marker_exists(&tx).await? {
-        check_registry(&tx).await?;
+        check_registry(&tx, true).await?;
     } else {
         unmarked_database(&tx).await?;
         tx.batch_execute(
@@ -177,6 +187,18 @@ pub async fn migrate(config: &Config) -> Result<(), SchemaError> {
         )
         .await?;
     }
+    let applied = check_registry(&tx, true).await?;
+    for (index, sql) in MIGRATIONS.iter().enumerate().skip(applied) {
+        tx.batch_execute(sql).await?;
+        tx.execute(
+            "INSERT INTO public.cantos_migrations VALUES($1,$2)",
+            &[
+                &((index + 1) as i32),
+                &Sha256::digest(sql.as_bytes()).to_vec(),
+            ],
+        )
+        .await?;
+    }
     tx.commit().await?;
     Ok(())
 }
@@ -194,7 +216,7 @@ pub async fn verify_schema(config: &Config) -> Result<(), SchemaError> {
         unmarked_database(&tx).await?;
         return Err(SchemaError::IncompatibleEpoch);
     }
-    check_registry(&tx).await?;
+    check_registry(&tx, false).await?;
     tx.commit().await?;
     Ok(())
 }

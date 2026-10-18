@@ -138,7 +138,7 @@ async fn baseline_replay_preserves_ownership_sessions_and_immutable_history() {
         )
         .await
         .unwrap();
-    assert_eq!(row.get::<_, i64>(0), 1);
+    assert_eq!(row.get::<_, i64>(0), 2);
     assert_eq!(row.get::<_, i32>(1), 1);
     assert_eq!(row.get::<_, i32>(2), 32);
     assert_eq!(h.counts().await, (1, 1));
@@ -369,7 +369,7 @@ async fn identity_constraints_immutability_rollback_and_http_role_isolation_hold
         ("INSERT INTO actor_external_identities(issuer,subject,actor_id) VALUES('','s','a')", "23514"),
         ("UPDATE actor_external_identities SET actor_id='a'", "55000"),
         ("DELETE FROM actor_external_identities", "55000"),
-        ("TRUNCATE actor_external_identities,studio_oidc_sessions,theatre_identity_sessions,theatre_identity_flows,theatre_native_sessions", "55000"),
+        ("TRUNCATE actor_external_identities,studio_oidc_sessions,theatre_identity_sessions,theatre_identity_flows,theatre_native_sessions,bearer_families,bearer_tokens", "55000"),
     ] {
         assert_eq!(h.admin.batch_execute(sql).await.unwrap_err().code().unwrap().code(),code);
     }

@@ -78,3 +78,34 @@ impl ListenerAuthenticator for TheatreListenerAuthenticator {
         })
     }
 }
+
+/// The unified Cantos Bearer transport still earns the sealed listener principal here.
+pub struct BearerListenerAuthenticator {
+    store: Store,
+}
+impl BearerListenerAuthenticator {
+    pub fn new(store: Store) -> Self {
+        Self { store }
+    }
+}
+impl ListenerAuthenticator for BearerListenerAuthenticator {
+    fn authenticate(&self, credentials: ListenerCredentials) -> AuthenticationFuture {
+        let store = self.store.clone();
+        Box::pin(async move {
+            let token = credentials.expose_to_verifier();
+            let client = crate::platform::bearer::core::access_client(token)
+                .filter(|c| c.surface() == "theatre")
+                .ok_or(AuthenticationError::Unauthenticated)?;
+            let service = store
+                .bearer(client)
+                .ok_or(AuthenticationError::Unavailable)?;
+            let view = service
+                .authenticate(&store, token)
+                .await
+                .map_err(authentication_error)?;
+            let actor =
+                ActorId::new(view.actor_id).map_err(|_| AuthenticationError::Unavailable)?;
+            Ok(AuthenticatedListener::from_verified_actor(actor))
+        })
+    }
+}

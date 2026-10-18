@@ -1,0 +1,11 @@
+{
+  "token_type": "Bearer",
+  "access_token": "ca1_t_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "refresh_token": "cr1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "actor_id": "00000000-0000-4000-8000-000000000001",
+  "session_id": "00000000-0000-4000-8000-000000000002",
+  "expires_at": 1900000120,
+  "refresh_expires_at": 1900000600,
+  "absolute_expires_at": 1900000900,
+  "authenticated_at": null
+}

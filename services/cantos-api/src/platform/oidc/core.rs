@@ -51,6 +51,7 @@ struct Claims {
     iat: u64,
     nbf: Option<u64>,
     nonce: String,
+    auth_time: Option<u64>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -77,6 +78,7 @@ pub(crate) struct VerifiedIdentity {
     key: ExternalIdentityKey,
     expires: u64,
     digest: Vec<u8>,
+    authenticated_at: Option<u64>,
 }
 
 /// Resource-token witness: an ID token or a registry row cannot construct it.
@@ -158,6 +160,9 @@ impl VerifiedIdentity {
     pub(crate) fn expires(&self) -> u64 {
         self.expires
     }
+    pub(crate) fn authenticated_at(&self) -> Option<u64> {
+        self.authenticated_at
+    }
     pub(crate) fn digest(&self) -> &[u8] {
         &self.digest
     }
@@ -224,11 +229,18 @@ pub(crate) fn verify_for_client(
     if nonce.is_empty() || !constant_time_equal(claims.nonce.as_bytes(), nonce.as_bytes()) {
         return Err(AuthError::Nonce);
     }
+    if claims
+        .auth_time
+        .is_some_and(|time| time > claims.iat || time > now)
+    {
+        return Err(AuthError::NotYetValid);
+    }
     let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
     Ok(VerifiedIdentity {
         key,
         expires: claims.exp,
         digest: Sha256::digest(token).to_vec(),
+        authenticated_at: claims.auth_time,
     })
 }
 

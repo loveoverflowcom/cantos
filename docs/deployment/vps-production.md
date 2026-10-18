@@ -1,5 +1,11 @@
 # Current production topology and operations
 
+> **#253 staging:** [Bearer v1](../../packages/contracts/bearer-v1.md) adds a new exact API callback
+> `/api/v1/{studio|theatre}/auth/bearer/callback` for the existing per-surface confidential client.
+> Registering/qualifying it, updating the existing-client reconciliation receipt and completing
+> the restricted identity gateway need their own reviewed source/operator rollout. This API
+> foundation performs no such live write. Legacy callbacks/cookies remain compatibility only.
+
 This is the single current production topology/runbook. [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md)
 selects direct Firebase Hosting and API-mediated browser requests; [ADR 0039](../decisions/0039-vps-production-runtime.md)
 retains the VPS runtime/durability rules. Installed configuration is transitional. Recheck the
@@ -151,10 +157,12 @@ uses the same reconciler with the six staged inputs described in the
 The receipt establishes those observed configuration inputs, not live discovery/login or
 underlying bytes hidden by provider redaction. Never hand-write it as a shortcut.
 
-Public anonymous reads can use web.app → DuckDNS after deployment. Authentication cannot be
-accepted on those cross-site names with the retained Strict cookies. Supply reviewed same-site
-custom domains/API alias and a minimal identity gateway as specified by ADR 0041 before activating
-split-origin login. No real custom domain is configured by these instructions. A source change
+Public anonymous reads can use web.app → DuckDNS after deployment. The #253 amendment selects
+[Cantos Bearer](../../packages/contracts/bearer-v1.md) for cross-site client authentication;
+same-site custom domains and third-party session cookies are no longer prerequisites. The API
+foundation retains cookie compatibility until Web/CMP cutover; deploy/qualify those clients and
+the restricted identity gateway before claiming real login. No live configuration is changed
+by the foundation, and existing cookie/CSRF defaults stay intact during staging. A source change
 does not rewrite the installed legacy inputs, issuer redirects or custom drop-ins; reconcile them
 together in the authorized cutover and retain the reviewed previous configuration for recovery.
 Image rollback leaves origin and identity configuration unchanged; restore those separately when

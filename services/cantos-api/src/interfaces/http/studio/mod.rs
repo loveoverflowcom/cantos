@@ -97,7 +97,10 @@ pub(super) fn routes_with_artwork(
             // Bearer-only delegates never pass the cookie middleware above.
             .merge(delegation::delegate_routes())
             .route("/session", post(login).get(current_session).delete(logout))
-            .merge(auth::routes()),
+            .merge(auth::routes())
+            .merge(super::bearer::routes(
+                crate::platform::bearer::core::Client::Studio,
+            )),
         Mount::Legacy => scripts
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .route("/session", post(legacy_login).delete(legacy_logout))
@@ -126,6 +129,9 @@ async fn login(
 
 /// Confirm the cookie that the browser actually sends, independently of a token exchange.
 async fn current_session(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if headers.contains_key(header::AUTHORIZATION) {
+        return super::bearer::studio_session(state, headers, false).await;
+    }
     let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
@@ -225,6 +231,9 @@ async fn start_session(
 }
 
 async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: Mount) -> Response {
+    if headers.contains_key(header::AUTHORIZATION) {
+        return super::bearer::studio_session(state, headers, true).await;
+    }
     if state.store.studio_oidc().is_some() {
         if matches!(mount, Mount::Legacy) {
             return error_response(StoreError::Forbidden);

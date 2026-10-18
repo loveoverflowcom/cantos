@@ -149,7 +149,7 @@ async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Response {
         Err(e) => error(e),
     }
 }
-fn error(error: AuthError) -> Response {
+pub(super) fn error(error: AuthError) -> Response {
     let status = match error {
         AuthError::Configuration
         | AuthError::ProviderUnavailable

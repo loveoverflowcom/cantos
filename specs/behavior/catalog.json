@@ -1131,6 +1131,111 @@
         }
       ],
       "aliases": []
+    },
+    {
+      "id": "cantos.identity.bearer-lifecycle",
+      "lifecycle": "draft",
+      "owner": "services/cantos-api/src/platform/bearer/core.rs",
+      "sourceRefs": [
+        "packages/contracts/bearer-v1.md",
+        "docs/decisions/0041-direct-hosting-api-boundary.md",
+        "services/cantos-api/tests/bearer_postgres.rs"
+      ],
+      "model": "specs/behavior/identity/bearer_lifecycle.qnt",
+      "module": "bearer_lifecycle",
+      "scenarios": "specs/behavior/identity/bearer_lifecycle_tests.qnt",
+      "scenarioModule": "bearer_lifecycle_tests",
+      "inventory": "specs/behavior/inventory.md",
+      "properties": [
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.revocation-sticky",
+          "declaration": "revocationSticky"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.single-use",
+          "declaration": "singleUse"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.bounded-authority",
+          "declaration": "boundedAuthority"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.auth-time-unchanged",
+          "declaration": "authTimeUnchanged"
+        }
+      ],
+      "runs": [
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.refresh",
+          "declaration": "refreshTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.replay",
+          "declaration": "replayTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.logout",
+          "declaration": "logoutTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.expiry",
+          "declaration": "expiryTest"
+        }
+      ],
+      "witnesses": [
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.rotated",
+          "declaration": "rotated"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.replayed",
+          "declaration": "replayed"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.logout-refused",
+          "declaration": "logoutRefused"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.expiry-refused",
+          "declaration": "expiryRefused"
+        }
+      ],
+      "simulation": {
+        "backend": "typescript",
+        "seed": "253",
+        "samples": 300,
+        "steps": 20,
+        "scenarioSamples": 1,
+        "witnessSamples": 1000,
+        "timeoutSeconds": 60
+      },
+      "controls": [
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.revocation-sticky",
+          "property": "cantos.identity.bearer-lifecycle.property.revocation-sticky",
+          "from": "state.revoked or not(state.unexpired)",
+          "to": "not(state.unexpired)"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.single-use",
+          "property": "cantos.identity.bearer-lifecycle.property.single-use",
+          "from": "record({ ...state, revoked: true }, Refresh(presented), ReuseRevoked)",
+          "to": "record(state, Refresh(presented), ReuseRevoked)"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.bounded-authority",
+          "property": "cantos.identity.bearer-lifecycle.property.bounded-authority",
+          "from": "generation: state.generation + 1",
+          "to": "generation: state.generation + 1, absolute: state.absolute + 1"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.auth-time-unchanged",
+          "property": "cantos.identity.bearer-lifecycle.property.auth-time-unchanged",
+          "from": "generation: state.generation + 1",
+          "to": "generation: state.generation + 1, authTime: state.authTime + 1"
+        }
+      ],
+      "aliases": []
     }
   ]
 }

@@ -73,3 +73,5 @@ commit-pinned external history and original quoted command/path lists remain his
 Do not recycle old numbers or renumber unrelated accepted decisions.
 
 - [ADR0042: Native streaming adapters and account runtime](0042-native-streaming-runtime.md) — proposed platform acceptance; requested source implementation, native/codec gates remain open.
+
+ADR 0041 was amended by the owner on 2026-10-18 in #253: Cantos-issued Bearer supersedes its cookie/same-site prerequisite. See [Bearer v1](../../packages/contracts/bearer-v1.md) for implemented API scope and unfinished client/live acceptance.

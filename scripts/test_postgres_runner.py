@@ -104,7 +104,7 @@ class PostgresRunnerTests(unittest.TestCase):
             self.assertEqual([call.args[0] for call in probe.call_args_list],
                              ["initdb", "pg_ctl", "psql", "cargo"])
             self.assertEqual([command[0] for command, _, _ in commands],
-                             ["initdb", "pg_ctl", "psql"] + ["cargo"] * 14 + ["pg_ctl"])
+                             ["initdb", "pg_ctl", "psql"] + ["cargo"] * 15 + ["pg_ctl"])
             cluster = Path(commands[0][0][2]).parent
             self.assertEqual(cluster.parent, evidence / "schema")
             self.assertEqual(commands[-1][0],
@@ -113,21 +113,21 @@ class PostgresRunnerTests(unittest.TestCase):
                 self.assertEqual(environment, {
                     "PATH": "/installed",
                     "CANTOS_TEST_CLUSTER_URL": "postgresql://cantos_test_admin@127.0.0.1:12345/postgres"})
-            targets = ["schema_postgres", "production_grants_postgres", "adaptations_postgres",
+            targets = ["schema_postgres", "bearer_postgres", "production_grants_postgres", "adaptations_postgres",
                        "imports_postgres", "revisions_postgres", "catalog_http_postgres",
                        "catalog_postgres", "delegation_http_postgres", "identity_postgres", "theatre_identity_postgres",
                        "theatre_native_postgres", "studio_oidc_postgres"]
-            logs = ["schema-postgres-tests", "production-grants-postgres-tests",
+            logs = ["schema-postgres-tests", "bearer-postgres-tests", "production-grants-postgres-tests",
                     "adaptation-postgres-tests", "import-postgres-tests", "revision-postgres-tests",
                     "catalog-http-postgres-tests", "catalog-postgres-tests", "delegation-http-postgres-tests", "identity-postgres-tests",
                     "theatre-identity-postgres-tests", "theatre-native-postgres-tests",
                     "studio-oidc-postgres-tests", "theatre-firebase-postgres-tests",
                     "theatre-registration-postgres-tests"]
             sql_commands = commands[3:-1]
-            self.assertEqual([command[5] for command, _, _ in sql_commands[:12]], targets)
+            self.assertEqual([command[5] for command, _, _ in sql_commands[:13]], targets)
             selectors = ["platform::theatre_registration::firebase_enrollment::postgres::tests",
                          "platform::theatre_registration::postgres::tests"]
-            self.assertEqual([command[7] for command, _, _ in sql_commands[12:]], selectors)
+            self.assertEqual([command[7] for command, _, _ in sql_commands[13:]], selectors)
             for (command, _, path), name in zip(sql_commands, logs):
                 self.assertIn("--offline", command)
                 self.assertIn("--ignored", command)
@@ -143,7 +143,7 @@ class PostgresRunnerTests(unittest.TestCase):
                 "catalog_postgres": ["catalog_recovery_after_server_restart",
                                      "committed_catalog_fixture_survives_new_store_and_emits_server_restart_oracle"],
             }
-            for command, _, _ in sql_commands[:12]:
+            for command, _, _ in sql_commands[:13]:
                 actual_skips = [command[index + 1] for index, arg in enumerate(command) if arg == "--skip"]
                 self.assertEqual(actual_skips, skipped.get(command[5], []))
             record = json.loads((evidence / "schema" / "run.json").read_text())
@@ -155,7 +155,7 @@ class PostgresRunnerTests(unittest.TestCase):
             self.assertEqual(record["full_suite"], "NOT_RUN")
             self.assertFalse(record["retained"])
             self.assertFalse((evidence / "run.json").exists())
-            self.assertEqual(reap.call_count, 13)
+            self.assertEqual(reap.call_count, 14)
             for call in reap.call_args_list:
                 self.assertEqual(call.args[1], "postgresql://cantos_test_admin@127.0.0.1:12345/postgres")
                 self.assertEqual(call.args[2], set())
@@ -216,7 +216,7 @@ class PostgresRunnerTests(unittest.TestCase):
         valid = "test result: ok. 2 passed; 0 failed; 0 ignored;\n"
         invalid = ("test result: ok. 0 passed; 0 failed; 0 ignored;\n", "compiled only\n",
                    "test result: ok. 2 passed; 1 failed;\n")
-        targets = ["schema-postgres-tests", "production-grants-postgres-tests",
+        targets = ["schema-postgres-tests", "bearer-postgres-tests", "production-grants-postgres-tests",
                    "adaptation-postgres-tests", "import-postgres-tests", "revision-postgres-tests",
                    "catalog-http-postgres-tests", "catalog-postgres-tests", "delegation-http-postgres-tests", "identity-postgres-tests",
                    "theatre-identity-postgres-tests", "theatre-native-postgres-tests",
@@ -323,7 +323,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     self.assertRaisesRegex(RuntimeError, "stop synthetic full suite"):
                 runner.main()
             self.assertEqual([command[5] for command in commands if command[0] == "cargo"],
-                             ["schema_postgres", "production_grants_postgres", "admin_postgres"])
+                             ["schema_postgres", "bearer_postgres", "production_grants_postgres", "admin_postgres"])
             self.assertEqual(commands[-1][-4:], ["-m", "fast", "-w", "stop"])
 
     def test_theatre_main_executes_its_retained_fixture_without_editorial_script_or_token(self):

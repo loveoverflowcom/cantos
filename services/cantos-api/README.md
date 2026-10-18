@@ -1,5 +1,7 @@
 # Cantos API — Editorial and External Audio Authority
 
+The [#253 Bearer foundation](../../packages/contracts/bearer-v1.md) adds scoped opaque access/refresh, durable rotation/revoke and two-leg Web exchange. Legacy cookies are temporary compatibility; Web/CMP and live issuer/gateway acceptance remain pending.
+
 The `cantos-api` Rust/Axum package is one modular backend for Studio and Theatre.
 [ADR 0018](../../docs/decisions/0018-external-audio-production.md) removes server-side
 TTS and workers: no executable voice model, local/cloud TTS transport, provider dispatch

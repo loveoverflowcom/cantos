@@ -1,5 +1,7 @@
 # Contracts
 
+[Cantos Bearer v1](bearer-v1.md) owns the #253 scoped opaque access/refresh API foundation and staged Web/CMP migration.
+
 > Current [ADR 0018](../../docs/decisions/0018-external-audio-production.md):
 > [external-audio-handoff-v1](external-audio-handoff-v1.md) is a **proposed**, not implemented,
 > API contract with its [Production Brief v1](production-brief-v1.md) subset implemented. Durable TTS/receipt/speech-reuse contracts below document historical experiments;

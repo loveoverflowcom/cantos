@@ -132,7 +132,8 @@ and an agent runs the real command only on the user's explicit request naming th
 the channel and the app. Build, run, verify, preflight and ci never invoke it, and it serves static
 files only. [ADR 0041](docs/decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting
 with an explicit API origin and exact per-surface CORS; installed legacy proxies are transitional.
-Cross-site web.app sessions remain unaccepted until reviewed domain/gateway and browser acceptance.
+The #253 Bearer amendment removes same-site domains/cookies as authentication prerequisites;
+client migration, restricted gateway and browser acceptance remain separate.
 Use the [current production runbook](docs/deployment/vps-production.md), not old deployment records.
 An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
 

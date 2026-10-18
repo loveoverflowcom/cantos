@@ -69,3 +69,39 @@ fn resource_witness_requires_actual_access_signature_purpose_client_scope_and_cu
         Some(AuthError::InvalidToken)
     );
 }
+
+#[test]
+fn signed_auth_time_is_distinct_from_iat_and_future_authentication_is_rejected() {
+    let signer = Signer::new("recent-proof");
+    let issuer = "https://idm.example/oauth2/openid/cantos-studio-web-bff";
+    let client = "cantos-studio-web-bff";
+    let keys: JwkSet = serde_json::from_value(json!({"keys":[signer.jwk()]})).unwrap();
+    let claims = json!({"iss":issuer,"sub":"alice","aud":client,"iat":100,"exp":400,"nonce":"n"});
+    assert_eq!(
+        verify_for_client(
+            &signer.sign(claims.clone()),
+            &keys,
+            issuer,
+            client,
+            "n",
+            100
+        )
+        .unwrap()
+        .authenticated_at(),
+        None
+    );
+    let mut recent = claims.clone();
+    recent["auth_time"] = json!(99);
+    assert_eq!(
+        verify_for_client(&signer.sign(recent), &keys, issuer, client, "n", 100)
+            .unwrap()
+            .authenticated_at(),
+        Some(99)
+    );
+    let mut future = claims;
+    future["auth_time"] = json!(101);
+    assert_eq!(
+        verify_for_client(&signer.sign(future), &keys, issuer, client, "n", 100).err(),
+        Some(AuthError::NotYetValid)
+    );
+}

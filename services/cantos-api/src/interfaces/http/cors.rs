@@ -119,10 +119,10 @@ async fn cors(State(policy): State<BrowserCors>, request: Request, next: Next) -
     );
     let exposed = match policy.surface {
         WebSurface::Studio => {
-            "x-cantos-studio-session, etag, content-range, accept-ranges, content-length"
+            "x-cantos-studio-session, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
         }
         WebSurface::Theatre => {
-            "x-cantos-theatre-session, etag, content-range, accept-ranges, content-length"
+            "x-cantos-theatre-session, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
         }
     };
     headers.insert(

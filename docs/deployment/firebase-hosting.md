@@ -275,9 +275,10 @@ default local build keeps relative Trunk-proxy paths. Both release bundles and t
 explicitly authorized deployment. The Hosting receipt records `build.api_origin` and the explicit build command; bundle hashes
 identify the actual public bytes, not a clean source revision when the build was dirty.
 
-Static Hosting does not proxy to an external VPS. Cross-site web.app/DuckDNS authentication remains
-unaccepted with the retained Strict cookies; supply a reviewed same-site custom-domain/API-alias
-and identity gateway migration. No wildcard CORS, token-in-localStorage or weakened cookie/CSRF
+Static Hosting does not proxy to an external VPS. #253 selects
+[Cantos Bearer](../../packages/contracts/bearer-v1.md) for cross-site Web/API authentication;
+a same-site domain or third-party session cookie is no longer a prerequisite. API foundation,
+Web/CMP migration, restricted identity gateway and actual browser acceptance are separate gates. No wildcard CORS, token-in-localStorage or weakened cookie/CSRF
 policy is a substitute. Initial email-action HTML needs no-store/no-referrer on Hosting itself
 before registration activation; VPS-only query protection does not cover a direct Hosting request.
 
@@ -321,7 +322,7 @@ working operator mapping and Caddy upstreams until the following gates pass.
    [production configuration procedure](vps-production.md#direct-hosting--api-configuration).
    Supply the required HTTPS `CANTOS_API_ORIGIN` during each app's build/deploy. Preserve
    host-only Strict session cookies and existing CSRF checks. A shorter `web.app` URL still
-   requires the independent same-site domain/gateway gate before authenticated use; a static
+   requires the independent Bearer client/gateway/browser acceptance gates before authenticated use; a static
    release or CORS response cannot accept it. Missing identity provisioning or disabled features
    stay `NOT_RUN`.
 5. If the operator explicitly retains a transitional Caddy static proxy, changing its upstream
