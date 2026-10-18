@@ -60,13 +60,13 @@ restricted interactive identity ingress and browser acceptance remain required; 
 never authenticates. Existing custom domains remain valid optional addressing decisions.
 
 Web access and optional refresh credentials live only in RAM. In-tab refresh single-flights;
-F5/new tab loses RAM and performs controlled top-level authorization/SSO or login. Temporary
+F5/new tab loses RAM and requires controlled authorization/SSO or login. The Web implementation uses a user-reserved popup with top-level issuer navigation so the opener retains drafts; blocked windows fail with explicit retry. Temporary
 PKCE/state with TTL/consume-once may survive navigation, never access/refresh credentials.
 Native uses its secure storage/cleanup barriers. Refresh rotation, reuse-family revocation,
 unknown-response reauthorization and actual signed recent-authentication proof are specified
 in Bearer v1. This initial implementation never extends the original provider/proof lifetime.
 
-The API foundation is implemented; Web/CMP migration, removal of legacy cookie compatibility
+The API foundation and Web RAM/transport migration are implemented; CMP migration, removal of legacy server cookie compatibility
 and real restrictive-browser/issuer/device acceptance remain unfinished. Legacy cookies retain
 Strict/Lax, Secure/HttpOnly and their CSRF rules during that explicit staging window. Relaxing
 cookies or persisting Web tokens in localStorage is not part of this decision.

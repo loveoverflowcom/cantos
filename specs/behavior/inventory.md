@@ -117,6 +117,11 @@ owner-selected rotation, bounded authority and logout; concrete policy is in
 | `run.logout` | `all_surfaces_issue_rotate_revoke_with_exact_scope_and_stable_session`; `cancelled_or_lost_exchange_cannot_restore_and_does_not_cancel_another_account` |
 | `run.expiry` | `expiry_disable_wrong_binding_provider_outage_and_recent_auth_fail_closed` |
 
+Web-specific independent oracles: `cantos-web-auth` core/refresh tests cover exact expiry,
+unknown refresh, single-flight and late-waiter/logout/account fences; the explicit `verify
+web-bearer` fixture drives actual Web modules against mocked API/issuer HTTP. These are client
+implementation evidence, not model trace conformance or real issuer/SQL proof.
+
 The catalog owns named runs, witnesses and one sensitive negative control per property.
 These native tests call real core/SQL/API code independently; this capability has **no registered
 trace-observer conformance adapter**. Model execution is sampled model evidence only, not proof

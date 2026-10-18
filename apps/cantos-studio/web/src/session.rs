@@ -1,4 +1,4 @@
-//! A token exchange is not authenticated until the browser's owner cookie is accepted.
+//! A token exchange is not authenticated until the API admits the browser's owner session.
 use cantos_contracts::{ApiError, ErrorCode, SessionResponse, StudioAuthenticationMode};
 
 /// A noncredential server correlation UUID, captured immutably for one HTTP attempt.

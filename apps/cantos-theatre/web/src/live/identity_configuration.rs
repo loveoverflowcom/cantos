@@ -38,7 +38,7 @@ pub async fn load() -> Result<Configuration, ConfigurationFailure> {
         &crate::api_endpoint::endpoint("/api/v1/theatre/auth/configuration")
             .map_err(|_| ConfigurationFailure::Unavailable)?,
     )
-    .credentials(RequestCredentials::Include)
+    .credentials(RequestCredentials::Omit)
     .abort_signal(Some(&signal))
     .header("Accept", "application/json")
     .send()

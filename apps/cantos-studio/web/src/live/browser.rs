@@ -1,4 +1,4 @@
-//! Fetch effects only. Studio cookies and producer bearer requests cannot share credentials.
+//! Fetch effects only. Owner and producer Bearer requests have separate purposes and never send cookies.
 use super::*;
 use gloo_net::http::Request;
 use wasm_bindgen::{closure::Closure, JsCast};
@@ -44,6 +44,18 @@ pub async fn execute(
     if matches!(command, Command::UploadImage { .. }) {
         return artwork::platform::upload(command, controller, session_fence, progress).await;
     }
+    let credential = if command.credentials() == Credentials::OwnerBearer {
+        let expected = session_fence.ok_or(ClientError::SessionChanged)?.header();
+        Some(
+            crate::api_endpoint::auth()
+                .map_err(|_| ClientError::Transport)?
+                .access(Some(&expected))
+                .await
+                .map_err(auth_error)?,
+        )
+    } else {
+        None
+    };
     let path =
         crate::api_endpoint::endpoint(&command.path()?).map_err(|_| ClientError::InvalidInput)?;
     let deadline = Deadline::new(controller)?;
@@ -55,18 +67,19 @@ pub async fn execute(
                 .parse()
                 .map_err(|_| ClientError::InvalidInput)?,
         )
-        .credentials(match command.credentials() {
-            Credentials::SameOrigin => RequestCredentials::Include,
-            Credentials::Omit => RequestCredentials::Omit,
-        })
+        .credentials(RequestCredentials::Omit)
+        .redirect(web_sys::RequestRedirect::Error)
         .header("Accept", "application/json")
         .abort_signal(Some(&signal));
     let expected_fence = match command.credentials() {
-        Credentials::SameOrigin => Some(session_fence.ok_or(ClientError::SessionChanged)?),
+        Credentials::OwnerBearer => Some(session_fence.ok_or(ClientError::SessionChanged)?),
         Credentials::Omit => None,
     };
     if let Some(fence) = expected_fence {
         request = request.header(crate::api::SESSION_HEADER, &fence.header());
+        if let Some(credential) = &credential {
+            request = request.header("Authorization", &credential.header());
+        }
     }
     if let Command::ProducerStatus { credential, .. } | Command::Upload { credential, .. } = command
     {
@@ -85,6 +98,9 @@ pub async fn execute(
     }
     .map_err(|_| ClientError::Transport)?;
     let response = request.send().await.map_err(|_| ClientError::Transport)?;
+    if let Some(credential) = &credential {
+        credential.response(response.status()).map_err(auth_error)?;
+    }
     if response.ok()
         && expected_fence.is_some_and(|fence| {
             !fence.accepts(
@@ -113,6 +129,9 @@ pub async fn execute(
         .binary()
         .await
         .map_err(|_| ClientError::Transport)?;
+    if let Some(credential) = &credential {
+        credential.check().map_err(auth_error)?;
+    }
     let result = command.decode(status, &body);
     drop(deadline);
     result
@@ -155,4 +174,21 @@ pub fn upload_token() -> Result<String, ClientError> {
         .get_random_values_with_u8_array(&mut bytes)
         .map_err(|_| ClientError::Transport)?;
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+pub(crate) fn auth_error(error: cantos_web_auth::Failure) -> ClientError {
+    match error {
+        cantos_web_auth::Failure::SignedOut => ClientError::Http {
+            status: 401,
+            error: crate::api::auth_error(error),
+        },
+        cantos_web_auth::Failure::Changed | cantos_web_auth::Failure::AccountMismatch => {
+            ClientError::SessionChanged
+        }
+        cantos_web_auth::Failure::Unavailable
+        | cantos_web_auth::Failure::Protocol
+        | cantos_web_auth::Failure::Cancelled
+        | cantos_web_auth::Failure::PopupBlocked
+        | cantos_web_auth::Failure::CleanupPending => ClientError::Transport,
+    }
 }

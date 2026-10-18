@@ -1207,3 +1207,28 @@ API's bounded read-only discovery/JWKS primitive only when explicitly run; dry-r
 Metadata PASS establishes no user login, disable/logout or production acceptance. These optional
 operator operations are outside preflight/CI; Rust tests exercise their plans and the real adapter
 against ephemeral signed HTTP mocks. See the [operator policy](../services/kanidm/README.md).
+
+
+### verify web-bearer
+
+`cargo xtask verify web-bearer [--dry-run]` is an explicit, local-only browser fixture for #253.
+It builds both actual Web apps with the fixed nonsecret mock API `http://127.0.0.1:18080`, serves
+synthetic API/issuer pages on loopback ports18080–18083, and drives installed Chromium via Node's
+built-in CDP WebSocket. It uses a new disposable browser profile, installs nothing and calls no
+live provider, account, gateway, database, Firebase or deployment command. Ordinary gates,
+preflight, CI and run/build never invoke it.
+
+Requires Node22+ with WebSocket and an installed Chromium executable. On macOS it defaults to
+Google Chrome's application executable; another installed host supplies the absolute path in
+`CANTOS_TEST_CHROMIUM`. Missing prerequisites leave the fixture unavailable; occupied loopback
+ports or a failed executed scenario are failures. Browser subprocesses and HTTP listeners are
+owned by this invocation and closed on completion. The isolated profile is removed; reports,
+source/bundle hashes and synthetic captures remain under ignored `artifacts/agent-runs/`.
+The run must use a frozen source tree; source changes invalidate its result.
+
+It exercises production Web lifecycle/transport with mocked identity/API only. Third-party
+cookie restrictions have an intentional cross-site probe plus a first-party positive control;
+this does not establish real Kanidm, gateway, Hosting headers, other engines or native media
+acceptance. Source download evidence uses generated synthetic UTF-8 bytes. Inspect captured PNGs
+before claiming visual review. Rebuild through normal `verify web` after this fixture when a
+normal-origin local bundle is needed; these mock-addressed outputs are never a deployment input.

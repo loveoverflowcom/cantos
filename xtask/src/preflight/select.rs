@@ -472,8 +472,8 @@ mod tests {
             [
                 "repository",
                 "rust-format",
-                "rust-lint (cantos-api, cantos-contracts, cantos-studio, cantos-theatre)",
-                "rust-tests (cantos-api, cantos-contracts, cantos-studio, cantos-theatre)",
+                "rust-lint (cantos-api, cantos-contracts, cantos-studio, cantos-theatre, cantos-web-auth)",
+                "rust-tests (cantos-api, cantos-contracts, cantos-studio, cantos-theatre, cantos-web-auth)",
                 "dbsp",
                 "wav-reference",
                 "audio-inspection",
@@ -481,6 +481,23 @@ mod tests {
                 "web-build (cantos-studio)",
                 "web-build (cantos-theatre)",
                 "postgres",
+            ]
+        );
+    }
+
+    #[test]
+    fn web_auth_changes_select_both_consumers_without_server_or_native_gates() {
+        let selection = pick(&["packages/web-auth/src/core.rs"]);
+        assert_eq!(
+            names(&selection),
+            [
+                "repository",
+                "rust-format",
+                "rust-lint (cantos-studio, cantos-theatre, cantos-web-auth)",
+                "rust-tests (cantos-studio, cantos-theatre, cantos-web-auth)",
+                "web-lint (cantos-studio, cantos-theatre)",
+                "web-build (cantos-studio)",
+                "web-build (cantos-theatre)",
             ]
         );
     }

@@ -17,6 +17,12 @@ clients, roster and credentials are created by the operator-run `cantos-vps iden
 live sign-in acceptance is recorded only when it has actually run. [Surface boundaries](../decisions/0015-api-surface-boundaries.md) and the
 [identity registry](identity-registry.md) remain authoritative.
 
+The current Studio Web consumer uses the [shared RAM Bearer owner](../../packages/web-auth/README.md)
+and [Bearer v1](../../packages/contracts/bearer-v1.md). Cookie navigation, development-token form,
+callback binders and cookie observations below describe the retained **server compatibility**
+lane; they are not a Web fallback or an activation prerequisite for the target client. The new
+Web popup/callback protocol and actual signed recent-auth evidence retain separate acceptance.
+
 ## Closed Studio enrollment
 
 The [accepted account-enrollment decision](../decisions/0034-theatre-signup-and-provisioned-studio.md)

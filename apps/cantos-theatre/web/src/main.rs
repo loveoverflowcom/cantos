@@ -1,5 +1,13 @@
 #[cfg(target_arch = "wasm32")]
 fn main() {
+    if cantos_web_auth::browser::complete_popup(
+        cantos_web_auth::Surface::Theatre,
+        option_env!("CANTOS_API_ORIGIN"),
+    ) {
+        leptos::mount::mount_to_body(cantos_theatre::view::AuthorizationComplete);
+        return;
+    }
+
     let query = web_sys::window()
         .and_then(|w| w.location().search().ok())
         .unwrap_or_default();

@@ -208,6 +208,12 @@ pub enum VerifySuite {
     Rust,
     /// Forge Rust lint/tests and offline Firebase Functions wrapper tests (Node 22+).
     Forge,
+    /// Explicit isolated Chromium / mocked-API Bearer journeys for both Web apps.
+    WebBearer {
+        /// Print the loopback-only fixture plan without starting anything.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// WASM clippy and Trunk builds for Studio and Theatre Web.
     Web,
     /// Script IR goldens, wire/media contract tests, WAV oracle and actual Opus intake inspection.

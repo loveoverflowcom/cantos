@@ -337,8 +337,6 @@ fn SourceDetails(source: SourceResponse, english: Signal<bool>) -> impl IntoView
 
 #[component]
 fn ImportedSourceDetails(source: ImportResponse, english: Signal<bool>) -> impl IntoView {
-    let api = expect_context::<StudioContext>().api;
-    let download = api.original_import_path(&source.id).ok();
     let namespace = format!("inspector-{}", source.id);
     let source = StoredValue::new(source);
     let copy = move || messages::import_copy(english.get());
@@ -358,7 +356,8 @@ fn ImportedSourceDetails(source: ImportResponse, english: Signal<bool>) -> impl 
             </dl>
             {source.with_value(|source| source.original_text.clone()).map(|original| view! { <pre tabindex="0" lang="vi-VN">{original}</pre> })}
             <Show when=move || source.with_value(|source| source.original_text.is_none())><p>{move || copy().binary}</p></Show>
-            {download.map(|path| view! { <a class="download-original" href=path download=source.with_value(|source| source.metadata.file_name.clone())>{move || copy().download}</a> })}
+            <crate::download::DownloadOriginal namespace="inspector" id=source.with_value(|r|r.id.clone()) file_name=source.with_value(|r|r.metadata.file_name.clone()) sha256=source.with_value(|r|r.sha256.clone()) english/>
+
             {match source.with_value(|source| source.outcome.clone()) {
                 ImportOutcome::Parsed { extraction } => view! { <ExtractionPreview extraction=extraction english=english namespace=namespace /> }.into_any(),
                 ImportOutcome::Failed { error } => view! { <p>{move || messages::import_diagnostic(&error.code, english.get())}</p> }.into_any(),

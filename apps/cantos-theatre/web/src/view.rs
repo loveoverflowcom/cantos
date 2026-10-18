@@ -331,3 +331,14 @@ fn LiveFrame(theme: RwSignal<Theme>, children: Children) -> impl IntoView {
 fn LiveContainer(children: Children) -> impl IntoView {
     view! { <Container width=ContainerWidth::Wide>{children()}</Container> }
 }
+
+#[component]
+pub fn AuthorizationComplete() -> impl IntoView {
+    let locale = RwSignal::new(crate::messages::Locale::Vietnamese);
+    Effect::new(move |_| platform::set_document_language(locale.get().lang()));
+    view! {<main class="theatre-main"><h1>{move ||crate::features::auth_copy::text(crate::features::auth_copy::CopyKey::LoginHeading,locale.get())}</h1><p role="status">{move ||crate::features::auth_copy::text(crate::features::auth_copy::CopyKey::AuthorizationComplete,locale.get())}</p>
+        <Select id="authorization-language" label=Signal::derive(move ||messages::text(Key::Locale,locale.get()).to_owned()) value=Signal::derive(move ||locale.get().lang().to_owned()) on_input=Callback::new(move |value:String|{if let Some(value)=Locale::from_lang(&value){locale.set(value);}})>
+            {Locale::ALL.into_iter().map(|value|view!{<option value=value.lang() lang=value.lang()>{value.autonym()}</option>}).collect_view()}
+        </Select>
+    </main>}
+}

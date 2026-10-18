@@ -1,6 +1,6 @@
 # Cantos Bearer v1 — API foundation for #253
 
-Status: implemented API/SQL foundation; Web and CMP migration and real issuer/browser/device
+Status: implemented API/SQL foundation and Web consumer migration; CMP migration and real issuer/browser/device
 acceptance remain separate. The owner selected this architecture on 2026-10-18 in
 [#253](https://github.com/loveoverflowcom/cantos/issues/253), superseding the cookie/same-site
 prerequisite in [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md).
@@ -121,13 +121,17 @@ the unmodified clients. This is a **temporary staged compatibility window**, end
 2 (Web) and 3 (CMP), before #253 acceptance or production cutover. One request never mixes cookie
 and Bearer. Do not deploy just this PR and claim the cookie requirement is removed from clients.
 
-Phase 2 must use the new prefixes, omit cookies on every protected JSON/Protobuf/XHR effect,
-retain access/refresh in RAM only, single-flight refresh, and fence delayed results by the local
-account/intent generation plus API session ID. F5/new tab loses RAM: controlled top-level
-authorization/SSO or login, with transient TTL/consume-once protocol state allowed in sessionStorage.
-Never silently authorize from cached display state or auto-loop guest routes. Inventory artwork,
-private preview, original download and audio/Range; use authenticated fetch/object URLs or existing
-narrow capability grants and cleanup. Remove cookie fallback as the explicit Web cutover.
+Phase 2 implements the new prefixes and cookies-omitted Web effects through the shared
+[Web owner](../web-auth/README.md): RAM-only credentials, a single refresh flight, local intent/
+rotation plus API-session fences and explicit revoke/cancel recovery. A reserved popup carries
+TTL/consume-once protocol state through full-page issuer redirects; the opener exchanges its
+one-use handoff and keeps drafts/return context in RAM. Reload/new tab requires an explicit new
+authorization; no private draft/token is reconstructed from display state. The Web inventory
+covers JSON/Protobuf, XHR artwork, private previews and all three original-source downloads.
+Production Web audio/Range consumers are absent, not accepted from the isolated mock player.
+The old development-cookie form has no Web fallback; legacy server issuance remains staged
+compatibility until the final migration/cutover. Local mock/browser evidence is separate from
+real gateway/issuer/Hosting acceptance.
 
 Phase 3 must move native consumers to this contract, atomically replace secure-store credentials,
 handle interrupted refresh/persist failure with revocation/reauthentication, and enforce cleanup

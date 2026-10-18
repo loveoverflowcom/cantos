@@ -149,16 +149,21 @@ pub mod testing {
                 package(
                     "cantos-studio",
                     "apps/cantos-studio/web",
-                    &["cantos-contracts", "cantos-ui"],
+                    &["cantos-contracts", "cantos-ui", "cantos-web-auth"],
                 ),
                 package("cantos-contracts", "packages/contracts/api", &[]),
                 package("cantos-api", "services/cantos-api", &["cantos-contracts"]),
                 package(
                     "cantos-theatre",
                     "apps/cantos-theatre/web",
-                    &["cantos-contracts", "cantos-ui"],
+                    &["cantos-contracts", "cantos-ui", "cantos-web-auth"],
                 ),
                 package("cantos-ui", "packages/ui-system/leptos", &[]),
+                package(
+                    "cantos-web-auth",
+                    "packages/web-auth",
+                    &["cantos-contracts"],
+                ),
                 package("xtask", "xtask", &[]),
             ],
         }
@@ -201,7 +206,8 @@ mod tests {
                 "cantos-api",
                 "cantos-contracts",
                 "cantos-studio",
-                "cantos-theatre"
+                "cantos-theatre",
+                "cantos-web-auth"
             ]
         );
     }

@@ -310,8 +310,6 @@ fn ProposalFindings(proposal: AdaptationProposal, english: Signal<bool>) -> impl
 
 #[component]
 fn SourceComparison(source: Arc<ImportResponse>, english: Signal<bool>) -> impl IntoView {
-    let api = expect_context::<StudioContext>().api;
-    let download = api.original_import_path(&source.id).ok();
     let source = StoredValue::new(source);
     let copy = move || messages::adaptation_copy(english.get());
     let import_copy = move || messages::import_copy(english.get());
@@ -325,7 +323,8 @@ fn SourceComparison(source: Arc<ImportResponse>, english: Signal<bool>) -> impl 
         </dl>
         {source.with_value(|source| source.original_text.clone()).map(|text| view! { <pre tabindex="0" lang="vi-VN">{text}</pre> })}
         <Show when=move || source.with_value(|source| source.original_text.is_none())><p>{move || copy().original_binary}</p></Show>
-        {download.map(|path| view! { <a class="download-original" href=path download=source.with_value(|source| source.metadata.file_name.clone())>{move || copy().download}</a> })}
+        <crate::download::DownloadOriginal namespace="adaptation" id=source.with_value(|r|r.id.clone()) file_name=source.with_value(|r|r.metadata.file_name.clone()) sha256=source.with_value(|r|r.sha256.clone()) english/>
+
         {match source.with_value(|source| source.outcome.clone()) {
             ImportOutcome::Parsed { extraction } => view! { <ExtractionPreview extraction=extraction english=english namespace="adaptation" /> }.into_any(),
             ImportOutcome::Failed { error } => view! { <p>{move || messages::import_diagnostic(&error.code, english.get())}</p> }.into_any(),

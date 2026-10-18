@@ -21,6 +21,8 @@ pub mod api;
 #[cfg(target_arch = "wasm32")]
 pub mod authoring_view;
 #[cfg(target_arch = "wasm32")]
+mod download;
+#[cfg(target_arch = "wasm32")]
 mod navigation;
 #[cfg(target_arch = "wasm32")]
 pub mod view;
