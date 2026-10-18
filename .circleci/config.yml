@@ -1,12 +1,12 @@
 version: 2.1
 
-# Manual production deployment only (ADR 0039, docs/deployment/vps-production.md).
+# Opt-in artifact builds and separate manual production deployment (ADR 0039, docs/deployment/vps-production.md).
 #
 # Trigger a pipeline on the `develop` config branch with:
 #   target    = a branch name or commit SHA already merged into origin/develop
 #   component = api | theatre-web | studio-web | web | all
-# Ordinary pushes and pull requests leave `target` empty and run no jobs. Repository checks stay
-# in GitHub Actions (`cargo xtask ci`); nothing here runs on a push. Deployment logic lives in
+# Ordinary pushes and pull requests run no jobs. Set build=true with an empty target for
+# credential-free artifact builds; tests reuse `cargo xtask ci`. Deployment logic lives in
 # `cargo xtask deploy vps|firebase` and the VPS host script, not in this file.
 #
 # Context `production` must provide (never commit any of them):
@@ -16,6 +16,15 @@ version: 2.1
 #         FIREBASE_SERVICE_ACCOUNT_JSON (a key limited to Firebase Hosting Admin on that project)
 
 parameters:
+  build:
+    type: boolean
+    default: false
+    description: "Build artifacts only; target must stay empty. No production context."
+  build-component:
+    type: enum
+    enum: [api, theatre-web, studio-web, android, all]
+    default: all
+    description: "Artifact component(s); no deploy or distribution."
   target:
     type: string
     default: ""
@@ -27,6 +36,48 @@ parameters:
     description: "What to deploy."
 
 commands:
+  install-build-rust:
+    steps:
+      - run:
+          name: Select repository Rust pin
+          command: |
+            set -Eeuo pipefail
+            if ! command -v rustup >/dev/null; then
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/cantos-rustup.sh
+              sh /tmp/cantos-rustup.sh -y --profile minimal --default-toolchain none
+            fi
+            source "$HOME/.cargo/env"
+            rustup show active-toolchain
+            echo 'source "$HOME/.cargo/env"' >> "$BASH_ENV"
+  build-cache-restore:
+    steps:
+      - restore_cache:
+          keys:
+            - v2-build-{{ arch }}-rust1981-{{ .Branch }}-{{ checksum "Cargo.lock" }}
+  build-cache-save:
+    steps:
+      - save_cache:
+          key: v2-build-{{ arch }}-rust1981-{{ .Branch }}-{{ checksum "Cargo.lock" }}
+          paths:
+            - ~/.cargo/registry
+            - ~/.cargo/git
+  install-build-trunk:
+    steps:
+      - restore_cache:
+          keys:
+            - v2-trunk-{{ arch }}-rust1981-02114
+      - run:
+          name: Install pinned Trunk
+          no_output_timeout: 30m
+          command: |
+            set -Eeuo pipefail
+            if ! command -v trunk >/dev/null || [[ "$(trunk --version)" != "trunk 0.21.14" ]]; then
+              cargo install trunk --version 0.21.14 --locked --force
+            fi
+      - save_cache:
+          key: v2-trunk-{{ arch }}-rust1981-02114
+          paths:
+            - ~/.cargo/bin/trunk
   resolve-target:
     description: Check out the immutable commit named by `target`, which must be in origin/develop.
     steps:
@@ -89,6 +140,132 @@ commands:
             done
 
 jobs:
+  build-source-checks:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    steps:
+      - checkout
+      - install-build-rust
+      - build-cache-restore
+      - run:
+          name: Repository contract and packaging regression tests
+          command: cargo xtask ci --job repository
+      - build-cache-save
+
+  build-api:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    steps:
+      - checkout
+      - install-build-rust
+      - build-cache-restore
+      - run:
+          name: Install image and offline verification tools
+          command: |
+            set -Eeuo pipefail
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq podman zstd ffmpeg
+            curl --proto '=https' --tlsv1.2 -fsSL https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz -o /tmp/cantos-node.tar.xz
+            echo 'df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de  /tmp/cantos-node.tar.xz' | sha256sum -c -
+            mkdir -p "$HOME/.local/cantos-node"
+            tar -xJf /tmp/cantos-node.tar.xz --strip-components=1 -C "$HOME/.local/cantos-node"
+            echo 'export PATH="$HOME/.local/cantos-node/bin:$PATH"' >> "$BASH_ENV"
+      - run:
+          name: Rust contract before packaging
+          no_output_timeout: 30m
+          command: cargo xtask ci --job rust
+      - run:
+          name: Build and export pinned Linux amd64 VPS image (no SSH)
+          no_output_timeout: 30m
+          command: cargo xtask release-build api
+      - build-cache-save
+      - store_artifacts:
+          path: artifacts/release-build/api
+
+  build-web:
+    parameters:
+      app:
+        type: enum
+        enum: [theatre-web, studio-web]
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    steps:
+      - checkout
+      - install-build-rust
+      - build-cache-restore
+      - install-build-trunk
+      - run:
+          name: Web contract before packaging
+          no_output_timeout: 30m
+          command: cargo xtask ci --job web
+      - run:
+          name: Remove only CI-owned verification dist before fresh release build
+          command: |
+            case "<< parameters.app >>" in
+              theatre-web) rm -rf apps/cantos-theatre/web/dist ;;
+              studio-web) rm -rf apps/cantos-studio/web/dist ;;
+            esac
+      - run:
+          name: Package source-bound release bundle with selected live API origin
+          no_output_timeout: 30m
+          command: cargo xtask release-build << parameters.app >>
+      - build-cache-save
+      - store_artifacts:
+          path: artifacts/release-build/<< parameters.app >>
+
+  build-android:
+    machine:
+      image: android:default
+    resource_class: medium
+    steps:
+      - checkout
+      - install-build-rust
+      - build-cache-restore
+      - run:
+          name: Select installed JDK 17 and verify existing SDK (no license acceptance)
+          command: |
+            set -Eeuo pipefail
+            export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64
+            test -x "$JAVA_HOME/bin/javac"
+            echo "export JAVA_HOME=$JAVA_HOME" >> "$BASH_ENV"
+            echo 'export PATH="$HOME/.local/cantos-gradle/gradle-8.14.3/bin:$JAVA_HOME/bin:$PATH"' >> "$BASH_ENV"
+            test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+            test -x "$ANDROID_HOME/build-tools/35.0.0/aapt2"
+      - restore_cache:
+          keys:
+            - v2-gradle-8143-{{ arch }}
+      - run:
+          name: Install checksum-pinned Gradle distribution from official source
+          command: |
+            set -Eeuo pipefail
+            if [[ ! -x "$HOME/.local/cantos-gradle/gradle-8.14.3/bin/gradle" ]]; then
+              curl --proto '=https' --tlsv1.2 -fsSL https://services.gradle.org/distributions/gradle-8.14.3-bin.zip -o /tmp/cantos-gradle.zip
+              echo 'bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531  /tmp/cantos-gradle.zip' | sha256sum -c -
+              mkdir -p "$HOME/.local/cantos-gradle"
+              unzip -q /tmp/cantos-gradle.zip -d "$HOME/.local/cantos-gradle"
+            fi
+      - save_cache:
+          key: v2-gradle-8143-{{ arch }}
+          paths:
+            - ~/.local/cantos-gradle
+      - restore_cache:
+          keys:
+            - v2-android-{{ arch }}-gradle8143-{{ .Branch }}-{{ checksum "apps/cantos-theatre/mobile/settings.gradle.kts" }}-{{ checksum "apps/cantos-theatre/mobile/androidProductionApp/build.gradle.kts" }}
+      - run:
+          name: Production host unsigned APK/AAB with release isolation inspection
+          no_output_timeout: 30m
+          command: cargo xtask release-build android
+      - save_cache:
+          key: v2-android-{{ arch }}-gradle8143-{{ .Branch }}-{{ checksum "apps/cantos-theatre/mobile/settings.gradle.kts" }}-{{ checksum "apps/cantos-theatre/mobile/androidProductionApp/build.gradle.kts" }}
+          paths:
+            - ~/.gradle/caches/modules-2
+      - build-cache-save
+      - store_artifacts:
+          path: artifacts/release-build/android
+
   deploy-api:
     # A VM, because the release image is built with Podman (no Docker daemon, ADR 0021).
     machine:
@@ -197,6 +374,7 @@ workflows:
   deploy-api:
     when:
       and:
+        - not: << pipeline.parameters.build >>
         - << pipeline.parameters.target >>
         - or:
             - equal: [api, << pipeline.parameters.component >>]
@@ -209,6 +387,7 @@ workflows:
   deploy-theatre-web:
     when:
       and:
+        - not: << pipeline.parameters.build >>
         - << pipeline.parameters.target >>
         - or:
             - equal: [theatre-web, << pipeline.parameters.component >>]
@@ -224,6 +403,7 @@ workflows:
   deploy-studio-web:
     when:
       and:
+        - not: << pipeline.parameters.build >>
         - << pipeline.parameters.target >>
         - or:
             - equal: [studio-web, << pipeline.parameters.component >>]
@@ -235,3 +415,61 @@ workflows:
           app: cantos-studio
           context: [production]
           serial-group: << pipeline.project.slug >>/production-studio-web
+
+  artifacts-api:
+    when:
+      and:
+        - << pipeline.parameters.build >>
+        - not: << pipeline.parameters.target >>
+        - or:
+            - equal: [api, << pipeline.parameters.build-component >>]
+            - equal: [all, << pipeline.parameters.build-component >>]
+    jobs:
+      - build-source-checks
+      - build-api:
+          name: build-api
+          requires: [build-source-checks]
+
+  artifacts-theatre-web:
+    when:
+      and:
+        - << pipeline.parameters.build >>
+        - not: << pipeline.parameters.target >>
+        - or:
+            - equal: [theatre-web, << pipeline.parameters.build-component >>]
+            - equal: [all, << pipeline.parameters.build-component >>]
+    jobs:
+      - build-source-checks
+      - build-web:
+          name: build-theatre-web
+          requires: [build-source-checks]
+          app: theatre-web
+
+  artifacts-studio-web:
+    when:
+      and:
+        - << pipeline.parameters.build >>
+        - not: << pipeline.parameters.target >>
+        - or:
+            - equal: [studio-web, << pipeline.parameters.build-component >>]
+            - equal: [all, << pipeline.parameters.build-component >>]
+    jobs:
+      - build-source-checks
+      - build-web:
+          name: build-studio-web
+          requires: [build-source-checks]
+          app: studio-web
+
+  artifacts-android:
+    when:
+      and:
+        - << pipeline.parameters.build >>
+        - not: << pipeline.parameters.target >>
+        - or:
+            - equal: [android, << pipeline.parameters.build-component >>]
+            - equal: [all, << pipeline.parameters.build-component >>]
+    jobs:
+      - build-source-checks
+      - build-android:
+          name: build-android
+          requires: [build-source-checks]

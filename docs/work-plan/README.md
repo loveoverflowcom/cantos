@@ -19,6 +19,7 @@ rebuild their implemented portions. Keep speculative expansion in [backlog](back
 
 | Boundary | Owning input |
 | --- | --- |
+| Build-only release packaging | [CircleCI build boundary](../deployment/circleci-builds.md); source configuration and artifact manifests are implemented, account integration and actual API/Web/unsigned Android builds remain unverified. Production deployment, signing and live acceptance stay separate. |
 | Dependencies, phase exit and GitHub workflow | [Project planning](project-planning.md) |
 | Brief/private audio completion | [020](020-cast-and-generate-dialogue.md), [live client matrix](live-client-api-matrix.md) |
 | Review/storage/publication acceptance | [030](030-mix-review-and-publish.md) |
