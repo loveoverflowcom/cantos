@@ -58,6 +58,34 @@ class PublicCatalogControllerTest {
     private fun TestScope.controller(port: PublicCatalogPort) = PublicCatalogController(backgroundScope, port)
 
     @Test
+    fun foreign_detail_never_fetches_foreign_units_and_recovery_retains_the_original_identity() = runTest(StandardTestDispatcher()) {
+        val port = GatedPort()
+        val controller = controller(port)
+        val requested = work(1)
+        val label = "work:${requested.id.value}"
+        controller.dispatch(PublicCatalogIntent.OpenWork(requested))
+        runCurrent()
+        port.answer(label, PublicCatalogRead.Ready(work(2)))
+        runCurrent()
+        assertEquals(DetailPhase.Failed(CatalogFailure.Protocol), controller.state.value.detail!!.phase)
+        assertEquals(listOf(label), port.calls.map { it.label }, "no unit read follows a foreign detail")
+        assertEquals(requested, controller.state.value.detail!!.summary)
+
+        controller.dispatch(PublicCatalogIntent.RetryWork)
+        runCurrent()
+        assertEquals(listOf(label, label), port.calls.map { it.label })
+        port.answer(label, PublicCatalogRead.Ready(requested))
+        runCurrent()
+        assertEquals(DetailPhase.Ready(requested), controller.state.value.detail!!.phase)
+        assertEquals("units:${requested.id.value}:null", port.calls.last().label)
+        controller.dispatch(PublicCatalogIntent.Back)
+        runCurrent()
+        assertEquals(null, controller.state.value.detail)
+        assertTrue(port.calls.last().cancelled, "normal Back cleanup survives protocol recovery")
+        controller.close()
+    }
+
+    @Test
     fun refresh_cancels_the_in_flight_read_and_its_late_answer_never_lands() = runTest(StandardTestDispatcher()) {
         val port = GatedPort()
         val controller = controller(port)
