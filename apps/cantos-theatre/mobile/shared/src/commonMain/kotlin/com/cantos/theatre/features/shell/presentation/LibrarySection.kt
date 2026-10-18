@@ -46,6 +46,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     Text(copy.text(CopyKey.Library), style = MaterialTheme.typography.headlineSmall,
         modifier = Modifier.semantics { heading() })
     Text(copy.text(CopyKey.LibrarySession), style = MaterialTheme.typography.bodySmall)
+    LocalShellLibraryHeader.current?.invoke()
     Column(Modifier.testTag("library-continue"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         SectionHeading(CopyKey.Continuing, copy)
         val points = continuingProgress(state)
@@ -54,7 +55,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     }
     Column(Modifier.testTag("library-saved"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         SectionHeading(CopyKey.SavedTab, copy)
-        val works = catalog.works.filter { it.id in state.savedWorks }
+        val works = catalog.knownWorks.filter { it.id in state.savedWorks }
         if (works.isEmpty()) SectionEmpty(CopyKey.NoSaved, CopyKey.NoSavedHelp, copy, dispatch)
         else WorkShelf(works, state, copy, dispatch)
         if (works.size < state.savedWorks.size) Text(copy.text(CopyKey.SelectionUnavailableNote))
@@ -107,8 +108,7 @@ internal fun ListeningPoint(
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
             WorkArtwork(episode.workId, Modifier.size(tokenDp("size.control")), shape = CantosShapes.thumbnail)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-                Text(copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(),
-                    "title" to catalog.work(episode.workId)?.title.orEmpty()), style = MaterialTheme.typography.bodySmall)
+                Text(episodeLabel(episode, catalog.work(episode.workId)?.title.orEmpty(), copy), style = MaterialTheme.typography.bodySmall)
                 Text(episode.title, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(copy.text(CopyKey.PositionCaption, "elapsed" to clockTime(point.positionSeconds),
                     "total" to clockTime(episode.durationSeconds)), style = MaterialTheme.typography.bodySmall)

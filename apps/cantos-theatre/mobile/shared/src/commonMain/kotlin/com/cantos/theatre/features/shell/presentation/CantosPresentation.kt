@@ -65,16 +65,20 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.ShellCapabilities
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellCopy
+import com.cantos.theatre.presentation.model.ShellDetailPhase
 import com.cantos.theatre.presentation.model.ShellEpisode
 import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellListPhase
 import com.cantos.theatre.presentation.model.ShellListeningFailure
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.domain.membership.MembershipScreen
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellText
+import com.cantos.theatre.presentation.model.ShellUnitKind
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.canGoBack
@@ -104,6 +108,12 @@ class ShellDiagnosticsSlot(
 val LocalShellCopyOverrides = staticCompositionLocalOf<Map<CopyKey, ShellText>> { emptyMap() }
 val LocalShellNotice = staticCompositionLocalOf<ShellNoticeContent?> { null }
 val LocalShellDiagnostics = staticCompositionLocalOf<ShellDiagnosticsSlot?> { null }
+
+/** Host facts about what it can do; the default offers the full sample experience. */
+val LocalShellCapabilities = staticCompositionLocalOf { ShellCapabilities() }
+
+/** Optional host content at the head of Library: sign-in prompt, sync status, conflicts, paging. */
+val LocalShellLibraryHeader = staticCompositionLocalOf<(@Composable () -> Unit)?> { null }
 
 /** The same controlled presentation is mounted by Android, iOS and the JVM diagnostic host.
  * Native Material controls consume the canonical theme. Membership and the optional account flow
@@ -162,13 +172,15 @@ fun CantosPresentation(
                 if (state.route == ShellRoute.MembershipPreview && membershipHeader != null) membershipHeader()
                 else if (state.route.isAuth() && authHeader != null) authHeader()
                 else ShellHeader(state, copy, dispatch, entryFocus.account)
-                when (state.listeningFailure) {
-                    null -> Unit
-                    ShellListeningFailure.MemoryStoreUnavailable -> Column(
+                state.listeningFailure?.let { failure ->
+                    Column(
                         Modifier.fillMaxWidth().padding(tokenDp("space.md")).testTag("listening-failure")
                             .semantics { liveRegion = LiveRegionMode.Polite },
                     ) {
-                        Text(copy.text(CopyKey.ListeningStoreFailure))
+                        Text(copy.text(when (failure) {
+                            ShellListeningFailure.MemoryStoreUnavailable -> CopyKey.ListeningStoreFailure
+                            ShellListeningFailure.ReleaseUnavailable -> CopyKey.ReleaseUnavailable
+                        }))
                         TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.RetryListening) }, modifier = Modifier.testTag("listening-retry")) {
                             Text(copy.text(CopyKey.RetryListening))
                         }
@@ -299,6 +311,7 @@ private fun DiscoveryScreen(state: ShellState, catalog: ShellCatalogView, copy: 
             SectionHeading(CopyKey.ExploreHeading, copy)
             WorkShelf(catalog.works.drop(1), state, copy, dispatch)
         }
+        ListFooter(catalog.worksPhase, copy, dispatch)
     } else {
         CatalogRecovery(if (state.catalogMode == ShellCatalogMode.Ready) ShellCatalogMode.Empty else state.catalogMode, copy, dispatch)
     }
@@ -355,14 +368,12 @@ private fun WorkSummary(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                         Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
                         Text(work.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(copy.text(CopyKey.EpisodesCount, "count" to work.episodes.size.toString()),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        UnitCount(work, copy, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
             Text(work.description)
-            if (featured) Text(copy.text(CopyKey.EpisodesCount, "count" to work.episodes.size.toString()),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (featured) UnitCount(work, copy, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SaveWorkButton(work, state, copy, dispatch, "save-card-${work.id}")
         }
     }
@@ -386,11 +397,17 @@ private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: She
         },
     )
     val works = filteredWorks(state, catalog)
-    Text(copy.text(CopyKey.Results, "count" to works.size.toString()), style = MaterialTheme.typography.bodySmall)
+    // A partial list has no honest total: the count is shown only once the list is complete.
+    if (catalog.worksPhase == ShellListPhase.Complete) {
+        Text(copy.text(CopyKey.Results, "count" to works.size.toString()), style = MaterialTheme.typography.bodySmall)
+    }
     when {
         state.catalogMode != ShellCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch)
         works.isEmpty() -> CatalogRecovery(ShellCatalogMode.Empty, copy, dispatch)
-        else -> WorkShelf(works, state, copy, dispatch)
+        else -> {
+            WorkShelf(works, state, copy, dispatch)
+            ListFooter(catalog.worksPhase, copy, dispatch)
+        }
     }
 }
 
@@ -440,8 +457,22 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
         Text(work.title, style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.semantics { heading() })
         Text(work.description)
-        Text(copy.text(CopyKey.EpisodesCount, "count" to work.episodes.size.toString()), style = MaterialTheme.typography.bodySmall)
+        UnitCount(work, copy)
     }
+    when (work.detailPhase) {
+        ShellDetailPhase.Ready -> Unit
+        ShellDetailPhase.Loading -> Text(copy.text(CopyKey.Loading), Modifier.testTag("work-loading")
+            .semantics { liveRegion = LiveRegionMode.Polite })
+        ShellDetailPhase.Failed -> CatalogRecovery(ShellCatalogMode.Error, copy, dispatch)
+        ShellDetailPhase.NotFound -> {
+            Column(Modifier.testTag("work-not-found").semantics { liveRegion = LiveRegionMode.Polite },
+                verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                Text(copy.text(CopyKey.WorkNotFound), style = MaterialTheme.typography.titleLarge)
+                Text(copy.text(CopyKey.WorkNotFoundNote))
+            }
+        }
+    }
+    if (work.detailPhase != ShellDetailPhase.Ready) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         val firstEpisode = work.episodes.firstOrNull()
         Button(shape = MaterialTheme.shapes.medium, enabled = firstEpisode != null && firstEpisode.durationSeconds > 0,
@@ -452,9 +483,21 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
         SaveWorkButton(work, state, copy, dispatch, "save-work")
     }
     Text(copy.text(CopyKey.SavedOnlyHere), style = MaterialTheme.typography.bodySmall)
-    Text(copy.text(CopyKey.Episodes), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-    if (work.episodes.isEmpty()) Text(copy.text(CopyKey.SelectionUnavailableNote))
+    Text(copy.text(if (work.unitKind == ShellUnitKind.Chapter) CopyKey.Chapters else CopyKey.Episodes),
+        style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+    if (work.episodes.isEmpty() && work.unitsPhase == ShellListPhase.Complete) {
+        Text(copy.text(CopyKey.SelectionUnavailableNote))
+    }
     work.episodes.forEach { EpisodeSelection(it, state, copy, dispatch) }
+    ListFooter(work.unitsPhase, copy, dispatch, first = work.episodes.isEmpty())
+}
+
+/** The episode or chapter count, shown only when the list is complete so it is never a partial total. */
+@Composable
+private fun UnitCount(work: ShellWork, copy: ShellCopy, color: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified) {
+    if (work.unitsPhase != ShellListPhase.Complete) return
+    Text(copy.text(if (work.unitKind == ShellUnitKind.Chapter) CopyKey.ChaptersCount else CopyKey.EpisodesCount,
+        "count" to work.episodes.size.toString()), style = MaterialTheme.typography.bodySmall, color = color)
 }
 
 @Composable
@@ -473,12 +516,11 @@ internal fun EpisodeSelection(episode: ShellEpisode, state: ShellState, copy: Sh
     ) {
         Row(Modifier.padding(tokenDp("space.inset")), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            Text(episode.index.toString(), style = MaterialTheme.typography.bodySmall)
+            if (episode.numbered) Text(episode.index.toString(), style = MaterialTheme.typography.bodySmall)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                 Text(episode.title, style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(copy.text(CopyKey.Duration, "minutes" to (episode.durationSeconds / 60).toString()),
-                    style = MaterialTheme.typography.bodySmall)
+                Text(durationCaption(episode.durationSeconds, copy), style = MaterialTheme.typography.bodySmall)
                 if (selected) Text(copy.text(CopyKey.CurrentEpisode), style = MaterialTheme.typography.bodySmall)
             }
             Icon(Icons.Outlined.PlayArrow, null)

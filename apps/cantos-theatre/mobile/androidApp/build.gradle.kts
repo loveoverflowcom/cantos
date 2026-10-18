@@ -27,6 +27,10 @@ android {
             .orElse(providers.environmentVariable("CANTOS_NATIVE_ISSUER"))
             .orElse("").get()
     }
+    sourceSets {
+        // The launcher icon, colors and launch theme are the application's; this mock host reuses them.
+        getByName("main").res.srcDir("../androidProductionApp/src/main/res")
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

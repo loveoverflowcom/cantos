@@ -112,6 +112,8 @@ class DemoAppSession(
                 ShellCatalogMode.Error -> com.cantos.theatre.application.catalog.CatalogStatus.Unavailable
             })
             ShellEvent.Retry -> container.retryCatalog()
+            // The fixed sample inventory has one complete page: nothing to extend or re-read.
+            ShellEvent.LoadMore, ShellEvent.Refresh -> Unit
             is ShellEvent.SetTheme -> container.preferences.setTheme(
                 if (event.theme == ShellTheme.Dark) PreferenceTheme.Dark else PreferenceTheme.Light)
             is ShellEvent.SetLocale -> container.preferences.setLocale(

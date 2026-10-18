@@ -27,9 +27,9 @@ enum class ShellLocale { Vietnamese, English }
 
 enum class ShellTimer { Off, Fifteen, Thirty, EndOfEpisode }
 
-enum class ShellListeningFailure { MemoryStoreUnavailable }
+enum class ShellListeningFailure { MemoryStoreUnavailable, ReleaseUnavailable }
 
-enum class PlaybackUiStatus { Idle, Loading, Paused, Simulating, Buffering, Ended }
+enum class PlaybackUiStatus { Idle, Loading, Paused, Simulating, Playing, Buffering, Ended, Failed }
 
 /** A pinned demo position. It carries no account, publication, or synchronization claim. */
 data class ShellBookmark(
@@ -222,6 +222,10 @@ sealed interface ShellEvent {
     data class Search(val query: String) : ShellEvent
     data class CatalogMode(val mode: ShellCatalogMode) : ShellEvent
     data object Retry : ShellEvent
+    /** Asks the source for the next page of whatever list the current route shows. */
+    data object LoadMore : ShellEvent
+    /** Asks the source to re-read the current list from its start. */
+    data object Refresh : ShellEvent
     data class SetTheme(val theme: ShellTheme) : ShellEvent
     data class SetLocale(val locale: ShellLocale) : ShellEvent
     data class SetSpeed(val percent: Int) : ShellEvent
@@ -235,7 +239,7 @@ fun ShellRoute.isAuth(): Boolean = this == ShellRoute.Login || this == ShellRout
 fun filteredWorks(state: ShellState, catalog: ShellCatalogView): List<ShellWork> {
     if (state.catalogMode != ShellCatalogMode.Ready) return emptyList()
     val query = state.query.trim().lowercase()
-    if (query.isEmpty()) return catalog.works
+    if (query.isEmpty() || catalog.searchedBySource) return catalog.works
     return catalog.works.filter { work ->
         work.title.lowercase().contains(query) ||
             work.category.lowercase().contains(query) ||

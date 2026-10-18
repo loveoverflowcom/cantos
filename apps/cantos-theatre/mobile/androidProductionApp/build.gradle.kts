@@ -58,6 +58,8 @@ dependencies {
     // Android-only Activity host and system Back; no media or diagnostic dependency. Catalog
     // HTTP uses the platform HttpURLConnection transport already in :shared.
     implementation("androidx.activity:activity-compose:1.10.1")
+    // Stable compat release; the launch window is the application's, not a second Activity.
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }
 
 // Inspect the resolved release graphs before any build of this host. Local projects are an

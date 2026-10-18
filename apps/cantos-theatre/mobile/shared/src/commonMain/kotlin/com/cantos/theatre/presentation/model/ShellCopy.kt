@@ -21,6 +21,7 @@ enum class CopyKey(val vi: String, val en: String, val enOne: String? = null) {
     Continue("Nghe tiếp", "Continue listening"),
     Details("Khám phá tác phẩm {title}", "Explore {title}"),
     EpisodesCount("{count} tập · Tiếng Việt", "{count} episodes · Vietnamese", "{count} episode · Vietnamese"),
+    ChaptersCount("{count} chương", "{count} chapters", "{count} chapter"),
     EpisodeLabel("Tập {index} · {title}", "Episode {index} · {title}"),
     Duration("{minutes} phút", "{minutes} minutes", "{minutes} minute"),
     Done("Xong", "Done"),
@@ -137,32 +138,16 @@ enum class CopyKey(val vi: String, val en: String, val enOne: String? = null) {
     Timer30("30 phút", "30 minutes"),
     TimerEnd("Hết tập này", "End of episode"),
     // Live public catalog (production host). Failures never name a reason the server did not give.
-    AllKinds("Tất cả", "All"),
-    CatalogSearchLabel("Tên hoặc mô tả tác phẩm", "Work title or description"),
-    CatalogSearchInvalid("Từ khóa quá dài hoặc có ký tự không hợp lệ.", "The search is too long or contains unsupported characters."),
-    CatalogQuery("{kind} · {query}", "{kind} · {query}"),
-    PersonalFeaturesUnavailable("Tài khoản, tác phẩm đã lưu và điểm nghe chưa khả dụng trong bản này. Bạn có thể xem các tác phẩm được phát hành ở Khám phá.", "Accounts, saved works and listening positions aren’t available in this version yet. You can browse released works in Discover."),
     Refresh("Làm mới", "Refresh"),
     LoadMore("Tải thêm", "Load more"),
     LoadingMore("Đang tải thêm…", "Loading more…"),
-    CatalogEmpty("Chưa có tác phẩm nào để nghe", "No works to listen to yet"),
-    CatalogEmptyNote("Khi có tác phẩm được phát hành, chúng sẽ xuất hiện ở đây.", "Released works will appear here."),
-    CatalogUnavailable("Chưa kết nối được danh sách", "The list couldn’t be reached"),
-    CatalogUnavailableNote("Kiểm tra kết nối mạng rồi thử lại.", "Check your connection and try again."),
-    CatalogFault("Danh sách đang gặp sự cố", "The list has a problem"),
-    CatalogFaultNote("Dữ liệu nhận được chưa hợp lệ. Hãy thử lại sau.", "The data received isn’t valid. Try again later."),
-    CatalogChanged("Danh sách vừa thay đổi", "The list just changed"),
-    CatalogChangedNote("Thử lại để tải tiếp từ đầu danh sách. Các mục đã hiện vẫn được giữ.", "Retry to continue from the start. Items already shown are kept."),
     NextPageFailed("Chưa tải thêm được. Các mục đã hiện vẫn được giữ.", "Couldn’t load more. Items already shown are kept."),
     WorkNotFound("Tác phẩm này hiện không mở được", "This work can’t be opened right now"),
     WorkNotFoundNote("Quay lại danh sách để chọn một tác phẩm khác.", "Go back to the list to choose another work."),
-    UnitsEmpty("Chưa có chương hoặc tập nào để nghe", "No chapters or episodes to listen to yet"),
     KindNovel("Tiểu thuyết", "Novel"),
     KindStory("Truyện", "Story"),
     KindPodcast("Podcast", "Podcast"),
     Chapters("Các chương", "Chapters"),
-    AudioLanguage("Ngôn ngữ: {language}", "Language: {language}"),
-    ListeningNotYetAvailable("Bản này chưa phát được âm thanh. Bạn vẫn có thể xem các chương và tập.", "Listening isn’t available in this version yet. You can still browse chapters and episodes."),
 }
 
 class ShellCopy(
@@ -174,7 +159,7 @@ class ShellCopy(
     fun text(key: CopyKey, vararg parameters: Pair<String, String>): String {
         val resource = overridesSnapshot[key]
         val quantityName = when (key) {
-            CopyKey.EpisodesCount, CopyKey.Results -> "count"
+            CopyKey.EpisodesCount, CopyKey.ChaptersCount, CopyKey.Results -> "count"
             CopyKey.Duration -> "minutes"
             else -> null
         }

@@ -50,8 +50,8 @@ apps/
     mobile/                Kotlin Compose Multiplatform     (production adapters + isolated demo; acceptance pending)
       shared/              Production-safe UI/domain/application, ports and non-mock adapters
       preview-sandbox/     Separate KMP mock adapters, fixtures, previews and demo hosts
-      androidApp/          Explicit demo Android host (com.cantos.theatre.demo)
-      androidProductionApp/ Production Android catalog host: :shared only     RELEASE BOUNDARY
+      androidApp/          Explicit mock sandbox host (com.cantos.theatre.demo, "Cantos Sandbox")
+      androidProductionApp/ Cantos application host (com.cantos.theatre): :shared only RELEASE BOUNDARY
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE

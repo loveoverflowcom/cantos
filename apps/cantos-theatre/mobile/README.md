@@ -18,15 +18,20 @@ The separate opt-in native identity boundary
 below never feeds authenticated data into mock state. Studio is web-only.
 
 The KMP build separates production-safe `:shared` from `:preview-sandbox`. The shared module
-owns domain/application logic, ports, non-mock adapters and the actual `CantosPresentation`
-UI with neutral immutable `ShellState`/`ShellEvent` models. The sandbox owns synthetic data,
-mock adapters, `CantosDemoApp`, diagnostic session/projector wiring and previews. It depends on
-`:shared`; shared main sources never depend back on it and provide no implicit mock factory.
-Demo hosts select the sandbox explicitly. Production Android `androidProductionApp` and iOS
-`Cantos` (`com.cantos.theatre`) compose `:shared` only. With an admitted API origin it composes the
-[live public catalog](#live-public-catalog) (browse only: no production player, progress or
-media adapter exists); otherwise it renders the explicit `CantosListeningUnavailable` state.
-It never falls back to a mock.
+owns domain/application logic, ports, non-mock adapters and the one listener experience:
+`CantosPresentation` over neutral immutable `ShellState`/`ShellEvent` models, which the Firebase
+demo already showed. Two composition roots mount it. **`CantosTheatreApp` (in `:shared`) is the
+application**: `TheatreShell` interprets the familiar controls against the live public catalog,
+the native account, the durable SQLDelight Library and the native player, and
+`projectTheatreShell` projects only those owners into the screens. The sandbox's `CantosDemoApp`
+mounts the same presentation over the mock owners for previews, tests and the explicit demo host;
+shared main sources never depend on it and provide no implicit mock factory.
+Production Android `androidProductionApp` (`com.cantos.theatre`, label **Cantos**) and iOS
+`Cantos` (`com.cantos.theatre`) compose `:shared` only. With an admitted API origin they mount
+`CantosTheatreApp`; otherwise they render the explicit `CantosListeningUnavailable` state. They
+never fall back to a mock. The mock host `androidApp` is the separately labeled
+"Cantos Sandbox" (`com.cantos.theatre.demo`); it reuses the production launcher resources.
+See [what the application reads from where](#the-application-over-real-owners).
 `cargo xtask theatre-host android-release` builds its unsigned, unshrunk release APK/AAB and
 inspects the release classpaths, DEX classes, resources and manifest; a demo APK cannot accept
 that requirement. The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)
@@ -82,8 +87,9 @@ Alternatively, put `cantos.apiOrigin` and `cantos.nativeIssuer` in an operator-o
 user-home `gradle.properties`, outside Git. Gradle properties take precedence over the
 environment, including an explicit empty value to disable identity. The selected values flow
 through manifest placeholders into `CantosApiOrigin` / `CantosNativeIssuer` application metadata.
-The package remains `com.cantos.theatre.demo`; configured identity does not replace the mock
-catalog, player or storage with production adapters.
+This mock host stays `com.cantos.theatre.demo` ("Cantos Sandbox"); configured identity does not
+replace its mock catalog, player or storage. The shipping application is `androidProductionApp`
+(`com.cantos.theatre`), which reads the same two build inputs.
 
 For iOS, the existing `CantosDemo` target's Debug and Release build settings
 `CANTOS_API_ORIGIN` / `CANTOS_NATIVE_ISSUER` default to empty. Both configurations consume the
@@ -337,9 +343,10 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
 
 To hand the **demo** APK to testers through Firebase App Distribution use the explicit
 `cargo xtask distribute firebase` workflow; see [Firebase distribution](docs/firebase-distribution.md).
-It distributes this mock only: it establishes no production readiness. The production host's
-release is unsigned and has no listening adapter (its catalog browse is debug-only today), so
-production APK/AAB distribution stays `UNSUPPORTED` (#14).
+The `demo` channel distributes this mock only. The `production` channel builds the
+`com.cantos.theatre` application (`CantosTheatreApp`); neither establishes native runtime
+acceptance, and production release distribution still needs the named app, certificate and
+recipients. A new applicationId cannot update the demo app in place: it installs beside it.
 
 Build and verification invoke `:shared:assertProductionSafeDependencies` through main compile,
 assemble and `desktopTest` dependencies. It checks resolved shared desktop compile/runtime
@@ -594,14 +601,10 @@ work list → work detail → chapter/episode list, keyed only by the server's U
   `/works?kind=...` on the server and fence the old response. Pagination and retries retain the
   exact query; refresh rereads page one. Detail refresh rereads the Work and then restarts units,
   so a withdrawn Work cannot keep its old playable-unit projection.
-- `features/catalog/presentation/PublicCatalogScreen.kt`: Compose presentation with local
-  navigation/field state and immutable catalog facts (vi/en copy in `ShellCopy`), server
-  search/kind filters, Load more, Retry, refresh,
-  empty/not-found/unavailable states and an explicit "listening not yet available" note. Existing
-  shared TextField/Button/BackButton/Badge APIs and Lavender Stage tokens are reused. Discovery,
-  Library navigation and the header Account action retain the shell's existing structure;
-  Library/Account explain their unavailable capability. No row is playable, no account is
-  inferred and no saved content is invented.
+- Catalog intents reach the presentation through `app/TheatreShell.kt`; the retired simplified
+  `PublicCatalogScreen`/`NativeCatalogScreen` surface no longer exists. Search, Load more, Retry and
+  refresh, empty/not-found/unavailable states and the cached-catalog notice are states of the
+  familiar Discover, Search and Work screens (see below).
 
 Production host origin policy: `androidProductionApp` main declares INTERNET and the explicit
 `CantosApiOrigin` metadata for both variants. Runtime admits `https://` in release; only a
@@ -713,3 +716,25 @@ package/origin/signature/version/exclusion checks. Native device/audio/force-sto
 compatibility and browser-facing identity remain acceptance gates; no device success follows
 from JVM tests or packaging. Production distribution is opt-in and requires the named app,
 certificate and recipients. Native registration/bookmarks/downloads are still unavailable.
+
+## The application over real owners
+
+`CantosTheatreApp` shows the screens the demo established — Discover, Search, Work, Player, Queue,
+Library, History, Account, Settings, Login/Register, Membership preview and the mini-player — with
+the same layout, tokens, motion and copy. `ShellCatalogView`/`ShellState` are read-only
+projections; identities are the API's lower-case UUIDs, never a sample key.
+
+| Screen / control | Real owner |
+| --- | --- |
+| Discover, Search | `PublicCatalogController` (server `works`/`search`, cursors, cached offline page) |
+| Work, chapters/episodes | `PublicCatalogController` detail + units walk; a count appears only when the walk is complete |
+| Player, mini-player, Queue, speed | `NativeListeningController`/`PlaybackController` over `AndroidMediaEngine`/`IosMediaEngine` with API-authorized grants |
+| Continue, History, Saved | `NativeLibraryController` (SQLDelight local SSOT, outbox, server sync); guests are asked to sign in |
+| Account, Login | `NativeAccountController` (Bearer session, system browser, Keystore/Keychain) |
+| Theme, language | `PreferencesController` (language persisted) |
+| Sleep timer | local to `TheatreShell`: pauses the real player after 15/30 minutes |
+
+Absent facts are absent, not invented: bookmarks have no API (the control is hidden), the Library
+API returns identities without titles (a work or unit the process has not been shown is named
+neutrally), artwork has no projection yet (the tonal placeholder remains) and an episode number is
+never derived from `position`. Gaps are tracked in the BE issues linked from the PR and #180.

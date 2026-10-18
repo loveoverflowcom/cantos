@@ -3,6 +3,7 @@ package com.cantos.theatre.app
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.window.ComposeUIViewController
 import com.cantos.theatre.adapters.http.CatalogHttpRequest
 import com.cantos.theatre.adapters.http.CatalogHttpResponse
@@ -15,7 +16,7 @@ import com.cantos.theatre.adapters.preferences.IosLocalePreferenceStore
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.preferences.PreferencesController
-import com.cantos.theatre.app.NativeCatalogScreen
+import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
 import com.cantos.theatre.adapters.library.AccountCatalogCache
 import com.cantos.theatre.adapters.library.NativeLibraryClient
@@ -102,14 +103,18 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
     }
 
 
+    /** Navigation and typed route text live with the process owners, like the catalog and runtime. */
+    private val shell = if (catalog != null && runtime != null) TheatreShell(scope, catalog, runtime, preferences) else null
+
     fun viewController(): UIViewController = ComposeUIViewController {
         val locale by preferences.state.collectAsState()
-        val ui = UiPreferences(theme = ThemeMode.System.resolve(systemIsDark = isSystemInDarkTheme()))
-        val controller = catalog
-        if (controller == null || runtime == null) CantosListeningUnavailable(ui, locale = locale.locale.toShellLocale())
-        else {
-            NativeCatalogScreen(controller, runtime, ui, locale.locale.toShellLocale(), cache = cache)
-        }
+        val dark = isSystemInDarkTheme()
+        // The theme starts from the system and follows it when it changes; otherwise it is the listener's choice.
+        remember(dark) { preferences.setTheme(if (dark) PreferenceTheme.Dark else PreferenceTheme.Light) }
+        val ui = UiPreferences(theme = ThemeMode.System.resolve(systemIsDark = dark))
+        val owner = shell
+        if (owner == null) CantosListeningUnavailable(ui, locale = locale.locale.toShellLocale())
+        else CantosTheatreApp(owner, cache = cache)
     }
 
     private fun reloadCatalogForAccount() { catalog?.dispatch(PublicCatalogIntent.AccountChanged) }
@@ -117,6 +122,7 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
     fun backgrounded() { runtime?.backgrounded() }
 
     fun close() {
+        shell?.close()
         runtime?.close()
         catalog?.close()
         scope.cancel()
