@@ -829,6 +829,12 @@ cargo xtask distribute firebase cantos-theatre --channel demo --artifact apk \
   --release-notes-file release-notes.txt
 ```
 
+Optimized demo/QA plan (the operator key and pinned certificate are needed only for a real run):
+
+```sh
+cargo xtask distribute firebase cantos-theatre --channel demo-qa --groups cantos-internal --dry-run
+```
+
 Production composition artifact plan (no Firebase app or recipient is inferred):
 
 ```sh
@@ -844,8 +850,14 @@ The operator quickstart, signing notes and acceptance checklist are in
 [Firebase distribution](../apps/cantos-theatre/mobile/docs/firebase-distribution.md).
 
 **Channel, variant and artifact are different things.** `--channel` is a distribution policy
-and is required. `demo` maps to `:androidApp:assembleDebug` (`com.cantos.theatre.demo`),
-while `production` maps to `:androidProductionApp:assembleDebug` (`com.cantos.theatre`) with
+and is required. `demo` maps to `:androidApp:assembleDebug` (`com.cantos.theatre.demo`);
+`demo-qa` maps the same host and package to the optimized, non-debuggable `qa` build type
+(`:androidApp:assembleQa`, R8 and resource shrinking, version label `-demo-qa`) and never changes
+what `demo` means. `demo-qa` needs the operator's signing key in `CANTOS_QA_KEYSTORE`,
+`CANTOS_QA_KEYSTORE_PASSWORD`, `CANTOS_QA_KEY_ALIAS` and `CANTOS_QA_KEY_PASSWORD` (presence only is
+checked; xtask never creates, prints or records a key) and a pinned
+`CANTOS_FIREBASE_DEMO_QA_CERT_SHA256`; it rejects a debuggable APK, stages the R8 mapping with the
+artifact and records its hash in the receipt (`schema_version` 2). `production` maps to `:androidProductionApp:assembleDebug` (`com.cantos.theatre`) with
 the actual native/catalog/account/Library composition and no sandbox dependency. Both are signed
 debug artifacts for device QA; the production channel does not establish store-release readiness.
 There is no Gradle flavor named demo and no `assembleDemo`. `--artifact` defaults to `apk`;
@@ -864,7 +876,8 @@ is preserved exactly. Nothing tracked is modified.
 or the separate `CANTOS_FIREBASE_PRODUCTION_APP_ID` for production,
 and the effective ID and its source are shown. There is no default project or app and no
 production fallback; an App ID is not a package name or a Firebase project ID. The optional
-`CANTOS_FIREBASE_DEMO_CERT_SHA256` rejects an APK signed with a different certificate. Production real runs require
+`CANTOS_FIREBASE_DEMO_CERT_SHA256` rejects an APK signed with a different certificate; real
+`demo-qa` runs require `CANTOS_FIREBASE_DEMO_QA_CERT_SHA256` and share the demo app ID. Production real runs require
 `CANTOS_FIREBASE_PRODUCTION_CERT_SHA256`, and an explicit HTTPS `--api-origin`; optional
 `--native-issuer` configures the existing native identity boundary. Omission pins an empty issuer
 and keeps sign-in unavailable. Production never reads demo environment variables. The CLI

@@ -686,6 +686,18 @@ mod tests {
         assert_eq!(args.groups, ["cantos-internal"]);
         assert!(args.testers.is_empty() && args.dry_run && args.app_id.is_none());
 
+        // The optimized QA lane is its own explicit value; `demo` keeps its meaning.
+        let Task::Distribute(DistributeArgs {
+            provider: Provider::Firebase(args),
+        }) = parse(
+            "distribute firebase cantos-theatre --channel demo-qa --groups cantos-internal --dry-run",
+        )
+        .unwrap()
+        else {
+            panic!("not a distribute task");
+        };
+        assert_eq!(format!("{:?}", args.channel), "DemoQa");
+
         let Task::Distribute(DistributeArgs {
             provider: Provider::Firebase(args),
         }) = parse(

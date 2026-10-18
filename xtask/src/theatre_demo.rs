@@ -105,6 +105,17 @@ pub fn android_command(workspace: &Workspace) -> CommandSpec {
     ])
 }
 
+/// The one Gradle invocation that builds the optimized demo/QA APK (R8, resource shrinking,
+/// non-debuggable). The operator's signing key reaches Gradle only through the process
+/// environment; nothing here reads, prints or records it.
+pub fn android_qa_command(workspace: &Workspace) -> CommandSpec {
+    gradle_command(workspace).args([
+        "-Pcantos.android=true",
+        "-Pandroid.builder.sdkDownload=false",
+        ":androidApp:assembleQa",
+    ])
+}
+
 /// The already installed Android SDK named by the environment, if any; never downloaded.
 pub fn android_sdk_from_environment() -> Option<PathBuf> {
     std::env::var_os("ANDROID_HOME")
