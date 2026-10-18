@@ -56,7 +56,7 @@ pub enum Task {
     /// Explicit static Web deployment of one app to Firebase Hosting (preview or live). A remote
     /// write; never invoked by build, run, verify, preflight or ci.
     Deploy(crate::deploy::DeployArgs),
-    /// Explicit remote tester distribution (Firebase App Distribution, demo APK only). A remote
+    /// Explicit remote tester distribution (Firebase App Distribution, selected Theatre QA APK). A remote
     /// write; never invoked by build, run, verify, preflight or ci.
     Distribute(crate::distribute::DistributeArgs),
     /// Studio Kanidm operator plan or read-only OIDC metadata check; no automatic bootstrap.
@@ -634,7 +634,7 @@ mod tests {
         assert!(matches!(
             parse("theatre-host android-debug --api-origin http://127.0.0.1:8080").unwrap(),
             Task::TheatreHost {
-                action: HostAction::AndroidDebug { api_origin }
+                action: HostAction::AndroidDebug { api_origin, native_issuer: None }
             } if api_origin == "http://127.0.0.1:8080"
         ));
         assert!(matches!(

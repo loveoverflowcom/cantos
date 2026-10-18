@@ -3,7 +3,11 @@ import Security
 import CryptoKit
 import AuthenticationServices
 import UIKit
+#if CANTOS_PRODUCTION
+import CantosTheatre
+#else
 import CantosTheatreDemo
+#endif
 import Darwin
 
 enum TheatreCredentialError: Error { case unavailable, denied, corrupt }
@@ -97,7 +101,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
         guard let url = URL(string: request.url), let origin = URL(string: apiOrigin),
               url.scheme == "https", url.host == origin.host, url.port == origin.port,
               url.user == nil, url.password == nil, url.fragment == nil,
-              ["GET", "POST", "DELETE"].contains(request.method) else {
+              ["GET", "POST", "PUT", "DELETE"].contains(request.method) else {
             _ = completion(NativeHttpResponse(status: 0, contentType: nil, body: nil, failure: "configuration", actualSession: nil)); return
         }
         let config = URLSessionConfiguration.ephemeral
@@ -144,7 +148,11 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
 
 /// Swift boundary is injected into one shared CMP owner; foreign errors become closed outcomes.
 @MainActor final class TheatreNativePlatform: NSObject, IosIdentityPlatform {
+    #if CANTOS_PRODUCTION
+    weak var owner: IosNativeIdentityOwner?
+    #else
     weak var owner: IosNativeOwner?
+    #endif
     private let apiOrigin: String
     private let credentials = TheatreCredentialStore()
     private lazy var barrier = try? TheatreLogoutBarrier()

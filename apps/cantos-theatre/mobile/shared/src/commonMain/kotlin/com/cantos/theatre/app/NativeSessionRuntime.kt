@@ -1,0 +1,118 @@
+package com.cantos.theatre.app
+
+import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.library.NativeLibraryController
+import com.cantos.theatre.application.playback.NativeListeningController
+import com.cantos.theatre.domain.library.ProgressIntent
+import com.cantos.theatre.domain.playback.PlaybackEngine
+import com.cantos.theatre.domain.playback.PlaybackPauseCause
+import com.cantos.theatre.domain.playback.PlaybackEvent
+import com.cantos.theatre.domain.playback.PlaybackIntent
+import com.cantos.theatre.domain.playback.PlaybackState
+import com.cantos.theatre.domain.playback.PlaybackStatus
+import com.cantos.theatre.ports.PlaybackAccessPort
+import com.cantos.theatre.ports.StreamingMediaEngine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+
+/** Platform composition retains this for the process, independent of screen navigation. */
+class NativeSessionRuntime(
+    scope: CoroutineScope,
+    nativeFactory: ((PlaybackEvent) -> Unit) -> StreamingMediaEngine,
+    access: PlaybackAccessPort,
+    val account: NativeAccountController?,
+    val library: NativeLibraryController?,
+    newUuid: () -> String,
+    nowMs: () -> Long,
+    private val onAccountChanged: (String?) -> Unit = {},
+) {
+    val listening: NativeListeningController
+    private var started = false
+    private var restartPending = false
+    private var engineSession = newUuid()
+    private val accountJob: Job?
+
+    init {
+        lateinit var owner: NativeListeningController
+        val engine = nativeFactory { owner.playback.dispatch(it) }
+        owner = NativeListeningController(scope, engine, access, nowMs) { before, after ->
+            val audio = after.session?.source?.audio
+            val restored = before.generation != after.generation &&
+                after.session?.intent == PlaybackIntent.Pause(PlaybackPauseCause.ColdRestore)
+            val restarting = before.session?.engine == PlaybackEngine.Ended &&
+                after.session?.engine == PlaybackEngine.Preparing && after.session.intent == PlaybackIntent.Play
+            val retrying = before.session?.failure != null && after.session?.failure == null &&
+                after.session?.intent == PlaybackIntent.Play
+            if (before.session?.source != after.session?.source || restored || restarting || retrying) {
+                started = false
+                restartPending = restarting
+                engineSession = newUuid()
+            }
+            // Read authority synchronously as well as observing it: logout fences the very next
+            // engine callback even before the session collector gets its next turn.
+            val actor = account?.verifiedSession?.value?.session?.actor
+            if (actor != null && library?.state?.value?.account == actor && audio != null) {
+                if (after.status == PlaybackStatus.Playing && !started) {
+                    started = true
+                    library.engineStarted(audio, engineSession)
+                    if (restartPending) {
+                        library.progressCheckpoint(audio, 0, ProgressIntent.Restart, force = true)
+                        restartPending = false
+                    }
+                }
+                if (started) checkpoint(before, after)
+            }
+        }
+        listening = owner
+        accountJob = account?.let { identity -> scope.launch {
+            identity.verifiedSession.collect { verified ->
+                onAccountChanged(verified?.session?.actor)
+                listening.cancelSelection()
+                if (verified == null) {
+                    library?.leave()
+                    listening.playback.dispatch(PlaybackEvent.SessionCleared)
+                } else {
+                    library?.enter(verified.session, verified.bearer)
+                    library?.state?.value?.restoredPaused?.let { saved ->
+                        listening.restore(saved.audio, saved.positionMs, saved.speedPermille)
+                    }
+                }
+                started = false
+                restartPending = false
+                engineSession = newUuid()
+            }
+        } }
+        // API validation precedes every account-owned database read or replay.
+        account?.restore()
+    }
+
+    private fun checkpoint(before: PlaybackState, after: PlaybackState) {
+        val session = after.session ?: return
+        val audio = session.source.audio ?: return
+        val seekAcknowledged = before.session?.pendingPositionMs != null && session.pendingPositionMs == null
+        val paused = before.session?.intent == PlaybackIntent.Play && session.intent is PlaybackIntent.Pause
+        val speedChanged = before.session?.speedPermille != session.speedPermille
+        if (speedChanged) library?.savePlaybackSettings(audio, session.speedPermille)
+        if (session.pendingPositionMs == null && (before.session?.positionMs != session.positionMs || paused || speedChanged)) {
+            library?.progressCheckpoint(audio, session.positionMs,
+                if (seekAcknowledged) ProgressIntent.ExplicitSeek else ProgressIntent.Checkpoint,
+                force = seekAcknowledged || paused || speedChanged)
+        }
+    }
+
+    fun backgrounded() {
+        val session = listening.playback.state.value.session ?: return
+        val audio = session.source.audio ?: return
+        if (started && account?.verifiedSession?.value?.session?.actor == library?.state?.value?.account) {
+            library?.progressCheckpoint(audio, session.positionMs, force = true)
+        }
+    }
+
+    fun close() {
+        accountJob?.cancel()
+        listening.close()
+        library?.close()
+        account?.close()
+    }
+}

@@ -955,7 +955,19 @@ def theatre_production_modules(root):
             for path in paths:
                 own_main = re.fullmatch(r"src/\w+Main/(?:kotlin|resources|composeResources)", path)
                 canonical_ui = module == ":shared" and path == "../../../packages/ui-system/cmp/src/commonMain/kotlin"
-                if not own_main and not canonical_ui:
+                containing = [(start, end, name) for start, end, name in main_blocks if start < offset < end]
+                source_set = min(containing, key=lambda span: span[1] - span[0])[2] if containing else None
+                # One reviewed production codegen route: Library schema types only. Fixtures are
+                # generated into a separate commonTest directory, never admitted by this exception.
+                # The literal output and compile dependency remain inspectable without Gradle.
+                library_wire = (
+                    module == ":shared" and source_set == "commonMain"
+                    and path == "generated/libraryWire/commonMain/kotlin"
+                    and re.fullmatch(r'layout\s*\.\s*buildDirectory\s*\.\s*dir\s*\(\s*"generated/libraryWire/commonMain/kotlin"\s*\)', arguments.strip())
+                    and re.search(r'\bkotlin\s*\.\s*$', main[:offset])
+                    and re.search(r'\bdependsOn\s*\(\s*generateLibraryWire\s*\)', source_text(main, keep_strings=False))
+                )
+                if not own_main and not canonical_ui and not library_wire:
                     errors.append(f"{file.relative_to(root)}: main source routing needs an explicit production policy: {path}")
                 if canonical_ui:
                     containing = [(start, end) for start, end, _ in main_blocks if start < offset < end]

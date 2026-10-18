@@ -221,3 +221,5 @@ See [ADR0036](docs/decisions/0036-firebase-enrollment-proof.md), the
 [runtime evidence](docs/evidence/firebase-enrollment-runtime.md). Scoped local SQL checks use
 `cargo xtask verify postgres --suite theatre-firebase`; they do not replace the full gate or
 accept real email, credentials, origins or component qualification.
+
+The [native step-2 ledger](docs/evidence/theatre-native-step2.md) owns current player/account/Library/SQLDelight implementation and exact per-platform acceptance gaps. It depends on unmerged #247; public catalog/media evidence from step1 never substitutes for installed native audio, identity or cross-client sync acceptance.

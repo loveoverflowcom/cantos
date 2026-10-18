@@ -29,6 +29,11 @@ sealed interface NativeAccountState {
     data object CleanupRequired : NativeAccountState
 }
 
+/** API-confirmed native authority. Keep it inside application owners, never UI or saved state. */
+class NativeVerifiedSession internal constructor(val session: NativeSession, val bearer: String) {
+    override fun toString(): String = "NativeVerifiedSession([redacted])"
+}
+
 /** One process/main-dispatcher owner. No automatic restore; every foreign result is fenced. */
 class NativeAccountController(
     private val scope: CoroutineScope,
@@ -44,6 +49,8 @@ class NativeAccountController(
     private val accounts = AccountLifecycle()
     private val mutableState = MutableStateFlow<NativeAccountState>(NativeAccountState.SignedOut)
     val state: StateFlow<NativeAccountState> = mutableState.asStateFlow()
+    private val mutableVerifiedSession = MutableStateFlow<NativeVerifiedSession?>(null)
+    val verifiedSession: StateFlow<NativeVerifiedSession?> = mutableVerifiedSession.asStateFlow()
     private var generation = 0L
     private var refreshGeneration = 0L
     private var job: Job? = null
@@ -55,6 +62,7 @@ class NativeAccountController(
         if (barrier.read() != LogoutBarrierRead.Clear) mutableState.value = NativeAccountState.CleanupRequired
     }
     private fun advance(): Long? {
+        mutableVerifiedSession.value = null
         if (closed || generation == Long.MAX_VALUE) {
             mutableState.value = NativeAccountState.Failed(NativeAccountFailure.Exhausted); return null
         }
@@ -67,7 +75,7 @@ class NativeAccountController(
         return generation
     }
     private fun current(issued: Long): Boolean = !closed && generation == issued
-    private fun fail(reason: NativeAccountFailure) { mutableState.value = NativeAccountState.Failed(reason) }
+    private fun fail(reason: NativeAccountFailure) { mutableVerifiedSession.value = null; mutableState.value = NativeAccountState.Failed(reason) }
     /** Marker precedes the first effect; unknown revoke outcomes retain the exact credential. */
     private suspend fun cleanup(issued: Long): Boolean {
         val previousBarrier = barrier.read()
@@ -166,6 +174,7 @@ class NativeAccountController(
         if (accounts.enter(account) != null) { fail(NativeAccountFailure.Exhausted); return }
         credential = token
         cleanupCredential = null
+        mutableVerifiedSession.value = NativeVerifiedSession(session, token)
         mutableState.value = NativeAccountState.SignedIn(session.actor, session.expiresAt)
     }
     /** Explicit user action; a local credential alone never establishes an account. */
@@ -184,6 +193,27 @@ class NativeAccountController(
             }
         }
     }
+    /** A resource fence mismatch hides projections before rechecking the exact credential.
+     * An old response may never revoke or replace a newer account/session. */
+    fun revalidate(expectedSession: String) {
+        val previous = mutableVerifiedSession.value ?: return
+        if (previous.session.session != expectedSession) return
+        val actor = previous.session.actor
+        val token = previous.bearer
+        val issued = advance() ?: return
+        mutableState.value = NativeAccountState.Pending
+        job = scope.launch {
+            when (val result = api.session(token)) {
+                is NativeApiResult.Refused -> if (current(issued)) {
+                    fail(if (result.reason == NativeApiFailure.Unauthorized) NativeAccountFailure.Expired else NativeAccountFailure.Api)
+                }
+                is NativeApiResult.Accepted -> if (current(issued)) {
+                    if (result.value.actor != actor) fail(NativeAccountFailure.Protocol)
+                    else establish(result.value, token, issued)
+                }
+            }
+        }
+    }
     fun refreshSaved() {
         val token = credential ?: return
         val fence = accounts.fence() ?: return
@@ -196,7 +226,7 @@ class NativeAccountController(
         job = scope.launch {
             when (val result = api.saved(token, fence.session.session)) {
                 is NativeApiResult.Refused -> if (current(issued) && refreshGeneration == requested && accounts.accepts(fence)) {
-                    accounts.leave(); credential = null
+                    accounts.leave(); credential = null; mutableVerifiedSession.value = null
                     if (result.reason == NativeApiFailure.SessionChanged) {
                         mutableState.value = NativeAccountState.Pending
                         when (val fresh = api.session(token)) {

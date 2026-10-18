@@ -17,6 +17,14 @@ fun reducePlayback(state: PlaybackState, event: PlaybackEvent): PlaybackTransiti
         PlaybackPauseCause.ColdRestore,
         restore = true,
     )
+    PlaybackEvent.SessionCleared -> {
+        val old = state.session
+        if (old == null) unchanged(state)
+        else {
+            val next = PlaybackState(if (state.generation == MAX_PLAYBACK_GENERATION) state.generation else state.generation + 1)
+            PlaybackTransition(next, listOf(PlaybackEffect.PauseEngine(command(next, old).copy(clearSession = true))))
+        }
+    }
     PlaybackEvent.PlayRequested -> requestPlay(state)
     PlaybackEvent.PauseRequested -> requestPause(state)
     is PlaybackEvent.SeekRequested -> seek(state, event.positionMs)
@@ -51,6 +59,9 @@ fun reducePlayback(state: PlaybackState, event: PlaybackEvent): PlaybackTransiti
         }
     }
     is PlaybackEvent.EnginePosition -> enginePosition(state, event)
+    is PlaybackEvent.EngineFailed -> callback(state, event.identity) { session ->
+        session.copy(engine = PlaybackEngine.Paused, failure = event.failure)
+    }
     is PlaybackEvent.EngineEnded -> callback(state, event.identity) { session ->
         session.copy(
             positionMs = session.source.durationMs,
@@ -69,7 +80,7 @@ private fun command(state: PlaybackState, session: PlaybackSession): PlaybackEng
     PlaybackEngineCommand(
         identity = PlaybackIdentity.fromState(session.source, state),
         source = session.source,
-        positionMs = session.positionMs,
+        positionMs = session.pendingPositionMs ?: session.positionMs,
         speedPermille = session.speedPermille,
     )
 
@@ -109,10 +120,11 @@ private fun loadSource(
 private fun requestPlay(state: PlaybackState): PlaybackTransition {
     val session = state.session ?: return rejected(state, PlaybackRejection.NoSession)
     if (session.interruption == PlaybackInterruption.Active) return rejected(state, PlaybackRejection.Interrupted)
-    if (session.intent == PlaybackIntent.Play && session.engine != PlaybackEngine.Ended) return unchanged(state)
+    if (session.intent == PlaybackIntent.Play && session.engine != PlaybackEngine.Ended && session.failure == null) return unchanged(state)
     val nextSession = session.copy(
         positionMs = if (session.positionMs == session.source.durationMs) 0 else session.positionMs,
         intent = PlaybackIntent.Play,
+        failure = null,
         engine = PlaybackEngine.Preparing,
     )
     return replaceWithCommand(state, nextSession, PlaybackEffect::StartEngine)
@@ -134,7 +146,9 @@ private fun seek(state: PlaybackState, positionMs: Long): PlaybackTransition {
     val session = state.session ?: return rejected(state, PlaybackRejection.NoSession)
     if (positionMs !in 0..session.source.durationMs) return rejected(state, PlaybackRejection.OutOfBounds)
     if (positionMs == session.positionMs) return unchanged(state)
-    val nextSession = session.copy(positionMs = positionMs)
+    val nextSession = if (session.source.audio == null) session.copy(positionMs = positionMs)
+        else session.copy(pendingPositionMs = positionMs,
+            engine = if (session.intent == PlaybackIntent.Play) PlaybackEngine.Preparing else session.engine)
     return replaceWithCommand(state, nextSession) { engineCommand ->
         when (session.engine) {
             PlaybackEngine.Preparing -> when (session.intent) {
@@ -199,5 +213,5 @@ private fun enginePosition(state: PlaybackState, event: PlaybackEvent.EnginePosi
     val session = state.session ?: return unchanged(state)
     if (!state.accepts(event.identity)) return unchanged(state)
     if (event.positionMs !in 0..session.source.durationMs) return rejected(state, PlaybackRejection.OutOfBounds)
-    return callback(state, event.identity) { it.copy(positionMs = event.positionMs) }
+    return callback(state, event.identity) { it.copy(positionMs = event.positionMs, pendingPositionMs = null) }
 }

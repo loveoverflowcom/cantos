@@ -1,9 +1,8 @@
 //! The production Theatre Android host. Unlike `theatre-demo`, it composes `:shared` only and
 //! has no mock, sample or diagnostic fallback. `android-release` builds an unsigned, unshrunk
 //! release APK and AAB and inspects the actual bytes; `android-debug` builds the debug APK pointed
-//! at one development API origin for the live public catalog. Release may pin an HTTPS API.
-//! Neither signs, installs or
-//! distributes anything.
+//! at one explicit API origin for the production composition. Release may pin an HTTPS API.
+//! Debug uses the Android debug signer. Neither installs nor distributes anything.
 
 use std::{
     path::{Path, PathBuf},
@@ -37,17 +36,23 @@ const SANDBOX_CLASSES: &str = "preview-sandbox/build/tmp/kotlin-classes/release"
 const SANDBOX_RESOURCES: &str = "preview-sandbox/src/commonMain/composeResources";
 const COMPOSE_RESOURCE_PACKAGE: &str = "com.cantos.theatre.resources";
 /// Production classes whose absence would make a finding-free inspection vacuous.
-const REQUIRED_CLASSES: [&str; 5] = [
+const REQUIRED_CLASSES: [&str; 8] = [
     "Lcom/cantos/theatre/app/TheatreActivity;",
     "Lcom/cantos/theatre/app/AppContainer;",
     "Lcom/cantos/theatre/features/launch/presentation/CantosListeningUnavailableKt;",
     "Lcom/cantos/theatre/app/LiveCatalogHostKt;",
     "Lcom/cantos/theatre/features/catalog/presentation/PublicCatalogScreenKt;",
+    "Lcom/cantos/theatre/features/auth/presentation/NativeAccountPanelKt;",
+    "Lcom/cantos/theatre/adapters/playback/AndroidMediaEngine;",
+    "Lcom/cantos/theatre/adapters/playback/CantosPlaybackService;",
 ];
 /// Anonymous catalog transport needs INTERNET; no account or playback capability is implied.
-const ALLOWED_PERMISSIONS: [&str; 2] = [
+const ALLOWED_PERMISSIONS: [&str; 5] = [
     "com.cantos.theatre.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
     "android.permission.INTERNET",
+    "android.permission.WAKE_LOCK",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
@@ -66,6 +71,9 @@ pub enum HostAction {
         /// `https://` origin; no path, query, credentials or other cleartext host.
         #[arg(long, value_name = "ORIGIN")]
         api_origin: String,
+        /// Optional exact HTTPS public issuer. No privileged provider API is called by the app.
+        #[arg(long, value_name = "ISSUER")]
+        native_issuer: Option<String>,
     },
     /// Link the shared-only iOS simulator frameworks with installed Kotlin/Native and Xcode.
     IosBuild {
@@ -103,6 +111,17 @@ pub fn prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static s
     Ok(())
 }
 
+pub fn validate_native_issuer(api_origin: &str, issuer: &str) -> Result<(), String> {
+    validate_release_api_origin(api_origin)?;
+    let base = issuer
+        .strip_suffix("/oauth2/openid/cantos-theatre-native")
+        .filter(|_| issuer.len() <= 2048)
+        .ok_or_else(|| {
+            "--native-issuer needs the exact cantos-theatre-native issuer path".to_owned()
+        })?;
+    validate_release_api_origin(base)
+}
+
 /// Builds only the production host's release outputs. Its `preBuild` also enforces the
 /// resolved release-classpath boundary; the sandbox is compiled solely as an inventory.
 pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> CommandSpec {
@@ -111,7 +130,10 @@ pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> Co
         "-Pandroid.builder.sdkDownload=false",
     ]);
     // An explicit empty property also overrides ambient Gradle/environment configuration.
-    command = command.args([format!("-Pcantos.apiOrigin={}", origin.unwrap_or_default())]);
+    command = command.args([
+        format!("-Pcantos.apiOrigin={}", origin.unwrap_or_default()),
+        "-Pcantos.nativeIssuer=".to_owned(),
+    ]);
     command.args([
         ":androidProductionApp:assertReleaseDependencyBoundary",
         ":androidProductionApp:assembleRelease",
@@ -139,6 +161,7 @@ pub fn validate_api_origin(origin: &str) -> Result<(), String> {
         None => (authority, None),
     };
     let host_ok = !host.is_empty()
+        && !host.contains("..")
         && !host.starts_with(['.', '-'])
         && !host.ends_with(['.', '-'])
         && host
@@ -160,12 +183,23 @@ pub fn validate_api_origin(origin: &str) -> Result<(), String> {
 }
 
 /// Builds only the production host's debug APK with the given origin; never installs it.
+#[cfg(test)]
 pub fn gradle_debug_command(workspace: &Workspace, origin: &str) -> CommandSpec {
+    gradle_debug_identity_command(workspace, origin, None)
+}
+
+pub fn gradle_debug_identity_command(
+    workspace: &Workspace,
+    origin: &str,
+    issuer: Option<&str>,
+) -> CommandSpec {
     theatre_demo::gradle_command(workspace).args([
         "-Pcantos.android=true".to_owned(),
         "-Pandroid.builder.sdkDownload=false".to_owned(),
         format!("-Pcantos.apiOrigin={origin}"),
+        format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
         ":androidProductionApp:assembleDebug".to_owned(),
+        ":preview-sandbox:compileReleaseKotlinAndroid".to_owned(),
     ])
 }
 
@@ -208,10 +242,51 @@ pub fn inspection_command(workspace: &Workspace, sdk: &str, origin: Option<&str>
         args.extend(["--allowed-permission".to_owned(), permission.to_owned()]);
     }
     args.extend([
+        "--allowed-component".to_owned(),
+        "com.cantos.theatre.adapters.playback.CantosPlaybackService".to_owned(),
+    ]);
+    args.extend([
         "--api-origin".to_owned(),
         origin.unwrap_or_default().to_owned(),
     ]);
     CommandSpec::new("python3", workspace.root()).args(args)
+}
+
+/// Debug-signing is checked by the distribution coordinator. This proves the actual production
+/// APK composition and requested public configuration before installation or upload.
+pub fn debug_inspection_command(
+    workspace: &Workspace,
+    sdk: &str,
+    apk: &Path,
+    origin: &str,
+    issuer: Option<&str>,
+) -> CommandSpec {
+    let mut command = inspection_command(workspace, sdk, Some(origin));
+    let mut args = Vec::new();
+    let mut source = command.args.into_iter();
+    while let Some(arg) = source.next() {
+        match arg.as_str() {
+            "--aab" => {
+                source.next();
+            }
+            "--apk" => {
+                source.next();
+                args.extend([arg, apk.to_string_lossy().into_owned()]);
+            }
+            "--report" => {
+                source.next();
+                args.extend([arg, format!("{THEATRE_MOBILE_DIR}/androidProductionApp/build/reports/release-boundary/debug-artifact-inspection.txt")]);
+            }
+            _ => args.push(arg),
+        }
+    }
+    args.extend([
+        "--debug-apk".to_owned(),
+        "--native-issuer".to_owned(),
+        issuer.unwrap_or_default().to_owned(),
+    ]);
+    command.args = args;
+    command
 }
 
 fn unsupported(subject: &str, reason: &str) -> ExitCode {
@@ -257,26 +332,79 @@ pub fn execute(
             report.print();
             Ok(report.exit_code())
         }
-        HostAction::AndroidDebug { api_origin } => {
+        HostAction::AndroidDebug {
+            api_origin,
+            native_issuer,
+        } => {
             if let Err(message) = validate_api_origin(&api_origin) {
                 eprintln!("xtask: error: {message}");
                 return Ok(ExitCode::from(2));
+            }
+            if let Some(issuer) = &native_issuer {
+                if let Err(message) = validate_native_issuer(&api_origin, issuer) {
+                    eprintln!("xtask: error: {message}");
+                    return Ok(ExitCode::from(2));
+                }
             }
             let sdk = theatre_demo::android_sdk_from_environment();
             if let Err(reason) = prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref()) {
                 return Ok(unsupported("Theatre production Android debug", reason));
             }
-            let steps = vec![Step::new(
-                "Theatre production Android debug build (live catalog origin)",
-                &tools(),
-                vec![gradle_debug_command(workspace, &api_origin)],
-            )];
+            let sdk_text = sdk.as_deref().and_then(Path::to_str).unwrap_or_default();
+            let apksigner = Path::new(sdk_text)
+                .join(ANDROID_BUILD_TOOLS)
+                .join("apksigner");
+            if !theatre_demo::local_executable(&apksigner) {
+                return Ok(unsupported("Theatre production Android debug", "Android build-tools has no executable apksigner; signed artifact inspection requires it"));
+            }
+            let debug_apk = workspace.path(&format!("{THEATRE_MOBILE_DIR}/{DEBUG_APK}"));
+            let steps = vec![
+                Step::new(
+                    "Theatre production Android debug build",
+                    &tools(),
+                    vec![gradle_debug_identity_command(
+                        workspace,
+                        &api_origin,
+                        native_issuer.as_deref(),
+                    )],
+                ),
+                Step::new(
+                    "Theatre production Android debug inspection",
+                    &[Tool::Python3],
+                    vec![
+                        debug_inspection_command(
+                            workspace,
+                            sdk_text,
+                            &debug_apk,
+                            &api_origin,
+                            native_issuer.as_deref(),
+                        ),
+                        CommandSpec::new(apksigner.to_string_lossy(), workspace.root()).args([
+                            "verify".to_owned(),
+                            "--print-certs".to_owned(),
+                            "-v".to_owned(),
+                            debug_apk.to_string_lossy().into_owned(),
+                        ]),
+                        CommandSpec::new(
+                            Path::new(sdk_text)
+                                .join(ANDROID_BUILD_TOOLS)
+                                .join("aapt2")
+                                .to_string_lossy(),
+                            workspace.root(),
+                        )
+                        .args([
+                            "dump".to_owned(),
+                            "badging".to_owned(),
+                            debug_apk.to_string_lossy().into_owned(),
+                        ]),
+                    ],
+                ),
+            ];
             let mut report = pipeline::execute("theatre-host", &steps, tool_probe, runner);
             if report.succeeded() {
                 report.note(format!(
                     "APK: {THEATRE_MOBILE_DIR}/{DEBUG_APK}; install it yourself with `adb install -r` \
-                     and, for a loopback origin, `adb reverse tcp:PORT tcp:PORT`. Catalog browse only: \
-                     playback, progress and identity are not composed"
+                     and, for a loopback origin, `adb reverse tcp:PORT tcp:PORT`. Runtime acceptance is separate"
                 ));
             }
             report.print();
@@ -356,6 +484,7 @@ mod tests {
             "-Pcantos.android=true".to_owned(),
             "-Pandroid.builder.sdkDownload=false".to_owned(),
             "-Pcantos.apiOrigin=".to_owned(),
+            "-Pcantos.nativeIssuer=".to_owned(),
             ":androidProductionApp:assertReleaseDependencyBoundary".to_owned(),
             ":androidProductionApp:assembleRelease".to_owned(),
             ":androidProductionApp:bundleRelease".to_owned(),
@@ -386,14 +515,22 @@ mod tests {
             "-Pcantos.android=true".to_owned(),
             "-Pandroid.builder.sdkDownload=false".to_owned(),
             "-Pcantos.apiOrigin=http://127.0.0.1:8080".to_owned(),
+            "-Pcantos.nativeIssuer=".to_owned(),
             ":androidProductionApp:assembleDebug".to_owned(),
+            ":preview-sandbox:compileReleaseKotlinAndroid".to_owned(),
         ]));
         let tasks: Vec<_> = command
             .args
             .iter()
             .filter(|arg| arg.starts_with(':'))
             .collect();
-        assert_eq!(tasks, [":androidProductionApp:assembleDebug"]);
+        assert_eq!(
+            tasks,
+            [
+                ":androidProductionApp:assembleDebug",
+                ":preview-sandbox:compileReleaseKotlinAndroid"
+            ]
+        );
     }
 
     #[test]

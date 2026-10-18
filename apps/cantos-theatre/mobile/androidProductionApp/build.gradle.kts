@@ -25,6 +25,9 @@ android {
         manifestPlaceholders["cantosApiOrigin"] = providers.gradleProperty("cantos.apiOrigin")
             .orElse(providers.environmentVariable("CANTOS_API_ORIGIN"))
             .orElse("").get()
+        manifestPlaceholders["cantosNativeIssuer"] = providers.gradleProperty("cantos.nativeIssuer")
+            .orElse(providers.environmentVariable("CANTOS_NATIVE_ISSUER"))
+            .orElse("").get()
     }
     buildTypes {
         release {

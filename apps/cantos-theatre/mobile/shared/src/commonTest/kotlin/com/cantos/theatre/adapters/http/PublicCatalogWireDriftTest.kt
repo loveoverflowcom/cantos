@@ -23,6 +23,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -49,9 +50,11 @@ class PublicCatalogWireDriftTest {
         "UnitSummary" to UnitSummaryWire.serializer(),
         "UnitPage" to UnitPageWire.serializer(),
         "ListenerError" to ListenerErrorWire.serializer(),
+        "PublicationManifest" to ManifestWire.serializer(),
+        "PlaybackAuthorization" to PlaybackGrantWire.serializer(),
     )
 
-    private enum class Shape { WorkPage, UnitPage, ListenerError, OutOfScope }
+    private enum class Shape { WorkPage, UnitPage, ListenerError, Manifest }
 
     /** Every shared fixture must be classified; a new file fails until reviewed. */
     private val fixtureShapes = mapOf(
@@ -66,8 +69,7 @@ class PublicCatalogWireDriftTest {
         "invalid_request.json" to Shape.ListenerError,
         "unavailable.json" to Shape.ListenerError,
         "rendition_unavailable.json" to Shape.ListenerError,
-        // PublicationManifest/playback are not consumed by this slice: no production player exists.
-        "manifest.json" to Shape.OutOfScope,
+        "manifest.json" to Shape.Manifest,
     )
 
     private fun definition(name: String): JsonObject = defs.getValue(name).jsonObject
@@ -107,9 +109,21 @@ class PublicCatalogWireDriftTest {
                 val shape = alternatives?.single { it["type"]?.jsonPrimitive?.content != "null" } ?: property
                 val enumValues = shape["enum"]?.jsonArray?.map { it.jsonPrimitive.content }
                 when {
+                    shape["const"] != null -> {
+                        val constant = shape.getValue("const").jsonPrimitive
+                        val kind = when { constant.isString -> PrimitiveKind.STRING
+                            constant.booleanOrNull != null -> PrimitiveKind.BOOLEAN
+                            else -> PrimitiveKind.LONG }
+                        assertEquals(kind, element.kind, "$label constant wire type")
+                    }
                     enumValues != null -> {
-                        assertEquals(SerialKind.ENUM, element.kind, "$label is an enum")
-                        assertEquals(enumValues, element.elementNames.toList(), "$label enum values and order")
+                        if (name == "PublicationManifest" && field == "profile_id") {
+                            assertEquals(PrimitiveKind.STRING, element.kind, "$label validated by playback adapter")
+                            assertEquals(listOf("opus-mono-20-v1", "opus-mono-24-v1", "opus-mono-32-v1", "opus-mono-40-v1"), enumValues)
+                        } else {
+                            assertEquals(SerialKind.ENUM, element.kind, "$label is an enum")
+                            assertEquals(enumValues, element.elementNames.toList(), "$label enum values and order")
+                        }
                     }
                     else -> when (val type = shape.getValue("type").jsonPrimitive.content) {
                         "string" -> assertEquals(PrimitiveKind.STRING, element.kind, label)
@@ -166,7 +180,7 @@ class PublicCatalogWireDriftTest {
                 Shape.WorkPage -> assertRoundTrip(WorkPageWire.serializer(), json, file)
                 Shape.UnitPage -> assertRoundTrip(UnitPageWire.serializer(), json, file)
                 Shape.ListenerError -> assertRoundTrip(ListenerErrorWire.serializer(), json, file)
-                Shape.OutOfScope -> Unit
+                Shape.Manifest -> assertRoundTrip(ManifestWire.serializer(), json, file)
             }
         }
     }

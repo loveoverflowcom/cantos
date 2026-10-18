@@ -15,7 +15,16 @@ import com.cantos.theatre.adapters.preferences.IosLocalePreferenceStore
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.preferences.PreferencesController
-import com.cantos.theatre.features.catalog.presentation.PublicCatalogScreen
+import com.cantos.theatre.app.NativeCatalogScreen
+import com.cantos.theatre.adapters.http.PlaybackAccessHttp
+import com.cantos.theatre.adapters.library.AccountCatalogCache
+import com.cantos.theatre.adapters.library.NativeLibraryClient
+import com.cantos.theatre.adapters.library.iosLibraryStore
+import com.cantos.theatre.adapters.playback.IosMediaDriver
+import com.cantos.theatre.adapters.playback.IosMediaEngine
+import com.cantos.theatre.adapters.library.nativeLibraryController
+import platform.Foundation.NSDate
+import platform.Foundation.NSUUID
 import com.cantos.theatre.features.launch.presentation.CantosListeningUnavailable
 import com.cantos.theatre.ports.NativeRequestHandle
 import com.cantos.ui.ThemeMode
@@ -58,28 +67,57 @@ private class IosCatalogTransport(private val platform: IosCatalogPlatform) : Ca
 }
 
 /** Process-owned production catalog. A cold empty catalog creates no playback or demo state. */
-class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform) {
+class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
+                      identity: IosNativeIdentityOwner, identityPlatform: IosIdentityPlatform,
+                      mediaDriver: IosMediaDriver, applicationSupportDirectory: String) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val preferences = PreferencesController(localePreferenceStore = IosLocalePreferenceStore())
-    private val catalog = when (val origin = selectCatalogOrigin(apiOrigin, allowLoopbackHttp = false)) {
+    private val selectedOrigin = selectCatalogOrigin(apiOrigin, allowLoopbackHttp = false)
+    private var accountScope: String? = null
+    private val store = (selectedOrigin as? CatalogOriginSelection.Configured)?.let {
+        // Foreign database initialization is contained at the host; public discovery remains usable.
+        try { iosLibraryStore(applicationSupportDirectory) } catch (_: Exception) { null }
+    }
+    private val cache = store?.let { AccountCatalogCache(it) { accountScope } }
+    private val catalog = when (val origin = selectedOrigin) {
         is CatalogOriginSelection.Configured -> PublicCatalogController(scope,
-            PublicCatalogHttpAdapter(origin.origin, IosCatalogTransport(platform)))
+            PublicCatalogHttpAdapter(origin.origin, IosCatalogTransport(platform), cache), { cache?.invalidate() })
             .also { it.dispatch(PublicCatalogIntent.Start) }
         CatalogOriginSelection.NotConfigured, CatalogOriginSelection.Rejected -> null
     }
+    private val runtime = (selectedOrigin as? CatalogOriginSelection.Configured)?.let { configured ->
+        val origin = configured.origin
+        val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, identityPlatform), it,
+            { NSUUID().UUIDString.lowercase() }, onSessionInvalidated = { expected -> identity.controller?.revalidate(expected) },
+            nowMs = { (NSDate().timeIntervalSince1970 * 1000).toLong() }) }
+        NativeSessionRuntime(scope, { onControl -> IosMediaEngine(mediaDriver, onControl) },
+            PlaybackAccessHttp(origin, identityPlatform) { (NSDate().timeIntervalSince1970 * 1000).toLong() },
+            identity.controller, library, { NSUUID().UUIDString.lowercase() },
+            { (NSDate().timeIntervalSince1970 * 1000).toLong() }, onAccountChanged = { actor ->
+                if (actor != accountScope) {
+                    accountScope = actor
+                    reloadCatalogForAccount()
+                }
+            })
+    }
+
 
     fun viewController(): UIViewController = ComposeUIViewController {
         val locale by preferences.state.collectAsState()
         val ui = UiPreferences(theme = ThemeMode.System.resolve(systemIsDark = isSystemInDarkTheme()))
         val controller = catalog
-        if (controller == null) CantosListeningUnavailable(ui, locale = locale.locale.toShellLocale())
+        if (controller == null || runtime == null) CantosListeningUnavailable(ui, locale = locale.locale.toShellLocale())
         else {
-            val state by controller.state.collectAsState()
-            PublicCatalogScreen(state, controller::dispatch, ui, locale = locale.locale.toShellLocale())
+            NativeCatalogScreen(controller, runtime, ui, locale.locale.toShellLocale(), cache = cache)
         }
     }
 
+    private fun reloadCatalogForAccount() { catalog?.dispatch(PublicCatalogIntent.AccountChanged) }
+
+    fun backgrounded() { runtime?.backgrounded() }
+
     fun close() {
+        runtime?.close()
         catalog?.close()
         scope.cancel()
     }

@@ -1,0 +1,51 @@
+CREATE TABLE local_record (
+  account TEXT NOT NULL,
+  resource TEXT NOT NULL,
+  resource_key TEXT NOT NULL,
+  body TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  PRIMARY KEY(account, resource, resource_key)
+);
+CREATE TABLE local_intent (
+  ordinal INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  account TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  resource_key TEXT NOT NULL,
+  method TEXT NOT NULL,
+  path TEXT NOT NULL,
+  body TEXT NOT NULL,
+  sent INTEGER NOT NULL DEFAULT 0,
+  failure TEXT,
+  UNIQUE(account, operation)
+);
+CREATE TABLE device_sequence (
+  account TEXT NOT NULL,
+  resource_key TEXT NOT NULL,
+  device TEXT NOT NULL,
+  sequence INTEGER NOT NULL,
+  PRIMARY KEY(account, resource_key)
+);
+allRecords:
+SELECT * FROM local_record WHERE account = ?;
+record:
+SELECT * FROM local_record WHERE account = ? AND resource = ? AND resource_key = ?;
+putRecord:
+INSERT OR REPLACE INTO local_record VALUES (?, ?, ?, ?, ?);
+deleteResource:
+DELETE FROM local_record WHERE account = ? AND resource = ?;
+intents:
+SELECT * FROM local_intent WHERE account = ? ORDER BY ordinal;
+insertIntent:
+INSERT INTO local_intent(account, operation, resource_key, method, path, body) VALUES (?, ?, ?, ?, ?, ?);
+freezeIntent:
+UPDATE local_intent SET body = ?, sent = 1 WHERE account = ? AND operation = ? AND sent = 0;
+markSent:
+UPDATE local_intent SET sent = 1 WHERE account = ? AND operation = ?;
+failIntent:
+UPDATE local_intent SET failure = ? WHERE account = ? AND operation = ?;
+deleteIntent:
+DELETE FROM local_intent WHERE account = ? AND operation = ?;
+sequence:
+SELECT * FROM device_sequence WHERE account = ? AND resource_key = ?;
+putSequence:
+INSERT OR REPLACE INTO device_sequence VALUES (?, ?, ?, ?);

@@ -24,7 +24,7 @@ import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.features.catalog.presentation.PublicCatalogScreen
 import com.cantos.ui.UiPreferences
 import java.io.File
-import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +42,8 @@ class PublicCatalogProductionFlowTest {
     @Test
     fun cold_catalog_search_retry_and_refresh_render_server_owned_uuid_and_changed_title() {
         val id = "c946f680-69db-42f2-815d-bd44f790aa56"
-        val urls = Collections.synchronizedList(mutableListOf<String>())
+        // HTTP writes and Compose polling iterate concurrently; each iterator needs a snapshot.
+        val urls = CopyOnWriteArrayList<String>()
         val firstSearch = AtomicBoolean(true)
         val refreshed = AtomicBoolean(false)
         fun page(title: String) = """{"items":[{"work_id":"$id","kind":"story","title":"$title","description":"Nội dung đến từ API.","language":"vi-VN","first_published_at_ms":1000}],"next_cursor":null}"""

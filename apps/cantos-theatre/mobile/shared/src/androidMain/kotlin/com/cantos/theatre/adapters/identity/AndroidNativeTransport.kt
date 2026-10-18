@@ -64,7 +64,7 @@ class AndroidNativeHttp(private val scope: CoroutineScope, private val apiOrigin
                 val base = URI(apiOrigin)
                 if (uri.scheme != "https" || uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority ||
                     uri.rawUserInfo != null || uri.fragment != null || CookieHandler.getDefault() != null ||
-                    request.method !in setOf("GET", "POST", "DELETE")) NativeHttpResponse(0, null, null, "configuration")
+                    request.method !in setOf("GET", "POST", "PUT", "DELETE")) NativeHttpResponse(0, null, null, "configuration")
                 else {
                     val connection = uri.toURL().openConnection() as HttpURLConnection
                     active.set(connection)

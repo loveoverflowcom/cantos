@@ -18,12 +18,14 @@ pub const DEMO_GRADLE_TASK: &str = ":androidApp:assembleDebug";
 pub const DEMO_VERSION_SUFFIX: &str = "-demo";
 pub const APP_ID_ENV: &str = "CANTOS_FIREBASE_DEMO_APP_ID";
 pub const CERT_ENV: &str = "CANTOS_FIREBASE_DEMO_CERT_SHA256";
+pub const PRODUCTION_APP_ID_ENV: &str = "CANTOS_FIREBASE_PRODUCTION_APP_ID";
+pub const PRODUCTION_CERT_ENV: &str = "CANTOS_FIREBASE_PRODUCTION_CERT_SHA256";
 /// Largest accepted release-notes text, in bytes (a local bound, not a service claim).
 pub const NOTES_LIMIT: usize = 16 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Target {
-    /// The Theatre Android demo host (Studio is Web-only and is not a target).
+    /// The selected Theatre Android QA host (Studio is Web-only and is not a target).
     CantosTheatre,
 }
 
@@ -58,15 +60,19 @@ impl ArtifactKind {
     }
 }
 
-/// The one supported channel/artifact policy. Other combinations are refused before this exists.
+/// Supported APK composition policies; AAB is refused before either exists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Policy {
     DemoApk,
+    ProductionApk,
 }
 
 impl Policy {
     pub fn channel(self) -> &'static str {
-        "demo"
+        match self {
+            Self::DemoApk => "demo",
+            Self::ProductionApk => "production",
+        }
     }
 
     pub fn artifact(self) -> &'static str {
@@ -78,11 +84,29 @@ impl Policy {
     }
 
     pub fn gradle_task(self) -> &'static str {
-        DEMO_GRADLE_TASK
+        match self {
+            Self::DemoApk => DEMO_GRADLE_TASK,
+            Self::ProductionApk => ":androidProductionApp:assembleDebug",
+        }
     }
 
     pub fn package(self) -> &'static str {
-        DEMO_PACKAGE
+        match self {
+            Self::DemoApk => DEMO_PACKAGE,
+            Self::ProductionApk => "com.cantos.theatre",
+        }
+    }
+    pub fn app_id_env(self) -> &'static str {
+        match self {
+            Self::DemoApk => APP_ID_ENV,
+            Self::ProductionApk => PRODUCTION_APP_ID_ENV,
+        }
+    }
+    pub fn cert_env(self) -> &'static str {
+        match self {
+            Self::DemoApk => CERT_ENV,
+            Self::ProductionApk => PRODUCTION_CERT_ENV,
+        }
     }
 }
 
@@ -121,6 +145,7 @@ impl AppId {
 pub enum AppIdSource {
     Flag,
     Environment,
+    ProductionEnvironment,
 }
 
 impl AppIdSource {
@@ -128,6 +153,7 @@ impl AppIdSource {
         match self {
             AppIdSource::Flag => "--app-id",
             AppIdSource::Environment => APP_ID_ENV,
+            AppIdSource::ProductionEnvironment => PRODUCTION_APP_ID_ENV,
         }
     }
 }
@@ -283,6 +309,8 @@ pub struct Raw {
     pub release_notes: Option<String>,
     pub release_notes_file: Option<PathBuf>,
     pub dry_run: bool,
+    pub api_origin: Option<String>,
+    pub native_issuer: Option<String>,
 }
 
 /// A fully validated request. Reaching one means the combination is supported.
@@ -294,11 +322,15 @@ pub struct Request {
     pub notes: NotesChoice,
     pub expected_cert: Option<CertFingerprint>,
     pub dry_run: bool,
+    pub api_origin: Option<String>,
+    pub native_issuer: Option<String>,
 }
 
 /// A request that may execute: its destination is known.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LiveRequest {
+    pub api_origin: Option<String>,
+    pub native_issuer: Option<String>,
     pub policy: Policy,
     pub app_id: AppId,
     pub app_id_source: AppIdSource,
@@ -309,8 +341,16 @@ pub struct LiveRequest {
 
 impl Request {
     pub fn live(&self) -> Result<LiveRequest, Refusal> {
+        if self.policy == Policy::ProductionApk && self.expected_cert.is_none() {
+            return Err(Refusal::Usage(format!(
+                "production artifact signing needs {}",
+                self.policy.cert_env()
+            )));
+        }
         match &self.app_id {
             AppIdResolution::Resolved { id, source } => Ok(LiveRequest {
+                api_origin: self.api_origin.clone(),
+                native_issuer: self.native_issuer.clone(),
                 policy: self.policy,
                 app_id: id.clone(),
                 app_id_source: *source,
@@ -319,7 +359,7 @@ impl Request {
                 expected_cert: self.expected_cert.clone(),
             }),
             AppIdResolution::Unresolved => Err(Refusal::Usage(format!(
-                "no Firebase app ID: pass --app-id or export {APP_ID_ENV}; there is no implicit default project or app"
+                "no Firebase app ID: pass --app-id or export {}; there is no implicit default project or app", self.policy.app_id_env()
             ))),
         }
     }
@@ -339,6 +379,7 @@ pub fn resolve(
     let Target::CantosTheatre = raw.target;
     let policy = match (raw.channel, raw.artifact) {
         (Channel::Demo, ArtifactKind::Apk) => Policy::DemoApk,
+        (Channel::Production, ArtifactKind::Apk) => Policy::ProductionApk,
         (channel, artifact) => {
             return Err(Refusal::Unsupported {
                 subject: format!(
@@ -351,6 +392,23 @@ pub fn resolve(
         }
     };
 
+    if policy == Policy::ProductionApk {
+        let origin = raw.api_origin.as_deref().ok_or_else(|| {
+            usage("production artifacts require explicit --api-origin HTTPS_ORIGIN")
+        })?;
+        crate::theatre_host::validate_release_api_origin(origin).map_err(usage)?;
+    } else if raw.api_origin.is_some() || raw.native_issuer.is_some() {
+        return Err(usage(
+            "--api-origin and --native-issuer belong to the production channel",
+        ));
+    }
+    if let Some(issuer) = &raw.native_issuer {
+        crate::theatre_host::validate_native_issuer(
+            raw.api_origin.as_deref().unwrap_or_default(),
+            issuer,
+        )
+        .map_err(usage)?;
+    }
     let recipients = Recipients::new(&raw.groups, &raw.testers).map_err(usage)?;
 
     let app_id = match (&raw.app_id, &configuration.app_id) {
@@ -360,8 +418,12 @@ pub fn resolve(
         },
         (None, Some(variable)) => AppIdResolution::Resolved {
             id: AppId::parse(variable.trim())
-                .map_err(|message| usage(format!("{APP_ID_ENV}: {message}")))?,
-            source: AppIdSource::Environment,
+                .map_err(|message| usage(format!("{}: {message}", policy.app_id_env())))?,
+            source: if policy == Policy::ProductionApk {
+                AppIdSource::ProductionEnvironment
+            } else {
+                AppIdSource::Environment
+            },
         },
         (None, None) => AppIdResolution::Unresolved,
     };
@@ -369,7 +431,9 @@ pub fn resolve(
     let expected_cert = configuration
         .cert_sha256
         .as_deref()
-        .map(|value| CertFingerprint::parse(value).map_err(|m| usage(format!("{CERT_ENV}: {m}"))))
+        .map(|value| {
+            CertFingerprint::parse(value).map_err(|m| usage(format!("{}: {m}", policy.cert_env())))
+        })
         .transpose()?;
 
     let notes = match (&raw.release_notes, &raw.release_notes_file) {
@@ -397,6 +461,8 @@ pub fn resolve(
     };
 
     Ok(Request {
+        api_origin: raw.api_origin.clone(),
+        native_issuer: raw.native_issuer.clone(),
         policy,
         app_id,
         recipients,
@@ -413,10 +479,7 @@ fn unavailable_reason(channel: Channel, artifact: ArtifactKind) -> String {
              needs a Google Play link; use --artifact apk"
                 .to_owned()
         }
-        _ => "production distribution is unavailable: no production Android host exists, the production \
-             release graph is not yet shown to exclude sandbox code (#122), and no release signing or \
-             isolated Firebase app is configured; a demo build is never a fallback"
-            .to_owned(),
+        _ => "production AAB distribution requires separately configured release signing and a Google Play link; use the production composition debug APK for device QA".to_owned(),
     }
 }
 
@@ -506,7 +569,7 @@ impl Stage {
             }
             Stage::RunRecord => "create the private run directory; record the plan",
             Stage::Destination => {
-                "read-only `apps:sdkconfig`; the registered package must equal the demo package"
+                "read-only `apps:sdkconfig`; the registered package must equal the selected composition package"
             }
             Stage::Build => "one Gradle build through the existing Android plan",
             Stage::Inspect => {
@@ -528,7 +591,19 @@ pub fn render_plan(request: &Request, gradle: &str, firebase: &str) -> String {
         "distribute firebase plan (dry run: nothing was probed, built, uploaded or written)\n",
     );
     let mut row = |name: &str, value: String| text.push_str(&format!("  {name:<18} {value}\n"));
-    row("target", "cantos-theatre (Android demo host)".to_owned());
+    row(
+        "target",
+        format!(
+            "cantos-theatre (Android {} composition)",
+            request.policy.channel()
+        ),
+    );
+    if let Some(origin) = &request.api_origin {
+        row("API origin", origin.clone());
+    }
+    if let Some(issuer) = &request.native_issuer {
+        row("native issuer", issuer.clone());
+    }
     row(
         "channel",
         format!(
@@ -553,7 +628,10 @@ pub fn render_plan(request: &Request, gradle: &str, firebase: &str) -> String {
                 format!("{} (from {})", id.as_str(), source.label())
             }
             AppIdResolution::Unresolved => {
-                format!("UNRESOLVED (a live run needs --app-id or {APP_ID_ENV})")
+                format!(
+                    "UNRESOLVED (a live run needs --app-id or {})",
+                    request.policy.app_id_env()
+                )
             }
         },
     );
@@ -565,15 +643,26 @@ pub fn render_plan(request: &Request, gradle: &str, firebase: &str) -> String {
             request.recipients.testers().len()
         ),
     );
-    row("release notes", request.notes.describe());
+    row(
+        "release notes",
+        if request.policy == Policy::ProductionApk && request.notes == NotesChoice::Generated {
+            "generated production composition QA summary".to_owned()
+        } else {
+            request.notes.describe()
+        },
+    );
     row(
         "signing",
         match &request.expected_cert {
             Some(cert) => format!(
-                "debug certificate must match {} (from {CERT_ENV})",
-                cert.as_str()
+                "debug certificate must match {} (from {})",
+                cert.as_str(),
+                request.policy.cert_env()
             ),
-            None => format!("fingerprint recorded; no expectation configured ({CERT_ENV} unset)"),
+            None => format!(
+                "{} unset; production live runs require an expected fingerprint",
+                request.policy.cert_env()
+            ),
         },
     );
     text.push_str("  stages\n");
@@ -610,6 +699,8 @@ mod tests {
 
     fn raw() -> Raw {
         Raw {
+            api_origin: None,
+            native_issuer: None,
             target: Target::CantosTheatre,
             channel: Channel::Demo,
             artifact: ArtifactKind::Apk,
@@ -647,7 +738,6 @@ mod tests {
     fn unavailable_combinations_are_unsupported_before_any_other_fact_matters() {
         for (channel, artifact) in [
             (Channel::Demo, ArtifactKind::Aab),
-            (Channel::Production, ArtifactKind::Apk),
             (Channel::Production, ArtifactKind::Aab),
         ] {
             // Even a request with no recipients and an invalid app ID is UNSUPPORTED first.
@@ -674,7 +764,52 @@ mod tests {
             },
             &Configuration::default(),
         );
-        assert!(matches!(production, Err(Refusal::Unsupported { .. })));
+        assert!(matches!(production, Err(Refusal::Usage(_))));
+    }
+
+    #[test]
+    fn production_policy_pins_origin_package_and_requires_expected_signing_before_live() {
+        let raw = Raw {
+            channel: Channel::Production,
+            api_origin: Some("https://api.cantos.example".into()),
+            ..raw()
+        };
+        let request = resolve_with(&raw, &Configuration::default()).unwrap();
+        assert_eq!(request.policy, Policy::ProductionApk);
+        assert_eq!(request.policy.package(), "com.cantos.theatre");
+        assert_eq!(
+            request.policy.gradle_task(),
+            ":androidProductionApp:assembleDebug"
+        );
+        assert!(matches!(request.live(), Err(Refusal::Usage(_))));
+        for origin in [
+            "http://127.0.0.1:8080",
+            "https://api.cantos.example/path",
+            "",
+        ] {
+            assert!(matches!(
+                resolve_with(
+                    &Raw {
+                        api_origin: Some(origin.into()),
+                        ..raw.clone()
+                    },
+                    &Configuration::default()
+                ),
+                Err(Refusal::Usage(_))
+            ));
+        }
+        let ready = resolve_with(
+            &raw,
+            &Configuration {
+                cert_sha256: Some("a".repeat(64)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            ready.live().unwrap().api_origin.as_deref(),
+            Some("https://api.cantos.example")
+        );
     }
 
     #[test]

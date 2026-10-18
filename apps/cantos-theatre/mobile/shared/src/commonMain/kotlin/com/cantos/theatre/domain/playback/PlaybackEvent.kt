@@ -2,6 +2,7 @@ package com.cantos.theatre.domain.playback
 
 sealed interface PlaybackEvent {
     data class SourceSelected(val source: PlaybackSource, val positionMs: Long) : PlaybackEvent
+    data object SessionCleared : PlaybackEvent
     data object PlayRequested : PlaybackEvent
     data object PauseRequested : PlaybackEvent
     data class SeekRequested(val positionMs: Long) : PlaybackEvent
@@ -16,7 +17,10 @@ sealed interface PlaybackEvent {
     data class EngineBuffering(val identity: PlaybackIdentity) : PlaybackObservation
     data class EnginePosition(val identity: PlaybackIdentity, val positionMs: Long) : PlaybackObservation
     data class EngineEnded(val identity: PlaybackIdentity) : PlaybackObservation
+    data class EngineFailed(val identity: PlaybackIdentity, val failure: PlaybackFailure) : PlaybackObservation
 }
+
+enum class PlaybackFailure { Network, Unavailable, Expired, Decode }
 
 /** The engine port may report observed facts, never issue listener intents or select sources. */
 sealed interface PlaybackObservation : PlaybackEvent
@@ -27,6 +31,7 @@ data class PlaybackEngineCommand(
     val source: PlaybackSource,
     val positionMs: Long,
     val speedPermille: Int,
+    val clearSession: Boolean = false,
 ) {
     init {
         require(identity.workId == source.workId && identity.episodeIndex == source.episodeIndex) {

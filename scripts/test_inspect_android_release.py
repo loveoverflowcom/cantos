@@ -127,6 +127,19 @@ class DexParserTest(unittest.TestCase):
         cleartext = inspector.parse_xmltree(configured.replace("usesCleartextTraffic=false", "usesCleartextTraffic=true"))
         self.assertIn("release catalog permits cleartext traffic", inspector.catalog_origin_findings(cleartext, origin))
 
+    def test_debug_production_does_not_waive_sandbox_testonly_or_component_policy(self):
+        debug = APK_MANIFEST.replace('A: '+ANDROID+'allowBackup(0x01010280)=false',
+                                     'A: '+ANDROID+'allowBackup(0x01010280)=false\n        A: '+ANDROID+'debuggable=true')
+        elements = inspector.parse_xmltree(debug)
+        self.assertEqual(inspector.manifest_findings(elements, APP, LAUNCHER, {DYNAMIC}, debug_apk=True), [])
+        self.assertTrue(inspector.manifest_findings(elements, APP, LAUNCHER, {DYNAMIC}))
+        invalid = inspector.parse_xmltree(debug.replace('debuggable=true', 'debuggable=true\n        A: '+ANDROID+'testOnly=true'))
+        self.assertTrue(inspector.manifest_findings(invalid, APP, LAUNCHER, {DYNAMIC}, debug_apk=True))
+        service = elements + [(10, 'service', {'name': 'com.cantos.theatre.adapters.playback.CantosPlaybackService'})]
+        self.assertTrue(inspector.manifest_findings(service, APP, LAUNCHER, {DYNAMIC}, debug_apk=True))
+        self.assertEqual(inspector.manifest_findings(service, APP, LAUNCHER, {DYNAMIC}, debug_apk=True,
+                          allowed_components={'com.cantos.theatre.adapters.playback.CantosPlaybackService'}), [])
+
     def test_class_inventory_maps_compiled_files_to_descriptors(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

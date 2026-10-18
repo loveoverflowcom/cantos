@@ -144,6 +144,14 @@ pub fn parse_output_metadata(bytes: &[u8], policy: Policy) -> Result<OutputFile,
         })
         .filter(|code| !code.is_empty())
         .ok_or_else(|| malformed("versionCode"))?;
+    if !version_code
+        .parse::<u32>()
+        .is_ok_and(|code| code > 0 && code <= i32::MAX as u32)
+    {
+        return Err(OutputError::MetadataMalformed(
+            "versionCode must be a positive Android Int".to_owned(),
+        ));
+    }
     let version_name = element
         .get("versionName")
         .and_then(Value::as_str)
@@ -313,6 +321,7 @@ pub enum ArtifactError {
     PackageMismatch { expected: String, found: String },
     VersionDisagreesWithGradle { gradle: String, apk: String },
     NotDemoLabeled { version_name: String },
+    ProductionDemoLabel,
     NotDebuggable,
     SignerCount(usize),
     NoModernSignature,
@@ -323,7 +332,7 @@ impl fmt::Display for ArtifactError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ArtifactError::PackageMismatch { expected, found } => {
-                write!(f, "APK package is `{found}`, the demo channel requires `{expected}`")
+                write!(f, "APK package is `{found}`, the selected channel requires `{expected}`")
             }
             ArtifactError::VersionDisagreesWithGradle { gradle, apk } => {
                 write!(f, "Gradle declared version {gradle} but the APK says {apk}")
@@ -332,6 +341,7 @@ impl fmt::Display for ArtifactError {
                 f,
                 "version name `{version_name}` does not end with `{DEMO_VERSION_SUFFIX}`; a demo channel must carry a demo label"
             ),
+            ArtifactError::ProductionDemoLabel => f.write_str("production artifact has a demo version label"),
             ArtifactError::NotDebuggable => {
                 f.write_str("the APK is not debuggable, so it is not the debug-variant demo build")
             }
@@ -371,10 +381,13 @@ pub fn validate(
             apk: format!("{} ({})", badging.version_name, badging.version_code),
         });
     }
-    if !badging.version_name.ends_with(DEMO_VERSION_SUFFIX) {
+    if policy == Policy::DemoApk && !badging.version_name.ends_with(DEMO_VERSION_SUFFIX) {
         findings.push(ArtifactError::NotDemoLabeled {
             version_name: badging.version_name.clone(),
         });
+    }
+    if policy == Policy::ProductionApk && badging.version_name.ends_with(DEMO_VERSION_SUFFIX) {
+        findings.push(ArtifactError::ProductionDemoLabel);
     }
     if !badging.debuggable {
         findings.push(ArtifactError::NotDebuggable);
@@ -416,7 +429,10 @@ fn path_text(path: &Path) -> String {
 /// The directory in which AGP writes the selected variant's APK and its metadata.
 pub fn output_directory(mobile_dir: &Path, policy: Policy) -> PathBuf {
     mobile_dir
-        .join("androidApp/build/outputs/apk")
+        .join(match policy {
+            Policy::DemoApk => "androidApp/build/outputs/apk",
+            Policy::ProductionApk => "androidProductionApp/build/outputs/apk",
+        })
         .join(policy.variant())
 }
 
@@ -439,6 +455,27 @@ mod tests {
 
     fn parse(json: &str) -> Result<OutputFile, OutputError> {
         parse_output_metadata(json.as_bytes(), Policy::DemoApk)
+    }
+
+    #[test]
+    fn production_artifact_never_relabels_demo_bytes() {
+        let metadata = METADATA
+            .replace("com.cantos.theatre.demo", "com.cantos.theatre")
+            .replace("0.1.0-demo", "0.1.0")
+            .replace("androidApp-debug.apk", "androidProductionApp-debug.apk");
+        let declared = parse_output_metadata(metadata.as_bytes(), Policy::ProductionApk).unwrap();
+        let mut facts = facts();
+        facts.badging.package = "com.cantos.theatre".into();
+        facts.badging.version_name = "0.1.0".into();
+        assert!(validate(Policy::ProductionApk, &declared, &facts, None).is_empty());
+        facts.badging.package = "com.cantos.theatre.demo".into();
+        assert!(validate(Policy::ProductionApk, &declared, &facts, None)
+            .iter()
+            .any(|finding| matches!(finding, ArtifactError::PackageMismatch { .. })));
+        facts.badging.package = "com.cantos.theatre".into();
+        facts.badging.version_name = "0.1.0-demo".into();
+        assert!(validate(Policy::ProductionApk, &declared, &facts, None)
+            .contains(&ArtifactError::ProductionDemoLabel));
     }
 
     #[test]

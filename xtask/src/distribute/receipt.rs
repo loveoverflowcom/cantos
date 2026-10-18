@@ -38,6 +38,8 @@ pub struct Receipt {
 pub struct GradleRecord {
     pub variant: &'static str,
     pub task: &'static str,
+    pub api_origin: Option<String>,
+    pub native_issuer: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -131,6 +133,8 @@ impl Receipt {
             gradle: GradleRecord {
                 variant: policy.variant(),
                 task: policy.gradle_task(),
+                api_origin: request.api_origin.clone(),
+                native_issuer: request.native_issuer.clone(),
             },
             source: None,
             tools: ToolRecord::default(),
@@ -264,6 +268,8 @@ mod tests {
 
     fn request() -> LiveRequest {
         LiveRequest {
+            api_origin: None,
+            native_issuer: None,
             policy: Policy::DemoApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
             app_id_source: AppIdSource::Flag,

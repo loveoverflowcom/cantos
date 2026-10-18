@@ -38,3 +38,5 @@ Forge's producer-side work is independently scoped by #203.
 Session-specific planning instructions are in the [archive](../archive/README.md). Record a new
 result only for a concrete verification claim with provenance; put routine docs-only check
 results in the PR instead of adding another session ledger.
+
+- [Theatre native integration step2](theatre-native-step2.md): production native adapters, account/Library/store/outbox and artifact path; per-layer checks and explicit native/device/identity gaps.

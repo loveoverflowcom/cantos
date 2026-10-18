@@ -12,7 +12,7 @@ use super::{
         validate, ApkFacts, InspectError, OutputFile,
     },
     firebase::{
-        self, distribute_command, interpret_distribution, interpret_lookup, lookup_command,
+        self, distribute_command, interpret_distribution, interpret_lookup_package, lookup_command,
         parse_version, redact, version_command, version_supported, DistributeInputs, RemoteOutcome,
         MINIMUM_VERSION, SUPPORTED_MAJOR, TESTED_VERSION,
     },
@@ -116,7 +116,11 @@ impl Flow<'_> {
         if !cfg!(unix) {
             problems.push("captured execution and private run files need a POSIX host".to_owned());
         }
-        let missing = self.ports.tools.missing(&theatre_demo::tools());
+        let required_tools = match self.request.policy {
+            super::request::Policy::DemoApk => theatre_demo::tools(),
+            super::request::Policy::ProductionApk => crate::theatre_host::tools(),
+        };
+        let missing = self.ports.tools.missing(&required_tools);
         if !missing.is_empty() {
             let details: Vec<_> = missing
                 .iter()
@@ -125,10 +129,16 @@ impl Flow<'_> {
             problems.push(format!("missing {}", details.join(", ")));
         }
         let sdk = self.ports.host.android_sdk();
-        match theatre_demo::android_prerequisite(
-            &self.workspace.path(THEATRE_MOBILE_DIR),
-            sdk.as_deref(),
-        ) {
+        let project = self.workspace.path(THEATRE_MOBILE_DIR);
+        let prerequisite = match self.request.policy {
+            super::request::Policy::DemoApk => {
+                theatre_demo::android_prerequisite(&project, sdk.as_deref())
+            }
+            super::request::Policy::ProductionApk => {
+                crate::theatre_host::prerequisite(&project, sdk.as_deref())
+            }
+        };
+        match prerequisite {
             Err(reason) => problems.push(reason.to_owned()),
             Ok(()) => {
                 let tools = sdk
@@ -274,7 +284,8 @@ impl Flow<'_> {
             .ports
             .capture
             .capture(&command, firebase::LOOKUP_TIMEOUT);
-        match interpret_lookup(&self.request.app_id, result) {
+        match interpret_lookup_package(&self.request.app_id, self.request.policy.package(), result)
+        {
             Ok(registered) => {
                 if let Some(receipt) = &mut self.receipt {
                     receipt.firebase.registered_package = Some(registered.package.clone());
@@ -295,7 +306,12 @@ impl Flow<'_> {
 
     fn build(&mut self) -> Result<(), Halt> {
         println!("\n==> {}", Stage::Build.label());
-        let command = theatre_demo::android_command(self.workspace);
+        let command = super::build_command(
+            self.workspace,
+            self.request.policy,
+            self.request.api_origin.as_deref(),
+            self.request.native_issuer.as_deref(),
+        );
         match self.ports.runner.run(&command) {
             Ok(()) => {
                 self.pass(Stage::Build, self.request.policy.gradle_task());
@@ -335,6 +351,32 @@ impl Flow<'_> {
             .android_tools
             .clone()
             .expect("prerequisites located the Android tools");
+        if policy == super::request::Policy::ProductionApk {
+            let sdk = self.ports.host.android_sdk().unwrap_or_default();
+            let mut command = crate::theatre_host::debug_inspection_command(
+                self.workspace,
+                &sdk.to_string_lossy(),
+                &staged.path,
+                self.request.api_origin.as_deref().unwrap_or_default(),
+                self.request.native_issuer.as_deref(),
+            );
+            // Keep inspection evidence with these staged bytes; concurrent distributions
+            // must not overwrite another run's report.
+            if let Some(index) = command.args.iter().position(|arg| arg == "--report") {
+                command.args[index + 1] = run
+                    .path
+                    .join("production-inspection.txt")
+                    .to_string_lossy()
+                    .into_owned();
+            }
+            if let Err(error) = self.ports.runner.run(&command) {
+                return Err(fail(
+                    self,
+                    format!("production composition inspection failed: {error:#}"),
+                ));
+            }
+        }
+
         let badging = self
             .android_report(&badging_command(&aapt2, &staged.path, &run.path))
             .and_then(|c| parse_badging(c.code, &c.stdout, &c.stderr));
@@ -422,12 +464,16 @@ impl Flow<'_> {
                     .unwrap_or_default();
                 (
                     "generated".to_owned(),
-                    generated_notes(
-                        &declared.version_name,
-                        &declared.version_code,
-                        &commit,
-                        dirty,
-                    ),
+                    if self.request.policy == super::request::Policy::ProductionApk {
+                        format!("Cantos production composition, debug signed QA artifact.\nVersion: {} ({})\nSource: {}{}\nAPI: {}\n", declared.version_name, declared.version_code, commit, if dirty { " (uncommitted changes)" } else { "" }, self.request.api_origin.as_deref().unwrap_or_default())
+                    } else {
+                        generated_notes(
+                            &declared.version_name,
+                            &declared.version_code,
+                            &commit,
+                            dirty,
+                        )
+                    },
                 )
             }
             NotesChoice::Inline(text) => ("inline".to_owned(), text.clone()),
@@ -858,6 +904,8 @@ mod tests {
 
     fn live(testers: &[&str]) -> LiveRequest {
         LiveRequest {
+            api_origin: None,
+            native_issuer: None,
             policy: Policy::DemoApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
             app_id_source: AppIdSource::Flag,
@@ -1002,6 +1050,101 @@ mod tests {
         assert!(rig.host.persisted[1].contains("\"state\": \"write_pending\""));
         assert!(rig.host.persisted[2].contains("\"state\": \"confirmed\""));
         assert!(rig.host.persisted[2].contains("releases/0a1b2c3d4e5f6"));
+    }
+
+    #[test]
+    fn production_missing_python_stops_before_destination_build_or_upload() {
+        let mut rig = Rig::new("production-python");
+        let mut request = live(&[]);
+        request.policy = Policy::ProductionApk;
+        request.api_origin = Some("https://api.cantos.example".into());
+        rig.tools = FakeTools::without(&[Tool::Python3]);
+        let report = rig.run(&request);
+        assert_eq!(
+            status_of(&report, Stage::Prerequisites),
+            Status::Unsupported
+        );
+        assert!(rig.runner.commands.is_empty());
+        // Local prerequisite diagnostics run independently, including the CLI version probe.
+        // A missing inspector must prevent destination lookup and every later effect.
+        assert_eq!(rig.programs(), ["firebase --version"]);
+        assert_eq!(rig.distribute_calls(), 0);
+        assert_eq!(rig.host.runs_created, 0);
+        assert!(rig.host.persisted.is_empty());
+        for stage in [
+            Stage::RunRecord,
+            Stage::Destination,
+            Stage::Build,
+            Stage::Inspect,
+            Stage::IntentReceipt,
+            Stage::Distribution,
+            Stage::FinalReceipt,
+        ] {
+            assert_eq!(status_of(&report, stage), Status::NotRun, "{stage:?}");
+        }
+    }
+
+    #[test]
+    fn production_composition_is_inspected_before_upload_and_failed_exclusion_stops_distribution() {
+        for fail_inspection in [false, true] {
+            let mut rig = Rig::new("production-inspection");
+            let mut request = live(&[]);
+            request.policy = Policy::ProductionApk;
+            request.api_origin = Some("https://api.cantos.example".into());
+            rig.host.metadata = Ok(METADATA
+                .replace("com.cantos.theatre.demo", "com.cantos.theatre")
+                .replace("0.1.0-demo", "0.1.0")
+                .replace("androidApp-debug.apk", "androidProductionApp-debug.apk")
+                .into_bytes());
+            rig.capture.results.clear();
+            rig.capture
+                .push_ok(0, "15.34.0", "")
+                .push_ok(
+                    0,
+                    &SDK_REGISTERED.replace("com.cantos.theatre.demo", "com.cantos.theatre"),
+                    "",
+                )
+                .push_ok(
+                    0,
+                    &BADGING
+                        .replace("com.cantos.theatre.demo", "com.cantos.theatre")
+                        .replace("0.1.0-demo", "0.1.0"),
+                    "",
+                )
+                .push_ok(0, SIGNER, "")
+                .push_ok(0, &CREATED.replace("0.1.0-demo", "0.1.0"), "");
+            if fail_inspection {
+                rig.runner.fail_on = Some("inspect_android_release.py".into());
+            }
+            let report = rig.run(&request);
+            assert_eq!(rig.runner.commands.len(), 2);
+            assert!(rig.runner.commands[0]
+                .args
+                .contains(&":androidProductionApp:assembleDebug".to_owned()));
+            assert!(!rig.runner.commands[0]
+                .args
+                .contains(&":androidApp:assembleDebug".to_owned()));
+            let inspection = &rig.runner.commands[1];
+            assert_eq!(inspection.program, "python3");
+            assert!(inspection.args.contains(&"--debug-apk".to_owned()));
+            assert!(inspection.args.contains(
+                &"/repo/artifacts/distributions/RUN/production-inspection.txt".to_owned()
+            ));
+            if fail_inspection {
+                assert_eq!(status_of(&report, Stage::Inspect), Status::Fail);
+                assert_eq!(status_of(&report, Stage::Distribution), Status::NotRun);
+                assert_eq!(rig.distribute_calls(), 0);
+            } else {
+                assert!(report.succeeded(), "{}", report.render());
+                assert_eq!(rig.distribute_calls(), 1);
+                assert!(rig
+                    .host
+                    .persisted
+                    .last()
+                    .unwrap()
+                    .contains("https://api.cantos.example"));
+            }
+        }
     }
 
     #[test]

@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 class PublicCatalogController(
     private val scope: CoroutineScope,
     private val port: PublicCatalogPort,
+    private val onRefresh: () -> Unit = {},
 ) {
     private val mutableState = MutableStateFlow(PublicCatalogState.Initial)
     val state: StateFlow<PublicCatalogState> = mutableState.asStateFlow()
@@ -30,6 +31,8 @@ class PublicCatalogController(
     private var detailRead: Job? = null
     private val loop: Job = scope.launch {
         for (event in events) {
+            if (event == PublicCatalogIntent.RefreshWorks || event == PublicCatalogIntent.RefreshWork ||
+                event == PublicCatalogIntent.RetryWorks || event == PublicCatalogIntent.RetryWork || event is PublicCatalogIntent.Query) onRefresh()
             val transition = reducePublicCatalog(mutableState.value, event)
             mutableState.value = transition.state
             transition.effects.forEach(::interpret)

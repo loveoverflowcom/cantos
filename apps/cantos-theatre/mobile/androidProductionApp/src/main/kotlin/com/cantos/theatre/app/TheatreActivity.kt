@@ -1,6 +1,8 @@
 package com.cantos.theatre.app
 
+import android.content.Intent
 import android.content.res.Configuration
+import com.cantos.theatre.adapters.identity.parseAndroidCallback
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,12 +14,7 @@ import com.cantos.ui.ThemeMode
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.resolve
 
-/**
- * Production composition root: `:shared` plus production adapters only, with no mock, sample or
- * demo fallback. When [liveCatalogOrigin] admits a configured API origin (see LiveCatalogHost),
- * it composes the live anonymous public catalog: browse only, since no production media engine
- * or progress adapter exists (#14). Otherwise it renders the explicit unavailable state.
- */
+/** Production catalog, account, SQLite/outbox and native streaming composition. */
 class TheatreActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,8 +27,27 @@ class TheatreActivity : ComponentActivity() {
         val origin = liveCatalogOrigin()
         if (origin != null) {
             setLiveCatalogContent(origin, preferences, locale)
+            deliverCallback(intent)
             return
         }
         setContent { CantosListeningUnavailable(preferences, locale = locale) }
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        deliverCallback(intent)
+    }
+
+    private fun deliverCallback(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "com.cantos.theatre") return
+        intent.data = null
+        val callback = parseAndroidCallback(uri) ?: return
+        ProductionProcess.current()?.runtime?.account?.callback(callback)
+    }
+
+    override fun onStop() {
+        ProductionProcess.current()?.runtime?.backgrounded()
+        super.onStop()
     }
 }

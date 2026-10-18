@@ -9,12 +9,32 @@ plugins {
     kotlin("plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.compose")
+    id("app.cash.sqldelight") version "2.1.0"
 }
 
 val androidEnabled = providers.gradleProperty("cantos.android").orNull == "true" ||
     providers.gradleProperty("cantos.native").orNull == "true"
 val iosEnabled = providers.gradleProperty("cantos.ios").orNull == "true" ||
     providers.gradleProperty("cantos.native").orNull == "true"
+
+// SQLDelight 2.1.0 is pinned for this Kotlin 2.2.20 consumer; see ADR 0026 adoption.
+sqldelight {
+    databases {
+        create("LibraryDatabase") { packageName.set("com.cantos.theatre.db") }
+    }
+}
+val generatedLibraryMain = layout.buildDirectory.dir("generated/libraryWire/commonMain/kotlin")
+val generatedLibraryTests = layout.buildDirectory.dir("generated/libraryWire/commonTest/kotlin")
+val generateLibraryWire = tasks.register<Exec>("generateLibraryWire") {
+    val schema = rootProject.file("../../../packages/contracts/schema/theatre/library/v1.schema.json")
+    val fixtures = rootProject.file("../../../packages/contracts/fixtures/theatre/library/v1")
+    val generator = rootProject.file("tooling/generate_library_wire.py")
+    inputs.files(schema, generator, fileTree(fixtures) { include("*.json") })
+    outputs.dirs(generatedLibraryMain, generatedLibraryTests)
+    commandLine("python3", generator.absolutePath, schema.absolutePath, fixtures.absolutePath,
+        generatedLibraryMain.get().asFile.resolve("com/cantos/theatre/adapters/library/wire/LibraryWire.kt").absolutePath,
+        generatedLibraryTests.get().asFile.resolve("com/cantos/theatre/adapters/library/LibraryFixtures.kt").absolutePath)
+}
 
 // Tests consume the one reviewed corpus, including Native test sources when that target is
 // available. These generated strings preserve input bytes; they never generate expectations.
@@ -306,11 +326,13 @@ kotlin {
 
     sourceSets {
         commonMain {
+            kotlin.srcDir(layout.buildDirectory.dir("generated/libraryWire/commonMain/kotlin"))
             // Consume the canonical source exactly as the isolated Android preview does.
             // App compositions use its theme/tokens; unqualified registered wrappers stay unused.
             kotlin.srcDir(rootProject.file("../../../packages/ui-system/cmp/src/commonMain/kotlin"))
             kotlin.exclude("com/cantos/ui/preview/**")
             dependencies {
+                implementation("app.cash.sqldelight:runtime:2.1.0")
                 implementation(compose.runtime)
                 implementation(compose.components.resources)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
@@ -325,6 +347,7 @@ kotlin {
             }
         }
         commonTest {
+            kotlin.srcDir(generateLibraryWire.map { generatedLibraryTests.get() })
             kotlin.srcDir(generatePlaybackVectors)
             kotlin.srcDir(generateMembershipVectors)
             kotlin.srcDir(generateClientBoundaryVectors)
@@ -342,6 +365,7 @@ kotlin {
         val desktopMain by getting {
             kotlin.srcDir("src/jvmHttpMain/kotlin")
             dependencies {
+                implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
                 implementation(compose.desktop.currentOs)
             }
         }
@@ -351,9 +375,13 @@ kotlin {
                 implementation(compose.desktop.uiTestJUnit4)
             }
         }
+        if (iosEnabled) {
+            val iosMain by getting { dependencies { implementation("app.cash.sqldelight:native-driver:2.1.0") } }
+        }
         if (androidEnabled) {
             val androidMain by getting {
                 kotlin.srcDir("src/jvmHttpMain/kotlin")
+                dependencies { implementation("app.cash.sqldelight:android-driver:2.1.0") }
             }
         }
     }
@@ -428,6 +456,7 @@ tasks.configureEach {
     if (name == "desktopTest" || name.startsWith("assemble") ||
         (name.startsWith("compile") && !name.contains("Test", ignoreCase = true))) {
         dependsOn(assertProductionSafeDependencies)
+        dependsOn(generateLibraryWire)
     }
 }
 

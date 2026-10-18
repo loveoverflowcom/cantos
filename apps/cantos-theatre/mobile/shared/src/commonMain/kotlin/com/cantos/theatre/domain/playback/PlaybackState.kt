@@ -8,8 +8,14 @@ data class PlaybackSource private constructor(
     val workId: String,
     val episodeIndex: Int,
     val durationMs: Long,
+    val audio: AudioIdentity? = null,
+    val title: String = "",
+    val workTitle: String = "",
 ) {
     companion object {
+        fun streaming(audio: AudioIdentity, title: String = "", workTitle: String = ""): PlaybackSource =
+            PlaybackSource(audio.workId, 0, audio.durationMs, audio, title, workTitle)
+
         fun of(workId: String, episodeIndex: Int, durationMs: Long): PlaybackSource? =
             if (workId.isNotBlank() && episodeIndex in 0..65_535 && durationMs in 1..MAX_PLAYBACK_GENERATION) {
                 PlaybackSource(workId, episodeIndex, durationMs)
@@ -51,7 +57,7 @@ enum class PlaybackEngine { Preparing, Ready, Running, Paused, Buffering, Ended 
 enum class PlaybackInterruption { None, Active }
 
 /** Simulating is confirmation from a fake engine; it never asserts real audio output. */
-enum class PlaybackStatus { Idle, Loading, Paused, Simulating, Buffering, Ended }
+enum class PlaybackStatus { Idle, Loading, Paused, Simulating, Playing, Buffering, Ended, Failed }
 
 /** Unaccepted restore input: position and speed are validated transactionally by the reducer. */
 data class PlaybackSnapshot(
@@ -67,9 +73,12 @@ data class PlaybackSession(
     val intent: PlaybackIntent,
     val engine: PlaybackEngine,
     val interruption: PlaybackInterruption,
+    val failure: PlaybackFailure? = null,
+    val pendingPositionMs: Long? = null,
 ) {
     init {
         require(positionMs in 0..source.durationMs) { "Playback session position is outside its source" }
+        require(pendingPositionMs == null || pendingPositionMs in 0..source.durationMs)
         require(isSupportedPlaybackSpeed(speedPermille)) { "Playback session speed is unsupported" }
     }
 
@@ -92,13 +101,14 @@ data class PlaybackState(
     val status: PlaybackStatus
         get() {
             val current = session ?: return PlaybackStatus.Idle
+            if (current.failure != null) return PlaybackStatus.Failed
             if (current.engine == PlaybackEngine.Ended) return PlaybackStatus.Ended
             if (current.intent is PlaybackIntent.Pause || current.interruption == PlaybackInterruption.Active) {
                 return PlaybackStatus.Paused
             }
             return when (current.engine) {
                 PlaybackEngine.Preparing, PlaybackEngine.Ready, PlaybackEngine.Paused -> PlaybackStatus.Loading
-                PlaybackEngine.Running -> PlaybackStatus.Simulating
+                PlaybackEngine.Running -> if (current.source.audio != null) PlaybackStatus.Playing else PlaybackStatus.Simulating
                 PlaybackEngine.Buffering -> PlaybackStatus.Buffering
                 PlaybackEngine.Ended -> PlaybackStatus.Ended
             }

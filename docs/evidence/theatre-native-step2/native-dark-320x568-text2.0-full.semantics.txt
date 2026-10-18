@@ -1,0 +1,76 @@
+Printing with useUnmergedTree = 'false'
+Node #802 at (l=0.0, t=0.0, r=320.0, b=568.0)px, Tag: 'native-full-player'
+IsContainer = 'true'
+ |-Node #803 at (l=0.0, t=0.0, r=320.0, b=568.0)px
+   IsTraversalGroup = 'true'
+   VerticalScrollAxisRange = 'ScrollAxisRange(value=303.0, maxValue=319.0, reverseScrolling=false)'
+   Actions = [ScrollBy, ScrollByOffset]
+    |-Node #804 at (l=16.0, t=-287.0, r=304.0, b=24.0)px
+    | Text = '[Chương 1: Người dẫn chuyện trở về]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #805 at (l=16.0, t=32.0, r=254.0, b=82.0)px
+    | Text = '[Đang tạm dừng]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #806 at (l=6.0, t=90.0, r=314.0, b=138.0)px, Tag: 'native-seek'
+    | ContentDescription = '[Điểm nghe]'
+    | Focused = 'false'
+    | ProgressBarRangeInfo = 'ProgressBarRangeInfo(current=0.0, range=0.0..125000.0, steps=0)'
+    | Actions = [RequestFocus, SetProgress]
+    | MergeDescendants = 'true'
+    |-Node #811 at (l=16.0, t=146.0, r=172.0, b=196.0)px
+    | Text = '[0:00 / 2:05]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #814 at (l=16.0, t=204.0, r=188.0, b=262.0)px, Tag: 'native-full-rewind'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[Lùi 15 giây]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #817 at (l=16.0, t=262.0, r=129.0, b=320.0)px, Tag: 'native-full-toggle'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[Phát]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #820 at (l=16.0, t=320.0, r=205.0, b=378.0)px, Tag: 'native-full-forward'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[Tiến 15 giây]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #825 at (l=16.0, t=386.0, r=113.0, b=444.0)px, Tag: 'native-speed-750'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[0,75×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #828 at (l=113.0, t=386.0, r=171.0, b=444.0)px, Tag: 'native-speed-1000'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[1×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #831 at (l=171.0, t=386.0, r=268.0, b=444.0)px, Tag: 'native-speed-1250'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[1,25×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #834 at (l=16.0, t=444.0, r=97.0, b=502.0)px, Tag: 'native-speed-1500'
+    | Focused = 'true'
+    | Role = 'Button'
+    | Text = '[1,5×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #837 at (l=97.0, t=444.0, r=155.0, b=502.0)px, Tag: 'native-speed-2000'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[2×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #840 at (l=16.0, t=510.0, r=154.0, b=568.0)px, Tag: 'native-full-back'
+      Focused = 'false'
+      Role = 'Button'
+      Text = '[Quay lại]'
+      Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+      MergeDescendants = 'true'

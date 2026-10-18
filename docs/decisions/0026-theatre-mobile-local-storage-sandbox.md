@@ -1,8 +1,8 @@
 # ADR 0026: Theatre Mobile local storage boundaries and isolated preview sandbox
 
 - Status: proposed; the `ProgressPort` contract suite and separate `:preview-sandbox` KMP module
-  are implemented. This record has not been accepted by a maintainer. No storage library,
-  directory abstraction or durable adapter is adopted. The production Android host's unsigned
+  are implemented. This record has not been accepted by a maintainer. The explicitly requested
+  step-2 slice implements the scoped SQLDelight adoption below; platform acceptance is separate. The production Android host's unsigned
   release graph/APK/AAB exclusion is inspected; signed/shrunk production releases do not exist.
 - Date: 2026-10-14
 - Decision owner: Cantos maintainers
@@ -14,6 +14,42 @@
   [#17 progress sync](https://github.com/loveoverflowcom/cantos/issues/17),
   [#34 guest/sign-in policy](https://github.com/loveoverflowcom/cantos/issues/34)
 - Supersedes / superseded by: N/A
+
+## Step-2 metadata adoption (2026-10-18)
+
+The current implementation request explicitly selects SQLDelight for account-scoped Library,
+progress and the outbox (#17/#35). That concrete consumer replaces the original "no consumer"
+reason for deferral. It does not accept downloads or guest-to-account import.
+
+- Pin the Gradle plugin, runtime and Android/JDBC/native drivers to **2.1.0**, using the official
+  [multiplatform setup](https://sqldelight.github.io/sqldelight/2.1.0/multiplatform_sqlite/) and
+  [native driver implementation](https://github.com/sqldelight/sqldelight/blob/2.1.0/drivers/native-driver/src/nativeMain/kotlin/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt).
+  The pin is a reproducible compatibility candidate for Kotlin 2.2.20/Gradle 8.14.3, not a claim
+  that every platform was executed. Actual build/link results belong to the step-2 evidence.
+- `LibraryDatabase` schema v1 stores account-scoped API rows, reconciled register bases,
+  local paused checkpoints and speed, device sequences and exact outbox bodies. SQLite commits a local
+  mutation and its outbox append in one transaction. There is no shipped predecessor database;
+  future schema changes require versioned migration fixtures from v1.
+- Android places the database and journals under `noBackupFilesDir`; iOS accepts a host-created,
+  backup-excluded Application Support directory. Credentials and expiring audio grant URLs are
+  excluded from this database. There are no download tables or file-byte adapters.
+- The native Library contract replaces the old whole-snapshot `ProgressPort` for production
+  sync. The mock's existing contract stays in the sandbox. New SQLite contract tests use the
+  actual JDBC SQLite engine in temporary files, including transaction rollback, close/reopen,
+  exact receipt recovery and account isolation. JVM tests do not establish native force-stop,
+  file-protection, backup or audio behavior.
+- The same account-scoped database caches validated Work detail and terminal first-page catalog
+  and unit responses. Nonterminal pages require a live cursor and are never persisted as a
+  truncated terminal collection. Cached source is exposed separately from network source;
+  explicit refresh invalidates a generation without erasing valid retained bytes, and a failed
+  refresh remains an actual API error. Cached metadata confers no playback authorization.
+- Unknown outcomes retain the original operation/device/sequence and sent body. Receipt lookup
+  precedes retry after restart. Server revisions become reconciled bases only after adoption or
+  an outcome; a late read never overwrites a pending local desire or seeks the player.
+
+The original full Android/iOS adoption gates remain acceptance work where their tooling is
+unavailable. This scoped implementation does not claim that a proposed ADR has become broadly
+accepted policy merely because source or JVM tests exist.
 
 ## Context
 

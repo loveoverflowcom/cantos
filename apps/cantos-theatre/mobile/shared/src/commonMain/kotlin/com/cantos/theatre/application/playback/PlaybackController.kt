@@ -72,7 +72,7 @@ class PlaybackController(
                     Message.ToggleIntent -> {
                         advanceControlRevision()
                         apply(
-                            if (mutableState.value.session?.intent == PlaybackIntent.Play) {
+                            if (mutableState.value.session?.intent == PlaybackIntent.Play && mutableState.value.session?.failure == null) {
                                 PlaybackEvent.PauseRequested
                             } else {
                                 PlaybackEvent.PlayRequested
@@ -168,11 +168,11 @@ class PlaybackController(
     }
 
     private fun PlaybackEvent.isControl(): Boolean = when (this) {
-        is PlaybackEvent.SourceSelected, is PlaybackEvent.RestoreRequested, PlaybackEvent.PlayRequested,
+        is PlaybackEvent.SourceSelected, is PlaybackEvent.RestoreRequested, PlaybackEvent.SessionCleared, PlaybackEvent.PlayRequested,
         PlaybackEvent.PauseRequested, is PlaybackEvent.SeekRequested, is PlaybackEvent.SkipRequested,
         is PlaybackEvent.SpeedRequested, PlaybackEvent.InterruptionBegan, is PlaybackEvent.InterruptionEnded -> true
         is PlaybackEvent.EngineReady, is PlaybackEvent.EngineStarted, is PlaybackEvent.EnginePaused,
-        is PlaybackEvent.EngineBuffering, is PlaybackEvent.EnginePosition, is PlaybackEvent.EngineEnded -> false
+        is PlaybackEvent.EngineBuffering, is PlaybackEvent.EnginePosition, is PlaybackEvent.EngineEnded, is PlaybackEvent.EngineFailed -> false
     }
 
     private fun apply(event: PlaybackEvent) {

@@ -71,3 +71,5 @@ The 2026-10-16 cleanup resolves collisions without changing the two renamed deci
 0022/0028” needs its title/context to disambiguate. Repository links/labels are updated;
 commit-pinned external history and original quoted command/path lists remain historical.
 Do not recycle old numbers or renumber unrelated accepted decisions.
+
+- [ADR0042: Native streaming adapters and account runtime](0042-native-streaming-runtime.md) — proposed platform acceptance; requested source implementation, native/codec gates remain open.

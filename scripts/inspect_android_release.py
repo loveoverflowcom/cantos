@@ -135,7 +135,7 @@ def parse_xmltree(text):
     return elements
 
 
-def manifest_findings(elements, application_id, launcher, allowed_permissions):
+def manifest_findings(elements, application_id, launcher, allowed_permissions, debug_apk=False, allowed_components=()):
     findings = []
     manifest = elements[0][2]
     if manifest.get("package") != application_id:
@@ -149,7 +149,7 @@ def manifest_findings(elements, application_id, launcher, allowed_permissions):
         elif current_component and depth <= current_component[0]:
             current_component = None
         if tag == "application":
-            for flag in ("debuggable", "testOnly"):
+            for flag in (("testOnly",) if debug_apk else ("debuggable", "testOnly")):
                 if attributes.get(flag, "false") not in {"false", "0x0", "0"}:
                     findings.append(f"application declares {flag}={attributes[flag]}")
         if tag in {"uses-permission", "uses-permission-sdk-23"} and attributes.get("name") not in allowed_permissions:
@@ -161,7 +161,7 @@ def manifest_findings(elements, application_id, launcher, allowed_permissions):
     if launchers != [launcher]:
         findings.append(f"launcher components are {launchers}, expected exactly [{launcher!r}]")
     for name in components:
-        if name.startswith("com.cantos.") and name != launcher:
+        if name.startswith("com.cantos.") and name != launcher and name not in allowed_components:
             findings.append(f"declares unexpected Cantos component {name}")
     for _, tag, attributes in elements:
         for key, value in attributes.items():
@@ -170,7 +170,7 @@ def manifest_findings(elements, application_id, launcher, allowed_permissions):
     return findings
 
 
-def catalog_origin_findings(elements, expected_origin):
+def catalog_origin_findings(elements, expected_origin, debug_apk=False):
     """Check the built manifest, so a configured build cannot silently ship unavailable."""
     origins = [attrs.get("value", "") for _, tag, attrs in elements
                if tag == "meta-data" and attrs.get("name") == "CantosApiOrigin"]
@@ -181,7 +181,7 @@ def catalog_origin_findings(elements, expected_origin):
     if "android.permission.INTERNET" not in permissions:
         findings.append("configured catalog has no INTERNET permission")
     for _, tag, attrs in elements:
-        if tag == "application" and attrs.get("usesCleartextTraffic", "false") not in {"false", "0", "0x0"}:
+        if not debug_apk and tag == "application" and attrs.get("usesCleartextTraffic", "false") not in {"false", "0", "0x0"}:
             findings.append("release catalog permits cleartext traffic")
     return findings
 
@@ -248,9 +248,12 @@ def inspect(args, dump=dump_manifest):
     report = [f"Production Android release artifact inspection: {args.application_id}",
               f"forbidden sandbox classes: {len(forbidden)}; forbidden resource files: {len(forbidden_hashes)}"]
     findings, defined = [], {}
-    for label, path, dex_pattern, manifest_name in (
+    artifacts = (
             ("apk", args.apk, r"classes\d*\.dex", "AndroidManifest.xml"),
-            ("aab", args.aab, r"base/dex/classes\d*\.dex", "base/manifest/AndroidManifest.xml")):
+            ("aab", args.aab, r"base/dex/classes\d*\.dex", "base/manifest/AndroidManifest.xml"))
+    for label, path, dex_pattern, manifest_name in artifacts:
+        if path is None:
+            continue
         entries, classes, manifest, proto = read_archive(path, dex_pattern, manifest_name)
         defined[label] = classes
         digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -259,14 +262,20 @@ def inspect(args, dump=dump_manifest):
             class_findings(classes, forbidden)
             + archive_findings(entries, forbidden_hashes, args.compose_resource_package)
             + manifest_findings(parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.application_id,
-                                args.launcher, set(args.allowed_permission)))]
+                                args.launcher, set(args.allowed_permission), getattr(args, "debug_apk", False), getattr(args, "allowed_component", ())))]
         own += [f"{label}: required production class {name} is absent"
                 for name in args.require_class if name not in classes]
         if getattr(args, "api_origin", None) is not None:
             own += [f"{label}: {finding}" for finding in catalog_origin_findings(
-                parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.api_origin)]
+                parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.api_origin, getattr(args, "debug_apk", False))]
+        issuer = getattr(args, "native_issuer", None)
+        if issuer is not None:
+            values = [attrs.get("value", "") for _, tag, attrs in parse_xmltree(dump(args.aapt2, path, manifest, proto))
+                      if tag == "meta-data" and attrs.get("name") == "CantosNativeIssuer"]
+            if values != [issuer]:
+                own.append(f"{label}: native issuer metadata does not match the requested build issuer")
         findings += own
-    if defined["apk"] != defined["aab"]:
+    if "aab" in defined and defined["apk"] != defined["aab"]:
         findings.append("apk and aab define different class sets; they are not the same release build")
     report += [f"FINDING {finding}" for finding in findings] or ["PASS: no sandbox, mock, demo or test content found"]
     return findings, report
@@ -275,7 +284,10 @@ def inspect(args, dump=dump_manifest):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--apk", required=True, type=Path)
-    parser.add_argument("--aab", required=True, type=Path)
+    parser.add_argument("--aab", type=Path)
+    parser.add_argument("--debug-apk", action="store_true", help="inspect one production debug APK; never a release acceptance")
+    parser.add_argument("--native-issuer", help="expected optional native issuer metadata")
+    parser.add_argument("--allowed-component", action="append", default=[])
     parser.add_argument("--aapt2", required=True, type=Path)
     parser.add_argument("--application-id", required=True)
     parser.add_argument("--launcher", required=True, help="fully qualified launcher activity")
@@ -287,6 +299,10 @@ def main(argv=None):
     parser.add_argument("--api-origin", help="expected production HTTPS catalog origin in both manifests")
     parser.add_argument("--report", required=True, type=Path)
     args = parser.parse_args(argv)
+    if args.aab is not None and args.debug_apk:
+        parser.error("--debug-apk inspects only an APK; omit --aab")
+    if args.aab is None and not args.debug_apk:
+        parser.error("--aab is required unless --debug-apk is selected")
     try:
         findings, report = inspect(args)
     except InspectionError as error:

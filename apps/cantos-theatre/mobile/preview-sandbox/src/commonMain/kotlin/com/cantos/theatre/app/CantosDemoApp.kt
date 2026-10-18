@@ -229,6 +229,8 @@ fun projectDemoState(
             PlaybackStatus.Loading -> PlaybackUiStatus.Loading
             PlaybackStatus.Paused -> PlaybackUiStatus.Paused
             PlaybackStatus.Simulating -> PlaybackUiStatus.Simulating
+            PlaybackStatus.Playing -> error("Native playback is not part of the sandbox composition")
+            PlaybackStatus.Failed -> PlaybackUiStatus.Paused
             PlaybackStatus.Buffering -> PlaybackUiStatus.Buffering
             PlaybackStatus.Ended -> PlaybackUiStatus.Ended
         },
