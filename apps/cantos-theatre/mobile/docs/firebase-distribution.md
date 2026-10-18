@@ -115,6 +115,86 @@ through existing Android signing configuration for in-place updates. No remote d
 performed by implementation or dry-run verification. An agent may run it only after the user names
 the Firebase app and recipients explicitly. Local APK preparation does not require that approval.
 
+## Optimized demo/QA lane (`--channel demo-qa`)
+
+The same mock host as `demo`, packaged like a release, so testers see realistic size and startup
+without the Debug build's tooling ([#245](https://github.com/loveoverflowcom/cantos/issues/245) part C).
+It is a **separate, explicit channel**: `--channel demo` keeps meaning the debuggable Debug build.
+
+| | `--channel demo` | `--channel demo-qa` |
+| --- | --- | --- |
+| Gradle task / variant | `:androidApp:assembleDebug` / `debug` | `:androidApp:assembleQa` / `qa` |
+| Package, Firebase app | `com.cantos.theatre.demo` | the same package and the same app ID |
+| Version name | `0.1.0-demo` | `0.1.0-demo-qa` |
+| Debuggable | yes (required) | **no** (a debuggable APK is refused) |
+| R8 / resource shrinking | none | both, narrow keep rules only |
+| `ui-tooling` runtime | `debugImplementation` | absent (`ui-tooling-preview` annotations only) |
+| Signing | this machine's debug key | **the operator's stable key**, pinned |
+| Pinned certificate | optional `CANTOS_FIREBASE_DEMO_CERT_SHA256` | **required** `CANTOS_FIREBASE_DEMO_QA_CERT_SHA256` |
+| Staged beside the APK | nothing | the R8 `mapping.txt`, hashed in the receipt |
+
+Host, composition, mock scenarios, `:shared` and `:preview-sandbox` are the same; there is no third
+app and no forked UI/domain. `qa` is a Gradle **build type** (`initWith(release)`), not a flavor.
+
+**Signing key (operator-provided; xtask and Gradle never create, derive or substitute one).** Export
+the four variables for the process that runs xtask; Gradle reads them from the environment, and
+passwords are deliberately not Gradle properties because they would appear in process lists. xtask
+checks only that they are set (never their values) and stops with `UNSUPPORTED` before any build or
+run record when one is missing. It does not fall back to the debug key or to any production credential.
+
+```sh
+export CANTOS_QA_KEYSTORE=/absolute/path/to/qa.keystore      # stays outside Git
+export CANTOS_QA_KEYSTORE_PASSWORD=…  CANTOS_QA_KEY_ALIAS=…  CANTOS_QA_KEY_PASSWORD=…
+export CANTOS_FIREBASE_DEMO_QA_CERT_SHA256=<64 hex digits of that key's certificate>
+export CANTOS_FIREBASE_DEMO_APP_ID=1:1234567890:android:0a1b2c3d4e5f67890   # same app as demo
+```
+
+```sh
+cargo xtask distribute firebase cantos-theatre --channel demo-qa --groups cantos-internal --dry-run
+# real, only on an explicit request that names the app and recipients (REMOTE WRITE, may notify testers)
+cargo xtask distribute firebase cantos-theatre --channel demo-qa --groups cantos-internal
+```
+
+**Updating over an installed tester app.** Same package, new signer: Android refuses to update an
+app signed with a different key. Testers who installed an earlier `demo` build (signed with a
+per-machine debug key) must **uninstall it first**. Uninstalling removes that app's local data:
+the saved locale preference, mock state and, when a build carried an API origin and issuer, any
+native sign-in credentials held by the host (the tester signs in again). Once testers run a
+`demo-qa` build, later `demo-qa` builds update in place as long as the same key is used (a
+`versionCode` increase is not required by xtask, but Android only installs an equal-or-higher
+code). Going back to a Debug `demo` build after that needs another uninstall for the same reason.
+The generated release notes for this channel say so. Rotating the QA key has the same effect; do
+that only deliberately. If side-by-side installs are wanted instead, that needs a different
+`applicationId` and a separately registered Firebase app, which is an operator decision and is
+not made here.
+
+**What xtask checks before upload (all of them, none removed).** Exactly one non-split `qa` output
+for `com.cantos.theatre.demo`; package, version and version code agree between Gradle and the
+bytes; the version name ends with `-demo-qa`; `application-debuggable` is **absent**; exactly one
+signer verifying with v2 or v3; the certificate equals the pinned fingerprint; the R8 mapping
+was produced and is staged. A failure of any of these stops before the intent receipt and the
+remote write.
+
+**Unshrunk audit path (#122).** `:androidApp:assembleQaAudit` builds the same host without R8 or
+resource shrinking and without a signature, with version name `0.1.0-demo-qa-audit`. It is not
+distributable (unsigned, and its label fails the policy). Together with the Production host's
+unshrunk release it keeps the isolation rule that a dependency boundary must hold in the resolved
+graph and the packaged bytes, never because R8 happened to remove a class. Before packaging,
+`:androidApp:assertQaDependencyBoundary` resolves the QA graph and rejects test/mock libraries and
+the `ui-tooling` runtime; the Production host's own boundary task is unchanged.
+
+**Keep rules.** `androidApp/proguard-rules.pro` is intentionally empty of rules: the AndroidX,
+Compose, Kotlin and kotlinx.serialization consumer rules were enough for this build and R8
+reported no missing classes. Add a rule only for a class reached by name (serialization
+companions, reflection, JNI, resource lookup by name) and prove the need with the variant's R8
+output. A blanket `-keep`, `-dontwarn **` or `-ignorewarnings` is rejected by
+`scripts/test_theatre_android_qa_variant.py`.
+
+**Measuring.** Compare an exact Debug `demo` APK with the exact `demo-qa` APK using
+`cargo xtask theatre-size --apk PATH --baseline report.json` ([xtask README](../../../../xtask/README.md));
+APK bytes, estimated download size and installed footprint are separate metrics and the last one
+is only measured on a named device.
+
 ## Reading the result
 
 | Distribution row | Meaning | Do |
@@ -158,6 +238,10 @@ Normal tests and `preflight` never perform these. Record the outputs in the PR.
       command, summary, `receipt.json` and links.
 - [ ] A separate check that a tester downloaded, installed and opened the build on a **named**
       Android device.
+- [ ] For `demo-qa`: the same three steps with the operator's key, plus on a **named** device:
+      launch, splash and VI/EN theme, icons, navigation/Back, Account and the existing mock
+      storage/catalog flows still behave as in the Debug build (R8/serialization/resource paths),
+      and an update over a previous `demo-qa` build.
 - [ ] If any of the above cannot be done, it stays `NOT_RUN` with an owner and the missing
       prerequisite. Never simulate a passing distribution.
 

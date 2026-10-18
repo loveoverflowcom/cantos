@@ -11,9 +11,9 @@ use std::{
 use sha2::{Digest, Sha256};
 
 use super::{
-    apk::{output_directory, OutputError, APK_LIMIT},
+    apk::{mapping_path, output_directory, OutputError, APK_LIMIT},
     receipt::Receipt,
-    request::{Policy, NOTES_LIMIT},
+    request::{Policy, NOTES_LIMIT, QA_SIGNING_ENV},
 };
 pub use crate::run_files::{sha256_hex, RunDir, SourceIdentity};
 use crate::{
@@ -78,6 +78,14 @@ pub trait Host {
         policy: Policy,
         run: &RunDir,
         file_name: &str,
+    ) -> Result<Staged, OutputError>;
+    /// Names (never values) of the operator signing variables that are unset or empty.
+    fn missing_qa_signing_inputs(&self) -> Vec<&'static str>;
+    /// Copy the R8 mapping of a shrunk variant into the run directory, hashing the copied bytes.
+    fn stage_shrinker_mapping(
+        &mut self,
+        policy: Policy,
+        run: &RunDir,
     ) -> Result<Staged, OutputError>;
     /// Create a new private (owner-only) file in the run directory.
     fn write_private(&mut self, run: &RunDir, name: &str, bytes: &[u8]) -> Result<PathBuf, String>;
@@ -146,49 +154,28 @@ impl Host for SystemHost {
         file_name: &str,
     ) -> Result<Staged, OutputError> {
         let source = output_directory(&self.mobile_dir(), policy).join(file_name);
-        let meta = match std::fs::symlink_metadata(&source) {
-            Ok(meta) => meta,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Err(OutputError::FileMissing(file_name.to_owned()))
-            }
-            Err(error) => return Err(OutputError::Io(error.kind().to_string())),
-        };
-        if !meta.is_file() {
-            return Err(OutputError::NotRegularFile(file_name.to_owned()));
-        }
-        if meta.len() == 0 {
-            return Err(OutputError::Empty(file_name.to_owned()));
-        }
-        if meta.len() > APK_LIMIT {
-            return Err(OutputError::TooLarge(meta.len()));
-        }
-        let destination = run.path.join("artifact").join(file_name);
-        let io = |error: std::io::Error| OutputError::Io(error.kind().to_string());
-        let mut input = std::fs::File::open(&source).map_err(io)?;
-        let mut output = create_private(&destination).map_err(io)?;
-        let mut digest = Sha256::new();
-        let mut buffer = vec![0u8; 1 << 16];
-        let mut size = 0u64;
-        loop {
-            let read = input.read(&mut buffer).map_err(io)?;
-            if read == 0 {
-                break;
-            }
-            size += read as u64;
-            if size > APK_LIMIT {
-                return Err(OutputError::TooLarge(size));
-            }
-            digest.update(&buffer[..read]);
-            output.write_all(&buffer[..read]).map_err(io)?;
-        }
-        output.sync_all().map_err(io)?;
-        drop(output);
-        make_read_only(&destination).map_err(io)?;
-        Ok(Staged {
-            path: destination,
-            sha256: hex(&digest.finalize()),
-            size_bytes: size,
-        })
+        copy_private(
+            &source,
+            &run.path.join("artifact").join(file_name),
+            file_name,
+        )
+    }
+
+    fn missing_qa_signing_inputs(&self) -> Vec<&'static str> {
+        QA_SIGNING_ENV
+            .into_iter()
+            .filter(|name| std::env::var_os(name).is_none_or(|value| value.is_empty()))
+            .collect()
+    }
+
+    fn stage_shrinker_mapping(
+        &mut self,
+        policy: Policy,
+        run: &RunDir,
+    ) -> Result<Staged, OutputError> {
+        let source = mapping_path(&self.mobile_dir(), policy)
+            .ok_or_else(|| OutputError::FileMissing("mapping.txt".to_owned()))?;
+        copy_private(&source, &run.path.join("mapping.txt"), "mapping.txt")
     }
 
     fn write_private(&mut self, run: &RunDir, name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
@@ -202,6 +189,53 @@ impl Host for SystemHost {
     fn persist(&mut self, run: &RunDir, receipt: &Receipt) -> Result<PathBuf, String> {
         run_files::persist_atomic(run, "receipt.json", &receipt.to_json())
     }
+}
+
+/// Copy one regular, non-empty, bounded file to a new private read-only destination, hashing the
+/// bytes as they are copied. Symlinks, directories and oversized inputs are refused.
+fn copy_private(source: &Path, destination: &Path, name: &str) -> Result<Staged, OutputError> {
+    let meta = match std::fs::symlink_metadata(source) {
+        Ok(meta) => meta,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Err(OutputError::FileMissing(name.to_owned()))
+        }
+        Err(error) => return Err(OutputError::Io(error.kind().to_string())),
+    };
+    if !meta.is_file() {
+        return Err(OutputError::NotRegularFile(name.to_owned()));
+    }
+    if meta.len() == 0 {
+        return Err(OutputError::Empty(name.to_owned()));
+    }
+    if meta.len() > APK_LIMIT {
+        return Err(OutputError::TooLarge(meta.len()));
+    }
+    let io = |error: std::io::Error| OutputError::Io(error.kind().to_string());
+    let mut input = std::fs::File::open(source).map_err(io)?;
+    let mut output = create_private(destination).map_err(io)?;
+    let mut digest = Sha256::new();
+    let mut buffer = vec![0u8; 1 << 16];
+    let mut size = 0u64;
+    loop {
+        let read = input.read(&mut buffer).map_err(io)?;
+        if read == 0 {
+            break;
+        }
+        size += read as u64;
+        if size > APK_LIMIT {
+            return Err(OutputError::TooLarge(size));
+        }
+        digest.update(&buffer[..read]);
+        output.write_all(&buffer[..read]).map_err(io)?;
+    }
+    output.sync_all().map_err(io)?;
+    drop(output);
+    make_read_only(destination).map_err(io)?;
+    Ok(Staged {
+        path: destination.to_path_buf(),
+        sha256: hex(&digest.finalize()),
+        size_bytes: size,
+    })
 }
 
 #[cfg(test)]

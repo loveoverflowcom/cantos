@@ -9,7 +9,9 @@ setup, tester notification, retention and live acceptance remain in the
 | Existing input | Meaning |
 | --- | --- |
 | `--app-id` / `CANTOS_FIREBASE_DEMO_APP_ID` | Explicit Firebase **Android App ID**; the flag wins. No default/active Firebase project lookup |
-| `--channel demo` / `--channel production` | Selects the demo or real production composition, both debug APKs for QA; not a Hosting channel |
+| `--channel demo` / `--channel demo-qa` / `--channel production` | Selects the debuggable demo, the optimized non-debuggable demo QA (same host, package and app ID) or the real production composition; not a Hosting channel |
+| `CANTOS_FIREBASE_DEMO_QA_CERT_SHA256` | Required expected certificate of the operator's QA key for a real `demo-qa` distribution |
+| `CANTOS_QA_KEYSTORE`, `CANTOS_QA_KEYSTORE_PASSWORD`, `CANTOS_QA_KEY_ALIAS`, `CANTOS_QA_KEY_PASSWORD` | The operator's QA signing key for Gradle; only presence is checked, never created or recorded |
 | `--artifact apk` | Only supported artifact; AAB remains unsupported |
 | `--groups` / `--testers` | Explicit recipients; distribution can invite/notify them |
 | `--release-notes` / `--release-notes-file` | Bounded release notes; otherwise a demo-labeled summary |

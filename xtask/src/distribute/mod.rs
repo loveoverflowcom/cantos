@@ -47,9 +47,11 @@ pub enum Provider {
 
 const FIREBASE_HELP: &str = "\
 Three different things are named here; they are not interchangeable:
-  channel   the distribution policy. `demo` uses sandbox; `production` uses the shared production host.
-  variant   the Android build variant the channel maps onto (demo -> debug). There is no
-            Gradle flavor named demo.
+  channel   the distribution policy. `demo` is the debuggable Debug sandbox host; `demo-qa` is the
+            same host as an optimized, non-debuggable QA build; `production` uses the shared
+            production host.
+  variant   the Android build variant the channel maps onto (demo -> debug, demo-qa -> the `qa`
+            build type, production -> its own debug variant). There is no Gradle flavor named demo.
   artifact  apk (the default) or aab. Both channels accept APK; AAB is UNSUPPORTED
             before any tool starts.
 
@@ -62,6 +64,10 @@ Examples:
     --app-id 1:1234567890:android:0a1b2c3d4e5f67890 --groups cantos-internal \\
     --release-notes-file release-notes.txt
 
+  # The optimized QA build (R8, non-debuggable). Needs the operator's signing key and its
+  # pinned fingerprint; see apps/cantos-theatre/mobile/docs/firebase-distribution.md.
+  cargo xtask distribute firebase cantos-theatre --channel demo-qa --groups cantos-internal --dry-run
+
   # Explicit recipients and inline notes (export CANTOS_FIREBASE_DEMO_APP_ID beforehand).
   cargo xtask distribute firebase cantos-theatre --channel demo \\
     --testers qa@example.com --release-notes \"CMP demo QA\"
@@ -69,6 +75,10 @@ Examples:
 Configuration (nonsecret):
   --app-id / CANTOS_FIREBASE_DEMO_APP_ID   the Firebase Android app ID; the flag wins
   CANTOS_FIREBASE_DEMO_CERT_SHA256         optional expected demo debug-certificate fingerprint
+  CANTOS_FIREBASE_DEMO_QA_CERT_SHA256      required expected signer for real demo-qa runs
+  CANTOS_QA_KEYSTORE, CANTOS_QA_KEYSTORE_PASSWORD, CANTOS_QA_KEY_ALIAS, CANTOS_QA_KEY_PASSWORD
+                                           the operator's QA key for Gradle (presence only is
+                                           checked; xtask never creates, prints or records it)
   CANTOS_FIREBASE_PRODUCTION_APP_ID       separate production-composition Android app
   CANTOS_FIREBASE_PRODUCTION_CERT_SHA256  required expected signer for real production runs
   --api-origin HTTPS_ORIGIN              required explicit production API origin
@@ -127,10 +137,10 @@ fn configuration(channel: Channel) -> Configuration {
         } else {
             APP_ID_ENV
         }),
-        cert_sha256: variable(if channel == Channel::Production {
-            request::PRODUCTION_CERT_ENV
-        } else {
-            CERT_ENV
+        cert_sha256: variable(match channel {
+            Channel::Demo => CERT_ENV,
+            Channel::DemoQa => request::QA_CERT_ENV,
+            Channel::Production => request::PRODUCTION_CERT_ENV,
         }),
     }
 }
@@ -201,6 +211,7 @@ fn build_command(
 ) -> crate::command::CommandSpec {
     match policy {
         request::Policy::DemoApk => theatre_demo::android_command(workspace),
+        request::Policy::DemoQaApk => theatre_demo::android_qa_command(workspace),
         request::Policy::ProductionApk => crate::theatre_host::gradle_debug_identity_command(
             workspace,
             origin.unwrap_or_default(),
@@ -325,6 +336,7 @@ mod tests {
         let mut runner = RecordingRunner::default();
         for (channel, artifact) in [
             (Channel::Demo, ArtifactKind::Aab),
+            (Channel::DemoQa, ArtifactKind::Aab),
             (Channel::Production, ArtifactKind::Aab),
         ] {
             let raw = Raw {
@@ -465,13 +477,23 @@ mod tests {
     #[test]
     #[ignore = "needs a built demo APK and an installed Android SDK"]
     fn installed_android_tools_accept_the_built_demo_apk() {
+        accept_built_apk(request::Policy::DemoApk);
+    }
+
+    /// The same check for the optimized QA output (`:androidApp:assembleQa`, operator-signed).
+    #[test]
+    #[ignore = "needs a built QA APK and an installed Android SDK"]
+    fn installed_android_tools_accept_the_built_qa_apk() {
+        accept_built_apk(request::Policy::DemoQaApk);
+    }
+
+    fn accept_built_apk(policy: request::Policy) {
         use crate::capture::{Capture, SystemCapture};
         use apk::{
             badging_command, parse_badging, parse_output_metadata, parse_signing, signer_command,
             validate, ApkFacts,
         };
         use host::Host;
-        use request::Policy;
 
         let workspace = Workspace::discover().unwrap();
         let mut host = host::SystemHost::new(&workspace);
@@ -479,7 +501,6 @@ mod tests {
             .android_sdk()
             .expect("ANDROID_HOME or ANDROID_SDK_ROOT");
         let build_tools = sdk.join(theatre_demo::ANDROID_BUILD_TOOLS);
-        let policy = Policy::DemoApk;
         let metadata = host.read_output_metadata(policy).expect("a built variant");
         let declared = parse_output_metadata(&metadata, policy).unwrap();
         let run = host.create_run().unwrap();
