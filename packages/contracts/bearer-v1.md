@@ -1,7 +1,7 @@
 # Cantos Bearer v1 — API foundation for #253
 
-Status: implemented API/SQL foundation and Web consumer migration; CMP migration and real issuer/browser/device
-acceptance remain separate. The owner selected this architecture on 2026-10-18 in
+Status: implemented API/SQL foundation and Web/CMP consumer migration. Legacy server issuance
+cutover, restricted identity gateway and real issuer/browser/device acceptance remain separate. The owner selected this architecture on 2026-10-18 in
 [#253](https://github.com/loveoverflowcom/cantos/issues/253), superseding the cookie/same-site
 prerequisite in [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md).
 
@@ -59,7 +59,8 @@ origin durably, so configuration changes cannot retarget an in-flight authorizat
 
 Native uses the same lifecycle with the existing public native client, exact registered system
 browser redirect and client PKCE/nonce/state. Its exchange consumes the durable flow before the
-sole provider call. The original native endpoints remain compatibility-only until the CMP migration.
+sole provider call. The original native endpoints are legacy server compatibility only; migrated CMP consumers
+never fall back. Their final server-side cutover remains an explicit acceptance obligation.
 
 ## Lifetime, rotation and unknown outcomes
 
@@ -117,8 +118,9 @@ parity. No account merge or new live linking operation is included.
 ## Migration and client handoff
 
 Phase 1 deliberately keeps legacy cookie login/session and original native routes available for
-the unmodified clients. This is a **temporary staged compatibility window**, ending with phases
-2 (Web) and 3 (CMP), before #253 acceptance or production cutover. One request never mixes cookie
+the unmodified clients. This is a **temporary staged compatibility window**. Phases 2 (Web) and 3 (CMP) have migrated
+the target consumers; ending legacy server issuance remains required before #253 acceptance
+or production cutover, alongside approved gateway/issuer/native activation. One request never mixes cookie
 and Bearer. Do not deploy just this PR and claim the cookie requirement is removed from clients.
 
 Phase 2 implements the new prefixes and cookies-omitted Web effects through the shared
@@ -130,14 +132,25 @@ authorization; no private draft/token is reconstructed from display state. The W
 covers JSON/Protobuf, XHR artwork, private previews and all three original-source downloads.
 Production Web audio/Range consumers are absent, not accepted from the isolated mock player.
 The old development-cookie form has no Web fallback; legacy server issuance remains staged
-compatibility until the final migration/cutover. Local mock/browser evidence is separate from
+compatibility until the explicit server cutover. Local mock/browser evidence is separate from
 real gateway/issuer/Hosting acceptance.
 
-Phase 3 must move native consumers to this contract, atomically replace secure-store credentials,
-handle interrupted refresh/persist failure with revocation/reauthentication, and enforce cleanup
-barriers/account generation on late callbacks/refresh/session results. Remove original native
-issuance compatibility only after target consumers migrate. Browser and Android/iOS runtime
-acceptance are separate from this API foundation.
+Phase 3 implements native exchange/refresh/cancel/revoke and API-confirmed restore through one
+process owner. Its full-pair secure journal is bound to API origin/issuer, persisted and read
+back atomically in Keystore-encrypted AtomicFile or Keychain. Flow is written before exchange;
+Refreshing with the old family is written before refresh. Interrupted/unknown consuming effects
+are cleanup-only after restart. Even failed persistence readback attempts known flow/family
+cleanup while retaining the denial barrier. Cleared is durable before removing that barrier.
+Unbound old single-token records are discarded locally; they are never disclosed to a changed
+origin or restored as Bearer v1, and their original server authority expires within 900 seconds.
+
+All private native requests borrow current authority from the same single-flight coordinator.
+Access/session/intent/rotation fences reject late bodies and account A effects after B. Ordinary
+same-family rotation preserves playback, account-scoped SQLite and exact outbox operations.
+Rejected authority is quarantined synchronously; a separate admission epoch forces a paused
+restore even if StateFlow coalesces immediate reconfirmation. The current public media consumer
+uses narrow release capabilities, not account tokens in URLs. Native secure-store/process-death,
+API/Library and actual Android/iOS decoder/Range acceptance still require named targets.
 
 ## Persistence, read cost and gates
 
@@ -163,10 +176,11 @@ Web effects, secure storage and native media gates remain open under #191/#179/#
 Security references: [RFC 9700 §4.14](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.14),
 [OpenID Connect authentication time/max_age](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest).
 
-The restricted default-deny public identity gateway remains **unimplemented** in this phase.
-The existing edge's management denylist is not promoted to gateway acceptance. New Web clients
-also require operator-approved registration of each exact API
-`/api/v1/{studio|theatre}/auth/bearer/callback` URI at its existing confidential client. The
-existing live reconciliation lane still owns legacy callback receipts; extending/qualifying that
-lane and the gateway is successor source/operator work, not an action to perform from this PR.
-No provider token/management endpoint may be exposed to bypass this prerequisite.
+The restricted default-deny public identity gateway remains **unimplemented**. The existing
+edge management denylist is not gateway acceptance. Exact dual legacy/Bearer callbacks are now
+implemented in the existing-client reconciliation source and readback guards. Existing old
+receipts fail closed until a separately authorized `identity --reconcile-existing` registers
+and verifies `/api/v1/{studio|theatre}/auth/bearer/callback` at each existing confidential client.
+No account provisioning or live reconciliation occurred. Gateway route/method/asset/issuer
+qualification and rollout remain successor work; no provider token/management endpoint may be
+exposed to bypass this prerequisite.

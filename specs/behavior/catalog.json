@@ -1139,7 +1139,12 @@
       "sourceRefs": [
         "packages/contracts/bearer-v1.md",
         "docs/decisions/0041-direct-hosting-api-boundary.md",
-        "services/cantos-api/tests/bearer_postgres.rs"
+        "services/cantos-api/tests/bearer_postgres.rs",
+        "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/domain/identity/NativeGrant.kt",
+        "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/identity/NativeAccountController.kt",
+        "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/ports/NativeCredentialJournal.kt",
+        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeAccountControllerTest.kt",
+        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt"
       ],
       "model": "specs/behavior/identity/bearer_lifecycle.qnt",
       "module": "bearer_lifecycle",
@@ -1162,6 +1167,34 @@
         {
           "id": "cantos.identity.bearer-lifecycle.property.auth-time-unchanged",
           "declaration": "authTimeUnchanged"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.native-journal-before-refresh",
+          "declaration": "nativeJournalBeforeRefresh"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.native-single-flight",
+          "declaration": "nativeSingleFlight"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.native-unknown-cleanup-only",
+          "declaration": "nativeUnknownCleanupOnly"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.native-persist-before-admission",
+          "declaration": "nativePersistBeforeAdmission"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.native-restart-needs-confirmation",
+          "declaration": "nativeRestartNeedsConfirmation"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.native-late-result-fenced",
+          "declaration": "nativeLateResultFenced"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.property.native-marker-before-barrier-clear",
+          "declaration": "nativeMarkerBeforeBarrierClear"
         }
       ],
       "runs": [
@@ -1180,6 +1213,38 @@
         {
           "id": "cantos.identity.bearer-lifecycle.run.expiry",
           "declaration": "expiryTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.native-journal-before-refresh",
+          "declaration": "nativeJournalBeforeRefreshTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.native-single-flight",
+          "declaration": "nativeSingleFlightTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.native-unknown-refresh",
+          "declaration": "nativeUnknownRefreshTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.native-pair-write-failure",
+          "declaration": "nativePairWriteFailureTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.native-interrupted-refresh",
+          "declaration": "nativeInterruptedRefreshTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.native-restore-confirmation",
+          "declaration": "nativeRestoreConfirmationTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.native-logout-late-result",
+          "declaration": "nativeLogoutLateResultTest"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.run.native-durable-cleanup",
+          "declaration": "nativeDurableCleanupTest"
         }
       ],
       "witnesses": [
@@ -1198,6 +1263,34 @@
         {
           "id": "cantos.identity.bearer-lifecycle.witness.expiry-refused",
           "declaration": "expiryRefused"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.native-refresh-dispatched",
+          "declaration": "nativeRefreshDispatched"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.native-joined",
+          "declaration": "nativeJoined"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.native-unknown-stopped",
+          "declaration": "nativeUnknownStopped"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.native-pair-write-refused",
+          "declaration": "nativePairWriteRefused"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.native-interrupted",
+          "declaration": "nativeInterrupted"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.native-late-ignored",
+          "declaration": "nativeLateIgnored"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.witness.native-durable-cleanup",
+          "declaration": "nativeDurableCleanup"
         }
       ],
       "simulation": {
@@ -1233,6 +1326,48 @@
           "property": "cantos.identity.bearer-lifecycle.property.auth-time-unchanged",
           "from": "generation: state.generation + 1",
           "to": "generation: state.generation + 1, authTime: state.authTime + 1"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.native-journal-before-refresh",
+          "property": "cantos.identity.bearer-lifecycle.property.native-journal-before-refresh",
+          "from": "journal: NativeRefreshing, barrier: true,\n        inFlight: true, calls: native.calls + 1",
+          "to": "journal: NativeActive, barrier: true,\n        inFlight: true, calls: native.calls + 1"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.native-single-flight",
+          "property": "cantos.identity.bearer-lifecycle.property.native-single-flight",
+          "from": "if (native.inFlight) nativeRecord(native, NativeStart(written), JoinedFlight)",
+          "to": "if (false) nativeRecord(native, NativeStart(written), JoinedFlight)"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.native-unknown-cleanup-only",
+          "property": "cantos.identity.bearer-lifecycle.property.native-unknown-cleanup-only",
+          "from": "cleanup: true, barrier: true }, event, UnknownRefresh)",
+          "to": "cleanup: true, barrier: true, calls: native.calls + 1 }, event, UnknownRefresh)"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.native-persist-before-admission",
+          "property": "cantos.identity.bearer-lifecycle.property.native-persist-before-admission",
+          "from": "nativeRecord({ ...native, admitted: false, cleanup: true, barrier: true,\n        pendingPair: false }, NativePersist(written), PairRefused)",
+          "to": "nativeRecord({ ...native, admitted: true, cleanup: true, barrier: true,\n        pendingPair: false }, NativePersist(written), PairRefused)"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.native-restart-needs-confirmation",
+          "property": "cantos.identity.bearer-lifecycle.property.native-restart-needs-confirmation",
+          "from": "intent: intent, admitted: false, inFlight: false, pendingPair: false,",
+          "to": "intent: intent, admitted: true, inFlight: false, pendingPair: false,"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.native-late-result-fenced",
+          "property": "cantos.identity.bearer-lifecycle.property.native-late-result-fenced",
+          "from": "actor == native.actor and intent == native.intent",
+          "to": "true"
+        },
+        {
+          "id": "cantos.identity.bearer-lifecycle.control.native-marker-before-barrier-clear",
+          "property": "cantos.identity.bearer-lifecycle.property.native-marker-before-barrier-clear",
+          "from": "if (native.cleanup and native.journal == NativeCleared)",
+          "to": "if (native.cleanup)"
         }
       ],
       "aliases": []

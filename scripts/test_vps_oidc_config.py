@@ -97,6 +97,7 @@ class VpsOidcConfiguration(unittest.TestCase):
     def test_plan_adds_new_redirect_before_removing_old_and_is_idempotent(self):
         self.assertEqual(OIDC.plan(CLIENT, self.before, self.desired), [
             ("set-landing-url", "https://studio.example.test/"),
+            ("add-redirect-url", "https://api.example.test/api/v1/studio/auth/bearer/callback"),
             ("add-redirect-url", "https://api.example.test/api/v1/studio/auth/callback"),
             ("remove-redirect-url", "https://old-studio.example.test/api/v1/studio/auth/callback"),
             ("enable-strict-redirect-url",),
@@ -106,6 +107,26 @@ class VpsOidcConfiguration(unittest.TestCase):
         self.assertEqual(OIDC.plan(CLIENT, after, self.before)[-1], ("disable-strict-redirect-url",))
         with self.assertRaises(ValueError):
             OIDC.plan(CLIENT, after, {**self.desired, "strict_redirect": False})
+
+    def test_targets_pin_only_the_exact_legacy_and_bearer_callbacks_per_surface(self):
+        for surface in ("studio", "theatre"):
+            with self.subTest(surface=surface):
+                desired = OIDC.target(f"cantos-{surface}-web-bff", f"https://{surface}.example.test",
+                                      f"https://api.example.test/api/v1/{surface}/auth/callback")
+                self.assertEqual(desired["redirect_urls"], [
+                    f"https://api.example.test/api/v1/{surface}/auth/bearer/callback",
+                    f"https://api.example.test/api/v1/{surface}/auth/callback",
+                ])
+                self.assertTrue(desired["strict_redirect"])
+                current = {**desired, "preserved_fingerprint": "a" * 64}
+                self.assertEqual(OIDC.plan(desired["client"], current, desired), [])
+
+    def test_legacy_only_or_additional_callbacks_do_not_satisfy_dual_readback(self):
+        after = {**self.desired, "preserved_fingerprint": self.before["preserved_fingerprint"]}
+        for callbacks in ([self.desired["redirect_urls"][-1]],
+                          [*self.desired["redirect_urls"], "https://api.example.test/unreviewed"]):
+            with self.subTest(callbacks=callbacks), self.assertRaises(ValueError):
+                OIDC.verify(self.before, {**after, "redirect_urls": sorted(callbacks)}, self.desired)
 
     def test_verify_requires_exact_target_and_same_captured_client(self):
         after = {**self.desired, "preserved_fingerprint": self.before["preserved_fingerprint"]}
@@ -124,6 +145,8 @@ class VpsOidcConfiguration(unittest.TestCase):
             with self.subTest(web=web), self.assertRaises(ValueError):
                 OIDC.target(CLIENT, web, self.desired["redirect_urls"][0])
         for callback in ("https://api.example.test/api/v1/theatre/auth/callback",
+                         "https://api.example.test/api/v1/studio/auth/bearer/callback",
+                         "https://api.example.test/api/v1/studio/auth/../auth/callback",
                          "https://api.example.test/api/v1/studio/auth/callback/",
                          "https://api.example.test:443/api/v1/studio/auth/callback",
                          "https://user@api.example.test/api/v1/studio/auth/callback",

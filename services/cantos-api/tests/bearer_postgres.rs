@@ -369,6 +369,16 @@ async fn cancelled_or_lost_exchange_cannot_restore_and_does_not_cancel_another_a
         )
         .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(h.provider.data.revoke_calls.load(Ordering::SeqCst), 1);
+    assert!(!h
+        .admin
+        .query_one(
+            "SELECT revocation_pending FROM bearer_families WHERE id=$1::text::uuid",
+            &[&pair.session_id],
+        )
+        .await
+        .unwrap()
+        .get::<_, bool>(0));
     assert_eq!(
         h.session(&pair.access_token).await,
         StatusCode::UNAUTHORIZED
@@ -408,6 +418,206 @@ async fn cancelled_or_lost_exchange_cannot_restore_and_does_not_cancel_another_a
             .await,
         Err(cantos_api::platform::studio_oidc::AuthError::State)
     ));
+}
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres"]
+async fn cancelled_callback_receipt_retries_provider_cleanup_without_issuing_authority() {
+    let h = Harness::new(Client::TheatreWeb).await;
+    let (flow, request) = h.ready("alice").await;
+    h.provider.data.revoke_fail.store(true, Ordering::SeqCst);
+    let cancel_path = format!("{}/flows/{}/cancel", h.root(), flow.flow_id);
+    let cancel = || {
+        h.request(
+            "POST",
+            &cancel_path,
+            serde_json::to_value(CancelRequest {
+                state: request.state.clone(),
+                code_verifier: request.code_verifier.clone(),
+            })
+            .unwrap(),
+            None,
+        )
+    };
+    let (status, headers, _) = cancel().await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(headers["cantos-provider-revocation"], "pending");
+    assert_eq!(h.provider.data.revoke_calls.load(Ordering::SeqCst), 1);
+    assert!(h
+        .admin
+        .query_one(
+            "SELECT cancelled AND provider_access IS NOT NULL FROM bearer_flows WHERE id=$1::text::uuid",
+            &[&flow.flow_id],
+        )
+        .await
+        .unwrap()
+        .get::<_, bool>(0));
+    h.provider.data.revoke_fail.store(false, Ordering::SeqCst);
+    let (status, headers, _) = cancel().await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(headers["cantos-provider-revocation"], "completed");
+    assert_eq!(h.provider.data.revoke_calls.load(Ordering::SeqCst), 2);
+    assert!(h
+        .admin
+        .query_one(
+            "SELECT cancelled AND provider_access IS NULL FROM bearer_flows WHERE id=$1::text::uuid",
+            &[&flow.flow_id],
+        )
+        .await
+        .unwrap()
+        .get::<_, bool>(0));
+    // Clearing the artifact deliberately retains no durable upstream completion proof. A
+    // later retry is conservative rather than claiming an acknowledgement it cannot prove.
+    let (status, headers, _) = cancel().await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(headers["cantos-provider-revocation"], "pending");
+    assert_eq!(h.provider.data.revoke_calls.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        h.admin
+            .query_one("SELECT count(*) FROM bearer_families", &[])
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        0
+    );
+}
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres"]
+async fn cancel_during_provider_exchange_cleans_late_web_and_native_artifacts_durably() {
+    for client in [Client::TheatreWeb, Client::TheatreNative] {
+        let h = Harness::new(client).await;
+        let (flow, mut request) = h.flow().await;
+        let (state, code) = h.provider.issue(&flow.authorization_url, "alice", None);
+        let pause = h.provider.pause_code(&code);
+        request.code = code.clone();
+        let service = h.store.bearer(client).unwrap();
+        let callback = async {
+            if client == Client::TheatreNative {
+                service
+                    .exchange(
+                        &h.store,
+                        &flow.flow_id,
+                        ExchangeRequest {
+                            state: request.state.clone(),
+                            code: request.code.clone(),
+                            code_verifier: request.code_verifier.clone(),
+                        },
+                    )
+                    .await
+                    .map(|_| ())
+            } else {
+                service.callback(&h.store, &state, &code).await.map(|_| ())
+            }
+        };
+        let cancel = async {
+            tokio::time::timeout(std::time::Duration::from_secs(5), pause.entered.notified())
+                .await
+                .unwrap();
+            let completed = service
+                .cancel(
+                    &h.store,
+                    &flow.flow_id,
+                    CancelRequest {
+                        state: request.state.clone(),
+                        code_verifier: request.code_verifier.clone(),
+                    },
+                )
+                .await
+                .unwrap();
+            assert!(
+                !completed,
+                "an in-flight provider exchange cannot acknowledge revocation"
+            );
+            h.provider.data.revoke_fail.store(true, Ordering::SeqCst);
+            pause.release.notify_one();
+        };
+        let (result, ()) = tokio::join!(callback, cancel);
+        assert!(matches!(
+            result,
+            Err(cantos_api::platform::studio_oidc::AuthError::State)
+        ));
+        assert_eq!(h.provider.data.revoke_calls.load(Ordering::SeqCst), 1);
+        assert!(h.admin.query_one(
+            "SELECT cancelled AND provider_access IS NOT NULL FROM bearer_flows WHERE id=$1::text::uuid",
+            &[&flow.flow_id],
+        ).await.unwrap().get::<_, bool>(0));
+        h.provider.data.revoke_fail.store(false, Ordering::SeqCst);
+        service
+            .cancel(
+                &h.store,
+                &flow.flow_id,
+                CancelRequest {
+                    state: request.state,
+                    code_verifier: request.code_verifier,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(h.provider.data.revoke_calls.load(Ordering::SeqCst), 2);
+        assert!(h.admin.query_one(
+            "SELECT cancelled AND provider_access IS NULL FROM bearer_flows WHERE id=$1::text::uuid",
+            &[&flow.flow_id],
+        ).await.unwrap().get::<_, bool>(0));
+        assert_eq!(
+            h.admin
+                .query_one("SELECT count(*) FROM bearer_families", &[])
+                .await
+                .unwrap()
+                .get::<_, i64>(0),
+            0
+        );
+    }
+}
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres"]
+async fn denied_studio_subject_and_failed_registry_issue_revoke_verified_provider_artifacts() {
+    let h = Harness::new(Client::Studio).await;
+    let (flow, _) = h.flow().await;
+    let (state, code) = h
+        .provider
+        .issue(&flow.authorization_url, "outside-roster", None);
+    assert!(matches!(
+        h.store
+            .bearer(h.client)
+            .unwrap()
+            .callback(&h.store, &state, &code)
+            .await,
+        Err(cantos_api::platform::studio_oidc::AuthError::Inactive)
+    ));
+    assert_eq!(h.provider.data.revoke_calls.load(Ordering::SeqCst), 1);
+    assert!(h.admin.query_one(
+        "SELECT cancelled AND provider_access IS NULL FROM bearer_flows WHERE id=$1::text::uuid",
+        &[&flow.flow_id],
+    ).await.unwrap().get::<_, bool>(0));
+    let first = h.login("alice").await;
+    let (flow, request) = h.ready("alice").await;
+    h.admin
+        .execute(
+            "UPDATE actors SET active=false WHERE id=$1",
+            &[&first.actor_id],
+        )
+        .await
+        .unwrap();
+    assert!(matches!(
+        h.store
+            .bearer(h.client)
+            .unwrap()
+            .exchange(&h.store, &flow.flow_id, request)
+            .await,
+        Err(cantos_api::platform::studio_oidc::AuthError::Inactive)
+    ));
+    assert_eq!(h.provider.data.revoke_calls.load(Ordering::SeqCst), 2);
+    assert!(h.admin.query_one(
+        "SELECT cancelled AND provider_access IS NULL FROM bearer_flows WHERE id=$1::text::uuid",
+        &[&flow.flow_id],
+    ).await.unwrap().get::<_, bool>(0));
+    assert_eq!(
+        h.admin
+            .query_one("SELECT count(*) FROM bearer_families", &[])
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        1
+    );
 }
 #[tokio::test]
 #[ignore = "cargo xtask verify postgres"]

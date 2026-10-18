@@ -130,7 +130,7 @@ oidc_verify_preserved_access() {
 }
 
 oidc_reconcile_from_snapshot() {
-  local directory=$1 surface web callback
+  local directory=$1 surface web callback bearer_callback
   validate_browser_configuration || return $?
   oidc_check_existing_configuration || return $?
   for surface in theatre studio; do
@@ -151,8 +151,12 @@ oidc_reconcile_from_snapshot() {
   sha256sum -c --quiet "$directory/studio-roster-config.sha256" || return 65
   # The receipt follows provider readback and preservation checks; it is never fabricated.
   {
-    printf 'CANTOS_STUDIO_OIDC_CALLBACK=%s\n' "$(deployment_value CANTOS_STUDIO_OIDC_CALLBACK)"
-    printf 'CANTOS_THEATRE_OIDC_CALLBACK=%s\n' "$(deployment_value CANTOS_THEATRE_OIDC_CALLBACK)"
+    for surface in studio theatre; do
+      callback=$(deployment_value CANTOS_${surface^^}_OIDC_CALLBACK) || return $?
+      bearer_callback=$(browser_bearer_callback "$surface") || return $?
+      printf 'CANTOS_%s_OIDC_CALLBACK=%s\nCANTOS_%s_OIDC_BEARER_CALLBACK=%s\n' \
+        "${surface^^}" "$callback" "${surface^^}" "$bearer_callback"
+    done
   } >"$CONFIG/oidc-callbacks.env.new" || return $?
   mv "$CONFIG/oidc-callbacks.env.new" "$CONFIG/oidc-callbacks.env" || return $?
   render_api_configuration || return $?

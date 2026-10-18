@@ -189,7 +189,7 @@ async fn cancel(
         Err(e) => return error(e),
     };
     match service.cancel(&state.store, &flow, body).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Ok(done) => revoked(done),
         Err(e) => error(e),
     }
 }

@@ -147,8 +147,25 @@ require_runtime_value() {
   [[ $actual == "$expected" ]] || die "$file has stale $key; $remedy" 65
 }
 
+browser_bearer_callback() {
+  local surface=$1 api
+  case $surface in theatre|studio) ;; *) die 'unknown browser identity surface' 64 ;; esac
+  api=$(browser_origin "$surface" API) || return $?
+  printf '%s/api/v1/%s/auth/bearer/callback\n' "$api" "$surface"
+}
+
+require_oidc_callback_receipt() {
+  local surface=$1 callback bearer_callback
+  callback=$(deployment_value CANTOS_${surface^^}_OIDC_CALLBACK) || return $?
+  bearer_callback=$(browser_bearer_callback "$surface") || return $?
+  require_runtime_value "$CONFIG/oidc-callbacks.env" CANTOS_${surface^^}_OIDC_CALLBACK "$callback" \
+    "complete separately authorized identity --reconcile-existing before deployment" || return $?
+  require_runtime_value "$CONFIG/oidc-callbacks.env" CANTOS_${surface^^}_OIDC_BEARER_CALLBACK "$bearer_callback" \
+    "complete separately authorized identity --reconcile-existing for both exact callbacks before deployment"
+}
+
 validate_supplemental_environment() {
-  local file=$1 surface=$2 callback line
+  local file=$1 surface=$2 line
   [[ -f $file ]] || die "supplemental API EnvironmentFile is missing: $file" 66
   if grep -Eq '^[[:space:]]*(CANTOS_ENV|CANTOS_BIND_ADDRESS|CANTOS_WEB_ORIGIN|CANTOS_API_ORIGIN|CANTOS_BROWSER_API_SURFACE)[[:space:]]*=' "$file"; then
     die "$file overrides protected API browser configuration; keep those keys only in api-$surface.env" 65
@@ -161,9 +178,7 @@ validate_supplemental_environment() {
       die "$file has an unsupported supplemental API env assignment; use plain KEY=VALUE lines only" 65
   done <"$file"
   if grep -Eq '^[[:space:]]*CANTOS_[A-Z_]*OIDC_ISSUER[[:space:]]*=' "$file"; then
-    callback=$(deployment_value CANTOS_${surface^^}_OIDC_CALLBACK) || return $?
-    require_runtime_value "$CONFIG/oidc-callbacks.env" CANTOS_${surface^^}_OIDC_CALLBACK "$callback" \
-      "complete separately authorized identity callback reconciliation before deployment"
+    require_oidc_callback_receipt "$surface"
   fi
 }
 
@@ -189,9 +204,7 @@ validate_api_dropins() {
             CANTOS_ENV|CANTOS_BIND_ADDRESS|CANTOS_WEB_ORIGIN|CANTOS_API_ORIGIN|CANTOS_BROWSER_API_SURFACE)
               die "$file overrides protected API browser configuration; keep $key only in api-$surface.env" 65 ;;
             CANTOS_*OIDC_ISSUER)
-              require_runtime_value "$CONFIG/oidc-callbacks.env" CANTOS_${surface^^}_OIDC_CALLBACK \
-                "$(deployment_value CANTOS_${surface^^}_OIDC_CALLBACK)" \
-                "complete separately authorized identity callback reconciliation before deployment" ;;
+              require_oidc_callback_receipt "$surface" ;;
           esac
           ;;
         "Secret=cantos-$surface-oidc-secret,type=env,target=CANTOS_${surface^^}_OIDC_SECRET") ;;
@@ -205,7 +218,7 @@ validate_api_dropins() {
 # must reconcile it first, so failed image switches cannot strand a changed browser boundary.
 validate_runtime_browser_configuration() {
   validate_browser_configuration
-  local surface file callback
+  local surface file
   for surface in theatre studio; do
     file=$CONFIG/api-$surface.env
     require_runtime_value "$file" CANTOS_ENV production
@@ -215,9 +228,7 @@ validate_runtime_browser_configuration() {
     require_runtime_value "$file" CANTOS_API_ORIGIN "$(browser_origin "$surface" API)"
     validate_api_dropins "$surface"
     if [[ -f $CONFIG/api-$surface-oidc.env ]]; then
-      callback=$(deployment_value CANTOS_${surface^^}_OIDC_CALLBACK)
-      require_runtime_value "$CONFIG/oidc-callbacks.env" CANTOS_${surface^^}_OIDC_CALLBACK "$callback" \
-        "complete separately authorized identity callback reconciliation before deployment"
+      require_oidc_callback_receipt "$surface"
     fi
   done
 }

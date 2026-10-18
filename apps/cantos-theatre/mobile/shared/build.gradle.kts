@@ -186,10 +186,17 @@ val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVector
     val nativeSessionFixture = rootProject.file("../../../packages/contracts/fixtures/theatre-identity/v1/native-session.json")
     // Reviewed canonical bytes; update only with an intentional shared contract-fixture change.
     val nativeSessionSha256 = "bb457e56dcf34c603c73614bdb48238fb438a0e59cbfa9d0cb00fc8a376dd086"
+    val bearerFixtureHashes = mapOf(
+        "token-pair.json" to "e1807a6bb241721618be6551776e1caaf76c8120c8cc6dd7c08a7d970dabf83f",
+        "session.json" to "d6cf5b3fa079d0d75cbe9353a90f036b47bd88edebd5b52964c2296e874cd101",
+    )
+    val bearerFixtures = rootProject.file("../../../packages/contracts/fixtures/bearer/v1")
     val outputDirectory = layout.buildDirectory.dir("generated/client-boundary/commonTest")
     inputs.file(fixture)
     inputs.file(nativeSessionFixture)
     inputs.property("nativeSessionSha256", nativeSessionSha256)
+    inputs.files(bearerFixtureHashes.keys.map(bearerFixtures::resolve))
+    inputs.property("bearerFixtureHashes", bearerFixtureHashes)
     outputs.dir(outputDirectory)
     doLast {
         val raw = fixture.readText(Charsets.UTF_8)
@@ -206,6 +213,23 @@ val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVector
         val nativeEscaped = nativeJson.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$").replace("\n", "\\n").replace("\r", "\\r")
         val nativeOutput = outputDirectory.get().asFile.resolve("com/cantos/theatre/adapters/http/CanonicalNativeIdentity.kt")
         nativeOutput.writeText("package com.cantos.theatre.adapters.http\ninternal object CanonicalNativeIdentity { val json: String = \"$nativeEscaped\" }\n", Charsets.UTF_8)
+        val bearerJson = bearerFixtureHashes.mapValues { (name, hash) ->
+            val bytes = bearerFixtures.resolve(name).readBytes()
+            val actualHash = MessageDigest.getInstance("SHA-256").digest(bytes)
+                .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            check(actualHash == hash) { "Canonical Bearer identity fixture hash mismatch: $name" }
+            val text = bytes.toString(Charsets.UTF_8)
+            check(text.toByteArray(Charsets.UTF_8).contentEquals(bytes)) { "Invalid UTF-8 Bearer identity fixture: $name" }
+            text.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$").replace("\n", "\\n").replace("\r", "\\r")
+        }
+        val bearerOutput = outputDirectory.get().asFile.resolve("com/cantos/theatre/adapters/http/CanonicalBearerIdentity.kt")
+        bearerOutput.writeText(
+            "// Generated original Bearer v1 fixture bytes; no expectations or purpose mapping generated.\n" +
+                "package com.cantos.theatre.adapters.http\ninternal object CanonicalBearerIdentity {\n" +
+                "val tokenPairJson: String = \"${bearerJson.getValue("token-pair.json")}\"\n" +
+                "val sessionJson: String = \"${bearerJson.getValue("session.json")}\"\n}\n",
+            Charsets.UTF_8,
+        )
     }
 }
 

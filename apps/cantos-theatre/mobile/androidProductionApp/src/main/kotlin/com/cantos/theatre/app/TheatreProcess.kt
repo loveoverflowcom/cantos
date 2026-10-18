@@ -9,6 +9,7 @@ import com.cantos.theatre.R
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.http.CatalogOriginSelection
 import com.cantos.theatre.adapters.http.JvmCatalogTransport
+import com.cantos.theatre.adapters.http.NativeAuthorizedHttpPort
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
 import com.cantos.theatre.adapters.http.selectCatalogOrigin
@@ -58,8 +59,11 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
     val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport(), cache), { cache?.invalidate() })
         .also { it.dispatch(PublicCatalogIntent.Start) }
     private val account = createAndroidNativeAccount(scope, app, origin.toString(), app.nativeMetadata("CantosNativeIssuer"))
-    private val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, http), it,
+    private val authorizedHttp = account?.let { NativeAuthorizedHttpPort(scope, origin, it, http) } ?: http
+    private val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), it,
         { UUID.randomUUID().toString() }, onSessionInvalidated = { expected -> account?.revalidate(expected) },
+        ownsAuthorization = { owner -> account?.belongsToCurrent(owner.bearer, owner.session) == true &&
+            account.verifiedSession.value?.session?.actor == owner.account },
         nowMs = { System.currentTimeMillis() }) }
     /** Language is stored; the theme starts from the system and is then the listener's in-app choice. */
     val preferences = PreferencesController(

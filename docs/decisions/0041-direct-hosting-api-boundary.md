@@ -1,7 +1,7 @@
 # ADR 0041: Direct Firebase Hosting and the Cantos API browser boundary
 
 - Status: accepted owner direction; API addressing/CORS/callback support implemented in this slice;
-  Bearer API foundation implemented; client migration, minimal identity gateway and production acceptance remain pending
+  Bearer API and Web/CMP consumer migration implemented; minimal identity gateway, server compatibility cutover and production acceptance remain pending
 - Date: 2026-10-17; Bearer amendment accepted by the owner on 2026-10-18 (#253)
 - Decision owner: Cantos product owner (production-audit request and API-mediated Web clarification)
 - Related: [0034](0034-theatre-signup-and-provisioned-studio.md),
@@ -66,8 +66,10 @@ Native uses its secure storage/cleanup barriers. Refresh rotation, reuse-family 
 unknown-response reauthorization and actual signed recent-authentication proof are specified
 in Bearer v1. This initial implementation never extends the original provider/proof lifetime.
 
-The API foundation and Web RAM/transport migration are implemented; CMP migration, removal of legacy server cookie compatibility
-and real restrictive-browser/issuer/device acceptance remain unfinished. Legacy cookies retain
+The API foundation, Web RAM/transport migration and native secure-journal/refresh consumers
+are implemented. Exact dual legacy/Bearer callback reconciliation source is implemented;
+operator rollout, removal of legacy server issuance and real restrictive-browser/issuer/device
+acceptance remain unfinished. Legacy cookies retain
 Strict/Lax, Secure/HttpOnly and their CSRF rules during that explicit staging window. Relaxing
 cookies or persisting Web tokens in localStorage is not part of this decision.
 

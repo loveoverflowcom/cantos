@@ -37,8 +37,9 @@ import kotlin.test.assertTrue
 /**
  * **Drift check, not code generation.** The Kotlin wire DTOs are hand-written; this test pins
  * them to the shared strict JSON Schema (property names, required set, JSON types, nullability,
- * enum values, `additionalProperties:false`) and decodes/re-encodes every original fixture.
- * A schema or fixture change in `packages/contracts` fails here until the DTOs are reviewed.
+ * enum values, `additionalProperties:false`) and decodes/re-encodes every default-v1 fixture.
+ * Presentation-only opt-in fixtures must be refused by these default DTOs. A schema or fixture
+ * change in `packages/contracts` fails here until the DTOs and fixture inventory are reviewed.
  */
 class PublicCatalogWireDriftTest {
     private val defs: JsonObject =
@@ -54,7 +55,7 @@ class PublicCatalogWireDriftTest {
         "PlaybackAuthorization" to PlaybackGrantWire.serializer(),
     )
 
-    private enum class Shape { WorkPage, UnitPage, ListenerError, Manifest }
+    private enum class Shape { WorkPage, UnitPage, ListenerError, Manifest, PresentedWorkPage, PresentedUnitPage }
 
     /** Every shared fixture must be classified; a new file fails until reviewed. */
     private val fixtureShapes = mapOf(
@@ -70,6 +71,9 @@ class PublicCatalogWireDriftTest {
         "unavailable.json" to Shape.ListenerError,
         "rendition_unavailable.json" to Shape.ListenerError,
         "manifest.json" to Shape.Manifest,
+        // #251 requires presentation=1; the native client continues requesting default v1.
+        "presented_works.json" to Shape.PresentedWorkPage,
+        "presented_units.json" to Shape.PresentedUnitPage,
     )
 
     private fun definition(name: String): JsonObject = defs.getValue(name).jsonObject
@@ -173,7 +177,7 @@ class PublicCatalogWireDriftTest {
     }
 
     @Test
-    fun every_shared_fixture_is_classified_and_round_trips_through_the_strict_dto() {
+    fun every_shared_fixture_is_classified_as_default_round_trip_or_unsupported_presentation() {
         assertEquals(fixtureShapes.keys, CanonicalDiscoveryCorpus.fixtureJsonByFile.keys, "unclassified or missing fixture")
         CanonicalDiscoveryCorpus.fixtureJsonByFile.forEach { (file, json) ->
             when (fixtureShapes.getValue(file)) {
@@ -181,8 +185,20 @@ class PublicCatalogWireDriftTest {
                 Shape.UnitPage -> assertRoundTrip(UnitPageWire.serializer(), json, file)
                 Shape.ListenerError -> assertRoundTrip(ListenerErrorWire.serializer(), json, file)
                 Shape.Manifest -> assertRoundTrip(ManifestWire.serializer(), json, file)
+                Shape.PresentedWorkPage -> assertPresentationRefused(WorkPageWire.serializer(), json, file, "unit_count")
+                Shape.PresentedUnitPage -> assertPresentationRefused(UnitPageWire.serializer(), json, file, "ordinal")
             }
         }
+    }
+
+    private fun <T> assertPresentationRefused(serializer: KSerializer<T>, json: String, file: String, field: String) {
+        val items = Json.parseToJsonElement(json).jsonObject.getValue("items").jsonArray
+        assertTrue(items.isNotEmpty(), "$file must exercise its opt-in field")
+        assertTrue(items.all { field in it.jsonObject }, "$file must carry $field")
+        val refusal = assertFailsWith<SerializationException>("$file requires explicit presentation support") {
+            catalogJson.decodeFromString(serializer, json)
+        }
+        assertTrue(refusal.message?.contains(field) == true, "$file must be refused for its unsupported $field")
     }
 
     private fun <T> assertRoundTrip(serializer: KSerializer<T>, json: String, file: String) {

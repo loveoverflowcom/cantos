@@ -65,6 +65,36 @@ class NativeLibraryClientTest {
         http.response = NativeHttpResponse(200, "application/json", libraryFixtures.getValue("saved.json"), null, id)
         assertEquals("session_changed", assertIs<LibraryResult.Failed>(client.savedPage(auth)).code)
     }
+    @Test fun ownerFenceIsNonretryableAndPreservesUnknownMutationForReceiptRecovery() = runTest {
+        val http = Http(); val client = client(http)
+        http.response = NativeHttpResponse(0, null, null, "session_changed")
+        val page = assertIs<LibraryResult.Failed>(client.savedPage(auth))
+        assertEquals("session_changed", page.code)
+        assertFalse(page.retryable)
+        assertFalse(page.unknownOutcome)
+        val body = libraryFixtures.getValue("history_clear.json")
+        val operation = Json.parseToJsonElement(body).jsonObject.getValue("operation").jsonObject.getValue("operation_id").jsonPrimitive.content
+        val mutation = assertIs<LibraryResult.Failed>(client.mutate(auth,
+            LocalLibraryIntent(operation, "history", "POST", "/library/history/clear", body)))
+        assertEquals("session_changed", mutation.code)
+        assertFalse(mutation.retryable)
+        assertTrue(mutation.unknownOutcome, "a discarded response cannot prove the mutation did not commit")
+    }
+    @Test fun discardedRotatedLeaseDoesNotInvalidateItsHealthyReplacementAndReconcilesMutations() = runTest {
+        val http = Http(); val client = client(http)
+        http.response = NativeHttpResponse(0, null, null, "authority_changed")
+        val page = assertIs<LibraryResult.Failed>(client.savedPage(auth))
+        assertEquals("authority_changed", page.code)
+        assertTrue(page.retryable)
+        assertFalse(page.unknownOutcome)
+        val body = libraryFixtures.getValue("history_clear.json")
+        val operation = Json.parseToJsonElement(body).jsonObject.getValue("operation").jsonObject.getValue("operation_id").jsonPrimitive.content
+        val mutation = assertIs<LibraryResult.Failed>(client.mutate(auth,
+            LocalLibraryIntent(operation, "history", "POST", "/library/history/clear", body)))
+        assertEquals("authority_changed", mutation.code)
+        assertTrue(mutation.retryable)
+        assertTrue(mutation.unknownOutcome)
+    }
     @Test fun mutationCannotEscapeTheatreLibraryOrChangeOperationBinding() = runTest {
         val http = Http(); val client = client(http)
         assertEquals("invalid_request", assertIs<LibraryResult.Failed>(client.mutate(auth, LocalLibraryIntent(id, "history", "POST", "/../studio/publish", "{}"))).code)

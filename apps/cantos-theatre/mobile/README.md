@@ -39,31 +39,42 @@ records current checks separately from the historical results cited below.
 
 ## Opt-in native identity
 
-`NativeAccountController` owns the native protocol and account lifecycle on the process/main
-dispatcher. `NativeIdentityClient` calls separate `/api/v1/theatre/native/*` endpoints over
-the exact configured HTTPS API origin. The native client is public: no Studio/Web client
-secret is embedded. Fresh state/nonce/verifier and S256 bind the system-browser callback to a
-durable server flow. The client consumes its pending flow before one exchange and never retries
-a code after an unknown outcome. Provider credentials remain on the backend; the OS store
-contains only a distinct opaque Cantos native-session credential.
+`NativeAccountController` is the one process/application-dispatcher owner of the native
+Bearer lifecycle. `NativeIdentityClient` uses `/api/v1/theatre/native/auth/bearer` on the exact
+configured HTTPS API origin. The public native client embeds no Studio/Web secret. State,
+nonce, S256 and exact system-browser redirect bind one server flow and one exchange. Provider
+credentials remain on the API; only scoped Cantos access/refresh credentials reach native.
 
-Restore is an explicit user action, never automatic on launch. It requires an absent durable
-logout marker, a successful OS-store read and a fresh native session GET. Logout clears the
-account projection immediately and writes a **nonsecret** durable denial marker before HTTP
-revocation or OS deletion. Unknown HTTP revocation retains the same credential for an idempotent
-DELETE retry. Failed deletion retains the marker and blocks restore/new login until cleanup is
-acknowledged. Returning account requests carry `X-Cantos-Theatre-Session`; a mismatched response
-is discarded before decoding and triggers session revalidation without revoking another account.
-Signed-in mode reads the actual Saved page only; no mock list, history event or playback is
-created by signing in.
+`SecureNativeCredentialJournal` replaces one complete encrypted OS value, bound to exact API
+origin and issuer. Its Active, Flow, Refreshing and Cleared records distinguish usable candidates
+from cleanup-only recovery. Flow is persisted before code exchange; Refreshing with the old
+family is persisted before rotation. An interrupted or unknown exchange is cancelled, and an
+interrupted or unknown refresh revokes the old family; neither consuming request is replayed.
+Failed write/readback still attempts known-flow/family cleanup, while the durable denial barrier
+blocks adoption. A durable Cleared record makes a crash between revoke and marker deletion
+recoverable. Old unbound single-token records are removed locally, never sent to a changed
+origin or admitted as new Bearer; their original server lifetime remains bounded to 900 seconds.
 
-Android uses Keystore AES-GCM and an encrypted AtomicFile under `noBackupFilesDir`, external
-ACTION_VIEW, bounded/no-cookie/no-redirect HttpURLConnection and a separately synced nonsecret
-marker. iOS uses Keychain `AfterFirstUnlockThisDeviceOnly`, ASWebAuthenticationSession, bounded
-ephemeral URLSession with no cookies/cache/redirects, and a synced backup-excluded nonsecret
-marker. Swift adapters are included in the Xcode Sources phase and injected into shared
-`IosNativeIdentityOwner`; the sandbox's `IosNativeOwner` delegates to it and composes the demo UI.
-No credential enters SwiftUI state, preferences or plaintext files.
+The production runtime restores on launch through API confirmation, or one safe rotation when
+only access has expired. Local credentials alone never expose an account or its SQLite rows.
+The active process timer and all private requests share one refresh flight; cancelling a waiter
+does not cancel or repeat rotation. Access is at most 120 seconds; original provider/proof,
+idle and absolute authority remain server-owned and never extend through refresh.
+
+Logout hides authority and durably marks intent before network cleanup. Local intent/rotation
+leases reject late bodies, callbacks and cleanup from account A after B. Library HTTP borrows
+the current access pair from that owner; same-family rotation preserves the player, local
+checkpoint and exact outbox operations. Direct same-turn Library changes after logout also
+check authority. No account token is put in a media URL: current public playback retains the
+existing short-lived release capability and separate native media transport.
+
+Android uses Keystore AES-GCM with full-record AtomicFile/readback/fsync in `noBackupFilesDir`,
+ACTION_VIEW and bounded no-cookie/no-redirect HTTP. iOS uses Keychain
+`AfterFirstUnlockThisDeviceOnly` with full-record readback, ASWebAuthenticationSession and
+ephemeral no-cookie/no-cache/no-redirect URLSession. The synced nonsecret denial marker is
+backup-excluded on both platforms. No credential enters Compose/SwiftUI state, SQLite,
+preferences, logs or plaintext files. Source implementation and JVM examples do not establish
+installed-device secure-store/process-death or native decoder acceptance.
 
 Operator-owned **nonsecret** configuration keys are `CantosApiOrigin` and `CantosNativeIssuer`,
 read from Android application metadata / iOS Info.plist. Both must be supplied; the issuer must

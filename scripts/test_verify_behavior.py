@@ -122,7 +122,7 @@ class BehaviorContracts(unittest.TestCase):
             "cantos.presentation.locale-preference": (6, 4, 4),
             "cantos.identity.theatre-registration": (11, 5, 4),
             "cantos.production.forge-attempt": (13, 7, 9),
-            "cantos.identity.bearer-lifecycle": (4, 4, 4),
+            "cantos.identity.bearer-lifecycle": (12, 11, 11),
         }
         self.assertEqual([cap["id"] for cap in selected], list(expected))
         for cap in selected:

@@ -118,8 +118,11 @@ def target(client, web, callback):
     landing = origin(web) + "/"
     suffix = f"/api/v1/{surface}/auth/callback"
     require(callback.endswith(suffix))
-    origin(callback[:-len(suffix)])
-    return {"client": client, "landing_url": landing, "redirect_urls": [callback],
+    api = origin(callback[:-len(suffix)])
+    # Staged migration keeps the legacy endpoint while the new client uses its exact sibling.
+    # Neither the operator inputs nor provider metadata may supply another callback/authority.
+    redirects = [api + f"/api/v1/{surface}/auth/bearer/callback", callback]
+    return {"client": client, "landing_url": landing, "redirect_urls": redirects,
             "strict_redirect": True, "preserved_fingerprint": None}
 
 

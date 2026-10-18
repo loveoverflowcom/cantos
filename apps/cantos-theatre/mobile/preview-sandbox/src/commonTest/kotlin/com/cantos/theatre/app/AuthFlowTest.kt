@@ -141,7 +141,7 @@ class AuthFlowTest {
         val h = harness
         try {
             h.app.navigate(NavigationEvent.Navigate(TheatreRoute.Account))
-            h.store.value = h.token
+            h.persistSession()
             h.account.restore(); runCurrent()
             assertIs<NativeAccountState.SignedIn>(h.account.state.value)
             assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Account), h.app.stack)
@@ -160,7 +160,7 @@ class AuthFlowTest {
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
             assertEquals(TheatreRoute.Login, h.app.route)
 
-            h.store.value = h.token
+            h.persistSession()
             assertEquals(RestoreOutcome.Requested, h.app.restoreSession()); runCurrent()
             assertIs<NativeAccountState.SignedIn>(h.account.state.value)
             assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Account), h.app.stack)

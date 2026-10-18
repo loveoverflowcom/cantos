@@ -51,6 +51,19 @@ needs a matching receipt before deploy/rollback. This establishes observed confi
 not a successful browser session or equality of provider-redacted signing-key bytes. See the
 [migration procedure and cookie/domain gate](../../docs/deployment/vps-production.md#direct-hosting--api-configuration).
 
+For the [#253 Bearer migration](../../packages/contracts/bearer-v1.md), reconciliation derives
+two exact callbacks for each existing Web client from its validated API origin:
+`/api/v1/{studio|theatre}/auth/callback` and `/api/v1/{studio|theatre}/auth/bearer/callback`.
+The six browser inputs are unchanged; callers cannot supply additional callback URLs. Readback
+must contain exactly that pair with strict redirect matching before the receipt records both
+`CANTOS_<SURFACE>_OIDC_CALLBACK` and `CANTOS_<SURFACE>_OIDC_BEARER_CALLBACK`. Deploy, rollback and
+browser reload refuse a legacy-only receipt, including issuer settings in supported drop-ins.
+The account-provisioning form remains unchanged and produces its original input-only receipt;
+it requires separately authorized `identity --reconcile-existing` before activating this source.
+Failed reconciliation restores the original client snapshots, runtime configuration and receipt.
+This source support performs no live registration and does not implement or qualify the
+[restricted identity gateway](../edge/identity-gateway.md).
+
 The current image declares schema epoch 2. Ordinary deploy/rollback rejects legacy databases
 and images from another epoch; it does not convert or reset a deployed database. PostgreSQL
 stays pinned to 17.11. Read the [schema cutover plan](../../docs/deployment/postgres-schema-cutover.md)

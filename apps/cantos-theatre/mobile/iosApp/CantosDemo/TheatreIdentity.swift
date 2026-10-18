@@ -42,10 +42,13 @@ final class TheatreCredentialStore {
             values.forEach { request[$0.key] = $0.value }
             guard SecItemAdd(request as CFDictionary, nil) == errSecSuccess else { throw TheatreCredentialError.unavailable }
         } else if updated != errSecSuccess { throw TheatreCredentialError.unavailable }
+        // Read the one complete item back before the shared owner admits a rotated pair.
+        guard try read() == value else { throw TheatreCredentialError.corrupt }
     }
     func clear() throws {
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw TheatreCredentialError.unavailable }
+        guard try read() == nil else { throw TheatreCredentialError.unavailable }
     }
 }
 

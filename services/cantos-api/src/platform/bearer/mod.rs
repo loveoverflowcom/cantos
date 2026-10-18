@@ -127,29 +127,14 @@ impl BearerIdentity {
         if self.client == Client::TheatreNative || !core::secret(state) || !code_valid(code) {
             return Err(AuthError::State);
         }
+        let handoff = random()?;
         let flow = postgres::consume_callback(store, &self.config, state).await?;
         let exchange = self
             .provider
             .exchange(code, &flow.verifier, &flow.nonce, now)
             .await?;
-        self.authorize_subject(store, exchange.proof.key().subject())?;
-        let lifetime = core::issue(
-            self.client,
-            now()?,
-            exchange.proof.expires(),
-            exchange.access_expiry,
-        )
-        .map_err(refusal)?;
-        let handoff = random()?;
-        postgres::complete_callback(
-            store,
-            &self.config,
-            &flow.id,
-            exchange,
-            lifetime.absolute,
-            &handoff,
-        )
-        .await?;
+        self.complete_exchange(store, &flow.id, exchange, &handoff)
+            .await?;
         let mut url = url::Url::parse(&format!("{}/auth/bearer/complete", self.config.web_origin))
             .map_err(|_| AuthError::Configuration)?;
         url.query_pairs_mut().extend_pairs([
@@ -179,6 +164,39 @@ impl BearerIdentity {
                 .provider
                 .exchange(&request.code, &request.code_verifier, &nonce, now)
                 .await?;
+            self.complete_exchange(store, flow, exchange, "").await?;
+        }
+        let result = match Secrets::new(self.client) {
+            Ok(secrets) => {
+                postgres::issue(store, &self.config, self.client, flow, &request, secrets).await
+            }
+            Err(error) => Err(error),
+        };
+        if result.is_err() {
+            // This proof-bound cleanup is safe even when issue committed but its response was lost.
+            // A wrong state/verifier cannot use an exchange refusal to cancel somebody else's flow.
+            let _ = self
+                .cancel(
+                    store,
+                    flow,
+                    CancelRequest {
+                        state: request.state,
+                        code_verifier: request.code_verifier,
+                    },
+                )
+                .await;
+        }
+        result
+    }
+    async fn complete_exchange(
+        &self,
+        store: &Store,
+        flow: &str,
+        exchange: crate::platform::oidc::provider::Exchange,
+        handoff: &str,
+    ) -> Result<(), AuthError> {
+        let result = async {
+            self.authorize_subject(store, exchange.proof.key().subject())?;
             let lifetime = core::issue(
                 self.client,
                 now()?,
@@ -186,32 +204,62 @@ impl BearerIdentity {
                 exchange.access_expiry,
             )
             .map_err(refusal)?;
-            postgres::complete_callback(store, &self.config, flow, exchange, lifetime.absolute, "")
-                .await?;
+            postgres::complete_callback(
+                store,
+                &self.config,
+                flow,
+                &exchange,
+                lifetime.absolute,
+                handoff,
+            )
+            .await
         }
-        let secrets = Secrets::new(self.client)?;
-        postgres::issue(store, &self.config, self.client, flow, &request, secrets).await
+        .await;
+        if result.is_err() {
+            match postgres::abandon_exchange(store, &self.config, flow, &exchange.access_token)
+                .await
+            {
+                Ok(receipt) => {
+                    let _ = self.finish_revoke(store, receipt).await;
+                }
+                Err(_) => {
+                    // A database outage cannot mint local authority. Still contain the upstream
+                    // artifact if possible; remote receipt persistence is necessarily unavailable.
+                    if let Ok(time) = now() {
+                        let _ = self.provider.revoke(&exchange.access_token, time).await;
+                    }
+                }
+            }
+        }
+        result
     }
     pub async fn cancel(
         &self,
         store: &Store,
         flow: &str,
         request: CancelRequest,
-    ) -> Result<(), AuthError> {
+    ) -> Result<bool, AuthError> {
         if uuid::Uuid::parse_str(flow).is_err()
             || !core::protocol(&request.state)
             || !core::protocol(&request.code_verifier)
         {
             return Err(AuthError::State);
         }
-        postgres::cancel(
+        let cancellation = postgres::cancel(
             store,
             &self.config,
             flow,
             &request.state,
             &pkce_challenge(&request.code_verifier),
         )
-        .await
+        .await?;
+        match cancellation {
+            postgres::Cancellation::Complete => Ok(true),
+            postgres::Cancellation::Pending => Ok(false),
+            postgres::Cancellation::Revoke(receipt) => {
+                self.finish_revoke(store, Some(receipt)).await
+            }
+        }
     }
     pub async fn authenticate(&self, store: &Store, token: &str) -> Result<Session, AuthError> {
         if core::access_client(token) != Some(self.client) {
@@ -273,16 +321,21 @@ impl BearerIdentity {
     async fn finish_revoke(
         &self,
         store: &Store,
-        access: Option<(String, String)>,
+        receipt: Option<postgres::Revocation>,
     ) -> Result<bool, AuthError> {
-        let Some((id, access)) = access else {
+        let Some(receipt) = receipt else {
             return Ok(true);
         };
         // Durable local revoke precedes best-effort remote revoke; an outage remains recorded.
-        if self.provider.revoke(&access, now()?).await.is_err() {
+        if self
+            .provider
+            .revoke(receipt.access(), now()?)
+            .await
+            .is_err()
+        {
             return Ok(false);
         }
-        postgres::revocation_completed(store, &id).await?;
+        postgres::revocation_completed(store, &receipt).await?;
         Ok(true)
     }
     pub async fn with_admission<F, Fut, T>(

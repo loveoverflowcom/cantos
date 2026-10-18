@@ -36,6 +36,11 @@ class NativeLibraryClient(private val apiOrigin: ApiOrigin, private val http: Na
             }
         } ?: NativeHttpResponse(0, null, null, "timeout")
         val mutation = method != "GET"
+        if (response.failure == "authority_changed") return LibraryResult.Failed("authority_changed", true, mutation)
+        if (response.failure == "session_changed") return LibraryResult.Failed("session_changed", false, mutation)
+        if (response.failure == "unauthenticated") return LibraryResult.Failed("unauthenticated", false, mutation)
+        if (response.failure == "denied") return LibraryResult.Failed("denied", false, mutation)
+        if (response.failure == "protocol") return LibraryResult.Failed("protocol", false, mutation)
         if (response.failure != null) return LibraryResult.Failed("unavailable", true, mutation)
         if (response.status == 401) return LibraryResult.Failed("unauthenticated", false)
         if (response.actualSession != auth.session) return LibraryResult.Failed("session_changed", false, mutation)

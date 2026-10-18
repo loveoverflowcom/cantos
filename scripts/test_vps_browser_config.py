@@ -202,7 +202,41 @@ systemctl() { printf systemctl >>"$ROOT/effects"; }
         self.assertIn("has stale CANTOS_STUDIO_OIDC_CALLBACK", result.stderr)
         receipt.write_text("CANTOS_STUDIO_OIDC_CALLBACK=https://api.example.test/api/v1/studio/auth/callback\n")
         result = self.run_host("validate_runtime_browser_configuration\n")
+        self.assertEqual(result.returncode, 66, result.stderr)
+        self.assertIn("must define CANTOS_STUDIO_OIDC_BEARER_CALLBACK exactly once", result.stderr)
+        receipt.write_text(receipt.read_text() +
+                           "CANTOS_STUDIO_OIDC_BEARER_CALLBACK=https://api.example.test/api/v1/studio/auth/bearer/callback\n")
+        result = self.run_host("validate_runtime_browser_configuration\n")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_bearer_receipt_cannot_use_another_surface_origin_or_duplicate_entry(self):
+        self.assertEqual(self.run_host("render_configuration\n").returncode, 0)
+        (self.root / "config/api-studio-oidc.env").write_text("CANTOS_STUDIO_OIDC_ISSUER=https://idm.example.test/fixture\n")
+        receipt = self.root / "config/oidc-callbacks.env"
+        legacy = "CANTOS_STUDIO_OIDC_CALLBACK=https://api.example.test/api/v1/studio/auth/callback\n"
+        key = "CANTOS_STUDIO_OIDC_BEARER_CALLBACK="
+        exact = "https://api.example.test/api/v1/studio/auth/bearer/callback"
+        for value, status in ((exact.replace("/studio/", "/theatre/"), 65),
+                              (exact.replace("api.example.test", "other.example.test"), 65),
+                              (exact + "\n" + key + exact, 66)):
+            with self.subTest(value=value):
+                receipt.write_text(legacy + key + value + "\n")
+                result = self.run_host("validate_runtime_browser_configuration\n")
+                self.assertEqual(result.returncode, status, result.stderr)
+
+    def test_bearer_receipt_is_required_for_inline_and_supplemental_issuer_dropins(self):
+        self.assertEqual(self.run_host("render_configuration\n").returncode, 0)
+        (self.root / "config/oidc-callbacks.env").write_text(
+            "CANTOS_STUDIO_OIDC_CALLBACK=https://api.example.test/api/v1/studio/auth/callback\n")
+        supplemental = self.root / "config/other-oidc.env"
+        supplemental.write_text("CANTOS_STUDIO_OIDC_ISSUER=https://idm.example.test/fixture\n")
+        for directive in ("Environment=CANTOS_STUDIO_OIDC_ISSUER=https://idm.example.test/fixture",
+                          f"EnvironmentFile={supplemental}"):
+            with self.subTest(directive=directive):
+                self.write_dropin(f"[Container]\n{directive}\n")
+                result = self.run_host("validate_runtime_browser_configuration\n")
+                self.assertEqual(result.returncode, 66, result.stderr)
+                self.assertIn("must define CANTOS_STUDIO_OIDC_BEARER_CALLBACK exactly once", result.stderr)
 
     def test_identity_clients_receive_web_origins_and_api_surface_callbacks(self):
         result = self.run_host("""
