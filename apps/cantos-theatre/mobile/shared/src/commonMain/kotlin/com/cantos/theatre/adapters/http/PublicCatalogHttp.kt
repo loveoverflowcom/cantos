@@ -13,6 +13,7 @@ import com.cantos.theatre.domain.catalog.PublicWorkId
 import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.domain.catalog.PublicWorkPage
 import com.cantos.theatre.domain.catalog.PublicationId
+import com.cantos.theatre.ports.CatalogCachePort
 import com.cantos.theatre.ports.CatalogProtocolFault
 import com.cantos.theatre.ports.PublicCatalogPort
 import com.cantos.theatre.ports.PublicCatalogRead
@@ -29,6 +30,8 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonNull
 
 /*
  * Hand-written Theatre Discovery v1 wire DTOs. They mirror `packages/contracts/api/src/theatre.rs`
@@ -233,6 +236,7 @@ class CatalogResponseTooLargeException : IllegalStateException("Catalog response
 class PublicCatalogHttpAdapter(
     origin: ApiOrigin,
     private val transport: CatalogHttpTransport,
+    private val cache: CatalogCachePort? = null,
 ) : PublicCatalogPort {
     private val base = "${origin.probeUrl}/works"
 
@@ -265,6 +269,12 @@ class PublicCatalogHttpAdapter(
         serializer: KSerializer<W>,
         map: (W) -> T?,
     ): PublicCatalogRead<T> {
+        val cacheOwner = cache?.account()
+        if (!sentCursor) cache?.read(url, cacheOwner)?.let { raw ->
+            val cached = classifyCatalogResponse(CatalogHttpResponse(200, "application/json", raw.encodeToByteArray()), false, serializer, map)
+            if (cached is PublicCatalogRead.Ready) return cached
+        }
+        cache?.network()
         val response = try {
             transport.get(CatalogHttpRequest(url, CatalogBodyLimitBytes))
         } catch (cancelled: CancellationException) {
@@ -274,7 +284,15 @@ class PublicCatalogHttpAdapter(
         } catch (_: Exception) {
             return PublicCatalogRead.Transport
         }
-        return classifyCatalogResponse(response, sentCursor, serializer, map)
+        val classified = classifyCatalogResponse(response, sentCursor, serializer, map)
+        if (!sentCursor && classified is PublicCatalogRead.Ready) {
+            // A nonterminal first page needs a live cursor. Persisting a truncated page would
+            // falsely present it as the complete collection after restart, so cache only terminal
+            // pages and individual Work detail. Grants and cursor references never enter SQLite.
+            val parsed = catalogJson.parseToJsonElement(response.body.decodeToString()) as JsonObject
+            if (parsed["next_cursor"] == null || parsed["next_cursor"] == JsonNull) cache?.put(url, parsed.toString(), cacheOwner)
+        }
+        return classified
     }
 }
 

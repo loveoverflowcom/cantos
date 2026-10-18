@@ -4,12 +4,7 @@ import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackObservation
 import kotlinx.coroutines.flow.Flow
 
-/**
- * The mock engine seam. Commands accept a complete request and return without waiting for
- * readiness; observations arrive separately and carry the source/generation fence.
- * A future native adapter must implement this boundary rather than expose Media3/AVFoundation
- * or HTTP/publication DTOs to the core. No such native adapter is implemented by this demo.
- */
+/** Commands return before readiness. Observations carry the source/generation fence. */
 interface MediaEngine {
     val events: Flow<PlaybackObservation>
     suspend fun prepare(command: PlaybackEngineCommand)
@@ -18,4 +13,14 @@ interface MediaEngine {
     suspend fun seek(command: PlaybackEngineCommand)
     suspend fun setSpeed(command: PlaybackEngineCommand)
     fun close()
+}
+
+/** Ephemeral transport credential, never a checkpoint or a durable identity. */
+class PlaybackLocation(val url: String) {
+    override fun toString(): String = "PlaybackLocation([redacted])"
+}
+
+/** Native decoder. Only the authorizing adapter supplies the disposable media location. */
+interface StreamingMediaEngine : MediaEngine {
+    suspend fun load(command: PlaybackEngineCommand, location: PlaybackLocation)
 }

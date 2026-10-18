@@ -700,3 +700,16 @@ Shipping `commonMain` neither contains the codec nor links `kotlinx-serializatio
 This adds no Theatre endpoint, Studio Mobile client, authentication or player integration.
 The [compatibility evidence](docs/protobuf-compatibility.md) records exact version pins, independent
 byte/value oracles, hostile-input bounds, reproducible checks and separate JVM/Android/iOS limits.
+
+
+## Production native integration, step2
+
+See the [step-2 implementation/evidence](../../../docs/evidence/theatre-native-step2.md) for the
+pinned #247 dependency, real MediaEngine adapters, process-owned mini/full player, API-confirmed
+native account, full Library/progress client and account SQLDelight/outbox. The `Cantos` iOS
+scheme links the shared production framework and native Swift adapters; the demo scheme remains
+separate. Android debug is an installable QA artifact of `androidProductionApp`, with actual
+package/origin/signature/version/exclusion checks. Native device/audio/force-stop, iOS codec
+compatibility and browser-facing identity remain acceptance gates; no device success follows
+from JVM tests or packaging. Production distribution is opt-in and requires the named app,
+certificate and recipients. Native registration/bookmarks/downloads are still unavailable.

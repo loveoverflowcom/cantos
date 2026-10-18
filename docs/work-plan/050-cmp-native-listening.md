@@ -1,14 +1,13 @@
 # Listen natively on Android and iOS
 
-Current review boundary: #14/#159 real native listening, followed by #15/#16/#17 lifecycle,
-offline and sync. The production-safe `:shared`, isolated `:preview-sandbox` and production
-Android host already exist; #122's sandbox/release exclusion slice is completed. The host
-now has a real catalog composition for debug and configured HTTPS release; the separate iOS
-production host also links only `:shared`. Listening, account and Library actions remain
-explicitly unavailable until their adapters are connected. Qualify the
-[step-1 catalog/API/storage handoff](../evidence/theatre-live-catalog-step1.md) before native
-playback, then retain per-platform device acceptance. See the
-[current platform matrix](../architecture/repository-layout.md#platform-scope).
+Current review boundary: the requested [step-2 native runtime](../evidence/theatre-native-step2.md)
+depends on unmerged #247 at `cc1e56b`. Production Android/iOS roots now compose native streaming,
+API-confirmed identity, Library and the account SQLDelight/outbox owners; default missing
+identity configuration fails closed. Android packaging/JVM/SQLite results do not accept device
+playback, native force-stop, cross-client sync or iOS Ogg/Opus compatibility. Keep #14/#15/#17/#35/
+#191/#174/#184/#179/#180 open for their actual gates. The explicit demo and #122 artifact
+exclusion remain independent; downloads/bookmarks are not fabricated. Review the exact source
+and evidence before widening activation or declaring this work complete.
 
 ## Why
 

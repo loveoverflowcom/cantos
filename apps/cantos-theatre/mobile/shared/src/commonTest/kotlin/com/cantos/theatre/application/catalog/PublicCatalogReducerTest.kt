@@ -258,4 +258,30 @@ class PublicCatalogReducerTest {
         assertIs<DetailPhase.Ready>(state.detail!!.phase)
         assertEquals(WalkPhase.Failed(CatalogFailure.NotFound), state.detail!!.units!!.phase)
     }
+    @Test
+    fun library_work_id_opens_without_a_fabricated_summary_and_refuses_a_foreign_work() {
+        val result = send(PublicCatalogIntent.OpenWorkId(workId(1)))
+        assertEquals(listOf(PublicCatalogEffect.FetchWork(1, workId(1))), result)
+        assertNull(state.detail!!.summary)
+        assertEquals(emptyList(), send(WorkResolved(1, PublicCatalogRead.Ready(work(2)))))
+        assertEquals(workId(1), state.detail!!.id)
+        assertEquals(DetailPhase.Failed(CatalogFailure.Protocol), state.detail!!.phase)
+        assertNull(state.detail!!.units)
+        assertEquals(listOf(PublicCatalogEffect.FetchWork(2, workId(1))), send(PublicCatalogIntent.RetryWork))
+    }
+
+    @Test
+    fun account_change_clears_catalog_projection_and_fences_both_old_read_channels() {
+        send(PublicCatalogIntent.Start)
+        send(PublicCatalogIntent.OpenWork(work(1)))
+        assertEquals(listOf(PublicCatalogEffect.CancelDetail, PublicCatalogEffect.FetchWorks(3, null)),
+            send(PublicCatalogIntent.AccountChanged))
+        val changed = state
+        assertTrue(changed.works.items.isEmpty())
+        assertNull(changed.detail)
+        assertEquals(emptyList(), send(WorkResolved(2, PublicCatalogRead.Ready(work(1)))))
+        assertEquals(emptyList(), send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1)))))))
+        assertEquals(changed, state)
+    }
+
 }

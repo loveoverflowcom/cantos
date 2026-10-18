@@ -104,10 +104,12 @@ sealed interface PublicCatalogEvent
 sealed interface PublicCatalogIntent : PublicCatalogEvent {
     /** Load the first page once; repeated Start is a no-op. */
     data object Start : PublicCatalogIntent
+    data object AccountChanged : PublicCatalogIntent
     data class Query(val query: PublicCatalogQuery) : PublicCatalogIntent
     data object RefreshWorks : PublicCatalogIntent
     data object LoadMoreWorks : PublicCatalogIntent
     data object RetryWorks : PublicCatalogIntent
+    data class OpenWorkId(val id: PublicWorkId) : PublicCatalogIntent
     data class OpenWork(val work: PublicWork) : PublicCatalogIntent
     data object Back : PublicCatalogIntent
     data object RefreshWork : PublicCatalogIntent
@@ -133,6 +135,10 @@ data class PublicCatalogTransition(val state: PublicCatalogState, val effects: L
 fun reducePublicCatalog(state: PublicCatalogState, event: PublicCatalogEvent): PublicCatalogTransition = when (event) {
     PublicCatalogIntent.Start ->
         if (state.works.phase == WalkPhase.NotStarted) state.requestWorks(null, replace = false) else PublicCatalogTransition(state)
+    PublicCatalogIntent.AccountChanged -> {
+        val requested = state.copy(works = PageWalk(), detail = null).requestWorks(null, replace = true)
+        requested.copy(effects = listOf(PublicCatalogEffect.CancelDetail) + requested.effects)
+    }
     is PublicCatalogIntent.Query ->
         if (event.query == state.query) state.requestWorks(null, replace = true)
         else state.copy(query = event.query, works = PageWalk()).requestWorks(null, replace = true)
@@ -149,6 +155,13 @@ fun reducePublicCatalog(state: PublicCatalogState, event: PublicCatalogEvent): P
         PublicCatalogTransition(
             issued.copy(detail = WorkDetailState(event.work.id, event.work, DetailPhase.Loading, units = null, awaiting = token)),
             listOfNotNull(PublicCatalogEffect.CancelDetail.takeIf { state.detail != null }, PublicCatalogEffect.FetchWork(token, event.work.id)),
+        )
+    }
+    is PublicCatalogIntent.OpenWorkId -> {
+        val (token, issued) = state.issue()
+        PublicCatalogTransition(
+            issued.copy(detail = WorkDetailState(event.id, null, DetailPhase.Loading, units = null, awaiting = token)),
+            listOfNotNull(PublicCatalogEffect.CancelDetail.takeIf { state.detail != null }, PublicCatalogEffect.FetchWork(token, event.id)),
         )
     }
     PublicCatalogIntent.Back ->
@@ -213,6 +226,7 @@ private fun resolveWork(state: PublicCatalogState, event: WorkResolved): PublicC
     if (detail == null || detail.awaiting != event.token) return PublicCatalogTransition(state)
     return when (val outcome = event.outcome) {
         is PublicCatalogRead.Ready -> {
+            if (outcome.value.id != detail.id) return state.failDetail(detail, CatalogFailure.Protocol)
             val (token, issued) = state.issue()
             val units = PageWalk<PublicUnit>().request(token, null, replace = false, resetCounters = true)
             PublicCatalogTransition(

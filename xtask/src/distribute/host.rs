@@ -234,6 +234,8 @@ mod tests {
 
     fn live() -> LiveRequest {
         LiveRequest {
+            api_origin: None,
+            native_issuer: None,
             policy: Policy::DemoApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
             app_id_source: AppIdSource::Flag,

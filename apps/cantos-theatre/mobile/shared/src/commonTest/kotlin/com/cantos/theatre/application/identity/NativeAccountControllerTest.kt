@@ -80,6 +80,10 @@ class NativeAccountControllerTest {
         val revokedCredentials = mutableListOf<String>()
         var observedState = ""
         var savedResult: CompletableDeferred<NativeApiResult<Int>>? = null
+        var sessionResult: CompletableDeferred<NativeApiResult<NativeSession>>? = null
+        var sessionActor = actor
+        var sessionId = session
+        var sessionCredential = token
         override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> {
             events += "begin"; observedState = state
             return NativeApiResult.Accepted(NativeFlow(session, "https://idm.example/ui/oauth2?scope=openid&response_type=code&client_id=cantos-theatre-native&redirect_uri=com.cantos.theatre%3A%2Foauth2%2Fcallback&state=$state&nonce=$nonce&code_challenge_method=S256&code_challenge=$challenge"))
@@ -90,14 +94,103 @@ class NativeAccountControllerTest {
             return if (exchangeFailure) NativeApiResult.Refused(NativeApiFailure.UnknownOutcome) else NativeApiResult.Accepted(NativeSession(actor, session, 200, token))
         }
         override suspend fun session(credential: String): NativeApiResult<NativeSession> {
-            events += "session"; assertEquals(token, credential)
-            return NativeApiResult.Accepted(NativeSession(actor, session, 200, null))
+            events += "session"; assertEquals(sessionCredential, credential)
+            return sessionResult?.let { withContext(NonCancellable) { it.await() } }
+                ?: NativeApiResult.Accepted(NativeSession(sessionActor, sessionId, 200, null))
         }
         override suspend fun revoke(credential: String): NativeApiResult<Unit> {
             events += "revoke"; revokedCredentials += credential; assertEquals(token, credential)
             return if (revokeFailure) NativeApiResult.Refused(NativeApiFailure.UnknownOutcome) else NativeApiResult.Accepted(Unit)
         }
         override suspend fun saved(credential: String, session: String): NativeApiResult<Int> = savedResult?.let { withContext(NonCancellable) { it.await() } } ?: NativeApiResult.Accepted(3)
+    }
+    @Test fun verified_authority_is_api_confirmed_and_removed_before_logout_io() = runTest {
+        val events = mutableListOf<String>(); val store = Store(events); store.value = token
+        val owner = NativeAccountController(this, configuration, Api(events), Crypto(), Browser(), store, Barrier(events)) { 100 }
+        assertNull(owner.verifiedSession.value)
+        owner.restore()
+        assertNull(owner.verifiedSession.value)
+        runCurrent()
+        val verified = owner.verifiedSession.value!!
+        assertEquals(actor, verified.session.actor); assertEquals(session, verified.session.session)
+        assertEquals(token, verified.bearer); assertEquals("NativeVerifiedSession([redacted])", verified.toString())
+        events.clear(); owner.logout()
+        assertNull(owner.verifiedSession.value); assertTrue(events.isEmpty())
+        runCurrent(); owner.close(); assertNull(owner.verifiedSession.value)
+    }
+    @Test fun late_confirmation_from_cancelled_restore_cannot_republish_old_account_authority() = runTest {
+        val events = mutableListOf<String>(); val store = Store(events); store.value = token
+        val api = Api(events); val old = CompletableDeferred<NativeApiResult<NativeSession>>()
+        api.sessionResult = old
+        val owner = NativeAccountController(this, configuration, api, Crypto(), Browser(), store, Barrier(events)) { 100 }
+        owner.restore(); runCurrent(); owner.cancelLogin()
+        assertNull(owner.verifiedSession.value)
+        api.sessionResult = null; api.sessionActor = "00000000-0000-4000-8000-000000000099"
+        owner.restore(); runCurrent()
+        assertEquals(api.sessionActor, owner.verifiedSession.value?.session?.actor)
+        old.complete(NativeApiResult.Accepted(NativeSession(actor, session, 200, null))); runCurrent()
+        assertEquals(api.sessionActor, owner.verifiedSession.value?.session?.actor)
+        owner.close(); assertNull(owner.verifiedSession.value)
+    }
+    @Test fun rejected_or_expired_confirmation_never_publishes_saved_credential_as_authority() = runTest {
+        for (result in listOf(NativeApiResult.Refused(NativeApiFailure.Unauthorized),
+            NativeApiResult.Accepted(NativeSession(actor, session, 99, null)))) {
+            val events = mutableListOf<String>(); val store = Store(events); store.value = token
+            val api = Api(events); api.sessionResult = CompletableDeferred(result)
+            val owner = NativeAccountController(this, configuration, api, Crypto(), Browser(), store, Barrier(events)) { 100 }
+            owner.restore(); runCurrent()
+            assertNull(owner.verifiedSession.value); assertIs<NativeAccountState.Failed>(owner.state.value)
+            owner.close()
+        }
+    }
+    @Test fun revalidation_hides_old_authority_and_accepts_only_confirmed_same_actor_session_without_revoke() = runTest {
+        val events = mutableListOf<String>(); val store = Store(events); store.value = token
+        val api = Api(events)
+        val owner = NativeAccountController(this, configuration, api, Crypto(), Browser(), store, Barrier(events)) { 100 }
+        owner.restore(); runCurrent(); events.clear()
+        api.sessionId = "00000000-0000-4000-8000-000000000055"
+        owner.revalidate(session)
+        assertNull(owner.verifiedSession.value); assertEquals(NativeAccountState.Pending, owner.state.value)
+        runCurrent()
+        assertEquals(actor, owner.verifiedSession.value?.session?.actor)
+        assertEquals(api.sessionId, owner.verifiedSession.value?.session?.session)
+        assertEquals(listOf("session"), events); assertEquals(token, store.value)
+        val accepted = owner.verifiedSession.value
+        events.clear(); owner.revalidate(session); runCurrent()
+        assertEquals(accepted, owner.verifiedSession.value); assertTrue(events.isEmpty())
+        assertTrue(api.revokedCredentials.isEmpty()); owner.close()
+    }
+    @Test fun unauthorized_revalidation_expires_authority_and_different_actor_response_is_refused() = runTest {
+        for ((reply, failure) in listOf(
+            NativeApiResult.Refused(NativeApiFailure.Unauthorized) to NativeAccountFailure.Expired,
+            NativeApiResult.Accepted(NativeSession("00000000-0000-4000-8000-000000000099", session, 200, null)) to NativeAccountFailure.Protocol)) {
+            val events = mutableListOf<String>(); val store = Store(events); store.value = token
+            val api = Api(events)
+            val owner = NativeAccountController(this, configuration, api, Crypto(), Browser(), store, Barrier(events)) { 100 }
+            owner.restore(); runCurrent(); api.sessionResult = CompletableDeferred(reply)
+            owner.revalidate(session); assertNull(owner.verifiedSession.value); runCurrent()
+            assertEquals(NativeAccountState.Failed(failure), owner.state.value)
+            assertNull(owner.verifiedSession.value); assertTrue(api.revokedCredentials.isEmpty())
+            owner.close()
+        }
+    }
+    @Test fun noncancellable_old_revalidation_and_old_fence_never_replace_or_revoke_switched_account() = runTest {
+        val events = mutableListOf<String>(); val store = Store(events); store.value = token
+        val api = Api(events)
+        val owner = NativeAccountController(this, configuration, api, Crypto(), Browser(), store, Barrier(events)) { 100 }
+        owner.restore(); runCurrent()
+        val delayed = CompletableDeferred<NativeApiResult<NativeSession>>(); api.sessionResult = delayed
+        owner.revalidate(session); runCurrent()
+        val secondToken = "b".repeat(64)
+        api.sessionResult = null; api.sessionActor = "00000000-0000-4000-8000-000000000099"
+        api.sessionId = "00000000-0000-4000-8000-000000000088"; api.sessionCredential = secondToken; store.value = secondToken
+        owner.restore(); runCurrent()
+        val switched = owner.verifiedSession.value
+        assertEquals(api.sessionActor, switched?.session?.actor)
+        delayed.complete(NativeApiResult.Accepted(NativeSession(actor, session, 200, null))); runCurrent()
+        events.clear(); owner.revalidate(session); runCurrent()
+        assertEquals(switched, owner.verifiedSession.value); assertEquals(secondToken, store.value)
+        assertTrue(events.isEmpty()); assertTrue(api.revokedCredentials.isEmpty()); owner.close()
     }
     @Test fun native_callback_is_single_use_and_credential_is_persisted_only_after_verified_exchange() = runTest {
         val events = mutableListOf<String>(); val store = Store(events); val barrier = Barrier(events); val api = Api(events); val browser = Browser()

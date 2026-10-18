@@ -131,3 +131,14 @@ store or file-system library with its consuming slice. It selects no library.
 | Accessibility/UI | Large text, TalkBack/VoiceOver, small window, reduced motion | Per-target captures and assistive-technology walkthrough. |
 
 No native playback, background behavior, downloads, progress synchronization, API generation, or accessibility validation has been performed during repository initialization. Web or desktop previews cannot establish native mobile acceptance.
+
+
+## Native integration implementation boundary
+
+The [step-2 runtime ledger](../evidence/theatre-native-step2.md) records the requested production
+native adapters and account/Library/SQLDelight/outbox composition, pinned to unmerged #247.
+[ADR0042](../decisions/0042-native-streaming-runtime.md) records platform API/Swift bridge choices;
+[ADR0026](../decisions/0026-theatre-mobile-local-storage-sandbox.md) records scoped SQLDelight2.1.0
+adoption. Earlier mock-only implementation statements in historical evidence do not describe
+this source. Actual Android/iOS device playback, codec and lifecycle, native identity, backup
+and cross-client sync acceptance remain the named gates; no platform is accepted by compilation.

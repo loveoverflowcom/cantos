@@ -1,0 +1,66 @@
+Printing with useUnmergedTree = 'false'
+Node #321 at (l=0.0, t=0.0, r=320.0, b=568.0)px, Tag: 'native-capture-root'
+ |-Node #322 at (l=0.0, t=0.0, r=320.0, b=568.0)px
+   IsContainer = 'true'
+    |-Node #371 at (l=0.0, t=0.0, r=320.0, b=154.0)px, Tag: 'catalog-detail'
+    | CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@7051777c'
+    | IsTraversalGroup = 'true'
+    | PaneTitle = 'Ánh đèn cuối sân khấu'
+    | VerticalScrollAxisRange = 'ScrollAxisRange(value=1894.0, maxValue=1994.0, reverseScrolling=false)'
+    | Actions = [GetScrollViewportLength, IndexForKey, ScrollBy, ScrollByOffset, ScrollToIndex]
+    |  |-Node #392 at (l=16.0, t=-378.0, r=304.0, b=11.0)px, Tag: 'catalog-unit-20000000-0000-4000-8000-000000000001'
+    |  | IsContainer = 'true'
+    |  |  |-Node #394 at (l=32.0, t=-362.0, r=288.0, b=-139.0)px
+    |  |  | Text = '[Chương 1: Người dẫn chuyện trở về]'
+    |  |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |  |-Node #395 at (l=32.0, t=-135.0, r=288.0, b=-42.0)px
+    |  |  | Text = '[Chương của bản thử hư cấu.]'
+    |  |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |  |-Node #396 at (l=32.0, t=-38.0, r=106.0, b=-5.0)px
+    |  |    Text = '[2 phút]'
+    |  |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |-Node #398 at (l=16.0, t=11.0, r=304.0, b=137.0)px, Tag: 'catalog-play-20000000-0000-4000-8000-000000000001'
+    |    ContentDescription = '[Phát Chương 1: Người dẫn chuyện trở về]'
+    |    Focused = 'true'
+    |    Role = 'Button'
+    |    Text = '[Phát Chương 1: Người dẫn chuyện trở về]'
+    |    Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |    MergeDescendants = 'true'
+    |-Node #401 at (l=0.0, t=154.0, r=320.0, b=486.0)px, Tag: 'native-mini-player'
+    | IsContainer = 'true'
+    |  |-Node #403 at (l=8.0, t=162.0, r=312.0, b=329.0)px
+    |  | Text = '[Chương 1: Người dẫn chuyện trở về]'
+    |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |-Node #404 at (l=8.0, t=329.0, r=127.0, b=362.0)px, Tag: 'native-playback-status'
+    |  | Text = '[Đang phát]'
+    |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |-Node #407 at (l=8.0, t=362.0, r=173.0, b=420.0)px, Tag: 'native-toggle'
+    |  | Focused = 'false'
+    |  | Role = 'Button'
+    |  | Text = '[Tạm dừng]'
+    |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |  | MergeDescendants = 'true'
+    |  |-Node #410 at (l=8.0, t=420.0, r=227.0, b=478.0)px, Tag: 'native-open-player'
+    |    Focused = 'false'
+    |    Role = 'Button'
+    |    Text = '[Mở trình phát]'
+    |    Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |    MergeDescendants = 'true'
+    |-Node #326 at (l=0.0, t=486.0, r=320.0, b=568.0)px
+      IsContainer = 'true'
+       |-Node #327 at (l=0.0, t=486.0, r=320.0, b=568.0)px
+         [SelectableGroup]
+          |-Node #328 at (l=0.0, t=486.0, r=156.0, b=568.0)px, Tag: 'catalog-nav-discover'
+          | Focused = 'false'
+          | Role = 'Tab'
+          | Selected = 'true'
+          | Text = '[Khám phá]'
+          | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+          | MergeDescendants = 'true'
+          |-Node #337 at (l=164.0, t=486.0, r=320.0, b=568.0)px, Tag: 'catalog-nav-library'
+            Focused = 'false'
+            Role = 'Tab'
+            Selected = 'false'
+            Text = '[Của tôi]'
+            Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+            MergeDescendants = 'true'

@@ -17,33 +17,37 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
     def setUp(self):
         self.manifest = ET.parse(MANIFEST).getroot()
 
-    def test_manifest_declares_only_catalog_network_with_no_identity_or_process_owner(self):
-        self.assertEqual([p.get(ANDROID + "name") for p in self.manifest.findall("uses-permission")],
-                         ["android.permission.INTERNET"])
+    def test_manifest_declares_only_native_playback_and_identity_capabilities(self):
+        self.assertEqual({p.get(ANDROID + "name") for p in self.manifest.findall("uses-permission")},
+                         {"android.permission.INTERNET", "android.permission.WAKE_LOCK", "android.permission.FOREGROUND_SERVICE",
+                          "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"})
         self.assertEqual(self.manifest.findall("permission"), [])
         application = self.manifest.find("application")
-        # No Application subclass: there are no process owners until production adapters exist.
-        self.assertIsNone(application.get(ANDROID + "name"))
         self.assertEqual(application.get(ANDROID + "allowBackup"), "false")
         self.assertEqual(application.get(ANDROID + "theme"), "@style/Theme.Cantos")
         self.assertIsNone(application.get(ANDROID + "debuggable"))
-        self.assertIsNone(application.get(ANDROID + "networkSecurityConfig"))
         self.assertEqual(application.get(ANDROID + "usesCleartextTraffic"), "false")
-        self.assertEqual([(m.get(ANDROID + "name"), m.get(ANDROID + "value"))
-                          for m in application.findall("meta-data")], [("CantosApiOrigin", "${cantosApiOrigin}")])
-        for component in ("service", "receiver", "provider", "activity-alias"):
+        self.assertEqual({m.get(ANDROID + "name"):m.get(ANDROID + "value") for m in application.findall("meta-data")},
+                         {"CantosApiOrigin":"${cantosApiOrigin}", "CantosNativeIssuer":"${cantosNativeIssuer}"})
+        services = application.findall("service")
+        self.assertEqual(len(services), 1)
+        self.assertEqual(services[0].get(ANDROID + "name"), "com.cantos.theatre.adapters.playback.CantosPlaybackService")
+        self.assertEqual(services[0].get(ANDROID + "exported"), "false")
+        self.assertEqual(services[0].get(ANDROID + "foregroundServiceType"), "mediaPlayback")
+        for component in ("receiver", "provider", "activity-alias"):
             self.assertEqual(application.findall(component), [], component)
 
-    def test_single_launcher_activity_has_no_identity_callback_route(self):
+    def test_single_launcher_activity_retains_system_browser_callback(self):
         activities = self.manifest.findall("application/activity")
         self.assertEqual([activity.get(ANDROID + "name") for activity in activities], [".app.TheatreActivity"])
-        routes = [
-            (tuple(node.get(ANDROID + "name") for node in route.findall("action")),
-             tuple(node.get(ANDROID + "name") for node in route.findall("category")),
-             route.findall("data"))
-            for route in activities[0].findall("intent-filter")
-        ]
-        self.assertEqual(routes, [(("android.intent.action.MAIN",), ("android.intent.category.LAUNCHER",), [])])
+        self.assertEqual(activities[0].get(ANDROID + "launchMode"), "singleTask")
+        routes = activities[0].findall("intent-filter")
+        self.assertEqual(len(routes), 2)
+        self.assertEqual(routes[0].find("action").get(ANDROID + "name"), "android.intent.action.MAIN")
+        self.assertEqual(routes[1].find("action").get(ANDROID + "name"), "android.intent.action.VIEW")
+        self.assertEqual({node.get(ANDROID + "name") for node in routes[1].findall("category")},
+                         {"android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"})
+        self.assertEqual(routes[1].find("data").get(ANDROID + "scheme"), "com.cantos.theatre")
 
     def test_window_backgrounds_match_canonical_tokens_without_a_splash_dependency(self):
         tokens = json.loads((ROOT / "packages/ui-system/shared/tokens.json").read_text())
@@ -66,15 +70,12 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
         self.assertNotIn("debugImplementation", build)
         self.assertIn('tasks.named("preBuild") { dependsOn(assertReleaseDependencyBoundary) }', build)
         activity = (HOST / "src/main/kotlin/com/cantos/theatre/app/TheatreActivity.kt").read_text()
-        self.assertIn("PreferencesController(localePreferenceStore = AndroidLocalePreferenceStore(this))", activity)
-        self.assertIn("setContent { CantosListeningUnavailable(preferences, locale = locale) }", activity)
-        self.assertIn("setLiveCatalogContent(origin, preferences, locale)", activity)
-        # Comment-aware source/import policy belongs to check_theatre_architecture.
-        self.assertEqual(sorted(set(re.findall(r"^import ([\w.]+)\.\w+$", activity, re.M))), [
-            "android.content.res", "android.os", "androidx.activity", "androidx.activity.compose",
-            "com.cantos.theatre.adapters.preferences", "com.cantos.theatre.application.preferences",
-            "com.cantos.theatre.features.launch.presentation", "com.cantos.ui",
-        ])
+        self.assertNotIn("CantosTheatreDemo", activity)
+        self.assertNotIn("mockAppContainer", activity)
+        self.assertIn("setLiveCatalogContent", activity)
+        self.assertIn("parseAndroidCallback", activity)
+        self.assertIn("onNewIntent", activity)
+
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ use std::{fmt, path::Path, time::Duration};
 
 use serde_json::Value;
 
-use super::request::{AppId, DEMO_PACKAGE};
+use super::request::AppId;
 pub use crate::firebase_cli::{
     parse_version, strip_ansi, version_command, version_supported, MINIMUM_VERSION,
     SUPPORTED_MAJOR, TESTED_VERSION, VERSION_TIMEOUT,
@@ -187,15 +187,24 @@ impl fmt::Display for DestinationError {
             }
             DestinationError::PackageMismatch { expected, found } => write!(
                 f,
-                "the Firebase app is registered for package `{found}`, the demo channel requires `{expected}`"
+                "the Firebase app is registered for package `{found}`, the selected channel requires `{expected}`"
             ),
             DestinationError::Unrecognized(what) => write!(f, "unrecognized lookup response: {what}"),
         }
     }
 }
 
+#[cfg(test)]
 pub fn interpret_lookup(
     requested: &AppId,
+    result: Result<Captured, CaptureError>,
+) -> Result<Registered, DestinationError> {
+    interpret_lookup_package(requested, super::request::DEMO_PACKAGE, result)
+}
+
+pub fn interpret_lookup_package(
+    requested: &AppId,
+    expected_package: &str,
     result: Result<Captured, CaptureError>,
 ) -> Result<Registered, DestinationError> {
     let captured = result.map_err(|error| DestinationError::Unavailable(error.to_string()))?;
@@ -239,9 +248,9 @@ pub fn interpret_lookup(
         .and_then(Value::as_str)
         .filter(|package| !package.is_empty())
         .ok_or(DestinationError::Unrecognized("no registered package name"))?;
-    if package != DEMO_PACKAGE {
+    if package != expected_package {
         return Err(DestinationError::PackageMismatch {
-            expected: DEMO_PACKAGE.to_owned(),
+            expected: expected_package.to_owned(),
             found: package.to_owned(),
         });
     }
@@ -593,6 +602,21 @@ mod tests {
             .args
             .iter()
             .any(|a| a.starts_with("--groups") || a.starts_with("--testers")));
+    }
+
+    #[test]
+    fn production_destination_requires_exact_registered_production_package() {
+        let body = SDK_REGISTERED.replace("com.cantos.theatre.demo", "com.cantos.theatre");
+        assert_eq!(
+            interpret_lookup_package(&app(), "com.cantos.theatre", ok(0, &body, ""))
+                .unwrap()
+                .package,
+            "com.cantos.theatre"
+        );
+        assert!(matches!(
+            interpret_lookup_package(&app(), "com.cantos.theatre", ok(0, SDK_REGISTERED, "")),
+            Err(DestinationError::PackageMismatch { .. })
+        ));
     }
 
     #[test]

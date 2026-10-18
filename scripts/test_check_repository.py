@@ -7,6 +7,9 @@ Run from the repository root:
 """
 
 import os
+import json
+import subprocess
+import sys
 import shutil
 import tempfile
 import unittest
@@ -1039,6 +1042,26 @@ kotlin.exclude("com/cantos/ui/preview/**")
 }} }} }}''')
         self.assertEqual(self.errors(), [])
 
+    def test_library_codegen_route_is_literal_common_main_kotlin_and_requires_task_dependency(self):
+        route = 'kotlin.srcDir(layout.buildDirectory.dir("generated/libraryWire/commonMain/kotlin"))'
+        dependency = 'tasks.configureEach { dependsOn(generateLibraryWire) }'
+        self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}\n{dependency}")
+        self.assertEqual(self.errors(), [])
+        for scope, selected, hook in (
+            ("desktopMain", route, dependency),
+            ("commonMain", route.replace("kotlin.srcDir", "resources.srcDir"), dependency),
+            ("commonMain", route, ""),
+            ("commonMain", route.replace("commonMain/kotlin", "commonTest/kotlin"), dependency),
+            ("commonMain", route.replace("layout.buildDirectory.dir", "rootProject.file"), dependency),
+            ("commonMain", 'kotlin.srcDir(generatedLibraryMain)', dependency),
+        ):
+            with self.subTest(scope=scope, selected=selected, hook=hook):
+                self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ {scope} {{ {selected} }} }} }}\n{hook}")
+                self.assertViolation("source routing")
+        self.write("shared/build.gradle.kts", 'dependencies { implementation(project(":bridge")) }')
+        self.write("bridge/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}\n{dependency}")
+        self.assertViolation("source routing")
+
     def test_binary_dependencies_and_non_kotlin_main_sources_require_policy(self):
         for dependency in ('implementation(files("../preview-sandbox/build/sandbox.jar"))',
                            'implementation(fileTree("libs"))'):
@@ -1116,6 +1139,32 @@ implementation(compose.desktop.uiTestJUnit4)
             with self.subTest(route=route):
                 self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}")
                 self.assertViolation("source routing")
+
+
+class LibraryWireGenerationBoundaryTest(unittest.TestCase):
+    def test_reviewed_codegen_keeps_schema_types_and_fixture_bytes_in_separate_outputs(self):
+        mobile = checks.ROOT / checks.THEATRE_MOBILE
+        contract = checks.ROOT / "packages/contracts"
+        with tempfile.TemporaryDirectory() as folder:
+            main = Path(folder) / "commonMain/LibraryWire.kt"
+            test = Path(folder) / "commonTest/LibraryFixtures.kt"
+            subprocess.run([
+                sys.executable, str(mobile / "tooling/generate_library_wire.py"),
+                str(contract / "schema/theatre/library/v1.schema.json"),
+                str(contract / "fixtures/theatre/library/v1"), str(main), str(test),
+            ], check=True, capture_output=True, text=True)
+            production = main.read_text(encoding="utf-8")
+            fixtures = test.read_text(encoding="utf-8")
+            self.assertIn("package com.cantos.theatre.adapters.library.wire", production)
+            self.assertIn("data class ProgressWrite", production)
+            self.assertIn("librarySchemaJson", production)
+            self.assertNotIn("libraryFixtures", production)
+            self.assertNotIn("progress_write.json", production)
+            self.assertIn("libraryFixtures", fixtures)
+            expected = sorted((contract / "fixtures/theatre/library/v1").glob("*.json"))
+            self.assertEqual(len(expected), fixtures.count(" to "))
+            for file in expected:
+                self.assertIn(json.dumps(file.name), fixtures)
 
 
 if __name__ == "__main__":

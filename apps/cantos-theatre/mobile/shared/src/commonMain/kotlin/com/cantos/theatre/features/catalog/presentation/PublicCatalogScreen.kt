@@ -98,6 +98,11 @@ fun PublicCatalogScreen(
     modifier: Modifier = Modifier,
     locale: ShellLocale = ShellLocale.Vietnamese,
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
+    onListen: ((PublicWork, PublicUnit) -> Unit)? = null,
+    player: (@Composable () -> Unit)? = null,
+    libraryContent: (@Composable () -> Unit)? = null,
+    accountContent: (@Composable (() -> Unit) -> Unit)? = null,
+    workActions: (@Composable (PublicWork) -> Unit)? = null,
 ) {
     val copy = ShellCopy(locale)
     var destination by remember { mutableStateOf(CatalogDestination.Discover) }
@@ -110,8 +115,10 @@ fun PublicCatalogScreen(
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     val detail = state.detail
                     when {
-                        detail != null -> WorkDetail(detail, copy, onIntent)
+                        detail != null -> WorkDetail(detail, copy, onIntent, onListen, workActions)
                         destination == CatalogDestination.Discover -> WorkList(state, copy, onIntent) { destination = CatalogDestination.Account }
+                        destination == CatalogDestination.Library && libraryContent != null -> libraryContent()
+                        destination == CatalogDestination.Account && accountContent != null -> accountContent { destination = CatalogDestination.Library }
                         else -> CatalogColumn("catalog-capability", copy.text(destination.label)) {
                             item {
                                 Explanation(copy.text(destination.label), copy.text(CopyKey.PersonalFeaturesUnavailable),
@@ -120,6 +127,7 @@ fun PublicCatalogScreen(
                         }
                     }
                 }
+                player?.invoke()
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface, windowInsets = WindowInsets(0)) {
                     CatalogDestination.entries.filter { it != CatalogDestination.Account }.forEach { item ->
                         NavigationBarItem(
@@ -269,7 +277,8 @@ private fun WorkCard(work: PublicWork, copy: ShellCopy, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (PublicCatalogIntent) -> Unit) {
+private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (PublicCatalogIntent) -> Unit,
+                       onListen: ((PublicWork, PublicUnit) -> Unit)?, workActions: (@Composable (PublicWork) -> Unit)?) {
     val ready = (detail.phase as? DetailPhase.Ready)?.work
     CatalogColumn("catalog-detail", (ready ?: detail.summary)?.title ?: copy.text(CopyKey.Work)) {
         item(key = "back") {
@@ -297,8 +306,8 @@ private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (Publ
                 }
             }
             is DetailPhase.Ready -> {
-                item(key = "header") { WorkHeader(phase.work, copy) }
-                item(key = "listening-note") {
+                item(key = "header") { WorkHeader(phase.work, copy); workActions?.invoke(phase.work) }
+                if (onListen == null) item(key = "listening-note") {
                     Surface(
                         Modifier.fillMaxWidth().testTag("catalog-listening-note"),
                         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -323,7 +332,11 @@ private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (Publ
                         onRetry = { onIntent(PublicCatalogIntent.RetryUnits) },
                         key = { it.id.value },
                         notFound = CopyKey.WorkNotFound to CopyKey.WorkNotFoundNote,
-                    ) { unit -> UnitRow(unit, phase.work.language, copy) }
+                    ) { unit ->
+                        UnitRow(unit, phase.work.language, copy)
+                        if (onListen != null) Button(copy.text(CopyKey.PlayEpisode, "title" to unit.title),
+                            { onListen(phase.work, unit) }, controlModifier = Modifier.testTag("catalog-play-${unit.id.value}"))
+                    }
                 }
             }
         }

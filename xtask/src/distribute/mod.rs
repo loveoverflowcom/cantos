@@ -1,5 +1,5 @@
-//! Explicit tester distribution of the Cantos Theatre Android **demo** APK through Firebase App
-//! Distribution (Phase A of issue #184).
+//! Explicit distribution of separate demo and production-composition Theatre QA APKs through
+//! Firebase App Distribution (#184). Neither channel establishes native runtime acceptance.
 //!
 //! This is the one deliberate remote write in xtask. Normal `build`, `run`, `verify`,
 //! `preflight`, `ci` and `build all` never reach it: it exists only behind
@@ -41,16 +41,16 @@ pub struct DistributeArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Provider {
-    /// Build the demo APK and distribute it to testers through Firebase App Distribution.
+    /// Build the selected Theatre QA APK and distribute it through Firebase App Distribution.
     Firebase(FirebaseArgs),
 }
 
 const FIREBASE_HELP: &str = "\
 Three different things are named here; they are not interchangeable:
-  channel   the distribution policy. Only `demo` runs; `production` is UNSUPPORTED.
+  channel   the distribution policy. `demo` uses sandbox; `production` uses the shared production host.
   variant   the Android build variant the channel maps onto (demo -> debug). There is no
             Gradle flavor named demo.
-  artifact  apk (the default) or aab. Only demo+apk runs; the others are UNSUPPORTED
+  artifact  apk (the default) or aab. Both channels accept APK; AAB is UNSUPPORTED
             before any tool starts.
 
 Examples:
@@ -68,7 +68,11 @@ Examples:
 
 Configuration (nonsecret):
   --app-id / CANTOS_FIREBASE_DEMO_APP_ID   the Firebase Android app ID; the flag wins
-  CANTOS_FIREBASE_DEMO_CERT_SHA256         optional expected debug-certificate fingerprint
+  CANTOS_FIREBASE_DEMO_CERT_SHA256         optional expected demo debug-certificate fingerprint
+  CANTOS_FIREBASE_PRODUCTION_APP_ID       separate production-composition Android app
+  CANTOS_FIREBASE_PRODUCTION_CERT_SHA256  required expected signer for real production runs
+  --api-origin HTTPS_ORIGIN              required explicit production API origin
+  --native-issuer HTTPS_ISSUER            optional native identity activation
 The Firebase CLI authenticates by its own login or Application Default Credentials; xtask
 never reads, prints or stores a credential. Infrastructure inputs are indexed in
 infra/firebase/app-distribution/README.md; see apps/cantos-theatre/mobile/docs/firebase-distribution.md.";
@@ -88,6 +92,12 @@ pub struct FirebaseArgs {
     /// Firebase Android app ID; takes precedence over CANTOS_FIREBASE_DEMO_APP_ID.
     #[arg(long, value_name = "ID")]
     pub app_id: Option<String>,
+    /// Exact HTTPS API origin embedded in production artifacts; required for production.
+    #[arg(long, value_name = "ORIGIN")]
+    pub api_origin: Option<String>,
+    /// Optional public native issuer; absence keeps native sign-in unavailable.
+    #[arg(long, value_name = "ISSUER")]
+    pub native_issuer: Option<String>,
     /// Comma-separated Firebase group aliases (union with --testers).
     #[arg(long, value_delimiter = ',', value_name = "ALIASES")]
     pub groups: Vec<String>,
@@ -105,15 +115,23 @@ pub struct FirebaseArgs {
     pub dry_run: bool,
 }
 
-fn configuration() -> Configuration {
+fn configuration(channel: Channel) -> Configuration {
     let variable = |name: &str| {
         std::env::var_os(name)
             .map(|value| value.to_string_lossy().into_owned())
             .filter(|value| !value.is_empty())
     };
     Configuration {
-        app_id: variable(APP_ID_ENV),
-        cert_sha256: variable(CERT_ENV),
+        app_id: variable(if channel == Channel::Production {
+            request::PRODUCTION_APP_ID_ENV
+        } else {
+            APP_ID_ENV
+        }),
+        cert_sha256: variable(if channel == Channel::Production {
+            request::PRODUCTION_CERT_ENV
+        } else {
+            CERT_ENV
+        }),
     }
 }
 
@@ -125,6 +143,8 @@ pub fn execute(
 ) -> Result<ExitCode> {
     let Provider::Firebase(args) = &args.provider;
     let raw = Raw {
+        api_origin: args.api_origin.clone(),
+        native_issuer: args.native_issuer.clone(),
         target: args.target,
         channel: args.channel,
         artifact: args.artifact,
@@ -135,7 +155,7 @@ pub fn execute(
         release_notes_file: args.release_notes_file.clone(),
         dry_run: args.dry_run,
     };
-    run_request(workspace, &raw, &configuration(), tools, runner)
+    run_request(workspace, &raw, &configuration(args.channel), tools, runner)
 }
 
 fn run_request(
@@ -173,9 +193,31 @@ fn run_request(
     Ok(report.exit_code())
 }
 
+fn build_command(
+    workspace: &Workspace,
+    policy: request::Policy,
+    origin: Option<&str>,
+    issuer: Option<&str>,
+) -> crate::command::CommandSpec {
+    match policy {
+        request::Policy::DemoApk => theatre_demo::android_command(workspace),
+        request::Policy::ProductionApk => crate::theatre_host::gradle_debug_identity_command(
+            workspace,
+            origin.unwrap_or_default(),
+            issuer,
+        ),
+    }
+}
+
 /// The reviewable plan. Built from pure values only: no probe, no file or environment access.
 fn plan_text(workspace: &Workspace, request: &request::Request) -> String {
-    let gradle = theatre_demo::android_command(workspace).display(workspace.root());
+    let gradle = build_command(
+        workspace,
+        request.policy,
+        request.api_origin.as_deref(),
+        request.native_issuer.as_deref(),
+    )
+    .display(workspace.root());
     let placeholder = PathBuf::from("artifacts/distributions/RUN-ID");
     let apk = placeholder.join("artifact/OUTPUT.apk");
     let notes = placeholder.join("release-notes.txt");
@@ -221,6 +263,8 @@ mod tests {
 
     fn raw() -> Raw {
         Raw {
+            api_origin: None,
+            native_issuer: None,
             target: Target::CantosTheatre,
             channel: Channel::Demo,
             artifact: ArtifactKind::Apk,
@@ -281,7 +325,6 @@ mod tests {
         let mut runner = RecordingRunner::default();
         for (channel, artifact) in [
             (Channel::Demo, ArtifactKind::Aab),
-            (Channel::Production, ArtifactKind::Apk),
             (Channel::Production, ArtifactKind::Aab),
         ] {
             let raw = Raw {

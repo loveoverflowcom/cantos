@@ -1,0 +1,76 @@
+Printing with useUnmergedTree = 'false'
+Node #680 at (l=0.0, t=0.0, r=320.0, b=568.0)px, Tag: 'native-full-player'
+IsContainer = 'true'
+ |-Node #681 at (l=0.0, t=0.0, r=320.0, b=568.0)px
+   IsTraversalGroup = 'true'
+   VerticalScrollAxisRange = 'ScrollAxisRange(value=237.0, maxValue=319.0, reverseScrolling=false)'
+   Actions = [ScrollBy, ScrollByOffset]
+    |-Node #682 at (l=16.0, t=-221.0, r=304.0, b=90.0)px
+    | Text = '[Chương 1: Người dẫn chuyện trở về]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #683 at (l=16.0, t=98.0, r=254.0, b=148.0)px
+    | Text = '[Đang tạm dừng]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #684 at (l=6.0, t=158.0, r=314.0, b=202.0)px, Tag: 'native-seek'
+    | ContentDescription = '[Điểm nghe]'
+    | Focused = 'false'
+    | ProgressBarRangeInfo = 'ProgressBarRangeInfo(current=0.0, range=0.0..125000.0, steps=0)'
+    | Actions = [RequestFocus, SetProgress]
+    | MergeDescendants = 'true'
+    |-Node #689 at (l=16.0, t=212.0, r=172.0, b=262.0)px
+    | Text = '[0:00 / 2:05]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #692 at (l=16.0, t=270.0, r=188.0, b=328.0)px
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[Lùi 15 giây]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #695 at (l=16.0, t=328.0, r=129.0, b=386.0)px, Tag: 'native-full-toggle'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[Phát]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #698 at (l=16.0, t=386.0, r=205.0, b=444.0)px
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[Tiến 15 giây]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #703 at (l=16.0, t=452.0, r=113.0, b=510.0)px, Tag: 'native-speed-750'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[0,75×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #706 at (l=113.0, t=452.0, r=171.0, b=510.0)px, Tag: 'native-speed-1000'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[1×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #709 at (l=171.0, t=452.0, r=268.0, b=510.0)px, Tag: 'native-speed-1250'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[1,25×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #712 at (l=16.0, t=510.0, r=97.0, b=568.0)px, Tag: 'native-speed-1500'
+    | Focused = 'true'
+    | Role = 'Button'
+    | Text = '[1,5×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #715 at (l=97.0, t=510.0, r=155.0, b=568.0)px, Tag: 'native-speed-2000'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Text = '[2×]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    | MergeDescendants = 'true'
+    |-Node #718 at (l=16.0, t=576.0, r=154.0, b=634.0)px, Tag: 'native-full-back'
+      Focused = 'false'
+      Role = 'Button'
+      Text = '[Quay lại]'
+      Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+      MergeDescendants = 'true'

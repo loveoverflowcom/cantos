@@ -24,7 +24,14 @@ class TheatreIosProductionHostTest(unittest.TestCase):
         reference = scheme.find("BuildAction/BuildActionEntries/BuildActionEntry/BuildableReference")
         self.assertEqual(reference.get("BlueprintName"), "Cantos")
         with (MOBILE / "iosApp/Cantos/Info.plist").open("rb") as source:
-            self.assertEqual(plistlib.load(source), {"CantosApiOrigin": "$(CANTOS_API_ORIGIN)"})
+            plist = plistlib.load(source)
+            self.assertEqual(plist["CantosApiOrigin"], "$(CANTOS_API_ORIGIN)")
+            self.assertEqual(plist["CantosNativeIssuer"], "$(CANTOS_NATIVE_ISSUER)")
+            self.assertEqual(plist["UIBackgroundModes"], ["audio"])
+            self.assertEqual(plist["CFBundleURLTypes"][0]["CFBundleURLSchemes"], ["com.cantos.theatre"])
+        self.assertIn("TheatreIdentity.swift in Sources", project)
+        self.assertIn("CANTOS_NATIVE_ISSUER", project)
+        self.assertEqual(project.count('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) CANTOS_PRODUCTION"'), 2)
 
 
 if __name__ == "__main__":

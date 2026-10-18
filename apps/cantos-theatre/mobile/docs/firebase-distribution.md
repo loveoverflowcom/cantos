@@ -1,12 +1,12 @@
-# Firebase distribution of the Theatre demo APK
+# Firebase distribution of Theatre QA APKs
 
-> **Scope (Phase A of [#184](https://github.com/loveoverflowcom/cantos/issues/184)).** An explicit,
-> opt-in `cargo xtask` command builds the Theatre Android **demo** APK and hands it to Firebase App
-> Distribution for QA testers. It distributes the isolated mock host (`com.cantos.theatre.demo`,
-> debug variant). It is **not** a production release: the production host's sandbox exclusion is
-> inspected ([#122](https://github.com/loveoverflowcom/cantos/issues/122)), but it has no listening
-> adapter or signing, so production APK/AAB distribution stays `UNSUPPORTED` (#14). Studio is Web-only.
-> The command contract is in the [xtask README](../../../../xtask/README.md#distribute-firebase).
+The explicit opt-in command retains the demo lane from [#184](https://github.com/loveoverflowcom/cantos/issues/184)
+and adds a separate production-composition APK lane. `demo` builds `com.cantos.theatre.demo` from
+`:androidApp`; `production` builds `com.cantos.theatre` from `:androidProductionApp` and its actual
+catalog/native playback/account/Library composition. Both use the signed debug variant for device
+QA. Production requires a separate Firebase app, HTTPS API origin and expected certificate; it
+never renames or uploads demo bytes. AAB/store signing and native runtime acceptance remain separate.
+Studio is Web-only. The [xtask contract](../../../../xtask/README.md#distribute-firebase) owns the CLI.
 
 Distribution is a **remote write** and may invite or notify the selected testers. Nothing else in
 xtask (`build`, `run`, `verify`, `preflight`, `ci`, `build all`) can reach it.
@@ -17,10 +17,10 @@ There is no Firebase `appDistribution` configuration section, Hosting target or 
 
 ## One-time Firebase setup (operator)
 
-xtask creates and changes nothing in Firebase. Prepare a **demo** Firebase project yourself:
+xtask does not create Firebase projects/apps/groups. Prepare the selected QA destination yourself:
 
-1. Register an Android app whose package name is exactly `com.cantos.theatre.demo`. Do not reuse a
-   production project or app; a demo APK uploaded to a production app is not a supported flow.
+1. Register an Android app with the exact selected package: `com.cantos.theatre.demo` for demo,
+   `com.cantos.theatre` for production composition. Keep their Firebase app identities separate.
 2. Open the App Distribution page for that app and press *Get started* (the CLI cannot onboard it).
 3. Create a tester group (for example `cantos-internal`) and add the testers. Its **alias** is what
    `--groups` takes.
@@ -82,6 +82,39 @@ The result is a summary table with one row per stage, the run directory, and, on
 Firebase console and tester links. Add `RUSTUP_TOOLCHAIN=1.98.1` as for the other xtask commands
 if your default toolchain differs.
 
+## Production composition artifact
+
+Build and inspect locally, without installing or contacting Firebase:
+
+```sh
+cargo xtask theatre-host android-debug --api-origin https://api.cantos.example
+# Native identity additionally requires a reviewed browser-facing issuer/callback configuration:
+# --native-issuer https://identity.cantos.example/oauth2/openid/cantos-theatre-native
+```
+
+The APK is `androidProductionApp/build/outputs/apk/debug/androidProductionApp-debug.apk`.
+The command inspects the actual APK for sandbox/test classes and fixture resources, native engine
+and account classes, exact origin, optional issuer and the production manifest. Runtime login
+still needs the API's native identity configuration and a browser-reachable approved authorization
+endpoint; a manifest setting alone does not resolve #191's internal issuer boundary. Native signup
+remains unavailable until #174 exposes a reviewed native flow; no Web Origin is forged.
+
+For distribution, review the pure plan first:
+
+```sh
+cargo xtask distribute firebase cantos-theatre --channel production --artifact apk \
+  --api-origin https://api.cantos.example --groups cantos-internal --dry-run
+```
+
+Before a separately authorized real invocation, configure `CANTOS_FIREBASE_PRODUCTION_APP_ID`
+(or exact `--app-id`) and `CANTOS_FIREBASE_PRODUCTION_CERT_SHA256` from the intended installed-tool
+certificate inspection. The real command requires the expected fingerprint, confirms the Firebase
+registration package, builds/inspects the production host, stages exact bytes and records the API
+origin/issuer in its private receipt. Default debug keys differ across machines; pin a stable QA key
+through existing Android signing configuration for in-place updates. No remote distribution was
+performed by implementation or dry-run verification. An agent may run it only after the user names
+the Firebase app and recipients explicitly. Local APK preparation does not require that approval.
+
 ## Reading the result
 
 | Distribution row | Meaning | Do |
@@ -130,8 +163,7 @@ Normal tests and `preflight` never perform these. Record the outputs in the PR.
 
 ## Not in this phase
 
-Production APK/AAB distribution (needs a genuine production module, application identity, release
-signing and an isolated Firebase app; an AAB also needs a Firebase ↔ Google Play link), an optional
+Production release signing/AAB distribution (an AAB also needs a Firebase ↔ Google Play link), an optional
 manual CI workflow (`workflow_dispatch` calling this same command), `--no-build`, arbitrary artifact
 paths, an interactive wizard, automatic recovery, and any Firebase SDK, Crashlytics, Google Services
 plugin or `google-services.json` in the app itself.
