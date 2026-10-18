@@ -1,7 +1,6 @@
 package com.cantos.theatre.ports
 
 import com.cantos.theatre.domain.catalog.CatalogCursor
-import com.cantos.theatre.domain.catalog.CatalogSearchQuery
 import com.cantos.theatre.domain.catalog.PublicUnitPage
 import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.PublicWorkId
@@ -40,8 +39,6 @@ sealed interface PublicCatalogRead<out T> {
  */
 interface PublicCatalogPort {
     suspend fun works(cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage>
-    /** Server search over released metadata; its cursor is bound to this exact query. */
-    suspend fun search(query: CatalogSearchQuery, cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage>
     suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork>
     /** Units of [work], validated against its id and kind. */
     suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage>

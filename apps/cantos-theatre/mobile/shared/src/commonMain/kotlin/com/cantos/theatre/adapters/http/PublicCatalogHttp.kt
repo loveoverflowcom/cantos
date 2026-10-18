@@ -2,7 +2,6 @@ package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.CatalogCursor
-import com.cantos.theatre.domain.catalog.CatalogSearchQuery
 import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicUnitId
 import com.cantos.theatre.domain.catalog.PublicUnitKind
@@ -234,18 +233,9 @@ class PublicCatalogHttpAdapter(
     private val transport: CatalogHttpTransport,
 ) : PublicCatalogPort {
     private val base = "${origin.probeUrl}/works"
-    private val searchBase = "${origin.probeUrl}/search"
 
     override suspend fun works(cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage> =
         read(pageUrl(base, cursor), cursor != null, WorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
-
-    override suspend fun search(query: CatalogSearchQuery, cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage> =
-        if (query.value.isEmpty()) works(cursor)
-        else read(
-            pageUrl(searchBase, cursor) + "&q=${encodeCatalogQuery(query.value)}",
-            cursor != null,
-            WorkPageWire.serializer(),
-        ) { it.toDomain().acceptedOrNull() }
 
     override suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork> =
         read("$base/${id.value}", false, WorkSummaryWire.serializer()) { wire ->
@@ -276,21 +266,6 @@ class PublicCatalogHttpAdapter(
             return PublicCatalogRead.Transport
         }
         return classifyCatalogResponse(response, sentCursor, serializer, map)
-    }
-}
-
-/** UTF-8 query component encoding: user text cannot add route, filter, limit or cursor fields. */
-private fun encodeCatalogQuery(value: String): String = buildString {
-    val hex = "0123456789ABCDEF"
-    for (byte in value.encodeToByteArray()) {
-        val unsigned = byte.toInt() and 0xff
-        if (unsigned in 65..90 || unsigned in 97..122 || unsigned in 48..57 || unsigned in listOf(45, 46, 95, 126)) {
-            append(unsigned.toChar())
-        } else {
-            append('%')
-            append(hex[unsigned ushr 4])
-            append(hex[unsigned and 15])
-        }
     }
 }
 

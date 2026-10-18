@@ -6,8 +6,6 @@ import com.cantos.theatre.domain.catalog.PublicCatalogSamples.unitsPage
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.work
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.workId
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.worksPage
-import com.cantos.theatre.domain.catalog.PublicCatalogSamples.valid
-import com.cantos.theatre.domain.catalog.CatalogSearchQuery
 import com.cantos.theatre.domain.catalog.PublicUnitPage
 import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.ports.CatalogProtocolFault
@@ -32,75 +30,6 @@ class PublicCatalogReducerTest {
 
     private fun lastWorksToken(): Long = (effects.last { it is PublicCatalogEffect.FetchWorks } as PublicCatalogEffect.FetchWorks).token
     private fun lastUnits(): PublicCatalogEffect.FetchUnits = effects.last { it is PublicCatalogEffect.FetchUnits } as PublicCatalogEffect.FetchUnits
-
-    @Test
-    fun search_pages_retry_and_cursor_restart_keep_the_submitted_query() {
-        val query = CatalogSearchQuery.parse("Ánh đèn").valid()
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(1, null, query)), send(PublicCatalogIntent.Search("  Ánh đèn  ")))
-        assertEquals("Ánh đèn", state.searchQuery)
-        send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(8)), cursor(1)))))
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(2, cursor(1), query)), send(PublicCatalogIntent.LoadMoreWorks))
-        send(WorksResolved(2, PublicCatalogRead.Transport))
-        assertEquals(listOf(work(8)), state.works.items)
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(3, cursor(1), query)), send(PublicCatalogIntent.RetryWorks))
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(4, null, query)), send(WorksResolved(3, PublicCatalogRead.InvalidCursor)))
-        send(WorksResolved(4, PublicCatalogRead.Ready(worksPage(listOf(work(9)), null))))
-        assertEquals(listOf(work(9), work(8)), state.works.items)
-        assertEquals(WalkPhase.Complete, state.works.phase)
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(5, null, query)), send(PublicCatalogIntent.RefreshWorks))
-    }
-
-    @Test
-    fun changing_search_clears_previous_rows_and_fences_a_to_b_to_a_results() {
-        send(PublicCatalogIntent.Start)
-        send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1)), cursor(1)))))
-        send(PublicCatalogIntent.Search("A"))
-        assertEquals(emptyList(), state.works.items)
-        send(PublicCatalogIntent.Search("B"))
-        send(PublicCatalogIntent.Search("A"))
-        val current = state
-        assertEquals(emptyList(), send(WorksResolved(2, PublicCatalogRead.Ready(worksPage(listOf(work(2)), null)))))
-        assertEquals(emptyList(), send(WorksResolved(3, PublicCatalogRead.Ready(worksPage(listOf(work(3)), null)))))
-        assertEquals(current, state)
-        send(WorksResolved(4, PublicCatalogRead.Ready(worksPage(emptyList(), null))))
-        assertTrue(state.works.isEmptyResult, "a terminal server result is honestly empty")
-        assertEquals("A", state.searchQuery)
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(5, null)), send(PublicCatalogIntent.Search(" ")))
-        assertEquals("", state.searchQuery)
-    }
-
-    @Test
-    fun repeating_search_refreshes_the_same_query_without_mixing_previous_query_rows() {
-        send(PublicCatalogIntent.Search("đèn"))
-        send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1)), null))))
-        send(PublicCatalogIntent.Search("đèn"))
-        assertEquals(listOf(work(1)), state.works.items, "same-query refresh retains usable rows while loading")
-        send(WorksResolved(2, PublicCatalogRead.Ready(worksPage(listOf(work(2)), null))))
-        assertEquals(listOf(work(2)), state.works.items, "first refreshed page replaces the prior snapshot")
-    }
-
-    @Test
-    fun invalid_search_cancels_the_read_and_requires_an_edited_query() {
-        send(PublicCatalogIntent.Search("valid"))
-        assertEquals(listOf(PublicCatalogEffect.CancelWorks), send(PublicCatalogIntent.Search("bad\nquery")))
-        assertEquals(WalkPhase.Failed(CatalogFailure.InvalidQuery), state.works.phase)
-        assertEquals("valid", state.searchQuery, "invalid input never becomes the committed server query")
-        val rejected = state
-        send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1)), null))))
-        assertEquals(rejected, state)
-        assertEquals(emptyList(), send(PublicCatalogIntent.RetryWorks))
-        send(PublicCatalogIntent.Search("fixed"))
-        assertEquals("fixed", state.searchQuery)
-        assertEquals(WalkPhase.Loading, state.works.phase)
-    }
-
-    @Test
-    fun a_foreign_port_cannot_resolve_detail_with_another_work_identity() {
-        send(PublicCatalogIntent.OpenWork(work(1)))
-        assertEquals(emptyList(), send(WorkResolved(1, PublicCatalogRead.Ready(work(2)))))
-        assertEquals(DetailPhase.Failed(CatalogFailure.Protocol), state.detail?.phase)
-        assertNull(state.detail?.units)
-    }
 
     @Test
     fun walk_loads_pages_keeps_rows_on_failure_and_retries_the_same_cursor() {
@@ -319,6 +248,27 @@ class PublicCatalogReducerTest {
         send(UnitsResolved(lastUnits().token, PublicCatalogRead.Ready(foreign)))
         assertEquals(WalkPhase.Failed(CatalogFailure.Protocol), state.detail!!.units!!.phase)
         assertTrue(state.detail!!.units!!.items.isEmpty())
+    }
+
+    @Test
+    fun foreign_detail_is_protocol_failure_without_unit_effect_and_retry_keeps_the_requested_work() {
+        val requested = work(1)
+        val foreign = work(2)
+        send(PublicCatalogIntent.OpenWork(requested))
+        val before = state
+        assertEquals(emptyList(), send(WorkResolved(1, PublicCatalogRead.Ready(foreign))))
+        assertEquals(before.copy(detail = before.detail!!.copy(
+            phase = DetailPhase.Failed(CatalogFailure.Protocol), awaiting = null,
+        )), state)
+        assertNull(state.detail!!.units)
+
+        assertEquals(listOf(PublicCatalogEffect.FetchWork(2, requested.id)), send(PublicCatalogIntent.RetryWork))
+        val retrying = state
+        assertEquals(emptyList(), send(WorkResolved(1, PublicCatalogRead.Ready(foreign))))
+        assertEquals(retrying, state, "the refused response token stays stale during retry")
+        assertEquals(listOf(PublicCatalogEffect.FetchUnits(3, requested, null)),
+            send(WorkResolved(2, PublicCatalogRead.Ready(requested))))
+        assertEquals(DetailPhase.Ready(requested), state.detail!!.phase)
     }
 
     @Test

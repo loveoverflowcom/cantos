@@ -333,15 +333,12 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host android-release
 # Full Xcode and already installed Kotlin/Native 2.2.20 distribution.
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
   --kotlin-native-home /absolute/path/to/installed/kotlin-native-2.2.20
-# Production shared-only framework, followed by a separate Xcode host build/run.
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host ios-build \
-  --kotlin-native-home /absolute/path/to/installed/kotlin-native-2.2.20
 ```
 
 To hand the **demo** APK to testers through Firebase App Distribution use the explicit
 `cargo xtask distribute firebase` workflow; see [Firebase distribution](docs/firebase-distribution.md).
 It distributes this mock only: it establishes no production readiness. The production host's
-release is unsigned and has no listening adapter (catalog/search can use an explicit HTTPS origin), so
+release is unsigned and has no listening adapter (its catalog browse is debug-only today), so
 production APK/AAB distribution stays `UNSUPPORTED` (#14).
 
 Build and verification invoke `:shared:assertProductionSafeDependencies` through main compile,
@@ -380,10 +377,6 @@ download Gradle. Physical-device linking/signing and
 distribution are outside this mock. JVM `run` supervises its owned process group, with a
 foreground-launcher PID guard; it is not an Android/iOS run. Production
 `build/run cantos-theatre --mobile` stays `UNSUPPORTED`: native listening adapters are absent.
-The separate `CantosProduction.xcodeproj` / `CantosProduction` scheme instead consumes the
-shared-only framework from `theatre-host ios-build`. Configure `CANTOS_API_ORIGIN` explicitly
-in Xcode and compile/run that host separately; framework linking does not compile Swift or
-establish API, device or accessibility acceptance.
 
 ## Membership interest preview
 
@@ -571,7 +564,7 @@ playback-quality or production-acceptance evidence.
 
 Production-safe code in `:shared` reads the anonymous Theatre Discovery v1 catalog
 ([contract](../../../packages/contracts/theatre-discovery-v1.md), [ADR 0035](../../../docs/decisions/0035-theatre-catalog-unit-availability.md)):
-work list/server search → work detail → chapter/episode list, keyed only by the server's UUIDs.
+work list → work detail → chapter/episode list, keyed only by the server's UUIDs.
 
 - `domain/catalog/PublicCatalog.kt`: validated `PublicWorkId`/`PublicUnitId`/`PublicationId`/
   `CatalogCursor` and `PublicWork`/`PublicUnit`/page values. It is separate from the sandbox
@@ -584,9 +577,7 @@ work list/server search → work detail → chapter/episode list, keyed only by 
   status/code/retryable error table and `PublicCatalogHttpAdapter`. Requests are anonymous GETs with
   `limit=20`, no cookie, credential or redirect, and a 4 MiB body bound. `jvmHttpMain/.../JvmCatalogTransport.kt`
   (HttpURLConnection, shared by desktop and Android) refuses ambient cookies and disconnects on
-  cancellation. The separate iOS production host injects a bounded ephemeral `URLSession`
-  transport through `IosCatalogPlatform`; it disables cookies, cache and redirects. Its target
-  links only `:shared` as `CantosTheatre`, never `CantosTheatreDemo`.
+  cancellation. iOS has no catalog transport yet (honest unsupported; `iosMain` is unchanged).
 - `PublicCatalogWireDriftTest` is a **drift check, not code generation**: the build embeds the
   strict schema and every original fixture (`generateDiscoveryCorpus`), and the test pins each DTO's
   property names, required set, JSON types, nullability and enum values to the schema and
@@ -596,33 +587,19 @@ work list/server search → work detail → chapter/episode list, keyed only by 
   same cursor; an empty intermediate page (or one adding no new id) is followed automatically up
   to 5 times per action; `invalid_cursor` restarts from page one and merges by id (a repeat in the
   same action stops with a retryable "list changed"); a changed `publication_id` replaces its row.
-  `Search` commits a bounded query, cancels superseded reads and starts a new cursor walk when
-  it changes. The adapter calls `/search?q=...`, so results can include Works absent from the
-  loaded browse page. Retry/refresh/cursor restart preserve the committed query. Blank search
-  returns to `/works`; invalid input requires editing rather than a retry loop.
-- `features/catalog/presentation/PublicCatalogScreen.kt`: production composition with the two
-  Khám phá/Của tôi tabs and vi/en `ShellCopy`. Search submits on its button or IME action; raw
-  editing, scroll and route state survive tab/detail navigation. The existing immutable catalog
-  owner remains the only list authority. Load more, Retry, empty/not-found/unavailable states
-  remain explicit. Unit selection reveals metadata without Play, Save or simulated progress.
-  Covers use an explicit unavailable label until #171. Của tôi explains its unconnected Library
-  capability (#35/#191); #14/#170 still own playback and exact manifest/rendition handoff.
+- `features/catalog/presentation/PublicCatalogScreen.kt`: stateless Compose surface (vi/en copy in
+  `ShellCopy`), Load more, Retry, empty/not-found/unavailable states and an explicit "listening not
+  yet available" note. No row is playable.
 
-Production host origin policy: `androidProductionApp` declares INTERNET and optional nonsecret
-`CantosApiOrigin` metadata. Its debug source set adds a network security config permitting cleartext only to
+Production host origin policy: the debug source set of `androidProductionApp` adds INTERNET, the
+`CantosApiOrigin` meta-data and a network security config that permits cleartext only to
 `127.0.0.1`/`localhost`. Runtime admits `https://` for any build and loopback `http://` only for a
-debuggable build. Release keeps `usesCleartextTraffic=false` and accepts an explicit HTTPS origin
-through `--api-origin`, `cantos.apiOrigin` or `CANTOS_API_ORIGIN`. Missing/rejected configuration
-renders the unavailable state with no fallback. The packaging inspector allows INTERNET plus
-AndroidX's signature permission; sandbox/test classes, resources and extra permissions stay refused.
-The separate `iosApp/CantosProduction.xcodeproj` uses `CantosApiOrigin` from its plist build input,
-the same HTTPS-only admission, app-owned locale preferences and one retained catalog owner.
+debuggable build. Release declares neither INTERNET nor an origin and keeps `usesCleartextTraffic=false`,
+so it renders the unavailable state: the release inspection admits no network permission yet.
 
 ```sh
 # Debug production host against a local API through adb reverse (API 24+ for loopback http).
 cargo xtask theatre-host android-debug --api-origin http://127.0.0.1:8080
-# Unsigned release artifacts only, no install/distribution/deployment.
-cargo xtask theatre-host android-release --api-origin https://api.example.org
 adb install -r apps/cantos-theatre/mobile/androidProductionApp/build/outputs/apk/debug/androidProductionApp-debug.apk
 adb reverse tcp:8080 tcp:8080
 # Opt-in live walk of a running API from the JVM (skipped unless the variable is set).
@@ -636,8 +613,7 @@ provides a local API with published synthetic Works.
 Evidence boundaries: reducer/domain/drift tests are JVM unit tests; `PublicCatalogHttpTransportTest`
 is mock-integration against a JDK loopback server; `PublicCatalogPresentationTest` is the JVM
 Compose renderer; `theatre-host android-release` is static packaging inspection. Android device,
-TalkBack and iOS runtime need separate acceptance. See the scoped
-[#159 handoff](../../../docs/evidence/issue159-cmp-live-catalog.md) for executed checks and gaps.
+TalkBack and iOS runtime remain not run.
 
 ## Listener HTTP boundary
 

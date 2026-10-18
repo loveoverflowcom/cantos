@@ -291,12 +291,6 @@ kotlin {
     }
     if (iosEnabled) {
         listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
-            // The production Xcode target links only this framework; the demo's separate
-            // CantosTheatreDemo framework remains owned by :preview-sandbox.
-            target.binaries.framework {
-                baseName = "CantosTheatre"
-                isStatic = true
-            }
             target.compilerOptions {
                 // Missing local LLVM/libffi dependencies fail; they are never downloaded.
                 freeCompilerArgs.add("-Xoverride-konan-properties=airplaneMode=true")

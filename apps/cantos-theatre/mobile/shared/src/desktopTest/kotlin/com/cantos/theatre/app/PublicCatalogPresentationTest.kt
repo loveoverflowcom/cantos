@@ -23,13 +23,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.intl.LocaleList
-import androidx.compose.ui.text.AnnotatedString
 import com.cantos.theatre.application.catalog.PublicCatalogEvent
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.catalog.PublicCatalogState
@@ -123,11 +120,10 @@ class PublicCatalogPresentationTest {
             onNodeWithText("45 giây").assertExists()
             onNodeWithTag("catalog-detail").performScrollToNode(hasTestTag("catalog-unit-${unit(2).id.value}"))
             onNodeWithText("31 phút").assertExists()
-            // Selecting a row exposes metadata without issuing any playback command.
+            // No row is interactive and nothing offers playback.
             val tree = onNodeWithTag("catalog-detail").printToString()
             for (forbidden in listOf("Phát", "Play", "Tạm dừng", "mini-player")) assertTrue(forbidden !in tree, forbidden)
-            onNodeWithTag("catalog-unit-${unit(1).id.value}").assert(hasClickAction()).performClick()
-            onNodeWithText("Đang xem chương hoặc tập này").assertExists()
+            onNodeWithTag("catalog-unit-${unit(1).id.value}").assert(!hasClickAction())
             onNodeWithTag("catalog-detail").performScrollToNode(hasTestTag("catalog-load-more"))
             onNodeWithTag("catalog-load-more").performClick()
             onNodeWithTag("catalog-detail").performScrollToNode(hasTestTag("catalog-back"))
@@ -136,43 +132,6 @@ class PublicCatalogPresentationTest {
         assertTrue(backEnabled, "system Back is enabled on the detail route")
         back()
         assertEquals(listOf(PublicCatalogIntent.LoadMoreUnits, PublicCatalogIntent.Back, PublicCatalogIntent.Back), intents)
-    }
-
-    @Test
-    fun search_submits_raw_text_to_the_owner_and_library_navigation_keeps_the_query() {
-        val intents = mutableListOf<PublicCatalogIntent>()
-        val locale = mutableStateOf(ShellLocale.Vietnamese)
-        runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { PublicCatalogScreen(fold(*listMore), { intents += it }, UiPreferences(), locale = locale.value) }
-            onNodeWithTag("catalog-search-input").performTextInput("Đêm & mưa {time}")
-            onNodeWithTag("catalog-search-input").performImeAction()
-            onNodeWithText("Của tôi").performClick()
-            onNodeWithTag("catalog-library-unavailable").assertIsDisplayed()
-            onNodeWithText("Khám phá").performClick()
-            onNodeWithTag("catalog-search-input").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Đêm & mưa {time}")))
-            runOnIdle { locale.value = ShellLocale.English }
-            onNodeWithText("Work title or description").assertExists()
-            onNodeWithTag("catalog-search-input").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Đêm & mưa {time}")))
-            onNodeWithTag("catalog-search-clear").performClick()
-        }
-        assertEquals(listOf<PublicCatalogIntent>(PublicCatalogIntent.Search("Đêm & mưa {time}"), PublicCatalogIntent.Search("")), intents)
-    }
-
-    @Test
-    fun server_search_empty_and_invalid_query_are_honest_and_do_not_offer_a_retry_loop() {
-        val searched = fold(PublicCatalogIntent.Search("Không tồn tại"),
-            WorksResolved(1, PublicCatalogRead.Ready(worksPage(emptyList()))))
-        runDesktopComposeUiTest(width = 390, height = 844) {
-            var state by mutableStateOf(searched)
-            setContent { PublicCatalogScreen(state, {}, UiPreferences()) }
-            onNodeWithTag("catalog-empty").assertExists()
-            onNodeWithText("Không tìm thấy tác phẩm phù hợp").assertExists()
-            state = fold(PublicCatalogIntent.Search("x".repeat(513)))
-            waitForIdle()
-            onNodeWithTag("catalog-failure").assertExists()
-            onNodeWithTag("catalog-retry").assertDoesNotExist()
-            onNodeWithTag("catalog-search-input").assertExists()
-        }
     }
 
     @Test
@@ -295,19 +254,13 @@ class PublicCatalogPresentationTest {
                         }
                     }
                     val root = onNodeWithTag("capture-root").fetchSemanticsNode().boundsInRoot
-                    val tag = if (scenario == "list") "catalog-search-input" else "catalog-detail-title"
+                    val tag = if (scenario == "list") "catalog-work-${story.id.value}" else "catalog-detail-title"
                     val bounds = onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
                     assertTrue(bounds.left >= root.left && bounds.right <= root.right, "$name clips $tag: $bounds outside $root")
                     val bitmap = onNodeWithTag("capture-root").captureToImage()
                     val data = requireNotNull(Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG))
                     File(output, "$name.png").writeBytes(data.bytes)
                     File(output, "$name.semantics.txt").writeText(onNodeWithTag("capture-root").printToString())
-                    if (scenario == "list") {
-                        onNodeWithTag("catalog-works").performScrollToNode(hasTestTag("catalog-search"))
-                        onNodeWithTag("catalog-search").assertIsDisplayed()
-                        onNodeWithTag("catalog-works").performScrollToNode(hasTestTag("catalog-work-${story.id.value}"))
-                        onNodeWithTag("catalog-work-${story.id.value}").assertIsDisplayed()
-                    }
                 }
             }
         }

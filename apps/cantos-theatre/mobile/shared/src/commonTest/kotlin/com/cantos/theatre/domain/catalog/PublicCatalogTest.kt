@@ -37,18 +37,6 @@ class PublicCatalogTest {
     }
 
     @Test
-    fun search_queries_use_the_servers_utf8_byte_and_control_bounds_without_using_ui_locale() {
-        assertEquals("ÁNH ĐÈN", CatalogSearchQuery.parse("  ÁNH ĐÈN  ").valid().value)
-        assertEquals("A\u0301nh đèn", CatalogSearchQuery.parse("A\u0301nh đèn").valid().value)
-        assertEquals(CatalogSearchQuery.Empty, CatalogSearchQuery.parse("  ").valid())
-        assertIs<CatalogCheck.Valid<CatalogSearchQuery>>(CatalogSearchQuery.parse("a".repeat(512)))
-        assertIs<CatalogCheck.Valid<CatalogSearchQuery>>(CatalogSearchQuery.parse("Đ".repeat(256)))
-        for (raw in listOf("a".repeat(513), "Đ".repeat(257), "a\n", "\ta", "a\u0000b", "a\u007fb", "a\u0085b")) {
-            assertRefused(CatalogViolation.InvalidSearchQuery, CatalogSearchQuery.parse(raw))
-        }
-    }
-
-    @Test
     fun work_and_unit_values_check_title_duration_position_and_time() {
         assertRefused(CatalogViolation.BlankTitle, PublicWork.of(workId(1), PublicWorkKind.Story, " \n", "", "vi-VN", 0))
         assertRefused(CatalogViolation.TimestampOutOfRange, PublicWork.of(workId(1), PublicWorkKind.Story, "A", "", "vi", -1))

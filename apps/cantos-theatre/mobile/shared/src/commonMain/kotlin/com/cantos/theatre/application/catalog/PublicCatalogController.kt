@@ -57,10 +57,7 @@ class PublicCatalogController(
         when (effect) {
             is PublicCatalogEffect.FetchWorks -> {
                 worksRead?.cancel()
-                worksRead = read({
-                    if (effect.query.value.isEmpty()) port.works(effect.cursor)
-                    else port.search(effect.query, effect.cursor)
-                }) { WorksResolved(effect.token, it) }
+                worksRead = read({ port.works(effect.cursor) }) { WorksResolved(effect.token, it) }
             }
             is PublicCatalogEffect.FetchWork -> {
                 detailRead?.cancel()
@@ -73,10 +70,6 @@ class PublicCatalogController(
             PublicCatalogEffect.CancelDetail -> {
                 detailRead?.cancel()
                 detailRead = null
-            }
-            PublicCatalogEffect.CancelWorks -> {
-                worksRead?.cancel()
-                worksRead = null
             }
         }
     }

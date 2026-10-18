@@ -1,7 +1,6 @@
 package com.cantos.theatre.application.catalog
 
 import com.cantos.theatre.domain.catalog.CatalogCursor
-import com.cantos.theatre.domain.catalog.CatalogSearchQuery
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.cursor
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.unit
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.unitsPage
@@ -16,8 +15,6 @@ import com.cantos.theatre.ports.PublicCatalogRead
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -29,7 +26,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class PublicCatalogControllerTest {
     /** Each read waits for the test to answer it; cancellation is recorded, never answered. */
-    private class GatedPort(private val cooperateWithCancellation: Boolean = true) : PublicCatalogPort {
+    private class GatedPort : PublicCatalogPort {
         data class Call(val label: String, val answer: CompletableDeferred<PublicCatalogRead<Any>>, var cancelled: Boolean = false)
         val calls = mutableListOf<Call>()
 
@@ -38,17 +35,13 @@ class PublicCatalogControllerTest {
             val call = Call(label, CompletableDeferred())
             calls += call
             return try {
-                val answer = if (cooperateWithCancellation) call.answer.await()
-                else withContext(NonCancellable) { call.answer.await() }
-                answer as PublicCatalogRead<T>
+                call.answer.await() as PublicCatalogRead<T>
             } catch (cancelled: CancellationException) {
                 call.cancelled = true
                 throw cancelled
             }
         }
         override suspend fun works(cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage> = gate("works:${cursor?.value}")
-        override suspend fun search(query: CatalogSearchQuery, cursor: CatalogCursor?): PublicCatalogRead<PublicWorkPage> =
-            gate("search:${query.value}:${cursor?.value}")
         override suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork> = gate("work:${id.value}")
         override suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage> =
             gate("units:${work.id.value}:${cursor?.value}")
@@ -62,55 +55,31 @@ class PublicCatalogControllerTest {
     private fun TestScope.controller(port: PublicCatalogPort) = PublicCatalogController(backgroundScope, port)
 
     @Test
-    fun search_cancels_superseded_queries_and_late_a_to_b_to_a_answers_are_ignored() = runTest(StandardTestDispatcher()) {
-        val port = GatedPort(cooperateWithCancellation = false)
-        val controller = controller(port)
-        for (query in listOf("A", "B", "A")) {
-            controller.dispatch(PublicCatalogIntent.Search(query))
-            runCurrent()
-        }
-        assertEquals(listOf("search:A:null", "search:B:null", "search:A:null"), port.calls.map { it.label })
-        port.calls[0].answer.complete(PublicCatalogRead.Ready(worksPage(listOf(work(1)), null)))
-        port.calls[1].answer.complete(PublicCatalogRead.Ready(worksPage(listOf(work(2)), null)))
-        runCurrent()
-        assertEquals(WalkPhase.Loading, controller.state.value.works.phase)
-        assertEquals(emptyList(), controller.state.value.works.items)
-        port.calls[2].answer.complete(PublicCatalogRead.Ready(worksPage(listOf(work(3)), cursor(1))))
-        runCurrent()
-        assertEquals(listOf(work(3)), controller.state.value.works.items)
-        controller.dispatch(PublicCatalogIntent.LoadMoreWorks)
-        runCurrent()
-        assertEquals("search:A:${cursor(1).value}", port.calls.last().label)
-        port.calls.last().answer.complete(PublicCatalogRead.Transport)
-        runCurrent()
-        controller.dispatch(PublicCatalogIntent.RetryWorks)
-        runCurrent()
-        assertEquals("search:A:${cursor(1).value}", port.calls.last().label)
-        port.calls.last().answer.complete(PublicCatalogRead.Ready(worksPage(listOf(work(4)), null)))
-        runCurrent()
-        assertEquals(listOf(work(3), work(4)), controller.state.value.works.items)
-        controller.dispatch(PublicCatalogIntent.Search("  "))
-        runCurrent()
-        assertEquals("works:null", port.calls.last().label)
-        port.calls.last().answer.complete(PublicCatalogRead.Ready(worksPage(emptyList(), null)))
-        runCurrent()
-        assertTrue(controller.state.value.works.isEmptyResult)
-        controller.close()
-    }
-
-    @Test
-    fun invalid_search_cancels_in_flight_transport_without_sending_invalid_text() = runTest(StandardTestDispatcher()) {
+    fun foreign_detail_never_fetches_foreign_units_and_recovery_retains_the_original_identity() = runTest(StandardTestDispatcher()) {
         val port = GatedPort()
         val controller = controller(port)
-        controller.dispatch(PublicCatalogIntent.Search("a"))
+        val requested = work(1)
+        val label = "work:${requested.id.value}"
+        controller.dispatch(PublicCatalogIntent.OpenWork(requested))
         runCurrent()
-        controller.dispatch(PublicCatalogIntent.Search("a".repeat(513)))
+        port.answer(label, PublicCatalogRead.Ready(work(2)))
         runCurrent()
-        assertTrue(port.calls.single().cancelled)
-        assertEquals(WalkPhase.Failed(CatalogFailure.InvalidQuery), controller.state.value.works.phase)
-        controller.dispatch(PublicCatalogIntent.RetryWorks)
+        assertEquals(DetailPhase.Failed(CatalogFailure.Protocol), controller.state.value.detail!!.phase)
+        assertEquals(listOf(label), port.calls.map { it.label }, "no unit read follows a foreign detail")
+        assertEquals(requested, controller.state.value.detail!!.summary)
+
+        controller.dispatch(PublicCatalogIntent.RetryWork)
         runCurrent()
-        assertEquals(1, port.calls.size)
+        assertEquals(listOf(label, label), port.calls.map { it.label })
+        port.answer(label, PublicCatalogRead.Ready(requested))
+        runCurrent()
+        assertEquals(DetailPhase.Ready(requested), controller.state.value.detail!!.phase)
+        assertEquals("units:${requested.id.value}:null", port.calls.last().label)
+        controller.dispatch(PublicCatalogIntent.Back)
+        runCurrent()
+        assertEquals(null, controller.state.value.detail)
+        assertTrue(port.calls.last().cancelled, "normal Back cleanup survives protocol recovery")
+        controller.close()
     }
 
     @Test
@@ -164,7 +133,6 @@ class PublicCatalogControllerTest {
         var unitCalls = 0
         val port = object : PublicCatalogPort {
             override suspend fun works(cursor: CatalogCursor?) = PublicCatalogRead.Ready(worksPage(listOf(story), null))
-            override suspend fun search(query: CatalogSearchQuery, cursor: CatalogCursor?) = works(cursor)
             override suspend fun work(id: PublicWorkId) = PublicCatalogRead.Ready(story)
             override suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage> {
                 unitCalls++

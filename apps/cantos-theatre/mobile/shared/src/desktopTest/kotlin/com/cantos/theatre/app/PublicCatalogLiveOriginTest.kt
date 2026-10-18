@@ -4,8 +4,6 @@ import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.http.JvmCatalogTransport
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
 import com.cantos.theatre.domain.catalog.CatalogCursor
-import com.cantos.theatre.domain.catalog.CatalogCheck
-import com.cantos.theatre.domain.catalog.CatalogSearchQuery
 import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.unitKind
@@ -36,9 +34,6 @@ class PublicCatalogLiveOriginTest {
         val raw = System.getenv("CANTOS_THEATRE_LIVE_ORIGIN")
         Assume.assumeTrue("CANTOS_THEATRE_LIVE_ORIGIN is not set", !raw.isNullOrEmpty())
         val port = PublicCatalogHttpAdapter(ApiOrigin.parse(raw!!), JvmCatalogTransport())
-        val query = (CatalogSearchQuery.parse("Cantos") as CatalogCheck.Valid).value
-        val search = port.search(query, null).ready("live search")
-        println("search query=Cantos items=${search.items.size} more=${search.next != null}")
 
         val works = mutableListOf<PublicWork>()
         var cursor: CatalogCursor? = null

@@ -1,8 +1,6 @@
 package com.cantos.theatre.application.catalog
 
-import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.CatalogCursor
-import com.cantos.theatre.domain.catalog.CatalogSearchQuery
 import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicUnitPage
 import com.cantos.theatre.domain.catalog.PublicWork
@@ -29,8 +27,6 @@ const val MaxAutoFollows: Int = 5
 const val MaxCursorRestarts: Int = 1
 
 sealed interface CatalogFailure {
-    /** The user's query exceeds the public API bounds; edit it before submitting again. */
-    data object InvalidQuery : CatalogFailure
     data object NotFound : CatalogFailure
     data class Unavailable(val retryable: Boolean) : CatalogFailure
     data object Protocol : CatalogFailure
@@ -93,12 +89,8 @@ data class PublicCatalogState internal constructor(
     val works: PageWalk<PublicWork> = PageWalk(),
     /** `null` is the work list route; otherwise the open work. */
     val detail: WorkDetailState? = null,
-    internal val query: CatalogSearchQuery = CatalogSearchQuery.Empty,
     internal val issued: Long = 0,
 ) {
-    /** Committed server query. A text-field draft is presentation-local state. */
-    val searchQuery: String get() = query.value
-
     companion object {
         val Initial: PublicCatalogState = PublicCatalogState()
     }
@@ -111,8 +103,6 @@ sealed interface PublicCatalogIntent : PublicCatalogEvent {
     /** Load the first page once; repeated Start is a no-op. */
     data object Start : PublicCatalogIntent
     data object RefreshWorks : PublicCatalogIntent
-    /** Submit to the server; a repeated query refreshes, a different query starts a new walk. */
-    data class Search(val query: String) : PublicCatalogIntent
     data object LoadMoreWorks : PublicCatalogIntent
     data object RetryWorks : PublicCatalogIntent
     data class OpenWork(val work: PublicWork) : PublicCatalogIntent
@@ -127,16 +117,11 @@ data class WorkResolved(val token: Long, val outcome: PublicCatalogRead<PublicWo
 data class UnitsResolved(val token: Long, val outcome: PublicCatalogRead<PublicUnitPage>) : PublicCatalogEvent
 
 sealed interface PublicCatalogEffect {
-    data class FetchWorks(
-        val token: Long,
-        val cursor: CatalogCursor?,
-        val query: CatalogSearchQuery = CatalogSearchQuery.Empty,
-    ) : PublicCatalogEffect
+    data class FetchWorks(val token: Long, val cursor: CatalogCursor?) : PublicCatalogEffect
     data class FetchWork(val token: Long, val id: PublicWorkId) : PublicCatalogEffect
     data class FetchUnits(val token: Long, val work: PublicWork, val cursor: CatalogCursor?) : PublicCatalogEffect
     /** Cancel any in-flight detail or unit read; its result would be stale anyway. */
     data object CancelDetail : PublicCatalogEffect
-    data object CancelWorks : PublicCatalogEffect
 }
 
 data class PublicCatalogTransition(val state: PublicCatalogState, val effects: List<PublicCatalogEffect> = emptyList())
@@ -145,14 +130,11 @@ fun reducePublicCatalog(state: PublicCatalogState, event: PublicCatalogEvent): P
     PublicCatalogIntent.Start ->
         if (state.works.phase == WalkPhase.NotStarted) state.requestWorks(null, replace = false) else PublicCatalogTransition(state)
     PublicCatalogIntent.RefreshWorks -> state.requestWorks(null, replace = true)
-    is PublicCatalogIntent.Search -> state.search(event.query)
     PublicCatalogIntent.LoadMoreWorks ->
         if (state.works.canLoadMore) state.requestWorks(state.works.next, replace = false)
         else PublicCatalogTransition(state)
     PublicCatalogIntent.RetryWorks -> when (state.works.phase) {
-        is WalkPhase.Failed ->
-            if (state.works.phase.failure == CatalogFailure.InvalidQuery) PublicCatalogTransition(state)
-            else state.requestWorks(state.works.requested, replace = state.works.replaceOnFirstPage)
+        is WalkPhase.Failed -> state.requestWorks(state.works.requested, replace = state.works.replaceOnFirstPage)
         else -> PublicCatalogTransition(state)
     }
     is PublicCatalogIntent.OpenWork -> {
@@ -195,26 +177,11 @@ private fun PublicCatalogState.issue(): Pair<Long, PublicCatalogState> {
     return token to copy(issued = token)
 }
 
-private fun PublicCatalogState.search(raw: String): PublicCatalogTransition = when (val checked = CatalogSearchQuery.parse(raw)) {
-    is CatalogCheck.Invalid -> PublicCatalogTransition(
-        copy(works = PageWalk(phase = WalkPhase.Failed(CatalogFailure.InvalidQuery)), detail = null),
-        listOfNotNull(PublicCatalogEffect.CancelWorks, PublicCatalogEffect.CancelDetail.takeIf { detail != null }),
-    )
-    is CatalogCheck.Valid -> {
-        val fresh = copy(
-            query = checked.value,
-            works = if (checked.value == query) works else PageWalk(),
-            detail = null,
-        ).requestWorks(null, replace = true)
-        fresh.copy(effects = listOfNotNull(PublicCatalogEffect.CancelDetail.takeIf { detail != null }) + fresh.effects)
-    }
-}
-
 /** A user action: it resets the automatic follow/restart budgets. */
 private fun PublicCatalogState.requestWorks(cursor: CatalogCursor?, replace: Boolean): PublicCatalogTransition {
     val (token, issued) = issue()
     val walk = works.request(token, cursor, replace, resetCounters = true)
-    return PublicCatalogTransition(issued.copy(works = walk), listOf(PublicCatalogEffect.FetchWorks(token, cursor, query)))
+    return PublicCatalogTransition(issued.copy(works = walk), listOf(PublicCatalogEffect.FetchWorks(token, cursor)))
 }
 
 private fun resolveWorks(state: PublicCatalogState, event: WorksResolved): PublicCatalogTransition {
@@ -226,7 +193,7 @@ private fun resolveWorks(state: PublicCatalogState, event: WorksResolved): Publi
             val (token, issued) = state.issue()
             PublicCatalogTransition(
                 issued.copy(works = step.walk.request(token, follow.cursor, follow.replace, resetCounters = false)),
-                listOf(PublicCatalogEffect.FetchWorks(token, follow.cursor, state.query)),
+                listOf(PublicCatalogEffect.FetchWorks(token, follow.cursor)),
             )
         }
     }
@@ -239,6 +206,7 @@ private fun resolveWork(state: PublicCatalogState, event: WorkResolved): PublicC
     if (detail == null || detail.awaiting != event.token) return PublicCatalogTransition(state)
     return when (val outcome = event.outcome) {
         is PublicCatalogRead.Ready -> {
+            // The HTTP adapter checks this too; a matching token cannot bind a foreign port's Work.
             if (outcome.value.id != detail.id) return state.failDetail(detail, CatalogFailure.Protocol)
             val (token, issued) = state.issue()
             val units = PageWalk<PublicUnit>().request(token, null, replace = false, resetCounters = true)

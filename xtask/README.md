@@ -52,9 +52,8 @@ cargo xtask ui-preview leptos build|run|verify       # package-local Leptos gall
 cargo xtask ui-preview leptos run --open             # loopback browser preview on 8083
 cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop preview
 cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
-cargo xtask theatre-host android-release [--api-origin HTTPS_ORIGIN] # production release + boundary inspection
+cargo xtask theatre-host android-release             # production host release APK/AAB + boundary inspection
 cargo xtask theatre-host android-debug --api-origin URL  # production host debug APK for the live catalog; installs nothing
-cargo xtask theatre-host ios-build --kotlin-native-home PATH # shared-only production simulator framework
 
 cargo xtask verify repository|rust|forge|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
@@ -1030,14 +1029,13 @@ Details and evidence live in the [mock guide](../apps/cantos-theatre/mobile/READ
 ### theatre-host
 
 The production Theatre Android host (`androidProductionApp`, `com.cantos.theatre`) composes
-`:shared` only, with no mock, sample or diagnostic fallback. Both Android variants browse the live
-public catalog when built with a valid API origin; release admits HTTPS only. Missing or rejected
-configuration renders the explicit unavailable state. Native playback remains #14's separate scope.
+`:shared` only, with no mock, sample or diagnostic fallback. Its debug build browses the live
+public catalog when built with an API origin (below); release declares no network permission or
+origin and renders an explicit unavailable state until listening adapters and a production
+origin exist (#14).
 
 ```sh
 cargo xtask theatre-host android-release
-# Optional explicit HTTPS origin, overriding the operator property/environment:
-cargo xtask theatre-host android-release --api-origin https://api.cantos.example
 # 1. gradle -Pcantos.android=true :androidProductionApp:assertReleaseDependencyBoundary
 #      :androidProductionApp:assembleRelease :androidProductionApp:bundleRelease
 #      :preview-sandbox:compileReleaseKotlinAndroid
@@ -1051,8 +1049,7 @@ and no test, mock or Compose tooling module. The sandbox is compiled only as the
 class inventory. The inspector reads the actual unsigned, unshrunk APK and AAB: DEX
 `class_defs`, sandbox class names and resource bytes, Compose resource packages, entry paths and
 the `aapt2`-decoded manifest. It also checks package, launcher, debuggable/test-only flags and
-allowlisted permissions (INTERNET for the anonymous catalog and AndroidX's app-local signature
-permission only). Its APK/AAB class sets must match and named production classes must
+allowlisted permissions. Its APK/AAB class sets must match and named production classes must
 exist; an empty inventory or unreadable artifact exits 2, never `PASS`. A failed build
 stops before inspection, so stale outputs are never inspected. Reports are written under
 `apps/cantos-theatre/mobile/androidProductionApp/build/reports/release-boundary/`.
@@ -1060,22 +1057,9 @@ stops before inspection, so stale outputs are never inspected. Reports are writt
 `theatre-host android-debug --api-origin ORIGIN` builds only `:androidProductionApp:assembleDebug`
 with `-Pcantos.apiOrigin=ORIGIN`. It accepts `https://` or `http://127.0.0.1|localhost:<port>`
 (for `adb reverse`) and refuses anything else with exit 2 before Gradle. The debug manifest overlay
-adds a cleartext policy limited to those loopback hosts. Both variants declare INTERNET and the
-optional `CantosApiOrigin` metadata; release has no cleartext/TLS override. `cantos.apiOrigin`
-or `CANTOS_API_ORIGIN` supplies the value when the CLI override is omitted; an explicit empty
-Gradle property opts out. The APK composes the live public catalog only (no playback, progress or
+adds INTERNET, the origin meta-data and a cleartext policy limited to those loopback hosts; release
+declares none of them. The APK composes the live public catalog only (no playback, progress or
 identity); installing it on a device is the developer's own `adb install`.
-
-`theatre-host ios-build --kotlin-native-home /absolute/installed/native-2.2.20` links only
-`:shared:linkDebugFrameworkIosSimulatorArm64` as `CantosTheatre.framework`, using the same
-installed-compiler/Xcode checks as the demo lane. No compiler is downloaded. Open
-`apps/cantos-theatre/mobile/iosApp/CantosProduction.xcodeproj` and select `CantosProduction` for the
-separate production host (`com.cantos.theatre`); it never links the demo framework or sandbox
-resources. Supply `CANTOS_API_ORIGIN` through an operator-owned Xcode configuration/build override;
-both target configurations default to empty. iOS admits HTTPS only and retains ATS/platform TLS,
-with no cookies, cache, credentials or redirects. The framework command does not build, sign,
-install or run the Swift host; iOS app/linking, device, network and accessibility acceptance
-require separate observations.
 
 Nothing is signed, installed, shrunk or distributed; this is release-isolation evidence, not a
 production release or listening acceptance. Preflight does not run it (it selects only the JVM

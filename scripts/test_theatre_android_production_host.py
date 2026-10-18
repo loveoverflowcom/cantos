@@ -17,9 +17,8 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
     def setUp(self):
         self.manifest = ET.parse(MANIFEST).getroot()
 
-    def test_manifest_admits_only_catalog_network_capability_without_identity_or_tls_override(self):
-        self.assertEqual([item.get(ANDROID + "name") for item in self.manifest.findall("uses-permission")],
-                         ["android.permission.INTERNET"])
+    def test_manifest_declares_no_permission_callback_metadata_or_process_owner(self):
+        self.assertEqual(self.manifest.findall("uses-permission"), [])
         self.assertEqual(self.manifest.findall("permission"), [])
         application = self.manifest.find("application")
         # No Application subclass: there are no process owners until production adapters exist.
@@ -28,10 +27,7 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
         self.assertEqual(application.get(ANDROID + "theme"), "@style/Theme.Cantos")
         self.assertIsNone(application.get(ANDROID + "debuggable"))
         self.assertIsNone(application.get(ANDROID + "networkSecurityConfig"))
-        self.assertEqual({item.get(ANDROID + "name"): item.get(ANDROID + "value")
-                          for item in application.findall("meta-data")},
-                         {"CantosApiOrigin": "${cantosApiOrigin}"})
-        self.assertEqual(application.get(ANDROID + "usesCleartextTraffic"), "false")
+        self.assertEqual(application.findall("meta-data"), [])
         for component in ("service", "receiver", "provider", "activity-alias"):
             self.assertEqual(application.findall(component), [], component)
 

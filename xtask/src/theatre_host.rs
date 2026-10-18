@@ -4,10 +4,7 @@
 //! at one development API origin for the live public catalog. Neither signs, installs or
 //! distributes anything.
 
-use std::{
-    path::{Path, PathBuf},
-    process::ExitCode,
-};
+use std::{path::Path, process::ExitCode};
 
 use anyhow::Result;
 use clap::Subcommand;
@@ -41,35 +38,22 @@ const REQUIRED_CLASSES: [&str; 3] = [
     "Lcom/cantos/theatre/app/AppContainer;",
     "Lcom/cantos/theatre/features/launch/presentation/CantosListeningUnavailableKt;",
 ];
-/// Anonymous catalog transport plus androidx.core's signature permission; no other capability.
-const ALLOWED_PERMISSIONS: [&str; 2] = [
-    "com.cantos.theatre.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
-    "android.permission.INTERNET",
-];
+/// androidx.core declares this signature permission in every app; any other needs review.
+const ALLOWED_PERMISSIONS: [&str; 1] =
+    ["com.cantos.theatre.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum HostAction {
     /// Build the production Android host's unsigned release APK and AAB and inspect release
     /// classpaths, DEX classes, resources and manifest for sandbox, mock and test content.
-    AndroidRelease {
-        /// Optional exact HTTPS API origin. Missing configuration keeps the explicit unavailable
-        /// state. No path, query, credentials, cleartext or TLS override is admitted.
-        #[arg(long, value_name = "ORIGIN")]
-        api_origin: Option<String>,
-    },
+    AndroidRelease,
     /// Build the production host's debug APK, whose live public catalog reads one development
-    /// API origin. Nothing is installed; release accepts only HTTPS origins.
+    /// API origin. Nothing is installed; release builds keep accepting no network or origin.
     AndroidDebug {
         /// `http://127.0.0.1:<port>` or `http://localhost:<port>` (for `adb reverse`), or an
         /// `https://` origin; no path, query, credentials or other cleartext host.
         #[arg(long, value_name = "ORIGIN")]
         api_origin: String,
-    },
-    /// Link the production-only shared iOS simulator framework, never the sandbox or an app.
-    IosBuild {
-        /// Absolute path to an already installed Kotlin/Native 2.2.20 distribution.
-        #[arg(long, value_name = "PATH")]
-        kotlin_native_home: PathBuf,
     },
 }
 
@@ -104,30 +88,15 @@ pub fn prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static s
 
 /// Builds only the production host's release outputs. Its `preBuild` also enforces the
 /// resolved release-classpath boundary; the sandbox is compiled solely as an inventory.
-pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> CommandSpec {
-    let command = theatre_demo::gradle_command(workspace).args([
+pub fn gradle_release_command(workspace: &Workspace) -> CommandSpec {
+    theatre_demo::gradle_command(workspace).args([
         "-Pcantos.android=true",
         "-Pandroid.builder.sdkDownload=false",
-    ]);
-    // Explicit CLI input overrides the operator's property/environment; absence preserves it.
-    let command = match origin {
-        Some(origin) => command.args([format!("-Pcantos.apiOrigin={origin}")]),
-        None => command,
-    };
-    command.args([
         ":androidProductionApp:assertReleaseDependencyBoundary",
         ":androidProductionApp:assembleRelease",
         ":androidProductionApp:bundleRelease",
         ":preview-sandbox:compileReleaseKotlinAndroid",
     ])
-}
-
-pub fn validate_release_api_origin(origin: &str) -> Result<(), String> {
-    validate_api_origin(origin)?;
-    if !origin.starts_with("https://") {
-        return Err("release --api-origin must use https; cleartext is debug loopback only".into());
-    }
-    Ok(())
 }
 
 /// The debug host's origin: an exact loopback HTTP origin or an HTTPS origin, nothing else.
@@ -168,14 +137,6 @@ pub fn gradle_debug_command(workspace: &Workspace, origin: &str) -> CommandSpec 
         "-Pandroid.builder.sdkDownload=false".to_owned(),
         format!("-Pcantos.apiOrigin={origin}"),
         ":androidProductionApp:assembleDebug".to_owned(),
-    ])
-}
-
-pub fn gradle_ios_command(workspace: &Workspace, compiler_home: &str) -> CommandSpec {
-    theatre_demo::gradle_command(workspace).args([
-        "-Pcantos.ios=true".to_owned(),
-        format!("-Pkotlin.native.home={compiler_home}"),
-        ":shared:linkDebugFrameworkIosSimulatorArm64".to_owned(),
     ])
 }
 
@@ -225,13 +186,7 @@ pub fn execute(
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
     match action {
-        HostAction::AndroidRelease { api_origin } => {
-            if let Some(origin) = api_origin.as_deref() {
-                if let Err(message) = validate_release_api_origin(origin) {
-                    eprintln!("xtask: error: {message}");
-                    return Ok(ExitCode::from(2));
-                }
-            }
+        HostAction::AndroidRelease => {
             let sdk = theatre_demo::android_sdk_from_environment();
             if let Err(reason) = prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref()) {
                 return Ok(unsupported("Theatre production Android release", reason));
@@ -242,7 +197,7 @@ pub fn execute(
                 Step::new(
                     "Theatre production Android release build",
                     &tools(),
-                    vec![gradle_release_command(workspace, api_origin.as_deref())],
+                    vec![gradle_release_command(workspace)],
                 ),
                 Step::new(
                     "Theatre production Android release inspection",
@@ -276,26 +231,6 @@ pub fn execute(
                      playback, progress and identity are not composed"
                 ));
             }
-            report.print();
-            Ok(report.exit_code())
-        }
-        HostAction::IosBuild { kotlin_native_home } => {
-            if let Err(reason) = theatre_demo::native_compiler_prerequisite(&kotlin_native_home) {
-                return Ok(unsupported(
-                    "Theatre production iOS simulator framework",
-                    reason,
-                ));
-            }
-            if !theatre_demo::ios_sdk_available() {
-                return Ok(unsupported("Theatre production iOS simulator framework", "requires installed Xcode with a usable iOS simulator SDK; xtask never installs or selects Xcode"));
-            }
-            let compiler_home = kotlin_native_home.to_string_lossy();
-            let steps = vec![Step::new(
-                "Theatre production iOS simulator framework",
-                &theatre_demo::tools(),
-                vec![gradle_ios_command(workspace, &compiler_home)],
-            )];
-            let report = pipeline::execute("theatre-host", &steps, tool_probe, runner);
             report.print();
             Ok(report.exit_code())
         }
@@ -333,7 +268,7 @@ mod tests {
     #[test]
     fn release_build_names_only_production_outputs_and_the_sandbox_inventory() {
         let workspace = workspace();
-        let command = gradle_release_command(&workspace, None);
+        let command = gradle_release_command(&workspace);
         assert_eq!(command.program, "gradle");
         assert!(command.env.is_empty());
         assert!(command.args.ends_with(&[
@@ -377,44 +312,6 @@ mod tests {
             .filter(|arg| arg.starts_with(':'))
             .collect();
         assert_eq!(tasks, [":androidProductionApp:assembleDebug"]);
-    }
-
-    #[test]
-    fn release_origin_is_explicit_https_and_never_admits_debug_loopback() {
-        assert_eq!(
-            validate_release_api_origin("https://api.cantos.example"),
-            Ok(())
-        );
-        for origin in [
-            "http://127.0.0.1:8080",
-            "http://localhost:8080",
-            "https://api.cantos.example/path",
-        ] {
-            assert!(validate_release_api_origin(origin).is_err(), "{origin}");
-        }
-        let command = gradle_release_command(&workspace(), Some("https://api.cantos.example"));
-        assert!(command
-            .args
-            .contains(&"-Pcantos.apiOrigin=https://api.cantos.example".into()));
-        assert!(!command
-            .args
-            .iter()
-            .filter(|arg| arg.starts_with(':'))
-            .any(|arg| arg.contains("Debug") || arg.contains("install")));
-    }
-
-    #[test]
-    fn ios_build_links_shared_only_without_the_demo_framework() {
-        let command = gradle_ios_command(&workspace(), "/installed/native");
-        assert!(command
-            .args
-            .contains(&"-Pkotlin.native.home=/installed/native".into()));
-        let tasks: Vec<_> = command
-            .args
-            .iter()
-            .filter(|arg| arg.starts_with(':'))
-            .collect();
-        assert_eq!(tasks, [":shared:linkDebugFrameworkIosSimulatorArm64"]);
     }
 
     #[test]
@@ -478,7 +375,7 @@ mod tests {
         );
         assert_eq!(value("--require-class"), REQUIRED_CLASSES);
         assert_eq!(value("--allowed-permission"), ALLOWED_PERMISSIONS);
-        assert!(value("--allowed-permission").contains(&"android.permission.INTERNET"));
+        assert!(!value("--allowed-permission").contains(&"android.permission.INTERNET"));
     }
 
     #[test]
@@ -518,11 +415,7 @@ mod tests {
         let workspace = workspace();
         let steps = |sdk: &str| {
             vec![
-                Step::new(
-                    "build",
-                    &tools(),
-                    vec![gradle_release_command(&workspace, None)],
-                ),
+                Step::new("build", &tools(), vec![gradle_release_command(&workspace)]),
                 Step::new(
                     "inspect",
                     &[Tool::Python3],

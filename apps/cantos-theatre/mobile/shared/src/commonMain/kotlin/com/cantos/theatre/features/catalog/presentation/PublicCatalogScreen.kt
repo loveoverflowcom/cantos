@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
@@ -19,13 +19,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -35,9 +28,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,17 +58,16 @@ import com.cantos.ui.Button
 import com.cantos.ui.ButtonVariant
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.LocalEditorialFontFamily
-import com.cantos.ui.NavTabs
 import com.cantos.ui.StatusTone
-import com.cantos.ui.TextField
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.tokenDp
 import org.jetbrains.compose.resources.Font
 
 /**
  * Production browse surface for the live public catalog: work list → work detail → units.
- * Production shell over the catalog owner: server search, Work details and unit selection.
- * Library and playback retain their own capability boundaries; no local flag fabricates them.
+ * Presentation only: immutable [state] in, typed intents out. It performs no I/O, owns no
+ * walk state and offers no playback: production has no media engine, so a note explains that
+ * listening is not yet available and no row can be played.
  */
 @Composable
 fun PublicCatalogScreen(
@@ -90,33 +79,12 @@ fun PublicCatalogScreen(
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
 ) {
     val copy = ShellCopy(locale)
-    var library by rememberSaveable { mutableStateOf(false) }
-    val routes = rememberSaveableStateHolder()
-    backHandler(library || state.detail != null) {
-        if (library) library = false else onIntent(PublicCatalogIntent.Back)
-    }
+    backHandler(state.detail != null) { onIntent(PublicCatalogIntent.Back) }
     CantosTheme(preferences, uiFontFamily = catalogSans(), editorialFontFamily = catalogSerif()) {
         Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    val detail = state.detail
-                    val route = if (library) "library" else detail?.id?.value ?: "discover"
-                    routes.SaveableStateProvider(route) {
-                        when {
-                            library -> CatalogColumn("catalog-library", copy.text(CopyKey.Library)) {
-                                item {
-                                    Explanation(copy.text(CopyKey.Library), copy.text(CopyKey.CatalogLibraryUnavailable),
-                                        Modifier.testTag("catalog-library-unavailable"))
-                                }
-                            }
-                            detail == null -> WorkList(state, copy, onIntent)
-                            else -> WorkDetail(detail, copy, onIntent)
-                        }
-                    }
-                }
-                NavTabs(listOf(copy.text(CopyKey.Discover), copy.text(CopyKey.Library)),
-                    selected = if (library) 1 else 0, onSelect = { library = it == 1 },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.md")))
+            Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
+                val detail = state.detail
+                if (detail == null) WorkList(state.works, copy, onIntent) else WorkDetail(detail, copy, onIntent)
             }
         }
     }
@@ -145,46 +113,24 @@ private fun CatalogColumn(tag: String, title: String, content: LazyListScope.() 
 }
 
 @Composable
-private fun WorkList(state: PublicCatalogState, copy: ShellCopy, onIntent: (PublicCatalogIntent) -> Unit) {
-    val works = state.works
-    var query by rememberSaveable(state.searchQuery, stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(state.searchQuery))
-    }
-    val search = { onIntent(PublicCatalogIntent.Search(query.text)) }
+private fun WorkList(works: PageWalk<PublicWork>, copy: ShellCopy, onIntent: (PublicCatalogIntent) -> Unit) {
     CatalogColumn("catalog-works", copy.text(CopyKey.Discover)) {
         item(key = "heading") {
-            Text(
-                copy.text(CopyKey.DiscoverHeading),
-                Modifier.fillMaxWidth().semantics { heading() },
-                style = MaterialTheme.typography.headlineSmall.copy(fontFamily = LocalEditorialFontFamily.current),
-            )
-        }
-        item(key = "search") {
-            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                TextField(copy.text(CopyKey.CatalogSearchLabel), query, { query = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { search() }),
-                    controlModifier = Modifier.testTag("catalog-search-input"))
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                    Button(copy.text(CopyKey.Search), search, controlModifier = Modifier.testTag("catalog-search"))
-                    if (query.text.isNotEmpty() || state.searchQuery.isNotEmpty()) {
-                        Button(copy.text(CopyKey.SearchClear), {
-                            query = TextFieldValue("")
-                            onIntent(PublicCatalogIntent.Search(""))
-                        }, variant = ButtonVariant.Text, controlModifier = Modifier.testTag("catalog-search-clear"))
-                    }
-                    if (works.received && works.phase != WalkPhase.Loading) {
-                        Button(copy.text(CopyKey.Refresh), { onIntent(PublicCatalogIntent.RefreshWorks) },
-                            variant = ButtonVariant.Text, controlModifier = Modifier.testTag("catalog-refresh"))
-                    }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    copy.text(CopyKey.DiscoverHeading),
+                    Modifier.weight(1f).semantics { heading() },
+                    style = MaterialTheme.typography.headlineSmall.copy(fontFamily = LocalEditorialFontFamily.current),
+                )
+                if (works.received && works.phase != WalkPhase.Loading) {
+                    Button(copy.text(CopyKey.Refresh), { onIntent(PublicCatalogIntent.RefreshWorks) },
+                        variant = ButtonVariant.Text, controlModifier = Modifier.testTag("catalog-refresh"))
                 }
             }
         }
         walk(
             works, copy,
-            emptyTitle = if (state.searchQuery.isBlank()) CopyKey.CatalogEmpty else CopyKey.CatalogSearchEmpty,
-            emptyNote = if (state.searchQuery.isBlank()) CopyKey.CatalogEmptyNote else CopyKey.CatalogSearchEmptyNote,
+            emptyTitle = CopyKey.CatalogEmpty, emptyNote = CopyKey.CatalogEmptyNote,
             onLoadMore = { onIntent(PublicCatalogIntent.LoadMoreWorks) },
             onRetry = { onIntent(PublicCatalogIntent.RetryWorks) },
             key = { it.id.value },
@@ -219,7 +165,6 @@ private fun WorkCard(work: PublicWork, copy: ShellCopy, onOpen: () -> Unit) {
 @Composable
 private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (PublicCatalogIntent) -> Unit) {
     val ready = (detail.phase as? DetailPhase.Ready)?.work
-    var selectedPublication by rememberSaveable(detail.id.value) { mutableStateOf<String?>(null) }
     CatalogColumn("catalog-detail", (ready ?: detail.summary)?.title ?: copy.text(CopyKey.Work)) {
         item(key = "back") {
             BackButton(AccessibleName.of(copy.text(CopyKey.Back)), { onIntent(PublicCatalogIntent.Back) },
@@ -266,11 +211,7 @@ private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (Publ
                         onRetry = { onIntent(PublicCatalogIntent.RetryUnits) },
                         key = { it.id.value },
                         notFound = CopyKey.WorkNotFound to CopyKey.WorkNotFoundNote,
-                    ) { unit ->
-                        UnitRow(unit, phase.work.language, copy, selectedPublication == unit.publicationId.value) {
-                            selectedPublication = unit.publicationId.value
-                        }
-                    }
+                    ) { unit -> UnitRow(unit, phase.work.language, copy) }
                 }
             }
         }
@@ -281,8 +222,6 @@ private fun WorkDetail(detail: WorkDetailState, copy: ShellCopy, onIntent: (Publ
 private fun WorkHeader(work: PublicWork, copy: ShellCopy) {
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         Badge(copy.text(work.kind.label()), tone = StatusTone.Info)
-        Text(copy.text(CopyKey.CatalogCoverUnavailable), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(contentText(work.title, work.language), Modifier.semantics { heading() }.testTag("catalog-detail-title"),
             style = MaterialTheme.typography.headlineMedium.copy(fontFamily = LocalEditorialFontFamily.current))
         languageLabel(work.language, copy)?.let {
@@ -292,24 +231,22 @@ private fun WorkHeader(work: PublicWork, copy: ShellCopy) {
     }
 }
 
-/** Selection exposes full metadata only; it never prepares an engine or claims playback. */
+/** Not interactive: there is no production player, so a row never offers Play. */
 @Composable
-private fun UnitRow(unit: PublicUnit, contentLanguage: String, copy: ShellCopy, isSelected: Boolean, onSelect: () -> Unit) {
+private fun UnitRow(unit: PublicUnit, contentLanguage: String, copy: ShellCopy) {
     Surface(
-        onClick = onSelect,
-        modifier = Modifier.fillMaxWidth().testTag("catalog-unit-${unit.id.value}").semantics { selected = isSelected },
+        Modifier.fillMaxWidth().testTag("catalog-unit-${unit.id.value}"),
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
             Text(contentText(unit.title, contentLanguage), style = MaterialTheme.typography.titleMedium)
             if (unit.description.isNotBlank()) {
-                Text(contentText(unit.description, contentLanguage), maxLines = if (isSelected) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis,
+                Text(contentText(unit.description, contentLanguage), maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(durationLabel(unit.durationMs, copy), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (isSelected) Text(copy.text(CopyKey.CatalogUnitSelected), style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -364,17 +301,12 @@ private fun LoadMore(copy: ShellCopy, onLoadMore: () -> Unit) {
 
 @Composable
 private fun FailureState(failure: CatalogFailure, copy: ShellCopy, first: Boolean, onRetry: () -> Unit) {
-    if (failure == CatalogFailure.InvalidQuery) {
-        Explanation(copy.text(CopyKey.Search), copy.text(CopyKey.CatalogSearchInvalid), Modifier.testTag("catalog-failure"), error = true)
-        return
-    }
     val (title, note) = when (failure) {
         CatalogFailure.Transport, is CatalogFailure.Unavailable ->
             if (failure is CatalogFailure.Unavailable && !failure.retryable) CopyKey.CatalogFault to CopyKey.CatalogFaultNote
             else CopyKey.CatalogUnavailable to CopyKey.CatalogUnavailableNote
         CatalogFailure.Protocol, CatalogFailure.NotFound -> CopyKey.CatalogFault to CopyKey.CatalogFaultNote
         CatalogFailure.CursorRejected -> CopyKey.CatalogChanged to CopyKey.CatalogChangedNote
-        CatalogFailure.InvalidQuery -> CopyKey.Search to CopyKey.CatalogSearchInvalid
     }
     // A later page keeps its rows; say so instead of replacing the list with an error screen.
     val message = if (!first && failure != CatalogFailure.CursorRejected) CopyKey.NextPageFailed else note
