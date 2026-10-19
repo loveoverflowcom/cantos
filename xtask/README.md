@@ -39,6 +39,8 @@ cargo xtask build cantos-forge [--release]        # cargo build --locked -p cant
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
 cargo xtask web-performance cantos-studio|cantos-theatre  # release build + offline asset inventory
+cargo xtask hosting-report --record PATH [--dry-run]    # offline operator-declared rollout report
+cargo xtask hosting-report --self-test                  # synthetic report regressions only
 cargo xtask theatre-size --apk PATH [--baseline report.json]  # offline APK size groups/deltas (no upload or install)
 cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
@@ -125,6 +127,29 @@ HEAD outputs under ignored `artifacts/release-build`, with hashes/source/version
 It never signs, deploys or distributes; API image packaging requires installed Linux amd64
 Podman. See [CircleCI build boundaries](../docs/deployment/circleci-builds.md) for pins,
 artifact limits, fresh-output refusal and pending account/runtime acceptance.
+
+### Offline Hosting rollout report
+
+`cargo xtask hosting-report --record PATH [--dry-run]` reads a strict local version-1
+[operator record](../templates/hosting-rollout-record.json); the
+[rollout runbook](../docs/deployment/cloudflare-rollout.md#offline-report-contract) owns its
+fields and acceptance boundary. It reports 27 independent declared outcomes across the two Web
+surfaces and global prerequisites/recovery/retirement. Missing/unknown evidence and partial
+outcomes remain distinct. Mock/compiled evidence cannot satisfy declared live/browser rows.
+
+This is offline metadata validation: no account access, HTTP smoke, browser, credential read,
+build, publish, DNS change, retry or receipt write. Evidence hashes are references, not verified
+files or signatures; PASS remains an operator declaration. Exit 0 / `hosting-report-schema PASS`
+means only a valid local record, including one with FAIL/BLOCKED/UNKNOWN/NOT_RUN rows. Even an
+all-PASS record grants no execution or retirement authority. Raw input/parser messages are not
+printed; input is bounded to one regular 256 KiB file with no final symlink. Keep raw private
+logs and secrets out of it. `--dry-run` prints the plan before any tool probe/read/write.
+
+`--self-test` runs deterministic Python regressions (also in the existing repository gate).
+The Rust command plan is covered by existing Rust checks. This adds no runtime/CI gate;
+verification-tooling changes retain conservative full preflight selection. #277/#278 own
+promotion/publishing, and #279 owns future cloud submit/status; this command implements none
+of those effects. User/browser/live recovery acceptance stays with #280 after operator setup.
 
 ### Optional Web release inventory
 
@@ -792,6 +817,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | --- | --- |
 | `theatre_size.rs` | optional single-step plan around `scripts/apk_size.py`; reads one explicit APK and writes an ignored local report, never distributes |
 | `web_performance.rs` | optional fresh release-build/inventory plans; the Python primitive records byte identities/estimates, never browser or deployment acceptance |
+| `hosting_report.rs` | explicit offline operator-declared rollout reporting and self-test; no provider/status API, publisher or acceptance authority |
 | `behavior.rs` | narrow model/optional conformance command and read-only probe plans; Quint owns expectations |
 | `main.rs`, `cli.rs` | clap definitions and dispatch; usage errors exit 2 |
 | `workspace.rs`, `config.rs` | root discovery; ports, packages, directories and versions, checked against the repository by tests |

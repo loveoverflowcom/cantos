@@ -37,6 +37,7 @@ acceptance from a merged PR.
 | Web/CMP UI | [UI system](design/ui-system.md), [shared preview catalog](../packages/ui-system/README.md), [mobile architecture](architecture/mobile.md), [UI migration](architecture/ui-system-migration.md) |
 | Wire transport | [Wire codec](architecture/wire-codec.md), [Protobuf policy](../packages/contracts/protobuf/README.md); JSON default and existing MessagePack compatibility remain scoped |
 | Local checks and deployment | [xtask](../xtask/README.md), [seeded Theatre catalog runbook](deployment/theatre-seeded-catalog.md), [current production topology/runbook](deployment/vps-production.md), [Hosting tooling](deployment/firebase-hosting.md), [CircleCI artifact builds](deployment/circleci-builds.md), [Kanidm operator guide](../services/kanidm/README.md) |
+| Cloudflare Web transition | [Rollout/recovery and offline report](deployment/cloudflare-rollout.md); #277/#278 own promotion/publishing prerequisites, #280 owns live acceptance and Hosting-only retirement. Source preparation is independent of operator execution. |
 
 ## Keeping documents current
 

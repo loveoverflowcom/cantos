@@ -1,5 +1,12 @@
 # Firebase Hosting configuration
 
+Cloudflare is the requested Web target under #278/#280; this configuration remains the
+implemented Firebase current/recovery lane until the operator accepts cutover and ends the
+recovery window. Follow the [Hosting-only retirement boundary](../../../docs/deployment/cloudflare-rollout.md#hosting-only-retirement)
+before removing policy, mappings, lanes or Hosting-exclusive credentials. Keep Auth/Functions,
+App Distribution and storage owners intact; do not run #237's old site-allocation track in
+parallel with the Cloudflare transition.
+
 Operator configuration for publishing **one static Leptos Web app at a time** to Firebase Hosting
 with the explicit, manual `cargo xtask deploy firebase`. It is not a `cargo xtask services` process
 and is not in [the manifest](../../../services/manifest.toml); nothing starts or deploys it automatically, and no

@@ -15,6 +15,7 @@ mod distribute;
 mod doctor;
 mod firebase_cli;
 mod gate;
+mod hosting_report;
 mod kani;
 mod kanidm;
 mod pipeline;
@@ -71,6 +72,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
     let mut runner = SystemRunner::new(workspace.root());
     match task {
         Task::ReleaseBuild(args) => release_build::run(&workspace, &args, &tools, &mut runner),
+        Task::HostingReport(args) => hosting_report::run(&workspace, &args, &tools, &mut runner),
         Task::Deploy(args) => deploy::execute(&workspace, &args, &tools, &mut runner),
         Task::Distribute(args) => distribute::execute(&workspace, &args, &tools, &mut runner),
         Task::Kanidm(args) => kanidm::run(&workspace, &args, &mut runner),

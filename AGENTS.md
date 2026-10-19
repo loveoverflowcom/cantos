@@ -137,6 +137,13 @@ client migration, restricted gateway and browser acceptance remain separate.
 Use the [current production runbook](docs/deployment/vps-production.md), not old deployment records.
 An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
 
+The requested Cloudflare transition follows the [rollout/recovery runbook](docs/deployment/cloudflare-rollout.md)
+and #277/#278 promotion/publisher prerequisites. `cargo xtask hosting-report --record PATH
+[--dry-run]` is an optional offline operator-declared report; `--self-test` exercises synthetic
+records. It never queries/deploys a provider or establishes live acceptance, and adds no gate.
+Retire only Firebase Hosting after separately authorized cutover/recovery acceptance and the
+agreed retention window; preserve Auth, Functions, App Distribution, API and storage owners.
+
 Production API deployment to the VPS is the explicit, opt-in
 `cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2]`
 ([contract](xtask/README.md#deploy-vps), [runbook](docs/deployment/vps-production.md)). It builds the
