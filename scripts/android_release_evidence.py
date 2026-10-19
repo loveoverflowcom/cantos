@@ -1,122 +1,148 @@
-"""Source-bound release/audit snapshots for theatre-host; never builds or distributes."""
+"""Bind the same-composition unshrunk audit to optimized release bytes; no build/upload."""
 import argparse
 import hashlib
 import json
 import re
 from pathlib import Path
 import subprocess
-import sys
 import uuid
 
-MOBILE = Path('apps/cantos-theatre/mobile')
-REPORT = MOBILE / 'androidApp/build/reports/release-boundary/release-evidence.json'
+
+def freeze(root, mobile, result):
+    """Retain exact inspected bytes outside mutable Gradle outputs, with the existing CI names."""
+    destination = root / "artifacts/android-release" / uuid.uuid4().hex
+    destination.mkdir(parents=True)
+    for mode, directory in (("optimized", "build"), ("audit", "build-audit")):
+        base = mobile / "androidApp" / directory
+        paths = {
+            "androidApp-release-unsigned.apk": result["artifacts"][mode]["apk"]["path"],
+            "androidApp-release.aab": result["artifacts"][mode]["aab"]["path"],
+            "artifact-inspection.txt": result["artifacts"][mode]["inspection"]["path"],
+            "resolved-dependencies.txt": str((base / "reports/release-boundary/resolved-dependencies.txt").relative_to(mobile)),
+            "pre-shrink.json": str((base / "reports/release-boundary/pre-shrink.json").relative_to(mobile)),
+        }
+        if mode == "optimized":
+            paths["mapping.txt"] = result["artifacts"][mode]["mapping"]["path"]
+        for name, relative in paths.items():
+            # Production may be signed; keep its actual filename in evidence and the stable
+            # package inventory here. CI packaging still builds unsigned releases only.
+            source = mobile / relative
+            sha(source)
+            target = destination / (("audit-" if mode == "audit" else "") + name)
+            with target.open("xb") as handle:
+                handle.write(source.read_bytes())
+            target.chmod(0o400)
+    from release_artifact import validate_android_outputs
+    result["snapshot_directory"] = destination.relative_to(root).as_posix()
+    record = destination / "release-evidence.json"
+    with record.open("x") as handle:
+        handle.write(json.dumps(result, indent=2) + "\n")
+    record.chmod(0o400)
+    # Detect replacement during copying as well as before the eventual CI transfer.
+    validate_android_outputs(destination, result["source_sha"])
+    return destination
 
 
-def identity(root):
-    names = subprocess.check_output(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=root).split(b'\0')
-    hasher = hashlib.sha256()
-    for name in sorted(set(filter(None, names))):
+def sha(path):
+    if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
+        raise ValueError("missing/irregular/empty release evidence: " + str(path))
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def source_snapshot(root):
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=root, check=True, capture_output=True).stdout
+    names = git("ls-files", "-z", "--cached", "--others", "--exclude-standard").split(b"\0")
+    records = []
+    for name in sorted(set(names) - {b""}):
         path = root / name.decode()
-        if path.is_symlink():
-            raw = str(path.readlink()).encode()
-        else:
-            raw = path.read_bytes()
-        hasher.update(name + b'\0' + hashlib.sha256(raw).digest())
-    return {'source_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
-            'input_sha256': hasher.hexdigest(),
-            'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'], cwd=root))}
+        data = str(path.readlink()).encode() if path.is_symlink() else path.read_bytes() if path.is_file() else b"DELETED"
+        records.append((name.decode(), hashlib.sha256(data).hexdigest()))
+    return {"source_sha": git("rev-parse", "HEAD").decode().strip(),
+            "content_sha256": hashlib.sha256(json.dumps(records).encode()).hexdigest()}
 
 
-def snapshot(root, base, destination, files):
-    result = {}
-    for label, relative in files.items():
-        path = base / relative
-        if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
-            raise ValueError(f'missing/nonregular release input: {relative}')
-        target = destination / label
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with target.open('xb') as handle:
-            handle.write(path.read_bytes())
-        target.chmod(0o400)
-        result[label] = {'path': target.relative_to(root).as_posix(), 'bytes': target.stat().st_size,
-                         'sha256': hashlib.sha256(target.read_bytes()).hexdigest()}
-    return result
-
-
-def validate_pair(audit, optimized):
-    if audit['identity'] != optimized['identity']:
-        raise ValueError('source/config inputs changed between audit and optimized release')
-    if audit['graph'] != optimized['graph']:
-        raise ValueError('audit and optimized release dependency graphs differ')
-
-
-def validate_inspected(root, files):
-    report = (root / files['inspection.txt']['path']).read_text()
-    for label, name in [('apk', 'app.apk'), ('aab', 'app.aab')]:
-        matches = re.findall(r'^' + label + r' .* sha256=([0-9a-f]{64}) ', report, re.M)
-        if matches != [files[name]['sha256']]:
-            raise ValueError('artifact changed between inspection and snapshot')
-    if 'mapping.txt' in files and ('mapping_sha256=' + files['mapping.txt']['sha256']) not in report:
-        raise ValueError('mapping changed between inspection and snapshot')
-
-
-def execute(root, phase, signed=False):
-    report = root / REPORT
-    if phase == 'begin':
-        run = root / 'artifacts/android-release' / uuid.uuid4().hex
-        run.mkdir(parents=True)
-        state = {'schema': 1, 'identity': identity(root), 'run': run.relative_to(root).as_posix(),
-                 'variant': 'release', 'signed': signed, 'audit_distributable': False}
-    else:
-        state = json.loads(report.read_text())
-        if state['identity'] != identity(root) or state['signed'] != signed:
-            raise ValueError('source/config inputs changed during release audit')
-        run = root / state['run']
-        base = root / MOBILE / 'androidApp' / ('build-release-audit' if phase == 'audit' else 'build')
-        apk = 'androidApp-release.apk' if phase != 'audit' and signed else 'androidApp-release-unsigned.apk'
-        files = {'app.apk': f'outputs/apk/release/{apk}', 'app.aab': 'outputs/bundle/release/androidApp-release.aab',
-                 'inspection.txt': 'reports/release-boundary/artifact-inspection.txt',
-                 'dependencies.txt': 'reports/release-boundary/resolved-dependencies.txt',
-                 'source-inputs.json': 'reports/release-boundary/source-inputs.json'}
-        if phase != 'audit':
-            files.update({'mapping.txt': 'outputs/mapping/release/mapping.txt',
-                          'pre-shrink-inputs.json': 'reports/release-boundary/pre-shrink-inputs.json'})
-        current = {'identity': identity(root), 'graph': (base / files['dependencies.txt']).read_text(),
-                   'files': snapshot(root, base, run / phase, files), 'audit': phase == 'audit'}
-        validate_inspected(root, current['files'])
-        if phase != 'audit':
-            validate_pair(state['audit'], current)
-            # Audit bytes must still be exactly what the earlier inspector saw.
-            for record in state['audit']['files'].values():
-                if hashlib.sha256((root / record['path']).read_bytes()).hexdigest() != record['sha256']:
-                    raise ValueError('audit snapshot changed')
-            current['apk_bytes'] = current['files']['app.apk']['bytes']
-            state['apk_size'] = {'metric': 'APK file bytes; same source/features/toolchain, unsigned audit',
-                                 'audit': state['audit']['files']['app.apk']['bytes'],
-                                 'optimized': current['apk_bytes'],
-                                 'estimated_download': 'NOT_RUN', 'installed_footprint': 'NOT_RUN'}
-        state[phase] = current
-    report.parent.mkdir(parents=True, exist_ok=True)
-    report.write_text(json.dumps(state, indent=2) + '\n')
-    # Persist each phase separately so later builds cannot rewrite its original record.
-    (root / state['run'] / (phase + '.json')).write_text(json.dumps(state, indent=2) + '\n')
-    print(f'PASS Android release evidence {phase}: {report}')
+def bind(root, mobile):
+    app = mobile / "androidApp"
+    audit, optimized = app / "build-audit", app / "build"
+    records = [json.loads((b / "reports/release-boundary/pre-shrink.json").read_text()) for b in (audit, optimized)]
+    for record in records:
+        if record["status"] != "PASS" or record["variant"] != "release" or not record["class_count"]:
+            raise ValueError("pre-shrink input inspection did not pass")
+    for field in ("source_sha256", "classes_sha256", "inputs_sha256", "class_count"):
+        if records[0][field] != records[1][field]:
+            raise ValueError("audit/optimized pre-shrink mismatch: " + field)
+    graphs = [sha(b / "reports/release-boundary/resolved-dependencies.txt") for b in (audit, optimized)]
+    if graphs[0] != graphs[1]:
+        raise ValueError("audit/optimized resolved graph mismatch")
+    def record(path):
+        return {"path": str(path.relative_to(mobile)), "sha256": sha(path), "bytes": path.stat().st_size}
+    artifacts = {}
+    for mode, base in (("audit", audit), ("optimized", optimized)):
+        metadata = json.loads((base / "outputs/apk/release/output-metadata.json").read_text())
+        outputs = metadata.get("elements", [])
+        if (metadata.get("applicationId") != "com.cantos.theatre" or metadata.get("variantName") != "release"
+                or len(outputs) != 1 or outputs[0].get("type") != "SINGLE" or outputs[0].get("filters")):
+            raise ValueError("ambiguous/foreign release output")
+        name = outputs[0]["outputFile"]
+        if Path(name).name != name or not name.endswith(".apk"):
+            raise ValueError("unsafe APK output")
+        artifacts[mode] = {"apk": record(base / "outputs/apk/release" / name),
+                           "aab": record(base / "outputs/bundle/release/androidApp-release.aab"),
+                           "inspection": record(base / "reports/release-boundary/artifact-inspection.txt"),
+                           "distributable": False if mode == "audit" else "requires-signature-and-operator-policy"}
+    for mode, base in (("audit", audit), ("optimized", optimized)):
+        text = (base / "reports/release-boundary/artifact-inspection.txt").read_text()
+        if f"variant=release audit={mode == 'audit'}" not in text or "FINDING " in text or "PASS: no sandbox" not in text:
+            raise ValueError("inspection did not pass for the declared audit mode")
+        for kind in ("apk", "aab"):
+            expected = artifacts[mode][kind]["sha256"]
+            if not re.search(r"^" + kind + r" .+ sha256=" + expected + r" ", text, re.M):
+                raise ValueError("inspection report/artifact hash mismatch")
+    artifacts["optimized"]["mapping"] = record(optimized / "outputs/mapping/release/mapping.txt")
+    from inspect_android_release import mapping_classes
+    for kind in ("apk", "aab"):
+        mapping_classes(mobile / artifacts["optimized"]["mapping"]["path"],
+                        mobile / artifacts["optimized"][kind]["path"])
+    source = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, text=True, capture_output=True).stdout.strip()
+    return {"schema_version": 1, "source_sha": source,
+            "configuration": {"application_id": "com.cantos.theatre", "build_type": "release",
+                "optimization": "R8 + resource shrinking", "audit_marker": "CantosReleaseAudit",
+                "policy_source": source}, "variant": "release", "inputs": records[0],
+            "resolved_graph_sha256": graphs[0], "artifacts": artifacts,
+            "differences": ["optimization flags", "audit manifest marker", "app output directory", "audit unsigned"],
+            "size": {"metric": "APK archive bytes", "audit": artifacts["audit"]["apk"]["bytes"],
+                     "optimized": artifacts["optimized"]["apk"]["bytes"],
+                     "estimated_download": "NOT_RUN", "installed_footprint": "NOT_RUN"},
+            "device_acceptance": "NOT_RUN", "firebase_distribution": "NOT_RUN"}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('phase', choices=['begin', 'audit', 'optimized', 'fingerprint'])
-    parser.add_argument('--signed', action='store_true')
+    parser.add_argument("--mobile", required=True, type=Path)
+    parser.add_argument("--report", required=True, type=Path)
+    parser.add_argument("--api-origin", default="")
+    parser.add_argument("--native-issuer", default="")
+    parser.add_argument("--begin", action="store_true")
     args = parser.parse_args()
-    if args.phase == 'fingerprint':
-        print(identity(Path.cwd())['input_sha256'])
-    else:
-        execute(Path.cwd(), args.phase, args.signed)
+    root = Path(__file__).resolve().parents[1]
+    snapshot_path = args.report.with_name("source-inputs.json")
+    snapshot = source_snapshot(root)
+    if args.begin:
+        snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+        snapshot_path.write_text(json.dumps(snapshot) + "\n")
+        print("PASS source input snapshot (no credentials recorded)")
+        return
+    if json.loads(snapshot_path.read_text()) != snapshot:
+        raise ValueError("source changed during audit/release build")
+    result = bind(root, args.mobile.resolve())
+    result["source"] = snapshot
+    result["configuration"].update(api_origin=args.api_origin, native_issuer=args.native_issuer)
+    freeze(root, args.mobile.resolve(), result)
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    args.report.write_text(json.dumps(result, indent=2) + "\n")
+    print("PASS audit/release identical pre-shrink inputs and resolved graph; exact artifact/mapping hashes recorded")
 
 
-if __name__ == '__main__':
-    try:
-        main()
-    except (ValueError, OSError, KeyError) as error:
-        print(f'Android release evidence failed: {error}', file=sys.stderr)
-        sys.exit(1)
+if __name__ == "__main__":
+    main()

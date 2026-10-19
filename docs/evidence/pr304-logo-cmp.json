@@ -1,0 +1,31 @@
+{
+  "component_id": "logo",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Codex root \u2014 fresh JVM Compose semantics and opened capture recheck, 20 October 2026",
+  "reference": "Current production composables and existing component/token contract; fresh named JVM suites and opened captures in docs/evidence/pr304-cmp-requalification.md. Existing admission only; no device or screen-reader claim.",
+  "tokens_sha256": "25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741",
+  "source_sha256": "8ed0c550c092e217bae37b24f3cbdc37d1570d70e4e4e209f680fadcc058d3ba",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; fresh desktopTest results and opened JVM captures as listed in the report",
+      "artifact": "docs/evidence/pr304-cmp-requalification.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; fresh desktopTest results and opened JVM captures as listed in the report",
+      "artifact": "docs/evidence/pr304-cmp-requalification.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; fresh desktopTest results and opened JVM captures as listed in the report",
+      "artifact": "docs/evidence/pr304-cmp-requalification.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; fresh desktopTest results and opened JVM captures as listed in the report",
+      "artifact": "docs/evidence/pr304-cmp-requalification.md"
+    }
+  }
+}

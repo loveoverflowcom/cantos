@@ -12,8 +12,8 @@ use super::{
 };
 use crate::report::Status;
 
-/// 3: explicit real-only policy, module and audit/optimization status.
-pub const SCHEMA_VERSION: u32 = 3;
+/// 2: `artifact.shrinker_mapping` (optimized release stages its exact R8 mapping).
+pub const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Receipt {
@@ -37,11 +37,11 @@ pub struct Receipt {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GradleRecord {
-    pub module: &'static str,
-    pub audit: bool,
-    pub optimized: bool,
     pub variant: &'static str,
     pub task: &'static str,
+    pub module: &'static str,
+    pub release_audit: bool,
+    pub optimized: bool,
     pub api_origin: Option<String>,
     pub native_issuer: Option<String>,
 }
@@ -144,11 +144,11 @@ impl Receipt {
             channel: policy.channel(),
             artifact_kind: policy.artifact(),
             gradle: GradleRecord {
-                module: ":androidApp",
-                audit: false,
-                optimized: policy.shrinks(),
                 variant: policy.variant(),
                 task: policy.gradle_task(),
+                module: ":androidApp",
+                release_audit: false,
+                optimized: policy.shrinks(),
                 api_origin: request.api_origin.clone(),
                 native_issuer: request.native_issuer.clone(),
             },
@@ -296,7 +296,7 @@ mod tests {
 
     fn request() -> LiveRequest {
         LiveRequest {
-            api_origin: None,
+            api_origin: Some("https://api.cantos.example".into()),
             native_issuer: None,
             policy: Policy::DevelopmentApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
@@ -423,10 +423,10 @@ mod tests {
     #[test]
     fn the_qa_receipt_names_its_variant_non_debuggable_identity_and_staged_r8_mapping() {
         let mut qa_request = request();
-        qa_request.policy = Policy::ReleaseApk;
+        qa_request.policy = Policy::ProductionApk;
         let mut receipt = Receipt::new("r", "t", &qa_request);
         let json = String::from_utf8(receipt.to_json()).unwrap();
-        assert!(json.contains("\"channel\": \"release\""), "{json}");
+        assert!(json.contains("\"channel\": \"production\""), "{json}");
         assert!(json.contains("\"variant\": \"release\""), "{json}");
         assert!(
             json.contains("\"task\": \":androidApp:assembleRelease\""),
@@ -452,7 +452,11 @@ mod tests {
                 v3: false,
             },
         };
-        receipt.set_artifact(&facts, Some(&"cd".repeat(32)), "artifact/androidApp-qa.apk");
+        receipt.set_artifact(
+            &facts,
+            Some(&"cd".repeat(32)),
+            "artifact/androidApp-release.apk",
+        );
         assert!(receipt
             .artifact
             .as_ref()
@@ -464,7 +468,7 @@ mod tests {
         assert!(json.contains("\"debuggable\": false"), "{json}");
         assert!(json.contains("\"shrinker_mapping\""), "{json}");
         assert!(json.contains(&"11".repeat(32)), "{json}");
-        assert!(json.contains("\"schema_version\": 3"), "{json}");
+        assert!(json.contains("\"schema_version\": 2"), "{json}");
         // The signing key and its passwords are never part of a receipt.
         assert!(!json.contains("PASSWORD"), "{json}");
     }

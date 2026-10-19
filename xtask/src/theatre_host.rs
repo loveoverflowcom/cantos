@@ -1,6 +1,6 @@
 //! The production Theatre Android host. Unlike the Desktop Preview, it composes `:shared` only and
 //! has no mock, sample or diagnostic fallback. `android-release` builds an unsigned optimized
-//! release APK and AAB, plus an isolated unshrunk release audit and inspects the actual bytes; `android-debug` builds the debug APK pointed
+//! release APK and AAB and inspects the actual bytes; `android-debug` builds the debug APK pointed
 //! at one explicit API origin for the production composition. Release may pin an HTTPS API.
 //! Debug uses the Android debug signer. Neither installs nor distributes anything.
 
@@ -31,8 +31,8 @@ const AAB: &str = "androidApp/build/outputs/bundle/release/androidApp-release.aa
 const REPORT: &str = "androidApp/build/reports/release-boundary/artifact-inspection.txt";
 const DEBUG_APK: &str = "androidApp/build/outputs/apk/debug/androidApp-debug.apk";
 /// The sandbox's source declarations and resources form the forbidden inventory. The
-/// sandbox has no Android target (#287); source declarations seed the forbidden class inventory.
-const SANDBOX_CLASSES: &str = "preview-sandbox/src/commonMain/kotlin";
+/// sandbox has no Android target (#287); its source declarations name classes that must be absent.
+const SANDBOX_CLASSES: &str = "preview-sandbox/src";
 const SANDBOX_RESOURCES: &str = "preview-sandbox/src/commonMain/composeResources";
 const COMPOSE_RESOURCE_PACKAGE: &str = "com.cantos.theatre.resources";
 /// Production classes whose absence would make a finding-free inspection vacuous.
@@ -58,18 +58,20 @@ const ALLOWED_PERMISSIONS: [&str; 5] = [
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum HostAction {
-    /// Build optimized release APK/AAB plus an isolated unshrunk release audit; inspect release
+    /// Inject local sandbox/transitive-test edges and require both resolved graph guards to reject them.
+    /// Offline, temporary init scripts only; builds no APK and changes no tracked source.
+    AndroidBoundaryTests,
+    /// Build the production Android host's unsigned release APK and AAB and inspect release
     /// classpaths, DEX classes, resources and manifest for sandbox, mock and test content.
     AndroidRelease {
         /// Optional exact HTTPS API origin. Omission builds an explicitly unconfigured host.
         #[arg(long, value_name = "ORIGIN")]
         api_origin: Option<String>,
-        /// Optional exact native issuer; identical in audit and optimized builds.
-        #[arg(long)]
+        #[arg(long, value_name = "ISSUER")]
         native_issuer: Option<String>,
-        /// Use the operator-provided release key; never used by the audit build.
+        /// Use only the explicitly supplied operator release key; audit remains unsigned.
         #[arg(long)]
-        sign: bool,
+        operator_signing: bool,
     },
     /// Build the production host's debug APK, whose live public catalog reads one development
     /// API origin. Nothing is installed; cleartext is limited to debug loopback.
@@ -100,10 +102,16 @@ pub fn tools() -> Vec<Tool> {
 
 /// The production host and the sandbox inventory it is checked against must both exist.
 pub fn prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static str> {
-    if !project.join(SANDBOX_RESOURCES).is_dir() {
-        return Err("production Android host or the sandbox resource inventory is missing");
+    if !project.join("androidApp/build.gradle.kts").is_file()
+        || !project
+            .join("androidApp/src/main/AndroidManifest.xml")
+            .is_file()
+        || !project.join("shared/src/androidMain/kotlin").is_dir()
+        || !project.join(SANDBOX_RESOURCES).is_dir()
+    {
+        return Err("production Android host, shared Android sources or the sandbox resource inventory are missing");
     }
-    mobile_toolchain::android_prerequisite(project, sdk)?;
+    mobile_toolchain::android_sdk_prerequisite(sdk)?;
     if sdk.and_then(Path::to_str).is_none() {
         return Err("configured Android SDK path must be UTF-8 to pass to the inspector");
     }
@@ -122,29 +130,133 @@ pub fn validate_native_issuer(api_origin: &str, issuer: &str) -> Result<(), Stri
 }
 
 /// Builds only the production host's release outputs. Its `preBuild` also enforces the
-/// resolved release-classpath and source boundary; the sandbox is never compiled here.
+/// resolved release-classpath boundary; sandbox inventory is read from source without compiling it.
 pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> CommandSpec {
-    configured_release_command(workspace, origin, None, false, false)
+    let mut command = mobile_toolchain::gradle_command(workspace).args([
+        "-Pcantos.android=true",
+        "-Pandroid.builder.sdkDownload=false",
+    ]);
+    // An explicit empty property also overrides ambient Gradle/environment configuration.
+    command = command.args([
+        format!("-Pcantos.apiOrigin={}", origin.unwrap_or_default()),
+        "-Pcantos.nativeIssuer=".to_owned(),
+    ]);
+    command.args([
+        "-Pcantos.releaseAudit=false",
+        "-Pcantos.releaseSigning=false",
+        ":androidApp:assertReleaseDependencyBoundary",
+        ":androidApp:assembleRelease",
+        ":androidApp:bundleRelease",
+    ])
 }
 
-fn configured_release_command(
+/// Same release composition, separate unsigned output root. Always explicit, never ambient.
+pub fn gradle_audit_command(workspace: &Workspace, origin: Option<&str>) -> CommandSpec {
+    let mut command = gradle_release_command(workspace, origin);
+    command
+        .args
+        .retain(|arg| arg != "-Pcantos.releaseAudit=false");
+    command.args.push("-Pcantos.releaseAudit=true".to_owned());
+    command
+}
+
+pub fn audit_inspection_command(
+    workspace: &Workspace,
+    sdk: &str,
+    origin: Option<&str>,
+) -> CommandSpec {
+    let mut command = inspection_command(workspace, sdk, origin);
+    command.args = command
+        .args
+        .into_iter()
+        .map(|arg| arg.replace("androidApp/build/", "androidApp/build-audit/"))
+        .collect();
+    // Unshrunk audit requires the entire production composition as a non-vacuity oracle.
+    for class in REQUIRED_CLASSES.into_iter().skip(1).take(7) {
+        command
+            .args
+            .extend(["--require-class".to_owned(), class.to_owned()]);
+    }
+    command.args.push("--audit".to_owned());
+    command
+}
+
+pub fn release_evidence_command(workspace: &Workspace) -> CommandSpec {
+    CommandSpec::new("python3", workspace.root()).args([
+        "scripts/android_release_evidence.py",
+        "--mobile",
+        THEATRE_MOBILE_DIR,
+        "--report",
+        &format!(
+            "{THEATRE_MOBILE_DIR}/androidApp/build/reports/release-boundary/release-evidence.json"
+        ),
+    ])
+}
+
+fn release_evidence_with_inputs(
     workspace: &Workspace,
     origin: Option<&str>,
     issuer: Option<&str>,
-    audit: bool,
-    signed: bool,
 ) -> CommandSpec {
-    mobile_toolchain::gradle_command(workspace).args([
-        "-Pcantos.android=true".to_owned(),
-        "-Pandroid.builder.sdkDownload=false".to_owned(),
-        format!("-Pcantos.releaseAudit={audit}"),
-        format!("-Pcantos.releaseSigning={signed}"),
-        format!("-Pcantos.apiOrigin={}", origin.unwrap_or_default()),
-        format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
-        ":androidApp:assertReleaseDependencyBoundary".to_owned(),
-        ":androidApp:assembleRelease".to_owned(),
-        ":androidApp:bundleRelease".to_owned(),
+    release_evidence_command(workspace).args([
+        "--api-origin",
+        origin.unwrap_or_default(),
+        "--native-issuer",
+        issuer.unwrap_or_default(),
     ])
+}
+
+fn release_configuration(
+    mut command: CommandSpec,
+    issuer: Option<&str>,
+    signing: bool,
+) -> CommandSpec {
+    command.args.retain(|arg| {
+        !arg.starts_with("-Pcantos.nativeIssuer=") && !arg.starts_with("-Pcantos.releaseSigning=")
+    });
+    command.args.extend([
+        format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
+        format!("-Pcantos.releaseSigning={signing}"),
+    ]);
+    command
+}
+fn inspection_issuer(mut command: CommandSpec, issuer: Option<&str>) -> CommandSpec {
+    command.args.extend([
+        "--native-issuer".to_owned(),
+        issuer.unwrap_or_default().to_owned(),
+    ]);
+    command
+}
+fn release_snapshot_command(workspace: &Workspace) -> CommandSpec {
+    let mut command = release_evidence_command(workspace);
+    command.args.push("--begin".to_owned());
+    command
+}
+
+fn boundary_probe_command(workspace: &Workspace, variant: &str, probe: &str) -> CommandSpec {
+    let gradle = mobile_toolchain::gradle_command(workspace).args([
+        "-Pcantos.android=true",
+        "-Pandroid.builder.sdkDownload=false",
+        "-Pcantos.releaseAudit=false",
+        "-Pcantos.releaseSigning=false",
+        "-Pcantos.apiOrigin=",
+        "-Pcantos.nativeIssuer=",
+    ]);
+    let mut command = CommandSpec::new("python3", workspace.root()).args([
+        "scripts/android_boundary_probe.py",
+        "--variant",
+        variant,
+        "--probe",
+        probe,
+        "--report",
+        &format!(
+            "{THEATRE_MOBILE_DIR}/androidApp/build/reports/boundary-negative/{variant}-{probe}.txt"
+        ),
+        "--",
+    ]);
+    command.args.push(gradle.program);
+    command.args.extend(gradle.args);
+    command
 }
 
 pub fn validate_release_api_origin(origin: &str) -> Result<(), String> {
@@ -201,10 +313,10 @@ pub fn gradle_debug_identity_command(
     mobile_toolchain::gradle_command(workspace).args([
         "-Pcantos.android=true".to_owned(),
         "-Pandroid.builder.sdkDownload=false".to_owned(),
-        "-Pcantos.releaseAudit=false".to_owned(),
-        "-Pcantos.releaseSigning=false".to_owned(),
         format!("-Pcantos.apiOrigin={origin}"),
         format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
+        "-Pcantos.releaseAudit=false".to_owned(),
+        "-Pcantos.releaseSigning=false".to_owned(),
         ":androidApp:assembleDebug".to_owned(),
     ])
 }
@@ -222,13 +334,12 @@ pub fn inspection_command(workspace: &Workspace, sdk: &str, origin: Option<&str>
     let mobile = |path: &str| format!("{THEATRE_MOBILE_DIR}/{path}");
     let mut args = vec![
         "scripts/inspect_android_release.py".to_owned(),
-        "--check-audit-marker".to_owned(),
-        "--check-callback".to_owned(),
-        "--check-build-inputs".to_owned(),
         "--apk".to_owned(),
         mobile(APK),
         "--aab".to_owned(),
         mobile(AAB),
+        "--output-metadata".to_owned(),
+        mobile("androidApp/build/outputs/apk/release/output-metadata.json"),
         "--aapt2".to_owned(),
         format!("{sdk}/{ANDROID_BUILD_TOOLS}/aapt2"),
         "--application-id".to_owned(),
@@ -237,14 +348,14 @@ pub fn inspection_command(workspace: &Workspace, sdk: &str, origin: Option<&str>
         LAUNCHER.to_owned(),
         "--compose-resource-package".to_owned(),
         COMPOSE_RESOURCE_PACKAGE.to_owned(),
-        "--forbidden-classes".to_owned(),
+        "--forbidden-source".to_owned(),
         mobile(SANDBOX_CLASSES),
         "--forbidden-resources".to_owned(),
         mobile(SANDBOX_RESOURCES),
         "--report".to_owned(),
         mobile(REPORT),
     ];
-    for class in REQUIRED_CLASSES {
+    for class in [REQUIRED_CLASSES[0], REQUIRED_CLASSES[8]] {
         args.extend(["--require-class".to_owned(), class.to_owned()]);
     }
     for permission in ALLOWED_PERMISSIONS {
@@ -255,158 +366,14 @@ pub fn inspection_command(workspace: &Workspace, sdk: &str, origin: Option<&str>
         "com.cantos.theatre.adapters.playback.CantosPlaybackService".to_owned(),
     ]);
     args.extend([
+        "--enforce-audit-marker".to_owned(),
+        "--enforce-callback".to_owned(),
+    ]);
+    args.extend([
         "--api-origin".to_owned(),
         origin.unwrap_or_default().to_owned(),
     ]);
     CommandSpec::new("python3", workspace.root()).args(args)
-}
-
-pub struct ReleaseInspection<'a> {
-    pub sdk: &'a str,
-    pub apk: &'a Path,
-    pub origin: &'a str,
-    pub issuer: Option<&'a str>,
-    pub mapping: Option<&'a Path>,
-    pub audit: bool,
-    pub apk_only: bool,
-}
-
-pub fn release_inspection_command(
-    workspace: &Workspace,
-    input: ReleaseInspection<'_>,
-) -> CommandSpec {
-    let ReleaseInspection {
-        sdk,
-        apk,
-        origin,
-        issuer,
-        mapping,
-        audit,
-        apk_only,
-    } = input;
-    let mut command = inspection_command(workspace, sdk, Some(origin));
-    let mut args = Vec::new();
-    let mut source = command.args.into_iter();
-    while let Some(arg) = source.next() {
-        match arg.as_str() {
-            "--apk" => {
-                source.next();
-                args.extend([arg, apk.to_string_lossy().into_owned()]);
-            }
-            "--aab" if apk_only => {
-                source.next();
-            }
-            "--aab" | "--report" if audit => {
-                let value = source
-                    .next()
-                    .unwrap_or_default()
-                    .replace("androidApp/build/", "androidApp/build-release-audit/");
-                args.extend([arg, value]);
-            }
-            _ => args.push(arg),
-        }
-    }
-    args.extend([
-        "--native-issuer".to_owned(),
-        issuer.unwrap_or_default().to_owned(),
-    ]);
-    if let Some(mapping) = mapping {
-        args.extend([
-            "--mapping".to_owned(),
-            mapping.to_string_lossy().into_owned(),
-        ]);
-    }
-    if audit {
-        args.push("--audit".to_owned());
-    }
-    if apk_only {
-        args.push("--apk-only".to_owned());
-    }
-    command.args = args;
-    command
-}
-
-fn evidence_command(workspace: &Workspace, phase: &str, signed: bool) -> CommandSpec {
-    CommandSpec::new("python3", workspace.root())
-        .args(["scripts/android_release_evidence.py", phase])
-        .arg_if(signed, "--signed")
-}
-
-fn release_steps(
-    workspace: &Workspace,
-    sdk: &str,
-    origin: Option<&str>,
-    issuer: Option<&str>,
-    signed: bool,
-) -> Vec<Step> {
-    let audit = configured_release_command(workspace, origin, issuer, true, false);
-    let optimized = if issuer.is_none() && !signed {
-        gradle_release_command(workspace, origin)
-    } else {
-        configured_release_command(workspace, origin, issuer, false, signed)
-    };
-    let audit_apk = workspace.path(&format!(
-        "{THEATRE_MOBILE_DIR}/{}",
-        APK.replace("androidApp/build/", "androidApp/build-release-audit/")
-    ));
-    let optimized_apk = workspace.path(&format!(
-        "{THEATRE_MOBILE_DIR}/{}",
-        if signed {
-            APK.replace("-unsigned.apk", ".apk")
-        } else {
-            APK.to_owned()
-        }
-    ));
-    let mapping = workspace.path(&format!(
-        "{THEATRE_MOBILE_DIR}/androidApp/build/outputs/mapping/release/mapping.txt"
-    ));
-    vec![
-        Step::new(
-            "release input identity",
-            &tools(),
-            vec![evidence_command(workspace, "begin", signed)],
-        ),
-        Step::new("unshrunk release audit build", &tools(), vec![audit]),
-        Step::new(
-            "unshrunk release audit inspection",
-            &[Tool::Python3],
-            vec![
-                release_inspection_command(
-                    workspace,
-                    ReleaseInspection {
-                        sdk,
-                        apk: &audit_apk,
-                        origin: origin.unwrap_or_default(),
-                        issuer,
-                        mapping: None,
-                        audit: true,
-                        apk_only: false,
-                    },
-                ),
-                evidence_command(workspace, "audit", signed),
-            ],
-        ),
-        Step::new("optimized release build", &tools(), vec![optimized]),
-        Step::new(
-            "optimized release inspection and binding",
-            &[Tool::Python3],
-            vec![
-                release_inspection_command(
-                    workspace,
-                    ReleaseInspection {
-                        sdk,
-                        apk: &optimized_apk,
-                        origin: origin.unwrap_or_default(),
-                        issuer,
-                        mapping: Some(&mapping),
-                        audit: false,
-                        apk_only: false,
-                    },
-                ),
-                evidence_command(workspace, "optimized", signed),
-            ],
-        ),
-    ]
 }
 
 /// Debug-signing is checked by the distribution coordinator. This proves the actual production
@@ -423,7 +390,7 @@ pub fn debug_inspection_command(
     let mut source = command.args.into_iter();
     while let Some(arg) = source.next() {
         match arg.as_str() {
-            "--aab" => {
+            "--aab" | "--output-metadata" => {
                 source.next();
             }
             "--application-id" => {
@@ -458,6 +425,31 @@ pub fn debug_inspection_command(
         issuer.unwrap_or_default().to_owned(),
     ]);
     command.args = args;
+    command
+}
+
+pub fn staged_release_inspection_command(
+    workspace: &Workspace,
+    sdk: &str,
+    apk: &Path,
+    origin: &str,
+    issuer: Option<&str>,
+) -> CommandSpec {
+    let mut command = debug_inspection_command(workspace, sdk, apk, origin, issuer);
+    command.args.retain(|arg| arg != "--debug-apk");
+    command.args.push("--apk-only".to_owned());
+    let index = command
+        .args
+        .iter()
+        .position(|arg| arg == "--application-id");
+    if let Some(index) = index {
+        command.args[index + 1] = APPLICATION_ID.to_owned();
+    }
+    for arg in &mut command.args {
+        if arg == &format!("{DEBUG_APPLICATION_ID}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION") {
+            *arg = format!("{APPLICATION_ID}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION");
+        }
+    }
     command
 }
 
@@ -497,13 +489,49 @@ pub fn execute(
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
     match action {
+        HostAction::AndroidBoundaryTests => {
+            let sdk = mobile_toolchain::android_sdk_from_environment();
+            if let Err(reason) = prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref()) {
+                return Ok(unsupported(
+                    "Theatre Android negative boundary probes",
+                    reason,
+                ));
+            }
+            let mut commands = Vec::new();
+            for variant in ["debug", "release"] {
+                for probe in ["sandbox", "transitive"] {
+                    commands.push(boundary_probe_command(workspace, variant, probe));
+                }
+            }
+            let report = pipeline::execute(
+                "theatre-host",
+                &[Step::new(
+                    "Theatre Android negative boundary probes",
+                    &tools(),
+                    commands,
+                )],
+                tool_probe,
+                runner,
+            );
+            report.print();
+            Ok(report.exit_code())
+        }
+
         HostAction::AndroidRelease {
             api_origin,
             native_issuer,
-            sign,
+            operator_signing,
         } => {
             if let Some(origin) = &api_origin {
                 if let Err(message) = validate_release_api_origin(origin) {
+                    eprintln!("xtask: error: {message}");
+                    return Ok(ExitCode::from(2));
+                }
+            }
+            if let Some(issuer) = &native_issuer {
+                if let Err(message) =
+                    validate_native_issuer(api_origin.as_deref().unwrap_or_default(), issuer)
+                {
                     eprintln!("xtask: error: {message}");
                     return Ok(ExitCode::from(2));
                 }
@@ -514,22 +542,49 @@ pub fn execute(
             }
             // The prerequisite has accepted an absolute UTF-8 SDK path.
             let sdk = sdk.as_deref().and_then(Path::to_str).unwrap_or_default();
-            if let Some(issuer) = &native_issuer {
-                if let Err(message) =
-                    validate_native_issuer(api_origin.as_deref().unwrap_or_default(), issuer)
-                {
-                    eprintln!("xtask: error: {message}");
-                    return Ok(ExitCode::from(2));
-                }
-            }
-            let _checkout_lock = release_lock(workspace)?;
-            let steps = release_steps(
-                workspace,
-                sdk,
-                api_origin.as_deref(),
-                native_issuer.as_deref(),
-                sign,
-            );
+            let _lock = release_lock(workspace)?;
+            let steps = vec![
+                Step::new(
+                    "Theatre unshrunk release audit",
+                    &tools(),
+                    vec![
+                        release_snapshot_command(workspace),
+                        release_configuration(
+                            gradle_audit_command(workspace, api_origin.as_deref()),
+                            native_issuer.as_deref(),
+                            false,
+                        ),
+                        inspection_issuer(
+                            audit_inspection_command(workspace, sdk, api_origin.as_deref()),
+                            native_issuer.as_deref(),
+                        ),
+                    ],
+                ),
+                Step::new(
+                    "Theatre production Android release build",
+                    &tools(),
+                    vec![release_configuration(
+                        gradle_release_command(workspace, api_origin.as_deref()),
+                        native_issuer.as_deref(),
+                        operator_signing,
+                    )],
+                ),
+                Step::new(
+                    "Theatre production Android release inspection",
+                    &[Tool::Python3],
+                    vec![
+                        inspection_issuer(
+                            inspection_command(workspace, sdk, api_origin.as_deref()),
+                            native_issuer.as_deref(),
+                        ),
+                        release_evidence_with_inputs(
+                            workspace,
+                            api_origin.as_deref(),
+                            native_issuer.as_deref(),
+                        ),
+                    ],
+                ),
+            ];
             let report = pipeline::execute("theatre-host", &steps, tool_probe, runner);
             report.print();
             Ok(report.exit_code())
@@ -659,6 +714,18 @@ mod tests {
         Workspace::discover().unwrap()
     }
 
+    #[test]
+    fn concurrent_audits_cannot_replace_each_others_fixed_outputs() {
+        let workspace = workspace();
+        let first = release_lock(&workspace).unwrap();
+        assert!(release_lock(&workspace)
+            .unwrap_err()
+            .to_string()
+            .contains("another release audit"));
+        drop(first);
+        assert!(release_lock(&workspace).is_ok());
+    }
+
     fn sdk_fixture(name: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("xtask-theatre-host-{name}-{}", std::process::id()));
@@ -677,59 +744,6 @@ mod tests {
         dir
     }
 
-    #[cfg(unix)]
-    #[test]
-    fn concurrent_audits_cannot_replace_each_others_fixed_outputs() {
-        let workspace = workspace();
-        let first = release_lock(&workspace).unwrap();
-        assert!(release_lock(&workspace)
-            .unwrap_err()
-            .to_string()
-            .contains("another release audit"));
-        drop(first);
-        assert!(release_lock(&workspace).is_ok());
-    }
-
-    #[test]
-    fn audit_precedes_optimization_and_cannot_inherit_the_operator_signer() {
-        let workspace = workspace();
-        let steps = release_steps(
-            &workspace,
-            "/sdk",
-            Some("https://api.example.org"),
-            None,
-            true,
-        );
-        assert_eq!(steps.len(), 5);
-        let mut runner = RecordingRunner {
-            fail_on: Some("releaseAudit=true".into()),
-            ..Default::default()
-        };
-        let report = pipeline::execute("release audit", &steps, &FakeTools::all(), &mut runner);
-        assert_eq!(report.outcomes[1].status, Status::Fail);
-        assert_eq!(report.outcomes[3].status, Status::NotRun);
-        assert_eq!(runner.commands.len(), 2);
-        let audit = &runner.commands[1];
-        assert!(audit.args.contains(&"-Pcantos.releaseSigning=false".into()));
-        assert!(!audit.args.iter().any(|a| a.contains("sandbox")));
-        let mut runner = RecordingRunner::default();
-        assert!(
-            pipeline::execute("release audit", &steps, &FakeTools::all(), &mut runner).succeeded()
-        );
-        let gradle: Vec<_> = runner
-            .commands
-            .iter()
-            .filter(|c| c.program == "gradle")
-            .collect();
-        assert_eq!(gradle.len(), 2);
-        assert!(gradle[1]
-            .args
-            .contains(&"-Pcantos.releaseSigning=true".into()));
-        assert!(gradle[1]
-            .args
-            .contains(&"-Pcantos.releaseAudit=false".into()));
-    }
-
     #[test]
     fn release_build_names_only_production_outputs_and_the_sandbox_inventory() {
         let workspace = workspace();
@@ -739,10 +753,10 @@ mod tests {
         assert!(command.args.ends_with(&[
             "-Pcantos.android=true".to_owned(),
             "-Pandroid.builder.sdkDownload=false".to_owned(),
-            "-Pcantos.releaseAudit=false".to_owned(),
-            "-Pcantos.releaseSigning=false".to_owned(),
             "-Pcantos.apiOrigin=".to_owned(),
             "-Pcantos.nativeIssuer=".to_owned(),
+            "-Pcantos.releaseAudit=false".to_owned(),
+            "-Pcantos.releaseSigning=false".to_owned(),
             ":androidApp:assertReleaseDependencyBoundary".to_owned(),
             ":androidApp:assembleRelease".to_owned(),
             ":androidApp:bundleRelease".to_owned(),
@@ -771,10 +785,10 @@ mod tests {
         assert!(command.args.ends_with(&[
             "-Pcantos.android=true".to_owned(),
             "-Pandroid.builder.sdkDownload=false".to_owned(),
-            "-Pcantos.releaseAudit=false".to_owned(),
-            "-Pcantos.releaseSigning=false".to_owned(),
             "-Pcantos.apiOrigin=http://127.0.0.1:8080".to_owned(),
             "-Pcantos.nativeIssuer=".to_owned(),
+            "-Pcantos.releaseAudit=false".to_owned(),
+            "-Pcantos.releaseSigning=false".to_owned(),
             ":androidApp:assembleDebug".to_owned(),
         ]));
         let tasks: Vec<_> = command
@@ -878,14 +892,26 @@ mod tests {
         );
         assert_eq!(value("--application-id"), [APPLICATION_ID]);
         assert_eq!(
-            value("--forbidden-classes"),
+            value("--forbidden-source"),
             [format!("{THEATRE_MOBILE_DIR}/{SANDBOX_CLASSES}")]
         );
         assert_eq!(
             value("--forbidden-resources"),
             [format!("{THEATRE_MOBILE_DIR}/{SANDBOX_RESOURCES}")]
         );
-        assert_eq!(value("--require-class"), REQUIRED_CLASSES);
+        assert_eq!(
+            value("--require-class"),
+            [REQUIRED_CLASSES[0], REQUIRED_CLASSES[8]]
+        );
+        let audit = audit_inspection_command(&workspace, "/sdk", None);
+        assert!(audit.args.contains(&"--audit".to_owned()));
+        assert!(audit
+            .args
+            .iter()
+            .any(|a| a.contains("androidApp/build-audit/outputs/apk")));
+        for class in REQUIRED_CLASSES {
+            assert!(audit.args.contains(&class.to_owned()));
+        }
         assert_eq!(value("--allowed-permission"), ALLOWED_PERMISSIONS);
         assert!(value("--allowed-permission").contains(&"android.permission.INTERNET"));
     }

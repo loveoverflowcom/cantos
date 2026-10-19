@@ -1,7 +1,6 @@
 """Implementation primitive for cargo xtask release-build; no cloud write or signing."""
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -131,25 +130,19 @@ def build(root, target, sha, output, origin=API_ORIGIN):
     run(root, ["cargo", "xtask", "theatre-host", "android-release", "--api-origin", origin])
     base = root / MOBILE / "androidApp/build"
     evidence = json.loads((base / "reports/release-boundary/release-evidence.json").read_text())
-    if evidence["identity"]["source_sha"] != sha or evidence["signed"] or "optimized" not in evidence:
-        raise ValueError("Android audit evidence does not describe this unsigned source release")
-    names = {"optimized": {
-        "app.apk": "androidApp-release-unsigned.apk", "app.aab": "androidApp-release.aab",
-        "mapping.txt": "mapping.txt", "inspection.txt": "artifact-inspection.txt",
-        "dependencies.txt": "resolved-dependencies.txt", "pre-shrink-inputs.json": "pre-shrink-inputs.json",
-    }, "audit": {
-        "app.apk": "audit-release-unsigned.apk", "app.aab": "audit-release.aab",
-        "inspection.txt": "audit-inspection.txt", "dependencies.txt": "audit-dependencies.txt",
-    }}
-    for phase, labels in names.items():
-        for name, label in labels.items():
-            record = evidence[phase]["files"][name]
-            source = root / record["path"]
-            contract.regular(source)
-            if source.stat().st_size != record["bytes"] or hashlib.sha256(source.read_bytes()).hexdigest() != record["sha256"]:
-                raise ValueError("Android inspected snapshot changed before packaging")
-            shutil.copyfile(source, output / label)
-    shutil.copyfile(base / "reports/release-boundary/release-evidence.json", output / "release-evidence.json")
+    if (evidence["configuration"]["api_origin"] != origin or
+            Path(evidence["artifacts"]["optimized"]["apk"]["path"]).name != "androidApp-release-unsigned.apk"):
+        raise ValueError("Android snapshot configuration differs from the requested unsigned package")
+    snapshot = Path(contract.safe_name(evidence["snapshot_directory"]))
+    if snapshot.parts[:2] != ("artifacts", "android-release") or len(snapshot.parts) != 3:
+        raise ValueError("invalid Android snapshot directory")
+    snapshot = root / snapshot
+    contract.validate_android_outputs(snapshot, sha)
+    for name in contract.EXPECTED["android"]:
+        source = snapshot / name
+        contract.regular(source)
+        shutil.copyfile(source, output / name)
+    contract.validate_android_outputs(output, sha)
     return android_version(root)
 
 

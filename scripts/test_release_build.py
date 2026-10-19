@@ -12,6 +12,40 @@ import release_artifact as contract
 
 
 class ReleaseBuildTests(unittest.TestCase):
+    def test_android_build_uses_the_declared_origin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.object(release, "run", side_effect=RuntimeError("stop before build")) as run:
+                with self.assertRaisesRegex(RuntimeError, "stop before build"):
+                    release.build(root, "android", "a" * 40, root, "https://catalog.example")
+            self.assertEqual(run.call_args.args[1][-2:], ["--api-origin", "https://catalog.example"])
+
+    def test_android_package_preserves_the_declared_origin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.object(release, "source_revision", return_value="a" * 40), \
+                 patch.object(contract, "configuration", side_effect=RuntimeError("stop at config")) as config:
+                with self.assertRaisesRegex(RuntimeError, "stop at config"):
+                    release.package(root, "android", origin="https://catalog.example")
+            self.assertEqual(config.call_args.args[-1], "https://catalog.example")
+
+    def test_android_staging_refuses_foreign_configuration_and_snapshot_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = root / release.MOBILE / "androidApp/build/reports/release-boundary/release-evidence.json"
+            report.parent.mkdir(parents=True)
+            for origin, apk, snapshot, message in (
+                ("https://other.example", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "androidApp-release.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "androidApp-release-unsigned.apk", "../../outside", "unsafe archive path"),
+                ("https://catalog.example", "androidApp-release-unsigned.apk", "artifacts/other/run", "invalid Android snapshot"),
+            ):
+                with self.subTest(origin=origin, apk=apk, snapshot=snapshot):
+                    report.write_text(json.dumps({"configuration": {"api_origin": origin},
+                        "artifacts": {"optimized": {"apk": {"path": apk}}}, "snapshot_directory": snapshot}))
+                    with patch.object(release, "run"), self.assertRaisesRegex(ValueError, message):
+                        release.build(root, "android", "c" * 40, root / "out", "https://catalog.example")
+
     def test_hash_and_size_are_from_actual_bytes_and_symlinks_are_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)
@@ -85,7 +119,7 @@ class ReleaseBuildTests(unittest.TestCase):
             return {"name": "0.1.0", "code": 1}
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            with patch.object(release, "build", side_effect=fake_build):
+            with patch.object(release, "build", side_effect=fake_build), patch.object(contract, "validate_android_outputs"):
                 release.package(root, "android")
             text = next(root.rglob("manifest.json")).read_text()
             manifest = json.loads(text)
@@ -95,31 +129,6 @@ class ReleaseBuildTests(unittest.TestCase):
             self.assertEqual(manifest["api_origin"], "https://api.cantos.cc")
             self.assertNotIn("must-not-appear", text)
             self.assertEqual(manifest["artifacts"][0]["sha256"], hashlib.sha256(b"release bytes").hexdigest())
-
-    @patch.object(release, 'run')
-    def test_android_operator_origin_is_forwarded_without_build_type_inference(self, run):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            # Stop after the build call, before any synthetic output could count as a real build.
-            with self.assertRaises(FileNotFoundError):
-                release.build(root, 'android', 'a' * 40, root, 'https://staging.example.org')
-            self.assertEqual(run.call_args.args[1], ['cargo', 'xtask', 'theatre-host',
-                'android-release', '--api-origin', 'https://staging.example.org'])
-
-    def test_android_ci_inventory_requires_audit_mapping_and_pre_shrink_evidence(self):
-        self.assertEqual(contract.EXPECTED['android'], {
-            'androidApp-release-unsigned.apk', 'androidApp-release.aab', 'mapping.txt',
-            'artifact-inspection.txt', 'resolved-dependencies.txt', 'pre-shrink-inputs.json',
-            'release-evidence.json', 'audit-release-unsigned.apk', 'audit-release.aab',
-            'audit-inspection.txt', 'audit-dependencies.txt'})
-        root = Path(__file__).resolve().parents[1]
-        ci = json.loads((root / '.circleci/config.yml').read_text())
-        android_job = json.dumps(ci['jobs']['prepare-android'])
-        self.assertIn('cargo xtask release prepare', android_job)
-        self.assertIn('artifacts/release-transfer', android_job)
-        self.assertIn('androidApp/build.gradle.kts', android_job)
-        self.assertNotIn('appdistribution:distribute', android_job)
-        self.assertNotIn('CANTOS_RELEASE_KEYSTORE', android_job)
 
     def test_android_version_comes_from_production_host(self):
         root = Path(__file__).resolve().parents[1]

@@ -30,9 +30,9 @@ EXPECTED = {
     "theatre-web": {"theatre-web.tar.gz"},
     "studio-web": {"studio-web.tar.gz"},
     "android": {"androidApp-release-unsigned.apk", "androidApp-release.aab",
-                "artifact-inspection.txt", "resolved-dependencies.txt", "mapping.txt",
-                "pre-shrink-inputs.json", "release-evidence.json", "audit-release-unsigned.apk",
-                "audit-release.aab", "audit-inspection.txt", "audit-dependencies.txt"},
+                "artifact-inspection.txt", "resolved-dependencies.txt", "pre-shrink.json", "mapping.txt",
+                "release-evidence.json", "audit-androidApp-release-unsigned.apk", "audit-androidApp-release.aab",
+                "audit-artifact-inspection.txt", "audit-resolved-dependencies.txt", "audit-pre-shrink.json"},
 }
 
 
@@ -221,8 +221,9 @@ def configuration(root, component, origin):
         paths += ["infra/firebase/hosting/firebase.json", f"apps/cantos-{component[:-4]}/web/Trunk.toml"]
     else:
         paths += ["apps/cantos-theatre/mobile/androidApp/build.gradle.kts",
-                  "scripts/android_release_evidence.py", "scripts/android_boundary.py",
-                  "scripts/inspect_android_release.py", "xtask/src/theatre_host.rs"]
+                  "apps/cantos-theatre/mobile/androidApp/proguard-rules.pro",
+                  "scripts/inspect_android_inputs.py", "scripts/inspect_android_release.py",
+                  "scripts/android_release_evidence.py", "xtask/src/theatre_host.rs"]
     return {"component": component, "api_origin": origin, "profile": "release",
             "platform": "linux/amd64" if component == "api" else component,
             "policy": {p: file_record(root / p, root)["sha256"] for p in paths}}
@@ -262,6 +263,30 @@ def check_request(request, env=os.environ):
     age = time.time() - request["created_at"]
     require(0 <= age <= MAX_AGE, "stale release request; create a new pipeline")
     api_origin(request["api_origin"])
+
+
+def validate_android_outputs(directory, source_sha):
+    evidence = read_json(directory / "release-evidence.json")
+    require(evidence.get("schema_version") == 1 and evidence.get("source_sha") == source_sha
+            and evidence.get("variant") == "release" and evidence.get("inputs", {}).get("status") == "PASS",
+            "invalid Android audit/source binding")
+    require(evidence["artifacts"]["audit"]["distributable"] is False, "audit must be nondistributable")
+    for mode in ("audit", "optimized"):
+        expected = evidence["artifacts"][mode]
+        prefix = "audit-" if mode == "audit" else ""
+        for kind, name in (("apk", "androidApp-release-unsigned.apk"), ("aab", "androidApp-release.aab"),
+                           ("inspection", "artifact-inspection.txt")):
+            actual = file_record(directory / (prefix + name), directory)
+            require(actual["sha256"] == expected[kind]["sha256"] and actual["bytes"] == expected[kind]["bytes"],
+                    "staged Android artifact differs from inspected evidence")
+        graph = file_record(directory / (prefix + "resolved-dependencies.txt"), directory)
+        require(graph["sha256"] == evidence["resolved_graph_sha256"], "staged Android graph mismatch")
+        inputs = read_json(directory / (prefix + "pre-shrink.json"))
+        require(inputs == evidence["inputs"], "staged Android pre-shrink mismatch")
+    mapping = file_record(directory / "mapping.txt", directory)
+    expected = evidence["artifacts"]["optimized"]["mapping"]
+    require(mapping["sha256"] == expected["sha256"] and mapping["bytes"] == expected["bytes"],
+            "staged Android mapping mismatch")
 
 
 def validate(manifest_path, expected_digest, component, source_sha, origin, *, request_path=None, local=False, _finalizing=False):
@@ -308,6 +333,8 @@ def validate(manifest_path, expected_digest, component, source_sha, origin, *, r
     if component.endswith("-web"):
         with tarfile.open(manifest_path.parent / names[0], "r:gz") as archive:
             archive_members(archive, web=True)
+    if component == "android":
+        validate_android_outputs(manifest_path.parent, source_sha)
     if component == "api":
         image = read_json(manifest_path.parent / "image.json")
         require(image["source_sha"] == source_sha and image["architecture"] == "amd64" and

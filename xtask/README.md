@@ -78,7 +78,7 @@ cargo xtask services [--instance NAME] up postgresql|kanidm [--timeout-seconds 6
 cargo xtask services [--instance NAME] up --all
 cargo xtask services [--instance NAME] logs postgresql|kanidm
 cargo xtask services [--instance NAME] down postgresql|kanidm|--all
-cargo xtask distribute firebase cantos-theatre --channel development --api-origin HTTPS_ORIGIN [--artifact apk] \
+cargo xtask distribute firebase cantos-theatre --channel development [--artifact apk] \
   (--groups ALIASES | --testers EMAILS)... [--app-id ID] [--release-notes TEXT | --release-notes-file PATH] [--dry-run]
 cargo xtask deploy firebase cantos-theatre|cantos-studio --web --project PROJECT_ID \
   --channel live|PREVIEW_CHANNEL [--expires 7d] [--dry-run]   # explicit static Web deploy to Firebase Hosting
@@ -130,11 +130,11 @@ inherited `NO_COLOR=1`).
 packages clean HEAD into version-2 manifests beneath
 `artifacts/release-build/COMPONENT/SHA/CONFIG_DIGEST/ATTEMPT`. Web requires an explicit HTTPS
 origin via flag or `CANTOS_API_ORIGIN`. API includes the matching host/runtime bundle; Android
-retains its fixed origin and unsigned production APK/AAB. No build command publishes.
-`cargo xtask release-build --self-test` runs packaging regressions;
+retains its fixed origin and unsigned optimized production APK/AAB plus separate unshrunk audit and bound mapping/report hashes. No build command publishes.
+`cargo xtask release-build --self-test` runs packaging, Android inspector and focused host/distribution Rust regressions;
 `cargo xtask release self-test` also covers artifact validation, workflow DAG and mocked promotion.
 Python regressions run in the repository gate; Rust CLI/deploy tests run in the Rust gate.
-The release self-test also runs focused xtask lint/tests; `release-build --self-test` runs packaging/Android inspector regressions and all xtask unit tests. These commands add no ordinary gate or CI job.
+The self-test also runs focused xtask lint/tests. These commands add no ordinary gate or CI job.
 
 The explicit same-workflow CircleCI surface is:
 
@@ -902,7 +902,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `theatre_auth.rs` | pure plans and redacted outcomes for explicit isolated enrollment lanes; invokes the owned Python fixture primitive, outside ordinary gates |
 | `doctor.rs` | read-only environment report |
 | `services/` | typed process inventory/config validation, explicit local Podman lifecycle, bounded command boundary |
-| `distribute/` | explicit real-only APK tester distribution: `request` (pure plan), `apk` (output metadata and tool-report validation), `firebase` (CLI argv, destination check, remote-outcome interpretation, redaction), `receipt`, `host` (files, Git, clock) and `flow` (stage ordering and short-circuiting) |
+| `distribute/` | explicit real-only development/release APK tester distribution: `request` (pure plan), `apk` (output metadata and tool-report validation), `firebase` (CLI argv, destination check, remote-outcome interpretation, redaction), `receipt`, `host` (files, Git, clock) and `flow` (stage ordering and short-circuiting) |
 | `deploy/` | explicit static Web deployment to Firebase Hosting: `request` (pure plan), `hosting_config` (tracked policy, `.firebaserc` mapping, effective configuration), `bundle` (exact-bytes validation and manifest), `firebase` (CLI argv, site lookup, remote-outcome interpretation, redaction), `smoke` (read-only HTTPS judgement), `receipt`, `host` (files, bundle scan, Git, clock) and `flow` (stage ordering and short-circuiting) |
 | `run_files.rs`, `firebase_cli.rs` | what `distribute` and `deploy` share: private per-run directories, SHA-256, Git source identity and atomic records; the Firebase CLI version gate and output redaction |
 | `capture.rs` | bounded captured execution with a typed timeout/interruption/output-limit vocabulary, used where output must be interpreted |
@@ -924,28 +924,30 @@ exceptions are the APK `distribute firebase` command and the static Web `deploy 
 
 ### distribute firebase
 
-Explicit real-only APK distribution through Firebase App Distribution. The `development` policy
-maps to `:androidApp:assembleDebug` (`com.cantos.theatre.dev`, debuggable); `release` maps to
-`:androidApp:assembleRelease` (`com.cantos.theatre`, R8/resource shrinking, operator signing).
-Legacy `demo`, `demo-qa`, `production` spellings are refused before side effects and never remapped.
+Explicit operator-only APK distribution; may notify selected testers. `development` maps to
+`:androidApp:assembleDebug` / `com.cantos.theatre.dev`; `production` maps to optimized
+`:androidApp:assembleRelease` / `com.cantos.theatre`. Both are real-only. `demo`/`demo-qa` are
+retired and refused before side effects. Firebase registration and signer pins are exact per
+package; no `.demo` App ID/key fallback is supported. AAB distribution remains `UNSUPPORTED`.
 
 ```sh
 cargo xtask distribute firebase cantos-theatre --channel development \
   --api-origin https://api.example.org --groups cantos-internal --dry-run
-cargo xtask distribute firebase cantos-theatre --channel release \
+cargo xtask distribute firebase cantos-theatre --channel production \
   --api-origin https://api.example.org --groups cantos-internal --dry-run
 ```
 
-`--dry-run` starts no subprocess/network/write. Real distribution needs explicit app/recipients,
-an exact Firebase package registration and pinned certificate; release also needs the operator's
-existing signing key. API origin/native issuer remain independent build inputs. AAB is refused
-before side effects. No ordinary build/check/CI invokes distribution; one remote write follows
-validation and an atomic intent receipt, with no automatic retry after partial/unknown outcomes.
+Dry-run is pure planning: no subprocess/network/write. Real execution needs an explicit App ID,
+recipients and pinned certificate. Production uses only operator-supplied `CANTOS_RELEASE_*`
+signing inputs and the same release/audit primitives as `theatre-host`; debug cannot substitute
+for release. Exact AGP output metadata, staged manifest/version/config/callback/signature,
+audit-marker refusal and APK/mapping binding precede the one remote write. Intent receipts
+record staged hashes; unknown remote outcomes require console reconciliation before replay.
 
-The [canonical distribution runbook](../apps/cantos-theatre/mobile/docs/firebase-distribution.md)
-owns configuration variables, output/stale/audit/mapping validation, redaction, schema-3 receipts,
-Firebase console reconciliation, signing/version upgrade policy and deferred native/live acceptance.
-[Infrastructure inputs](../infra/firebase/app-distribution/README.md) do not reuse Hosting config.
+The [release/distribution runbook](../apps/cantos-theatre/mobile/docs/firebase-distribution.md)
+owns inputs, audit pairing, key/registration/version migration, independent device/live gates
+and recovery. [Infrastructure inputs](../infra/firebase/app-distribution/README.md) point there.
+Build/run/tests/preflight/CI never distribute, install, uninstall or reset app data.
 
 ### deploy firebase
 
@@ -1256,29 +1258,21 @@ account and Library owners are composed; platform runtime/auth acceptance remain
 tracked under #14/#35/#191.
 
 ```sh
-cargo xtask theatre-host android-release --api-origin https://api.cantoss.duckdns.org
-# 1. gradle -Pcantos.android=true :androidApp:assertReleaseDependencyBoundary
-#      :androidApp:assembleRelease :androidApp:bundleRelease
-#      :preview-sandbox:compileReleaseKotlinAndroid
-# 2. python3 scripts/inspect_android_release.py --apk ... --aab ... --aapt2 <SDK>/build-tools/35.0.0/aapt2
+cargo xtask theatre-host android-release --api-origin https://api.example.org
+cargo xtask theatre-host android-boundary-tests # explicit offline negative graph probes; no APK
 ```
 
-The SDK and tool prerequisites are Gradle 8.13–8.14.3, JDK 17+ and an installed SDK platform 35/build-tools 35.0.0; the host, shared Android
-sources and sandbox resource inventory must exist. Missing prerequisites are `UNSUPPORTED`.
-Both variants resolve compile/runtime classpaths and reject sandbox/test/mock dependencies.
-The release lane first builds and inspects the same release variant unshrunk under isolated
-`androidApp/build-release-audit/`, snapshots its bytes, then builds the default optimized release.
-Source/resource and actual pre-R8 input guards prevent shrinking from hiding leakage. No targeted
-Android task compiles the sandbox. Manifest source/config and audit markers reject stale/audit bytes;
-optimized APK/AAB inspection binds the actual DEX R8 marker to `mapping.txt`. Reports are under
-`androidApp/build/reports/release-boundary/`; `release-evidence.json` references exact immutable
-phase snapshots under `artifacts/android-release/<run>/`. The dependency graphs and source inputs
-must agree. See the [audit contract](../apps/cantos-theatre/mobile/docs/firebase-distribution.md#same-release-audit-and-exact-artifact-validation).
-`--native-issuer ISSUER` configures both releases; `--sign` explicitly enables only the optimized
-release's operator key. The default local/CI build is unsigned and cannot be distributed.
+Requires installed Gradle 8.13–8.14.3, JDK 17+, SDK platform 35/build-tools 35.0.0; missing tools
+are `UNSUPPORTED`. Both variants retain compile/runtime graph guards and an AGP ALL pre-shrink
+class observer with source/resource fixture checks. No Android task compiles the sandbox.
+Release builds/inspects an unsigned unshrunk **release variant** in `androidApp/build-audit`, then
+optimized release in `androidApp/build`. Source/class/graph inputs must match; exact APK/AAB,
+inspection and mapping hashes go into `reports/release-boundary/release-evidence.json`. Audit
+marker bytes are rejected by distribution. See the [owning runbook](../apps/cantos-theatre/mobile/docs/firebase-distribution.md)
+for comparison metrics, operator signing and remaining acceptance. No third build type is added.
 
 `theatre-host android-debug --api-origin ORIGIN [--native-issuer ISSUER]` builds `:androidApp:assembleDebug`
-and the independent sandbox class inventory, then inspects the actual debug APK (expecting application ID
+then inspects the actual debug APK (expecting application ID
 `com.cantos.theatre.dev`) and prints
 installed-tool signature/version facts (`apksigner verify --print-certs -v`, `aapt2 dump badging`)
 with `-Pcantos.apiOrigin=ORIGIN`. It accepts `https://` or `http://127.0.0.1|localhost:<port>`
@@ -1294,7 +1288,7 @@ frameworks and shared resources; it imports no sandbox (the `CantosTheatreDemo` 
 nonsecret `CANTOS_API_ORIGIN` to an HTTPS origin. No compiler, Xcode or SDK is installed/selected;
 missing prerequisites are `UNSUPPORTED`. Framework compilation is separate from app/device acceptance.
 
-The default release artifacts remain unsigned; debug uses Android debug signing. Neither command installs
+Release defaults to unsigned; `--operator-signing` requires the supplied release key while its audit stays unsigned. Debug uses Android debug signing. Neither command installs
 or distributes anything. Packaging/exclusion evidence is separate from production release and
 native listening acceptance. Preflight does not run it (it selects only the JVM
 mock gate for host changes and notes this command). See the

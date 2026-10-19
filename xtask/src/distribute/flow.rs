@@ -18,7 +18,7 @@ use super::{
     },
     host::{sha256_hex, Host, RunDir, Staged},
     receipt::{NotesRecord, Receipt},
-    request::{generated_notes, generated_qa_notes, LiveRequest, NotesChoice, Stage},
+    request::{generated_notes, generated_release_notes, LiveRequest, NotesChoice, Stage},
 };
 use crate::{
     capture::{Capture, CaptureError, Captured},
@@ -55,6 +55,7 @@ pub fn run<'a>(workspace: &'a Workspace, request: &'a LiveRequest, ports: Ports<
         firebase_version: None,
         remote: None,
         testers_file: None,
+        mapping: None,
     };
     let _halted = flow.go();
     flow.finish()
@@ -76,6 +77,7 @@ struct Flow<'a> {
     firebase_version: Option<String>,
     remote: Option<RemoteOutcome>,
     testers_file: Option<PathBuf>,
+    mapping: Option<Staged>,
 }
 
 impl Flow<'_> {
@@ -128,12 +130,12 @@ impl Flow<'_> {
         let sdk = self.ports.host.android_sdk();
         let project = self.workspace.path(THEATRE_MOBILE_DIR);
         let prerequisite = crate::theatre_host::prerequisite(&project, sdk.as_deref());
-        if self.request.policy == super::request::Policy::ReleaseApk {
+        if self.request.policy == super::request::Policy::ProductionApk {
             let missing = self.ports.host.missing_release_signing_inputs();
             if !missing.is_empty() {
                 problems.push(format!(
                     "the release signing key is operator-provided and was not supplied: set {} \
-                     (xtask never creates a key and never falls back to the debug or production key)",
+                     (xtask never creates a key and never falls back to the debug or QA key)",
                     missing.join(", ")
                 ));
             }
@@ -351,45 +353,20 @@ impl Flow<'_> {
             .android_tools
             .clone()
             .expect("prerequisites located the Android tools");
-        let staged_mapping = if policy.shrinks() {
-            match self.ports.host.stage_shrinker_mapping(policy, &run) {
-                Ok(mapping) => Some(mapping),
-                Err(error) => {
-                    return Err(fail(
-                        self,
-                        format!("R8 mapping could not be staged: {error}"),
-                    ))
-                }
-            }
-        } else {
-            None
-        };
         {
             let sdk = self.ports.host.android_sdk().unwrap_or_default();
-            let mut command = if policy == super::request::Policy::DevelopmentApk {
-                crate::theatre_host::debug_inspection_command(
-                    self.workspace,
-                    &sdk.to_string_lossy(),
-                    &staged.path,
-                    self.request.api_origin.as_deref().unwrap_or_default(),
-                    self.request.native_issuer.as_deref(),
-                )
+            let inspect_command = if policy.shrinks() {
+                crate::theatre_host::staged_release_inspection_command
             } else {
-                crate::theatre_host::release_inspection_command(
-                    self.workspace,
-                    crate::theatre_host::ReleaseInspection {
-                        sdk: &sdk.to_string_lossy(),
-                        apk: &staged.path,
-                        origin: self.request.api_origin.as_deref().unwrap_or_default(),
-                        issuer: self.request.native_issuer.as_deref(),
-                        mapping: staged_mapping
-                            .as_ref()
-                            .map(|mapping| mapping.path.as_path()),
-                        audit: false,
-                        apk_only: true,
-                    },
-                )
+                crate::theatre_host::debug_inspection_command
             };
+            let mut command = inspect_command(
+                self.workspace,
+                &sdk.to_string_lossy(),
+                &staged.path,
+                self.request.api_origin.as_deref().unwrap_or_default(),
+                self.request.native_issuer.as_deref(),
+            );
             // Keep inspection evidence with these staged bytes; concurrent distributions
             // must not overwrite another run's report.
             if let Some(index) = command.args.iter().position(|arg| arg == "--report") {
@@ -449,10 +426,30 @@ impl Flow<'_> {
         if let Some(receipt) = &mut self.receipt {
             receipt.set_artifact(&facts, expected.as_deref(), &relative);
         }
-        if let Some(mapping) = staged_mapping {
-            let relative = self.workspace.relative(&mapping.path);
-            if let Some(receipt) = &mut self.receipt {
-                receipt.set_shrinker_mapping(&mapping.sha256, mapping.size_bytes, &relative);
+        if policy.shrinks() {
+            // A shrunk build without its mapping cannot be diagnosed, so it is not distributed.
+            match self
+                .ports
+                .host
+                .stage_shrinker_mapping(policy, &run, &staged)
+            {
+                Ok(mapping) => {
+                    self.mapping = Some(mapping.clone());
+                    let relative = self.workspace.relative(&mapping.path);
+                    if let Some(receipt) = &mut self.receipt {
+                        receipt.set_shrinker_mapping(
+                            &mapping.sha256,
+                            mapping.size_bytes,
+                            &relative,
+                        );
+                    }
+                }
+                Err(error) => {
+                    return Err(fail(
+                        self,
+                        format!("the R8 mapping of the shrunk build could not be staged: {error}"),
+                    ))
+                }
             }
         }
         self.pass(
@@ -500,8 +497,8 @@ impl Flow<'_> {
                     .unwrap_or_default();
                 (
                     "generated".to_owned(),
-                    if self.request.policy == super::request::Policy::ReleaseApk {
-                        generated_qa_notes(
+                    if self.request.policy.shrinks() {
+                        generated_release_notes(
                             &declared.version_name,
                             &declared.version_code,
                             &commit,
@@ -560,6 +557,18 @@ impl Flow<'_> {
                 ))
             }
             Err(why) => return Err(fail(self, format!("cannot re-read the staged APK: {why}"))),
+        }
+        if let Some(mapping) = &self.mapping {
+            match self.ports.host.hash_file(&mapping.path) {
+                Ok((hash, size)) if hash == mapping.sha256 && size == mapping.size_bytes => {}
+                _ => {
+                    return Err(fail(
+                        self,
+                        "the staged R8 mapping changed after inspection; nothing was uploaded"
+                            .to_owned(),
+                    ))
+                }
+            }
         }
         if let Some(receipt) = &mut self.receipt {
             receipt.mark_intent();
@@ -806,16 +815,16 @@ mod tests {
     };
     use std::path::Path;
 
-    const SDK_REGISTERED: &str =
-        include_str!("../../fixtures/firebase-tools-15.34.0/sdkconfig-development.json");
-    const SDK_RELEASE: &str =
-        include_str!("../../fixtures/firebase-tools-15.34.0/sdkconfig-release.json");
+    const SDK_REGISTERED: &str = include_str!(
+        "../../fixtures/firebase-tools-15.34.0/sdkconfig-registered-development-policy.json"
+    );
     const SDK_EMPTY: &str =
         include_str!("../../fixtures/firebase-tools-15.34.0/sdkconfig-unregistered.json");
-    const CREATED: &str =
-        include_str!("../../fixtures/firebase-tools-15.34.0/distribute-created.txt");
-    const BADGING: &str = include_str!("../../fixtures/android/badging-development.txt");
-    const SIGNER: &str = include_str!("../../fixtures/android/apksigner-development.txt");
+    const CREATED: &str = include_str!(
+        "../../fixtures/firebase-tools-15.34.0/distribute-created-development-policy.txt"
+    );
+    const BADGING: &str = include_str!("../../fixtures/android/badging-development-policy.txt");
+    const SIGNER: &str = include_str!("../../fixtures/android/apksigner-demo.txt");
     const METADATA: &str = r#"{"version":3,"artifactType":{"type":"APK","kind":"Directory"},
       "applicationId":"com.cantos.theatre.dev","variantName":"debug",
       "elements":[{"type":"SINGLE","filters":[],"attributes":[],"versionCode":1,
@@ -827,9 +836,10 @@ mod tests {
         identity: Result<SourceIdentity, String>,
         metadata: Result<Vec<u8>, OutputError>,
         stage: Result<Staged, OutputError>,
-        missing_release_signing: Vec<&'static str>,
+        missing_qa_signing: Vec<&'static str>,
         mapping: Result<Staged, OutputError>,
         rehash: Result<(String, u64), String>,
+        mapping_rehash: Option<Result<(String, u64), String>>,
         fail_persist_from: Option<usize>,
         fail_create_run: bool,
         persisted: Vec<String>,
@@ -849,13 +859,14 @@ mod tests {
                 }),
                 metadata: Ok(METADATA.as_bytes().to_vec()),
                 stage: Ok(staged()),
-                missing_release_signing: Vec::new(),
+                missing_qa_signing: Vec::new(),
                 mapping: Ok(Staged {
                     path: PathBuf::from("/repo/artifacts/distributions/RUN/mapping.txt"),
                     sha256: "cd".repeat(32),
                     size_bytes: 31_000_000,
                 }),
                 rehash: Ok(("ab".repeat(32), 4096)),
+                mapping_rehash: None,
                 fail_persist_from: None,
                 fail_create_run: false,
                 persisted: Vec::new(),
@@ -909,9 +920,14 @@ mod tests {
             self.stage.clone()
         }
         fn missing_release_signing_inputs(&self) -> Vec<&'static str> {
-            self.missing_release_signing.clone()
+            self.missing_qa_signing.clone()
         }
-        fn stage_shrinker_mapping(&mut self, _: Policy, _: &RunDir) -> Result<Staged, OutputError> {
+        fn stage_shrinker_mapping(
+            &mut self,
+            _: Policy,
+            _: &RunDir,
+            _: &Staged,
+        ) -> Result<Staged, OutputError> {
             self.order.push("stage_mapping");
             self.mapping.clone()
         }
@@ -924,7 +940,17 @@ mod tests {
             self.private_files.push((name.to_owned(), bytes.to_vec()));
             Ok(run.path.join(name))
         }
-        fn hash_file(&mut self, _: &Path) -> Result<(String, u64), String> {
+        fn hash_file(&mut self, path: &Path) -> Result<(String, u64), String> {
+            if path.ends_with("mapping.txt") {
+                if let Some(result) = &self.mapping_rehash {
+                    return result.clone();
+                }
+                return self
+                    .mapping
+                    .as_ref()
+                    .map(|m| (m.sha256.clone(), m.size_bytes))
+                    .map_err(ToString::to_string);
+            }
             self.rehash.clone()
         }
         fn persist(&mut self, run: &RunDir, receipt: &Receipt) -> Result<PathBuf, String> {
@@ -1114,7 +1140,7 @@ mod tests {
       "applicationId":"com.cantos.theatre","variantName":"release",
       "elements":[{"type":"SINGLE","filters":[],"attributes":[],"versionCode":1,
       "versionName":"0.1.0","outputFile":"androidApp-release.apk"}]}"#;
-    const BADGING_QA: &str = include_str!("../../fixtures/android/badging-release.txt");
+    const BADGING_QA: &str = include_str!("../../fixtures/android/badging-release-policy.txt");
 
     /// A rig for the optimized QA lane: QA metadata/badging, the fixture's signer pinned.
     fn qa_rig(name: &str) -> (Rig, LiveRequest) {
@@ -1123,12 +1149,16 @@ mod tests {
         rig.capture.results.clear();
         rig.capture
             .push_ok(0, "15.34.0\n", "")
-            .push_ok(0, SDK_RELEASE, "")
+            .push_ok(
+                0,
+                &SDK_REGISTERED.replace("com.cantos.theatre.dev", "com.cantos.theatre"),
+                "",
+            )
             .push_ok(0, BADGING_QA, "")
             .push_ok(0, SIGNER, "WARNING: x")
             .push_ok(0, &CREATED.replace("0.1.0-dev", "0.1.0"), "");
         let mut request = live(&[TESTER]);
-        request.policy = Policy::ReleaseApk;
+        request.policy = Policy::ProductionApk;
         request.expected_cert = Some(CertFingerprint::parse(&"a".repeat(64)).unwrap());
         (rig, request)
     }
@@ -1140,11 +1170,8 @@ mod tests {
         assert!(report.succeeded(), "{}", report.render());
         assert_eq!(rig.runner.commands.len(), 2);
         let build = &rig.runner.commands[0];
-        assert!(build
-            .args
-            .windows(2)
-            .any(|w| w == ["theatre-host", "android-release"]));
-        assert!(build.args.contains(&"--sign".to_owned()));
+        assert!(build.args.contains(&"android-release".to_owned()));
+        assert!(build.args.contains(&"--operator-signing".to_owned()));
         assert!(!build.args.contains(&":androidApp:assembleDebug".to_owned()));
         // The mapping is staged after inspection and before the intent receipt / remote write.
         let stage = rig
@@ -1162,7 +1189,7 @@ mod tests {
         assert!(stage < mapping);
         assert_eq!(rig.distribute_calls(), 1);
         let intent = &rig.host.persisted[1];
-        assert!(intent.contains("\"channel\": \"release\""), "{intent}");
+        assert!(intent.contains("\"channel\": \"production\""), "{intent}");
         assert!(intent.contains("\"variant\": \"release\""), "{intent}");
         assert!(intent.contains("\"debuggable\": false"), "{intent}");
         assert!(intent.contains("\"shrinker_mapping\""), "{intent}");
@@ -1178,13 +1205,24 @@ mod tests {
             notes.contains("optimized") && notes.contains("0.1.0 (1)"),
             "{notes}"
         );
-        assert!(notes.contains("higher versionCode"), "{notes}");
+        assert!(notes.contains("preserve app data"), "{notes}");
+    }
+
+    #[test]
+    fn changed_staged_mapping_stops_before_intent_or_upload() {
+        let (mut rig, request) = qa_rig("release-mapping-tamper");
+        rig.host.mapping_rehash = Some(Ok(("wrong".to_owned(), 31_000_000)));
+        let report = rig.run(&request);
+        assert_eq!(status_of(&report, Stage::IntentReceipt), Status::Fail);
+        assert!(detail_of(&report, Stage::IntentReceipt).contains("staged R8 mapping changed"));
+        assert_eq!(status_of(&report, Stage::Distribution), Status::NotRun);
+        assert_eq!(rig.distribute_calls(), 0);
     }
 
     #[test]
     fn the_qa_lane_needs_the_operators_key_before_any_run_record_or_build() {
         let (mut rig, request) = qa_rig("qa-no-key");
-        rig.host.missing_release_signing =
+        rig.host.missing_qa_signing =
             vec!["CANTOS_RELEASE_KEYSTORE", "CANTOS_RELEASE_KEY_PASSWORD"];
         let report = rig.run(&request);
         assert_eq!(
@@ -1210,7 +1248,11 @@ mod tests {
         rig.capture.results.clear();
         rig.capture
             .push_ok(0, "15.34.0\n", "")
-            .push_ok(0, SDK_RELEASE, "")
+            .push_ok(
+                0,
+                &SDK_REGISTERED.replace("com.cantos.theatre.dev", "com.cantos.theatre"),
+                "",
+            )
             .push_ok(
                 0,
                 &BADGING_QA
@@ -1234,8 +1276,8 @@ mod tests {
         );
         assert_eq!(rig.distribute_calls(), 0);
         assert!(
-            rig.host.order.contains(&"stage_mapping"),
-            "the inspected mapping is staged before validation"
+            !rig.host.order.contains(&"stage_mapping"),
+            "no mapping before validation"
         );
 
         // A shrunk build whose R8 mapping is missing cannot be diagnosed.
@@ -1251,7 +1293,7 @@ mod tests {
     #[test]
     fn the_debug_demo_lane_stages_no_mapping_and_needs_no_operator_key() {
         let mut rig = Rig::new("demo-no-mapping");
-        rig.host.missing_release_signing = vec!["CANTOS_RELEASE_KEYSTORE"];
+        rig.host.missing_qa_signing = vec!["CANTOS_RELEASE_KEYSTORE"];
         let report = rig.run(&live(&[TESTER]));
         assert!(report.succeeded(), "{}", report.render());
         assert!(!rig.host.order.contains(&"stage_mapping"));
@@ -1297,7 +1339,6 @@ mod tests {
             let mut request = live(&[]);
             request.policy = Policy::DevelopmentApk;
             request.api_origin = Some("https://api.cantos.example".into());
-            // The real development composition uses .dev and its own callback/signature policy.
             if fail_inspection {
                 rig.runner.fail_on = Some("inspect_android_release.py".into());
             }
@@ -1374,7 +1415,7 @@ mod tests {
             .unwrap();
         let text = String::from_utf8_lossy(notes);
         assert!(
-            text.contains("development build (real-only)")
+            text.contains("real-only")
                 && text.contains("0.1.0-dev (1)")
                 && text.contains("0123456789ab")
         );

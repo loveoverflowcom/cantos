@@ -759,43 +759,50 @@
     {
       "component_id": "button",
       "evidence": {
-        "leptos": "docs/evidence/issue142-button-leptos.json",
-        "cmp": "docs/evidence/issue145-button-cmp.json"
+        "leptos": "docs/evidence/pr304-button-leptos.json",
+        "cmp": "docs/evidence/pr304-button-cmp.json"
       }
     },
     {
       "component_id": "text-field",
       "evidence": {
-        "leptos": "docs/evidence/issue142-text-field-leptos.json",
-        "cmp": "docs/evidence/issue145-text-field-cmp.json"
+        "leptos": "docs/evidence/pr304-text-field-leptos.json",
+        "cmp": "docs/evidence/pr304-text-field-cmp.json"
       }
     },
     {
       "component_id": "surface",
       "evidence": {
-        "leptos": "docs/evidence/issue142-surface-leptos.json",
-        "cmp": "docs/evidence/issue145-surface-cmp.json"
+        "leptos": "docs/evidence/pr304-surface-leptos.json",
+        "cmp": "docs/evidence/pr304-surface-cmp.json"
       }
     },
     {
       "component_id": "badge",
       "evidence": {
-        "leptos": "docs/evidence/issue142-badge-leptos.json",
-        "cmp": "docs/evidence/issue145-badge-cmp.json"
+        "leptos": "docs/evidence/pr304-badge-leptos.json",
+        "cmp": "docs/evidence/pr304-badge-cmp.json"
       }
     },
     {
       "component_id": "back-button",
       "evidence": {
-        "leptos": "docs/evidence/issue142-back-button-leptos.json",
-        "cmp": "docs/evidence/issue145-back-button-cmp.json"
+        "leptos": "docs/evidence/pr304-back-button-leptos.json",
+        "cmp": "docs/evidence/pr304-back-button-cmp.json"
       }
     },
     {
       "component_id": "logo",
       "evidence": {
-        "leptos": "docs/evidence/issue142-logo-leptos.json",
-        "cmp": "docs/evidence/issue145-logo-cmp.json"
+        "leptos": "docs/evidence/pr304-logo-leptos.json",
+        "cmp": "docs/evidence/pr304-logo-cmp.json"
+      }
+    },
+    {
+      "component_id": "select",
+      "evidence": {
+        "leptos": "docs/evidence/pr304-select-leptos.json",
+        "cmp": "docs/evidence/pr304-select-cmp.json"
       }
     }
   ]

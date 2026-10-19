@@ -1,8 +1,23 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.file.Directory
+import org.gradle.api.file.RegularFile
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
 import com.android.build.api.artifact.ScopedArtifact
 import com.android.build.api.variant.ScopedArtifacts
-import javax.inject.Inject
-import org.gradle.process.ExecOperations
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+// Explicit audit of the SAME release variant, never a third build type. Only the app output
+// root, optimization flags and manifest audit marker differ; shared compilation is unchanged.
+val releaseAudit = providers.gradleProperty("cantos.releaseAudit").orNull.let {
+    check(it == null || it == "true" || it == "false") { "Invalid cantos.releaseAudit" }
+    it == "true"
+}
+val releaseSigning = providers.gradleProperty("cantos.releaseSigning").orNull.let {
+    check(it == null || it == "true" || it == "false") { "Invalid cantos.releaseSigning" }
+    it == "true"
+}
+if (releaseAudit) layout.buildDirectory.set(layout.projectDirectory.dir("build-audit"))
 
 plugins {
     // Root buildscript supplies pinned AGP 8.11.1 only when Android is selected.
@@ -10,30 +25,6 @@ plugins {
     kotlin("android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
-
-abstract class InspectProductionClasses : DefaultTask() {
-    @get:InputFiles abstract val allJars: ListProperty<RegularFile>
-    @get:InputFiles abstract val allDirectories: ListProperty<Directory>
-    @get:InputFile abstract val inspector: RegularFileProperty
-    // Location only: graph/source guards always run and inspect their own source sets.
-    @get:Internal abstract val mobile: DirectoryProperty
-    @get:OutputFile abstract val report: RegularFileProperty
-    @get:Inject abstract val execOperations: ExecOperations
-
-    @TaskAction fun inspect() {
-        val arguments = mutableListOf<Any>("python3", inspector.get().asFile,
-            "--mobile", mobile.get().asFile, "--report", report.get().asFile)
-        (allJars.get().map { it.asFile } + allDirectories.get().map { it.asFile })
-            .sortedBy { it.path }.forEach { arguments.addAll(listOf("--input", it)) }
-        execOperations.exec { commandLine(arguments) }
-    }
-}
-
-// The explicit audit uses the SAME release variant/graph, with isolated outputs and no signer.
-val releaseAudit = providers.gradleProperty("cantos.releaseAudit").orElse("false").get().toBooleanStrict()
-val releaseSigning = providers.gradleProperty("cantos.releaseSigning").orElse("false").get().toBooleanStrict()
-check(!(releaseAudit && releaseSigning)) { "Audit artifacts cannot be signed for distribution" }
-if (releaseAudit) layout.buildDirectory.set(layout.projectDirectory.dir("build-release-audit"))
 
 android {
     namespace = "com.cantos.theatre"
@@ -46,34 +37,17 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        manifestPlaceholders["cantosReleaseAudit"] = releaseAudit.toString()
-        // Hash actual tracked/untracked (non-ignored) inputs; never an ambient operator label.
-        manifestPlaceholders["cantosBuildInputs"] = providers.exec {
-            workingDir(rootProject.file("../../.."))
-            commandLine("python3", "scripts/android_release_evidence.py", "fingerprint")
-        }.standardOutput.asText.get().trim()
         // Public API origin for the live catalog in both debug and release. Explicit Gradle property
         // overrides the environment (an empty property opts out). Manifest merger substitutes
         // the attribute; no source is generated. Runtime admits https:// for any build and
         // loopback http:// only for a debuggable build with the debug network config.
+        manifestPlaceholders["cantosReleaseAudit"] = releaseAudit.toString()
         manifestPlaceholders["cantosApiOrigin"] = providers.gradleProperty("cantos.apiOrigin")
             .orElse(providers.environmentVariable("CANTOS_API_ORIGIN"))
             .orElse("").get()
         manifestPlaceholders["cantosNativeIssuer"] = providers.gradleProperty("cantos.nativeIssuer")
             .orElse(providers.environmentVariable("CANTOS_NATIVE_ISSUER"))
             .orElse("").get()
-    }
-    if (releaseSigning) {
-        signingConfigs {
-            create("operatorRelease") {
-                fun required(name: String) = providers.environmentVariable(name).orNull
-                    ?.takeIf { it.isNotEmpty() } ?: error("Missing operator signing input: $name")
-                storeFile = file(required("CANTOS_RELEASE_KEYSTORE"))
-                storePassword = required("CANTOS_RELEASE_KEYSTORE_PASSWORD")
-                keyAlias = required("CANTOS_RELEASE_KEY_ALIAS")
-                keyPassword = required("CANTOS_RELEASE_KEY_PASSWORD")
-            }
-        }
     }
     buildTypes {
         // One real-only application, two build types and no flavors. Debug is a side-by-side
@@ -85,10 +59,18 @@ android {
         release {
             isMinifyEnabled = !releaseAudit
             isShrinkResources = !releaseAudit
-            // Consumer rules from serialization/SQLDelight and AGP manifest entrypoints
-            // retain their owners. No copied demo rules, blanket keep or global dontwarn.
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            if (releaseSigning) signingConfig = signingConfigs.getByName("operatorRelease")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Audit stays unsigned even when the operator explicitly supplies a release key.
+            if (!releaseAudit && releaseSigning) {
+                signingConfig = signingConfigs.create("operatorRelease") {
+                    fun supplied(name: String): String = providers.environmentVariable(name).orNull
+                        ?.takeIf { it.isNotEmpty() } ?: error("Missing operator release signing input: $name")
+                    storeFile = file(supplied("CANTOS_RELEASE_KEYSTORE"))
+                    storePassword = supplied("CANTOS_RELEASE_KEYSTORE_PASSWORD")
+                    keyAlias = supplied("CANTOS_RELEASE_KEY_ALIAS")
+                    keyPassword = supplied("CANTOS_RELEASE_KEY_PASSWORD")
+                }
+            }
         }
     }
     compileOptions {
@@ -139,10 +121,6 @@ fun registerBoundary(variant: String) = tasks.register("assert${variant.replaceF
             lines += "configuration $name"
             val unresolved = configuration.incoming.resolutionResult.allDependencies
                 .filterIsInstance<org.gradle.api.artifacts.result.UnresolvedDependencyResult>()
-            check(unresolved.isEmpty()) {
-                "Incomplete $variant graph for $name: " +
-                    unresolved.joinToString { "${it.attempted.displayName}: ${it.failure.message}" }
-            }
             configuration.incoming.resolutionResult.allComponents.forEach { component ->
                 val id = component.id
                 lines += "  ${id.displayName}"
@@ -160,16 +138,18 @@ fun registerBoundary(variant: String) = tasks.register("assert${variant.replaceF
                         }
                 }
             }
+            // Reject an observed forbidden edge even when its own transitive graph cannot
+            // resolve offline. Ordinary incomplete graphs still fail; no fallback is admitted.
+            check(violations.isEmpty()) { "Forbidden production $variant dependencies: ${violations.joinToString()}" }
+            check(unresolved.isEmpty()) {
+                "Incomplete $variant graph for $name: " +
+                    unresolved.joinToString { "${it.attempted.displayName}: ${it.failure.message}" }
+            }
         }
         report.get().asFile.apply { parentFile.mkdirs(); writeText(lines.joinToString("\n", postfix = "\n")) }
         lines.filter { it.startsWith("configuration ") }.forEach(::println)
         println("Production $variant dependency report: ${report.get().asFile}")
         check(violations.isEmpty()) { "Forbidden production $variant dependencies: ${violations.joinToString()}" }
-        project.exec {
-            commandLine("python3", rootProject.file("../../../scripts/android_boundary.py"),
-                "--mobile", rootProject.projectDir, "--report",
-                layout.buildDirectory.file("reports/$variant-boundary/source-inputs.json").get().asFile)
-        }
     }
 }
 
@@ -184,16 +164,37 @@ tasks.register("assertDependencyBoundaries") {
     dependsOn(assertDebugDependencyBoundary, assertReleaseDependencyBoundary)
 }
 
-// Public AGP program-artifact scope includes app + transitive dependency classes, without SDK
-// boot/library stubs (android.jar contains junit.framework). Never whitelist by jar filename.
-androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
-    val boundary = tasks.register<InspectProductionClasses>("inspectReleaseProgramInputs") {
-        inspector.set(rootProject.layout.projectDirectory.file("../../../scripts/android_boundary.py"))
-        mobile.set(rootProject.layout.projectDirectory)
-        report.set(layout.buildDirectory.file("reports/release-boundary/pre-shrink-inputs.json"))
+// AGP's ALL scoped classes are the actual inputs before dexing/R8, including transitive jars.
+// A read-only observer consumes them; it never rewrites classes or changes their dependency graph.
+abstract class InspectProductionInputs : DefaultTask() {
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NONE)
+    abstract val jars: ListProperty<RegularFile>
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NONE)
+    abstract val directories: ListProperty<Directory>
+    @get:Input abstract val buildVariant: Property<String>
+    @get:OutputFile abstract val report: RegularFileProperty
+
+    @TaskAction fun inspect() {
+        val mobile = project.rootProject.projectDir
+        val arguments = mutableListOf("python3", File(mobile, "../../../scripts/inspect_android_inputs.py").absolutePath,
+            "--mobile", mobile.absolutePath, "--variant", buildVariant.get(),
+            "--report", report.get().asFile.absolutePath)
+        jars.get().forEach { arguments += listOf("--classes", it.asFile.absolutePath) }
+        directories.get().forEach { arguments += listOf("--classes", it.asFile.absolutePath) }
+        project.exec { commandLine(arguments) }.assertNormalExitValue()
+    }
+}
+androidComponents.onVariants { variant ->
+    val capital = variant.name.replaceFirstChar { it.uppercase() }
+    val inspection = tasks.register<InspectProductionInputs>("inspect${capital}PreShrinkInputs") {
+        buildVariant.set(variant.name)
+        report.set(layout.buildDirectory.file("reports/${variant.name}-boundary/pre-shrink.json"))
         outputs.upToDateWhen { false }
     }
-    variant.artifacts.forScope(ScopedArtifacts.Scope.ALL).use(boundary)
-        .toGet(ScopedArtifact.CLASSES, InspectProductionClasses::allJars, InspectProductionClasses::allDirectories)
-    tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach { dependsOn(boundary) }
+    variant.artifacts.forScope(ScopedArtifacts.Scope.ALL).use(inspection).toGet(
+        ScopedArtifact.CLASSES, InspectProductionInputs::jars, InspectProductionInputs::directories)
+    // No preBuild dependency: scoped classes are built AFTER preBuild. Consumers wait on observer.
+    tasks.matching { it.name in setOf("minify${capital}WithR8", "merge${capital}Dex",
+        "mergeExtDex${capital}", "mergeLibDex${capital}", "package$capital", "bundle$capital") }
+        .configureEach { dependsOn(inspection) }
 }

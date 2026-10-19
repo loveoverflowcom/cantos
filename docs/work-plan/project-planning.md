@@ -20,7 +20,7 @@ is historical; do not restart it at completed #66.
 | Kanidm identity adapters and default-disabled Firebase enrollment | #174/#191/#206: accept real signup/login under [ADR 0036](../decisions/0036-firebase-enrollment-proof.md); reuse the implemented mailbox-proof/one-shot-setup flow, with privilege, action-ingress and live origin/session gates still separate |
 | Forge local artifact/register/validate/export foundation | #203: shared local/Functions producer execution with private Drive drafts, then explicit API admission |
 | Infrastructure assets and command surface | #212 separates edge/Hosting assets into `infra/` from `xtask` orchestration; no deployment acceptance or Forge move. #203 owns the future producer service-location and concrete Functions consumer |
-| Manual Hosting and real-only APK distribution tooling | #199/#184/#288: separately authorized live-origin, optimized-device and tester acceptance; use explicit development/release package and certificate policy |
+| Manual Hosting and demo distribution tooling | #199/#184: separately authorized live-origin or tester acceptance |
 | Build-only release packaging and requested Cloudflare transition | #277 artifact promotion → #278 selected publisher → #280 real cutover/recovery/Hosting retirement; #279 submit/status is optional. Independent runbook/offline-report source does not satisfy live acceptance. Reconcile #237's old Firebase naming portion rather than running it in parallel. |
 
 Public-cover (#157/#171), P1 metadata/transcripts (#177/#178), optional membership (#175/#176),

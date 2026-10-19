@@ -1,114 +1,145 @@
-"""Negative release/isolation evidence; synthetic bytes, no SDK, signer or Firebase."""
-import hashlib
-import tempfile
+"""Audit pairing against synthetic artifact bytes, never an actual APK size measurement."""
+import json
 from pathlib import Path
+import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 
-import android_boundary as boundary
 import android_release_evidence as evidence
 import inspect_android_release as inspector
-from test_inspect_android_release import make_dex
 
 
-class AndroidReleaseEvidenceTests(unittest.TestCase):
-    def test_copied_fixture_class_and_renamed_resource_fail_the_source_boundary(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            mobile = Path(temporary)
-            sandbox = mobile / 'preview-sandbox/src/commonMain'
-            sandbox.mkdir(parents=True)
-            (sandbox / 'Seed.kt').write_text('package com.cantos.theatre.app\nclass PreviewSeed\n')
-            resources = sandbox / 'composeResources'
-            resources.mkdir()
-            (resources / 'artwork.bin').write_bytes(b'unique sandbox artwork')
-            production = mobile / 'shared/src/commonMain/kotlin'
-            production.mkdir(parents=True)
-            (production / 'Ordinary.kt').write_text('package com.cantos.theatre.app\nclass LiveCatalog\n')
-            self.assertEqual(boundary.source_findings(mobile), [])
-            (production / 'Renamed.kt').write_text('package com.cantos.theatre.app\nclass PreviewSeed\n')
-            (production / 'ordinary.dat').write_bytes(b'unique sandbox artwork')
-            findings = boundary.source_findings(mobile)
-            self.assertTrue(any('sandbox class' in f for f in findings), findings)
-            self.assertTrue(any('copied sandbox resource bytes' in f for f in findings), findings)
+class AuditEvidenceTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.mobile = Path(self.temporary.name)
+        for mode in ("build", "build-audit"):
+            base = self.mobile / "androidApp" / mode
+            for relative, data in {
+                "outputs/apk/release/app.apk": b"optimized" if mode == "build" else b"unshrunk synthetic bytes",
+                "outputs/apk/release/output-metadata.json": json.dumps({"applicationId":"com.cantos.theatre",
+                    "variantName":"release", "elements":[{"type":"SINGLE", "filters":[], "outputFile":"app.apk"}]}).encode(),
+                "outputs/bundle/release/androidApp-release.aab": b"synthetic bundle",
+                "outputs/mapping/release/mapping.txt": b"# pg_map_id: ab123cd\ncom.cantos.Real -> a.b:\n",
+                "reports/release-boundary/resolved-dependencies.txt": b"same release graph",
+                "reports/release-boundary/pre-shrink.json": json.dumps({"status":"PASS", "variant":"release",
+                    "class_count":10,"classes_sha256":"a" * 64,"inputs_sha256":"e" * 64,"source_sha256":"b" * 64}).encode(),
+                "reports/release-boundary/artifact-inspection.txt": b"synthetic inspector report",
+            }.items():
+                path = base / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
 
-    def test_transitive_or_copied_compiled_test_classes_fail_before_r8(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            jar = Path(temporary) / 'innocent-library.jar'
-            with zipfile.ZipFile(jar, 'w') as archive:
-                archive.writestr('com/cantos/theatre/app/LiveCatalog.class', b'class fixture')
-            self.assertEqual(boundary.input_findings([jar])[0], [])
-            for name in ('com/cantos/theatre/app/MockCatalog.class', 'kotlin/test/Asserter.class',
-                         'io/ktor/client/engine/mock/MockEngine.class', 'org/junit/Test.class', 'junit/framework/TestCase.class'):
-                with self.subTest(name=name):
-                    with zipfile.ZipFile(jar, 'w') as archive:
-                        archive.writestr(name, b'forbidden compiled fixture')
-                    self.assertEqual(len(boundary.input_findings([jar])[0]), 1)
-            with self.assertRaisesRegex(ValueError, 'no compiled'):
-                boundary.input_findings([])
+            for relative, dex in (("outputs/apk/release/app.apk", "classes.dex"),
+                                  ("outputs/bundle/release/androidApp-release.aab", "base/dex/classes.dex")):
+                with zipfile.ZipFile(base / relative, "w") as archive:
+                    archive.writestr(dex, b'{"pg-map-id":"ab123cd"}' + mode.encode())
 
-    def test_audit_bytes_and_missing_marker_are_rejected_independent_of_filename(self):
-        elements = [(0, 'manifest', {}), (2, 'meta-data', {'name': 'CantosReleaseAudit', 'value': 'true'})]
-        self.assertEqual(inspector.audit_findings(elements, True), [])
-        self.assertIn('audit bytes cannot distribute', inspector.audit_findings(elements, False)[0])
-        self.assertTrue(inspector.audit_findings([], False))
-        elements[-1][2]['value'] = 'false'
-        self.assertEqual(inspector.audit_findings(elements, False), [])
-        self.assertTrue(inspector.audit_findings(elements, True))
+            report = f"variant=release audit={mode == 'build-audit'}\n"
+            for kind, path in (("apk", base / "outputs/apk/release/app.apk"),
+                               ("aab", base / "outputs/bundle/release/androidApp-release.aab")):
+                report += f"{kind} synthetic sha256={evidence.sha(path)} entries=1 defined_classes=1\n"
+            report += "PASS: no sandbox, mock, demo or test content found\n"
+            (base / "reports/release-boundary/artifact-inspection.txt").write_text(report)
 
-    def test_stale_or_missing_source_marker_is_rejected_with_the_same_package_version(self):
-        elements = [(2, 'meta-data', {'name': 'CantosBuildInputs', 'value': 'a' * 64})]
-        self.assertEqual(inspector.build_input_findings(elements, 'a' * 64), [])
-        self.assertEqual(inspector.build_input_findings(elements, 'b' * 64),
-                         ['stale artifact: build inputs differ from current source/config'])
-        self.assertTrue(inspector.build_input_findings([], 'a' * 64))
+    def bind(self):
+        with patch.object(evidence.subprocess, "run") as run:
+            run.return_value.stdout = "c" * 40
+            return evidence.bind(self.mobile, self.mobile)
 
-    def test_mapping_must_match_actual_dex_marker_for_apk_and_aab(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            mapping = root / 'mapping.txt'
-            mapping.write_text('# pg_map_id: abc1234\ncom.cantos.theatre.app.TheatreActivity -> a.b:\n')
-            for name in ('classes.dex', 'base/dex/classes.dex'):
-                apk = root / 'artifact.zip'
-                with zipfile.ZipFile(apk, 'w') as archive:
-                    archive.writestr(name, make_dex(['La/b;']) + b'~~R8{"pg-map-id":"abc1234"}')
-                self.assertEqual(inspector.mapping_classes(mapping, apk),
-                                 {'Lcom/cantos/theatre/app/TheatreActivity;': 'La/b;'})
-                mapping.write_text('# pg_map_id: wrong\n')
-                with self.assertRaisesRegex(inspector.InspectionError, 'does not match'):
-                    inspector.mapping_classes(mapping, apk)
-                mapping.write_text('# pg_map_id: abc1234\ncom.cantos.theatre.app.TheatreActivity -> a.b:\n')
+    def test_pair_binds_separate_bytes_mapping_inputs_and_metric(self):
+        result = self.bind()
+        self.assertFalse(result["artifacts"]["audit"]["distributable"])
+        self.assertNotEqual(result["artifacts"]["audit"]["apk"]["sha256"], result["artifacts"]["optimized"]["apk"]["sha256"])
+        self.assertEqual(result["size"]["metric"], "APK archive bytes")
+        self.assertEqual(result["size"]["installed_footprint"], "NOT_RUN")
+        self.assertEqual(result["device_acceptance"], "NOT_RUN")
 
-    def test_inspection_hashes_must_match_the_snapshotted_bytes(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            digest = hashlib.sha256(b'original').hexdigest()
-            (root / 'inspection.txt').write_text(f'apk app.apk sha256={digest} entries=2\naab app.aab sha256={digest} entries=2\n')
-            records = {'inspection.txt': {'path': 'inspection.txt'},
-                       'app.apk': {'sha256': digest}, 'app.aab': {'sha256': digest}}
-            evidence.validate_inspected(root, records)
-            records['app.apk']['sha256'] = hashlib.sha256(b'replaced after inspection').hexdigest()
-            with self.assertRaisesRegex(ValueError, 'between inspection and snapshot'):
-                evidence.validate_inspected(root, records)
-        self.assertEqual(inspector.class_findings({'Lcom/cantos/app/Seed$Nested;'}, {'Lcom/cantos/app/Seed;'}),
-                         ['defines sandbox class Lcom/cantos/app/Seed$Nested;'])
+    def test_graph_classes_or_source_disagreement_is_rejected(self):
+        report = self.mobile / "androidApp/build-audit/reports/release-boundary/pre-shrink.json"
+        original = report.read_text()
+        for field in ("source_sha256", "classes_sha256", "inputs_sha256", "class_count"):
+            record = json.loads(original)
+            record[field] = 1 if field == "class_count" else "changed"
+            report.write_text(json.dumps(record))
+            with self.assertRaisesRegex(ValueError, "mismatch"):
+                self.bind()
+        report.write_text(original)
+        report.with_name("resolved-dependencies.txt").write_bytes(b"new transitive graph")
+        with self.assertRaisesRegex(ValueError, "graph mismatch"):
+            self.bind()
 
-    def test_source_or_graph_mismatch_refuses_release_pair_and_empty_files_cannot_pass(self):
-        audit = {'identity': {'source_sha': 'a' * 40, 'input_sha256': 'b' * 64}, 'graph': 'exact graph'}
-        evidence.validate_pair(audit, dict(audit))
-        for change, expected in [({'identity': {}}, 'source/config'), ({'graph': 'different'}, 'dependency graphs')]:
-            with self.assertRaisesRegex(ValueError, expected):
-                evidence.validate_pair(audit, dict(audit, **change))
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / 'empty.apk').touch()
-            with self.assertRaisesRegex(ValueError, 'missing/nonregular'):
-                evidence.snapshot(root, root, root / 'copy', {'app.apk': 'empty.apk'})
-            (root / 'input.apk').write_bytes(b'audited bytes')
-            record = evidence.snapshot(root, root, root / 'copy', {'app.apk': 'input.apk'})['app.apk']
-            self.assertEqual(record['sha256'], hashlib.sha256(b'audited bytes').hexdigest())
-            (root / 'input.apk').write_bytes(b'changed build output')
-            self.assertEqual((root / record['path']).read_bytes(), b'audited bytes')
+    def test_wrong_r8_mapping_is_rejected_before_snapshot(self):
+        path = self.mobile / "androidApp/build/outputs/mapping/release/mapping.txt"
+        path.write_text("# pg_map_id: wrong\ncom.cantos.Real -> a.b:\n")
+        with self.assertRaisesRegex(inspector.InspectionError, "mapping ID does not match"):
+            self.bind()
 
+    def test_snapshot_survives_gradle_output_replacement_and_rejects_tampering(self):
+        import release_artifact as contract
+        result = self.bind()
+        snapshot = evidence.freeze(self.mobile, self.mobile, result)
+        (self.mobile / "androidApp/build/outputs/apk/release/app.apk").write_bytes(b"later build")
+        contract.validate_android_outputs(snapshot, "c" * 40)
+        copied = snapshot / "androidApp-release-unsigned.apk"
+        copied.chmod(0o600)
+        copied.write_bytes(b"replaced snapshot")
+        with self.assertRaisesRegex(ValueError, "differs from inspected"):
+            contract.validate_android_outputs(snapshot, "c" * 40)
 
-if __name__ == '__main__':
-    unittest.main()
+    def test_inspection_report_cannot_attest_changed_artifact_bytes(self):
+        (self.mobile / "androidApp/build/outputs/apk/release/app.apk").write_bytes(b"replaced after inspection")
+        with self.assertRaisesRegex(ValueError, "inspection report/artifact hash mismatch"):
+            self.bind()
+
+    def test_missing_mapping_or_ambiguous_output_fails(self):
+        metadata = self.mobile / "androidApp/build/outputs/apk/release/output-metadata.json"
+        value = json.loads(metadata.read_text())
+        value["elements"] *= 2
+        metadata.write_text(json.dumps(value))
+        with self.assertRaisesRegex(ValueError, "ambiguous"):
+            self.bind()
+        value["elements"] = value["elements"][:1]
+        metadata.write_text(json.dumps(value))
+        (self.mobile / "androidApp/build/outputs/mapping/release/mapping.txt").unlink()
+        with self.assertRaisesRegex(ValueError, "missing"):
+            self.bind()
+
+    def test_ci_staging_cannot_change_mapping_or_apk_after_inspection(self):
+        import shutil
+        import release_artifact as contract
+        result = self.bind()
+        output = self.mobile / "packaged"
+        output.mkdir()
+        for mode, directory in (("audit", "build-audit"), ("optimized", "build")):
+            base = self.mobile / "androidApp" / directory
+            prefix = "audit-" if mode == "audit" else ""
+            for relative, name in [("outputs/apk/release/app.apk", "androidApp-release-unsigned.apk"),
+                ("outputs/bundle/release/androidApp-release.aab", "androidApp-release.aab"),
+                ("reports/release-boundary/artifact-inspection.txt", "artifact-inspection.txt"),
+                ("reports/release-boundary/resolved-dependencies.txt", "resolved-dependencies.txt"),
+                ("reports/release-boundary/pre-shrink.json", "pre-shrink.json")]:
+                shutil.copyfile(base / relative, output / (prefix + name))
+        shutil.copyfile(self.mobile / "androidApp/build/outputs/mapping/release/mapping.txt", output / "mapping.txt")
+        (output / "release-evidence.json").write_text(json.dumps(result))
+        contract.validate_android_outputs(output, "c" * 40)
+        for name in ("mapping.txt", "androidApp-release-unsigned.apk", "audit-androidApp-release-unsigned.apk"):
+            original = (output / name).read_bytes()
+            (output / name).write_bytes(b"changed bytes")
+            with self.assertRaisesRegex(ValueError, "mapping mismatch|differs from inspected"):
+                contract.validate_android_outputs(output, "c" * 40)
+            (output / name).write_bytes(original)
+
+    def test_audit_marker_cannot_be_laundered_by_renaming_apk(self):
+        for marker in ("true", "0xffffffff", "-1", None):
+            elements = [(0,"manifest",{}), (2,"data",{"scheme":"com.cantos.theatre"})]
+            if marker is not None:
+                elements.append((2,"meta-data",{"name":"CantosReleaseAudit", "value":marker}))
+            self.assertEqual(inspector.release_metadata_findings(elements, "com.cantos.theatre", audit=False),
+                ["missing or wrong audit marker; distribution refuses audit bytes"])
+        elements = [(0,"manifest",{}),(2,"data",{"scheme":"com.cantos.theatre.dev"}),
+                    (2,"meta-data",{"name":"CantosReleaseAudit","value":"false"})]
+        self.assertEqual(inspector.release_metadata_findings(elements,"com.cantos.theatre", audit=False),
+                         ["callback scheme differs from application identity"])

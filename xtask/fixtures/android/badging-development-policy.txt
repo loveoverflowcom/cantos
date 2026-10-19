@@ -4,7 +4,7 @@ targetSdkVersion:'35'
 uses-permission: name='com.cantos.theatre.dev.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
 application: label='Cantos' icon=''
 application-debuggable
-launchable-activity: name='com.cantos.theatre.dev.app.TheatreActivity'  label='' icon=''
+launchable-activity: name='com.cantos.theatre.dev.MainActivity'  label='' icon=''
   uses-feature: name='android.hardware.faketouch'
   uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'
 main

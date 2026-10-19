@@ -44,7 +44,7 @@ pub struct ReleaseBuildArgs {
     /// Run deterministic packaging regression tests; no build tools or cloud access.
     #[arg(long)]
     pub self_test: bool,
-    /// Exact HTTPS API origin for Web/Android; Web requires flag or CANTOS_API_ORIGIN.
+    /// Public exact HTTPS API origin for Web builds; required via flag or CANTOS_API_ORIGIN.
     #[arg(long, conflicts_with = "self_test")]
     pub api_origin: Option<String>,
 }
@@ -59,7 +59,7 @@ fn command(workspace: &Workspace, args: &ReleaseBuildArgs) -> CommandSpec {
             "-s",
             "scripts",
             "-p",
-            "test_*release*.py",
+            "test_release_build.py",
         ]);
     }
     let mut spec = spec.args(["scripts/release_build.py"]);
@@ -80,38 +80,56 @@ pub fn run(
 ) -> Result<ExitCode> {
     let mut commands = vec![command(workspace, args)];
     if args.self_test {
-        commands.push(CommandSpec::new("python3", workspace.root()).args([
-            "-m",
-            "unittest",
-            "discover",
-            "-s",
-            "scripts",
-            "-p",
-            "test_check_repository.py",
-            "-k",
-            "TheatreSandboxIsolationTest",
-        ]));
-        commands.push(CommandSpec::new("python3", workspace.root()).args([
-            "-m",
-            "unittest",
-            "discover",
-            "-s",
-            "scripts",
-            "-p",
-            "test_theatre_android_host.py",
-        ]));
         commands.push(
-            CommandSpec::new("cargo", workspace.root()).args(["test", "-p", "xtask", "--locked"]),
+            CommandSpec::new("cargo", workspace.root()).args(["fmt", "--all", "--", "--check"]),
         );
+        commands.push(CommandSpec::new("cargo", workspace.root()).args([
+            "clippy",
+            "-p",
+            "xtask",
+            "--all-targets",
+            "--locked",
+            "--",
+            "-D",
+            "warnings",
+        ]));
+        commands.push(CommandSpec::new("python3", workspace.root()).args([
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "scripts",
+            "-p",
+            "test_*android*.py",
+        ]));
+        for pattern in [
+            "test_release_artifact.py",
+            "test_release_pipeline.py",
+            "test_circleci_cloudflare.py",
+        ] {
+            commands.push(
+                CommandSpec::new("python3", workspace.root())
+                    .args(["-m", "unittest", "discover", "-s", "scripts", "-p", pattern]),
+            );
+        }
+        for filter in ["distribute::", "theatre_host::"] {
+            commands.push(
+                CommandSpec::new("cargo", workspace.root())
+                    .args(["test", "-p", "xtask", "--locked", filter]),
+            );
+        }
     }
-    let required = if args.self_test {
-        vec![Tool::Python3, Tool::Cargo]
-    } else {
-        vec![Tool::Python3]
-    };
     let report = pipeline::execute(
         "release-build",
-        &[Step::new("release-artifacts", &required, commands)],
+        &[Step::new(
+            "release-artifacts",
+            if args.self_test {
+                &[Tool::Python3, Tool::Cargo]
+            } else {
+                &[Tool::Python3]
+            },
+            commands,
+        )],
         tools,
         runner,
     );

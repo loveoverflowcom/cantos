@@ -4,6 +4,7 @@
 /target/
 /apps/*/web/dist/
 **/build/
+/apps/cantos-theatre/mobile/androidApp/build-audit/
 .gradle/
 node_modules/
 .DS_Store
@@ -42,6 +43,3 @@ firebase-debug*.log
 
 # Cloudflare Pages operator mapping (real account/project IDs) is private; the example is tracked.
 /infra/cloudflare/projects.json
-
-# Same release variant, isolated unshrunk audit outputs.
-**/build-release-audit/

@@ -199,7 +199,7 @@ pub fn interpret_lookup(
     requested: &AppId,
     result: Result<Captured, CaptureError>,
 ) -> Result<Registered, DestinationError> {
-    interpret_lookup_package(requested, "com.cantos.theatre.dev", result)
+    interpret_lookup_package(requested, super::request::DEVELOPMENT_PACKAGE, result)
 }
 
 pub fn interpret_lookup_package(
@@ -533,8 +533,9 @@ mod tests {
     use super::*;
 
     const APP: &str = "1:000000000000:android:0123456789abcdef";
-    const CREATED: &str =
-        include_str!("../../fixtures/firebase-tools-15.34.0/distribute-created.txt");
+    const CREATED: &str = include_str!(
+        "../../fixtures/firebase-tools-15.34.0/distribute-created-development-policy.txt"
+    );
     const FAIL_NOTES: &str =
         include_str!("../../fixtures/firebase-tools-15.34.0/distribute-notes-failed.txt");
     const FAIL_DISTRIBUTE: &str =
@@ -545,8 +546,9 @@ mod tests {
         include_str!("../../fixtures/firebase-tools-15.34.0/distribute-app-missing.txt");
     const SDK_EMPTY: &str =
         include_str!("../../fixtures/firebase-tools-15.34.0/sdkconfig-unregistered.json");
-    const SDK_REGISTERED: &str =
-        include_str!("../../fixtures/firebase-tools-15.34.0/sdkconfig-development.json");
+    const SDK_REGISTERED: &str = include_str!(
+        "../../fixtures/firebase-tools-15.34.0/sdkconfig-registered-development-policy.json"
+    );
 
     fn app() -> AppId {
         AppId::parse(APP).unwrap()
@@ -718,7 +720,7 @@ mod tests {
         let outcome = interpret_distribution(ok(0, CREATED, ""), DISTRIBUTE_TIMEOUT, &[]);
         match outcome {
             RemoteOutcome::Confirmed { release } => {
-                assert_eq!(release.display_version, "0.1.0-demo");
+                assert_eq!(release.display_version, "0.1.0-dev");
                 assert_eq!(release.build_version, "1");
                 assert_eq!(release.upload, UploadResult::Created);
                 assert!(release
