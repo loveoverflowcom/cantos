@@ -85,7 +85,11 @@ newest directory or replay a write blindly.
 
 ## Approval, ordering and outcomes
 
-Only one release workflow is selected for a request. All selected artifacts are built before
+Only one release workflow is selected for a request. Native CircleCI expression filters restrict
+every production-context job to this repository and `develop` for both checkout and config
+source, before checkout code can execute with secrets. This complements the separately required
+account context restrictions; a check inside a compiled helper is too late for untrusted source.
+All selected artifacts are built before
 one `approve-production` gate. Selected API activation/health precedes Theatre Web, then Studio
 Web. Web-only requests have no VPS/Android job and use a read-only API readiness probe.
 Per-component serial groups retain CircleCI pipeline-order protection. Additionally, every

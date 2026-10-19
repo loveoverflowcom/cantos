@@ -1,5 +1,6 @@
 """Release DAG and production orchestration with deterministic command doubles."""
 import argparse
+import ast
 import copy
 import json
 import os
@@ -193,6 +194,45 @@ class CircleConfigTests(unittest.TestCase):
         params = {k: v["default"] for k, v in self.config["parameters"].items()}
         params.update(overrides)
         return [name for name, w in self.config["workflows"].items() if self.value(w["when"], params)]
+
+    def scheduler_allows(self, expression, changes):
+        values = {"pipeline.git.branch": "develop", "pipeline.git.repo_url": contract.REPOSITORY,
+                  "pipeline.config.ref": "refs/heads/develop", "pipeline.config.repository.url": contract.REPOSITORY}
+        values.update(changes)
+        for key, value in values.items():
+            expression = expression.replace(key, repr(value))
+        def boolean(node):
+            if isinstance(node, ast.Constant):
+                return node.value
+            if isinstance(node, ast.Compare) and len(node.ops) == 1 and isinstance(node.ops[0], ast.Eq):
+                return boolean(node.left) == boolean(node.comparators[0])
+            if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And):
+                return all(boolean(value) for value in node.values)
+            if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
+                return any(boolean(value) for value in node.values)
+            self.fail("unsupported source-filter syntax")
+        return boolean(ast.parse(expression, mode="eval").body)
+
+    def test_production_jobs_are_filtered_before_untrusted_checkout_code_receives_context(self):
+        checked = 0
+        for workflow in self.config["workflows"].values():
+            for node in workflow["jobs"]:
+                if not isinstance(node, dict):
+                    continue
+                args = next(iter(node.values()))
+                if "context" not in args:
+                    continue
+                checked += 1
+                expression = args["filters"]
+                self.assertTrue(self.scheduler_allows(expression, {}))
+                self.assertTrue(self.scheduler_allows(expression, {"pipeline.git.repo_url": contract.REPOSITORY + ".git"}))
+                for change in ({"pipeline.git.branch": "feature/unreviewed"},
+                               {"pipeline.git.repo_url": "https://github.com/foreign/cantos"},
+                               {"pipeline.config.ref": "refs/heads/feature/unreviewed"},
+                               {"pipeline.config.repository.url": "https://github.com/foreign/cantos"}):
+                    with self.subTest(change=change):
+                        self.assertFalse(self.scheduler_allows(expression, change))
+        self.assertEqual(checked, 8)
 
     def test_defaults_have_no_jobs_and_conflicting_request_has_one_failure_workflow(self):
         self.assertEqual(self.selected(), [])

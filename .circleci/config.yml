@@ -726,7 +726,8 @@
             "context": [
               "production-vps"
             ],
-            "serial-group": "<< pipeline.project.slug >>/production-api"
+            "serial-group": "<< pipeline.project.slug >>/production-api",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         },
         {
@@ -777,7 +778,8 @@
             "context": [
               "production-web"
             ],
-            "serial-group": "<< pipeline.project.slug >>/production-theatre-web"
+            "serial-group": "<< pipeline.project.slug >>/production-theatre-web",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         },
         {
@@ -828,7 +830,8 @@
             "context": [
               "production-web"
             ],
-            "serial-group": "<< pipeline.project.slug >>/production-studio-web"
+            "serial-group": "<< pipeline.project.slug >>/production-studio-web",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         },
         {
@@ -879,7 +882,8 @@
             "context": [
               "production-web"
             ],
-            "serial-group": "<< pipeline.project.slug >>/production-theatre-web"
+            "serial-group": "<< pipeline.project.slug >>/production-theatre-web",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         },
         {
@@ -890,7 +894,8 @@
             "context": [
               "production-web"
             ],
-            "serial-group": "<< pipeline.project.slug >>/production-studio-web"
+            "serial-group": "<< pipeline.project.slug >>/production-studio-web",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         },
         {
@@ -944,7 +949,8 @@
             "context": [
               "production-vps"
             ],
-            "serial-group": "<< pipeline.project.slug >>/production-api"
+            "serial-group": "<< pipeline.project.slug >>/production-api",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         },
         {
@@ -955,7 +961,8 @@
             "context": [
               "production-web"
             ],
-            "serial-group": "<< pipeline.project.slug >>/production-theatre-web"
+            "serial-group": "<< pipeline.project.slug >>/production-theatre-web",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         },
         {
@@ -966,7 +973,8 @@
             "context": [
               "production-web"
             ],
-            "serial-group": "<< pipeline.project.slug >>/production-studio-web"
+            "serial-group": "<< pipeline.project.slug >>/production-studio-web",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         },
         {
