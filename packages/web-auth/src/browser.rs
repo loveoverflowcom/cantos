@@ -549,6 +549,7 @@ impl Login {
                     nonce,
                     code_challenge: challenge(&verifier).await?,
                     reauthenticate: self.reauthenticate,
+                    callback_profile: None,
                 },
             )
             .await?;

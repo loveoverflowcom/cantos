@@ -199,7 +199,9 @@ required to show an authenticated account. Firebase action proof never becomes a
 Cantos authentication session and grants no Studio/Admin/Membership authority.
 
 Native client is fixed `cantos-theatre-native`, scope `openid`, callback
-`com.cantos.theatre:/oauth2/callback`. System-browser adapters parse exact URI, reject fragments,
+`com.cantos.theatre:/oauth2/callback` (production; the Bearer route also admits the closed
+`development` profile `com.cantos.theatre.dev:/oauth2/callback`, see
+[callback profiles](../../docs/deployment/native-callback-profiles.md)). System-browser adapters parse exact URI, reject fragments,
 unknown/duplicate parameters and correlate state before the single code exchange effect. The
 nonce/verifier stay in the pending in-memory attempt. Cancellation/process restart needs a new
 login. A code callback is not an authenticated account.

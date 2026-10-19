@@ -1,5 +1,6 @@
 package com.cantos.theatre.app
 
+import com.cantos.theatre.domain.identity.NativeCallbackProfile
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeIdentityAvailability
 import com.cantos.theatre.adapters.http.NativeIdentityClient
@@ -81,7 +82,7 @@ class IosNativeIdentityOwner(apiOrigin: String?, issuer: String?, platform: IosI
         is NativeIdentityAvailability.Missing, is NativeIdentityAvailability.Invalid -> null
     }
     fun callback(state: String, code: String, hasError: Boolean) {
-        controller?.callback(NativeCallback("com.cantos.theatre:/oauth2/callback", state, code, hasError))
+        controller?.callback(NativeCallback(NativeCallbackProfile.Production.redirect, state, code, hasError))
     }
     fun browserCancelled() { controller?.cancelLogin() }
     fun close() { controller?.close(); scope.cancel() }

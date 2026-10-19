@@ -355,7 +355,9 @@ Library/Progress grants. It receives no registry SELECT or actor/session INSERT 
 These are documentation/test grants, not an executed persistent role configuration.
 
 Native `cantos-theatre-native` has an opt-in public-client code path with exact callback
-`com.cantos.theatre:/oauth2/callback`; no Studio/Web secret enters the app. Bounded token exchange,
+`com.cantos.theatre:/oauth2/callback`; no Studio/Web secret enters the app. A debug build's
+exact `com.cantos.theatre.dev:/oauth2/callback` must be added to the same public client by the
+operator before the API admits it ([runbook](../../docs/deployment/native-callback-profiles.md); not performed here). Bounded token exchange,
 access-token signature/purpose verification, current introspection, exact registry issuance and
 separate opaque native sessions are implemented; scoped local evidence is recorded in the
 [resumed Theatre ledger](../../docs/evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).

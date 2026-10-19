@@ -26,7 +26,18 @@ impl NativeIdentity {
     }
     /// Explicit development composition only. No secret, dynamic client, redirect or issuer.
     pub fn new(issuer: &str) -> Result<Self, AuthError> {
-        let config = OidcConfig::theatre_native(issuer)?;
+        Self::with_callbacks(issuer, false)
+    }
+    /// `admit_development_callback` adds only the exact Android debug callback; the default
+    /// production callback stays admitted and no other URI can be configured.
+    pub fn with_callbacks(
+        issuer: &str,
+        admit_development_callback: bool,
+    ) -> Result<Self, AuthError> {
+        let mut config = OidcConfig::theatre_native(issuer)?;
+        if admit_development_callback {
+            config = config.with_development_callback();
+        }
         Ok(Self {
             bearer: crate::platform::bearer::BearerIdentity::new(
                 config.clone(),

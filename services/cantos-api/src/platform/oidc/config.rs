@@ -3,6 +3,8 @@ const STUDIO_CLIENT_ID: &str = "cantos-studio-web-bff";
 pub const THEATRE_WEB_CLIENT_ID: &str = "cantos-theatre-web-bff";
 pub const THEATRE_NATIVE_CLIENT_ID: &str = "cantos-theatre-native";
 pub const THEATRE_NATIVE_REDIRECT: &str = "com.cantos.theatre:/oauth2/callback";
+/// Exact Android debug callback. It is admitted only by explicit operator opt-in.
+pub const THEATRE_NATIVE_DEVELOPMENT_REDIRECT: &str = "com.cantos.theatre.dev:/oauth2/callback";
 use reqwest::Url;
 
 #[derive(Clone)]
@@ -19,6 +21,8 @@ pub struct OidcConfig {
     pub(crate) origin: Url,
     pub(crate) web_origin: String,
     pub(crate) redirect: String,
+    /// Operator-admitted extra native callback; never derived from a request.
+    pub(crate) development_redirect: Option<&'static str>,
     pub(crate) authentication: ClientAuthentication,
     pub(crate) secure: bool,
     pub(crate) trust: Option<IssuerTrust>,
@@ -37,12 +41,38 @@ impl OidcConfig {
             origin,
             web_origin: String::new(),
             redirect: THEATRE_NATIVE_REDIRECT.into(),
+            development_redirect: None,
             authentication: ClientAuthentication::PublicNative,
             secure: true,
             trust: None,
         })
     }
 
+    /// Admits the exact development callback for this native client. No other URI is possible.
+    pub(crate) fn with_development_callback(mut self) -> Self {
+        self.development_redirect = Some(THEATRE_NATIVE_DEVELOPMENT_REDIRECT);
+        self
+    }
+    /// Resolves a closed profile to its exact operator-admitted callback.
+    /// An unadmitted profile is a configuration refusal; it never falls back to production.
+    pub(crate) fn native_redirect(
+        &self,
+        profile: Option<cantos_contracts::bearer::CallbackProfile>,
+    ) -> Result<&str, AuthError> {
+        use cantos_contracts::bearer::CallbackProfile;
+        match profile.unwrap_or(CallbackProfile::Production) {
+            CallbackProfile::Production => Ok(&self.redirect),
+            CallbackProfile::Development => {
+                self.development_redirect.ok_or(AuthError::Configuration)
+            }
+        }
+    }
+    /// Every callback currently admitted for flow consumption, production first.
+    pub(crate) fn admitted_native_redirects(&self) -> Vec<&str> {
+        std::iter::once(self.redirect.as_str())
+            .chain(self.development_redirect)
+            .collect()
+    }
     pub(crate) fn is_public_native(&self) -> bool {
         matches!(self.authentication, ClientAuthentication::PublicNative)
     }
@@ -83,6 +113,7 @@ impl OidcConfig {
             origin,
             web_origin: web_origin.into(),
             redirect: format!("{web_origin}/api/v1/{surface}/auth/callback"),
+            development_redirect: None,
             authentication: ClientAuthentication::Confidential(secret),
             secure: web.scheme() == "https",
             trust: None,
@@ -200,6 +231,66 @@ mod api_origin_tests {
             theatre.redirect_uri(),
             "https://api.example.org/api/v1/theatre/auth/callback"
         );
+    }
+    #[test]
+    fn native_callbacks_are_a_closed_operator_admitted_set_without_fallback() {
+        use cantos_contracts::bearer::CallbackProfile::{Development, Production};
+        let issuer = "https://auth.example.org/oauth2/openid/cantos-theatre-native";
+        let default = OidcConfig::theatre_native(issuer).unwrap();
+        assert_eq!(
+            default.native_redirect(None),
+            Ok("com.cantos.theatre:/oauth2/callback")
+        );
+        assert_eq!(
+            default.native_redirect(Some(Production)),
+            Ok("com.cantos.theatre:/oauth2/callback")
+        );
+        assert!(matches!(
+            default.native_redirect(Some(Development)),
+            Err(AuthError::Configuration)
+        ));
+        assert_eq!(
+            default.admitted_native_redirects(),
+            ["com.cantos.theatre:/oauth2/callback"]
+        );
+        let admitted = default.with_development_callback();
+        assert_eq!(
+            admitted.native_redirect(Some(Development)),
+            Ok("com.cantos.theatre.dev:/oauth2/callback")
+        );
+        assert_eq!(
+            admitted.native_redirect(None),
+            Ok("com.cantos.theatre:/oauth2/callback")
+        );
+        assert_eq!(
+            admitted.admitted_native_redirects(),
+            [
+                "com.cantos.theatre:/oauth2/callback",
+                "com.cantos.theatre.dev:/oauth2/callback"
+            ]
+        );
+    }
+    #[test]
+    fn callback_profile_wire_names_are_closed_and_reject_uris() {
+        use cantos_contracts::bearer::{CallbackProfile, FlowRequest};
+        let base =
+            |extra: &str| format!(r#"{{"state":"s","nonce":"n","code_challenge":"c"{extra}}}"#);
+        let parse = |extra: &str| serde_json::from_str::<FlowRequest>(&base(extra));
+        assert_eq!(parse("").unwrap().callback_profile, None);
+        assert_eq!(
+            parse(r#","callback_profile":"development""#)
+                .unwrap()
+                .callback_profile,
+            Some(CallbackProfile::Development)
+        );
+        for bad in [
+            r#","callback_profile":"com.cantos.theatre.dev:/oauth2/callback""#,
+            r#","callback_profile":"com.cantos.evil""#,
+            r#","callback_profile":"Development""#,
+            r#","callback_profile":null,"redirect_uri":"x""#,
+        ] {
+            assert!(parse(bad).is_err(), "{bad}");
+        }
     }
     #[test]
     fn callback_config_refuses_origin_normalization_downgrade_and_native_reuse() {
