@@ -2,11 +2,11 @@ use cantos_api::contexts::adaptation::{
     admit_edited_proposal, admit_output_with_ids, prepare_request, validate_caller_generation,
     TrustedBinding, MAX_OUTPUT_BYTES,
 };
+use cantos_api::contexts::editorial::domain::diagnostics::SafeDiagnostic;
 use cantos_contracts::{
     AdaptationCost, AdaptationCostBasis, AdaptationCoverageDisposition, AdaptationCurrency,
-    AdaptationFindingCode, AdaptationUsage, CallerGenerationMetadata, Extraction, FieldIssue,
-    ImportBlock, ImportBlockKind, ImportFormat, ImportMetadata, ImportOutcome, ImportResponse,
-    ImportWarning,
+    AdaptationFindingCode, AdaptationUsage, CallerGenerationMetadata, Extraction, ImportBlock,
+    ImportBlockKind, ImportFormat, ImportMetadata, ImportOutcome, ImportResponse, ImportWarning,
 };
 use serde_json::{json, Value};
 
@@ -88,7 +88,10 @@ fn output() -> Value {
 }
 fn admitted(
     value: &Value,
-) -> Result<cantos_contracts::AdaptationProposal, cantos_contracts::AdaptationProblem> {
+) -> Result<
+    cantos_contracts::AdaptationProposal,
+    cantos_api::contexts::adaptation::AdaptationRejection,
+> {
     admit_output_with_ids(
         &serde_json::to_vec(value).unwrap(),
         &source(),
@@ -352,9 +355,9 @@ fn context_export_refuses_sources_past_the_byte_or_block_limit() {
     assert_eq!(error.code, "source_context_too_large");
     assert_eq!(
         error.issues,
-        vec![FieldIssue {
+        vec![SafeDiagnostic {
             path: "/source_id".into(),
-            rule: "context_limit".into()
+            rule: "context_limit"
         }]
     );
     let ImportOutcome::Parsed { extraction } = &mut source.outcome else {
@@ -431,31 +434,29 @@ fn invalid_caller_declarations_return_all_safe_paths_without_private_values() {
     assert_eq!(
         issues,
         vec![
-            FieldIssue {
+            SafeDiagnostic {
                 path: "/generation/host_tool".into(),
-                rule: "bounded_declaration".into()
+                rule: "bounded_declaration"
             },
-            FieldIssue {
+            SafeDiagnostic {
                 path: "/generation/provider".into(),
-                rule: "bounded_declaration".into()
+                rule: "bounded_declaration"
             },
-            FieldIssue {
+            SafeDiagnostic {
                 path: "/generation/model".into(),
-                rule: "bounded_declaration".into()
+                rule: "bounded_declaration"
             },
-            FieldIssue {
+            SafeDiagnostic {
                 path: "/generation/prompt_version".into(),
-                rule: "pinned_prompt_version".into()
+                rule: "pinned_prompt_version"
             },
-            FieldIssue {
+            SafeDiagnostic {
                 path: "/generation/cost/basis".into(),
-                rule: "caller_declared".into()
+                rule: "caller_declared"
             },
         ]
     );
-    assert!(!serde_json::to_string(&issues)
-        .unwrap()
-        .contains("private-sentinel"));
+    assert!(!format!("{issues:?}").contains("private-sentinel"));
 }
 
 #[test]
@@ -492,14 +493,12 @@ fn caller_configuration_is_a_bounded_json_object_and_preserves_missing_as_unknow
         let issues = validate_caller_generation(&metadata, "cantos-radio-adapt-1");
         assert_eq!(
             issues,
-            vec![FieldIssue {
+            vec![SafeDiagnostic {
                 path: "/generation/configuration_json".into(),
-                rule: rule.into()
+                rule
             }]
         );
-        assert!(!serde_json::to_string(&issues)
-            .unwrap()
-            .contains("private-sentinel"));
+        assert!(!format!("{issues:?}").contains("private-sentinel"));
     }
 }
 
@@ -553,9 +552,9 @@ fn edited_proposal_diagnostics_preserve_exact_paths_and_never_copy_private_paylo
     .unwrap_err();
     assert_eq!(
         issue.issues,
-        vec![cantos_contracts::FieldIssue {
+        vec![SafeDiagnostic {
             path: "/work/id".into(),
-            rule: "id_format".into()
+            rule: "id_format"
         }]
     );
     let mut invalid_text = document;
@@ -568,14 +567,12 @@ fn edited_proposal_diagnostics_preserve_exact_paths_and_never_copy_private_paylo
     .unwrap_err();
     assert_eq!(
         issue.issues,
-        vec![cantos_contracts::FieldIssue {
+        vec![SafeDiagnostic {
             path: "episode/act:opaque-test-011/scene:opaque-test-010/dialogue:opaque-test-005/pronunciation_overrides/0/surface".into(),
-            rule: "pronunciation_target_missing".into()
+            rule: "pronunciation_target_missing"
         }]
     );
-    assert!(!serde_json::to_string(&issue)
-        .unwrap()
-        .contains("private-sentinel"));
+    assert!(!format!("{issue:?}").contains("private-sentinel"));
 }
 
 #[test]
@@ -592,11 +589,11 @@ fn every_raw_binding_reuse_is_readmitted_by_both_proposal_entry_points() {
         let mut facts = binding();
         admit_output_with_ids(OUTPUT, &source(), &facts, &ids()).unwrap();
         mutate(&mut facts);
-        let expected = cantos_contracts::AdaptationProblem {
-            code: "binding_mismatch".into(),
-            issues: vec![FieldIssue {
+        let expected = cantos_api::contexts::adaptation::AdaptationRejection {
+            code: "binding_mismatch",
+            issues: vec![SafeDiagnostic {
                 path: "/source_id".into(),
-                rule: "trusted_source".into(),
+                rule: "trusted_source",
             }],
         };
         assert_eq!(

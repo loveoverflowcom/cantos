@@ -69,7 +69,11 @@ impl Store {
         );
         let (status, proposal, problem) = match admitted {
             Ok(proposal) => (AdaptationSubmissionStatus::Valid, Some(proposal), None),
-            Err(error) => (AdaptationSubmissionStatus::Invalid, None, Some(error)),
+            Err(error) => (
+                AdaptationSubmissionStatus::Invalid,
+                None,
+                Some(super::document::problem(error)),
+            ),
         };
         let submitted_at = postgres::submission_time(&tx).await?;
         let receipt = AdaptationSubmissionReceipt {

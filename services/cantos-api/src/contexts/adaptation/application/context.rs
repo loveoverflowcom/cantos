@@ -3,7 +3,6 @@
 use cantos_contracts::{
     AdaptationContextRequest, AdaptationContextResponse, AdaptationReviewResponse,
     AdaptationStatus, AdaptationSubmissionStatus, CancelAdaptationRequest, FieldIssue,
-    RevisionResponse,
 };
 use uuid::Uuid;
 
@@ -15,7 +14,8 @@ use super::super::domain::{
 use super::super::postgres::{self, ActorLock};
 use super::{accepted_revision, check_pinned_source, stored_proposal};
 use crate::contexts::editorial::{
-    authorize, load_revision, register_evidence, script_exists, Action, EvidenceKind,
+    authorize, document as editorial_document, load_revision, register_evidence, script_exists,
+    Action, EvidenceKind, RevisionFacts,
 };
 use crate::contexts::ingestion::imported_source;
 use crate::platform::postgres::{
@@ -88,7 +88,7 @@ pub(super) async fn context_in_transaction(
         status,
         proposal,
         latest_submission,
-        accepted_revision,
+        accepted_revision: accepted_revision.map(editorial_document::revision),
     };
     Ok((response, context))
 }
@@ -100,7 +100,7 @@ pub(super) async fn current_base(
     actor: &str,
     script: &str,
     expected: u64,
-) -> Result<Option<RevisionResponse>, StoreError> {
+) -> Result<Option<RevisionFacts>, StoreError> {
     if !script_exists(tx, script).await? {
         return if expected == 0 {
             Ok(None)
@@ -158,10 +158,13 @@ impl Store {
             .await?
             .ok_or(StoreError::NotFound)?;
         check_context_source(&request, &source)?;
-        let base = current_base(&tx, &actor, &request.script_id, request.expected_revision).await?;
+        let base = current_base(&tx, &actor, &request.script_id, request.expected_revision)
+            .await?
+            .map(editorial_document::revision);
         let prepared =
-            prepare_request(&source, base.as_ref().map(|base| base.script_json.as_str()))
-                .map_err(|error| StoreError::InvalidRequestFields(error.issues))?;
+            prepare_request(&source, base.as_ref().map(|base| base.script_json.as_str())).map_err(
+                |error| StoreError::InvalidRequestFields(editorial_document::issues(error.issues)),
+            )?;
         let id = Uuid::new_v4().to_string();
         let context = FrozenContext {
             request: request.clone(),

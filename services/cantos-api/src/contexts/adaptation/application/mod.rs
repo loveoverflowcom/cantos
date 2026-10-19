@@ -1,20 +1,21 @@
 //! Adaptation use cases. Each runs under a per-actor advisory lock and the run's row lock: load
 //! the frozen input and its current evidence, ask the pure adaptation rules, write the outcome.
-use cantos_contracts::{AdaptationProblem, AdaptationProposal, ImportResponse, RevisionResponse};
+use cantos_contracts::{AdaptationProposal, ImportResponse};
 use uuid::Uuid;
 
 use super::domain::{
-    admit_edited_proposal, admit_output_with_minter, typed_digest, SourceRejection,
-    SubmissionRejection, TrustedBinding, PROPOSAL_DIGEST,
+    admit_edited_proposal, admit_output_with_minter, typed_digest, AdaptationRejection,
+    SourceRejection, SubmissionRejection, TrustedBinding, PROPOSAL_DIGEST,
 };
 use super::postgres;
-use crate::contexts::editorial::load_revision;
+use crate::contexts::editorial::{document as editorial_document, load_revision, RevisionFacts};
 use crate::contexts::ingestion::imported_source;
 use crate::platform::postgres::{StoreError, Tx};
 use crate::script_ir::read_canonical_script;
 
 mod accept;
 mod context;
+mod document;
 mod submit;
 
 /// Admits caller output with identities minted here: random, and independent of model text and
@@ -23,7 +24,7 @@ pub fn admit_output(
     bytes: &[u8],
     source: &ImportResponse,
     binding: &TrustedBinding,
-) -> Result<AdaptationProposal, AdaptationProblem> {
+) -> Result<AdaptationProposal, AdaptationRejection> {
     admit_output_with_minter(bytes, source, binding, || {
         format!("id_{}", Uuid::new_v4().simple())
     })
@@ -33,7 +34,9 @@ impl From<SourceRejection> for StoreError {
     fn from(rejection: SourceRejection) -> Self {
         match rejection {
             SourceRejection::NotExtracted => StoreError::InvalidRequest,
-            SourceRejection::Issues(issues) => StoreError::InvalidRequestFields(issues),
+            SourceRejection::Issues(issues) => {
+                StoreError::InvalidRequestFields(editorial_document::issues(issues))
+            }
         }
     }
 }
@@ -41,7 +44,9 @@ impl From<SourceRejection> for StoreError {
 impl From<SubmissionRejection> for StoreError {
     fn from(rejection: SubmissionRejection) -> Self {
         match rejection {
-            SubmissionRejection::Issues(issues) => StoreError::InvalidRequestFields(issues),
+            SubmissionRejection::Issues(issues) => {
+                StoreError::InvalidRequestFields(editorial_document::issues(issues))
+            }
             SubmissionRejection::AlreadySubmitted => StoreError::ProposalAlreadySubmitted,
         }
     }
@@ -85,7 +90,7 @@ async fn stored_proposal(
 }
 
 /// The revision an acceptance of this run created, if it was accepted.
-async fn accepted_revision(tx: &Tx<'_>, run: &str) -> Result<Option<RevisionResponse>, StoreError> {
+async fn accepted_revision(tx: &Tx<'_>, run: &str) -> Result<Option<RevisionFacts>, StoreError> {
     match postgres::acceptance_link(tx, run).await? {
         Some((script, revision)) => Ok(Some(load_revision(tx, &script, revision).await?)),
         None => Ok(None),

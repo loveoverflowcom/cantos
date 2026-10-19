@@ -563,7 +563,7 @@ fn error_response(error: StoreError) -> Response {
             StatusCode::UNPROCESSABLE_ENTITY,
             ErrorCode::InvalidScript,
             None,
-            validation_issues(error),
+            crate::contexts::editorial::document::issues(validation_issues(error)),
         ),
     };
     (
@@ -635,6 +635,42 @@ mod tests {
             )
             .unwrap(),
             web_origin: "http://127.0.0.1:8080".into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn invalid_script_error_keeps_json_status_codes_paths_and_redaction() {
+        let mut shape: serde_json::Value = serde_json::from_slice(include_bytes!(
+            "../../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        ))
+        .unwrap();
+        shape["work"]["id"] = serde_json::json!("private-id-sentinel!");
+        for (input, issues) in [
+            (
+                "private-manuscript-sentinel".into(),
+                serde_json::json!([{"path": "$", "rule": "InvalidDocument"}]),
+            ),
+            (
+                r#"{"schema_version":"private-version-sentinel"}"#.into(),
+                serde_json::json!([{"path": "$", "rule": "UnsupportedSchemaVersion"}]),
+            ),
+            (
+                serde_json::to_string(&shape).unwrap(),
+                serde_json::json!([{"path": "/work/id", "rule": "id_format"}]),
+            ),
+        ] {
+            let error = crate::script_ir::read_script(input.as_bytes()).unwrap_err();
+            let response = error_response(StoreError::InvalidScript(error));
+            assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(
+                json,
+                serde_json::json!({
+                    "code": "invalid_script", "current_revision": null, "issues": issues
+                })
+            );
         }
     }
 

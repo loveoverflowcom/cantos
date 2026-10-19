@@ -1,7 +1,7 @@
 //! The closed caller proposal wire format and its bounded decoder. Nothing here mints identity.
 use std::collections::BTreeSet;
 
-use cantos_contracts::AdaptationProblem;
+use super::AdaptationRejection;
 use serde::Deserialize;
 
 use super::problem;
@@ -92,7 +92,7 @@ fn bounded_text(text: &str, max: usize) -> bool {
             .any(|ch| ch.is_control() && ch != '\n' && ch != '\t')
 }
 
-pub(super) fn decode(bytes: &[u8]) -> Result<RawProposal, AdaptationProblem> {
+pub(super) fn decode(bytes: &[u8]) -> Result<RawProposal, AdaptationRejection> {
     if bytes.len() > MAX_OUTPUT_BYTES {
         return Err(problem("output_too_large", "/", "byte_length"));
     }

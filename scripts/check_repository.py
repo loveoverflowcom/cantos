@@ -90,6 +90,14 @@ LEGACY_API_MODULES = {
 }
 HTTP_PURE_BOUNDARIES = {
     ("contexts", "editorial", "domain", "diagnostics", "validation_issues"),
+    # Editorial's facts/shape-only projections are not revision decisions or SQL access.
+    ("contexts", "editorial", "RevisionOperation"),
+    ("contexts", "editorial", "RevisionFacts"),
+    ("contexts", "editorial", "RevisionHistory"),
+    ("contexts", "editorial", "ReviewFacts"),
+    ("contexts", "editorial", "document"),
+    ("contexts", "editorial", "document", "revision"),
+    ("contexts", "editorial", "document", "issues"),
     ("contexts", "production", "production_catalog"),
     ("script_ir", "read_script"),
 }
@@ -530,6 +538,10 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
         # Persisted canonical documents may live in contracts; listener read projections may not.
         if path[:2] == ("cantos_contracts", "theatre"):
             return "pure domain must not build Theatre wire DTOs; project them in the application layer"
+        if owner in {"editorial", "adaptation"} and path[:2] in {
+            ("cantos_contracts", "FieldIssue"), ("cantos_contracts", "AdaptationProblem"),
+        }:
+            return "pure diagnostics must use safe domain facts; project wire errors at the boundary"
     if path[0] == "contexts" and len(path) >= 2:
         target = path[1]
         credential_inquiry = owner == "production" and not domain and path == ("contexts", "media", "upload_token_registered")

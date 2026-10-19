@@ -185,7 +185,9 @@ impl Store {
             .settings
             .as_ref()
             .ok_or(StoreError::StaleProductionInputs)?;
-        let revision = load_revision(&tx, &script, checked_number(facts.head)?).await?;
+        let revision = crate::contexts::editorial::document::revision(
+            load_revision(&tx, &script, checked_number(facts.head)?).await?,
+        );
         let prepared = prepare_inputs(
             &facts.owner,
             &revision,

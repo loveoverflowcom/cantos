@@ -1,5 +1,6 @@
 //! The exported adaptation request: bounded, inert source data and fixed instructions.
-use cantos_contracts::{AdaptationProblem, ImportResponse};
+use super::AdaptationRejection;
+use cantos_contracts::ImportResponse;
 use serde_json::{json, Value};
 
 use super::{array, extracted, problem, script_problem};
@@ -24,7 +25,7 @@ pub struct PreparedAdaptationContext {
 pub fn prepare_request(
     source: &ImportResponse,
     base_script_json: Option<&str>,
-) -> Result<PreparedAdaptationContext, AdaptationProblem> {
+) -> Result<PreparedAdaptationContext, AdaptationRejection> {
     let extraction = extracted(source)?;
     let size = extraction.blocks.iter().try_fold(0usize, |size, block| {
         size.checked_add(block.text.len())

@@ -1,5 +1,6 @@
 //! Caller generation declarations: validated for shape and bounds, never attested.
-use cantos_contracts::{AdaptationCostBasis, CallerGenerationMetadata, FieldIssue};
+use crate::contexts::editorial::domain::diagnostics::SafeDiagnostic;
+use cantos_contracts::{AdaptationCostBasis, CallerGenerationMetadata};
 use serde_json::Value;
 
 pub const MAX_CALLER_CONFIGURATION_BYTES: usize = 16 * 1024;
@@ -10,7 +11,7 @@ const MAX_CALLER_CONFIGURATION_NODES: usize = 256;
 pub fn validate_caller_generation(
     metadata: &CallerGenerationMetadata,
     pinned_prompt_version: &str,
-) -> Vec<FieldIssue> {
+) -> Vec<SafeDiagnostic> {
     let mut issues = Vec::new();
     for (value, max, path) in [
         (
@@ -29,23 +30,23 @@ pub fn validate_caller_generation(
         if value.is_some_and(|value| {
             value.trim().is_empty() || value.len() > max || value.chars().any(char::is_control)
         }) {
-            issues.push(FieldIssue {
+            issues.push(SafeDiagnostic {
                 path: path.into(),
-                rule: "bounded_declaration".into(),
+                rule: "bounded_declaration",
             });
         }
     }
     if metadata.prompt_version != pinned_prompt_version {
-        issues.push(FieldIssue {
+        issues.push(SafeDiagnostic {
             path: "/generation/prompt_version".into(),
-            rule: "pinned_prompt_version".into(),
+            rule: "pinned_prompt_version",
         });
     }
     if let Some(configuration) = &metadata.configuration_json {
         if let Some(rule) = configuration_problem(configuration) {
-            issues.push(FieldIssue {
+            issues.push(SafeDiagnostic {
                 path: "/generation/configuration_json".into(),
-                rule: rule.into(),
+                rule,
             });
         }
     }
@@ -54,9 +55,9 @@ pub fn validate_caller_generation(
         .as_ref()
         .is_some_and(|cost| cost.basis != AdaptationCostBasis::CallerDeclared)
     {
-        issues.push(FieldIssue {
+        issues.push(SafeDiagnostic {
             path: "/generation/cost/basis".into(),
-            rule: "caller_declared".into(),
+            rule: "caller_declared",
         });
     }
     issues

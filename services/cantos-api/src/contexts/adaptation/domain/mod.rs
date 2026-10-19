@@ -1,7 +1,8 @@
 //! Pure adaptation rules: the exported request, caller generation declarations, the closed
 //! proposal admission kernel and the trusted evidence bindings that acceptance preserves.
 //! Durable I/O, identity minting and the clock belong to the application shell.
-use cantos_contracts::{AdaptationProblem, Extraction, FieldIssue, ImportOutcome, ImportResponse};
+use crate::contexts::editorial::domain::diagnostics::SafeDiagnostic;
+use cantos_contracts::{Extraction, ImportOutcome, ImportResponse};
 use serde_json::Value;
 
 use crate::contexts::editorial::domain::diagnostics::validation_issues;
@@ -32,17 +33,24 @@ pub use request::{
     MAX_SOURCE_CONTEXT_BYTES, OUTPUT_SCHEMA, PROMPT_VERSION,
 };
 
-pub(super) fn problem(code: &str, path: &str, rule: &str) -> AdaptationProblem {
-    AdaptationProblem {
-        code: code.into(),
-        issues: vec![FieldIssue {
+/// A safe domain refusal. It is projected to the versioned receipt only when frozen.
+#[derive(Debug, PartialEq, Eq)]
+pub struct AdaptationRejection {
+    pub code: &'static str,
+    pub issues: Vec<SafeDiagnostic>,
+}
+
+pub(super) fn problem(code: &'static str, path: &str, rule: &'static str) -> AdaptationRejection {
+    AdaptationRejection {
+        code,
+        issues: vec![SafeDiagnostic {
             path: path.into(),
-            rule: rule.into(),
+            rule,
         }],
     }
 }
 
-pub(super) fn extracted(source: &ImportResponse) -> Result<&Extraction, AdaptationProblem> {
+pub(super) fn extracted(source: &ImportResponse) -> Result<&Extraction, AdaptationRejection> {
     match &source.outcome {
         ImportOutcome::Parsed { extraction } => Ok(extraction),
         ImportOutcome::Failed { .. } => {
@@ -51,21 +59,21 @@ pub(super) fn extracted(source: &ImportResponse) -> Result<&Extraction, Adaptati
     }
 }
 
-pub(super) fn array(value: &Value) -> Result<&Vec<Value>, AdaptationProblem> {
+pub(super) fn array(value: &Value) -> Result<&Vec<Value>, AdaptationRejection> {
     value
         .as_array()
         .ok_or_else(|| problem("invalid_base", "/", "array"))
 }
 
-pub(super) fn text(value: &Value) -> Result<&str, AdaptationProblem> {
+pub(super) fn text(value: &Value) -> Result<&str, AdaptationRejection> {
     value
         .as_str()
         .ok_or_else(|| problem("invalid_output", "/", "string"))
 }
 
-pub(super) fn script_problem(error: ReadError) -> AdaptationProblem {
-    AdaptationProblem {
-        code: "invalid_script_output".into(),
+pub(super) fn script_problem(error: ReadError) -> AdaptationRejection {
+    AdaptationRejection {
+        code: "invalid_script_output",
         issues: validation_issues(error),
     }
 }

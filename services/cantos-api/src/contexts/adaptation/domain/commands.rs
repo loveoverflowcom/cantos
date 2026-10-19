@@ -1,14 +1,15 @@
 //! Pure decisions for adaptation commands. The shell loads the facts under the run lock, asks
 //! here, then writes exactly what the decision says.
+use crate::contexts::editorial::domain::diagnostics::SafeDiagnostic;
 use cantos_contracts::{
-    AcceptAdaptationRequest, AdaptationContextRequest, AdaptationStatus, FieldIssue, ImportOutcome,
+    AcceptAdaptationRequest, AdaptationContextRequest, AdaptationStatus, ImportOutcome,
     ImportResponse,
 };
 
-fn issue(path: &str, rule: &str) -> FieldIssue {
-    FieldIssue {
+fn issue(path: &str, rule: &'static str) -> SafeDiagnostic {
+    SafeDiagnostic {
         path: path.into(),
-        rule: rule.into(),
+        rule,
     }
 }
 
@@ -18,7 +19,7 @@ pub enum SourceRejection {
     /// The import has no parsed extraction to adapt.
     NotExtracted,
     /// The request names another source identity, or a required rights claim is absent.
-    Issues(Vec<FieldIssue>),
+    Issues(Vec<SafeDiagnostic>),
 }
 
 /// The request must pin the exact source checksum and extractor, and the import must carry the
@@ -60,7 +61,7 @@ pub fn check_context_source(
 /// Why a submission is refused before its proposal is admitted.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SubmissionRejection {
-    Issues(Vec<FieldIssue>),
+    Issues(Vec<SafeDiagnostic>),
     AlreadySubmitted,
 }
 
@@ -69,7 +70,7 @@ pub enum SubmissionRejection {
 pub fn check_submission(
     context_digest: &str,
     submitted_digest: &str,
-    generation_issues: Vec<FieldIssue>,
+    generation_issues: Vec<SafeDiagnostic>,
     status: AdaptationStatus,
 ) -> Result<(), SubmissionRejection> {
     if context_digest != submitted_digest {
