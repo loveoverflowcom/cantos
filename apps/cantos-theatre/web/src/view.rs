@@ -296,6 +296,18 @@ mod tests {
         });
     }
     #[test]
+    fn live_shell_has_one_wordmark_a_context_topbar_and_icons_on_both_destinations() {
+        Owner::new().with(|| {
+            let html = view! { <LiveBoundary/> }.to_html();
+            // The rail logo is the wordmark; the topbar names the place instead of repeating it.
+            assert!(!html.contains("theatre-brand-name"), "{html}");
+            assert!(html.contains("theatre-topbar-context"));
+            assert_eq!(html.matches("theatre-nav-link").count(), 2);
+            assert_eq!(html.matches("class=\"theatre-icon\"").count(), 2, "{html}");
+            assert!(html.contains("href=\"#account\"") && html.contains("theatre-avatar"));
+        });
+    }
+    #[test]
     fn locale_projection_keeps_player_snapshot_and_saved_work() {
         Owner::new().with(|| {
             let ctx = TheatreContext::new(NodeRef::new());

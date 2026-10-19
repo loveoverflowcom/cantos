@@ -166,12 +166,16 @@ resources! {
     PublicWorkUnitCountEpisodes => ("Tập đã công bố: {count}", "Published episodes: {count}"),
     PublicWorkUnitLabel => ("{kind} · Vị trí {ordinal}", "{kind} · Position {ordinal}"),
     DiscoverySearchLabel => ("Tìm trong danh mục", "Search the catalog"),
-    DiscoverySearchHelp => ("Tìm theo tiêu đề hoặc mô tả đã công bố. Nhấn Enter hoặc Tìm để áp dụng.", "Search published titles and descriptions. Press Enter or Search to apply."),
     DiscoverySearchSubmit => ("Tìm", "Search"),
     DiscoveryKindLabel => ("Loại", "Type"),
     DiscoveryKindAll => ("Tất cả loại", "All types"),
     DiscoveryLanguageLabel => ("Ngôn ngữ nội dung", "Content language"),
-    DiscoveryLanguageHelp => ("Mã ngôn ngữ của bản phát hành, ví dụ vi-VN hoặc en. Để trống để xem mọi ngôn ngữ.", "The language tag of the release, for example vi-VN or en. Leave empty for every language."),
+    DiscoveryLanguageAny => ("Mọi ngôn ngữ", "All languages"),
+    PublicHomeFeaturedEyebrow => ("Tác phẩm đầu danh mục", "First in the catalog"),
+    PublicHomeFirstMatchEyebrow => ("Kết quả khớp đầu tiên", "First match"),
+    PublicHomeFeatureMeta => ("{kind} · {language} · {units}", "{kind} · {language} · {units}"),
+    PublicHomeOpenWork => ("Mở tác phẩm", "Open story"),
+    PublicHomeOpenWorkNamed => ("Mở tác phẩm: {title}", "Open story: {title}"),
     DiscoveryLanguageInvalid => ("Mã ngôn ngữ chỉ gồm chữ cái, chữ số và dấu gạch ngang, tối đa 63 ký tự.", "A language tag has only letters, digits and hyphens, at most 63 characters."),
     DiscoverySearchTooLong => ("Từ khóa quá dài: tối đa 512 byte.", "The search is too long: at most 512 bytes."),
     DiscoverySearchInvalid => ("Từ khóa chứa ký tự điều khiển không được hỗ trợ.", "The search contains an unsupported control character."),
@@ -977,6 +981,14 @@ mod tests {
             assert_eq!(
                 placeholders(text(Key::PublicWorkUnitLabel, locale)),
                 BTreeMap::from([("kind", 1), ("ordinal", 1)])
+            );
+            assert_eq!(
+                placeholders(text(Key::PublicHomeFeatureMeta, locale)),
+                BTreeMap::from([("kind", 1), ("language", 1), ("units", 1)])
+            );
+            assert_eq!(
+                placeholders(text(Key::PublicHomeOpenWorkNamed, locale)),
+                BTreeMap::from([("title", 1)])
             );
             let label = format(
                 Key::CoverArtName,
