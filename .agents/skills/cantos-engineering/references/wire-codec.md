@@ -32,7 +32,7 @@ Do not rewrite historical results or duplicate the protocol tables here.
    and reconcile the same operation explicitly. Never change codec and resend a failed write.
 7. Run the cheapest focused production-code regression first, then applicable xtask gates.
    `verify contracts` and `protobuf-reference` establish Rust/Python schema and codec evidence;
-   `theatre-cmp-demo` runs embedded common/JVM vectors. Source/fixture changes select both.
+   `theatre-cmp-preview` runs embedded common/JVM vectors. Source/fixture changes select both.
 8. Record Android and iOS compile/test/runtime independently. Kotlin/JVM, published KMP artifacts,
    a host render or a linked Apple framework cannot substitute for Native/device execution.
 9. Measure raw/actual gzip bytes and native encode/decode with spread for 1/8/64/512 KiB DTOs;

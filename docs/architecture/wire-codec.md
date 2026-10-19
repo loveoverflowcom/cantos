@@ -83,7 +83,7 @@ job; no paid/new CI lane is introduced. Cargo tracks the external `.proto` befor
 so cached builds cannot silently retain a prior schema.
 
 Changed schema, Protobuf fixtures or Rust adapters select both `protobuf-reference` and
-`theatre-cmp-demo`; the latter embeds unchanged corpus bytes and executes commonTest on JVM.
+`theatre-cmp-preview`; the latter embeds unchanged corpus bytes and executes commonTest on JVM.
 Web verification remains independent of Gradle. Android/iOS compile/runtime remain separately
 reported; shared source availability and JVM output cannot establish Native acceptance.
 

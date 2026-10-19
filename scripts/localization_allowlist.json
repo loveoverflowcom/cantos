@@ -104,6 +104,11 @@
       "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/PreviewToolCopy.kt",
       "mode": "fixed-english-tool",
       "reason": "Package-local development tool shell uses fixed English; fixture locale remains independently selectable."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/preview-sandbox/src/desktopMain/kotlin/com/cantos/theatre/app/workbench/TheatreWorkbench.kt",
+      "mode": "fixed-english-tool",
+      "reason": "Desktop-only Preview workbench controls and notes use fixed English; the previewed app's locale is a workbench setting. It is never reachable from a product build."
     }
   ],
   "exceptions": [

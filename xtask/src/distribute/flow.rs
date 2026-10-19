@@ -24,8 +24,9 @@ use crate::{
     capture::{Capture, CaptureError, Captured},
     command::Runner,
     config::THEATRE_MOBILE_DIR,
+    mobile_toolchain,
     report::{Report, Status},
-    theatre_demo,
+    theatre_preview,
     tools::ToolProbe,
     workspace::Workspace,
 };
@@ -118,7 +119,7 @@ impl Flow<'_> {
         }
         let required_tools = match self.request.policy {
             super::request::Policy::DemoApk | super::request::Policy::DemoQaApk => {
-                theatre_demo::tools()
+                theatre_preview::tools()
             }
             super::request::Policy::ProductionApk => crate::theatre_host::tools(),
         };
@@ -134,7 +135,7 @@ impl Flow<'_> {
         let project = self.workspace.path(THEATRE_MOBILE_DIR);
         let prerequisite = match self.request.policy {
             super::request::Policy::DemoApk | super::request::Policy::DemoQaApk => {
-                theatre_demo::android_prerequisite(&project, sdk.as_deref())
+                mobile_toolchain::android_prerequisite(&project, sdk.as_deref())
             }
             super::request::Policy::ProductionApk => {
                 crate::theatre_host::prerequisite(&project, sdk.as_deref())
@@ -155,10 +156,10 @@ impl Flow<'_> {
             Ok(()) => {
                 let tools = sdk
                     .as_deref()
-                    .map(|sdk| sdk.join(theatre_demo::ANDROID_BUILD_TOOLS));
+                    .map(|sdk| sdk.join(mobile_toolchain::ANDROID_BUILD_TOOLS));
                 if let Some(dir) = tools {
                     let (aapt2, apksigner) = (dir.join("aapt2"), dir.join("apksigner"));
-                    if theatre_demo::local_executable(&apksigner) {
+                    if mobile_toolchain::local_executable(&apksigner) {
                         self.android_tools = Some((aapt2, apksigner));
                     } else {
                         problems.push(
@@ -941,7 +942,7 @@ mod tests {
         let sdk =
             std::env::temp_dir().join(format!("xtask-flow-sdk-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&sdk);
-        let tools = sdk.join(theatre_demo::ANDROID_BUILD_TOOLS);
+        let tools = sdk.join(mobile_toolchain::ANDROID_BUILD_TOOLS);
         std::fs::create_dir_all(&tools).unwrap();
         std::fs::create_dir_all(sdk.join("platforms/android-35")).unwrap();
         std::fs::write(sdk.join("platforms/android-35/android.jar"), "").unwrap();
@@ -1429,7 +1430,7 @@ mod tests {
 
     #[test]
     fn missing_local_prerequisites_stop_everything_before_any_effect() {
-        for missing in [Tool::Gradle, Tool::Java, Tool::TheatreDemoGradleProject] {
+        for missing in [Tool::Gradle, Tool::Java, Tool::TheatrePreviewGradleProject] {
             let mut rig = Rig::new("tools");
             rig.tools = FakeTools::without(&[missing]);
             let report = rig.run(&live(&[]));

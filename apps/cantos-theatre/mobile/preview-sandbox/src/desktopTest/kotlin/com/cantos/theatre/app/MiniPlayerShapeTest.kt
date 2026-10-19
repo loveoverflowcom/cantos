@@ -1,6 +1,10 @@
 package com.cantos.theatre.app
 
-import com.cantos.theatre.demo.demoState
+import com.cantos.theatre.app.PreviewTestRoot
+import com.cantos.theatre.app.PreviewSession
+import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
+import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.previewState
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
@@ -20,7 +24,7 @@ class MiniPlayerShapeTest {
         listOf(320, 390, 840).forEach { width ->
             ShellTheme.entries.forEach { theme ->
                 runDesktopComposeUiTest(width = width, height = 844) {
-                    setContent { CantosDemoApp(initialState = demoState(theme = theme)) }
+                    setContent { PreviewTestRoot(PreviewSeed(previewState(selectedEpisode = PreviewEpisodeIds.SonHa03, positionMs = 768_000L, theme = theme))) }
                     waitForIdle()
                     val pixels = onNodeWithTag("mini-player").captureToImage().toPixelMap()
                     // At density 1, (9, 1) is inside radius 12 but outside radius 16 or 24.

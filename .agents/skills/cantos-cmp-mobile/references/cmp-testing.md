@@ -20,8 +20,8 @@ This reference selects among them for CMP. Test technique in general lives in
 
 For a static pixel/semantics check without an emulator, use the implemented
 [`cargo xtask compose-preview` workflow](compose-preview.md). It requires an existing Android
-Gradle target, preview function and a running Android Studio Quail 2+ instance. Theatre's isolated
-mock has Android preview wrappers; missing CLI/IDE prerequisites produce `UNSUPPORTED`.
+Gradle target, preview function and a running Android Studio Quail 2+ instance. Theatre has no Android preview
+wrappers (#287); missing CLI/IDE prerequisites produce `UNSUPPORTED`.
 Studio Mobile has no target. The shared
 `ui-system-cmp` Android library is a separate supported preview host. Capture-tool mocks
 prove the adapter contract, not Compose rendering. Robolectric remains a separately configured
@@ -31,10 +31,10 @@ Theatre has production-safe `:shared` and the separate KMP `:preview-sandbox` mo
 Actual repository commands:
 
 ```text
-cargo xtask theatre-demo build          # shared + preview-sandbox desktop compilation
-cargo xtask theatre-demo verify         # both modules' common/desktop suites
-cargo xtask theatre-demo android-build  # mock debug APK, not device tests
-cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
+cargo xtask theatre-preview build          # shared + preview-sandbox desktop compilation
+cargo xtask theatre-preview verify         # both modules' common/desktop suites
+cargo xtask theatre-host android-debug --api-origin ORIGIN   # production debug APK, not device tests
+cargo xtask theatre-host ios-build --kotlin-native-home /absolute/installed/native-2.2.20
 ```
 
 The iOS command links a simulator framework; it executes neither commonTest on Native nor
@@ -66,7 +66,7 @@ are bounded lexical checks; they establish neither resolved Gradle contents nor 
 Current results belong in the [#122 record](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
 
 `:shared:assertProductionSafeDependencies` is the separate resolved dependency guard integrated
-with main compilation, assemble and `desktopTest`, so the existing `theatre-demo build` and
+with main compilation, assemble and `desktopTest`, so the existing `theatre-preview build` and
 `verify` routes reach it. It checks shared desktop compile/runtime configurations and, with the
 Android opt-in, shared Android release compile/runtime configurations. Inspect
 `shared/build/reports/production-boundary/resolved-dependencies.txt` for the actual configurations

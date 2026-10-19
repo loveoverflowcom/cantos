@@ -1,4 +1,4 @@
-//! The production Theatre Android host. Unlike `theatre-demo`, it composes `:shared` only and
+//! The production Theatre Android host. Unlike the Desktop Preview, it composes `:shared` only and
 //! has no mock, sample or diagnostic fallback. `android-release` builds an unsigned, unshrunk
 //! release APK and AAB and inspects the actual bytes; `android-debug` builds the debug APK pointed
 //! at one explicit API origin for the production composition. Release may pin an HTTPS API.
@@ -15,9 +15,9 @@ use clap::Subcommand;
 use crate::{
     command::{CommandSpec, Runner},
     config::THEATRE_MOBILE_DIR,
+    mobile_toolchain::{self, ANDROID_BUILD_TOOLS},
     pipeline::{self, Step},
     report::{Report, Status},
-    theatre_demo::{self, ANDROID_BUILD_TOOLS},
     tools::{Tool, ToolProbe},
     workspace::Workspace,
 };
@@ -30,8 +30,9 @@ const APK: &str = "androidApp/build/outputs/apk/release/androidApp-release-unsig
 const AAB: &str = "androidApp/build/outputs/bundle/release/androidApp-release.aab";
 const REPORT: &str = "androidApp/build/reports/release-boundary/artifact-inspection.txt";
 const DEBUG_APK: &str = "androidApp/build/outputs/apk/debug/androidApp-debug.apk";
-/// The sandbox's own compiled Android classes and resources form the forbidden inventory.
-const SANDBOX_CLASSES: &str = "preview-sandbox/build/tmp/kotlin-classes/release";
+/// The sandbox's own compiled JVM desktop classes and resources form the forbidden inventory. The
+/// sandbox has no Android target (#287); its classes are still the exact names that must be absent.
+const SANDBOX_CLASSES: &str = "preview-sandbox/build/classes/kotlin/desktop/main";
 const SANDBOX_RESOURCES: &str = "preview-sandbox/src/commonMain/composeResources";
 const COMPOSE_RESOURCE_PACKAGE: &str = "com.cantos.theatre.resources";
 /// Production classes whose absence would make a finding-free inspection vacuous.
@@ -86,7 +87,7 @@ pub fn tools() -> Vec<Tool> {
     vec![
         Tool::Gradle,
         Tool::Java,
-        Tool::TheatreDemoGradleProject,
+        Tool::TheatrePreviewGradleProject,
         Tool::Python3,
     ]
 }
@@ -102,7 +103,7 @@ pub fn prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static s
     {
         return Err("production Android host, shared Android sources or the sandbox resource inventory are missing");
     }
-    theatre_demo::android_sdk_prerequisite(sdk)?;
+    mobile_toolchain::android_sdk_prerequisite(sdk)?;
     if sdk.and_then(Path::to_str).is_none() {
         return Err("configured Android SDK path must be UTF-8 to pass to the inspector");
     }
@@ -123,7 +124,7 @@ pub fn validate_native_issuer(api_origin: &str, issuer: &str) -> Result<(), Stri
 /// Builds only the production host's release outputs. Its `preBuild` also enforces the
 /// resolved release-classpath boundary; the sandbox is compiled solely as an inventory.
 pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> CommandSpec {
-    let mut command = theatre_demo::gradle_command(workspace).args([
+    let mut command = mobile_toolchain::gradle_command(workspace).args([
         "-Pcantos.android=true",
         "-Pandroid.builder.sdkDownload=false",
     ]);
@@ -136,7 +137,7 @@ pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> Co
         ":androidApp:assertReleaseDependencyBoundary",
         ":androidApp:assembleRelease",
         ":androidApp:bundleRelease",
-        ":preview-sandbox:compileReleaseKotlinAndroid",
+        ":preview-sandbox:compileKotlinDesktop",
     ])
 }
 
@@ -191,18 +192,18 @@ pub fn gradle_debug_identity_command(
     origin: &str,
     issuer: Option<&str>,
 ) -> CommandSpec {
-    theatre_demo::gradle_command(workspace).args([
+    mobile_toolchain::gradle_command(workspace).args([
         "-Pcantos.android=true".to_owned(),
         "-Pandroid.builder.sdkDownload=false".to_owned(),
         format!("-Pcantos.apiOrigin={origin}"),
         format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
         ":androidApp:assembleDebug".to_owned(),
-        ":preview-sandbox:compileReleaseKotlinAndroid".to_owned(),
+        ":preview-sandbox:compileKotlinDesktop".to_owned(),
     ])
 }
 
 pub fn gradle_ios_command(workspace: &Workspace, compiler_home: &str) -> CommandSpec {
-    theatre_demo::gradle_command(workspace).args([
+    mobile_toolchain::gradle_command(workspace).args([
         "-Pcantos.ios=true".to_owned(),
         format!("-Pkotlin.native.home={compiler_home}"),
         ":shared:linkDebugFrameworkIosSimulatorArm64".to_owned(),
@@ -323,7 +324,7 @@ pub fn execute(
                     return Ok(ExitCode::from(2));
                 }
             }
-            let sdk = theatre_demo::android_sdk_from_environment();
+            let sdk = mobile_toolchain::android_sdk_from_environment();
             if let Err(reason) = prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref()) {
                 return Ok(unsupported("Theatre production Android release", reason));
             }
@@ -359,7 +360,7 @@ pub fn execute(
                     return Ok(ExitCode::from(2));
                 }
             }
-            let sdk = theatre_demo::android_sdk_from_environment();
+            let sdk = mobile_toolchain::android_sdk_from_environment();
             if let Err(reason) = prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref()) {
                 return Ok(unsupported("Theatre production Android debug", reason));
             }
@@ -367,7 +368,7 @@ pub fn execute(
             let apksigner = Path::new(sdk_text)
                 .join(ANDROID_BUILD_TOOLS)
                 .join("apksigner");
-            if !theatre_demo::local_executable(&apksigner) {
+            if !mobile_toolchain::local_executable(&apksigner) {
                 return Ok(unsupported("Theatre production Android debug", "Android build-tools has no executable apksigner; signed artifact inspection requires it"));
             }
             let debug_apk = workspace.path(&format!("{THEATRE_MOBILE_DIR}/{DEBUG_APK}"));
@@ -424,10 +425,11 @@ pub fn execute(
             Ok(report.exit_code())
         }
         HostAction::IosBuild { kotlin_native_home } => {
-            if let Err(reason) = theatre_demo::native_compiler_prerequisite(&kotlin_native_home) {
+            if let Err(reason) = mobile_toolchain::native_compiler_prerequisite(&kotlin_native_home)
+            {
                 return Ok(unsupported("Theatre production iOS frameworks", reason));
             }
-            if !theatre_demo::ios_sdk_available() {
+            if !mobile_toolchain::ios_sdk_available() {
                 return Ok(unsupported("Theatre production iOS frameworks",
                     "requires full installed Xcode with a usable iOS simulator SDK; xtask never installs or selects Xcode"));
             }
@@ -501,7 +503,7 @@ mod tests {
             ":androidApp:assertReleaseDependencyBoundary".to_owned(),
             ":androidApp:assembleRelease".to_owned(),
             ":androidApp:bundleRelease".to_owned(),
-            ":preview-sandbox:compileReleaseKotlinAndroid".to_owned(),
+            ":preview-sandbox:compileKotlinDesktop".to_owned(),
         ]));
         assert!(command
             .args
@@ -530,7 +532,7 @@ mod tests {
             "-Pcantos.apiOrigin=http://127.0.0.1:8080".to_owned(),
             "-Pcantos.nativeIssuer=".to_owned(),
             ":androidApp:assembleDebug".to_owned(),
-            ":preview-sandbox:compileReleaseKotlinAndroid".to_owned(),
+            ":preview-sandbox:compileKotlinDesktop".to_owned(),
         ]));
         let tasks: Vec<_> = command
             .args
@@ -541,7 +543,7 @@ mod tests {
             tasks,
             [
                 ":androidApp:assembleDebug",
-                ":preview-sandbox:compileReleaseKotlinAndroid"
+                ":preview-sandbox:compileKotlinDesktop"
             ]
         );
     }

@@ -1,9 +1,11 @@
 package com.cantos.theatre.app.workbench
 
-import com.cantos.theatre.demo.DemoWorkIds
-import com.cantos.theatre.demo.DemoEpisodeIds
-import com.cantos.theatre.adapters.mock.sandbox.sessions.MockStorageSession
-import com.cantos.theatre.adapters.mock.sandbox.sessions.seed
+import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
+import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.PreviewSession
+import com.cantos.theatre.adapters.preview.PreviewWorkIds
+import com.cantos.theatre.app.previewState
+import com.cantos.theatre.app.seed
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellEpisodeId
 import com.cantos.theatre.presentation.model.ShellEvent
@@ -18,7 +20,7 @@ import com.cantos.ui.Theme
 import com.cantos.ui.preview.workbench.PreviewLocale
 import com.cantos.ui.preview.workbench.PreviewSettings
 
-/** Fixed synthetic fixture revision; it never denotes an account or native storage session. */
+/** Fixed synthetic fixture revision; its listener is a sample account, never a real one or a native storage session. */
 enum class TheatreFixture(val id: String) {
     Fresh("theatre-fresh-v1"), Restored("theatre-restored-v1"), Empty("theatre-empty-v1"),
     Loading("theatre-loading-v1"), Error("theatre-error-v1"), Offline("theatre-offline-v1"),
@@ -26,19 +28,20 @@ enum class TheatreFixture(val id: String) {
 
 /** Every step reuses an app intent. Delays belong to the explicit desktop simulation clock. */
 enum class TheatreStep {
-    OpenSearch, SearchNight, OpenLibrary, SelectSaved, SaveSonHa, OpenSonHa, SeekFifteen,
-    Bookmark, ToggleSimulation, TimerFifteen;
+    OpenSearch, SearchNight, OpenLibrary, SelectSaved, SaveSonHa, OpenSonHa, PlayFirstSonHa, SeekFifteen,
+    TogglePlayback, TimerFifteen;
 
     fun event(): ShellEvent = when (this) {
         OpenSearch -> ShellEvent.Navigate(ShellRoute.Search)
         SearchNight -> ShellEvent.Search("Đèn")
         OpenLibrary -> ShellEvent.Navigate(ShellRoute.Library)
         SelectSaved -> ShellEvent.SelectLibrary(ShellLibraryTab.Saved)
-        SaveSonHa -> ShellEvent.SetSaved(DemoWorkIds.SonHa, true)
-        OpenSonHa -> ShellEvent.OpenEpisode(DemoEpisodeIds.SonHa01)
+        SaveSonHa -> ShellEvent.SetSaved(PreviewWorkIds.SonHa, true)
+        // The work page is read first; a unit can only be played once the API has listed it.
+        OpenSonHa -> ShellEvent.Navigate(ShellRoute.Work(PreviewWorkIds.SonHa))
+        PlayFirstSonHa -> ShellEvent.OpenEpisode(PreviewEpisodeIds.SonHa01)
         SeekFifteen -> ShellEvent.Seek(15)
-        Bookmark -> ShellEvent.Bookmark
-        ToggleSimulation -> ShellEvent.ToggleSimulation
+        TogglePlayback -> ShellEvent.ToggleSimulation
         TimerFifteen -> ShellEvent.SetTimer(ShellTimer.Fifteen)
     }
 }
@@ -61,12 +64,17 @@ class TheatreRecipe private constructor(
     val steps: List<TheatreStep> get() = script.toList()
     val id: String get() = fixture.id
 
-    fun initialState(systemIsDark: Boolean): ShellState {
+    /** Whether this fixture starts with the first sample account signed in. */
+    val startsSignedIn: Boolean get() = fixture == TheatreFixture.Restored || fixture == TheatreFixture.Offline
+
+    fun initialSeed(systemIsDark: Boolean): PreviewSeed {
         val base = when (fixture) {
-            TheatreFixture.Restored -> MockStorageSession.Restored.seed()
-            else -> MockStorageSession.Fresh.seed()
+            TheatreFixture.Restored -> PreviewSession.Restored.seed()
+            // A signed-in listener with an empty Library and a remote that cannot be reached.
+            TheatreFixture.Offline -> PreviewSeed(previewState(stack = listOf(ShellRoute.Library)), signedIn = true)
+            else -> PreviewSession.Fresh.seed()
         }
-        return base.copy(
+        val state = base.state.copy(
             catalogMode = when (fixture) {
                 TheatreFixture.Empty -> ShellCatalogMode.Empty
                 TheatreFixture.Loading -> ShellCatalogMode.Loading
@@ -76,10 +84,13 @@ class TheatreRecipe private constructor(
             theme = if (settings.preferences(systemIsDark).theme == Theme.Dark) ShellTheme.Dark else ShellTheme.Light,
             locale = if (settings.locale == PreviewLocale.En) ShellLocale.English else ShellLocale.Vietnamese,
         )
+        return base.copy(state = state, writeLatencyMs = writeLatencyMs, remoteOffline = fixture == TheatreFixture.Offline)
     }
 
+    fun initialState(systemIsDark: Boolean): ShellState = initialSeed(systemIsDark).state
+
     companion object {
-        const val Version = 1
+        const val Version = 2
         const val SimulationStepMs = 50L
         fun select(
             id: String,

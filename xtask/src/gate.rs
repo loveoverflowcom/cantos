@@ -17,7 +17,7 @@ use crate::{
     },
     kani::{self, Kernel},
     pipeline::Step,
-    theatre_demo,
+    theatre_preview,
     tools::Tool,
     ui_preview,
     workspace::Workspace,
@@ -42,7 +42,9 @@ pub enum GateKind {
     WebBuild,
     UiPreview,
     CmpUiPreview,
-    TheatreCmpDemo,
+    /// Formerly `theatre-cmp-demo`; the old id is still accepted by `--skip`.
+    #[value(alias = "theatre-cmp-demo")]
+    TheatreCmpPreview,
     Mutation,
     Postgres,
     Kani,
@@ -113,7 +115,7 @@ pub enum Gate {
     WebBuild(App),
     UiPreview,
     CmpUiPreview,
-    TheatreCmpDemo,
+    TheatreCmpPreview,
     Mutation,
     Postgres {
         keep: bool,
@@ -168,7 +170,7 @@ impl Gate {
             Gate::WebBuild(_) => GateKind::WebBuild,
             Gate::UiPreview => GateKind::UiPreview,
             Gate::CmpUiPreview => GateKind::CmpUiPreview,
-            Gate::TheatreCmpDemo => GateKind::TheatreCmpDemo,
+            Gate::TheatreCmpPreview => GateKind::TheatreCmpPreview,
             Gate::Mutation => GateKind::Mutation,
             Gate::Postgres { .. }
             | Gate::TheatreFirebasePostgres { .. }
@@ -233,7 +235,7 @@ impl Gate {
                 vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk]
             }
             Gate::CmpUiPreview => ui_preview::cmp_tools(),
-            Gate::TheatreCmpDemo => theatre_demo::tools(),
+            Gate::TheatreCmpPreview => theatre_preview::tools(),
             Gate::Postgres { .. } => vec![
                 Tool::Cargo,
                 Tool::Python3,
@@ -415,7 +417,9 @@ impl Gate {
             Gate::WebBuild(app) => vec![build::trunk(workspace, *app, "build", Profile::Dev)],
             Gate::UiPreview => vec![ui_preview::leptos_command(workspace, "build")],
             Gate::CmpUiPreview => vec![ui_preview::cmp_command(workspace, "desktopTest")],
-            Gate::TheatreCmpDemo => vec![theatre_demo::desktop_command(workspace, "desktopTest")],
+            Gate::TheatreCmpPreview => {
+                vec![theatre_preview::desktop_command(workspace, "desktopTest")]
+            }
             Gate::Mutation => vec![python(&["scripts/mutate_script_ir.py"])],
             Gate::Postgres { keep } => {
                 vec![python(&["scripts/test_postgres.py"]).arg_if(*keep, "--keep")]
@@ -456,7 +460,7 @@ pub fn full() -> Vec<Gate> {
         Gate::WebBuild(App::Theatre),
         Gate::UiPreview,
         Gate::CmpUiPreview,
-        Gate::TheatreCmpDemo,
+        Gate::TheatreCmpPreview,
         Gate::Mutation,
         Gate::Postgres { keep: false },
     ]

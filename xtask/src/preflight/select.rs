@@ -206,7 +206,7 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
             || path == "packages/contracts/api/tests/artwork_wire.rs"
         {
             impact.gates.insert(Gate::ProtobufReference);
-            impact.gates.insert(Gate::TheatreCmpDemo);
+            impact.gates.insert(Gate::TheatreCmpPreview);
         }
         if within(path, SCRIPT_IR_FIXTURES) {
             impact.gates.insert(Gate::ScriptIrReference);
@@ -215,14 +215,14 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         // Kotlin is not a Cargo member. Its gate must not depend on metadata or reverse Rust deps.
         if !is_doc {
             impact.gates.insert(Gate::CmpUiPreview);
-            impact.gates.insert(Gate::TheatreCmpDemo);
+            impact.gates.insert(Gate::TheatreCmpPreview);
         }
     } else if within(path, "packages/ui-system") {
         if !is_doc {
             impact.packages.insert(UI_PACKAGE.to_owned());
             if !within(path, "packages/ui-system/leptos") {
                 impact.gates.insert(Gate::CmpUiPreview);
-                impact.gates.insert(Gate::TheatreCmpDemo);
+                impact.gates.insert(Gate::TheatreCmpPreview);
             }
         }
     } else if within(path, "services/cantos-forge-functions") {
@@ -255,7 +255,7 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         impact.notes.insert("service inventory/examples are statically validated by repository; no runtime is started".into());
     } else if within(path, crate::config::THEATRE_MOBILE_DIR) {
         if !is_doc {
-            impact.gates.insert(Gate::TheatreCmpDemo);
+            impact.gates.insert(Gate::TheatreCmpPreview);
         }
         if within(path, "apps/cantos-theatre/mobile/androidApp") {
             impact.notes.insert("production Android release bytes are inspected only by explicit `cargo xtask theatre-host android-release`; preflight runs the JVM mock gate".into());
@@ -279,11 +279,11 @@ fn classify_script(script: &str, impact: &mut Impact) {
         | "ui_preview_catalog.py" => {
             impact.packages.insert(UI_PACKAGE.to_owned());
             impact.gates.insert(Gate::CmpUiPreview);
-            impact.gates.insert(Gate::TheatreCmpDemo);
+            impact.gates.insert(Gate::TheatreCmpPreview);
         }
         "reference_protobuf.py" => {
             impact.gates.insert(Gate::ProtobufReference);
-            impact.gates.insert(Gate::TheatreCmpDemo);
+            impact.gates.insert(Gate::TheatreCmpPreview);
             impact.packages.insert(CONTRACTS_PACKAGE.to_owned());
         }
         _ if within(script, "protobuf-oracle") => {
@@ -630,7 +630,7 @@ mod tests {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
             assert!(selection.gates.contains(&Gate::ProtobufReference), "{path}");
-            assert!(selection.gates.contains(&Gate::TheatreCmpDemo), "{path}");
+            assert!(selection.gates.contains(&Gate::TheatreCmpPreview), "{path}");
             assert!(selection.affected.contains(CONTRACTS_PACKAGE), "{path}");
         }
         let oracle = pick(&["scripts/protobuf-oracle/rust/build.rs"]);
@@ -725,7 +725,7 @@ mod tests {
                     "repository",
                     "rust-format",
                     "cmp-ui-preview",
-                    "theatre-cmp-demo"
+                    "theatre-cmp-preview"
                 ],
                 "{path}"
             );
@@ -737,26 +737,25 @@ mod tests {
     }
 
     #[test]
-    fn theatre_mobile_inputs_select_mock_tests_without_production_or_studio_mobile() {
+    fn theatre_mobile_inputs_select_the_preview_gate_without_production_or_studio_mobile() {
         for path in [
             "apps/cantos-theatre/mobile/settings.gradle.kts",
             "apps/cantos-theatre/mobile/gradle.properties",
             "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/DemoState.kt",
             "apps/cantos-theatre/mobile/shared/src/desktopTest/kotlin/DemoTest.kt",
             "apps/cantos-theatre/mobile/preview-sandbox/build.gradle.kts",
-            "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/kotlin/MockStorageDatabase.kt",
-            "apps/cantos-theatre/mobile/preview-sandbox/src/commonTest/kotlin/MockStorageDatabaseTest.kt",
-            "apps/cantos-theatre/mobile/preview-sandbox/src/androidMain/kotlin/TheatrePreviews.kt",
+            "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/kotlin/PreviewOwners.kt",
+            "apps/cantos-theatre/mobile/preview-sandbox/src/desktopTest/kotlin/PreviewShellFlowTest.kt",
             "apps/cantos-theatre/mobile/preview-sandbox/src/desktopMain/kotlin/TheatreWorkbench.kt",
             "apps/cantos-theatre/mobile/androidApp/src/main/AndroidManifest.xml",
-            "apps/cantos-theatre/mobile/iosApp/CantosDemo.xcodeproj/project.pbxproj",
+            "apps/cantos-theatre/mobile/iosApp/Cantos.xcodeproj/project.pbxproj",
         ] {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
             assert!(selection.affected.is_empty(), "{path}");
             assert_eq!(
                 names(&selection),
-                ["repository", "rust-format", "theatre-cmp-demo"],
+                ["repository", "rust-format", "theatre-cmp-preview"],
                 "{path}"
             );
         }
@@ -856,7 +855,7 @@ mod tests {
             ];
             if !path.starts_with("packages/ui-system/leptos/") {
                 expected.push("cmp-ui-preview");
-                expected.push("theatre-cmp-demo");
+                expected.push("theatre-cmp-preview");
             }
             assert_eq!(names(&selection), expected, "{path}");
         }

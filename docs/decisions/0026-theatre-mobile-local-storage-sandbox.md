@@ -4,6 +4,7 @@
   are implemented. This record has not been accepted by a maintainer. The explicitly requested
   step-2 slice implements the scoped SQLDelight adoption below; platform acceptance is separate. The production Android host's unsigned
   release graph/APK/AAB exclusion is inspected; signed/shrunk production releases do not exist.
+- Amendment (#287): `MockStorageDatabase`, `MockPersistentProgressPort` and the `ProgressPortContract` binding were removed with the parallel demo path; the Desktop Preview now runs the real SQLDelight store on an in-memory SQLite database behind mock *external* ports, and `:preview-sandbox` is JVM-desktop only. The file-system-double decision for #16 is unchanged.
 - Date: 2026-10-14
 - Decision owner: Cantos maintainers
 - Related: [mobile architecture](../architecture/mobile.md#implementation-decisions-to-record),
@@ -185,7 +186,7 @@ The proposal's technical observations, checked against these facts:
 
 ## Validation and revisit conditions
 
-The original contract-suite evidence predates module extraction: `cargo xtask theatre-demo verify`
+The original contract-suite evidence predates module extraction: `cargo xtask theatre-preview verify`
 executed it on desktop JVM through two mock bindings. Sensitivity was checked with seven temporary adapters
 that were not committed: sorted lists, a maximum-position merge, a set union of saved works,
 per-connection stores, one store shared across stores, a store ignoring cancellation, and a

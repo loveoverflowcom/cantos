@@ -114,7 +114,7 @@ impl SystemHost {
 
 impl Host for SystemHost {
     fn android_sdk(&self) -> Option<PathBuf> {
-        crate::theatre_demo::android_sdk_from_environment()
+        crate::mobile_toolchain::android_sdk_from_environment()
     }
 
     fn now(&mut self) -> String {

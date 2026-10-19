@@ -1,9 +1,13 @@
 package com.cantos.theatre.app.workbench
 
-import com.cantos.theatre.app.mockAppContainer
-import com.cantos.theatre.demo.DemoWorkIds
-import com.cantos.theatre.demo.DemoEpisodeIds
-import com.cantos.theatre.app.AppContainer
+import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
+import com.cantos.theatre.app.PreviewOwners
+import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.PreviewSession
+import com.cantos.theatre.adapters.preview.PreviewWorkIds
+import com.cantos.theatre.adapters.preview.previewLibraryStore
+import com.cantos.theatre.app.previewState
+import com.cantos.theatre.app.seed
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLibraryTab
 import com.cantos.theatre.presentation.model.ShellListeningFailure
@@ -36,19 +40,19 @@ class TheatreWorkbenchControllerTest {
     fun same_recipe_seed_and_script_produce_identical_complete_projection() = runTest {
         val recipe = accepted(TheatreRecipe.select(TheatreFixture.Restored.id, steps = listOf(
             TheatreStep.OpenSearch, TheatreStep.SearchNight, TheatreStep.SaveSonHa,
-            TheatreStep.OpenSonHa, TheatreStep.SeekFifteen, TheatreStep.Bookmark, TheatreStep.TimerFifteen)))
+            TheatreStep.OpenSonHa, TheatreStep.PlayFirstSonHa, TheatreStep.SeekFifteen, TheatreStep.TogglePlayback, TheatreStep.TimerFifteen)))
         val a = TheatreWorkbenchController(this, recipe)
         val b = TheatreWorkbenchController(this, recipe)
         try {
             a.replay(); b.replay()
-            advanceUntilIdle()
+            // Eight 50 ms simulation steps and the owners' immediate work; the 15 minute timer must stay armed.
+            advanceTimeBy(2_000L); runCurrent()
             assertEquals(a.snapshot().state, b.snapshot().state)
             assertEquals(a.eventLog.value, b.eventLog.value)
             assertEquals("Đèn", a.snapshot().state.query)
             assertEquals(ShellTimer.Fifteen, a.snapshot().state.timer)
             assertEquals(15_000L, a.snapshot().state.positionMs)
-            assertEquals(15_000L, a.snapshot().state.bookmarks.last().positionMs)
-            assertEquals("replay complete 7 intents", a.eventLog.value.last())
+            assertEquals("replay complete 8 intents", a.eventLog.value.last())
         } finally { a.close(); b.close() }
     }
 
@@ -62,7 +66,7 @@ class TheatreWorkbenchControllerTest {
                 val expected = host.snapshot().state
                 host.callback()(ShellEvent.Search("Khác"))
                 host.callback()(ShellEvent.SelectLibrary(ShellLibraryTab.Saved))
-                host.callback()(ShellEvent.SetSaved(DemoWorkIds.CanhBuom, true))
+                host.callback()(ShellEvent.SetSaved(PreviewWorkIds.CanhBuom, true))
                 advanceUntilIdle()
                 val previous = host.mount.value
                 host.callback()(ShellEvent.Reset)
@@ -77,27 +81,29 @@ class TheatreWorkbenchControllerTest {
 
     @Test
     fun rapid_a_b_a_and_delayed_write_cannot_update_the_new_selected_mount() = runTest {
-        val fresh = accepted(TheatreRecipe.select(TheatreFixture.Fresh.id, writeLatencyMs = 500L))
-        val host = TheatreWorkbenchController(this, fresh)
+        val restored = accepted(TheatreRecipe.select(TheatreFixture.Restored.id, writeLatencyMs = 500L))
+        val host = TheatreWorkbenchController(this, restored)
         val old = host.mount.value
         try {
+            advanceTimeBy(2_000L)
             runCurrent()
             val stale = host.callback()
-            stale(ShellEvent.SetSaved(DemoWorkIds.CanhBuom, true))
+            stale(ShellEvent.SetSaved(PreviewWorkIds.CanhBuom, true))
             runCurrent()
             advanceTimeBy(100L)
-            host.select(TheatreRecipe.fixture(TheatreFixture.Restored))
+            host.select(TheatreRecipe.fixture(TheatreFixture.Fresh))
             val intermediate = host.mount.value
-            host.select(fresh)
+            host.select(restored)
             stale(ShellEvent.Search("obsolete"))
-            stale(ShellEvent.SetSaved(DemoWorkIds.CanhBuom, true))
-            advanceUntilIdle()
+            stale(ShellEvent.SetSaved(PreviewWorkIds.CanhBuom, true))
+            advanceTimeBy(2_000L)
+            runCurrent()
             assertEquals(1, old.closeCount)
             assertEquals(1, intermediate.closeCount)
-            assertEquals(0L, old.database?.state?.value?.revision)
-            assertEquals(emptySet(), host.snapshot().state.savedWorks)
+            assertEquals(0, old.owners.libraryApi.mutations, "the delayed remote write died with its mount")
+            assertEquals(setOf(PreviewWorkIds.SonHa, PreviewWorkIds.DenKhua), host.snapshot().state.savedWorks)
             assertEquals("", host.snapshot().state.query)
-            assertEquals(0L, host.mount.value.database?.state?.value?.revision)
+            assertEquals(0, host.mount.value.owners.libraryApi.mutations)
             assertTrue(requireNotNull(coroutineContext[Job]).isActive)
         } finally { host.close() }
     }
@@ -112,38 +118,39 @@ class TheatreWorkbenchControllerTest {
         val stale = host.callback()
         advanceTimeBy(75L)
         runCurrent()
-        val snapshot = mounted.session.snapshot()
+        val snapshot = mounted.snapshot()
         host.close(); host.close()
         stale(ShellEvent.Search("obsolete"))
-        mounted.session.dispatch(ShellEvent.Search("obsolete"))
+        mounted.owners.shell.dispatch(ShellEvent.Search("obsolete"))
         advanceUntilIdle()
         assertEquals(1, mounted.closeCount)
-        assertEquals(snapshot, mounted.session.snapshot())
-        assertEquals(0L, mounted.database?.state?.value?.revision)
+        assertEquals(snapshot, mounted.snapshot())
+        assertEquals(0, mounted.owners.libraryApi.mutations)
         assertTrue(requireNotNull(coroutineContext[Job]).isActive)
     }
 
     @Test
     fun externally_injected_owner_is_not_closed_or_relabelled_by_lifecycle_controls() = runTest {
-        val app = mockAppContainer(this)
-        val host = TheatreWorkbenchController(this, injectedContainer = app)
+        val owners = PreviewOwners(backgroundScope, PreviewSeed(previewState(
+            selectedEpisode = PreviewEpisodeIds.SonHa03, positionMs = 768_000L)), previewLibraryStore())
+        val host = TheatreWorkbenchController(this, injectedOwners = owners)
         val borrowed = host.mount.value
         try {
-            advanceUntilIdle()
-            val before = borrowed.session.snapshot()
+            settle()
+            val before = borrowed.snapshot()
             host.select(TheatreRecipe.fixture(TheatreFixture.Restored))
             host.resetToSelected(); host.replay(); host.recreate(); host.restore(host.snapshot())
-            advanceUntilIdle()
+            settle()
             assertSame(borrowed, host.mount.value)
-            assertEquals(before, borrowed.session.snapshot())
+            assertEquals(before, borrowed.snapshot())
             assertEquals(5, host.eventLog.value.size)
             assertTrue(host.eventLog.value.all { it.endsWith("owner is externally injected") })
             host.close(); host.close()
-            app.playback.dispatch(PlaybackEvent.SeekRequested(42_000L))
-            advanceUntilIdle()
-            assertEquals(42_000L, app.playback.state.value.session?.positionMs)
+            owners.runtime.listening.playback.dispatch(PlaybackEvent.SeekRequested(42_000L))
+            settle()
+            assertEquals(42_000L, owners.runtime.listening.playback.state.value.session?.positionMs)
             assertEquals(1, borrowed.closeCount)
-        } finally { host.close(); app.close() }
+        } finally { host.close(); owners.close() }
     }
 
     @Test
@@ -153,9 +160,9 @@ class TheatreWorkbenchControllerTest {
         val recipe = TheatreRecipe.fixture(TheatreFixture.Restored, settings)
         val host = TheatreWorkbenchController(this, recipe, systemIsDark = true)
         try {
-            advanceUntilIdle()
+            settle()
             host.callback()(ShellEvent.Search("Sơn Hà"))
-            host.callback()(ShellEvent.SelectLibrary(ShellLibraryTab.Bookmarks))
+            host.callback()(ShellEvent.SelectLibrary(ShellLibraryTab.Saved))
             host.callback()(ShellEvent.SetTimer(ShellTimer.Thirty))
             val before = host.snapshot().state
             val payload = assertIs<TheatreSnapshotExport.Exported>(encodeTheatreSnapshot(host.snapshot())).text
@@ -166,11 +173,11 @@ class TheatreWorkbenchControllerTest {
             assertFalse(payload.contains("/Users/"))
             assertFalse(payload.contains("credential"))
             host.recreate()
-            advanceUntilIdle()
+            settle()
             assertEquals(before, host.snapshot().state)
             host.resetToSelected()
             host.restore(decoded)
-            advanceUntilIdle()
+            settle()
             assertEquals(before, host.snapshot().state)
         } finally { host.close() }
     }
@@ -182,13 +189,13 @@ class TheatreWorkbenchControllerTest {
             advanceUntilIdle()
             val before = host.mount.value
             val payload = assertIs<TheatreSnapshotExport.Exported>(encodeTheatreSnapshot(host.snapshot())).text
-            assertIs<TheatreSnapshotResult.UnsupportedVersion>(decodeTheatreSnapshot(payload.replace("\"version\": 1", "\"version\": 2")))
+            assertIs<TheatreSnapshotResult.UnsupportedVersion>(decodeTheatreSnapshot(payload.replace("\"version\": 2", "\"version\": 3")))
             assertIs<TheatreSnapshotResult.UnknownRecipe>(decodeTheatreSnapshot(payload.replace("theatre-fresh-v1", "unknown-recipe")))
             listOf("", "[]", "{}", "not json", payload.replace("\"widthDp\": 390", "\"widthDp\": -1"),
                 payload.replace("\"seed\": 1", "\"seed\": 2"),
                 payload.replace("\"positionMs\": 0", "\"positionMs\": 999999999"),
                 payload.replace("\"queryId\": \"empty\"", "\"queryId\": \"/Users/private\""),
-                payload.replace("\"version\": 1", "\"secret\": \"x\", \"version\": 1")
+                payload.replace("\"version\": 2", "\"secret\": \"x\", \"version\": 2")
             ).forEach { assertIs<TheatreSnapshotResult.Invalid>(decodeTheatreSnapshot(it)) }
             assertSame(before, host.mount.value)
             assertIs<TheatreRecipeResult.UnknownRecipe>(TheatreRecipe.select("missing"))
@@ -197,16 +204,16 @@ class TheatreWorkbenchControllerTest {
     }
 
     @Test
-    fun offline_is_an_explicit_unavailable_catalog_and_write_simulation() = runTest {
+    fun offline_is_an_unreachable_catalog_and_remote_library_with_durable_pending_writes() = runTest {
         val host = TheatreWorkbenchController(this, TheatreRecipe.fixture(TheatreFixture.Offline))
         try {
             advanceUntilIdle()
-            host.callback()(ShellEvent.SetSaved(DemoWorkIds.SonHa, true))
+            host.callback()(ShellEvent.SetSaved(PreviewWorkIds.SonHa, true))
             advanceUntilIdle()
+            val owners = host.mount.value.owners
             assertEquals(com.cantos.theatre.presentation.model.ShellCatalogMode.Error, host.snapshot().state.catalogMode)
-            assertEquals(emptySet(), host.snapshot().state.savedWorks)
-            assertEquals(ShellListeningFailure.MemoryStoreUnavailable, host.snapshot().state.listeningFailure)
-            assertEquals(1L, host.mount.value.database?.state?.value?.refusedWrites)
+            assertEquals(0, owners.libraryApi.mutations, "the unreachable remote accepted nothing")
+            assertTrue(owners.shell.library.value.pending > 0, "the change is a durable intent, visibly unsent")
             assertIs<TheatreSnapshotExport.UnsupportedState>(encodeTheatreSnapshot(host.snapshot()))
         } finally { host.close() }
     }
@@ -218,7 +225,7 @@ class TheatreWorkbenchControllerTest {
             advanceUntilIdle()
             host.callback()(ShellEvent.Navigate(ShellRoute.Search))
             host.callback()(ShellEvent.Search("Đèn"))
-            host.callback()(ShellEvent.SelectLibrary(ShellLibraryTab.Bookmarks))
+            host.callback()(ShellEvent.SelectLibrary(ShellLibraryTab.Saved))
             val before = host.snapshot().state
             val originalMount = host.mount.value
             val settings = PreviewSettings(ThemeMode.System, Density.Comfortable, PreviewLocale.En, 2f,
@@ -242,19 +249,21 @@ class TheatreWorkbenchControllerTest {
 
     @Test
     fun appearance_changes_keep_the_same_owner_and_do_not_cancel_a_pending_write() = runTest {
-        val recipe = accepted(TheatreRecipe.select(TheatreFixture.Fresh.id, writeLatencyMs = 500L))
+        val recipe = accepted(TheatreRecipe.select(TheatreFixture.Restored.id, writeLatencyMs = 500L))
         val host = TheatreWorkbenchController(this, recipe)
         try {
-            advanceUntilIdle()
+            advanceTimeBy(2_000L)
+            runCurrent()
             val original = host.mount.value
-            host.callback()(ShellEvent.SetSaved(DemoWorkIds.CanhBuom, true))
+            host.callback()(ShellEvent.SetSaved(PreviewWorkIds.CanhBuom, true))
             runCurrent()
             advanceTimeBy(100L)
             host.updateSettings(recipe.settings.copy(themeMode = ThemeMode.Dark, fontScale = 1.3f))
             assertSame(original, host.mount.value)
-            advanceUntilIdle()
-            assertEquals(setOf(DemoWorkIds.CanhBuom), host.snapshot().state.savedWorks)
-            assertEquals(1L, original.database?.state?.value?.revision)
+            advanceTimeBy(2_000L)
+            runCurrent()
+            assertEquals(setOf(PreviewWorkIds.SonHa, PreviewWorkIds.DenKhua, PreviewWorkIds.CanhBuom), host.snapshot().state.savedWorks)
+            assertEquals(1, original.owners.libraryApi.mutations)
             assertEquals(0, original.closeCount)
         } finally { host.close() }
     }
@@ -293,4 +302,7 @@ class TheatreWorkbenchControllerTest {
     }
 
     private fun accepted(result: TheatreRecipeResult): TheatreRecipe = assertIs<TheatreRecipeResult.Accepted>(result).recipe
+
+    /** Settles owner work without running the armed 30 minute sleep timer to completion. */
+    private fun kotlinx.coroutines.test.TestScope.settle() { advanceTimeBy(1_000L); runCurrent() }
 }

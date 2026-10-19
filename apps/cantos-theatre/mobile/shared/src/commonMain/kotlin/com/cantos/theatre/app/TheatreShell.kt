@@ -66,10 +66,12 @@ class TheatreShell(
     private val searchDebounceMs: Long = 350,
     /** Sleep-timer durations, replaceable only by tests. */
     private val timerMinutesMs: (ShellTimer) -> Long = { if (it == ShellTimer.Fifteen) 15 * 60_000L else 30 * 60_000L },
+    /** Membership starts unavailable; only a diagnostic host (the Desktop Preview) supplies a fixture. */
+    initialMembership: MembershipState = MembershipState.unavailable(),
 ) {
     private val mutableNavigation = MutableStateFlow(NavigationState())
     val navigation: StateFlow<NavigationState> = mutableNavigation.asStateFlow()
-    private val mutableUi = MutableStateFlow(TheatreUiInputs())
+    private val mutableUi = MutableStateFlow(TheatreUiInputs(membership = initialMembership))
     val ui: StateFlow<TheatreUiInputs> = mutableUi.asStateFlow()
     private val mutableKnown = MutableStateFlow(KnownCatalog())
     val known: StateFlow<KnownCatalog> = mutableKnown.asStateFlow()

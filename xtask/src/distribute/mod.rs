@@ -27,7 +27,8 @@ use anyhow::Result;
 use clap::{Args, Subcommand};
 
 use crate::{
-    capture::SystemCapture, command::Runner, theatre_demo, tools::ToolProbe, workspace::Workspace,
+    capture::SystemCapture, command::Runner, mobile_toolchain, tools::ToolProbe,
+    workspace::Workspace,
 };
 use request::{
     AppIdResolution, ArtifactKind, Channel, Configuration, Raw, Target, APP_ID_ENV, CERT_ENV,
@@ -214,8 +215,8 @@ fn build_command(
     issuer: Option<&str>,
 ) -> crate::command::CommandSpec {
     match policy {
-        request::Policy::DemoApk => theatre_demo::android_command(workspace),
-        request::Policy::DemoQaApk => theatre_demo::android_qa_command(workspace),
+        request::Policy::DemoApk => mobile_toolchain::android_command(workspace),
+        request::Policy::DemoQaApk => mobile_toolchain::android_qa_command(workspace),
         request::Policy::ProductionApk => crate::theatre_host::gradle_debug_identity_command(
             workspace,
             origin.unwrap_or_default(),
@@ -476,7 +477,7 @@ mod tests {
 
     /// Host-capable check of the local half only: the installed Android tools against a
     /// real, freshly built demo APK. It starts no Firebase process and makes no remote request.
-    /// Run: `cargo xtask theatre-demo android-build` then
+    /// Run: `cargo xtask theatre-host android-debug --api-origin ORIGIN` then
     /// `cargo test -p xtask --locked -- --ignored --nocapture installed_android_tools`.
     #[test]
     #[ignore = "needs a built demo APK and an installed Android SDK"]
@@ -504,7 +505,7 @@ mod tests {
         let sdk = host
             .android_sdk()
             .expect("ANDROID_HOME or ANDROID_SDK_ROOT");
-        let build_tools = sdk.join(theatre_demo::ANDROID_BUILD_TOOLS);
+        let build_tools = sdk.join(mobile_toolchain::ANDROID_BUILD_TOOLS);
         let metadata = host.read_output_metadata(policy).expect("a built variant");
         let declared = parse_output_metadata(&metadata, policy).unwrap();
         let run = host.create_run().unwrap();

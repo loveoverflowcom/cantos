@@ -90,7 +90,7 @@ component checkpoints and final handoff. Refresh observations affected by later 
 whole matrix after every padding adjustment. Shared component qualification still precedes
 first real app adoption under the [preview owner](../../cantos-ui-design/references/preview-catalog.md).
 CMP desktop/preview gates are not fully provisioned in GitHub CI: retain applicable local
-`cargo xtask ui-preview cmp verify` / `cargo xtask theatre-demo verify` evidence and required
+`cargo xtask ui-preview cmp verify` / `cargo xtask theatre-preview verify` evidence and required
 renderer observations. Reuse them only with matching inputs; a Rust/Web CI pass, host render or
 screenshot never supplies Android/iOS runtime, native playback or screen-reader acceptance.
 

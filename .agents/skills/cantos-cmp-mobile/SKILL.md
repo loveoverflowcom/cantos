@@ -57,11 +57,10 @@ and never infer client/device acceptance from model simulation.
   consumer, and no Android/iOS reduce-motion adapter; the pinned Material3 1.8.2 has no
   `MotionScheme`. Method and labels: [motion.md](../cantos-ui-design/references/motion.md).
 - Discover commands from the [mock guide](../../../apps/cantos-theatre/mobile/README.md#local-commands)
-  and [xtask](../../../xtask/README.md#theatre-demo). `theatre-demo verify` runs common/desktop
-  tests in both modules, Android build makes a mock APK and iOS build only links a simulator framework.
-  Neither linking nor host tests establish native runtime evidence. Both Theatre mock and
-  `ui-system-cmp` have real Android preview wrappers; capture additionally needs CLI/Quail 2+
-  readiness. No native runtime test gate exists.
+  and [xtask](../../../xtask/README.md#theatre-preview). `theatre-preview verify` runs common/desktop
+  tests in both modules (the sandbox is JVM-desktop only; there is no Android or iOS mock host). Host
+  tests establish no native runtime evidence. Only `ui-system-cmp` has Android preview wrappers
+  (Theatre has none, #287); capture additionally needs CLI/Quail 2+ readiness. No native runtime test gate exists.
 - Unadopted libraries (Media3, AVFoundation wrappers, Ktor, SQLDelight, Room KMP,
   WorkManager, Kotest, Roborazzi …) remain **candidates**. Check the actual Gradle pins; do not
   describe existing coroutines/test dependencies as proposals. Adoption needs the ADR listed in

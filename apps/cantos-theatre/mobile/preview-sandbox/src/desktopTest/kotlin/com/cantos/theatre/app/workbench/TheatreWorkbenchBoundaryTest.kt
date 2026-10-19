@@ -10,7 +10,7 @@ class TheatreWorkbenchBoundaryTest {
     @Test
     fun workbench_stays_in_desktop_sources_and_only_imports_the_shared_settings_directory() {
         val module = File(System.getProperty("user.dir"))
-        listOf("commonMain", "androidMain", "iosMain").forEach { sourceSet ->
+        listOf("commonMain").forEach { sourceSet ->
             val sourceRoot = File(module, "src/$sourceSet")
             assertTrue(sourceRoot.isDirectory, "$sourceSet sources must exist before inspection")
             val files = sourceRoot.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
@@ -21,7 +21,13 @@ class TheatreWorkbenchBoundaryTest {
                 assertFalse(source.contains("com.cantos.ui.preview.workbench"), "Preview settings leaked into $file")
             }
         }
+        // The sandbox is JVM desktop only: native source sets and targets must not exist (#287).
+        listOf("androidMain", "iosMain").forEach { sourceSet ->
+            assertFalse(File(module, "src/$sourceSet").exists(), "$sourceSet must not exist in the JVM-only sandbox")
+        }
         val gradle = File(module, "build.gradle.kts").readText()
+        listOf("androidTarget", "iosArm64", "iosSimulatorArm64", "com.android.library", "CantosTheatreDemo", "kotlin.native.home")
+            .forEach { assertFalse(gradle.contains(it), "Sandbox build must not mention $it") }
         val settingsImport = "kotlin.srcDir(rootProject.file(\"../../../packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/workbench/settings\"))"
         assertTrue(gradle.substringAfter("val desktopMain by getting").substringBefore("val desktopTest by getting").contains(settingsImport))
         val shared = File(module.parentFile, "shared/build.gradle.kts")

@@ -117,7 +117,7 @@ mod tests {
             full.difference(&ci).copied().collect::<Vec<_>>(),
             [
                 GateKind::CmpUiPreview,
-                GateKind::TheatreCmpDemo,
+                GateKind::TheatreCmpPreview,
                 GateKind::Mutation
             ],
             "mutation stays opt-in; local CMP gates need a provisioned Gradle CI lane"

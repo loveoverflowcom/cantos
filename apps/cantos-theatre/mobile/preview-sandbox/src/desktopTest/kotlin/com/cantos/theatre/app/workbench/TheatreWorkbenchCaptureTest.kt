@@ -1,5 +1,6 @@
 package com.cantos.theatre.app.workbench
 
+import com.cantos.theatre.app.PreviewTheatreApp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.remember
@@ -90,22 +91,22 @@ class TheatreWorkbenchCaptureTest {
             onNodeWithTag("search-input").performClick().performTextInputSelection(TextRange(1, 3))
             onNodeWithTag("search-input").assertIsFocused()
             val original = controller.mount.value
-            val app = original.session.container
-            val playback = app.playback.state.value
-            val listening = app.listening.state.value
-            val navigation = app.navigation.value
-            val account = app.accountState.value
-            val membership = original.session.ui.value.membership
+            val owners = original.owners
+            val playback = owners.runtime.listening.playback.state.value
+            val library = owners.shell.library.value
+            val navigation = owners.shell.navigation.value
+            val account = owners.account.state.value
+            val membership = owners.shell.ui.value.membership
             runOnIdle { controller.updateSettings(controller.selectedRecipe.settings.copy(themeMode = ThemeMode.Dark, locale = PreviewLocale.En)) }
             waitForIdle()
             kotlin.test.assertSame(original, controller.mount.value)
             assertEquals(ShellLocale.English, controller.snapshot().state.locale)
             assertEquals(ShellTheme.Dark, controller.snapshot().state.theme)
-            assertEquals(playback, app.playback.state.value)
-            assertEquals(listening, app.listening.state.value)
-            assertEquals(navigation, app.navigation.value)
-            assertEquals(account, app.accountState.value)
-            assertEquals(membership, original.session.ui.value.membership)
+            assertEquals(playback, owners.runtime.listening.playback.state.value)
+            assertEquals(library, owners.shell.library.value)
+            assertEquals(navigation, owners.shell.navigation.value)
+            assertEquals(account, owners.account.state.value)
+            assertEquals(membership, owners.shell.ui.value.membership)
             onNodeWithTag("search-input").assertIsFocused()
             assertEquals(TextRange(1, 3), onNodeWithTag("search-input").fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange])
             assertEquals("Sơn Hà", controller.snapshot().state.query)
@@ -141,7 +142,7 @@ class TheatreWorkbenchCaptureTest {
             File(output, "$name.semantics.txt").writeText(onNodeWithTag("workbench-capture", useUnmergedTree = true).printToString(maxDepth = 100))
             val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
             File(output, "$name.json").writeText("""
-                {"renderer":"JVM Desktop Compose UI test","entrypoint":"TheatreWorkbench → CantosDemoApp",
+                {"renderer":"JVM Desktop Compose UI test","entrypoint":"TheatreWorkbench → PreviewTheatreApp → CantosTheatreApp",
                  "recipe":"${fixture.id}","seed":1,"windowWidthDp":1200,"windowHeightDp":1000,
                  "constraintWidthDp":${settings.constraints.widthDp},"constraintHeightDp":${settings.constraints.heightDp},
                  "rendererDensity":$density,"requestedAppTextScale":${settings.fontScale},

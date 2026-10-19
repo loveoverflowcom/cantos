@@ -12,8 +12,8 @@ use crate::{
     kani::Kernel,
     run::{AppTarget, RunTarget},
     seed::{SeedOptions, SeedTarget},
-    theatre_demo::DemoAction,
     theatre_host::HostAction,
+    theatre_preview::TheatrePreviewAction,
     ui_preview::{PreviewAction, Renderer},
 };
 
@@ -137,10 +137,13 @@ pub enum Task {
         #[command(subcommand)]
         action: PreviewAction,
     },
-    /// Build, verify or run the isolated Theatre mock UI; no API or audio playback.
-    TheatreDemo {
+    /// Build, verify or run the Theatre Desktop Preview: the one app over mock external ports on
+    /// the JVM; no API, audio, native device or mobile preview host. `theatre-demo` is the
+    /// historical name and runs the same Desktop Preview.
+    #[command(name = "theatre-preview", visible_alias = "theatre-demo")]
+    TheatrePreview {
         #[command(subcommand)]
-        action: DemoAction,
+        action: TheatrePreviewAction,
     },
     /// Build and inspect the production Theatre Android host's release APK/AAB; it composes
     /// `:shared` only. Nothing is signed, installed or distributed.
@@ -606,27 +609,29 @@ mod tests {
     }
 
     #[test]
-    fn theatre_demo_keeps_mock_and_native_actions_explicit() {
+    fn theatre_preview_is_desktop_only_and_its_historical_name_routes_to_it() {
         for (verb, action) in [
-            ("build", DemoAction::Build),
-            ("verify", DemoAction::Verify),
-            ("run", DemoAction::Run),
-            ("android-build", DemoAction::AndroidBuild),
+            ("build", TheatrePreviewAction::Build),
+            ("verify", TheatrePreviewAction::Verify),
+            ("run", TheatrePreviewAction::Run),
+            ("android-build", TheatrePreviewAction::AndroidBuild),
+            ("ios-build", TheatrePreviewAction::IosBuild),
         ] {
-            assert!(matches!(
-                parse(&format!("theatre-demo {verb}")).unwrap(),
-                Task::TheatreDemo { action: parsed } if parsed == action
-            ));
+            for name in ["theatre-preview", "theatre-demo"] {
+                assert!(
+                    matches!(
+                        parse(&format!("{name} {verb}")).unwrap(),
+                        Task::TheatrePreview { action: parsed } if parsed == action
+                    ),
+                    "{name} {verb}"
+                );
+            }
         }
-        assert!(matches!(
-            parse("theatre-demo ios-build --kotlin-native-home /tmp/kotlin-native").unwrap(),
-            Task::TheatreDemo { action: DemoAction::IosBuild { kotlin_native_home } }
-                if kotlin_native_home == std::path::Path::new("/tmp/kotlin-native")
-        ));
         for line in [
-            "theatre-demo",
-            "theatre-demo ios-build",
-            "theatre-demo run --open",
+            "theatre-preview",
+            "theatre-preview ios-build --kotlin-native-home /tmp/kotlin-native",
+            "theatre-preview run --open",
+            "theatre-preview deploy",
             "theatre-demo deploy",
         ] {
             assert!(parse(line).is_err(), "{line}");

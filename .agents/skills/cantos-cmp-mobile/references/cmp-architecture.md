@@ -27,9 +27,9 @@ Feature packages cannot manipulate another feature's internal state. No circular
 | Domain | shared `domain/playback`: `PlaybackState`, `PlaybackEvent`, `PlaybackEffect`, `reducePlayback`; `domain/publication` and `domain/listening` hold catalog/listening values and rules; synthetic corpus belongs to the sandbox |
 | Application | `application/{playback,catalog,listening,preferences}`: independent authorities, event processing and effect interpretation |
 | Ports | `ports/{MediaEngine,CatalogPort,ProgressPort}`: required capabilities, no vendor implementations |
-| Adapters / infrastructure | sandbox `adapters/mock` and `adapters/mock/sandbox/{database,sessions}`: mock acknowledgements, synthetic fixtures and memory storage; shared HTTP/identity adapters remain separate; native audio/durable storage is absent |
-| Presentation | shared `features/shell/presentation/CantosPresentation.kt` renders neutral immutable models/intents from the `presentation/model` leaf consumed by shell/auth/Membership; sandbox `app/CantosDemoApp.kt` and `DemoShellPresentation.kt` bind diagnostic projections/intents/slots to that same UI |
-| Composition root | shared `app/AppContainer.kt` requires injected owners/ports/start state; sandbox `mockAppContainer` selects mocks explicitly; Android `CantosDemoApplication`, sandbox iOS `MainViewController`/SwiftUI owner and desktop host supply demo lifetimes |
+| Adapters / infrastructure | sandbox `adapters/preview`: mock EXTERNAL ports (catalog, playback access, decoder stand-in, identity transport, remote Library API) over synthetic UUID fixtures, while the Library store is the production SQLite on an in-memory database; shared HTTP/identity adapters remain separate; native audio/durable storage is absent |
+| Presentation | shared `features/shell/presentation/CantosPresentation.kt` renders neutral immutable models/intents from the `presentation/model` leaf consumed by shell/auth/Membership; the sandbox mounts `CantosTheatreApp` itself (`PreviewTheatreApp`) and adds only artwork and Membership-fixture slots |
+| Composition root | hosts construct the same owners and `TheatreShell`: Android `AndroidProductionOwner`, iOS `IosCatalogOwner`, and the sandbox `PreviewOwners` (mock external ports only) for the Desktop Preview |
 
 Good Kotlin: `fun reducePlayback(state: PlaybackState, event: PlaybackEvent): PlaybackTransition`
 uses plain domain values. Counterexample: `domain/playback` importing `android.media.*`,
@@ -83,7 +83,7 @@ remain in `androidMain` / `iosMain` or Swift.
 The implementation keeps ARC-01's production-safe UI/domain/application/ports in `:shared` and
 mock adapters, fixtures, previews, diagnostic composition and workbench in `:preview-sandbox`.
 The sandbox depends on shared; shared has no reverse dependency or implicit mock fallback.
-The desktop and iOS `CantosDemo` hosts are demo hosts; Android has no mock host. The one Android application `androidApp`
+The Desktop Preview is the only mock host; Android and iOS have none (#286, #287). The one Android application `androidApp`
 consumes shared plus production adapters only (`CantosTheatreApp` over the live catalog, account,
 Library and native player; without an API origin it renders an explicit unavailable state) and establishes release graph and actual APK/AAB exclusion independently
 through `cargo xtask theatre-host android-release`. Build/verify integrate

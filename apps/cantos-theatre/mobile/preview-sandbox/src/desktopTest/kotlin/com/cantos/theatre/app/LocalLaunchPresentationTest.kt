@@ -1,8 +1,12 @@
 package com.cantos.theatre.app
 
-import com.cantos.theatre.demo.demoState
-import com.cantos.theatre.demo.DemoWorkIds
-import com.cantos.theatre.demo.DemoEpisodeIds
+import com.cantos.theatre.app.PreviewOwners
+import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.PreviewTestRoot
+import com.cantos.theatre.app.PreviewTheatreApp
+import com.cantos.theatre.adapters.preview.PreviewWorkIds
+import com.cantos.theatre.adapters.preview.previewLibraryStore
+import com.cantos.theatre.app.previewState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.material3.Text
@@ -16,6 +20,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.printToString
@@ -45,7 +50,7 @@ class LocalLaunchPresentationTest {
             mainClock.autoAdvance = false
             setContent {
                 CantosLocalLaunch(localReady = true, preferences = UiPreferences()) {
-                    CantosDemoApp(initialState = demoState(catalogMode = ShellCatalogMode.Error))
+                    PreviewTestRoot(PreviewSeed(previewState(catalogMode = ShellCatalogMode.Error)))
                 }
             }
             onNodeWithTag("local-launch").assertDoesNotExist()
@@ -83,17 +88,19 @@ class LocalLaunchPresentationTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 val scope = rememberCoroutineScope()
-                val container = remember { mockAppContainer(scope, demoState(stack = listOf(ShellRoute.Discovery, ShellRoute.Work(DemoWorkIds.SonHa)))) }
-                DisposableEffect(container) { onDispose { container.close() } }
+                val owners = remember {
+                    PreviewOwners(scope, PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Work(PreviewWorkIds.SonHa)))), previewLibraryStore())
+                }
+                DisposableEffect(owners) { onDispose { owners.close() } }
                 if (mounted.value) CantosLocalLaunch(true, UiPreferences()) {
-                    CantosDemoApp(appContainer = container)
+                    PreviewTheatreApp(owners)
                 }
             }
-            onNodeWithText("Sơn Hà Ký").assertExists()
+            waitUntil { onAllNodesWithText("Sơn Hà Ký").fetchSemanticsNodes().isNotEmpty() }
             runOnIdle { mounted.value = false }
             runOnIdle { mounted.value = true }
             onNodeWithTag("local-launch").assertDoesNotExist()
-            onNodeWithText("Sơn Hà Ký").assertExists()
+            waitUntil { onAllNodesWithText("Sơn Hà Ký").fetchSemanticsNodes().isNotEmpty() }
         }
     }
 

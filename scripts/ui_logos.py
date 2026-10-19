@@ -15,7 +15,7 @@ ASSETS = ROOT / "packages/ui-system/shared/assets/cantos-logo-kit-v2"
 CMP_OUTPUT = ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosLogos.kt"
 MOBILE = ROOT / "apps/cantos-theatre/mobile"
 ANDROID_RES = MOBILE / "androidApp/src/main/res"
-IOS_ICONS = MOBILE / "iosApp/CantosDemo/Assets.xcassets/AppIcon.appiconset"
+IOS_ICONS = MOBILE / "iosApp/Cantos/Assets.xcassets/AppIcon.appiconset"
 LAUNCHER_PROVENANCE = MOBILE / "launcher-icons.provenance.json"
 ANDROID_NAMESPACE = "http://schemas.android.com/apk/res/android"
 # Native layout only: keep the original paths and stroke widths; the OS owns the tile mask.
