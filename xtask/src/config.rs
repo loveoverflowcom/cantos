@@ -30,6 +30,11 @@ pub const FORGE_PACKAGE: &str = "cantos-forge";
 /// The opt-in experimental DBSP incremental core of the API; off in every other gate and build.
 pub const DBSP_FEATURE: &str = "dbsp-experimental";
 pub const UI_PACKAGE: &str = "cantos-ui";
+/// Theatre Web's package and its opt-in development-preview feature (`?mode=mock` and siblings).
+/// Production, release and deploy builds never enable it; tests, lint and `TRUNK_BUILD_FEATURES`
+/// development runs do.
+pub const THEATRE_WEB_PACKAGE: &str = "cantos-theatre";
+pub const THEATRE_PREVIEW_FEATURE: &str = "cantos-theatre/preview";
 pub const API_SERVER_BIN: &str = "cantos-server";
 pub const API_PORT: u16 = 8080;
 /// Written by `scripts/test_postgres.py --keep`; read by `scripts/serve_studio.py`.

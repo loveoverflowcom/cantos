@@ -6,7 +6,9 @@ use crate::{
 };
 use cantos_contracts::{
     routes::THEATRE_BASE,
-    theatre::{ListenerError, ListenerErrorCode, UnitKind, UnitPage, WorkSummary},
+    theatre::{
+        ListenerError, ListenerErrorCode, PresentedUnitPage, PresentedWorkSummary, UnitKind,
+    },
 };
 
 // One legal Work: 512-byte title, 16 KiB description and short language, with worst-case
@@ -16,13 +18,16 @@ const MAX_WORK_BYTES: usize = 262_144;
 const MAX_PAGE_BYTES: usize = 2_097_152;
 const MAX_ERROR_BYTES: usize = 4_096;
 
+/// Both reads opt in to the presentation capability, so the Work carries its public
+/// `unit_count` and every unit its `ordinal`; the strict v1 DTOs are never extended.
 pub fn work_path(work: PublicWorkId) -> String {
-    format!("{THEATRE_BASE}/works/{work}")
+    format!("{THEATRE_BASE}/works/{work}?presentation=1")
 }
 
 /// The cursor is opaque: it is only form-encoded, never parsed or persisted.
 pub fn units_path(work: PublicWorkId, cursor: Option<&str>) -> String {
-    let mut path = format!("{THEATRE_BASE}/works/{work}/units?limit={UNIT_PAGE_LIMIT}");
+    let mut path =
+        format!("{THEATRE_BASE}/works/{work}/units?limit={UNIT_PAGE_LIMIT}&presentation=1");
     if let Some(cursor) = cursor {
         path.push_str("&cursor=");
         path.extend(url::form_urlencoded::byte_serialize(cursor.as_bytes()));
@@ -68,7 +73,7 @@ pub fn decode_work(
     content_type: Option<&str>,
     body: &[u8],
     expected: PublicWorkId,
-) -> Result<WorkSummary, CatalogReadError> {
+) -> Result<PresentedWorkSummary, CatalogReadError> {
     if status != 200 {
         return Err(match classify_error(status, content_type, body) {
             // The detail read sends no cursor.
@@ -79,7 +84,8 @@ pub fn decode_work(
     if body.len() > MAX_WORK_BYTES || !is_json(content_type) {
         return Err(CatalogReadError::Protocol);
     }
-    let work: WorkSummary = serde_json::from_slice(body).map_err(|_| CatalogReadError::Protocol)?;
+    let work: PresentedWorkSummary =
+        serde_json::from_slice(body).map_err(|_| CatalogReadError::Protocol)?;
     if !validate_work(&work, expected) {
         return Err(CatalogReadError::Protocol);
     }
@@ -93,7 +99,7 @@ pub fn decode_units(
     work: PublicWorkId,
     kind: UnitKind,
     cursor_sent: bool,
-) -> Result<UnitPage, CatalogReadError> {
+) -> Result<PresentedUnitPage, CatalogReadError> {
     if status != 200 {
         return match classify_error(status, content_type, body) {
             // Page one carries no cursor, so it cannot be an invalid cursor.
@@ -104,7 +110,8 @@ pub fn decode_units(
     if body.len() > MAX_PAGE_BYTES || !is_json(content_type) {
         return Err(CatalogReadError::Protocol);
     }
-    let page: UnitPage = serde_json::from_slice(body).map_err(|_| CatalogReadError::Protocol)?;
+    let page: PresentedUnitPage =
+        serde_json::from_slice(body).map_err(|_| CatalogReadError::Protocol)?;
     if !validate_page(&page, work, kind) {
         return Err(CatalogReadError::Protocol);
     }
@@ -112,7 +119,10 @@ pub fn decode_units(
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn get(path: &str, limit: usize) -> Result<(u16, Option<String>, Vec<u8>), CatalogReadError> {
+pub(super) async fn get(
+    path: &str,
+    limit: usize,
+) -> Result<(u16, Option<String>, Vec<u8>), CatalogReadError> {
     use gloo_net::http::Request;
     use web_sys::{AbortController, RequestCredentials};
 
@@ -146,7 +156,7 @@ async fn get(path: &str, limit: usize) -> Result<(u16, Option<String>, Vec<u8>),
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn load_work(work: PublicWorkId) -> Result<WorkSummary, CatalogReadError> {
+pub async fn load_work(work: PublicWorkId) -> Result<PresentedWorkSummary, CatalogReadError> {
     let (status, content_type, body) = get(&work_path(work), MAX_WORK_BYTES).await?;
     decode_work(status, content_type.as_deref(), &body, work)
 }
@@ -154,7 +164,7 @@ pub async fn load_work(work: PublicWorkId) -> Result<WorkSummary, CatalogReadErr
 #[cfg(target_arch = "wasm32")]
 pub async fn load_units(
     ticket: &crate::application::public_work::PageTicket,
-) -> Result<UnitPage, CatalogReadError> {
+) -> Result<PresentedUnitPage, CatalogReadError> {
     let (status, content_type, body) =
         get(&units_path(ticket.work(), ticket.cursor()), MAX_PAGE_BYTES).await?;
     decode_units(
@@ -172,10 +182,12 @@ mod tests {
     use super::*;
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
-    const WORKS: &str =
-        include_str!("../../../../../packages/contracts/fixtures/theatre/discovery/v1/works.json");
-    const UNITS: &str =
-        include_str!("../../../../../packages/contracts/fixtures/theatre/discovery/v1/units.json");
+    const WORKS: &str = include_str!(
+        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_works.json"
+    );
+    const UNITS: &str = include_str!(
+        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_units.json"
+    );
     const CONTINUATION: &str = include_str!(
         "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_empty_continuation.json"
     );
@@ -209,11 +221,35 @@ mod tests {
         let page: serde_json::Value = serde_json::from_str(WORKS).unwrap();
         serde_json::to_vec(&page["items"][0]).unwrap()
     }
-    fn units(status: u16, body: &str, cursor_sent: bool) -> Result<UnitPage, CatalogReadError> {
+    /// The shared continuation/republish fixtures predate `ordinal`; rank their rows in list
+    /// order as the presentation capability does. Anything that is not such a page is untouched.
+    fn ranked(body: &str) -> String {
+        match serde_json::from_str::<serde_json::Value>(body) {
+            Ok(mut value) if value["items"].is_array() => {
+                for (index, item) in value["items"]
+                    .as_array_mut()
+                    .unwrap()
+                    .iter_mut()
+                    .enumerate()
+                {
+                    if item.get("ordinal").is_none() {
+                        item["ordinal"] = serde_json::json!(index + 1);
+                    }
+                }
+                value.to_string()
+            }
+            _ => body.to_owned(),
+        }
+    }
+    fn units(
+        status: u16,
+        body: &str,
+        cursor_sent: bool,
+    ) -> Result<PresentedUnitPage, CatalogReadError> {
         decode_units(
             status,
             JSON,
-            body.as_bytes(),
+            ranked(body).as_bytes(),
             work(),
             UnitKind::Chapter,
             cursor_sent,
@@ -224,11 +260,11 @@ mod tests {
     fn paths_use_the_theatre_group_canonical_id_and_an_encoded_opaque_cursor() {
         assert_eq!(
             work_path(work()),
-            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001"
+            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001?presentation=1"
         );
         assert_eq!(
             units_path(work(), None),
-            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/units?limit=20"
+            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/units?limit=20&presentation=1"
         );
         assert!(units_path(work(), Some("lc1_a+b/c=&d")).ends_with("&cursor=lc1_a%2Bb%2Fc%3D%26d"));
     }

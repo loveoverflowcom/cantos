@@ -1,4 +1,5 @@
 //! Browser navigation, focus and presentation geometry, plus the one audio element in `audio`.
+#[cfg(feature = "preview")]
 use crate::app::routes::Route;
 use leptos::prelude::*;
 
@@ -73,6 +74,7 @@ pub(crate) fn bind_mini_player_clearance(bar: NodeRef<leptos::html::Aside>) {
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn bind_mini_player_clearance(_bar: NodeRef<leptos::html::Aside>) {}
 
+#[cfg(feature = "preview")]
 #[cfg(target_arch = "wasm32")]
 pub fn bind_navigation(route: RwSignal<Route>, main: NodeRef<leptos::html::Main>) {
     use leptos::{leptos_dom::helpers::window_event_listener_untyped, web_sys};
@@ -96,9 +98,11 @@ pub fn bind_navigation(route: RwSignal<Route>, main: NodeRef<leptos::html::Main>
     on_cleanup(move || listener.remove());
 }
 
+#[cfg(feature = "preview")]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn bind_navigation(_route: RwSignal<Route>, _main: NodeRef<leptos::html::Main>) {}
 
+#[cfg(feature = "preview")]
 pub fn navigate(route: RwSignal<Route>, destination: Route) {
     #[cfg(target_arch = "wasm32")]
     {
@@ -123,6 +127,7 @@ pub fn focus_main(main: NodeRef<leptos::html::Main>) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn focus_main(_main: NodeRef<leptos::html::Main>) {}
 
+#[cfg(feature = "preview")]
 #[cfg(target_arch = "wasm32")]
 pub fn focus_input(input: NodeRef<leptos::html::Input>) {
     if let Some(element) = input.get_untracked() {
@@ -130,9 +135,11 @@ pub fn focus_input(input: NodeRef<leptos::html::Input>) {
     }
 }
 
+#[cfg(feature = "preview")]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn focus_input(_input: NodeRef<leptos::html::Input>) {}
 
+#[cfg(feature = "preview")]
 #[cfg(target_arch = "wasm32")]
 pub fn focus_button(button: NodeRef<leptos::html::Button>) {
     if let Some(element) = button.get_untracked() {
@@ -140,6 +147,7 @@ pub fn focus_button(button: NodeRef<leptos::html::Button>) {
     }
 }
 
+#[cfg(feature = "preview")]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn focus_button(_button: NodeRef<leptos::html::Button>) {}
 

@@ -5,6 +5,13 @@ edition = "2021"
 rust-version = "1.98.1"
 publish = false
 
+[features]
+# Isolated development previews (`?mode=mock`, `?mode=auth-preview`, `?mode=membership-preview`):
+# sample catalog, fake player and diagnostic fixtures. Off by default, so a production bundle
+# neither compiles nor routes to them. Opt in with `--features preview` on a development build;
+# `cargo xtask` enables it for tests and lint; development builds use TRUNK_BUILD_FEATURES=preview.
+preview = []
+
 [dependencies]
 cantos-web-auth = { path = "../../../packages/web-auth" }
 uuid = { version = "=1.18.1", default-features = false, features = ["std"] }

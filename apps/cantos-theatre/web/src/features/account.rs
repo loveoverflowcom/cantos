@@ -4,14 +4,16 @@ use super::{
     auth::{label, AuthActions, SessionRecovery},
     auth_copy::CopyKey,
 };
+#[cfg(feature = "preview")]
+use crate::app::{context::TheatreContext, routes::Route};
 use crate::{
-    app::{context::TheatreContext, routes::Route},
     application::account_view::{AccountFailure, AccountViewState, LibraryPhase, SessionPhase},
     messages::{self, Key, Locale},
 };
 use cantos_ui::{Button, ButtonVariant, Space, Surface, SurfaceTone, SurfaceVariant, Theme};
 use leptos::prelude::*;
 
+#[cfg(feature = "preview")]
 /// A fact the mock cannot yet provide. It is text, never a control: nothing here pretends to work.
 #[component]
 fn StatusRow(ctx: TheatreContext, label: Key, help: Key, value: Key) -> impl IntoView {
@@ -24,6 +26,7 @@ fn StatusRow(ctx: TheatreContext, label: Key, help: Key, value: Key) -> impl Int
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 fn LinkRow(
     ctx: TheatreContext,
@@ -45,6 +48,7 @@ fn LinkRow(
     }
 }
 
+#[cfg(feature = "preview")]
 /// Identity first, then what the account can and cannot do today. State is the mock's own:
 /// there is no sign-in, sync or conflict model, so none is drawn.
 #[component]

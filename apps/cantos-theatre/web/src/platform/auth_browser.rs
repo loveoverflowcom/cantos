@@ -76,6 +76,36 @@ pub(crate) fn go(route: RwSignal<Route>, destination: Route, replace: bool) {
     route.set(destination);
 }
 
+/// Push a discovery link carrying `query`. The entry is skipped when the address already is that
+/// link, so repeating a search never stacks identical entries. `route` becomes the shown route.
+pub(crate) fn push_discovery(
+    route: RwSignal<Route>,
+    screen: Route,
+    query: &crate::application::public_discovery::DiscoveryQuery,
+) {
+    let destination = screen.discovery_hash(query);
+    #[cfg(target_arch = "wasm32")]
+    if let Some(window) = web_sys::window() {
+        if let Ok(history) = window.history() {
+            if hash() != destination {
+                let previous =
+                    web_sys::wasm_bindgen::JsValue::from_str(&route.get_untracked().hash());
+                if history
+                    .push_state_with_url(&previous, "", Some(&destination))
+                    .is_err()
+                {
+                    return;
+                }
+            }
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = &destination;
+    if route.get_untracked() != screen {
+        route.set(screen);
+    }
+}
+
 pub(crate) fn back(route: RwSignal<Route>, destination: Route) {
     #[cfg(target_arch = "wasm32")]
     if let Some(window) = web_sys::window() {

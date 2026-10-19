@@ -73,8 +73,9 @@ curl -s 'http://127.0.0.1:8082/api/v1/theatre/works?limit=20'
 ```
 
 Open `http://127.0.0.1:8082/`, choose a Work and use **Tải thêm** on _Chuyện đêm khuya_.
-`?mode=mock` and `?mode=membership-preview` remain separate offline previews; live mode never
-falls back to them.
+`?mode=mock` and `?mode=membership-preview` remain separate offline previews that exist only in a
+Web build with the opt-in `preview` feature (`TRUNK_BUILD_FEATURES=preview`); live mode never falls
+back to them, and a default or release build does not contain them.
 
 To **hear** a unit the browser must be able to open the HTTPS grant URL the API returns. Start the
 [local TLS front end](#local-tls-front-end-for-browser-playback) in a third terminal and accept its
