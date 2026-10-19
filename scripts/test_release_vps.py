@@ -16,6 +16,9 @@ import release_artifact as contract
 import release_pipeline as release
 from test_release_artifact import ORIGIN, SHA
 
+# Keep tool discovery consistent with skipUnless while clearing all CI/credential inputs.
+# Homebrew and other explicit tool installations need not live on os.defpath.
+TOOL_PATH = os.environ.get("PATH", os.defpath)
 
 def tar_bytes(path, files):
     with tarfile.open(path, "w") as archive:
@@ -61,7 +64,7 @@ def api_fixture(root):
         host="root@vps.example.org", dry_run=False)
 
 
-@patch.dict(os.environ, {}, clear=True)
+@patch.dict(os.environ, {"PATH": TOOL_PATH}, clear=True)
 class VpsTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("zstd"), "installed zstd required for actual decoder evidence")
     def test_real_zstd_frame_decodes_and_truncation_fails_before_any_ssh(self):
