@@ -136,6 +136,22 @@ class HostingReportTests(unittest.TestCase):
         value["components"]["studio-web"]["api_origin"] = "https://other.example.org"
         self.assert_reason(value, "ARTIFACT_IDENTITY_REQUIRED")
 
+    def test_url_parser_cleanup_cannot_turn_a_noncanonical_origin_into_pass(self):
+        origin = "https://api.example.org"
+        malformed = [chr(code) + origin for code in range(33)]
+        malformed.extend(origin + suffix for suffix in ("?", "#", "?#", "\t", "\r", "\n"))
+        malformed.extend("https://api." + control + "example.org" for control in ("\t", "\r", "\n"))
+        for replacement in malformed:
+            with self.subTest(origin=repr(replacement)):
+                value = record()
+                value["approved_api_origin"] = replacement
+                component = value["components"]["theatre-web"]
+                component["api_origin"] = replacement
+                component["checks"]["artifact"] = passed("compiled")
+                snapshot = copy.deepcopy(value)
+                self.assert_reason(value, "ORIGIN")
+                self.assertEqual(value, snapshot)
+
     def test_preview_or_wrong_surface_never_satisfies_final_domain_or_rollback(self):
         for check, field, replacement, reason in (
             ("final_http", "deployment_environment", "preview", "FINAL_DOMAIN_REQUIRED"),

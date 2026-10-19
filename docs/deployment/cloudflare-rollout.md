@@ -197,7 +197,7 @@ selection. These commands do not replace #277/#278's artifact validators or prov
 | Field | Meaning |
 | --- | --- |
 | `release_sha` / `config_sha` | Actual full lowercase Git SHAs of resolved release and trusted CircleCI config, independently recorded. Null means unknown; never copy config SHA into release SHA to silence a mismatch. |
-| `approved_api_origin` | Explicit reviewed HTTPS API origin; null until known. Each component's `api_origin` must match for declared PASS. Artifact configuration/policy digests and checkout SHA belong in the referenced sanitized build evidence. |
+| `approved_api_origin` | Explicit reviewed canonical `https://` plus lowercase DNS hostname; null until known. All origin fields refuse whitespace/controls, paths, ports, credentials and query/fragment delimiters, even empty ones. Each component's `api_origin` must match for declared PASS. Artifact configuration/policy digests and checkout SHA belong in the referenced sanitized build evidence. |
 | `circleci` | Actual pipeline/workflow IDs and job number (string); all required for declared build PASS. No inferred URL/`latest` or submission acknowledgement as build evidence. |
 | Component identities | Artifact digest, actual provider deployment ID/environment/returned origin, observed final origin, and distinct successful production rollback target ID/environment. Missing values stay null. The target final domains are not evidence they are active. |
 | Check `status` | Operator-declared `PASS`, `FAIL`, `BLOCKED`, `NOT_RUN` or `UNKNOWN`. UNKNOWN preserves ambiguous effects; BLOCKED names missing prerequisites in the private evidence. A valid record may contain any mixture and never promotes another row. |

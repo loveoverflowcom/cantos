@@ -78,8 +78,9 @@ def _origin(value):
     try:
         parsed = urlsplit(value)
         host = parsed.hostname
-        valid = (parsed.scheme == "https" and host and parsed.netloc == host and
-                 not parsed.path and not parsed.query and not parsed.fragment and
+        # urlsplit removes controls and loses empty query/fragment delimiters. Validate the
+        # original spelling so parser cleanup cannot change the declared origin identity.
+        valid = (host and value == "https://" + host and
                  "." in host and all(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", part)
                                      for part in host.split(".")))
         _require(valid, "ORIGIN")
