@@ -56,7 +56,7 @@ logged, persisted or fetched into a `Blob`.
   publication and compared with the pin; a different publication/rendition/SHA stops playback
   instead of switching. A `404` stops at once; `503` backs off 1/2/4 s over four attempts; an
   element failure is recovered at the last position at most three times without progress.
-- **Not covered here:** save/progress/history (#272), search and routing (#270), offline,
+- **Not covered here:** search and routing (#270), offline,
   queue, transcript, Safari/iOS and deployed CDN/CORS behavior.
 
 ## Scope and honest behavior
@@ -82,9 +82,50 @@ pages retain loaded rows; expired cursors require a fresh walk of that section. 
 and replaced/unavailable releases retain their records without borrowing another release's title.
 Logout, expiry and session change hide all private lists before new admission; late results are
 fenced by account/session and page generation. Reading/rendering/navigating never writes progress,
-Saved or history and never starts media. Connecting the retained exact position to a paused
-production player depends on [#269](https://github.com/loveoverflowcom/cantos/issues/269); progress
-writes/reconciliation remain [#272](https://github.com/loveoverflowcom/cantos/issues/272).
+Saved or history and never starts media.
+
+For a signed-in listener ([#272](https://github.com/loveoverflowcom/cantos/issues/272)), live
+Work detail, **Của tôi** and `#player` synchronize Saved Works, exact-release progress, history
+starts/clear and paused exact-release resume against `/api/v1/theatre`:
+
+- **Saved Works (`GET/PUT /library/saved/{work}`).** Work detail shows a Save/Unsave control and
+  each Saved row in **Của tôi** offers Unsave. Guests pressing Save on a Work are routed to Login
+  with a contextual Back return to that Work; guest state is never auto-merged on sign-in.
+  Concurrent Save/Unsave intentions on the same Work coalesce into a single desired boolean
+  queued behind the in-flight write, advancing `expected_revision` and `device_sequence` from
+  accepted or conflict receipts. Unsaving removes the Work from **Đã lưu** while preserving
+  progress and history.
+- **Exact-release progress (`GET/PUT /progress/{publication}`).** Only one mutation is in flight
+  per publication. Periodic `Checkpoint` writes throttle to ≥15 s and ≥5 s movement; pause,
+  route leave, `visibilitychange -> hidden`, confirmed `ExplicitSeek`, `MarkCompleted` and
+  `Restart` flush immediately. Tab close (`visibilitychange -> hidden`) triggers a best-effort
+  async flush and persists the pending operation to the account-scoped recovery journal; because
+  the browser cannot guarantee an authenticated `fetch` completes during document teardown, any
+  unacknowledged checkpoint is recovered on the next sign-in via receipt lookup.
+  Server reconciliation never uses `max(position)`: `Resolution::KeepServer` adopts the server
+  record, while `Resolution::ListenerChooses` exposes an explicit choice between the local
+  position and the server position on `#player` and **Của tôi**.
+- **History starts and clear (`POST /library/history/playback-starts`, `POST /library/history/clear`).**
+  A history start is emitted only after `HTMLAudioElement` (`EngineStarted`) acknowledges
+  playback for the current signed-in session, deduplicated per `(engine_identity, publication_id)`
+  so pause/resume or buffering on the same session never re-emits. Clearing history requires an
+  explicit confirmation step bound to the observed `HistoryState { epoch, revision }`; it clears
+  only **Lịch sử** and its cursor while leaving **Nghe tiếp**, **Đã lưu** and the active player
+  untouched.
+- **Account-scoped recovery journal (`localStorage`).** Pending mutations and the per-account
+  `device_id` / `next_device_sequence` counter are stored under `cantos.theatre.sync.v1.<actor_id>`.
+  The journal never stores Bearer tokens, session cookies or signed media URLs. After an
+  unknown outcome (`503`/timeout/reload), recovery queries `GET /operations/{operation_id}`
+  first, reuses the exact immutable `OperationEnvelope` if `404 NotFound`, and triggers a
+  point/section reread after a recovered receipt. Sign-out or account switch clears in-memory
+  sync state before any new account is admitted and never replays account A's journal under
+  account B.
+- **Paused exact-release resume.** Choosing Resume from **Nghe tiếp**, **Lịch sử** or a Work's
+  unit row checks `ResumeStatus`: `ReleaseReplaced` and `AccessUnavailable` refuse immediately
+  with explicit localized status without substituting another release. `ExactAvailable` loads
+  `GET /publications/{publication_id}`, verifies `PinnedRelease::admit` and exact
+  `work_id / unit_id / publication_id / rendition_id / duration_ms / sha256` equality, and
+  restores `PlayerSession` in `Paused(ColdRestore)` at the saved position without auto-playing.
 
 Native tests consume the shared presentation goldens. The existing explicit
 `cargo xtask verify web-bearer` lane also exercises these production Web modules with a loopback
@@ -167,13 +208,14 @@ declarations do not establish browser or native acceptance.
 | `src/core/ids.rs`, `catalog.rs` | Synthetic typed keys and catalog read models; no publication authority |
 | `src/core/playback/` | Framework-free immutable state, events, ordered effects and `reduce(state, event) -> Transition` |
 | `src/core/listening/` | Separate saved-work/bookmark, progress, simulated history and queue facts/rules |
-| `src/application/player_session.rs` | Commit pure transitions, then interpret effects through `MediaPort`; derived status/view `Memo`s |
+| `src/application/player_session.rs` | Commit pure transitions, then interpret effects through `MediaPort`; derived status/view `Memo`s and playback observation callbacks |
 | `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
-| `src/application/account.rs`, `account_view.rs` | Pure session generation, logout acknowledgement, immutable intent ownership and private read projection lifecycle |
+| `src/application/account.rs`, `account_view.rs` | Pure session generation, logout acknowledgement, immutable intent ownership, private read projection and fenced sync state lifecycle |
+| `src/application/library.rs`, `library_sync.rs` | Pure presented Library projection, epoch-checked history paging, Save/progress/history write outbox, receipt reconciliation, account-scoped recovery journal and exact-release resume admission |
 | `src/application/auth_navigation.rs` | Closed internal auth return destinations and checked request epochs; routes never establish a session or registration receipt |
 | `src/application/public_discovery.rs` | Pure Work-list walk: normalized `DiscoveryQuery` (q/kind/language), ticket-fenced requests, opaque cursor bound to its query, bounded follow-up of empty pages, same-cursor retry, `invalid_cursor` → fresh walk (never merged), one-time row identity |
 | `src/application/public_work.rs` | Pure live Work detail and unit-walk state machine: route generation and page-request fencing, empty-continuation follow-up budget, same-cursor page retry, `invalid_cursor` restart with `unit_id` de-duplication, terminal empty list |
-| `src/live/account.rs`, `library.rs`, `runtime.rs` | Same-origin Theatre BFF transport, bounded actual Library reads and mounted browser lifecycle; no mock fallback |
+| `src/live/account.rs`, `library.rs`, `runtime.rs` | Same-origin Theatre BFF/Bearer transport, bounded actual Library reads, point reads, idempotent mutations, receipt lookup recovery and mounted browser lifecycle; no mock fallback |
 | `src/live/discovery.rs` | Anonymous `GET /works?[q&kind&language&]limit&presentation=1[&cursor]` (encoded; cursor only form-encoded), `PresentedWorkPage` decoding and exact `ListenerError` classification; an empty page with a cursor is valid |
 | `src/live/public_work.rs` | Anonymous `GET /works/{id}?presentation=1` and `/works/{id}/units?…&presentation=1` reads; `PresentedWork*`/`PresentedUnit*` decoding, route identity, unit kind and exact `ListenerError` classification |
 | `src/core/public_track.rs` | Pure pinned identity of one public release (`PublicTrack`: Work/unit/publication/rendition IDs, manifest digest, SHA-256) admitted only from a manifest that names the requested release, plus strict grant admission (`AdmittedGrant`) and the redacted `MediaUrl` capability |

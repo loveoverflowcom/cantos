@@ -40,6 +40,28 @@ pub struct PlayerFeedback {
     pub resume_offered: Option<ValidatedResumeSnapshot>,
     pub rejection: Option<playback::Rejection>,
 }
+
+/// Engine-verified playback facts emitted by [`PlayerSession`] for progress and history sync.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlaybackObservation {
+    /// A new playback source was selected or restored, ending the previous source's session.
+    SessionReset,
+    /// `EngineStarted` was accepted for an active `Play` intent on `source`.
+    EngineStarted {
+        identity: playback::CallbackIdentity,
+        source: Source,
+    },
+    /// `EnginePosition` was accepted for `source` while no seek is pending.
+    PositionTick { source: Source, position_ms: u32 },
+    /// A requested seek was confirmed by `EnginePosition` at the exact target position.
+    SeekConfirmed { source: Source, position_ms: u32 },
+    /// A pause, interruption, source switch, or natural end requires flushing the last
+    /// engine-confirmed position of `source`.
+    FlushCheckpoint { source: Source, position_ms: u32 },
+}
+
+type PlaybackObserver = Box<dyn FnMut(PlaybackObservation)>;
+
 #[derive(Clone, Copy)]
 pub struct PlayerSession {
     pub state: ReadSignal<PlayerState>,
@@ -58,6 +80,7 @@ pub struct PlayerSession {
     pub(crate) pending_seek: ReadSignal<Option<PendingSeek>>,
     seek_writer: RwSignal<Option<PendingSeek>>,
     adapter: StoredValue<RefCell<Box<dyn MediaPort>>, LocalStorage>,
+    observer: StoredValue<RefCell<Option<PlaybackObserver>>, LocalStorage>,
     inbox: StoredValue<RefCell<VecDeque<Event>>, LocalStorage>,
     draining: StoredValue<Cell<bool>, LocalStorage>,
 }
@@ -82,6 +105,18 @@ impl PlayerSession {
             .adapter
             .update_value(|slot| *slot.borrow_mut() = Box::new(port));
         session
+    }
+    /// Attach an observer that receives [`PlaybackObservation`] events after each transition.
+    pub fn observe_playback(self, observer: impl FnMut(PlaybackObservation) + 'static) {
+        self.observer
+            .update_value(|slot| *slot.borrow_mut() = Some(Box::new(observer)));
+    }
+    fn emit_observation(self, observation: PlaybackObservation) {
+        self.observer.with_value(|slot| {
+            if let Some(observer) = slot.borrow_mut().as_mut() {
+                observer(observation);
+            }
+        });
     }
     fn unattached() -> Self {
         let state = RwSignal::new(PlayerState::default());
@@ -136,6 +171,7 @@ impl PlayerSession {
             pending_seek: pending_seek.read_only(),
             seek_writer: pending_seek,
             adapter: StoredValue::new_local(RefCell::new(Box::new(Unattached))),
+            observer: StoredValue::new_local(RefCell::new(None)),
             inbox: StoredValue::new_local(RefCell::new(VecDeque::new())),
             draining: StoredValue::new_local(Cell::new(false)),
         }
@@ -157,22 +193,23 @@ impl PlayerSession {
         self.draining.with_value(|draining| draining.set(false));
     }
     fn apply(self, event: Event) {
+        let before_state = self.state.get_untracked();
+        let before_observed = self.observed_position.get_untracked();
         let seeks = matches!(
             &event,
             Event::SeekRequested { .. } | Event::SkipRequested { .. }
         );
-        let ended = matches!(&event, Event::EngineEnded { identity } if self.state.with_untracked(|state| state.accepts(*identity)));
+        let ended =
+            matches!(&event, Event::EngineEnded { identity } if before_state.accepts(*identity));
         // Requested position is optimistic reducer state, never an engine acknowledgement.
         let observed = match &event {
             Event::EnginePosition {
                 identity,
                 position_ms,
-            } if self.state.with_untracked(|state| {
-                state.accepts(*identity)
-                    && state
-                        .session()
-                        .is_some_and(|session| *position_ms <= session.source().duration_ms())
-            }) =>
+            } if before_state.accepts(*identity)
+                && before_state
+                    .session()
+                    .is_some_and(|session| *position_ms <= session.source().duration_ms()) =>
             {
                 Some(PositionObservation {
                     identity: *identity,
@@ -181,7 +218,7 @@ impl PlayerSession {
             }
             _ => None,
         };
-        let transition = playback::reduce(self.state.get_untracked(), event);
+        let transition = playback::reduce(before_state.clone(), event.clone());
         let requested = seeks
             .then(|| {
                 transition.effects.iter().find_map(|effect| match effect {
@@ -198,6 +235,7 @@ impl PlayerSession {
                 })
             })
             .flatten();
+        let after_state = transition.state.clone();
         self.writer.set(transition.state);
         if let Some(observed) = observed {
             self.observation_writer.set(Some(observed));
@@ -214,6 +252,93 @@ impl PlayerSession {
         if next != previous {
             self.seek_writer.set(next);
         }
+
+        // Derive engine-verified observations for listener library / progress sync.
+        let mut sync_observations = Vec::new();
+        let source_replaced = match &event {
+            Event::SourceSelected { .. } | Event::RestoreRequested { .. } => {
+                after_state.generation() != before_state.generation()
+            }
+            _ => false,
+        };
+        if source_replaced {
+            if let (Some(prev_session), Some(prev_obs)) = (before_state.session(), before_observed)
+            {
+                if prev_obs.identity.track == prev_session.source().track() {
+                    sync_observations.push(PlaybackObservation::FlushCheckpoint {
+                        source: prev_session.source(),
+                        position_ms: prev_obs
+                            .position_ms
+                            .min(prev_session.source().duration_ms()),
+                    });
+                }
+            }
+            self.observation_writer.set(None);
+            sync_observations.push(PlaybackObservation::SessionReset);
+        }
+        match &event {
+            Event::PauseRequested | Event::InterruptionBegan => {
+                if after_state.generation() != before_state.generation() {
+                    if let (Some(session), Some(obs)) = (after_state.session(), before_observed) {
+                        if obs.identity.track == session.source().track() && previous.is_none() {
+                            sync_observations.push(PlaybackObservation::FlushCheckpoint {
+                                source: session.source(),
+                                position_ms: obs.position_ms.min(session.source().duration_ms()),
+                            });
+                        }
+                    }
+                }
+            }
+            Event::EngineStarted { identity } => {
+                if before_state.accepts(*identity)
+                    && after_state
+                        .session()
+                        .is_some_and(|s| s.engine() == playback::Engine::Running)
+                {
+                    if let Some(session) = after_state.session() {
+                        sync_observations.push(PlaybackObservation::EngineStarted {
+                            identity: *identity,
+                            source: session.source(),
+                        });
+                    }
+                }
+            }
+            Event::EnginePosition { .. } => {
+                if let (Some(obs), Some(session)) = (observed, after_state.session()) {
+                    if let Some(prev_seek) = previous {
+                        if next.is_none()
+                            && prev_seek.binding.identity == obs.identity
+                            && prev_seek.position_ms == obs.position_ms
+                        {
+                            sync_observations.push(PlaybackObservation::SeekConfirmed {
+                                source: session.source(),
+                                position_ms: obs.position_ms,
+                            });
+                        }
+                    } else if next.is_none() {
+                        sync_observations.push(PlaybackObservation::PositionTick {
+                            source: session.source(),
+                            position_ms: obs.position_ms,
+                        });
+                    }
+                }
+            }
+            Event::EngineEnded { identity } if before_state.accepts(*identity) => {
+                if let Some(session) = after_state.session() {
+                    let duration_ms = session.source().duration_ms();
+                    self.observation_writer.set(Some(PositionObservation {
+                        identity: *identity,
+                        position_ms: duration_ms,
+                    }));
+                    sync_observations.push(PlaybackObservation::FlushCheckpoint {
+                        source: session.source(),
+                        position_ms: duration_ms,
+                    });
+                }
+            }
+            _ => {}
+        }
+
         for effect in transition.effects {
             match &effect {
                 Effect::OfferResume { .. } => {
@@ -239,6 +364,9 @@ impl PlayerSession {
                         .with_value(|inbox| inbox.borrow_mut().extend(callbacks));
                 }
             }
+        }
+        for obs in sync_observations {
+            self.emit_observation(obs);
         }
     }
     pub fn snapshot(self) -> Option<ValidatedResumeSnapshot> {
@@ -664,6 +792,73 @@ mod tests {
             });
             assert_eq!(session.source.get_untracked(), Some(public_source(2)));
             assert!(session.state.get_untracked().generation() > before.generation());
+        });
+    }
+
+    #[test]
+    fn playback_observations_emit_only_confirmed_engine_facts_and_flush_previous_source_on_switch()
+    {
+        Owner::new().with(|| {
+            let observed = std::rc::Rc::new(RefCell::new(Vec::new()));
+            let session = PlayerSession::new(DeferredFake);
+            session.observe_playback({
+                let observed = observed.clone();
+                move |obs| observed.borrow_mut().push(obs)
+            });
+
+            let source_1 = public_source(1);
+            let source_2 = public_source(2);
+
+            // Selecting source 1 emits SessionReset without EngineStarted.
+            session.dispatch(Event::SourceSelected {
+                source: source_1,
+                position_ms: 0,
+            });
+            session.dispatch(Event::PlayRequested);
+            assert_eq!(*observed.borrow(), vec![PlaybackObservation::SessionReset]);
+
+            let id_1 = session.state.get_untracked().identity().unwrap();
+            session.dispatch(Event::EngineStarted { identity: id_1 });
+            session.dispatch(Event::EnginePosition {
+                identity: id_1,
+                position_ms: 12_000,
+            });
+            // Optimistic seek does not emit until EnginePosition confirms the exact target.
+            session.dispatch(Event::SeekRequested { position_ms: 4_000 });
+            let id_1_seek = session.state.get_untracked().identity().unwrap();
+            session.dispatch(Event::EnginePosition {
+                identity: id_1_seek,
+                position_ms: 4_000,
+            });
+            // Switching to source 2 flushes source 1's last engine-confirmed position (4_000) first.
+            session.dispatch(Event::SourceSelected {
+                source: source_2,
+                position_ms: 0,
+            });
+
+            assert_eq!(
+                *observed.borrow(),
+                vec![
+                    PlaybackObservation::SessionReset,
+                    PlaybackObservation::EngineStarted {
+                        identity: id_1,
+                        source: source_1,
+                    },
+                    PlaybackObservation::PositionTick {
+                        source: source_1,
+                        position_ms: 12_000,
+                    },
+                    PlaybackObservation::SeekConfirmed {
+                        source: source_1,
+                        position_ms: 4_000,
+                    },
+                    PlaybackObservation::FlushCheckpoint {
+                        source: source_1,
+                        position_ms: 4_000,
+                    },
+                    PlaybackObservation::SessionReset,
+                ]
+            );
         });
     }
 }

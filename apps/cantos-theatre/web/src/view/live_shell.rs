@@ -4,6 +4,7 @@ use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthRoute, MembershipReturn},
+        library_sync::audio_identity_from_source,
         player_session::PlayerSession,
         public_discovery::{DiscoveryQuery, DiscoveryTicket, PublicDiscoveryState},
         public_listen::{ListenLabel, ListenOutcome, ListenState, NowPlaying},
@@ -16,14 +17,15 @@ use crate::{
         account::LiveAccount,
         auth::AuthPage,
         common::PersonGlyph,
-        library::LiveLibrary,
-        live_player::{LiveMiniPlayer, LivePlayer, LivePlayerScreen},
+        library::{LibraryActions, LiveLibrary},
+        live_player::{LiveMiniPlayer, LivePlayer, LivePlayerScreen, PlayerSyncControls},
         public_home::{self, PublicHome},
-        public_work::{ListenControls, ListenTarget, PublicWorkDetail},
+        public_work::{ListenControls, ListenTarget, PublicWorkDetail, WorkSyncControls},
     },
     messages::{self, Key, Locale},
     platform::{self, auth_browser, signup_browser},
 };
+use cantos_contracts::listener_library::{AudioPresentation, WorkPresentation};
 use cantos_ui::{
     AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, Select, SelectDensity,
     SelectLabelPlacement, SelectOption, Theme,
@@ -306,6 +308,14 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         now_playing,
         locale,
     };
+    player.observe_playback(move |obs| {
+        if !preview && network_allowed.get_untracked() {
+            #[cfg(target_arch = "wasm32")]
+            crate::live::runtime::handle_playback_observation(state, now_playing, obs);
+            #[cfg(not(target_arch = "wasm32"))]
+            let _ = (state, now_playing, obs);
+        }
+    });
     let nav = LiveNavigation::new(state, main, preview);
     if !network_allowed.get_untracked() {
         nav.route.set(Route::Auth(AuthRoute::register(
@@ -332,7 +342,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     });
     #[cfg(target_arch = "wasm32")]
     if !preview && network_allowed.get_untracked() {
-        crate::live::runtime::mount(state);
+        crate::live::runtime::mount(state, player, now_playing);
     }
     if preview {
         seed_preview(state, registration, discovery);
@@ -383,6 +393,76 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             }
         }
     });
+    // When signed in on a public Work or with an active player source, load point Saved/Progress
+    // registers that have not yet been observed in the current session.
+    Effect::new(move |_| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let signed_in = state.with(|s| s.phase() == SessionPhase::SignedIn);
+        if !signed_in {
+            return;
+        }
+        let (work_info, unit_infos) = work_detail.with(|w| {
+            let Some(id) = w.work_id() else {
+                return (None, Vec::new());
+            };
+            match w.phase() {
+                WorkDetailPhase::Ready { work, units } => {
+                    let first_pub = units
+                        .rows()
+                        .first()
+                        .map(|u| u.publication_id.clone())
+                        .unwrap_or_default();
+                    let work_pres = WorkPresentation {
+                        work_id: id.to_string(),
+                        publication_id: first_pub,
+                        title: work.title.clone(),
+                        kind: work.kind,
+                        language: work.language.clone(),
+                    };
+                    let pubs = units
+                        .rows()
+                        .iter()
+                        .map(|u| {
+                            (
+                                u.publication_id.clone(),
+                                AudioPresentation {
+                                    work: WorkPresentation {
+                                        work_id: id.to_string(),
+                                        publication_id: u.publication_id.clone(),
+                                        title: work.title.clone(),
+                                        kind: work.kind,
+                                        language: work.language.clone(),
+                                    },
+                                    unit_id: u.unit_id.clone(),
+                                    unit_title: u.title.clone(),
+                                },
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    (Some((id.to_string(), Some(work_pres))), pubs)
+                }
+                _ => (Some((id.to_string(), None)), Vec::new()),
+            }
+        });
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Some((work_id, pres)) = work_info {
+                crate::live::runtime::ensure_saved_loaded(state, work_id, pres);
+            }
+            for (pub_id, pres) in unit_infos {
+                crate::live::runtime::ensure_progress_loaded(state, pub_id, Some(pres));
+            }
+            if let Some(source) = player.source.get() {
+                if let Some(audio) = audio_identity_from_source(source) {
+                    crate::live::runtime::ensure_progress_loaded(state, audio.publication_id, None);
+                }
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = (work_info, unit_infos, audio_identity_from_source);
+    });
     let on_open_work = Callback::new(move |id| nav.open_work(id, public_home::work_link_id(id)));
     let on_work_back = Callback::new(move |()| nav.close_work());
     let on_listen = Callback::new(move |target: ListenTarget| {
@@ -429,6 +509,162 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         player,
         listen,
         on_listen,
+    };
+    let work_sync_controls = WorkSyncControls {
+        account: state,
+        on_login_to_save: Callback::new(move |()| {
+            crate::live::signup::leave(signup, preview);
+            nav.open_auth(AuthRoute::login(nav.origin()));
+        }),
+        on_set_saved: Callback::new(move |(work, saved, pres)| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::set_saved(state, work, saved, pres);
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = (work, saved, pres);
+            }
+        }),
+        on_retry_saved: Callback::new(move |work| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::retry_saved(state, work);
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = work;
+            }
+        }),
+        on_resume: Callback::new(move |(audio, position_ms, resume, pres)| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::resume_exact_release(
+                    state,
+                    player,
+                    now_playing,
+                    audio,
+                    position_ms,
+                    resume,
+                    pres,
+                );
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = (audio, position_ms, resume, pres);
+            }
+        }),
+    };
+    let library_actions = LibraryActions {
+        on_unsave: Callback::new(move |(work, pres)| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::set_saved(state, work, false, pres);
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = (work, pres);
+            }
+        }),
+        on_retry_saved: Callback::new(move |work| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::retry_saved(state, work);
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = work;
+            }
+        }),
+        on_resume: Callback::new(move |(audio, position_ms, resume, pres)| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::resume_exact_release(
+                    state,
+                    player,
+                    now_playing,
+                    audio,
+                    position_ms,
+                    resume,
+                    pres,
+                );
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = (audio, position_ms, resume, pres);
+            }
+        }),
+        on_resolve_progress: Callback::new(move |(publication, keep_local)| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::resolve_progress_conflict(
+                    state,
+                    player,
+                    publication,
+                    keep_local,
+                );
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = (publication, keep_local);
+            }
+        }),
+        on_retry_progress: Callback::new(move |publication| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::retry_progress(state, publication);
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = publication;
+            }
+        }),
+        on_prompt_clear_history: Callback::new(move |()| {
+            state.update(|s| {
+                let _ = s.with_sync_mut(|sync, _| {
+                    sync.prompt_clear_history();
+                });
+            });
+        }),
+        on_cancel_clear_history: Callback::new(move |()| {
+            state.update(|s| {
+                let _ = s.with_sync_mut(|sync, _| {
+                    sync.cancel_clear_history();
+                });
+            });
+        }),
+        on_confirm_clear_history: Callback::new(move |()| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::confirm_clear_history(state);
+            }
+        }),
+        on_retry_history: Callback::new(move |()| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::retry_history(state);
+            }
+        }),
+    };
+    let player_sync_controls = PlayerSyncControls {
+        account: state,
+        on_mark_completed: Callback::new(move |()| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::mark_completed(state, player, now_playing);
+            }
+        }),
+        on_restart: Callback::new(move |()| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::restart_progress(state, player, now_playing);
+            }
+        }),
+        on_resolve_conflict: Callback::new(move |(publication, keep_local)| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::resolve_progress_conflict(
+                    state,
+                    player,
+                    publication,
+                    keep_local,
+                );
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = (publication, keep_local);
+            }
+        }),
+        on_retry_progress: Callback::new(move |publication| {
+            if !preview && network_allowed.get_untracked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::live::runtime::retry_progress(state, publication);
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = publication;
+            }
+        }),
     };
     let on_work_retry = Callback::new(move |()| {
         if preview || !network_allowed.get_untracked() {
@@ -643,7 +879,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 Route::Account => view! { <LiveAccount state locale theme registration on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } }) on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {
-                                    <LiveLibrary state locale on_page=Callback::new(move |(section, restart)| {
+                                    <LiveLibrary state locale actions=library_actions on_page=Callback::new(move |(section, restart)| {
                                         if preview || !network_allowed.get_untracked() { return; }
                                         #[cfg(target_arch = "wasm32")]
                                         crate::live::runtime::load_library(state, section, restart, 1, true);
@@ -660,8 +896,8 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                         <Button id="theatre-membership-login" variant=ButtonVariant::Tonal focus_on_press=true on_press=Callback::new(move |_| nav.open_auth(AuthRoute::login(nav.origin())))>{move || messages::text(Key::SignIn,locale.get())}</Button>
                                     </section>
                                 }.into_any(),
-                                Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale listen=listen_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
-                                Route::Player => view! { <LivePlayerScreen live/> }.into_any(),
+                                Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale listen=listen_controls sync_controls=work_sync_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
+                                Route::Player => view! { <LivePlayerScreen live sync_controls=player_sync_controls/> }.into_any(),
                                 Route::Discover | Route::Explore => view! {
                                     <PublicHome state=discovery locale applied=nav.query on_search on_login on_register
                                         on_retry=on_discovery_retry on_load_more=on_discovery_more on_restart=on_discovery_restart on_open_work/>

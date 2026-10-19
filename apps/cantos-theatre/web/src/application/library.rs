@@ -75,6 +75,14 @@ impl LibraryProjection {
     pub fn has_more(&self, section: Section) -> bool {
         self.pages[section.index()].cursor.is_some()
     }
+    pub fn clear_history_cursor(&mut self) {
+        let page = &mut self.pages[Section::History.index()];
+        page.cursor = None;
+        page.consumed.clear();
+        if page.phase == PagePhase::Idle {
+            page.phase = PagePhase::Ready;
+        }
+    }
     pub fn begin(&mut self, section: Section, restart: bool) -> Option<PageRequest> {
         let page = &mut self.pages[section.index()];
         if page.phase == PagePhase::Loading {
@@ -119,26 +127,39 @@ impl LibraryProjection {
         {
             return false;
         }
+        let is_continuation = request.cursor.is_some();
         let result = result.and_then(|response| {
             let (cursor, repeated) = match &response {
-                LibraryPage::Continue(p) if request.section == Section::Continue => (
-                    &p.next_cursor,
-                    p.items.iter().any(|row| {
-                        self.continuing
-                            .iter()
-                            .any(|old| old.progress.audio.work_id == row.progress.audio.work_id)
-                    }),
-                ),
-                LibraryPage::Saved(p) if request.section == Section::Saved => (
-                    &p.next_cursor,
-                    p.items.iter().any(|row| {
-                        self.saved
-                            .iter()
-                            .any(|old| old.saved.work_id == row.saved.work_id)
-                    }),
-                ),
+                LibraryPage::Continue(p) if request.section == Section::Continue => {
+                    let mut seen = std::collections::BTreeSet::new();
+                    let internal_dup = p
+                        .items
+                        .iter()
+                        .any(|row| !seen.insert(row.progress.audio.work_id.as_str()));
+                    let cross_page_dup = is_continuation
+                        && p.items.iter().any(|row| {
+                            self.continuing
+                                .iter()
+                                .any(|old| old.progress.audio.work_id == row.progress.audio.work_id)
+                        });
+                    (&p.next_cursor, internal_dup || cross_page_dup)
+                }
+                LibraryPage::Saved(p) if request.section == Section::Saved => {
+                    let mut seen = std::collections::BTreeSet::new();
+                    let internal_dup = p
+                        .items
+                        .iter()
+                        .any(|row| !seen.insert(row.saved.work_id.as_str()));
+                    let cross_page_dup = is_continuation
+                        && p.items.iter().any(|row| {
+                            self.saved
+                                .iter()
+                                .any(|old| old.saved.work_id == row.saved.work_id)
+                        });
+                    (&p.next_cursor, internal_dup || cross_page_dup)
+                }
                 LibraryPage::History(p) if request.section == Section::History => {
-                    if request.cursor.is_some()
+                    if is_continuation
                         && self
                             .history_state
                             .as_ref()
@@ -146,14 +167,25 @@ impl LibraryProjection {
                     {
                         return Err(AccountFailure::CursorExpired);
                     }
-                    (
-                        &p.next_cursor,
-                        p.items.iter().any(|row| {
+                    if self
+                        .history_state
+                        .as_ref()
+                        .is_some_and(|state| p.state.epoch < state.epoch)
+                    {
+                        return Err(AccountFailure::CursorExpired);
+                    }
+                    let mut seen = std::collections::BTreeSet::new();
+                    let internal_dup = p
+                        .items
+                        .iter()
+                        .any(|row| !seen.insert(row.audio.work_id.as_str()));
+                    let cross_page_dup = is_continuation
+                        && p.items.iter().any(|row| {
                             self.history
                                 .iter()
                                 .any(|old| old.audio.work_id == row.audio.work_id)
-                        }),
-                    )
+                        });
+                    (&p.next_cursor, internal_dup || cross_page_dup)
                 }
                 _ => return Err(AccountFailure::Protocol),
             };
@@ -171,14 +203,23 @@ impl LibraryProjection {
             Ok(response) => {
                 page.cursor = match response {
                     LibraryPage::Continue(p) => {
+                        if !is_continuation {
+                            self.continuing.clear();
+                        }
                         self.continuing.extend(p.items);
                         p.next_cursor
                     }
                     LibraryPage::Saved(p) => {
+                        if !is_continuation {
+                            self.saved.clear();
+                        }
                         self.saved.extend(p.items);
                         p.next_cursor
                     }
                     LibraryPage::History(p) => {
+                        if !is_continuation {
+                            self.history.clear();
+                        }
                         self.history_state = Some(p.state);
                         self.history.extend(p.items);
                         p.next_cursor
