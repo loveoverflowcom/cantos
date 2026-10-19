@@ -48,22 +48,32 @@ class ReleaseBuildTests(unittest.TestCase):
                         release.build(root, "android", "c" * 40, root / "out", "https://catalog.example")
 
     def test_android_staging_binds_the_immutable_record_before_copying(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            report = root / release.MOBILE / "androidApp/build/reports/release-boundary/release-evidence.json"
-            report.parent.mkdir(parents=True)
-            snapshot = root / "artifacts/android-release/run"
-            snapshot.mkdir(parents=True)
-            evidence = {"configuration": {"api_origin": "https://catalog.example"},
-                        "artifacts": {"optimized": {"apk": {"path": "androidApp-release-unsigned.apk"}}},
-                        "snapshot_directory": "artifacts/android-release/run"}
-            report.write_text(json.dumps(evidence))
-            # Another completed build has the same source but a different configuration.
-            evidence["configuration"]["native_issuer"] = "foreign issuer"
-            (snapshot / "release-evidence.json").write_text(json.dumps(evidence))
-            with patch.object(release, "run"), self.assertRaisesRegex(ValueError, "snapshot record differs"):
-                release.build(root, "android", "c" * 40, root / "out", "https://catalog.example")
-            self.assertFalse((root / "out").exists())
+        import shutil
+        import android_release_evidence as audit
+        from test_android_release_evidence import AuditEvidenceTests
+        fixture = AuditEvidenceTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        root = fixture.mobile
+        mobile = root / release.MOBILE
+        mobile.mkdir(parents=True)
+        shutil.move(root / "androidApp", mobile / "androidApp")
+        with patch.object(audit.subprocess, "run") as run:
+            run.return_value.stdout = "c" * 40
+            evidence = audit.bind(root, mobile)
+        evidence["configuration"].update(api_origin="https://catalog.example", native_issuer="foreign issuer")
+        snapshot = audit.freeze(root, mobile, evidence)
+        # This is a valid same-source artifact set for the ordinary artifact validator.
+        contract.validate_android_outputs(snapshot, "c" * 40)
+        evidence["configuration"]["native_issuer"] = ""
+        report = mobile / "androidApp/build/reports/release-boundary/release-evidence.json"
+        report.write_text(json.dumps(evidence))
+        output = root / "out"
+        output.mkdir()
+        with patch.object(release, "run"), patch.object(release, "android_version", return_value={"name": "fixture"}), \
+             self.assertRaisesRegex(ValueError, "snapshot record differs"):
+            release.build(root, "android", "c" * 40, output, "https://catalog.example")
+        self.assertEqual(list(output.iterdir()), [])
 
     def test_hash_and_size_are_from_actual_bytes_and_symlinks_are_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
