@@ -8,6 +8,17 @@ pub struct FlowRequest {
     pub code_challenge: String,
     #[serde(default)]
     pub reauthenticate: bool,
+    /// Theatre native only: selects one operator-admitted callback. Absent means production.
+    /// It names a closed profile, never a URI; Studio and Web clients must omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub callback_profile: Option<CallbackProfile>,
+}
+/// Closed set of native callbacks; the API owns each exact URI and its operator admission.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CallbackProfile {
+    Production,
+    Development,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

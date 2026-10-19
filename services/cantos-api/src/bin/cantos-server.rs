@@ -100,8 +100,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Theatre secret or private CA requires explicit issuer".into());
     }
     if let Ok(issuer) = env::var("CANTOS_THEATRE_NATIVE_ISSUER") {
-        let native = cantos_api::platform::theatre_identity::NativeIdentity::new(&issuer)
-            .map_err(|_| "invalid separate native public-client identity configuration")?;
+        let development_callback =
+            match env::var("CANTOS_THEATRE_NATIVE_DEVELOPMENT_CALLBACK").as_deref() {
+                Err(env::VarError::NotPresent) => false,
+                Ok("admit") => true,
+                _ => {
+                    return Err(
+                        "CANTOS_THEATRE_NATIVE_DEVELOPMENT_CALLBACK must be exactly `admit`".into(),
+                    )
+                }
+            };
+        let native = cantos_api::platform::theatre_identity::NativeIdentity::with_callbacks(
+            &issuer,
+            development_callback,
+        )
+        .map_err(|_| "invalid separate native public-client identity configuration")?;
         store = store.with_theatre_native(native);
     }
     if let Ok(issuer) = env::var("CANTOS_ADMIN_OIDC_ISSUER") {

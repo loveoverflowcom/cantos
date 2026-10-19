@@ -90,9 +90,24 @@ impl BearerIdentity {
         } else {
             pkce_challenge(&verifier)
         };
+        // Only native may choose a (closed, operator-admitted) callback profile.
+        if self.client != Client::TheatreNative && request.callback_profile.is_some() {
+            return Err(AuthError::State);
+        }
+        let redirect = if self.client == Client::TheatreNative {
+            self.config.native_redirect(request.callback_profile)?
+        } else {
+            self.config.redirect.as_str()
+        };
         let authorization_url = self
             .provider
-            .authorization_url_with_challenge(&provider_state, &request.nonce, &challenge, now()?)
+            .authorization_url_for_redirect(
+                &provider_state,
+                &request.nonce,
+                &challenge,
+                redirect,
+                now()?,
+            )
             .await?;
         let authorization_url = if request.reauthenticate {
             let mut url =
@@ -109,6 +124,7 @@ impl BearerIdentity {
             &id,
             &provider_state,
             &verifier,
+            redirect,
             request,
         )
         .await?;
@@ -152,7 +168,7 @@ impl BearerIdentity {
     ) -> Result<TokenPair, AuthError> {
         validate_exchange(flow, &request)?;
         if self.client == Client::TheatreNative {
-            let nonce = postgres::consume_native(
+            let (nonce, redirect) = postgres::consume_native(
                 store,
                 &self.config,
                 flow,
@@ -162,7 +178,13 @@ impl BearerIdentity {
             .await?;
             let exchange = self
                 .provider
-                .exchange(&request.code, &request.code_verifier, &nonce, now)
+                .exchange_for_redirect(
+                    &request.code,
+                    &request.code_verifier,
+                    &nonce,
+                    &redirect,
+                    now,
+                )
                 .await?;
             self.complete_exchange(store, flow, exchange, "").await?;
         }

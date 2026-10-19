@@ -309,6 +309,9 @@ use bounded same-origin discovery/JWKS, real ID/access signatures, current intro
 separate SQL/native opaque session authority. Native resource admission never reuses a Web,
 Studio or Admin credential. Normal configuration remains disabled and production hosting,
 provider registration/TLS, native device and OS storage acceptance remain separate.
+The Bearer native route additionally admits the exact debug callback
+`com.cantos.theatre.dev:/oauth2/callback` only when `CANTOS_THEATRE_NATIVE_DEVELOPMENT_CALLBACK=admit`
+(any other value refuses startup); see [callback profiles](../../docs/deployment/native-callback-profiles.md).
 
 Migration 0024 preserves 0021 and adds native tables/narrow issuance plus Web final-expiry rollback.
 Operator-applied development grants are SELECT on native sessions, UPDATE only revoked/

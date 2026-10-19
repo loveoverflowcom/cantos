@@ -2,6 +2,7 @@ package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeGrant
+import com.cantos.theatre.domain.identity.NativeIdentityAvailability
 import com.cantos.theatre.ports.NativeApiFailure
 import com.cantos.theatre.ports.NativeApiResult
 import com.cantos.theatre.ports.NativeFlow
@@ -143,6 +144,16 @@ class NativeIdentityClientTest {
             http.result = response(value)
             assertEquals(protocol, client.session(access))
         }
+    }
+
+    @Test fun begin_names_only_a_closed_nonproduction_callback_profile_never_a_uri() = runTest {
+        val http = Http()
+        http.result = response("{\"flow_id\":\"$session\",\"authorization_url\":\"https://idm.example/authorize\"}")
+        val dev = NativeClientConfiguration.resolveForApplication("https://api.example", config.identity.issuer, "com.cantos.theatre.dev")
+        val development = (dev as NativeIdentityAvailability.Available).configuration
+        assertIs<NativeApiResult.Accepted<NativeFlow>>(NativeIdentityClient(development, http) { instant }.begin("state", "nonce", "challenge"))
+        assertEquals(mapOf("state" to JsonPrimitive("state"), "nonce" to JsonPrimitive("nonce"), "code_challenge" to JsonPrimitive("challenge"), "callback_profile" to JsonPrimitive("development")), body(http.requests.last()).toMap())
+        assertFalse(http.requests.last().body!!.contains("oauth2/callback"))
     }
 
     @Test fun begin_refresh_revoke_and_cancel_use_exact_bearer_routes_without_authorization() = runTest {

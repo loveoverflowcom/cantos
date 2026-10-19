@@ -1,5 +1,6 @@
 package com.cantos.theatre.adapters.http
 
+import com.cantos.theatre.domain.identity.NativeCallbackProfile
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.ports.NativeApiFailure
@@ -158,6 +159,9 @@ class NativeIdentityClient(
     override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> {
         val response = request("POST", "$prefix/flows", buildJsonObject {
             put("state", state); put("nonce", nonce); put("code_challenge", challenge)
+            // Production stays implicit so an older API that rejects unknown fields still works.
+            val profile = configuration.identity.profile
+            if (profile != NativeCallbackProfile.Production) put("callback_profile", profile.wireName)
         }.toString())
         failure(response, mutation = true)?.let { return NativeApiResult.Refused(it) }
         val unknown = NativeApiResult.Refused(NativeApiFailure.UnknownOutcome)

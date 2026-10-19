@@ -41,6 +41,9 @@ struct Harness {
 }
 impl Harness {
     async fn new(client: Client) -> Self {
+        Self::new_with(client, false).await
+    }
+    async fn new_with(client: Client, development_callback: bool) -> Self {
         let mut config = local_config(
             &env::var("CANTOS_TEST_CLUSTER_URL").expect("cargo xtask verify postgres"),
         )
@@ -84,9 +87,9 @@ impl Harness {
             Client::TheatreWeb => store.with_theatre_identity(
                 TheatreIdentity::new(&provider.issuer(), ORIGIN, "fixture".into()).unwrap(),
             ),
-            Client::TheatreNative => {
-                store.with_theatre_native(NativeIdentity::new(&provider.issuer()).unwrap())
-            }
+            Client::TheatreNative => store.with_theatre_native(
+                NativeIdentity::with_callbacks(&provider.issuer(), development_callback).unwrap(),
+            ),
         };
         Self {
             admin,
@@ -159,6 +162,7 @@ impl Harness {
                     nonce: "n".repeat(64),
                     code_challenge: URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes())),
                     reauthenticate: false,
+                    callback_profile: None,
                 })
                 .unwrap(),
                 None,
@@ -1041,4 +1045,151 @@ async fn provider_cancellation_returns_only_a_bound_generic_error_and_cannot_iss
         Err(cantos_api::platform::studio_oidc::AuthError::State)
     ));
     assert_eq!(h.provider.data.token_calls.load(Ordering::SeqCst), 0);
+}
+
+fn begin_body(profile: Option<&str>) -> serde_json::Value {
+    let mut body = serde_json::json!({
+        "state": uuid::Uuid::new_v4().simple().to_string().repeat(2),
+        "nonce": "n".repeat(64),
+        "code_challenge": "c".repeat(43),
+    });
+    if let Some(profile) = profile {
+        body["callback_profile"] = profile.into();
+    }
+    body
+}
+fn redirect_of(flow: &serde_json::Value) -> String {
+    url::Url::parse(flow["authorization_url"].as_str().unwrap())
+        .unwrap()
+        .query_pairs()
+        .find(|(k, _)| k == "redirect_uri")
+        .unwrap()
+        .1
+        .into_owned()
+}
+async fn stored_redirects(h: &Harness) -> Vec<String> {
+    h.admin
+        .query(
+            "SELECT redirect_uri FROM bearer_flows ORDER BY redirect_uri",
+            &[],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect()
+}
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres"]
+async fn native_callback_profile_is_closed_admitted_by_operator_and_pinned_per_flow() {
+    let h = Harness::new_with(Client::TheatreNative, true).await;
+    let flows = format!("{}/flows", h.root());
+    let (status, _, production) = h.request("POST", &flows, begin_body(None), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        redirect_of(&production),
+        "com.cantos.theatre:/oauth2/callback"
+    );
+    let (status, _, explicit) = h
+        .request("POST", &flows, begin_body(Some("production")), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        redirect_of(&explicit),
+        "com.cantos.theatre:/oauth2/callback"
+    );
+    let (status, _, development) = h
+        .request("POST", &flows, begin_body(Some("development")), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        redirect_of(&development),
+        "com.cantos.theatre.dev:/oauth2/callback"
+    );
+    assert_eq!(
+        stored_redirects(&h).await,
+        [
+            "com.cantos.theatre.dev:/oauth2/callback",
+            "com.cantos.theatre:/oauth2/callback",
+            "com.cantos.theatre:/oauth2/callback"
+        ]
+    );
+    // Arbitrary URIs, other spellings and unknown fields are never a profile.
+    for bad in [
+        "com.cantos.theatre.dev:/oauth2/callback",
+        "com.cantos.evil",
+        "Development",
+        "",
+    ] {
+        let (status, _, _) = h.request("POST", &flows, begin_body(Some(bad)), None).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+    }
+    let mut extra = begin_body(None);
+    extra["redirect_uri"] = "com.cantos.theatre.dev:/oauth2/callback".into();
+    assert_eq!(
+        h.request("POST", &flows, extra, None).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(stored_redirects(&h).await.len(), 3);
+
+    let flow = development["flow_id"].as_str().unwrap();
+    // A stored callback no longer admitted (or tampered) can never be consumed.
+    h.admin
+        .execute(
+            "UPDATE bearer_flows SET redirect_uri='com.cantos.evil:/oauth2/callback' WHERE id=$1::text::uuid",
+            &[&flow],
+        )
+        .await
+        .unwrap();
+    let (status, _, _) = h
+        .request(
+            "POST",
+            &format!("{}/flows/{flow}/exchange", h.root()),
+            serde_json::json!({
+                "state": "s".repeat(64),
+                "code": "code",
+                "code_verifier": "v".repeat(64),
+            }),
+            None,
+        )
+        .await;
+    assert_ne!(status, StatusCode::OK);
+}
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres"]
+async fn unadmitted_development_profile_is_refused_without_fallback_or_flow_and_other_clients_reject_it(
+) {
+    let native = Harness::new(Client::TheatreNative).await;
+    let (status, _, _) = native
+        .request(
+            "POST",
+            &format!("{}/flows", native.root()),
+            begin_body(Some("development")),
+            None,
+        )
+        .await;
+    assert!(status.is_server_error(), "{status}");
+    assert!(stored_redirects(&native).await.is_empty());
+    let (status, _, _) = native
+        .request(
+            "POST",
+            &format!("{}/flows", native.root()),
+            begin_body(None),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    for client in [Client::Studio, Client::TheatreWeb] {
+        let h = Harness::new(client).await;
+        let (status, _, _) = h
+            .request(
+                "POST",
+                &format!("{}/flows", h.root()),
+                begin_body(Some("development")),
+                None,
+            )
+            .await;
+        assert!(status.is_client_error(), "{status}");
+        assert!(stored_redirects(&h).await.is_empty());
+    }
 }

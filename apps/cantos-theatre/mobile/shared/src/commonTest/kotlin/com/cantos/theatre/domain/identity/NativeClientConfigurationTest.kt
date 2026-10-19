@@ -73,4 +73,49 @@ class NativeClientConfigurationTest {
             assertFalse(result.toString().contains(secret))
         }
     }
+
+    @Test
+    fun profiles_are_a_closed_exact_set_of_callbacks() {
+        assertEquals("com.cantos.theatre:/oauth2/callback", NativeCallbackProfile.Production.redirect)
+        assertEquals("com.cantos.theatre.dev:/oauth2/callback", NativeCallbackProfile.Development.redirect)
+        assertEquals(NativeCallbackProfile.Development, NativeCallbackProfile.forApplicationId("com.cantos.theatre.dev"))
+        for (rejected in listOf(
+            "com.cantos.theatre.demo", "com.cantos.studio", "com.cantos.theatre.dev.evil", "com.cantos.", "com.cantos.theatre.", "",
+            "COM.CANTOS.THEATRE",
+        )) {
+            assertEquals(null, NativeCallbackProfile.forApplicationId(rejected), rejected)
+        }
+        for (rejected in listOf(
+            "com.cantos.theatre.dev:/oauth2/callback/", "com.cantos.theatre.dev:/oauth2/callback?x=1", "com.cantos.theatre.dev://oauth2/callback",
+            "com.cantos.theatre.dev:/oauth2/other", "com.cantos.studio:/oauth2/callback", "https://evil.example/oauth2/callback", "",
+        )) {
+            assertEquals(null, NativeConfiguration.create(issuer, rejected), rejected)
+        }
+        assertEquals(NativeCallbackProfile.Development, NativeConfiguration.create(issuer, NativeCallbackProfile.Development.redirect)?.profile)
+    }
+
+    @Test
+    fun application_id_selects_its_own_callback_and_unknown_ids_never_fall_back_to_production() {
+        val dev = assertIs<NativeIdentityAvailability.Available>(
+            NativeClientConfiguration.resolveForApplication(api, issuer, "com.cantos.theatre.dev"),
+        )
+        assertEquals("com.cantos.theatre.dev:/oauth2/callback", dev.configuration.identity.redirect)
+        val release = assertIs<NativeIdentityAvailability.Available>(
+            NativeClientConfiguration.resolveForApplication(api, issuer, "com.cantos.theatre"),
+        )
+        assertEquals("com.cantos.theatre:/oauth2/callback", release.configuration.identity.redirect)
+        assertEquals(
+            NativeIdentityAvailability.Invalid(NativeConfigurationField.Callback),
+            NativeClientConfiguration.resolveForApplication(api, issuer, "com.cantos.theatre.demo"),
+        )
+        // A missing issuer only disables identity; it never reports the callback or blocks guest catalog.
+        assertEquals(
+            NativeIdentityAvailability.Missing(NativeConfigurationFields.Issuer),
+            NativeClientConfiguration.resolveForApplication(api, null, "com.cantos.theatre.demo"),
+        )
+        assertEquals(
+            NativeIdentityAvailability.Invalid(NativeConfigurationField.Issuer),
+            NativeClientConfiguration.resolveForApplication(api, "$issuer/", "com.cantos.theatre.dev"),
+        )
+    }
 }

@@ -15,6 +15,7 @@ import com.cantos.theatre.app.toShellLocale
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.cantos.theatre.app.CantosDemoApp
 import com.cantos.theatre.adapters.identity.parseAndroidCallback
+import com.cantos.theatre.domain.identity.NativeCallbackProfile
 import com.cantos.ui.generated.CantosTokens
 import com.cantos.theatre.features.launch.presentation.CantosLocalLaunch
 import com.cantos.ui.UiPreferences
@@ -54,9 +55,9 @@ class MainActivity : ComponentActivity() {
 
     private fun deliverNativeCallback(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme != "com.cantos.theatre") return
+        if (uri.scheme != NativeCallbackProfile.Production.scheme) return
         intent.data = null
-        val callback = parseAndroidCallback(uri) ?: return
+        val callback = parseAndroidCallback(uri, NativeCallbackProfile.Production) ?: return
         (application as CantosDemoApplication).nativeIdentity?.callback(callback)
     }
 

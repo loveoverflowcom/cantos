@@ -213,13 +213,26 @@ impl Provider {
         challenge: &str,
         now: u64,
     ) -> Result<String, AuthError> {
+        self.authorization_url_for_redirect(state, nonce, challenge, &self.config.redirect, now)
+            .await
+    }
+
+    /// `redirect` must come from the config's admitted callbacks, never from a request.
+    pub async fn authorization_url_for_redirect(
+        &self,
+        state: &str,
+        nonce: &str,
+        challenge: &str,
+        redirect: &str,
+        now: u64,
+    ) -> Result<String, AuthError> {
         let discovery = self.discovery(now).await?;
         let mut url = self.config.endpoint(&discovery.authorization_endpoint)?;
         url.query_pairs_mut().extend_pairs([
             ("client_id", self.config.client_id),
             ("response_type", "code"),
             ("scope", "openid"),
-            ("redirect_uri", self.config.redirect.as_str()),
+            ("redirect_uri", redirect),
             ("state", state),
             ("nonce", nonce),
             ("code_challenge_method", "S256"),
@@ -233,6 +246,19 @@ impl Provider {
         code: &str,
         verifier: &str,
         nonce: &str,
+        clock: impl Fn() -> Result<u64, AuthError>,
+    ) -> Result<Exchange, AuthError> {
+        self.exchange_for_redirect(code, verifier, nonce, &self.config.redirect, clock)
+            .await
+    }
+
+    /// `redirect` must be the callback durably bound to the pending flow.
+    pub async fn exchange_for_redirect(
+        &self,
+        code: &str,
+        verifier: &str,
+        nonce: &str,
+        redirect: &str,
         clock: impl Fn() -> Result<u64, AuthError>,
     ) -> Result<Exchange, AuthError> {
         let discovery = self.discovery(clock()?).await?;
@@ -249,7 +275,7 @@ impl Provider {
         let mut form = vec![
             ("grant_type", "authorization_code"),
             ("code", code),
-            ("redirect_uri", self.config.redirect.as_str()),
+            ("redirect_uri", redirect),
             ("code_verifier", verifier),
         ];
         if self.config.is_public_native() {

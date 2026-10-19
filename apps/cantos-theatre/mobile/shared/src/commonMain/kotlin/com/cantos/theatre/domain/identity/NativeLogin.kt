@@ -12,17 +12,42 @@ class LoginSecret private constructor(internal val value: String) {
     }
 }
 
-class NativeConfiguration private constructor(val issuer: String, val redirect: String) {
+/**
+ * Closed set of native callbacks, one per Android application ID. A profile names an exact
+ * private-use URI that the API must also admit; it is never parsed from a prefix or a wildcard.
+ * Distinct schemes avoid routing conflicts between co-installed builds and do not replace
+ * PKCE/state or prove the caller is the real app.
+ */
+enum class NativeCallbackProfile(val wireName: String, val applicationId: String) {
+    Production("production", "com.cantos.theatre"),
+    Development("development", "com.cantos.theatre.dev");
+
+    val scheme: String get() = applicationId
+    val redirect: String get() = "$applicationId:/oauth2/callback"
+
+    companion object {
+        fun forRedirect(redirect: String): NativeCallbackProfile? = entries.firstOrNull { it.redirect == redirect }
+
+        /** The final Android application ID (`Context.packageName`); any other ID has no profile. */
+        fun forApplicationId(applicationId: String): NativeCallbackProfile? = entries.firstOrNull { it.applicationId == applicationId }
+    }
+}
+
+class NativeConfiguration private constructor(val issuer: String, val profile: NativeCallbackProfile) {
     val client: String = "cantos-theatre-native"
+    val redirect: String get() = profile.redirect
     companion object {
         /** Operator-owned exact URI. No runtime client/scopes or Studio secret. */
-        fun create(issuer: String, redirect: String): NativeConfiguration? {
+        fun create(issuer: String, redirect: String): NativeConfiguration? =
+            NativeCallbackProfile.forRedirect(redirect)?.let { create(issuer, it) }
+
+        fun create(issuer: String, profile: NativeCallbackProfile): NativeConfiguration? {
             val match = Regex("https://([a-z0-9.-]+)(?::([0-9]{1,5}))?/oauth2/openid/cantos-theatre-native").matchEntire(issuer) ?: return null
             val host = match.groupValues[1]
             val port = match.groupValues[2]
             val validIssuer = issuer.length <= 2048 && !host.startsWith('.') && !host.endsWith('.') && !host.contains("..") &&
                 (port.isEmpty() || port.toInt() in 1..65535)
-            return if (validIssuer && redirect == "com.cantos.theatre:/oauth2/callback") NativeConfiguration(issuer, redirect) else null
+            return if (validIssuer) NativeConfiguration(issuer, profile) else null
         }
     }
 }

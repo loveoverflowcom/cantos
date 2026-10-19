@@ -59,7 +59,11 @@ origin durably, so configuration changes cannot retarget an in-flight authorizat
 
 Native uses the same lifecycle with the existing public native client, exact registered system
 browser redirect and client PKCE/nonce/state. Its exchange consumes the durable flow before the
-sole provider call. The original native endpoints are legacy server compatibility only; migrated CMP consumers
+sole provider call. Native `FlowRequest` may carry the closed `callback_profile` (`production`
+when omitted, or `development`); it names one operator-admitted exact callback, never a URI, and
+the flow durably pins it, so exchange sends the callback bound at begin. Other clients reject
+the field; an unadmitted profile is refused without fallback
+([runbook](../../docs/deployment/native-callback-profiles.md)). The original native endpoints are legacy server compatibility only; migrated CMP consumers
 never fall back. Their final server-side cutover remains an explicit acceptance obligation.
 
 ## Lifetime, rotation and unknown outcomes

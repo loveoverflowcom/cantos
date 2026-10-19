@@ -79,7 +79,9 @@ installed-device secure-store/process-death or native decoder acceptance.
 Operator-owned **nonsecret** configuration keys are `CantosApiOrigin` and `CantosNativeIssuer`,
 read from Android application metadata / iOS Info.plist. Both must be supplied; the issuer must
 be the exact HTTPS `/oauth2/openid/cantos-theatre-native` issuer, and the callback is exactly
-`com.cantos.theatre:/oauth2/callback`. This repository supplies no live values, OAuth registration,
+`com.cantos.theatre:/oauth2/callback` (production). `NativeCallbackProfile` also defines the
+`com.cantos.theatre.dev` debug profile for the next host migration; current hosts keep the
+production scheme ([contract](../../../docs/deployment/native-callback-profiles.md)). This repository supplies no live values, OAuth registration,
 credentials or TLS override. The user authorized the previously held Android INTERNET,
 callback-filter and Application/MainActivity source changes on 14 October 2026. Those changes
 are now mounted: one process owner, `singleTask` callback delivery and the optional account

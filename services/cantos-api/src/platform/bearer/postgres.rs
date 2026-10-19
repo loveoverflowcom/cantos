@@ -80,9 +80,10 @@ pub(super) async fn begin(
     id: &str,
     state: &str,
     verifier: &str,
+    redirect: &str,
     request: FlowRequest,
 ) -> Result<(), AuthError> {
-    store.connection().await.map_err(unavailable)?.execute("INSERT INTO bearer_flows(id,client_id,issuer,client_state,challenge,provider_state_hash,nonce,verifier,expires_at,redirect_uri,return_origin) VALUES($1::text::uuid,$2,$3,$4,$5,$6,$7,$8,floor(extract(epoch FROM clock_timestamp()))::bigint+300,$9,$10)",&[&id,&config.client_id,&config.issuer,&request.state,&request.code_challenge,&token_hash(state),&request.nonce,&verifier,&config.redirect,&config.web_origin]).await.map_err(unavailable)?;
+    store.connection().await.map_err(unavailable)?.execute("INSERT INTO bearer_flows(id,client_id,issuer,client_state,challenge,provider_state_hash,nonce,verifier,expires_at,redirect_uri,return_origin) VALUES($1::text::uuid,$2,$3,$4,$5,$6,$7,$8,floor(extract(epoch FROM clock_timestamp()))::bigint+300,$9,$10)",&[&id,&config.client_id,&config.issuer,&request.state,&request.code_challenge,&token_hash(state),&request.nonce,&verifier,&redirect,&config.web_origin]).await.map_err(unavailable)?;
     Ok(())
 }
 pub(super) async fn consume_callback(
@@ -98,14 +99,18 @@ pub(super) async fn consume_callback(
         verifier: row.get(3),
     })
 }
+/// Consumes a pending native flow and returns its nonce and the callback bound at begin.
+/// Only callbacks still admitted by the operator can be consumed; the stored URI is never
+/// replaced by the current default, so a flow cannot change profile between begin and exchange.
 pub(super) async fn consume_native(
     store: &Store,
     config: &OidcConfig,
     id: &str,
     state: &str,
     challenge: &str,
-) -> Result<String, AuthError> {
-    store.connection().await.map_err(unavailable)?.query_opt("UPDATE bearer_flows SET consumed=true WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND client_state=$4 AND challenge=$5 AND redirect_uri=$6 AND return_origin=$7 AND NOT consumed AND NOT cancelled AND NOT completed AND expires_at>extract(epoch FROM clock_timestamp()) RETURNING nonce",&[&id,&config.client_id,&config.issuer,&state,&challenge,&config.redirect,&config.web_origin]).await.map_err(unavailable)?.map(|r|r.get(0)).ok_or(AuthError::State)
+) -> Result<(String, String), AuthError> {
+    let admitted = config.admitted_native_redirects();
+    store.connection().await.map_err(unavailable)?.query_opt("UPDATE bearer_flows SET consumed=true WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND client_state=$4 AND challenge=$5 AND redirect_uri=ANY($6::text[]) AND return_origin=$7 AND NOT consumed AND NOT cancelled AND NOT completed AND expires_at>extract(epoch FROM clock_timestamp()) RETURNING nonce,redirect_uri",&[&id,&config.client_id,&config.issuer,&state,&challenge,&admitted,&config.web_origin]).await.map_err(unavailable)?.map(|r|(r.get(0),r.get(1))).ok_or(AuthError::State)
 }
 pub(super) async fn complete_callback(
     store: &Store,

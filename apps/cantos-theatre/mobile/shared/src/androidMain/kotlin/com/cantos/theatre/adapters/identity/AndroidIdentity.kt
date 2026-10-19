@@ -12,6 +12,7 @@ import android.util.AtomicFile
 import android.util.Base64
 import com.cantos.theatre.domain.identity.LoginSecret
 import com.cantos.theatre.domain.identity.NativeCallback
+import com.cantos.theatre.domain.identity.NativeCallbackProfile
 import com.cantos.theatre.domain.identity.hasCanonicalNativeCallbackQuery
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.CredentialRead
@@ -131,9 +132,10 @@ class AndroidSystemBrowser(private val context: Context) : SystemBrowser {
     // ACTION_VIEW has no close API. Cancelling the protocol owner fences its eventual callback.
     override fun cancel() = Unit
 }
-fun parseAndroidCallback(uri: Uri): NativeCallback? {
+/** [expected] is this process's own profile, not any globally known scheme; others are refused. */
+fun parseAndroidCallback(uri: Uri, expected: NativeCallbackProfile): NativeCallback? {
     if (uri.toString().length > 16384) return null
-    if (uri.fragment != null || uri.toString().substringBefore('?') != "com.cantos.theatre:/oauth2/callback") return null
+    if (uri.fragment != null || uri.toString().substringBefore('?') != expected.redirect) return null
     if (!hasCanonicalNativeCallbackQuery(uri.encodedQuery)) return null
     return NativeCallback(uri.toString().substringBefore('?'), uri.getQueryParameter("state") ?: return null, uri.getQueryParameter("code") ?: "", uri.getQueryParameter("error") != null)
 }
