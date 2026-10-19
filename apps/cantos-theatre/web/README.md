@@ -39,6 +39,31 @@ Login and Create account are explicit secondary routes. The two primary destinat
 The Auth–Account v2 reference's third primary Account destination is intentionally not adopted,
 as required by [#129](https://github.com/loveoverflowcom/cantos/issues/129).
 
+The live Account/Login surface reads both capabilities from `/auth/configuration`. Login requires
+an explicitly configured OIDC capability and an acknowledged session-cleanup barrier before
+reserving the trusted-click popup. Registration availability is independent; configuration
+transport/protocol failures expose a retry rather than claiming the service is unsupported.
+Bearer credentials remain document-RAM only under [the shared owner](../../../packages/web-auth/README.md).
+
+The live **Của tôi** reads Continue, Saved and History with `presentation=1`, limit20 and independent
+opaque cursors. It renders released Work/unit titles and canonical UUID Work links directly from
+`Presented*Page` DTOs, retaining exact audio identities, progress revisions, history state and
+resume status. Each section owns loading/empty/page-error/retry/reload/load-more. Failed next
+pages retain loaded rows; expired cursors require a fresh walk of that section. Null metadata
+and replaced/unavailable releases retain their records without borrowing another release's title.
+Logout, expiry and session change hide all private lists before new admission; late results are
+fenced by account/session and page generation. Reading/rendering/navigating never writes progress,
+Saved or history and never starts media. Connecting the retained exact position to a paused
+production player depends on [#269](https://github.com/loveoverflowcom/cantos/issues/269); progress
+writes/reconciliation remain [#272](https://github.com/loveoverflowcom/cantos/issues/272).
+
+Native tests consume the shared presentation goldens. The existing explicit
+`cargo xtask verify web-bearer` lane also exercises these production Web modules with a loopback
+mock API/issuer and synthetic paged Library records; its browser captures are local evidence,
+not real Kanidm/PostgreSQL/signup or production acceptance. The separate
+[enrollment lane and remaining Web fixture](../../../docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
+retain their existing platform/tool requirements.
+
 The discovery/player/library preview below remains isolated at `?mode=mock`. Its sample
 state is never imported into the authenticated account, and its controls never call live APIs.
 

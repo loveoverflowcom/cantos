@@ -4,8 +4,7 @@ use crate::{
     application::{
         account::{AccountError, AccountGeneration, AccountScope},
         account_view::{
-            AccountFailure, AccountViewState, LibraryCompletion, LibraryProjection,
-            SessionCompletion, SessionPhase,
+            AccountFailure, AccountViewState, LibraryCompletion, SessionCompletion, SessionPhase,
         },
     },
     messages::{text, Key, Locale},
@@ -43,18 +42,38 @@ fn finish_fixture(
     actor: PreviewActor,
 ) -> Result<bool, AccountError> {
     match current.finish_session(issued, Ok(actor.scope()?))? {
-        SessionCompletion::Authenticated(fence) => {
-            let empty = LibraryProjection {
-                saved: Vec::new(),
-                continuing: Vec::new(),
-                history: Vec::new(),
-                has_more: false,
+        SessionCompletion::Authenticated(_) => {
+            use crate::application::library::{LibraryPage, Section};
+            use cantos_contracts::listener_library::{
+                HistoryState, PresentedContinuePage, PresentedHistoryPage, PresentedSavedPage,
             };
-            match current.finish_library(&fence, Ok(empty))? {
-                LibraryCompletion::Applied => Ok(true),
-                LibraryCompletion::Ignored => Ok(false),
-                LibraryCompletion::Cleanup(_) => Err(AccountError::LogoutPending),
+            for section in Section::ALL {
+                let Some(request) = current.begin_library(section, false) else {
+                    return Err(AccountError::RequestPending);
+                };
+                let empty = match section {
+                    Section::Continue => LibraryPage::Continue(PresentedContinuePage {
+                        items: vec![],
+                        next_cursor: None,
+                    }),
+                    Section::Saved => LibraryPage::Saved(PresentedSavedPage {
+                        items: vec![],
+                        next_cursor: None,
+                    }),
+                    Section::History => LibraryPage::History(PresentedHistoryPage {
+                        state: HistoryState {
+                            revision: 0,
+                            epoch: 0,
+                        },
+                        items: vec![],
+                        next_cursor: None,
+                    }),
+                };
+                if current.finish_page(&request, Ok(empty))? != LibraryCompletion::Applied {
+                    return Ok(false);
+                }
             }
+            Ok(true)
         }
         SessionCompletion::Ignored => Ok(false),
         SessionCompletion::Cleanup(_) => Err(AccountError::LogoutPending),
@@ -204,7 +223,6 @@ pub(crate) fn AuthPreviewControls(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::account_view::LibraryPhase;
 
     #[test]
     fn fixtures_keep_cleanup_barrier_and_real_owner_fences_for_stale_account_completion() {
@@ -214,7 +232,7 @@ mod tests {
             let old_a = state.write().begin_refresh().unwrap();
             logout_pending(state).unwrap();
             assert!(!logout_ack(state, false));
-            assert!(!state.get_untracked().can_login());
+            assert!(!state.get_untracked().can_authenticate());
             assert_eq!(
                 signed_in(state, PreviewActor::B),
                 Err(AccountError::LogoutPending)
@@ -230,7 +248,12 @@ mod tests {
                 Some("auth-preview-fixture-b")
             );
             assert_eq!(state.get_untracked().phase(), SessionPhase::SignedIn);
-            assert_eq!(state.get_untracked().library_phase(), LibraryPhase::Ready);
+            for section in crate::application::library::Section::ALL {
+                assert_eq!(
+                    state.get_untracked().library().unwrap().phase(section),
+                    crate::application::library::PagePhase::Ready
+                );
+            }
             assert!(state.get_untracked().library().unwrap().saved.is_empty());
         });
     }

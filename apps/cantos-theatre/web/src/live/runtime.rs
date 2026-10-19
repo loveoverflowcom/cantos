@@ -2,7 +2,7 @@
 use crate::application::{
     account::AccountGeneration,
     account_view::{
-        AccountFailure, AccountViewState, CleanupIntent, LibraryCompletion, LibraryPhase,
+        AccountFailure, AccountViewState, CleanupIntent, LibraryCompletion, LibraryRequest,
         SessionCompletion, SessionPhase,
     },
 };
@@ -37,8 +37,7 @@ fn refresh_with_budget(state: RwSignal<AccountViewState>, session_change_budget:
     if matches!(
         current.phase(),
         SessionPhase::Checking | SessionPhase::LogoutPending
-    ) || current.library_phase() == LibraryPhase::Loading
-    {
+    ) {
         return;
     }
     let mut current = current;
@@ -69,32 +68,54 @@ async fn finish_lookup(
         return;
     }
     match completion {
-        Some(Ok(SessionCompletion::Authenticated(fence))) => {
-            let result = super::library::load(fence.session()).await;
-            let session_changed = matches!(&result, Err(AccountFailure::SessionChanged));
-            let mut completed = None;
-            let _ = state.try_update(|current| {
-                completed = Some(current.finish_library(&fence, result));
-                cleanup_intent = current.cleanup_intent().clone();
-            });
-            match completed {
-                Some(Ok(LibraryCompletion::Cleanup(issued))) => {
-                    cleanup(state, issued, cleanup_intent, session_change_budget).await
-                }
-                Some(Ok(LibraryCompletion::Applied))
-                    if session_changed && session_change_budget > 0 =>
-                {
-                    refresh_with_budget(state, session_change_budget - 1);
-                }
-                Some(Ok(LibraryCompletion::Applied | LibraryCompletion::Ignored))
-                | Some(Err(_))
-                | None => (),
+        Some(Ok(SessionCompletion::Authenticated(_))) => {
+            for section in crate::application::library::Section::ALL {
+                load_library(state, section, false, session_change_budget, false);
             }
         }
         Some(Ok(SessionCompletion::Cleanup(issued))) => {
             cleanup(state, issued, cleanup_intent, session_change_budget).await
         }
         Some(Ok(SessionCompletion::Ignored)) | Some(Err(_)) | None => (),
+    }
+}
+
+pub fn load_library(
+    state: RwSignal<AccountViewState>,
+    section: crate::application::library::Section,
+    restart: bool,
+    session_change_budget: u8,
+    focus: bool,
+) {
+    let Some(Some(request)) = state.try_update(|s| s.begin_library(section, restart)) else {
+        return;
+    };
+    leptos::task::spawn_local(finish_page(state, request, session_change_budget, focus));
+}
+async fn finish_page(
+    state: RwSignal<AccountViewState>,
+    request: LibraryRequest,
+    session_change_budget: u8,
+    focus: bool,
+) {
+    let result = super::library::load(&request).await;
+    let section = request.page.section;
+    let changed = result == Err(AccountFailure::SessionChanged);
+    let Some(completion) = state.try_update(|s| s.finish_page(&request, result)) else {
+        return;
+    };
+    match completion {
+        Ok(LibraryCompletion::Cleanup(issued)) => {
+            let intent = state.with_untracked(|s| s.cleanup_intent().clone());
+            cleanup(state, issued, intent, session_change_budget).await;
+        }
+        Ok(LibraryCompletion::Applied) if changed && session_change_budget > 0 => {
+            refresh_with_budget(state, session_change_budget - 1)
+        }
+        Ok(LibraryCompletion::Applied) if focus => {
+            crate::platform::focus_by_id(crate::features::library::live::status_id(section))
+        }
+        Ok(LibraryCompletion::Applied | LibraryCompletion::Ignored) | Err(_) => (),
     }
 }
 
@@ -119,14 +140,17 @@ pub fn logout(state: RwSignal<AccountViewState>) {
     leptos::task::spawn_local(cleanup(state, issued, intent, 1));
 }
 
-pub fn login(state: RwSignal<AccountViewState>) {
-    if !state.get_untracked().can_login() {
+pub fn login(
+    state: RwSignal<AccountViewState>,
+    configuration: crate::application::registration::RegistrationState,
+) {
+    if !state.get_untracked().can_login(configuration) {
         return;
     }
     let login = match super::account::reserve_login() {
         Ok(login) => login,
-        Err(_) => {
-            state.update(AccountViewState::navigation_failed);
+        Err(error) => {
+            state.update(|s| s.navigation_failed(error));
             return;
         }
     };

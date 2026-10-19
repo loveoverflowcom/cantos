@@ -22,7 +22,7 @@ const source=()=>{
 const before=source();
 const origins={studio:'http://localhost:18081',theatre:'http://localhost:18082'};
 const apiOrigin='http://127.0.0.1:18080',issuerOrigin='http://127.0.0.1:18083';
-const state={flows:new Map(),families:new Map(),tokens:new Map(),refreshes:0,revokes:0,cancels:0,exchanges:0,requests:[],imports:new Map(),images:new Map(),artwork:null,imagePuts:0,cookieProbes:[],holdRefresh:null,dropRefresh:false,holdLibrary:null,failRevoke:false,shortAccess:false,denied:false};
+const state={flows:new Map(),families:new Map(),tokens:new Map(),refreshes:0,revokes:0,cancels:0,exchanges:0,requests:[],imports:new Map(),images:new Map(),artwork:null,imagePuts:0,cookieProbes:[],holdRefresh:null,dropRefresh:false,holdLibrary:null,failRevoke:false,shortAccess:false,denied:false,configuration:null,configurationStatus:200,failSavedPage:false};
 const secret=()=>randomBytes(32).toString('hex');
 const workId='00000000-0000-4000-8000-000000000077';
 const actorA='00000000-0000-4000-8000-000000000001',actorB='00000000-0000-4000-8000-000000000099';
@@ -46,7 +46,7 @@ const api=http.createServer(async(req,res)=>{try{
  if(req.headers.cookie){state.requests.push({surface,path:url.pathname,cookie:true});return error(res,400,'invalid_request');}
  state.requests.push({surface,path:url.pathname,method:req.method,authorization:!!req.headers.authorization,cookie:false});
  const prefix=`/api/v1/${surface}/auth/bearer`,suffix=url.pathname.slice(prefix.length);
- if(url.pathname===`/api/v1/${surface}/auth/configuration`)return json(res,200,surface==='studio'?{mode:'oidc'}:{login:'oidc',registration:{status:'unavailable',reason:'registration_unconfigured'}});
+ if(url.pathname===`/api/v1/${surface}/auth/configuration`)return json(res,surface==='studio'?200:state.configurationStatus,surface==='studio'?{mode:'oidc'}:(state.configuration||{login:'oidc',registration:{status:'unavailable',reason:'registration_unconfigured'}}));
  if(surface==='theatre'&&url.pathname===`/api/v1/${surface}/works`)return json(res,200,{items:[],next_cursor:null});
  if(url.pathname.startsWith(prefix)&&req.method==='POST'){
   assert(!req.headers.authorization,'protocol request mixed credentials');const b=await body(req);
@@ -112,7 +112,23 @@ const api=http.createServer(async(req,res)=>{try{
  if(suffix==='/session'&&url.pathname.startsWith(prefix)){
   const view=family.view;return json(res,200,{actor_id:family.actor,session_id:family.id,expires_at:view.expires_at,absolute_expires_at:view.absolute_expires_at,authenticated_at:view.authenticated_at});
  }
- if(url.pathname.includes('/library/')){if(state.holdLibrary)await state.holdLibrary;return json(res,200,{items:[],next_cursor:null});}
+ if(url.pathname.includes('/library/')){
+  assert.equal(req.method,'GET');assert.equal(url.searchParams.get('presentation'),'1');assert.equal(url.searchParams.get('limit'),'20');assert.equal(req.headers['x-cantos-theatre-session'],family.id);
+  const section=url.pathname.split('/').at(-1),cursor={continue:'aa'.repeat(32),saved:'bb'.repeat(32),history:'cc'.repeat(32)}[section];assert(cursor);
+  const more=url.searchParams.has('cursor');if(more)assert.equal(url.searchParams.get('cursor'),cursor);
+  if(state.holdLibrary)await state.holdLibrary;
+  if(section==='saved'&&more&&state.failSavedPage)return json(res,503,{code:'unavailable',retryable:true});
+  const fixture=JSON.parse(readFileSync(join(root,`packages/contracts/fixtures/theatre/library/v1/presentation/presented_${section}.json`)));
+  const row=fixture.items[0],audio=section==='continue'?row.progress.audio:section==='history'?row.audio:null;
+  const id=more?'00000000-0000-4000-8000-000000000088':workId;
+  if(audio)audio.work_id=id;if(row.progress)row.progress.audio.work_id=id;if(row.saved)row.saved.work_id=id;
+  const metadata=section==='saved'?row.presentation:row.presentation.work;
+  metadata.work_id=id;metadata.title=`${family.actor===actorA?'A':'B'} · ${more?'Trang sau':'Ánh đèn cuối sân khấu — Lời hẹn dài hơn một chuyến tàu xuyên qua miền ký ức'}`;
+  if(more&&section==='continue'){row.presentation=null;row.resume='release_replaced';}
+  if(more&&section==='saved')row.presentation=null;
+  fixture.next_cursor=more?null:cursor;
+  return json(res,200,fixture);
+ }
  return error(res,404,'not_found');
  }catch(_){error(res,400,'invalid_request');}
 });
@@ -156,8 +172,16 @@ try{
  ws=new WebSocket(endpoint.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});
  ws.onmessage=event=>{const message=JSON.parse(event.data);if(message.id){const request=pending.get(message.id);if(request){pending.delete(message.id);clearTimeout(request.timer);message.error?request.reject(new Error(`CDP ${message.error.message}`)):request.resolve(message.result);}}else for(const listener of listeners)listener(message);};
  const version=await send('Browser.getVersion');browserVersion=version;
+ state.configuration={login:'unconfigured',registration:{status:'email_verification'}};
  const theatre=await page(`${origins.theatre}/#login?from=account`);
- await until(()=>visible(theatre.s,'#theatre-auth-login'),'Theatre guest');
+ const enabled=selector=>evaluate(theatre.s,`(()=>{const e=document.querySelector(${JSON.stringify(selector)});return !!e&&!e.disabled;})()`);
+ await until(()=>evaluate(theatre.s,"document.querySelector('#theatre-auth-login')?.disabled&&document.body.innerText.includes('chưa được cấu hình')"),'login unconfigured');
+ assert(await enabled('#theatre-auth-register'));assert.equal(state.flows.size,0);
+ state.configurationStatus=503;await send('Page.reload',{},theatre.s);
+ await until(()=>visible(theatre.s,'#theatre-auth-configuration-retry'),'configuration error retry');assert.equal(state.flows.size,0);
+ state.configurationStatus=200;state.configuration=null;await click(theatre.s,'#theatre-auth-configuration-retry');
+ await until(()=>enabled('#theatre-auth-login'),'configured login');assert(!await enabled('#theatre-auth-register'));
+ passed('independent-login-registration-readiness-and-configuration-retry');
  await send('Network.setCookieControls',{enableThirdPartyCookieRestriction:true,disableThirdPartyCookieMetadata:true,disableThirdPartyCookieHeuristics:true},theatre.s);
  const cookie=await send('Network.setCookie',{name:'synthetic_third_party',value:'fixture',url:apiOrigin,secure:true,sameSite:'None'},theatre.s);assert(cookie.success);
  const cookieControl=await page(apiOrigin+'/_test/cookie-control');await until(()=>evaluate(cookieControl.s,'document.body.innerText.includes("true")'),'first-party cookie positive control');
@@ -169,6 +193,45 @@ try{
  await until(()=>visible(theatre.s,'#theatre-account-logout'),'Theatre API-confirmed account');
  assert.equal(state.exchanges,1);await until(()=>state.requests.some(r=>r.path.endsWith('/library/history')&&r.authorization),'Library bounded batch');
  await checkStorage(theatre);passed('theatre-popup-pkce-session-library-and-ram-only');
+ await click(theatre.s,'a[href="#library"]');
+ await until(()=>visible(theatre.s,'#theatre-library-history-more'),'three independent presented lists');
+ assert.equal(await evaluate(theatre.s,`document.querySelectorAll('a[href="#work/${workId}"]').length`),3);
+ assert.equal(await evaluate(theatre.s,"document.querySelectorAll('audio').length"),0);
+ state.failSavedPage=true;await click(theatre.s,'#theatre-library-saved-more');
+ await until(()=>visible(theatre.s,'#theatre-library-saved-retry'),'Saved page error retains first page');
+ assert(await visible(theatre.s,'#theatre-library-history-more'));assert(await visible(theatre.s,'#theatre-library-continue-more'));
+ state.failSavedPage=false;await click(theatre.s,'#theatre-library-saved-retry');
+ await until(()=>evaluate(theatre.s,"document.querySelectorAll('[aria-labelledby=theatre-library-saved-heading] li').length===2"),'Saved page retry');
+ await click(theatre.s,'#theatre-library-continue-more');await click(theatre.s,'#theatre-library-history-more');
+ await until(()=>evaluate(theatre.s,"document.querySelectorAll('[aria-labelledby=theatre-library-history-heading] li').length===2"),'History next page');
+ assert(await evaluate(theatre.s,"document.body.innerText.includes('bản nghe đã được thay thế')||document.body.innerText.includes('Bản nghe đã được thay thế')"));
+ assert(!state.requests.some(r=>r.path.includes('/library/')&&r.method!=='GET'));
+ assert(await evaluate(theatre.s,"document.activeElement.id==='theatre-library-history-status'"));
+ for(const [width,height,theme,scale] of [[390,844,'light',100],[1440,1000,'dark',100],[390,844,'dark',200]]){
+  await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<500},theatre.s);
+  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]},theatre.s);
+  await evaluate(theatre.s,`document.documentElement.style.fontSize='${scale}%'`);
+  await evaluate(theatre.s,'scrollTo(0,0)');await sleep(80);
+  assert(await evaluate(theatre.s,'document.documentElement.scrollWidth<=innerWidth+1'));
+  const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true},theatre.s);
+  await writeFile(join(run,`theatre-library-${width}-${theme}-vi-text${scale}.png`),Buffer.from(shot.data,'base64'));
+ }
+ await evaluate(theatre.s,"document.documentElement.style.fontSize=''");
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false},theatre.s);
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'light'}]},theatre.s);
+ passed('presented-library-three-lists-cursors-error-retry-null-metadata-focus-and-no-writes');
+ let releaseLibrary;state.holdLibrary=new Promise(resolve=>{releaseLibrary=resolve;});
+ await click(theatre.s,'#theatre-library-saved-reload');
+ await until(()=>evaluate(theatre.s,"document.querySelector('[aria-labelledby=theatre-library-saved-heading] [aria-busy=true]')!==null"),'held A library');
+ await click(theatre.s,'#theatre-account-entry');await click(theatre.s,'#theatre-account-logout');
+ await until(()=>visible(theatre.s,'#theatre-account-login'),'A logout before delayed page');
+ state.holdLibrary=null;await login(theatre,'#theatre-account-login','b');await until(()=>visible(theatre.s,'#theatre-account-logout'),'B admitted');
+ await click(theatre.s,'a[href="#library"]');await until(()=>evaluate(theatre.s,"document.querySelector('#library').innerText.includes('B ·')"),'B Library');
+ releaseLibrary();await sleep(100);
+ assert(!await evaluate(theatre.s,"document.querySelector('#library').innerText.includes('A ·')"));
+ await checkStorage(theatre);passed('delayed-account-a-page-cannot-return-after-logout-and-account-b-admission');
+ await click(theatre.s,'#theatre-account-entry');
+
  // Actual reload loses document RAM and requires a deliberate authorization; never a guest loop.
  const flows=state.flows.size;await send('Page.reload',{},theatre.s);
  await until(()=>visible(theatre.s,'#theatre-account-login'),'Theatre reload guest');

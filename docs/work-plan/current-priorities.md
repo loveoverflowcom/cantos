@@ -47,6 +47,16 @@ that rollout.
 | 4 | [#172](https://github.com/loveoverflowcom/cantos/issues/172) | Review the multi-Work/unit PostgreSQL walk regressions, then accept client recovery against the existing public contract | [State matrix](theatre-catalog-state-handoff.md#postgresql-walk-follow-up), accepted [ADR 0035](../decisions/0035-theatre-catalog-unit-availability.md); local SQL results belong to the PR, Web/CMP behavior and duration-schema tightening remain separate |
 | 5 | [#13](https://github.com/loveoverflowcom/cantos/issues/13), [#14](https://github.com/loveoverflowcom/cantos/issues/14), [#158](https://github.com/loveoverflowcom/cantos/issues/158), [#159](https://github.com/loveoverflowcom/cantos/issues/159) | Connect one real discovery → episode → playback slice per client with typed unavailable/error states | #170/#172; [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md). The discovery → detail → unit-list part exists on Web and the CMP debug host against a [seeded local catalog](../deployment/theatre-seeded-catalog.md); the [step-2 runtime](../evidence/theatre-native-step2.md) adds native/account/Library/SQLDelight integration while preserving the independent [detail-identity guard](../evidence/issue159-cmp-live-catalog.md); next are exact-artifact device/codec/identity/two-client acceptance; follow with #15/#16/#17/#35 background/offline/sync |
 
+For the Web implementation chain, prefer [#269](https://github.com/loveoverflowcom/cantos/issues/269)
+(player/media origin), then [#270](https://github.com/loveoverflowcom/cantos/issues/270)
+(route/catalog paging), [#271](https://github.com/loveoverflowcom/cantos/issues/271)
+(identity readiness/presented Library reads), then [#272](https://github.com/loveoverflowcom/cantos/issues/272)
+(Saved/progress/history writes). The #271 read model and capability guards are independent of
+player implementation; accept its real issuer/signup and exact paused player handoff separately.
+Reuse the [Web boundary](../../apps/cantos-theatre/web/README.md#scope-and-honest-behavior) and
+[existing enrollment lane](../deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
+rather than rebuilding authentication or accepting fixtures as live evidence.
+
 Order expresses capability dependencies. The following tracks can proceed independently within
 their own decision/acceptance gates; none requires rebuilding the completed foundation.
 
