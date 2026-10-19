@@ -1,6 +1,7 @@
 //! Mounted listener account lifecycle; private projections are owned by one verified session.
 use super::account::{AccountError, AccountGeneration, AccountScope, AccountState, RequestFence};
-use cantos_contracts::listener_library::ResumeStatus;
+pub use super::library::LibraryProjection;
+use super::library::{LibraryPage, PageRequest, Section};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccountFailure {
@@ -9,7 +10,9 @@ pub enum AccountFailure {
     Unavailable,
     Protocol,
     Navigation,
+    PopupBlocked,
     LogoutPending,
+    CursorExpired,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -21,31 +24,6 @@ pub enum SessionPhase {
     SignedIn,
     Failed(AccountFailure),
     LogoutPending,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum LibraryPhase {
-    #[default]
-    Idle,
-    Loading,
-    Ready,
-    Failed(AccountFailure),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ProgressSummary {
-    pub work: String,
-    pub position_ms: u64,
-    pub duration_ms: u64,
-    pub resume: ResumeStatus,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LibraryProjection {
-    pub saved: Vec<String>,
-    pub continuing: Vec<ProgressSummary>,
-    pub history: Vec<String>,
-    pub has_more: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -73,7 +51,6 @@ pub enum CleanupIntent {
 pub struct AccountViewState {
     account: AccountState,
     phase: SessionPhase,
-    library_phase: LibraryPhase,
     library: Option<LibraryProjection>,
     cleanup_in_flight: bool,
     cleanup_intent: CleanupIntent,
@@ -83,14 +60,15 @@ impl AccountViewState {
     pub fn phase(&self) -> SessionPhase {
         self.phase
     }
-    pub fn library_phase(&self) -> LibraryPhase {
-        self.library_phase
-    }
     pub fn library(&self) -> Option<&LibraryProjection> {
         self.library.as_ref()
     }
-    pub fn can_login(&self) -> bool {
+    pub fn can_authenticate(&self) -> bool {
         self.phase == SessionPhase::Guest && !self.account.logout_pending()
+    }
+    pub fn can_login(&self, configuration: super::registration::RegistrationState) -> bool {
+        self.can_authenticate()
+            && configuration.login() == super::registration::LoginPhase::Available
     }
     pub fn actor(&self) -> Option<&str> {
         self.account.scope().map(AccountScope::actor)
@@ -107,20 +85,19 @@ impl AccountViewState {
     pub fn can_retry_logout(&self) -> bool {
         self.phase == SessionPhase::LogoutPending && !self.cleanup_in_flight
     }
-    pub fn navigation_failed(&mut self) {
-        if self.can_login() {
-            self.phase = SessionPhase::Failed(AccountFailure::Navigation);
+    pub fn navigation_failed(&mut self, failure: AccountFailure) {
+        if self.can_authenticate() {
+            self.phase = SessionPhase::Failed(failure);
         }
     }
     fn clear_private(&mut self) {
         self.library = None;
-        self.library_phase = LibraryPhase::Idle;
     }
     pub fn begin_refresh(&mut self) -> Result<AccountGeneration, AccountError> {
         if self.account.logout_pending() {
             return Err(AccountError::LogoutPending);
         }
-        if self.phase == SessionPhase::Checking || self.library_phase == LibraryPhase::Loading {
+        if self.phase == SessionPhase::Checking {
             return Err(AccountError::RequestPending);
         }
         self.account.leave()?;
@@ -140,7 +117,7 @@ impl AccountViewState {
             Ok(scope) => {
                 self.account.finish_session(issued, scope)?;
                 self.phase = SessionPhase::SignedIn;
-                self.library_phase = LibraryPhase::Loading;
+                self.library = Some(LibraryProjection::default());
                 Ok(SessionCompletion::Authenticated(self.account.fence()?))
             }
             Err(AccountFailure::SignedOut) => {
@@ -194,254 +171,197 @@ impl AccountViewState {
         self.phase = SessionPhase::Guest;
         true
     }
-    pub fn finish_library(
+    pub fn begin_library(&mut self, section: Section, restart: bool) -> Option<LibraryRequest> {
+        if self.phase != SessionPhase::SignedIn {
+            return None;
+        }
+        let fence = self.account.fence().ok()?;
+        let page = self.library.as_mut()?.begin(section, restart)?;
+        Some(LibraryRequest { fence, page })
+    }
+    pub fn finish_page(
         &mut self,
-        fence: &RequestFence,
-        result: Result<LibraryProjection, AccountFailure>,
+        request: &LibraryRequest,
+        result: Result<LibraryPage, AccountFailure>,
     ) -> Result<LibraryCompletion, AccountError> {
-        if !self.account.accepts(fence) {
+        if !self.account.accepts(&request.fence) {
             return Ok(LibraryCompletion::Ignored);
         }
-        match result {
-            Ok(projection) => {
-                self.library = Some(projection);
-                self.library_phase = LibraryPhase::Ready;
-                Ok(LibraryCompletion::Applied)
-            }
-            Err(AccountFailure::SignedOut) => {
+        let Some(library) = self.library.as_mut() else {
+            return Ok(LibraryCompletion::Ignored);
+        };
+        let failure = result.as_ref().err().copied();
+        if !library.finish(&request.page, result) {
+            return Ok(LibraryCompletion::Ignored);
+        }
+        match failure {
+            Some(AccountFailure::SignedOut) => {
                 Ok(LibraryCompletion::Cleanup(self.begin_expiry_cleanup()?))
             }
-            Err(error) => {
-                self.library = None;
-                self.library_phase = LibraryPhase::Failed(error);
+            Some(AccountFailure::SessionChanged) => {
+                self.clear_private();
+                self.phase = SessionPhase::Failed(AccountFailure::SessionChanged);
                 Ok(LibraryCompletion::Applied)
             }
+            _ => Ok(LibraryCompletion::Applied),
         }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LibraryRequest {
+    fence: RequestFence,
+    pub page: PageRequest,
+}
+impl LibraryRequest {
+    pub fn session(&self) -> &str {
+        self.fence.session()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     fn scope(actor: &str, session: u128) -> AccountScope {
         AccountScope::from_session(actor.into(), uuid::Uuid::from_u128(session).to_string())
             .unwrap()
     }
-
-    fn projection(work: &str) -> LibraryProjection {
-        LibraryProjection {
-            saved: vec![work.into()],
-            continuing: vec![ProgressSummary {
-                work: work.into(),
-                position_ms: 20_000,
-                duration_ms: 60_000,
-                resume: cantos_contracts::listener_library::ResumeStatus::ExactAvailable,
-            }],
-            history: vec![work.into()],
-            has_more: false,
-        }
+    fn authenticate(s: &mut AccountViewState, actor: &str, session: u128) {
+        let issued = s.begin_refresh().unwrap();
+        assert!(matches!(
+            s.finish_session(issued, Ok(scope(actor, session))),
+            Ok(SessionCompletion::Authenticated(_))
+        ));
     }
-
-    fn authenticate(state: &mut AccountViewState, actor: &str, session: u128) -> RequestFence {
-        let issued = state.begin_refresh().unwrap();
-        let SessionCompletion::Authenticated(fence) = state
-            .finish_session(issued, Ok(scope(actor, session)))
-            .unwrap()
-        else {
-            panic!("current verified session must start its own library read")
-        };
-        fence
+    fn page() -> LibraryPage {
+        crate::live::library::decode_page(Section::Saved, include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json")).unwrap()
     }
-
     #[test]
-    fn bootstrap_signed_out_requires_acknowledged_cookie_cleanup_before_login() {
-        let mut state = AccountViewState::default();
-        let issued = state.begin_refresh().unwrap();
-        let SessionCompletion::Cleanup(cleanup) = state
+    fn bootstrap_signed_out_requires_acknowledged_cleanup_before_authorization() {
+        let mut s = AccountViewState::default();
+        let issued = s.begin_refresh().unwrap();
+        let SessionCompletion::Cleanup(cleanup) = s
             .finish_session(issued, Err(AccountFailure::SignedOut))
             .unwrap()
         else {
-            panic!("401 must schedule cookie cleanup")
+            panic!()
         };
-        assert_eq!(state.phase(), SessionPhase::LogoutPending);
-        assert!(!state.can_login());
-        assert!(!state.finish_logout(cleanup, Err(AccountFailure::Unavailable)));
-        assert_eq!(state.phase(), SessionPhase::LogoutPending);
-        assert!(!state.can_login());
-        assert!(state.finish_logout(cleanup, Ok(())));
-        assert_eq!(state.phase(), SessionPhase::Guest);
-        assert!(state.can_login());
+        assert_eq!(s.phase(), SessionPhase::LogoutPending);
+        assert!(!s.can_authenticate());
+        assert!(!s.finish_logout(cleanup, Err(AccountFailure::Unavailable)));
+        assert!(s.can_retry_logout());
+        assert!(!s.can_authenticate());
+        assert!(s.finish_logout(cleanup, Ok(())));
+        assert!(s.can_authenticate());
     }
-
     #[test]
-    fn logout_hides_every_private_projection_before_io_and_fences_late_library_results() {
-        let mut state = AccountViewState::default();
-        let old = authenticate(&mut state, "actor-a", 1);
+    fn logout_hides_every_projection_and_late_pages_cannot_return_during_or_after_account_switch() {
+        let mut s = AccountViewState::default();
+        authenticate(&mut s, "a", 1);
+        let old = s.begin_library(Section::Saved, false).unwrap();
+        s.finish_page(&old, Ok(page())).unwrap();
+        let cleanup = s.begin_logout().unwrap();
+        assert!(s.library().is_none());
         assert_eq!(
-            state
-                .finish_library(&old, Ok(projection("private-a")))
-                .unwrap(),
-            LibraryCompletion::Applied
+            s.finish_page(&old, Ok(page())),
+            Ok(LibraryCompletion::Ignored)
         );
-        let cleanup = state.begin_logout().unwrap();
-        assert!(state.library().is_none());
-        assert_eq!(state.library_phase(), LibraryPhase::Idle);
-        assert_eq!(
-            state
-                .finish_library(&old, Ok(projection("late-a")))
-                .unwrap(),
-            LibraryCompletion::Ignored
-        );
-        assert_eq!(
-            state
-                .finish_library(&old, Err(AccountFailure::SignedOut))
-                .unwrap(),
-            LibraryCompletion::Ignored
-        );
-        assert!(state.finish_logout(cleanup, Ok(())));
-        let current = authenticate(&mut state, "actor-b", 2);
-        state
-            .finish_library(&current, Ok(projection("private-b")))
-            .unwrap();
-        assert_eq!(
-            state
-                .finish_library(&old, Err(AccountFailure::SignedOut))
-                .unwrap(),
-            LibraryCompletion::Ignored
-        );
-        assert_eq!(state.library().unwrap().saved, ["private-b"]);
-        assert_eq!(state.phase(), SessionPhase::SignedIn);
-    }
-
-    #[test]
-    fn stale_session_success_and_failure_cannot_reenter_or_clear_a_newer_account() {
-        let mut state = AccountViewState::default();
-        let old_lookup = state.begin_refresh().unwrap();
-        let cleanup = state.begin_logout().unwrap();
-        assert!(state.finish_logout(cleanup, Ok(())));
-        let current = authenticate(&mut state, "actor-b", 2);
-        state
-            .finish_library(&current, Ok(projection("private-b")))
-            .unwrap();
-        for result in [Ok(scope("actor-a", 1)), Err(AccountFailure::SignedOut)] {
-            assert_eq!(
-                state.finish_session(old_lookup, result),
-                Ok(SessionCompletion::Ignored)
-            );
-            assert_eq!(state.library().unwrap().saved, ["private-b"]);
-            assert_eq!(state.phase(), SessionPhase::SignedIn);
+        assert!(s.finish_logout(cleanup, Ok(())));
+        authenticate(&mut s, "b", 2);
+        for result in [Ok(page()), Err(AccountFailure::SignedOut)] {
+            assert_eq!(s.finish_page(&old, result), Ok(LibraryCompletion::Ignored));
+            assert_eq!(s.actor(), Some("b"));
+            assert!(s.library().unwrap().saved.is_empty());
         }
     }
-
     #[test]
-    fn current_expiry_clears_progress_saved_history_and_retains_logout_barrier() {
-        let mut state = AccountViewState::default();
-        let current = authenticate(&mut state, "actor-a", 1);
-        state
-            .finish_library(&current, Ok(projection("private-a")))
-            .unwrap();
-        let LibraryCompletion::Cleanup(cleanup) = state
-            .finish_library(&current, Err(AccountFailure::SignedOut))
+    fn stale_session_success_and_failure_cannot_reenter_or_clear_a_newer_account() {
+        let mut s = AccountViewState::default();
+        let old = s.begin_refresh().unwrap();
+        let cleanup = s.begin_logout().unwrap();
+        s.finish_logout(cleanup, Ok(()));
+        authenticate(&mut s, "b", 2);
+        for result in [Ok(scope("a", 1)), Err(AccountFailure::SignedOut)] {
+            assert_eq!(
+                s.finish_session(old, result),
+                Ok(SessionCompletion::Ignored)
+            );
+            assert_eq!(s.actor(), Some("b"));
+            assert_eq!(s.phase(), SessionPhase::SignedIn);
+        }
+    }
+    #[test]
+    fn current_expiry_clears_all_lists_and_retries_keep_the_cleanup_generation_barrier() {
+        let mut s = AccountViewState::default();
+        authenticate(&mut s, "a", 1);
+        let request = s.begin_library(Section::Saved, false).unwrap();
+        let LibraryCompletion::Cleanup(cleanup) = s
+            .finish_page(&request, Err(AccountFailure::SignedOut))
             .unwrap()
         else {
-            panic!("current expiry must hide projections and schedule cookie cleanup")
+            panic!()
         };
-        assert!(state.library().is_none());
-        assert!(!state.can_login());
-        let retry = state.begin_logout().unwrap();
-        assert!(!state.finish_logout(cleanup, Ok(())));
-        assert!(!state.can_login());
-        assert!(state.finish_logout(retry, Ok(())));
-        assert!(state.can_login());
+        assert!(s.library().is_none());
+        assert!(!s.can_authenticate());
+        let retry = s.begin_logout().unwrap();
+        assert!(!s.finish_logout(cleanup, Ok(())));
+        assert!(s.finish_logout(retry, Ok(())));
+        assert!(s.can_authenticate());
     }
-
     #[test]
-    fn duplicate_refresh_does_not_dispatch_another_session_or_private_read_batch() {
-        let mut state = AccountViewState::default();
-        let issued = state.begin_refresh().unwrap();
-        assert_eq!(state.begin_refresh(), Err(AccountError::RequestPending));
-        let SessionCompletion::Authenticated(fence) = state
-            .finish_session(issued, Ok(scope("actor-a", 1)))
-            .unwrap()
-        else {
-            panic!("current session must own one private read batch")
-        };
-        assert_eq!(state.begin_refresh(), Err(AccountError::RequestPending));
-        state
-            .finish_library(&fence, Ok(projection("private-a")))
-            .unwrap();
-        assert!(state.begin_refresh().is_ok());
-        assert!(state.library().is_none());
+    fn duplicate_session_refresh_is_blocked_but_new_refresh_fences_pending_library_pages() {
+        let mut s = AccountViewState::default();
+        let issued = s.begin_refresh().unwrap();
+        assert_eq!(s.begin_refresh(), Err(AccountError::RequestPending));
+        s.finish_session(issued, Ok(scope("a", 1))).unwrap();
+        let old = s.begin_library(Section::Saved, false).unwrap();
+        s.begin_refresh().unwrap();
+        assert!(s.library().is_none());
+        assert_eq!(
+            s.finish_page(&old, Ok(page())),
+            Ok(LibraryCompletion::Ignored)
+        );
     }
-
     #[test]
-    fn cookie_rotation_hides_a_projection_and_rechecks_b_without_clearing_b_cookie() {
-        let mut state = AccountViewState::default();
-        let old = authenticate(&mut state, "actor-a", 1);
-        state
-            .finish_library(&old, Ok(projection("private-a")))
+    fn session_rotation_hides_all_lists_and_late_a_401_cannot_clear_b() {
+        let mut s = AccountViewState::default();
+        authenticate(&mut s, "a", 1);
+        let old = s.begin_library(Section::Saved, false).unwrap();
+        s.finish_page(&old, Err(AccountFailure::SessionChanged))
             .unwrap();
         assert_eq!(
-            state
-                .finish_library(&old, Err(AccountFailure::SessionChanged))
-                .unwrap(),
-            LibraryCompletion::Applied
-        );
-        assert!(state.library().is_none());
-        assert_eq!(
-            state.library_phase(),
-            LibraryPhase::Failed(AccountFailure::SessionChanged)
-        );
-        assert!(!state.can_retry_logout());
-        let current = authenticate(&mut state, "actor-b", 2);
-        state
-            .finish_library(&current, Ok(projection("private-b")))
-            .unwrap();
-        assert_eq!(
-            state
-                .finish_library(&old, Err(AccountFailure::SignedOut))
-                .unwrap(),
-            LibraryCompletion::Ignored
-        );
-        assert_eq!(state.actor(), Some("actor-b"));
-        assert_eq!(state.library().unwrap().saved, ["private-b"]);
-    }
-
-    #[test]
-    fn delayed_401_cleanup_cannot_revoke_a_cookie_rotated_to_b_in_another_tab() {
-        let mut state = AccountViewState::default();
-        let old = authenticate(&mut state, "actor-a", 1);
-        state
-            .finish_library(&old, Ok(projection("private-a")))
-            .unwrap();
-        let LibraryCompletion::Cleanup(cleanup) = state
-            .finish_library(&old, Err(AccountFailure::SignedOut))
-            .unwrap()
-        else {
-            panic!("expiry requires guarded cleanup")
-        };
-        assert_eq!(state.cleanup_intent(), &CleanupIntent::StaleOnly);
-        assert!(!state.finish_logout(cleanup, Err(AccountFailure::SessionChanged)));
-        assert_eq!(
-            state.phase(),
+            s.phase(),
             SessionPhase::Failed(AccountFailure::SessionChanged)
         );
-        assert!(!state.can_login());
-        let current = authenticate(&mut state, "actor-b", 2);
-        state
-            .finish_library(&current, Ok(projection("private-b")))
-            .unwrap();
-        let explicit = state.begin_logout().unwrap();
+        assert!(s.library().is_none());
+        assert!(!s.can_retry_logout());
+        authenticate(&mut s, "b", 2);
         assert_eq!(
-            state.cleanup_intent(),
-            &CleanupIntent::ExpectedSession(uuid::Uuid::from_u128(2).to_string())
+            s.finish_page(&old, Err(AccountFailure::SignedOut)),
+            Ok(LibraryCompletion::Ignored)
         );
-        assert!(!state.finish_logout(explicit, Err(AccountFailure::Unavailable)));
-        state.begin_logout().unwrap();
-        assert_eq!(
-            state.cleanup_intent(),
-            &CleanupIntent::ExpectedSession(uuid::Uuid::from_u128(2).to_string())
-        );
+        assert_eq!(s.actor(), Some("b"));
+    }
+    #[test]
+    fn delayed_expiry_cleanup_cannot_revoke_b_and_explicit_cleanup_stays_pinned_across_retries() {
+        let mut s = AccountViewState::default();
+        authenticate(&mut s, "a", 1);
+        let request = s.begin_library(Section::Saved, false).unwrap();
+        let LibraryCompletion::Cleanup(cleanup) = s
+            .finish_page(&request, Err(AccountFailure::SignedOut))
+            .unwrap()
+        else {
+            panic!()
+        };
+        assert_eq!(s.cleanup_intent(), &CleanupIntent::StaleOnly);
+        assert!(!s.finish_logout(cleanup, Err(AccountFailure::SessionChanged)));
+        assert!(!s.can_authenticate());
+        authenticate(&mut s, "b", 2);
+        let explicit = s.begin_logout().unwrap();
+        let expected = CleanupIntent::ExpectedSession(uuid::Uuid::from_u128(2).to_string());
+        assert_eq!(s.cleanup_intent(), &expected);
+        assert!(!s.finish_logout(explicit, Err(AccountFailure::Unavailable)));
+        s.begin_logout().unwrap();
+        assert_eq!(s.cleanup_intent(), &expected);
     }
 }

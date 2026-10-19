@@ -8,7 +8,7 @@ use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthRoute, AuthStep, ReturnDestination},
-        registration::{ConfigurationFailure, RegistrationPhase, RegistrationState},
+        registration::{ConfigurationFailure, LoginPhase, RegistrationPhase, RegistrationState},
         signup::{SignupPhase, SignupState},
     },
     messages::{self, Key, Locale},
@@ -68,47 +68,76 @@ fn registration_key(phase: RegistrationPhase) -> CopyKey {
     }
 }
 
-/// The guest CTA pair is the same composition in Login and Account. Availability comes only
-/// from the existing session owner; a failure to construct localized reason text hides actions.
+fn login_key(phase: LoginPhase) -> CopyKey {
+    match phase {
+        LoginPhase::Idle | LoginPhase::Checking => CopyKey::LoginChecking,
+        LoginPhase::Available => CopyKey::ProviderHelp,
+        LoginPhase::Unconfigured => CopyKey::LoginUnconfigured,
+        LoginPhase::Failed(ConfigurationFailure::Unavailable) => CopyKey::LoginUnavailable,
+        LoginPhase::Failed(ConfigurationFailure::Protocol) => CopyKey::LoginProtocol,
+    }
+}
+fn action_state(enabled: bool, checking: bool, reason: &str) -> Option<ButtonState> {
+    if enabled {
+        return Some(ButtonState::Enabled);
+    }
+    DisabledReason::new(reason).ok().map(|reason| {
+        if checking {
+            ButtonState::Loading(reason)
+        } else {
+            ButtonState::Disabled(reason)
+        }
+    })
+}
+/// Login and registration have independent server capabilities, behind the same cleanup barrier.
 #[component]
 pub(crate) fn AuthActions(
     state: RwSignal<AccountViewState>,
+    registration: RwSignal<RegistrationState>,
     locale: RwSignal<Locale>,
     scope: &'static str,
     on_login: Callback<()>,
     on_register: Callback<()>,
+    on_configuration_retry: Callback<()>,
     #[prop(optional)] preview_icons: bool,
 ) -> impl IntoView {
     view! {
         <div class="theatre-auth-actions">
             {move || {
                 let current = state.get();
-                let availability = if current.can_login() {
-                    Some(ButtonState::Enabled)
-                } else {
-                    DisabledReason::new(messages::text(blocked_login_key(&current), locale.get()))
-                        .ok()
-                        .map(|reason| match current.phase() {
-                            SessionPhase::Idle | SessionPhase::Checking => ButtonState::Loading(reason),
-                            SessionPhase::LogoutPending if current.cleanup_in_flight() => ButtonState::Loading(reason),
-                            SessionPhase::Guest | SessionPhase::SignedIn | SessionPhase::Failed(_) | SessionPhase::LogoutPending => ButtonState::Disabled(reason),
-                        })
-                };
-                availability.map(|availability| view! {
+                let configuration = registration.get();
+                let reason = if current.can_authenticate() {
+                    auth_copy::text(login_key(configuration.login()), locale.get())
+                } else { messages::text(blocked_login_key(&current), locale.get()) };
+                action_state(current.can_login(configuration), matches!(configuration.login(), LoginPhase::Idle | LoginPhase::Checking), reason).map(|availability| view! {
                     <Button id=format!("{scope}-login") variant=ButtonVariant::AuthPrimary
-                        icon=if preview_icons { IconName::Login } else { IconName::ArrowForward } state=availability.clone()
-                        focus_on_press=true
+                        icon=if preview_icons { IconName::Login } else { IconName::ArrowForward }
+                        state=availability focus_on_press=true
                         on_press=Callback::new(move |_| on_login.run(()))>
                         {label(locale, CopyKey::CantosIdLogin)}
                     </Button>
+                })
+            }}
+            {move || {
+                let current = state.get();
+                let phase = registration.get().phase();
+                let reason = if current.can_authenticate() { auth_copy::text(registration_key(phase), locale.get()) }
+                    else { messages::text(blocked_login_key(&current), locale.get()) };
+                action_state(current.can_authenticate() && phase == RegistrationPhase::Available,
+                    matches!(phase, RegistrationPhase::Idle | RegistrationPhase::Checking), reason).map(|availability| view! {
                     <Button id=format!("{scope}-register") variant=ButtonVariant::AuthSecondary
                         nostrip:icon=preview_icons.then_some(IconName::PersonAdd)
-                        state=availability focus_on_press=true
-                        on_press=Callback::new(move |_| on_register.run(()))>
+                        state=availability focus_on_press=true on_press=Callback::new(move |_| on_register.run(()))>
                         {label(locale, CopyKey::CreateAccount)}
                     </Button>
                 })
             }}
+            <Show when=move || matches!(registration.get().login(), LoginPhase::Failed(_)) || matches!(registration.get().phase(), RegistrationPhase::Failed(_))>
+                <Button id=format!("{scope}-configuration-retry") variant=ButtonVariant::Text
+                    on_press=Callback::new(move |_| on_configuration_retry.run(()))>
+                    {label(locale, CopyKey::SignupRetry)}
+                </Button>
+            </Show>
         </div>
     }
 }
@@ -213,7 +242,7 @@ pub(crate) fn AuthPage(
                     </p>
                     {if is_login {
                         view! {
-                            <AuthActions state locale scope="theatre-auth" on_login on_register preview_icons/>
+                            <AuthActions state registration locale scope="theatre-auth" on_login on_register on_configuration_retry=on_registration_refresh preview_icons/>
                             <p class="theatre-auth-helper theatre-muted">{label(locale, CopyKey::ProviderHelp)}</p>
                             <Show when=move || state.get().phase() == SessionPhase::SignedIn>
                                 <p>{label(locale, CopyKey::SignedInActionHelp)}</p>
@@ -668,7 +697,11 @@ mod tests {
                     .split('>')
                     .next()
                     .unwrap();
-                assert!(!open.contains("disabled"), "{id}: {open}");
+                assert_eq!(
+                    open.contains("disabled"),
+                    id == "theatre-auth-register",
+                    "{id}: {open}"
+                );
             }
         }
     }
@@ -694,5 +727,40 @@ mod tests {
             assert!(open.contains("disabled"), "{id}: {open}");
         }
         assert!(html.contains("Hoàn tất đăng xuất"));
+    }
+}
+
+#[cfg(test)]
+mod readiness_render_tests {
+    use super::*;
+    use cantos_contracts::theatre_identity::{Configuration, LoginMethod, Registration};
+    fn control(html: &str, id: &str) -> String {
+        let after = html.split(&format!("id=\"{id}\"")).nth(1).unwrap();
+        after.split('>').next().unwrap().to_owned()
+    }
+    #[test]
+    fn login_unconfigured_registration_available_and_configuration_retry_render_independently() {
+        Owner::new().with(|| {
+            let mut guest = AccountViewState::default(); let cleanup = guest.begin_logout().unwrap(); guest.finish_logout(cleanup, Ok(()));
+            let state = RwSignal::new(guest); let registration = RwSignal::new(RegistrationState::default());
+            let locale = RwSignal::new(Locale::English); let noop = Callback::new(|()| {});
+            let render = || view! { <AuthActions state registration locale scope="readiness" on_login=noop on_register=noop on_configuration_retry=noop/> }.to_html();
+            let issued = registration.write().begin().unwrap();
+            registration.write().finish(issued, Ok(Configuration { login: LoginMethod::Unconfigured, registration: Registration::EmailVerification {} }));
+            let html = render();
+            assert!(control(&html, "readiness-login").contains("disabled"));
+            assert!(!control(&html, "readiness-register").contains("disabled"));
+            assert!(html.contains("Sign-in is not configured"));
+            let issued = registration.write().begin().unwrap();
+            registration.write().finish(issued, Err(ConfigurationFailure::Unavailable));
+            let html = render();
+            assert!(html.contains("readiness-configuration-retry"));
+            assert!(html.contains("does not mean sign-in is unsupported"));
+            let issued = registration.write().begin().unwrap();
+            registration.write().finish(issued, Ok(Configuration { login: LoginMethod::Oidc, registration: Registration::Unavailable { reason: RegistrationUnavailableReason::RegistrationUnconfigured } }));
+            let html = render();
+            assert!(!control(&html, "readiness-login").contains("disabled"));
+            assert!(control(&html, "readiness-register").contains("disabled"));
+        });
     }
 }
