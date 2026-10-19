@@ -1,6 +1,9 @@
-//! Browser navigation, focus and presentation geometry. No media or network adapter.
+//! Browser navigation, focus and presentation geometry, plus the one audio element in `audio`.
 use crate::app::routes::Route;
 use leptos::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) mod audio;
 
 /// Restore a native range after canceled input, including when its controlled value is unchanged.
 pub(crate) fn restore_range_value(input: NodeRef<leptos::html::Input>, position_ms: u32) {

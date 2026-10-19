@@ -1,4 +1,4 @@
-use super::state::{CallbackIdentity, PlayerState, ResumeSnapshot, Source};
+use super::state::{CallbackIdentity, Failure, PlayerState, ResumeSnapshot, Source};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
@@ -42,6 +42,12 @@ pub enum Event {
     },
     EngineEnded {
         identity: CallbackIdentity,
+    },
+    /// The engine cannot play. It is a fact about the identity it names, so a failure of a
+    /// replaced source or intent cannot change the current state.
+    EngineFailed {
+        identity: CallbackIdentity,
+        failure: Failure,
     },
 }
 

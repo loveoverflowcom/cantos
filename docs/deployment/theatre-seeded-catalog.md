@@ -76,6 +76,15 @@ Open `http://127.0.0.1:8082/`, choose a Work and use **Tải thêm** on _Chuyệ
 `?mode=mock` and `?mode=membership-preview` remain separate offline previews; live mode never
 falls back to them.
 
+To **hear** a unit the browser must be able to open the HTTPS grant URL the API returns. Start the
+[local TLS front end](#local-tls-front-end-for-browser-playback) in a third terminal and accept its
+certificate in the browser you use; without it the catalog still works and the player reports a
+connection failure rather than a simulated success:
+
+```bash
+python3 scripts/serve_studio.py tls-front --generate
+```
+
 ### Independently retained ownership after a narrow check
 
 When the full PostgreSQL campaign is unavailable or has failed, the explicit narrow command
@@ -135,14 +144,38 @@ curl -sS -X POST "http://127.0.0.1:8080/api/v1/studio/content-units/5eed0003-002
 ```
 
 Refresh the Web detail or the Android list: episode 23 disappears and the page ends after 22.
-The seed receipt records `private_root`, `publication_root`, `playback_key_file` and the
-HTTPS public media origin. The local test-cluster host admits these only beneath its exact
-retained cluster and composes the real publication/origin adapter. The fixture's default
-`https://localhost:8080` origin requires a TLS front end for an actual listener client. For
-local API/storage probes, extract the grant's path and fetch it on loopback HTTP; this proves
-bytes/Range, not TLS, deployed proxy or native playback. A configured persistent host uses its
-operator-managed HTTPS origin and key. Persistent acceptance fetches the exact advertised HTTPS
-grant URL; it never substitutes the configured API origin or downgrades TLS.
+The seed receipt records `private_root`, `publication_root`, `playback_key_file` and the origin the
+seed itself minted grants for. The local test-cluster host admits the storage paths only beneath its
+exact retained cluster and composes the real publication/origin adapter. The API itself speaks plain
+HTTP on `127.0.0.1:8080` yet its admission accepts only an `https://host[:port]` media origin, so a
+grant URL is never one a browser can open unless something terminates TLS for it. A configured
+persistent host uses its operator-managed HTTPS origin and key. Persistent acceptance fetches the
+exact advertised HTTPS grant URL; it never substitutes the configured API origin or downgrades TLS.
+
+### Local TLS front end for browser playback
+
+`serve_studio.py` advertises `https://localhost:8443` as the media origin (override with
+`CANTOS_LOCAL_MEDIA_ORIGIN=https://localhost:<port>`; it must be an exact loopback HTTPS origin and
+never the API's own port 8080). `tls-front` is the loopback TLS terminator for exactly that origin:
+it forwards `/api/` to the API byte for byte, including `Range` requests and `206` answers, serves
+nothing else and never logs a media grant.
+
+```bash
+python3 scripts/serve_studio.py tls-front --generate
+```
+
+`--generate` mints a 30-day self-signed certificate for `localhost` and `127.0.0.1` under the
+ignored `target/local-tls/` (or set `CANTOS_LOCAL_TLS_CERT` and `CANTOS_LOCAL_TLS_KEY`). The script
+edits no trust store: a browser follows the grant only after **you** accept or trust that
+certificate for `https://localhost:8443`; otherwise the player reports a connection failure instead
+of playing. Verify the whole chain with the exact advertised URL and the certificate checked:
+
+```bash
+curl --cacert target/local-tls/localhost.pem -H 'Range: bytes=0-3' "$GRANT_URL"
+```
+
+This proves manifest, authorization, TLS and `206` mechanics on loopback. It is not a deployed
+proxy, CDN, CORS or native playback result.
 
 A disposable reseed restores the dataset. Persistent replay deliberately refuses changed
 metadata or pointers rather than overwriting an operator edit.

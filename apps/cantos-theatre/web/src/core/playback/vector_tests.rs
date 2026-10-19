@@ -1,7 +1,7 @@
 //! Strict, test-only consumer of hand-authored contract vectors. No expected output is generated.
 use super::{
     reduce, CallbackIdentity, Effect, Engine, EngineCommand, Event, Intent, Interruption,
-    PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot, Source, Status,
+    PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot, Source, Status, TrackId,
 };
 use crate::core::ids::{EpisodeId, WorkId};
 use serde_json::Value;
@@ -157,7 +157,7 @@ fn source(value: &Value) -> Decode<Source> {
 fn identity(value: &Value) -> Decode<CallbackIdentity> {
     fields(value, &["work_id", "episode_index", "generation"])?;
     Ok(CallbackIdentity {
-        episode: episode(value)?,
+        track: TrackId::Fixture(episode(value)?),
         generation: u32_value(&value["generation"])?,
     })
 }
@@ -243,7 +243,7 @@ fn snapshot(value: &Value) -> Decode<Snapshot> {
         "idle" => Status::Idle,
         "loading" => Status::Loading,
         "paused" => Status::Paused(cause.ok_or("paused status requires a cause")?),
-        "simulating" => Status::Simulating,
+        "simulating" => Status::Playing,
         "buffering" => Status::Buffering,
         "ended" => Status::Ended,
         _ => return Err("unknown status"),

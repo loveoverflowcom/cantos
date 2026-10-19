@@ -1,21 +1,31 @@
-//! Root-owned imperative shell. Pure transitions commit before fake effects execute.
+//! Root-owned imperative shell. Pure transitions commit before engine effects execute.
+//! Callbacks may arrive later from the engine: an adapter built with
+//! [`PlayerSession::with_port`] posts them through the same session, and every event, whether
+//! synchronous or late, passes through one ordered inbox so effects never re-enter the adapter.
 use super::ports::MediaPort;
 use super::scrub::{PendingSeek, PositionObservation, SeekBinding};
 use crate::core::playback::{
-    self, Effect, Event, PlayerState, Source, Status, ValidatedResumeSnapshot,
+    self, Effect, Event, PlayerState, Source, Status, TrackId, ValidatedResumeSnapshot,
 };
 use leptos::prelude::*;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlayerView {
-    pub episode: crate::core::ids::EpisodeId,
+    pub track: TrackId,
     pub position: u32,
     pub duration: u32,
     pub transport: Status,
     pub intent: playback::Intent,
     pub speed: u16,
+}
+
+impl PlayerView {
+    /// Whether the session plays this mock episode.
+    pub fn is_episode(&self, episode: crate::core::ids::EpisodeId) -> bool {
+        self.track == TrackId::Fixture(episode)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,14 +58,37 @@ pub struct PlayerSession {
     pub(crate) pending_seek: ReadSignal<Option<PendingSeek>>,
     seek_writer: RwSignal<Option<PendingSeek>>,
     adapter: StoredValue<RefCell<Box<dyn MediaPort>>, LocalStorage>,
+    inbox: StoredValue<RefCell<VecDeque<Event>>, LocalStorage>,
+    draining: StoredValue<Cell<bool>, LocalStorage>,
 }
+
+/// Placeholder while an adapter that needs the session is still being built.
+struct Unattached;
+impl MediaPort for Unattached {
+    fn execute(&mut self, _effect: &Effect) -> Vec<Event> {
+        Vec::new()
+    }
+}
+
 impl PlayerSession {
     pub fn new(adapter: impl MediaPort + 'static) -> Self {
+        Self::with_port(|_| adapter)
+    }
+    /// Build the one session, then the adapter that may post late callbacks back to it.
+    pub fn with_port<P: MediaPort + 'static>(make: impl FnOnce(PlayerSession) -> P) -> Self {
+        let session = Self::unattached();
+        let port = make(session);
+        session
+            .adapter
+            .update_value(|slot| *slot.borrow_mut() = Box::new(port));
+        session
+    }
+    fn unattached() -> Self {
         let state = RwSignal::new(PlayerState::default());
         let view = Memo::new(move |_| {
             state.with(|state| {
                 state.session().map(|session| PlayerView {
-                    episode: session.source().episode(),
+                    track: session.source().track(),
                     position: session.position_ms() / 1000,
                     duration: session.source().duration_ms() / 1000,
                     transport: state.status(),
@@ -102,93 +135,108 @@ impl PlayerSession {
             observation_writer: observation,
             pending_seek: pending_seek.read_only(),
             seek_writer: pending_seek,
-            adapter: StoredValue::new_local(RefCell::new(Box::new(adapter))),
+            adapter: StoredValue::new_local(RefCell::new(Box::new(Unattached))),
+            inbox: StoredValue::new_local(RefCell::new(VecDeque::new())),
+            draining: StoredValue::new_local(Cell::new(false)),
         }
     }
+    /// Queue `event` and, unless an outer call is already draining, apply every queued event in
+    /// arrival order. A callback posted while an effect executes is applied after it returns.
     pub fn dispatch(self, event: Event) {
-        let mut pending = VecDeque::from([event]);
-        while let Some(event) = pending.pop_front() {
-            let seeks = matches!(
-                &event,
-                Event::SeekRequested { .. } | Event::SkipRequested { .. }
-            );
-            let ended = matches!(&event, Event::EngineEnded { identity } if self.state.with_untracked(|state| state.accepts(*identity)));
-            // Requested position is optimistic reducer state, never an engine acknowledgement.
-            let observed = match &event {
-                Event::EnginePosition {
-                    identity,
-                    position_ms,
-                } if self.state.with_untracked(|state| {
-                    state.accepts(*identity)
-                        && state
-                            .session()
-                            .is_some_and(|session| *position_ms <= session.source().duration_ms())
-                }) =>
-                {
-                    Some(PositionObservation {
-                        identity: *identity,
-                        position_ms: *position_ms,
-                    })
-                }
-                _ => None,
-            };
-            let transition = playback::reduce(self.state.get_untracked(), event);
-            let requested = seeks
-                .then(|| {
-                    transition.effects.iter().find_map(|effect| match effect {
-                        Effect::SeekEngine(command)
-                        | Effect::PrepareEngine(command)
-                        | Effect::StartEngine(command) => Some(PendingSeek {
-                            binding: SeekBinding {
-                                identity: command.identity,
-                                duration_ms: command.source.duration_ms(),
-                            },
-                            position_ms: command.position_ms,
-                        }),
-                        _ => None,
-                    })
+        self.inbox
+            .with_value(|inbox| inbox.borrow_mut().push_back(event));
+        if self.draining.with_value(|draining| draining.replace(true)) {
+            return;
+        }
+        while let Some(event) = self
+            .inbox
+            .with_value(|inbox| inbox.borrow_mut().pop_front())
+        {
+            self.apply(event);
+        }
+        self.draining.with_value(|draining| draining.set(false));
+    }
+    fn apply(self, event: Event) {
+        let seeks = matches!(
+            &event,
+            Event::SeekRequested { .. } | Event::SkipRequested { .. }
+        );
+        let ended = matches!(&event, Event::EngineEnded { identity } if self.state.with_untracked(|state| state.accepts(*identity)));
+        // Requested position is optimistic reducer state, never an engine acknowledgement.
+        let observed = match &event {
+            Event::EnginePosition {
+                identity,
+                position_ms,
+            } if self.state.with_untracked(|state| {
+                state.accepts(*identity)
+                    && state
+                        .session()
+                        .is_some_and(|session| *position_ms <= session.source().duration_ms())
+            }) =>
+            {
+                Some(PositionObservation {
+                    identity: *identity,
+                    position_ms: *position_ms,
                 })
-                .flatten();
-            self.writer.set(transition.state);
-            if let Some(observed) = observed {
-                self.observation_writer.set(Some(observed));
             }
-            let previous = self.pending_seek.get_untracked();
-            let next = if ended {
-                None
-            } else {
-                requested.or_else(|| {
-                    previous.and_then(|seek| {
-                        seek.reconcile(self.seek_binding.get_untracked(), observed)
-                    })
-                })
-            };
-            if next != previous {
-                self.seek_writer.set(next);
-            }
-            for effect in transition.effects {
-                match &effect {
-                    Effect::OfferResume { .. } => {
-                        self.feedback_writer.set(PlayerFeedback {
-                            resume_offered: self.snapshot(),
-                            rejection: None,
-                        });
-                    }
-                    Effect::Rejected(reason) => self.feedback_writer.set(PlayerFeedback {
-                        resume_offered: None,
-                        rejection: Some(*reason),
+            _ => None,
+        };
+        let transition = playback::reduce(self.state.get_untracked(), event);
+        let requested = seeks
+            .then(|| {
+                transition.effects.iter().find_map(|effect| match effect {
+                    Effect::SeekEngine(command)
+                    | Effect::PrepareEngine(command)
+                    | Effect::StartEngine(command) => Some(PendingSeek {
+                        binding: SeekBinding {
+                            identity: command.identity,
+                            duration_ms: command.source.duration_ms(),
+                        },
+                        position_ms: command.position_ms,
                     }),
-                    Effect::PrepareEngine(_)
-                    | Effect::StartEngine(_)
-                    | Effect::PauseEngine(_)
-                    | Effect::SeekEngine(_)
-                    | Effect::SetSpeed(_) => {
-                        self.feedback_writer.set(PlayerFeedback::default());
-                        let callbacks = self
-                            .adapter
-                            .with_value(|port| port.borrow_mut().execute(&effect));
-                        pending.extend(callbacks);
-                    }
+                    _ => None,
+                })
+            })
+            .flatten();
+        self.writer.set(transition.state);
+        if let Some(observed) = observed {
+            self.observation_writer.set(Some(observed));
+        }
+        let previous = self.pending_seek.get_untracked();
+        let next = if ended {
+            None
+        } else {
+            requested.or_else(|| {
+                previous
+                    .and_then(|seek| seek.reconcile(self.seek_binding.get_untracked(), observed))
+            })
+        };
+        if next != previous {
+            self.seek_writer.set(next);
+        }
+        for effect in transition.effects {
+            match &effect {
+                Effect::OfferResume { .. } => {
+                    self.feedback_writer.set(PlayerFeedback {
+                        resume_offered: self.snapshot(),
+                        rejection: None,
+                    });
+                }
+                Effect::Rejected(reason) => self.feedback_writer.set(PlayerFeedback {
+                    resume_offered: None,
+                    rejection: Some(*reason),
+                }),
+                Effect::PrepareEngine(_)
+                | Effect::StartEngine(_)
+                | Effect::PauseEngine(_)
+                | Effect::SeekEngine(_)
+                | Effect::SetSpeed(_) => {
+                    self.feedback_writer.set(PlayerFeedback::default());
+                    let callbacks = self
+                        .adapter
+                        .with_value(|port| port.borrow_mut().execute(&effect));
+                    self.inbox
+                        .with_value(|inbox| inbox.borrow_mut().extend(callbacks));
                 }
             }
         }
@@ -379,14 +427,14 @@ mod tests {
                 let reads = broad_reads.clone();
                 move |_| {
                     reads.fetch_add(1, Ordering::Relaxed);
-                    session.view.get().map(|view| view.episode)
+                    session.view.get().map(|view| view.track)
                 }
             });
             let source_metadata = Memo::new({
                 let reads = narrow_reads.clone();
                 move |_| {
                     reads.fetch_add(1, Ordering::Relaxed);
-                    session.source.get().map(Source::episode)
+                    session.source.get().map(Source::track)
                 }
             });
             assert_eq!(broad_metadata.get(), source_metadata.get());
@@ -396,7 +444,7 @@ mod tests {
                     identity,
                     position_ms: tick * 1000,
                 });
-                assert_eq!(broad_metadata.get(), Some(sample().source().episode()));
+                assert_eq!(broad_metadata.get(), Some(sample().source().track()));
                 assert_eq!(source_metadata.get(), broad_metadata.get());
                 assert_eq!(session.view.get().unwrap().position, tick);
             }
@@ -420,13 +468,13 @@ mod tests {
                 source: replacement,
                 position_ms: 0,
             });
-            assert_eq!(source_metadata.get(), Some(replacement.episode()));
+            assert_eq!(source_metadata.get(), Some(replacement.track()));
             assert_eq!(narrow_reads.load(Ordering::Relaxed), 2);
             session.dispatch(Event::EnginePosition {
                 identity,
                 position_ms: 30_000,
             });
-            assert_eq!(source_metadata.get(), Some(replacement.episode()));
+            assert_eq!(source_metadata.get(), Some(replacement.track()));
             assert_eq!(session.view.get().unwrap().position, 0);
             assert_eq!(narrow_reads.load(Ordering::Relaxed), 2);
         });
@@ -448,7 +496,7 @@ mod tests {
             session.dispatch(Event::PlayRequested);
             let identity = session.state.get_untracked().identity().unwrap();
             session.dispatch(Event::EngineStarted { identity });
-            assert_eq!(session.status.get(), Status::Simulating);
+            assert_eq!(session.status.get(), Status::Playing);
             session.dispatch(Event::SeekRequested {
                 position_ms: 15_000,
             });
@@ -469,7 +517,8 @@ mod tests {
             assert_eq!(session.source.get(), Some(source));
 
             // Source equality includes duration, so an equal episode ID cannot hide a rebind.
-            let rebound = Source::new(source.episode(), source.duration_ms() + 1000).unwrap();
+            let rebound =
+                Source::new(source.episode().unwrap(), source.duration_ms() + 1000).unwrap();
             session.dispatch(Event::SourceSelected {
                 source: rebound,
                 position_ms: 0,
@@ -479,6 +528,142 @@ mod tests {
                 session.view.get().unwrap().duration,
                 rebound.duration_ms() / 1000
             );
+        });
+    }
+
+    /// A port that remembers the session it was built for, like the browser adapter.
+    struct Reentrant {
+        session: PlayerSession,
+        seen: std::rc::Rc<RefCell<Vec<Effect>>>,
+        answer_synchronously: bool,
+    }
+    impl MediaPort for Reentrant {
+        fn execute(&mut self, effect: &Effect) -> Vec<Event> {
+            self.seen.borrow_mut().push(effect.clone());
+            if self.answer_synchronously {
+                if let Effect::StartEngine(command) = effect {
+                    // Callbacks posted from inside the effect: queued, never re-entrant. The
+                    // second one produces an effect of its own, which would re-enter this very
+                    // port (and its borrow) if it ran before this call returned.
+                    self.session.dispatch(Event::EngineStarted {
+                        identity: command.identity,
+                    });
+                    self.session.dispatch(Event::PauseRequested);
+                }
+            }
+            Vec::new()
+        }
+    }
+
+    fn public_source(n: u32) -> Source {
+        crate::core::public_track::testing::source(n)
+    }
+
+    #[test]
+    fn a_callback_posted_while_an_effect_executes_applies_after_it_without_reentering_the_port() {
+        Owner::new().with(|| {
+            let seen = std::rc::Rc::new(RefCell::new(Vec::new()));
+            let session = PlayerSession::with_port(|session| Reentrant {
+                session,
+                seen: seen.clone(),
+                answer_synchronously: true,
+            });
+            session.dispatch(Event::SourceSelected {
+                source: public_source(1),
+                position_ms: 0,
+            });
+            session.dispatch(Event::PlayRequested);
+            // Started was acknowledged first, then the queued pause ran after the effect returned.
+            assert_eq!(
+                session.status.get_untracked(),
+                Status::Paused(playback::PauseCause::User)
+            );
+            let order: Vec<&str> = seen
+                .borrow()
+                .iter()
+                .map(|effect| match effect {
+                    Effect::PrepareEngine(_) => "prepare",
+                    Effect::StartEngine(_) => "start",
+                    Effect::PauseEngine(_) => "pause",
+                    _ => "other",
+                })
+                .collect();
+            assert_eq!(order, ["prepare", "start", "pause"]);
+        });
+    }
+
+    #[test]
+    fn callbacks_of_a_replaced_source_or_cancelled_intent_cannot_change_the_current_state() {
+        Owner::new().with(|| {
+            let seen = std::rc::Rc::new(RefCell::new(Vec::new()));
+            let session = PlayerSession::with_port(|session| Reentrant {
+                session,
+                seen: seen.clone(),
+                answer_synchronously: false,
+            });
+            session.dispatch(Event::SourceSelected {
+                source: public_source(1),
+                position_ms: 0,
+            });
+            session.dispatch(Event::PlayRequested);
+            let first = session.state.get_untracked().identity().unwrap();
+            session.dispatch(Event::SourceSelected {
+                source: public_source(2),
+                position_ms: 0,
+            });
+            let current = session.state.get_untracked();
+            for late in [
+                Event::EngineReady { identity: first },
+                Event::EngineStarted { identity: first },
+                Event::EngineBuffering { identity: first },
+                Event::EnginePosition {
+                    identity: first,
+                    position_ms: 5_000,
+                },
+                Event::EngineEnded { identity: first },
+                Event::EngineFailed {
+                    identity: first,
+                    failure: playback::Failure::Network,
+                },
+            ] {
+                session.dispatch(late);
+                assert_eq!(session.state.get_untracked(), current);
+            }
+            // A cancelled intent of the same source is fenced the same way.
+            session.dispatch(Event::PlayRequested);
+            let playing = session.state.get_untracked().identity().unwrap();
+            session.dispatch(Event::PauseRequested);
+            let paused = session.state.get_untracked();
+            session.dispatch(Event::EngineStarted { identity: playing });
+            assert_eq!(session.state.get_untracked(), paused);
+            assert_eq!(
+                session.status.get_untracked(),
+                Status::Paused(playback::PauseCause::User)
+            );
+        });
+    }
+
+    #[test]
+    fn a_public_source_is_a_new_source_even_with_an_equal_fixture_shape() {
+        Owner::new().with(|| {
+            let session = PlayerSession::new(DeferredFake);
+            session.dispatch(Event::SourceSelected {
+                source: public_source(1),
+                position_ms: 0,
+            });
+            let before = session.state.get_untracked();
+            // Selecting the same pinned release again is a no-op; another release replaces it.
+            session.dispatch(Event::SourceSelected {
+                source: public_source(1),
+                position_ms: 0,
+            });
+            assert_eq!(session.state.get_untracked(), before);
+            session.dispatch(Event::SourceSelected {
+                source: public_source(2),
+                position_ms: 0,
+            });
+            assert_eq!(session.source.get_untracked(), Some(public_source(2)));
+            assert!(session.state.get_untracked().generation() > before.generation());
         });
     }
 }

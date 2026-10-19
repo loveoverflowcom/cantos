@@ -1,7 +1,7 @@
 use super::{
-    state::supported_speed, CallbackIdentity, Effect, Engine, EngineCommand, Event, Intent,
-    Interruption, PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot, Transition,
-    ValidatedResumeSnapshot,
+    state::supported_speed, CallbackIdentity, Effect, Engine, EngineCommand, Event, Failure,
+    Intent, Interruption, PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot,
+    Transition, ValidatedResumeSnapshot,
 };
 
 fn unchanged(state: PlayerState) -> Transition {
@@ -25,9 +25,10 @@ fn command(state: &PlayerState) -> Option<EngineCommand> {
         speed_permille: session.speed_permille,
     })
 }
-fn advance(mut state: PlayerState) -> Result<PlayerState, PlayerState> {
+/// The error is boxed: it carries the untouched state back so exhaustion rejects transactionally.
+fn advance(mut state: PlayerState) -> Result<PlayerState, Box<PlayerState>> {
     let Some(generation) = state.generation.checked_add(1) else {
-        return Err(state);
+        return Err(Box::new(state));
     };
     state.generation = generation;
     Ok(state)
@@ -51,7 +52,7 @@ fn loaded(
     };
     let mut next = match advance(state) {
         Ok(next) => next,
-        Err(state) => return rejected(state, Rejection::GenerationExhausted),
+        Err(state) => return rejected(*state, Rejection::GenerationExhausted),
     };
     next.session = Some(PlaybackSession {
         source,
@@ -88,7 +89,7 @@ fn seek(state: PlayerState, position_ms: u32) -> Transition {
     }
     let mut next = match advance(state) {
         Ok(next) => next,
-        Err(state) => return rejected(state, Rejection::GenerationExhausted),
+        Err(state) => return rejected(*state, Rejection::GenerationExhausted),
     };
     if let Some(session) = next.session.as_mut() {
         session.position_ms = position_ms;
@@ -111,6 +112,30 @@ fn seek(state: PlayerState, position_ms: u32) -> Transition {
     }
 }
 fn callback(
+    mut state: PlayerState,
+    identity: CallbackIdentity,
+    change: impl FnOnce(&mut PlaybackSession),
+) -> Transition {
+    if !state.accepts(identity) {
+        return unchanged(state);
+    }
+    if let Some(session) = state.session.as_mut() {
+        // A failure is only left by a new listener intent, never by a late engine callback.
+        if !matches!(session.engine, Engine::Failed(_)) {
+            change(session);
+        }
+    }
+    unchanged(state)
+}
+fn failed(state: PlayerState, identity: CallbackIdentity, failure: Failure) -> Transition {
+    callback_over_failure(state, identity, |session| {
+        session.engine = Engine::Failed(failure);
+        // Do not claim to be playing: the listener must ask again.
+        session.intent = Intent::Pause(PauseCause::User);
+    })
+}
+/// Like [`callback`], but a later failure may replace an earlier one with its own reason.
+fn callback_over_failure(
     mut state: PlayerState,
     identity: CallbackIdentity,
     change: impl FnOnce(&mut PlaybackSession),
@@ -168,7 +193,7 @@ pub fn reduce(state: PlayerState, event: Event) -> Transition {
             }
             let mut next = match advance(state) {
                 Ok(next) => next,
-                Err(state) => return rejected(state, Rejection::GenerationExhausted),
+                Err(state) => return rejected(*state, Rejection::GenerationExhausted),
             };
             if let Some(session) = next.session.as_mut() {
                 if session.position_ms == session.source.duration_ms() {
@@ -196,7 +221,7 @@ pub fn reduce(state: PlayerState, event: Event) -> Transition {
             }
             let mut next = match advance(state) {
                 Ok(next) => next,
-                Err(state) => return rejected(state, Rejection::GenerationExhausted),
+                Err(state) => return rejected(*state, Rejection::GenerationExhausted),
             };
             if let Some(session) = next.session.as_mut() {
                 session.intent = Intent::Pause(PauseCause::User);
@@ -250,11 +275,13 @@ pub fn reduce(state: PlayerState, event: Event) -> Transition {
             }
             let mut next = match advance(state) {
                 Ok(next) => next,
-                Err(state) => return rejected(state, Rejection::GenerationExhausted),
+                Err(state) => return rejected(*state, Rejection::GenerationExhausted),
             };
             if let Some(session) = next.session.as_mut() {
                 session.interruption = Interruption::Active;
-                session.engine = Engine::Paused;
+                if !matches!(session.engine, Engine::Failed(_)) {
+                    session.engine = Engine::Paused;
+                }
             }
             let effects = command(&next)
                 .map(Effect::PauseEngine)
@@ -275,7 +302,7 @@ pub fn reduce(state: PlayerState, event: Event) -> Transition {
             let resume = resume_allowed && session.intent == Intent::Play;
             let mut next = match advance(state) {
                 Ok(next) => next,
-                Err(state) => return rejected(state, Rejection::GenerationExhausted),
+                Err(state) => return rejected(*state, Rejection::GenerationExhausted),
             };
             if let Some(session) = next.session.as_mut() {
                 session.interruption = Interruption::None;
@@ -339,5 +366,6 @@ pub fn reduce(state: PlayerState, event: Event) -> Transition {
             session.intent = Intent::Pause(PauseCause::User);
             session.position_ms = session.source.duration_ms();
         }),
+        Event::EngineFailed { identity, failure } => failed(state, identity, failure),
     }
 }

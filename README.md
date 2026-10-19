@@ -205,8 +205,10 @@ to redistribute narrative or voice material.
 current-public works/search/detail, ordered units and immutable manifest projections. Media
 authorization remains fail-closed unless explicit origin delivery is configured. The
 [step-1 handoff](docs/evidence/theatre-live-catalog-step1.md) distinguishes local catalog/storage
-evidence from deployed and native playback acceptance. Theatre Web consumes the bounded anonymous
-Work list; its explicit mock and real playback boundary remain separate.
+evidence from deployed and native playback acceptance. Theatre Web consumes the anonymous Work
+list, Work detail, units, manifest and playback authorization, and plays a chosen public unit
+through one audio element ([#269 evidence](docs/evidence/theatre-web-guest-playback.md)); its
+explicit mock stays a separate simulation and deployed/CDN/native playback remain unaccepted.
 [Evidence and boundaries](docs/evidence/theatre-discovery.md).
 
 The opt-in [Admin authorization and audit](docs/architecture/admin-authorization.md) backend

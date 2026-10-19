@@ -1,11 +1,17 @@
 """Retained media-host safety; process doubles are not PostgreSQL or audio evidence."""
 import contextlib
+import http.client
+import http.server
 import io
 import json
 import os
 from pathlib import Path
+import shutil
+import socket
+import ssl
 import subprocess
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -39,6 +45,133 @@ class RetainedMediaEnvironmentTest(unittest.TestCase):
             (media / "publication").symlink_to(media / "private", target_is_directory=True)
             with self.assertRaisesRegex(ValueError, "retained cluster"):
                 serve_studio.theatre_seed_media(config, seed)
+
+
+class LocalMediaOriginTest(unittest.TestCase):
+    """The advertised origin must be one a loopback browser can open; no validation is relaxed."""
+
+    def test_default_is_a_tls_port_that_is_not_the_http_api_port(self):
+        origin = serve_studio.local_media_origin({})
+        self.assertEqual(origin, "https://localhost:8443")
+        self.assertNotEqual(origin, "https://localhost:8080")
+
+    def test_override_is_exactly_a_loopback_https_origin(self):
+        for accepted in ("https://localhost:9443", "https://127.0.0.1:8443"):
+            self.assertEqual(serve_studio.local_media_origin({"CANTOS_LOCAL_MEDIA_ORIGIN": accepted}), accepted)
+        for refused in ("http://localhost:8443", "https://localhost", "https://localhost:8080",
+                        "https://localhost:8443/", "https://localhost:8443/api", "https://example.test:8443",
+                        "https://user@localhost:8443", "https://localhost:99999", "localhost:8443", "",
+                        "https://localhost:8443?x=1", "https://LOCALHOST:8443 "):
+            with self.subTest(origin=refused), self.assertRaisesRegex(ValueError, "CANTOS_LOCAL_MEDIA_ORIGIN"):
+                serve_studio.local_media_origin({"CANTOS_LOCAL_MEDIA_ORIGIN": refused})
+
+    def test_the_seeded_host_advertises_that_origin_and_never_an_inherited_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cluster = Path(directory) / "cluster-1"
+            media = cluster / "theatre-seed-owned"
+            for name in ("private", "publication"):
+                (media / name).mkdir(parents=True)
+            (media / "playback.key").write_bytes(b"k" * 32)
+            config = {"cluster": str(cluster), "retained": True, "purpose": "retained-disposable-cluster"}
+            seed = {"cluster": str(cluster), "port": 1, "database": "cantos_test_" + "a" * 32,
+                    "private_root": str(media / "private"), "publication_root": str(media / "publication"),
+                    "playback_key_file": str(media / "playback.key")}
+            config["port"] = 1
+            inherited = {"CANTOS_TEST_CONTEXT": "theatre", "CANTOS_PUBLIC_MEDIA_ORIGIN": "https://elsewhere.test"}
+            env = serve_studio.studio_environment(config, inherited, seed)
+            self.assertEqual(env["CANTOS_PUBLIC_MEDIA_ORIGIN"], "https://localhost:8443")
+            env = serve_studio.studio_environment(
+                config, dict(inherited, CANTOS_LOCAL_MEDIA_ORIGIN="https://127.0.0.1:9443"), seed)
+            self.assertEqual(env["CANTOS_PUBLIC_MEDIA_ORIGIN"], "https://127.0.0.1:9443")
+            with self.assertRaisesRegex(ValueError, "CANTOS_LOCAL_MEDIA_ORIGIN"):
+                serve_studio.studio_environment(
+                    config, dict(inherited, CANTOS_LOCAL_MEDIA_ORIGIN="https://localhost:8080"), seed)
+
+
+class TlsFrontTest(unittest.TestCase):
+    def test_a_grant_is_never_logged(self):
+        self.assertEqual(serve_studio.redact("/api/v1/theatre/media/pg1_abc?x=1"),
+                         "/api/v1/theatre/media/<redacted>?x=1")
+        self.assertEqual(serve_studio.redact("/api/v1/theatre/works"), "/api/v1/theatre/works")
+
+    def test_missing_certificate_is_a_clear_refusal_without_generating_one_silently(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(serve_studio, "ROOT", Path(directory)), \
+                    self.assertRaisesRegex(ValueError, "--generate"):
+                serve_studio.tls_front([], {})
+
+    @unittest.skipUnless(shutil.which("openssl"), "openssl is required to mint the test certificate")
+    def test_range_and_status_pass_through_tls_and_only_api_paths_are_served(self):
+        calls = []
+
+        class Upstream(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                calls.append((self.path, self.headers.get("Range"), self.headers.get("Host")))
+                body = bytes(range(100))
+                if self.path.endswith("/gone"):
+                    payload = b'{"code":"not_found","retryable":false}'
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
+                    return
+                if self.headers.get("Range") == "bytes=10-19":
+                    self.send_response(206)
+                    self.send_header("Content-Range", "bytes 10-19/100")
+                    self.send_header("Content-Length", "10")
+                    self.send_header("Accept-Ranges", "bytes")
+                    self.end_headers()
+                    self.wfile.write(body[10:20])
+                else:
+                    self.send_response(200)
+                    self.send_header("Content-Length", "100")
+                    self.end_headers()
+                    self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        upstream = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Upstream)
+        threading.Thread(target=upstream.serve_forever, daemon=True).start()
+        self.addCleanup(upstream.shutdown)
+        self.addCleanup(upstream.server_close)
+        with tempfile.TemporaryDirectory() as directory:
+            certificate, key = serve_studio.generate_certificate(Path(directory))
+            self.assertEqual(oct(key.stat().st_mode & 0o777), "0o600")
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certificate, key)
+            front = serve_studio.TlsFrontServer(("127.0.0.1", 0), context)
+            self.addCleanup(front.server_close)
+            threading.Thread(target=front.serve_forever, daemon=True).start()
+            self.addCleanup(front.shutdown)
+            with patch.object(serve_studio.TlsFront, "upstream", ("127.0.0.1", upstream.server_address[1])):
+                trust = ssl.create_default_context(cafile=str(certificate))
+                port = front.server_address[1]
+
+                def fetch(path, **headers):
+                    connection = http.client.HTTPSConnection("localhost", port, context=trust, timeout=10)
+                    connection.request("GET", path, headers=headers)
+                    response = connection.getresponse()
+                    return response.status, dict(response.getheaders()), response.read()
+
+                status, headers, body = fetch("/api/v1/theatre/media/pg1_x", Range="bytes=10-19")
+                self.assertEqual((status, body), (206, bytes(range(10, 20))))
+                self.assertEqual(headers["Content-Range"], "bytes 10-19/100")
+                status, _, body = fetch("/api/v1/theatre/media/pg1_x")
+                self.assertEqual((status, len(body)), (200, 100))
+                status, _, body = fetch("/api/v1/theatre/media/gone")
+                self.assertEqual((status, json.loads(body)["code"]), (404, "not_found"))
+                status, _, _ = fetch("/not-api")
+                self.assertEqual(status, 404)
+                # The upstream sees the original range and a Host of its own, never the front's.
+                self.assertEqual(calls[0][1], "bytes=10-19")
+                self.assertTrue(all(host.startswith("127.0.0.1:") for _, _, host in calls))
+                self.assertEqual(len(calls), 3, "a non-API path is refused before it reaches the API")
+            # The certificate names localhost and 127.0.0.1 only: another name does not verify.
+            with socket.create_connection(("127.0.0.1", port), timeout=5) as raw, \
+                    self.assertRaises(ssl.SSLCertVerificationError):
+                trust.wrap_socket(raw, server_hostname="example.test")
 
 
 class RetainedOwnershipServingTest(unittest.TestCase):

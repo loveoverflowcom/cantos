@@ -264,7 +264,7 @@ mod tests {
             assert_eq!(ctx.player.snapshot().unwrap().position_ms(), 30000);
             assert_eq!(
                 ctx.player.state.get_untracked().status(),
-                crate::core::playback::Status::Simulating
+                crate::core::playback::Status::Playing
             );
         });
     }
