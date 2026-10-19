@@ -58,6 +58,13 @@ class ReleaseBuildTests(unittest.TestCase):
         mobile = root / release.MOBILE
         mobile.mkdir(parents=True)
         shutil.move(root / "androidApp", mobile / "androidApp")
+        for mode in ("build", "build-audit"):
+            apk_directory = mobile / "androidApp" / mode / "outputs/apk/release"
+            (apk_directory / "app.apk").rename(apk_directory / "androidApp-release-unsigned.apk")
+            metadata_path = apk_directory / "output-metadata.json"
+            metadata = json.loads(metadata_path.read_text())
+            metadata["elements"][0]["outputFile"] = "androidApp-release-unsigned.apk"
+            metadata_path.write_text(json.dumps(metadata))
         with patch.object(audit.subprocess, "run") as run:
             run.return_value.stdout = "c" * 40
             evidence = audit.bind(root, mobile)
