@@ -44,7 +44,7 @@ pub struct ReleaseBuildArgs {
     /// Run deterministic packaging regression tests; no build tools or cloud access.
     #[arg(long)]
     pub self_test: bool,
-    /// Public exact HTTPS API origin for Web builds; required via flag or CANTOS_API_ORIGIN.
+    /// Exact HTTPS API origin for Web/Android; Web requires flag or CANTOS_API_ORIGIN.
     #[arg(long, conflicts_with = "self_test")]
     pub api_origin: Option<String>,
 }
@@ -80,6 +80,17 @@ pub fn run(
 ) -> Result<ExitCode> {
     let mut commands = vec![command(workspace, args)];
     if args.self_test {
+        commands.push(CommandSpec::new("python3", workspace.root()).args([
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "scripts",
+            "-p",
+            "test_check_repository.py",
+            "-k",
+            "TheatreSandboxIsolationTest",
+        ]));
         commands.push(CommandSpec::new("python3", workspace.root()).args([
             "-m",
             "unittest",

@@ -128,7 +128,7 @@ def build(root, target, sha, output, origin=API_ORIGIN):
         run(root, ["cargo", "xtask", "build", app, "--web", "--release"], env=env)
         web_archive(dist, output / f"{target}.tar.gz")
         return {"name": tomllib.loads((root / "apps" / app / "web/Cargo.toml").read_text())["package"]["version"]}
-    run(root, ["cargo", "xtask", "theatre-host", "android-release", "--api-origin", API_ORIGIN])
+    run(root, ["cargo", "xtask", "theatre-host", "android-release", "--api-origin", origin])
     base = root / MOBILE / "androidApp/build"
     evidence = json.loads((base / "reports/release-boundary/release-evidence.json").read_text())
     if evidence["identity"]["source_sha"] != sha or evidence["signed"] or "optimized" not in evidence:
@@ -165,7 +165,7 @@ def package(root, target, *, dry_run=False, origin=None, request=None, base=None
         if overrides:
             raise ValueError("ambient Web build configuration overrides are refused")
     else:
-        origin = API_ORIGIN if target == "android" else None
+        origin = contract.api_origin(API_ORIGIN if origin is None else origin) if target == "android" else None
     sha = source_revision(root, request)
     configuration = contract.configuration(root, target, origin)
     config_digest = contract.fingerprint(configuration)

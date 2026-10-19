@@ -96,6 +96,16 @@ class ReleaseBuildTests(unittest.TestCase):
             self.assertNotIn("must-not-appear", text)
             self.assertEqual(manifest["artifacts"][0]["sha256"], hashlib.sha256(b"release bytes").hexdigest())
 
+    @patch.object(release, 'run')
+    def test_android_operator_origin_is_forwarded_without_build_type_inference(self, run):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            # Stop after the build call, before any synthetic output could count as a real build.
+            with self.assertRaises(FileNotFoundError):
+                release.build(root, 'android', 'a' * 40, root, 'https://staging.example.org')
+            self.assertEqual(run.call_args.args[1], ['cargo', 'xtask', 'theatre-host',
+                'android-release', '--api-origin', 'https://staging.example.org'])
+
     def test_android_ci_inventory_requires_audit_mapping_and_pre_shrink_evidence(self):
         self.assertEqual(contract.EXPECTED['android'], {
             'androidApp-release-unsigned.apk', 'androidApp-release.aab', 'mapping.txt',
