@@ -234,3 +234,8 @@ See [ADR0036](docs/decisions/0036-firebase-enrollment-proof.md), the
 accept real email, credentials, origins or component qualification.
 
 The [native step-2 ledger](docs/evidence/theatre-native-step2.md) owns current player/account/Library/SQLDelight implementation and exact per-platform acceptance gaps. It depends on unmerged #247; public catalog/media evidence from step1 never substitutes for installed native audio, identity or cross-client sync acceptance.
+
+The opt-in [CircleCI release contract](docs/deployment/circleci-builds.md) resolves one SHA,
+packages configuration-bound v2 API/Web artifacts, then promotes those bytes through approval
+and separate VPS/Web contexts. `cargo xtask release self-test` covers its deterministic boundaries;
+actual CI/account restrictions, product builds, activation and browser acceptance remain separate.

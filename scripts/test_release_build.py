@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 import release_build as release
+import release_artifact as contract
 
 
 class ReleaseBuildTests(unittest.TestCase):
@@ -21,7 +22,7 @@ class ReleaseBuildTests(unittest.TestCase):
                 "sha256": hashlib.sha256(b"actual apk bytes").hexdigest()})
             link = output / "other.apk"
             link.symlink_to(artifact)
-            with self.assertRaisesRegex(ValueError, "regular file"):
+            with self.assertRaisesRegex(ValueError, "symlink"):
                 release.file_record(link, output)
 
     def test_web_archive_contains_only_bundle_and_rejects_secret_file(self):
@@ -48,34 +49,39 @@ class ReleaseBuildTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "differs"):
                     release.source_revision(Path("."))
 
+    @patch.object(contract, "configuration", return_value={"component": "android", "api_origin": "https://api.cantos.cc", "profile": "release"})
     @patch.object(release, "source_revision", side_effect=["a" * 40, "b" * 40])
     @patch.object(release, "build", return_value={"name": "1"})
-    def test_changed_source_never_gets_an_accepted_manifest(self, build, revision):
+    def test_changed_source_never_gets_an_accepted_manifest(self, build, revision, config):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             with self.assertRaisesRegex(ValueError, "changed during"):
                 release.package(root, "api")
             self.assertEqual(list(root.rglob("manifest.json")), [])
 
+    @patch.object(contract, "configuration", return_value={"component": "android", "api_origin": "https://api.cantos.cc", "profile": "release"})
     @patch.object(release, "source_revision", return_value="a" * 40)
-    def test_build_failure_is_not_success_and_rerun_cannot_overwrite(self, revision):
+    def test_failed_attempts_have_no_manifest_and_reruns_use_fresh_staging(self, revision, config):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             with patch.object(release, "build", side_effect=RuntimeError("compiler failed")):
                 with self.assertRaisesRegex(RuntimeError, "compiler failed"):
                     release.package(root, "android")
             self.assertEqual(list(root.rglob("manifest.json")), [])
-            with patch.object(release, "build") as build:
-                with self.assertRaises(FileExistsError):
+            with patch.object(release, "build", side_effect=RuntimeError("second attempt")):
+                with self.assertRaisesRegex(RuntimeError, "second attempt"):
                     release.package(root, "android")
-                build.assert_not_called()
+            attempts = root / "artifacts/release-build/android" / ("a" * 40)
+            self.assertEqual(len(list(attempts.glob("*/*"))), 2)
 
     @patch.dict("os.environ", {"SECRET_TOKEN": "must-not-appear"}, clear=True)
+    @patch.object(contract, "configuration", return_value={"component": "android", "api_origin": "https://api.cantos.cc", "profile": "release"})
     @patch.object(release, "source_revision", return_value="a" * 40)
     @patch.object(release, "run", return_value="rustc 1.98.1")
-    def test_manifest_binds_artifact_bytes_and_does_not_dump_environment(self, run, revision):
-        def fake_build(root, target, sha, output):
-            (output / "release.apk").write_bytes(b"release bytes")
+    def test_manifest_binds_artifact_bytes_and_does_not_dump_environment(self, run, revision, config):
+        def fake_build(root, target, sha, output, origin):
+            for name in contract.EXPECTED[target]:
+                (output / name).write_bytes(b"release bytes")
             return {"name": "0.1.0", "code": 1}
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

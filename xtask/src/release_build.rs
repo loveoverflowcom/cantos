@@ -44,6 +44,9 @@ pub struct ReleaseBuildArgs {
     /// Run deterministic packaging regression tests; no build tools or cloud access.
     #[arg(long)]
     pub self_test: bool,
+    /// Public exact HTTPS API origin for Web builds; required via flag or CANTOS_API_ORIGIN.
+    #[arg(long, conflicts_with = "self_test")]
+    pub api_origin: Option<String>,
 }
 
 fn command(workspace: &Workspace, args: &ReleaseBuildArgs) -> CommandSpec {
@@ -62,6 +65,9 @@ fn command(workspace: &Workspace, args: &ReleaseBuildArgs) -> CommandSpec {
     let mut spec = spec.args(["scripts/release_build.py"]);
     if let Some(target) = args.target {
         spec = spec.args([target.name()]);
+    }
+    if let Some(origin) = &args.api_origin {
+        spec = spec.args(["--api-origin", origin]);
     }
     spec.arg_if(args.dry_run, "--dry-run")
 }

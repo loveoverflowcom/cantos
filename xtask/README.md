@@ -119,14 +119,47 @@ production readiness.)
 Trunk runs with `NO_COLOR=true`, matching the documented commands (Trunk 0.21 rejects an
 inherited `NO_COLOR=1`).
 
-### Build-only release artifacts
+### Release artifacts and promotion
 
-`cargo xtask release-build <api|theatre-web|studio-web|android> [--dry-run]` packages clean
-HEAD outputs under ignored `artifacts/release-build`, with hashes/source/version manifests.
-`cargo xtask release-build --self-test` runs deterministic packaging regressions.
-It never signs, deploys or distributes; API image packaging requires installed Linux amd64
-Podman. See [CircleCI build boundaries](../docs/deployment/circleci-builds.md) for pins,
-artifact limits, fresh-output refusal and pending account/runtime acceptance.
+`cargo xtask release-build <api|theatre-web|studio-web|android> [--api-origin ORIGIN] [--dry-run]`
+packages clean HEAD into version-2 manifests beneath
+`artifacts/release-build/COMPONENT/SHA/CONFIG_DIGEST/ATTEMPT`. Web requires an explicit HTTPS
+origin via flag or `CANTOS_API_ORIGIN`. API includes the matching host/runtime bundle; Android
+retains its fixed origin and unsigned production APK/AAB. No build command publishes.
+`cargo xtask release-build --self-test` runs packaging regressions;
+`cargo xtask release self-test` also covers artifact validation, workflow DAG and mocked promotion.
+Python regressions run in the repository gate; Rust CLI/deploy tests run in the Rust gate.
+The self-test also runs focused xtask lint/tests. These commands add no ordinary gate or CI job.
+
+The explicit same-workflow CircleCI surface is:
+
+```sh
+cargo xtask release prepare --component api|theatre-web|studio-web|web|all \
+  --target REF --api-origin https://api.example.org --transfer artifacts/release-transfer
+# Build only: replace --target with --build-only (also accepts android/all including Android).
+cargo xtask release checkout --transfer artifacts/release-transfer
+cargo xtask release intent --transfer artifacts/release-transfer --component api|theatre-web|studio-web
+# CircleCI must persist the component intent to its workspace before the next command.
+cargo xtask release promote --transfer artifacts/release-transfer --component api|theatre-web|studio-web
+cargo xtask release report --transfer artifacts/release-transfer
+```
+
+`prepare` requires trusted CircleCI identities and resolves once; `promote` is an explicit remote
+write behind approval, never called by ordinary build/run/gates. The
+[release contract](../docs/deployment/circleci-builds.md) owns manifest compatibility, bounded
+archive/provenance validation, config/checkout/release revisions, expiry, strict develop-head
+freshness, context prerequisites, additive-workspace rerun refusal and component receipts.
+Cross-pipeline promotion is unsupported. No cache supplies a release or a deploy binary.
+
+Both `deploy vps cantos-api` and `deploy firebase APP --web --project ID --channel CHANNEL`
+accept `--release-manifest PATH --release-digest SHA256 --release-sha FULL_SHA`, together with
+`--release-request PATH` in CircleCI or `--local-artifact` outside CI. The latter is the operator's
+explicit acknowledgement of independently verified local provenance, not proof supplied by a
+hash. V1, arbitrary dist/no-build inputs, missing/wrong digests/source/origin, foreign/stale runs,
+malformed archives and unexpected files fail before activation/publish. Artifact mode extracts
+fresh validated bytes instead of building the product. VPS artifact deploy requires
+`--smoke-origin ORIGIN` and cannot combine with bootstrap/status/rollback/reload/cutover.
+Local build-and-deploy commands remain available when no artifact input is supplied.
 
 ### Offline Hosting rollout report
 
@@ -1050,7 +1083,7 @@ project, other product or `firebase-debug.log` in the checkout can be involved.
 
 **Stages** (each failure stops the rest; unreached stages are `NOT_RUN`):
 
-1. *Local prerequisites*: Cargo, the wasm32 target, Trunk and Git installed, and no inherited
+1. *Local prerequisites*: Python/Git for artifact mode; otherwise Cargo, the wasm32 target, Trunk and Git installed, and no inherited
    `TRUNK_*` variable that could redirect the build (reported by name, never value).
 2. *Hosting configuration*: the policy and the mapping above.
 3. *Firebase CLI*: `firebase --version` must be 15.x and at least 15.34.0, the shared pin with
@@ -1060,7 +1093,7 @@ project, other product or `firebase-debug.log` in the checkout can be involved.
 5. *Hosting destination*: read-only `firebase hosting:sites:list --json` in the explicit project; the
    mapped site must be in it. Missing login, site or permission stops here, before the build. This is
    not proof of deploy permission.
-6. *Release build*: the existing locked release Trunk build (`build::release_bundle`, shared with
+6. *Release preparation*: either verified v2 artifact extraction (above), or the existing locked release Trunk build (`build::release_bundle`, shared with
    `web-performance`) of the selected app only, into the run's own fresh `dist`, with the app's own
    `Trunk.toml`, explicit entrypoint and root public URL. The source identity (commit, dirty flag and
    content fingerprint) is read before and after; a change refuses the bundle.
@@ -1104,8 +1137,8 @@ timestamp. Output and saved diagnostics are redacted (no addresses, tokens, sign
 Hosting and console links stay). The CLI may leave `firebase-debug.log` in the private run directory;
 keep it out of shared CI artifacts.
 
-Deliberately absent from this first delivery: `--no-build`, an arbitrary artifact path, deploy-all,
-automatic promotion, rollback or channel/site deletion, a provider framework, long-lived caching of
+Deliberately absent: `--no-build`, an arbitrary dist bypass, deploy-all,
+cross-pipeline promotion, rollback or channel/site deletion, a provider framework, long-lived caching of
 hashed assets, any Firebase SDK, Functions, Cloud Run or App Hosting adapter. An explicit Web
 API-origin setting now exists under ADR 0041; this command still deploys static bytes only.
 Read current release state from Firebase, and keep user-journey acceptance separate from smoke.

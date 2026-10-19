@@ -57,6 +57,8 @@ pub enum VpsTarget {
 #[derive(Debug, Args)]
 #[command(after_long_help = VPS_HELP)]
 pub struct VpsArgs {
+    #[command(flatten)]
+    pub artifact: crate::release::ArtifactArgs,
     /// What to deploy; only the API runs on the VPS (Web apps go to Firebase Hosting).
     #[arg(value_enum)]
     pub target: VpsTarget,
@@ -605,6 +607,43 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
         Ok(request) => request,
         Err(refusal) => return Ok(crate::refuse(refusal)),
     };
+    if args.artifact.release_manifest.is_some() {
+        if request.operation != Operation::Deploy {
+            bail!("artifact promotion cannot bootstrap, rollback, cut over, reload or change identity");
+        }
+        let mut command = args
+            .artifact
+            .append(CommandSpec::new("python3", workspace.root()).args([
+                "scripts/release_pipeline.py",
+                "deploy-api",
+                "--host",
+                &request.host,
+            ]));
+        if let Some(origin) = &request.smoke_origin {
+            command = command.args(["--api-origin", origin]);
+        }
+        command = command.arg_if(request.dry_run, "--dry-run");
+        if request.dry_run {
+            runner.run(&command)?;
+            println!("NOT_RUN deploy vps: artifact plan only; no remote action");
+            return Ok(ExitCode::SUCCESS);
+        }
+        let mut report = Report::new("deploy vps cantos-api artifact");
+        match runner.run(&command) {
+            Ok(()) => report.record(
+                "artifact promotion",
+                Status::Pass,
+                "see component receipt; browser acceptance remains separate",
+            ),
+            Err(error) => report.record(
+                "artifact promotion",
+                Status::Fail,
+                format!("{error:#}; inspect receipt and --status before retrying"),
+            ),
+        }
+        report.print();
+        return Ok(report.exit_code());
+    }
     let needs_source = matches!(
         request.operation,
         Operation::Deploy
@@ -831,6 +870,46 @@ mod tests {
 
     fn names(steps: &[Step]) -> Vec<&'static str> {
         steps.iter().map(|step| step.name).collect()
+    }
+
+    #[test]
+    fn artifact_input_never_enters_source_build_or_operator_operations() {
+        let mut raw = args(&["--smoke-origin", "https://api.example.org"]);
+        raw.artifact = crate::release::ArtifactArgs {
+            release_manifest: Some("/verified/manifest.json".into()),
+            release_digest: Some("d".repeat(64)),
+            release_sha: Some(REV.into()),
+            local_artifact: true,
+            ..Default::default()
+        };
+        let mut runner = crate::command::testing::RecordingRunner::default();
+        assert_eq!(
+            execute(&workspace(), &raw, &mut runner).unwrap(),
+            ExitCode::SUCCESS
+        );
+        assert_eq!(runner.commands.len(), 1);
+        assert_eq!(runner.commands[0].program, "python3");
+        assert!(runner.commands[0]
+            .args
+            .iter()
+            .any(|arg| arg == "deploy-api"));
+        for operation in [
+            Operation::Bootstrap,
+            Operation::ReloadBrowser,
+            Operation::Rollback,
+            Operation::Status,
+            Operation::CutoverEpoch2,
+        ] {
+            raw.bootstrap = operation == Operation::Bootstrap;
+            raw.reload_browser = operation == Operation::ReloadBrowser;
+            raw.rollback = operation == Operation::Rollback;
+            raw.status = operation == Operation::Status;
+            raw.cutover_epoch2 = operation == Operation::CutoverEpoch2;
+            raw.smoke_origin = None;
+            let mut runner = crate::command::testing::RecordingRunner::default();
+            assert!(execute(&workspace(), &raw, &mut runner).is_err());
+            assert!(runner.commands.is_empty());
+        }
     }
 
     #[test]

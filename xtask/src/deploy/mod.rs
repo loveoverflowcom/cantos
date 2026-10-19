@@ -109,6 +109,8 @@ See docs/deployment/firebase-hosting.md.";
 #[derive(Debug, Args)]
 #[command(after_long_help = FIREBASE_HELP)]
 pub struct FirebaseArgs {
+    #[command(flatten)]
+    pub artifact: crate::release::ArtifactArgs,
     /// The Web app to deploy (the API, Forge, mobile and `all` are not targets).
     #[arg(value_enum)]
     pub target: HostedApp,
@@ -146,14 +148,34 @@ pub fn execute(
         expires: args.expires.clone(),
         dry_run: args.dry_run,
     };
-    run_request(workspace, &raw, tools, runner)
+    run_request_artifact(
+        workspace,
+        &raw,
+        tools,
+        runner,
+        args.artifact
+            .release_manifest
+            .as_ref()
+            .map(|_| &args.artifact),
+    )
 }
 
+#[cfg(test)]
 fn run_request(
     workspace: &Workspace,
     raw: &Raw,
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
+) -> Result<ExitCode> {
+    run_request_artifact(workspace, raw, tools, runner, None)
+}
+
+fn run_request_artifact(
+    workspace: &Workspace,
+    raw: &Raw,
+    tools: &dyn ToolProbe,
+    runner: &mut dyn Runner,
+    artifact: Option<&crate::release::ArtifactArgs>,
 ) -> Result<ExitCode> {
     let request = match request::resolve(raw) {
         Ok(request) => request,
@@ -162,11 +184,14 @@ fn run_request(
     if request.dry_run {
         let resolution = local_resolution(workspace, &request);
         print!("{}", plan_text(workspace, &request, &resolution));
+        if artifact.is_some() {
+            println!("Artifact mode replaces the Trunk build with manifest/provenance/hash validation and fresh extraction; no build tools required.");
+        }
         return Ok(ExitCode::SUCCESS);
     }
     let mut capture = SystemCapture::new()?;
     let mut host = host::SystemHost::new(workspace);
-    let report = flow::run(
+    let report = flow::run_with_artifact(
         workspace,
         &request,
         flow::Ports {
@@ -175,6 +200,7 @@ fn run_request(
             capture: &mut capture,
             host: &mut host,
         },
+        artifact,
     );
     report.print();
     Ok(report.exit_code())

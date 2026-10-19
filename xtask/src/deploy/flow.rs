@@ -47,8 +47,19 @@ pub struct Ports<'a> {
     pub host: &'a mut dyn Host,
 }
 
+#[cfg(test)]
 pub fn run<'a>(workspace: &'a Workspace, request: &'a Request, ports: Ports<'a>) -> Report {
+    run_with_artifact(workspace, request, ports, None)
+}
+
+pub fn run_with_artifact<'a>(
+    workspace: &'a Workspace,
+    request: &'a Request,
+    ports: Ports<'a>,
+    artifact: Option<&'a crate::release::ArtifactArgs>,
+) -> Report {
     let mut flow = Flow {
+        artifact,
         workspace,
         request,
         ports,
@@ -80,6 +91,7 @@ struct Prepared {
 }
 
 struct Flow<'a> {
+    artifact: Option<&'a crate::release::ArtifactArgs>,
     workspace: &'a Workspace,
     request: &'a Request,
     ports: Ports<'a>,
@@ -136,8 +148,12 @@ impl Flow<'_> {
         if !cfg!(unix) {
             problems.push("captured execution and private run files need a POSIX host".to_owned());
         }
-        let needed = [Tool::Cargo, Tool::Wasm32Target, Tool::Trunk, Tool::Git];
-        let missing = self.ports.tools.missing(&needed);
+        let needed: &[Tool] = if self.artifact.is_some() {
+            &[Tool::Python3, Tool::Git]
+        } else {
+            &[Tool::Cargo, Tool::Wasm32Target, Tool::Trunk, Tool::Git]
+        };
+        let missing = self.ports.tools.missing(needed);
         if !missing.is_empty() {
             let details: Vec<_> = missing
                 .iter()
@@ -146,7 +162,7 @@ impl Flow<'_> {
             problems.push(format!("missing {}", details.join(", ")));
         }
         let overrides = self.ports.host.trunk_overrides();
-        if !overrides.is_empty() {
+        if self.artifact.is_none() && !overrides.is_empty() {
             problems.push(format!(
                 "inherited Trunk environment variables could redirect the build ({}); unset them for this command",
                 overrides.join(", ")
@@ -155,7 +171,7 @@ impl Flow<'_> {
         if problems.is_empty() {
             self.pass(
                 Stage::Prerequisites,
-                "Rust, the wasm32 target, Trunk and Git are installed; no TRUNK_* override is set",
+                if self.artifact.is_some() { "Python and Git are installed for artifact validation; no product build" } else { "Rust, the wasm32 target, Trunk and Git are installed; no TRUNK_* override is set" },
             );
             Ok(())
         } else {
@@ -408,8 +424,16 @@ impl Flow<'_> {
                     "Hosting configuration was not prepared",
                 )
             })?;
-        let command = build::release_bundle(self.workspace, self.request.app, &dist)
-            .env("CANTOS_API_ORIGIN", &api_origin);
+        let command = match self.artifact {
+            Some(artifact) => artifact.extract_command(
+                self.workspace,
+                &format!("{}-web", self.request.target()),
+                &api_origin,
+                &dist,
+            ),
+            None => build::release_bundle(self.workspace, self.request.app, &dist)
+                .env("CANTOS_API_ORIGIN", &api_origin),
+        };
         if let Some(receipt) = &mut self.receipt {
             receipt.build = Some(BuildRecord {
                 api_origin: Some(api_origin.clone()),
@@ -441,7 +465,7 @@ impl Flow<'_> {
         self.pass(
             Stage::Build,
             format!(
-                "{} built once, release profile; source unchanged during the build",
+                "{} release bytes prepared; source unchanged during preparation",
                 self.request.app.cli_name()
             ),
         );
@@ -1389,6 +1413,43 @@ mod tests {
             .collect();
         // The outcome is persisted right after the write, before the smoke, and again at the end.
         assert_eq!(phases, ["started", "intent", "complete", "complete"]);
+    }
+
+    #[test]
+    fn artifact_mode_reuses_the_release_flow_without_trunk_wasm_or_product_compilation() {
+        let mut rig = Rig::preview(HostedApp::CantosTheatre);
+        rig.tools.0.remove(&Tool::Trunk);
+        rig.tools.0.remove(&Tool::Wasm32Target);
+        let request = request_of(HostedApp::CantosTheatre, "review-hosting");
+        let artifact = crate::release::ArtifactArgs {
+            release_manifest: Some("/verified/manifest.json".into()),
+            release_digest: Some("d".repeat(64)),
+            release_sha: Some(COMMIT.into()),
+            local_artifact: true,
+            ..Default::default()
+        };
+        let report = run_with_artifact(
+            &Workspace::discover().unwrap(),
+            &request,
+            Ports {
+                tools: &rig.tools,
+                runner: &mut rig.runner,
+                capture: &mut rig.capture,
+                host: &mut rig.host,
+            },
+            Some(&artifact),
+        );
+        assert_eq!(report.exit_code(), std::process::ExitCode::SUCCESS);
+        assert_eq!(rig.runner.commands.len(), 1);
+        let command = &rig.runner.commands[0];
+        assert_eq!(command.program, "python3");
+        assert!(command.args.iter().any(|arg| arg == "extract"));
+        assert!(command.args.iter().any(|arg| arg == "--release-digest"));
+        assert!(!command
+            .args
+            .iter()
+            .any(|arg| arg == "build" || arg == "trunk"));
+        assert_eq!(rig.release_calls(), 1);
     }
 
     #[test]
