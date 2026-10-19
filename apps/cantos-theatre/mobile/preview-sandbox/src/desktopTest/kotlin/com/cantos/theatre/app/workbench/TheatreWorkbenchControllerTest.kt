@@ -183,6 +183,47 @@ class TheatreWorkbenchControllerTest {
     }
 
     @Test
+    fun recreate_and_import_preserve_paused_selection_for_guests_and_signed_in_listeners() = runTest {
+        listOf(TheatreFixture.Fresh, TheatreFixture.Restored).forEach { fixture ->
+            listOf(0L, 42_000L).forEach { positionMs ->
+                val host = TheatreWorkbenchController(this, TheatreRecipe.fixture(fixture))
+                try {
+                    settle()
+                    host.callback()(ShellEvent.Navigate(ShellRoute.Work(PreviewWorkIds.SonHa)))
+                    settle()
+                    host.callback()(ShellEvent.OpenEpisode(PreviewEpisodeIds.SonHa03))
+                    settle()
+                    host.callback()(ShellEvent.ToggleSimulation)
+                    host.callback()(ShellEvent.SeekTo((positionMs / 1000L).toInt()))
+                    host.callback()(ShellEvent.SetSpeed(125))
+                    // A selected, paused unit at zero remains a player even away from its screen.
+                    host.callback()(ShellEvent.Navigate(ShellRoute.Library))
+                    settle()
+                    val before = host.snapshot()
+                    assertEquals(PreviewEpisodeIds.SonHa03, before.state.selectedEpisode)
+                    assertEquals(positionMs, before.state.positionMs)
+                    assertFalse(before.state.transportRequested)
+                    val payload = assertIs<TheatreSnapshotExport.Exported>(encodeTheatreSnapshot(before)).text
+                    val decoded = assertIs<TheatreSnapshotResult.Accepted>(decodeTheatreSnapshot(payload)).snapshot
+
+                    host.recreate()
+                    settle()
+                    assertEquals(before.state, host.snapshot().state)
+                    assertEquals(before.signedIn, host.snapshot().signedIn)
+                    assertTrue(host.mount.value.owners.engine.commands.none { it.startsWith("start@") })
+
+                    host.resetToSelected()
+                    host.restore(decoded)
+                    settle()
+                    assertEquals(before.state, host.snapshot().state)
+                    assertEquals(before.signedIn, host.snapshot().signedIn)
+                    assertTrue(host.mount.value.owners.engine.commands.none { it.startsWith("start@") })
+                } finally { host.close() }
+            }
+        }
+    }
+
+    @Test
     fun malformed_unknown_and_unsupported_snapshots_leave_the_owner_untouched() = runTest {
         val host = TheatreWorkbenchController(this)
         try {
@@ -194,6 +235,7 @@ class TheatreWorkbenchControllerTest {
             listOf("", "[]", "{}", "not json", payload.replace("\"widthDp\": 390", "\"widthDp\": -1"),
                 payload.replace("\"seed\": 1", "\"seed\": 2"),
                 payload.replace("\"positionMs\": 0", "\"positionMs\": 999999999"),
+                payload.replace("\"transportRequested\": false", "\"transportRequested\": true"),
                 payload.replace("\"queryId\": \"empty\"", "\"queryId\": \"/Users/private\""),
                 payload.replace("\"version\": 2", "\"secret\": \"x\", \"version\": 2")
             ).forEach { assertIs<TheatreSnapshotResult.Invalid>(decodeTheatreSnapshot(it)) }

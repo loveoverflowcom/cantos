@@ -59,13 +59,21 @@ class NativeListeningController(
     }
 
     /** Restoring never resolves a URL, activates audio focus or sends Play. */
-    fun restore(audio: AudioIdentity, positionMs: Long, speedPermille: Int = 1000) {
+    fun restore(
+        audio: AudioIdentity,
+        positionMs: Long,
+        speedPermille: Int = 1000,
+        title: String = "",
+        workTitle: String = "",
+    ) {
         if (closed) return
         selectionGeneration += 1
         selectionRequest?.cancel()
         mutableFailure.value = null
-        mutableSelection.value = NativeSelection("", "")
-        playback.dispatch(PlaybackEvent.RestoreRequested(PlaybackSnapshot(PlaybackSource.streaming(audio), positionMs, speedPermille)))
+        mutableSelection.value = NativeSelection(title, workTitle)
+        playback.dispatch(PlaybackEvent.RestoreRequested(
+            PlaybackSnapshot(PlaybackSource.streaming(audio, title, workTitle), positionMs, speedPermille),
+        ))
     }
 
     fun cancelSelection() {

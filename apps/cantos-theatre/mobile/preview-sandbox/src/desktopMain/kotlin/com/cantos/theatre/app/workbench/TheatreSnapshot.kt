@@ -162,6 +162,7 @@ private fun StateWire.toState(): ShellState {
     val query = requireNotNull(syntheticQueries[queryId])
     require(savedWorks.distinct().size == savedWorks.size)
     val episode = episodeId(episode)
+    require(episode != PreviewNoSelection || !transportRequested)
     validatePosition(episode, positionMs)
     fun point(point: PointWire): ShellProgress {
         val id = episodeId(point.episode)

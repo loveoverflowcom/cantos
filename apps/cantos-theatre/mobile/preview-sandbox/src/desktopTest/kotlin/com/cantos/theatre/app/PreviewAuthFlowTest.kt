@@ -15,6 +15,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -67,6 +68,33 @@ class PreviewAuthFlowTest {
             assertEquals(1, h.identity.begins)
             assertEquals(1, h.identity.browserOpens)
         } finally { h.close() }
+    }
+
+    @Test
+    fun a_delayed_response_keeps_its_original_attempt_when_a_held_login_replaces_it() = runTest {
+        listOf(PreviewLoginMode.Approve, PreviewLoginMode.Deny).forEach { mode ->
+            val h = harness()
+            try {
+                h.identity.mode = mode
+                h.shell.openLogin()
+                assertTrue(h.shell.beginLogin()); runCurrent()
+                advanceTimeBy(20L)
+                h.shell.cancelLogin(); runCurrent()
+                assertEquals(NativeAccountState.SignedOut, h.account.state.value)
+
+                h.identity.mode = PreviewLoginMode.Hold
+                assertTrue(h.shell.beginLogin()); runCurrent()
+                advanceTimeBy(40L); runCurrent()
+                assertEquals(2, h.identity.browserOpens)
+                assertEquals(0, h.identity.exchanges)
+                assertEquals(NativeAccountState.Pending, h.account.state.value)
+                assertEquals(TheatreRoute.Login, h.route)
+
+                h.identity.returnFromBrowser(approve = true); runCurrent()
+                assertEquals(1, h.identity.exchanges)
+                assertIs<NativeAccountState.SignedIn>(h.account.state.value)
+            } finally { h.close() }
+        }
     }
 
     @Test
