@@ -48,6 +48,7 @@ mod firebase;
 mod flow;
 mod host;
 mod hosting_config;
+pub(crate) mod inspect;
 mod receipt;
 mod request;
 mod smoke;

@@ -30,7 +30,7 @@ For the requested Cloudflare transition, implement/review
 [#277](https://github.com/loveoverflowcom/cantos/issues/277)'s source-bound artifact promotion
 and [#278](https://github.com/loveoverflowcom/cantos/issues/278)'s provider/publisher boundary
 before [#280](https://github.com/loveoverflowcom/cantos/issues/280)'s live cutover. Runbook and
-offline reporting source can proceed independently; actual account/credits/deploy/DNS/recovery
+offline reporting and standalone read-only HTTP comparison can proceed independently; actual account/credits/deploy/DNS/recovery
 acceptance follows the [rollout runbook](../deployment/cloudflare-rollout.md).
 [#279](https://github.com/loveoverflowcom/cantos/issues/279) is optional submit/status convenience,
 not a blocker when the authorized CircleCI UI is usable. Preserve the direct Hosting/API,

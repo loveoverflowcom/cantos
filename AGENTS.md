@@ -141,6 +141,10 @@ The requested Cloudflare transition follows the [rollout/recovery runbook](docs/
 and #277/#278 promotion/publisher prerequisites. `cargo xtask hosting-report --record PATH
 [--dry-run]` is an optional offline operator-declared report; `--self-test` exercises synthetic
 records. It never queries/deploys a provider or establishes live acceptance, and adds no gate.
+`cargo xtask hosting-smoke` is the explicit read-only static HTTP lane
+([contract](xtask/README.md#read-only-hosting-http-observation)): verified release v2 input,
+exact static origin, declared deployment ID, sanitized receipt; no publish/API/auth/browser or
+rollback action. Its deterministic regressions run in the existing Rust gate, with no new gate.
 Retire only Firebase Hosting after separately authorized cutover/recovery acceptance and the
 agreed retention window; preserve Auth, Functions, App Distribution, API and storage owners.
 
@@ -151,7 +155,8 @@ Cloudflare Pages Direct Upload of one already built Web artifact is the explicit
 remote write that publishes a PUBLIC `*.pages.dev` preview or replaces a live project: `--dry-run`
 shows the plan, and an agent runs the real command only on the user's explicit request naming the
 account, project, branch, environment and artifact. Creating the token, projects or domains and any
-cutover are operator steps; agents never create credentials. No real deployment has run.
+cutover are operator steps; agents never create credentials. Source-bound preview observations
+are recorded in the runbook; production/domain cutover acceptance remains separate.
 
 Production API deployment to the VPS is the explicit, opt-in
 `cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2]`

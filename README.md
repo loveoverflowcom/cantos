@@ -103,7 +103,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
 - `services/kanidm`: operator-owned identity configuration; Studio OIDC is implemented in the API, live acceptance pending.
 - `infra/firebase/hosting`: tracked Firebase Hosting policy for the explicit, manual `cargo xtask deploy firebase` of one static Web app ([runbook](docs/deployment/firebase-hosting.md)); static delivery and API-origin/session acceptance remain separate; [ADR 0041](docs/decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting. The [current production runbook](docs/deployment/vps-production.md) owns operations; Hosting serves no API.
-- `infra/cloudflare`: tracked Cloudflare Pages delivery policy, private-mapping example and pinned Wrangler lockfile for the explicit, manual `cargo xtask deploy cloudflare` of one already built Web artifact ([runbook](docs/deployment/cloudflare-pages.md), [ADR 0043](docs/decisions/0043-cloudflare-pages-direct-upload.md)); no real deployment has run and nothing here changes DNS or the live site.
+- `infra/cloudflare`: tracked Cloudflare Pages delivery policy, private-mapping example and pinned Wrangler lockfile for the explicit, manual `cargo xtask deploy cloudflare` of one already built Web artifact ([runbook](docs/deployment/cloudflare-pages.md), [ADR 0043](docs/decisions/0043-cloudflare-pages-direct-upload.md)); source-bound preview observations live in the [acceptance record](docs/deployment/cloudflare-pages.md#acceptance-status), while production/domain cutover remains separate.
 - `infra/edge`: operator-owned public edge and DNS updater assets, separate from application code and the `xtask` command surface.
 - `infra/`: [deployment/runtime assets](infra/README.md), not application domain logic; the Forge implementation lives separately at `services/cantos-forge-functions`. Moving source does not establish Functions hosting or live-provider acceptance.
 - `packages/contracts`: versioned Script IR, Catalog/Content/Brief, private Audio Lifecycle and Publication/Discovery/Library contracts; public delivery acceptance remains deferred.
@@ -158,7 +158,10 @@ cargo xtask preflight --changed-only
 The requested Cloudflare Web transition has a separate
 [rollout/recovery runbook](docs/deployment/cloudflare-rollout.md). `cargo xtask hosting-report
 --record PATH` validates an offline operator-declared record only; it never deploys or verifies
-live acceptance. Artifact promotion/publishing (#277/#278) and operator execution remain
+live acceptance. `cargo xtask hosting-smoke` independently compares one explicit static HTTPS
+origin with a verified Web release and writes sanitized HTTP observations
+([contract](xtask/README.md#read-only-hosting-http-observation)); it never publishes and does
+not establish browser/auth or recovery acceptance. Artifact promotion/publishing (#277/#278) and operator execution remain
 separate from this source preparation; Firebase Auth/Functions/App Distribution/storage stay
 with their existing owners.
 

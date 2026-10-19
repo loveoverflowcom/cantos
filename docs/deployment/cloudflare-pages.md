@@ -8,8 +8,8 @@ Upload** project. The command contract is the [xtask README](../../xtask/README.
 the rollout/domain/recovery plan is [cloudflare-rollout.md](cloudflare-rollout.md); the Firebase
 lane in [firebase-hosting.md](firebase-hosting.md) stays the recovery path.
 
-> **Status — implemented and tested against fixtures; no real Pages deployment has run.** Source
-> preparation changes no account, DNS record, domain or live site. See
+> **Status — implemented, with source-bound preview observations recorded below.** Production,
+> custom-domain cutover and browser/auth acceptance remain separate. See
 > [what is and is not accepted](#acceptance-status).
 
 ## What this is, and what it is not
