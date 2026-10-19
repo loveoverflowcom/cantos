@@ -27,7 +27,8 @@ pub use dialog::{Dialog, DialogCloseReason, DialogError};
 pub use feedback::{Announcement, Badge, EmptyState, ErrorState, LoadingState, Status, StatusTone};
 pub use fields::{
     Checkbox, ChoiceState, FieldError, FieldHelp, FieldLabel, FieldState, NumberField, Radio,
-    RangeField, Select, Switch, TextArea, TextField, TextFieldKind, TextFieldVariant,
+    RangeField, Select, SelectDensity, SelectLabelPlacement, Switch, TextArea, TextField,
+    TextFieldKind, TextFieldVariant,
 };
 pub use icons::{Icon, IconName};
 pub use layout::{

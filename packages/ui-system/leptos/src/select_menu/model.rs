@@ -198,3 +198,22 @@ mod tests {
         assert_eq!(state.active, Some(1));
     }
 }
+
+/// Preserve readable option anatomy while clamping the top-layer menu to its viewport.
+#[cfg(any(target_arch = "wasm32", test))]
+pub(super) fn popup_width(anchor: f64, content: f64, available: f64) -> f64 {
+    anchor.max(content).min(available.max(0.0))
+}
+
+#[cfg(test)]
+mod geometry_tests {
+    use super::popup_width;
+
+    #[test]
+    fn popup_fits_options_and_anchor_without_crossing_the_viewport() {
+        assert_eq!(popup_width(120.0, 180.0, 304.0), 180.0);
+        assert_eq!(popup_width(240.0, 180.0, 304.0), 240.0);
+        assert_eq!(popup_width(400.0, 800.0, 304.0), 304.0);
+        assert_eq!(popup_width(120.0, 180.0, -4.0), 0.0);
+    }
+}

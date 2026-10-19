@@ -114,6 +114,7 @@ pub mod tool {
         "Existing AuthTonal presentation and 16-unit field→CTA gap (compatibility baseline):";
     pub const BACK_CANDIDATE: &str = "Unified Web candidate — unqualified. Hover, pressed and keyboard focus require real input. Every sample records a host intent only; no route/history effect.";
     pub const ICON_BASELINE: &str = "Existing IconTonal presentation (compatibility baseline):";
+    pub const SELECT_DENSITIES: &str = "Regular theme: 48. Compact inline language: 40 painted / 48 target, 20 icon. Native compact baseline below; unsupported Popover uses the same native geometry. No Button/TextField/CMP resizing.";
     pub const MENU_CANDIDATE: &str = "Web menu candidate — unqualified. Native fallback on unsupported engines. Expanded/hover/focus require real input; this recipe does not force visual states.";
     pub const SAMPLE_DIALOG: &str = "Sample dialog";
     pub const CLOSE_SAMPLE: &str = "Close sample";
@@ -253,6 +254,10 @@ pub mod tool {
     pub const LOGO_NAMED: &str = "Standalone symbol with an accessible name";
     pub const LOGO_ASPECT: &str = "A narrow frame retains the aspect ratio";
 }
+
+/// Fixed endonyms identify languages in either specimen locale; never translate them.
+pub const VIETNAMESE_AUTONYM: &str = "Tiếng Việt";
+pub const ENGLISH_AUTONYM: &str = "English";
 
 /// Labels of actual recipe specimens, independent from the fixed-English tool shell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -551,6 +551,9 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     let select_extension = [
         "web-menu",
         "web-menu-expanded",
+        "web-regular",
+        "web-compact-inline",
+        "web-native-compact",
         "long-vietnamese",
         "large-text",
     ];

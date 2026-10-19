@@ -432,6 +432,39 @@ pub fn TextArea(
     }
 }
 
+/// Select-only visual density, independent of UiRoot density and other field geometry.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SelectDensity {
+    #[default]
+    Regular,
+    /// Forty-unit painted surface inside the existing minimum interaction target.
+    Compact,
+}
+impl SelectDensity {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Regular => "regular",
+            Self::Compact => "compact",
+        }
+    }
+}
+
+/// Label composition does not change the control's accessible name or value ownership.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SelectLabelPlacement {
+    #[default]
+    Above,
+    Inline,
+}
+impl SelectLabelPlacement {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Above => "above",
+            Self::Inline => "inline",
+        }
+    }
+}
+
 /// Native single-select with app-owned options. Options must carry stable values.
 #[component]
 pub fn Select(
@@ -451,11 +484,13 @@ pub fn Select(
     #[prop(into, default = String::new().into())] class: Signal<String>,
     #[prop(into, optional)] name: Option<String>,
     #[prop(optional)] required: bool,
+    #[prop(optional)] density: SelectDensity,
+    #[prop(optional)] label_placement: SelectLabelPlacement,
 ) -> impl IntoView {
     if let Some(options) = options {
         return view! {
             <crate::select_menu::MenuSelect id label value on_input options placeholder
-                state help error described_by class name required/>
+                state help error described_by class name required density label_placement/>
         }
         .into_any();
     }
@@ -472,7 +507,8 @@ pub fn Select(
         }
     });
     view! {
-        <div class=move || format!("cui-field {}", class.get()) data-state=move || state.get().as_str()>
+        <div class=move || format!("cui-field cui-select-field {}", class.get()) data-select-density=density.as_str()
+            data-label-placement=label_placement.as_str() data-state=move || state.get().as_str()>
             <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
             <div class="cui-select">
                 <select id=id.clone() node_ref=node class="cui-field-control" name=name required=required
