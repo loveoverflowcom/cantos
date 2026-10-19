@@ -50,8 +50,8 @@ apps/
     mobile/                Kotlin Compose Multiplatform     (production adapters + isolated demo; acceptance pending)
       shared/              Production-safe UI/domain/application, ports and non-mock adapters
       preview-sandbox/     Separate KMP mock adapters, fixtures, previews and demo hosts
-      androidApp/          Explicit mock sandbox host (com.cantos.theatre.demo, "Cantos Sandbox")
-      androidProductionApp/ Cantos application host (com.cantos.theatre): :shared only RELEASE BOUNDARY
+      androidApp/          The one Android application: :shared only RELEASE BOUNDARY; release com.cantos.theatre
+                           "Cantos", debug com.cantos.theatre.dev "Cantos Dev"; no flavors, no mock variant
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
@@ -215,11 +215,11 @@ Not shared, deliberately:
   Gradle package and its Android preview host are component diagnostics, not Studio Mobile.
   Shared contracts and semantic tokens may serve Theatre Mobile and Studio Web; extract further
   libraries only for concrete consumers.
-  Within Theatre Mobile, `:preview-sandbox` depends on `:shared`; demo hosts select both
+  Within Theatre Mobile, `:preview-sandbox` depends on `:shared`; the desktop and iOS demo hosts select both
   explicitly. `:shared` has no reverse sandbox dependency or implicit mock fallback. The
-  production host `:androidProductionApp` consumes `:shared` and its injected production adapters
-  only. Static source/build guards protect the declared boundary; its resolved release
-  classpaths and actual APK/AAB contents are inspected independently by `theatre-host`.
+  one Android application `:androidApp` consumes `:shared` and its injected production adapters
+  only, in both build types. Static source/build guards protect the declared boundary; its resolved
+  debug and release classpaths and actual APK/AAB contents are inspected independently by `theatre-host`.
 
 ## Cargo workspace
 

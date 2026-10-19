@@ -83,7 +83,7 @@ remain in `androidMain` / `iosMain` or Swift.
 The implementation keeps ARC-01's production-safe UI/domain/application/ports in `:shared` and
 mock adapters, fixtures, previews, diagnostic composition and workbench in `:preview-sandbox`.
 The sandbox depends on shared; shared has no reverse dependency or implicit mock fallback.
-`androidApp` and the desktop/iOS hosts are demo hosts. The production host `androidProductionApp`
+The desktop and iOS `CantosDemo` hosts are demo hosts; Android has no mock host. The one Android application `androidApp`
 consumes shared plus production adapters only (`CantosTheatreApp` over the live catalog, account,
 Library and native player; without an API origin it renders an explicit unavailable state) and establishes release graph and actual APK/AAB exclusion independently
 through `cargo xtask theatre-host android-release`. Build/verify integrate

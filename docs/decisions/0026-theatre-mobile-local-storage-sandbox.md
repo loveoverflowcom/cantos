@@ -143,8 +143,8 @@ The proposal's technical observations, checked against these facts:
    to the sandbox; shared composition requires explicit inputs and supplies no implicit mock
    fallback. This is a build boundary, independent of debug flags or R8 removal.
 
-   The production Android host `:androidProductionApp` depends on `:shared` plus production
-   adapters only. Its `releaseCompileClasspath` and `releaseRuntimeClasspath` must exclude
+   The Android application `:androidApp` (formerly `:androidProductionApp`; merged by #286) depends on
+   `:shared` plus production adapters only. Its debug and release compile/runtime classpaths must exclude
    `:preview-sandbox`, the demo host, `okio-fakefilesystem`, `ktor-client-mock` and test
    dependencies; a Gradle task enforces that before every host build. `cargo xtask theatre-host
    android-release` inspects its unsigned, unshrunk APK/AAB DEX classes, resources and manifest

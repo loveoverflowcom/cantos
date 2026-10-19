@@ -1,18 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Cantos Theatre: live catalog, account, durable Library and native streaming; explicit API origin
+     and HTTPS-only release. Debug adds only its loopback cleartext policy. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <application
-        android:name=".CantosDemoApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="Cantos Sandbox"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Cantos">
         <meta-data android:name="CantosApiOrigin" android:value="${cantosApiOrigin}" />
         <meta-data android:name="CantosNativeIssuer" android:value="${cantosNativeIssuer}" />
+        <service
+            android:name="com.cantos.theatre.adapters.playback.CantosPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <activity
-            android:name=".MainActivity"
+            android:name=".app.TheatreActivity"
             android:theme="@style/Theme.Cantos.Starting"
             android:launchMode="singleTask"
             android:exported="true">
@@ -24,7 +33,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.cantos.theatre" />
+                <data android:scheme="${applicationId}" />
             </intent-filter>
         </activity>
     </application>

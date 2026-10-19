@@ -33,7 +33,7 @@ pub enum DemoAction {
     Verify,
     /// Supervise the mock desktop window; no audio or native device is started.
     Run,
-    /// Compile an Android debug mock app using an already installed Android SDK.
+    /// Retired (#286): the Android mock host was merged into the one real-only `:androidApp`.
     AndroidBuild,
     /// Link the mock iOS simulator framework with an installed pinned native compiler and Xcode.
     IosBuild {
@@ -96,7 +96,13 @@ pub fn desktop_command(workspace: &Workspace, task: &str) -> CommandSpec {
         )
 }
 
-/// The one Gradle invocation that builds the Android debug mock; distribution reuses it as is.
+/// Why `theatre-demo android-build` no longer builds anything. Refused before any tool probe.
+pub const RETIRED_ANDROID_BUILD: &str = "retired by #286: the Android mock host no longer exists; \
+:androidApp is the one real-only application. Use `cargo xtask theatre-host android-debug \
+--api-origin ORIGIN` for the debug build (com.cantos.theatre.dev); desktop and iOS mock hosts are unchanged";
+
+/// Retired Android mock lane (#286): reachable only from the inert `demo`/`demo-qa` distribution
+/// policies, which `distribute firebase` refuses before any build. Not a real build command.
 pub fn android_command(workspace: &Workspace) -> CommandSpec {
     gradle_command(workspace).args([
         "-Pcantos.android=true",
@@ -105,9 +111,7 @@ pub fn android_command(workspace: &Workspace) -> CommandSpec {
     ])
 }
 
-/// The one Gradle invocation that builds the optimized demo/QA APK (R8, resource shrinking,
-/// non-debuggable). The operator's signing key reaches Gradle only through the process
-/// environment; nothing here reads, prints or records it.
+/// Retired with the `qa` build type (#286); see [`android_command`].
 pub fn android_qa_command(workspace: &Workspace) -> CommandSpec {
     gradle_command(workspace).args([
         "-Pcantos.android=true",
@@ -273,17 +277,10 @@ pub fn execute(
         )],
         DemoAction::Verify => vec![Gate::TheatreCmpDemo.step(workspace)],
         DemoAction::AndroidBuild => {
-            let sdk = android_sdk_from_environment();
-            if let Err(reason) =
-                android_prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref())
-            {
-                return Ok(unsupported("Theatre mock Android build", reason));
-            }
-            vec![Step::new(
+            return Ok(unsupported(
                 "Theatre mock Android build",
-                &tools(),
-                vec![android_command(workspace)],
-            )]
+                RETIRED_ANDROID_BUILD,
+            ))
         }
         DemoAction::IosBuild { kotlin_native_home } => {
             if let Err(reason) = native_compiler_prerequisite(&kotlin_native_home) {
@@ -554,5 +551,23 @@ mod tests {
         executable_fixture(&dir.join(ANDROID_BUILD_TOOLS).join("d8"));
         assert_eq!(android_prerequisite(&dir, Some(&dir)), Ok(()));
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn retired_android_build_is_refused_before_any_tool_or_command() {
+        let workspace = workspace();
+        let mut runner = RecordingRunner::default();
+        let code = execute(
+            &workspace,
+            DemoAction::AndroidBuild,
+            &FakeTools::all(),
+            &mut runner,
+        )
+        .unwrap();
+        assert_ne!(code, ExitCode::SUCCESS);
+        assert!(runner.commands.is_empty());
+        assert!(
+            RETIRED_ANDROID_BUILD.contains("androidApp") && RETIRED_ANDROID_BUILD.contains("#286")
+        );
     }
 }

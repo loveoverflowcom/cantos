@@ -20,13 +20,13 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "cantos-theatre-cmp-demo"
+rootProject.name = "cantos-theatre-mobile"
 include(":shared", ":preview-sandbox")
 
 // Native hosts are explicit opt-ins. Desktop verification needs neither an SDK nor Kotlin/Native.
 val androidEnabled = providers.gradleProperty("cantos.android").orNull == "true" ||
     providers.gradleProperty("cantos.native").orNull == "true"
 if (androidEnabled) {
-    // The demo host composes :preview-sandbox; the production host consumes :shared only.
-    include(":androidApp", ":androidProductionApp")
+    // The one Android application consumes :shared only; :preview-sandbox is desktop/iOS tooling.
+    include(":androidApp")
 }

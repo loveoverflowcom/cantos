@@ -1,4 +1,4 @@
-"""Static production Android host contract; packaged bytes are checked by theatre-host."""
+"""Static contract of the one Android application (#286); packaged bytes are checked by theatre-host."""
 
 from pathlib import Path
 import json
@@ -9,11 +9,15 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 ANDROID = "{http://schemas.android.com/apk/res/android}"
-HOST = ROOT / "apps/cantos-theatre/mobile/androidProductionApp"
+HOST = ROOT / "apps/cantos-theatre/mobile/androidApp"
 MANIFEST = HOST / "src/main/AndroidManifest.xml"
 
 
-class TheatreAndroidProductionHostTest(unittest.TestCase):
+def application_label(manifest):
+    return manifest.find("application").get(ANDROID + "label")
+
+
+class TheatreAndroidHostTest(unittest.TestCase):
     def setUp(self):
         self.manifest = ET.parse(MANIFEST).getroot()
 
@@ -47,7 +51,8 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
         self.assertEqual(routes[1].find("action").get(ANDROID + "name"), "android.intent.action.VIEW")
         self.assertEqual({node.get(ANDROID + "name") for node in routes[1].findall("category")},
                          {"android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"})
-        self.assertEqual(routes[1].find("data").get(ANDROID + "scheme"), "com.cantos.theatre")
+        self.assertEqual(routes[1].find("data").get(ANDROID + "scheme"), "${applicationId}")
+        self.assertEqual(application_label(self.manifest), "@string/app_name")
 
     def test_window_backgrounds_match_canonical_tokens_without_a_splash_dependency(self):
         tokens = json.loads((ROOT / "packages/ui-system/shared/tokens.json").read_text())
@@ -55,7 +60,7 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
             color = ET.parse(HOST / "src/main/res" / qualifier / "colors.xml").find("color").text
             self.assertEqual(color.lower(), tokens["themes"][theme]["color.background"]["value"])
             styles = ET.parse(HOST / "src/main/res" / qualifier / "styles.xml").findall("style")
-            self.assertEqual([style.get("name") for style in styles], ["Theme.Cantos"])
+            self.assertEqual(styles[0].get("name"), "Theme.Cantos")
             self.assertEqual({item.get("name"): item.text for item in styles[0]}["android:windowBackground"],
                              "@color/cantos_launch_background")
 
@@ -68,14 +73,55 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
         self.assertIn("isShrinkResources = false", build)
         self.assertNotIn("signingConfig", build)
         self.assertNotIn("debugImplementation", build)
-        self.assertIn('tasks.named("preBuild") { dependsOn(assertReleaseDependencyBoundary) }', build)
+        self.assertNotIn("preview-sandbox", build)
+        self.assertNotIn("productFlavors", build)
+        self.assertNotIn("isMock", build)
+        self.assertIn('it.name == "preReleaseBuild"', build)
+        self.assertIn('it.name == "preDebugBuild"', build)
+        self.assertIn('"${variant}CompileClasspath", "${variant}RuntimeClasspath"', build)
         activity = (HOST / "src/main/kotlin/com/cantos/theatre/app/TheatreActivity.kt").read_text()
         self.assertNotIn("CantosTheatreDemo", activity)
         self.assertNotIn("mockAppContainer", activity)
-        self.assertIn("setLiveCatalogContent", activity)
+        self.assertIn("CantosTheatreApp(", activity)
         self.assertIn("parseAndroidCallback", activity)
         self.assertIn("onNewIntent", activity)
 
+
+
+    def test_debug_is_the_side_by_side_dev_identity_and_release_keeps_the_production_id(self):
+        build = (HOST / "build.gradle.kts").read_text()
+        self.assertIn('applicationIdSuffix = ".dev"', build)
+        self.assertIn('versionNameSuffix = "-dev"', build)
+        self.assertIn('namespace = "com.cantos.theatre"', build)
+        self.assertEqual(re.findall(r"^\s*create\(", build, re.M), [])
+        label = lambda path: ET.parse(path).find("string").text
+        self.assertEqual(label(HOST / "src/main/res/values/app_name.xml"), "Cantos")
+        self.assertEqual(label(HOST / "src/debug/res/values/app_name.xml"), "Cantos Dev")
+
+    def test_native_configuration_build_inputs_reach_metadata_with_empty_defaults(self):
+        gradle = (HOST / "build.gradle.kts").read_text()
+        for placeholder, property_name, environment_name in [
+            ("cantosApiOrigin", "cantos.apiOrigin", "CANTOS_API_ORIGIN"),
+            ("cantosNativeIssuer", "cantos.nativeIssuer", "CANTOS_NATIVE_ISSUER"),
+        ]:
+            self.assertRegex(
+                gradle,
+                rf'manifestPlaceholders\["{placeholder}"\]\s*=\s*'
+                rf'providers\.gradleProperty\("{property_name}"\)\s*'
+                rf'\.orElse\(providers\.environmentVariable\("{environment_name}"\)\)\s*'
+                r'\.orElse\(""\)\.get\(\)',
+            )
+
+    def test_callback_profile_comes_from_the_final_application_id(self):
+        activity = (HOST / "src/main/kotlin/com/cantos/theatre/app/TheatreActivity.kt").read_text()
+        self.assertIn("NativeCallbackProfile.forApplicationId(packageName)", activity)
+        self.assertNotIn("NativeCallbackProfile.Production", activity)
+
+    def test_removed_demo_modules_and_flavors_do_not_return(self):
+        mobile = HOST.parent
+        self.assertFalse((mobile / "androidProductionApp").exists())
+        self.assertFalse((HOST / "proguard-rules.pro").exists())
+        self.assertNotIn("androidProductionApp", (mobile / "settings.gradle.kts").read_text())
 
 
 if __name__ == "__main__":

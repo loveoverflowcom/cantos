@@ -29,7 +29,7 @@ EXPECTED = {
     "api": {"cantos-api.tar.zst", "image.json", "runtime.tar"},
     "theatre-web": {"theatre-web.tar.gz"},
     "studio-web": {"studio-web.tar.gz"},
-    "android": {"androidProductionApp-release-unsigned.apk", "androidProductionApp-release.aab",
+    "android": {"androidApp-release-unsigned.apk", "androidApp-release.aab",
                 "artifact-inspection.txt", "resolved-dependencies.txt"},
 }
 
@@ -218,7 +218,7 @@ def configuration(root, component, origin):
     elif component.endswith("-web"):
         paths += ["infra/firebase/hosting/firebase.json", f"apps/cantos-{component[:-4]}/web/Trunk.toml"]
     else:
-        paths += ["apps/cantos-theatre/mobile/androidProductionApp/build.gradle.kts"]
+        paths += ["apps/cantos-theatre/mobile/androidApp/build.gradle.kts"]
     return {"component": component, "api_origin": origin, "profile": "release",
             "platform": "linux/amd64" if component == "api" else component,
             "policy": {p: file_record(root / p, root)["sha256"] for p in paths}}

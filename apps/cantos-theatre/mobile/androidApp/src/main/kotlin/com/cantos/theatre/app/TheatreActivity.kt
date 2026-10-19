@@ -68,9 +68,11 @@ class TheatreActivity : ComponentActivity() {
 
     private fun deliverCallback(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme != NativeCallbackProfile.Production.scheme) return
+        // The final application ID selects the closed profile; an ID without one has no callback.
+        val profile = NativeCallbackProfile.forApplicationId(packageName) ?: return
+        if (uri.scheme != profile.scheme) return
         intent.data = null
-        val callback = parseAndroidCallback(uri, NativeCallbackProfile.Production) ?: return
+        val callback = parseAndroidCallback(uri, profile) ?: return
         ProductionProcess.current()?.runtime?.account?.callback(callback)
     }
 

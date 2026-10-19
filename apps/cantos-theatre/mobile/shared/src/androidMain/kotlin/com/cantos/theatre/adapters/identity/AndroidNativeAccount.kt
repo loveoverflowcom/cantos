@@ -13,7 +13,7 @@ fun createAndroidNativeAccount(
     context: Context,
     apiOrigin: String?,
     issuer: String?,
-): NativeAccountController? = when (val resolved = NativeClientConfiguration.resolve(apiOrigin, issuer)) {
+): NativeAccountController? = when (val resolved = NativeClientConfiguration.resolveForApplication(apiOrigin, issuer, context.packageName)) {
     is NativeIdentityAvailability.Available -> resolved.configuration.let { configuration ->
         val now = { System.currentTimeMillis() / 1000 }
         NativeAccountController(scope, configuration, NativeIdentityClient(configuration, AndroidNativeHttp(scope, configuration.apiOrigin), now),

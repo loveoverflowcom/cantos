@@ -152,6 +152,10 @@ pub fn execute(
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
     let Provider::Firebase(args) = &args.provider;
+    // Before the tool probe, plan, build, login or upload: no policy is silently remapped (#286).
+    if let Some(refusal) = request::retired_lane(args.channel) {
+        return Ok(crate::refuse(refusal));
+    }
     let raw = Raw {
         api_origin: args.api_origin.clone(),
         native_issuer: args.native_issuer.clone(),
