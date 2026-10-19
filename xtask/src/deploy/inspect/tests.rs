@@ -34,14 +34,30 @@ fn request_requires_exact_origins_release_identity_and_one_provenance_mode() {
         "https://user:secret@release.example",
         "https://release.example#secret",
         "https://release.example:443",
-        "https://api.example",
         "https://",
-        "https://127.1",
         "https://Release.example",
     ] {
         let mut args = args();
         args.origin = origin.into();
-        assert!(validate_request(&args).is_err(), "{origin}");
+        assert_eq!(
+            validate_request(&args),
+            Err("an exact lowercase HTTPS static origin without port/path/query is required"),
+            "{origin}"
+        );
+    }
+    for (origin, refusal) in [
+        (
+            "https://127.1",
+            "a canonical HTTPS static origin is required",
+        ),
+        (
+            "https://api.example",
+            "a separate exact HTTPS API origin is required",
+        ),
+    ] {
+        let mut args = args();
+        args.origin = origin.into();
+        assert_eq!(validate_request(&args), Err(refusal), "{origin}");
     }
     for bad_id in ["", "https://example/?code=secret", "id\nheader", "a/b"] {
         let mut args = args();
@@ -127,6 +143,29 @@ fn probe_plan_covers_all_entry_assets_and_distinct_missing_suffixes_without_api_
         probes(&empty, "RUN"),
         Err("the bundle needs an entry page and at most 128 safe smoke paths")
     );
+    let mut largest = manifest.clone();
+    largest.entry_assets = (0..122).map(|index| format!("script-{index}.js")).collect();
+    largest.files.extend(
+        largest
+            .entry_assets
+            .iter()
+            .map(|path| bundle::ManifestFile {
+                path: path.clone(),
+                size: 1,
+                sha256: "a".repeat(64),
+            }),
+    );
+    assert_eq!(probes(&largest, "RUN").unwrap().len(), 128);
+    largest.entry_assets.push("one-too-many.js".into());
+    largest.files.push(bundle::ManifestFile {
+        path: "one-too-many.js".into(),
+        size: 1,
+        sha256: "a".repeat(64),
+    });
+    assert_eq!(
+        probes(&largest, "RUN"),
+        Err("the bundle needs an entry page and at most 128 safe smoke paths")
+    );
     let unsafe_manifest = bundle::Manifest {
         entry_assets: vec!["../private.js".into()],
         files: vec![
@@ -153,16 +192,21 @@ fn dry_run_does_not_probe_tools_or_read_even_a_missing_artifact() {
             panic!("dry-run probed a tool")
         }
     }
+    let fixture = Fixture::new();
     let mut args = args();
     args.dry_run = true;
     assert_eq!(
-        run(&Workspace::discover().unwrap(), &args, &NoProbe).unwrap(),
+        run(&fixture.workspace, &args, &NoProbe).unwrap(),
         ExitCode::SUCCESS
+    );
+    assert!(
+        !fixture.root.join("artifacts").exists(),
+        "dry-run wrote a run directory"
     );
     args.dry_run = false;
     assert_eq!(
         run(
-            &Workspace::discover().unwrap(),
+            &fixture.workspace,
             &args,
             &FakeTools::without(&[Tool::Python3])
         )
@@ -203,7 +247,12 @@ fn cli_exposes_no_publish_account_or_credential_flags() {
         "--rollback",
         "--project",
     ] {
-        assert!(Cli::try_parse_from(argv.into_iter().chain([flag])).is_err());
+        assert_eq!(
+            Cli::try_parse_from(argv.into_iter().chain([flag]))
+                .unwrap_err()
+                .kind(),
+            clap::error::ErrorKind::UnknownArgument
+        );
     }
 }
 
