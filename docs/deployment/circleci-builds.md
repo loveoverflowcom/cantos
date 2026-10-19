@@ -1,14 +1,23 @@
 # Opt-in CircleCI artifact builds
 
+For the requested Cloudflare transition, follow the
+[rollout and recovery runbook](cloudflare-rollout.md). #277 owns build-once promotion/DAG and
+credential separation, #278 owns the selected static publisher and provider decision, and #279
+owns optional local submit/status. Those prerequisites are not implemented by this runbook or
+by `cargo xtask hosting-report`, which only validates operator-declared local evidence. Do not
+start paid runs, provision accounts/contexts or attach credentials without separate scope/budget.
+
 The configuration implements build-only jobs independently of manual production deployment.
 Account/project integration and actual CircleCI execution are not established. Ordinary pushes
 and PRs run no CircleCI jobs; the user stopped integration before the first run.
 
 After separately qualifying account access and available credits, select the reviewed source
-branch, set `build=true`, `build-component=all` (or `api`, `theatre-web`, `studio-web`, `android`)
+branch, set `build=true`, `build-component=theatre-web` (or one other approved component:
+`api`, `studio-web`, `android`; `all` includes all four and needs its own budget)
 and leave `target` empty. Each selected workflow runs the repository contract before building;
 API and Web also run their existing Rust/Web CI contracts. Failed checks block packaging.
-Providing both build and deployment inputs selects neither workflow. Build jobs attach no
+Providing both build and deployment inputs currently selects neither workflow; that no-op is
+a known #277 blocker, not a successful release request. Build jobs attach no
 production context and need no VPS/Firebase credentials. Existing deploy workflows stay manual.
 
 The command is `cargo xtask release-build <component> [--dry-run]`, with deterministic regression

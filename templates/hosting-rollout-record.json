@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "release_sha": null,
+  "config_sha": null,
+  "approved_api_origin": null,
+  "circleci": {
+    "pipeline_id": null,
+    "workflow_id": null,
+    "job_number": null
+  },
+  "checks": {
+    "provider_decision": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "operator_scope": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "inventory": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "qualification": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "circleci_build": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "api_compatibility": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "dns_recovery": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "operator_acceptance": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "retention_window": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "retirement_dependencies": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    },
+    "hosting_cleanup": {
+      "status": "NOT_RUN",
+      "kind": null,
+      "source_sha": null,
+      "evidence_sha256": []
+    }
+  },
+  "components": {
+    "theatre-web": {
+      "artifact_sha256": null,
+      "api_origin": null,
+      "deployment_id": null,
+      "deployment_environment": null,
+      "deployment_origin": null,
+      "final_origin": null,
+      "rollback_deployment_id": null,
+      "rollback_environment": null,
+      "checks": {
+        "artifact": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "cloudflare_publish": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "preview_http": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "preview_browser": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "final_domain": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "final_http": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "final_browser": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "release_rollback": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        }
+      }
+    },
+    "studio-web": {
+      "artifact_sha256": null,
+      "api_origin": null,
+      "deployment_id": null,
+      "deployment_environment": null,
+      "deployment_origin": null,
+      "final_origin": null,
+      "rollback_deployment_id": null,
+      "rollback_environment": null,
+      "checks": {
+        "artifact": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "cloudflare_publish": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "preview_http": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "preview_browser": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "final_domain": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "final_http": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "final_browser": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        },
+        "release_rollback": {
+          "status": "NOT_RUN",
+          "kind": null,
+          "source_sha": null,
+          "evidence_sha256": []
+        }
+      }
+    }
+  }
+}

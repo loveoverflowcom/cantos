@@ -9,6 +9,7 @@ Copy a template into the relevant project documentation location and replace eve
 | [Production run](production-run.md) | Record the exact script, casting, provider, render, cost, and QC evidence for an episode production. |
 | [Listening review](listening-review.md) | Record two-pass human listening on headphones and a phone speaker, exact render/input identity, dimension results and editorial findings under the shared protocol. |
 | [Publication checklist](publication-checklist.md) | Verify permissions, QC, approval, delivery, and recovery before making an episode revision public. |
+| [Hosting rollout record](hosting-rollout-record.json) | Private operator-declared evidence for `cargo xtask hosting-report`; start with every stage NOT_RUN. Use the [rollout runbook](../docs/deployment/cloudflare-rollout.md#offline-report-contract); a valid record never proves live acceptance. |
 | [Story index](story-index.md) | Record artifact hashes, stage handoffs, name-map revisions and Drive synchronization outside Git. |
 | [Story name map](story-name-map.yml) | Map original proper names and aliases to consistent new names before score authoring. |
 | [Story recovery issue](story-recovery-issue.md) | Track a blocked capture/sync operation without uploading manuscript content to GitHub. |

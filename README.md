@@ -154,6 +154,13 @@ cargo xtask web-performance cantos-theatre
 cargo xtask preflight --changed-only
 ```
 
+The requested Cloudflare Web transition has a separate
+[rollout/recovery runbook](docs/deployment/cloudflare-rollout.md). `cargo xtask hosting-report
+--record PATH` validates an offline operator-declared record only; it never deploys or verifies
+live acceptance. Artifact promotion/publishing (#277/#278) and operator execution remain
+separate from this source preparation; Firebase Auth/Functions/App Distribution/storage stay
+with their existing owners.
+
 These commands require a local checkout with the documented toolchain. CI status and test
 evidence must be reported accurately; removing an obsolete TTS worker does not prove new
 upload/playback features exist.

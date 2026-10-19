@@ -1,5 +1,13 @@
 # Current production topology and operations
 
+**Web provider transition:** #278/#280 request static Cloudflare hosting for the existing
+`cantos.cc` / `studio.cantos.cc` targets. The
+[rollout and recovery runbook](cloudflare-rollout.md) owns provider qualification, domain
+cutover and Firebase Hosting retirement; the Firebase destinations below describe the retained
+current/recovery lane, not evidence of a completed migration. Recheck actual installed state.
+The API/PostgreSQL/Kanidm stay here. Compatible API runtime needs no redeploy solely for a Web
+host change; image, browser-config, identity and database authority remain separate.
+
 > **#253 staging:** [Bearer v1](../../packages/contracts/bearer-v1.md) adds a new exact API callback
 > `/api/v1/{studio|theatre}/auth/bearer/callback` for the existing per-surface confidential client.
 > Registering/qualifying it, updating the existing-client reconciliation receipt and completing

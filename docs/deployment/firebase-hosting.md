@@ -1,5 +1,13 @@
 # Firebase Hosting for the Cantos Web apps
 
+**Transition boundary:** Cloudflare is the requested target in #278/#280. Follow the
+[rollout/recovery runbook](cloudflare-rollout.md) before changing domains or retiring this lane.
+These are implemented Firebase Hosting instructions for the current/recovery path, not a
+Cloudflare publisher. Source preparation does not change the live provider. After accepted
+cutover and the agreed recovery window, review removal of obsolete Hosting-only lanes/defaults;
+do not execute the #237 Firebase site rename in parallel. Auth/email proof, Forge Functions,
+App Distribution and storage remain independent. No resources or credentials are removed here.
+
 Operator runbook for `cargo xtask deploy firebase`: build **one** Leptos Web app (Cantos Theatre or
 Cantos Studio) and publish its static bundle to **Firebase Hosting**, locally and by hand, from a
 Mac or Linux machine. The command contract is the

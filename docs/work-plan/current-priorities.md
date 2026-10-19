@@ -26,16 +26,19 @@ preserves PostgreSQL authority and keeps PostgreSQL 17 → 18.6 independent. Pop
 data still requires a reviewed general transformer, which remains unimplemented; a fresh source
 build does not authorize rewriting migration checksums or bypassing the guards.
 
-[#237](https://github.com/loveoverflowcom/cantos/issues/237) is an independent Hosting track:
-first establish project ownership/availability for the requested short Site IDs, then approve
-per-app site allocation/deploy and exact-origin acceptance through the
-[Hosting runbook](../deployment/firebase-hosting.md) and accepted
-[ADR 0041](../decisions/0041-direct-hosting-api-boundary.md). Preserve the direct-Hosting/API
-boundary, origin/callback drift safeguards and Studio/Theatre isolation. Short Site IDs alone
-establish neither Bearer authentication nor issuer acceptance; #253 removes same-site domains
-as an authentication prerequisite. Qualify the minimal identity gateway and exact client/origin
-contracts separately. Keep the schema cutover independent of
-that rollout.
+For the requested Cloudflare transition, implement/review
+[#277](https://github.com/loveoverflowcom/cantos/issues/277)'s source-bound artifact promotion
+and [#278](https://github.com/loveoverflowcom/cantos/issues/278)'s provider/publisher boundary
+before [#280](https://github.com/loveoverflowcom/cantos/issues/280)'s live cutover. Runbook and
+offline reporting source can proceed independently; actual account/credits/deploy/DNS/recovery
+acceptance follows the [rollout runbook](../deployment/cloudflare-rollout.md).
+[#279](https://github.com/loveoverflowcom/cantos/issues/279) is optional submit/status convenience,
+not a blocker when the authorized CircleCI UI is usable. Preserve the direct Hosting/API,
+exact-origin/callback and Bearer boundaries from ADR 0041/#253, independently of schema cutover.
+Reconcile [#237](https://github.com/loveoverflowcom/cantos/issues/237)'s old Firebase naming scope
+before proposing supersession; do not allocate/rename Firebase sites in parallel. Retain only
+the reviewed recovery window, then retire Hosting-only paths after operator acceptance without
+touching Firebase Auth/Functions/App Distribution/storage or identity/runtime owners.
 
 ## Recommended next boundaries
 
