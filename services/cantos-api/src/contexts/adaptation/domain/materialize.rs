@@ -1,8 +1,9 @@
 //! Deterministic materialization of a decoded proposal into admitted Script IR with findings.
 //! The caller supplies every opaque identity, so the same inputs always produce the same output.
+use super::AdaptationRejection;
 use cantos_contracts::{
     AdaptationCoverage, AdaptationCoverageDisposition, AdaptationFinding, AdaptationFindingCode,
-    AdaptationProblem, AdaptationProposal, ImportBlockKind, ImportResponse,
+    AdaptationProposal, ImportBlockKind, ImportResponse,
 };
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -31,7 +32,7 @@ pub fn admit_output_with_minter(
     source: &ImportResponse,
     binding: &TrustedBinding,
     mut mint: impl FnMut() -> String,
-) -> Result<AdaptationProposal, AdaptationProblem> {
+) -> Result<AdaptationProposal, AdaptationRejection> {
     let raw = decode(bytes)?;
     let count = 8
         + raw.characters.len()
@@ -50,7 +51,7 @@ pub fn admit_output_with_ids(
     source: &ImportResponse,
     binding: &TrustedBinding,
     ids: &[String],
-) -> Result<AdaptationProposal, AdaptationProblem> {
+) -> Result<AdaptationProposal, AdaptationRejection> {
     materialize(decode(bytes)?, source, binding, ids)
 }
 
@@ -59,7 +60,7 @@ fn materialize(
     source: &ImportResponse,
     binding: &TrustedBinding,
     ids: &[String],
-) -> Result<AdaptationProposal, AdaptationProblem> {
+) -> Result<AdaptationProposal, AdaptationRejection> {
     let admitted = check_binding(source, binding)?;
     materialize_bound(raw, admitted, ids)
 }
@@ -68,7 +69,7 @@ fn materialize_bound(
     raw: RawProposal,
     admitted: BoundSource<'_>,
     ids: &[String],
-) -> Result<AdaptationProposal, AdaptationProblem> {
+) -> Result<AdaptationProposal, AdaptationRejection> {
     let source = admitted.source();
     let binding = admitted.facts();
     let extraction = extracted(source)?;

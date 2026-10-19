@@ -480,6 +480,32 @@ use crate::contexts::editorial::domain::diagnostics::validation_issues;
 fn validate() { crate::script_ir::read_script(bytes); state.store.save(request); }
 """), [])
 
+    def test_editorial_http_allows_only_facts_and_document_projections(self):
+        self.assertEqual(self.errors("interfaces/http/studio/editorial.rs", """
+use crate::contexts::editorial::{document, ReviewFacts, RevisionOperation};
+fn project(facts: ReviewFacts) { document::revision(saved); document::issues(issues); }
+"""), [])
+        for dependency in ("document::decide_save", "domain::decide_save", "append_revision",
+                           "postgres::load_revision", "application::authorize"):
+            with self.subTest(dependency=dependency):
+                self.assertRejected("interfaces/http/studio/editorial.rs",
+                    f"use crate::contexts::editorial::{dependency};",
+                    "HTTP must delegate business decisions")
+
+    def test_editorial_and_adaptation_diagnostics_cannot_build_wire_errors(self):
+        for owner in ("editorial", "adaptation"):
+            for content in (
+                "use cantos_contracts::FieldIssue;",
+                "use cantos_contracts::{AdaptationProblem, Extraction};",
+                "use cantos_contracts as dto; fn f() { dto::FieldIssue { path, rule }; }",
+            ):
+                with self.subTest(owner=owner, content=content):
+                    self.assertRejected(f"contexts/{owner}/domain/diagnostics.rs", content,
+                        "pure diagnostics must use safe domain facts")
+            (self.root / checks.API_SOURCE / f"contexts/{owner}/domain/diagnostics.rs").unlink()
+        self.assertEqual(self.errors("contexts/adaptation/domain/frozen.rs",
+            "use cantos_contracts::{RevisionResponse, ImportResponse};"), [])
+
     def test_catalog_http_allows_pure_wire_admission_and_typed_error_mapping(self):
         self.assertEqual(self.errors("interfaces/http/studio/catalog.rs", """
 use crate::contexts::catalog::{wire as input, CatalogCommand, CatalogCursor, CatalogStoreError};

@@ -46,6 +46,29 @@ that facade; it never imports the storage registry, selects a provider or resolv
 object keys. See [private storage](object-storage.md) and
 [ADR 0037](../decisions/0037-provider-independent-private-storage.md).
 
+## Editorial application and document boundaries
+
+`script_ir` owns only read/validation, canonical encoding and diff. Editorial owns revision
+storage, current permissions, append/replay/CAS and editorial reviews. Its PostgreSQL adapter
+checks accepted sequences, exact canonical exports and both `sir-c1`/`sir-e1` digests before
+returning `RevisionFacts`/`ReviewFacts`; shared `append_revision` takes a `RevisionOperation`
+and admitted `ScriptContent`, never an HTTP save request. Facts confer no current access:
+callers still lock and authorize their resource in the existing transaction.
+
+Catalog and Media use those internal facts for exact owner/revision/digest binding. Production
+and Adaptation explicitly project facts through `editorial::document` when freezing the existing
+versioned revision document. That document retains its historical `RevisionResponse` Rust name,
+field order, exact canonical text and timestamp precision; changing an internal Rust type does
+not rewrite Briefs, frozen inputs or submission/acceptance receipts. HTTP's Studio Editorial
+adapter owns the compatibility `Store::load/save/history/review` facade and response projections.
+No context calls that HTTP facade internally.
+
+`editorial::domain::diagnostics` owns one safe classification of reader errors into stable
+code/path facts, discarding private payloads. Adaptation returns `AdaptationRejection` with these
+safe diagnostics. HTTP maps them to `FieldIssue`, and the Adaptation document adapter freezes
+them into the unchanged versioned `AdaptationProblem` envelope at receipt creation. Neither
+pure diagnostic path constructs a wire error or imports HTTP.
+
 ## API surfaces
 
 | Prefix | Who uses it | State |

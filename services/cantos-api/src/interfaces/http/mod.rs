@@ -563,7 +563,7 @@ fn error_response(error: StoreError) -> Response {
             StatusCode::UNPROCESSABLE_ENTITY,
             ErrorCode::InvalidScript,
             None,
-            validation_issues(error),
+            crate::contexts::editorial::document::issues(validation_issues(error)),
         ),
     };
     (

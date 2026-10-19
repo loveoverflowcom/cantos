@@ -125,7 +125,9 @@ async fn instructions(
             if revision.export_digest != script.export_digest() {
                 return Err(StoreError::EvidenceUnavailable);
             }
-            Ok(dto::ProductionInstructions::Script { revision })
+            Ok(dto::ProductionInstructions::Script {
+                revision: editorial::document::revision(revision),
+            })
         }
     }
 }

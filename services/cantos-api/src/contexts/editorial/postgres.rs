@@ -1,6 +1,6 @@
 //! Editorial tables: scripts and members, immutable revisions with their evidence links,
 //! evidence records and editorial reviews. Every load re-checks stored integrity.
-use cantos_contracts::{ReviewResponse, RevisionResponse};
+use super::{ReviewFacts, RevisionFacts};
 use tokio_postgres::Row;
 use uuid::Uuid;
 
@@ -16,7 +16,7 @@ fn review_query() -> String {
 }
 
 /// The stored canonical bytes must still be the admitted Script IR with both recorded digests.
-fn decode_revision(row: &Row) -> Result<RevisionResponse, StoreError> {
+fn decode_revision(row: &Row) -> Result<RevisionFacts, StoreError> {
     let revision = accepted_sequence(row)?;
     let bytes: Vec<u8> = row.get("canonical_export");
     let content = read_canonical_script(&bytes).map_err(|_| StoreError::CorruptRevision)?;
@@ -25,14 +25,14 @@ fn decode_revision(row: &Row) -> Result<RevisionResponse, StoreError> {
     if content.content_digest().to_string() != digest || export_digest(&bytes) != export_hash {
         return Err(StoreError::CorruptRevision);
     }
-    Ok(RevisionResponse {
+    Ok(RevisionFacts {
         script_id: row.get("script_id"),
         revision: revision.get(),
         accepted_by: row.get("accepted_by"),
         accepted_at: row.get("accepted_at"),
         content_digest: digest,
         export_digest: export_hash,
-        script_json: String::from_utf8(bytes).map_err(|_| StoreError::CorruptRevision)?,
+        canonical_export: String::from_utf8(bytes).map_err(|_| StoreError::CorruptRevision)?,
     })
 }
 
@@ -46,9 +46,9 @@ fn accepted_sequence(row: &Row) -> Result<AcceptedRevision, StoreError> {
     .map_err(|_| StoreError::CorruptRevision)
 }
 
-fn decode_review(row: &Row) -> Result<ReviewResponse, StoreError> {
+fn decode_review(row: &Row) -> Result<ReviewFacts, StoreError> {
     let revision = decode_revision(row)?;
-    Ok(ReviewResponse {
+    Ok(ReviewFacts {
         id: row.get("id"),
         script_id: revision.script_id,
         revision: revision.revision,
@@ -115,7 +115,7 @@ pub(crate) async fn find_revision(
     tx: &Tx<'_>,
     script: &str,
     revision: i64,
-) -> Result<Option<RevisionResponse>, StoreError> {
+) -> Result<Option<RevisionFacts>, StoreError> {
     let query = format!(
         "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
     );
@@ -131,7 +131,7 @@ pub(crate) async fn load_revision(
     tx: &Tx<'_>,
     script: &str,
     revision: i64,
-) -> Result<RevisionResponse, StoreError> {
+) -> Result<RevisionFacts, StoreError> {
     let query = format!(
         "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
     );
@@ -143,7 +143,7 @@ pub(super) async fn revisions_after(
     script: &str,
     after: i64,
     limit: i64,
-) -> Result<Vec<RevisionResponse>, StoreError> {
+) -> Result<Vec<RevisionFacts>, StoreError> {
     let query = format!("SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision>$2 ORDER BY revision LIMIT $3");
     tx.query(&query, &[&script, &after, &limit])
         .await?
@@ -172,7 +172,7 @@ impl AcceptedOperation {
         self.row.get("canonical_export")
     }
 
-    pub(super) fn into_revision(self) -> Result<RevisionResponse, StoreError> {
+    pub(super) fn into_revision(self) -> Result<RevisionFacts, StoreError> {
         decode_revision(&self.row)
     }
 }
@@ -311,7 +311,7 @@ pub(super) async fn reviews_between(
     script: &str,
     after: i64,
     last: i64,
-) -> Result<Vec<ReviewResponse>, StoreError> {
+) -> Result<Vec<ReviewFacts>, StoreError> {
     let query = format!(
         "{} WHERE script_id=$1 AND revision>$2 AND revision<=$3 ORDER BY revision",
         review_query()
@@ -336,7 +336,7 @@ pub(super) async fn load_review(
     tx: &Tx<'_>,
     script: &str,
     revision: i64,
-) -> Result<ReviewResponse, StoreError> {
+) -> Result<ReviewFacts, StoreError> {
     let query = format!("{} WHERE script_id=$1 AND revision=$2", review_query());
     decode_review(&tx.query_one(&query, &[&script, &revision]).await?)
 }
@@ -385,7 +385,7 @@ pub(crate) async fn owned_revision(
     owner: &str,
     script: &str,
     revision: i64,
-) -> Result<Option<RevisionResponse>, StoreError> {
+) -> Result<Option<RevisionFacts>, StoreError> {
     let Some((actual_owner, _)) = lock_script(tx, script, LockMode::Share).await? else {
         return Ok(None);
     };

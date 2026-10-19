@@ -1,9 +1,6 @@
 //! Editorial use cases. Each runs in one transaction: authenticate, lock and load facts, ask the
 //! pure editorial rules, persist the outcome and commit.
-use cantos_contracts::{
-    HistoryResponse, ReviewRequest, ReviewResponse, RevisionResponse, RevisionSummary,
-    SaveRevisionRequest,
-};
+use super::{ReviewFacts, RevisionFacts, RevisionHistory, RevisionOperation};
 
 use super::domain::{
     decide_review, decide_save, export_digest, permits, Access, Action, PriorOperation,
@@ -53,10 +50,10 @@ pub(crate) async fn append_revision(
     tx: &Tx<'_>,
     actor: &str,
     script: &str,
-    request: &SaveRevisionRequest,
+    request: RevisionOperation<'_>,
     content: &ScriptContent,
-) -> Result<RevisionResponse, StoreError> {
-    let operation = normalized_uuid(&request.operation_id)?;
+) -> Result<RevisionFacts, StoreError> {
+    let operation = normalized_uuid(request.operation_id)?;
     let expected = checked_number(request.expected_revision)?;
     let export = content.export_bytes();
     let digest = content.content_digest().to_string();
@@ -117,12 +114,12 @@ pub(crate) async fn append_revision(
 
 impl Store {
     /// Both head and historical reads reauthorize against current PostgreSQL facts.
-    pub async fn load(
+    pub(crate) async fn load_editorial_revision(
         &self,
         token: &str,
         script: &str,
         revision: Option<u64>,
-    ) -> Result<RevisionResponse, StoreError> {
+    ) -> Result<RevisionFacts, StoreError> {
         let script = normalized_uuid(script)?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
@@ -136,22 +133,22 @@ impl Store {
         Ok(response)
     }
 
-    pub async fn save(
+    pub(crate) async fn save_editorial_revision(
         &self,
         token: &str,
         script: &str,
-        request: SaveRevisionRequest,
-    ) -> Result<RevisionResponse, StoreError> {
+        request: RevisionOperation<'_>,
+        script_json: &str,
+    ) -> Result<RevisionFacts, StoreError> {
         let script = normalized_uuid(script)?;
-        normalized_uuid(&request.operation_id)?;
+        normalized_uuid(request.operation_id)?;
         checked_number(request.expected_revision)?;
         // Pure admission happens before starting a transaction; rejection writes nothing.
-        let content =
-            read_script(request.script_json.as_bytes()).map_err(StoreError::InvalidScript)?;
+        let content = read_script(script_json.as_bytes()).map_err(StoreError::InvalidScript)?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
-        let result = append_revision(&tx, &actor, &script, &request, &content).await?;
+        let result = append_revision(&tx, &actor, &script, request, &content).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
         // A dropped response after this commit is reconciled by the same operation key.
@@ -159,13 +156,13 @@ impl Store {
     }
 
     /// Every page is reauthorized and pinned to the locked head observed for that page.
-    pub async fn history(
+    pub(crate) async fn editorial_history(
         &self,
         token: &str,
         script: &str,
         after: u64,
         limit: u64,
-    ) -> Result<HistoryResponse, StoreError> {
+    ) -> Result<RevisionHistory, StoreError> {
         if !(1..=50).contains(&limit) {
             return Err(StoreError::InvalidRequest);
         }
@@ -176,18 +173,7 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
         let (_, head) = authorize(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
-        let revisions: Vec<_> = postgres::revisions_after(&tx, &script, after, limit)
-            .await?
-            .into_iter()
-            .map(|saved| RevisionSummary {
-                script_id: saved.script_id,
-                revision: saved.revision,
-                accepted_by: saved.accepted_by,
-                accepted_at: saved.accepted_at,
-                content_digest: saved.content_digest,
-                export_digest: saved.export_digest,
-            })
-            .collect();
+        let revisions = postgres::revisions_after(&tx, &script, after, limit).await?;
         let last = revisions.last().map(|revision| revision.revision);
         let reviews = match last {
             Some(last) => {
@@ -196,7 +182,7 @@ impl Store {
             None => Vec::new(),
         };
         tx.commit().await?;
-        Ok(HistoryResponse {
+        Ok(RevisionHistory {
             revisions,
             reviews,
             next_after: last.filter(|last| *last < head),
@@ -204,15 +190,17 @@ impl Store {
     }
 
     /// Editorial review is an owner action, distinct from storage acceptance and publication.
-    pub async fn review(
+    pub(crate) async fn review_editorial_revision(
         &self,
         token: &str,
         script: &str,
-        request: ReviewRequest,
-    ) -> Result<ReviewResponse, StoreError> {
+        revision: u64,
+        operation_id: &str,
+    ) -> Result<ReviewFacts, StoreError> {
         let script = normalized_uuid(script)?;
-        let operation = normalized_uuid(&request.operation_id)?;
-        let revision = checked_number(request.revision)?;
+        let operation = normalized_uuid(operation_id)?;
+        let requested_revision = revision;
+        let revision = checked_number(revision)?;
         if revision < 1 {
             return Err(StoreError::InvalidRequest);
         }
@@ -222,7 +210,7 @@ impl Store {
         let (_, head) = authorize(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
         let prior_revision = postgres::review_operation(&tx, &script, &actor, &operation).await?;
         let existing = postgres::review_exists(&tx, &script, revision).await?;
-        match decide_review(head, request.revision, prior_revision, existing) {
+        match decide_review(head, requested_revision, prior_revision, existing) {
             ReviewDecision::OperationReused => return Err(StoreError::OperationReused),
             ReviewDecision::Stale { current_revision } => {
                 return Err(StoreError::StaleRevision(current_revision))

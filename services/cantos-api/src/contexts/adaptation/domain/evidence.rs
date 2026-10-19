@@ -1,6 +1,7 @@
 //! Admission of source/binding facts and retention of those bindings in edited proposals.
 //! Current ownership, registry integrity and authorization remain application/SQL checks.
-use cantos_contracts::{AdaptationProblem, ImportResponse};
+use super::AdaptationRejection;
+use cantos_contracts::ImportResponse;
 use serde_json::{json, Value};
 
 use super::{array, problem, script_problem};
@@ -38,7 +39,7 @@ impl<'a> BoundSource<'a> {
 pub(super) fn check_binding<'a>(
     source: &'a ImportResponse,
     binding: &'a TrustedBinding,
-) -> Result<BoundSource<'a>, AdaptationProblem> {
+) -> Result<BoundSource<'a>, AdaptationRejection> {
     let valid_id = |id: &str| {
         !id.is_empty()
             && id.len() <= 64
@@ -70,7 +71,7 @@ pub fn admit_edited_proposal(
     json: &str,
     source: &ImportResponse,
     binding: &TrustedBinding,
-) -> Result<ScriptContent, AdaptationProblem> {
+) -> Result<ScriptContent, AdaptationRejection> {
     let admitted = check_binding(source, binding)?;
     admit_bound_edit(json, admitted)
 }
@@ -78,7 +79,7 @@ pub fn admit_edited_proposal(
 fn admit_bound_edit(
     json: &str,
     admitted: BoundSource<'_>,
-) -> Result<ScriptContent, AdaptationProblem> {
+) -> Result<ScriptContent, AdaptationRejection> {
     let binding = admitted.facts();
     let content = read_script(json.as_bytes()).map_err(script_problem)?;
     let script: Value = serde_json::from_slice(&content.export_bytes())

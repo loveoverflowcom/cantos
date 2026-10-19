@@ -1,13 +1,13 @@
 //! Acceptance turns a reviewed proposal into the next accepted script revision, keeping every
 //! trusted source, attempt and rights binding. It is the only path from a proposal to a head.
-use cantos_contracts::{
-    AcceptAdaptationRequest, FieldIssue, RevisionResponse, SaveRevisionRequest,
-};
+use cantos_contracts::{AcceptAdaptationRequest, FieldIssue, RevisionResponse};
 
 use super::super::domain::{admit_edited_proposal, decide_acceptance, AcceptanceDecision};
 use super::super::postgres::{self, ActorLock};
 use super::context::context_in_transaction;
-use crate::contexts::editorial::append_revision;
+use crate::contexts::editorial::{
+    append_revision, document as editorial_document, RevisionOperation,
+};
 use crate::platform::postgres::{authenticate, checked_number, normalized_uuid, Store, StoreError};
 
 impl Store {
@@ -51,16 +51,17 @@ impl Store {
             AcceptanceDecision::Refused => return Err(StoreError::InvalidRequest),
             AcceptanceDecision::Accept => {}
         }
-        let content = admit_edited_proposal(&request.script_json, &source, &binding)
-            .map_err(|value| StoreError::InvalidRequestFields(value.issues))?;
+        let content =
+            admit_edited_proposal(&request.script_json, &source, &binding).map_err(|value| {
+                StoreError::InvalidRequestFields(editorial_document::issues(value.issues))
+            })?;
         let saved = append_revision(
             &tx,
             &actor,
             &script_id,
-            &SaveRevisionRequest {
+            RevisionOperation {
                 expected_revision: request.expected_revision,
-                operation_id: request.operation_id.clone(),
-                script_json: request.script_json.clone(),
+                operation_id: &request.operation_id,
             },
             &content,
         )
@@ -79,6 +80,6 @@ impl Store {
         postgres::mark_accepted(&tx, id).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
-        Ok(saved)
+        Ok(editorial_document::revision(saved))
     }
 }

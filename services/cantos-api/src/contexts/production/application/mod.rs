@@ -103,6 +103,7 @@ pub(super) async fn snapshot(
     let pinned_revision = find_revision(tx, &script, checked_number(doc.revision.revision)?)
         .await?
         .ok_or(StoreError::CorruptRevision)?;
+    let pinned_revision = crate::contexts::editorial::document::revision(pinned_revision);
     let pinned_settings =
         postgres::find_settings(tx, &script, checked_number(doc.settings.version)?)
             .await?

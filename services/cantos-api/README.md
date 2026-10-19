@@ -9,7 +9,10 @@ or in-backend mixing should remain.
 
 ## Implemented functionality
 
-- Script IR validation, diff and immutable revision store with actor permissions.
+- Script IR validation, diff and immutable revision store with actor permissions. Editorial's
+  shared use cases/SQL return internal facts; HTTP and immutable document adapters project the
+  existing versioned contracts. Safe diagnostic classification/redaction is shared by Editorial
+  and Adaptation; see the [ownership map](../../docs/architecture/api-contexts.md#editorial-application-and-document-boundaries).
 - Manuscript import and preserved source/extraction receipts.
 - Host-authored adaptation context/proposal/review; Cantos never runs adaptation inference.
 - Reference-only casting/voice planning, rights and immutable production-input approval.

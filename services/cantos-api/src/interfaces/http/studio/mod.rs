@@ -30,6 +30,7 @@ mod briefs;
 mod catalog;
 mod content;
 pub(super) mod delegation;
+mod editorial;
 mod imports;
 mod production;
 mod publication;
