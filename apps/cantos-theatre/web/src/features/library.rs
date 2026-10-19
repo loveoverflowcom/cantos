@@ -12,6 +12,7 @@ use crate::{
     messages::Key,
     platform,
 };
+#[cfg(feature = "preview")]
 use leptos::prelude::*;
 
 #[cfg(feature = "preview")]
@@ -440,7 +441,7 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "preview"))]
 mod projection_tests {
     use super::*;
     use crate::core::{
