@@ -23,10 +23,12 @@ The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surf
 Tool detection never installs anything. Explicit `verify behavior --setup` alone installs its
 locked npm development dependency; ordinary verification never fetches it. xtask does not
 install other toolchains, initialize/start Podman Machine, change connections, call
-providers, create cloud resources, publish or deploy, with **two explicit, opt-in exceptions**:
+providers, create cloud resources, publish or deploy, with **explicit, opt-in exceptions**:
 `distribute firebase` ([below](#distribute-firebase)) builds the selected Theatre Android APK and
 hands it to Firebase App Distribution, and `deploy firebase` ([below](#deploy-firebase)) builds one
-Leptos Web app and publishes its static bundle to Firebase Hosting. Only explicit `services up`
+Leptos Web app and publishes its static bundle to Firebase Hosting, and `deploy cloudflare`
+([below](#deploy-cloudflare)) uploads an already built, verified Web artifact to Cloudflare Pages
+(it never builds). Only explicit `services up`
 starts local container infrastructure; build/test/run/preflight/ci never start it and never reach
 distribution or deployment.
 
@@ -79,6 +81,8 @@ cargo xtask distribute firebase cantos-theatre --channel demo [--artifact apk] \
   (--groups ALIASES | --testers EMAILS)... [--app-id ID] [--release-notes TEXT | --release-notes-file PATH] [--dry-run]
 cargo xtask deploy firebase cantos-theatre|cantos-studio --web --project PROJECT_ID \
   --channel live|PREVIEW_CHANNEL [--expires 7d] [--dry-run]   # explicit static Web deploy to Firebase Hosting
+cargo xtask deploy cloudflare cantos-theatre|cantos-studio --web --account ACCOUNT_ID --project NAME \
+  --branch BRANCH --environment production|preview --artifact DIR [--dry-run]  # opt-in Pages Direct Upload of a release-build artifact
 cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2] \
   [--smoke-origin https://API_HOST] [--dry-run]               # explicit API deploy to the production VPS
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
@@ -882,8 +886,8 @@ planned through `theatre-demo`; the generic production mobile gate remains `UNSU
 do not add a mobile plan, scaffold or target without an explicit future roadmap request. A new script becomes a gate
 in `gate.rs`, is classified in `preflight/select.rs` and, if CI must run it, is added to a job
 in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure; the
-two exceptions are the demo-APK `distribute firebase` command and the static Web `deploy firebase`
-command, which stay outside every gate, preflight selection and CI job.
+exceptions are the demo-APK `distribute firebase` command and the static Web `deploy firebase` and
+`deploy cloudflare` commands, which stay outside every gate, preflight selection and CI job.
 
 ### distribute firebase
 
@@ -1143,6 +1147,65 @@ hashed assets, any Firebase SDK, Functions, Cloud Run or App Hosting adapter. An
 API-origin setting now exists under ADR 0041; this command still deploys static bytes only.
 Read current release state from Firebase, and keep user-journey acceptance separate from smoke.
 Historical tool evidence is [source-bound](../docs/evidence/issue199-firebase-hosting.md).
+
+### deploy cloudflare
+
+```sh
+# Local plan only: no tool probe, extraction, login, upload, receipt or artifact write.
+cargo xtask deploy cloudflare cantos-studio --web --account ACCOUNT_ID --project cantos-studio \
+  --branch review-pages --environment preview \
+  --artifact artifacts/release-build/studio-web/SHA --dry-run
+
+# Publish the verified artifact as a PUBLIC preview. A REMOTE WRITE; CLOUDFLARE_API_TOKEN in the env.
+cargo xtask deploy cloudflare cantos-studio --web --account ACCOUNT_ID --project cantos-studio \
+  --branch review-pages --environment preview --artifact artifacts/release-build/studio-web/SHA
+```
+
+The third opt-in exception to "xtask publishes nothing" ([ADR 0012](../docs/decisions/0012-xtask-command-surface.md);
+decision [ADR 0043](../docs/decisions/0043-cloudflare-pages-direct-upload.md)). Setup, the stage list,
+delivery policy, unknown-outcome handling and the CircleCI lane are in the
+[Cloudflare Pages runbook](../docs/deployment/cloudflare-pages.md); this section is the contract.
+`build`, `run`, `verify`, `preflight`, `ci` and `build all` never invoke it and gain no Cloudflare tool
+or credential requirement.
+
+**It never builds.** It consumes the output of `release-build <app>-web` (`manifest.json` plus
+`<app>-web.tar.gz`, nothing else in the directory), verifies the manifest strictly and the archive's size
+and SHA-256 against it, and extracts it in-process into a new private run directory
+(`artifacts/cloudflare/<run-id>/public`) refusing every non-regular, absolute, `..`, hidden, duplicate
+or over-limit entry. It then adds the tracked `infra/cloudflare/<app>/` policy files (`_headers`,
+`404.html`, optional `_redirects`), validates the exact bytes with the shared bundle validator in its
+Pages mode (only those three root names are allowed beyond the usual static types; `_worker.js`,
+`_routes.json`, `functions/`, source maps, `.env`, `package.json` and foreign-app files are refused; the
+Free 20,000-file and 25 MiB per-asset limits are enforced on decoded sizes), and uploads that directory.
+
+**Request.** App, `--web`, `--account` (32 hex), `--project`, `--branch`, `--environment`
+(`production`|`preview`) and `--artifact` are required and never defaulted. The private mapping
+`infra/cloudflare/projects.json` (ignored by Git; `projects.example.json`) must name the same
+account → app → project and a production branch; production requires that branch and preview refuses
+it. The wrong account, project, app or branch stops before extraction or upload.
+
+**Wrangler.** The pinned release (4.151.2, Node 22+) is run from `infra/cloudflare/wrangler/node_modules/.bin`;
+no `npx`, global install, login or implicit download. Every invocation gets the run directory as its
+working directory, `CLOUDFLARE_ACCOUNT_ID` set to `--account`, telemetry off, and the redirecting
+Cloudflare/Wrangler variables unset; a Wrangler config, `.env`, `functions/` directory or `_worker.js` in
+the run or an ancestor stops the run. The one write is `pages deploy <dir> --project-name … --branch …
+--commit-hash <manifest SHA> --commit-dirty=false --skip-caching`, never retried. The deployment ID, URL,
+environment and production branch come from `WRANGLER_OUTPUT_FILE_PATH` (`pages-deploy-detailed`) and are
+validated against the request; exit status 0 alone is never success.
+
+**Outcomes** are *confirmed*, *mismatch* (a deployment exists but not as requested), *rejected* (a
+recognised refusal, no deployment), *unknown* (timeout, interruption, exit 0 without a single valid
+identity, or an unclassified failure) and *not started*. After an unknown result the command lists the
+project's deployments of the same branch and commit as evidence only; the operator reads the target
+back before any retry. A confirmed deployment is read back and smoked separately: a failed smoke never
+changes what is known about the deployment. The receipt (`receipt.json`, schema 1, private) records the
+source SHA, manifest and archive digests, policy and bundle digests, account, project, branch,
+environment, tool version, stage outcomes, the remote deployment and the smoke observations;
+output is redacted (Pages and dashboard links stay).
+
+Deliberately absent: building, an arbitrary directory or ZIP, creating/changing projects, zones, DNS,
+bindings, the production branch or billing, deploy-all, automatic rollback, retry, promotion or deletion,
+a second provider adapter, long-lived caching of hashed assets. Real-account acceptance is `NOT_RUN`.
 
 ### deploy vps
 

@@ -3,7 +3,11 @@
 **Implemented source contract; account integration, real product builds and activation remain
 separate acceptance.** Follow the [Cloudflare rollout/recovery runbook](cloudflare-rollout.md)
 for #278/#280. This change retains the Firebase static publisher; it does not implement a
-Cloudflare adapter, submit a pipeline, provision contexts, accept terms or purchase credits.
+Cloudflare promotion adapter for the combined DAG, submit a pipeline, provision contexts, accept terms or purchase credits.
+The separate opt-in [Pages lane](cloudflare-pages.md#circleci-opt-in) retains per-app approvals
+and consumes the shared manifest-v2 producer; it does not claim the combined DAG's ordering or
+durable CI publisher-intent contract. `web-provider` defaults to `firebase`; selecting
+`cloudflare` routes Web jobs exclusively to that separate lane.
 
 ## Request and trust boundary
 

@@ -184,6 +184,8 @@ class CircleConfigTests(unittest.TestCase):
             key, value = next(iter(expr.items()))
             if key == "and":
                 return all(self.value(v, parameters) for v in value)
+            if key == "or":
+                return any(self.value(v, parameters) for v in value)
             if key == "not":
                 return not self.value(value, parameters)
             if key == "equal":
@@ -232,7 +234,7 @@ class CircleConfigTests(unittest.TestCase):
                                {"pipeline.config.repository.url": "https://github.com/foreign/cantos"}):
                     with self.subTest(change=change):
                         self.assertFalse(self.scheduler_allows(expression, change))
-        self.assertEqual(checked, 8)
+        self.assertEqual(checked, 10)
 
     def test_defaults_have_no_jobs_and_conflicting_request_has_one_failure_workflow(self):
         self.assertEqual(self.selected(), [])
@@ -241,6 +243,20 @@ class CircleConfigTests(unittest.TestCase):
             self.assertEqual(self.selected(target="develop", component=component), ["release-" + component])
         for component in ("api", "theatre-web", "studio-web", "android", "all"):
             self.assertEqual(self.selected(build=True, **{"build-component": component}), ["build-" + component])
+
+    def test_cloudflare_selection_preserves_each_pages_lane_and_api_selection(self):
+        expected = {
+            "api": ["release-api"],
+            "theatre-web": ["release-cloudflare-theatre-web"],
+            "studio-web": ["release-cloudflare-studio-web"],
+            "web": ["release-cloudflare-theatre-web", "release-cloudflare-studio-web"],
+            "all": ["release-api", "release-cloudflare-theatre-web", "release-cloudflare-studio-web"],
+        }
+        for component, workflows in expected.items():
+            self.assertEqual(self.selected(target="develop", component=component,
+                                           **{"web-provider": "cloudflare"}), workflows)
+        self.assertEqual(self.selected(build=True, target="develop",
+                                       **{"web-provider": "cloudflare"}), ["invalid-request"])
 
     def test_one_approval_after_build_and_api_health_blocks_both_web_writes(self):
         jobs = self.config["workflows"]["release-all"]["jobs"]
@@ -259,12 +275,12 @@ class CircleConfigTests(unittest.TestCase):
                 job, args = next(iter(node.items())) if isinstance(node, dict) else (node, {})
                 if "context" in args:
                     self.assertTrue(job.startswith("deploy-"))
-                    self.assertEqual(args["context"], ["production-vps" if job == "deploy-api" else "production-web"])
+                    self.assertEqual(args["context"], ["cloudflare-web" if job == "deploy-web-cloudflare" else "production-vps" if job == "deploy-api" else "production-web"])
                 if name in ("release-web", "release-theatre-web", "release-studio-web"):
                     self.assertNotEqual(job, "deploy-api")
         for job, details in self.config["jobs"].items():
             text = json.dumps(details)
-            if job.startswith("deploy-"):
+            if job.startswith("deploy-") and job != "deploy-web-cloudflare":
                 self.assertNotIn("target/debug", text)
                 self.assertNotIn("build-cache-restore", text)
                 self.assertNotIn("install-build-trunk", text)

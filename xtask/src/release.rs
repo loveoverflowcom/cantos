@@ -203,6 +203,15 @@ pub fn run(
             "-s",
             "scripts",
             "-p",
+            "test_circleci_cloudflare.py",
+        ]));
+        commands.push(CommandSpec::new("python3", workspace.root()).args([
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "scripts",
+            "-p",
             "test_vps_*.py",
         ]));
         commands.push(

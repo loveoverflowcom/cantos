@@ -39,3 +39,6 @@ firebase-debug*.log
 .firebaserc
 /infra/**/env.local
 /infra/**/data/
+
+# Cloudflare Pages operator mapping (real account/project IDs) is private; the example is tracked.
+/infra/cloudflare/projects.json

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "accounts": {
+    "REPLACE_WITH_32_HEX_ACCOUNT_ID": {
+      "theatre": { "project": "REPLACE-theatre-pages-project", "production_branch": "main" },
+      "studio": { "project": "REPLACE-studio-pages-project", "production_branch": "main" }
+    }
+  }
+}

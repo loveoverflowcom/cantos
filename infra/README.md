@@ -10,7 +10,7 @@ validation, build/capture, provider invocation and attributable receipts.
 | [`vps/`](vps/README.md) | Production VPS runtime: API image, Podman Quadlet units, PostgreSQL roles/grants, Kanidm template, host script | `cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap\|--rollback\|--status]` |
 | [`edge/`](edge/README.md) | Caddy ingress/TLS/routing policy (run as the `cantos-edge` Quadlet unit) and a DuckDNS updater example | installed by `cantos-vps`; never an implicit deploy side effect |
 | [`firebase/hosting/`](firebase/hosting/README.md) | Static Hosting policy and placeholder project/site mapping | `cargo xtask deploy firebase <app> --web --project ID --channel CHANNEL` |
-| [`cloudflare/`](cloudflare/README.md) | Requested Web transition documentation only; no publisher/config/runtime implemented here | [Operator rollout/recovery](../docs/deployment/cloudflare-rollout.md); offline `cargo xtask hosting-report` never publishes |
+| [`cloudflare/`](cloudflare/README.md) | Cloudflare Pages Direct Upload policy (`<app>/_headers`, `404.html`), private-mapping example and the pinned Wrangler lockfile | `cargo xtask deploy cloudflare <app> --web --account ID --project NAME --branch BRANCH --environment production\|preview --artifact DIR` ([runbook](../docs/deployment/cloudflare-pages.md), [rollout](../docs/deployment/cloudflare-rollout.md)); offline `cargo xtask hosting-report` never publishes |
 | [`firebase/app-distribution/`](firebase/app-distribution/README.md) | Existing Android distribution inputs; no invented Firebase configuration section | `cargo xtask distribute firebase cantos-theatre --channel demo --app-id ID --groups GROUPS` |
 
 Functions deployment configuration belongs under `infra/firebase/functions` **when a concrete

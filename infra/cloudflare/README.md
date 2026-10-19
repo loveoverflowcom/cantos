@@ -1,20 +1,26 @@
-# Cloudflare Web rollout boundary
+# Cloudflare Pages delivery assets
 
-Cloudflare is the requested static Web destination in
-[#278](https://github.com/loveoverflowcom/cantos/issues/278) and
-[#280](https://github.com/loveoverflowcom/cantos/issues/280). This directory currently holds
-documentation only: no allocated account/project mapping, static policy, Wrangler config,
-publisher, Worker or Pages Functions runtime is implemented here.
+Tracked, nonsecret inputs of [`cargo xtask deploy cloudflare`](../../xtask/README.md#deploy-cloudflare)
+(issue [#278](https://github.com/loveoverflowcom/cantos/issues/278),
+[ADR 0043](../../docs/decisions/0043-cloudflare-pages-direct-upload.md)). `infra/` owns the policy;
+`xtask/` owns planning, validation, invocation and receipts. Nothing here is a Worker, a Pages
+Function or a build: Cloudflare runs no build and receives only the verified static artifact.
 
-The [rollout runbook](../../docs/deployment/cloudflare-rollout.md) owns inventory, qualification,
-cutover, three recovery boundaries and Hosting-only retirement. #278 owns the provider decision,
-tracked static policy and artifact-consuming publisher; #277 owns release artifacts/promotion.
-Read their implemented contracts before execution. Do not create placeholder resources or a
-second publisher in this directory. `cargo xtask hosting-report` reads an operator-declared
-local record only and never publishes or queries a provider.
+| Path | Owns |
+| --- | --- |
+| `theatre/_headers`, `studio/_headers` | Security and cache headers for each app (no-referrer, nosniff, frame/CSP/Permissions-Policy; no-store for the HTML entry). Pages **merges** matching rules, so entry rules are disjoint from `/*` and `/*` sets no `Cache-Control`. |
+| `theatre/404.html`, `studio/404.html` | The mandatory top-level 404 page. Without it Pages serves `index.html` with status 200 for every unknown path, hiding a missing `.wasm`/asset or `/api/*`. Both apps route by URL fragment, so no path needs a fallback. |
+| `<app>/_redirects` | Optional; absent today. Only 301/302/303/307/308 rules; a `200` rewrite and anything under `/api` are refused. |
+| `projects.example.json` | Shape of the **private** `projects.json` (ignored by Git): account ID → `theatre`/`studio` → Pages project name and production branch. Contains no allocated identifier. |
+| `wrangler/package.json`, `package-lock.json` | The pinned Wrangler (4.151.2). Install with `npm ci --ignore-scripts` in that directory; xtask never uses `npx`, a global install or an implicit download. |
 
-Theatre and Studio must remain separate static projects. API/PostgreSQL/Kanidm stay on the VPS;
-Firebase Auth/email proof, Forge Functions/Gemini, App Distribution and media/drafts retain
-their existing owners. Existing Firebase Hosting recovery assets remain until the operator
-accepts production/recovery and ends the retention window. This source directory changes no
-account, DNS record, production setting or cloud resource.
+Theatre and Studio are separate Pages projects and separate policy directories; the technical
+`cantos-theatre`/`cantos-studio` names and Cargo targets are unchanged. The policy files are validated
+by xtask, copied into the run's staged directory and become part of the hashed, smoked and uploaded
+inventory; they are never uploaded from this directory directly.
+
+The [Cloudflare Pages runbook](../../docs/deployment/cloudflare-pages.md) owns setup, routine, recovery
+and acceptance status. The [rollout runbook](../../docs/deployment/cloudflare-rollout.md) owns domains,
+cutover and Hosting retirement. This directory changes no account, DNS record, production setting or
+cloud resource. `cargo xtask hosting-report` reads an operator-declared local record only and never
+publishes or queries a provider.

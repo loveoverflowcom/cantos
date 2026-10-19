@@ -43,6 +43,24 @@ const PRIVATE_NAMES: [&str; 5] = [
     "package-lock.json",
 ];
 
+/// Which provider the validated bytes are for. It decides only whether the provider's own
+/// root-level policy files may be part of the inventory; every other rule is shared.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Provider {
+    Firebase,
+    /// Cloudflare Pages reads `_headers`, `_redirects` and `404.html` from the root of the
+    /// uploaded directory. Only those exact root-level names are allowed, never other
+    /// extensionless files.
+    Pages,
+}
+
+/// Root-level files that configure Pages delivery rather than being product assets.
+pub const PAGES_POLICY_FILES: [&str; 3] = ["_headers", "_redirects", "404.html"];
+
+/// Names Pages treats as server code or routing for Functions. A static Web release never
+/// contains them, and uploading one could make Pages run code instead of serving files.
+const PAGES_SERVER_ROOTS: [&str; 3] = ["_worker.js", "_routes.json", "functions"];
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileFacts {
     pub path: String,
@@ -202,6 +220,10 @@ pub struct Manifest {
 }
 
 pub fn validate(app: App, scan: &Scan) -> Result<Manifest, Vec<Finding>> {
+    validate_for(app, scan, Provider::Firebase)
+}
+
+pub fn validate_for(app: App, scan: &Scan, provider: Provider) -> Result<Manifest, Vec<Finding>> {
     let mut findings = Vec::new();
     findings.extend(scan.irregular.iter().cloned().map(Finding::Irregular));
     if scan.truncated || scan.files.len() > MAX_FILES {
@@ -212,7 +234,7 @@ pub fn validate(app: App, scan: &Scan) -> Result<Manifest, Vec<Finding>> {
         findings.push(Finding::TotalTooLarge(total));
     }
     for file in &scan.files {
-        check_file(app, file, &mut findings);
+        check_file(app, provider, file, &mut findings);
     }
     let entry_assets = check_index(app, scan, &mut findings);
     if !findings.is_empty() {
@@ -245,9 +267,27 @@ pub fn validate(app: App, scan: &Scan) -> Result<Manifest, Vec<Finding>> {
     })
 }
 
-fn check_file(app: App, file: &FileFacts, findings: &mut Vec<Finding>) {
+fn check_file(app: App, provider: Provider, file: &FileFacts, findings: &mut Vec<Finding>) {
     let path = file.path.as_str();
+    if provider == Provider::Pages && PAGES_POLICY_FILES.contains(&path) {
+        if file.size == 0 {
+            findings.push(Finding::EmptyFile(path.to_owned()));
+        }
+        if file.size > MAX_FILE_BYTES {
+            findings.push(Finding::FileTooLarge(path.to_owned()));
+        }
+        return;
+    }
     let name = path.rsplit('/').next().unwrap_or(path);
+    if provider == Provider::Pages
+        && path
+            .split('/')
+            .next()
+            .is_some_and(|root| PAGES_SERVER_ROOTS.contains(&root))
+    {
+        findings.push(Finding::PrivateName(path.to_owned()));
+        return;
+    }
     if path.split('/').any(|segment| segment.starts_with('.')) {
         findings.push(Finding::HiddenFile(path.to_owned()));
         return;

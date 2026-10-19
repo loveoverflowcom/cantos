@@ -39,6 +39,29 @@
       "type": "string",
       "default": "https://api.cantos.cc",
       "description": "Public exact HTTPS Web build input; participates in artifact identity."
+    },
+    "web-provider": {
+      "type": "enum",
+      "enum": [
+        "firebase",
+        "cloudflare"
+      ],
+      "default": "firebase",
+      "description": "Which Web host receives theatre-web/studio-web. Cloudflare is opt-in and needs the cloudflare-web context."
+    },
+    "web-environment": {
+      "type": "enum",
+      "enum": [
+        "preview",
+        "production"
+      ],
+      "default": "preview",
+      "description": "Cloudflare only: preview is a PUBLIC *.pages.dev URL; production replaces the project's live site."
+    },
+    "web-branch": {
+      "type": "string",
+      "default": "",
+      "description": "Cloudflare only: Pages branch. Empty means the project's production branch for production; required for preview."
     }
   },
   "commands": {
@@ -675,6 +698,157 @@
           }
         }
       ]
+    },
+    "package-web-release": {
+      "machine": {
+        "image": "ubuntu-2404:current"
+      },
+      "resource_class": "medium",
+      "environment": {
+        "CANTOS_PIPELINE_ID": "<< pipeline.id >>",
+        "CANTOS_PIPELINE_NUMBER": "<< pipeline.number >>",
+        "CANTOS_CONFIG_SHA": "<< pipeline.config.sha >>",
+        "CANTOS_CONFIG_REPOSITORY": "<< pipeline.config.repository.url >>",
+        "CANTOS_CONFIG_REF": "<< pipeline.config.ref >>"
+      },
+      "parameters": {
+        "app": {
+          "type": "enum",
+          "enum": [
+            "theatre-web",
+            "studio-web"
+          ]
+        }
+      },
+      "steps": [
+        "checkout",
+        "install-build-rust",
+        "build-cache-restore",
+        "install-build-trunk",
+        {
+          "run": {
+            "name": "Resolve once; affected gates; build immutable artifacts",
+            "environment": {
+              "RELEASE_COMPONENT": "<< parameters.app >>",
+              "RELEASE_TARGET": "<< pipeline.parameters.target >>",
+              "RELEASE_API_ORIGIN": "<< pipeline.parameters.api-origin >>",
+              "BUILD_ONLY": "false"
+            },
+            "no_output_timeout": "30m",
+            "command": "set -Eeuo pipefail\nargs=(--component \"$RELEASE_COMPONENT\" --api-origin \"$RELEASE_API_ORIGIN\" --transfer artifacts/cloudflare-transfer/<< parameters.app >>)\nif [[ \"$BUILD_ONLY\" == true ]]; then args+=(--build-only); fi\nif [[ -n \"$RELEASE_TARGET\" ]]; then args+=(--target \"$RELEASE_TARGET\"); fi\ncargo xtask release prepare \"${args[@]}\"\n"
+          }
+        },
+        "build-cache-save",
+        {
+          "persist_to_workspace": {
+            "root": ".",
+            "paths": [
+              "artifacts/cloudflare-transfer/<< parameters.app >>"
+            ]
+          }
+        },
+        {
+          "store_artifacts": {
+            "path": "artifacts/cloudflare-transfer/<< parameters.app >>"
+          }
+        }
+      ]
+    },
+    "deploy-web-cloudflare": {
+      "parameters": {
+        "app": {
+          "type": "enum",
+          "enum": [
+            "cantos-theatre",
+            "cantos-studio"
+          ]
+        },
+        "component": {
+          "type": "enum",
+          "enum": [
+            "theatre-web",
+            "studio-web"
+          ]
+        }
+      },
+      "docker": [
+        {
+          "image": "cimg/rust:1.98.1-node"
+        }
+      ],
+      "resource_class": "large",
+      "steps": [
+        "checkout",
+        {
+          "attach_workspace": {
+            "at": "."
+          }
+        },
+        {
+          "require-env": {
+            "names": "CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_THEATRE_PROJECT CLOUDFLARE_STUDIO_PROJECT CLOUDFLARE_PRODUCTION_BRANCH"
+          }
+        },
+        {
+          "run": {
+            "name": "Validate v2 workspace provenance and checkout its resolved source",
+            "command": "cargo xtask release checkout --transfer artifacts/cloudflare-transfer/<< parameters.component >>"
+          }
+        },
+        {
+          "run": {
+            "name": "Validate exact manifest v2 bytes and current develop freshness",
+            "command": "set -Eeuo pipefail\npython3 - \\<<'EOF'\nimport os, sys\nfrom pathlib import Path\nsys.path.insert(0, 'scripts')\nimport release_pipeline as release\nroot = Path.cwd()\ntransfer = root / 'artifacts/cloudflare-transfer/<< parameters.component >>'\n_, request, _, manifest = release.promotion_input(root, transfer, '<< parameters.component >>')\nwith open(os.environ['BASH_ENV'], 'a') as handle:\n    handle.write('export CANTOS_RELEASE_DIR=' + str(manifest.parent) + '\\n')\nEOF\n"
+          }
+        },
+        {
+          "run": {
+            "name": "Require a Node.js supported by the pinned Wrangler",
+            "command": "set -Eeuo pipefail\nmajor=\"$(node --version | sed -E 's/^v([0-9]+).*/\\1/')\"\n[[ \"$major\" -ge 22 ]] || { echo \"Node.js 22 or newer is required.\" >&2; exit 1; }\n"
+          }
+        },
+        {
+          "run": {
+            "name": "Provide the destination mapping outside Git",
+            "environment": {
+              "WEB_ENVIRONMENT": "<< pipeline.parameters.web-environment >>",
+              "WEB_BRANCH": "<< pipeline.parameters.web-branch >>"
+            },
+            "command": "set -Eeuo pipefail\numask 077\n# infra/cloudflare/projects.json is ignored by Git; xtask reads it as strict JSON.\npython3 - \\<<'EOF'\nimport json, os\nbranch = os.environ[\"CLOUDFLARE_PRODUCTION_BRANCH\"]\nmapping = {\"schema_version\": 1, \"accounts\": {os.environ[\"CLOUDFLARE_ACCOUNT_ID\"]: {\n    \"theatre\": {\"project\": os.environ[\"CLOUDFLARE_THEATRE_PROJECT\"], \"production_branch\": branch},\n    \"studio\": {\"project\": os.environ[\"CLOUDFLARE_STUDIO_PROJECT\"], \"production_branch\": branch}}}}\nwith open(\"infra/cloudflare/projects.json\", \"w\") as handle:\n    json.dump(mapping, handle)\nEOF\n"
+          }
+        },
+        {
+          "run": {
+            "name": "Install the pinned Wrangler from the lockfile (no implicit download, no global install)",
+            "command": "npm ci --ignore-scripts --prefix infra/cloudflare/wrangler"
+          }
+        },
+        {
+          "run": {
+            "name": "Publish << parameters.app >> to Cloudflare Pages",
+            "no_output_timeout": "30m",
+            "environment": {
+              "WEB_ENVIRONMENT": "<< pipeline.parameters.web-environment >>",
+              "WEB_BRANCH": "<< pipeline.parameters.web-branch >>"
+            },
+            "command": "set -Eeuo pipefail\ncase \"<< parameters.app >>\" in\n  cantos-theatre) project=\"${CLOUDFLARE_THEATRE_PROJECT}\" ;;\n  cantos-studio) project=\"${CLOUDFLARE_STUDIO_PROJECT}\" ;;\nesac\nbranch=\"${WEB_BRANCH:-}\"\nif [[ -z \"$branch\" && \"${WEB_ENVIRONMENT}\" == production ]]; then\n  branch=\"${CLOUDFLARE_PRODUCTION_BRANCH}\"\nfi\n[[ -n \"$branch\" ]] || { echo \"Enter web-branch for a preview.\" >&2; exit 1; }\nargs=(deploy cloudflare << parameters.app >> --web\n  --account \"${CLOUDFLARE_ACCOUNT_ID}\" --project \"$project\"\n  --branch \"$branch\" --environment \"${WEB_ENVIRONMENT}\"\n  --artifact \"${CANTOS_RELEASE_DIR}\")\ncargo xtask \"${args[@]}\" --dry-run\ncargo xtask \"${args[@]}\"\n"
+          }
+        },
+        {
+          "store_artifacts": {
+            "when": "always",
+            "path": "artifacts/cloudflare",
+            "destination": "pages-run-records"
+          }
+        }
+      ],
+      "environment": {
+        "CANTOS_PIPELINE_ID": "<< pipeline.id >>",
+        "CANTOS_PIPELINE_NUMBER": "<< pipeline.number >>",
+        "CANTOS_CONFIG_SHA": "<< pipeline.config.sha >>",
+        "CANTOS_CONFIG_REPOSITORY": "<< pipeline.config.repository.url >>",
+        "CANTOS_CONFIG_REF": "<< pipeline.config.ref >>"
+      }
     }
   },
   "workflows": {
@@ -697,9 +871,29 @@
           },
           "<< pipeline.parameters.target >>",
           {
-            "equal": [
-              "api",
-              "<< pipeline.parameters.component >>"
+            "or": [
+              {
+                "equal": [
+                  "api",
+                  "<< pipeline.parameters.component >>"
+                ]
+              },
+              {
+                "and": [
+                  {
+                    "equal": [
+                      "all",
+                      "<< pipeline.parameters.component >>"
+                    ]
+                  },
+                  {
+                    "equal": [
+                      "cloudflare",
+                      "<< pipeline.parameters.web-provider >>"
+                    ]
+                  }
+                ]
+              }
             ]
           }
         ]
@@ -753,6 +947,12 @@
               "theatre-web",
               "<< pipeline.parameters.component >>"
             ]
+          },
+          {
+            "equal": [
+              "firebase",
+              "<< pipeline.parameters.web-provider >>"
+            ]
           }
         ]
       },
@@ -805,6 +1005,12 @@
               "studio-web",
               "<< pipeline.parameters.component >>"
             ]
+          },
+          {
+            "equal": [
+              "firebase",
+              "<< pipeline.parameters.web-provider >>"
+            ]
           }
         ]
       },
@@ -856,6 +1062,12 @@
             "equal": [
               "web",
               "<< pipeline.parameters.component >>"
+            ]
+          },
+          {
+            "equal": [
+              "firebase",
+              "<< pipeline.parameters.web-provider >>"
             ]
           }
         ]
@@ -923,6 +1135,12 @@
             "equal": [
               "all",
               "<< pipeline.parameters.component >>"
+            ]
+          },
+          {
+            "equal": [
+              "firebase",
+              "<< pipeline.parameters.web-provider >>"
             ]
           }
         ]
@@ -1115,6 +1333,144 @@
             "component": "all",
             "build-only": true,
             "android": true
+          }
+        }
+      ]
+    },
+    "release-cloudflare-theatre-web": {
+      "when": {
+        "and": [
+          {
+            "not": "<< pipeline.parameters.build >>"
+          },
+          "<< pipeline.parameters.target >>",
+          {
+            "equal": [
+              "cloudflare",
+              "<< pipeline.parameters.web-provider >>"
+            ]
+          },
+          {
+            "or": [
+              {
+                "equal": [
+                  "theatre-web",
+                  "<< pipeline.parameters.component >>"
+                ]
+              },
+              {
+                "equal": [
+                  "web",
+                  "<< pipeline.parameters.component >>"
+                ]
+              },
+              {
+                "equal": [
+                  "all",
+                  "<< pipeline.parameters.component >>"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "jobs": [
+        {
+          "package-web-release": {
+            "name": "package-theatre-web",
+            "app": "theatre-web"
+          }
+        },
+        {
+          "approve-cloudflare-theatre-web": {
+            "type": "approval",
+            "requires": [
+              "package-theatre-web"
+            ]
+          }
+        },
+        {
+          "deploy-web-cloudflare": {
+            "name": "deploy-cloudflare-theatre-web",
+            "app": "cantos-theatre",
+            "component": "theatre-web",
+            "requires": [
+              "approve-cloudflare-theatre-web"
+            ],
+            "context": [
+              "cloudflare-web"
+            ],
+            "serial-group": "<< pipeline.project.slug >>/cloudflare-theatre-web",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
+          }
+        }
+      ]
+    },
+    "release-cloudflare-studio-web": {
+      "when": {
+        "and": [
+          {
+            "not": "<< pipeline.parameters.build >>"
+          },
+          "<< pipeline.parameters.target >>",
+          {
+            "equal": [
+              "cloudflare",
+              "<< pipeline.parameters.web-provider >>"
+            ]
+          },
+          {
+            "or": [
+              {
+                "equal": [
+                  "studio-web",
+                  "<< pipeline.parameters.component >>"
+                ]
+              },
+              {
+                "equal": [
+                  "web",
+                  "<< pipeline.parameters.component >>"
+                ]
+              },
+              {
+                "equal": [
+                  "all",
+                  "<< pipeline.parameters.component >>"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "jobs": [
+        {
+          "package-web-release": {
+            "name": "package-studio-web",
+            "app": "studio-web"
+          }
+        },
+        {
+          "approve-cloudflare-studio-web": {
+            "type": "approval",
+            "requires": [
+              "package-studio-web"
+            ]
+          }
+        },
+        {
+          "deploy-web-cloudflare": {
+            "name": "deploy-cloudflare-studio-web",
+            "app": "cantos-studio",
+            "component": "studio-web",
+            "requires": [
+              "approve-cloudflare-studio-web"
+            ],
+            "context": [
+              "cloudflare-web"
+            ],
+            "serial-group": "<< pipeline.project.slug >>/cloudflare-studio-web",
+            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
           }
         }
       ]
