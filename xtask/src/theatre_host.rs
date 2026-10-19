@@ -156,8 +156,18 @@ pub fn gradle_audit_command(workspace: &Workspace, origin: Option<&str>) -> Comm
     command
         .args
         .retain(|arg| arg != "-Pcantos.releaseAudit=false");
-    command.args.push("-Pcantos.releaseAudit=true".to_owned());
-    command
+    // Gradle removes a task's previous outputs when its build directory changes.
+    // Separate task history keeps the optimized build from deleting the audit APK.
+    command.args([
+        "-Pcantos.releaseAudit=true".to_owned(),
+        "--project-cache-dir".to_owned(),
+        workspace
+            .root()
+            .join(THEATRE_MOBILE_DIR)
+            .join(".gradle/release-audit")
+            .to_string_lossy()
+            .into_owned(),
+    ])
 }
 
 pub fn audit_inspection_command(
@@ -775,6 +785,27 @@ mod tests {
             || task.contains("Debug")
             || task.contains("install")
             || task.contains("sign")));
+    }
+
+    #[test]
+    fn audit_has_separate_gradle_history_from_optimized_build() {
+        let workspace = workspace();
+        let audit = gradle_audit_command(&workspace, None);
+        let cache = audit
+            .args
+            .windows(2)
+            .find(|args| args[0] == "--project-cache-dir")
+            .expect("audit task history must not own the optimized build's outputs");
+        assert_eq!(
+            Path::new(&cache[1]),
+            workspace
+                .root()
+                .join(THEATRE_MOBILE_DIR)
+                .join(".gradle/release-audit")
+        );
+        assert!(!gradle_release_command(&workspace, None)
+            .args
+            .contains(&"--project-cache-dir".to_owned()));
     }
 
     #[test]

@@ -32,7 +32,9 @@ Theatre-host inspects debug bytes or, for release, performs this ordered sequenc
 
 1. Snapshot source SHA and source content hashes without recording environment/secrets.
 2. Build the **release variant** with `-Pcantos.releaseAudit=true`, optimization disabled and
-   signing disabled, into `androidApp/build-audit`. No tracked Gradle source is mutated.
+   signing disabled, into `androidApp/build-audit`. Its separate project cache at
+   `.gradle/release-audit` prevents Gradle's changed-output cleanup from deleting the audit APK
+   during the optimized build. No tracked Gradle source is mutated.
 3. Inspect audit APK/AAB manifest, DEX definitions, assets and resources before building optimized
    output. Require the production composition classes; compare against sandbox source inventory
    and fixture byte hashes without compiling any sandbox target.
@@ -52,8 +54,8 @@ bytes rather than mutable Gradle output paths and revalidates the copied package
 record names its `snapshot_directory`. Failed or partial attempts never become accepted packages.
 An explicit packaging API origin is passed through to the build and recorded configuration.
 
-Only declared optimization flags, the audit manifest marker, app output root and audit signing
-policy differ. Audit artifacts remain unsigned and carry `CantosReleaseAudit=true`. Distribution
+Only declared optimization flags, the audit manifest marker, app output root, isolated task history
+and audit signing policy differ. Audit artifacts remain unsigned and carry `CantosReleaseAudit=true`. Distribution
 inspects this marker in the actual staged manifest and requires false; renaming an audit APK or
 passing its bytes under another filename does not admit it. Default release remains optimized.
 AGP 8.11.1 keeps its existing separate resource shrinker; no AGP/CMP upgrade is included.
