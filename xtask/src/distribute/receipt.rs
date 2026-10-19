@@ -12,8 +12,8 @@ use super::{
 };
 use crate::report::Status;
 
-/// 2: `artifact.shrinker_mapping` (the optimized QA lane stages its R8 mapping).
-pub const SCHEMA_VERSION: u32 = 2;
+/// 3: explicit real-only policy, module and audit/optimization status.
+pub const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Receipt {
@@ -37,6 +37,9 @@ pub struct Receipt {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GradleRecord {
+    pub module: &'static str,
+    pub audit: bool,
+    pub optimized: bool,
     pub variant: &'static str,
     pub task: &'static str,
     pub api_origin: Option<String>,
@@ -141,6 +144,9 @@ impl Receipt {
             channel: policy.channel(),
             artifact_kind: policy.artifact(),
             gradle: GradleRecord {
+                module: ":androidApp",
+                audit: false,
+                optimized: policy.shrinks(),
                 variant: policy.variant(),
                 task: policy.gradle_task(),
                 api_origin: request.api_origin.clone(),
@@ -292,7 +298,7 @@ mod tests {
         LiveRequest {
             api_origin: None,
             native_issuer: None,
-            policy: Policy::DemoApk,
+            policy: Policy::DevelopmentApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
             app_id_source: AppIdSource::Flag,
             recipients: Recipients::new(
@@ -307,7 +313,7 @@ mod tests {
 
     fn release() -> Release {
         Release {
-            display_version: "0.1.0-demo".into(),
+            display_version: "0.1.0-dev".into(),
             build_version: "1".into(),
             upload: UploadResult::Created,
             console_uri: Some(
@@ -322,7 +328,7 @@ mod tests {
     fn a_new_receipt_names_the_policy_variant_and_hides_tester_addresses() {
         let receipt = Receipt::new("run-1", "2026-10-15T00:00:00Z", &request());
         let json = String::from_utf8(receipt.to_json()).unwrap();
-        assert!(json.contains("\"channel\": \"demo\""));
+        assert!(json.contains("\"channel\": \"development\""));
         assert!(json.contains("\"variant\": \"debug\""));
         assert!(json.contains("\"task\": \":androidApp:assembleDebug\""));
         assert!(json.contains("\"tester_count\": 1"));
@@ -387,9 +393,9 @@ mod tests {
             sha256: "ab".repeat(32),
             size_bytes: 25,
             badging: Badging {
-                package: "com.cantos.theatre.demo".into(),
+                package: "com.cantos.theatre.dev".into(),
                 version_code: "1".into(),
-                version_name: "0.1.0-demo".into(),
+                version_name: "0.1.0-dev".into(),
                 debuggable: true,
             },
             signing: Signing {
@@ -417,13 +423,13 @@ mod tests {
     #[test]
     fn the_qa_receipt_names_its_variant_non_debuggable_identity_and_staged_r8_mapping() {
         let mut qa_request = request();
-        qa_request.policy = Policy::DemoQaApk;
+        qa_request.policy = Policy::ReleaseApk;
         let mut receipt = Receipt::new("r", "t", &qa_request);
         let json = String::from_utf8(receipt.to_json()).unwrap();
-        assert!(json.contains("\"channel\": \"demo-qa\""), "{json}");
-        assert!(json.contains("\"variant\": \"qa\""), "{json}");
+        assert!(json.contains("\"channel\": \"release\""), "{json}");
+        assert!(json.contains("\"variant\": \"release\""), "{json}");
         assert!(
-            json.contains("\"task\": \":androidApp:assembleQa\""),
+            json.contains("\"task\": \":androidApp:assembleRelease\""),
             "{json}"
         );
         // A mapping cannot be attached before an artifact exists.
@@ -433,9 +439,9 @@ mod tests {
             sha256: "ab".repeat(32),
             size_bytes: 25,
             badging: Badging {
-                package: "com.cantos.theatre.demo".into(),
+                package: "com.cantos.theatre.dev".into(),
                 version_code: "1".into(),
-                version_name: "0.1.0-demo-qa".into(),
+                version_name: "0.1.0".into(),
                 debuggable: false,
             },
             signing: Signing {
@@ -458,7 +464,7 @@ mod tests {
         assert!(json.contains("\"debuggable\": false"), "{json}");
         assert!(json.contains("\"shrinker_mapping\""), "{json}");
         assert!(json.contains(&"11".repeat(32)), "{json}");
-        assert!(json.contains("\"schema_version\": 2"), "{json}");
+        assert!(json.contains("\"schema_version\": 3"), "{json}");
         // The signing key and its passwords are never part of a receipt.
         assert!(!json.contains("PASSWORD"), "{json}");
     }

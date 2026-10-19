@@ -7,6 +7,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// The explicit audit uses the SAME release variant/graph, with isolated outputs and no signer.
+val releaseAudit = providers.gradleProperty("cantos.releaseAudit").orElse("false").get().toBooleanStrict()
+val releaseSigning = providers.gradleProperty("cantos.releaseSigning").orElse("false").get().toBooleanStrict()
+check(!(releaseAudit && releaseSigning)) { "Audit artifacts cannot be signed for distribution" }
+if (releaseAudit) layout.buildDirectory.set(layout.projectDirectory.dir("build-release-audit"))
+
 android {
     namespace = "com.cantos.theatre"
     compileSdk = 35
@@ -18,6 +24,12 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        manifestPlaceholders["cantosReleaseAudit"] = releaseAudit.toString()
+        // Hash actual tracked/untracked (non-ignored) inputs; never an ambient operator label.
+        manifestPlaceholders["cantosBuildInputs"] = providers.exec {
+            workingDir(rootProject.file("../../.."))
+            commandLine("python3", "scripts/android_release_evidence.py", "fingerprint")
+        }.standardOutput.asText.get().trim()
         // Public API origin for the live catalog in both debug and release. Explicit Gradle property
         // overrides the environment (an empty property opts out). Manifest merger substitutes
         // the attribute; no source is generated. Runtime admits https:// for any build and
@@ -29,6 +41,18 @@ android {
             .orElse(providers.environmentVariable("CANTOS_NATIVE_ISSUER"))
             .orElse("").get()
     }
+    if (releaseSigning) {
+        signingConfigs {
+            create("operatorRelease") {
+                fun required(name: String) = providers.environmentVariable(name).orNull
+                    ?.takeIf { it.isNotEmpty() } ?: error("Missing operator signing input: $name")
+                storeFile = file(required("CANTOS_RELEASE_KEYSTORE"))
+                storePassword = required("CANTOS_RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = required("CANTOS_RELEASE_KEY_ALIAS")
+                keyPassword = required("CANTOS_RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         // One real-only application, two build types and no flavors. Debug is a side-by-side
         // developer identity with its own app data and callback scheme (NativeCallbackProfile).
@@ -37,10 +61,12 @@ android {
             versionNameSuffix = "-dev"
         }
         release {
-            // Inspect unshrunk release bytes: sandbox absence must come from the dependency
-            // graph, never from R8. Shrinking and signing are separate production decisions.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = !releaseAudit
+            isShrinkResources = !releaseAudit
+            // Consumer rules from serialization/SQLDelight and AGP manifest entrypoints
+            // retain their owners. No copied demo rules, blanket keep or global dontwarn.
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            if (releaseSigning) signingConfig = signingConfigs.getByName("operatorRelease")
         }
     }
     compileOptions {
@@ -117,6 +143,11 @@ fun registerBoundary(variant: String) = tasks.register("assert${variant.replaceF
         lines.filter { it.startsWith("configuration ") }.forEach(::println)
         println("Production $variant dependency report: ${report.get().asFile}")
         check(violations.isEmpty()) { "Forbidden production $variant dependencies: ${violations.joinToString()}" }
+        project.exec {
+            commandLine("python3", rootProject.file("../../../scripts/android_boundary.py"),
+                "--mobile", rootProject.projectDir, "--report",
+                layout.buildDirectory.file("reports/$variant-boundary/source-inputs.json").get().asFile)
+        }
     }
 }
 
@@ -129,4 +160,16 @@ tasks.register("assertDependencyBoundaries") {
     group = "verification"
     description = "Compatibility aggregate: audit the debug and release dependency boundaries."
     dependsOn(assertDebugDependencyBoundary, assertReleaseDependencyBoundary)
+}
+
+// Check actual resolved/compiled inputs immediately before R8, even on a cached-output rerun.
+// The graph check catches transitive dependencies; this also catches copied compiled classes.
+tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach {
+    outputs.upToDateWhen { false }
+    doFirst {
+        val arguments = mutableListOf<Any>("python3", rootProject.file("../../../scripts/android_boundary.py"),
+            "--mobile", rootProject.projectDir, "--report", layout.buildDirectory.file("reports/release-boundary/pre-shrink-inputs.json").get().asFile)
+        inputs.files.files.sortedBy { it.path }.forEach { arguments.addAll(listOf("--input", it)) }
+        project.exec { commandLine(arguments) }
+    }
 }

@@ -165,3 +165,13 @@ The `.yml` file uses the JSON subset of YAML so deterministic DAG tests need onl
 Official references: [configuration](https://circleci.com/docs/reference/configuration-reference/),
 [workspaces](https://circleci.com/docs/guides/orchestrate/workspaces/),
 [contexts](https://circleci.com/docs/guides/security/contexts/).
+
+
+### Android release evidence (#288)
+
+The existing build-only Android preparation job calls `cargo xtask release-build android` through
+release preparation. It now retains optimized unsigned APK/AAB, same-release unshrunk audit APK/AAB,
+pre-shrink/source inspection, equal dependency graphs, `mapping.txt` and source/hash-bound
+`release-evidence.json` in the existing release transfer/artifacts. No Firebase distribution or
+signing credential enters this job. Installed optimized runtime, download/installed size and
+explicit operator Firebase/tester acceptance remain separate from packaging or CI success.

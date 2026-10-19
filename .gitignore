@@ -42,3 +42,6 @@ firebase-debug*.log
 
 # Cloudflare Pages operator mapping (real account/project IDs) is private; the example is tracked.
 /infra/cloudflare/projects.json
+
+# Same release variant, isolated unshrunk audit outputs.
+**/build-release-audit/

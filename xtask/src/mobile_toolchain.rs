@@ -27,25 +27,6 @@ pub fn gradle_command(workspace: &Workspace) -> CommandSpec {
     ])
 }
 
-/// Retired Android mock lane (#286): reachable only from the inert `demo`/`demo-qa` distribution
-/// policies, which `distribute firebase` refuses before any build. Not a real build command.
-pub fn android_command(workspace: &Workspace) -> CommandSpec {
-    gradle_command(workspace).args([
-        "-Pcantos.android=true",
-        "-Pandroid.builder.sdkDownload=false",
-        ":androidApp:assembleDebug",
-    ])
-}
-
-/// Retired with the `qa` build type (#286); see [`android_command`].
-pub fn android_qa_command(workspace: &Workspace) -> CommandSpec {
-    gradle_command(workspace).args([
-        "-Pcantos.android=true",
-        "-Pandroid.builder.sdkDownload=false",
-        ":androidApp:assembleQa",
-    ])
-}
-
 /// The already installed Android SDK named by the environment, if any; never downloaded.
 pub fn android_sdk_from_environment() -> Option<PathBuf> {
     std::env::var_os("ANDROID_HOME")

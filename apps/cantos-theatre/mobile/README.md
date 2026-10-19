@@ -25,8 +25,8 @@ second reducer, domain model, navigation or auth handler. See
 and establishes no native, device or persistence behavior. The Android and iOS runtimes contain no
 preview or mock code, and neither resolves nor packages `:preview-sandbox`.
 
-`cargo xtask theatre-host android-release` builds the unsigned, unshrunk release APK/AAB and
-inspects the release classpaths, DEX classes, resources and manifest, using the sandbox's compiled
+`cargo xtask theatre-host android-release` builds optimized unsigned release APK/AAB plus an isolated unshrunk release audit and
+inspects the release classpaths, DEX classes, resources and manifest, using the sandbox's source
 JVM classes only as a forbidden inventory; a Desktop Preview build cannot accept that requirement.
 The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md) records current checks
 separately from the historical results cited below.
@@ -347,12 +347,10 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host ios-build \
 iOS mock. The gate formerly named `theatre-cmp-demo` is now `theatre-cmp-preview` (the old id is
 still accepted by `--skip`).
 
-`cargo xtask distribute firebase` is **retired for every channel** (#286): `demo` and `demo-qa`
-named the removed mock host and `qa` build type, and `production` expected a debug APK of
-`com.cantos.theatre` while debug is now `com.cantos.theatre.dev`. Each channel is refused as
-`UNSUPPORTED` before any tool probe, build, login or upload, including `--dry-run`; no policy is
-remapped onto another Firebase app. The replacement policy belongs to the distribution step of
-the #286 series; see [Firebase distribution](docs/firebase-distribution.md).
+`cargo xtask distribute firebase` supports explicit `development` (`.dev`, debug) and `release`
+(real-only, optimized, operator-signed) policies under #288. Legacy `demo`, `demo-qa`, `production`
+spellings remain refused. Exact registrations/certificate pins, audit and mapping rejection,
+upgrade constraints and independent native/live acceptance are in [Firebase distribution](docs/firebase-distribution.md).
 
 Build and verification invoke `:shared:assertProductionSafeDependencies` through main compile,
 assemble and `desktopTest` dependencies. It checks resolved shared desktop compile/runtime
@@ -367,12 +365,11 @@ guard; it does not inspect an app's release graph or APK/AAB.
 for compatibility; a debug build never audits or assembles release). The resolved compile/runtime
 classpaths of the variant may contain no local project except `:shared` and no test, mock or
 Compose tooling module, transitively; the module has no `:preview-sandbox` dependency in any
-configuration. Test classpaths are separate and not inspected. `theatre-host android-release` then compiles the
-sandbox's JVM desktop classes (`preview-sandbox/build/classes/kotlin/desktop/main`) only as a forbidden inventory and runs
+configuration. Test classpaths are separate and not inspected. `theatre-host android-release` uses the sandbox's source declarations as a forbidden inventory without compiling the sandbox, and runs
 `scripts/inspect_android_release.py`. It checks DEX class definitions, resource bytes/paths,
-Compose resource packages and the `aapt2`-decoded manifests of the actual unsigned, unshrunk
-APK and AAB. Reports are ignored files under `androidApp/build/reports/{release,debug}-boundary/`. Release remains deliberately unshrunk (R8 is a later step of the series, with an audit path that replaces this one).
-The release is never signed, installed or distributed by xtask. Actual execution results are
+Compose resource packages and the `aapt2`-decoded manifests of the actual audit and optimized
+APK and AAB. Reports are ignored files under `androidApp/build/reports/{release,debug}-boundary/`. Release defaults to R8/resource shrinking; the same release variant has an isolated unshrunk audit with source/config and dependency-graph binding (#288).
+The default release is unsigned; the explicit `--sign` flag uses only the operator key. This build lane never installs or distributes an artifact. Actual execution results are
 recorded in the [isolation evidence](../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
 
 Android output: `androidApp/build/outputs/apk/debug/androidApp-debug.apk`. Open this Gradle root

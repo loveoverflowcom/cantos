@@ -142,3 +142,13 @@ native adapters and account/Library/SQLDelight/outbox composition, pinned to unm
 adoption. Earlier mock-only implementation statements in historical evidence do not describe
 this source. Actual Android/iOS device playback, codec and lifecycle, native identity, backup
 and cross-client sync acceptance remain the named gates; no platform is accepted by compilation.
+
+
+## Android release isolation and distribution
+
+The single `:androidApp` has debug/release only. #288 enables default R8/resource shrinking with
+an isolated same-release unshrunk audit, source/graph/pre-shrink checks and exact APK/AAB/mapping
+inspection. Explicit development/release distribution uses separate Firebase registrations and
+certificate pins. The [distribution runbook](../../apps/cantos-theatre/mobile/docs/firebase-distribution.md)
+owns migration, source-bound evidence, signing/version constraints and native/live acceptance.
+No local/CI build establishes installed optimized runtime or tester distribution acceptance.

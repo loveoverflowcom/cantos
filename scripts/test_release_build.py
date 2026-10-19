@@ -96,6 +96,21 @@ class ReleaseBuildTests(unittest.TestCase):
             self.assertNotIn("must-not-appear", text)
             self.assertEqual(manifest["artifacts"][0]["sha256"], hashlib.sha256(b"release bytes").hexdigest())
 
+    def test_android_ci_inventory_requires_audit_mapping_and_pre_shrink_evidence(self):
+        self.assertEqual(contract.EXPECTED['android'], {
+            'androidApp-release-unsigned.apk', 'androidApp-release.aab', 'mapping.txt',
+            'artifact-inspection.txt', 'resolved-dependencies.txt', 'pre-shrink-inputs.json',
+            'release-evidence.json', 'audit-release-unsigned.apk', 'audit-release.aab',
+            'audit-inspection.txt', 'audit-dependencies.txt'})
+        root = Path(__file__).resolve().parents[1]
+        ci = json.loads((root / '.circleci/config.yml').read_text())
+        android_job = json.dumps(ci['jobs']['prepare-android'])
+        self.assertIn('cargo xtask release prepare', android_job)
+        self.assertIn('artifacts/release-transfer', android_job)
+        self.assertIn('androidApp/build.gradle.kts', android_job)
+        self.assertNotIn('appdistribution:distribute', android_job)
+        self.assertNotIn('CANTOS_RELEASE_KEYSTORE', android_job)
+
     def test_android_version_comes_from_production_host(self):
         root = Path(__file__).resolve().parents[1]
         self.assertEqual(release.android_version(root), {"name": "0.1.0", "code": 1})

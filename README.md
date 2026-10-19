@@ -52,7 +52,7 @@ diagnostics. Source regression evidence does not establish a configured artifact
 Production Android and iOS catalog hosts compose `:shared` only, without a playback seed. Android
 release accepts an explicit HTTPS API origin; listening, account and Library remain unavailable.
 `cargo xtask theatre-host android-release --api-origin https://api.cantoss.duckdns.org` inspects
-its release classpaths and unsigned APK/AAB bytes for sandbox, mock and test content; the demo
+its release graphs, same-release unshrunk audit and optimized unsigned APK/AAB bytes for sandbox, mock and test content; the demo
 APK establishes no production isolation.
 See the [sandbox isolation record](docs/evidence/issue122-cmp-sandbox-isolation.md) for current checks.
 

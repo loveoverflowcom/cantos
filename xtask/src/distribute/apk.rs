@@ -9,7 +9,7 @@ use std::{
 
 use serde_json::Value;
 
-use super::request::{CertFingerprint, Policy, DEMO_QA_VERSION_SUFFIX, DEMO_VERSION_SUFFIX};
+use super::request::{CertFingerprint, Policy, DEVELOPMENT_VERSION_SUFFIX};
 use crate::command::CommandSpec;
 
 /// Largest APK accepted for staging (a local bound; the service limit is not claimed).
@@ -326,10 +326,7 @@ pub enum ArtifactError {
         gradle: String,
         apk: String,
     },
-    NotDemoLabeled {
-        version_name: String,
-    },
-    NotDemoQaLabeled {
+    NotDevelopmentLabeled {
         version_name: String,
     },
     ProductionDemoLabel,
@@ -353,20 +350,16 @@ impl fmt::Display for ArtifactError {
             ArtifactError::VersionDisagreesWithGradle { gradle, apk } => {
                 write!(f, "Gradle declared version {gradle} but the APK says {apk}")
             }
-            ArtifactError::NotDemoLabeled { version_name } => write!(
+            ArtifactError::NotDevelopmentLabeled { version_name } => write!(
                 f,
-                "version name `{version_name}` does not end with `{DEMO_VERSION_SUFFIX}`; a demo channel must carry a demo label"
+                "version name `{version_name}` does not end with `{DEVELOPMENT_VERSION_SUFFIX}`; development must carry its -dev version label"
             ),
-            ArtifactError::NotDemoQaLabeled { version_name } => write!(
-                f,
-                "version name `{version_name}` does not end with `{DEMO_QA_VERSION_SUFFIX}`; the optimized QA channel must carry its own label"
-            ),
-            ArtifactError::ProductionDemoLabel => f.write_str("production artifact has a demo version label"),
+            ArtifactError::ProductionDemoLabel => f.write_str("release artifact has a legacy demo or development version label"),
             ArtifactError::NotDebuggable => {
-                f.write_str("the APK is not debuggable, so it is not the debug-variant demo build")
+                f.write_str("the APK is not debuggable, so it is not the selected development build")
             }
             ArtifactError::Debuggable => f.write_str(
-                "the APK is debuggable, so it is not the optimized non-debuggable QA build",
+                "the APK is debuggable, so it is not the optimized non-debuggable release build",
             ),
             ArtifactError::SignerCount(count) => {
                 write!(f, "the APK has {count} signers; exactly one is required")
@@ -404,19 +397,16 @@ pub fn validate(
             apk: format!("{} ({})", badging.version_name, badging.version_code),
         });
     }
-    if policy == Policy::DemoApk && !badging.version_name.ends_with(DEMO_VERSION_SUFFIX) {
-        findings.push(ArtifactError::NotDemoLabeled {
+    if policy == Policy::DevelopmentApk
+        && !badging.version_name.ends_with(DEVELOPMENT_VERSION_SUFFIX)
+    {
+        findings.push(ArtifactError::NotDevelopmentLabeled {
             version_name: badging.version_name.clone(),
         });
     }
-    if policy == Policy::DemoQaApk && !badging.version_name.ends_with(DEMO_QA_VERSION_SUFFIX) {
-        findings.push(ArtifactError::NotDemoQaLabeled {
-            version_name: badging.version_name.clone(),
-        });
-    }
-    if policy == Policy::ProductionApk
-        && (badging.version_name.ends_with(DEMO_VERSION_SUFFIX)
-            || badging.version_name.ends_with(DEMO_QA_VERSION_SUFFIX))
+    if policy == Policy::ReleaseApk
+        && (badging.version_name.contains("-demo")
+            || badging.version_name.ends_with(DEVELOPMENT_VERSION_SUFFIX))
     {
         findings.push(ArtifactError::ProductionDemoLabel);
     }
@@ -462,10 +452,7 @@ fn path_text(path: &Path) -> String {
 /// The directory in which AGP writes the selected variant's APK and its metadata.
 pub fn output_directory(mobile_dir: &Path, policy: Policy) -> PathBuf {
     mobile_dir
-        .join(match policy {
-            Policy::DemoApk | Policy::DemoQaApk => "androidApp/build/outputs/apk",
-            Policy::ProductionApk => "androidProductionApp/build/outputs/apk",
-        })
+        .join("androidApp/build/outputs/apk")
         .join(policy.variant())
 }
 
@@ -473,10 +460,10 @@ pub fn output_directory(mobile_dir: &Path, policy: Policy) -> PathBuf {
 /// tester's obfuscated stack trace cannot be read, so the optimized lane stages it with the APK.
 pub fn mapping_path(mobile_dir: &Path, policy: Policy) -> Option<PathBuf> {
     match policy {
-        Policy::DemoQaApk => {
-            Some(mobile_dir.join("androidApp/build/outputs/mapping/qa/mapping.txt"))
+        Policy::ReleaseApk => {
+            Some(mobile_dir.join("androidApp/build/outputs/mapping/release/mapping.txt"))
         }
-        Policy::DemoApk | Policy::ProductionApk => None,
+        Policy::DevelopmentApk => None,
     }
 }
 
@@ -487,52 +474,47 @@ mod tests {
     const METADATA: &str = r#"{
       "version": 3,
       "artifactType": {"type": "APK", "kind": "Directory"},
-      "applicationId": "com.cantos.theatre.demo",
+      "applicationId": "com.cantos.theatre.dev",
       "variantName": "debug",
       "elements": [{"type": "SINGLE", "filters": [], "attributes": [], "versionCode": 1,
-                    "versionName": "0.1.0-demo", "outputFile": "androidApp-debug.apk"}],
+                    "versionName": "0.1.0-dev", "outputFile": "androidApp-debug.apk"}],
       "elementType": "File",
       "minSdkVersionForDexing": 23
     }"#;
-    const BADGING: &str = include_str!("../../fixtures/android/badging-demo.txt");
-    const SIGNER: &str = include_str!("../../fixtures/android/apksigner-demo.txt");
+    const BADGING: &str = include_str!("../../fixtures/android/badging-development.txt");
+    const SIGNER: &str = include_str!("../../fixtures/android/apksigner-development.txt");
     /// Real `aapt2 dump badging` of the optimized QA build (locale/icon lines trimmed).
-    const BADGING_QA: &str = include_str!("../../fixtures/android/badging-demo-qa.txt");
-    /// Real AGP metadata of `:androidApp:assembleQa`, including its extra `baselineProfiles` key.
+    const BADGING_QA: &str = include_str!("../../fixtures/android/badging-release.txt");
+    /// Real AGP metadata of `:androidApp:assembleRelease`, including its extra `baselineProfiles` key.
     const METADATA_QA: &str = r#"{
       "version": 3,
       "artifactType": {"type": "APK", "kind": "Directory"},
-      "applicationId": "com.cantos.theatre.demo",
-      "variantName": "qa",
+      "applicationId": "com.cantos.theatre",
+      "variantName": "release",
       "elements": [{"type": "SINGLE", "filters": [], "attributes": [], "versionCode": 1,
-                    "versionName": "0.1.0-demo-qa", "outputFile": "androidApp-qa.apk"}],
+                    "versionName": "0.1.0", "outputFile": "androidApp-release.apk"}],
       "elementType": "File",
-      "baselineProfiles": [{"minApi": 28, "maxApi": 30, "baselineProfiles": ["baselineProfiles/1/androidApp-qa.dm"]}],
+      "baselineProfiles": [{"minApi": 28, "maxApi": 30, "baselineProfiles": ["baselineProfiles/1/androidApp-release.dm"]}],
       "minSdkVersionForDexing": 23
     }"#;
 
     fn parse(json: &str) -> Result<OutputFile, OutputError> {
-        parse_output_metadata(json.as_bytes(), Policy::DemoApk)
+        parse_output_metadata(json.as_bytes(), Policy::DevelopmentApk)
     }
 
     #[test]
-    fn production_artifact_never_relabels_demo_bytes() {
-        let metadata = METADATA
-            .replace("com.cantos.theatre.demo", "com.cantos.theatre")
-            .replace("0.1.0-demo", "0.1.0")
-            .replace("androidApp-debug.apk", "androidProductionApp-debug.apk");
-        let declared = parse_output_metadata(metadata.as_bytes(), Policy::ProductionApk).unwrap();
-        let mut facts = facts();
+    fn release_and_development_packages_cannot_be_relabelled() {
+        let declared = parse_output_metadata(METADATA_QA.as_bytes(), Policy::ReleaseApk).unwrap();
+        let mut facts = qa_facts();
+        assert!(validate(Policy::ReleaseApk, &declared, &facts, None).is_empty());
+        facts.badging.package = "com.cantos.theatre.dev".into();
+        assert!(matches!(
+            validate(Policy::ReleaseApk, &declared, &facts, None)[0],
+            ArtifactError::PackageMismatch { .. }
+        ));
         facts.badging.package = "com.cantos.theatre".into();
-        facts.badging.version_name = "0.1.0".into();
-        assert!(validate(Policy::ProductionApk, &declared, &facts, None).is_empty());
-        facts.badging.package = "com.cantos.theatre.demo".into();
-        assert!(validate(Policy::ProductionApk, &declared, &facts, None)
-            .iter()
-            .any(|finding| matches!(finding, ArtifactError::PackageMismatch { .. })));
-        facts.badging.package = "com.cantos.theatre".into();
-        facts.badging.version_name = "0.1.0-demo".into();
-        assert!(validate(Policy::ProductionApk, &declared, &facts, None)
+        facts.badging.version_name = "0.1.0-dev".into();
+        assert!(validate(Policy::ReleaseApk, &declared, &facts, None)
             .contains(&ArtifactError::ProductionDemoLabel));
     }
 
@@ -541,7 +523,7 @@ mod tests {
         let output = parse(METADATA).unwrap();
         assert_eq!(output.file_name, "androidApp-debug.apk");
         assert_eq!(output.version_code, "1");
-        assert_eq!(output.version_name, "0.1.0-demo");
+        assert_eq!(output.version_name, "0.1.0-dev");
     }
 
     #[test]
@@ -582,9 +564,9 @@ mod tests {
             })
         );
         assert_eq!(
-            parse(&with("com.cantos.theatre.demo", "com.cantos.theatre")),
+            parse(&with("com.cantos.theatre.dev", "com.cantos.theatre")),
             Err(OutputError::ApplicationIdMismatch {
-                expected: "com.cantos.theatre.demo".into(),
+                expected: "com.cantos.theatre.dev".into(),
                 found: "com.cantos.theatre".into()
             })
         );
@@ -610,9 +592,9 @@ mod tests {
     #[test]
     fn real_aapt2_and_apksigner_reports_parse() {
         let badging = parse_badging(0, BADGING, "").unwrap();
-        assert_eq!(badging.package, "com.cantos.theatre.demo");
+        assert_eq!(badging.package, "com.cantos.theatre.dev");
         assert_eq!(badging.version_code, "1");
-        assert_eq!(badging.version_name, "0.1.0-demo");
+        assert_eq!(badging.version_name, "0.1.0-dev");
         assert!(badging.debuggable);
         let signing = parse_signing(0, SIGNER, "WARNING: ignored").unwrap();
         assert_eq!(signing.signer_count, 1);
@@ -667,7 +649,7 @@ mod tests {
     #[test]
     fn identity_validation_accumulates_independent_findings() {
         let declared = parse(METADATA).unwrap();
-        assert!(validate(Policy::DemoApk, &declared, &facts(), None).is_empty());
+        assert!(validate(Policy::DevelopmentApk, &declared, &facts(), None).is_empty());
 
         let mut bad = facts();
         bad.badging.package = "com.cantos.theatre".into();
@@ -675,7 +657,7 @@ mod tests {
         bad.badging.version_name = "1.0.0".into();
         bad.signing.signer_count = 2;
         bad.signing.v2 = false;
-        let findings = validate(Policy::DemoApk, &declared, &bad, None);
+        let findings = validate(Policy::DevelopmentApk, &declared, &bad, None);
         assert!(findings.contains(&ArtifactError::NotDebuggable));
         assert!(findings.contains(&ArtifactError::SignerCount(2)));
         assert!(findings.contains(&ArtifactError::NoModernSignature));
@@ -684,7 +666,7 @@ mod tests {
             .any(|f| matches!(f, ArtifactError::PackageMismatch { .. })));
         assert!(findings
             .iter()
-            .any(|f| matches!(f, ArtifactError::NotDemoLabeled { .. })));
+            .any(|f| matches!(f, ArtifactError::NotDevelopmentLabeled { .. })));
         assert!(findings
             .iter()
             .any(|f| matches!(f, ArtifactError::VersionDisagreesWithGradle { .. })));
@@ -701,76 +683,74 @@ mod tests {
 
     #[test]
     fn the_optimized_qa_build_is_validated_as_non_debuggable_and_never_as_the_debug_demo() {
-        let declared = parse_output_metadata(METADATA_QA.as_bytes(), Policy::DemoQaApk).unwrap();
-        assert_eq!(declared.file_name, "androidApp-qa.apk");
+        let declared = parse_output_metadata(METADATA_QA.as_bytes(), Policy::ReleaseApk).unwrap();
+        assert_eq!(declared.file_name, "androidApp-release.apk");
         let facts = qa_facts();
         assert!(
             !facts.badging.debuggable,
             "the real QA badging has no debuggable line"
         );
-        assert!(validate(Policy::DemoQaApk, &declared, &facts, None).is_empty());
+        assert!(validate(Policy::ReleaseApk, &declared, &facts, None).is_empty());
 
         // The QA output cannot be accepted by the Debug demo policy, nor the reverse.
         assert_eq!(
-            parse_output_metadata(METADATA_QA.as_bytes(), Policy::DemoApk),
+            parse_output_metadata(METADATA_QA.as_bytes(), Policy::DevelopmentApk),
             Err(OutputError::VariantMismatch {
                 expected: "debug".into(),
-                found: "qa".into()
+                found: "release".into()
             })
         );
         assert_eq!(
-            parse_output_metadata(METADATA.as_bytes(), Policy::DemoQaApk),
+            parse_output_metadata(METADATA.as_bytes(), Policy::ReleaseApk),
             Err(OutputError::VariantMismatch {
-                expected: "qa".into(),
+                expected: "release".into(),
                 found: "debug".into()
             })
         );
         let demo = parse(METADATA).unwrap();
-        let demo_findings = validate(Policy::DemoApk, &demo, &facts, None);
+        let demo_findings = validate(Policy::DevelopmentApk, &demo, &facts, None);
         assert!(demo_findings.contains(&ArtifactError::NotDebuggable));
         assert!(demo_findings
             .iter()
-            .any(|f| matches!(f, ArtifactError::NotDemoLabeled { .. })));
+            .any(|f| matches!(f, ArtifactError::NotDevelopmentLabeled { .. })));
 
         // A debuggable build is refused even when everything else matches.
         let mut debuggable = qa_facts();
         debuggable.badging.debuggable = true;
         assert_eq!(
-            validate(Policy::DemoQaApk, &declared, &debuggable, None),
+            validate(Policy::ReleaseApk, &declared, &debuggable, None),
             [ArtifactError::Debuggable]
         );
         // The Debug demo label does not pass as the QA label; neither does a production label.
         let mut mislabeled = qa_facts();
-        mislabeled.badging.version_name = "0.1.0-demo".into();
+        mislabeled.badging.version_name = "0.1.0-dev".into();
         let relabeled = parse_output_metadata(
-            METADATA_QA
-                .replace("0.1.0-demo-qa", "0.1.0-demo")
-                .as_bytes(),
-            Policy::DemoQaApk,
+            METADATA_QA.replace("0.1.0", "0.1.0-dev").as_bytes(),
+            Policy::ReleaseApk,
         )
         .unwrap();
-        assert!(validate(Policy::DemoQaApk, &relabeled, &mislabeled, None)
+        assert!(validate(Policy::ReleaseApk, &relabeled, &mislabeled, None)
             .iter()
-            .any(|f| matches!(f, ArtifactError::NotDemoQaLabeled { .. })));
+            .any(|f| matches!(f, ArtifactError::ProductionDemoLabel)));
         // Signer count, modern signature and the pinned certificate are checked as for the demo.
         let mut unsigned_like = qa_facts();
         unsigned_like.signing.signer_count = 0;
         unsigned_like.signing.v2 = false;
-        let findings = validate(Policy::DemoQaApk, &declared, &unsigned_like, None);
+        let findings = validate(Policy::ReleaseApk, &declared, &unsigned_like, None);
         assert!(findings.contains(&ArtifactError::SignerCount(0)));
         assert!(findings.contains(&ArtifactError::NoModernSignature));
         let wrong = CertFingerprint::parse(&"ab".repeat(32)).unwrap();
         assert!(matches!(
-            validate(Policy::DemoQaApk, &declared, &facts, Some(&wrong))[..],
+            validate(Policy::ReleaseApk, &declared, &facts, Some(&wrong))[..],
             [ArtifactError::CertificateMismatch { .. }]
         ));
         // Foreign package and several outputs stay refused for the new policy.
         assert!(matches!(
             parse_output_metadata(
                 METADATA_QA
-                    .replace("com.cantos.theatre.demo", "com.cantos.theatre")
+                    .replace("com.cantos.theatre", "com.cantos.theatre.dev")
                     .as_bytes(),
-                Policy::DemoQaApk
+                Policy::ReleaseApk
             ),
             Err(OutputError::ApplicationIdMismatch { .. })
         ));
@@ -779,22 +759,17 @@ mod tests {
             r#""elements": [{"type":"SINGLE","filters":[],"outputFile":"b.apk","versionCode":1,"versionName":"x"},{"#,
         );
         assert_eq!(
-            parse_output_metadata(two.as_bytes(), Policy::DemoQaApk),
+            parse_output_metadata(two.as_bytes(), Policy::ReleaseApk),
             Err(OutputError::MultipleOutputs(2))
         );
     }
 
     #[test]
-    fn production_rejects_the_qa_label_too() {
-        let metadata = METADATA
-            .replace("com.cantos.theatre.demo", "com.cantos.theatre")
-            .replace("0.1.0-demo", "0.1.0")
-            .replace("androidApp-debug.apk", "androidProductionApp-debug.apk");
-        let declared = parse_output_metadata(metadata.as_bytes(), Policy::ProductionApk).unwrap();
-        let mut facts = facts();
-        facts.badging.package = "com.cantos.theatre".into();
+    fn release_rejects_legacy_demo_labels() {
+        let mut facts = qa_facts();
         facts.badging.version_name = "0.1.0-demo-qa".into();
-        assert!(validate(Policy::ProductionApk, &declared, &facts, None)
+        let declared = parse_output_metadata(METADATA_QA.as_bytes(), Policy::ReleaseApk).unwrap();
+        assert!(validate(Policy::ReleaseApk, &declared, &facts, None)
             .contains(&ArtifactError::ProductionDemoLabel));
     }
 
@@ -803,9 +778,9 @@ mod tests {
         let declared = parse(METADATA).unwrap();
         let facts = facts();
         let right = CertFingerprint::parse(&facts.signing.cert_sha256).unwrap();
-        assert!(validate(Policy::DemoApk, &declared, &facts, Some(&right)).is_empty());
+        assert!(validate(Policy::DevelopmentApk, &declared, &facts, Some(&right)).is_empty());
         let wrong = CertFingerprint::parse(&"ab".repeat(32)).unwrap();
-        let findings = validate(Policy::DemoApk, &declared, &facts, Some(&wrong));
+        let findings = validate(Policy::DevelopmentApk, &declared, &facts, Some(&wrong));
         assert_eq!(
             findings,
             [ArtifactError::CertificateMismatch {
@@ -843,14 +818,14 @@ mod tests {
         assert_eq!(
             output_directory(
                 Path::new("/repo/apps/cantos-theatre/mobile"),
-                Policy::DemoQaApk
+                Policy::ReleaseApk
             ),
-            Path::new("/repo/apps/cantos-theatre/mobile/androidApp/build/outputs/apk/qa")
+            Path::new("/repo/apps/cantos-theatre/mobile/androidApp/build/outputs/apk/release")
         );
         assert_eq!(
             output_directory(
                 Path::new("/repo/apps/cantos-theatre/mobile"),
-                Policy::DemoApk
+                Policy::DevelopmentApk
             ),
             Path::new("/repo/apps/cantos-theatre/mobile/androidApp/build/outputs/apk/debug")
         );

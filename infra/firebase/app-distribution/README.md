@@ -1,33 +1,22 @@
 # Firebase App Distribution operator inputs
 
-App Distribution is CLI-driven; there is no tracked Firebase `appDistribution` section or new
-configuration parser. The canonical executable contract is
-[`cargo xtask distribute firebase`](../../../xtask/README.md#distribute-firebase);
-setup, tester notification, retention and live acceptance remain in the
-[Theatre distribution runbook](../../../apps/cantos-theatre/mobile/docs/firebase-distribution.md).
+This CLI-only product uses no Firebase SDK, Hosting configuration or Functions codebase.
+The [xtask contract](../../../xtask/README.md#distribute-firebase) and
+[distribution runbook](../../../apps/cantos-theatre/mobile/docs/firebase-distribution.md) own behavior.
 
-| Existing input | Meaning |
+| Input | Meaning |
 | --- | --- |
-| `--app-id` / `CANTOS_FIREBASE_DEMO_APP_ID` | Explicit Firebase **Android App ID**; the flag wins. No default/active Firebase project lookup |
-| `--channel demo` / `--channel demo-qa` / `--channel production` | Selects the debuggable demo, the optimized non-debuggable demo QA (same host, package and app ID) or the real production composition; not a Hosting channel |
-| `CANTOS_FIREBASE_DEMO_QA_CERT_SHA256` | Required expected certificate of the operator's QA key for a real `demo-qa` distribution |
-| `CANTOS_QA_KEYSTORE`, `CANTOS_QA_KEYSTORE_PASSWORD`, `CANTOS_QA_KEY_ALIAS`, `CANTOS_QA_KEY_PASSWORD` | The operator's QA signing key for Gradle; only presence is checked, never created or recorded |
-| `--artifact apk` | Only supported artifact; AAB remains unsupported |
-| `--groups` / `--testers` | Explicit recipients; distribution can invite/notify them |
-| `--release-notes` / `--release-notes-file` | Bounded release notes; otherwise a demo-labeled summary |
-| `CANTOS_FIREBASE_DEMO_CERT_SHA256` | Optional expected demo debug-signing certificate fingerprint |
-| `--app-id` / `CANTOS_FIREBASE_PRODUCTION_APP_ID` | Separate explicit production-composition Firebase Android App ID |
-| `CANTOS_FIREBASE_PRODUCTION_CERT_SHA256` | Required expected certificate for real production-composition distribution |
-| `--api-origin` / `--native-issuer` | Explicit HTTPS API origin and optional native identity issuer, inspected in the packaged production manifest |
+| `--channel development` / `--channel release` | real-only `.dev` debug or optimized release APK; independent of server environment |
+| `--app-id` | overrides the channel's explicit Firebase Android App ID |
+| `CANTOS_FIREBASE_DEVELOPMENT_APP_ID`, `CANTOS_FIREBASE_RELEASE_APP_ID` | separate operator registrations for `.dev` and `com.cantos.theatre` |
+| `CANTOS_FIREBASE_DEVELOPMENT_CERT_SHA256`, `CANTOS_FIREBASE_RELEASE_CERT_SHA256` | required expected signer for the corresponding live lane |
+| `CANTOS_RELEASE_KEYSTORE`, `CANTOS_RELEASE_KEYSTORE_PASSWORD`, `CANTOS_RELEASE_KEY_ALIAS`, `CANTOS_RELEASE_KEY_PASSWORD` | existing operator release key; never created, printed or recorded |
+| `--api-origin`, `--native-issuer` | explicit API origin and optional HTTPS native issuer |
+| `--groups`, `--testers` | explicit recipients; real distribution may invite/notify them |
+| `--release-notes`, `--release-notes-file` | bounded notes; otherwise a real-only source/version summary |
 
-An App ID is not a Hosting site, Hosting target, project alias or Functions codebase. Distribution
-keeps the Firebase CLI `appdistribution:distribute --app ...` argument/result contract, its private
-`artifacts/distributions/<run-id>/` run record and tester-file redaction. It never consumes the
-Hosting `.firebaserc`, `firebase.json` or Functions selector. Credentials remain operator-managed
-Firebase login/ADC, never tracked here. No recipient list or real app identifier is committed.
-
-`--dry-run` is pure planning: no Gradle/Firebase subprocess, artifact write, upload or invitation.
-A real invocation builds the selected Android host, never Web/Functions/API/edge. The production
-lane inspects actual sandbox exclusion before upload; build/distribution do not replace native
-device/login/playback acceptance. An agent requires explicit app and recipient authorization
-for the remote write.
+Legacy demo/demo-qa/production channels and old environment names are never silently remapped.
+Missing registrations/credentials/recipient authority remain operator prerequisites. AAB distribution
+is unsupported. Dry runs have no subprocess/network/write. Local/CI builds never upload, and an
+uncertain live outcome requires Firebase console reconciliation before any retry. Keep credentials,
+SDK configuration, tester files and firebase-debug logs private and outside shared CI artifacts.

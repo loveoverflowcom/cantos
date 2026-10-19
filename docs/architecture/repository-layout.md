@@ -252,8 +252,8 @@ cargo xtask build cantos-theatre --web         # Theatre Web live boundary and i
 cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native listening absent
 cargo xtask theatre-preview build                 # shared core + preview-sandbox JVM diagnostic host
 cargo xtask theatre-host android-debug --api-origin ORIGIN  # production debug APK; existing Android SDK required
-cargo xtask distribute firebase cantos-theatre --channel demo --groups g --dry-run  # opt-in demo-APK tester distribution; plan only with --dry-run
-cargo xtask distribute firebase cantos-theatre --channel demo-qa --groups g --dry-run  # same, optimized non-debuggable QA build; needs the operator's signing key
+cargo xtask distribute firebase cantos-theatre --channel development --api-origin https://api.example.org --groups g --dry-run  # explicit real-only debug APK; plan only
+cargo xtask distribute firebase cantos-theatre --channel release --api-origin https://api.example.org --groups g --dry-run  # optimized release APK; operator signing and pin required
 cargo xtask deploy firebase cantos-theatre --web --project ID --channel review --dry-run  # opt-in static Web deploy to Firebase Hosting; plan only with --dry-run
 cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients

@@ -21,6 +21,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+
 # Test, mock and preview-tooling namespaces that a production release must never define.
 TEST_NAMESPACES = (
     "Lkotlin/test/", "Lorg/junit/", "Ljunit/", "Lkotlinx/coroutines/test/", "Lio/mockk/",
@@ -87,6 +88,9 @@ def class_inventory(directory):
     root = Path(directory)
     if not root.is_dir():
         raise InspectionError(f"forbidden class directory is missing: {root}")
+    if list(root.rglob("*.kt")):
+        from android_boundary import source_inventory
+        return source_inventory(root)
     return {"L" + path.relative_to(root).with_suffix("").as_posix() + ";"
             for path in root.rglob("*.class") if "META-INF" not in path.relative_to(root).parts}
 
@@ -102,7 +106,7 @@ def resource_hashes(directory):
 def class_findings(classes, forbidden):
     findings = []
     for name in sorted(classes):
-        if name in forbidden:
+        if name in forbidden or name.split("$")[0] + ";" in forbidden:
             findings.append(f"defines sandbox class {name}")
         elif name.startswith(TEST_NAMESPACES):
             findings.append(f"defines test/tooling class {name}")
@@ -236,6 +240,36 @@ def dump_manifest(aapt2, archive, manifest, proto):
     return result.stdout
 
 
+def mapping_classes(mapping, apk):
+    text = Path(mapping).read_text()
+    match = re.search(r"^# pg_map_id: (\w+)$", text, re.M)
+    if not match:
+        raise InspectionError("R8 mapping has no pg_map_id")
+    with zipfile.ZipFile(apk) as archive:
+        dex = [archive.read(n) for n in archive.namelist() if re.fullmatch(r"(?:base/dex/)?classes\d*\.dex", n)]
+    # R8 embeds the mapping identity in its DEX marker. A filename or sidecar alone is no proof.
+    if not any(('"pg-map-id":"' + match[1] + '"').encode() in data for data in dex):
+        raise InspectionError("R8 mapping ID does not match artifact DEX marker")
+    return {"L" + source.replace(".", "/") + ";": "L" + target.replace(".", "/") + ";"
+            for source, target in re.findall(r"^([^ #\s]+) -> ([^\s]+):$", text, re.M)}
+
+
+def audit_findings(elements, audit):
+    values = [a.get("value") for _, tag, a in elements
+              if tag == "meta-data" and a.get("name") == "CantosReleaseAudit"]
+    truth = {"true", "0xffffffff", "-1", "1", "0x1"}
+    false = {"false", "0", "0x0"}
+    if len(values) != 1 or values[0] not in (truth if audit else false):
+        return ["release audit marker missing or disagrees with selected mode; audit bytes cannot distribute"]
+    return []
+
+
+def build_input_findings(elements, expected):
+    values = [attrs.get("value") for _, tag, attrs in elements
+              if tag == "meta-data" and attrs.get("name") == "CantosBuildInputs"]
+    return [] if values == [expected] else ["stale artifact: build inputs differ from current source/config"]
+
+
 def inspect(args, dump=dump_manifest):
     forbidden = set()
     for directory in args.forbidden_classes:
@@ -246,7 +280,11 @@ def inspect(args, dump=dump_manifest):
     for directory in args.forbidden_resources:
         forbidden_hashes.update(resource_hashes(directory))
     report = [f"Production Android release artifact inspection: {args.application_id}",
+              f"audit={getattr(args, 'audit', False)} optimized={getattr(args, 'mapping', None) is not None}",
+              f"api_origin={getattr(args, 'api_origin', None)} native_issuer={getattr(args, 'native_issuer', None)}",
               f"forbidden sandbox classes: {len(forbidden)}; forbidden resource files: {len(forbidden_hashes)}"]
+    if getattr(args, "mapping", None):
+        report.append("mapping_sha256=" + hashlib.sha256(Path(args.mapping).read_bytes()).hexdigest())
     findings, defined = [], {}
     artifacts = (
             ("apk", args.apk, r"classes\d*\.dex", "AndroidManifest.xml"),
@@ -263,8 +301,29 @@ def inspect(args, dump=dump_manifest):
             + archive_findings(entries, forbidden_hashes, args.compose_resource_package)
             + manifest_findings(parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.application_id,
                                 args.launcher, set(args.allowed_permission), getattr(args, "debug_apk", False), getattr(args, "allowed_component", ())))]
+        mapping = getattr(args, "mapping", None)
+        required = args.require_class
+        if mapping:
+            names = mapping_classes(mapping, path)
+            leaked = class_findings(set(names), forbidden)
+            own += [f"{label}: pre-obfuscation {finding}" for finding in leaked]
+            # Optimization can remove/inline whole app functions. Manifest entrypoints must
+            # survive; every other required class is asserted in the unshrunk release audit.
+            required = [names.get(name, name) for name in required
+                        if name.endswith(("TheatreActivity;", "CantosPlaybackService;"))]
         own += [f"{label}: required production class {name} is absent"
-                for name in args.require_class if name not in classes]
+                for name in required if name not in classes]
+        elements = parse_xmltree(dump(args.aapt2, path, manifest, proto))
+        if getattr(args, "check_audit_marker", False):
+            own += [f"{label}: {finding}" for finding in audit_findings(elements, getattr(args, "audit", False))]
+        if getattr(args, "check_build_inputs", False):
+            from android_release_evidence import identity
+            expected = identity(Path.cwd())["input_sha256"]
+            own += [f"{label}: {finding}" for finding in build_input_findings(elements, expected)]
+        if getattr(args, "check_callback", False):
+            schemes = [attrs.get("scheme") for _, tag, attrs in elements if tag == "data" and "scheme" in attrs]
+            if schemes != [args.application_id]:
+                own.append(f"{label}: callback scheme does not match application ID")
         if getattr(args, "api_origin", None) is not None:
             own += [f"{label}: {finding}" for finding in catalog_origin_findings(
                 parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.api_origin, getattr(args, "debug_apk", False))]
@@ -285,6 +344,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--apk", required=True, type=Path)
     parser.add_argument("--aab", type=Path)
+    parser.add_argument("--apk-only", action="store_true")
+    parser.add_argument("--mapping", type=Path)
+    parser.add_argument("--audit", action="store_true")
+    parser.add_argument("--check-audit-marker", action="store_true")
+    parser.add_argument("--check-callback", action="store_true")
+    parser.add_argument("--check-build-inputs", action="store_true")
     parser.add_argument("--debug-apk", action="store_true", help="inspect one production debug APK; never a release acceptance")
     parser.add_argument("--native-issuer", help="expected optional native issuer metadata")
     parser.add_argument("--allowed-component", action="append", default=[])
@@ -301,8 +366,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.aab is not None and args.debug_apk:
         parser.error("--debug-apk inspects only an APK; omit --aab")
-    if args.aab is None and not args.debug_apk:
-        parser.error("--aab is required unless --debug-apk is selected")
+    if args.aab is None and not (args.debug_apk or args.apk_only):
+        parser.error("--aab is required unless --debug-apk or --apk-only is selected")
     try:
         findings, report = inspect(args)
     except InspectionError as error:

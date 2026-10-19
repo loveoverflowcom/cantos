@@ -117,8 +117,8 @@ epoch-2 environment and never resets, migrates, grants or drops persistent data;
 for mandatory API/auth/storage inputs. Seeding is never a gate, and synthetic rights/QC records
 and stored signal bytes are not native playback or human-listening evidence.
 
-Tester distribution of the Theatre Android **demo** APK is the explicit, opt-in
-`cargo xtask distribute firebase cantos-theatre --channel demo ...` ([contract](xtask/README.md#distribute-firebase)).
+Tester distribution of a real-only Theatre Android APK is the explicit, opt-in
+`cargo xtask distribute firebase cantos-theatre --channel development|release --api-origin ORIGIN ...` ([contract](xtask/README.md#distribute-firebase)).
 It is a remote write that may notify testers: `--dry-run` shows the plan, and an agent runs the real
 command only on the user's explicit request naming the Firebase app and recipients. Build, run,
 verify, preflight and ci never invoke it; an uncertain remote outcome is reconciled in the Firebase

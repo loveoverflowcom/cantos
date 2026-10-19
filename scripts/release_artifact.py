@@ -30,7 +30,9 @@ EXPECTED = {
     "theatre-web": {"theatre-web.tar.gz"},
     "studio-web": {"studio-web.tar.gz"},
     "android": {"androidApp-release-unsigned.apk", "androidApp-release.aab",
-                "artifact-inspection.txt", "resolved-dependencies.txt"},
+                "artifact-inspection.txt", "resolved-dependencies.txt", "mapping.txt",
+                "pre-shrink-inputs.json", "release-evidence.json", "audit-release-unsigned.apk",
+                "audit-release.aab", "audit-inspection.txt", "audit-dependencies.txt"},
 }
 
 
@@ -218,7 +220,9 @@ def configuration(root, component, origin):
     elif component.endswith("-web"):
         paths += ["infra/firebase/hosting/firebase.json", f"apps/cantos-{component[:-4]}/web/Trunk.toml"]
     else:
-        paths += ["apps/cantos-theatre/mobile/androidApp/build.gradle.kts"]
+        paths += ["apps/cantos-theatre/mobile/androidApp/build.gradle.kts",
+                  "scripts/android_release_evidence.py", "scripts/android_boundary.py",
+                  "scripts/inspect_android_release.py", "xtask/src/theatre_host.rs"]
     return {"component": component, "api_origin": origin, "profile": "release",
             "platform": "linux/amd64" if component == "api" else component,
             "policy": {p: file_record(root / p, root)["sha256"] for p in paths}}

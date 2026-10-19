@@ -14,6 +14,8 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Cantos">
+        <meta-data android:name="CantosBuildInputs" android:value="${cantosBuildInputs}" />
+        <meta-data android:name="CantosReleaseAudit" android:value="${cantosReleaseAudit}" />
         <meta-data android:name="CantosApiOrigin" android:value="${cantosApiOrigin}" />
         <meta-data android:name="CantosNativeIssuer" android:value="${cantosNativeIssuer}" />
         <service

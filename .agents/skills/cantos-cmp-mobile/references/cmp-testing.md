@@ -57,8 +57,8 @@ resolve/compile the actual module graph. The one Android application `androidApp
 must exclude `:preview-sandbox`, the demo host, `okio-fakefilesystem`, `ktor-client-mock` and
 test dependencies from the compile and runtime classpaths of both build types; its
 `assertDebugDependencyBoundary` / `assertReleaseDependencyBoundary` tasks enforce that before each variant's build. Then run `cargo xtask
-theatre-host android-release`, which inspects the real unshrunk APK/AAB DEX class definitions,
-resources and manifest against the sandbox's compiled class inventory. A finding-free result
+theatre-host android-release`, which inspects both an isolated same-release unshrunk audit and optimized APK/AAB bytes,
+with source/resource and actual pre-shrink guards, mapping identity and sandbox source inventory. A finding-free result
 must still name its required production classes; an empty inventory is an error. A desktop or iOS demo build
 is not Android production evidence; never infer it from R8 removal. When the boundary changes, repeat the recorded sensitivity check (a process-local
 init script adding the sandbox edge must fail the Gradle task and, if bypassed, the inspector). Source guards

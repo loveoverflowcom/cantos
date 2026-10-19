@@ -59,7 +59,7 @@ fn command(workspace: &Workspace, args: &ReleaseBuildArgs) -> CommandSpec {
             "-s",
             "scripts",
             "-p",
-            "test_release_build.py",
+            "test_*release*.py",
         ]);
     }
     let mut spec = spec.args(["scripts/release_build.py"]);
@@ -78,13 +78,29 @@ pub fn run(
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
+    let mut commands = vec![command(workspace, args)];
+    if args.self_test {
+        commands.push(CommandSpec::new("python3", workspace.root()).args([
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "scripts",
+            "-p",
+            "test_theatre_android_host.py",
+        ]));
+        commands.push(
+            CommandSpec::new("cargo", workspace.root()).args(["test", "-p", "xtask", "--locked"]),
+        );
+    }
+    let required = if args.self_test {
+        vec![Tool::Python3, Tool::Cargo]
+    } else {
+        vec![Tool::Python3]
+    };
     let report = pipeline::execute(
         "release-build",
-        &[Step::new(
-            "release-artifacts",
-            &[Tool::Python3],
-            vec![command(workspace, args)],
-        )],
+        &[Step::new("release-artifacts", &required, commands)],
         tools,
         runner,
     );

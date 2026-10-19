@@ -1,4 +1,4 @@
-//! Explicit distribution of separate demo and production-composition Theatre QA APKs through
+//! Explicit distribution of real-only development and release Theatre APKs through
 //! Firebase App Distribution (#184). Neither channel establishes native runtime acceptance.
 //!
 //! This is the one deliberate remote write in xtask. Normal `build`, `run`, `verify`,
@@ -26,10 +26,7 @@ use std::{path::PathBuf, process::ExitCode};
 use anyhow::Result;
 use clap::{Args, Subcommand};
 
-use crate::{
-    capture::SystemCapture, command::Runner, mobile_toolchain, tools::ToolProbe,
-    workspace::Workspace,
-};
+use crate::{capture::SystemCapture, command::Runner, tools::ToolProbe, workspace::Workspace};
 use request::{
     AppIdResolution, ArtifactKind, Channel, Configuration, Raw, Target, APP_ID_ENV, CERT_ENV,
 };
@@ -47,46 +44,20 @@ pub enum Provider {
 }
 
 const FIREBASE_HELP: &str = "\
-Three different things are named here; they are not interchangeable:
-  channel   the distribution policy. `demo` is the debuggable Debug sandbox host; `demo-qa` is the
-            same host as an optimized, non-debuggable QA build; `production` uses the shared
-            production host.
-  variant   the Android build variant the channel maps onto (demo -> debug, demo-qa -> the `qa`
-            build type, production -> its own debug variant). There is no Gradle flavor named demo.
-  artifact  apk (the default) or aab. Both channels accept APK; AAB is UNSUPPORTED
-            before any tool starts.
-
-Examples:
-  # Review the plan. Starts no tool, reads no credential, writes nothing.
-  cargo xtask distribute firebase cantos-theatre --channel demo --groups cantos-internal --dry-run
-
-  # Build, inspect and intentionally distribute. This is a REMOTE WRITE and may notify testers.
-  cargo xtask distribute firebase cantos-theatre --channel demo --artifact apk \\
-    --app-id 1:1234567890:android:0a1b2c3d4e5f67890 --groups cantos-internal \\
-    --release-notes-file release-notes.txt
-
-  # The optimized QA build (R8, non-debuggable). Needs the operator's signing key and its
-  # pinned fingerprint; see apps/cantos-theatre/mobile/docs/firebase-distribution.md.
-  cargo xtask distribute firebase cantos-theatre --channel demo-qa --groups cantos-internal --dry-run
-
-  # Explicit recipients and inline notes (export CANTOS_FIREBASE_DEMO_APP_ID beforehand).
-  cargo xtask distribute firebase cantos-theatre --channel demo \\
-    --testers qa@example.com --release-notes \"CMP demo QA\"
-
-Configuration (nonsecret):
-  --app-id / CANTOS_FIREBASE_DEMO_APP_ID   the Firebase Android app ID; the flag wins
-  CANTOS_FIREBASE_DEMO_CERT_SHA256         optional expected demo debug-certificate fingerprint
-  CANTOS_FIREBASE_DEMO_QA_CERT_SHA256      required expected signer for real demo-qa runs
-  CANTOS_QA_KEYSTORE, CANTOS_QA_KEYSTORE_PASSWORD, CANTOS_QA_KEY_ALIAS, CANTOS_QA_KEY_PASSWORD
-                                           the operator's QA key for Gradle (presence only is
-                                           checked; xtask never creates, prints or records it)
-  CANTOS_FIREBASE_PRODUCTION_APP_ID       separate production-composition Android app
-  CANTOS_FIREBASE_PRODUCTION_CERT_SHA256  required expected signer for real production runs
-  --api-origin HTTPS_ORIGIN              required explicit production API origin
-  --native-issuer HTTPS_ISSUER            optional native identity activation
-The Firebase CLI authenticates by its own login or Application Default Credentials; xtask
-never reads, prints or stores a credential. Infrastructure inputs are indexed in
-infra/firebase/app-distribution/README.md; see apps/cantos-theatre/mobile/docs/firebase-distribution.md.";
+Explicit real-only Android APK distribution; may notify named testers.
+  development -> :androidApp:assembleDebug, com.cantos.theatre.dev, debuggable
+  release     -> :androidApp:assembleRelease, com.cantos.theatre, R8/shrinking, operator signer
+Legacy demo/demo-qa/production channels are refused. AAB is unsupported before side effects.
+API origin and native issuer are explicit inputs, independent of build type/server environment.
+Example (no subprocess/network/write):
+  cargo xtask distribute firebase cantos-theatre --channel development \\
+    --api-origin https://api.example.org --groups cantos-internal --dry-run
+Use CANTOS_FIREBASE_DEVELOPMENT_APP_ID / CANTOS_FIREBASE_DEVELOPMENT_CERT_SHA256 or
+CANTOS_FIREBASE_RELEASE_APP_ID / CANTOS_FIREBASE_RELEASE_CERT_SHA256. --app-id overrides its env.
+Both live policies require the expected certificate and an exact Firebase package registration.
+Release also needs CANTOS_RELEASE_KEYSTORE, CANTOS_RELEASE_KEYSTORE_PASSWORD,
+CANTOS_RELEASE_KEY_ALIAS and CANTOS_RELEASE_KEY_PASSWORD; values are never printed or recorded.
+See apps/cantos-theatre/mobile/docs/firebase-distribution.md. No Firebase SDK is needed.";
 
 #[derive(Debug, Args)]
 #[command(after_long_help = FIREBASE_HELP)]
@@ -100,10 +71,10 @@ pub struct FirebaseArgs {
     /// Artifact type; AAB is recognized but unavailable.
     #[arg(long, value_enum, default_value_t = ArtifactKind::Apk)]
     pub artifact: ArtifactKind,
-    /// Firebase Android app ID; takes precedence over CANTOS_FIREBASE_DEMO_APP_ID.
+    /// Firebase Android app ID; takes precedence over the selected channel app-ID variable.
     #[arg(long, value_name = "ID")]
     pub app_id: Option<String>,
-    /// Exact HTTPS API origin embedded in production artifacts; required for production.
+    /// Explicit API origin; release requires HTTPS, development also admits loopback HTTP.
     #[arg(long, value_name = "ORIGIN")]
     pub api_origin: Option<String>,
     /// Optional public native issuer; absence keeps native sign-in unavailable.
@@ -118,7 +89,7 @@ pub struct FirebaseArgs {
     /// Release notes text. Mutually exclusive with --release-notes-file.
     #[arg(long, value_name = "TEXT", conflicts_with = "release_notes_file")]
     pub release_notes: Option<String>,
-    /// File with UTF-8 release notes. Without either, a demo-labeled summary is generated.
+    /// File with UTF-8 release notes. Without either, a real-only summary is generated.
     #[arg(long, value_name = "PATH")]
     pub release_notes_file: Option<PathBuf>,
     /// Print the plan only: no tool probe, build, login, upload or file write.
@@ -133,15 +104,15 @@ fn configuration(channel: Channel) -> Configuration {
             .filter(|value| !value.is_empty())
     };
     Configuration {
-        app_id: variable(if channel == Channel::Production {
-            request::PRODUCTION_APP_ID_ENV
+        app_id: variable(if channel == Channel::Release {
+            request::RELEASE_APP_ID_ENV
         } else {
             APP_ID_ENV
         }),
-        cert_sha256: variable(match channel {
-            Channel::Demo => CERT_ENV,
-            Channel::DemoQa => request::QA_CERT_ENV,
-            Channel::Production => request::PRODUCTION_CERT_ENV,
+        cert_sha256: variable(if channel == Channel::Release {
+            request::RELEASE_CERT_ENV
+        } else {
+            CERT_ENV
         }),
     }
 }
@@ -215,13 +186,25 @@ fn build_command(
     issuer: Option<&str>,
 ) -> crate::command::CommandSpec {
     match policy {
-        request::Policy::DemoApk => mobile_toolchain::android_command(workspace),
-        request::Policy::DemoQaApk => mobile_toolchain::android_qa_command(workspace),
-        request::Policy::ProductionApk => crate::theatre_host::gradle_debug_identity_command(
+        request::Policy::DevelopmentApk => crate::theatre_host::gradle_debug_identity_command(
             workspace,
             origin.unwrap_or_default(),
             issuer,
         ),
+        request::Policy::ReleaseApk => {
+            let mut command = crate::command::CommandSpec::new("cargo", workspace.root()).args([
+                "xtask",
+                "theatre-host",
+                "android-release",
+                "--sign",
+                "--api-origin",
+                origin.unwrap_or_default(),
+            ]);
+            if let Some(issuer) = issuer {
+                command = command.args(["--native-issuer", issuer]);
+            }
+            command
+        }
     }
 }
 
@@ -267,6 +250,7 @@ mod tests {
     use super::*;
     use crate::{
         command::testing::RecordingRunner,
+        mobile_toolchain,
         tools::{testing::FakeTools, Tool},
     };
 
@@ -279,10 +263,10 @@ mod tests {
 
     fn raw() -> Raw {
         Raw {
-            api_origin: None,
+            api_origin: Some("https://api.cantos.example".into()),
             native_issuer: None,
             target: Target::CantosTheatre,
-            channel: Channel::Demo,
+            channel: Channel::Development,
             artifact: ArtifactKind::Apk,
             app_id: None,
             groups: vec!["cantos-internal".into()],
@@ -340,9 +324,9 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         let mut runner = RecordingRunner::default();
         for (channel, artifact) in [
-            (Channel::Demo, ArtifactKind::Aab),
-            (Channel::DemoQa, ArtifactKind::Aab),
-            (Channel::Production, ArtifactKind::Aab),
+            (Channel::Development, ArtifactKind::Aab),
+            (Channel::Release, ArtifactKind::Aab),
+            (Channel::Release, ArtifactKind::Aab),
         ] {
             let raw = Raw {
                 channel,
@@ -441,7 +425,7 @@ mod tests {
                 ..raw()
             },
             Raw {
-                app_id: Some("com.cantos.theatre.demo".into()),
+                app_id: Some("com.cantos.theatre.dev".into()),
                 ..raw()
             },
         ] {
@@ -476,20 +460,20 @@ mod tests {
     }
 
     /// Host-capable check of the local half only: the installed Android tools against a
-    /// real, freshly built demo APK. It starts no Firebase process and makes no remote request.
+    /// real, freshly built development APK. It starts no Firebase process and makes no remote request.
     /// Run: `cargo xtask theatre-host android-debug --api-origin ORIGIN` then
     /// `cargo test -p xtask --locked -- --ignored --nocapture installed_android_tools`.
     #[test]
-    #[ignore = "needs a built demo APK and an installed Android SDK"]
-    fn installed_android_tools_accept_the_built_demo_apk() {
-        accept_built_apk(request::Policy::DemoApk);
+    #[ignore = "needs a built development APK and an installed Android SDK"]
+    fn installed_android_tools_accept_the_built_development_apk() {
+        accept_built_apk(request::Policy::DevelopmentApk);
     }
 
-    /// The same check for the optimized QA output (`:androidApp:assembleQa`, operator-signed).
+    /// The same check for the optimized release output (operator-signed).
     #[test]
-    #[ignore = "needs a built QA APK and an installed Android SDK"]
-    fn installed_android_tools_accept_the_built_qa_apk() {
-        accept_built_apk(request::Policy::DemoQaApk);
+    #[ignore = "needs a built release APK and an installed Android SDK"]
+    fn installed_android_tools_accept_the_built_release_apk() {
+        accept_built_apk(request::Policy::ReleaseApk);
     }
 
     fn accept_built_apk(policy: request::Policy) {
