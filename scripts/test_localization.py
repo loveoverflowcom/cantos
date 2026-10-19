@@ -221,6 +221,7 @@ class LocalizationRegressionTest(unittest.TestCase):
     def test_test_fixtures_are_not_production_ui(self):
         self.assertEqual(self.failures('Text("Fixture")', CMP.replace('/commonMain/', '/desktopTest/')), [])
 
+    @patch.dict("os.environ", {"GITHUB_ACTIONS": "", "GITHUB_EVENT_NAME": "", "GITHUB_REF": ""})
     def test_no_diff_base_fails_actionably_instead_of_silently_skipping(self):
         import subprocess
         with tempfile.TemporaryDirectory() as directory:
@@ -235,6 +236,9 @@ class LocalizationRegressionTest(unittest.TestCase):
                 checks.default_base(root)
             with patch.dict("os.environ", {"GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "push", "GITHUB_REF": "refs/heads/develop"}):
                 self.assertEqual(checks.default_base(root), first)
+            with patch.dict("os.environ", {"GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "pull_request", "GITHUB_REF": "refs/pull/304/merge"}):
+                with self.assertRaisesRegex(ValueError, "not a two-parent merge ref"):
+                    checks.default_base(root)
 
     def test_repository_checkout_retains_the_parent_for_changed_file_guard(self):
         workflow = (checks.ROOT / ".github/workflows/repository-checks.yml").read_text(encoding="utf-8")
