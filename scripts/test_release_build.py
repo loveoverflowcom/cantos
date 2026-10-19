@@ -85,7 +85,7 @@ class ReleaseBuildTests(unittest.TestCase):
             return {"name": "0.1.0", "code": 1}
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            with patch.object(release, "build", side_effect=fake_build):
+            with patch.object(release, "build", side_effect=fake_build), patch.object(contract, "validate_android_outputs"):
                 release.package(root, "android")
             text = next(root.rglob("manifest.json")).read_text()
             manifest = json.loads(text)

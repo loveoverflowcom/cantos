@@ -78,12 +78,57 @@ pub fn run(
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
+    let mut commands = vec![command(workspace, args)];
+    if args.self_test {
+        commands.push(
+            CommandSpec::new("cargo", workspace.root()).args(["fmt", "--all", "--", "--check"]),
+        );
+        commands.push(CommandSpec::new("cargo", workspace.root()).args([
+            "clippy",
+            "-p",
+            "xtask",
+            "--all-targets",
+            "--locked",
+            "--",
+            "-D",
+            "warnings",
+        ]));
+        commands.push(CommandSpec::new("python3", workspace.root()).args([
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "scripts",
+            "-p",
+            "test_*android*.py",
+        ]));
+        for pattern in [
+            "test_release_artifact.py",
+            "test_release_pipeline.py",
+            "test_circleci_cloudflare.py",
+        ] {
+            commands.push(
+                CommandSpec::new("python3", workspace.root())
+                    .args(["-m", "unittest", "discover", "-s", "scripts", "-p", pattern]),
+            );
+        }
+        for filter in ["distribute::", "theatre_host::"] {
+            commands.push(
+                CommandSpec::new("cargo", workspace.root())
+                    .args(["test", "-p", "xtask", "--locked", filter]),
+            );
+        }
+    }
     let report = pipeline::execute(
         "release-build",
         &[Step::new(
             "release-artifacts",
-            &[Tool::Python3],
-            vec![command(workspace, args)],
+            if args.self_test {
+                &[Tool::Python3, Tool::Cargo]
+            } else {
+                &[Tool::Python3]
+            },
+            commands,
         )],
         tools,
         runner,

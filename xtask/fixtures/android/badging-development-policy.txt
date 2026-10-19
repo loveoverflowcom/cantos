@@ -1,0 +1,12 @@
+package: name='com.cantos.theatre.dev' versionCode='1' versionName='0.1.0-dev' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+minSdkVersion:'23'
+targetSdkVersion:'35'
+uses-permission: name='com.cantos.theatre.dev.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+application: label='Cantos' icon=''
+application-debuggable
+launchable-activity: name='com.cantos.theatre.dev.MainActivity'  label='' icon=''
+  uses-feature: name='android.hardware.faketouch'
+  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'
+main
+other-activities
+other-receivers

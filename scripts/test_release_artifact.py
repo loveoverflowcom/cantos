@@ -13,6 +13,10 @@ from unittest.mock import patch
 import release_artifact as contract
 import release_build
 
+# Preserve the runner's explicit TMPDIR before class-level environment isolation clears it.
+# Otherwise macOS falls back to the /tmp symlink and tests never reach the archive policy.
+tempfile.gettempdir()
+
 
 SHA = "a" * 40
 ORIGIN = "https://api.example.org"

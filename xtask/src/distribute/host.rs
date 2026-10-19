@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 use super::{
     apk::{mapping_path, output_directory, OutputError, APK_LIMIT},
     receipt::Receipt,
-    request::{Policy, NOTES_LIMIT, QA_SIGNING_ENV},
+    request::{Policy, NOTES_LIMIT, RELEASE_SIGNING_ENV},
 };
 pub use crate::run_files::{sha256_hex, RunDir, SourceIdentity};
 use crate::{
@@ -80,12 +80,13 @@ pub trait Host {
         file_name: &str,
     ) -> Result<Staged, OutputError>;
     /// Names (never values) of the operator signing variables that are unset or empty.
-    fn missing_qa_signing_inputs(&self) -> Vec<&'static str>;
+    fn missing_release_signing_inputs(&self) -> Vec<&'static str>;
     /// Copy the R8 mapping of a shrunk variant into the run directory, hashing the copied bytes.
     fn stage_shrinker_mapping(
         &mut self,
         policy: Policy,
         run: &RunDir,
+        apk: &Staged,
     ) -> Result<Staged, OutputError>;
     /// Create a new private (owner-only) file in the run directory.
     fn write_private(&mut self, run: &RunDir, name: &str, bytes: &[u8]) -> Result<PathBuf, String>;
@@ -161,8 +162,8 @@ impl Host for SystemHost {
         )
     }
 
-    fn missing_qa_signing_inputs(&self) -> Vec<&'static str> {
-        QA_SIGNING_ENV
+    fn missing_release_signing_inputs(&self) -> Vec<&'static str> {
+        RELEASE_SIGNING_ENV
             .into_iter()
             .filter(|name| std::env::var_os(name).is_none_or(|value| value.is_empty()))
             .collect()
@@ -172,10 +173,19 @@ impl Host for SystemHost {
         &mut self,
         policy: Policy,
         run: &RunDir,
+        apk: &Staged,
     ) -> Result<Staged, OutputError> {
         let source = mapping_path(&self.mobile_dir(), policy)
             .ok_or_else(|| OutputError::FileMissing("mapping.txt".to_owned()))?;
-        copy_private(&source, &run.path.join("mapping.txt"), "mapping.txt")
+        let mapping = copy_private(&source, &run.path.join("mapping.txt"), "mapping.txt")?;
+        let path = self
+            .mobile_dir()
+            .join("androidApp/build/reports/release-boundary/release-evidence.json");
+        let bytes = read_notes_file(&path).map_err(|e| OutputError::Io(e.kind().to_string()))?;
+        let evidence: serde_json::Value = serde_json::from_slice(&bytes)
+            .map_err(|_| OutputError::Io("malformed release evidence".to_owned()))?;
+        validate_release_mapping(&evidence, apk, &mapping)?;
+        Ok(mapping)
     }
 
     fn write_private(&mut self, run: &RunDir, name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
@@ -238,6 +248,46 @@ fn copy_private(source: &Path, destination: &Path, name: &str) -> Result<Staged,
     })
 }
 
+/// A mapping is accepted only when the release audit record binds BOTH exact staged hashes.
+fn validate_release_mapping(
+    evidence: &serde_json::Value,
+    apk: &Staged,
+    mapping: &Staged,
+) -> Result<(), OutputError> {
+    let text = |pointer| {
+        evidence
+            .pointer(pointer)
+            .and_then(serde_json::Value::as_str)
+    };
+    let valid = evidence
+        .get("schema_version")
+        .and_then(serde_json::Value::as_u64)
+        == Some(1)
+        && text("/variant") == Some("release")
+        && text("/inputs/status") == Some("PASS")
+        && evidence
+            .pointer("/artifacts/audit/distributable")
+            .and_then(serde_json::Value::as_bool)
+            == Some(false)
+        && text("/artifacts/optimized/apk/sha256") == Some(apk.sha256.as_str())
+        && evidence
+            .pointer("/artifacts/optimized/apk/bytes")
+            .and_then(serde_json::Value::as_u64)
+            == Some(apk.size_bytes)
+        && text("/artifacts/optimized/mapping/sha256") == Some(mapping.sha256.as_str())
+        && evidence
+            .pointer("/artifacts/optimized/mapping/bytes")
+            .and_then(serde_json::Value::as_u64)
+            == Some(mapping.size_bytes);
+    if valid {
+        Ok(())
+    } else {
+        Err(OutputError::Io(
+            "audit/optimized APK/mapping binding mismatch".to_owned(),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -261,21 +311,60 @@ mod tests {
     }
 
     fn output_dir(root: &Path) -> PathBuf {
-        let dir = output_directory(&root.join(THEATRE_MOBILE_DIR), Policy::DemoApk);
+        let dir = output_directory(&root.join(THEATRE_MOBILE_DIR), Policy::DevelopmentApk);
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
 
     fn live() -> LiveRequest {
         LiveRequest {
-            api_origin: None,
+            api_origin: Some("https://api.cantos.example".into()),
             native_issuer: None,
-            policy: Policy::DemoApk,
+            policy: Policy::DevelopmentApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
             app_id_source: AppIdSource::Flag,
-            recipients: Recipients::new(&["qa".to_owned()], &[]).unwrap(),
+            recipients: Recipients::new(&["release".to_owned()], &[]).unwrap(),
             notes: NotesChoice::Generated,
             expected_cert: None,
+        }
+    }
+
+    #[test]
+    fn mapping_binding_rejects_audit_stale_apk_and_wrong_mapping() {
+        let apk = Staged {
+            path: "app.apk".into(),
+            sha256: "a".repeat(64),
+            size_bytes: 10,
+        };
+        let mapping = Staged {
+            path: "mapping.txt".into(),
+            sha256: "b".repeat(64),
+            size_bytes: 20,
+        };
+        let evidence = serde_json::json!({"schema_version":1,"variant":"release","inputs":{"status":"PASS"},
+            "artifacts":{"audit":{"distributable":false},"optimized":{"apk":{"sha256":apk.sha256,"bytes":10},
+            "mapping":{"sha256":mapping.sha256,"bytes":20}}}});
+        assert_eq!(validate_release_mapping(&evidence, &apk, &mapping), Ok(()));
+        for (pointer, value) in [
+            (
+                "/artifacts/optimized/apk/sha256",
+                serde_json::json!("wrong"),
+            ),
+            (
+                "/artifacts/optimized/mapping/sha256",
+                serde_json::json!("wrong"),
+            ),
+            ("/artifacts/audit/distributable", serde_json::json!(true)),
+            ("/inputs/status", serde_json::json!("FAIL")),
+        ] {
+            let mut wrong = evidence.clone();
+            *wrong.pointer_mut(pointer).unwrap() = value;
+            assert_eq!(
+                validate_release_mapping(&wrong, &apk, &mapping),
+                Err(OutputError::Io(
+                    "audit/optimized APK/mapping binding mismatch".to_owned()
+                ))
+            );
         }
     }
 
@@ -443,7 +532,9 @@ mod tests {
         std::fs::write(dir.join("a b.apk"), b"PK-demo-bytes").unwrap();
         let mut host = host(&root);
         let run = host.create_run().unwrap();
-        let staged = host.stage_output(Policy::DemoApk, &run, "a b.apk").unwrap();
+        let staged = host
+            .stage_output(Policy::DevelopmentApk, &run, "a b.apk")
+            .unwrap();
         assert_eq!(staged.size_bytes, 13);
         assert_eq!(staged.sha256, sha256_hex(b"PK-demo-bytes"));
         assert_eq!(std::fs::read(&staged.path).unwrap(), b"PK-demo-bytes");
@@ -457,7 +548,9 @@ mod tests {
         std::fs::write(dir.join("a b.apk"), b"tampered").unwrap();
         assert_eq!(host.hash_file(&staged.path).unwrap().0, staged.sha256);
         // A second stage of the same name in the same run is refused, not overwritten.
-        assert!(host.stage_output(Policy::DemoApk, &run, "a b.apk").is_err());
+        assert!(host
+            .stage_output(Policy::DevelopmentApk, &run, "a b.apk")
+            .is_err());
         std::fs::remove_dir_all(&root).unwrap();
     }
 
@@ -472,20 +565,20 @@ mod tests {
         let mut host = host(&root);
         let run = host.create_run().unwrap();
         assert_eq!(
-            host.stage_output(Policy::DemoApk, &run, "missing.apk"),
+            host.stage_output(Policy::DevelopmentApk, &run, "missing.apk"),
             Err(OutputError::FileMissing("missing.apk".into()))
         );
         assert_eq!(
-            host.stage_output(Policy::DemoApk, &run, "empty.apk"),
+            host.stage_output(Policy::DevelopmentApk, &run, "empty.apk"),
             Err(OutputError::Empty("empty.apk".into()))
         );
         assert_eq!(
-            host.stage_output(Policy::DemoApk, &run, "dir.apk"),
+            host.stage_output(Policy::DevelopmentApk, &run, "dir.apk"),
             Err(OutputError::NotRegularFile("dir.apk".into()))
         );
         #[cfg(unix)]
         assert_eq!(
-            host.stage_output(Policy::DemoApk, &run, "link.apk"),
+            host.stage_output(Policy::DevelopmentApk, &run, "link.apk"),
             Err(OutputError::NotRegularFile("link.apk".into()))
         );
         std::fs::remove_dir_all(&root).unwrap();
@@ -496,12 +589,15 @@ mod tests {
         let root = temp("metadata");
         let mut host = host(&root);
         assert_eq!(
-            host.read_output_metadata(Policy::DemoApk),
+            host.read_output_metadata(Policy::DevelopmentApk),
             Err(OutputError::MetadataMissing)
         );
         let dir = output_dir(&root);
         std::fs::write(dir.join("output-metadata.json"), b"{}").unwrap();
-        assert_eq!(host.read_output_metadata(Policy::DemoApk).unwrap(), b"{}");
+        assert_eq!(
+            host.read_output_metadata(Policy::DevelopmentApk).unwrap(),
+            b"{}"
+        );
         std::fs::remove_dir_all(&root).unwrap();
     }
 

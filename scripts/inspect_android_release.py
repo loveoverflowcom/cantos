@@ -13,6 +13,7 @@ Exit 0 means no finding; 1 means findings; 2 means the inputs could not be inspe
 
 import argparse
 import hashlib
+import json
 import re
 import struct
 import subprocess
@@ -28,7 +29,7 @@ TEST_NAMESPACES = (
     "Landroidx/compose/ui/test/", "Landroidx/compose/ui/tooling/", "Lorg/mockito/",
 )
 CANTOS_SANDBOX_SEGMENTS = {"mock", "demo", "sandbox", "preview", "workbench"}
-CANTOS_SANDBOX_NAME = re.compile(r"(?:Mock|Fake|Demo)[A-Z]|CantosDemo")
+CANTOS_SANDBOX_NAME = re.compile(r"(?:Mock|Fake|Demo|Fixture)[A-Z]|CantosDemo")
 SANDBOX_TOKEN = re.compile(r"mock|demo|sandbox|preview|workbench|fixture", re.I)
 COMPONENT_TAGS = {"activity", "activity-alias", "service", "receiver", "provider"}
 ANDROID_NAMESPACE = "http://schemas.android.com/apk/res/android:"
@@ -91,6 +92,23 @@ def class_inventory(directory):
             for path in root.rglob("*.class") if "META-INF" not in path.relative_to(root).parts}
 
 
+def source_inventory(directory):
+    """Native-independent inventory: sandbox is JVM-only and is never compiled by Android tasks."""
+    classes = set()
+    for path in Path(directory).rglob("*.kt"):
+        text = path.read_text()
+        package = re.search(r"^package ([\w.]+)", text, re.M)
+        if not package:
+            continue
+        prefix = "L" + package[1].replace(".", "/") + "/"
+        classes.add(prefix + path.stem + "Kt;")
+        for name in re.findall(r"\b(?:class|interface|object)\s+(\w+)", text):
+            classes.add(prefix + name + ";")
+    if not classes:
+        raise InspectionError("sandbox source inventory is empty")
+    return classes
+
+
 def resource_hashes(directory):
     root = Path(directory)
     if not root.is_dir():
@@ -102,7 +120,7 @@ def resource_hashes(directory):
 def class_findings(classes, forbidden):
     findings = []
     for name in sorted(classes):
-        if name in forbidden:
+        if name in forbidden or name.split("$")[0] + ";" in forbidden:
             findings.append(f"defines sandbox class {name}")
         elif name.startswith(TEST_NAMESPACES):
             findings.append(f"defines test/tooling class {name}")
@@ -236,17 +254,42 @@ def dump_manifest(aapt2, archive, manifest, proto):
     return result.stdout
 
 
+def release_metadata_findings(elements, application_id, *, audit=False, callback=True):
+    values = [attrs.get("value") for _, tag, attrs in elements
+              if tag == "meta-data" and attrs.get("name") == "CantosReleaseAudit"]
+    allowed = {"true", "0xffffffff", "-1"} if audit else {"false", "0x0", "0"}
+    findings = []
+    if len(values) != 1 or values[0] not in allowed:
+        findings.append("missing or wrong audit marker; distribution refuses audit bytes")
+    schemes = [attrs.get("scheme") for _, tag, attrs in elements if tag == "data" and "scheme" in attrs]
+    if callback and schemes != [application_id]:
+        findings.append("callback scheme differs from application identity")
+    return findings
+
+
 def inspect(args, dump=dump_manifest):
     forbidden = set()
-    for directory in args.forbidden_classes:
+    for directory in getattr(args, "forbidden_classes", []):
         forbidden |= class_inventory(directory)
+    for directory in getattr(args, "forbidden_source", []):
+        forbidden |= source_inventory(directory)
     if not forbidden:
         raise InspectionError("forbidden sandbox class inventory is empty; inspection would be vacuous")
     forbidden_hashes = {}
     for directory in args.forbidden_resources:
         forbidden_hashes.update(resource_hashes(directory))
     report = [f"Production Android release artifact inspection: {args.application_id}",
+              f"variant={'debug' if getattr(args, 'debug_apk', False) else 'release'} audit={getattr(args, 'audit', False)}",
               f"forbidden sandbox classes: {len(forbidden)}; forbidden resource files: {len(forbidden_hashes)}"]
+    if getattr(args, "output_metadata", None):
+        metadata = json.loads(args.output_metadata.read_text())
+        outputs = metadata.get("elements", [])
+        if metadata.get("variantName") != "release" or metadata.get("applicationId") != args.application_id or len(outputs) != 1 or outputs[0].get("type") != "SINGLE" or outputs[0].get("filters"):
+            raise InspectionError("ambiguous/foreign output metadata")
+        name = outputs[0]["outputFile"]
+        if Path(name).name != name or not name.endswith(".apk"):
+            raise InspectionError("unsafe output metadata filename")
+        args.apk = args.output_metadata.parent / name
     findings, defined = [], {}
     artifacts = (
             ("apk", args.apk, r"classes\d*\.dex", "AndroidManifest.xml"),
@@ -263,6 +306,11 @@ def inspect(args, dump=dump_manifest):
             + archive_findings(entries, forbidden_hashes, args.compose_resource_package)
             + manifest_findings(parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.application_id,
                                 args.launcher, set(args.allowed_permission), getattr(args, "debug_apk", False), getattr(args, "allowed_component", ())))]
+        elements = parse_xmltree(dump(args.aapt2, path, manifest, proto))
+        if getattr(args, "enforce_audit_marker", False):
+            own += [f"{label}: {f}" for f in release_metadata_findings(elements, args.application_id,
+                        audit=getattr(args, "audit", False), callback=getattr(args, "enforce_callback", False))]
+        # R8 may inline or merge ordinary classes. Only manifest entrypoint names remain required.
         own += [f"{label}: required production class {name} is absent"
                 for name in args.require_class if name not in classes]
         if getattr(args, "api_origin", None) is not None:
@@ -283,6 +331,7 @@ def inspect(args, dump=dump_manifest):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--output-metadata", type=Path)
     parser.add_argument("--apk", required=True, type=Path)
     parser.add_argument("--aab", type=Path)
     parser.add_argument("--debug-apk", action="store_true", help="inspect one production debug APK; never a release acceptance")
@@ -292,7 +341,12 @@ def main(argv=None):
     parser.add_argument("--application-id", required=True)
     parser.add_argument("--launcher", required=True, help="fully qualified launcher activity")
     parser.add_argument("--compose-resource-package", required=True)
-    parser.add_argument("--forbidden-classes", action="append", required=True, type=Path)
+    parser.add_argument("--forbidden-classes", action="append", default=[], type=Path)
+    parser.add_argument("--forbidden-source", action="append", default=[], type=Path)
+    parser.add_argument("--audit", action="store_true")
+    parser.add_argument("--enforce-audit-marker", action="store_true")
+    parser.add_argument("--enforce-callback", action="store_true")
+    parser.add_argument("--apk-only", action="store_true")
     parser.add_argument("--forbidden-resources", action="append", default=[], type=Path)
     parser.add_argument("--require-class", action="append", default=[])
     parser.add_argument("--allowed-permission", action="append", default=[])
@@ -301,7 +355,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.aab is not None and args.debug_apk:
         parser.error("--debug-apk inspects only an APK; omit --aab")
-    if args.aab is None and not args.debug_apk:
+    if args.aab is None and not args.debug_apk and not args.apk_only:
         parser.error("--aab is required unless --debug-apk is selected")
     try:
         findings, report = inspect(args)

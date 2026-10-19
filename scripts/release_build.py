@@ -129,14 +129,20 @@ def build(root, target, sha, output, origin=API_ORIGIN):
         return {"name": tomllib.loads((root / "apps" / app / "web/Cargo.toml").read_text())["package"]["version"]}
     run(root, ["cargo", "xtask", "theatre-host", "android-release", "--api-origin", API_ORIGIN])
     base = root / MOBILE / "androidApp/build"
-    for relative in ("outputs/apk/release/androidApp-release-unsigned.apk",
-                     "outputs/bundle/release/androidApp-release.aab",
-                     "reports/release-boundary/artifact-inspection.txt",
-                     "reports/release-boundary/resolved-dependencies.txt"):
-        source = base / relative
-        if not source.is_file() or source.is_symlink():
-            raise ValueError("missing or invalid production Android output")
-        shutil.copyfile(source, output / source.name)
+    for mode, directory in (("optimized", base), ("audit", base.with_name("build-audit"))):
+        paths = ["outputs/apk/release/androidApp-release-unsigned.apk",
+                 "outputs/bundle/release/androidApp-release.aab",
+                 "reports/release-boundary/artifact-inspection.txt",
+                 "reports/release-boundary/resolved-dependencies.txt",
+                 "reports/release-boundary/pre-shrink.json"]
+        if mode == "optimized":
+            paths += ["outputs/mapping/release/mapping.txt", "reports/release-boundary/release-evidence.json"]
+        for relative in paths:
+            source = directory / relative
+            if not source.is_file() or source.is_symlink():
+                raise ValueError("missing or invalid production Android output")
+            name = source.name if mode == "optimized" else "audit-" + source.name
+            shutil.copyfile(source, output / name)
     return android_version(root)
 
 
