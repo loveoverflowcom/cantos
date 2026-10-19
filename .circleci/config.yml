@@ -14,6 +14,15 @@ version: 2.1
 #         (`ssh-keyscan -t ed25519 <host>` checked against the host), CANTOS_API_ORIGIN
 #   Web:  FIREBASE_PROJECT, FIREBASE_THEATRE_SITE, FIREBASE_STUDIO_SITE and
 #         FIREBASE_SERVICE_ACCOUNT_JSON (a key limited to Firebase Hosting Admin on that project)
+#
+# Cloudflare Pages is a separate, opt-in Web lane (web-provider=cloudflare; ADR 0043). It never
+# uses the `production` context. Context `cloudflare-web` alone provides, and only to the one job
+# that publishes (the packaging job that builds has no credentials):
+#   CLOUDFLARE_API_TOKEN (Account / Cloudflare Pages / Edit; no DNS, no Workers, no zone scope),
+#   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_THEATRE_PROJECT, CLOUDFLARE_STUDIO_PROJECT and
+#   CLOUDFLARE_PRODUCTION_BRANCH (nonsecret).
+# The lane resolves the target once, builds once with `cargo xtask release-build`, waits for a
+# manual approval and uploads exactly that artifact with `cargo xtask deploy cloudflare`.
 
 parameters:
   build:
@@ -34,6 +43,20 @@ parameters:
     enum: [api, theatre-web, studio-web, web, all]
     default: api
     description: "What to deploy."
+  web-provider:
+    type: enum
+    enum: [firebase, cloudflare]
+    default: firebase
+    description: "Which Web host receives theatre-web/studio-web. Cloudflare is opt-in and needs the cloudflare-web context."
+  web-environment:
+    type: enum
+    enum: [preview, production]
+    default: preview
+    description: "Cloudflare only: preview is a PUBLIC *.pages.dev URL; production replaces the project's live site."
+  web-branch:
+    type: string
+    default: ""
+    description: "Cloudflare only: Pages branch. Empty means the project's production branch for production; required for preview."
 
 commands:
   install-build-rust:
@@ -370,6 +393,132 @@ jobs:
           when: always
           command: rm -rf ~/.config/cantos-ci
 
+  package-web-release:
+    # Credential-free: resolves the target once and builds the one artifact the publisher uploads.
+    parameters:
+      app:
+        type: enum
+        enum: [theatre-web, studio-web]
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    steps:
+      - checkout
+      - resolve-target
+      - install-build-rust
+      - build-cache-restore
+      - install-build-trunk
+      - run:
+          name: Web contract before packaging
+          no_output_timeout: 30m
+          command: cargo xtask ci --job web
+      - run:
+          name: Remove only CI-owned verification dist before fresh release build
+          command: |
+            case "<< parameters.app >>" in
+              theatre-web) rm -rf apps/cantos-theatre/web/dist ;;
+              studio-web) rm -rf apps/cantos-studio/web/dist ;;
+            esac
+      - run:
+          name: Package the source-bound release bundle once
+          no_output_timeout: 30m
+          command: cargo xtask release-build << parameters.app >>
+      - build-cache-save
+      - persist_to_workspace:
+          root: artifacts/release-build
+          paths:
+            - << parameters.app >>
+
+  deploy-web-cloudflare:
+    # Uploads the persisted artifact to Cloudflare Pages. It never builds, and the only
+    # credentials it can see are the Pages-scoped token and nonsecret destination names.
+    parameters:
+      app:
+        type: enum
+        enum: [cantos-theatre, cantos-studio]
+      component:
+        type: enum
+        enum: [theatre-web, studio-web]
+    docker:
+      - image: cimg/rust:1.98.1-node
+    resource_class: large
+    steps:
+      - checkout
+      - attach_workspace:
+          at: artifacts/release-build
+      - require-env:
+          names: CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_THEATRE_PROJECT CLOUDFLARE_STUDIO_PROJECT CLOUDFLARE_PRODUCTION_BRANCH
+      - run:
+          name: Check out the exact source SHA of the artifact (must be in origin/develop)
+          command: |
+            set -Eeuo pipefail
+            shopt -s nullglob
+            directories=(artifacts/release-build/<< parameters.component >>/*/)
+            if [[ "${#directories[@]}" -ne 1 ]]; then
+              echo "Expected exactly one release artifact directory." >&2
+              exit 1
+            fi
+            sha="$(basename "${directories[0]}")"
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Artifact directory is not a full SHA." >&2; exit 1; }
+            git fetch --prune --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+            git merge-base --is-ancestor "$sha" refs/remotes/origin/develop
+            git checkout --detach "$sha"
+            echo "export CANTOS_RELEASE_DIR=artifacts/release-build/<< parameters.component >>/$sha" >> "$BASH_ENV"
+      - run:
+          name: Require a Node.js supported by the pinned Wrangler
+          command: |
+            set -Eeuo pipefail
+            major="$(node --version | sed -E 's/^v([0-9]+).*/\1/')"
+            [[ "$major" -ge 22 ]] || { echo "Node.js 22 or newer is required." >&2; exit 1; }
+      - run:
+          name: Provide the destination mapping outside Git
+          environment:
+            WEB_ENVIRONMENT: << pipeline.parameters.web-environment >>
+            WEB_BRANCH: << pipeline.parameters.web-branch >>
+          command: |
+            set -Eeuo pipefail
+            umask 077
+            # infra/cloudflare/projects.json is ignored by Git; xtask reads it as strict JSON.
+            python3 - \<<'EOF'
+            import json, os
+            branch = os.environ["CLOUDFLARE_PRODUCTION_BRANCH"]
+            mapping = {"schema_version": 1, "accounts": {os.environ["CLOUDFLARE_ACCOUNT_ID"]: {
+                "theatre": {"project": os.environ["CLOUDFLARE_THEATRE_PROJECT"], "production_branch": branch},
+                "studio": {"project": os.environ["CLOUDFLARE_STUDIO_PROJECT"], "production_branch": branch}}}}
+            with open("infra/cloudflare/projects.json", "w") as handle:
+                json.dump(mapping, handle)
+            EOF
+      - run:
+          name: Install the pinned Wrangler from the lockfile (no implicit download, no global install)
+          command: npm ci --ignore-scripts --prefix infra/cloudflare/wrangler
+      - run:
+          name: Publish << parameters.app >> to Cloudflare Pages
+          no_output_timeout: 30m
+          environment:
+            WEB_ENVIRONMENT: << pipeline.parameters.web-environment >>
+            WEB_BRANCH: << pipeline.parameters.web-branch >>
+          command: |
+            set -Eeuo pipefail
+            case "<< parameters.app >>" in
+              cantos-theatre) project="${CLOUDFLARE_THEATRE_PROJECT}" ;;
+              cantos-studio) project="${CLOUDFLARE_STUDIO_PROJECT}" ;;
+            esac
+            branch="${WEB_BRANCH:-}"
+            if [[ -z "$branch" && "${WEB_ENVIRONMENT}" == production ]]; then
+              branch="${CLOUDFLARE_PRODUCTION_BRANCH}"
+            fi
+            [[ -n "$branch" ]] || { echo "Enter web-branch for a preview." >&2; exit 1; }
+            args=(deploy cloudflare << parameters.app >> --web
+              --account "${CLOUDFLARE_ACCOUNT_ID}" --project "$project"
+              --branch "$branch" --environment "${WEB_ENVIRONMENT}"
+              --artifact "${CANTOS_RELEASE_DIR}")
+            cargo xtask "${args[@]}" --dry-run
+            cargo xtask "${args[@]}"
+      - store_artifacts:
+          when: always
+          path: artifacts/cloudflare
+          destination: pages-run-records
+
 workflows:
   deploy-api:
     when:
@@ -389,6 +538,7 @@ workflows:
       and:
         - not: << pipeline.parameters.build >>
         - << pipeline.parameters.target >>
+        - equal: [firebase, << pipeline.parameters.web-provider >>]
         - or:
             - equal: [theatre-web, << pipeline.parameters.component >>]
             - equal: [web, << pipeline.parameters.component >>]
@@ -405,6 +555,7 @@ workflows:
       and:
         - not: << pipeline.parameters.build >>
         - << pipeline.parameters.target >>
+        - equal: [firebase, << pipeline.parameters.web-provider >>]
         - or:
             - equal: [studio-web, << pipeline.parameters.component >>]
             - equal: [web, << pipeline.parameters.component >>]
@@ -415,6 +566,56 @@ workflows:
           app: cantos-studio
           context: [production]
           serial-group: << pipeline.project.slug >>/production-studio-web
+
+  release-cloudflare-theatre-web:
+    when:
+      and:
+        - not: << pipeline.parameters.build >>
+        - << pipeline.parameters.target >>
+        - equal: [cloudflare, << pipeline.parameters.web-provider >>]
+        - or:
+            - equal: [theatre-web, << pipeline.parameters.component >>]
+            - equal: [web, << pipeline.parameters.component >>]
+            - equal: [all, << pipeline.parameters.component >>]
+    jobs:
+      - package-web-release:
+          name: package-theatre-web
+          app: theatre-web
+      - approve-cloudflare-theatre-web:
+          type: approval
+          requires: [package-theatre-web]
+      - deploy-web-cloudflare:
+          name: deploy-cloudflare-theatre-web
+          app: cantos-theatre
+          component: theatre-web
+          requires: [approve-cloudflare-theatre-web]
+          context: [cloudflare-web]
+          serial-group: << pipeline.project.slug >>/cloudflare-theatre-web
+
+  release-cloudflare-studio-web:
+    when:
+      and:
+        - not: << pipeline.parameters.build >>
+        - << pipeline.parameters.target >>
+        - equal: [cloudflare, << pipeline.parameters.web-provider >>]
+        - or:
+            - equal: [studio-web, << pipeline.parameters.component >>]
+            - equal: [web, << pipeline.parameters.component >>]
+            - equal: [all, << pipeline.parameters.component >>]
+    jobs:
+      - package-web-release:
+          name: package-studio-web
+          app: studio-web
+      - approve-cloudflare-studio-web:
+          type: approval
+          requires: [package-studio-web]
+      - deploy-web-cloudflare:
+          name: deploy-cloudflare-studio-web
+          app: cantos-studio
+          component: studio-web
+          requires: [approve-cloudflare-studio-web]
+          context: [cloudflare-web]
+          serial-group: << pipeline.project.slug >>/cloudflare-studio-web
 
   artifacts-api:
     when:

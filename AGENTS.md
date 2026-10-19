@@ -144,6 +144,15 @@ records. It never queries/deploys a provider or establishes live acceptance, and
 Retire only Firebase Hosting after separately authorized cutover/recovery acceptance and the
 agreed retention window; preserve Auth, Functions, App Distribution, API and storage owners.
 
+Cloudflare Pages Direct Upload of one already built Web artifact is the explicit, opt-in
+`cargo xtask deploy cloudflare <cantos-theatre|cantos-studio> --web --account ID --project NAME --branch BRANCH --environment production|preview --artifact DIR`
+([contract](xtask/README.md#deploy-cloudflare), [runbook](docs/deployment/cloudflare-pages.md),
+[ADR 0043](docs/decisions/0043-cloudflare-pages-direct-upload.md), proposed). It never builds, is a
+remote write that publishes a PUBLIC `*.pages.dev` preview or replaces a live project: `--dry-run`
+shows the plan, and an agent runs the real command only on the user's explicit request naming the
+account, project, branch, environment and artifact. Creating the token, projects or domains and any
+cutover are operator steps; agents never create credentials. No real deployment has run.
+
 Production API deployment to the VPS is the explicit, opt-in
 `cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2]`
 ([contract](xtask/README.md#deploy-vps), [runbook](docs/deployment/vps-production.md)). It builds the

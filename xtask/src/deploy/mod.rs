@@ -43,6 +43,7 @@
 //! so the live path there stops at the `Firebase CLI` stage (`UNSUPPORTED`) by design.
 
 mod bundle;
+mod cloudflare;
 mod firebase;
 mod flow;
 mod host;
@@ -74,6 +75,8 @@ pub struct DeployArgs {
 pub enum Provider {
     /// Build one Leptos Web app once and deploy it to Firebase Hosting (preview or live).
     Firebase(FirebaseArgs),
+    /// Publish a verified release-build Web artifact to Cloudflare Pages (Direct Upload).
+    Cloudflare(cloudflare::CloudflareArgs),
     /// Build the API image locally and deploy it to the production VPS over SSH.
     Vps(vps::VpsArgs),
 }
@@ -136,6 +139,7 @@ pub fn execute(
 ) -> Result<ExitCode> {
     let args = match &args.provider {
         Provider::Firebase(args) => args,
+        Provider::Cloudflare(args) => return cloudflare::execute(workspace, args, tools),
         Provider::Vps(args) => return vps::execute(workspace, args, runner),
     };
     let raw = Raw {

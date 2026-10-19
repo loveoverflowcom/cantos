@@ -1,0 +1,9 @@
+{
+  "name": "cantos-cloudflare-wrangler",
+  "private": true,
+  "description": "Pinned Wrangler for `cargo xtask deploy cloudflare`; install with `npm ci`. Not an application.",
+  "engines": { "node": ">=22.0.0" },
+  "devDependencies": {
+    "wrangler": "4.151.2"
+  }
+}
