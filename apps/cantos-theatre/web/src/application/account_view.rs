@@ -2,6 +2,7 @@
 use super::account::{AccountError, AccountGeneration, AccountScope, AccountState, RequestFence};
 pub use super::library::LibraryProjection;
 use super::library::{LibraryPage, PageRequest, Section};
+pub use super::library_sync::{AccountSyncJournal, LibrarySyncState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccountFailure {
@@ -52,6 +53,7 @@ pub struct AccountViewState {
     account: AccountState,
     phase: SessionPhase,
     library: Option<LibraryProjection>,
+    sync: Option<LibrarySyncState>,
     cleanup_in_flight: bool,
     cleanup_intent: CleanupIntent,
 }
@@ -62,6 +64,18 @@ impl AccountViewState {
     }
     pub fn library(&self) -> Option<&LibraryProjection> {
         self.library.as_ref()
+    }
+    pub fn sync(&self) -> Option<&LibrarySyncState> {
+        self.sync.as_ref()
+    }
+    pub fn fence(&self) -> Option<RequestFence> {
+        if self.phase != SessionPhase::SignedIn {
+            return None;
+        }
+        self.account.fence().ok()
+    }
+    pub fn accepts(&self, fence: &RequestFence) -> bool {
+        self.phase == SessionPhase::SignedIn && self.account.accepts(fence)
     }
     pub fn can_authenticate(&self) -> bool {
         self.phase == SessionPhase::Guest && !self.account.logout_pending()
@@ -92,6 +106,7 @@ impl AccountViewState {
     }
     fn clear_private(&mut self) {
         self.library = None;
+        self.sync = None;
     }
     pub fn begin_refresh(&mut self) -> Result<AccountGeneration, AccountError> {
         if self.account.logout_pending() {
@@ -115,9 +130,12 @@ impl AccountViewState {
         }
         match result {
             Ok(scope) => {
+                let actor = scope.actor().to_owned();
                 self.account.finish_session(issued, scope)?;
                 self.phase = SessionPhase::SignedIn;
                 self.library = Some(LibraryProjection::default());
+                self.sync =
+                    LibrarySyncState::new(actor, super::library_sync::generate_uuid_string());
                 Ok(SessionCompletion::Authenticated(self.account.fence()?))
             }
             Err(AccountFailure::SignedOut) => {
@@ -128,6 +146,77 @@ impl AccountViewState {
                 self.phase = SessionPhase::Failed(error);
                 Ok(SessionCompletion::Ignored)
             }
+        }
+    }
+    /// Restore a validated account-scoped outbox journal for the active session fence.
+    pub fn restore_sync_journal(
+        &mut self,
+        fence: &RequestFence,
+        journal: AccountSyncJournal,
+    ) -> bool {
+        if !self.accepts(fence) {
+            return false;
+        }
+        let Some(actor) = self.actor().map(str::to_owned) else {
+            return false;
+        };
+        let Some(validated) = journal.restore_for_actor(&actor) else {
+            return false;
+        };
+        self.sync = Some(LibrarySyncState::from_journal(validated));
+        if let (Some(sync), Some(library)) = (self.sync.as_ref(), self.library.as_mut()) {
+            sync.sync_projection(library);
+        }
+        true
+    }
+    /// Mutate the authenticated sync coordinator and reconcile the in-memory library projection.
+    pub fn with_sync_mut<R>(
+        &mut self,
+        f: impl FnOnce(&mut LibrarySyncState, Option<&mut LibraryProjection>) -> R,
+    ) -> Option<(RequestFence, R)> {
+        let fence = self.fence()?;
+        let sync = self.sync.as_mut()?;
+        let out = f(sync, self.library.as_mut());
+        if let Some(library) = self.library.as_mut() {
+            sync.sync_projection(library);
+        }
+        Some((fence, out))
+    }
+    /// Apply a fenced sync update when a response returns for `fence`.
+    pub fn with_fenced_sync_mut<R>(
+        &mut self,
+        fence: &RequestFence,
+        f: impl FnOnce(&mut LibrarySyncState, Option<&mut LibraryProjection>) -> R,
+    ) -> Option<R> {
+        if !self.accepts(fence) {
+            return None;
+        }
+        let sync = self.sync.as_mut()?;
+        let out = f(sync, self.library.as_mut());
+        if let Some(library) = self.library.as_mut() {
+            sync.sync_projection(library);
+        }
+        Some(out)
+    }
+    /// Handle an authentication failure observed by a fenced library or progress command.
+    pub fn fail_fenced_command(
+        &mut self,
+        fence: &RequestFence,
+        failure: AccountFailure,
+    ) -> Result<LibraryCompletion, AccountError> {
+        if !self.accepts(fence) {
+            return Ok(LibraryCompletion::Ignored);
+        }
+        match failure {
+            AccountFailure::SignedOut => {
+                Ok(LibraryCompletion::Cleanup(self.begin_expiry_cleanup()?))
+            }
+            AccountFailure::SessionChanged => {
+                self.clear_private();
+                self.phase = SessionPhase::Failed(AccountFailure::SessionChanged);
+                Ok(LibraryCompletion::Applied)
+            }
+            _ => Ok(LibraryCompletion::Ignored),
         }
     }
     pub fn begin_logout(&mut self) -> Result<AccountGeneration, AccountError> {
@@ -191,8 +280,43 @@ impl AccountViewState {
             return Ok(LibraryCompletion::Ignored);
         };
         let failure = result.as_ref().err().copied();
+        let page_snapshot = result.as_ref().ok().cloned();
         if !library.finish(&request.page, result) {
             return Ok(LibraryCompletion::Ignored);
+        }
+        if library.phase(request.page.section) == super::library::PagePhase::Ready {
+            if let (Some(page), Some(sync)) = (page_snapshot, self.sync.as_mut()) {
+                match page {
+                    LibraryPage::Continue(body) => {
+                        for item in body.items {
+                            if let Some(presentation) = item.presentation {
+                                sync.remember_audio_presentation(presentation);
+                            }
+                            sync.observe_progress_record(item.progress);
+                        }
+                    }
+                    LibraryPage::Saved(body) => {
+                        for item in body.items {
+                            if let Some(presentation) = item.presentation {
+                                sync.remember_work_presentation(presentation);
+                            }
+                            sync.observe_saved_record(item.saved);
+                        }
+                    }
+                    LibraryPage::History(body) => {
+                        sync.observe_history_state(body.state);
+                        for item in body.items {
+                            if let Some(presentation) = item.presentation {
+                                sync.remember_audio_presentation(presentation);
+                            }
+                            if let Some(progress) = item.progress {
+                                sync.observe_progress_record(progress);
+                            }
+                        }
+                    }
+                }
+                sync.sync_projection(library);
+            }
         }
         match failure {
             Some(AccountFailure::SignedOut) => {
@@ -216,6 +340,9 @@ pub struct LibraryRequest {
 impl LibraryRequest {
     pub fn session(&self) -> &str {
         self.fence.session()
+    }
+    pub fn fence(&self) -> &RequestFence {
+        &self.fence
     }
 }
 
@@ -363,5 +490,50 @@ mod tests {
         assert!(!s.finish_logout(explicit, Err(AccountFailure::Unavailable)));
         s.begin_logout().unwrap();
         assert_eq!(s.cleanup_intent(), &expected);
+    }
+    #[test]
+    fn account_switch_isolates_sync_registers_and_fences_late_command_responses() {
+        let mut s = AccountViewState::default();
+        authenticate(&mut s, "a", 1);
+        let work_id = uuid::Uuid::from_u128(99).to_string();
+        let (fence_a, pending_a) = s
+            .with_sync_mut(|sync, _| {
+                sync.request_saved(
+                    &work_id,
+                    true,
+                    uuid::Uuid::from_u128(500).to_string(),
+                    Some(1_000),
+                )
+            })
+            .unwrap();
+        assert!(pending_a.is_some());
+        let journal_a = s.sync().unwrap().to_journal();
+
+        let cleanup = s.begin_logout().unwrap();
+        assert!(s.sync().is_none());
+        assert!(s.with_fenced_sync_mut(&fence_a, |_, _| ()).is_none());
+        assert!(s.finish_logout(cleanup, Ok(())));
+
+        authenticate(&mut s, "b", 2);
+        let fence_b = s.fence().unwrap();
+        // A's journal is rejected for actor B.
+        assert!(!s.restore_sync_journal(&fence_b, journal_a));
+        // Late A command failure or receipt cannot touch B.
+        assert_eq!(
+            s.fail_fenced_command(&fence_a, AccountFailure::SignedOut),
+            Ok(LibraryCompletion::Ignored)
+        );
+        assert!(s
+            .with_fenced_sync_mut(&fence_a, |sync, _| {
+                sync.observe_saved_record(cantos_contracts::listener_library::SavedRecord {
+                    work_id: work_id.clone(),
+                    saved: true,
+                    revision: 1,
+                    listener_order: 1,
+                    accepted_at_ms: 2_000,
+                })
+            })
+            .is_none());
+        assert!(s.sync().unwrap().saved_work(&work_id).is_none());
     }
 }

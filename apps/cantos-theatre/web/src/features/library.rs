@@ -287,7 +287,7 @@ pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView 
 }
 
 pub(crate) mod live;
-pub(crate) use live::LiveLibrary;
+pub(crate) use live::{LibraryActions, LiveLibrary};
 
 #[cfg(all(test, feature = "preview"))]
 mod tests {

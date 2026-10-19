@@ -3,6 +3,8 @@
 //! and owns the one player. Opening this page never plays anything.
 use crate::{
     application::{
+        account_view::{AccountViewState, SessionPhase},
+        library_sync::{ResumeAttemptState, ResumeRefusal, SavedCommandPhase},
         player_session::PlayerSession,
         public_listen::{ListenFailure, ListenState},
         public_work::{PageStatus, ReadFailure, UnitList, WorkDetailPhase, WorkDetailState},
@@ -17,7 +19,12 @@ use crate::{
     },
     messages::{self, text, Key, Locale},
 };
-use cantos_contracts::theatre::{PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind};
+use cantos_contracts::{
+    listener_library::{
+        AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
+    },
+    theatre::{PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind},
+};
 use cantos_ui::{AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason};
 use leptos::prelude::*;
 
@@ -204,6 +211,15 @@ fn status_line(units: &UnitList, work_kind: WorkKind, locale: Locale) -> String 
         .join(" ")
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct WorkSyncControls {
+    pub account: RwSignal<AccountViewState>,
+    pub on_login_to_save: Callback<()>,
+    pub on_set_saved: Callback<(String, bool, Option<WorkPresentation>)>,
+    pub on_retry_saved: Callback<String>,
+    pub on_resume: Callback<(AudioIdentity, u64, ResumeStatus, Option<AudioPresentation>)>,
+}
+
 #[component]
 pub(crate) fn PublicWorkDetail(
     state: RwSignal<WorkDetailState>,
@@ -212,6 +228,7 @@ pub(crate) fn PublicWorkDetail(
     on_back: Callback<()>,
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
+    #[prop(optional)] sync_controls: Option<WorkSyncControls>,
 ) -> impl IntoView {
     let current = Memo::new(move |_| state.with(shape));
     view! {
@@ -228,7 +245,7 @@ pub(crate) fn PublicWorkDetail(
                 Shape::NotFound => view! {
                     <div class="theatre-public-state theatre-panel">
                         <h1 id=HEADING_ID tabindex="-1">{move || text(Key::PublicWorkNotFound, locale.get())}</h1>
-                        <p>{move || text(Key::PublicWorkNotFoundHelp, locale.get())}</p>
+                        <p>{move || text(Key::PublicWorkNotFoundHelp, locale.get())} </p>
                         <a class="theatre-text-link" href="#discover">{move || auth_copy::text(CopyKey::ReturnHome, locale.get())}</a>
                     </div>
                 }.into_any(),
@@ -253,10 +270,114 @@ pub(crate) fn PublicWorkDetail(
                         WorkDetailPhase::Ready { work, .. } => Some(work.clone()),
                         _ => None,
                     })
-                    .map(|work| view! { <ReadyWork state locale listen work on_retry on_load_more/> }.into_any())
+                    .map(|work| view! { <ReadyWork state locale listen work on_retry on_load_more sync_controls/> }.into_any())
                     .unwrap_or_else(|| ().into_any()),
             }}
         </section>
+    }
+}
+
+#[component]
+fn WorkSaveControl(
+    work: PresentedWorkSummary,
+    first_publication_id: Signal<Option<String>>,
+    locale: RwSignal<Locale>,
+    controls: WorkSyncControls,
+) -> impl IntoView {
+    let work_id = work.work_id.clone();
+    let work_id_for_state = StoredValue::new(work.work_id.clone());
+    let work_id_for_retry = work.work_id.clone();
+    let title = work.title.clone();
+    let title_for_guest = work.title.clone();
+    let kind = work.kind;
+    let language = work.language.clone();
+    let saved_state = move || {
+        controls.account.with(|a| {
+            work_id_for_state.with_value(|wid| {
+                a.sync()
+                    .and_then(|s| s.saved_work(wid))
+                    .cloned()
+                    .unwrap_or_default()
+            })
+        })
+    };
+    let button_state = Signal::derive(move || match saved_state().command {
+        SavedCommandPhase::Pending { desired, .. } => {
+            let reason_key = if desired {
+                Key::LiveSaveSaving
+            } else {
+                Key::LiveSaveRemoving
+            };
+            DisabledReason::new(text(reason_key, locale.get()))
+                .map(ButtonState::Loading)
+                .unwrap_or_default()
+        }
+        _ => ButtonState::Enabled,
+    });
+    view! {
+        {move || {
+            if controls.account.with(|a| a.phase()) != SessionPhase::SignedIn {
+                let guest_sr = title_for_guest.clone();
+                view! {
+                    <Button id="theatre-public-work-save-login" variant=ButtonVariant::Tonal
+                        on_press=Callback::new(move |_| controls.on_login_to_save.run(()))>
+                        {move || text(Key::LiveSaveSignIn, locale.get())}
+                        <span class="cui-sr-only">" "{guest_sr}</span>
+                    </Button>
+                }
+                .into_any()
+            } else {
+                let current = saved_state();
+                let is_saved = current.is_saved();
+                let label_key = if is_saved { Key::RemoveSave } else { Key::Save };
+                let status_key = match &current.command {
+                    SavedCommandPhase::UnknownOutcome { .. } => Some((Key::LiveSaveUnknown, true)),
+                    SavedCommandPhase::Conflict { .. } => Some((Key::LiveSaveConflict, true)),
+                    SavedCommandPhase::Failed { .. } => Some((Key::LiveSaveError, true)),
+                    SavedCommandPhase::Idle | SavedCommandPhase::Pending { .. } => None,
+                };
+                let work_id_press = work_id.clone();
+                let title_press = title.clone();
+                let title_sr = title.clone();
+                let lang_press = language.clone();
+                let work_id_retry = work_id_for_retry.clone();
+                view! {
+                    <div class="theatre-work-save-controls" data-saved=is_saved.to_string()>
+                        <Button id="theatre-public-work-save" variant=ButtonVariant::Tonal state=button_state
+                            on_press=Callback::new(move |_| {
+                                let presentation = first_publication_id.get_untracked().map(|publication_id| {
+                                    WorkPresentation {
+                                        work_id: work_id_press.clone(),
+                                        publication_id,
+                                        title: title_press.clone(),
+                                        kind,
+                                        language: lang_press.clone(),
+                                    }
+                                });
+                                controls.on_set_saved.run((work_id_press.clone(), !is_saved, presentation));
+                            })>
+                            {move || text(label_key, locale.get())}
+                            <span class="cui-sr-only">" "{title_sr}</span>
+                        </Button>
+                        {status_key.map(|(msg_key, can_retry)| view! {
+                            <p id="theatre-public-work-save-status" class="theatre-muted" role="status">
+                                {move || text(msg_key, locale.get())}
+                            </p>
+                            {can_retry.then(|| {
+                                let retry_id = work_id_retry.clone();
+                                view! {
+                                    <Button id="theatre-public-work-save-retry" variant=ButtonVariant::Text
+                                        on_press=Callback::new(move |_| controls.on_retry_saved.run(retry_id.clone()))>
+                                        {move || text(Key::PublicRetry, locale.get())}
+                                    </Button>
+                                }
+                            })}
+                        })}
+                    </div>
+                }
+                .into_any()
+            }
+        }}
     }
 }
 
@@ -268,10 +389,12 @@ fn ReadyWork(
     work: PresentedWorkSummary,
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
+    sync_controls: Option<WorkSyncControls>,
 ) -> impl IntoView {
     let kind = work.kind;
     let lang = work.language.clone();
     let row_lang = StoredValue::new(work.language.clone());
+    let work_summary = StoredValue::new(work.clone());
     let (list_heading, more_label) = match kind {
         WorkKind::Podcast => (Key::PublicWorkEpisodes, Key::PublicWorkMoreEpisodes),
         WorkKind::Novel | WorkKind::Story => (Key::PublicWorkChapters, Key::PublicWorkMoreChapters),
@@ -333,6 +456,7 @@ fn ReadyWork(
             })
             .flatten()
     };
+    let first_pub = Signal::derive(move || first().map(|row| row.publication_id));
     let listen_state = Signal::derive(move || match first() {
         None => DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
             .map(ButtonState::Disabled)
@@ -373,11 +497,16 @@ fn ReadyWork(
                 <p class="theatre-muted theatre-public-work-count" data-unit-count=unit_count.to_string()>
                     {move || messages::format(count_key, locale.get(), &[("count", unit_count.to_string())])}
                 </p>
-                <Button id="theatre-public-work-listen" state=listen_state
-                    on_press=Callback::new(move |_| { if let Some(row) = first() { listen.press(&row); } })>
-                    {move || text(listen_label(), locale.get())}
-                    {move || first().map(|row| view! { <span class="cui-sr-only">" "{row.title}</span> })}
-                </Button>
+                <div class="theatre-actions">
+                    <Button id="theatre-public-work-listen" state=listen_state
+                        on_press=Callback::new(move |_| { if let Some(row) = first() { listen.press(&row); } })>
+                        {move || text(listen_label(), locale.get())}
+                        {move || first().map(|row| view! { <span class="cui-sr-only">" "{row.title}</span> })}
+                    </Button>
+                    {sync_controls.map(|controls| view! {
+                        <WorkSaveControl work=work.clone() first_publication_id=first_pub locale controls/>
+                    })}
+                </div>
             </div>
         </header>
         <section class="theatre-public-units" aria-labelledby="theatre-public-units-heading"
@@ -385,7 +514,7 @@ fn ReadyWork(
             <h2 id="theatre-public-units-heading" class="theatre-section-heading">{move || text(list_heading, locale.get())}</h2>
             <ol class="theatre-episode-list theatre-public-unit-list">
                 <For each=rows key=|(row, unavailable)| (row.unit_id.clone(), row.publication_id.clone(), *unavailable)
-                    children=move |(row, unavailable)| view! { <UnitRow row unavailable lang=row_lang.get_value() locale listen/> }/>
+                    children=move |(row, unavailable)| view! { <UnitRow row unavailable work=work_summary.get_value() lang=row_lang.get_value() locale listen sync_controls/> }/>
             </ol>
             {move || first_page_failure().map(|failure| {
                 let help = match failure {
@@ -420,9 +549,11 @@ fn ReadyWork(
 fn UnitRow(
     row: PresentedUnitSummary,
     unavailable: bool,
+    work: PresentedWorkSummary,
     lang: String,
     locale: RwSignal<Locale>,
     listen: ListenControls,
+    sync_controls: Option<WorkSyncControls>,
 ) -> impl IntoView {
     let kind = unit_label(row.kind);
     // The current rank in the public list: never an identity or an author-assigned number.
@@ -451,6 +582,69 @@ fn UnitRow(
         RowListen::Ready | RowListen::Preparing => Key::PublicWorkListen,
     };
     let title = row.title.clone();
+    let pub_id_progress = StoredValue::new(row.publication_id.clone());
+    let pub_id_resume = row.publication_id.clone();
+    let unit_id_resume = row.unit_id.clone();
+    let unit_title_resume = row.title.clone();
+    let work_for_resume = work.clone();
+    let unit_progress = move || {
+        let controls = sync_controls?;
+        controls.account.with(|a| {
+            pub_id_progress.with_value(|pub_id| {
+                a.sync()
+                    .and_then(|s| s.progress_for(pub_id))
+                    .and_then(|p| p.record.clone())
+            })
+        })
+    };
+    let unit_progress_text = move || {
+        let rec = unit_progress()?;
+        let pos_sec = u32::try_from(rec.position_ms / 1000).unwrap_or(u32::MAX);
+        let total_sec = u32::try_from(rec.audio.duration_ms / 1000).unwrap_or(u32::MAX);
+        let line = messages::format(
+            Key::LivePosition,
+            locale.get(),
+            &[("position", clock(pos_sec)), ("total", clock(total_sec))],
+        );
+        if rec.completion == Completion::Completed {
+            Some(format!(
+                "{line} · {}",
+                text(Key::LiveResumeCompleted, locale.get())
+            ))
+        } else {
+            Some(line)
+        }
+    };
+    let unit_resume_feedback = move || {
+        let controls = sync_controls?;
+        controls.account.with(|a| {
+            let attempt = a.sync()?.resume_attempt();
+            match attempt {
+                ResumeAttemptState::Restored {
+                    publication_id,
+                    position_ms,
+                } if publication_id == &pub_id_resume => Some(messages::format(
+                    Key::LiveResumeRestored,
+                    locale.get(),
+                    &[("time", clock(position_ms / 1000))],
+                )),
+                ResumeAttemptState::Refused {
+                    publication_id,
+                    reason,
+                } if publication_id == &pub_id_resume => {
+                    let key = match reason {
+                        ResumeRefusal::ReleaseReplaced => Key::LiveResumeReplaced,
+                        ResumeRefusal::AccessUnavailable => Key::LiveResumeUnavailable,
+                        ResumeRefusal::LoadFailed | ResumeRefusal::Protocol => {
+                            Key::LiveResumeLoadFailed
+                        }
+                    };
+                    Some(text(key, locale.get()).to_owned())
+                }
+                _ => None,
+            }
+        })
+    };
     view! {
         <li class="theatre-episode-row theatre-public-unit" data-unit-id=row.unit_id.clone()
             data-listen=move || match row_state() {
@@ -479,6 +673,12 @@ fn UnitRow(
                         text(Key::PublicWorkDurationUnknown, locale.get()).into_any()
                     }}
                 </p>
+                {move || unit_progress_text().map(|line| view! {
+                    <p class="theatre-muted theatre-public-unit-progress">{line}</p>
+                })}
+                {move || unit_resume_feedback().map(|feedback| view! {
+                    <p class="theatre-muted theatre-public-unit-resume-status" role="status">{feedback}</p>
+                })}
                 {unavailable.then(|| view! { <p class="theatre-muted">{move || text(Key::PublicWorkRowUnavailable, locale.get())}</p> })}
                 {move || match row_state() {
                     RowListen::Failed(failure) => Some(view! {
@@ -494,6 +694,44 @@ fn UnitRow(
                         {move || text(verb(), locale.get())}
                         <span class="cui-sr-only">" "{title.clone()}</span>
                     </Button>
+                    {move || {
+                        let controls = sync_controls?;
+                        let rec = unit_progress()?;
+                        if rec.position_ms == 0 {
+                            return None;
+                        }
+                        let audio = rec.audio.clone();
+                        let pos = rec.position_ms;
+                        let resume_unit_id = unit_id_resume.clone();
+                        let resume_title = unit_title_resume.clone();
+                        let resume_title_sr = resume_title.clone();
+                        let w = work_for_resume.clone();
+                        Some(view! {
+                            <Button id=format!("theatre-public-unit-resume-{}", resume_unit_id) variant=ButtonVariant::Text
+                                on_press=Callback::new(move |_| {
+                                    let pres = AudioPresentation {
+                                        work: WorkPresentation {
+                                            work_id: w.work_id.clone(),
+                                            publication_id: audio.publication_id.clone(),
+                                            title: w.title.clone(),
+                                            kind: w.kind,
+                                            language: w.language.clone(),
+                                        },
+                                        unit_id: resume_unit_id.clone(),
+                                        unit_title: resume_title.clone(),
+                                    };
+                                    controls.on_resume.run((
+                                        audio.clone(),
+                                        pos,
+                                        ResumeStatus::ExactAvailable,
+                                        Some(pres),
+                                    ));
+                                })>
+                                {move || text(Key::LiveResumeOpen, locale.get())}
+                                <span class="cui-sr-only">" "{resume_title_sr}</span>
+                            </Button>
+                        })
+                    }}
                 </div>
             })}
         </li>
@@ -1107,5 +1345,123 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn public_work_save_and_unit_resume_controls_follow_signed_in_library_sync_state() {
+        use crate::application::{
+            account::AccountScope,
+            account_view::{AccountViewState, SessionCompletion},
+            library_sync::ResumeAttemptState,
+        };
+        use cantos_contracts::listener_library::{
+            AudioIdentity, Completion, ProgressKind, ProgressRecord, SavedRecord,
+        };
+
+        let mut work = fixture_work();
+        work.work_id = WORK.into();
+        let row = unit(1, "Chương một: Khởi đầu");
+        let (mut detail, first) = opened(work);
+        detail.finish_page(&first, Ok(page(vec![row.clone()], None)));
+
+        // 1. Guest listener: Save button prompts sign-in and shows no private progress.
+        let mut guest_account = AccountViewState::default();
+        let issued = guest_account.begin_refresh().unwrap();
+        let _ = guest_account.finish_session(
+            issued,
+            Err(crate::application::account_view::AccountFailure::SignedOut),
+        );
+
+        let render_with_sync = |account_state: AccountViewState, locale: Locale| -> String {
+            Owner::new().with(|| {
+                let state = RwSignal::new(detail.clone());
+                let account = RwSignal::new(account_state);
+                let listen = controls();
+                let sync_controls = WorkSyncControls {
+                    account,
+                    on_set_saved: Callback::new(|_| {}),
+                    on_retry_saved: Callback::new(|_| {}),
+                    on_login_to_save: Callback::new(|_| {}),
+                    on_resume: Callback::new(|_| {}),
+                };
+                view! {
+                    <PublicWorkDetail
+                        state
+                        locale=RwSignal::new(locale)
+                        listen
+                        on_back=Callback::new(|()| ())
+                        on_retry=Callback::new(|_| {})
+                        on_load_more=Callback::new(|_| {})
+                        sync_controls
+                    />
+                }
+                .to_html()
+            })
+        };
+
+        let guest_html = render_with_sync(guest_account, Locale::Vietnamese);
+        assert!(guest_html.contains("id=\"theatre-public-work-save-login\""));
+        assert!(!guest_html.contains("theatre-public-unit-resume-"));
+
+        // 2. Signed-in listener with saved=true and in-progress unit record + restored resume status.
+        let mut signed_in = AccountViewState::default();
+        let issued = signed_in.begin_refresh().unwrap();
+        assert!(matches!(
+            signed_in.finish_session(
+                issued,
+                Ok(AccountScope::from_session(
+                    "listener-a".into(),
+                    uuid::Uuid::from_u128(10).to_string()
+                )
+                .unwrap())
+            ),
+            Ok(SessionCompletion::Authenticated(_))
+        ));
+        signed_in.with_sync_mut(|sync, _| {
+            sync.observe_saved_record(SavedRecord {
+                work_id: WORK.into(),
+                saved: true,
+                revision: 2,
+                listener_order: 2,
+                accepted_at_ms: 5_000,
+            });
+            sync.finish_progress_read(
+                &row.publication_id,
+                Some(ProgressRecord {
+                    audio: AudioIdentity {
+                        work_id: WORK.into(),
+                        unit_id: row.unit_id.clone(),
+                        publication_id: row.publication_id.clone(),
+                        rendition_id: uuid::Uuid::from_u128(99).to_string(),
+                        duration_ms: row.duration_ms,
+                        sha256: "a".repeat(64),
+                    },
+                    position_ms: 125_000,
+                    completion: Completion::InProgress,
+                    kind: ProgressKind::Checkpoint,
+                    revision: 3,
+                    listener_order: 3,
+                    accepted_at_ms: 6_000,
+                    written_by: uuid::Uuid::from_u128(77).to_string(),
+                }),
+                || uuid::Uuid::from_u128(88).to_string(),
+                None,
+            );
+            sync.set_resume_attempt(ResumeAttemptState::Restored {
+                publication_id: row.publication_id.clone(),
+                position_ms: 125_000,
+            });
+        });
+
+        let signed_html = render_with_sync(signed_in, Locale::Vietnamese);
+        assert!(signed_html.contains("id=\"theatre-public-work-save\""));
+        assert!(signed_html.contains("data-saved=\"true\""));
+        assert!(signed_html.contains("Bỏ lưu"));
+        assert!(signed_html.contains("Vị trí 2:05 trên 12:34"));
+        assert!(signed_html.contains(&format!(
+            "id=\"theatre-public-unit-resume-{}\"",
+            row.unit_id
+        )));
+        assert!(signed_html.contains("Đã khôi phục vị trí nghe tại 2:05 (đang tạm dừng)."));
     }
 }

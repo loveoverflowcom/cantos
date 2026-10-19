@@ -1,10 +1,14 @@
-//! Bounded presented Library reads; no metadata fan-out or mutation effects.
+//! Bounded presented Library reads, point reads, and authenticated listener mutations.
+#[cfg(target_arch = "wasm32")]
+use crate::application::library_sync::MutationPayload;
 use crate::application::{
     account_view::{AccountFailure, LibraryRequest},
     library::{LibraryPage, Section},
+    library_sync::CommandError,
 };
 use cantos_contracts::listener_library::{
-    self as dto, AudioIdentity, AudioPresentation, ProgressRecord, ResumeStatus, WorkPresentation,
+    self as dto, AudioIdentity, AudioPresentation, HistoryState, MutationState, ProgressKind,
+    ProgressRecord, Receipt, ResumeStatus, SavedRecord, WorkPresentation, WriteOutcome,
 };
 
 pub fn check_response(
@@ -25,15 +29,19 @@ pub fn check_response(
     if status != 200 {
         return Err(AccountFailure::Unavailable);
     }
-    if !content_type.is_some_and(|value| {
+    if !is_json(content_type) {
+        return Err(AccountFailure::Protocol);
+    }
+    Ok(())
+}
+
+fn is_json(content_type: Option<&str>) -> bool {
+    content_type.is_some_and(|value| {
         value
             .split(';')
             .next()
             .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("application/json"))
-    }) {
-        return Err(AccountFailure::Protocol);
-    }
-    Ok(())
+    })
 }
 
 fn uuid(value: &str) -> bool {
@@ -49,7 +57,7 @@ fn audio(value: &AudioIdentity) -> bool {
     .into_iter()
     .all(|id| uuid(id))
         && value.duration_ms > 0
-        && value.duration_ms <= i64::MAX as u64
+        && value.duration_ms <= crate::core::public_track::MAX_DURATION_MS
         && value.sha256.len() == 64
         && value
             .sha256
@@ -59,10 +67,32 @@ fn audio(value: &AudioIdentity) -> bool {
 fn progress(value: &ProgressRecord) -> bool {
     audio(&value.audio)
         && value.position_ms <= value.audio.duration_ms
+        && value.accepted_at_ms >= 0
         && value.revision > 0
         && value.revision <= i64::MAX as u64
         && value.listener_order > 0
+        && value.listener_order <= i64::MAX as u64
         && uuid(&value.written_by)
+        && (value.kind != ProgressKind::Restart
+            || (value.completion != dto::Completion::Completed && value.position_ms == 0))
+        && (value.kind != ProgressKind::MarkCompleted
+            || (value.position_ms == value.audio.duration_ms
+                && value.completion == dto::Completion::Completed))
+}
+fn saved_record_valid(value: &SavedRecord, expected_work: Option<&str>) -> bool {
+    uuid(&value.work_id)
+        && expected_work.is_none_or(|w| value.work_id == w)
+        && value.revision <= i64::MAX as u64
+        && value.listener_order <= i64::MAX as u64
+        && value.accepted_at_ms >= 0
+        && (value.revision > 0
+            || (!value.saved && value.listener_order == 0 && value.accepted_at_ms == 0))
+        && (value.revision == 0 || value.listener_order > 0)
+}
+fn history_state_valid(state: &HistoryState) -> bool {
+    state.revision <= i64::MAX as u64
+        && state.epoch <= i64::MAX as u64
+        && state.epoch <= state.revision
 }
 fn work(value: &WorkPresentation, expected: &str) -> bool {
     value.work_id == expected
@@ -121,11 +151,9 @@ pub fn decode_page(section: Section, body: &[u8]) -> Result<LibraryPage, Account
                 page.items.iter().map(|i| i.saved.work_id.as_str()),
                 page.next_cursor.as_deref(),
             ) || page.items.iter().any(|i| {
-                !uuid(&i.saved.work_id)
+                !saved_record_valid(&i.saved, None)
                     || !i.saved.saved
                     || i.saved.revision == 0
-                    || i.saved.revision > i64::MAX as u64
-                    || i.saved.listener_order == 0
                     || i.presentation
                         .as_ref()
                         .is_some_and(|p| !work(p, &i.saved.work_id))
@@ -140,8 +168,7 @@ pub fn decode_page(section: Section, body: &[u8]) -> Result<LibraryPage, Account
             if !page_valid(
                 page.items.iter().map(|i| i.audio.work_id.as_str()),
                 page.next_cursor.as_deref(),
-            ) || page.state.revision > i64::MAX as u64
-                || page.state.epoch > i64::MAX as u64
+            ) || !history_state_valid(&page.state)
                 || page.items.iter().any(|i| {
                     !audio(&i.audio)
                         || i.listener_order == 0
@@ -158,6 +185,232 @@ pub fn decode_page(section: Section, body: &[u8]) -> Result<LibraryPage, Account
     };
     Ok(page)
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WriteHttpOutcome {
+    Receipt(Box<Receipt>),
+    UnknownOutcome,
+    Error(CommandError),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OperationLookupOutcome {
+    Found(Box<Receipt>),
+    NotFound,
+    UnknownOutcome,
+    Error(CommandError),
+}
+
+fn check_session_header(
+    status: u16,
+    response_session: Option<&str>,
+    expected_session: &str,
+) -> Result<(), CommandError> {
+    if status == 401 || status == 403 {
+        return Err(CommandError::SignedOut);
+    }
+    if let Some(actual) = response_session {
+        if actual != expected_session {
+            return Err(CommandError::SessionChanged);
+        }
+        Ok(())
+    } else if status >= 500 {
+        Err(CommandError::Unavailable)
+    } else {
+        Err(CommandError::Protocol)
+    }
+}
+
+fn classify_error_code(code: dto::ErrorCode) -> CommandError {
+    match code {
+        dto::ErrorCode::Unauthenticated => CommandError::SignedOut,
+        dto::ErrorCode::NotFound => CommandError::NotFound,
+        dto::ErrorCode::StaleDeviceSequence => CommandError::StaleDeviceSequence,
+        dto::ErrorCode::IdempotencyKeyReused => CommandError::IdempotencyKeyReused,
+        dto::ErrorCode::RevisionExhausted => CommandError::RevisionExhausted,
+        dto::ErrorCode::InvalidPosition => CommandError::InvalidPosition,
+        dto::ErrorCode::Unavailable => CommandError::Unavailable,
+        dto::ErrorCode::InvalidRequest
+        | dto::ErrorCode::InvalidCursor
+        | dto::ErrorCode::CorruptState => CommandError::Protocol,
+    }
+}
+
+fn receipt_valid(receipt: &Receipt, expected_operation: &str, expected_status: u16) -> bool {
+    if receipt.operation_id != expected_operation || !uuid(&receipt.operation_id) {
+        return false;
+    }
+    let is_conflict = matches!(
+        receipt.outcome,
+        WriteOutcome::RevisionConflict | WriteOutcome::HistoryEpochConflict
+    );
+    if is_conflict != receipt.resolution.is_some() {
+        return false;
+    }
+    if expected_status != 0 {
+        let expected_http = if is_conflict { 409 } else { 200 };
+        if expected_status != expected_http {
+            return false;
+        }
+    }
+    match &receipt.state {
+        MutationState::Saved { current } => saved_record_valid(current, None),
+        MutationState::Progress { current } => match current {
+            Some(record) => progress(record),
+            None => is_conflict,
+        },
+        MutationState::History { current } => history_state_valid(current),
+    }
+}
+
+pub fn decode_saved_point(
+    status: u16,
+    content_type: Option<&str>,
+    response_session: Option<&str>,
+    expected_session: &str,
+    expected_work: &str,
+    body: &[u8],
+) -> Result<SavedRecord, CommandError> {
+    check_session_header(status, response_session, expected_session)?;
+    if status >= 500 {
+        return Err(CommandError::Unavailable);
+    }
+    if body.len() > 16_384 || !is_json(content_type) {
+        return Err(CommandError::Protocol);
+    }
+    if status != 200 {
+        let err: dto::LibraryError =
+            serde_json::from_slice(body).map_err(|_| CommandError::Protocol)?;
+        return Err(classify_error_code(err.code));
+    }
+    let record: SavedRecord = serde_json::from_slice(body).map_err(|_| CommandError::Protocol)?;
+    if !saved_record_valid(&record, Some(expected_work)) {
+        return Err(CommandError::Protocol);
+    }
+    Ok(record)
+}
+
+pub fn decode_progress_point(
+    status: u16,
+    content_type: Option<&str>,
+    response_session: Option<&str>,
+    expected_session: &str,
+    expected_publication: &str,
+    body: &[u8],
+) -> Result<Option<ProgressRecord>, CommandError> {
+    check_session_header(status, response_session, expected_session)?;
+    if status >= 500 {
+        return Err(CommandError::Unavailable);
+    }
+    if body.len() > 16_384 || !is_json(content_type) {
+        return Err(CommandError::Protocol);
+    }
+    if status != 200 {
+        let err: dto::LibraryError =
+            serde_json::from_slice(body).map_err(|_| CommandError::Protocol)?;
+        return Err(classify_error_code(err.code));
+    }
+    let state: MutationState = serde_json::from_slice(body).map_err(|_| CommandError::Protocol)?;
+    let MutationState::Progress { current } = state else {
+        return Err(CommandError::Protocol);
+    };
+    if let Some(record) = &current {
+        if !progress(record) || record.audio.publication_id != expected_publication {
+            return Err(CommandError::Protocol);
+        }
+    }
+    Ok(current)
+}
+
+pub fn decode_write_response(
+    status: u16,
+    content_type: Option<&str>,
+    response_session: Option<&str>,
+    expected_session: &str,
+    expected_operation: &str,
+    body: &[u8],
+) -> WriteHttpOutcome {
+    if let Err(err) = check_session_header(status, response_session, expected_session) {
+        return match err {
+            CommandError::Unavailable => WriteHttpOutcome::UnknownOutcome,
+            other => WriteHttpOutcome::Error(other),
+        };
+    }
+    if status >= 500 {
+        return WriteHttpOutcome::UnknownOutcome;
+    }
+    if body.len() > 32_768 || !is_json(content_type) {
+        return WriteHttpOutcome::Error(CommandError::Protocol);
+    }
+    match status {
+        200 => match serde_json::from_slice::<Receipt>(body) {
+            Ok(receipt) if receipt_valid(&receipt, expected_operation, 200) => {
+                WriteHttpOutcome::Receipt(Box::new(receipt))
+            }
+            _ => WriteHttpOutcome::Error(CommandError::Protocol),
+        },
+        409 => {
+            if let Ok(receipt) = serde_json::from_slice::<Receipt>(body) {
+                if receipt_valid(&receipt, expected_operation, 409) {
+                    return WriteHttpOutcome::Receipt(Box::new(receipt));
+                }
+                return WriteHttpOutcome::Error(CommandError::Protocol);
+            }
+            match serde_json::from_slice::<dto::LibraryError>(body) {
+                Ok(err) => WriteHttpOutcome::Error(classify_error_code(err.code)),
+                Err(_) => WriteHttpOutcome::Error(CommandError::Protocol),
+            }
+        }
+        400 | 404 | 422 => match serde_json::from_slice::<dto::LibraryError>(body) {
+            Ok(err) => WriteHttpOutcome::Error(classify_error_code(err.code)),
+            Err(_) => WriteHttpOutcome::Error(CommandError::Protocol),
+        },
+        _ => WriteHttpOutcome::Error(CommandError::Protocol),
+    }
+}
+
+pub fn decode_operation_lookup(
+    status: u16,
+    content_type: Option<&str>,
+    response_session: Option<&str>,
+    expected_session: &str,
+    expected_operation: &str,
+    body: &[u8],
+) -> OperationLookupOutcome {
+    if let Err(err) = check_session_header(status, response_session, expected_session) {
+        return match err {
+            CommandError::Unavailable => OperationLookupOutcome::UnknownOutcome,
+            other => OperationLookupOutcome::Error(other),
+        };
+    }
+    if status >= 500 {
+        return OperationLookupOutcome::UnknownOutcome;
+    }
+    if body.len() > 32_768 || !is_json(content_type) {
+        return OperationLookupOutcome::Error(CommandError::Protocol);
+    }
+    match status {
+        200 => match serde_json::from_slice::<Receipt>(body) {
+            Ok(receipt) if receipt_valid(&receipt, expected_operation, 0) => {
+                OperationLookupOutcome::Found(Box::new(receipt))
+            }
+            _ => OperationLookupOutcome::Error(CommandError::Protocol),
+        },
+        404 => match serde_json::from_slice::<dto::LibraryError>(body) {
+            Ok(dto::LibraryError {
+                code: dto::ErrorCode::NotFound,
+                ..
+            }) => OperationLookupOutcome::NotFound,
+            _ => OperationLookupOutcome::Error(CommandError::Protocol),
+        },
+        400 | 409 | 422 => match serde_json::from_slice::<dto::LibraryError>(body) {
+            Ok(err) => OperationLookupOutcome::Error(classify_error_code(err.code)),
+            Err(_) => OperationLookupOutcome::Error(CommandError::Protocol),
+        },
+        _ => OperationLookupOutcome::Error(CommandError::Protocol),
+    }
+}
+
 pub fn request_path(request: &LibraryRequest) -> String {
     let mut query = url::form_urlencoded::Serializer::new(String::new());
     query
@@ -172,6 +425,192 @@ pub fn request_path(request: &LibraryRequest) -> String {
         query.finish()
     )
 }
+
+pub fn saved_path(work_id: &str) -> String {
+    format!("/api/v1/theatre/library/saved/{work_id}")
+}
+
+pub fn progress_path(publication_id: &str) -> String {
+    format!("/api/v1/theatre/progress/{publication_id}")
+}
+
+pub fn operation_path(operation_id: &str) -> String {
+    format!("/api/v1/theatre/operations/{operation_id}")
+}
+
+pub const HISTORY_START_PATH: &str = "/api/v1/theatre/library/history/playback-starts";
+pub const HISTORY_CLEAR_PATH: &str = "/api/v1/theatre/library/history/clear";
+
+#[cfg(target_arch = "wasm32")]
+fn map_auth_to_command_error(error: cantos_web_auth::Failure) -> CommandError {
+    match super::account::auth_error(error) {
+        AccountFailure::SignedOut => CommandError::SignedOut,
+        AccountFailure::SessionChanged => CommandError::SessionChanged,
+        AccountFailure::Protocol => CommandError::Protocol,
+        _ => CommandError::Unavailable,
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn send_authenticated(
+    method: &str,
+    path: &str,
+    expected_session: &str,
+    json_body: Option<String>,
+) -> Result<(u16, Option<String>, Option<String>, Vec<u8>), CommandError> {
+    use gloo_net::http::RequestBuilder;
+    use web_sys::{AbortController, RequestCredentials};
+
+    let credential = crate::api_endpoint::auth()
+        .map_err(map_auth_to_command_error)?
+        .access(Some(expected_session))
+        .await
+        .map_err(map_auth_to_command_error)?;
+    let controller = AbortController::new().map_err(|_| CommandError::Unavailable)?;
+    let deadline = super::browser::deadline(controller).map_err(|_| CommandError::Unavailable)?;
+    let url = crate::api_endpoint::endpoint(path).map_err(|_| CommandError::Unavailable)?;
+    let http_method = match method {
+        "PUT" => gloo_net::http::Method::PUT,
+        "POST" => gloo_net::http::Method::POST,
+        _ => gloo_net::http::Method::GET,
+    };
+    let mut builder = RequestBuilder::new(&url)
+        .method(http_method)
+        .credentials(RequestCredentials::Omit)
+        .redirect(web_sys::RequestRedirect::Error)
+        .header("Authorization", &credential.header())
+        .header("Accept", "application/json")
+        .header("X-Cantos-Theatre-Session", expected_session)
+        .abort_signal(Some(&deadline.controller.signal()));
+    let response = if let Some(body) = json_body {
+        builder = builder.header("Content-Type", "application/json");
+        builder
+            .body(body)
+            .map_err(|_| CommandError::Protocol)?
+            .send()
+            .await
+            .map_err(|_| CommandError::Unavailable)?
+    } else {
+        builder
+            .send()
+            .await
+            .map_err(|_| CommandError::Unavailable)?
+    };
+    credential
+        .response(response.status())
+        .map_err(map_auth_to_command_error)?;
+    let status = response.status();
+    let content_type = response.headers().get("content-type");
+    let response_session = response.headers().get("X-Cantos-Theatre-Session");
+    let bytes = response
+        .binary()
+        .await
+        .map_err(|_| CommandError::Unavailable)?;
+    credential.check().map_err(map_auth_to_command_error)?;
+    Ok((status, content_type, response_session, bytes))
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn load_saved_point(
+    expected_session: &str,
+    work_id: &str,
+) -> Result<SavedRecord, CommandError> {
+    let (status, content_type, response_session, body) =
+        send_authenticated("GET", &saved_path(work_id), expected_session, None).await?;
+    decode_saved_point(
+        status,
+        content_type.as_deref(),
+        response_session.as_deref(),
+        expected_session,
+        work_id,
+        &body,
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn load_progress_point(
+    expected_session: &str,
+    publication_id: &str,
+) -> Result<Option<ProgressRecord>, CommandError> {
+    let (status, content_type, response_session, body) = send_authenticated(
+        "GET",
+        &progress_path(publication_id),
+        expected_session,
+        None,
+    )
+    .await?;
+    decode_progress_point(
+        status,
+        content_type.as_deref(),
+        response_session.as_deref(),
+        expected_session,
+        publication_id,
+        &body,
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn load_operation_receipt(
+    expected_session: &str,
+    operation_id: &str,
+) -> OperationLookupOutcome {
+    match send_authenticated("GET", &operation_path(operation_id), expected_session, None).await {
+        Ok((status, content_type, response_session, body)) => decode_operation_lookup(
+            status,
+            content_type.as_deref(),
+            response_session.as_deref(),
+            expected_session,
+            operation_id,
+            &body,
+        ),
+        Err(CommandError::Unavailable) => OperationLookupOutcome::UnknownOutcome,
+        Err(err) => OperationLookupOutcome::Error(err),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn send_mutation(expected_session: &str, payload: &MutationPayload) -> WriteHttpOutcome {
+    let (method, path, body_res) = match payload {
+        MutationPayload::Saved { work_id, write } => {
+            ("PUT", saved_path(work_id), serde_json::to_string(write))
+        }
+        MutationPayload::Progress {
+            publication_id,
+            write,
+        } => (
+            "PUT",
+            progress_path(publication_id),
+            serde_json::to_string(write),
+        ),
+        MutationPayload::HistoryStart { write } => (
+            "POST",
+            HISTORY_START_PATH.to_owned(),
+            serde_json::to_string(write),
+        ),
+        MutationPayload::HistoryClear { write } => (
+            "POST",
+            HISTORY_CLEAR_PATH.to_owned(),
+            serde_json::to_string(write),
+        ),
+    };
+    let Ok(json_body) = body_res else {
+        return WriteHttpOutcome::Error(CommandError::Protocol);
+    };
+    let expected_op = payload.operation().operation_id.as_str();
+    match send_authenticated(method, &path, expected_session, Some(json_body)).await {
+        Ok((status, content_type, response_session, body)) => decode_write_response(
+            status,
+            content_type.as_deref(),
+            response_session.as_deref(),
+            expected_session,
+            expected_op,
+            &body,
+        ),
+        Err(CommandError::Unavailable) => WriteHttpOutcome::UnknownOutcome,
+        Err(err) => WriteHttpOutcome::Error(err),
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailure> {
     use gloo_net::http::Request;
@@ -288,6 +727,124 @@ mod tests {
                 "session-a"
             ),
             Ok(())
+        );
+    }
+
+    #[test]
+    fn write_and_operation_decoders_distinguish_receipts_conflict_errors_and_unknown_outcomes() {
+        let op = uuid::Uuid::from_u128(100).to_string();
+        let work = uuid::Uuid::from_u128(10).to_string();
+        let accepted = Receipt {
+            operation_id: op.clone(),
+            outcome: WriteOutcome::Accepted,
+            resolution: None,
+            state: MutationState::Saved {
+                current: SavedRecord {
+                    work_id: work.clone(),
+                    saved: true,
+                    revision: 1,
+                    listener_order: 1,
+                    accepted_at_ms: 1_000,
+                },
+            },
+        };
+        let conflict = Receipt {
+            operation_id: op.clone(),
+            outcome: WriteOutcome::RevisionConflict,
+            resolution: Some(dto::Resolution::ListenerChooses),
+            state: MutationState::Saved {
+                current: SavedRecord {
+                    work_id: work,
+                    saved: false,
+                    revision: 2,
+                    listener_order: 2,
+                    accepted_at_ms: 2_000,
+                },
+            },
+        };
+
+        assert_eq!(
+            decode_write_response(
+                200,
+                Some("application/json"),
+                Some("session-a"),
+                "session-a",
+                &op,
+                &serde_json::to_vec(&accepted).unwrap(),
+            ),
+            WriteHttpOutcome::Receipt(Box::new(accepted.clone()))
+        );
+        // 409 with a conflict Receipt is decoded as Receipt, not CommandError.
+        assert_eq!(
+            decode_write_response(
+                409,
+                Some("application/json"),
+                Some("session-a"),
+                "session-a",
+                &op,
+                &serde_json::to_vec(&conflict).unwrap(),
+            ),
+            WriteHttpOutcome::Receipt(Box::new(conflict.clone()))
+        );
+        // GET /operations/{op} returns 200 even when the stored receipt was a 409 conflict.
+        assert_eq!(
+            decode_operation_lookup(
+                200,
+                Some("application/json"),
+                Some("session-a"),
+                "session-a",
+                &op,
+                &serde_json::to_vec(&conflict).unwrap(),
+            ),
+            OperationLookupOutcome::Found(Box::new(conflict))
+        );
+        // 409 stale_device_sequence is decoded as CommandError::StaleDeviceSequence.
+        assert_eq!(
+            decode_write_response(
+                409,
+                Some("application/json"),
+                Some("session-a"),
+                "session-a",
+                &op,
+                br#"{"code":"stale_device_sequence","retryable":false}"#,
+            ),
+            WriteHttpOutcome::Error(CommandError::StaleDeviceSequence)
+        );
+        // 422 idempotency_key_reused is decoded as CommandError::IdempotencyKeyReused.
+        assert_eq!(
+            decode_write_response(
+                422,
+                Some("application/json"),
+                Some("session-a"),
+                "session-a",
+                &op,
+                br#"{"code":"idempotency_key_reused","retryable":false}"#,
+            ),
+            WriteHttpOutcome::Error(CommandError::IdempotencyKeyReused)
+        );
+        // 503 is treated as UnknownOutcome so the operation is preserved for receipt recovery.
+        assert_eq!(
+            decode_write_response(
+                503,
+                Some("application/json"),
+                Some("session-a"),
+                "session-a",
+                &op,
+                br#"{"code":"unavailable","retryable":true}"#,
+            ),
+            WriteHttpOutcome::UnknownOutcome
+        );
+        // 404 on operation lookup means the server never committed that operation.
+        assert_eq!(
+            decode_operation_lookup(
+                404,
+                Some("application/json"),
+                Some("session-a"),
+                "session-a",
+                &op,
+                br#"{"code":"not_found","retryable":false}"#,
+            ),
+            OperationLookupOutcome::NotFound
         );
     }
 }

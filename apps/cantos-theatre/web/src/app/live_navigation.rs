@@ -299,7 +299,11 @@ impl LiveNavigation {
     pub fn back(self) {
         self.cancel();
         let destination = match self.route.get_untracked() {
-            Route::Auth(auth) => Route::from_target(auth.back()),
+            Route::Auth(auth) => self
+                .returned
+                .get_value()
+                .map(|(destination, _)| destination)
+                .unwrap_or_else(|| Route::from_target(auth.back())),
             Route::Membership(member) => Route::from_target(member.back()),
             _ => Route::Discover,
         };
@@ -554,6 +558,41 @@ mod tests {
             nav.observe_session(state.get_untracked().phase());
             assert_eq!(nav.route.get_untracked(), Route::Account);
             assert_eq!(nav.pending.get_untracked(), None);
+        });
+    }
+
+    #[test]
+    fn guest_auth_from_public_work_returns_to_that_work_on_back_or_sign_in() {
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            crate::features::auth_preview::guest(state).unwrap();
+            let nav = LiveNavigation::new(state, NodeRef::new(), true);
+            let work = PublicWorkId::parse(&uuid::Uuid::from_u128(42).to_string()).unwrap();
+
+            nav.open_work(work, "card-42".into());
+            assert_eq!(nav.route.get_untracked(), Route::PublicWork(work));
+
+            // Guest presses Save -> open_auth(login) -> Back returns to PublicWork(work).
+            nav.open_auth(AuthRoute::login(nav.origin()));
+            assert!(matches!(nav.route.get_untracked(), Route::Auth(_)));
+            nav.back();
+            assert_eq!(nav.route.get_untracked(), Route::PublicWork(work));
+
+            // Guest presses Save -> open_auth(login) -> completes login -> returns to PublicWork(work).
+            nav.open_auth(AuthRoute::login(nav.origin()));
+            nav.login(state, configured());
+            let lookup = state.write().begin_refresh().unwrap();
+            let scope = AccountScope::from_session(
+                "listener-a".into(),
+                uuid::Uuid::from_u128(1).to_string(),
+            )
+            .unwrap();
+            assert!(matches!(
+                state.write().finish_session(lookup, Ok(scope)),
+                Ok(SessionCompletion::Authenticated(_))
+            ));
+            nav.observe_session(state.get_untracked().phase());
+            assert_eq!(nav.route.get_untracked(), Route::PublicWork(work));
         });
     }
 }
