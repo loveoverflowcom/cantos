@@ -4,14 +4,16 @@ use super::{
     auth::{label, AuthActions, SessionRecovery},
     auth_copy::CopyKey,
 };
+#[cfg(feature = "preview")]
+use crate::app::{context::TheatreContext, routes::Route};
 use crate::{
-    app::{context::TheatreContext, routes::Route},
-    application::account_view::{AccountFailure, AccountViewState, LibraryPhase, SessionPhase},
+    application::account_view::{AccountFailure, AccountViewState, SessionPhase},
     messages::{self, Key, Locale},
 };
 use cantos_ui::{Button, ButtonVariant, Space, Surface, SurfaceTone, SurfaceVariant, Theme};
 use leptos::prelude::*;
 
+#[cfg(feature = "preview")]
 /// A fact the mock cannot yet provide. It is text, never a control: nothing here pretends to work.
 #[component]
 fn StatusRow(ctx: TheatreContext, label: Key, help: Key, value: Key) -> impl IntoView {
@@ -24,6 +26,7 @@ fn StatusRow(ctx: TheatreContext, label: Key, help: Key, value: Key) -> impl Int
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 fn LinkRow(
     ctx: TheatreContext,
@@ -45,6 +48,7 @@ fn LinkRow(
     }
 }
 
+#[cfg(feature = "preview")]
 /// Identity first, then what the account can and cannot do today. State is the mock's own:
 /// there is no sign-in, sync or conflict model, so none is drawn.
 #[component]
@@ -92,7 +96,9 @@ pub(crate) fn account_failure_key(failure: AccountFailure) -> Key {
         AccountFailure::Unavailable => Key::AccountUnavailable,
         AccountFailure::Protocol => Key::AccountProtocol,
         AccountFailure::Navigation => Key::AccountNavigation,
+        AccountFailure::PopupBlocked => Key::AccountPopupBlocked,
         AccountFailure::LogoutPending => Key::AccountLogoutRetryHelp,
+        AccountFailure::CursorExpired => Key::LiveLibraryCursorExpired,
     }
 }
 
@@ -116,6 +122,8 @@ fn live_status_key(state: &AccountViewState) -> Key {
 pub(crate) fn LiveAccount(
     state: RwSignal<AccountViewState>,
     locale: RwSignal<Locale>,
+    registration: RwSignal<crate::application::registration::RegistrationState>,
+    on_registration_refresh: Callback<()>,
     theme: RwSignal<Theme>,
     on_login: Callback<()>,
     on_register: Callback<()>,
@@ -139,8 +147,8 @@ pub(crate) fn LiveAccount(
                     </p>
                     <p>{move || super::auth_copy::text(
                         if state.get().phase() == SessionPhase::SignedIn { CopyKey::SignedHelp } else { CopyKey::GuestHelp }, locale.get())}</p>
-                    <Show when=move || state.get().can_login()>
-                        <AuthActions state locale scope="theatre-account" on_login on_register/>
+                    <Show when=move || state.get().can_authenticate()>
+                        <AuthActions state registration locale scope="theatre-account" on_login on_register on_configuration_retry=on_registration_refresh/>
                     </Show>
                     <Show when=move || state.get().phase() == SessionPhase::SignedIn>
                         <a class="theatre-action theatre-account-library-link" href="#library">{label(locale, CopyKey::OpenLibrary)}</a>
@@ -149,7 +157,6 @@ pub(crate) fn LiveAccount(
                     <Show when=move || {
                             let current = state.get();
                             !matches!(current.phase(), SessionPhase::Idle | SessionPhase::Checking | SessionPhase::LogoutPending | SessionPhase::Failed(_))
-                                && current.library_phase() != LibraryPhase::Loading
                     }>
                         <Button id="theatre-account-refresh-current" variant=ButtonVariant::Text
                             on_press=Callback::new(move |_| on_refresh.run(()))>
@@ -212,7 +219,7 @@ mod tests {
     fn render_live(state: RwSignal<AccountViewState>, locale: RwSignal<Locale>) -> String {
         let theme = RwSignal::new(Theme::System);
         let noop = Callback::new(|()| {});
-        view! { <LiveAccount state locale theme on_login=noop on_register=noop
+        view! { <LiveAccount state locale theme registration=RwSignal::new(crate::application::registration::RegistrationState::default()) on_registration_refresh=noop on_login=noop on_register=noop
         on_logout=noop on_refresh=noop on_membership=noop/> }
         .to_html()
     }

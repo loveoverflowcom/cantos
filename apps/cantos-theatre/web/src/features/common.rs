@@ -1,4 +1,5 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
+#[cfg(feature = "preview")]
 use crate::{
     app::{context::TheatreContext, routes::Route},
     application::catalog::Scenario,
@@ -48,6 +49,7 @@ pub(crate) fn clock(seconds: u32) -> String {
     format!("{}:{:02}", seconds / 60, seconds % 60)
 }
 
+#[cfg(feature = "preview")]
 /// Whole-percent position for a progress bar; an unknown or zero duration shows no progress.
 pub(crate) fn progress_percent(position_ms: u32, duration_seconds: u32) -> u8 {
     let duration_ms = u64::from(duration_seconds) * 1000;
@@ -57,6 +59,7 @@ pub(crate) fn progress_percent(position_ms: u32, duration_seconds: u32) -> u8 {
     (u64::from(position_ms) * 100 / duration_ms).min(100) as u8
 }
 
+#[cfg(feature = "preview")]
 /// Mock artwork bundled with the app (see assets/provenance.json). Works without a painting
 /// keep the typographic cover.
 pub(crate) fn artwork_src(id: WorkId) -> Option<&'static str> {
@@ -67,6 +70,7 @@ pub(crate) fn artwork_src(id: WorkId) -> Option<&'static str> {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn PageHeading(
     ctx: TheatreContext,
@@ -82,6 +86,7 @@ pub(crate) fn PageHeading(
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     match artwork_src(id) {
@@ -105,6 +110,7 @@ pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn SaveAction(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     view! {
@@ -121,6 +127,7 @@ pub(crate) fn SaveAction(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn WorkCard(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     view! {
@@ -139,6 +146,7 @@ pub(crate) fn WorkCard(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn CatalogState(ctx: TheatreContext) -> impl IntoView {
     view! {
@@ -162,6 +170,7 @@ pub(crate) fn CatalogState(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn UnsupportedAction(ctx: TheatreContext, label: Key) -> impl IntoView {
     let reason_id = match label {

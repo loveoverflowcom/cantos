@@ -11,7 +11,10 @@ use crate::{
     build::{self, Profile},
     cli::{PostgresScope, VerifySuite},
     command::CommandSpec,
-    config::{App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, UI_PACKAGE, WASM_TARGET},
+    config::{
+        App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, THEATRE_PREVIEW_FEATURE,
+        THEATRE_WEB_PACKAGE, UI_PACKAGE, WASM_TARGET,
+    },
     kani::{self, Kernel},
     pipeline::Step,
     theatre_demo,
@@ -59,6 +62,20 @@ impl Scope {
                 .iter()
                 .flat_map(|package| ["-p".to_owned(), package.clone()])
                 .collect(),
+        }
+    }
+
+    /// Theatre's unit tests and lint cover its isolated preview code, so any scope that
+    /// includes the package enables the feature. The production lane is checked separately.
+    fn theatre_preview_args(&self) -> Vec<String> {
+        let selected = match self {
+            Scope::Workspace => true,
+            Scope::Packages(packages) => packages.contains(THEATRE_WEB_PACKAGE),
+        };
+        if selected {
+            vec!["--features".into(), THEATRE_PREVIEW_FEATURE.into()]
+        } else {
+            Vec::new()
         }
     }
 
@@ -298,16 +315,14 @@ impl Gate {
                     "warnings",
                 ]),
             ],
-            Gate::RustLint(scope) => vec![cargo(&["clippy"]).args(scope.cargo_args()).args([
-                "--all-targets",
-                "--locked",
-                "--",
-                "-D",
-                "warnings",
-            ])],
-            Gate::RustTests(scope) => {
-                vec![cargo(&["test"]).args(scope.cargo_args()).args(["--locked"])]
-            }
+            Gate::RustLint(scope) => vec![cargo(&["clippy"])
+                .args(scope.cargo_args())
+                .args(scope.theatre_preview_args())
+                .args(["--all-targets", "--locked", "--", "-D", "warnings"])],
+            Gate::RustTests(scope) => vec![cargo(&["test"])
+                .args(scope.cargo_args())
+                .args(scope.theatre_preview_args())
+                .args(["--locked"])],
             Gate::ForgeFunctions => vec![
                 cargo(&[
                     "build",
@@ -372,20 +387,31 @@ impl Gate {
                 "--",
                 "--ignored",
             ])],
-            Gate::WebLint(apps) => vec![cargo(&["clippy"])
-                .args(["-p", UI_PACKAGE])
-                .args(apps.iter().flat_map(|app| ["-p", app.web_package()]))
-                .args([
-                    "--all-targets",
-                    "--target",
-                    WASM_TARGET,
-                    "--features",
-                    "cantos-ui/preview",
-                    "--locked",
-                    "--",
-                    "-D",
-                    "warnings",
-                ])],
+            Gate::WebLint(apps) => {
+                let mut commands = vec![cargo(&["clippy"])
+                    .args(["-p", UI_PACKAGE])
+                    .args(apps.iter().flat_map(|app| ["-p", app.web_package()]))
+                    .args(["--all-targets", "--target", WASM_TARGET, "--features"])
+                    // Theatre's preview code is linted and tested with its development previews on.
+                    .args([if apps.contains(&App::Theatre) {
+                        "cantos-ui/preview,cantos-theatre/preview"
+                    } else {
+                        "cantos-ui/preview"
+                    }])
+                    .args(["--locked", "--", "-D", "warnings"])];
+                if apps.contains(&App::Theatre) {
+                    // The production lane has no previews: lint exactly what a release compiles.
+                    commands.push(cargo(&["clippy", "-p", THEATRE_WEB_PACKAGE]).args([
+                        "--target",
+                        WASM_TARGET,
+                        "--locked",
+                        "--",
+                        "-D",
+                        "warnings",
+                    ]));
+                }
+                commands
+            }
             Gate::WebBuild(app) => vec![build::trunk(workspace, *app, "build", Profile::Dev)],
             Gate::UiPreview => vec![ui_preview::leptos_command(workspace, "build")],
             Gate::CmpUiPreview => vec![ui_preview::cmp_command(workspace, "desktopTest")],
@@ -533,11 +559,14 @@ mod tests {
         assert_eq!(lines(&Gate::RustFormat), ["cargo fmt --all -- --check"]);
         assert_eq!(
             lines(&Gate::RustLint(Scope::Workspace)),
-            ["cargo clippy --workspace --all-targets --locked -- -D warnings"]
+            ["cargo clippy --workspace --features cantos-theatre/preview --all-targets --locked -- -D warnings"]
         );
         assert_eq!(
             lines(&Gate::WebLint(App::ALL.into_iter().collect())),
-            ["cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings"]
+            [
+                "cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview,cantos-theatre/preview --locked -- -D warnings",
+                "cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings",
+            ]
         );
         assert_eq!(
             lines(&Gate::WebBuild(App::Theatre)),
@@ -843,6 +872,32 @@ mod tests {
         assert_eq!(
             Gate::RustLint(scope).name(),
             "rust-lint (cantos-api, xtask)"
+        );
+    }
+
+    #[test]
+    fn theatre_preview_is_enabled_for_exactly_the_scopes_that_include_the_package() {
+        let with_theatre = Scope::Packages(["cantos-theatre".into(), "xtask".into()].into());
+        assert_eq!(
+            lines(&Gate::RustTests(with_theatre.clone())),
+            ["cargo test -p cantos-theatre -p xtask --features cantos-theatre/preview --locked"]
+        );
+        assert_eq!(
+            lines(&Gate::RustLint(with_theatre)),
+            ["cargo clippy -p cantos-theatre -p xtask --features cantos-theatre/preview --all-targets --locked -- -D warnings"]
+        );
+        // A feature of an unselected package would be an error: leave it out.
+        let without = Scope::Packages(["cantos-api".into()].into());
+        for gate in [Gate::RustTests(without.clone()), Gate::RustLint(without)] {
+            assert!(
+                lines(&gate).iter().all(|line| !line.contains("preview")),
+                "{gate:?}"
+            );
+        }
+        // Studio-only Web lint has no Theatre feature and no production-lane command.
+        assert_eq!(
+            lines(&Gate::WebLint([App::Studio].into())),
+            ["cargo clippy -p cantos-ui -p cantos-studio --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings"]
         );
     }
 

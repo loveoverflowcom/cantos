@@ -1,12 +1,11 @@
 //! Typed resources for live and mock listener surfaces; story fixtures retain their language.
 use cantos_contracts::theatre::WorkKind;
 
+#[cfg(feature = "preview")]
+use crate::core::catalog::Genre;
 use crate::{
     app::routes::Route,
-    core::{
-        catalog::Genre,
-        playback::{Failure, PauseCause, Status},
-    },
+    core::playback::{Failure, PauseCause, Status},
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -63,16 +62,16 @@ impl Locale {
 }
 
 macro_rules! resources {
-    ($($key:ident => ($vi:literal, $en:literal)),+ $(,)?) => {
+    ($($(#[$meta:meta])* $key:ident => ($vi:literal, $en:literal)),+ $(,)?) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        pub enum Key { $($key),+ }
+        pub enum Key { $($(#[$meta])* $key),+ }
         impl Key {
-            pub const ALL: &'static [Self] = &[$(Self::$key),+];
+            pub const ALL: &'static [Self] = &[$($(#[$meta])* Self::$key),+];
         }
         pub fn text(key: Key, locale: Locale) -> &'static str {
             match (key, locale) {
-                $((Key::$key, Locale::Vietnamese) => $vi,
-                  (Key::$key, Locale::English) => $en),+
+                $($(#[$meta])* (Key::$key, Locale::Vietnamese) => $vi,
+                  $(#[$meta])* (Key::$key, Locale::English) => $en),+
             }
         }
     };
@@ -90,7 +89,6 @@ resources! {
     PublicHomeProtocolHelp => ("Phản hồi chưa hợp lệ. Hãy thử lại để tải danh mục từ Cantos.", "The response was invalid. Try loading the Cantos catalog again."),
     PublicRetry => ("Thử lại", "Try again"),
     PublicHomeRefresh => ("Cập nhật danh mục", "Refresh catalog"),
-    PublicHomeMore => ("Đang hiển thị tối đa {limit} tác phẩm đã công bố; còn nội dung ngoài trang này.", "Showing up to {limit} published stories; more content exists beyond this page."),
     PublicWorkKindNovel => ("Tiểu thuyết", "Novel"),
     PublicWorkKindStory => ("Truyện", "Story"),
     PublicWorkKindPodcast => ("Podcast", "Podcast"),
@@ -106,9 +104,12 @@ resources! {
     PublicWorkEpisodes => ("Các tập", "Episodes"),
     PublicWorkListen => ("Nghe", "Listen"),
     PublicWorkListenUnavailable => ("Chưa có chương hoặc tập đã công bố để nghe. Danh sách có thể đang tải.", "There is no published chapter or episode to play yet. The list may still be loading."),
+    #[cfg(feature = "preview")]
     ListenUnit => ("Nghe {title}", "Listen to {title}"),
+    #[cfg(feature = "preview")]
     ListenUnitPause => ("Tạm dừng {title}", "Pause {title}"),
     ListenUnitPreparing => ("Đang chuẩn bị {title}…", "Preparing {title}…"),
+    #[cfg(feature = "preview")]
     ListenUnitRetry => ("Thử lại {title}", "Try {title} again"),
     ListenResolveNotFound => ("Bản phát hành này không còn khả dụng.", "This release is no longer available."),
     ListenResolveUnavailable => ("Chưa kết nối được để chuẩn bị bản nghe. Hãy thử lại.", "Could not prepare the audio. Try again."),
@@ -134,6 +135,7 @@ resources! {
     ListenBack15 => ("Lùi 15 giây", "Back 15 seconds"),
     ListenForward15 => ("Tiến 15 giây", "Forward 15 seconds"),
     ListenSpeed => ("Tốc độ nghe", "Listening speed"),
+    #[cfg(feature = "preview")]
     ListenOpenWork => ("Mở tác phẩm {title}", "Open the story {title}"),
     ListenFailedPlayRefused => ("Trình duyệt chưa cho phát. Nhấn Phát để thử lại.", "The browser did not start playback. Press Play to try again."),
     ListenFailedUnavailable => ("Bản phát hành này không còn khả dụng. Cantos dừng lại thay vì chuyển sang bản khác.", "This release is no longer available. Cantos stopped instead of switching to another."),
@@ -160,28 +162,83 @@ resources! {
     PublicWorkDurationDescription => ("Thời lượng: {duration}", "Duration: {duration}"),
     PublicWorkDurationUnknown => ("Chưa rõ thời lượng", "Duration not known yet"),
     PublicWorkRowUnavailable => ("Mục này không còn trong danh sách công khai.", "This item is no longer in the public list."),
+    PublicWorkUnitCountChapters => ("Chương đã công bố: {count}", "Published chapters: {count}"),
+    PublicWorkUnitCountEpisodes => ("Tập đã công bố: {count}", "Published episodes: {count}"),
+    PublicWorkUnitLabel => ("{kind} · Vị trí {ordinal}", "{kind} · Position {ordinal}"),
+    DiscoverySearchLabel => ("Tìm trong danh mục", "Search the catalog"),
+    DiscoverySearchHelp => ("Tìm theo tiêu đề hoặc mô tả đã công bố. Nhấn Enter hoặc Tìm để áp dụng.", "Search published titles and descriptions. Press Enter or Search to apply."),
+    DiscoverySearchSubmit => ("Tìm", "Search"),
+    DiscoveryKindLabel => ("Loại", "Type"),
+    DiscoveryKindAll => ("Tất cả loại", "All types"),
+    DiscoveryLanguageLabel => ("Ngôn ngữ nội dung", "Content language"),
+    DiscoveryLanguageHelp => ("Mã ngôn ngữ của bản phát hành, ví dụ vi-VN hoặc en. Để trống để xem mọi ngôn ngữ.", "The language tag of the release, for example vi-VN or en. Leave empty for every language."),
+    DiscoveryLanguageInvalid => ("Mã ngôn ngữ chỉ gồm chữ cái, chữ số và dấu gạch ngang, tối đa 63 ký tự.", "A language tag has only letters, digits and hyphens, at most 63 characters."),
+    DiscoverySearchTooLong => ("Từ khóa quá dài: tối đa 512 byte.", "The search is too long: at most 512 bytes."),
+    DiscoverySearchInvalid => ("Từ khóa chứa ký tự điều khiển không được hỗ trợ.", "The search contains an unsupported control character."),
+    DiscoveryClear => ("Xóa tìm kiếm và bộ lọc", "Clear search and filters"),
+    DiscoveryNoMatches => ("Không có tác phẩm nào khớp.", "No stories match."),
+    DiscoveryNoMatchesHelp => ("Hãy thử từ khóa khác hoặc bỏ bớt bộ lọc.", "Try another search or remove a filter."),
+    DiscoveryIncomplete => ("Chưa thấy kết quả trong phần đã duyệt.", "No match yet in the part searched so far."),
+    DiscoveryIncompleteHelp => ("Danh mục còn phần chưa duyệt, nên đây chưa phải là hết kết quả. Hãy tìm tiếp.", "Part of the catalog has not been searched, so this is not the end of the results. Keep searching."),
+    DiscoveryKeepSearching => ("Tìm tiếp", "Keep searching"),
+    DiscoveryLoadMore => ("Tải thêm tác phẩm", "Load more stories"),
+    DiscoveryLoadingMore => ("Đang tải thêm tác phẩm…", "Loading more stories…"),
+    DiscoveryShowing => ("Đang hiển thị {count} tác phẩm; danh mục còn nội dung tiếp theo.", "Showing {count} stories; the catalog has more."),
+    DiscoveryComplete => ("Đã hiển thị hết các tác phẩm: {count}.", "You have reached the end: {count} stories."),
+    DiscoveryPageUnavailable => ("Chưa tải được phần tiếp theo. Các tác phẩm đã hiển thị vẫn được giữ nguyên.", "The next part could not be loaded. Stories already shown are kept."),
+    DiscoveryPageProtocol => ("Phần tiếp theo trả về dữ liệu chưa hợp lệ. Các tác phẩm đã hiển thị vẫn được giữ nguyên.", "The next part returned invalid data. Stories already shown are kept."),
+    DiscoveryExpired => ("Phiên duyệt danh mục đã hết hạn. Các tác phẩm đã hiển thị vẫn được giữ; hãy tải lại từ đầu để xem phần còn lại.", "The browsing session expired. Stories already shown are kept; reload from the start to see the rest."),
+    DiscoveryRestart => ("Tải lại từ đầu", "Reload from the start"),
+    LiveNotFound => ("Không tìm thấy trang này", "This page could not be found"),
+    LiveNotFoundHelp => ("Đường dẫn không đúng hoặc không còn tồn tại. Bạn có thể quay về Khám phá để tìm câu chuyện khác.", "The link is wrong or no longer exists. You can return to Explore to find another story."),
+    LiveBackToDiscover => ("Về Khám phá", "Back to Explore"),
+    LiveRouteUnavailable => ("Tính năng này chưa mở", "This feature is not available yet"),
+    LiveRouteUnavailableHelp => ("Phần này chưa được nối với dữ liệu thật nên Cantos không hiển thị nội dung mẫu. Bạn vẫn có thể khám phá và nghe các tác phẩm đã công bố.", "This part is not connected to real data yet, so Cantos shows no sample content. You can still explore and listen to published stories."),
+    #[cfg(feature = "preview")]
     AuthPreviewHeading => ("Auth preview · Chỉ dữ liệu mẫu", "Auth preview · Fixtures only"),
+    #[cfg(feature = "preview")]
     AuthPreviewNotice => ("Công cụ kiểm tra riêng: không gọi mạng, Cantos ID, timer hoặc mật khẩu. A/B là tài khoản mẫu; không chứng nhận đăng nhập hoặc đăng ký thực.", "Isolated diagnostics: no network, Cantos ID, timers or passwords. A/B are fixture accounts; this does not verify real sign-in or registration."),
+    #[cfg(feature = "preview")]
     AuthPreviewGuest => ("Mẫu khách · cleanup đã xác nhận", "Guest fixture · cleanup acknowledged"),
+    #[cfg(feature = "preview")]
     AuthPreviewSignedA => ("Mẫu đăng nhập A", "Signed-in fixture A"),
+    #[cfg(feature = "preview")]
     AuthPreviewSignedB => ("Mẫu đăng nhập B", "Signed-in fixture B"),
+    #[cfg(feature = "preview")]
     AuthPreviewLogoutPending => ("Bắt đầu mẫu đăng xuất", "Begin logout fixture"),
+    #[cfg(feature = "preview")]
     AuthPreviewCleanupFail => ("Mẫu cleanup thất bại", "Fail cleanup fixture"),
+    #[cfg(feature = "preview")]
     AuthPreviewCleanupAck => ("Xác nhận cleanup mẫu", "Acknowledge cleanup fixture"),
+    #[cfg(feature = "preview")]
     AuthPreviewBeginDelayed => ("Giữ phản hồi phiên A", "Hold session A response"),
+    #[cfg(feature = "preview")]
     AuthPreviewCompleteDelayed => ("Trả phản hồi A đã giữ", "Deliver held A response"),
+    #[cfg(feature = "preview")]
     AuthPreviewCancel => ("Hủy yêu cầu mẫu và rời auth", "Cancel fixture request and leave auth"),
+    #[cfg(feature = "preview")]
     AuthPreviewCleanupHelp => ("Bắt đầu mẫu đăng xuất trước khi thử phản hồi cleanup; xác nhận thành công mới mở lại Login.", "Begin the logout fixture before delivering cleanup responses; only acknowledgement re-enables Login."),
+    #[cfg(feature = "preview")]
     AuthPreviewDelayHelp => ("Giữ phản hồi A trước khi trả phản hồi. Sau khi hủy hoặc chuyển khách → B, phản hồi A cũ phải được bỏ qua.", "Hold A before delivering its response. After cancellation or a Guest → B switch, the old A response must be ignored."),
+    #[cfg(feature = "preview")]
     AuthPreviewReady => ("Sẵn sàng kiểm tra trạng thái mẫu.", "Ready to inspect fixture states."),
+    #[cfg(feature = "preview")]
     AuthPreviewApplied => ("Đã áp dụng chuyển trạng thái mẫu qua AccountViewState.", "Fixture transition applied through AccountViewState."),
+    #[cfg(feature = "preview")]
     AuthPreviewNeedsCleanup => ("Core chặn thao tác: phải xác nhận cleanup trước.", "Core refused the action: acknowledge cleanup first."),
+    #[cfg(feature = "preview")]
     AuthPreviewRequestPending => ("Core chặn yêu cầu trùng trong khi phản hồi cũ còn chờ.", "Core refused a duplicate request while a response is pending."),
+    #[cfg(feature = "preview")]
     AuthPreviewRejected => ("Core từ chối chuyển trạng thái mẫu; phiên hiện tại được giữ.", "Core refused the fixture transition; the current session is retained."),
+    #[cfg(feature = "preview")]
     AuthPreviewDelayed => ("Đã giữ generation của yêu cầu A. Hủy hoặc chuyển khách → B rồi trả A để kiểm tra phản hồi trễ.", "Captured request A's generation. Cancel or switch Guest → B, then deliver A to inspect a stale response."),
+    #[cfg(feature = "preview")]
     AuthPreviewIgnored => ("Core đã bỏ qua phản hồi A cũ; trạng thái hiện tại được giữ.", "Core ignored the old A response; the current state is retained."),
+    #[cfg(feature = "preview")]
     AuthPreviewCleanupFailed => ("Cleanup mẫu chưa xác nhận; Login vẫn bị khóa, có thể thử hoàn tất đăng xuất.", "Fixture cleanup remains unacknowledged; Login stays blocked and sign-out can be retried."),
+    #[cfg(feature = "preview")]
     AuthPreviewCancelled => ("Đã hủy generation mẫu và rời auth. Phản hồi A đã giữ có thể được trả để kiểm tra việc bỏ qua.", "Fixture generation cancelled and auth closed. Deliver the held A response to inspect rejection."),
+    #[cfg(feature = "preview")]
     CoverArtName => ("{title}: {description}", "{title}: {description}"),
     MembershipHeading => ("Membership", "Membership"),
     PageTitle => ("{page} · Cantos", "{page} · Cantos"),
@@ -192,107 +249,195 @@ resources! {
     Explore => ("Tìm tác phẩm", "Find a story"),
     Library => ("Của tôi", "My library"),
     History => ("Lịch sử", "History"),
+    #[cfg(feature = "preview")]
     LibraryDeck => ("Những câu chuyện bạn muốn trở lại.", "Stories you want to return to."),
     Player => ("Đang nghe", "Now listening"),
     Queue => ("Tiếp theo", "Up next"),
     Settings => ("Cài đặt nghe", "Listening settings"),
     Account => ("Tài khoản", "Account"),
+    #[cfg(feature = "preview")]
     MembershipPreview => ("Membership · bản xem thử", "Membership · preview"),
     MembershipRegister => ("Đăng ký Membership", "Register Membership interest"),
     MembershipUnavailable => ("Đăng ký Membership chưa khả dụng. Chưa có dịch vụ tiếp nhận được chấp nhận; thông tin không được gửi.", "Membership registration is unavailable. No accepted intake service exists; information is not sent."),
     NotFound => ("Trang chưa có", "Page not found"),
     HomeHeading => ("Mở một miền tưởng tượng.", "Open a world of imagination."),
+    #[cfg(feature = "preview")]
     HomeDeck => ("Những câu chuyện để lắng nghe, chậm lại và đi xa hơn.", "Stories to listen to, slow down with and journey further."),
+    #[cfg(feature = "preview")]
     Quote => ("Nhắm mắt lại. Mở một thế giới.", "Close your eyes. Open a world."),
+    #[cfg(feature = "preview")]
     DemoBadge => ("Bản mô phỏng · dữ liệu minh họa", "Mock demo · sample data"),
+    #[cfg(feature = "preview")]
     DemoNotice => ("Bản mô phỏng: không có âm thanh, tài khoản hay đồng bộ. Dữ liệu chỉ lưu trong phiên này; tải lại trang sẽ đặt lại.", "Mock demo: no audio, account or sync. Data lasts only for this session; reloading resets it."),
+    #[cfg(feature = "preview")]
     Featured => ("TUYỂN CHỌN CANTOS", "CANTOS SELECTION"),
+    #[cfg(feature = "preview")]
     FeaturedSubtitle => ("Một tiếng chuông lay động sơn hà.", "A bell echoes across mountains and rivers."),
+    #[cfg(feature = "preview")]
     Begin => ("Mở tập nghe mẫu", "Open a sample episode"),
     AboutWork => ("Về tác phẩm", "About the story"),
+    #[cfg(feature = "preview")]
     BackDiscover => ("Về khám phá", "Back to discovery"),
     StoryShelf => ("Mỗi câu chuyện, một thế giới", "Every story, a world"),
     Saved => ("Đã lưu", "Saved"),
+    #[cfg(feature = "preview")]
     Save => ("Lưu", "Save"),
+    #[cfg(feature = "preview")]
     RemoveSave => ("Bỏ lưu", "Unsave"),
+    #[cfg(feature = "preview")]
     SaveName => ("Lưu tác phẩm {title}", "Save story {title}"),
+    #[cfg(feature = "preview")]
     RemoveSaveName => ("Bỏ lưu tác phẩm {title}", "Unsave story {title}"),
     Continue => ("Nghe tiếp", "Continue listening"),
+    #[cfg(feature = "preview")]
     ContinueHeading => ("Nghe tiếp", "Continue listening"),
+    #[cfg(feature = "preview")]
     ResumeSample => ("Mở vị trí nghe", "Open listening position"),
+    #[cfg(feature = "preview")]
     ResumeSampleName => ("Mở vị trí nghe {title} tại {time}", "Open listening position for {title} at {time}"),
+    #[cfg(feature = "preview")]
     ResumeSampleHelp => ("Mở lại đúng vị trí và giữ tạm dừng. Chọn Phát mô phỏng để thử tiếp.", "Reopens the position paused. Choose Simulate play to try it."),
+    #[cfg(feature = "preview")]
     NoContinue => ("Chưa có gì để nghe tiếp", "Nothing to pick up yet"),
+    #[cfg(feature = "preview")]
     NoContinueHelp => ("Mở một tập, rồi quay lại đây để mở lại đúng vị trí trong phiên này.", "Open an episode, then return here to reopen the same position during this session."),
+    #[cfg(feature = "preview")]
     NoSaved => ("Chưa lưu tác phẩm nào", "No saved stories yet"),
+    #[cfg(feature = "preview")]
     NoSavedHelp => ("Chọn Lưu trên tác phẩm bạn thích để thấy chúng ở đây.", "Choose Save on a story you like and it will appear here."),
+    #[cfg(feature = "preview")]
     NoHistory => ("Chưa có lịch sử nghe", "No listening history yet"),
+    #[cfg(feature = "preview")]
     NoHistoryHelp => ("Lịch sử ghi nhận các tập đã Phát mô phỏng trong phiên này; chỉ mở trang hoặc lưu truyện chưa tạo lịch sử.", "History records episodes after Simulate play in this session; opening a page or saving a story does not add history."),
+    #[cfg(feature = "preview")]
     HistoryHelp => ("Các câu chuyện đã phát mô phỏng, gần nhất ở trên. Mở lại sẽ khôi phục vị trí và giữ tạm dừng.", "Stories played in the simulation, most recent first. Reopening restores the position and stays paused."),
+    #[cfg(feature = "preview")]
     BrowseStories => ("Khám phá tác phẩm", "Discover stories"),
+    #[cfg(feature = "preview")]
     ViewAll => ("Xem tất cả", "View all"),
+    #[cfg(feature = "preview")]
     ViewAllHistory => ("Xem tất cả lịch sử nghe", "View all listening history"),
+    #[cfg(feature = "preview")]
     BackLibrary => ("Về Của tôi", "Back to My library"),
+    #[cfg(feature = "preview")]
     ClearHistory => ("Xóa lịch sử nghe mẫu", "Clear sample listening history"),
+    #[cfg(feature = "preview")]
     ClearHistoryConfirmTitle => ("Xóa lịch sử trong phiên này?", "Clear history for this session?"),
+    #[cfg(feature = "preview")]
     ClearHistoryHelp => ("Chỉ xóa danh sách lịch sử. Vị trí nghe, truyện đã lưu, dấu trang và trình phát vẫn được giữ lại.", "Only the history list is cleared. Listening positions, saved stories, bookmarks and the player are retained."),
+    #[cfg(feature = "preview")]
     ConfirmClearHistory => ("Xác nhận xóa lịch sử", "Confirm clear history"),
+    #[cfg(feature = "preview")]
     Cancel => ("Hủy", "Cancel"),
+    #[cfg(feature = "preview")]
     Bookmarks => ("Dấu trang", "Bookmarks"),
+    #[cfg(feature = "preview")]
     Episodes => ("Các tập nghe mẫu", "Sample episodes"),
+    #[cfg(feature = "preview")]
     Episode => ("Tập {number}", "Episode {number}"),
     EpisodeCountOne => ("{count} tập", "{count} episode"),
     EpisodeCountOther => ("{count} tập", "{count} episodes"),
+    #[cfg(feature = "preview")]
     ContentLanguage => ("Tiếng Việt · nội dung minh họa", "Vietnamese · sample content"),
+    #[cfg(feature = "preview")]
     Fantasy => ("Tiên hiệp", "Cultivation fantasy"),
+    #[cfg(feature = "preview")]
     Memory => ("Dã sử", "Historical fiction"),
+    #[cfg(feature = "preview")]
     Dream => ("Huyền ảo", "Fantasy"),
+    #[cfg(feature = "preview")]
     All => ("Tất cả", "All stories"),
+    #[cfg(feature = "preview")]
     CoverPlaceholder => ("Bìa minh họa bằng chữ · chưa có ảnh được cấp quyền", "Typographic cover · licensed artwork pending"),
+    #[cfg(feature = "preview")]
     SearchLabel => ("Tìm theo tên hoặc mô tả", "Search titles or descriptions"),
+    #[cfg(feature = "preview")]
     SearchHelp => ("Tìm cục bộ, không gửi dữ liệu. Phân biệt dấu tiếng Việt.", "Local search, no data sent. Vietnamese diacritics are significant."),
+    #[cfg(feature = "preview")]
     Filters => ("Lọc thể loại", "Genre filters"),
+    #[cfg(feature = "preview")]
     NoResults => ("Chưa tìm thấy câu chuyện", "No stories found"),
+    #[cfg(feature = "preview")]
     NoResultsHelp => ("Thử tên có dấu hoặc bỏ bộ lọc để xem lại các tác phẩm mẫu.", "Try an accented title or clear filters to see the sample stories."),
+    #[cfg(feature = "preview")]
     ClearSearch => ("Xóa tìm kiếm và bộ lọc", "Clear search and filters"),
+    #[cfg(feature = "preview")]
     Loading => ("Đang tải danh mục mẫu…", "Loading the sample catalog…"),
+    #[cfg(feature = "preview")]
     LoadingHelp => ("Trạng thái thử nghiệm giữ nguyên cho đến khi bạn chọn tiếp tục.", "This demo state stays visible until you choose to continue."),
+    #[cfg(feature = "preview")]
     LoadDemo => ("Hiện dữ liệu mẫu", "Show sample data"),
+    #[cfg(feature = "preview")]
     EmptyCatalog => ("Danh mục đang trống", "The catalog is empty"),
+    #[cfg(feature = "preview")]
     EmptyCatalogHelp => ("Đây là trạng thái mẫu. Có thể trở lại dữ liệu minh họa bất kỳ lúc nào.", "This is a sample empty state. You can return to the demo data any time."),
+    #[cfg(feature = "preview")]
     CatalogError => ("Chưa mở được danh mục mẫu", "The sample catalog could not be opened"),
+    #[cfg(feature = "preview")]
     CatalogErrorHelp => ("Lỗi được mô phỏng, không có yêu cầu mạng. Vị trí nghe và tủ sách của bạn vẫn giữ nguyên.", "This is a simulated error, with no network request. Your position and library are unchanged."),
+    #[cfg(feature = "preview")]
     Retry => ("Thử lại dữ liệu mẫu", "Retry sample data"),
+    #[cfg(feature = "preview")]
     NoLibrary => ("Tủ sách chưa có nội dung", "Your library is empty"),
+    #[cfg(feature = "preview")]
     NoLibraryHelp => ("Lưu tác phẩm, mở một tập mẫu hoặc thêm dấu trang để bắt đầu.", "Save a story, open a sample episode or add a bookmark to begin."),
+    #[cfg(feature = "preview")]
     NoPlayer => ("Chưa chọn tập nghe", "No episode selected"),
+    #[cfg(feature = "preview")]
     NoPlayerHelp => ("Chọn một tập mẫu từ tác phẩm. Demo không phát âm thanh.", "Choose a sample episode from a story. The demo has no audio."),
+    #[cfg(feature = "preview")]
     MiniPlayer => ("Trình phát mô phỏng thu gọn", "Compact mock player"),
+    #[cfg(feature = "preview")]
     FullPlayer => ("Mở trình phát mô phỏng", "Open mock player"),
+    #[cfg(feature = "preview")]
     Play => ("Phát mô phỏng", "Simulate play"),
+    #[cfg(feature = "preview")]
     Pause => ("Tạm dừng mô phỏng", "Pause simulation"),
+    #[cfg(feature = "preview")]
     Replay => ("Mô phỏng từ đầu", "Simulate from the beginning"),
+    #[cfg(feature = "preview")]
     PlayName => ("Mở tập nghe mẫu {title}", "Open a sample episode: {title}"),
+    #[cfg(feature = "preview")]
     Paused => ("Mô phỏng · đang tạm dừng", "Mock · paused"),
+    #[cfg(feature = "preview")]
     Simulating => ("Mô phỏng đang phát · không có âm thanh", "Simulating play · no audio"),
+    #[cfg(feature = "preview")]
     Ended => ("Mô phỏng · đã hết tập", "Mock · episode ended"),
+    #[cfg(feature = "preview")]
     PlayerLoading => ("Mô phỏng · đang chờ bộ máy giả xác nhận", "Mock · waiting for fake-engine confirmation"),
+    #[cfg(feature = "preview")]
     Buffering => ("Mô phỏng · đang đệm, không có âm thanh", "Mock · buffering, no audio"),
+    #[cfg(feature = "preview")]
     Interrupted => ("Mô phỏng · dừng sau gián đoạn", "Mock · paused after interruption"),
+    #[cfg(feature = "preview")]
     ResumeOffered => ("Mô phỏng · có vị trí để nghe tiếp, chưa phát", "Mock · resume position offered, playback has not started"),
+    #[cfg(feature = "preview")]
     MockEngineTools => ("Thử bộ máy giả", "Fake-engine demo controls"),
+    #[cfg(feature = "preview")]
     MockBuffer => ("Mô phỏng đệm", "Simulate buffering"),
+    #[cfg(feature = "preview")]
     MockReady => ("Xác nhận phát mô phỏng", "Confirm simulated play"),
+    #[cfg(feature = "preview")]
     MockInterrupt => ("Mô phỏng gián đoạn", "Simulate interruption"),
+    #[cfg(feature = "preview")]
     MockEndInterrupt => ("Kết thúc gián đoạn, giữ tạm dừng", "End interruption and stay paused"),
+    #[cfg(feature = "preview")]
     MockEnd => ("Mô phỏng kết thúc tập", "Simulate episode end"),
+    #[cfg(feature = "preview")]
     MockRestore => ("Khôi phục vị trí trong phiên", "Restore position within this session"),
+    #[cfg(feature = "preview")]
     MockRejected => ("Thao tác mẫu chưa được chấp nhận. Kiểm tra trạng thái mô phỏng rồi thử lại.", "The sample action was not accepted. Check the mock state and try again."),
+    #[cfg(feature = "preview")]
     MockEngineHelp => ("Chỉ thử sự kiện giả. Phát mô phỏng trước khi thử đệm; kết thúc gián đoạn trước khi phát lại. Không có âm thanh, cuộc gọi thật, lưu trữ hay tự nghe tiếp.", "Fake events only. Simulate play before buffering; end an interruption before playing again. No sound, actual phone interruption, storage or automatic resume."),
+    #[cfg(feature = "preview")]
     Timeline => ("Vị trí mô phỏng", "Mock position"),
+    #[cfg(feature = "preview")]
     TimelineHelp => ("Kéo để xem vị trí, thả để xác nhận. Escape hủy kéo. Dùng phím mũi tên, Home hoặc End để đổi vị trí. Không có âm thanh hay đồng hồ phát.", "Drag to preview, release to commit. Escape cancels a drag. Use arrow keys, Home or End to seek. No sound or playback clock."),
+    #[cfg(feature = "preview")]
     ScrubPreview => ("Đang xem trước vị trí mô phỏng", "Previewing mock position"),
+    #[cfg(feature = "preview")]
     SeekPending => ("Đang xác nhận vị trí mô phỏng", "Confirming mock position"),
+    #[cfg(feature = "preview")]
     TransportEpisode => ("{action}: {episode}", "{action}: {episode}"),
     SpokenTimeOf => ("{elapsed} trên tổng số {total}", "{elapsed} of {total}"),
     SpokenTime => ("{minutes} {seconds}", "{minutes} {seconds}"),
@@ -300,54 +445,98 @@ resources! {
     MinuteOther => ("{count} phút", "{count} minutes"),
     SecondOne => ("{count} giây", "{count} second"),
     SecondOther => ("{count} giây", "{count} seconds"),
+    #[cfg(feature = "preview")]
     Back15 => ("Lùi 15 giây mô phỏng", "Move mock position back 15 seconds"),
+    #[cfg(feature = "preview")]
     Forward15 => ("Tiến 15 giây mô phỏng", "Move mock position forward 15 seconds"),
+    #[cfg(feature = "preview")]
     AddBookmark => ("Ghi dấu tại vị trí này", "Bookmark this position"),
+    #[cfg(feature = "preview")]
     BookmarkAdded => ("Đã ghi dấu tại vị trí này", "This position is bookmarked"),
+    #[cfg(feature = "preview")]
     RemoveBookmark => ("Xóa dấu trang", "Remove bookmark"),
+    #[cfg(feature = "preview")]
     BookmarkName => ("Nghe tiếp {title} tại {time}", "Continue listening to {title} at {time}"),
+    #[cfg(feature = "preview")]
     RemoveBookmarkName => ("Xóa dấu trang của {title} tại {time}", "Remove bookmark for {title} at {time}"),
+    #[cfg(feature = "preview")]
     QueueAdd => ("Thêm vào tiếp theo", "Add to queue"),
+    #[cfg(feature = "preview")]
     QueueAdded => ("Đã ở trong tiếp theo", "Already queued"),
+    #[cfg(feature = "preview")]
     QueueName => ("Thêm vào tiếp theo: {title}", "Add to queue: {title}"),
+    #[cfg(feature = "preview")]
     QueueEmpty => ("Chưa có tập tiếp theo", "Your queue is empty"),
+    #[cfg(feature = "preview")]
     QueueEmptyHelp => ("Thêm tập mẫu từ danh sách tập. Demo không tự phát tập tiếp theo.", "Add a sample episode from a story. The demo never advances automatically."),
+    #[cfg(feature = "preview")]
     QueueRemove => ("Bỏ khỏi tiếp theo", "Remove from queue"),
+    #[cfg(feature = "preview")]
     QueueRemoveName => ("Bỏ khỏi tiếp theo: {title}", "Remove from queue: {title}"),
+    #[cfg(feature = "preview")]
     Next => ("Mở tập tiếp theo", "Open next episode"),
+    #[cfg(feature = "preview")]
     NoNext => ("Chưa có tập trong danh sách tiếp theo", "There are no episodes in your queue"),
+    #[cfg(feature = "preview")]
     CloseQueue => ("Đóng tiếp theo, về trình phát", "Close queue and return to player"),
+    #[cfg(feature = "preview")]
     CurrentEpisode => ("Tập mẫu đang chọn", "Selected sample episode"),
+    #[cfg(feature = "preview")]
     Unavailable => ("Chưa có bản nghe mẫu", "No sample listening edition"),
+    #[cfg(feature = "preview")]
     UnavailableHelp => ("Tập minh họa chưa có bản nghe; không thể mở hoặc thêm vào tiếp theo.", "This sample episode has no listening edition and cannot be opened or queued."),
+    #[cfg(feature = "preview")]
     Speed => ("Tốc độ mô phỏng", "Mock speed"),
+    #[cfg(feature = "preview")]
     SpeedHelp => ("Chỉ đổi giá trị giao diện; không điều khiển âm thanh.", "Changes the display value only; it does not control audio."),
     Theme => ("Giao diện", "Appearance"),
     System => ("Theo hệ thống", "System"),
     Light => ("Sáng", "Light"),
     Dark => ("Tối", "Dark"),
     Locale => ("Ngôn ngữ giao diện", "Interface language"),
+    #[cfg(feature = "preview")]
     Scenario => ("Trạng thái danh mục thử nghiệm", "Catalog demo state"),
+    #[cfg(feature = "preview")]
     Ready => ("Có dữ liệu", "Ready"),
+    #[cfg(feature = "preview")]
     Empty => ("Trống", "Empty"),
+    #[cfg(feature = "preview")]
     Error => ("Lỗi", "Error"),
+    #[cfg(feature = "preview")]
     DemoTools => ("Điều khiển bản mô phỏng", "Demo controls"),
+    #[cfg(feature = "preview")]
     Reset => ("Đặt lại toàn bộ dữ liệu mẫu", "Reset all sample data"),
+    #[cfg(feature = "preview")]
     ResetHelp => ("Đặt lại vị trí, tác phẩm lưu, lịch sử, dấu trang, tiếp theo và tốc độ. Xóa tủ sách sẽ xóa tác phẩm lưu, lịch sử, dấu trang và vị trí; vẫn giữ trình phát và tiếp theo. Chỉ ảnh hưởng phiên demo này.", "Reset position, saved stories, history, bookmarks, queue and speed. Clearing the library removes saved stories, history, bookmarks and progress; the player and queue are retained. Only this demo session is affected."),
+    #[cfg(feature = "preview")]
     ClearLibrary => ("Xóa nội dung tủ sách mẫu", "Clear sample library contents"),
+    #[cfg(feature = "preview")]
     GuestListener => ("Người nghe khách", "Guest listener"),
+    #[cfg(feature = "preview")]
     GuestStatus => ("Chưa đăng nhập. Bạn đang nghe với tư cách khách.", "Not signed in. You are listening as a guest."),
+    #[cfg(feature = "preview")]
     AccountStatusHeading => ("Trạng thái", "Status"),
+    #[cfg(feature = "preview")]
     AccountShortcutsHeading => ("Đi tới", "Go to"),
+    #[cfg(feature = "preview")]
     NotIntegrated => ("Chưa tích hợp", "Not integrated"),
+    #[cfg(feature = "preview")]
     SignInHelp => ("Bản mô phỏng chưa có đăng nhập, nên chưa có tài khoản để gắn dữ liệu.", "This mock has no sign-in, so there is no account to attach data to."),
+    #[cfg(feature = "preview")]
     SyncHelp => ("Chưa đồng bộ giữa thiết bị. Tiến trình, tác phẩm đã lưu và dấu trang chỉ nằm trong phiên này.", "Nothing syncs between devices. Progress, saved stories and bookmarks stay in this session only."),
+    #[cfg(feature = "preview")]
     StorageLabel => ("Nơi lưu dữ liệu", "Where data lives"),
+    #[cfg(feature = "preview")]
     StorageValue => ("Chỉ trong phiên này", "This session only"),
+    #[cfg(feature = "preview")]
     StorageHelp => ("Tải lại trang sẽ đặt lại dữ liệu mẫu.", "Reloading the page resets the sample data."),
+    #[cfg(feature = "preview")]
     SettingsLinkHelp => ("Giao diện, ngôn ngữ và tốc độ nghe.", "Appearance, language and listening speed."),
+    #[cfg(feature = "preview")]
     LibraryLinkHelp => ("Nghe tiếp, đã lưu và lịch sử.", "Continue, saved and history."),
+    #[cfg(feature = "preview")]
     ProgressName => ("Đã nghe {time} trên {total}", "Listened {time} of {total}"),
+    #[cfg(feature = "preview")]
     CoverArtPlaceholder => ("Tranh minh họa · bản mô phỏng, chưa xác minh quyền sử dụng", "Illustration · mock, usage rights not verified"),
     SignIn => ("Đăng nhập", "Sign in"),
     SignOut => ("Đăng xuất", "Sign out"),
@@ -355,32 +544,56 @@ resources! {
     AccountChecking => ("Đang kiểm tra phiên người nghe…", "Checking your listener session…"),
     SignedInListener => ("Người nghe đã đăng nhập", "Signed-in listener"),
     LiveGuestStatus => ("Chưa đăng nhập vào Cantos.", "Not signed in to Cantos."),
+    #[cfg(feature = "preview")]
     AccountReference => ("Mã tài khoản: {actor}", "Account ID: {actor}"),
     AccountLogoutPending => ("Đang đăng xuất phiên nghe…", "Signing out the listener session…"),
     AccountLogoutRetryHelp => ("Chưa xác nhận đăng xuất. Dữ liệu riêng đã được ẩn; hãy thử hoàn tất đăng xuất trước khi đăng nhập lại.", "Sign-out is not confirmed. Private data is hidden; finish signing out before signing in again."),
     AccountLogoutRetry => ("Hoàn tất đăng xuất", "Finish signing out"),
     AccountUnavailable => ("Chưa kiểm tra được phiên nghe. Hãy thử cập nhật lại.", "Your listener session could not be checked. Try refreshing again."),
     AccountProtocol => ("Phản hồi phiên nghe không hợp lệ. Dữ liệu riêng được giữ ẩn.", "The listener response was invalid. Private data stays hidden."),
+    AccountPopupBlocked => ("Trình duyệt đã chặn cửa sổ đăng nhập. Cho phép cửa sổ bật lên cho Cantos, rồi cập nhật phiên để thử lại.", "Your browser blocked the sign-in window. Allow popups for Cantos, then refresh the session to retry."),
     AccountNavigation => ("Chưa mở được trang đăng nhập. Hãy cập nhật phiên rồi thử lại.", "The sign-in page could not be opened. Refresh the session and try again."),
     AccountSessionChanged => ("Phiên nghe đã thay đổi ở cửa sổ khác. Hãy cập nhật để xem dữ liệu của tài khoản hiện tại.", "The listener session changed in another window. Refresh to view the current account's data."),
+    #[cfg(feature = "preview")]
     LiveNotice => ("Tài khoản và dữ liệu người nghe được đọc từ Cantos. Đăng nhập không tự phát âm thanh hoặc chuyển dữ liệu minh họa vào tài khoản.", "Listener accounts and data are read from Cantos. Signing in does not start audio or import sample data."),
     LiveLibrarySignedOut => ("Đăng nhập để xem vị trí nghe tiếp, tác phẩm đã lưu và lịch sử của bạn.", "Sign in to view your listening positions, saved stories and history."),
     LiveLibraryLoading => ("Đang tải dữ liệu của phiên nghe hiện tại…", "Loading data for the current listener session…"),
     LiveLibraryEmpty => ("Tài khoản này chưa có dữ liệu nghe tiếp, tác phẩm đã lưu hoặc lịch sử.", "This account has no listening positions, saved stories or history yet."),
-    LiveLibraryPageHelp => ("Mỗi phần hiển thị tối đa 20 mục trong trang đầu. Các vị trí đã lưu không tự phát âm thanh.", "Each section shows up to 20 items from its first page. Saved positions never start audio automatically."),
+    LiveLibraryPageHelp => ("Tải thêm trong từng phần để xem các mục cũ hơn. Mở tác phẩm không tự phát âm thanh.", "Load more in each section to see older items. Opening a work never starts audio automatically."),
+    LiveLibraryCursorExpired => ("Trang đã hết hạn hoặc lịch sử đã thay đổi. Tải lại riêng danh sách này để tiếp tục.", "This page expired or history changed. Reload this list to continue."),
+    LiveLibraryEmptyContinue => ("Chưa có vị trí nghe tiếp trong tài khoản này.", "No listening positions in this account yet."),
+    LiveLibraryEmptySaved => ("Bạn chưa lưu tác phẩm nào.", "You have no saved stories yet."),
+    LiveLibraryEmptyHistory => ("Chưa có lịch sử nghe trong tài khoản này.", "No listening history in this account yet."),
+    LiveLibraryLoaded => ("Đang hiển thị {count} mục đã tải.", "Showing {count} loaded items."),
+    LiveLibraryRetry => ("Thử tải lại", "Retry page"),
+    LiveLibraryRestart => ("Tải lại danh sách", "Reload list"),
+    LiveLibraryLoadMore => ("Tải thêm {section}", "Load more {section}"),
+    LiveLibraryMetadataUnavailable => ("Thông tin tác phẩm hiện không khả dụng", "Story details are currently unavailable"),
+    LiveLibraryPageError => ("Chưa tải được trang này. Các mục đã tải vẫn được giữ; bạn có thể thử lại.", "This page could not be loaded. Previously loaded items are retained; you can retry."),
+    LiveLibraryInvalidPage => ("Phản hồi trang không hợp lệ. Hãy tải lại danh sách.", "The page response was invalid. Reload the list."),
+    LiveLibraryNoPosition => ("Chưa có vị trí nghe được ghi nhận.", "No listening position recorded yet."),
+    LiveLibraryOpenWork => ("Mở tác phẩm", "Open story"),
     LiveLibraryMore => ("Còn dữ liệu ngoài trang đang hiển thị.", "More data exists beyond the displayed page."),
     LivePosition => ("Vị trí {position} trên {total}", "Position {position} of {total}"),
     LivePositionNumber => ("Vị trí nghe tiếp {number}", "Listening position {number}"),
     LiveResumeExact => ("Vị trí thuộc đúng bản nghe đã lưu.", "The position belongs to the saved listening edition."),
     LiveResumeReplaced => ("Bản nghe đã được thay thế; vị trí cũ được giữ nguyên.", "The listening edition was replaced; the original position is retained."),
     LiveResumeUnavailable => ("Bản nghe hiện chưa khả dụng; vị trí của bạn vẫn được giữ.", "The listening edition is currently unavailable; your position is retained."),
+    #[cfg(feature = "preview")]
     OpenMock => ("Mở bản xem thử minh họa riêng", "Open the isolated mock preview"),
+    #[cfg(feature = "preview")]
     Sync => ("Đồng bộ", "Sync"),
+    #[cfg(feature = "preview")]
     Download => ("Tải để nghe ngoại tuyến", "Download for offline listening"),
+    #[cfg(feature = "preview")]
     Timer => ("Hẹn giờ dừng", "Sleep timer"),
+    #[cfg(feature = "preview")]
     Unsupported => ("Chưa được tích hợp trong bản mô phỏng", "Not integrated in this mock"),
+    #[cfg(feature = "preview")]
     NotFoundHelp => ("Đường dẫn này không có trong demo. Dữ liệu phiên của bạn vẫn được giữ.", "This route is not in the demo. Your session data is unchanged."),
+    #[cfg(feature = "preview")]
     Preferences => ("Thiết lập cho lần nghe tiếp theo", "Set the mood for your next story"),
+    #[cfg(feature = "preview")]
     Footer => ("Cantos · khung giao diện nghe thử, chưa phải trải nghiệm nghe thực", "Cantos · listening UI mock, not a real listening experience"),
 }
 
@@ -489,6 +702,7 @@ pub fn work_kind_key(kind: WorkKind) -> Key {
     }
 }
 
+#[cfg(feature = "preview")]
 pub fn genre_key(genre: Genre) -> Key {
     match genre {
         Genre::All => Key::All,
@@ -515,6 +729,7 @@ pub fn route_key(route: Route) -> Key {
     }
 }
 
+#[cfg(feature = "preview")]
 pub fn status_key(status: Status) -> Key {
     match status {
         Status::Idle => Key::NoPlayer,
@@ -727,9 +942,17 @@ mod tests {
             assert_eq!(text(key, Locale::English), en);
         }
         for locale in Locale::ALL {
+            for (key, name) in [
+                (Key::DiscoveryShowing, "count"),
+                (Key::DiscoveryComplete, "count"),
+                (Key::PublicWorkUnitCountChapters, "count"),
+                (Key::PublicWorkUnitCountEpisodes, "count"),
+            ] {
+                assert_eq!(placeholders(text(key, locale)), BTreeMap::from([(name, 1)]));
+            }
             assert_eq!(
-                placeholders(text(Key::PublicHomeMore, locale)),
-                BTreeMap::from([("limit", 1)])
+                placeholders(text(Key::PublicWorkUnitLabel, locale)),
+                BTreeMap::from([("kind", 1), ("ordinal", 1)])
             );
             let label = format(
                 Key::CoverArtName,

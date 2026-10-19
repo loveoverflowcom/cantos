@@ -1,18 +1,20 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
+#[cfg(feature = "preview")]
 use super::common::*;
+#[cfg(feature = "preview")]
 use crate::{
     app::{context::TheatreContext, routes::Route},
-    application::account_view::{AccountViewState, LibraryPhase, LibraryProjection},
     core::{
         catalog::Episode,
         ids::EpisodeId,
         listening::{library::Bookmark, progress::ProgressState},
     },
-    messages::{self, Key, Locale},
+    messages::Key,
     platform,
 };
 use leptos::prelude::*;
 
+#[cfg(feature = "preview")]
 /// All displays for one row share one borrowed lookup. An unrelated episode's checkpoint
 /// does not invalidate this row's rendered position or accessible labels.
 fn position_projection(progress: ReadSignal<ProgressState>, id: EpisodeId) -> Memo<u32> {
@@ -26,6 +28,7 @@ fn position_projection(progress: ReadSignal<ProgressState>, id: EpisodeId) -> Me
     })
 }
 
+#[cfg(feature = "preview")]
 /// Progress as a value, not a control: the bar carries the same facts as the visible time.
 #[component]
 fn ProgressMeter(ctx: TheatreContext, position_ms: Signal<u32>, duration: u32) -> impl IntoView {
@@ -45,6 +48,7 @@ fn ProgressMeter(ctx: TheatreContext, position_ms: Signal<u32>, duration: u32) -
     }
 }
 
+#[cfg(feature = "preview")]
 /// Reopening restores the saved position paused, so the label says "open", never "continue".
 #[component]
 fn OpenPositionButton(
@@ -64,6 +68,7 @@ fn OpenPositionButton(
     }
 }
 
+#[cfg(feature = "preview")]
 /// Artwork, names, position and the action as one cluster; the width is bounded by the content.
 #[component]
 fn ContinuePanel(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
@@ -86,6 +91,7 @@ fn ContinuePanel(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
     .into_any()
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
     let latest = Memo::new(move |_| {
@@ -104,6 +110,7 @@ pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 /// A short reason and a way forward. `compact` drops the icon block and the action for
 /// secondary sections that should not repeat the primary call to action.
 #[component]
@@ -131,6 +138,7 @@ fn SectionEmpty(
     .into_any()
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
     let recent = move || {
@@ -186,6 +194,7 @@ pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn History(ctx: TheatreContext) -> impl IntoView {
     let confirming = RwSignal::new(false);
@@ -230,6 +239,7 @@ pub(crate) fn History(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 fn ListeningRow(
     ctx: TheatreContext,
@@ -253,6 +263,7 @@ fn ListeningRow(
     }.into_any()
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView {
     let title = ctx
@@ -274,76 +285,10 @@ pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView 
     }
 }
 
-fn live_clock(milliseconds: u64) -> String {
-    let seconds = milliseconds / 1000;
-    format!("{}:{:02}", seconds / 60, seconds % 60)
-}
+pub(crate) mod live;
+pub(crate) use live::LiveLibrary;
 
-fn live_projection(projection: LibraryProjection, locale: Locale) -> AnyView {
-    use cantos_contracts::listener_library::ResumeStatus;
-    if projection.saved.is_empty()
-        && projection.continuing.is_empty()
-        && projection.history.is_empty()
-    {
-        return view! { <p>{messages::text(Key::LiveLibraryEmpty, locale)}</p> }.into_any();
-    }
-    let positions = projection.continuing.iter().enumerate().map(|(index, progress)| {
-        let availability = match progress.resume {
-            ResumeStatus::ExactAvailable => Key::LiveResumeExact,
-            ResumeStatus::ReleaseReplaced => Key::LiveResumeReplaced,
-            ResumeStatus::AccessUnavailable => Key::LiveResumeUnavailable,
-        };
-        view! {
-            <li class="theatre-row">
-                <div class="theatre-row-copy">
-                    <h4 class="theatre-row-label">{messages::format(Key::LivePositionNumber, locale, &[("number", (index + 1).to_string())])}</h4>
-                    <p>{messages::format(Key::LivePosition, locale, &[
-                        ("position", live_clock(progress.position_ms)),
-                        ("total", live_clock(progress.duration_ms)),
-                    ])}</p>
-                    <p class="theatre-muted">{messages::text(availability, locale)}</p>
-                </div>
-            </li>
-        }
-    }).collect_view();
-    view! {
-        <p class="theatre-muted">{messages::text(Key::LiveLibraryPageHelp, locale)}</p>
-        <dl class="theatre-rows">
-            <div class="theatre-row"><dt>{messages::text(Key::Saved, locale)}</dt><dd>{projection.saved.len()}</dd></div>
-            <div class="theatre-row"><dt>{messages::text(Key::History, locale)}</dt><dd>{projection.history.len()}</dd></div>
-        </dl>
-        <h3 class="theatre-group-heading">{messages::text(Key::Continue, locale)}</h3>
-        <ol class="theatre-rows">{positions}</ol>
-        {projection.has_more.then(|| view! { <p>{messages::text(Key::LiveLibraryMore, locale)}</p> })}
-    }.into_any()
-}
-
-#[component]
-pub(crate) fn LiveLibrary(
-    state: RwSignal<AccountViewState>,
-    locale: RwSignal<Locale>,
-) -> impl IntoView {
-    view! {
-        <section id="library" class="theatre-panel" aria-labelledby="theatre-live-library-heading">
-            <h2 id="theatre-live-library-heading">{move || messages::text(Key::Library, locale.get())}</h2>
-            {move || {
-                let current = state.get();
-                let locale = locale.get();
-                match current.library_phase() {
-                    LibraryPhase::Idle => view! { <p>{messages::text(Key::LiveLibrarySignedOut, locale)}</p> }.into_any(),
-                    LibraryPhase::Loading => view! { <p role="status" aria-live="polite">{messages::text(Key::LiveLibraryLoading, locale)}</p> }.into_any(),
-                    LibraryPhase::Failed(failure) => view! { <p role="status" aria-live="polite">{messages::text(super::account::account_failure_key(failure), locale)}</p> }.into_any(),
-                    LibraryPhase::Ready => match current.library() {
-                        Some(projection) => live_projection(projection.clone(), locale),
-                        None => view! { <p role="status">{messages::text(Key::AccountProtocol, locale)}</p> }.into_any(),
-                    },
-                }
-            }}
-        </section>
-    }
-}
-
-#[cfg(test)]
+#[cfg(all(test, feature = "preview"))]
 mod tests {
     use super::*;
     use crate::{
@@ -491,57 +436,6 @@ mod tests {
             let typographic = view! { <Cover ctx=ctx id=WorkId::Dream/> }.to_html();
             assert!(typographic.contains("theatre-cover-moon") && !typographic.contains("<img"));
             assert!(typographic.contains("chưa có ảnh được cấp quyền"));
-        });
-    }
-
-    #[test]
-    fn live_library_renders_actual_positions_and_removes_them_synchronously_on_logout() {
-        Owner::new().with(|| {
-            use crate::application::account::AccountScope;
-            use crate::application::account_view::{AccountFailure, SessionCompletion};
-            let state = RwSignal::new(AccountViewState::default());
-            let locale = RwSignal::new(Locale::English);
-            let issued = state.write().begin_refresh().unwrap();
-            let scope =
-                AccountScope::from_session("actor-a".into(), uuid::Uuid::from_u128(1).to_string())
-                    .unwrap();
-            let SessionCompletion::Authenticated(fence) =
-                state.write().finish_session(issued, Ok(scope)).unwrap()
-            else {
-                panic!("verified session must own its library read")
-            };
-            let projection = crate::live::library::decode_projection(
-                include_bytes!(
-                    "../../../../../packages/contracts/fixtures/theatre/library/v1/continue.json"
-                ),
-                include_bytes!(
-                    "../../../../../packages/contracts/fixtures/theatre/library/v1/saved.json"
-                ),
-                include_bytes!(
-                    "../../../../../packages/contracts/fixtures/theatre/library/v1/history.json"
-                ),
-            )
-            .unwrap();
-            state
-                .write()
-                .finish_library(&fence, Ok(projection))
-                .unwrap();
-            let populated = view! { <LiveLibrary state locale/> }.to_html();
-            assert!(populated.contains("Position 0:15 of 1:00"));
-            assert!(!populated.contains("<button") && !populated.contains("<audio"));
-            state
-                .write()
-                .finish_library(&fence, Err(AccountFailure::Unavailable))
-                .unwrap();
-            let failed = view! { <LiveLibrary state locale/> }.to_html();
-            assert!(failed.contains("Try refreshing again"));
-            assert!(
-                !failed.contains("Position 0:15") && !failed.contains("no listening positions")
-            );
-            state.write().begin_logout().unwrap();
-            let leaving = view! { <LiveLibrary state locale/> }.to_html();
-            assert!(!leaving.contains("Position 0:15"));
-            assert!(leaving.contains("Sign in to view"));
         });
     }
 }

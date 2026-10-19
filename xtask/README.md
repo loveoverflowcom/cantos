@@ -190,8 +190,21 @@ adds no required gate: the primitive tests run in `repository`, the command-plan
 | `run cantos-api` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
 | `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-api` |
 | `run cantos-theatre --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8082`, then `trunk serve` on 8082; checks anonymous discovery directly and through the proxy | as `run cantos-api`; a readable Theatre public catalog, including a legitimate empty page |
-| `app cantos-theatre --web` | only `trunk serve` on 8082; warns prominently when the existing API's public catalog cannot be reached or decoded | no API for explicit offline previews; live mode needs an API already listening on 8080 |
+| `app cantos-theatre --web` | only `trunk serve` on 8082; warns prominently when the existing API's public catalog cannot be reached or decoded | no API for explicit offline previews (which need `TRUNK_BUILD_FEATURES=preview`, see below); live mode needs an API already listening on 8080 |
 | `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-api --web-origin http://127.0.0.1:8081` |
+
+**Theatre preview lane.** Theatre Web's offline previews (`?mode=mock`, `?mode=auth-preview`,
+`?mode=membership-preview`) are compiled only by the opt-in Cargo feature `preview`; a default
+`build`/`run`/`app`, including `--release` without a feature override, produces the production
+lane, where those URLs are ordinary live URLs. Local builds inherit an explicit preview opt-in
+through Trunk's own variable, e.g.
+`TRUNK_BUILD_FEATURES=preview cargo xtask app cantos-theatre --web`. `rust-lint`, `rust-tests` and
+`web-lint` enable the feature for the code they check and `web-lint` lints the production lane
+separately. The release-bundle builder (`build::release_bundle`, used by `deploy` and `web-performance`)
+removes `TRUNK_BUILD_FEATURES`, `TRUNK_BUILD_ALL_FEATURES` and `TRUNK_BUILD_NO_DEFAULT_FEATURES`
+from the Trunk child (the plan displays `env -u …`); `web-performance` and `release-build` also
+refuse any inherited `TRUNK_*` override outright. An inherited setting therefore cannot ship a
+preview.
 
 **Compatibility proposal — pending review ([#183](https://github.com/loveoverflowcom/cantos/issues/183)).**
 Option A changes Theatre `run` from frontend-only to API+Web, matching Studio. Existing
@@ -418,15 +431,15 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `rust-format` | `cargo fmt --all -- --check` | rustfmt |
 | `protobuf-reference` | independent Python goldens + pinned isolated prost/protoc exact generated-schema drift oracle + its clippy | cargo, python3, clippy |
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
-| `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
-| `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
+| `rust-lint` | `cargo clippy <workspace or -p …> [--features cantos-theatre/preview] --all-targets --locked -- -D warnings` | clippy |
+| `rust-tests` | `cargo test <workspace or -p …> [--features cantos-theatre/preview] --locked` | cargo |
 | `forge-functions` | `cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target`, then `node --test test/boundary.test.mjs test/native-worker.test.mjs` in `services/cantos-forge-functions/firebase` | cargo, installed stable Node.js 22+ |
 | `dbsp` | `cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings`; `cargo test -p cantos-api --features dbsp-experimental --locked` | clippy |
 | `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets | cargo |
 | `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
 | `audio-inspection` | `cargo test -p cantos-api --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
-| `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings` | clippy, wasm32 target |
-| `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
+| `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview,cantos-theatre/preview --locked -- -D warnings`, then the production lane `cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings` | clippy, wasm32 target |
+| `web-build` | `trunk build --locked` per Web client (Theatre: the production lane, no previews) | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
 | `theatre-cmp-demo` | installed Gradle `:shared:desktopTest :preview-sandbox:desktopTest` in the isolated Theatre mock | compatible gradle, java, both KMP modules |

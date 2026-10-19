@@ -39,6 +39,7 @@ pub async fn load() -> Result<Configuration, ConfigurationFailure> {
             .map_err(|_| ConfigurationFailure::Unavailable)?,
     )
     .credentials(RequestCredentials::Omit)
+    .redirect(web_sys::RequestRedirect::Error)
     .abort_signal(Some(&signal))
     .header("Accept", "application/json")
     .send()

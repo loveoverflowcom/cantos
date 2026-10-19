@@ -175,8 +175,11 @@ must not use count/rank as a cursor, completion check or playback authorization.
 not change the immutable public ordering anchor. Metadata uses released public revisions and
 actual audio language, with the same admission rules as default discovery.
 
-These are backend presentation contracts only. Existing clients continue using default v1;
-client decoding/adoption and runtime UI acceptance require separate work. Genres, credits,
+Theatre Web adopts the capability ([#270](https://github.com/loveoverflowcom/cantos/issues/270)):
+every Work list/detail and Unit list read sends `presentation=1` and decodes the `Presented*`
+DTOs (the Work's `unit_count`, each unit's `ordinal`, shown as a public-list count/position, never
+an identity or authored number). Other clients continue using default v1; their decoding/adoption
+and runtime UI acceptance require separate work. Genres, credits,
 seasons and authored episode numbering remain with #177 and its decision gate below.
 
 `ListenerError` contains only `code` and `retryable`. Exact mapping:

@@ -262,6 +262,7 @@ pub(crate) fn SignupPanel(
     }
 }
 
+#[cfg(feature = "preview")]
 /// Mounted only by the explicit auth-preview root, never a live transport fallback.
 #[component]
 pub(crate) fn SignupPreviewControls(

@@ -1,6 +1,6 @@
 //! Registration availability is a server fact, never an account or session receipt.
 use cantos_contracts::theatre_identity::{
-    Configuration, Registration, RegistrationUnavailableReason,
+    Configuration, LoginMethod, Registration, RegistrationUnavailableReason,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -20,14 +20,29 @@ pub enum RegistrationPhase {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LoginPhase {
+    #[default]
+    Idle,
+    Checking,
+    Available,
+    Unconfigured,
+    Failed(ConfigurationFailure),
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RegistrationState {
     generation: u64,
     phase: RegistrationPhase,
+    login: LoginPhase,
 }
 
 impl RegistrationState {
     pub fn phase(self) -> RegistrationPhase {
         self.phase
+    }
+
+    pub fn login(self) -> LoginPhase {
+        self.login
     }
 
     pub fn begin(&mut self) -> Option<u64> {
@@ -36,6 +51,7 @@ impl RegistrationState {
         }
         self.generation = self.generation.checked_add(1)?;
         self.phase = RegistrationPhase::Checking;
+        self.login = LoginPhase::Checking;
         Some(self.generation)
     }
 
@@ -47,6 +63,17 @@ impl RegistrationState {
         if self.generation != issued || self.phase != RegistrationPhase::Checking {
             return false;
         }
+        self.login = match &result {
+            Ok(Configuration {
+                login: LoginMethod::Oidc,
+                ..
+            }) => LoginPhase::Available,
+            Ok(Configuration {
+                login: LoginMethod::Unconfigured,
+                ..
+            }) => LoginPhase::Unconfigured,
+            Err(failure) => LoginPhase::Failed(*failure),
+        };
         self.phase = match result {
             Ok(Configuration {
                 registration:
@@ -137,5 +164,50 @@ mod tests {
             state.phase(),
             RegistrationPhase::Failed(ConfigurationFailure::Protocol)
         );
+    }
+}
+
+#[cfg(test)]
+mod readiness_tests {
+    use super::*;
+    use crate::application::account_view::AccountViewState;
+    #[test]
+    fn login_and_registration_form_an_independent_capability_matrix() {
+        let mut account = AccountViewState::default();
+        let cleanup = account.begin_logout().unwrap();
+        assert!(account.finish_logout(cleanup, Ok(())));
+        for login in [LoginMethod::Oidc, LoginMethod::Unconfigured] {
+            for registration in [
+                Registration::EmailVerification {},
+                Registration::FirebaseEmailVerification {},
+                Registration::Unavailable {
+                    reason: RegistrationUnavailableReason::RegistrationUnconfigured,
+                },
+            ] {
+                let mut state = RegistrationState::default();
+                assert!(!account.can_login(state));
+                let issued = state.begin().unwrap();
+                assert!(!account.can_login(state));
+                let available = !matches!(registration, Registration::Unavailable { .. });
+                state.finish(
+                    issued,
+                    Ok(Configuration {
+                        login,
+                        registration,
+                    }),
+                );
+                assert_eq!(account.can_login(state), login == LoginMethod::Oidc);
+                assert_eq!(state.phase() == RegistrationPhase::Available, available);
+                assert!(account.can_authenticate());
+                let retry = state.begin().unwrap();
+                assert!(!account.can_login(state));
+                state.finish(retry, Err(ConfigurationFailure::Unavailable));
+                assert_eq!(
+                    state.login(),
+                    LoginPhase::Failed(ConfigurationFailure::Unavailable)
+                );
+                assert!(!account.can_login(state));
+            }
+        }
     }
 }

@@ -12,9 +12,8 @@ pub(crate) fn auth_error(error: cantos_web_auth::Failure) -> Failure {
             Failure::SessionChanged
         }
         cantos_web_auth::Failure::Protocol => Failure::Protocol,
-        cantos_web_auth::Failure::Cancelled | cantos_web_auth::Failure::PopupBlocked => {
-            Failure::Navigation
-        }
+        cantos_web_auth::Failure::PopupBlocked => Failure::PopupBlocked,
+        cantos_web_auth::Failure::Cancelled => Failure::Navigation,
         cantos_web_auth::Failure::Unavailable => Failure::Unavailable,
         cantos_web_auth::Failure::CleanupPending => Failure::SignedOut,
     }
