@@ -30,7 +30,7 @@ pub fn units_path(work: PublicWorkId, cursor: Option<&str>) -> String {
     path
 }
 
-fn is_json(content_type: Option<&str>) -> bool {
+pub(super) fn is_json(content_type: Option<&str>) -> bool {
     content_type.is_some_and(|value| {
         value
             .split(';')
@@ -41,7 +41,11 @@ fn is_json(content_type: Option<&str>) -> bool {
 
 /// Only the exact contract pairing of HTTP status, code and retryability is trusted. An uncoded
 /// answer (proxy page, outage) is unavailable, never `not_found`.
-fn classify_error(status: u16, content_type: Option<&str>, body: &[u8]) -> CatalogReadError {
+pub(super) fn classify_error(
+    status: u16,
+    content_type: Option<&str>,
+    body: &[u8],
+) -> CatalogReadError {
     let coded = (is_json(content_type) && body.len() <= MAX_ERROR_BYTES)
         .then(|| serde_json::from_slice::<ListenerError>(body).ok())
         .flatten();

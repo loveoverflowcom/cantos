@@ -6,6 +6,7 @@ pub(crate) mod common;
 pub(crate) mod discovery;
 pub(crate) mod explore;
 pub(crate) mod library;
+pub(crate) mod live_player;
 pub(crate) mod player;
 mod player_timeline;
 pub(crate) mod public_home;

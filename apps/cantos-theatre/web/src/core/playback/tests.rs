@@ -1,6 +1,6 @@
 use super::{
-    reduce, CallbackIdentity, Effect, Engine, EngineCommand, Event, Intent, Interruption,
-    PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot, Source, Status,
+    reduce, CallbackIdentity, Effect, Engine, EngineCommand, Event, Failure, Intent, Interruption,
+    PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot, Source, Status, TrackId,
     Transition, ValidatedResumeSnapshot,
 };
 use crate::core::ids::{EpisodeId, WorkId};
@@ -33,7 +33,7 @@ fn session_state(intent: Intent, engine: Engine) -> PlayerState {
 fn command(generation: u32, position_ms: u32) -> EngineCommand {
     EngineCommand {
         identity: CallbackIdentity {
-            episode: source().episode(),
+            track: source().track(),
             generation,
         },
         source: source(),
@@ -54,7 +54,7 @@ fn assert_rejected(state: PlayerState, event: Event, reason: Rejection) {
 
 #[test]
 fn source_constructor_refuses_zero_duration_and_unbounded_episode_index() {
-    let episode = source().episode();
+    let episode = source().episode().unwrap();
     assert_eq!(Source::new(episode, 0), None);
     assert_eq!(
         Source::new(
@@ -104,7 +104,7 @@ fn resume_admission_checks_all_u16_speeds_and_position_edge_partitions() {
         }
     }
     for duration_ms in [1, u32::MAX] {
-        let source = Source::new(source().episode(), duration_ms).unwrap();
+        let source = Source::new(source().episode().unwrap(), duration_ms).unwrap();
         for position_ms in [0, duration_ms] {
             let raw = ResumeSnapshot {
                 source,
@@ -452,10 +452,10 @@ fn stale_out_of_bounds_callbacks_are_no_ops_before_payload_validation() {
             ..state.identity().unwrap()
         },
         CallbackIdentity {
-            episode: EpisodeId {
+            track: TrackId::Fixture(EpisodeId {
                 work: WorkId::River,
                 index: 0,
-            },
+            }),
             generation: 7,
         },
     ];
@@ -491,7 +491,7 @@ fn relative_skips_clamp_even_at_signed_integer_extremes_and_do_not_complete() {
                 effects: vec![Effect::SeekEngine(command(8, position_ms))]
             }
         );
-        assert_eq!(transition.state.status(), Status::Simulating);
+        assert_eq!(transition.state.status(), Status::Playing);
     }
 }
 
@@ -619,13 +619,13 @@ fn assert_root_invariants(state: &PlayerState) {
     assert_eq!(
         state.identity(),
         Some(CallbackIdentity {
-            episode: session.source().episode(),
+            track: session.source().track(),
             generation: state.generation()
         })
     );
     assert!(state.accepts(state.identity().unwrap()));
     assert_ne!(state.status(), Status::Idle);
-    if state.status() == Status::Simulating {
+    if state.status() == Status::Playing {
         assert_eq!(session.intent(), Intent::Play);
         assert_eq!(session.engine(), Engine::Running);
         assert_eq!(session.interruption(), Interruption::None);
@@ -633,14 +633,14 @@ fn assert_root_invariants(state: &PlayerState) {
     if session.interruption() == Interruption::Active {
         assert!(!matches!(
             state.status(),
-            Status::Simulating | Status::Buffering
+            Status::Playing | Status::Buffering
         ));
     }
 }
 
 fn sequence_events(state: &PlayerState) -> Vec<Event> {
     let identity = state.identity().unwrap_or(CallbackIdentity {
-        episode: source().episode(),
+        track: source().track(),
         generation: 0,
     });
     let stale = CallbackIdentity {
@@ -772,4 +772,166 @@ fn seeking_to_duration_does_not_turn_repeated_play_into_a_restart() {
         let interrupted = reduce(at_end, Event::InterruptionBegan).state;
         assert_rejected(interrupted, Event::PlayRequested, Rejection::Interrupted);
     }
+}
+
+fn playing_public() -> (PlayerState, CallbackIdentity) {
+    let source = crate::core::public_track::testing::source(1);
+    let selected = reduce(
+        PlayerState::default(),
+        Event::SourceSelected {
+            source,
+            position_ms: 0,
+        },
+    );
+    let started = reduce(selected.state, Event::PlayRequested);
+    let identity = started.state.identity().unwrap();
+    let running = reduce(started.state, Event::EngineStarted { identity });
+    assert_eq!(running.state.status(), Status::Playing);
+    (running.state, identity)
+}
+
+#[test]
+fn an_engine_failure_names_its_reason_and_withdraws_the_play_intent() {
+    for failure in [
+        Failure::PlayRefused,
+        Failure::Unavailable,
+        Failure::Network,
+        Failure::Decode,
+        Failure::Protocol,
+        Failure::IdentityChanged,
+    ] {
+        let (state, identity) = playing_public();
+        let failed = reduce(state, Event::EngineFailed { identity, failure });
+        assert_eq!(failed.state.status(), Status::Failed(failure));
+        assert!(failed.effects.is_empty());
+        let session = failed.state.session().unwrap();
+        // The listener is never told it is playing, and a Play press is a real retry.
+        assert_eq!(session.intent(), Intent::Pause(PauseCause::User));
+        assert_eq!(session.engine(), Engine::Failed(failure));
+    }
+}
+
+#[test]
+fn a_failure_of_a_stale_identity_changes_nothing() {
+    let (state, identity) = playing_public();
+    let paused = reduce(state, Event::PauseRequested);
+    let stale = CallbackIdentity {
+        generation: identity.generation,
+        ..identity
+    };
+    let ignored = reduce(
+        paused.state.clone(),
+        Event::EngineFailed {
+            identity: stale,
+            failure: Failure::Network,
+        },
+    );
+    assert_eq!(ignored.state, paused.state);
+    assert!(ignored.effects.is_empty());
+}
+
+#[test]
+fn a_late_engine_fact_cannot_clear_a_failure_but_a_new_play_intent_can() {
+    let (state, identity) = playing_public();
+    let failed = reduce(
+        state,
+        Event::EngineFailed {
+            identity,
+            failure: Failure::Unavailable,
+        },
+    )
+    .state;
+    for late in [
+        Event::EngineReady { identity },
+        Event::EngineStarted { identity },
+        Event::EnginePaused { identity },
+        Event::EngineBuffering { identity },
+        Event::EnginePosition {
+            identity,
+            position_ms: 1_000,
+        },
+        Event::EngineEnded { identity },
+    ] {
+        let after = reduce(failed.clone(), late);
+        assert_eq!(after.state.status(), Status::Failed(Failure::Unavailable));
+    }
+    let retry = reduce(failed, Event::PlayRequested);
+    assert_eq!(retry.state.status(), Status::Loading);
+    assert!(retry.state.generation() > identity.generation);
+    assert!(matches!(retry.effects[..], [Effect::StartEngine(_)]));
+}
+
+#[test]
+fn a_failure_after_a_failure_replaces_the_reason_for_the_same_identity() {
+    let (state, identity) = playing_public();
+    let first = reduce(
+        state,
+        Event::EngineFailed {
+            identity,
+            failure: Failure::Network,
+        },
+    )
+    .state;
+    let second = reduce(
+        first,
+        Event::EngineFailed {
+            identity,
+            failure: Failure::Unavailable,
+        },
+    );
+    assert_eq!(second.state.status(), Status::Failed(Failure::Unavailable));
+}
+
+#[test]
+fn an_interruption_does_not_hide_a_failure() {
+    let (state, identity) = playing_public();
+    let failed = reduce(
+        state,
+        Event::EngineFailed {
+            identity,
+            failure: Failure::Decode,
+        },
+    )
+    .state;
+    let interrupted = reduce(failed, Event::InterruptionBegan);
+    assert_eq!(
+        interrupted.state.session().unwrap().engine(),
+        Engine::Failed(Failure::Decode)
+    );
+}
+
+#[test]
+fn seeking_after_a_failure_keeps_the_failure_and_the_new_position() {
+    let (state, identity) = playing_public();
+    let failed = reduce(
+        state,
+        Event::EngineFailed {
+            identity,
+            failure: Failure::Network,
+        },
+    )
+    .state;
+    let seeked = reduce(failed, Event::SeekRequested { position_ms: 9_000 });
+    assert_eq!(seeked.state.status(), Status::Failed(Failure::Network));
+    assert_eq!(seeked.state.session().unwrap().position_ms(), 9_000);
+    assert!(matches!(seeked.effects[..], [Effect::SeekEngine(_)]));
+}
+
+#[test]
+fn a_public_source_selects_replays_and_fences_like_any_other_source() {
+    let (state, identity) = playing_public();
+    let replacement = crate::core::public_track::testing::source(2);
+    let switched = reduce(
+        state,
+        Event::SourceSelected {
+            source: replacement,
+            position_ms: 0,
+        },
+    );
+    assert_eq!(
+        switched.state.session().map(|session| session.source()),
+        Some(replacement)
+    );
+    assert!(!switched.state.accepts(identity));
+    assert!(matches!(switched.effects[..], [Effect::PrepareEngine(_)]));
 }

@@ -5,7 +5,7 @@ use crate::{
     app::routes::Route,
     core::{
         catalog::Genre,
-        playback::{PauseCause, Status},
+        playback::{Failure, PauseCause, Status},
     },
 };
 
@@ -105,7 +105,42 @@ resources! {
     PublicWorkChapters => ("Các chương", "Chapters"),
     PublicWorkEpisodes => ("Các tập", "Episodes"),
     PublicWorkListen => ("Nghe", "Listen"),
-    PublicWorkListenUnavailable => ("Cantos Web chưa phát được âm thanh. Bạn vẫn có thể xem danh sách đã công bố bên dưới.", "Cantos Web cannot play audio yet. You can still browse the published list below."),
+    PublicWorkListenUnavailable => ("Chưa có chương hoặc tập đã công bố để nghe. Danh sách có thể đang tải.", "There is no published chapter or episode to play yet. The list may still be loading."),
+    ListenUnit => ("Nghe {title}", "Listen to {title}"),
+    ListenUnitPause => ("Tạm dừng {title}", "Pause {title}"),
+    ListenUnitPreparing => ("Đang chuẩn bị {title}…", "Preparing {title}…"),
+    ListenUnitRetry => ("Thử lại {title}", "Try {title} again"),
+    ListenResolveNotFound => ("Bản phát hành này không còn khả dụng.", "This release is no longer available."),
+    ListenResolveUnavailable => ("Chưa kết nối được để chuẩn bị bản nghe. Hãy thử lại.", "Could not prepare the audio. Try again."),
+    ListenResolveProtocol => ("Cantos chưa đọc được thông tin của bản nghe này.", "Cantos could not read this release's details."),
+    ListenNothingSelected => ("Chưa chọn nội dung để nghe", "Nothing selected to listen to"),
+    ListenNothingSelectedHelp => ("Mở một tác phẩm đã công bố rồi chọn một chương hoặc tập.", "Open a published story and choose a chapter or episode."),
+    ListenMiniPlayer => ("Trình phát thu gọn", "Compact player"),
+    ListenPlay => ("Phát", "Play"),
+    ListenPause => ("Tạm dừng", "Pause"),
+    ListenReplay => ("Nghe lại từ đầu", "Play again from the start"),
+    ListenTransportName => ("{action}: {title}", "{action}: {title}"),
+    ListenPlaying => ("Đang phát", "Playing"),
+    ListenPaused => ("Đang tạm dừng", "Paused"),
+    ListenPreparing => ("Đang chuẩn bị âm thanh…", "Preparing audio…"),
+    ListenBuffering => ("Đang đệm âm thanh…", "Buffering audio…"),
+    ListenEnded => ("Đã nghe hết", "Finished"),
+    ListenInterrupted => ("Tạm dừng sau gián đoạn", "Paused after an interruption"),
+    ListenResumeOffered => ("Có vị trí để nghe tiếp, chưa phát", "A resume position is available; playback has not started"),
+    ListenTimeline => ("Vị trí nghe", "Listening position"),
+    ListenTimelineHelp => ("Kéo để xem vị trí, thả để chuyển tới đó. Escape hủy kéo. Dùng phím mũi tên, Home hoặc End để đổi vị trí.", "Drag to preview, release to move there. Escape cancels a drag. Use arrow keys, Home or End to change the position."),
+    ListenScrubPreview => ("Đang xem trước vị trí", "Previewing position"),
+    ListenSeekPending => ("Đang chuyển tới vị trí đã chọn…", "Moving to the chosen position…"),
+    ListenBack15 => ("Lùi 15 giây", "Back 15 seconds"),
+    ListenForward15 => ("Tiến 15 giây", "Forward 15 seconds"),
+    ListenSpeed => ("Tốc độ nghe", "Listening speed"),
+    ListenOpenWork => ("Mở tác phẩm {title}", "Open the story {title}"),
+    ListenFailedPlayRefused => ("Trình duyệt chưa cho phát. Nhấn Phát để thử lại.", "The browser did not start playback. Press Play to try again."),
+    ListenFailedUnavailable => ("Bản phát hành này không còn khả dụng. Cantos dừng lại thay vì chuyển sang bản khác.", "This release is no longer available. Cantos stopped instead of switching to another."),
+    ListenFailedNetwork => ("Mất kết nối khi tải âm thanh. Nhấn Phát để thử lại.", "The connection failed while loading audio. Press Play to try again."),
+    ListenFailedDecode => ("Trình duyệt không giải mã được âm thanh này.", "The browser could not decode this audio."),
+    ListenFailedProtocol => ("Máy chủ trả về dữ liệu phát không hợp lệ. Nhấn Phát để thử lại.", "The server returned invalid playback data. Press Play to try again."),
+    ListenFailedIdentity => ("Bản nghe đã đổi. Cantos dừng lại thay vì phát bản khác; hãy mở lại từ danh sách.", "The release changed. Cantos stopped instead of playing another; open it again from the list."),
     PublicWorkUnitsLoading => ("Đang tải danh sách…", "Loading the list…"),
     PublicWorkUnitsRestarting => ("Đang tải lại danh sách từ đầu…", "Reloading the list from the start…"),
     PublicWorkChaptersEmpty => ("Tác phẩm này chưa có chương nào mở công khai.", "This story has no publicly available chapters yet."),
@@ -501,9 +536,36 @@ pub fn status_key(status: Status) -> Key {
         Status::Paused(PauseCause::User) => Key::Paused,
         Status::Paused(PauseCause::Interruption) => Key::Interrupted,
         Status::Paused(PauseCause::ColdRestore) => Key::ResumeOffered,
-        Status::Simulating => Key::Simulating,
+        Status::Playing => Key::Simulating,
         Status::Buffering => Key::Buffering,
         Status::Ended => Key::Ended,
+        Status::Failed(failure) => failure_key(failure),
+    }
+}
+
+/// The status of a real engine: nothing here is simulated.
+pub fn listening_status_key(status: Status) -> Key {
+    match status {
+        Status::Idle => Key::ListenNothingSelected,
+        Status::Loading => Key::ListenPreparing,
+        Status::Paused(PauseCause::User) => Key::ListenPaused,
+        Status::Paused(PauseCause::Interruption) => Key::ListenInterrupted,
+        Status::Paused(PauseCause::ColdRestore) => Key::ListenResumeOffered,
+        Status::Playing => Key::ListenPlaying,
+        Status::Buffering => Key::ListenBuffering,
+        Status::Ended => Key::ListenEnded,
+        Status::Failed(failure) => failure_key(failure),
+    }
+}
+
+pub fn failure_key(failure: Failure) -> Key {
+    match failure {
+        Failure::PlayRefused => Key::ListenFailedPlayRefused,
+        Failure::Unavailable => Key::ListenFailedUnavailable,
+        Failure::Network => Key::ListenFailedNetwork,
+        Failure::Decode => Key::ListenFailedDecode,
+        Failure::Protocol => Key::ListenFailedProtocol,
+        Failure::IdentityChanged => Key::ListenFailedIdentity,
     }
 }
 

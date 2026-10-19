@@ -96,8 +96,11 @@ impl TheatreContext {
         let Some(snapshot) = self.player.snapshot() else {
             return;
         };
+        let Some(episode) = snapshot.source().episode() else {
+            return;
+        };
         let mark = Bookmark {
-            episode: snapshot.source().episode(),
+            episode,
             position_ms: snapshot.position_ms(),
         };
         self.library_writer.set(library::reduce(
@@ -130,7 +133,7 @@ impl TheatreContext {
                 .get_untracked()
                 .observe_playback(&before, &after),
         );
-        if before != after && (record || after.status() == Status::Simulating) {
+        if before != after && (record || after.status() == Status::Playing) {
             self.remember_position();
         }
     }
@@ -186,7 +189,9 @@ impl TheatreContext {
         let Some(progress) = self.progress.get_untracked().latest() else {
             return;
         };
-        self.resume_progress(progress.snapshot.source().episode());
+        if let Some(episode) = progress.snapshot.source().episode() {
+            self.resume_progress(episode);
+        }
     }
     pub fn resume_progress(self, id: EpisodeId) {
         let Some(progress) = self.progress.get_untracked().find(id) else {
@@ -220,7 +225,7 @@ impl TheatreContext {
         let current = self
             .player
             .snapshot()
-            .map(|snapshot| snapshot.source().episode());
+            .and_then(|snapshot| snapshot.source().episode());
         self.queue_writer
             .set(self.queue.get_untracked().enqueue(source, current));
     }
@@ -316,7 +321,7 @@ mod tests {
             ctx.playback(Event::SeekRequested { position_ms: 5000 });
             assert!(ctx.history.get_untracked().records().is_empty());
             ctx.playback(Event::PlayRequested);
-            assert_eq!(ctx.player.status.get_untracked(), Status::Simulating);
+            assert_eq!(ctx.player.status.get_untracked(), Status::Playing);
             assert_eq!(
                 ctx.history.get_untracked().records()[0].episode,
                 river_first
@@ -361,7 +366,7 @@ mod tests {
     fn clear_history_preserves_every_other_owner_and_rejects_captured_history_actions() {
         Owner::new().with(|| {
             let ctx = TheatreContext::new(NodeRef::new());
-            let episode = ctx.player.snapshot().unwrap().source().episode();
+            let episode = ctx.player.snapshot().unwrap().source().episode().unwrap();
             ctx.playback(Event::PlayRequested);
             ctx.playback(Event::SeekRequested {
                 position_ms: 15_000,
@@ -488,9 +493,11 @@ mod tests {
         Owner::new().with(|| {
             let ctx = TheatreContext::new(NodeRef::new());
             let current = ctx.player.snapshot().unwrap().source();
-            let rebound =
-                crate::core::playback::Source::new(current.episode(), current.duration_ms() + 1)
-                    .unwrap();
+            let rebound = crate::core::playback::Source::new(
+                current.episode().unwrap(),
+                current.duration_ms() + 1,
+            )
+            .unwrap();
             let snapshot = ValidatedResumeSnapshot::try_from(ResumeSnapshot {
                 source: rebound,
                 position_ms: 1000,
@@ -501,7 +508,7 @@ mod tests {
             ctx.progress_writer.set(progress.clone());
             ctx.route.set(Route::Library);
             let player = ctx.player.state.get_untracked();
-            ctx.resume_progress(current.episode());
+            ctx.resume_progress(current.episode().unwrap());
             assert_eq!(ctx.player.state.get_untracked(), player);
             assert_eq!(ctx.progress.get_untracked(), progress);
             assert_eq!(ctx.route.get_untracked(), Route::Library);
@@ -576,7 +583,7 @@ mod tests {
             for _ in 0..3 {
                 ctx.continue_progress();
                 let current = ctx.player.snapshot().unwrap();
-                assert_eq!(current.source().episode(), other);
+                assert_eq!(current.source().episode(), Some(other));
                 assert_eq!(current.position_ms(), 15000);
                 assert_eq!(
                     ctx.progress.get_untracked().latest().unwrap().snapshot,
@@ -635,10 +642,10 @@ mod tests {
             );
             assert_eq!(
                 resumed.source().episode(),
-                EpisodeId {
+                Some(EpisodeId {
                     work: WorkId::Mountain,
                     index: 2
-                }
+                })
             );
             assert_eq!(resumed.position_ms(), 768000);
             assert_eq!(ctx.progress.get_untracked().records().len(), 1);

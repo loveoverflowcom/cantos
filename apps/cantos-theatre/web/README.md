@@ -1,8 +1,8 @@
 # Cantos Theatre Web
 
 The existing `cantos-theatre` target remains **Rust 2021 / Leptos 0.7.8 CSR/WASM**. It implements
-a public discovery Home, a separate listener account/auth boundary and an explicitly isolated
-session-only mock; users see
+a public discovery Home, [live guest playback](#live-guest-playback) of published units, a
+separate listener account/auth boundary and an explicitly isolated session-only mock; users see
 **Cantos**. The [PR 02 validation record](../../../docs/evidence/theatre-web-pr02.md)
 names the local build, reducer/fake-port tests and integrated-browser observations. No production
 listening issue or UI-system qualification is completed by this foundation.
@@ -29,6 +29,35 @@ The [player interaction record](../../../docs/evidence/theatre-web-player-intera
 describes the isolated mock's local scrub draft, one final seek, root-owned pending
 acknowledgement and narrow transport projection. It includes the A/B/C decision and deferred
 browser/audio acceptance; no browser latency improvement is claimed.
+
+## Live guest playback
+
+Live mode lets a guest hear a published unit ([#269](https://github.com/loveoverflowcom/cantos/issues/269);
+[evidence and limits](../../../docs/evidence/theatre-web-guest-playback.md)). Choosing a unit (or
+**Nghe** on a Work, which starts its first listed unit) resolves that exact release's manifest
+(`GET /publications/{id}`), pins `work / unit / publication / rendition`, manifest digest, SHA-256
+and the verified duration, requests `POST /publications/{id}/playback-authorizations` with an empty
+body and hands `PlaybackAuthorization.url` to the audio element exactly as returned, so the browser
+streams it with `Range` requests. The URL is a bearer capability: it is never parsed for identity,
+logged, persisted or fetched into a `Blob`.
+
+- **One owner.** `LiveBoundary` creates one `PlayerSession` and one `<audio id="theatre-audio-engine">`
+  for the page. Home, Work, `#player` and the mini-player read the same session; browsing never
+  replaces the source. A new source drops the old source's listeners, requests and timers, and every
+  callback carries the identity it belongs to, so a cancelled source or intent cannot change the
+  current state.
+- **No autoplay.** Only an explicit press resolves or plays anything. Opening a Work, `#player`,
+  Back/Forward, reload and sign-in start nothing; `#player` without a source shows an empty state.
+- **Truthful status.** The indicator says playing only after the engine acknowledged it. A refused
+  `play()`, a withdrawn release, a changed release, a transport failure and an undecodable format
+  each have their own message. A pause the page did not ask for (media key, headset) becomes a
+  pause intent. Pressing Play again is the explicit retry.
+- **Bounded recovery.** The grant is refreshed 30 s before `expires_at_ms` for the **same**
+  publication and compared with the pin; a different publication/rendition/SHA stops playback
+  instead of switching. A `404` stops at once; `503` backs off 1/2/4 s over four attempts; an
+  element failure is recovered at the last position at most three times without progress.
+- **Not covered here:** save/progress/history (#272), search and routing (#270), offline,
+  queue, transcript, Safari/iOS and deployed CDN/CORS behavior.
 
 ## Scope and honest behavior
 
@@ -147,7 +176,13 @@ declarations do not establish browser or native acceptance.
 | `src/live/account.rs`, `library.rs`, `runtime.rs` | Same-origin Theatre BFF transport, bounded actual Library reads and mounted browser lifecycle; no mock fallback |
 | `src/live/discovery.rs` | Anonymous fixed-JSON published-work read, bounded response decoding and explicit unavailable/protocol failures |
 | `src/live/public_work.rs` | Anonymous `GET /works/{id}` and `/works/{id}/units` reads; strict shared-DTO decoding, route identity, unit kind and exact `ListenerError` classification |
-| `src/infrastructure/` | Only implemented `MockCatalog` and deterministic `FakeMedia`; no empty future adapters |
+| `src/core/public_track.rs` | Pure pinned identity of one public release (`PublicTrack`: Work/unit/publication/rendition IDs, manifest digest, SHA-256) admitted only from a manifest that names the requested release, plus strict grant admission (`AdmittedGrant`) and the redacted `MediaUrl` capability |
+| `src/application/public_listen.rs` | Pure listen intent: ticket-fenced manifest resolution, one display label per intent, `NowPlaying` facts that describe only the track they were captured for |
+| `src/application/media_driver.rs` | Pure engine decisions: grant lifecycle (authorize, refresh 30 s before expiry for the same publication, bounded backoff, bounded recovery, withdrawn → stop), and the mapping from audio-element facts to player events. Performs no I/O |
+| `src/platform/audio.rs` | The one `HTMLAudioElement` and its listeners, requests and timers; executes the driver's commands and reports back (browser only) |
+| `src/live/public_media.rs` | Anonymous manifest `GET` and empty-body authorization `POST`; strict shared-DTO decoding and exact `ListenerError` classification. Media bytes are streamed by the element, never fetched here |
+| `src/features/live_player.rs` | Live full player (`#player`) and mini-player over the one root session; reuses the shared timeline control |
+| `src/infrastructure/` | Mock `MockCatalog` and deterministic `FakeMedia` (isolated `?mode=mock` only) and an inert native port; no empty future adapters |
 | `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
 | `src/view.rs`, `src/view/live_shell.rs` | Separate mock/live route compositions; Home remains available when identity fails |
 | `src/app/live_navigation.rs`, `src/platform/auth_browser.rs` | Browser history, contextual focus/scroll restoration, explicit provider return intent and current-session confirmation |
@@ -263,7 +298,9 @@ To see published Works, run `cargo xtask seed theatre` once against that retaine
 `run`. It publishes synthetic novel, story and podcast Works through the real Studio flows; `run
 --test-cluster` then serves that seed database and says so on its first line. The
 [seeded catalog runbook](../../../docs/deployment/theatre-seeded-catalog.md) lists the dataset,
-stable IDs, a live withdrawal, reset and troubleshooting. Playback remains unavailable.
+stable IDs, a live withdrawal, reset and troubleshooting. Hearing a unit in the browser
+additionally needs its [local TLS front end](../../../docs/deployment/theatre-seeded-catalog.md#local-tls-front-end-for-browser-playback),
+because the API admits only an HTTPS media origin.
 
 To reuse an already-running API, use separate terminals. The API terminal requires the same
 operator-prepared `DATABASE_URL` (or its retained test-cluster option):

@@ -40,12 +40,12 @@ pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
         return ().into_any();
     };
     view! {
-        <li class="theatre-episode-row" data-current=move || ctx.player.view.get().is_some_and(|player| player.episode == id)>
+        <li class="theatre-episode-row" data-current=move || ctx.player.view.get().is_some_and(|player| player.is_episode(id))>
             <span class="theatre-episode-number">{format!("{:02}", id.index + 1)}</span>
             <div class="theatre-episode-copy">
                 <h3 lang="vi-VN">{episode.title}</h3>
                 <p class="theatre-muted">{if episode.available { clock(episode.duration) } else { String::new() }}
-                    <Show when=move || ctx.player.view.get().is_some_and(|player| player.episode == id)>
+                    <Show when=move || ctx.player.view.get().is_some_and(|player| player.is_episode(id))>
                         <span>{move || ctx.text(Key::CurrentEpisode)}</span>
                     </Show>
                 </p>
@@ -61,15 +61,15 @@ pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
                 {episode.available.then(|| view! {
                     <div class="theatre-queue-action">
                         <button type="button" class="theatre-action theatre-action-text"
-                            disabled=move || { ctx.queue.with(|state| state.items.contains(&id)) || ctx.player.view.get().is_some_and(|player| player.episode == id) }
+                            disabled=move || { ctx.queue.with(|state| state.items.contains(&id)) || ctx.player.view.get().is_some_and(|player| player.is_episode(id)) }
                             aria-label=move || ctx.format(Key::QueueName, &[("title", episode.title.to_owned())])
                             aria-describedby=format!("queue-reason-{}-{}", id.work.slug(), id.index)
                             on:click=move |_| ctx.enqueue(id)>
                             {icon("add")}<span class="cui-control-label">{move || ctx.text(Key::QueueAdd)}</span>
                         </button>
                         <p id=format!("queue-reason-{}-{}", id.work.slug(), id.index) class="theatre-muted"
-                            hidden=move || { !ctx.queue.with(|state| state.items.contains(&id)) && ctx.player.view.get().is_none_or(|player| player.episode != id) }>
-                            {move || if ctx.player.view.get().is_some_and(|player| player.episode == id) { ctx.text(Key::CurrentEpisode) } else { ctx.text(Key::QueueAdded) }}
+                            hidden=move || { !ctx.queue.with(|state| state.items.contains(&id)) && ctx.player.view.get().is_none_or(|player| !player.is_episode(id)) }>
+                            {move || if ctx.player.view.get().is_some_and(|player| player.is_episode(id)) { ctx.text(Key::CurrentEpisode) } else { ctx.text(Key::QueueAdded) }}
                         </p>
                     </div>
                 })}

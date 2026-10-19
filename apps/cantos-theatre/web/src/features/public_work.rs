@@ -1,8 +1,15 @@
-//! Live public Work detail. Server text only: no cover art, genre, credit, count or playback.
-//! Playback stays explicitly unavailable until a real delivery and engine exist.
+//! Live public Work detail. Server text only: no cover art, genre, credit or count. The Listen
+//! control and each unit's control only express an intent; the root resolves the exact release
+//! and owns the one player. Opening this page never plays anything.
 use crate::{
-    application::public_work::{
-        PageStatus, ReadFailure, UnitList, WorkDetailPhase, WorkDetailState,
+    application::{
+        player_session::PlayerSession,
+        public_listen::{ListenFailure, ListenState},
+        public_work::{PageStatus, ReadFailure, UnitList, WorkDetailPhase, WorkDetailState},
+    },
+    core::{
+        playback::{Event, Intent, TrackId},
+        public_ids::canonical_uuid,
     },
     features::{
         auth_copy::{self, CopyKey},
@@ -21,6 +28,102 @@ pub(crate) const UNITS_MORE_ID: &str = "theatre-public-units-more";
 
 pub(crate) fn unit_heading_id(unit_id: &str) -> String {
     format!("theatre-public-unit-{unit_id}")
+}
+
+/// The unit a listener chose, as the list showed it. The root pins the release from it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ListenTarget {
+    pub unit_id: String,
+    pub publication_id: String,
+    pub title: String,
+}
+
+impl ListenTarget {
+    fn of(row: &UnitSummary) -> Self {
+        Self {
+            unit_id: row.unit_id.clone(),
+            publication_id: row.publication_id.clone(),
+            title: row.title.clone(),
+        }
+    }
+}
+
+/// What a unit's control offers, derived only from the listen intent and the one session.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RowListen {
+    Ready,
+    Preparing,
+    Playing,
+    Failed(ListenFailure),
+}
+
+/// `current` is the public release in the player and whether the listener intends to play it.
+pub(crate) fn row_listen(
+    listen: &ListenState,
+    current: Option<(uuid::Uuid, bool)>,
+    publication_id: &str,
+) -> RowListen {
+    let Some(publication) = canonical_uuid(publication_id) else {
+        return RowListen::Ready;
+    };
+    if listen.is_resolving(publication) {
+        return RowListen::Preparing;
+    }
+    if let Some(failure) = listen.failure_of(publication) {
+        return RowListen::Failed(failure);
+    }
+    match current {
+        Some((playing, true)) if playing == publication => RowListen::Playing,
+        _ => RowListen::Ready,
+    }
+}
+
+/// Everything the Work detail needs to offer listening, without owning any of it.
+#[derive(Clone, Copy)]
+pub(crate) struct ListenControls {
+    pub player: PlayerSession,
+    pub listen: RwSignal<ListenState>,
+    pub on_listen: Callback<ListenTarget>,
+}
+
+impl ListenControls {
+    fn current(self) -> Option<(uuid::Uuid, bool)> {
+        let source = self.player.source.get()?;
+        let TrackId::Public(track) = source.track() else {
+            return None;
+        };
+        let playing = self
+            .player
+            .transport
+            .get()
+            .is_some_and(|transport| transport.intent == Intent::Play);
+        Some((track.publication(), playing))
+    }
+
+    fn state_of(self, row: &UnitSummary) -> RowListen {
+        let current = self.current();
+        self.listen
+            .with(|listen| row_listen(listen, current, &row.publication_id))
+    }
+
+    /// Pause what plays, otherwise ask the root to resolve and play this unit.
+    fn press(self, row: &UnitSummary) {
+        match self.state_of(row) {
+            RowListen::Playing => self.player.dispatch(Event::PauseRequested),
+            RowListen::Preparing => (),
+            RowListen::Ready | RowListen::Failed(_) => {
+                self.on_listen.run(ListenTarget::of(row));
+            }
+        }
+    }
+}
+
+const fn resolve_failure_key(failure: ListenFailure) -> Key {
+    match failure {
+        ListenFailure::NotFound => Key::ListenResolveNotFound,
+        ListenFailure::Unavailable => Key::ListenResolveUnavailable,
+        ListenFailure::Protocol => Key::ListenResolveProtocol,
+    }
 }
 
 const fn unit_label(kind: UnitKind) -> Key {
@@ -105,6 +208,7 @@ fn status_line(units: &UnitList, work_kind: WorkKind, locale: Locale) -> String 
 pub(crate) fn PublicWorkDetail(
     state: RwSignal<WorkDetailState>,
     locale: RwSignal<Locale>,
+    listen: ListenControls,
     on_back: Callback<()>,
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
@@ -149,7 +253,7 @@ pub(crate) fn PublicWorkDetail(
                         WorkDetailPhase::Ready { work, .. } => Some(work.clone()),
                         _ => None,
                     })
-                    .map(|work| view! { <ReadyWork state locale work on_retry on_load_more/> }.into_any())
+                    .map(|work| view! { <ReadyWork state locale listen work on_retry on_load_more/> }.into_any())
                     .unwrap_or_else(|| ().into_any()),
             }}
         </section>
@@ -160,6 +264,7 @@ pub(crate) fn PublicWorkDetail(
 fn ReadyWork(
     state: RwSignal<WorkDetailState>,
     locale: RwSignal<Locale>,
+    listen: ListenControls,
     work: WorkSummary,
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
@@ -214,11 +319,39 @@ fn ReadyWork(
         }
         _ => ButtonState::Enabled,
     });
-    let listen_state = Signal::derive(move || {
-        DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
+    // Listen starts the first unit the list still offers, in the server's order.
+    let first = move || {
+        state
+            .with(|s| {
+                with_units(s, |units| {
+                    units
+                        .rows()
+                        .iter()
+                        .find(|row| !units.is_unavailable(&row.unit_id))
+                        .cloned()
+                })
+            })
+            .flatten()
+    };
+    let listen_state = Signal::derive(move || match first() {
+        None => DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
             .map(ButtonState::Disabled)
+            .unwrap_or_default(),
+        Some(row) if listen.state_of(&row) == RowListen::Preparing => {
+            DisabledReason::new(messages::format(
+                Key::ListenUnitPreparing,
+                locale.get(),
+                &[("title", row.title.clone())],
+            ))
+            .map(ButtonState::Loading)
             .unwrap_or_default()
+        }
+        Some(_) => ButtonState::Enabled,
     });
+    let listen_label = move || match first() {
+        Some(row) if listen.state_of(&row) == RowListen::Playing => Key::ListenPause,
+        _ => Key::PublicWorkListen,
+    };
     let description = (!work.description.trim().is_empty()).then(|| work.description.clone());
     view! {
         <header class="theatre-work-intro theatre-public-work-intro">
@@ -231,8 +364,10 @@ fn ReadyWork(
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h1 id=HEADING_ID tabindex="-1" lang=lang.clone()>{work.title.clone()}</h1>
                 {description.map(|text| view! { <p class="theatre-synopsis" lang=lang.clone()>{text}</p> })}
-                <Button id="theatre-public-work-listen" state=listen_state>
-                    {move || text(Key::PublicWorkListen, locale.get())}
+                <Button id="theatre-public-work-listen" state=listen_state
+                    on_press=Callback::new(move |_| { if let Some(row) = first() { listen.press(&row); } })>
+                    {move || text(listen_label(), locale.get())}
+                    {move || first().map(|row| view! { <span class="cui-sr-only">" "{row.title}</span> })}
                 </Button>
             </div>
         </header>
@@ -241,7 +376,7 @@ fn ReadyWork(
             <h2 id="theatre-public-units-heading" class="theatre-section-heading">{move || text(list_heading, locale.get())}</h2>
             <ol class="theatre-episode-list theatre-public-unit-list">
                 <For each=rows key=|(row, unavailable)| (row.unit_id.clone(), row.publication_id.clone(), *unavailable)
-                    children=move |(row, unavailable)| view! { <UnitRow row unavailable lang=row_lang.get_value() locale/> }/>
+                    children=move |(row, unavailable)| view! { <UnitRow row unavailable lang=row_lang.get_value() locale listen/> }/>
             </ol>
             {move || first_page_failure().map(|failure| {
                 let help = match failure {
@@ -278,13 +413,41 @@ fn UnitRow(
     unavailable: bool,
     lang: String,
     locale: RwSignal<Locale>,
+    listen: ListenControls,
 ) -> impl IntoView {
     let kind = unit_label(row.kind);
     let seconds = u32::try_from(row.duration_ms / 1000).unwrap_or(u32::MAX);
     let known = row.duration_ms > 0;
     let description = (!row.description.trim().is_empty()).then(|| row.description.clone());
+    let control = StoredValue::new(row.clone());
+    let row_state = move || control.with_value(|row| listen.state_of(row));
+    let button_state = Signal::derive(move || match row_state() {
+        RowListen::Preparing => control
+            .with_value(|row| {
+                DisabledReason::new(messages::format(
+                    Key::ListenUnitPreparing,
+                    locale.get(),
+                    &[("title", row.title.clone())],
+                ))
+            })
+            .map(ButtonState::Loading)
+            .unwrap_or_default(),
+        _ => ButtonState::Enabled,
+    });
+    let verb = move || match row_state() {
+        RowListen::Playing => Key::ListenPause,
+        RowListen::Failed(_) => Key::PublicRetry,
+        RowListen::Ready | RowListen::Preparing => Key::PublicWorkListen,
+    };
+    let title = row.title.clone();
     view! {
         <li class="theatre-episode-row theatre-public-unit" data-unit-id=row.unit_id.clone()
+            data-listen=move || match row_state() {
+                RowListen::Ready => "ready",
+                RowListen::Preparing => "preparing",
+                RowListen::Playing => "playing",
+                RowListen::Failed(_) => "failed",
+            }
             data-unavailable=unavailable.then_some("true")>
             <div class="theatre-episode-copy">
                 <p class="theatre-eyebrow">{move || text(kind, locale.get())}</p>
@@ -301,7 +464,22 @@ fn UnitRow(
                     }}
                 </p>
                 {unavailable.then(|| view! { <p class="theatre-muted">{move || text(Key::PublicWorkRowUnavailable, locale.get())}</p> })}
+                {move || match row_state() {
+                    RowListen::Failed(failure) => Some(view! {
+                        <p class="theatre-muted theatre-public-unit-failure" role="status">{text(resolve_failure_key(failure), locale.get())}</p>
+                    }),
+                    _ => None,
+                }}
             </div>
+            {(!unavailable).then(|| view! {
+                <div class="theatre-episode-actions">
+                    <Button id=format!("theatre-public-unit-listen-{}", row.unit_id) variant=ButtonVariant::Tonal state=button_state
+                        on_press=Callback::new(move |_| control.with_value(|row| listen.press(row)))>
+                        {move || text(verb(), locale.get())}
+                        <span class="cui-sr-only">" "{title.clone()}</span>
+                    </Button>
+                </div>
+            })}
         </li>
     }
 }
@@ -312,6 +490,7 @@ mod tests {
     use crate::{
         application::public_work::{CatalogReadError, Step},
         core::public_ids::PublicWorkId,
+        infrastructure::inert_media::InertMedia,
     };
     use cantos_contracts::theatre::{UnitPage, WorkPage};
 
@@ -344,6 +523,17 @@ mod tests {
             duration_ms: 754_000,
         }
     }
+    fn fixture_manifest(row: &UnitSummary) -> cantos_contracts::theatre::PublicationManifest {
+        let mut manifest: cantos_contracts::theatre::PublicationManifest =
+            serde_json::from_str(include_str!(
+                "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+            ))
+            .unwrap();
+        manifest.work_id = WORK.into();
+        manifest.unit_id = row.unit_id.clone();
+        manifest.publication_id = row.publication_id.clone();
+        manifest
+    }
     fn page(items: Vec<UnitSummary>, next: Option<&str>) -> UnitPage {
         UnitPage {
             work_id: WORK.into(),
@@ -360,10 +550,18 @@ mod tests {
         };
         (state, first)
     }
+    fn controls() -> ListenControls {
+        ListenControls {
+            player: PlayerSession::new(InertMedia),
+            listen: RwSignal::new(ListenState::default()),
+            on_listen: Callback::new(|_| ()),
+        }
+    }
     fn render(state: WorkDetailState, locale: Locale) -> String {
         Owner::new().with(|| {
+            let listen = controls();
             view! {
-                <PublicWorkDetail state=RwSignal::new(state) locale=RwSignal::new(locale)
+                <PublicWorkDetail state=RwSignal::new(state) locale=RwSignal::new(locale) listen
                     on_back=Callback::new(|()| ()) on_retry=Callback::new(|()| ())
                     on_load_more=Callback::new(|()| ())/>
             }
@@ -389,7 +587,7 @@ mod tests {
     }
 
     #[test]
-    fn ready_detail_renders_server_text_rows_duration_and_disabled_listen_reason() {
+    fn ready_detail_renders_server_text_rows_duration_and_enabled_listen_controls() {
         let (mut state, first) = opened(fixture_work());
         state.finish_page(&first, Ok(fixture_units()));
         let html = render(state, Locale::Vietnamese);
@@ -407,17 +605,216 @@ mod tests {
             "Về Trang chủ",
             "lang=\"vi-VN\"",
             "data-unit-id=\"20000000-0000-4000-8000-000000000002\"",
-            "aria-describedby=\"theatre-public-work-listen-reason\"",
-            "Cantos Web chưa phát được âm thanh.",
+            "id=\"theatre-public-unit-listen-20000000-0000-4000-8000-000000000002\"",
+            "data-listen=\"ready\"",
         ] {
             assert!(html.contains(expected), "{expected}");
         }
-        assert!(html.contains("id=\"theatre-public-work-listen\"") && html.contains("disabled"));
+        // Listening is offered, not blocked, and the name carries the unit it starts.
+        let cta = html
+            .split("id=\"theatre-public-work-listen\"")
+            .nth(1)
+            .and_then(|rest| rest.split("</button>").next())
+            .unwrap();
+        assert!(!cta.contains("disabled"), "{cta}");
+        assert!(cta.contains(">Nghe<") && cta.contains("Một tiếng chuông trong sương"));
+        for stale in [
+            "Cantos Web chưa phát được âm thanh.",
+            "aria-describedby=\"theatre-public-work-listen-reason\"",
+        ] {
+            assert!(!html.contains(stale), "{stale}");
+        }
         assert!(
             !html.contains(UNITS_MORE_ID),
             "a complete list offers no Load more"
         );
         assert_no_fabrication(&html);
+    }
+
+    #[test]
+    fn listen_is_blocked_with_a_reason_until_the_list_offers_a_unit() {
+        for locale in Locale::ALL {
+            let (loading, _) = opened(fixture_work());
+            let html = render(loading, locale);
+            let cta = html
+                .split("id=\"theatre-public-work-listen\"")
+                .nth(1)
+                .unwrap();
+            assert!(cta.contains("disabled"), "{cta}");
+            assert!(
+                html.contains(text(Key::PublicWorkListenUnavailable, locale)),
+                "{html}"
+            );
+            assert!(html.contains("aria-describedby=\"theatre-public-work-listen-reason\""));
+        }
+    }
+
+    #[test]
+    fn opening_the_detail_never_dispatches_a_player_event_or_a_listen_intent() {
+        use crate::{
+            application::ports::MediaPort,
+            core::playback::{Effect, PlayerState},
+        };
+        use std::{
+            cell::RefCell,
+            rc::Rc,
+            sync::{Arc, Mutex},
+        };
+        struct Recording(Rc<RefCell<Vec<Effect>>>);
+        impl MediaPort for Recording {
+            fn execute(&mut self, effect: &Effect) -> Vec<Event> {
+                self.0.borrow_mut().push(effect.clone());
+                Vec::new()
+            }
+        }
+        Owner::new().with(|| {
+            let effects = Rc::new(RefCell::new(Vec::new()));
+            let intents = Arc::new(Mutex::new(0));
+            let counted = intents.clone();
+            let listen = ListenControls {
+                player: PlayerSession::new(Recording(effects.clone())),
+                listen: RwSignal::new(ListenState::default()),
+                on_listen: Callback::new(move |_| *counted.lock().unwrap() += 1),
+            };
+            let (mut state, first) = opened(fixture_work());
+            state.finish_page(&first, Ok(fixture_units()));
+            let _ = view! {
+                <PublicWorkDetail state=RwSignal::new(state) locale=RwSignal::new(Locale::Vietnamese) listen
+                    on_back=Callback::new(|()| ()) on_retry=Callback::new(|()| ())
+                    on_load_more=Callback::new(|()| ())/>
+            }
+            .to_html();
+            assert!(effects.borrow().is_empty());
+            assert_eq!(*intents.lock().unwrap(), 0);
+            assert_eq!(listen.player.state.get_untracked(), PlayerState::default());
+            assert_eq!(listen.listen.get_untracked(), ListenState::default());
+        });
+    }
+
+    #[test]
+    fn a_unit_control_reflects_the_intent_and_the_one_session_and_presses_accordingly() {
+        use crate::{
+            application::public_listen::{ListenLabel, ListenOutcome},
+            core::{
+                playback::Source,
+                public_track::{PinnedRelease, ReleaseRequest},
+            },
+        };
+        use std::sync::{Arc, Mutex};
+        let row = unit(2, "Chương hai");
+        let publication = uuid::Uuid::parse_str(&row.publication_id).unwrap();
+        Owner::new().with(|| {
+            let pressed = Arc::new(Mutex::new(Vec::new()));
+            let recorded = pressed.clone();
+            let controls = ListenControls {
+                player: PlayerSession::new(InertMedia),
+                listen: RwSignal::new(ListenState::default()),
+                on_listen: Callback::new(move |target: ListenTarget| {
+                    recorded.lock().unwrap().push(target)
+                }),
+            };
+            assert_eq!(controls.state_of(&row), RowListen::Ready);
+            controls.press(&row);
+            assert_eq!(pressed.lock().unwrap().len(), 1);
+            assert_eq!(
+                pressed.lock().unwrap()[0].publication_id,
+                row.publication_id
+            );
+
+            // A resolving intent shows preparing and a second press asks for nothing.
+            let request = ReleaseRequest::parse(
+                PublicWorkId::parse(WORK).unwrap(),
+                &row.unit_id,
+                &row.publication_id,
+            )
+            .unwrap();
+            let label = ListenLabel {
+                work_title: "w".into(),
+                unit_title: "u".into(),
+                language: "vi-VN".into(),
+            };
+            let mut ticket = None;
+            controls.listen.update(|s| ticket = s.begin(request, label));
+            assert_eq!(controls.state_of(&row), RowListen::Preparing);
+            controls.press(&row);
+            assert_eq!(pressed.lock().unwrap().len(), 1);
+
+            // Once selected and playing, the same control pauses instead of asking again.
+            let mut manifest = fixture_manifest(&row);
+            manifest.duration_ms = 60_000;
+            let mut outcome = None;
+            controls
+                .listen
+                .update(|s| outcome = Some(s.finish(&ticket.unwrap(), Ok(manifest))));
+            let Some(ListenOutcome::Select(selection)) = outcome else {
+                panic!("{outcome:?}")
+            };
+            let source =
+                Source::public(selection.release.track(), selection.release.duration_ms()).unwrap();
+            controls.player.dispatch(Event::SourceSelected {
+                source,
+                position_ms: 0,
+            });
+            assert_eq!(controls.state_of(&row), RowListen::Ready);
+            controls.player.dispatch(Event::PlayRequested);
+            assert_eq!(controls.state_of(&row), RowListen::Playing);
+            controls.press(&row);
+            assert_eq!(controls.state_of(&row), RowListen::Ready);
+            assert_eq!(
+                pressed.lock().unwrap().len(),
+                1,
+                "pausing is not a new listen intent"
+            );
+            let _ = (publication, PinnedRelease::admit);
+        });
+    }
+
+    #[test]
+    fn row_state_is_derived_from_intent_then_failure_then_the_session_only() {
+        use crate::core::public_track::ReleaseRequest;
+        let row = unit(3, "Chương ba");
+        let publication = uuid::Uuid::parse_str(&row.publication_id).unwrap();
+        let other = uuid::Uuid::from_u128(7);
+        let request = ReleaseRequest::parse(
+            PublicWorkId::parse(WORK).unwrap(),
+            &row.unit_id,
+            &row.publication_id,
+        )
+        .unwrap();
+        let label = crate::application::public_listen::ListenLabel {
+            work_title: "w".into(),
+            unit_title: "u".into(),
+            language: "vi-VN".into(),
+        };
+        let idle = ListenState::default();
+        for (current, expected) in [
+            (None, RowListen::Ready),
+            (Some((publication, false)), RowListen::Ready),
+            (Some((publication, true)), RowListen::Playing),
+            (Some((other, true)), RowListen::Ready),
+        ] {
+            assert_eq!(row_listen(&idle, current, &row.publication_id), expected);
+        }
+        let mut resolving = ListenState::default();
+        let ticket = resolving.begin(request, label).unwrap();
+        assert_eq!(
+            row_listen(&resolving, Some((publication, true)), &row.publication_id),
+            RowListen::Preparing
+        );
+        resolving.finish(&ticket, Err(CatalogReadError::NotFound));
+        assert_eq!(
+            row_listen(&resolving, None, &row.publication_id),
+            RowListen::Failed(ListenFailure::NotFound)
+        );
+        // Another unit's failure or progress never colors this row.
+        assert_eq!(
+            row_listen(&resolving, None, "80000000-0000-4000-8000-0000000000aa"),
+            RowListen::Ready
+        );
+        assert_eq!(
+            row_listen(&idle, Some((publication, true)), "not-an-id"),
+            RowListen::Ready
+        );
     }
 
     #[test]
@@ -587,13 +984,13 @@ mod tests {
 
     #[test]
     fn both_locales_preserve_content_and_map_each_read_failure_and_duration() {
-        for (locale, kind, chapters, duration, listen_reason, not_found, unavailable, protocol) in [
+        for (locale, kind, chapters, duration, listen_label, not_found, unavailable, protocol) in [
             (
                 Locale::Vietnamese,
                 ">Truyện<",
                 "Các chương",
                 "Thời lượng: 12 phút 34 giây",
-                "Cantos Web chưa phát được âm thanh.",
+                ">Nghe<",
                 "Tác phẩm này hiện không mở công khai.",
                 "Chưa mở được tác phẩm.",
                 "Chưa đọc được thông tin tác phẩm.",
@@ -603,7 +1000,7 @@ mod tests {
                 ">Story<",
                 "Chapters",
                 "Duration: 12 minutes 34 seconds",
-                "Cantos Web cannot play audio yet.",
+                ">Listen<",
                 "This story is not publicly available right now.",
                 "The story could not be opened.",
                 "The story details could not be read.",
@@ -618,11 +1015,10 @@ mod tests {
                 kind,
                 chapters,
                 duration,
-                listen_reason,
+                listen_label,
                 "Lời hẹn {time} &lt;cuối&gt;",
                 "Tập {duration}",
                 "lang=\"vi-VN\"",
-                "aria-describedby=\"theatre-public-work-listen-reason\"",
             ] {
                 assert!(html.contains(expected), "{expected}: {html}");
             }

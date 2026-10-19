@@ -1,23 +1,75 @@
 //! App-owned native range composition; no shared primitive or playback policy is introduced.
 use crate::{
     app::context::TheatreContext,
-    application::scrub::Scrub,
-    core::playback::Event,
-    messages::{self, Key},
+    application::{player_session::PlayerSession, scrub::Scrub},
+    core::playback::{Event, Status},
+    messages::{self, Key, Locale},
     platform,
 };
 use leptos::prelude::*;
 
+/// The strings a timeline shows. The isolated mock labels everything as simulated; the live
+/// player does not, but both share one control and one scrub policy.
+#[derive(Clone, Copy)]
+pub(crate) struct TimelineCopy {
+    label: Key,
+    help: Key,
+    preview: Key,
+    pending: Key,
+    status: fn(Status) -> Key,
+}
+
+impl TimelineCopy {
+    pub(crate) const MOCK: Self = Self {
+        label: Key::Timeline,
+        help: Key::TimelineHelp,
+        preview: Key::ScrubPreview,
+        pending: Key::SeekPending,
+        status: messages::status_key,
+    };
+    pub(crate) const LIVE: Self = Self {
+        label: Key::ListenTimeline,
+        help: Key::ListenTimelineHelp,
+        preview: Key::ListenScrubPreview,
+        pending: Key::ListenSeekPending,
+        status: messages::listening_status_key,
+    };
+}
+
+/// What a timeline needs from its owner: the one session, the locale and where seeks go.
+/// The mock routes seeks through its context so simulated history can observe them.
+#[derive(Clone, Copy)]
+pub(crate) struct PlayerPanel {
+    pub player: PlayerSession,
+    pub locale: RwSignal<Locale>,
+    pub dispatch: Callback<Event>,
+    pub copy: TimelineCopy,
+}
+
+impl PlayerPanel {
+    pub(crate) fn mock(ctx: TheatreContext) -> Self {
+        Self {
+            player: ctx.player,
+            locale: ctx.locale,
+            dispatch: Callback::new(move |event| ctx.playback(event)),
+            copy: TimelineCopy::MOCK,
+        }
+    }
+    fn text(self, key: Key) -> &'static str {
+        messages::text(key, self.locale.get())
+    }
+}
+
 #[derive(Clone, Copy)]
 struct TimelineControl {
-    ctx: TheatreContext,
+    panel: PlayerPanel,
     draft: RwSignal<Scrub>,
 }
 
 impl TimelineControl {
-    fn new(ctx: TheatreContext) -> Self {
+    fn new(panel: PlayerPanel) -> Self {
         Self {
-            ctx,
+            panel,
             draft: RwSignal::new(Scrub::FollowingEngine),
         }
     }
@@ -26,10 +78,10 @@ impl TimelineControl {
         let draft = self
             .draft
             .get()
-            .reconcile(self.ctx.player.seek_binding.get(), None);
+            .reconcile(self.panel.player.seek_binding.get(), None);
         match draft {
             Scrub::FollowingEngine | Scrub::Canceled => self
-                .ctx
+                .panel
                 .player
                 .pending_seek
                 .get()
@@ -43,7 +95,7 @@ impl TimelineControl {
         let next = self
             .draft
             .get()
-            .reconcile(self.ctx.player.seek_binding.get(), None);
+            .reconcile(self.panel.player.seek_binding.get(), None);
         if next != self.draft.get_untracked() {
             self.draft.set(next);
         }
@@ -51,48 +103,61 @@ impl TimelineControl {
 
     fn begin(self) {
         self.draft.set(Scrub::begin(
-            self.ctx.player.seek_binding.get_untracked(),
-            self.ctx
+            self.panel.player.seek_binding.get_untracked(),
+            self.panel
                 .player
                 .pending_seek
                 .get_untracked()
                 .map(|seek| seek.position_ms)
-                .unwrap_or_else(|| self.ctx.player.position_ms.get_untracked().unwrap_or(0)),
+                .unwrap_or_else(|| self.panel.player.position_ms.get_untracked().unwrap_or(0)),
         ));
     }
 
     fn preview(self, position_ms: u32) {
-        let binding = self.ctx.player.seek_binding.get_untracked();
+        let binding = self.panel.player.seek_binding.get_untracked();
         // Reconcile at input time too: a delayed event cannot rebind an old gesture.
         let current = self
             .draft
             .get_untracked()
-            .reconcile(binding, self.ctx.player.observed_position.get_untracked());
+            .reconcile(binding, self.panel.player.observed_position.get_untracked());
         self.draft.set(current.preview(binding, position_ms));
     }
 
     fn commit(self) {
-        let before = self.ctx.player.seek_binding.get_untracked();
+        let before = self.panel.player.seek_binding.get_untracked();
         let Some(position_ms) = self.draft.get_untracked().commit(before) else {
             return;
         };
         // Consume before dispatch: both native change and pointerup may arrive.
         self.draft.set(Scrub::FollowingEngine);
-        self.ctx.playback(Event::SeekRequested { position_ms });
+        self.panel
+            .dispatch
+            .run(Event::SeekRequested { position_ms });
     }
 
     fn cancel(self) {
-        self.draft.update(|draft| *draft = draft.cancel());
+        let _ = self.draft.try_update(|draft| *draft = draft.cancel());
     }
 
     fn release(self) {
-        self.draft.update(|draft| *draft = draft.release());
+        let _ = self.draft.try_update(|draft| *draft = draft.release());
+    }
+
+    /// Removing a focused slider (a route change) fires `blur` after its owner is disposed;
+    /// touching a disposed signal would abort the whole page, so a late blur does nothing.
+    fn blur(self, input: NodeRef<leptos::html::Input>, position: Memo<u32>) {
+        let Some(position) = position.try_get_untracked() else {
+            return;
+        };
+        self.cancel();
+        self.release();
+        platform::restore_range_value(input, position);
     }
 }
 
 #[component]
-pub(super) fn PlayerTimeline(ctx: TheatreContext) -> impl IntoView {
-    let control = TimelineControl::new(ctx);
+pub(super) fn PlayerTimeline(panel: PlayerPanel) -> impl IntoView {
+    let control = TimelineControl::new(panel);
     let input = NodeRef::<leptos::html::Input>::new();
     Effect::new(move |_| control.reconcile());
     let phase = Memo::new(move |_| control.current());
@@ -100,27 +165,28 @@ pub(super) fn PlayerTimeline(ctx: TheatreContext) -> impl IntoView {
         phase
             .get()
             .displayed_position()
-            .unwrap_or_else(|| ctx.player.position_ms.get().unwrap_or(0))
+            .unwrap_or_else(|| panel.player.position_ms.get().unwrap_or(0))
     });
     let duration = move || {
-        ctx.player
+        panel
+            .player
             .source
             .get()
             .map(|source| source.duration_ms())
             .unwrap_or(0)
     };
     let status = Memo::new(move |_| match phase.get() {
-        Scrub::Preview { .. } => Key::ScrubPreview,
-        Scrub::PendingSeek { .. } => Key::SeekPending,
-        Scrub::FollowingEngine | Scrub::Canceled => messages::status_key(ctx.player.status.get()),
+        Scrub::Preview { .. } => panel.copy.preview,
+        Scrub::PendingSeek { .. } => panel.copy.pending,
+        Scrub::FollowingEngine | Scrub::Canceled => (panel.copy.status)(panel.player.status.get()),
     });
     view! {
-        <p role="status" aria-atomic="true">{move || ctx.text(status.get())}</p>
-        <label class="theatre-range-field" for="theatre-position">{move || ctx.text(Key::Timeline)}
+        <p role="status" aria-atomic="true">{move || panel.text(status.get())}</p>
+        <label class="theatre-range-field" for="theatre-position">{move || panel.text(panel.copy.label)}
             <input id="theatre-position" node_ref=input type="range" min="0" step="1000"
                 max=move || duration().to_string() disabled=move || duration() == 0
                 prop:value=move || position.get().to_string()
-                aria-valuetext=move || messages::position_description(ctx.locale.get(), position.get() / 1000, duration() / 1000)
+                aria-valuetext=move || messages::position_description(panel.locale.get(), position.get() / 1000, duration() / 1000)
                 aria-describedby="theatre-timeline-help"
                 on:pointerdown=move |_| control.begin()
                 on:input=move |event| {
@@ -146,13 +212,10 @@ pub(super) fn PlayerTimeline(ctx: TheatreContext) -> impl IntoView {
                         control.release();
                     }
                 }
-                on:blur=move |_| {
-                    control.cancel(); control.release();
-                    platform::restore_range_value(input, position.get_untracked());
-                }/>
+                on:blur=move |_| control.blur(input, position)/>
         </label>
         <p class="theatre-time">{move || format!("{} / {}", super::common::clock(position.get() / 1000), super::common::clock(duration() / 1000))}</p>
-        <p id="theatre-timeline-help" class="theatre-muted">{move || ctx.text(Key::TimelineHelp)}</p>
+        <p id="theatre-timeline-help" class="theatre-muted">{move || panel.text(panel.copy.help)}</p>
     }
 }
 
@@ -205,7 +268,7 @@ mod tests {
             }
             assert_eq!(baseline_commands.borrow().len(), 1000);
             let (ctx, commands) = prepared();
-            let control = TimelineControl::new(ctx);
+            let control = TimelineControl::new(PlayerPanel::mock(ctx));
             let before = ctx.player.state.get_untracked();
             let progress = ctx.progress.get_untracked();
             control.begin();
@@ -241,7 +304,7 @@ mod tests {
     fn engine_ticks_cannot_move_the_drag_thumb_and_only_matching_ack_finishes_pending() {
         Owner::new().with(|| {
             let (ctx, _) = prepared();
-            let control = TimelineControl::new(ctx);
+            let control = TimelineControl::new(PlayerPanel::mock(ctx));
             let old = ctx.player.state.get_untracked().identity().unwrap();
             control.begin();
             control.preview(5_000);
@@ -284,7 +347,7 @@ mod tests {
     fn canceled_drag_and_source_switch_cannot_commit_late_input() {
         Owner::new().with(|| {
             let (ctx, commands) = prepared();
-            let control = TimelineControl::new(ctx);
+            let control = TimelineControl::new(PlayerPanel::mock(ctx));
             control.begin();
             control.preview(50_000);
             control.cancel();
@@ -330,7 +393,8 @@ mod tests {
             ("same episode with new duration", |ctx| {
                 let source = ctx.player.source.get_untracked().unwrap();
                 ctx.playback(Event::SourceSelected {
-                    source: Source::new(source.episode(), source.duration_ms() + 1000).unwrap(),
+                    source: Source::new(source.episode().unwrap(), source.duration_ms() + 1000)
+                        .unwrap(),
                     position_ms: 0,
                 });
             }),
@@ -339,7 +403,7 @@ mod tests {
             for reconcile_first in [false, true] {
                 Owner::new().with(|| {
                     let (ctx, commands) = prepared();
-                    let control = TimelineControl::new(ctx);
+                    let control = TimelineControl::new(PlayerPanel::mock(ctx));
                     let original_binding = ctx.player.seek_binding.get_untracked();
                     control.begin();
                     control.preview(50_000);
@@ -407,7 +471,7 @@ mod tests {
                 let intent = before.session().unwrap().intent();
                 let old = before.identity().unwrap();
                 commands.borrow_mut().clear();
-                let control = TimelineControl::new(ctx);
+                let control = TimelineControl::new(PlayerPanel::mock(ctx));
                 control.preview(5_000);
                 control.commit();
                 let current = ctx.player.state.get_untracked().identity().unwrap();
@@ -471,7 +535,7 @@ mod tests {
     fn keyboard_changes_commit_individually_and_unchanged_values_issue_nothing() {
         Owner::new().with(|| {
             let (ctx, commands) = prepared();
-            let control = TimelineControl::new(ctx);
+            let control = TimelineControl::new(PlayerPanel::mock(ctx));
             for position_ms in [
                 1000,
                 2000,
@@ -505,14 +569,17 @@ mod tests {
             let root = ctx.player.state.get_untracked();
             let route_owner = Owner::new();
             route_owner.with(|| {
-                let control = TimelineControl::new(ctx);
+                let control = TimelineControl::new(PlayerPanel::mock(ctx));
                 control.begin();
                 control.preview(55_000);
             });
             route_owner.cleanup();
             assert_eq!(ctx.player.state.get_untracked(), root);
             assert!(commands.borrow().is_empty());
-            assert_eq!(TimelineControl::new(ctx).current(), Scrub::FollowingEngine);
+            assert_eq!(
+                TimelineControl::new(PlayerPanel::mock(ctx)).current(),
+                Scrub::FollowingEngine
+            );
         });
     }
 
@@ -523,7 +590,7 @@ mod tests {
             let old = ctx.player.state.get_untracked().identity().unwrap();
             let route_owner = Owner::new();
             route_owner.with(|| {
-                let control = TimelineControl::new(ctx);
+                let control = TimelineControl::new(PlayerPanel::mock(ctx));
                 control.begin();
                 control.preview(5_000);
                 control.commit();
@@ -533,7 +600,9 @@ mod tests {
             let pending = ctx.player.pending_seek.get_untracked();
             assert!(pending.is_some());
             assert_eq!(
-                TimelineControl::new(ctx).current().displayed_position(),
+                TimelineControl::new(PlayerPanel::mock(ctx))
+                    .current()
+                    .displayed_position(),
                 Some(5_000)
             );
             assert!(super::super::player::position_label(ctx).starts_with("0:05 /"));
@@ -546,7 +615,7 @@ mod tests {
             assert_eq!(ctx.player.pending_seek.get_untracked(), None);
             assert_eq!(commands.borrow().len(), 1);
 
-            let control = TimelineControl::new(ctx);
+            let control = TimelineControl::new(PlayerPanel::mock(ctx));
             control.preview(10_000);
             control.commit();
             assert!(ctx.player.pending_seek.get_untracked().is_some());
@@ -561,7 +630,7 @@ mod tests {
     fn rapid_second_seek_rejects_the_first_ack_and_pause_cancels_pending_without_starting() {
         Owner::new().with(|| {
             let (ctx, commands) = prepared();
-            let control = TimelineControl::new(ctx);
+            let control = TimelineControl::new(PlayerPanel::mock(ctx));
             control.preview(5_000);
             control.commit();
             let first = ctx.player.state.get_untracked().identity().unwrap();
@@ -587,5 +656,23 @@ mod tests {
                 .iter()
                 .any(|effect| matches!(effect, Effect::StartEngine(_))));
         });
+    }
+
+    #[test]
+    fn a_blur_delivered_after_the_timeline_was_disposed_does_nothing() {
+        let owner = Owner::new();
+        let (control, position, input) = owner.with(|| {
+            let (ctx, _) = prepared();
+            let control = TimelineControl::new(PlayerPanel::mock(ctx));
+            let position = Memo::new(move |_| ctx.player.position_ms.get().unwrap_or(0));
+            (control, position, NodeRef::<leptos::html::Input>::new())
+        });
+        control.blur(input, position);
+        drop(owner);
+        // Navigation removed the focused slider: the late blur must not touch freed state.
+        control.blur(input, position);
+        control.cancel();
+        control.release();
+        assert_eq!(position.try_get_untracked(), None);
     }
 }

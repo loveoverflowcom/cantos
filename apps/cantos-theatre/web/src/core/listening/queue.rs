@@ -6,7 +6,10 @@ pub struct QueueState {
 }
 impl QueueState {
     pub fn enqueue(&self, source: Source, current: Option<EpisodeId>) -> Self {
-        let id = source.episode();
+        // The mock queue holds mock episodes only; a public release is not queued here.
+        let Some(id) = source.episode() else {
+            return self.clone();
+        };
         let mut next = self.clone();
         if current != Some(id) && !next.items.contains(&id) {
             next.items.push(id);
@@ -50,11 +53,11 @@ mod tests {
         )
         .unwrap();
         let empty = QueueState::default();
-        assert_eq!(empty.enqueue(source, Some(source.episode())), empty);
+        assert_eq!(empty.enqueue(source, source.episode()), empty);
         let queued = empty.enqueue(source, None);
         assert_eq!(queued.enqueue(source, None), queued);
         let (empty, id) = queued.pop();
-        assert_eq!(id, Some(source.episode()));
+        assert_eq!(id, source.episode());
         assert_eq!(empty.pop(), (QueueState::default(), None));
     }
 }
