@@ -98,10 +98,30 @@ fn only_the_final_response_can_supply_entry_privacy_and_duplicates_fail_closed()
         "{PRIVATE_HEADERS}HTTP/2 200\r\nContent-Type: text/html\r\n\r\n"
     )));
     assert!(!entry_privacy(&format!(
-        "{PRIVATE_HEADERS}Referrer-Policy: unsafe-url\r\n"
+        "{}Referrer-Policy: unsafe-url\r\n\r\n",
+        PRIVATE_HEADERS.strip_suffix("\r\n").unwrap()
     )));
     assert!(entry_privacy(&format!(
         "HTTP/1.1 200 Connection established\r\n\r\n{PRIVATE_HEADERS}"
+    )));
+}
+
+#[test]
+fn entry_privacy_ignores_trailers_and_uses_only_final_initial_headers() {
+    let trailers = "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\n\r\n";
+    let unprotected = "HTTP/2 200\r\nContent-Type: text/html\r\nCache-Control: no-cache\r\n\r\n";
+    assert!(
+        !entry_privacy(&format!("{unprotected}{trailers}")),
+        "trailers cannot establish first-response privacy"
+    );
+    assert!(entry_privacy(&format!(
+        "{PRIVATE_HEADERS}Referrer-Policy: unsafe-url\r\n\r\n"
+    )));
+    assert!(entry_privacy(&format!(
+        "HTTP/1.1 100 Continue\r\n\r\n{PRIVATE_HEADERS}"
+    )));
+    assert!(!entry_privacy(&format!(
+        "HTTP/1.1 103 Early Hints\r\n{trailers}{unprotected}"
     )));
 }
 

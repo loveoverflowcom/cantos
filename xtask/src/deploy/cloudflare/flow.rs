@@ -339,7 +339,10 @@ impl Flow<'_> {
             .request
             .artifact
             .join(format!("{}{ARCHIVE_SUFFIX}", self.request.component()));
-        match self.ports.host.extract(&archive, &run) {
+        let Some(release) = &self.release else {
+            return Err(Halt);
+        };
+        match self.ports.host.extract(&archive, &run, &release.archive) {
             Ok(done) => {
                 self.pass(
                     Stage::Staging,

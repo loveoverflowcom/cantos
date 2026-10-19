@@ -15,6 +15,7 @@ use std::{
 };
 
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use super::super::{bundle, host};
 use super::request::Request;
@@ -206,13 +207,60 @@ pub struct Extracted {
     pub bytes: u64,
 }
 
+/// Bind the extracted tree to the already verified manifest claim. The archive may have been
+/// replaced since the earlier file inspection, so hash the same compressed stream the decoder
+/// consumes; reopening or hashing it afterwards would leave another race.
+pub fn extract_verified(
+    archive: impl Read,
+    destination: &Path,
+    claim: &ArchiveClaim,
+) -> Result<Extracted, ArtifactError> {
+    let mut stream = DigestReader {
+        inner: archive.take(claim.bytes.saturating_add(1)),
+        digest: Sha256::new(),
+        bytes: 0,
+    };
+    let extracted = extract(&mut stream, destination)?;
+    // tar stops at its end markers, and gzip can buffer ahead. Count every remaining compressed
+    // byte too, including any suffix, but never read more than one byte beyond the claimed size.
+    std::io::copy(&mut stream, &mut std::io::sink())
+        .map_err(|error| ArtifactError::Io(format!("archive read failed: {error}")))?;
+    if stream.bytes > claim.bytes {
+        return Err(ArtifactError::ArchiveMismatch(format!(
+            "more than {} bytes in the extraction stream",
+            claim.bytes
+        )));
+    }
+    verify_archive(
+        claim,
+        &crate::run_files::hex(&stream.digest.finalize()),
+        stream.bytes,
+    )?;
+    Ok(extracted)
+}
+
+struct DigestReader<R> {
+    inner: R,
+    digest: Sha256,
+    bytes: u64,
+}
+
+impl<R: Read> Read for DigestReader<R> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        let read = self.inner.read(buffer)?;
+        self.digest.update(&buffer[..read]);
+        self.bytes += read as u64;
+        Ok(read)
+    }
+}
+
 /// Extract a gzip tar into `destination` (an existing, empty, run-owned directory).
 ///
 /// Every entry must be a regular file with a safe, unique relative path; links, directories,
 /// devices, extended-attribute headers and absolute or `..` paths are refused before anything is
 /// written for them. The decompressed stream, the entry count and the total size are bounded, so
 /// a small archive cannot expand without limit. The caller scans the result again afterwards.
-pub fn extract(archive: impl Read, destination: &Path) -> Result<Extracted, ArtifactError> {
+fn extract(archive: impl Read, destination: &Path) -> Result<Extracted, ArtifactError> {
     let decoder = flate2::read::GzDecoder::new(archive);
     // One byte of slack lets a stream that exceeds the bound be detected rather than truncated.
     let bounded = decoder.take(bundle::MAX_TOTAL_BYTES * 2 + 1);
@@ -550,6 +598,55 @@ mod tests {
             }
         );
         assert_eq!(std::fs::read(dir.join("assets/app.js")).unwrap(), b"js");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn verified_extraction_checks_the_complete_compressed_stream() {
+        let mut archive = gz(|b| file(b, "index.html", b"verified"));
+        // More than the decoder's lookahead: bytes after tar's end must also be bound to the claim.
+        archive.extend_from_slice(&[42; 64 * 1024]);
+        let claim = ArchiveClaim {
+            path: "theatre-web.tar.gz".into(),
+            bytes: archive.len() as u64,
+            sha256: crate::run_files::sha256_hex(&archive),
+        };
+        let dir = scratch("verified-stream");
+        assert_eq!(
+            extract_verified(archive.as_slice(), &dir, &claim),
+            Ok(Extracted { files: 1, bytes: 8 })
+        );
+        assert_eq!(std::fs::read(dir.join("index.html")).unwrap(), b"verified");
+        std::fs::remove_dir_all(dir).unwrap();
+
+        *archive.last_mut().unwrap() ^= 1;
+        let dir = scratch("changed-stream-suffix");
+        assert_eq!(
+            extract_verified(archive.as_slice(), &dir, &claim),
+            Err(ArtifactError::ArchiveMismatch(
+                "SHA-256 differs from the manifest".into()
+            ))
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn verified_extraction_stops_reading_one_byte_beyond_the_claimed_size() {
+        let archive = gz(|b| file(b, "index.html", b"verified"));
+        let claim = ArchiveClaim {
+            path: "theatre-web.tar.gz".into(),
+            bytes: archive.len() as u64,
+            sha256: crate::run_files::sha256_hex(&archive),
+        };
+        let stream = archive.as_slice().chain(std::io::repeat(42));
+        let dir = scratch("oversize-stream");
+        assert_eq!(
+            extract_verified(stream, &dir, &claim),
+            Err(ArtifactError::ArchiveMismatch(format!(
+                "more than {} bytes in the extraction stream",
+                claim.bytes
+            )))
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 

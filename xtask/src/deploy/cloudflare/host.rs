@@ -63,6 +63,7 @@ pub trait Host {
         &mut self,
         archive: &Path,
         run: &Run,
+        claim: &artifact::ArchiveClaim,
     ) -> Result<artifact::Extracted, artifact::ArtifactError>;
     fn add_file(&mut self, run: &Run, name: &str, bytes: &[u8]) -> Result<(), String>;
     fn scan_bundle(&mut self, run: &Run) -> Result<Scan, String>;
@@ -241,11 +242,12 @@ impl Host for SystemHost {
         &mut self,
         archive: &Path,
         run: &Run,
+        claim: &artifact::ArchiveClaim,
     ) -> Result<artifact::Extracted, artifact::ArtifactError> {
         let file = std::fs::File::open(archive).map_err(|error| {
             artifact::ArtifactError::Io(format!("{}: {}", archive.display(), error.kind()))
         })?;
-        artifact::extract(file, &run.public())
+        artifact::extract_verified(file, &run.public(), claim)
     }
 
     fn add_file(&mut self, run: &Run, name: &str, bytes: &[u8]) -> Result<(), String> {
@@ -291,4 +293,63 @@ impl Host for SystemHost {
 /// Where the tracked lockfile that pins Wrangler lives, for messages.
 pub fn wrangler_directory() -> &'static str {
     WRANGLER_DIR
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn archive(body: &[u8]) -> Vec<u8> {
+        let mut builder = tar::Builder::new(Vec::new());
+        let mut header = tar::Header::new_gnu();
+        header.set_size(body.len() as u64);
+        header.set_mode(0o644);
+        header.set_cksum();
+        builder
+            .append_data(&mut header, "index.html", body)
+            .unwrap();
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::none());
+        encoder.write_all(&builder.into_inner().unwrap()).unwrap();
+        encoder.finish().unwrap()
+    }
+
+    #[test]
+    fn archive_replaced_after_verification_is_refused_before_bundle_validation() {
+        let workspace = Workspace::discover().unwrap();
+        let mut host = SystemHost::new(&workspace);
+        let root =
+            std::env::temp_dir().join(format!("cantos-cf-replaced-archive-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let run = Run {
+            id: "replacement-regression".into(),
+            path: root.clone(),
+        };
+        std::fs::create_dir_all(run.public()).unwrap();
+        let path = root.join("theatre-web.tar.gz");
+        let original = archive(b"original");
+        let replacement = archive(b"tampered");
+        assert_eq!(original.len(), replacement.len());
+        std::fs::write(&path, original).unwrap();
+        let (sha256, bytes) = host.archive_facts(&path).unwrap();
+        let claim = artifact::ArchiveClaim {
+            path: "theatre-web.tar.gz".into(),
+            sha256,
+            bytes,
+        };
+        assert_eq!(
+            artifact::verify_archive(&claim, &claim.sha256, claim.bytes),
+            Ok(())
+        );
+        std::fs::write(&path, replacement).unwrap();
+
+        let result = host.extract(&path, &run, &claim);
+        std::fs::remove_dir_all(root).unwrap();
+        assert_eq!(
+            result,
+            Err(artifact::ArtifactError::ArchiveMismatch(
+                "SHA-256 differs from the manifest".into()
+            ))
+        );
+    }
 }

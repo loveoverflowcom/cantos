@@ -217,7 +217,10 @@ impl Host for FakeHost {
         &mut self,
         _: &Path,
         _: &Run,
+        claim: &artifact::ArchiveClaim,
     ) -> Result<artifact::Extracted, artifact::ArtifactError> {
+        assert_eq!(claim.sha256, ARCHIVE_SHA);
+        assert_eq!(claim.bytes, 10);
         self.log.borrow_mut().push("extract".to_owned());
         self.extract.clone()
     }
@@ -612,6 +615,29 @@ fn an_unsafe_archive_halts_staging() {
     let report = rig.run(&request_of(HostedApp::CantosTheatre, "preview", "x"));
     assert_eq!(status_of(&report, Stage::Staging), Status::Fail);
     assert_eq!(status_of(&report, Stage::Bundle), Status::NotRun);
+    assert_eq!(rig.deploys(), 0);
+}
+
+#[test]
+fn an_archive_mismatch_during_extraction_stops_before_any_provider_request() {
+    let mut rig = Rig::new(HostedApp::CantosTheatre);
+    rig.capture.ok(0, "4.151.2", "");
+    rig.host.extract = Err(artifact::ArtifactError::ArchiveMismatch(
+        "SHA-256 differs from the manifest".into(),
+    ));
+    let report = rig.run(&request_of(HostedApp::CantosTheatre, "preview", "x"));
+    assert_eq!(status_of(&report, Stage::Staging), Status::Fail);
+    assert_eq!(
+        detail_of(&report, Stage::Staging),
+        "archive does not match its manifest: SHA-256 differs from the manifest"
+    );
+    assert_eq!(status_of(&report, Stage::Bundle), Status::NotRun);
+    assert_eq!(status_of(&report, Stage::Project), Status::NotRun);
+    assert_eq!(
+        rig.capture.calls.len(),
+        1,
+        "only the local version probe ran"
+    );
     assert_eq!(rig.deploys(), 0);
 }
 

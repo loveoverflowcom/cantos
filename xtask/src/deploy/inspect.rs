@@ -103,14 +103,24 @@ fn probes(manifest: &bundle::Manifest, id: &str) -> Result<Vec<smoke::Probe>, &'
     Ok(probes)
 }
 
-/// Only the final HTTP response contributes facts (proxy CONNECT/1xx blocks are discarded).
+/// Only the final response's initial headers contribute facts (CONNECT/1xx and trailers do not).
 /// Duplicate header fields are combined, so a permissive duplicate cannot be hidden.
 fn entry_privacy(dump: &str) -> bool {
     let mut headers = BTreeMap::<String, String>::new();
+    let mut in_headers = false;
     for line in dump.lines() {
         if line.starts_with("HTTP/") {
             headers.clear();
-        } else if let Some((name, value)) = line.split_once(':') {
+            in_headers = true;
+            continue;
+        }
+        if line.is_empty() {
+            in_headers = false;
+        }
+        if !in_headers {
+            continue;
+        }
+        if let Some((name, value)) = line.split_once(':') {
             headers
                 .entry(name.trim().to_ascii_lowercase())
                 .and_modify(|previous| {

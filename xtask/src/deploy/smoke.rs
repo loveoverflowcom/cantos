@@ -167,10 +167,11 @@ pub struct Response {
     pub cache_control: Option<String>,
 }
 
-/// The last response block of a header dump (an interim `100 Continue` may precede it).
+/// The final initial-header block; discard informational/CONNECT blocks and response trailers.
 pub fn parse_headers(dump: &str) -> Option<Response> {
     let mut last = None;
     let mut current: Option<Response> = None;
+    let mut in_headers = false;
     for line in dump.lines().map(|line| line.trim_end_matches('\r')) {
         if line.starts_with("HTTP/") {
             if let Some(done) = current.take() {
@@ -182,7 +183,16 @@ pub fn parse_headers(dump: &str) -> Option<Response> {
                 content_type: None,
                 cache_control: None,
             });
-        } else if let Some(response) = current.as_mut() {
+            in_headers = true;
+            continue;
+        }
+        if line.is_empty() {
+            in_headers = false;
+        }
+        if !in_headers {
+            continue;
+        }
+        if let Some(response) = current.as_mut() {
             if let Some((name, value)) = line.split_once(':') {
                 let value = value.trim().to_owned();
                 match name.trim().to_ascii_lowercase().as_str() {
@@ -511,6 +521,28 @@ mod tests {
         assert_eq!(parse_headers(""), None);
         assert_eq!(parse_headers("not http\n"), None);
         assert_eq!(parse_headers("HTTP/2 abc\n"), None);
+    }
+
+    #[test]
+    fn headers_ignore_trailers_and_use_only_final_initial_headers() {
+        let dump = "HTTP/1.1 100 Continue\r\nContent-Type: text/html\r\nCache-Control: no-store\r\n\r\nHTTP/2 200\r\nContent-Type: application/wasm\r\nCache-Control: max-age=3600\r\n\r\nContent-Type: text/javascript\r\nCache-Control: no-cache\r\n\r\n";
+        assert_eq!(
+            parse_headers(dump),
+            Some(Response {
+                status: 200,
+                content_type: Some("application/wasm".into()),
+                cache_control: Some("max-age=3600".into()),
+            })
+        );
+        let missing = "HTTP/1.1 103 Early Hints\r\nContent-Type: application/wasm\r\nCache-Control: no-cache\r\n\r\nHTTP/2 200\r\n\r\nContent-Type: application/wasm\r\nCache-Control: no-cache\r\n\r\n";
+        assert_eq!(
+            parse_headers(missing),
+            Some(Response {
+                status: 200,
+                content_type: None,
+                cache_control: None,
+            })
+        );
     }
 
     #[test]
