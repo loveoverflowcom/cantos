@@ -24,7 +24,10 @@ use crate::{
     messages::{self, Key, Locale},
     platform::{self, auth_browser, signup_browser},
 };
-use cantos_ui::{AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, Theme};
+use cantos_ui::{
+    AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, Select, SelectDensity,
+    SelectLabelPlacement, SelectOption, Theme,
+};
 use leptos::prelude::*;
 
 fn refresh_account(state: RwSignal<AccountViewState>) {
@@ -473,8 +476,17 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                     <header class="theatre-topbar">
                         <a class="theatre-brand-name" href="#discover">"Cantos"</a>
                         <div class="theatre-topbar-actions">
-                            <label class="theatre-locale-label" for="theatre-live-locale">{move || messages::text(Key::Locale, locale.get())}</label>
-                            <select id="theatre-live-locale" prop:value=move || locale.get().lang() on:change=move |e| { if let Some(selected) = Locale::from_lang(&event_target_value(&e)) { locale.set(selected); } }>{Locale::ALL.into_iter().map(|option| view! { <option value=option.lang() lang=option.lang()>{option.autonym()}</option> }).collect_view()}</select>
+                            <Select id="theatre-live-locale" class="theatre-locale-field"
+                                density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                                label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
+                                value=Signal::derive(move || locale.get().lang().to_owned())
+                                options={Locale::ALL.into_iter().map(|option| SelectOption {
+                                    lang: Some(option.lang().to_owned()),
+                                    ..SelectOption::new(option.lang(), option.autonym())
+                                }).collect::<Vec<_>>()}
+                                on_input=Callback::new(move |value: String| {
+                                    if let Some(selected) = Locale::from_lang(&value) { locale.set(selected); }
+                                })/>
                             <a id="theatre-account-entry" class="theatre-avatar" href="#account" aria-label=move || messages::text(Key::Account, locale.get()) aria-current=move || (nav.route.get() == Route::Account).then_some("page")><PersonGlyph/></a>
                         </div>
                     </header>

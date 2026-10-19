@@ -1,7 +1,7 @@
 use cantos_ui::{
     Checkbox, ChoiceState, DisabledReason, FieldError, FieldHelp, FieldLabel, FieldState,
-    NumberField, Radio, RangeField, Select, SelectOption, Switch, TextArea, TextField,
-    TextFieldKind,
+    NumberField, Radio, RangeField, Select, SelectDensity, SelectLabelPlacement, SelectOption,
+    Switch, TextArea, TextField, TextFieldKind,
 };
 use leptos::prelude::*;
 use std::sync::{
@@ -327,4 +327,43 @@ fn standalone_label_help_and_error_are_composable_and_escape_children() {
     assert!(html.contains("id=\"custom-error\""), "{html}");
     assert!(html.contains("Nhân vật &amp; thoại"), "{html}");
     assert!(html.contains("Giữ tên &lt;nguồn&gt;"), "{html}");
+}
+
+#[test]
+fn select_density_and_label_placement_preserve_native_and_menu_contracts() {
+    for density in [SelectDensity::Regular, SelectDensity::Compact] {
+        for placement in [SelectLabelPlacement::Above, SelectLabelPlacement::Inline] {
+            for enhanced in [false, true] {
+                let html = if enhanced {
+                    view! { <Select id="locale-density" label="Ngôn ngữ giao diện" value="vi-VN"
+                    density=density label_placement=placement
+                    options=vec![SelectOption::new("vi-VN", "Tiếng Việt")]
+                    on_input=Callback::new(|_: String| panic!("render dispatched input"))/> }
+                    .to_html()
+                } else {
+                    view! { <Select id="locale-density" label="Ngôn ngữ giao diện" value="vi-VN"
+                        density=density label_placement=placement
+                        on_input=Callback::new(|_: String| panic!("render dispatched input"))>
+                        <option value="vi-VN" lang="vi-VN">"Tiếng Việt"</option>
+                    </Select> }
+                    .to_html()
+                };
+                assert!(html.contains(&format!("data-select-density=\"{}\"", density.as_str())));
+                assert!(html.contains(&format!("data-label-placement=\"{}\"", placement.as_str())));
+                assert!(html.contains("Ngôn ngữ giao diện"));
+                assert!(html.contains("Tiếng Việt"));
+                assert_eq!(html.matches("<select ").count(), 1);
+                assert_eq!(
+                    html.matches("role=\"combobox\"").count(),
+                    usize::from(enhanced)
+                );
+                assert!(!control(&html, "select", "locale-density").contains("hidden"));
+            }
+        }
+    }
+    let html = view! { <Select id="regular-default" label="Theme" value="dark"
+    on_input=Callback::new(|_: String| {})><option value="dark">"Dark"</option></Select> }
+    .to_html();
+    assert!(html.contains("data-select-density=\"regular\""));
+    assert!(html.contains("data-label-placement=\"above\""));
 }

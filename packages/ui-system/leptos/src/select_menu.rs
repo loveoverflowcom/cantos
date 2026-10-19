@@ -5,7 +5,7 @@ mod platform;
 
 use crate::{
     fields::{descriptions, error_reference, has_text, FieldMessages},
-    ChoiceState, FieldLabel, Icon, IconName,
+    ChoiceState, FieldLabel, Icon, IconName, SelectDensity, SelectLabelPlacement,
 };
 use leptos::{ev, html, prelude::*};
 use model::{Intent, MenuState};
@@ -45,6 +45,8 @@ pub(super) fn MenuSelect(
     class: Signal<String>,
     name: Option<String>,
     required: bool,
+    density: SelectDensity,
+    label_placement: SelectLabelPlacement,
 ) -> impl IntoView {
     let reason = Signal::derive(move || state.get().reason().cloned());
     let descriptions = descriptions(id.clone(), described_by, help, error, reason);
@@ -142,7 +144,8 @@ pub(super) fn MenuSelect(
     }));
 
     view! {
-        <div class=move || format!("cui-field {}", class.get()) data-state=move || state.get().as_str()
+        <div class=move || format!("cui-field cui-select-field {}", class.get()) data-select-density=density.as_str()
+            data-label-placement=label_placement.as_str() data-state=move || state.get().as_str()
             data-select-presentation=move || if enhanced.get() { "menu" } else { "native-fallback" }>
             <FieldLabel for_id=label_for><span id=label_id.clone()>{move || label.get()}</span></FieldLabel>
             <div class="cui-select">

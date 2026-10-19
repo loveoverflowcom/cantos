@@ -377,7 +377,7 @@ body { margin: 0; }
   .theatre-live-app .theatre-mini-player .theatre-time { grid-row: auto; }
   .theatre-live-app .theatre-mini-player .theatre-transport { grid-column: 1; grid-row: auto; justify-self: start; }
 }
-.theatre-live-app .theatre-topbar select, .theatre-account-theme select, .theatre-listen-speed select {
+.theatre-account-theme select, .theatre-listen-speed select {
   min-block-size: var(--cantos-size-control); max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-md);
   font: inherit; color: var(--cantos-color-on-surface);
@@ -442,7 +442,7 @@ body { margin: 0; }
   .theatre-auth-top { align-items: flex-start; flex-wrap: wrap; }
   .theatre-auth-brand { inline-size: 7rem; }
   .theatre-auth-copy { padding-inline: 0; }
-  .theatre-locale-label { position: absolute; clip-path: inset(50%); inline-size: 1px; block-size: 1px; overflow: hidden; }
+  .theatre-locale-field > .cui-field-label { position: absolute; clip-path: inset(50%); inline-size: 1px; block-size: 1px; overflow: hidden; }
 }
 
 .theatre-live-app[data-auth="true"] { grid-template-columns: minmax(0, 1fr); }

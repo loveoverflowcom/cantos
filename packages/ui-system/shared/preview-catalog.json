@@ -239,6 +239,9 @@
         "interrupted",
         "web-menu",
         "web-menu-expanded",
+        "web-regular",
+        "web-compact-inline",
+        "web-native-compact",
         "long-vietnamese",
         "large-text"
       ],

@@ -87,7 +87,7 @@ static indicator; no continuous animation or delay is needed. Keep the announcem
 caller-owned busy content region so assistive technology can announce it. Tone is supplementary
 to text/icons.
 
-## Web Select menu candidate — preview only
+## Web Select density and menu
 
 For the `select` recipe, pass `options` instead of native option children. `SelectOption`
 carries an opaque stable unique value, localized label, optional content language and disabled
@@ -102,8 +102,8 @@ the trigger discards browsing. Pointer selection acknowledges once. The caller m
 `value` to accept a change. A changed option list/value/availability cancels an open browse.
 No async/domain decision, preference storage or OS-theme lookup enters the component.
 
-The browser adapter constrains the top-layer popup to the visual viewport, matches the trigger
-width, aligns its leading edge (including RTL), flips above when necessary, and repositions on
+The browser adapter constrains the top-layer popup to the visual viewport, fits both the trigger
+and intrinsic option/check width, aligns its leading edge (including RTL), flips above when necessary, and repositions on
 scroll/resize/trigger reflow. Inset and offset use the computed token padding. Listener/observer
 cleanup belongs to the mounted owner. Selected, active, disabled and error are separate facts;
 the selected check remains visible in forced colors. There is no menu animation or delayed intent.
@@ -114,11 +114,26 @@ and native invalid submission focuses the enhanced trigger when present. Keyboar
 touch, form validity, viewport positioning and assistive technology still require browser
 acceptance; native string rendering does not prove them.
 
-This is an unqualified Web presentation of the existing `select` API. The shared baseline and
-qualification gate remain intact; CMP layout is unchanged. **Account/Settings/topbar migration
-is deferred** until preview admission under the
-[existing policy](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
-See [#221 evidence and continuation](../../../docs/evidence/web-select-221.md).
+`SelectDensity::{Regular, Compact}` is Select-only geometry, separate from the root density.
+Regular retains a 48-unit minimum. Compact paints a 40-unit surface inside the same 48-unit
+interaction box using transparent block borders from existing spacing roles; its icon is 20.
+Both grow for wrapped/large text. `SelectLabelPlacement::{Above, Inline}` defaults to Above;
+Inline groups a real label with the control and retains descriptions below the whole field.
+Field/option corners use Web reading (12), the menu uses Web container (18). Button, TextField,
+CMP geometry and canonical tokens v0.6.0 are unchanged.
+
+The `select` recipe shows Regular theme, Compact inline language and a native Compact baseline
+in every enabled/disabled/loading/error/missing/empty scenario. Expanded/focus/hover remain
+input-driven. Catalog states `web-regular`, `web-compact-inline`, `web-native-compact` describe
+these Web specimens; generated CMP metadata is inventory, not a native density implementation.
+
+This remains an unqualified Web presentation. On 2026-10-19 the task owner explicitly authorized
+an exception for locale topbar migration in the review PR after browser review, with acceptance
+pending and no merge/deploy. Account/Settings theme adoption remains deferred under the
+[existing admission policy](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
+The qualification gate and compatibility baseline are unchanged; no PASS record is fabricated.
+See the [original #221 record](../../../docs/evidence/web-select-221.md) and
+[density continuation](../../../docs/evidence/web-select-density-221.md).
 
 ## Styling and gallery
 

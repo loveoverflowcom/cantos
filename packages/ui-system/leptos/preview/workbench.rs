@@ -1,10 +1,13 @@
 //! Preview-only composition root. Recipes select production controls; no services are built.
-use super::messages::{fixture_label, specimen, tool, SpecimenKey};
+use super::messages::{
+    fixture_label, specimen, tool, SpecimenKey, ENGLISH_AUTONYM, VIETNAMESE_AUTONYM,
+};
 use super::{motion_probe, platform, recipe::*, Gallery};
 use cantos_ui::{
     AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant, ChoiceState,
-    Density, Dialog, DisabledReason, FieldState, FilterChip, IconName, Select, SelectOption, Space,
-    Stack, Switch, TextField, TextFieldKind, TextFieldVariant, Theme, UiRoot,
+    Density, Dialog, DisabledReason, FieldState, FilterChip, IconName, Select, SelectDensity,
+    SelectLabelPlacement, SelectOption, Space, Stack, Switch, TextField, TextFieldKind,
+    TextFieldVariant, Theme, UiRoot,
 };
 use leptos::prelude::*;
 
@@ -343,6 +346,7 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
         ComponentId::Switch => view! { <Switch id=control_id label=label checked=selected state=choice_state on_change=change/> }.into_any(),
         ComponentId::Select => {
             let language_id = format!("{control_id}-language");
+            let native_id = format!("{control_id}-native");
             let options = Signal::derive(move || {
                 if state == ScenarioState::EmptyOptions { return Vec::new(); }
                 let recipe = host.recipe.get();
@@ -363,11 +367,19 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
                     error=Signal::derive(move || (state == ScenarioState::Error).then(|| specimen(host.recipe.get().locale, SpecimenKey::ThemeError).to_owned()))
                     on_input=Callback::new(move |value: String| { select_value.set(value.clone()); host.log(format!("{} input={value}", log_id.get_value())); })/>
                 <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{move || tool::controlled_value(&select_value.get())}</p>
-                <Select id=language_id label=Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::Language).to_owned())
+                <Select id=language_id density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline label=Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::Language).to_owned())
                     value=language_value state=choice_state
-                    options=vec![SelectOption { lang: Some("vi-VN".to_owned()), ..SelectOption::new("vi-VN", "Tiếng Việt") },
-                        SelectOption { lang: Some("en".to_owned()), ..SelectOption::new("en", "English") }]
+                    options=vec![SelectOption { lang: Some("vi-VN".to_owned()), ..SelectOption::new("vi-VN", VIETNAMESE_AUTONYM) },
+                        SelectOption { lang: Some("en".to_owned()), ..SelectOption::new("en", ENGLISH_AUTONYM) }]
                     on_input=Callback::new(move |value: String| { language_value.set(value.clone()); host.log(format!("{} locale={value}", log_id.get_value())); })/>
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::SELECT_DENSITIES}</p>
+                <Select id=native_id density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                    label=Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::Language).to_owned())
+                    value=language_value state=choice_state
+                    on_input=Callback::new(move |value: String| { language_value.set(value.clone()); host.log(format!("{} native={value}", log_id.get_value())); })>
+                    <option value="vi-VN" lang="vi-VN">{VIETNAMESE_AUTONYM}</option>
+                    <option value="en" lang="en">{ENGLISH_AUTONYM}</option>
+                </Select>
                 <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::MENU_CANDIDATE}</p>
             }.into_any()
         }

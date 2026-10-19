@@ -1,5 +1,5 @@
 //! Top-layer positioning and lifecycle. No OS preferences, app state or services.
-use super::model::MenuState;
+use super::model::{popup_width, MenuState};
 use leptos::{
     html,
     prelude::*,
@@ -71,7 +71,16 @@ fn position(trigger: &HtmlElement, popup: &HtmlElement) -> Result<(), PositionEr
         return Err(PositionError::AnchorOutsideViewport);
     }
     let style = popup.style();
-    let menu_width = anchor.width().min((width - inset * 2.0).max(0.0));
+    // Measure intrinsic option/check anatomy before bounding it. Compact triggers need not
+    // force localized options into a narrower column than their natural text width.
+    style
+        .set_property("width", "max-content")
+        .map_err(|_| PositionError::GeometryUnavailable)?;
+    let menu_width = popup_width(
+        anchor.width(),
+        popup.get_bounding_client_rect().width(),
+        width - inset * 2.0,
+    );
     let rtl = computed
         .get_property_value("direction")
         .map_err(|_| PositionError::GeometryUnavailable)?
