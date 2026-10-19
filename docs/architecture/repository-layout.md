@@ -22,20 +22,21 @@ The current map below owns paths; historical decisions/evidence retain their sou
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 
 Support here defines product scope, not implementation evidence. Theatre Web defaults to an
-anonymous public discovery Home and a separate same-origin account/auth/readonly Library
-boundary, with an explicit session-only UI mock at `?mode=mock`. Real playback, verified provider
-signup and production identity/delivery acceptance remain separate. See the
+anonymous public discovery Home, published-unit playback and separate account/auth/Library
+Save, progress, history and resume synchronization, with an explicit session-only UI mock at
+`?mode=mock`. Real issuer, multi-device and deployed playback/delivery acceptance remain separate. See the
 [Web implementation boundary](../../apps/cantos-theatre/web/README.md#explicit-live-and-mock-modes).
 Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md): its
 production-safe `:shared` KMP module contains the UI/domain/application and ports, and the
-separate `:preview-sandbox` module contains mock adapters, fixtures and demo composition.
+separate JVM-only `:preview-sandbox` module contains mock external ports and Desktop Preview composition.
 A production Android host composes `:shared` only. Its debug build browses the anonymous public
 catalog through a production HTTP adapter when an API origin is configured (`cargo xtask
 theatre-host android-debug`); release accepts an explicit HTTPS origin, and its release graph
 and unsigned APK/AAB exclusion are inspected by `cargo xtask theatre-host android-release`.
 The separate iOS `Cantos` project/scheme links the `CantosTheatre` production framework from
 `:shared`, with no sandbox dependency.
-Native audio and the remaining listener resources stay absent; a common/JVM HTTP boundary exists. Studio Mobile is only a scope notice: never a workspace
+Native playback and Library owners have source implementations; device/runtime acceptance
+is separate in the [mobile guide](../../apps/cantos-theatre/mobile/README.md). Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
 and evidence retain their original scope; this matrix supersedes the Studio Mobile reservation
@@ -46,10 +47,10 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 ```text
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
-    web/                   Leptos CSR public/account reads  (package cantos-theatre)      LIVE READS + MOCK
+    web/                   Leptos CSR discovery/playback/Library (package cantos-theatre) LIVE CLIENT + MOCK
     mobile/                Kotlin Compose Multiplatform     (production adapters + isolated demo; acceptance pending)
       shared/              Production-safe UI/domain/application, ports and non-mock adapters
-      preview-sandbox/     Separate KMP mock adapters, fixtures, previews and demo hosts
+      preview-sandbox/     JVM-only Desktop Preview; shared TheatreShell and mock external ports
       androidApp/          The one Android application: :shared only RELEASE BOUNDARY; release com.cantos.theatre
                            "Cantos", debug com.cantos.theatre.dev "Cantos Dev"; no flavors, no mock variant
   cantos-studio/           Cantos Studio: the creator product
@@ -80,18 +81,18 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 ```
 
 - **IMPLEMENTED** has code that existed before the restructure and kept its tests.
-- **LIVE READS** is the Theatre Web's actual anonymous published-work read and opt-in Theatre
-  BFF account/readonly Library boundary, plus explicit contextual auth presentation. This is
-  implemented client code, not a claim of live Kanidm signup, playback, full sync or production
-  acceptance. Home stays accessible without authentication; Account remains an avatar entry and
+- **LIVE CLIENT** is Theatre Web's anonymous published-work discovery/playback and scoped
+  account/Library Save, progress, history and resume boundary. This is implemented client code;
+  real issuer, multi-device and deployed delivery/playback acceptance remain separate. Home stays accessible without authentication; Account remains an avatar entry and
   the [two primary destinations](../../apps/cantos-theatre/web/README.md#scope-and-honest-behavior)
   are preserved.
 - **MOCK** is the session-only Theatre Web mock: synthetic catalog, simulated player and in-memory
   library/queue, with evidence in its [record](../evidence/theatre-web-mock.md). It has no listener
   API, audio, account or persistence and is not evidence for any Theatre work item.
-- **DEMO** is the isolated Theatre CMP mock: shared Kotlin screens and Android/iOS host wiring,
-  with target evidence in its [record](../../apps/cantos-theatre/mobile/docs/mock-skeleton.md).
-  It implements no native audio, listener API, background playback, downloads or durable sync.
+- **DEMO** is the isolated JVM Desktop Preview: it mounts the shared `TheatreShell` with mock
+  external ports and the real Library store on in-memory SQLite. Android/iOS have no mock host.
+  Its [current record](../evidence/theatre-desktop-preview-shared-shell-287.md) is separate from
+  [historical demo evidence](../../apps/cantos-theatre/mobile/docs/mock-skeleton.md) and native acceptance.
   The [sandbox extraction record](../evidence/issue122-cmp-sandbox-isolation.md) distinguishes
   module/source checks from the production host's release artifact checks; a demo build never
   stands for them.
@@ -215,8 +216,8 @@ Not shared, deliberately:
   Gradle package and its Android preview host are component diagnostics, not Studio Mobile.
   Shared contracts and semantic tokens may serve Theatre Mobile and Studio Web; extract further
   libraries only for concrete consumers.
-  Within Theatre Mobile, `:preview-sandbox` depends on `:shared`; the desktop and iOS demo hosts select both
-  explicitly. `:shared` has no reverse sandbox dependency or implicit mock fallback. The
+  Within Theatre Mobile, `:preview-sandbox` depends on `:shared`; only the JVM Desktop Preview selects both
+  explicitly. Android and iOS have no mock host. `:shared` has no reverse sandbox dependency or implicit mock fallback. The
   one Android application `:androidApp` consumes `:shared` and its injected production adapters
   only, in both build types. Static source/build guards protect the declared boundary; its resolved
   debug and release classpaths and actual APK/AAB contents are inspected independently by `theatre-host`.
@@ -249,11 +250,11 @@ cargo xtask build cantos-api           # service binaries (native)
 cargo xtask build cantos-forge         # producer-side Forge CLI (native); built, never run by xtask
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
 cargo xtask build cantos-theatre --web         # Theatre Web live boundary and isolated mock through Trunk
-cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native listening absent
+cargo xtask build cantos-theatre --mobile      # UNSUPPORTED aggregate command; use explicit theatre-host targets
 cargo xtask theatre-preview build                 # shared core + preview-sandbox JVM diagnostic host
 cargo xtask theatre-host android-debug --api-origin ORIGIN  # production debug APK; existing Android SDK required
-cargo xtask distribute firebase cantos-theatre --channel demo --groups g --dry-run  # opt-in demo-APK tester distribution; plan only with --dry-run
-cargo xtask distribute firebase cantos-theatre --channel demo-qa --groups g --dry-run  # same, optimized non-debuggable QA build; needs the operator's signing key
+cargo xtask distribute firebase cantos-theatre --channel development --api-origin https://api.example.org --groups g --dry-run # plan real debug APK distribution
+cargo xtask distribute firebase cantos-theatre --channel production --api-origin https://api.example.org --groups g --dry-run # plan optimized release; operator signing required
 cargo xtask deploy firebase cantos-theatre --web --project ID --channel review --dry-run  # opt-in static Web deploy to Firebase Hosting; plan only with --dry-run
 cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients

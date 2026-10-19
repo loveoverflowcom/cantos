@@ -96,7 +96,10 @@ A **preview is public** (`https://<id>.<project>.pages.dev`) and does not isolat
 artifact's API origin was fixed at build time and the API's exact per-surface CORS allow-list is what
 protects it. Do not add `*.pages.dev` wildcards to CORS to make a preview log in; use an operator-chosen
 API environment with its own exact origin ([ADR 0041](../decisions/0041-direct-hosting-api-boundary.md)).
-Bearer credentials go only to the API origin, never to the static host.
+Current Web Bearer credentials go only to the API origin, never to the static host.
+[#295](https://github.com/loveoverflowcom/cantos/issues/295) selects Web cookies on the custom
+domains with migration pending; a `pages.dev` preview needs its own declared cookie/CORS/CSRF
+qualification and does not inherit production acceptance. Native keeps Bearer.
 
 ### What the command checks, in order
 

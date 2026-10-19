@@ -50,7 +50,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0039 — VPS production runtime](0039-vps-production-runtime.md) | Accepted runtime; Web/public identity topology superseded by 0041 | Production host, Podman Quadlet, local PostgreSQL and durability foundation; original proxy rationale retained historically |
 | [0040 — Firebase email-proof alternatives](0040-firebase-email-proof-alternatives.md) | Proposed | Default Firebase handler cannot prove mailbox possession; owner probes requested; no behavior change |
 
-| [0041 — Direct Hosting/API boundary](0041-direct-hosting-api-boundary.md) | Accepted owner direction; bounded transport implemented | Direct Firebase Web → explicit API origin, exact surface CORS/API callbacks; same-site domain, minimal identity gateway and live auth acceptance pending |
+| [0041 — Direct Hosting/API boundary](0041-direct-hosting-api-boundary.md) | Accepted owner direction; #295 Web-cookie migration pending | Direct static Web → explicit API origin and exact surface CORS; Web cookies on custom domains selected, native Bearer retained; gateway/browser/device acceptance separate |
 | [0043 — Cloudflare Pages Direct Upload](0043-cloudflare-pages-direct-upload.md) | Proposed (owner requested Pages); publisher implemented | Pages Direct Upload only, artifact-consuming `deploy cloudflare`; no Worker/Functions; real account/browser acceptance and cutover pending |
 
 ## ID allocation and historical references

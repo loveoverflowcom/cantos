@@ -61,7 +61,7 @@ theatre-host android-release`, which inspects the real unshrunk APK/AAB DEX clas
 resources and manifest against the sandbox source inventory, without compiling a sandbox target. It pairs
 the unshrunk release audit with optimized release using identical pre-shrink class/source and resolved
 graph fingerprints; inspect both outputs and their hashes in the release evidence record. A finding-free result
-must still name its required production classes; an empty inventory is an error. A desktop or iOS demo build
+must still name its required production classes; an empty inventory is an error. A Desktop Preview build or historical iOS demo build
 is not Android production evidence; never infer it from R8 removal. When the boundary changes, repeat the recorded sensitivity check (a process-local
 init script adding the sandbox edge must fail the Gradle task and, if bypassed, the inspector). Source guards
 are bounded lexical checks; they establish neither resolved Gradle contents nor packaged exclusion.

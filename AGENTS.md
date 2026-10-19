@@ -132,8 +132,9 @@ and an agent runs the real command only on the user's explicit request naming th
 the channel and the app. Build, run, verify, preflight and ci never invoke it, and it serves static
 files only. [ADR 0041](docs/decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting
 with an explicit API origin and exact per-surface CORS; installed legacy proxies are transitional.
-The #253 Bearer amendment removes same-site domains/cookies as authentication prerequisites;
-client migration, restricted gateway and browser acceptance remain separate.
+The [#295 owner amendment](https://github.com/loveoverflowcom/cantos/issues/295) selects
+HttpOnly/Secure Web cookies on the custom domains; that migration and browser acceptance remain
+pending. Native keeps #253 Bearer. Exact-origin CORS, CSRF and separate surface authority remain required.
 Use the [current production runbook](docs/deployment/vps-production.md), not old deployment records.
 An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
 

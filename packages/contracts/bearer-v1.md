@@ -1,9 +1,13 @@
 # Cantos Bearer v1 — API foundation for #253
 
 Status: implemented API/SQL foundation and Web/CMP consumer migration. Legacy server issuance
-cutover, restricted identity gateway and real issuer/browser/device acceptance remain separate. The owner selected this architecture on 2026-10-18 in
-[#253](https://github.com/loveoverflowcom/cantos/issues/253), superseding the cookie/same-site
-prerequisite in [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md).
+cutover, restricted identity gateway and real issuer/browser/device acceptance remain separate.
+The 2026-10-19 [#295 owner decision](https://github.com/loveoverflowcom/cantos/issues/295)
+supersedes #253's mandatory RAM-only **Web** target with API-issued HttpOnly/Secure cookies on
+the custom domains; migration remains pending. **Native retains this Bearer contract.**
+[ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+owns the selected split. Web routes and phases below describe implemented Bearer behavior, not
+the future cookie wire or approval to retire/reuse compatibility handlers without review.
 
 ## Authority and wire
 

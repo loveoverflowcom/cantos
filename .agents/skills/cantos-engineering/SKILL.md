@@ -19,10 +19,10 @@ Every Cantos skill composes its order, vocabulary and report without redefining 
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product/architecture doc,
   work item and touched code. Product rules live in [`docs/`](../../../docs/README.md); link, never duplicate them.
 - **Repository reality.** Script IR, Axum/PostgreSQL editorial/catalog/content/brief and private
-  audio lifecycle slices, and Leptos Studio exist. Theatre Web has live discovery/account reads
-  plus explicit mocks; Mobile has a production-safe core, isolated demo and unavailable host.
-  Listener backend slices exist; native audio and production acceptance remain unfinished. TTS/workers were
-  removed under [ADR 0018](../../../docs/decisions/0018-external-audio-production.md).
+  audio lifecycle slices, and Leptos Studio exist. Read the current
+  [platform implementation map](../../../docs/architecture/repository-layout.md#platform-scope)
+  for Theatre Web/CMP owners and their separate runtime acceptance; a preview never supplies it.
+  API TTS/workers were removed under [ADR 0018](../../../docs/decisions/0018-external-audio-production.md).
   Inspect commands and runtime capabilities; see [local execution](references/local-execution.md#runtime-portability).
 - **Platform scope.** Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
   Studio is web-only. Exclude Studio Mobile from implementation, scaffolding and build/test/preview automation unless explicitly requested in a future roadmap; retain Theatre Web/Mobile and shared libraries.

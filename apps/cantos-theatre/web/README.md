@@ -14,11 +14,14 @@ A static release bundle of this app can be published to Firebase Hosting with th
 `cargo xtask deploy firebase cantos-theatre --web --project ID --channel NAME`
 ([runbook](../../../docs/deployment/firebase-hosting.md)). Hosting serves static files; clients call
 the explicit Cantos API origin. Catalog and authentication require separate API deployment and
-Bearer/gateway/issuer acceptance; static delivery establishes no playback.
+gateway/issuer/browser acceptance; [#295](https://github.com/loveoverflowcom/cantos/issues/295)
+selects Web cookies on the custom domains with migration pending. Current source still uses
+Bearer; static delivery establishes no playback.
 The preferred shorter site `cantos.web.app` is conditional on verified allocation; the technical
 module stays `cantos-theatre`. Its [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
 follows ADR 0041 direct Hosting/API addressing and exact-origin review. Cross-site authentication
-remains unavailable until the independent Bearer/gateway/issuer acceptance.
+needs its own declared preview policy and gateway/issuer/browser acceptance; it does not
+inherit #295 production custom-domain cookie qualification.
 
 The [performance pattern audit](../../../docs/evidence/web-performance-patterns.md) measures
 release assets with `cargo xtask web-performance cantos-theatre` and narrows mock-player/library
@@ -105,7 +108,7 @@ starts/clear and paused exact-release resume against `/api/v1/theatre`:
   accepted or conflict receipts. Unsaving removes the Work from **Đã lưu** while preserving
   progress and history.
 - **Exact-release progress (`GET/PUT /progress/{publication}`).** Only one mutation is in flight
-  per publication. Periodic `Checkpoint` writes throttle to ≥15 s and ≥5 s movement; pause,
+  per publication. Periodic `Checkpoint` writes throttle to ≥10 s (without a movement threshold); pause,
   route leave, `visibilitychange -> hidden`, confirmed `ExplicitSeek`, `MarkCompleted` and
   `Restart` flush immediately. Tab close (`visibilitychange -> hidden`) triggers a best-effort
   async flush and persists the pending operation to the account-scoped recovery journal; because
@@ -138,7 +141,7 @@ starts/clear and paused exact-release resume against `/api/v1/theatre`:
 
 Native tests consume the shared presentation goldens. The existing explicit
 `cargo xtask verify web-bearer` lane also exercises these production Web modules with a loopback
-mock API/issuer and synthetic paged Library records; its browser captures are local evidence,
+mock API/issuer and synthetic paged Library records; when executed, its captures are local evidence,
 not real Kanidm/PostgreSQL/signup or production acceptance. The separate
 [enrollment lane and remaining Web fixture](../../../docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
 retain their existing platform/tool requirements.
