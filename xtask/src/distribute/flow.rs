@@ -1318,9 +1318,6 @@ mod tests {
             assert_eq!(rig.runner.commands.len(), 2);
             assert!(rig.runner.commands[0]
                 .args
-                .contains(&":androidProductionApp:assembleDebug".to_owned()));
-            assert!(!rig.runner.commands[0]
-                .args
                 .contains(&":androidApp:assembleDebug".to_owned()));
             let inspection = &rig.runner.commands[1];
             assert_eq!(inspection.program, "python3");

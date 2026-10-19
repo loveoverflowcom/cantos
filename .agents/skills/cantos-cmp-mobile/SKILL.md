@@ -37,7 +37,7 @@ and never infer client/device acceptance from model simulation.
 
 - `apps/cantos-theatre/mobile/` separates production-safe UI/domain/application code and ports
   in `:shared` from mock adapters, fixtures, previews and diagnostic composition in the KMP
-  `:preview-sandbox` module. Demo Android, SwiftUI/Xcode and JVM hosts select the sandbox explicitly;
+  `:preview-sandbox` module. The SwiftUI/Xcode demo and JVM hosts (Android has no mock host) select the sandbox explicitly;
   shared composition has no implicit mock fallback. The pure playback reducer, independent
   controllers, narrow ports and mock adapters are real code. The demo has no native
   audio, downloads or durable sync/persistence; separate opt-in native identity and listener
@@ -46,7 +46,7 @@ and never infer client/device acceptance from model simulation.
   The sole mobile product is Theatre; Studio is Web-only under the
   [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
   Shared libraries may serve Theatre Mobile and Studio Web.
-- Production host `androidProductionApp` composes `:shared` only and mounts `CantosTheatreApp` (the one `CantosPresentation`
+- The one Android application `androidApp` (debug `com.cantos.theatre.dev`, release `com.cantos.theatre`; no flavors) composes `:shared` only and mounts `CantosTheatreApp` (the one `CantosPresentation`
   over live catalog/account/Library/player; `CantosListeningUnavailable` without an origin; never a mock). Rerun `cargo xtask theatre-host android-release` ([testing](references/cmp-testing.md), [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)).
   A demo APK, debug flag or R8 removal cannot accept production exclusion.
   Use `Mock` for Cantos-owned adapters/fixtures; retain third-party names such as Okio

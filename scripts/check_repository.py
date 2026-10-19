@@ -695,7 +695,7 @@ THEATRE_MOBILE = Path("apps/cantos-theatre/mobile")
 THEATRE_SOURCE = THEATRE_MOBILE / "shared/src"
 THEATRE_SANDBOX_SOURCE = THEATRE_MOBILE / "preview-sandbox/src"
 # Production application hosts compose :shared only; their main sources obey the shared boundary.
-THEATRE_PRODUCTION_HOSTS = (":androidProductionApp",)
+THEATRE_PRODUCTION_HOSTS = (":androidApp",)
 THEATRE_PACKAGE = ("com", "cantos", "theatre")
 THEATRE_LAYERS = {"domain", "ports", "application", "features", "adapters", "app", "demo", "presentation"}
 # Allowlisted layers may import only these namespaces. Features use the denylist in
@@ -925,8 +925,6 @@ def theatre_production_modules(root):
             errors.append(f"{file.relative_to(root)}: preview-sandbox must be a Kotlin Multiplatform module")
         if ":shared" not in graph[":preview-sandbox"]:
             errors.append(f"{file.relative_to(root)}: preview-sandbox must depend explicitly on :shared")
-    if ":androidApp" in builds and not {":shared", ":preview-sandbox"} <= graph[":androidApp"]:
-        errors.append(f"{THEATRE_MOBILE}/androidApp/build.gradle.kts: demo host must depend explicitly on shared and preview-sandbox")
     for host in THEATRE_PRODUCTION_HOSTS:
         if host not in included or host not in builds:
             errors.append(f"{THEATRE_MOBILE}/settings.gradle.kts: production host {host} must be a separate included Gradle module")
@@ -944,8 +942,8 @@ def theatre_production_modules(root):
         if module in production:
             continue
         production.add(module)
-        if module != ":shared" and (module == ":androidApp" or any(
-                THEATRE_SANDBOX_PART.match(part) for part in re.split(r"[:/]+", module) if part)):
+        if module != ":shared" and any(
+                THEATRE_SANDBOX_PART.match(part) for part in re.split(r"[:/]+", module) if part):
             owner = "shared" if chain[0] == ":shared" else "production host"
             errors.append(f"{THEATRE_MOBILE}: {owner} main dependency reaches sandbox/demo module: {' -> '.join(chain)}")
             continue

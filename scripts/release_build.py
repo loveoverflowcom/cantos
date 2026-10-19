@@ -71,11 +71,11 @@ def web_archive(dist, destination):
 
 
 def android_version(root):
-    text = (root / MOBILE / "androidProductionApp/build.gradle.kts").read_text()
+    text = (root / MOBILE / "androidApp/build.gradle.kts").read_text()
     code = re.search(r"^\s*versionCode = (\d+)\s*$", text, re.M)
     name = re.search(r'^\s*versionName = "([^"\n]+)"\s*$', text, re.M)
     if not code or not name:
-        raise ValueError("cannot establish Android version from production host")
+        raise ValueError("cannot establish Android version from the Android application")
     return {"name": name[1], "code": int(code[1])}
 
 
@@ -128,9 +128,9 @@ def build(root, target, sha, output, origin=API_ORIGIN):
         web_archive(dist, output / f"{target}.tar.gz")
         return {"name": tomllib.loads((root / "apps" / app / "web/Cargo.toml").read_text())["package"]["version"]}
     run(root, ["cargo", "xtask", "theatre-host", "android-release", "--api-origin", API_ORIGIN])
-    base = root / MOBILE / "androidProductionApp/build"
-    for relative in ("outputs/apk/release/androidProductionApp-release-unsigned.apk",
-                     "outputs/bundle/release/androidProductionApp-release.aab",
+    base = root / MOBILE / "androidApp/build"
+    for relative in ("outputs/apk/release/androidApp-release-unsigned.apk",
+                     "outputs/bundle/release/androidApp-release.aab",
                      "reports/release-boundary/artifact-inspection.txt",
                      "reports/release-boundary/resolved-dependencies.txt"):
         source = base / relative

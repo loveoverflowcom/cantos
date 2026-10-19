@@ -4,7 +4,7 @@ The [PR137 Membership design follow-up](../../../docs/evidence/pr137-cmp-design-
 six reviewed shared primitives through scoped v0.5.0 tokens and permanently labeled tonal
 fields. `MembershipPreviews.kt` adds Android layout-renderer specimens around the actual app:
 form and receipt in both themes, unpublished periods in both themes and a narrow 2× form.
-Build them with `cargo xtask theatre-demo android-build`; capture through `cargo xtask
+They live in the `:preview-sandbox` Android library (not an application); capture through `cargo xtask
 compose-preview cantos-theatre` only with a ready IDE. JVM image output remains a separate
 renderer and does not establish device, IME, OS Back or screen-reader acceptance.
 
@@ -26,15 +26,17 @@ the native account, the durable SQLDelight Library and the native player, and
 `projectTheatreShell` projects only those owners into the screens. The sandbox's `CantosDemoApp`
 mounts the same presentation over the mock owners for previews, tests and the explicit demo host;
 shared main sources never depend on it and provide no implicit mock factory.
-Production Android `androidProductionApp` (`com.cantos.theatre`, label **Cantos**) and iOS
-`Cantos` (`com.cantos.theatre`) compose `:shared` only. With an admitted API origin they mount
-`CantosTheatreApp`; otherwise they render the explicit `CantosListeningUnavailable` state. They
-never fall back to a mock. The mock host `androidApp` is the separately labeled
-"Cantos Sandbox" (`com.cantos.theatre.demo`); it reuses the production launcher resources.
+The single Android application `:androidApp` and iOS `Cantos` (`com.cantos.theatre`) compose
+`:shared` only. Android has exactly two build types and no flavors: `release` is
+`com.cantos.theatre` (label **Cantos**) and `debug` is the side-by-side `com.cantos.theatre.dev`
+(label **Cantos Dev**, version suffix `-dev`). Both are real-only: with an admitted API origin
+they mount `CantosTheatreApp`; otherwise they render the explicit `CantosListeningUnavailable`
+state. They never fall back to a mock, and there is no Android mock variant (#286). The mock
+`CantosDemoApp` remains only in the desktop JVM and iOS `CantosDemo` hosts.
 See [what the application reads from where](#the-application-over-real-owners).
 `cargo xtask theatre-host android-release` builds its unsigned, unshrunk release APK/AAB and
-inspects the release classpaths, DEX classes, resources and manifest; a demo APK cannot accept
-that requirement. The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)
+inspects the release classpaths, DEX classes, resources and manifest; a desktop or iOS demo
+build cannot accept that requirement. The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)
 records current checks separately from the historical results cited below.
 
 ## Opt-in native identity
@@ -79,9 +81,12 @@ installed-device secure-store/process-death or native decoder acceptance.
 Operator-owned **nonsecret** configuration keys are `CantosApiOrigin` and `CantosNativeIssuer`,
 read from Android application metadata / iOS Info.plist. Both must be supplied; the issuer must
 be the exact HTTPS `/oauth2/openid/cantos-theatre-native` issuer, and the callback is exactly
-`com.cantos.theatre:/oauth2/callback` (production). `NativeCallbackProfile` also defines the
-`com.cantos.theatre.dev` debug profile for the next host migration; current hosts keep the
-production scheme ([contract](../../../docs/deployment/native-callback-profiles.md)). This repository supplies no live values, OAuth registration,
+`com.cantos.theatre:/oauth2/callback` (production). The Android host resolves its closed
+`NativeCallbackProfile` from the final application ID: release uses `com.cantos.theatre`, debug uses
+`com.cantos.theatre.dev:/oauth2/callback` and the manifest scheme is `${applicationId}`, so
+co-installed builds receive only their own callback
+([contract](../../../docs/deployment/native-callback-profiles.md)). An older `.demo` install may
+still register the production scheme; it is not removed here. This repository supplies no live values, OAuth registration,
 credentials or TLS override. The user authorized the previously held Android INTERNET,
 callback-filter and Application/MainActivity source changes on 14 October 2026. Those changes
 are now mounted: one process owner, `singleTask` callback delivery and the optional account
@@ -95,21 +100,23 @@ origins and changes no OS network/TLS setting.
 ### Native identity build inputs and operator diagnostics
 
 For Android, set the nonsecret environment variables `CANTOS_API_ORIGIN` and
-`CANTOS_NATIVE_ISSUER` before the existing `cargo xtask theatre-demo android-build` command.
+`CANTOS_NATIVE_ISSUER` before `cargo xtask theatre-host android-debug` / `android-release`.
 Alternatively, put `cantos.apiOrigin` and `cantos.nativeIssuer` in an operator-owned Gradle
 user-home `gradle.properties`, outside Git. Gradle properties take precedence over the
 environment, including an explicit empty value to disable identity. The selected values flow
 through manifest placeholders into `CantosApiOrigin` / `CantosNativeIssuer` application metadata.
-This mock host stays `com.cantos.theatre.demo` ("Cantos Sandbox"); configured identity does not
-replace its mock catalog, player or storage. The shipping application is `androidProductionApp`
-(`com.cantos.theatre`), which reads the same two build inputs.
+The Android application (`:androidApp`) reads these two build inputs in both build types; neither
+build type hard-codes an origin, so the operator chooses it. Debug (`com.cantos.theatre.dev`) is a
+new app-data sandbox: it does not inherit the database, tokens or Library of the former `.demo` or
+the production install. Release keeps the `com.cantos.theatre` package, storage and signing/version
+upgrade policy.
 
 For iOS, the existing `CantosDemo` target's Debug and Release build settings
 `CANTOS_API_ORIGIN` / `CANTOS_NATIVE_ISSUER` default to empty. Both configurations consume the
 minimal `CantosDemo/Info.plist` source through `INFOPLIST_FILE`, expand its two Cantos keys and
 merge the generated system keys. Supply values as explicit Xcode build-setting overrides or an
 operator-owned Xcode configuration; plain environment variables may lose to the target defaults.
-The shared scheme builds `com.cantos.theatre.demo`. The existing
+The shared iOS scheme builds the `CantosDemo` mock host (`com.cantos.theatre.demo`). The existing
 `cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20`
 links only the simulator framework; open the existing Xcode project and Run the host separately
 when native acceptance is authorized. Framework linking does not prove the built app's Info.plist.
@@ -130,9 +137,9 @@ Missing keys take diagnostic precedence: if either key is absent/empty, `Missing
 those keys before validating the other value. Once both are supplied, invalid API origin is
 reported before invalid issuer. Every unavailable outcome keeps identity disabled.
 
-The Android sandbox owns its debug-only `ui-tooling:1.9.0` runtime as well as preview annotations.
-Android Studio renders the sandbox module directly, so tooling declared only in `androidApp`
-does not supply its `ComposeViewAdapter`. This dependency is conditional on the Android opt-in;
+The Android sandbox library owns its debug-only `ui-tooling:1.9.0` runtime as well as preview
+annotations. Android Studio renders the sandbox module directly, so tooling declared in an
+application module would not supply its `ComposeViewAdapter`. This dependency is conditional on the Android opt-in;
 it adds nothing to desktop/iOS-only or Android release configurations.
 
 Missing/invalid diagnostics contain enum fields only, never the supplied strings. Android
@@ -182,7 +189,7 @@ Regeneration extends the existing `scripts/ui_logos.py` primitive with `--native
 (installed `rsvg-convert 2.60.0` required, never downloaded); `--native-launcher --check` verifies
 the checked-in resources without a renderer. [Generated provenance](launcher-icons.provenance.json)
 binds source and output hashes. The repository gate runs the focused source/resource regressions;
-`cargo xtask theatre-demo android-build` checks APK compilation. See the
+`cargo xtask theatre-host android-debug --api-origin ORIGIN` checks APK compilation. See the
 [launcher evidence and pending native acceptance](../../../docs/evidence/theatre-native-launcher-icons.md).
 
 ## Local launch presentation
@@ -317,7 +324,7 @@ preview-sandbox/src/desktopMain/ diagnostic host and workbench around the shared
 preview-sandbox/src/desktopTest/ JVM interaction/semantics and fixed-size app captures
 preview-sandbox/src/androidMain/ thin @Preview wrappers around the same UI
 preview-sandbox/src/iosMain/     demo ComposeUIViewController composition root
-androidApp/                explicit demo process owner, Activity, Back and system-bar appearance
+androidApp/                the one Android application: process owner, Activity, Back, system bars; real-only
 iosApp/                    SwiftUI application owner and Xcode scheme; consumes built framework
 ```
 
@@ -345,8 +352,8 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo verify
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo run
 
 # Existing platform 35 + build-tools 35.0.0 in ANDROID_HOME / ANDROID_SDK_ROOT.
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo android-build
-# Production host (shared only): unsigned release APK/AAB plus artifact inspection.
+# `theatre-demo android-build` is retired (#286): there is no Android mock host.
+# The Android application (shared only): unsigned release APK/AAB plus artifact inspection.
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host android-release
 
 # Full Xcode and already installed Kotlin/Native 2.2.20 distribution.
@@ -354,14 +361,12 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
   --kotlin-native-home /absolute/path/to/installed/kotlin-native-2.2.20
 ```
 
-To hand the **demo** APK to testers through Firebase App Distribution use the explicit
-`cargo xtask distribute firebase` workflow; see [Firebase distribution](docs/firebase-distribution.md).
-The `demo` channel distributes this mock only; `demo-qa` distributes the same mock as an
-optimized, non-debuggable, operator-signed build (`:androidApp:assembleQa`, R8 and resource
-shrinking; `:androidApp:assembleQaAudit` is its unshrunk, unsigned audit twin). The `production` channel builds the
-`com.cantos.theatre` application (`CantosTheatreApp`); neither establishes native runtime
-acceptance, and production release distribution still needs the named app, certificate and
-recipients. A new applicationId cannot update the demo app in place: it installs beside it.
+`cargo xtask distribute firebase` is **retired for every channel** (#286): `demo` and `demo-qa`
+named the removed mock host and `qa` build type, and `production` expected a debug APK of
+`com.cantos.theatre` while debug is now `com.cantos.theatre.dev`. Each channel is refused as
+`UNSUPPORTED` before any tool probe, build, login or upload, including `--dry-run`; no policy is
+remapped onto another Firebase app. The replacement policy belongs to the distribution step of
+the #286 series; see [Firebase distribution](docs/firebase-distribution.md).
 
 Build and verification invoke `:shared:assertProductionSafeDependencies` through main compile,
 assemble and `desktopTest` dependencies. It checks resolved shared desktop compile/runtime
@@ -370,20 +375,24 @@ sandbox projects and test-only dependencies. Its ignored report is
 `shared/build/reports/production-boundary/resolved-dependencies.txt`. This is a library graph
 guard; it does not inspect an app's release graph or APK/AAB.
 
-The production host's `preBuild` runs `:androidProductionApp:assertReleaseDependencyBoundary`:
-its resolved release compile/runtime classpaths may contain no local project except `:shared`
-and no test, mock or Compose tooling module. `theatre-host android-release` then compiles the
+`:androidApp` audits each build type separately: `preDebugBuild` runs
+`:androidApp:assertDebugDependencyBoundary` and `preReleaseBuild` runs
+`:androidApp:assertReleaseDependencyBoundary` (`assertDependencyBoundaries` aggregates both
+for compatibility; a debug build never audits or assembles release). The resolved compile/runtime
+classpaths of the variant may contain no local project except `:shared` and no test, mock or
+Compose tooling module, transitively; the module has no `:preview-sandbox` dependency in any
+configuration. Test classpaths are separate and not inspected. `theatre-host android-release` then compiles the
 sandbox's Android release classes only as a forbidden inventory and runs
 `scripts/inspect_android_release.py`. It checks DEX class definitions, resource bytes/paths,
 Compose resource packages and the `aapt2`-decoded manifests of the actual unsigned, unshrunk
-APK and AAB. Reports are ignored files under `androidProductionApp/build/reports/release-boundary/`.
+APK and AAB. Reports are ignored files under `androidApp/build/reports/{release,debug}-boundary/`. Release remains deliberately unshrunk (R8 is a later step of the series, with an audit path that replaces this one).
 The release is never signed, installed or distributed by xtask. Actual execution results are
 recorded in the [isolation evidence](../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
 
 Android output: `androidApp/build/outputs/apk/debug/androidApp-debug.apk`. Open this Gradle root
 in Android Studio with `-Pcantos.android=true` for sync, then select `androidApp` to run on an
-existing device/emulator. Diagnostic Android API 23 and iOS 15 floors are demo build settings,
-not a production support decision. Desktop verification registers no native target.
+existing device/emulator. The API 23 and iOS 15 floors are library build settings, not a
+production support decision. Desktop verification registers no native target.
 `cantos.android`, `cantos.ios` or `cantos.native` opt into native targets. iOS refuses a missing/
 unpinned installed compiler before target registration; SDK/JDK and native dependency downloads
 are disabled.
@@ -621,7 +630,7 @@ work list → work detail → chapter/episode list, keyed only by the server's U
   refresh, empty/not-found/unavailable states and the cached-catalog notice are states of the
   familiar Discover, Search and Work screens (see below).
 
-Production host origin policy: `androidProductionApp` main declares INTERNET and the explicit
+Origin policy: `androidApp` main declares INTERNET and the explicit
 `CantosApiOrigin` metadata for both variants. Runtime admits `https://` in release; only a
 debuggable build also admits `http://127.0.0.1|localhost` through its loopback-only network security
 config. Missing/rejected configuration renders the unavailable state. There is no default origin,
@@ -641,7 +650,7 @@ macOS and are separate from JVM evidence.
 ```sh
 # Debug production host against a local API through adb reverse (API 24+ for loopback http).
 cargo xtask theatre-host android-debug --api-origin http://127.0.0.1:8080
-adb install -r apps/cantos-theatre/mobile/androidProductionApp/build/outputs/apk/debug/androidProductionApp-debug.apk
+adb install -r apps/cantos-theatre/mobile/androidApp/build/outputs/apk/debug/androidApp-debug.apk
 adb reverse tcp:8080 tcp:8080
 # Production release catalog against an explicit HTTPS origin (no install/distribution).
 cargo xtask theatre-host android-release --api-origin https://api.example.org
@@ -726,7 +735,7 @@ See the [step-2 implementation/evidence](../../../docs/evidence/theatre-native-s
 pinned #247 dependency, real MediaEngine adapters, process-owned mini/full player, API-confirmed
 native account, full Library/progress client and account SQLDelight/outbox. The `Cantos` iOS
 scheme links the shared production framework and native Swift adapters; the demo scheme remains
-separate. Android debug is an installable QA artifact of `androidProductionApp`, with actual
+separate. Android debug (`com.cantos.theatre.dev`) is an installable QA artifact of `androidApp`, with actual
 package/origin/signature/version/exclusion checks. Native device/audio/force-stop, iOS codec
 compatibility and browser-facing identity remain acceptance gates; no device success follows
 from JVM tests or packaging. Production distribution is opt-in and requires the named app,

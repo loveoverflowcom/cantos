@@ -53,11 +53,11 @@ class NativeLauncherLogos(unittest.TestCase):
         application = ET.parse(ui_logos.MOBILE / "androidApp/src/main/AndroidManifest.xml").getroot().find("application")
         for attribute in ("icon", "roundIcon"):
             self.assertEqual(application.attrib[self.android + attribute], "@mipmap/ic_launcher")
-        self.assertEqual(application.attrib[self.android + "label"], "Cantos")
+        self.assertEqual(application.attrib[self.android + "label"], "@string/app_name")
         activity = application.find("activity")
         self.assertEqual(activity.attrib[self.android + "launchMode"], "singleTask")
         self.assertEqual(activity.attrib[self.android + "theme"], "@style/Theme.Cantos.Starting")
-        self.assertEqual(activity.find(".//data").attrib[self.android + "scheme"], "com.cantos.theatre")
+        self.assertEqual(activity.find(".//data").attrib[self.android + "scheme"], "${applicationId}")
         # Night is selected before density/API. A night legacy PNG must never override the
         # adaptive icon on API26+, so both appearances need their own anydpi-v26 descriptor.
         for qualifier in ("mipmap-anydpi-v26", "mipmap-night-anydpi-v26"):

@@ -23,14 +23,13 @@ use crate::{
 };
 
 pub const APPLICATION_ID: &str = "com.cantos.theatre";
+/// The debug build type's side-by-side identity (`applicationIdSuffix = ".dev"`); never distributed here.
+pub const DEBUG_APPLICATION_ID: &str = "com.cantos.theatre.dev";
 const LAUNCHER: &str = "com.cantos.theatre.app.TheatreActivity";
-const APK: &str =
-    "androidProductionApp/build/outputs/apk/release/androidProductionApp-release-unsigned.apk";
-const AAB: &str =
-    "androidProductionApp/build/outputs/bundle/release/androidProductionApp-release.aab";
-const REPORT: &str = "androidProductionApp/build/reports/release-boundary/artifact-inspection.txt";
-const DEBUG_APK: &str =
-    "androidProductionApp/build/outputs/apk/debug/androidProductionApp-debug.apk";
+const APK: &str = "androidApp/build/outputs/apk/release/androidApp-release-unsigned.apk";
+const AAB: &str = "androidApp/build/outputs/bundle/release/androidApp-release.aab";
+const REPORT: &str = "androidApp/build/reports/release-boundary/artifact-inspection.txt";
+const DEBUG_APK: &str = "androidApp/build/outputs/apk/debug/androidApp-debug.apk";
 /// The sandbox's own compiled Android classes and resources form the forbidden inventory.
 const SANDBOX_CLASSES: &str = "preview-sandbox/build/tmp/kotlin-classes/release";
 const SANDBOX_RESOURCES: &str = "preview-sandbox/src/commonMain/composeResources";
@@ -94,11 +93,9 @@ pub fn tools() -> Vec<Tool> {
 
 /// The production host and the sandbox inventory it is checked against must both exist.
 pub fn prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static str> {
-    if !project
-        .join("androidProductionApp/build.gradle.kts")
-        .is_file()
+    if !project.join("androidApp/build.gradle.kts").is_file()
         || !project
-            .join("androidProductionApp/src/main/AndroidManifest.xml")
+            .join("androidApp/src/main/AndroidManifest.xml")
             .is_file()
         || !project.join("shared/src/androidMain/kotlin").is_dir()
         || !project.join(SANDBOX_RESOURCES).is_dir()
@@ -136,9 +133,9 @@ pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> Co
         "-Pcantos.nativeIssuer=".to_owned(),
     ]);
     command.args([
-        ":androidProductionApp:assertReleaseDependencyBoundary",
-        ":androidProductionApp:assembleRelease",
-        ":androidProductionApp:bundleRelease",
+        ":androidApp:assertReleaseDependencyBoundary",
+        ":androidApp:assembleRelease",
+        ":androidApp:bundleRelease",
         ":preview-sandbox:compileReleaseKotlinAndroid",
     ])
 }
@@ -199,7 +196,7 @@ pub fn gradle_debug_identity_command(
         "-Pandroid.builder.sdkDownload=false".to_owned(),
         format!("-Pcantos.apiOrigin={origin}"),
         format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
-        ":androidProductionApp:assembleDebug".to_owned(),
+        ":androidApp:assembleDebug".to_owned(),
         ":preview-sandbox:compileReleaseKotlinAndroid".to_owned(),
     ])
 }
@@ -270,13 +267,28 @@ pub fn debug_inspection_command(
             "--aab" => {
                 source.next();
             }
+            "--application-id" => {
+                source.next();
+                args.extend([arg, DEBUG_APPLICATION_ID.to_owned()]);
+            }
+            // AndroidX derives this permission name from the final application ID.
+            "--allowed-permission" => {
+                let value = source.next().unwrap_or_default();
+                let value = match value.strip_prefix(APPLICATION_ID) {
+                    Some(".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION") => {
+                        format!("{DEBUG_APPLICATION_ID}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+                    }
+                    _ => value,
+                };
+                args.extend([arg, value]);
+            }
             "--apk" => {
                 source.next();
                 args.extend([arg, apk.to_string_lossy().into_owned()]);
             }
             "--report" => {
                 source.next();
-                args.extend([arg, format!("{THEATRE_MOBILE_DIR}/androidProductionApp/build/reports/release-boundary/debug-artifact-inspection.txt")]);
+                args.extend([arg, format!("{THEATRE_MOBILE_DIR}/androidApp/build/reports/release-boundary/debug-artifact-inspection.txt")]);
             }
             _ => args.push(arg),
         }
@@ -486,22 +498,22 @@ mod tests {
             "-Pandroid.builder.sdkDownload=false".to_owned(),
             "-Pcantos.apiOrigin=".to_owned(),
             "-Pcantos.nativeIssuer=".to_owned(),
-            ":androidProductionApp:assertReleaseDependencyBoundary".to_owned(),
-            ":androidProductionApp:assembleRelease".to_owned(),
-            ":androidProductionApp:bundleRelease".to_owned(),
+            ":androidApp:assertReleaseDependencyBoundary".to_owned(),
+            ":androidApp:assembleRelease".to_owned(),
+            ":androidApp:bundleRelease".to_owned(),
             ":preview-sandbox:compileReleaseKotlinAndroid".to_owned(),
         ]));
         assert!(command
             .args
             .contains(&"-Dorg.gradle.java.installations.auto-download=false".to_owned()));
-        // Exactly these tasks: never the demo host, signing, installation or a debug variant.
+        // Exactly these tasks: never the retired qa build type, signing, installation or a debug variant.
         let tasks: Vec<_> = command
             .args
             .iter()
             .filter(|arg| arg.starts_with(':'))
             .collect();
         assert_eq!(tasks.len(), 4);
-        assert!(!tasks.iter().any(|task| task.starts_with(":androidApp:")
+        assert!(!tasks.iter().any(|task| task.contains("Qa")
             || task.contains("Debug")
             || task.contains("install")
             || task.contains("sign")));
@@ -517,7 +529,7 @@ mod tests {
             "-Pandroid.builder.sdkDownload=false".to_owned(),
             "-Pcantos.apiOrigin=http://127.0.0.1:8080".to_owned(),
             "-Pcantos.nativeIssuer=".to_owned(),
-            ":androidProductionApp:assembleDebug".to_owned(),
+            ":androidApp:assembleDebug".to_owned(),
             ":preview-sandbox:compileReleaseKotlinAndroid".to_owned(),
         ]));
         let tasks: Vec<_> = command
@@ -528,7 +540,7 @@ mod tests {
         assert_eq!(
             tasks,
             [
-                ":androidProductionApp:assembleDebug",
+                ":androidApp:assembleDebug",
                 ":preview-sandbox:compileReleaseKotlinAndroid"
             ]
         );
@@ -647,14 +659,10 @@ mod tests {
         assert!(prerequisite(&dir, Some(&sdk))
             .unwrap_err()
             .contains("production Android host"));
-        std::fs::create_dir_all(dir.join("androidProductionApp/src/main")).unwrap();
+        std::fs::create_dir_all(dir.join("androidApp/src/main")).unwrap();
         std::fs::create_dir_all(dir.join("shared/src/androidMain/kotlin")).unwrap();
-        std::fs::write(dir.join("androidProductionApp/build.gradle.kts"), "").unwrap();
-        std::fs::write(
-            dir.join("androidProductionApp/src/main/AndroidManifest.xml"),
-            "",
-        )
-        .unwrap();
+        std::fs::write(dir.join("androidApp/build.gradle.kts"), "").unwrap();
+        std::fs::write(dir.join("androidApp/src/main/AndroidManifest.xml"), "").unwrap();
         // The forbidden inventory is required: inspecting without it would be vacuous.
         assert!(prerequisite(&dir, Some(&sdk))
             .unwrap_err()
@@ -713,5 +721,36 @@ mod tests {
         // A failed build never lets the inspector read stale artifacts.
         assert_eq!(runner.commands.len(), 1);
         assert_eq!(runner.commands[0].program, "gradle");
+    }
+
+    #[test]
+    fn debug_inspection_expects_the_dev_identity_and_release_keeps_the_production_id() {
+        let workspace = workspace();
+        let command = debug_inspection_command(
+            &workspace,
+            "/sdk",
+            Path::new("/tmp/app-debug.apk"),
+            "http://127.0.0.1:8080",
+            None,
+        );
+        let at = command
+            .args
+            .iter()
+            .position(|arg| arg == "--application-id")
+            .unwrap();
+        assert_eq!(command.args[at + 1], "com.cantos.theatre.dev");
+        assert!(command.args.contains(
+            &"com.cantos.theatre.dev.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION".to_owned()
+        ));
+        assert!(!command
+            .args
+            .contains(&"com.cantos.theatre.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION".to_owned()));
+        let release = inspection_command(&workspace, "/sdk", None);
+        let at = release
+            .args
+            .iter()
+            .position(|arg| arg == "--application-id")
+            .unwrap();
+        assert_eq!(release.args[at + 1], APPLICATION_ID);
     }
 }

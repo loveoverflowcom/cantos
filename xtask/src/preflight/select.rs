@@ -257,7 +257,7 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         if !is_doc {
             impact.gates.insert(Gate::TheatreCmpDemo);
         }
-        if within(path, "apps/cantos-theatre/mobile/androidProductionApp") {
+        if within(path, "apps/cantos-theatre/mobile/androidApp") {
             impact.notes.insert("production Android release bytes are inspected only by explicit `cargo xtask theatre-host android-release`; preflight runs the JVM mock gate".into());
         }
     } else if is_doc
@@ -749,7 +749,6 @@ mod tests {
             "apps/cantos-theatre/mobile/preview-sandbox/src/androidMain/kotlin/TheatrePreviews.kt",
             "apps/cantos-theatre/mobile/preview-sandbox/src/desktopMain/kotlin/TheatreWorkbench.kt",
             "apps/cantos-theatre/mobile/androidApp/src/main/AndroidManifest.xml",
-            "apps/cantos-theatre/mobile/androidProductionApp/build.gradle.kts",
             "apps/cantos-theatre/mobile/iosApp/CantosDemo.xcodeproj/project.pbxproj",
         ] {
             let selection = pick(&[path]);
@@ -765,17 +764,16 @@ mod tests {
             names(&pick(&["apps/cantos-theatre/mobile/README.md"])),
             ["repository", "rust-format"]
         );
-        let host =
-            pick(&["apps/cantos-theatre/mobile/androidProductionApp/src/main/AndroidManifest.xml"]);
+        let host = pick(&["apps/cantos-theatre/mobile/androidApp/src/main/AndroidManifest.xml"]);
         assert!(host
             .notes
             .iter()
             .any(|note| note.contains("theatre-host android-release")));
         assert!(
-            !pick(&["apps/cantos-theatre/mobile/androidApp/build.gradle.kts"])
+            pick(&["apps/cantos-theatre/mobile/androidApp/build.gradle.kts"])
                 .notes
                 .iter()
-                .any(|note| note.contains("theatre-host"))
+                .any(|note| note.contains("theatre-host android-release"))
         );
     }
 

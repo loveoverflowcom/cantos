@@ -86,6 +86,8 @@ pub enum Policy {
     DemoApk,
     /// Optimized demo/QA: same package and mock composition as `DemoApk`, never debuggable.
     DemoQaApk,
+    /// Inert since #286: `distribute` refuses every channel through [`retired_lane`] before a
+    /// request is resolved, so these three policies exist only for their pinned unit tests.
     ProductionApk,
 }
 
@@ -113,7 +115,7 @@ impl Policy {
         match self {
             Self::DemoApk => DEMO_GRADLE_TASK,
             Self::DemoQaApk => DEMO_QA_GRADLE_TASK,
-            Self::ProductionApk => ":androidProductionApp:assembleDebug",
+            Self::ProductionApk => ":androidApp:assembleDebug",
         }
     }
 
@@ -410,6 +412,29 @@ impl Request {
 
 fn usage(message: impl Into<String>) -> Refusal {
     Refusal::Usage(message.into())
+}
+
+/// The Android applications behind the `demo`, `demo-qa` and `production` policies changed meaning
+/// in #286: the sandbox host and the `qa` build type are gone and `debug` is now the side-by-side
+/// `com.cantos.theatre.dev` identity. No policy is silently remapped; each is refused before any
+/// tool probe, build, login, upload or file write (including `--dry-run`) until its replacement
+/// is defined by the distribution step of the same series.
+pub fn retired_lane(channel: Channel) -> Option<Refusal> {
+    let reason = match channel {
+        Channel::Demo | Channel::DemoQa => {
+            "retired by #286: com.cantos.theatre.demo (the mock Android host and its qa build type) no longer \
+             exists, and its Firebase app must not receive a different application"
+        }
+        Channel::Production => {
+            "retired by #286: the production debug APK is now com.cantos.theatre.dev, a different application \
+             identity than the registered production Firebase app; the replacement policy is defined by the \
+             distribution step of this series"
+        }
+    };
+    Some(Refusal::Unsupported {
+        subject: format!("distribute firebase {}", channel.label()),
+        reason: reason.to_owned(),
+    })
 }
 
 /// Validate every fact and produce the plan, or the first refusal. Unavailable combinations are
@@ -958,10 +983,7 @@ mod tests {
         let request = resolve_with(&raw, &Configuration::default()).unwrap();
         assert_eq!(request.policy, Policy::ProductionApk);
         assert_eq!(request.policy.package(), "com.cantos.theatre");
-        assert_eq!(
-            request.policy.gradle_task(),
-            ":androidProductionApp:assembleDebug"
-        );
+        assert_eq!(request.policy.gradle_task(), ":androidApp:assembleDebug");
         assert!(matches!(request.live(), Err(Refusal::Usage(_))));
         for origin in [
             "http://127.0.0.1:8080",
@@ -1302,6 +1324,17 @@ mod tests {
         assert!(plan.contains("unset"));
         for stage in Stage::ALL {
             assert!(plan.contains(stage.label()), "{}", stage.label());
+        }
+    }
+
+    #[test]
+    fn every_pre_286_channel_is_refused_with_a_typed_unsupported_reason() {
+        for channel in [Channel::Demo, Channel::DemoQa, Channel::Production] {
+            let Some(Refusal::Unsupported { subject, reason }) = retired_lane(channel) else {
+                panic!("{channel:?} must be retired");
+            };
+            assert!(subject.contains(channel.label()), "{subject}");
+            assert!(reason.contains("#286"), "{reason}");
         }
     }
 }

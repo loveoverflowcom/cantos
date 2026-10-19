@@ -3,9 +3,9 @@
 The current source has production-safe `:shared` and a separate `:preview-sandbox` KMP module.
 The sandbox depends on shared UI/domain/application/ports; demo hosts select sandbox composition
 explicitly. Current checks belong to the [#122 isolation record](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
-The production Android host `:androidProductionApp` composes `:shared` only; its release
+The one Android application `:androidApp` (build types `debug`/`release`, no flavors) composes `:shared` only; its release
 compile/runtime graphs and actual unsigned APK/AAB are inspected by `cargo xtask theatre-host
-android-release`. A demo APK establishes neither production exclusion nor native listening
+android-release`. A desktop/iOS demo build establishes neither production exclusion nor native listening
 acceptance. The production host mounts `CantosTheatreApp` (the same `CantosPresentation` the
 demo shows) over the live catalog, account, durable Library and native player (see the
 [README](../README.md#the-application-over-real-owners)); it claims no download or bookmark
@@ -148,8 +148,7 @@ and `okio-fakefilesystem` retain their upstream names.
 ```text
 :preview-sandbox --> :shared
 desktop/iOS demo --> :preview-sandbox (exports :shared to the Swift host)
-:androidApp demo --> :shared + :preview-sandbox
-:androidProductionApp --> :shared (CantosTheatreApp over live catalog, account, Library and native player)
+:androidApp --> :shared (CantosTheatreApp over live catalog, account, Library and native player)
 ```
 
 Shared main source and declared Gradle dependency guards are bounded static evidence, not

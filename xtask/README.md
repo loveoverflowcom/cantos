@@ -891,6 +891,13 @@ exceptions are the demo-APK `distribute firebase` command and the static Web `de
 
 ### distribute firebase
 
+> **Retired for every channel (#286).** The `demo` and `demo-qa` lanes named the removed Android
+> mock host and `qa` build type; `production` expected a debuggable `com.cantos.theatre` APK while
+> debug is now `com.cantos.theatre.dev`. `distribute firebase` refuses each channel as `UNSUPPORTED`
+> before any tool probe, plan (`--dry-run` included), build, login, upload or file write, and never
+> remaps a policy onto another Firebase app. The text below documents the previous lane contract
+> and the inert policy code that a later step of the series replaces; it is not current behavior.
+
 Nonsecret CLI-only operator inputs are indexed under
 [`infra/firebase/app-distribution`](../infra/firebase/app-distribution/README.md); this product
 does not consume Hosting configuration, target/channel semantics or Functions codebases.
@@ -933,7 +940,7 @@ what `demo` means. `demo-qa` needs the operator's signing key in `CANTOS_QA_KEYS
 `CANTOS_QA_KEYSTORE_PASSWORD`, `CANTOS_QA_KEY_ALIAS` and `CANTOS_QA_KEY_PASSWORD` (presence only is
 checked; xtask never creates, prints or records a key) and a pinned
 `CANTOS_FIREBASE_DEMO_QA_CERT_SHA256`; it rejects a debuggable APK, stages the R8 mapping with the
-artifact and records its hash in the receipt (`schema_version` 2). `production` maps to `:androidProductionApp:assembleDebug` (`com.cantos.theatre`) with
+artifact and records its hash in the receipt (`schema_version` 2). `production` mapped to `:androidApp:assembleDebug` (`com.cantos.theatre`) with
 the actual native/catalog/account/Library composition and no sandbox dependency. Both are signed
 debug artifacts for device QA; the production channel does not establish store-release readiness.
 There is no Gradle flavor named demo and no `assembleDemo`. `--artifact` defaults to `apk`;
@@ -1299,7 +1306,7 @@ An explicitly isolated mock command surface; starts no API, database, identity o
 cargo xtask theatre-demo build          # :preview-sandbox:compileKotlinDesktop (depends on :shared)
 cargo xtask theatre-demo verify         # :shared:desktopTest + :preview-sandbox:desktopTest
 cargo xtask theatre-demo run            # same app, supervised diagnostic desktop window
-cargo xtask theatre-demo android-build  # -Pcantos.android=true :androidApp:assembleDebug
+cargo xtask theatre-demo android-build  # retired (#286): refused as UNSUPPORTED; use theatre-host android-debug
 cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
 ```
 
@@ -1326,8 +1333,8 @@ Details and evidence live in the [mock guide](../apps/cantos-theatre/mobile/READ
 
 ### theatre-host
 
-The production Theatre Android host (`androidProductionApp`, `com.cantos.theatre`) composes
-`:shared` only, with no mock, sample or diagnostic fallback. Debug and release browse the real
+The one Theatre Android application (`:androidApp`; `release` is `com.cantos.theatre`, `debug` is
+`com.cantos.theatre.dev`, no flavors) composes `:shared` only, with no mock, sample or diagnostic fallback. Debug and release browse the real
 public catalog when built with an API origin; release accepts HTTPS only. Both declare INTERNET
 and origin metadata; release forbids cleartext. An omitted release origin is passed as an explicit
 empty Gradle property, overriding ambient settings, and renders unavailable. Native playback,
@@ -1336,13 +1343,13 @@ tracked under #14/#35/#191.
 
 ```sh
 cargo xtask theatre-host android-release --api-origin https://api.cantoss.duckdns.org
-# 1. gradle -Pcantos.android=true :androidProductionApp:assertReleaseDependencyBoundary
-#      :androidProductionApp:assembleRelease :androidProductionApp:bundleRelease
+# 1. gradle -Pcantos.android=true :androidApp:assertReleaseDependencyBoundary
+#      :androidApp:assembleRelease :androidApp:bundleRelease
 #      :preview-sandbox:compileReleaseKotlinAndroid
 # 2. python3 scripts/inspect_android_release.py --apk ... --aab ... --aapt2 <SDK>/build-tools/35.0.0/aapt2
 ```
 
-The SDK and tool prerequisites match `theatre-demo android-build`; the host, shared Android
+The SDK and tool prerequisites are Gradle 8.13–8.14.3, JDK 17+ and an installed SDK platform 35/build-tools 35.0.0; the host, shared Android
 sources and sandbox resource inventory must exist. Missing prerequisites are `UNSUPPORTED`.
 The Gradle task resolves both release classpaths and allows no local project except `:shared`
 and no test, mock or Compose tooling module. The sandbox is compiled only as the forbidden
@@ -1353,10 +1360,11 @@ allowlisted permissions, exact requested origin metadata and release cleartext r
 APK/AAB class sets must match and named production catalog classes must
 exist; an empty inventory or unreadable artifact exits 2, never `PASS`. A failed build
 stops before inspection, so stale outputs are never inspected. Reports are written under
-`apps/cantos-theatre/mobile/androidProductionApp/build/reports/release-boundary/`.
+`apps/cantos-theatre/mobile/androidApp/build/reports/release-boundary/`.
 
-`theatre-host android-debug --api-origin ORIGIN [--native-issuer ISSUER]` builds `:androidProductionApp:assembleDebug`
-and the independent sandbox class inventory, then inspects the actual debug APK and prints
+`theatre-host android-debug --api-origin ORIGIN [--native-issuer ISSUER]` builds `:androidApp:assembleDebug`
+and the independent sandbox class inventory, then inspects the actual debug APK (expecting application ID
+`com.cantos.theatre.dev`) and prints
 installed-tool signature/version facts (`apksigner verify --print-certs -v`, `aapt2 dump badging`)
 with `-Pcantos.apiOrigin=ORIGIN`. It accepts `https://` or `http://127.0.0.1|localhost:<port>`
 (for `adb reverse`) and refuses anything else with exit 2 before Gradle. The debug manifest overlay
