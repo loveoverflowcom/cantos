@@ -15,6 +15,9 @@ serde_json = "=1.0.145"
 toml = { version = "=1.1.8", default-features = false, features = ["parse", "serde", "std"] }
 sha2 = "=0.10.9"
 url = "=2.5.8"
+# Safe in-process extraction of the verified Web release archive (no `tar` subprocess).
+flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
+tar = { version = "=0.4.46", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.190"
