@@ -309,3 +309,35 @@ With provisioned test accounts, drive OIDC → API callback → session → relo
 old session; inspect Studio roster and Theatre-to-Studio denial. Draft creation needs explicit
 production-data permission. Use real published releases for detail/playback; never seed production.
 Reboot persistence, failed-health switch-back and native playback each need their own acceptance.
+
+## Verified artifact promotion
+
+`cargo xtask deploy vps cantos-api --host USER@HOST --smoke-origin https://api.example.org
+--release-manifest PATH --release-digest SHA256 --release-sha FULL_SHA` consumes an already-built
+manifest v2 release. Add `--release-request PATH` inside its trusted CircleCI workflow, or
+`--local-artifact` outside CI after independently qualifying producer/source/provenance.
+The [release contract](circleci-builds.md) owns expiry, byte/format limits, exact public inputs,
+source/config identity and same-workflow trust; v1 and arbitrary dist inputs are refused.
+`--dry-run` validates metadata and prints the operation without staging or remote calls.
+
+Before a remote write, the client snapshots/rechecks actual bytes, validates the Docker archive
+config ID, Linux amd64/source/schema label and layer diff IDs, verifies the matching runtime tar
+and checks host architecture. It uploads only those bytes into a fresh incoming SHA/attempt
+path, with transfer checksums. The artifact's own host script receives
+`promote REVISION TREE IMAGE_ID` and holds one operation lock across checksum verification,
+image load/identity checks, matching runtime install and the existing deploy function.
+The host never compiles Rust. Pending cutovers, schema/browser drift and missing recovery
+prerequisites retain their fail-closed behavior; no implicit bootstrap/identity/restore occurs.
+
+Per-run private receipts are beneath `artifacts/vps-release/ATTEMPT/receipt.json`; they bind the
+requested SHA, manifest digest, host/incoming path, image ID, reached stages, activation and
+public smoke separately. A failed SSH response after activate begins is unknown, even if the
+host finished. Inspect `--status`, retained incoming tree, state/history and health before a
+new request; do not replay automatically. A public smoke failure after host success retains
+known activation and a separate smoke gap. In a multi-component release it blocks Web.
+
+Image switch-back does not undo DB migrations. Preserve forward-only migrations, epoch guards,
+current/previous images, journals, backups and volumes. Existing additive-schema incompatibility
+and controlled epoch-cutover procedures above still gate production acceptance. A matching
+artifact is no proof that today's installed database or identity is compatible. This source
+change performs no deployment; account/CI/build/health/browser acceptance needs named evidence.

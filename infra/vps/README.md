@@ -90,3 +90,8 @@ unreadable or unknown journal skips all release pruning with a warning. Unprotec
 need exact Cantos API title, matching revision and repository-source OCI labels; foreign/missing
 labels and unknown/symlink incoming entries are left untouched. Journals and their referenced
 recovery resources need a separate retention decision; ordinary deploy does not retire them.
+
+Verified release artifacts also carry this exact source bundle. The artifact-only `promote` host
+operation holds the existing operation lock across checksum/image inspection, runtime install
+and the existing backup/schema/grants/switch/health protocol. It adds no bootstrap, identity or
+epoch-conversion authority. See [artifact promotion](../../docs/deployment/vps-production.md#verified-artifact-promotion).

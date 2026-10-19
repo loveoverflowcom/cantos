@@ -10,6 +10,8 @@
 #   bootstrap                 idempotent host setup: dirs, secrets, private CA, roles, base services
 #   reload-browser            validate installed browser policy and restart edge/API only
 #   deploy REVISION           backup, migrate, grant, switch the API image, health-gate, auto-rollback
+#   promote REVISION TREE IMAGE_ID
+#                             locked verified artifact load + matching runtime install + deploy
 #   rollback                  switch the API back to the previous image and health-gate it
 #   backup [LABEL]            pg_dump (custom format) with checksum and retention
 #   restore FILE --yes-replace-database
@@ -638,6 +640,36 @@ edge_probe() {
       "https://$studio/api/v1/studio/auth/configuration" | grep -Eq '^(200|503)$'
 }
 
+promote_artifact() {
+  [[ $# -eq 3 && $1 =~ ^[0-9a-f]{40}$ && $3 =~ ^sha256:[0-9a-f]{64}$ ]] ||
+    die 'promote requires full REVISION, exact incoming TREE and IMAGE_ID' 64
+  local revision=$1 tree=$2 expected=$3 attempt image actual
+  attempt=${tree%/tree}; attempt=${attempt##*/}
+  [[ $attempt =~ ^[0-9a-f]{32}$ && $tree == "$ROOT/incoming/$revision/$attempt/tree" &&
+     -f $tree/REVISION && $(<"$tree/REVISION") == "$revision" ]] ||
+    die 'artifact runtime tree/revision mismatch' 65
+  require_root
+  with_lock
+  [[ $(uname -sm) == 'Linux x86_64' ]] || die 'artifact requires Linux x86_64' 65
+  # Keep image tagging, runtime installation and activation under one operation lock.
+  # Existing cutover refusal is rechecked by with_lock before loading anything.
+  (cd "$tree/.." && sha256sum --check --strict SHA256SUMS) || die 'artifact transfer checksum mismatch' 65
+  zstd -dc "$tree/../cantos-api.tar.zst" | podman load -q
+  image=$(image_for "$revision")
+  actual=$(podman image inspect --format '{{.Id}}' "$image")
+  [[ sha256:${actual#sha256:} == "$expected" ]] || die 'loaded artifact image ID mismatch' 65
+  [[ $(podman image inspect --format '{{.Os}}/{{.Architecture}}' "$image") == linux/amd64 ]] ||
+    die 'loaded artifact image platform mismatch' 65
+  [[ $(podman image inspect --format '{{index .Labels "org.opencontainers.image.revision"}}' "$image") == "$revision" ]] ||
+    die 'loaded artifact image revision mismatch' 65
+  require_schema_image "$revision"
+  validate_runtime_browser_configuration
+  unit_active cantos-postgres || die 'cantos-postgres must already be running; no implicit bootstrap' 69
+  preflight_schema "$revision"
+  install_bundle "$tree"
+  deploy "$revision"
+}
+
 deploy() {
   local revision=${1:-}
   require_root
@@ -947,6 +979,7 @@ main() {
     bootstrap) bootstrap ;;
     reload-browser) reload_browser "$@" ;;
     deploy) deploy "$@" ;;
+    promote) promote_artifact "$@" ;;
     rollback) rollback ;;
     backup) require_root; with_lock; backup "$@" >/dev/null ;;
     restore) restore "$@" ;;

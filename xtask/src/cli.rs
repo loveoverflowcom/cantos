@@ -55,6 +55,8 @@ impl SurfaceArgs {
 pub enum Task {
     /// Build source-bound release artifacts locally or in CI; never deploys or signs.
     ReleaseBuild(crate::release_build::ReleaseBuildArgs),
+    /// Resolve, package and explicitly promote source-bound releases (opt-in only).
+    Release(crate::release::ReleaseArgs),
     /// Report a local operator-declared Hosting rollout record; no network or live verification.
     HostingReport(crate::hosting_report::HostingReportArgs),
     /// Explicit static Web deployment of one app to Firebase Hosting (preview or live). A remote

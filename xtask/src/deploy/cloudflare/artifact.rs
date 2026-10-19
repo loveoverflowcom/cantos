@@ -73,10 +73,11 @@ pub fn parse_release(request: &Request, text: &str) -> Result<Release, ArtifactE
     let object = value
         .as_object()
         .ok_or_else(|| manifest_error("not a JSON object"))?;
-    if object.get("schema_version").and_then(Value::as_u64) != Some(1) {
-        return Err(manifest_error(
-            "schema_version 1 is the only supported contract",
-        ));
+    if !matches!(
+        object.get("schema_version").and_then(Value::as_u64),
+        Some(1 | 2)
+    ) {
+        return Err(manifest_error("only schema_version 1 and 2 are supported"));
     }
     let component = request.component();
     if object.get("target").and_then(Value::as_str) != Some(component.as_str()) {
@@ -363,10 +364,32 @@ mod tests {
     }
 
     #[test]
+    fn version_two_packager_output_preserves_the_pages_archive_contract() {
+        let release = parse_release(
+            &req(),
+            &manifest(|v| {
+                v["schema_version"] = 2.into();
+                v["configuration_sha256"] = DIGEST.into();
+                v["checkout_sha"] = SHA.into();
+            }),
+        )
+        .unwrap();
+        assert_eq!(release, parse_release(&req(), &manifest(|_| {})).unwrap());
+        let invalid = manifest(|v| {
+            v["schema_version"] = 2.into();
+            v["artifacts"][0]["path"] = "studio-web.tar.gz".into();
+        });
+        assert!(matches!(
+            parse_release(&req(), &invalid),
+            Err(ArtifactError::Manifest(_))
+        ));
+    }
+
+    #[test]
     fn every_manifest_field_the_deploy_depends_on_is_enforced() {
         type Mutation = Box<dyn FnOnce(&mut Value)>;
         let cases: Vec<(&str, Mutation)> = vec![
-            ("schema", Box::new(|v| v["schema_version"] = 2.into())),
+            ("schema", Box::new(|v| v["schema_version"] = 3.into())),
             (
                 "another component",
                 Box::new(|v| v["target"] = "studio-web".into()),

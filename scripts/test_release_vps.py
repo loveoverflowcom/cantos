@@ -1,0 +1,237 @@
+"""Actual tar/config inspection plus artifact promotion with fake SSH/curl/zstd boundaries."""
+import argparse
+import hashlib
+import io
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import time
+import unittest
+from unittest.mock import patch
+
+import release_artifact as contract
+import release_pipeline as release
+from test_release_artifact import ORIGIN, SHA
+
+
+def tar_bytes(path, files):
+    with tarfile.open(path, "w") as archive:
+        for name, data in files.items():
+            member = tarfile.TarInfo(name)
+            member.size = len(data)
+            member.mode = 0o700
+            archive.addfile(member, io.BytesIO(data))
+
+
+def docker_archive(path, *, revision=SHA, platform="amd64", bad_layer=False):
+    layer = b"fixture uncompressed layer bytes"
+    config = {"architecture": platform, "os": "linux", "config": {"Labels": {
+        "org.opencontainers.image.revision": revision, "io.cantos.schema-epoch": "2"}},
+        "rootfs": {"diff_ids": ["sha256:" + hashlib.sha256(layer).hexdigest()]}}
+    data = contract.canonical(config)
+    image_id = hashlib.sha256(data).hexdigest()
+    descriptor = [{"Config": image_id + ".json", "RepoTags": ["localhost/cantos-api:" + SHA], "Layers": ["layer.tar"]}]
+    tar_bytes(path, {"manifest.json": contract.canonical(descriptor), image_id + ".json": data,
+                     "layer.tar": b"corrupt" if bad_layer else layer})
+    return {"id": "sha256:" + image_id, "source_sha": SHA, "architecture": "amd64", "os": "linux", "schema_epoch": 2}
+
+
+def api_fixture(root):
+    output = root / "artifact"
+    output.mkdir()
+    image = {"id": "sha256:" + "d" * 64, "source_sha": SHA, "architecture": "amd64", "os": "linux", "schema_epoch": 2}
+    contract.write_new(output / "image.json", image)
+    (output / "cantos-api.tar.zst").write_bytes(b"compressed image fixture; decompressor mocked")
+    tar_bytes(output / "runtime.tar", {"REVISION": (SHA + "\n").encode(),
+        "infra/vps/bin/cantos-vps": b"#!/bin/sh\nexit 0\n", "infra/edge/Caddyfile": b"fixture",
+        "services/cantos-api/schema/legacy-epoch-1-manifest.json": b"{}"})
+    config = {"component": "api", "api_origin": None, "profile": "release", "platform": "linux/amd64"}
+    manifest = {"schema_version": 2, "repository": contract.REPOSITORY, "target": "api",
+        "source_sha": SHA, "checkout_sha": SHA, "config_sha": SHA, "deployed": False,
+        "created_at": time.time(), "api_origin": None, "configuration": config,
+        "configuration_sha256": contract.fingerprint(config),
+        "artifacts": [contract.file_record(output / name, output) for name in sorted(contract.EXPECTED["api"])]}
+    path = output / "manifest.json"
+    contract.write_new(path, manifest)
+    return argparse.Namespace(release_manifest=path, release_digest=contract.file_record(path, output)["sha256"],
+        release_sha=SHA, release_request=None, local_artifact=True, api_origin=ORIGIN,
+        host="root@vps.example.org", dry_run=False)
+
+
+@patch.dict(os.environ, {}, clear=True)
+class VpsTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("zstd"), "installed zstd required for actual decoder evidence")
+    def test_real_zstd_frame_decodes_and_truncation_fails_before_any_ssh(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = root / "source.tar"
+            image = docker_archive(archive)
+            compressed = root / "image.tar.zst"
+            subprocess.run(["zstd", "-q", str(archive), "-o", str(compressed)], check=True)
+            destination = root / "valid"
+            destination.mkdir()
+            release.inspect_image(root, compressed, image, SHA, destination)
+            compressed.write_bytes(compressed.read_bytes()[:12])
+            destination = root / "truncated"
+            destination.mkdir()
+            with self.assertRaisesRegex(ValueError, "truncated/corrupt"):
+                release.inspect_image(root, compressed, image, SHA, destination)
+
+    def test_docker_archive_id_actual_layer_source_platform_and_schema_are_checked(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "image.tar"
+            image = docker_archive(path)
+            release.inspect_docker_archive(path, image, SHA)
+            with self.assertRaisesRegex(ValueError, "image ID"):
+                release.inspect_docker_archive(path, {"id": "sha256:" + "0" * 64}, SHA)
+            for values, reason in [({"revision": "c" * 40}, "source/platform/schema"),
+                                   ({"platform": "arm64"}, "source/platform/schema"),
+                                   ({"bad_layer": True}, "corrupt image layer")]:
+                with self.subTest(values=values):
+                    image = docker_archive(path, **values)
+                    with self.assertRaisesRegex(ValueError, reason):
+                        release.inspect_docker_archive(path, image, SHA)
+
+    @patch.object(release, "inspect_image")
+    def test_verified_snapshot_and_host_inventory_precede_upload_and_only_matching_runtime_activates(self, inspect):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args = api_fixture(root)
+            commands = []
+            def fake_run(root, argv, **kwargs):
+                commands.append(argv)
+                return "Linux x86_64" if argv[0] == "ssh" and argv[-1] == "uname -sm" else None
+            with patch.object(release, "run", side_effect=fake_run):
+                release.deploy_api(root, args)
+            self.assertEqual(commands[0][-1], "uname -sm")
+            load = next(c[-1] for c in commands if c[0] == "ssh" and "cantos-vps promote" in c[-1])
+            self.assertIn("sha256sum --check --strict SHA256SUMS", load)
+            self.assertIn('./tree/infra/vps/bin/cantos-vps promote ' + SHA + ' "$PWD/tree" sha256:', load)
+            self.assertNotIn("/usr/local/sbin/cantos-vps deploy", load)
+            self.assertFalse(any(c[0] in ("cargo", "trunk", "podman") for c in commands))
+            self.assertNotIn("bootstrap", load)
+            self.assertNotIn("cutover", load)
+            self.assertNotIn("identity", load)
+            receipt = contract.read_json(next(root.glob("artifacts/vps-release/*/receipt.json")))
+            self.assertEqual(receipt["activation"], "activated")
+            self.assertEqual(receipt["smoke"], "PASS")
+            inspect.assert_called_once()
+
+    @patch.object(release, "inspect_image")
+    def test_wrong_platform_blocks_every_remote_write(self, inspect):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args = api_fixture(root)
+            with patch.object(release, "run", return_value="Linux aarch64") as run:
+                with self.assertRaisesRegex(ValueError, "Linux x86_64"):
+                    release.deploy_api(root, args)
+                self.assertEqual(run.call_count, 1)
+                self.assertEqual(run.call_args.args[1][-1], "uname -sm")
+            receipt = contract.read_json(next(root.glob("artifacts/vps-release/*/receipt.json")))
+            self.assertEqual(receipt["activation"], "NOT_RUN")
+
+    @patch.object(release, "inspect_image")
+    def test_lost_activation_response_is_retained_as_unknown_and_never_retried(self, inspect):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args = api_fixture(root)
+            def fake_run(root, argv, **kwargs):
+                if argv[-1] == "uname -sm":
+                    return "Linux x86_64"
+                if argv[0] == "ssh" and "cantos-vps promote" in argv[-1]:
+                    raise subprocess.CalledProcessError(255, "ssh")
+            with patch.object(release, "run", side_effect=fake_run) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    release.deploy_api(root, args)
+                self.assertEqual(sum("cantos-vps promote" in c.args[1][-1] for c in run.call_args_list), 1)
+                self.assertFalse(any(c.args[1][0] == "curl" for c in run.call_args_list))
+            receipt = contract.read_json(next(root.glob("artifacts/vps-release/*/receipt.json")))
+            self.assertEqual(receipt["activation"], "unknown")
+            self.assertEqual(receipt["smoke"], "NOT_RUN")
+
+    def test_corrupt_input_and_dry_run_never_write_to_vps(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args = api_fixture(root)
+            args.dry_run = True
+            with patch.object(release, "run") as run:
+                release.deploy_api(root, args)
+                run.assert_not_called()
+
+            self.assertFalse((root / "artifacts").exists())
+            (args.release_manifest.parent / "cantos-api.tar.zst").write_bytes(b"changed")
+            with patch.object(release, "run") as run:
+                with self.assertRaisesRegex(ValueError, "bytes/hash"):
+                    release.deploy_api(root, args)
+                run.assert_not_called()
+
+
+@unittest.skipUnless(shutil.which("flock"), "Linux host flock required for actual lock evidence")
+class HostPromotionTests(unittest.TestCase):
+    def host(self, *, wrong_id=False, pending=False, schema_failure=False):
+        source = (Path(__file__).resolve().parents[1] / "infra/vps/bin/cantos-vps").read_text().removesuffix('\nmain "$@"\n')
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tree = root / "incoming" / SHA / ("e" * 32) / "tree"
+            tree.mkdir(parents=True)
+            (tree / "REVISION").write_text(SHA + "\n")
+            (root / "state").mkdir()
+            if pending:
+                (root / "state/epoch2-cutover.pending").write_text("retained journal")
+            source = source.replace("readonly LOCK=/run/lock/cantos-vps.lock", "readonly LOCK=" + str(root / "lock"))
+            doubles = r'''
+event() { printf '%s\n' "$*" >>"$CANTOS_TEST_EVENTS"; }
+require_root() { :; }
+uname() { printf 'Linux x86_64\n'; }
+sha256sum() { event checksum; }
+zstd() { event decompress; printf 'fixture image'; }
+podman() {
+  if [[ $1 == load ]]; then cat >/dev/null; event load; return; fi
+  case "$4" in
+    '{{.Id}}') printf '%s\n' "$TEST_IMAGE_ID" ;;
+    '{{.Os}}/{{.Architecture}}') printf 'linux/amd64\n' ;;
+    *org.opencontainers.image.revision*) printf '%s\n' "$TEST_REVISION" ;;
+    *schema-epoch*) printf '2\n' ;;
+    *) return 1 ;;
+  esac
+}
+locked() {
+  [[ $CANTOS_VPS_LOCK_OWNER == "$BASHPID" ]] || return 91
+  if flock -n "$LOCK" true; then return 92; fi
+  event "$1-locked"
+}
+install_bundle() { locked install; }
+deploy() { locked deploy; }
+validate_runtime_browser_configuration() { event browser-check; }
+unit_active() { return 0; }
+preflight_schema() { event schema-check; return "$TEST_SCHEMA_STATUS"; }
+'''
+            image_id = "sha256:" + "d" * 64
+            body = '\nmain promote "$TEST_REVISION" "$TEST_TREE" "$TEST_EXPECTED_ID"\n'
+            env = dict(os.environ, CANTOS_VPS_ROOT=str(root), CANTOS_TEST_EVENTS=str(root / "events"),
+                TEST_IMAGE_ID="c" * 64 if wrong_id else "d" * 64,
+                TEST_EXPECTED_ID=image_id, TEST_REVISION=SHA, TEST_TREE=str(tree))
+            env["TEST_SCHEMA_STATUS"] = "65" if schema_failure else "0"
+            result = subprocess.run(["bash"], input=source + doubles + body, text=True, capture_output=True, env=env)
+            return result, (root / "events").read_text().splitlines() if (root / "events").exists() else []
+
+    def test_actual_host_protocol_locks_image_load_through_runtime_and_deploy(self):
+        result, events = self.host()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(events, ["checksum", "decompress", "load", "browser-check", "schema-check", "install-locked", "deploy-locked"])
+
+    def test_wrong_loaded_image_and_pending_cutover_refuse_before_runtime_install(self):
+        result, events = self.host(wrong_id=True)
+        self.assertEqual(result.returncode, 65, result.stderr)
+        self.assertIn("image ID mismatch", result.stderr)
+        self.assertNotIn("install-locked", events)
+        result, events = self.host(pending=True)
+        self.assertEqual(result.returncode, 75, result.stderr)
+        self.assertEqual(events, [])
+        result, events = self.host(schema_failure=True)
+        self.assertEqual(result.returncode, 65, result.stderr)
+        self.assertIn("schema-check", events)
+        self.assertNotIn("install-locked", events)

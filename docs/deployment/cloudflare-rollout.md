@@ -23,7 +23,7 @@ do not interpret the requested target as observed DNS or an accepted provider cu
 | [#279](https://github.com/loveoverflowcom/cantos/issues/279) | Optional submit/status convenience. It is not a cutover prerequisite when an authorized CircleCI UI/API can run the reviewed #277 contract. Proposed `pipeline` commands are not available until implemented. |
 | [#253](https://github.com/loveoverflowcom/cantos/issues/253) | Qualify installed Bearer routes, callback/gateway and exact allowed origins. Do not repair auth or registration as a hosting workaround. |
 
-The present source has build-only packaging and explicit Firebase/VPS commands. Do not use the
+The present source has manifest-v2 packaging, same-workflow promotion and explicit Firebase/VPS commands; account/executor/live acceptance is separate. Do not use the
 Firebase build-and-publish command as a substitute for Cloudflare artifact promotion. Re-read
 the owners' implemented command contracts before each live stage; there is deliberately no
 invented Cloudflare publish/rollback or CircleCI-submit command in this runbook.

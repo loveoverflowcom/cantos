@@ -33,7 +33,7 @@ production branch, bindings or billing, rolls back, or deletes a deployment.
 | **Branch** | `main`, `review-pages` | `--branch`; Pages makes a deployment *production* exactly when it equals the project's production branch |
 | **Environment** | `production` or `preview` | `--environment`, stated, never inferred from cwd, current Git branch or the default account |
 | **Deploy target** | `theatre`, `studio` | fixed alias of `cantos-theatre`, `cantos-studio` |
-| **Release artifact** | `artifacts/release-build/theatre-web/<SHA>` | the output of `release-build`; `--artifact` |
+| **Release artifact** | `artifacts/release-build/theatre-web/<SHA>/<CONFIG>/<ATTEMPT>` | the output of `release-build`; `--artifact` |
 
 The mapping *account → app → project + production branch* is yours: `infra/cloudflare/projects.json`
 (ignored by Git; start from `projects.example.json`). Production on a non-production branch, and
@@ -75,21 +75,21 @@ Each item changes **your** Cloudflare account; nothing here is done by xtask.
 
 ```bash
 # 1. Build the artifact once from a clean checkout (the existing build-only command).
-cargo xtask release-build theatre-web
+cargo xtask release-build theatre-web --api-origin https://api.cantos.cc
 
 # 2. Review the plan. Starts no tool, reads no credential, writes nothing.
 cargo xtask deploy cloudflare cantos-theatre --web --account ACCOUNT_ID --project cantos-theatre \
   --branch review-pages --environment preview \
-  --artifact artifacts/release-build/theatre-web/SHA --dry-run
+  --artifact artifacts/release-build/theatre-web/SHA/CONFIG/ATTEMPT --dry-run
 
 # 3. Publish a PUBLIC preview. A REMOTE WRITE; needs CLOUDFLARE_API_TOKEN in the environment.
 cargo xtask deploy cloudflare cantos-theatre --web --account ACCOUNT_ID --project cantos-theatre \
   --branch review-pages --environment preview \
-  --artifact artifacts/release-build/theatre-web/SHA
+  --artifact artifacts/release-build/theatre-web/SHA/CONFIG/ATTEMPT
 
 # 4. Production replaces what the project serves: the branch must be the project's production branch.
 cargo xtask deploy cloudflare cantos-theatre --web --account ACCOUNT_ID --project cantos-theatre \
-  --branch main --environment production --artifact artifacts/release-build/theatre-web/SHA
+  --branch main --environment production --artifact artifacts/release-build/theatre-web/SHA/CONFIG/ATTEMPT
 ```
 
 A **preview is public** (`https://<id>.<project>.pages.dev`) and does not isolate its backend: the
@@ -107,7 +107,7 @@ Each failure stops the rest; unreached stages are `NOT_RUN`.
 2. **Policy and mapping** — account/project/branch/environment agree with the private mapping, and
    `infra/cloudflare/<app>/` (`_headers`, `404.html`, optional `_redirects`) passes validation.
 3. **Wrangler** — the pinned release is installed and reports exactly 4.151.2.
-4. **Release artifact** — `manifest.json` is strict (schema 1, this app's component, a full source SHA,
+4. **Release artifact** — `manifest.json` is strict (schema 1 or 2, this app's component, a full source SHA,
    an HTTPS API origin, `deployed: false`, exactly one archive) and the archive's size and SHA-256
    equal the manifest. Hashes show the bytes did not change after packaging; **they do not prove who
    built them** — provenance is a recorded claim until #277's trusted-promotion contract exists. The
@@ -168,7 +168,7 @@ Ordinary pushes and pull requests start no workflow. The Cloudflare lane is opt-
 ```text
 trigger: target=<branch or SHA in origin/develop>  component=theatre-web|studio-web|web
          web-provider=cloudflare  web-environment=preview|production  [web-branch=<branch>]
-resolve target once → package (release-build, no credentials) → manual approval
+resolve target once → package (release prepare, manifest v2, no credentials) → manual approval
   → publish (context cloudflare-web, uploads the persisted artifact; never builds)
 ```
 
@@ -176,10 +176,16 @@ Create a CircleCI context named `cloudflare-web`, restricted to the Web deploy w
 only: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_THEATRE_PROJECT`,
 `CLOUDFLARE_STUDIO_PROJECT`, `CLOUDFLARE_PRODUCTION_BRANCH`. Do not attach `production`, and do not
 set these as project-level variables. The packaging job has no context. The publisher checks out the
-artifact's exact source SHA (it must be an ancestor of `origin/develop`), requires Node.js 22+, installs
-Wrangler from the lockfile and runs the dry run then the real command. Artifact promotion, a single
-release identity across API and Web, ordering and partial-release receipts belong to
-[#277](https://github.com/loveoverflowcom/cantos/issues/277); this lane does not claim them.
+artifact's exact source SHA through `release checkout`, validates the per-app v2 request/inventory
+and actual archive bytes, and refuses if `origin/develop` has moved. The explicit `api-origin`
+parameter reaches the credential-free producer. The publisher requires Node.js 22+, installs
+Wrangler from the lockfile and runs the dry run then the real command. Each app has a separate
+workspace subtree to prevent additive workspace collisions. Context jobs have native repository
+and develop/config filters before execution; account restrictions still require operator setup.
+The Pages lane retains its own per-app approvals and provider receipts. It does not use #277's
+Firebase/VPS `release promote` coordinator, durable CI publisher intents or combined API/Web
+ordering/reporting; `component=all` selects an independent API workflow. An uncertain Pages job
+loss still requires operator reconciliation before any rerun. Real CI execution remains NOT_RUN.
 
 ## Acceptance status
 
