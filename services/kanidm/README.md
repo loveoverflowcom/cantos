@@ -219,7 +219,8 @@ at most 64 KiB, not group/other writable, holding only `CERTIFICATE` blocks (one
 anchors **replace** the public roots for this issuer's OIDC and registration/onboarding clients only;
 no other client gains them, validation is never disabled, a plain-HTTP issuer or a file without an
 issuer is refused, and nothing is installed into a system trust store. No live registration, grant, secret, account,
-container, certificate or network change is performed by implementation/tests. The current xtask
+container, certificate or network change is performed by implementation/tests. The Web Bearer flow additionally needs the exact `/api/v1/theatre/auth/bearer/callback` registered on the
+same client (`kanidm system oauth2 add-redirect-url`); without it Kanidm answers `invalid_origin`. The current xtask
 Kanidm reconciliation plan remains Studio-specific; no Theatre live provisioning is implied.
 
 ### Theatre registration activation runbook — approval required before execution
