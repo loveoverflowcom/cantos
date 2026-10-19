@@ -622,16 +622,22 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                             {move || match nav.route.get() {
                                 Route::Auth(auth) => view! { <AuthPage state registration signup locale route=auth preview_icons=preview
                                     on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
-                                    on_register on_login=Callback::new(move |()| { crate::live::signup::leave(signup, preview); if network_allowed.get_untracked() { nav.login(state); } })
+                                    on_register on_login=Callback::new(move |()| { crate::live::signup::leave(signup, preview); if network_allowed.get_untracked() { nav.login(state, registration.get_untracked()); } })
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
                                     on_membership on_refresh on_logout on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } })
                                     on_signup_submit on_signup_verify on_signup_new on_signup_login on_signup_setup on_signup_cancel=Callback::new(move |()| {
                                         crate::live::signup::cancel_explicit(signup, preview); nav.open_auth(AuthRoute::login(auth.origin));
                                     })/> }.into_any(),
-                                Route::Account => view! { <LiveAccount state locale theme on_login on_register on_logout on_refresh on_membership/> }.into_any(),
+                                Route::Account => view! { <LiveAccount state locale theme registration on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } }) on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {
-                                    <LiveLibrary state locale/>
+                                    <LiveLibrary state locale on_page=Callback::new(move |(section, restart)| {
+                                        if preview || !network_allowed.get_untracked() { return; }
+                                        #[cfg(target_arch = "wasm32")]
+                                        crate::live::runtime::load_library(state, section, restart, 1, true);
+                                        #[cfg(not(target_arch = "wasm32"))]
+                                        let _ = (section, restart);
+                                    })/>
                                     <LibraryAccountEntry state locale on_account=Callback::new(move |_|nav.open_account())/>
                                 }.into_any(),
                                 Route::Membership(member) => view! {

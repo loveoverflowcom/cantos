@@ -19,6 +19,10 @@ macro_rules! resources {
 resources! {
     LoginEyebrow => ("CANTOS · MỘT LẦN TRỞ LẠI", "CANTOS · A PLACE TO RETURN"),
     LoginHeading => ("Câu chuyện đang đợi bạn.", "Your story is waiting."),
+    LoginChecking => ("Đang kiểm tra khả năng đăng nhập…", "Checking sign-in availability…"),
+    LoginUnconfigured => ("Đăng nhập chưa được cấu hình. Bạn vẫn có thể khám phá nội dung công khai.", "Sign-in is not configured. You can still explore public stories."),
+    LoginUnavailable => ("Chưa tải được cấu hình đăng nhập. Hãy kiểm tra lại; chưa xác nhận dịch vụ không hỗ trợ đăng nhập.", "Sign-in configuration could not be loaded. Check again; this does not mean sign-in is unsupported."),
+    LoginProtocol => ("Phản hồi cấu hình đăng nhập không hợp lệ. Hãy kiểm tra lại.", "The sign-in configuration response was invalid. Check again."),
     LoginHelp => ("Đăng nhập để trở lại thư viện của bạn. Nội dung công khai vẫn có thể khám phá từ Trang chủ.", "Sign in to return to your library. Public stories are still available to explore from Home."),
     CantosIdLogin => ("Đăng nhập với Cantos ID", "Sign in with Cantos ID"),
     CreateAccount => ("Tạo tài khoản Cantos", "Create a Cantos account"),

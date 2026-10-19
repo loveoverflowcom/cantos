@@ -3,6 +3,7 @@ pub mod account_view;
 pub mod auth_navigation;
 #[cfg(feature = "preview")]
 pub mod catalog;
+pub mod library;
 pub mod media_driver;
 #[cfg(test)]
 mod media_session_tests;
