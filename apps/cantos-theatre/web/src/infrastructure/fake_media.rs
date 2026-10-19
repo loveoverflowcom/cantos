@@ -55,7 +55,7 @@ mod tests {
         let mut port = FakeMedia;
         let callback = port.execute(&intent.effects[0]).pop().unwrap();
         let confirmed = reduce(intent.state, callback);
-        assert_eq!(confirmed.state.status(), Status::Simulating);
+        assert_eq!(confirmed.state.status(), Status::Playing);
         assert_eq!(confirmed.state.session().unwrap().position_ms(), 0);
         assert!(confirmed.effects.is_empty());
     }

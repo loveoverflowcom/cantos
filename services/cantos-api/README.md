@@ -195,6 +195,9 @@ The default host grants no public playback. An operator can opt in by supplying 
 - `CANTOS_PUBLIC_MEDIA_ORIGIN`: the exact bare HTTPS API origin as listeners reach it, without
   a trailing slash, path, query or credentials. This is trusted configuration, never inferred
   from a request's Host/Forwarded headers.
+  For local browser playback `scripts/serve_studio.py` sets it to `https://localhost:8443`, which
+  its `tls-front` command terminates in front of this HTTP host (see the
+  [seeded catalog runbook](../../docs/deployment/theatre-seeded-catalog.md#local-tls-front-end-for-browser-playback)).
 - `CANTOS_PLAYBACK_KEY_FILE`: absolute regular file, owned by the process user, mode 0400 or
   0600, containing exactly 32 raw key bytes (the all-zero key is refused). Symlink paths and
   partial configuration fail startup. Keep this file outside Git; key rotation invalidates

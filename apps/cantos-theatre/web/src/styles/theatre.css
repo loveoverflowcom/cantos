@@ -365,7 +365,19 @@ body { margin: 0; }
 /* Auth–Account v2: app-owned layout; shared variants retain control/state geometry. */
 .theatre-live-app { --theatre-player-clearance: var(--cantos-space-xl); }
 .theatre-live-app #theatre-library-account { margin-block-start: var(--cantos-space-lg); }
-.theatre-live-app .theatre-topbar select, .theatre-account-theme select {
+.theatre-listen-speed { display: grid; gap: var(--cantos-space-sm); margin-block-start: var(--cantos-space-lg); max-inline-size: 20rem; }
+/* The square cover derives its width from a rem-based minimum height; at large text that would
+   exceed the column, so the live player's cover is bound to its column instead. */
+.theatre-live-player .theatre-player-cover .theatre-cover { inline-size: 100%; min-block-size: 0; }
+/* Large text or a very small screen stacks the live mini-player instead of squeezing its title
+   into a column of single letters; rem-based, so it follows the user's text size. */
+@media (max-width: 20rem) {
+  .theatre-live-app .theatre-mini-player { grid-template-columns: minmax(0, 1fr); }
+  .theatre-live-app .theatre-mini-player .theatre-mini-title { flex-basis: 100%; }
+  .theatre-live-app .theatre-mini-player .theatre-time { grid-row: auto; }
+  .theatre-live-app .theatre-mini-player .theatre-transport { grid-column: 1; grid-row: auto; justify-self: start; }
+}
+.theatre-live-app .theatre-topbar select, .theatre-account-theme select, .theatre-listen-speed select {
   min-block-size: var(--cantos-size-control); max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-md);
   font: inherit; color: var(--cantos-color-on-surface);

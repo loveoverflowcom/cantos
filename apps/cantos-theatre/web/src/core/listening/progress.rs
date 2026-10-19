@@ -23,7 +23,13 @@ impl ProgressState {
         self.records
             .iter()
             .rev()
-            .filter(|progress| works.insert(progress.snapshot.source().episode().work))
+            .filter(|progress| {
+                progress
+                    .snapshot
+                    .source()
+                    .episode()
+                    .is_some_and(|episode| works.insert(episode.work))
+            })
             .copied()
             .collect()
     }
@@ -36,6 +42,10 @@ impl ProgressState {
     /// }
     /// ```
     pub fn remember(&self, snapshot: ValidatedResumeSnapshot) -> Self {
+        // Session progress is mock-only; a public release is never retained as mock progress.
+        if snapshot.source().episode().is_none() {
+            return self.clone();
+        }
         let mut next = self.clone();
         next.records
             .retain(|item| item.snapshot.source().episode() != snapshot.source().episode());
@@ -45,7 +55,7 @@ impl ProgressState {
     pub fn find(&self, episode: EpisodeId) -> Option<Progress> {
         self.records
             .iter()
-            .find(|item| item.snapshot.source().episode() == episode)
+            .find(|item| item.snapshot.source().episode() == Some(episode))
             .copied()
     }
 }
@@ -144,7 +154,7 @@ mod tests {
                 assert_eq!(state.latest().map(|item| item.snapshot.raw()), Some(raw));
                 assert_eq!(
                     state
-                        .find(raw.source.episode())
+                        .find(raw.source.episode().unwrap())
                         .map(|item| item.snapshot.raw()),
                     Some(raw)
                 );
@@ -190,7 +200,10 @@ mod projection_tests {
         );
         assert_eq!(state.records().len(), 3);
         assert_eq!(
-            state.find(river_first.source().episode()).unwrap().snapshot,
+            state
+                .find(river_first.source().episode().unwrap())
+                .unwrap()
+                .snapshot,
             river_first
         );
     }

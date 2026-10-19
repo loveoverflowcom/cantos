@@ -6,3 +6,4 @@ pub mod membership;
 mod membership_vectors;
 pub mod playback;
 pub mod public_ids;
+pub mod public_track;

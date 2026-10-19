@@ -2,14 +2,32 @@
 use super::{common::*, library::BookmarkRow};
 use crate::{
     app::{context::TheatreContext, routes::Route},
-    core::{
-        listening::library::Bookmark,
-        playback::{Event, Intent},
-    },
+    core::playback::{Event, Intent},
     messages::{self, Key},
     view::Recovery,
 };
 use leptos::prelude::*;
+
+const ICON_BOOKMARK: &str = "bookmark_border";
+
+/// Whether the mock session's current position already has a bookmark.
+fn bookmarked(ctx: TheatreContext) -> bool {
+    ctx.player.state.with(|state| {
+        state.session().is_some_and(|player| {
+            ctx.library.with(|library| {
+                library.bookmarks.iter().any(|mark| {
+                    Some(mark.episode) == player.source().episode()
+                        && mark.position_ms == player.position_ms()
+                })
+            })
+        })
+    })
+}
+
+/// The mock episode in the session; the isolated mock only ever selects fixtures.
+fn current_episode(ctx: TheatreContext) -> Option<crate::core::ids::EpisodeId> {
+    ctx.player.source.get().and_then(|source| source.episode())
+}
 
 fn transport_key(ctx: TheatreContext) -> Key {
     match ctx.player.transport.get() {
@@ -48,7 +66,7 @@ pub(crate) fn TransportAction(
         <button type="button" class="theatre-action theatre-transport" data-compact=compact
             on:click=move |_| ctx.toggle_transport() aria-describedby="theatre-demo-notice"
             aria-label=move || ctx.format(Key::TransportEpisode, &[("action", ctx.text(transport_key(ctx)).to_owned()),
-                ("episode", ctx.player.source.get().and_then(|source| ctx.episode(source.episode()).map(|episode| episode.title)).unwrap_or_default().to_owned())])>
+                ("episode", current_episode(ctx).and_then(|id| ctx.episode(id)).map(|episode| episode.title).unwrap_or_default().to_owned())])>
             {move || icon(if transport_key(ctx) == Key::Pause { "pause" } else { "play_arrow" })}
             <span class="cui-control-label">{move || ctx.text(transport_key(ctx))}</span>
         </button>
@@ -61,17 +79,17 @@ pub(crate) fn Player(ctx: TheatreContext) -> impl IntoView {
         <PageHeading ctx=ctx title=Key::Player/>
         <Show when=move || ctx.player.source.get().is_some() fallback=move || view! { <Recovery ctx=ctx title=Key::NoPlayer help=Key::NoPlayerHelp/> }>
             <section class="theatre-player">
-                <div class="theatre-player-cover">{move || ctx.player.source.get().map(|source| view! { <Cover ctx=ctx id=source.episode().work/> })}</div>
+                <div class="theatre-player-cover">{move || current_episode(ctx).map(|id| view! { <Cover ctx=ctx id=id.work/> })}</div>
                 <div class="theatre-player-body">
                     <p class="theatre-eyebrow">{move || ctx.text(Key::DemoBadge)}</p>
-                    <h2 lang="vi-VN">{move || ctx.player.source.get().and_then(|source| ctx.episode(source.episode()).map(|episode| episode.title)).unwrap_or_default()}</h2>
-                    <a class="theatre-text-link" lang="vi-VN" href=move || ctx.player.source.get().map(|source| Route::Work(source.episode().work).hash()).unwrap_or_else(|| Route::Discover.hash())>
-                        <span class="cui-control-label">{move || ctx.player.source.get().map(|source| ctx.work(source.episode().work).title).unwrap_or_default()}</span>
+                    <h2 lang="vi-VN">{move || current_episode(ctx).and_then(|id| ctx.episode(id)).map(|episode| episode.title).unwrap_or_default()}</h2>
+                    <a class="theatre-text-link" lang="vi-VN" href=move || current_episode(ctx).map(|id| Route::Work(id.work).hash()).unwrap_or_else(|| Route::Discover.hash())>
+                        <span class="cui-control-label">{move || current_episode(ctx).map(|id| ctx.work(id.work).title).unwrap_or_default()}</span>
                     </a>
                     <Show when=move || ctx.player.feedback.get().rejection.is_some()>
                         <p role="status">{move || ctx.text(Key::MockRejected)}</p>
                     </Show>
-                    <super::player_timeline::PlayerTimeline ctx=ctx/>
+                    <super::player_timeline::PlayerTimeline panel=super::player_timeline::PlayerPanel::mock(ctx)/>
                     <div class="theatre-actions">
                         <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.playback(Event::SkipRequested { delta_ms: -15000 })>{icon("replay")}<span class="cui-control-label">{move || ctx.text(Key::Back15)}</span></button>
                         <TransportAction ctx=ctx/>
@@ -79,7 +97,7 @@ pub(crate) fn Player(ctx: TheatreContext) -> impl IntoView {
                     </div>
                     <div class="theatre-actions">
                         <button type="button" class="theatre-action theatre-action-text" on:click=move |_| ctx.add_bookmark()>
-                            {icon("bookmark_border")}<span class="cui-control-label">{move || if ctx.player.state.with(|state| state.session().is_some_and(|player| ctx.library.with(|library| library.bookmarks.contains(&Bookmark { episode: player.source().episode(), position_ms: player.position_ms() })))) { ctx.text(Key::BookmarkAdded) } else { ctx.text(Key::AddBookmark) }}</span>
+                            {icon(ICON_BOOKMARK)}<span class="cui-control-label">{move || if bookmarked(ctx) { ctx.text(Key::BookmarkAdded) } else { ctx.text(Key::AddBookmark) }}</span>
                         </button>
                         <a class="theatre-text-link" href="#queue">{icon("queue_music")}<span class="cui-control-label">{move || ctx.text(Key::Queue)}</span></a>
                         <a class="theatre-text-link" href="#settings">{icon("settings")}<span class="cui-control-label">{move || ctx.text(Key::Settings)}</span></a>
@@ -140,9 +158,9 @@ fn MiniPlayerBar(ctx: TheatreContext) -> impl IntoView {
     view! {
             <aside class="theatre-mini-player" node_ref=bar aria-label=move || ctx.text(Key::MiniPlayer)>
                 <a class="theatre-mini-title" href="#player">
-                    <div class="theatre-mini-cover" aria-hidden="true">{move || ctx.player.source.get().map(|source| view! { <Cover ctx=ctx id=source.episode().work/> })}</div>
-                    <span><strong lang="vi-VN">{move || ctx.player.source.get().and_then(|source| ctx.episode(source.episode()).map(|episode| episode.title)).unwrap_or_default()}</strong>
-                    <small lang="vi-VN">{move || ctx.player.source.get().map(|source| ctx.work(source.episode().work).title).unwrap_or_default()}</small>
+                    <div class="theatre-mini-cover" aria-hidden="true">{move || current_episode(ctx).map(|id| view! { <Cover ctx=ctx id=id.work/> })}</div>
+                    <span><strong lang="vi-VN">{move || current_episode(ctx).and_then(|id| ctx.episode(id)).map(|episode| episode.title).unwrap_or_default()}</strong>
+                    <small lang="vi-VN">{move || current_episode(ctx).map(|id| ctx.work(id.work).title).unwrap_or_default()}</small>
                     <small>{move || ctx.text(if ctx.player.pending_seek.get().is_some() { Key::SeekPending } else { messages::status_key(ctx.player.status.get()) })}</small></span>
                 </a>
                 <span class="theatre-time">{move || position_label(ctx)}</span>

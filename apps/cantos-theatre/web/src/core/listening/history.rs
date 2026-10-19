@@ -27,13 +27,16 @@ impl HistoryState {
     /// Observe committed engine facts, never a page visit or unacknowledged play intent.
     /// Unchanged and stale callbacks cannot create or reorder history.
     pub fn observe_playback(&self, before: &PlayerState, after: &PlayerState) -> Self {
-        if before.status() == Status::Simulating || after.status() != Status::Simulating {
+        if before.status() == Status::Playing || after.status() != Status::Playing {
             return self.clone();
         }
         let Some(session) = after.session() else {
             return self.clone();
         };
-        let episode = session.source().episode();
+        // Simulated history is mock-only; a public release has no entry here.
+        let Some(episode) = session.source().episode() else {
+            return self.clone();
+        };
         let mut next = self.clone();
         next.records
             .retain(|entry| entry.episode.work != episode.work);

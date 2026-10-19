@@ -92,7 +92,7 @@ pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
         ctx.progress
             .get()
             .latest()
-            .map(|progress| progress.snapshot.source().episode())
+            .and_then(|progress| progress.snapshot.source().episode())
     });
     view! {
         <Show when=move || latest.get().is_some()>
@@ -138,7 +138,7 @@ pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
             .get()
             .recent()
             .into_iter()
-            .map(|progress| progress.snapshot.source().episode())
+            .filter_map(|progress| progress.snapshot.source().episode())
             .collect::<Vec<_>>()
     };
     let earlier = move || recent().into_iter().skip(1).collect::<Vec<_>>();
@@ -581,7 +581,7 @@ mod projection_tests {
                 state.remember(checkpoint(index, 0))
             });
             let progress = RwSignal::new(initial);
-            let watched = checkpoint(0, 0).source().episode();
+            let watched = checkpoint(0, 0).source().episode().unwrap();
             let baseline = Signal::derive(move || {
                 progress
                     .get()

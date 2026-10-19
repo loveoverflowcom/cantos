@@ -3,7 +3,10 @@
 Current review boundary: real playback/integration under #13/#158/#170/#172. Anonymous live
 discovery and separate account/readonly Library client code already exist; reuse them and
 their [actual Web boundary](../../apps/cantos-theatre/web/README.md#explicit-live-and-mock-modes).
-The explicit mock player is not real playback. GitHub owns task status.
+The explicit mock player is not real playback. The guest playback slice
+[#269](https://github.com/loveoverflowcom/cantos/issues/269) is recorded in its
+[evidence](../evidence/theatre-web-guest-playback.md); saved works, progress, history and resume
+(#272), search/routing (#270) and deployed/CDN delivery stay with their owners. GitHub owns task status.
 
 ## Why
 

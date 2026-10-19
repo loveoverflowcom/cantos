@@ -138,6 +138,12 @@ audio/ogg`, exact `Content-Length`, no content encoding, `private, no-store, no-
 
 Clients should refresh shortly before `expires_at_ms`. Theatre Web (#13), CMP (#14/#16) and the
 player UX issues (#154/#155) own player integration; none is implemented by this contract change.
+The Theatre Web guest slice ([#269](https://github.com/loveoverflowcom/cantos/issues/269),
+[evidence](../../docs/evidence/theatre-web-guest-playback.md)) consumes the routes above unchanged:
+it pins the manifest, POSTs an empty body, plays `PlaybackAuthorization.url` exactly as given
+through one audio element, refreshes 30 s before expiry for the same `publication_id` and compares
+every authorization's publication, rendition and SHA-256 with the pin. No wire field was added.
+Browser-origin addressing of a deployed API (CORS, CDN) remains separate acceptance.
 
 ## Errors and compatibility
 

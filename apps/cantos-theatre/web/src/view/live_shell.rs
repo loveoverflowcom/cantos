@@ -4,18 +4,22 @@ use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthRoute, MembershipReturn},
+        player_session::PlayerSession,
         public_discovery::PublicDiscoveryState,
+        public_listen::{ListenLabel, ListenOutcome, ListenState, NowPlaying},
         public_work::{Request as WorkRequest, WorkDetailPhase, WorkDetailState},
         registration::RegistrationState,
         signup::SignupState,
     },
+    core::{playback::Event as PlayerEvent, public_track::ReleaseRequest},
     features::{
         account::LiveAccount,
         auth::AuthPage,
         common::PersonGlyph,
         library::LiveLibrary,
+        live_player::{LiveMiniPlayer, LivePlayer, LivePlayerScreen},
         public_home::{self, PublicHome},
-        public_work::PublicWorkDetail,
+        public_work::{ListenControls, ListenTarget, PublicWorkDetail},
     },
     messages::{self, Key, Locale},
     platform::{self, auth_browser, signup_browser},
@@ -88,6 +92,57 @@ fn run_work_request(state: RwSignal<WorkDetailState>, request: WorkRequest, focu
     let _ = (state, request, focus);
 }
 
+/// The single player of the live shell. Native builds have no audio element and use an inert
+/// port; the browser build owns one `HTMLAudioElement` for the page's life.
+fn live_player() -> PlayerSession {
+    #[cfg(target_arch = "wasm32")]
+    {
+        PlayerSession::with_port(crate::platform::audio::BrowserAudio::new)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        PlayerSession::new(crate::infrastructure::inert_media::InertMedia)
+    }
+}
+
+/// Resolve the chosen release's manifest, then hand the admitted source to the one player. The
+/// ticket fences the answer: a newer choice makes this one a no-op.
+fn run_listen(
+    listen: RwSignal<ListenState>,
+    player: PlayerSession,
+    now_playing: RwSignal<Option<NowPlaying>>,
+    ticket: crate::application::public_listen::ListenTicket,
+) {
+    #[cfg(target_arch = "wasm32")]
+    leptos::task::spawn_local(async move {
+        let result = match web_sys::AbortController::new() {
+            Ok(controller) => {
+                crate::live::public_media::load_manifest(ticket.publication(), controller).await
+            }
+            Err(_) => Err(crate::application::public_work::CatalogReadError::Unavailable),
+        };
+        let Some(outcome) = listen.try_update(|state| state.finish(&ticket, result)) else {
+            return;
+        };
+        if let ListenOutcome::Select(selection) = outcome {
+            let crate::application::public_listen::Selection { release, label } = *selection;
+            let Some(source) =
+                crate::core::playback::Source::public(release.track(), release.duration_ms())
+            else {
+                return;
+            };
+            now_playing.set(Some(NowPlaying::new(&release, label)));
+            player.dispatch(PlayerEvent::SourceSelected {
+                source,
+                position_ms: 0,
+            });
+            player.dispatch(PlayerEvent::PlayRequested);
+        }
+    });
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = (listen, player, now_playing, ticket, ListenOutcome::Failed);
+}
+
 fn refresh_registration(state: RwSignal<RegistrationState>) {
     #[cfg(target_arch = "wasm32")]
     {
@@ -148,6 +203,16 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let locale = RwSignal::new(Locale::Vietnamese);
     let theme = RwSignal::new(Theme::System);
     let main = NodeRef::<leptos::html::Main>::new();
+    // One owner for the page: the player, the listener's intent and the display facts of what
+    // plays. Routes and Work details only read them and send intents.
+    let player = live_player();
+    let listen = RwSignal::new(ListenState::default());
+    let now_playing = RwSignal::new(None::<NowPlaying>);
+    let live = LivePlayer {
+        player,
+        now_playing,
+        locale,
+    };
     let nav = LiveNavigation::new(state, main, preview);
     if !network_allowed.get_untracked() {
         nav.route.set(Route::Auth(AuthRoute::register(
@@ -235,6 +300,51 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     });
     let on_open_work = Callback::new(move |id| nav.open_work(id, public_home::work_link_id(id)));
     let on_work_back = Callback::new(move |()| nav.close_work());
+    let on_listen = Callback::new(move |target: ListenTarget| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        // The release comes from the open Work and the unit the listener chose, never a slug.
+        let Some((work, label)) = work_detail.with_untracked(|s| {
+            let id = s.work_id()?;
+            match s.phase() {
+                WorkDetailPhase::Ready { work, .. } => Some((
+                    id,
+                    ListenLabel {
+                        work_title: work.title.clone(),
+                        unit_title: target.title.clone(),
+                        language: work.language.clone(),
+                    },
+                )),
+                _ => None,
+            }
+        }) else {
+            return;
+        };
+        let Some(request) = ReleaseRequest::parse(work, &target.unit_id, &target.publication_id)
+        else {
+            return;
+        };
+        // The same release already in the player resumes; nothing is fetched or replaced.
+        let resumes = player.source.get_untracked().is_some_and(|source| {
+            matches!(source.track(), crate::core::playback::TrackId::Public(track)
+                if track.publication() == request.publication() && track.unit() == request.unit())
+        });
+        if resumes {
+            player.dispatch(PlayerEvent::PlayRequested);
+            return;
+        }
+        let mut issued = None;
+        listen.update(|s| issued = s.begin(request, label));
+        if let Some(ticket) = issued {
+            run_listen(listen, player, now_playing, ticket);
+        }
+    });
+    let listen_controls = ListenControls {
+        player,
+        listen,
+        on_listen,
+    };
     let on_work_retry = Callback::new(move |()| {
         if preview || !network_allowed.get_untracked() {
             return;
@@ -393,12 +503,14 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                         <Button id="theatre-membership-login" variant=ButtonVariant::Tonal focus_on_press=true on_press=Callback::new(move |_| nav.open_auth(AuthRoute::login(nav.origin())))>{move || messages::text(Key::SignIn,locale.get())}</Button>
                                     </section>
                                 }.into_any(),
-                                Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
+                                Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale listen=listen_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
+                                Route::Player => view! { <LivePlayerScreen live/> }.into_any(),
                                 _ => view! { <PublicHome state=discovery locale on_login on_register on_open_work on_refresh=Callback::new(move |()| { if !preview { refresh_discovery(discovery); } })/> }.into_any(),
                             }}
                         </main>
                     </super::LiveContainer>
                 </div>
+                <LiveMiniPlayer live route=nav.route/>
             </div>
             </crate::features::signup::SignupLinkSafety>
         </super::LiveFrame>

@@ -139,15 +139,18 @@ impl Scrub {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::ids::{EpisodeId, WorkId};
+    use crate::core::{
+        ids::{EpisodeId, WorkId},
+        playback::TrackId,
+    };
 
     fn binding(generation: u32) -> SeekBinding {
         SeekBinding {
             identity: CallbackIdentity {
-                episode: EpisodeId {
+                track: TrackId::Fixture(EpisodeId {
                     work: WorkId::River,
                     index: 0,
-                },
+                }),
                 generation,
             },
             duration_ms: 60_000,

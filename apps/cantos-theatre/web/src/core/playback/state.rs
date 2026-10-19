@@ -1,22 +1,45 @@
-//! Immutable fake-engine facts. All units are integer ms/permille; no clock, URL or I/O.
+//! Immutable engine facts. All units are integer ms/permille; no clock, URL or I/O.
 use super::Rejection;
-use crate::core::ids::EpisodeId;
+use crate::core::{ids::EpisodeId, public_track::PublicTrack};
+
+/// What is being played: a synthetic fixture of the isolated mock, or the exact pinned public
+/// release. The two never convert into each other.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum TrackId {
+    Fixture(EpisodeId),
+    Public(PublicTrack),
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Source {
-    episode: EpisodeId,
+    track: TrackId,
     duration_ms: u32,
 }
 
 impl Source {
+    /// A synthetic mock episode.
     pub fn new(episode: EpisodeId, duration_ms: u32) -> Option<Self> {
         (duration_ms > 0 && episode.index <= 65535).then_some(Self {
-            episode,
+            track: TrackId::Fixture(episode),
             duration_ms,
         })
     }
-    pub const fn episode(self) -> EpisodeId {
-        self.episode
+    /// A pinned public release with its verified duration.
+    pub fn public(track: PublicTrack, duration_ms: u32) -> Option<Self> {
+        (duration_ms > 0).then_some(Self {
+            track: TrackId::Public(track),
+            duration_ms,
+        })
+    }
+    pub const fn track(self) -> TrackId {
+        self.track
+    }
+    /// The mock episode, or `None` for a public release.
+    pub const fn episode(self) -> Option<EpisodeId> {
+        match self.track {
+            TrackId::Fixture(episode) => Some(episode),
+            TrackId::Public(_) => None,
+        }
     }
     pub const fn duration_ms(self) -> u32 {
         self.duration_ms
@@ -25,7 +48,7 @@ impl Source {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CallbackIdentity {
-    pub episode: EpisodeId,
+    pub track: TrackId,
     pub generation: u32,
 }
 
@@ -40,6 +63,23 @@ pub enum Intent {
     Play,
     Pause(PauseCause),
 }
+/// Why the engine cannot play. The listener may try again; nothing here retries by itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Failure {
+    /// The browser declined to start audio (autoplay policy or an interrupted request).
+    PlayRefused,
+    /// The release is no longer available: withdrawn, revoked or replaced.
+    Unavailable,
+    /// The connection kept failing after the bounded recovery.
+    Network,
+    /// The bytes could not be decoded or the format is unsupported.
+    Decode,
+    /// A server answer broke the contract.
+    Protocol,
+    /// Re-authorization named a different release; the player never switches to it.
+    IdentityChanged,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Engine {
     Preparing,
@@ -48,6 +88,7 @@ pub enum Engine {
     Paused,
     Buffering,
     Ended,
+    Failed(Failure),
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Interruption {
@@ -59,9 +100,11 @@ pub enum Status {
     Idle,
     Loading,
     Paused(PauseCause),
-    Simulating,
+    /// The engine acknowledged running audio (the mock acknowledges a fake engine).
+    Playing,
     Buffering,
     Ended,
+    Failed(Failure),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -170,7 +213,7 @@ impl PlayerState {
     }
     pub fn identity(&self) -> Option<CallbackIdentity> {
         self.session.as_ref().map(|session| CallbackIdentity {
-            episode: session.source.episode,
+            track: session.source.track,
             generation: self.generation,
         })
     }
@@ -181,6 +224,9 @@ impl PlayerState {
         let Some(session) = &self.session else {
             return Status::Idle;
         };
+        if let Engine::Failed(failure) = session.engine {
+            return Status::Failed(failure);
+        }
         if session.engine == Engine::Ended {
             return Status::Ended;
         }
@@ -191,10 +237,11 @@ impl PlayerState {
             return Status::Paused(PauseCause::Interruption);
         }
         match session.engine {
-            Engine::Running => Status::Simulating,
+            Engine::Running => Status::Playing,
             Engine::Buffering => Status::Buffering,
             Engine::Preparing | Engine::Ready | Engine::Paused => Status::Loading,
             Engine::Ended => Status::Ended,
+            Engine::Failed(failure) => Status::Failed(failure),
         }
     }
 }
