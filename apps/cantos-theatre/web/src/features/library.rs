@@ -1,5 +1,7 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
+#[cfg(feature = "preview")]
 use super::common::*;
+#[cfg(feature = "preview")]
 use crate::{
     app::{context::TheatreContext, routes::Route},
     core::{
@@ -10,8 +12,10 @@ use crate::{
     messages::Key,
     platform,
 };
+#[cfg(feature = "preview")]
 use leptos::prelude::*;
 
+#[cfg(feature = "preview")]
 /// All displays for one row share one borrowed lookup. An unrelated episode's checkpoint
 /// does not invalidate this row's rendered position or accessible labels.
 fn position_projection(progress: ReadSignal<ProgressState>, id: EpisodeId) -> Memo<u32> {
@@ -25,6 +29,7 @@ fn position_projection(progress: ReadSignal<ProgressState>, id: EpisodeId) -> Me
     })
 }
 
+#[cfg(feature = "preview")]
 /// Progress as a value, not a control: the bar carries the same facts as the visible time.
 #[component]
 fn ProgressMeter(ctx: TheatreContext, position_ms: Signal<u32>, duration: u32) -> impl IntoView {
@@ -44,6 +49,7 @@ fn ProgressMeter(ctx: TheatreContext, position_ms: Signal<u32>, duration: u32) -
     }
 }
 
+#[cfg(feature = "preview")]
 /// Reopening restores the saved position paused, so the label says "open", never "continue".
 #[component]
 fn OpenPositionButton(
@@ -63,6 +69,7 @@ fn OpenPositionButton(
     }
 }
 
+#[cfg(feature = "preview")]
 /// Artwork, names, position and the action as one cluster; the width is bounded by the content.
 #[component]
 fn ContinuePanel(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
@@ -85,6 +92,7 @@ fn ContinuePanel(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
     .into_any()
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
     let latest = Memo::new(move |_| {
@@ -103,6 +111,7 @@ pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 /// A short reason and a way forward. `compact` drops the icon block and the action for
 /// secondary sections that should not repeat the primary call to action.
 #[component]
@@ -130,6 +139,7 @@ fn SectionEmpty(
     .into_any()
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
     let recent = move || {
@@ -185,6 +195,7 @@ pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn History(ctx: TheatreContext) -> impl IntoView {
     let confirming = RwSignal::new(false);
@@ -229,6 +240,7 @@ pub(crate) fn History(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 fn ListeningRow(
     ctx: TheatreContext,
@@ -252,6 +264,7 @@ fn ListeningRow(
     }.into_any()
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView {
     let title = ctx
@@ -276,7 +289,7 @@ pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView 
 pub(crate) mod live;
 pub(crate) use live::LiveLibrary;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "preview"))]
 mod tests {
     use super::*;
     use crate::{
@@ -428,7 +441,7 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "preview"))]
 mod projection_tests {
     use super::*;
     use crate::core::{

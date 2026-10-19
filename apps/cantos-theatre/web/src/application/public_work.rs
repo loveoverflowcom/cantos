@@ -4,9 +4,13 @@
 //! its ticket. A ticket from an older route, retry or page never lands. The walk follows the
 //! Discovery v1 rules accepted in ADR 0035: an empty page with a cursor is not the end, a failed
 //! page is retried with the same cursor, `invalid_cursor` restarts from page one de-duplicating by
-//! `unit_id`, and `position` is display order only. No unit count exists before the walk ends.
+//! `unit_id`, and `position` is display order only. The Work's public `unit_count` and each row's
+//! `ordinal` come from the presentation DTOs (`presentation=1`); the loaded rows never supply a
+//! total, and the rank is neither an identity nor an author-assigned number.
 use crate::core::public_ids::{canonical_uuid, PublicWorkId};
-use cantos_contracts::theatre::{UnitKind, UnitPage, UnitSummary, WorkKind, WorkSummary};
+use cantos_contracts::theatre::{
+    PresentedUnitPage, PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind,
+};
 use std::collections::BTreeSet;
 
 /// Requested page size; the contract default and the decoder's per-page bound.
@@ -55,14 +59,14 @@ pub const fn unit_kind_for(kind: WorkKind) -> UnitKind {
 }
 
 /// The detail must be the Work named by the route, with renderable public text.
-pub fn validate_work(work: &WorkSummary, expected: PublicWorkId) -> bool {
+pub fn validate_work(work: &PresentedWorkSummary, expected: PublicWorkId) -> bool {
     PublicWorkId::parse(&work.work_id) == Some(expected)
         && !work.title.trim().is_empty()
         && !work.language.trim().is_empty()
 }
 
 /// Page-local checks shared by the HTTP decoder and the state machine.
-pub fn validate_page(page: &UnitPage, work: PublicWorkId, kind: UnitKind) -> bool {
+pub fn validate_page(page: &PresentedUnitPage, work: PublicWorkId, kind: UnitKind) -> bool {
     let mut ids = BTreeSet::new();
     PublicWorkId::parse(&page.work_id) == Some(work)
         && page.items.len() <= UNIT_PAGE_LIMIT
@@ -148,7 +152,7 @@ pub enum ListNotice {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct UnitList {
-    rows: Vec<UnitSummary>,
+    rows: Vec<PresentedUnitSummary>,
     /// Units answered by the current walk; a repeat within one walk is a protocol failure.
     walk_seen: BTreeSet<String>,
     walk_started: bool,
@@ -166,7 +170,7 @@ pub struct UnitList {
 }
 
 impl UnitList {
-    pub fn rows(&self) -> &[UnitSummary] {
+    pub fn rows(&self) -> &[PresentedUnitSummary] {
         &self.rows
     }
     pub fn status(&self) -> &PageStatus {
@@ -197,7 +201,7 @@ impl UnitList {
         self.unavailable.contains(unit_id)
     }
 
-    fn apply(&mut self, page: UnitPage) {
+    fn apply(&mut self, page: PresentedUnitPage) {
         for unit in page.items {
             self.walk_seen.insert(unit.unit_id.clone());
             self.unavailable.remove(&unit.unit_id);
@@ -251,7 +255,7 @@ pub enum WorkDetailPhase {
     NotFound,
     Failed(ReadFailure),
     Ready {
-        work: WorkSummary,
+        work: PresentedWorkSummary,
         units: Box<UnitList>,
     },
 }
@@ -329,7 +333,7 @@ impl WorkDetailState {
     pub fn finish_work(
         &mut self,
         ticket: &WorkTicket,
-        result: Result<WorkSummary, CatalogReadError>,
+        result: Result<PresentedWorkSummary, CatalogReadError>,
     ) -> Step {
         if ticket.generation != self.generation
             || self.work != Some(ticket.work)
@@ -355,7 +359,7 @@ impl WorkDetailState {
     pub fn finish_page(
         &mut self,
         ticket: &PageTicket,
-        result: Result<UnitPage, CatalogReadError>,
+        result: Result<PresentedUnitPage, CatalogReadError>,
     ) -> Step {
         if ticket.generation != self.generation
             || self.work != Some(ticket.work)
@@ -462,26 +466,38 @@ mod tests {
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const OTHER: &str = "10000000-0000-4000-8000-000000000002";
 
-    fn fixture(json: &str) -> UnitPage {
-        serde_json::from_str(json).unwrap()
+    /// The shared v1-shaped continuation fixtures carry no rows with an `ordinal`; rank them in
+    /// list order, exactly as the presentation capability does.
+    fn fixture(json: &str) -> PresentedUnitPage {
+        let mut value: serde_json::Value = serde_json::from_str(json).unwrap();
+        for (index, item) in value["items"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .enumerate()
+        {
+            item["ordinal"] = serde_json::json!(index + 1);
+        }
+        serde_json::from_value(value).unwrap()
     }
-    fn units_fixture() -> UnitPage {
+    fn units_fixture() -> PresentedUnitPage {
         fixture(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units.json"
+            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_units.json"
         ))
     }
     fn work_id() -> PublicWorkId {
         PublicWorkId::parse(WORK).unwrap()
     }
-    fn work_summary() -> WorkSummary {
-        let page: cantos_contracts::theatre::WorkPage = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/works.json"
+    fn work_summary() -> PresentedWorkSummary {
+        let page: cantos_contracts::theatre::PresentedWorkPage =
+            serde_json::from_str(include_str!(
+            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_works.json"
         ))
-        .unwrap();
+            .unwrap();
         page.items.into_iter().next().unwrap()
     }
-    fn unit(n: u128, position: u32) -> UnitSummary {
-        UnitSummary {
+    fn unit(n: u128, position: u32) -> PresentedUnitSummary {
+        PresentedUnitSummary {
             unit_id: uuid::Uuid::from_u128(0x2000_0000_0000_4000_8000_0000_0000_0000 + n)
                 .to_string(),
             kind: UnitKind::Chapter,
@@ -492,10 +508,11 @@ mod tests {
                 .to_string(),
             published_at_ms: 5_000,
             duration_ms: 61_000,
+            ordinal: u64::from(position) + 1,
         }
     }
-    fn page(items: Vec<UnitSummary>, next: Option<&str>) -> UnitPage {
-        UnitPage {
+    fn page(items: Vec<PresentedUnitSummary>, next: Option<&str>) -> PresentedUnitPage {
+        PresentedUnitPage {
             work_id: WORK.into(),
             items,
             next_cursor: next.map(str::to_owned),
@@ -629,14 +646,14 @@ mod tests {
     #[test]
     fn terminal_empty_list_is_distinct_from_failure_and_from_an_intermediate_empty_page() {
         let (mut state, first) = ready();
-        let terminal: UnitPage = fixture(include_str!(
+        let terminal: PresentedUnitPage = fixture(include_str!(
             "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_end_empty.json"
         ));
         assert_eq!(state.finish_page(&first, Ok(terminal)), Step::Settled);
         assert!(units(&state).is_empty_terminal());
 
         let (mut state, first) = ready();
-        let continuation: UnitPage = fixture(include_str!(
+        let continuation: PresentedUnitPage = fixture(include_str!(
             "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_empty_continuation.json"
         ));
         let cursor = continuation.next_cursor.clone();
@@ -836,10 +853,9 @@ mod tests {
         else {
             panic!("restart")
         };
-        let republished: UnitPage = serde_json::from_str(include_str!(
+        let republished: PresentedUnitPage = fixture(include_str!(
             "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_republished.json"
-        ))
-        .unwrap();
+        ));
         assert_eq!(
             state.finish_page(&restart, Ok(republished.clone())),
             Step::Settled

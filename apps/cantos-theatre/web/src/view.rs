@@ -1,3 +1,4 @@
+#[cfg(feature = "preview")]
 use crate::{
     app::{context::TheatreContext, routes::Route},
     application::catalog::Scenario,
@@ -10,15 +11,17 @@ use crate::{
         queue::Queue,
         work_detail::WorkDetail,
     },
+};
+use crate::{
     messages::{self, Key, Locale},
     platform,
 };
-use cantos_ui::{
-    Container, ContainerWidth, Density, EmptyState, Select, Space, Stack, Surface, SurfaceTone,
-    Theme, UiRoot,
-};
+use cantos_ui::{Container, ContainerWidth, Density, Select, Theme, UiRoot};
+#[cfg(feature = "preview")]
+use cantos_ui::{EmptyState, Space, Stack, Surface, SurfaceTone};
 use leptos::prelude::*;
 
+#[cfg(feature = "preview")]
 #[component]
 pub fn Theatre() -> impl IntoView {
     let main = NodeRef::<leptos::html::Main>::new();
@@ -87,6 +90,7 @@ pub fn Theatre() -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 fn Navigation(ctx: TheatreContext) -> impl IntoView {
     [
@@ -105,6 +109,7 @@ fn Navigation(ctx: TheatreContext) -> impl IntoView {
     .collect_view()
 }
 
+#[cfg(feature = "preview")]
 #[component]
 fn Settings(ctx: TheatreContext) -> impl IntoView {
     view! {
@@ -149,6 +154,7 @@ fn Settings(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn Recovery(ctx: TheatreContext, title: Key, help: Key) -> impl IntoView {
     view! {
@@ -320,7 +326,9 @@ mod tests {
 }
 
 mod live_shell;
-pub use live_shell::{AuthPreview, LiveBoundary};
+#[cfg(feature = "preview")]
+pub use live_shell::AuthPreview;
+pub use live_shell::LiveBoundary;
 
 // Keep the existing shared foundation adoption at this root composition site.
 #[component]

@@ -2,17 +2,17 @@
 use crate::messages::Locale;
 
 macro_rules! resources {
-    ($($key:ident => ($vi:literal, $en:literal)),+ $(,)?) => {
+    ($($(#[$meta:meta])* $key:ident => ($vi:literal, $en:literal)),+ $(,)?) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        pub(crate) enum CopyKey { $($key),+ }
+        pub(crate) enum CopyKey { $($(#[$meta])* $key),+ }
         pub(crate) fn text(key: CopyKey, locale: Locale) -> &'static str {
             match (key, locale) {
-                $((CopyKey::$key, Locale::Vietnamese) => $vi,
-                  (CopyKey::$key, Locale::English) => $en),+
+                $($(#[$meta])* (CopyKey::$key, Locale::Vietnamese) => $vi,
+                  $(#[$meta])* (CopyKey::$key, Locale::English) => $en),+
             }
         }
         #[cfg(test)]
-        const ALL: &[CopyKey] = &[$(CopyKey::$key),+];
+        const ALL: &[CopyKey] = &[$($(#[$meta])* CopyKey::$key),+];
     };
 }
 
@@ -56,7 +56,9 @@ resources! {
     SignupSetupOpened => ("Bước thiết lập đã được mở. Nếu đã thiết lập xong, hãy trở lại Đăng nhập. Link không được lưu để lấy lại; nếu không mở được hoặc bị gián đoạn, cần đối soát trước khi thử lại.", "Account setup was opened. Once setup is complete, return to sign in. The link is not stored for retrieval; if it did not open or was interrupted, reconciliation is needed before retrying."),
     SignupFirebaseUnknown => ("Chưa xác nhận được kết quả thiết lập tài khoản. Link xác nhận không được tự gửi lại và link thiết lập không thể lấy lại. Cần đối soát trước khi đăng ký lại; nếu đã thiết lập xong, hãy trở lại Đăng nhập.", "The account setup outcome could not be confirmed. Confirmation is not retried automatically and the setup link cannot be retrieved. Reconcile before registering again; if setup is complete, return to sign in."),
     SignupFirebaseUnavailable => ("Chưa hoàn tất được bước xác minh. Không tự gửi lại xác nhận; cần kiểm tra kết quả trước khi thử lại.", "Verification could not be completed. Confirmation is not retried automatically; check the outcome before retrying."),
+    #[cfg(feature = "preview")]
     SignupFixtureFirebase => ("Fixture: mở link Firebase", "Fixture: open Firebase link"),
+    #[cfg(feature = "preview")]
     SignupFixtureBrowserSetup => ("Fixture: nhận link thiết lập trong thẻ", "Fixture: setup link in this tab"),
     SignupLinkUnavailable => ("Link này không còn khả dụng; có thể đã hết hạn hoặc đã được sử dụng. Bạn có thể yêu cầu email mới. Nếu đã có tài khoản, hãy trở lại Đăng nhập.", "This link is unavailable; it may have expired or already been used. You can request another email. If you already have an account, return to sign in."),
     SignupVerificationUnknown => ("Chưa xác nhận được kết quả xử lý link. Hãy kiểm tra email thiết lập tài khoản trước. Không tự gửi lại bước xác nhận; nếu cần, mở lại link email hoặc yêu cầu link mới.", "The link outcome could not be confirmed. Check for the account setup email first. This confirmation is not retried automatically; if needed, reopen the email link or request a new one."),
@@ -67,12 +69,19 @@ resources! {
     SignupNewRequest => ("Yêu cầu email mới", "Request another email"),
     SignupCancel => ("Hủy và về Đăng nhập", "Cancel and return to sign-in"),
     SignupCancelHelp => ("Rời trang chỉ xóa link trong trình duyệt. Nút Hủy gửi yêu cầu hủy xác minh nếu chưa xác nhận; cần kết nối mạng và không thu hồi việc thiết lập đã bắt đầu.", "Leaving only clears this browser link. Cancel requests verification cancellation before confirmation; it requires a connection and cannot undo account setup already started."),
+    #[cfg(feature = "preview")]
     SignupFixtureNotice => ("Kiểm thử đăng ký cô lập: dữ liệu giả, không gửi email, không gọi dịch vụ tài khoản, không tạo tài khoản.", "Isolated sign-up fixtures: fake data, no email, no account-service calls and no account creation."),
+    #[cfg(feature = "preview")]
     SignupFixtureLink => ("Fixture: mở link xác minh", "Fixture: open verification link"),
+    #[cfg(feature = "preview")]
     SignupFixtureAccepted => ("Fixture: yêu cầu được tiếp nhận", "Fixture: request accepted"),
+    #[cfg(feature = "preview")]
     SignupFixtureSetup => ("Fixture: dịch vụ nhận email thiết lập", "Fixture: setup email accepted"),
+    #[cfg(feature = "preview")]
     SignupFixtureUnavailable => ("Fixture: link không khả dụng", "Fixture: link unavailable"),
+    #[cfg(feature = "preview")]
     SignupFixtureUnknown => ("Fixture: mất phản hồi", "Fixture: response lost"),
+    #[cfg(feature = "preview")]
     SignupFixtureInvalid => ("Fixture: email không hợp lệ", "Fixture: invalid email"),
     SignupServiceUnavailable => ("Chưa kiểm tra được khả năng tạo tài khoản. Vui lòng thử lại; không có tài khoản nào được tạo ở bước này.", "Account creation availability could not be checked. Please retry; no account was created by this step."),
     SignupInvalidResponse => ("Chưa xác nhận được khả năng tạo tài khoản từ phản hồi dịch vụ. Vui lòng thử lại.", "Account creation availability could not be confirmed from the service response. Please retry."),

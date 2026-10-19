@@ -142,24 +142,40 @@ pub fn trunk(workspace: &Workspace, app: App, subcommand: &str, profile: Profile
         .arg_if(profile == Profile::Release, "--release")
 }
 
+/// Trunk's environment spellings of `--features`, `--all-features` and `--no-default-features`.
+const TRUNK_FEATURE_ENV: [&str; 3] = [
+    "TRUNK_BUILD_FEATURES",
+    "TRUNK_BUILD_ALL_FEATURES",
+    "TRUNK_BUILD_NO_DEFAULT_FEATURES",
+];
+
 /// The locked release Trunk build of one Web app into a caller-owned, fresh `dist`: the app's
 /// own `Trunk.toml`, its explicit `index.html` entrypoint and the root public URL, so neither an
 /// inherited default nor an older output directory can decide which bytes were built. Used by
 /// every command that inspects or ships the release bundle (`web-performance`, `deploy`).
 pub fn release_bundle(workspace: &Workspace, app: App, dist: &Path) -> CommandSpec {
-    trunk(workspace, app, "build", Profile::Release).args([
-        "--config".to_owned(),
-        workspace
-            .path(app.web_dir())
-            .join("Trunk.toml")
-            .display()
-            .to_string(),
-        "--dist".to_owned(),
-        dist.display().to_string(),
-        "--public-url".to_owned(),
-        "/".to_owned(),
-        "index.html".to_owned(),
-    ])
+    // Trunk reads its Cargo feature selection from these variables when no flag is given. A
+    // shipped bundle never takes its features from the ambient environment: Theatre's
+    // development previews (`--features preview`) must not reach Hosting by accident.
+    TRUNK_FEATURE_ENV
+        .into_iter()
+        .fold(
+            trunk(workspace, app, "build", Profile::Release),
+            CommandSpec::unset,
+        )
+        .args([
+            "--config".to_owned(),
+            workspace
+                .path(app.web_dir())
+                .join("Trunk.toml")
+                .display()
+                .to_string(),
+            "--dist".to_owned(),
+            dist.display().to_string(),
+            "--public-url".to_owned(),
+            "/".to_owned(),
+            "index.html".to_owned(),
+        ])
 }
 
 pub fn api_binaries(workspace: &Workspace, profile: Profile, bin: Option<&str>) -> CommandSpec {
@@ -321,6 +337,19 @@ mod tests {
             assert!(command.args.starts_with(&ordinary.commands[0].args));
             assert_eq!(command.cwd, ordinary.commands[0].cwd);
             assert_eq!(command.env, ordinary.commands[0].env);
+            // No ambient Cargo feature selection can reach a shipped bundle (previews are a
+            // Cargo feature); an ordinary local build keeps honoring it for the explicit lane.
+            for variable in [
+                "TRUNK_BUILD_FEATURES",
+                "TRUNK_BUILD_ALL_FEATURES",
+                "TRUNK_BUILD_NO_DEFAULT_FEATURES",
+            ] {
+                assert!(
+                    command.env_remove.iter().any(|name| name == variable),
+                    "{variable}"
+                );
+                assert!(ordinary.commands[0].env_remove.is_empty());
+            }
             let config = workspace
                 .path(app.web_dir())
                 .join("Trunk.toml")

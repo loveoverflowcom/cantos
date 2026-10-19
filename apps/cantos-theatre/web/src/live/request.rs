@@ -2,15 +2,24 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
     Live,
+    /// Isolated development previews exist only in a build with the `preview` feature.
+    #[cfg(feature = "preview")]
     Mock,
+    #[cfg(feature = "preview")]
     MembershipPreview,
+    #[cfg(feature = "preview")]
     AuthPreview,
 }
 impl Mode {
+    /// A production build has no preview to select: every query, including the preview ones,
+    /// is the live mode. Only a build with the `preview` feature honors the exact preview URLs.
     pub fn from_query(query: &str) -> Self {
         match query {
+            #[cfg(feature = "preview")]
             "?mode=mock" => Self::Mock,
+            #[cfg(feature = "preview")]
             "?mode=membership-preview" => Self::MembershipPreview,
+            #[cfg(feature = "preview")]
             "?mode=auth-preview" => Self::AuthPreview,
             _ => Self::Live,
         }

@@ -1,6 +1,7 @@
 //! App-owned native range composition; no shared primitive or playback policy is introduced.
+#[cfg(feature = "preview")]
+use crate::app::context::TheatreContext;
 use crate::{
-    app::context::TheatreContext,
     application::{player_session::PlayerSession, scrub::Scrub},
     core::playback::{Event, Status},
     messages::{self, Key, Locale},
@@ -20,6 +21,7 @@ pub(crate) struct TimelineCopy {
 }
 
 impl TimelineCopy {
+    #[cfg(feature = "preview")]
     pub(crate) const MOCK: Self = Self {
         label: Key::Timeline,
         help: Key::TimelineHelp,
@@ -47,6 +49,7 @@ pub(crate) struct PlayerPanel {
 }
 
 impl PlayerPanel {
+    #[cfg(feature = "preview")]
     pub(crate) fn mock(ctx: TheatreContext) -> Self {
         Self {
             player: ctx.player,

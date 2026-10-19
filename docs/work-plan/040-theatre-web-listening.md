@@ -6,7 +6,9 @@ their [actual Web boundary](../../apps/cantos-theatre/web/README.md#explicit-liv
 The explicit mock player is not real playback. The guest playback slice
 [#269](https://github.com/loveoverflowcom/cantos/issues/269) is recorded in its
 [evidence](../evidence/theatre-web-guest-playback.md); saved works, progress, history and resume
-(#272), search/routing (#270) and deployed/CDN delivery stay with their owners. GitHub owns task status.
+(#272) and deployed/CDN delivery stay with their owners; search, pagination, routes and the
+production/preview build split of [#270](https://github.com/loveoverflowcom/cantos/issues/270)
+are recorded in its [evidence](../evidence/theatre-web-discovery-routes-270.md). GitHub owns task status.
 
 ## Why
 

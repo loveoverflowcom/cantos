@@ -1,3 +1,4 @@
+#[cfg(feature = "preview")]
 pub mod context;
 pub mod routes;
 

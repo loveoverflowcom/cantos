@@ -5,7 +5,7 @@ use crate::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthRoute, MembershipReturn},
         player_session::PlayerSession,
-        public_discovery::PublicDiscoveryState,
+        public_discovery::{DiscoveryQuery, DiscoveryTicket, PublicDiscoveryState},
         public_listen::{ListenLabel, ListenOutcome, ListenState, NowPlaying},
         public_work::{Request as WorkRequest, WorkDetailPhase, WorkDetailState},
         registration::RegistrationState,
@@ -33,22 +33,37 @@ fn refresh_account(state: RwSignal<AccountViewState>) {
     #[cfg(not(target_arch = "wasm32"))]
     let _ = state;
 }
-fn refresh_discovery(state: RwSignal<PublicDiscoveryState>) {
+/// Issue one discovery page request and the automatic page requests it implies (an empty page
+/// that still has a cursor). Focus follows only the listener intent that issued it: the first
+/// row a continuation added, else the polite list status. A search never moves focus.
+fn run_discovery(state: RwSignal<PublicDiscoveryState>, ticket: DiscoveryTicket, focus: bool) {
     #[cfg(target_arch = "wasm32")]
-    {
-        let mut issued = None;
-        state.update(|s| issued = s.begin_refresh());
-        if let Some(issued) = issued {
-            leptos::task::spawn_local(async move {
-                let result = crate::live::discovery::load().await;
-                let _ = state.try_update(|s| {
-                    s.finish(issued, result);
-                });
-            });
+    leptos::task::spawn_local(async move {
+        use crate::application::public_discovery::Step;
+        let mut ticket = ticket;
+        loop {
+            let result = crate::live::discovery::load(&ticket).await;
+            let Some(step) = state.try_update(|s| s.finish(&ticket, result)) else {
+                return;
+            };
+            match step {
+                Step::Continue(next) => ticket = next,
+                Step::Settled => {
+                    if focus {
+                        if let Some(target) =
+                            state.try_with_untracked(public_home::page_focus_target)
+                        {
+                            platform::focus_by_id(target);
+                        }
+                    }
+                    return;
+                }
+                Step::Ignored => return,
+            }
         }
-    }
+    });
     #[cfg(not(target_arch = "wasm32"))]
-    let _ = state;
+    let _ = (state, ticket, focus);
 }
 
 /// Issue one public Work request and the automatic page requests it implies. Focus follows only
@@ -161,8 +176,83 @@ fn refresh_registration(state: RwSignal<RegistrationState>) {
     let _ = state;
 }
 
+/// The diagnostic guest, identity configuration and an empty catalog of the explicit auth
+/// preview. It reads no network and exists only in a build with the `preview` feature.
+#[cfg(feature = "preview")]
+fn seed_preview(
+    state: RwSignal<AccountViewState>,
+    registration: RwSignal<RegistrationState>,
+    discovery: RwSignal<PublicDiscoveryState>,
+) {
+    let _ = crate::features::auth_preview::guest(state);
+    registration.update(|current| {
+        if let Some(issued) = current.begin() {
+            current.finish(
+                issued,
+                Ok(cantos_contracts::theatre_identity::Configuration {
+                    login: cantos_contracts::theatre_identity::LoginMethod::Oidc,
+                    registration:
+                        cantos_contracts::theatre_identity::Registration::EmailVerification {},
+                }),
+            );
+        }
+    });
+    discovery.update(|s| {
+        if let Some(issued) = s.begin(DiscoveryQuery::default()) {
+            s.finish(
+                &issued,
+                Ok(cantos_contracts::theatre::PresentedWorkPage {
+                    items: vec![],
+                    next_cursor: None,
+                }),
+            );
+        }
+    });
+}
+#[cfg(not(feature = "preview"))]
+fn seed_preview(
+    _: RwSignal<AccountViewState>,
+    _: RwSignal<RegistrationState>,
+    _: RwSignal<PublicDiscoveryState>,
+) {
+}
+
+/// Fixture controls of the explicit auth preview; a production build draws nothing.
+#[cfg(feature = "preview")]
+#[component]
+fn PreviewControls(
+    preview: bool,
+    state: RwSignal<AccountViewState>,
+    signup: RwSignal<SignupState>,
+    locale: RwSignal<Locale>,
+    on_cancel: Callback<()>,
+) -> impl IntoView {
+    view! {
+        {preview.then(|| view! { <crate::features::auth_preview::AuthPreviewControls state locale on_cancel/> })}
+        {preview.then(|| view! { <crate::features::signup::SignupPreviewControls state=signup locale/> })}
+    }
+}
+#[cfg(not(feature = "preview"))]
+#[component]
+fn PreviewControls(
+    preview: bool,
+    state: RwSignal<AccountViewState>,
+    signup: RwSignal<SignupState>,
+    locale: RwSignal<Locale>,
+    on_cancel: Callback<()>,
+) -> impl IntoView {
+    let _ = (preview, state, signup, locale, on_cancel);
+}
+
 #[component]
 pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
+    // Only a build with the `preview` feature can run the diagnostic shell; a production build
+    // ignores the property, so no caller can switch fixtures on.
+    #[cfg(not(feature = "preview"))]
+    let preview = {
+        let _ = preview;
+        false
+    };
     // Capture and scrub a proof before navigation construction, effects or any network request.
     let captured = signup_browser::capture_link();
     let history_blocked =
@@ -242,34 +332,26 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         crate::live::runtime::mount(state);
     }
     if preview {
-        let _ = crate::features::auth_preview::guest(state);
-        registration.update(|current| {
-            if let Some(issued) = current.begin() {
-                current.finish(
-                    issued,
-                    Ok(cantos_contracts::theatre_identity::Configuration {
-                        login: cantos_contracts::theatre_identity::LoginMethod::Oidc,
-                        registration:
-                            cantos_contracts::theatre_identity::Registration::EmailVerification {},
-                    }),
-                );
-            }
-        });
-        discovery.update(|s| {
-            if let Some(issued) = s.begin_refresh() {
-                s.finish(
-                    issued,
-                    Ok(cantos_contracts::theatre::WorkPage {
-                        items: vec![],
-                        next_cursor: None,
-                    }),
-                );
-            }
-        });
+        seed_preview(state, registration, discovery);
     } else if network_allowed.get_untracked() {
-        refresh_discovery(discovery);
         refresh_registration(registration);
     }
+    // The discovery link owns the search: the walk follows it, and a state that already answers
+    // this search (back from a Work) is kept with its rows and cursor.
+    Effect::new(move |_| {
+        if !matches!(nav.route.get(), Route::Discover | Route::Explore) {
+            return;
+        }
+        let query = nav.query.get();
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let mut issued = None;
+        discovery.update(|s| issued = s.open(query));
+        if let Some(ticket) = issued {
+            run_discovery(discovery, ticket, false);
+        }
+    });
     // The live detail is keyed by the route's server ID; leaving fences every outstanding read.
     Effect::new(move |_| match nav.route.get() {
         Route::PublicWork(id) => {
@@ -378,6 +460,22 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                 }
                 _ => None,
             }),
+            Route::NotFound | Route::Work(_) => Some(messages::format(
+                Key::PageTitle,
+                locale.get(),
+                &[(
+                    "page",
+                    messages::text(Key::LiveNotFound, locale.get()).to_owned(),
+                )],
+            )),
+            Route::Queue => Some(messages::format(
+                Key::PageTitle,
+                locale.get(),
+                &[(
+                    "page",
+                    messages::text(Key::LiveRouteUnavailable, locale.get()).to_owned(),
+                )],
+            )),
             _ => None,
         };
         platform::set_title(&title.unwrap_or_else(|| messages::page_title(locale.get(), route)));
@@ -390,6 +488,48 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let on_register = Callback::new(move |()| {
         crate::live::signup::leave(signup, preview);
         nav.open_auth(AuthRoute::register(nav.origin()));
+    });
+    let on_search = Callback::new(move |query: DiscoveryQuery| {
+        if query != nav.query.get_untracked() {
+            nav.search(query);
+        } else if !preview && network_allowed.get_untracked() {
+            // The same search again is an explicit refresh of its first page.
+            let mut issued = None;
+            discovery.update(|s| issued = s.begin(query));
+            if let Some(ticket) = issued {
+                run_discovery(discovery, ticket, false);
+            }
+        }
+    });
+    let on_discovery_retry = Callback::new(move |()| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let mut issued = None;
+        discovery.update(|s| issued = s.retry());
+        if let Some(ticket) = issued {
+            run_discovery(discovery, ticket, true);
+        }
+    });
+    let on_discovery_more = Callback::new(move |()| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let mut issued = None;
+        discovery.update(|s| issued = s.load_more());
+        if let Some(ticket) = issued {
+            run_discovery(discovery, ticket, true);
+        }
+    });
+    let on_discovery_restart = Callback::new(move |()| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let mut issued = None;
+        discovery.update(|s| issued = s.begin(s.query().clone()));
+        if let Some(ticket) = issued {
+            run_discovery(discovery, ticket, false);
+        }
     });
     let on_refresh = Callback::new(move |()| {
         if preview {
@@ -458,8 +598,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     view! {
         <super::LiveFrame theme>
             <crate::features::signup::SignupLinkSafety blocked=history_blocked locale on_retry=on_clear_unsafe_link>
-            {preview.then(|| view! { <crate::features::auth_preview::AuthPreviewControls state locale on_cancel=Callback::new(move |()| { crate::live::signup::cancel(signup, preview); nav.cancel(); })/> })}
-            {preview.then(|| view! { <crate::features::signup::SignupPreviewControls state=signup locale/> })}
+            <PreviewControls preview state signup locale on_cancel=Callback::new(move |()| { crate::live::signup::cancel(signup, preview); nav.cancel(); })/>
             <div class="theatre-app theatre-live-app" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
                 <aside class="theatre-rail">
@@ -511,7 +650,15 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 }.into_any(),
                                 Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale listen=listen_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
                                 Route::Player => view! { <LivePlayerScreen live/> }.into_any(),
-                                _ => view! { <PublicHome state=discovery locale on_login on_register on_open_work on_refresh=Callback::new(move |()| { if !preview { refresh_discovery(discovery); } })/> }.into_any(),
+                                Route::Discover | Route::Explore => view! {
+                                    <PublicHome state=discovery locale applied=nav.query on_search on_login on_register
+                                        on_retry=on_discovery_retry on_load_more=on_discovery_more on_restart=on_discovery_restart on_open_work/>
+                                }.into_any(),
+                                // A route that parses but has no live capability says so; it never
+                                // borrows another screen's body.
+                                Route::Queue => view! { <LiveRecovery locale heading=Key::LiveRouteUnavailable help=Key::LiveRouteUnavailableHelp/> }.into_any(),
+                                // Mock fixture slugs are mapped to `NotFound` before they get here.
+                                Route::NotFound | Route::Work(_) => view! { <LiveRecovery locale heading=Key::LiveNotFound help=Key::LiveNotFoundHelp/> }.into_any(),
                             }}
                         </main>
                     </super::LiveContainer>
@@ -520,6 +667,20 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             </div>
             </crate::features::signup::SignupLinkSafety>
         </super::LiveFrame>
+    }
+}
+
+/// A route with nothing to show: a visible reason and one way back, with no sample content.
+#[component]
+fn LiveRecovery(locale: RwSignal<Locale>, heading: Key, help: Key) -> impl IntoView {
+    view! {
+        <section class="theatre-public-state theatre-panel theatre-live-recovery" aria-labelledby="theatre-live-recovery-heading">
+            <h1 id="theatre-live-recovery-heading" tabindex="-1">{move || messages::text(heading, locale.get())}</h1>
+            <p>{move || messages::text(help, locale.get())}</p>
+            <a id="theatre-live-recovery-home" class="theatre-action theatre-action-tonal" href="#discover">
+                {move || messages::text(Key::LiveBackToDiscover, locale.get())}
+            </a>
+        </section>
     }
 }
 
@@ -556,6 +717,7 @@ fn LivePreferences(locale: RwSignal<Locale>, theme: RwSignal<Theme>) -> impl Int
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub fn AuthPreview() -> impl IntoView {
     view! { <LiveBoundary preview=true/> }
@@ -596,6 +758,49 @@ mod tests {
             let locale = RwSignal::new(Locale::English);
             let html = view! { <LibraryAccountEntry state locale/> }.to_html();
             assert!(!html.contains("theatre-library-account"));
+        });
+    }
+
+    #[test]
+    fn unknown_and_unwired_routes_say_so_and_offer_the_way_back_without_sample_content() {
+        Owner::new().with(|| {
+            for (locale, not_found, unavailable, back) in [
+                (
+                    Locale::Vietnamese,
+                    "Không tìm thấy trang này",
+                    "Tính năng này chưa mở",
+                    "Về Khám phá",
+                ),
+                (
+                    Locale::English,
+                    "This page could not be found",
+                    "This feature is not available yet",
+                    "Back to Explore",
+                ),
+            ] {
+                let locale = RwSignal::new(locale);
+                for (heading, help, expected) in [
+                    (Key::LiveNotFound, Key::LiveNotFoundHelp, not_found),
+                    (
+                        Key::LiveRouteUnavailable,
+                        Key::LiveRouteUnavailableHelp,
+                        unavailable,
+                    ),
+                ] {
+                    let html = view! { <LiveRecovery locale heading help/> }.to_html();
+                    assert!(html.contains(expected) && html.contains(back), "{html}");
+                    assert!(html.contains("href=\"#discover\""));
+                    // No Home body, mock title or sample catalog hides behind the heading.
+                    for absent in [
+                        "theatre-public-home",
+                        "Sơn Hà Ký",
+                        "demo",
+                        "theatre-public-work",
+                    ] {
+                        assert!(!html.contains(absent), "{absent}");
+                    }
+                }
+            }
         });
     }
 

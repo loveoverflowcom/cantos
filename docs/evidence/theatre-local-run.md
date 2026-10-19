@@ -116,9 +116,9 @@ To reuse an appropriate API already listening on 8080, run only
 | Mode at `http://127.0.0.1:8082/` | Network / evidence boundary |
 | --- | --- |
 | Default live | Actual anonymous catalog; independent session/account APIs; unavailable remains unavailable |
-| `?mode=mock` | Explicit session-only samples and fake player; no audio or persistence |
-| `?mode=membership-preview` | Explicit no-network interest/receipt/plan fixtures; no durable submit, entitlement or payment |
-| `?mode=auth-preview` | Explicit no-network synthetic account/auth diagnostics; no real provider login/registration |
+| `?mode=mock` | Explicit session-only samples and fake player; no audio or persistence. **Only in a build with the `preview` feature** (`TRUNK_BUILD_FEATURES=preview`); otherwise an ordinary live URL |
+| `?mode=membership-preview` | Explicit no-network interest/receipt/plan fixtures; no durable submit, entitlement or payment. **`preview` build only** |
+| `?mode=auth-preview` | Explicit no-network synthetic account/auth diagnostics; no real provider login/registration. **`preview` build only** |
 
 Unknown modes stay live. No network failure selects a fixture. Full-stack discovery success is
 independent of the existing fail-closed public media delivery and production player gaps.

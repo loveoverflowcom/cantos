@@ -38,9 +38,10 @@ and independent expiring/revocable producer read grants; see [local evidence](do
 Studio Web retains the editorial flow and adds a real Catalog/text-or-recording Content/Brief/
 private-audio review workspace. The [client boundary](docs/work-plan/live-client-api-matrix.md)
 distinguishes connected forms from deferred controls and user acceptance. Theatre Web opens
-public Home through the implemented anonymous discovery API; an API outage remains unavailable,
-and the isolated [UI mock](docs/evidence/theatre-web-mock.md) is selected explicitly by
-`?mode=mock`. Theatre Mobile retains its isolated
+public discovery through the implemented anonymous API; an API outage remains unavailable.
+The isolated [UI mock](docs/evidence/theatre-web-mock.md) requires the opt-in `preview` Cargo
+feature and is selected explicitly by `?mode=mock`; production builds contain no preview runtime.
+Theatre Mobile retains its isolated
 [CMP mock](apps/cantos-theatre/mobile/README.md), with production-safe UI/domain/application
 code in `:shared` and explicit demo adapters/composition in the separate `:preview-sandbox`
 KMP module, plus a tested common/JVM listener transport seam;
@@ -169,8 +170,9 @@ the proxy. `--test-cluster` instead uses only the disposable fixture retained by
 published Works in that cluster, run `cargo xtask seed theatre` first
 ([runbook](docs/deployment/theatre-seeded-catalog.md)). To reuse an
 API you already own, use `cargo xtask app cantos-theatre --web`. That command reports
-frontend-only readiness and warns if live discovery is unavailable; explicit
-`?mode=mock`, `?mode=membership-preview` and `?mode=auth-preview` still work offline.
+frontend-only readiness and warns if live discovery is unavailable. For offline previews, run
+`TRUNK_BUILD_FEATURES=preview cargo xtask app cantos-theatre --web`, then open
+`?mode=mock`, `?mode=membership-preview` or `?mode=auth-preview`.
 See the [local runbook](apps/cantos-theatre/web/README.md#build-run-and-checks) and
 [compatibility proposal and evidence](docs/evidence/theatre-local-run.md). This changes the
 previous frontend-only Theatre `run` behavior; option A remains **proposed pending review**,

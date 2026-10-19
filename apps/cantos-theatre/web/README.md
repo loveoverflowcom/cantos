@@ -171,18 +171,18 @@ declarations do not establish browser or native acceptance.
 | `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
 | `src/application/account.rs`, `account_view.rs` | Pure session generation, logout acknowledgement, immutable intent ownership and private read projection lifecycle |
 | `src/application/auth_navigation.rs` | Closed internal auth return destinations and checked request epochs; routes never establish a session or registration receipt |
-| `src/application/public_discovery.rs` | Independent anonymous read generation, duplicate admission and terminal response fencing |
+| `src/application/public_discovery.rs` | Pure Work-list walk: normalized `DiscoveryQuery` (q/kind/language), ticket-fenced requests, opaque cursor bound to its query, bounded follow-up of empty pages, same-cursor retry, `invalid_cursor` → fresh walk (never merged), one-time row identity |
 | `src/application/public_work.rs` | Pure live Work detail and unit-walk state machine: route generation and page-request fencing, empty-continuation follow-up budget, same-cursor page retry, `invalid_cursor` restart with `unit_id` de-duplication, terminal empty list |
 | `src/live/account.rs`, `library.rs`, `runtime.rs` | Same-origin Theatre BFF transport, bounded actual Library reads and mounted browser lifecycle; no mock fallback |
-| `src/live/discovery.rs` | Anonymous fixed-JSON published-work read, bounded response decoding and explicit unavailable/protocol failures |
-| `src/live/public_work.rs` | Anonymous `GET /works/{id}` and `/works/{id}/units` reads; strict shared-DTO decoding, route identity, unit kind and exact `ListenerError` classification |
+| `src/live/discovery.rs` | Anonymous `GET /works?[q&kind&language&]limit&presentation=1[&cursor]` (encoded; cursor only form-encoded), `PresentedWorkPage` decoding and exact `ListenerError` classification; an empty page with a cursor is valid |
+| `src/live/public_work.rs` | Anonymous `GET /works/{id}?presentation=1` and `/works/{id}/units?…&presentation=1` reads; `PresentedWork*`/`PresentedUnit*` decoding, route identity, unit kind and exact `ListenerError` classification |
 | `src/core/public_track.rs` | Pure pinned identity of one public release (`PublicTrack`: Work/unit/publication/rendition IDs, manifest digest, SHA-256) admitted only from a manifest that names the requested release, plus strict grant admission (`AdmittedGrant`) and the redacted `MediaUrl` capability |
 | `src/application/public_listen.rs` | Pure listen intent: ticket-fenced manifest resolution, one display label per intent, `NowPlaying` facts that describe only the track they were captured for |
 | `src/application/media_driver.rs` | Pure engine decisions: grant lifecycle (authorize, refresh 30 s before expiry for the same publication, bounded backoff, bounded recovery, withdrawn → stop), and the mapping from audio-element facts to player events. Performs no I/O |
 | `src/platform/audio.rs` | The one `HTMLAudioElement` and its listeners, requests and timers; executes the driver's commands and reports back (browser only) |
 | `src/live/public_media.rs` | Anonymous manifest `GET` and empty-body authorization `POST`; strict shared-DTO decoding and exact `ListenerError` classification. Media bytes are streamed by the element, never fetched here |
 | `src/features/live_player.rs` | Live full player (`#player`) and mini-player over the one root session; reuses the shared timeline control |
-| `src/infrastructure/` | Mock `MockCatalog` and deterministic `FakeMedia` (isolated `?mode=mock` only) and an inert native port; no empty future adapters |
+| `src/infrastructure/` | Mock `MockCatalog` and deterministic `FakeMedia` (isolated `?mode=mock`, **`preview` feature only**) and an inert native port; no empty future adapters |
 | `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
 | `src/view.rs`, `src/view/live_shell.rs` | Separate mock/live route compositions; Home remains available when identity fails |
 | `src/app/live_navigation.rs`, `src/platform/auth_browser.rs` | Browser history, contextual focus/scroll restoration, explicit provider return intent and current-session confirmation |
@@ -396,13 +396,35 @@ production or UI-system acceptance gate.
 
 | URL at `http://127.0.0.1:8082/` | Backend use | What it demonstrates |
 | --- | --- | --- |
-| `/` (default live mode) | Real anonymous JSON catalog; independent optional Theatre session/account APIs | Public discovery and explicit live errors; no fixture fallback or live player |
-| `/?mode=mock` | None | Session-only sample catalog/library and simulated player; no audio, persistence or publication evidence |
-| `/?mode=membership-preview` | None | Explicit Membership interest/receipt/plan fixtures; no durable submission, entitlement or payment |
-| `/?mode=auth-preview` | None | Explicit synthetic Home/Auth/Account states; no provider login or registration proof |
+| `/` (default live mode) | Real anonymous JSON catalog; independent optional Theatre session/account APIs | Public discovery and explicit live errors; no fixture fallback |
+| `/?mode=mock` | None | **`preview` build only.** Session-only sample catalog/library and simulated player; no audio, persistence or publication evidence |
+| `/?mode=membership-preview` | None | **`preview` build only.** Explicit Membership interest/receipt/plan fixtures; no durable submission, entitlement or payment |
+| `/?mode=auth-preview` | None | **`preview` build only.** Explicit synthetic Home/Auth/Account states; no provider login or registration proof |
 
-Use `cargo xtask app cantos-theatre --web` for these offline previews. Unknown mode values
-remain live; a network refusal never selects a preview. Full-stack startup verifies only the
+### Production and preview build lanes
+
+The crate has one opt-in Cargo feature, `preview`, **off by default**. It compiles the three
+preview entrypoints above, the sample catalog (`MockCatalog`), the deterministic `FakeMedia`
+player port, the mock shell and the diagnostic fixture controls and copy. A production lane
+(`trunk build`, `--release`, `cargo xtask deploy`, `release-build`, `web-performance`) never
+enables it, so there `?mode=mock`, `?mode=auth-preview` and `?mode=membership-preview` are
+ordinary live URLs: `Mode::from_query` has no preview variant to return and the bundle contains
+neither the data nor the entrypoints. Unit tests and lint cover the preview code, so `cargo
+xtask verify` enables the feature for them and lints the production lane separately
+(`cargo clippy -p cantos-theatre --target wasm32-unknown-unknown`). A plain `cargo test -p
+cantos-theatre` stops with a message asking for `--features preview`.
+
+To open the offline previews in a development build, opt in explicitly through Trunk's own
+setting, which every `cargo xtask build|run|app cantos-theatre --web` invocation inherits:
+
+```sh
+TRUNK_BUILD_FEATURES=preview cargo xtask app cantos-theatre --web
+```
+
+The shipped-bundle commands cannot take a feature from the ambient environment: `deploy`
+removes `TRUNK_BUILD_FEATURES`, `TRUNK_BUILD_ALL_FEATURES` and `TRUNK_BUILD_NO_DEFAULT_FEATURES`
+from the Trunk child (its plan shows `env -u …`), while `web-performance` and `release-build`
+refuse any inherited `TRUNK_*` override, so an ambient setting cannot ship a preview. Unknown mode values remain live; a network refusal never selects a preview. Full-stack startup verifies only the
 bounded discovery path, while browser interaction, real issuer, playback delivery and native
 acceptance retain the owners in [#179](https://github.com/loveoverflowcom/cantos/issues/179),
 [#180](https://github.com/loveoverflowcom/cantos/issues/180),
@@ -421,11 +443,32 @@ records the contextual Back, quiet Home escape and proof-specific cancellation b
 The [issue 129 record](../../../docs/evidence/theatre-web-auth-account.md) separates browser
 observations, pure tests, signed-provider mocks and real disposable PostgreSQL evidence.
 
-The default entrypoint opens Home and sends one anonymous fixed-JSON
-`GET /api/v1/theatre/works?limit=20` with credentials omitted. Loading, empty success, connection
-failure and invalid response remain distinct; failure offers Retry and never substitutes a mock
-catalog. Published work IDs/titles/descriptions come from the actual DTO. A session 401 or provider
-outage does not redirect Home to authentication.
+The default entrypoint opens **Khám phá** (`#discover`, also `#explore`) and sends anonymous
+`GET /api/v1/theatre/works?limit=20&presentation=1` reads with credentials omitted. Loading,
+empty success, connection failure and invalid response remain distinct; failure offers Retry and
+never substitutes a mock catalog. Published work IDs/titles/descriptions and each Work's public
+`unit_count` come from the `PresentedWorkPage`. A session 401 or provider outage does not
+redirect Home to authentication.
+
+**Search and filters** use the same endpoint (`q`, `kind` = novel/story/podcast — not a genre —
+and the exact released `language` tag such as `vi-VN`), never a filter over the loaded 20 rows.
+Text and language apply on Enter or **Tìm** (no debounce timer; Enter during IME composition is
+ignored); the type chips apply at once. The applied search lives in the link
+(`#discover?q=…&kind=…&language=…`), one history entry per distinct search, so Back/Forward and
+returning from a Work restore it; an answered search is kept with its rows and cursor, another
+search starts a fresh walk and fences the old response. Invalid input (over 512 bytes, control
+characters, a language tag outside `[A-Za-z0-9-]{1,63}`) is shown inline and sends nothing.
+
+**Pagination.** The cursor is opaque and only form-encoded; it is bound to its search, so
+changing the search drops it. **Tải thêm tác phẩm** keeps the rows when a later page fails and
+retries the same cursor; a repeated identity is kept once; an empty page that still has a cursor
+is followed automatically within a small budget and, if the budget runs out, shows "keep
+searching" rather than "no results"; `invalid_cursor` keeps the rows shown but offers a fresh walk
+instead of mixing snapshots. The list ends only at `next_cursor: null`.
+
+**Routes.** `#explore` renders the same screen. An unknown route (including a mock fixture slug
+such as `#work/son-ha-ky`) shows a recovery view with a way back, and `#queue`, which has no live
+capability, says so instead of borrowing Home.
 
 Each Home card title links to `#work/<work_id>`, keyed by the server's canonical UUID. The live
 detail reads `GET /api/v1/theatre/works/{id}` and then `/works/{id}/units?limit=20` with
@@ -433,9 +476,12 @@ credentials omitted, the shared deadline and bounded bodies. It distinguishes lo
 `not_found` answer (no reason is guessed), retryable unavailable and protocol failures, a terminal
 empty list and a partial list with Load more. An empty page with a cursor is followed
 automatically within a small budget; a failed page keeps its rows and retries the same cursor;
-`invalid_cursor` restarts from page one without duplicating rows. No unit count, cover, genre or
-position number is shown. Playback is not integrated: the Listen control is disabled with a visible
-reason, and nothing autoplays or is marked completed. Back returns to the opening card's focus.
+`invalid_cursor` restarts from page one without duplicating rows. Both reads send
+`presentation=1` and decode the `Presented*` DTOs: the Work shows the server's public
+`unit_count` ("Chương đã công bố: N") and each row its `ordinal` as "Vị trí N" — the current rank
+in the public list, never an identity or an author-assigned chapter number. No cover, genre or
+loaded-page-length total is shown. Listening is described under [Live guest playback](#live-guest-playback);
+opening a Work plays nothing. Back returns to the opening card's focus and the search it came from.
 
 The account owner admits only the RAM credential through
 `GET /api/v1/theatre/auth/bearer/session`. Explicit Login reserves a popup before network work,

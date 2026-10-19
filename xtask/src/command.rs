@@ -15,6 +15,8 @@ pub struct CommandSpec {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub env: Vec<(String, String)>,
+    /// Inherited variables the child must not see.
+    pub env_remove: Vec<String>,
 }
 
 impl CommandSpec {
@@ -24,6 +26,7 @@ impl CommandSpec {
             args: Vec::new(),
             cwd: cwd.into(),
             env: Vec::new(),
+            env_remove: Vec::new(),
         }
     }
 
@@ -49,7 +52,14 @@ impl CommandSpec {
         self
     }
 
-    /// Shell-like rendering for logs and plans: `(in dir) KEY=value program args`.
+    /// Hide an inherited variable from the child, for settings that must never come from the
+    /// ambient environment.
+    pub fn unset(mut self, key: impl Into<String>) -> Self {
+        self.env_remove.push(key.into());
+        self
+    }
+
+    /// Shell-like rendering for logs and plans: `(in dir) [env -u KEY] KEY=value program args`.
     pub fn display(&self, root: &Path) -> String {
         let mut parts = Vec::new();
         if self.cwd != root {
@@ -60,6 +70,10 @@ impl CommandSpec {
                 .display()
                 .to_string();
             parts.push(format!("(in {dir})"));
+        }
+        if !self.env_remove.is_empty() {
+            parts.push("env".to_owned());
+            parts.extend(self.env_remove.iter().map(|key| format!("-u {key}")));
         }
         for (key, value) in &self.env {
             parts.push(format!("{key}={}", quote(value)));
@@ -76,6 +90,9 @@ impl CommandSpec {
     pub fn to_command(&self) -> Command {
         let mut command = Command::new(&self.program);
         command.args(&self.args).current_dir(&self.cwd);
+        for key in &self.env_remove {
+            command.env_remove(key);
+        }
         for (key, value) in &self.env {
             command.env(key, value);
         }

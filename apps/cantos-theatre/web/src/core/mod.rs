@@ -1,3 +1,4 @@
+#[cfg(feature = "preview")]
 pub mod catalog;
 pub mod ids;
 pub mod listening;

@@ -200,6 +200,7 @@ impl SignupState {
     }
 
     /// Nonsecret request identity for explicitly isolated diagnostic fixture completion.
+    #[cfg(feature = "preview")]
     pub(crate) fn pending_request(&self) -> Option<u64> {
         matches!(self.phase, SignupPhase::Submitting | SignupPhase::Verifying).then_some(self.epoch)
     }

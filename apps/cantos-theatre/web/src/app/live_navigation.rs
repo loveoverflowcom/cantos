@@ -4,6 +4,7 @@ use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthIntentState, AuthRequestFence, AuthRoute, ReturnDestination},
+        public_discovery::DiscoveryQuery,
     },
     core::public_ids::PublicWorkId,
     platform::{self, auth_browser as browser},
@@ -27,6 +28,9 @@ impl PendingAuthRequest {
 #[derive(Clone, Copy)]
 pub(crate) struct LiveNavigation {
     pub route: RwSignal<Route>,
+    /// The search the current discovery link carries. History owns it: Back/Forward restore it,
+    /// and the discovery walk follows it, so a cursor is never reused for another search.
+    pub query: RwSignal<DiscoveryQuery>,
     preview: bool,
     intents: RwSignal<AuthIntentState>,
     pending: RwSignal<Option<PendingAuthRequest>>,
@@ -53,7 +57,7 @@ impl LiveNavigation {
         let initial = if callback {
             restored.map(Route::Auth).unwrap_or(Route::Discover)
         } else {
-            Route::from_hash(&hash)
+            Route::from_live_hash(&hash)
         };
         let auth = match initial {
             Route::Auth(auth) => Some(auth),
@@ -70,6 +74,10 @@ impl LiveNavigation {
         };
         let navigation = Self {
             route: RwSignal::new(initial),
+            query: RwSignal::new(match initial {
+                Route::Discover | Route::Explore => super::routes::discovery_query(&hash),
+                _ => DiscoveryQuery::default(),
+            }),
             preview,
             intents: RwSignal::new(intents),
             pending: RwSignal::new(pending),
@@ -109,7 +117,9 @@ impl LiveNavigation {
                         platform::focus_main(main);
                     }
                     navigation.returned.set_value(None);
-                } else if let (Route::PublicWork(from), Route::Discover) = (old, current) {
+                } else if let (Route::PublicWork(from), Route::Discover | Route::Explore) =
+                    (old, current)
+                {
                     match navigation
                         .work_return
                         .get_value()
@@ -147,9 +157,13 @@ impl LiveNavigation {
             use leptos::leptos_dom::helpers::window_event_listener_untyped;
             use web_sys::wasm_bindgen::JsCast;
             let read = move || {
-                let destination = Route::from_hash(&browser::hash());
+                let hash = browser::hash();
+                let destination = Route::from_live_hash(&hash);
                 if destination != navigation.route.get_untracked() {
                     navigation.cancel();
+                }
+                if matches!(destination, Route::Discover | Route::Explore) {
+                    navigation.query.set(super::routes::discovery_query(&hash));
                 }
                 navigation.route.set(destination);
             };
@@ -237,6 +251,19 @@ impl LiveNavigation {
         }
         self.cancel();
         browser::go(self.route, Route::Auth(auth), false);
+    }
+    /// Apply a search: one history entry per distinct search, so Back restores the previous one.
+    /// The shell follows `query` and fences the old walk; this never fetches.
+    pub fn search(self, query: DiscoveryQuery) {
+        if query == self.query.get_untracked() {
+            return;
+        }
+        let route = match self.route.get_untracked() {
+            Route::Explore => Route::Explore,
+            _ => Route::Discover,
+        };
+        browser::push_discovery(self.route, route, &query);
+        self.query.set(query);
     }
     pub fn open_account(self) {
         self.returned.set_value(Some((
@@ -379,6 +406,7 @@ mod tests {
         (
             LiveNavigation {
                 route: RwSignal::new(Route::Auth(auth)),
+                query: RwSignal::new(DiscoveryQuery::default()),
                 preview: true,
                 intents: RwSignal::new(intents),
                 pending: RwSignal::new(Some(PendingAuthRequest::ConfirmingReturn(fence))),

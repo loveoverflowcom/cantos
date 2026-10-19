@@ -17,7 +17,7 @@ use crate::{
     },
     messages::{self, text, Key, Locale},
 };
-use cantos_contracts::theatre::{UnitKind, UnitSummary, WorkKind, WorkSummary};
+use cantos_contracts::theatre::{PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind};
 use cantos_ui::{AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason};
 use leptos::prelude::*;
 
@@ -39,7 +39,7 @@ pub(crate) struct ListenTarget {
 }
 
 impl ListenTarget {
-    fn of(row: &UnitSummary) -> Self {
+    fn of(row: &PresentedUnitSummary) -> Self {
         Self {
             unit_id: row.unit_id.clone(),
             publication_id: row.publication_id.clone(),
@@ -100,14 +100,14 @@ impl ListenControls {
         Some((track.publication(), playing))
     }
 
-    fn state_of(self, row: &UnitSummary) -> RowListen {
+    fn state_of(self, row: &PresentedUnitSummary) -> RowListen {
         let current = self.current();
         self.listen
             .with(|listen| row_listen(listen, current, &row.publication_id))
     }
 
     /// Pause what plays, otherwise ask the root to resolve and play this unit.
-    fn press(self, row: &UnitSummary) {
+    fn press(self, row: &PresentedUnitSummary) {
         match self.state_of(row) {
             RowListen::Playing => self.player.dispatch(Event::PauseRequested),
             RowListen::Preparing => (),
@@ -265,7 +265,7 @@ fn ReadyWork(
     state: RwSignal<WorkDetailState>,
     locale: RwSignal<Locale>,
     listen: ListenControls,
-    work: WorkSummary,
+    work: PresentedWorkSummary,
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
 ) -> impl IntoView {
@@ -353,6 +353,12 @@ fn ReadyWork(
         _ => Key::PublicWorkListen,
     };
     let description = (!work.description.trim().is_empty()).then(|| work.description.clone());
+    // The server's count of currently public units, not the length of the loaded page.
+    let unit_count = work.unit_count;
+    let count_key = match kind {
+        WorkKind::Podcast => Key::PublicWorkUnitCountEpisodes,
+        WorkKind::Novel | WorkKind::Story => Key::PublicWorkUnitCountChapters,
+    };
     view! {
         <header class="theatre-work-intro theatre-public-work-intro">
             <div class="theatre-cover" aria-hidden="true">
@@ -364,6 +370,9 @@ fn ReadyWork(
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h1 id=HEADING_ID tabindex="-1" lang=lang.clone()>{work.title.clone()}</h1>
                 {description.map(|text| view! { <p class="theatre-synopsis" lang=lang.clone()>{text}</p> })}
+                <p class="theatre-muted theatre-public-work-count" data-unit-count=unit_count.to_string()>
+                    {move || messages::format(count_key, locale.get(), &[("count", unit_count.to_string())])}
+                </p>
                 <Button id="theatre-public-work-listen" state=listen_state
                     on_press=Callback::new(move |_| { if let Some(row) = first() { listen.press(&row); } })>
                     {move || text(listen_label(), locale.get())}
@@ -409,13 +418,15 @@ fn ReadyWork(
 
 #[component]
 fn UnitRow(
-    row: UnitSummary,
+    row: PresentedUnitSummary,
     unavailable: bool,
     lang: String,
     locale: RwSignal<Locale>,
     listen: ListenControls,
 ) -> impl IntoView {
     let kind = unit_label(row.kind);
+    // The current rank in the public list: never an identity or an author-assigned number.
+    let ordinal = row.ordinal;
     let seconds = u32::try_from(row.duration_ms / 1000).unwrap_or(u32::MAX);
     let known = row.duration_ms > 0;
     let description = (!row.description.trim().is_empty()).then(|| row.description.clone());
@@ -450,7 +461,12 @@ fn UnitRow(
             }
             data-unavailable=unavailable.then_some("true")>
             <div class="theatre-episode-copy">
-                <p class="theatre-eyebrow">{move || text(kind, locale.get())}</p>
+                <p class="theatre-eyebrow" data-ordinal=ordinal.to_string()>
+                    {move || messages::format(Key::PublicWorkUnitLabel, locale.get(), &[
+                        ("kind", text(kind, locale.get()).to_owned()),
+                        ("ordinal", ordinal.to_string()),
+                    ])}
+                </p>
                 <h3 id=unit_heading_id(&row.unit_id) tabindex="-1" lang=lang.clone()>{row.title.clone()}</h3>
                 {description.map(|text| view! { <p class="theatre-muted" lang=lang.clone()>{text}</p> })}
                 <p class="theatre-muted theatre-public-unit-duration">
@@ -492,25 +508,25 @@ mod tests {
         core::public_ids::PublicWorkId,
         infrastructure::inert_media::InertMedia,
     };
-    use cantos_contracts::theatre::{UnitPage, WorkPage};
+    use cantos_contracts::theatre::{PresentedUnitPage, PresentedWorkPage};
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
 
-    fn fixture_work() -> WorkSummary {
-        let page: WorkPage = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/works.json"
+    fn fixture_work() -> PresentedWorkSummary {
+        let page: PresentedWorkPage = serde_json::from_str(include_str!(
+            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_works.json"
         ))
         .unwrap();
         page.items.into_iter().next().unwrap()
     }
-    fn fixture_units() -> UnitPage {
+    fn fixture_units() -> PresentedUnitPage {
         serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units.json"
+            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_units.json"
         ))
         .unwrap()
     }
-    fn unit(n: u128, title: &str) -> UnitSummary {
-        UnitSummary {
+    fn unit(n: u128, title: &str) -> PresentedUnitSummary {
+        PresentedUnitSummary {
             unit_id: uuid::Uuid::from_u128(0x2000_0000_0000_4000_8000_0000_0000_0000 + n)
                 .to_string(),
             kind: UnitKind::Chapter,
@@ -521,9 +537,12 @@ mod tests {
                 .to_string(),
             published_at_ms: 5_000,
             duration_ms: 754_000,
+            ordinal: n as u64,
         }
     }
-    fn fixture_manifest(row: &UnitSummary) -> cantos_contracts::theatre::PublicationManifest {
+    fn fixture_manifest(
+        row: &PresentedUnitSummary,
+    ) -> cantos_contracts::theatre::PublicationManifest {
         let mut manifest: cantos_contracts::theatre::PublicationManifest =
             serde_json::from_str(include_str!(
                 "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
@@ -534,15 +553,17 @@ mod tests {
         manifest.publication_id = row.publication_id.clone();
         manifest
     }
-    fn page(items: Vec<UnitSummary>, next: Option<&str>) -> UnitPage {
-        UnitPage {
+    fn page(items: Vec<PresentedUnitSummary>, next: Option<&str>) -> PresentedUnitPage {
+        PresentedUnitPage {
             work_id: WORK.into(),
             items,
             next_cursor: next.map(str::to_owned),
         }
     }
     /// A ready Work with its page-one request in flight.
-    fn opened(work: WorkSummary) -> (WorkDetailState, crate::application::public_work::PageTicket) {
+    fn opened(
+        work: PresentedWorkSummary,
+    ) -> (WorkDetailState, crate::application::public_work::PageTicket) {
         let mut state = WorkDetailState::default();
         let ticket = state.open(PublicWorkId::parse(WORK).unwrap()).unwrap();
         let Step::Continue(first) = state.finish_work(&ticket, Ok(work)) else {
@@ -629,6 +650,41 @@ mod tests {
             "a complete list offers no Load more"
         );
         assert_no_fabrication(&html);
+    }
+
+    #[test]
+    fn total_and_position_come_from_the_presented_dtos_never_from_the_loaded_page() {
+        let mut work = fixture_work();
+        work.unit_count = 40;
+        let (mut state, first) = opened(work);
+        // Two rows of forty, ranked 7 and 8: neither the total nor the rank is a page length
+        // or index, and a rank is never presented as an author-assigned chapter number.
+        let mut seventh = unit(7, "Bảy");
+        seventh.ordinal = 7;
+        let mut eighth = unit(8, "Tám");
+        eighth.ordinal = 8;
+        state.finish_page(&first, Ok(page(vec![seventh, eighth], Some("lc1_opaque"))));
+        let vi = render(state.clone(), Locale::Vietnamese);
+        for expected in [
+            "Chương đã công bố: 40",
+            "data-unit-count=\"40\"",
+            "Vị trí 7",
+            "data-ordinal=\"7\"",
+            "Vị trí 8",
+        ] {
+            assert!(vi.contains(expected), "{expected}");
+        }
+        for absent in [
+            "Chương đã công bố: 2",
+            "Vị trí 1",
+            "Vị trí 2",
+            "Chương 7",
+            "Chương 8",
+        ] {
+            assert!(!vi.contains(absent), "{absent}");
+        }
+        let en = render(state, Locale::English);
+        assert!(en.contains("Published chapters: 40") && en.contains("Position 7"));
     }
 
     #[test]
@@ -932,7 +988,7 @@ mod tests {
         state.finish_page(&restart, Ok(page(vec![episode], Some("lc1_new"))));
         let html = render(state.clone(), Locale::English);
         assert!(html.contains("Episodes") && html.contains("Load more episodes"));
-        assert!(html.contains(">Episode<") && html.contains(">Podcast<"));
+        assert!(html.contains("Episode · Position ") && html.contains(">Podcast<"));
         assert!(html.contains("Duration not known yet") && !html.contains("0:00"));
         assert_eq!(html.matches("data-unit-id=").count(), 1);
         assert!(!html.contains("Episode 1"));
