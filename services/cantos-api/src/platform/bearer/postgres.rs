@@ -119,6 +119,7 @@ pub(super) async fn complete_callback(
     exchange: &Exchange,
     absolute: u64,
     handoff: &str,
+    redirect: &str,
 ) -> Result<(), AuthError> {
     if exchange.proof.key().issuer() != config.issuer {
         return Err(AuthError::Issuer);
@@ -130,7 +131,7 @@ pub(super) async fn complete_callback(
         .map(i64::try_from)
         .transpose()
         .map_err(unavailable)?;
-    let count=store.connection().await.map_err(unavailable)?.execute("UPDATE bearer_flows SET handoff_hash=$4,subject=$5,proof_hash=$6,provider_access=$7,authority_expires=$8,authenticated_at=$9,nonce='',verifier='' WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND consumed AND NOT completed AND NOT cancelled AND handoff_hash IS NULL AND expires_at>extract(epoch FROM clock_timestamp()) AND $8::bigint>extract(epoch FROM clock_timestamp()) AND redirect_uri=$10 AND return_origin=$11",&[&id,&config.client_id,&config.issuer,&token_hash(handoff),&exchange.proof.key().subject(),&exchange.proof.digest(),&exchange.access_token,&absolute,&authenticated,&config.redirect,&config.web_origin]).await.map_err(unavailable)?;
+    let count=store.connection().await.map_err(unavailable)?.execute("UPDATE bearer_flows SET handoff_hash=$4,subject=$5,proof_hash=$6,provider_access=$7,authority_expires=$8,authenticated_at=$9,nonce='',verifier='' WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND consumed AND NOT completed AND NOT cancelled AND handoff_hash IS NULL AND expires_at>extract(epoch FROM clock_timestamp()) AND $8::bigint>extract(epoch FROM clock_timestamp()) AND redirect_uri=$10 AND return_origin=$11",&[&id,&config.client_id,&config.issuer,&token_hash(handoff),&exchange.proof.key().subject(),&exchange.proof.digest(),&exchange.access_token,&absolute,&authenticated,&redirect,&config.web_origin]).await.map_err(unavailable)?;
     if count != 1 {
         return Err(AuthError::State);
     }
@@ -143,10 +144,11 @@ pub(super) async fn issue(
     id: &str,
     request: &ExchangeRequest,
     secrets: Secrets,
+    redirect: &str,
 ) -> Result<TokenPair, AuthError> {
     let mut connection = store.connection().await.map_err(unavailable)?;
     let tx = connection.transaction().await.map_err(unavailable)?;
-    let row=tx.query_opt("SELECT subject,proof_hash,provider_access,authority_expires,authenticated_at,expires_at FROM bearer_flows WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND client_state=$4 AND challenge=$5 AND consumed AND NOT cancelled AND NOT completed AND handoff_hash=$6 AND redirect_uri=$7 AND return_origin=$8 AND expires_at>extract(epoch FROM clock_timestamp()) FOR UPDATE",&[&id,&config.client_id,&config.issuer,&request.state,&pkce_challenge(&request.code_verifier),&token_hash(if client==Client::TheatreNative{""}else{&request.code}),&config.redirect,&config.web_origin]).await.map_err(unavailable)?.ok_or(AuthError::State)?;
+    let row=tx.query_opt("SELECT subject,proof_hash,provider_access,authority_expires,authenticated_at,expires_at FROM bearer_flows WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND client_state=$4 AND challenge=$5 AND consumed AND NOT cancelled AND NOT completed AND handoff_hash=$6 AND redirect_uri=$7 AND return_origin=$8 AND expires_at>extract(epoch FROM clock_timestamp()) FOR UPDATE",&[&id,&config.client_id,&config.issuer,&request.state,&pkce_challenge(&request.code_verifier),&token_hash(if client==Client::TheatreNative{""}else{&request.code}),&redirect,&config.web_origin]).await.map_err(unavailable)?.ok_or(AuthError::State)?;
     let absolute = seconds(&row, "authority_expires")?;
     let lifetime = core::issue(client, clock(&tx).await?, absolute, absolute).map_err(refusal)?;
     let subject: String = row.get("subject");
@@ -417,10 +419,11 @@ pub(super) async fn abandon_exchange(
     config: &OidcConfig,
     flow: &str,
     access: &str,
+    redirect: &str,
 ) -> Result<Option<Revocation>, AuthError> {
     let mut connection = store.connection().await.map_err(unavailable)?;
     let tx = connection.transaction().await.map_err(unavailable)?;
-    let row=tx.query_opt("UPDATE bearer_flows SET cancelled=true,nonce='',verifier='',provider_access=CASE WHEN completed THEN provider_access ELSE $4 END WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND redirect_uri=$5 AND return_origin=$6 AND consumed AND (completed OR provider_access IS NULL OR provider_access=$4) RETURNING provider_access",&[&flow,&config.client_id,&config.issuer,&access,&config.redirect,&config.web_origin]).await.map_err(unavailable)?.ok_or(AuthError::State)?;
+    let row=tx.query_opt("UPDATE bearer_flows SET cancelled=true,nonce='',verifier='',provider_access=CASE WHEN completed THEN provider_access ELSE $4 END WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND redirect_uri=$5 AND return_origin=$6 AND consumed AND (completed OR provider_access IS NULL OR provider_access=$4) RETURNING provider_access",&[&flow,&config.client_id,&config.issuer,&access,&redirect,&config.web_origin]).await.map_err(unavailable)?.ok_or(AuthError::State)?;
     let receipt = cancel_receipt(&tx, flow, row.get(0)).await?;
     tx.commit().await.map_err(unavailable)?;
     Ok(receipt)
