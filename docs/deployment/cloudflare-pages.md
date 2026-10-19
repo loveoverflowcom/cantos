@@ -48,12 +48,14 @@ Each item changes **your** Cloudflare account; nothing here is done by xtask.
 1. **Pick the plan facts.** Free: 20,000 files per deployment and 25 MiB per asset. The check is on
    the decoded `.wasm` size, not its compressed size.
 2. **Create two Direct Upload projects** (a Git-integrated project cannot become Direct Upload, and
-   the converse also holds):
+   the converse also holds). `wrangler pages project create` prompts for a directory and fails in a
+   non-interactive shell, so create the projects through the Pages API (no `source` means Direct Upload):
 
    ```bash
-   cd infra/cloudflare/wrangler && npm ci --ignore-scripts
-   export CLOUDFLARE_ACCOUNT_ID=YOUR_ACCOUNT_ID CLOUDFLARE_API_TOKEN=...   # see step 3
-   ./node_modules/.bin/wrangler pages project create PROJECT_NAME --production-branch main
+   # CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID come from step 3; the token is read from the environment.
+   curl -sS -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects" \
+     -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+     --data '{"name":"PROJECT_NAME","production_branch":"main"}'
    ```
 3. **Create an API token** (dashboard → Manage account → Account API tokens → Create custom token):
    permission **Account / Cloudflare Pages / Edit** on this account and **nothing else**: no DNS,
@@ -181,22 +183,38 @@ release identity across API and Web, ordering and partial-release receipts belon
 
 ## Acceptance status
 
-| Not accepted | Needs | Marked in |
-| --- | --- | --- |
-| A real preview and production deployment of each app | An authorized token and two Direct Upload projects | `xtask/src/deploy/cloudflare` (`ACCEPTANCE(NOT_RUN)`) |
-| Wrangler's real response shapes (read from the 4.151.2 package source, not captured) | The same run | `wrangler.rs` |
-| Real Pages behavior: `404.html` precedence, merged headers, MIME, encoding, ETag/revalidation, file/asset limits | The same run, then the [HTTP matrix](cloudflare-rollout.md#http-and-browser-evidence-are-separate) | `flow.rs`, this page |
-| CircleCI execution of the lane (config validated with `circleci config validate`, not run) | Context, approval and a budgeted run | `.circleci/config.yml` |
-| Browser, API, auth, custom domain, DNS and cutover | The [rollout runbook](cloudflare-rollout.md) under separate authority | rollout runbook |
+Observed on 2026-10-19 from source `f76ad2b` with Wrangler 4.151.2 and an operator-supplied token, on the
+operator's account (two new Direct Upload projects, `cantos-theatre` and `cantos-studio`, production
+branch `main`):
 
-Local evidence on 2026-10-19 (source `f40482a`/`462aab8`, Wrangler 4.151.2, a clean worktree, an **invalid**
-dummy token, no Cloudflare account state changed): `release-build studio-web` and `theatre-web` artifacts
-were verified, extracted (8 and 32 files), combined with the tracked policy and validated by the real
-flow (Studio `.wasm` 5.9 MB, Theatre `.wasm` 2.8 MB, both far under the 25 MiB per-asset limit). The run
-then stopped at the read-only project lookup with Cloudflare's authentication refusal, so nothing was
-uploaded and **no Pages behavior was observed**. A stale development `dist` of Theatre has a 97 MB debug
-`.wasm`: only the release build is deployable, and the limit check would refuse the debug one.
+| Observed (preview deployments, public URLs) | Result |
+| --- | --- |
+| Full flow for each app: verify, stage, bundle, project lookup, intent, publish, readback, HTTP smoke, receipt | PASS (Theatre `e0612871-04c6-486c-b2a5-0ca502e61798`, 8 smoke requests; Studio `39258edf-d235-41e8-8241-7c1a17411c24`, 10 requests; branch `review-pages`, environment `preview`) |
+| Wrangler output-file entry, `pages project list --json` and `pages deployment list --json` shapes | Matched what the interpreters expect; the flow confirmed identity from the output file and found the ID in the listing |
+| `404.html` precedence | Unknown paths, `/api/v1/theatre/x`, `/missing.wasm`, `/missing.js` and `/_headers` answer **404 `text/html`** (the 404 page), never `200` |
+| Media type, cache, compression, validators | `.wasm` is `application/wasm`; assets `cache-control: public, max-age=0, must-revalidate` with a weak `etag`; `content-encoding: br` negotiated |
+| Headers | `no-referrer`, `nosniff`, `DENY`, CSP `frame-ancestors 'none'`, Permissions-Policy on every response including 404s and redirects; `/` is `no-cache, no-store` |
+| Smoke byte equality | Served `index.html`, JS, WASM and CSS decode to the SHA-256 of the staged bundle |
 
-Observed 2026-10-19 in the owner's account dashboard (read-only): no Pages project; one Git-integrated
-Worker named `cantos` with a failed build. It is unrelated to this lane and was not touched. Treat this
-as a dated observation, not current state.
+Surprises worth knowing (observed, not assumed):
+
+- Pages adds `access-control-allow-origin: *` to every static response. It covers public static bytes
+  only (no cookies, no Bearer is ever sent to this host) and does not touch the API's exact per-surface
+  CORS allow-list, but do not treat it as configurable here: `_headers` still refuses `Access-Control-*`.
+- `/index.html` and `/404.html` answer `308` (to `/` and `/404`); `/` serves the entry. The smoke checks `/`.
+- Pages serves the 404 page with `cache-control: no-store`.
+
+| Not accepted | Needs |
+| --- | --- |
+| A **production** deployment (branch `main`) of each app and the `production` readback | An explicit go-ahead; it replaces the project's live site (still only `*.pages.dev`) |
+| Pages' real file-count and 25 MiB per-asset enforcement (sizes are far below: `.wasm` 2.8 MB and 5.9 MB) | A bundle near the limit; not expected |
+| CircleCI execution of the lane (config validated with `circleci config validate`, not run) | `cloudflare-web` context, approval and a budgeted run |
+| Browser, API, auth, custom domain, DNS and cutover | The [rollout runbook](cloudflare-rollout.md) under separate authority |
+
+Public preview URLs stay reachable until the deployments are deleted in the dashboard (this command never
+deletes). A stale development `dist` of Theatre has a 97 MB debug `.wasm`: only the release build is
+deployable, and the limit check would refuse the debug one.
+
+Observed 2026-10-19 in the owner's account dashboard before provisioning (read-only): no Pages project; one
+Git-integrated Worker named `cantos` with a failed build. It is unrelated to this lane and was not touched.
+Treat this as a dated observation, not current state.

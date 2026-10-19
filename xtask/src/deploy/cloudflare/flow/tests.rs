@@ -117,11 +117,10 @@ fn release_manifest(component: &str, bytes: u64) -> String {
 
 impl FakeHost {
     fn new(log: Log, app: crate::config::App) -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "cantos-cf-flow-{}-{}",
-            std::process::id(),
-            app.cli_name()
-        ));
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let unique = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root =
+            std::env::temp_dir().join(format!("cantos-cf-flow-{}-{unique}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let component = format!(
             "{}-web",

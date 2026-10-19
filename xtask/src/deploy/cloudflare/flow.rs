@@ -30,8 +30,8 @@ use crate::{
 };
 
 /// Cloudflare Pages (Free plan) limits at the time of writing: 20,000 files and 25 MiB per asset.
-// ACCEPTANCE(NOT_RUN): the limits were read from the public documentation, not exercised by a real
-// upload. A paid plan raises the file count only; the per-asset bound is checked as measured on
+// ACCEPTANCE(NOT_RUN): the limits were read from the public documentation; real uploads (3 MB and 6 MB) were
+// far below them and never exercised them. A paid plan raises the file count only; the per-asset bound is checked as measured on
 // the decoded `.wasm`, never on its compressed size. Owner: the first authorized Pages deploy.
 pub const PAGES_MAX_FILES: usize = 20_000;
 pub const PAGES_MAX_FILE_BYTES: u64 = 25 * 1024 * 1024;

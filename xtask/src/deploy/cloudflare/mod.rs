@@ -25,15 +25,15 @@
 //!
 //! # Acceptance status
 //!
-//! Everything here is tested against fixtures, fakes and local files. Not accepted in this change,
+//! Tested against fixtures and fakes, and exercised once against a real account: on 2026-10-19 a preview
+//! deployment of each app passed every stage (see docs/deployment/cloudflare-pages.md). Not accepted,
 //! each marked `ACCEPTANCE(NOT_RUN)` (`rg 'ACCEPTANCE\(NOT_RUN\)' xtask docs`):
 //!
 //! | Not accepted | Needs | Marked in |
 //! | --- | --- | --- |
-//! | a real preview and production Pages deployment of each app | an operator-authorized token and Direct Upload projects | [`wrangler`], [`flow`] |
-//! | Wrangler's real response shapes (read from the package source, not captured) | the same run | [`wrangler`] |
-//! | HTTP behavior of real Pages (`404.html` precedence, merged headers, MIME, encoding) | the same run | [`flow`], docs |
-//! | Pages file-count and asset-size limits as enforced by the service | the same run | [`flow`] |
+//! | a production deployment of each app and its readback | an explicit go-ahead | [`wrangler`], [`flow`] |
+//! | failure shapes other than an invalid token, other Wrangler releases | the same, over time | [`wrangler`] |
+//! | Pages' own enforcement of its file-count and per-asset limits | a bundle near the limit | [`flow`] |
 //! | custom domains, DNS, browser/API/auth acceptance and cutover | the rollout runbook, separate authority | docs |
 
 mod artifact;

@@ -26,10 +26,13 @@ other. Observed on 2026-10-19 in the owner's account dashboard: no Pages project
 Git-integrated Worker named `cantos` whose last build failed; it is unrelated to this decision and
 was not changed.
 
-Known and unknown are kept apart: the Pages behaviors this design relies on (a top-level
-`404.html` disables the single-page-application fallback; `_headers` rules merge instead of
-overriding; the Free plan's file-count and per-asset limits) come from the public documentation
-cited in #278 and were **not** exercised against an account ([ACCEPTANCE(NOT_RUN)](../deployment/cloudflare-pages.md#acceptance-status)).
+Known and unknown are kept apart. On 2026-10-19 a preview deployment of each app was made and
+observed: a top-level `404.html` makes unknown paths (including `/api/*` and missing `.wasm`/`.js`)
+answer 404 instead of the SPA fallback; `_headers` apply to every response; assets revalidate with an
+`etag`; `application/wasm` and Brotli are served; Pages additionally adds `access-control-allow-origin: *`
+to static responses ([evidence](../deployment/cloudflare-pages.md#acceptance-status)). Not yet
+exercised: a production deployment, the plan's file-count and per-asset limits (bundles are 3 MB and 6 MB),
+and anything under a custom domain.
 
 ## Decision
 
@@ -81,7 +84,8 @@ cited in #278 and were **not** exercised against an account ([ACCEPTANCE(NOT_RUN
 
 ## Validation and revisit conditions
 
-Validated so far by unit/fixture tests only (`cargo xtask verify rust`, `scripts/test_circleci_cloudflare.py`).
+Validated by unit/fixture tests (`cargo test -p xtask`, `scripts/test_circleci_cloudflare.py`) and by one real
+preview deployment of each app (2026-10-19).
 Revisit when Cloudflare withdraws or restricts Pages Direct Upload, when a bundle approaches the
 per-asset or file-count limit, when a server-side feature is needed, or when the first real deploy
 contradicts a documented behavior listed above.

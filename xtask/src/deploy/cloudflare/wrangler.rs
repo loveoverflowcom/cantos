@@ -23,9 +23,10 @@ use crate::{
 };
 
 /// The release the argv and output fixtures were taken from. Wrangler 4 requires Node >= 22.
-// ACCEPTANCE(NOT_RUN): no real Pages deployment was made with this release. The output-file entry
-// and the two JSON listings were read from the 4.151.2 package source, not captured from an
-// account. Owner: the operator of the first authorized Pages deploy.
+// ACCEPTANCE: on 2026-10-19 a real preview deployment of each app with 4.151.2 produced the output-file
+// entry, project listing and deployment listing these interpreters read (docs/deployment/cloudflare-pages.md).
+// ACCEPTANCE(NOT_RUN): a production deployment, the error text of failure modes other than an invalid
+// token, and any other Wrangler release. Owner: the operator of the first production deploy.
 pub const PINNED_VERSION: &str = "4.151.2";
 pub const WRANGLER_DIR: &str = "infra/cloudflare/wrangler";
 pub const BINARY: &str = "infra/cloudflare/wrangler/node_modules/.bin/wrangler";
