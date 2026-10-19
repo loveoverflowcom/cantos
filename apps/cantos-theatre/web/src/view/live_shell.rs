@@ -36,6 +36,14 @@ use leptos::prelude::*;
 const NAV_ICON_DISCOVER: &str = "home";
 const NAV_ICON_LIBRARY: &str = "library_books";
 
+fn sync_admission(
+    state: RwSignal<AccountViewState>,
+) -> Memo<Option<crate::application::account::RequestFence>> {
+    // Point reads mutate account projections. Only a changed admission may retrigger their
+    // effect; observing the whole signal would let even an unchanged read guard reschedule it.
+    Memo::new(move |_| state.with(AccountViewState::fence))
+}
+
 fn refresh_account(state: RwSignal<AccountViewState>) {
     #[cfg(target_arch = "wasm32")]
     crate::live::runtime::refresh(state);
@@ -399,12 +407,12 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     });
     // When signed in on a public Work or with an active player source, load point Saved/Progress
     // registers that have not yet been observed in the current session.
+    let admitted_sync = sync_admission(state);
     Effect::new(move |_| {
         if preview || !network_allowed.get_untracked() {
             return;
         }
-        let signed_in = state.with(|s| s.phase() == SessionPhase::SignedIn);
-        if !signed_in {
+        if admitted_sync.get().is_none() {
             return;
         }
         let (work_info, unit_infos) = work_detail.with(|w| {
@@ -494,6 +502,11 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         else {
             return;
         };
+        state.update(|s| {
+            s.with_sync_mut(|sync, _| {
+                sync.set_resume_attempt(crate::application::library_sync::ResumeAttemptState::Idle);
+            });
+        });
         // The same release already in the player resumes; nothing is fetched or replaced.
         let resumes = player.source.get_untracked().is_some_and(|source| {
             matches!(source.track(), crate::core::playback::TrackId::Public(track)
@@ -538,6 +551,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }),
         on_resume: Callback::new(move |(audio, position_ms, resume, pres)| {
             if !preview && network_allowed.get_untracked() {
+                listen.update(ListenState::clear);
                 #[cfg(target_arch = "wasm32")]
                 crate::live::runtime::resume_exact_release(
                     state,
@@ -572,6 +586,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }),
         on_resume: Callback::new(move |(audio, position_ms, resume, pres)| {
             if !preview && network_allowed.get_untracked() {
+                listen.update(ListenState::clear);
                 #[cfg(target_arch = "wasm32")]
                 crate::live::runtime::resume_exact_release(
                     state,
@@ -987,6 +1002,43 @@ fn membership_back_key(member: MembershipReturn) -> crate::features::auth_copy::
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sync_admission_does_not_retrigger_reads_for_projection_updates() {
+        use crate::features::auth_preview::{signed_in, PreviewActor};
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            signed_in(state, PreviewActor::A).unwrap();
+            let admission = sync_admission(state);
+            let runs = Arc::new(AtomicUsize::new(0));
+            let observed_runs = runs.clone();
+            let read_effect = Memo::new(move |_| {
+                let admitted = admission.get().is_some();
+                observed_runs.fetch_add(1, Ordering::SeqCst);
+                admitted
+            });
+            assert!(read_effect.get());
+            let work = uuid::Uuid::from_u128(99).to_string();
+            // Both a real projection mutation and the already-in-flight no-op notify state.
+            for _ in 0..3 {
+                state.update(|s| {
+                    s.with_sync_mut(|sync, _| sync.begin_saved_read(&work));
+                });
+                assert!(read_effect.get());
+            }
+            assert_eq!(runs.load(Ordering::SeqCst), 1);
+            state.update(|s| {
+                s.begin_logout().unwrap();
+            });
+            assert!(!read_effect.get());
+            assert_eq!(runs.load(Ordering::SeqCst), 2);
+        });
+    }
 
     #[test]
     fn guest_library_entry_opens_account_before_any_login_and_hides_for_signed_in_listener() {
