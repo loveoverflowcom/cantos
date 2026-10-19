@@ -16,7 +16,7 @@ use crate::{
     features::{
         account::LiveAccount,
         auth::AuthPage,
-        common::PersonGlyph,
+        common::{icon, PersonGlyph},
         library::{LibraryActions, LiveLibrary},
         live_player::{LiveMiniPlayer, LivePlayer, LivePlayerScreen, PlayerSyncControls},
         public_home::{self, PublicHome},
@@ -31,6 +31,10 @@ use cantos_ui::{
     SelectLabelPlacement, SelectOption, Theme,
 };
 use leptos::prelude::*;
+
+// Registered outline icons (assets/icons) of the two primary destinations.
+const NAV_ICON_DISCOVER: &str = "home";
+const NAV_ICON_LIBRARY: &str = "library_books";
 
 fn refresh_account(state: RwSignal<AccountViewState>) {
     #[cfg(target_arch = "wasm32")]
@@ -843,13 +847,15 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                 <aside class="theatre-rail">
                     <a class="theatre-brand" href="#discover" aria-label="Cantos"><Logo tone=LogoTone::Light class="theatre-logo-light"/><Logo tone=LogoTone::Dark class="theatre-logo-dark"/></a>
                     <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
-                        <a class="theatre-nav-link" href="#discover" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{move || messages::text(Key::Discover, locale.get())}</a>
-                        <a class="theatre-nav-link" href="#library" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Library)).then_some("page")>{move || messages::text(Key::Library, locale.get())}</a>
+                        <a class="theatre-nav-link" href="#discover" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span>{move || messages::text(Key::Discover, locale.get())}</span></a>
+                        <a class="theatre-nav-link" href="#library" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Library)).then_some("page")>{icon(NAV_ICON_LIBRARY)}<span>{move || messages::text(Key::Library, locale.get())}</span></a>
                     </nav>
                 </aside>
                 <div class="theatre-content">
+                    <super::LiveContainer>
                     <header class="theatre-topbar">
-                        <a class="theatre-brand-name" href="#discover">"Cantos"</a>
+                        // The rail owns the wordmark; the topbar says where the listener is.
+                        <p class="theatre-topbar-context">{move || messages::text(messages::route_key(nav.route.get()), locale.get())}</p>
                         <div class="theatre-topbar-actions">
                             <Select id="theatre-live-locale" class="theatre-locale-field"
                                 density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
@@ -865,7 +871,6 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                             <a id="theatre-account-entry" class="theatre-avatar" href="#account" aria-label=move || messages::text(Key::Account, locale.get()) aria-current=move || (nav.route.get() == Route::Account).then_some("page")><PersonGlyph/></a>
                         </div>
                     </header>
-                    <super::LiveContainer>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
                             {move || match nav.route.get() {
                                 Route::Auth(auth) => view! { <AuthPage state registration signup locale route=auth preview_icons=preview

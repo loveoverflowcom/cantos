@@ -59,6 +59,15 @@ logged, persisted or fetched into a `Blob`.
 - **Not covered here:** search and routing (#270), offline,
   queue, transcript, Safari/iOS and deployed CDN/CORS behavior.
 
+## Discover layout
+
+Discover follows the Home anatomy of the design ([#282](https://github.com/loveoverflowcom/cantos/issues/282),
+[record and gaps](../../../docs/evidence/theatre-web-discover-parity.md)): intro, a hero for the
+first Work of the answered search, then the search/filters and a grid of Work cards. The hero
+and cards use a neutral cover fallback because the public contract carries no cover, and the
+hero's eyebrow never claims an editorial pick. The content language is chosen by name; the
+request still carries its tag. The design reference was not re-rendered for this change.
+
 ## Scope and honest behavior
 
 The default entrypoint opens public Home without a login wall. It reads actual published work

@@ -412,25 +412,47 @@ body { margin: 0; }
 .theatre-account-links { list-style: none; margin: 0; padding: 0; }
 .theatre-account-links a { display: flex; align-items: center; min-block-size: var(--cantos-size-control); padding-block: var(--cantos-space-sm); }
 .theatre-home-auth-actions { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); }
-.theatre-public-hero { max-inline-size: 48rem; padding-block: var(--cantos-space-xl); }
-.theatre-public-hero h1 { font-size: var(--cantos-type-auth-heading-size); }
-.theatre-public-work-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--cantos-space-lg); }
+/* Discover (live): topbar, intro, hero and shelf share the container's one inline axis. */
+.theatre-live-app .theatre-main { padding-inline: 0; padding-block-start: 0; }
+.theatre-live-app .theatre-topbar { padding-inline: 0; padding-block: var(--cantos-space-md); }
+/* The locale field keeps a readable width; the context label yields first and the row wraps. */
+.theatre-live-app .theatre-locale-field { min-inline-size: 8rem; }
+.theatre-topbar-context { flex: 1 1 6rem; margin: 0; font: var(--cantos-type-label-weight) var(--cantos-type-label-size)/var(--cantos-type-label-line-height) var(--cantos-type-family-ui); }
+.theatre-nav-link .theatre-icon { color: inherit; }
+.theatre-discover-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--cantos-space-md) var(--cantos-space-lg); margin-block: var(--cantos-space-md) var(--cantos-space-lg); }
+.theatre-discover-intro-copy { flex: 1 1 24rem; min-inline-size: 0; }
+.theatre-discover-intro h1 { margin-block-end: var(--cantos-space-sm); font-size: var(--cantos-type-auth-heading-size); line-height: var(--cantos-type-auth-heading-line-height); }
+.theatre-discover-intro p { max-inline-size: 60ch; margin-block-end: 0; }
+.theatre-discover-intro .theatre-eyebrow { margin-block-end: var(--cantos-space-xs); }
+.theatre-discover-feature { margin-block-end: var(--cantos-space-xl); background: var(--cantos-color-surface-container); }
+.theatre-discover-feature .theatre-feature-copy { padding: var(--cantos-space-lg) var(--cantos-space-xl); }
+.theatre-discover-feature h2 { margin-block: var(--cantos-space-xs) var(--cantos-space-sm); }
+.theatre-discover-feature-description { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.theatre-public-catalog > h2 { margin-block: 0 var(--cantos-space-md); }
 .theatre-public-work, .theatre-public-state { padding: var(--cantos-space-lg); }
-.theatre-public-work { position: relative; }
+.theatre-public-work { position: relative; display: grid; align-content: start; gap: var(--cantos-space-md); padding: 0; overflow: hidden; }
+.theatre-public-work-body { display: grid; gap: var(--cantos-space-xs); padding: 0 var(--cantos-space-lg) var(--cantos-space-lg); min-inline-size: 0; }
+.theatre-public-work-body :where(h3, p) { margin: 0; }
+.theatre-public-work-description { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* Fallback cover: decoration plus the kind, in the same shape as a real cover would take. */
+.theatre-public-cover { min-block-size: 9rem; justify-content: space-between; padding: var(--cantos-space-md); border-radius: 0; }
+.theatre-public-cover-glyph { display: inline-flex; inline-size: 2.5rem; block-size: 2.5rem; }
+.theatre-public-cover-glyph .theatre-icon { inline-size: 100%; block-size: 100%; }
+.theatre-public-cover small { padding: 0; }
+.theatre-discover-feature .theatre-public-cover { block-size: 100%; min-block-size: 12rem; }
+.theatre-public-skeleton { min-block-size: 15rem; border-radius: var(--cantos-web-shape-panel); background: var(--cantos-color-surface-container); }
 /* The title link is the card's one named target; its hit area covers the card. */
 .theatre-public-work-link { text-decoration: none; }
 .theatre-public-work-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .theatre-public-work-link:hover { text-decoration: underline; }
 .theatre-public-work:has(.theatre-public-work-link:focus-visible) { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
 /* Search: one labelled form, wrapped on a narrow screen, with a stable list region below. */
-.theatre-public-search { display: grid; gap: var(--cantos-space-md); max-inline-size: 48rem; margin-block-end: var(--cantos-space-xl); }
+.theatre-public-search { display: grid; gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
 .theatre-public-search .theatre-filters { margin-block: 0; }
-@media (min-width: 48rem) {
-  /* Search and type chips span the row; the language field and the actions share the next. */
-  .theatre-public-search { grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: var(--cantos-space-lg); }
-  .theatre-public-search > :nth-child(-n+2) { grid-column: 1 / -1; }
-}
-.theatre-public-search-actions { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+/* The button stays beside the field until large text or a narrow screen leaves no room for both. */
+.theatre-public-search-main { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--cantos-space-md); max-inline-size: 40rem; }
+.theatre-public-search-main > .cui-field { flex: 1 1 13rem; min-inline-size: 0; }
+.theatre-public-search-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm) var(--cantos-space-md); }
 .theatre-public-status { margin-block: var(--cantos-space-md); }
 .theatre-public-work-count { margin-block-end: 0; font-size: var(--cantos-type-metadata-size); }
 .theatre-public-work h3, .theatre-public-work p { overflow-wrap: anywhere; }
@@ -450,8 +472,6 @@ body { margin: 0; }
   .theatre-auth-story { display: none; }
 }
 @media (max-width: 34rem) {
-  .theatre-live-app .theatre-topbar { padding: var(--cantos-space-md); }
-  .theatre-live-app .theatre-main { padding-inline: var(--cantos-space-sm); }
   .theatre-auth-top { align-items: flex-start; flex-wrap: wrap; }
   .theatre-auth-brand { inline-size: 7rem; }
   .theatre-auth-copy { padding-inline: 0; }
