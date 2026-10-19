@@ -243,3 +243,7 @@ The opt-in [CircleCI release contract](docs/deployment/circleci-builds.md) resol
 packages configuration-bound v2 API/Web artifacts, then promotes those bytes through approval
 and separate VPS/Web contexts. `cargo xtask release self-test` covers its deterministic boundaries;
 actual CI/account restrictions, product builds, activation and browser acceptance remain separate.
+
+Android optimized-release packaging retains a same-composition unshrunk audit and explicit
+[development/release distribution policy](apps/cantos-theatre/mobile/docs/firebase-distribution.md);
+source/unit/build/audit evidence does not establish installed-device or live tester acceptance.

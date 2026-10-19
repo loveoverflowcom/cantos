@@ -27,25 +27,6 @@ pub fn gradle_command(workspace: &Workspace) -> CommandSpec {
     ])
 }
 
-/// Retired Android mock lane (#286): reachable only from the inert `demo`/`demo-qa` distribution
-/// policies, which `distribute firebase` refuses before any build. Not a real build command.
-pub fn android_command(workspace: &Workspace) -> CommandSpec {
-    gradle_command(workspace).args([
-        "-Pcantos.android=true",
-        "-Pandroid.builder.sdkDownload=false",
-        ":androidApp:assembleDebug",
-    ])
-}
-
-/// Retired with the `qa` build type (#286); see [`android_command`].
-pub fn android_qa_command(workspace: &Workspace) -> CommandSpec {
-    gradle_command(workspace).args([
-        "-Pcantos.android=true",
-        "-Pandroid.builder.sdkDownload=false",
-        ":androidApp:assembleQa",
-    ])
-}
-
 /// The already installed Android SDK named by the environment, if any; never downloaded.
 pub fn android_sdk_from_environment() -> Option<PathBuf> {
     std::env::var_os("ANDROID_HOME")
@@ -99,18 +80,6 @@ pub fn local_executable(path: &Path) -> bool {
     {
         path.is_file()
     }
-}
-
-pub fn android_prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static str> {
-    if !project.join("androidApp/build.gradle.kts").is_file()
-        || !project
-            .join("androidApp/src/main/AndroidManifest.xml")
-            .is_file()
-        || !project.join("shared/src/androidMain/kotlin").is_dir()
-    {
-        return Err("Android application module, manifest or shared Android sources are missing");
-    }
-    android_sdk_prerequisite(sdk)
 }
 
 /// An already installed, absolute SDK with platform 35 and build tools 35.0.0; never downloaded.
@@ -233,20 +202,13 @@ mod tests {
         let dir =
             std::env::temp_dir().join(format!("xtask-theatre-android-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        assert!(android_prerequisite(&dir, None)
-            .unwrap_err()
-            .contains("module"));
-        std::fs::create_dir_all(dir.join("androidApp/src/main")).unwrap();
-        std::fs::create_dir_all(dir.join("shared/src/androidMain/kotlin")).unwrap();
-        std::fs::write(dir.join("androidApp/build.gradle.kts"), "").unwrap();
-        std::fs::write(dir.join("androidApp/src/main/AndroidManifest.xml"), "").unwrap();
-        assert!(android_prerequisite(&dir, None)
+        assert!(android_sdk_prerequisite(None)
             .unwrap_err()
             .contains("ANDROID_HOME"));
-        assert!(android_prerequisite(&dir, Some(&dir.join("absent-sdk")))
+        assert!(android_sdk_prerequisite(Some(&dir.join("absent-sdk")))
             .unwrap_err()
             .contains("does not exist"));
-        assert!(android_prerequisite(&dir, Some(&dir))
+        assert!(android_sdk_prerequisite(Some(&dir))
             .unwrap_err()
             .contains("platform 35"));
         std::fs::create_dir_all(dir.join("platforms/android-35")).unwrap();
@@ -254,7 +216,7 @@ mod tests {
         std::fs::write(dir.join(ANDROID_PLATFORM), "").unwrap();
         executable_fixture(&dir.join(ANDROID_BUILD_TOOLS).join("aapt2"));
         executable_fixture(&dir.join(ANDROID_BUILD_TOOLS).join("d8"));
-        assert_eq!(android_prerequisite(&dir, Some(&dir)), Ok(()));
+        assert_eq!(android_sdk_prerequisite(Some(&dir)), Ok(()));
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

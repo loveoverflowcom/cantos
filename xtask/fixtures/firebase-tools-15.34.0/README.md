@@ -27,3 +27,8 @@ are unchanged.
 
 If a later CLI changes these texts, the adapter reports an *unknown* remote outcome instead of
 guessing; update the fixtures only from a captured run of the new version.
+
+`*-development-policy.*` are synthetic `.dev` policy variants for #288. They preserve the
+CLI response shape and are not captures of a registration, upload or tester install. Original
+fixtures remain unchanged. `../android/badging-*-policy.txt` similarly model development/release
+identity; actual APK evidence comes only from theatre-host inspection.

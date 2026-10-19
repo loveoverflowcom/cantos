@@ -199,7 +199,7 @@ pub fn interpret_lookup(
     requested: &AppId,
     result: Result<Captured, CaptureError>,
 ) -> Result<Registered, DestinationError> {
-    interpret_lookup_package(requested, super::request::DEMO_PACKAGE, result)
+    interpret_lookup_package(requested, super::request::DEVELOPMENT_PACKAGE, result)
 }
 
 pub fn interpret_lookup_package(
@@ -437,7 +437,7 @@ fn parse_release(text: &str) -> Option<Release> {
     })
 }
 
-/// `0.1.0-demo (1)` -> (`0.1.0-demo`, `1`).
+/// `0.1.0-dev (1)` -> (`0.1.0-dev`, `1`).
 fn split_version(rest: &str) -> Option<(String, String)> {
     let rest = rest.strip_suffix(')')?;
     let split = rest.rfind(" (")?;
@@ -533,8 +533,9 @@ mod tests {
     use super::*;
 
     const APP: &str = "1:000000000000:android:0123456789abcdef";
-    const CREATED: &str =
-        include_str!("../../fixtures/firebase-tools-15.34.0/distribute-created.txt");
+    const CREATED: &str = include_str!(
+        "../../fixtures/firebase-tools-15.34.0/distribute-created-development-policy.txt"
+    );
     const FAIL_NOTES: &str =
         include_str!("../../fixtures/firebase-tools-15.34.0/distribute-notes-failed.txt");
     const FAIL_DISTRIBUTE: &str =
@@ -545,8 +546,9 @@ mod tests {
         include_str!("../../fixtures/firebase-tools-15.34.0/distribute-app-missing.txt");
     const SDK_EMPTY: &str =
         include_str!("../../fixtures/firebase-tools-15.34.0/sdkconfig-unregistered.json");
-    const SDK_REGISTERED: &str =
-        include_str!("../../fixtures/firebase-tools-15.34.0/sdkconfig-registered.json");
+    const SDK_REGISTERED: &str = include_str!(
+        "../../fixtures/firebase-tools-15.34.0/sdkconfig-registered-development-policy.json"
+    );
 
     fn app() -> AppId {
         AppId::parse(APP).unwrap()
@@ -566,7 +568,7 @@ mod tests {
         let apk = run.join("artifact/ứng dụng.apk");
         let notes = run.join("release-notes.txt");
         let testers = run.join("testers.txt");
-        let groups = vec!["cantos-internal".to_owned(), "qa".to_owned()];
+        let groups = vec!["cantos-internal".to_owned(), "release".to_owned()];
         let command = distribute_command(&DistributeInputs {
             run_dir: run,
             staged_apk: &apk,
@@ -584,7 +586,7 @@ mod tests {
                 apk.to_string_lossy().into_owned(),
                 format!("--app={APP}"),
                 format!("--release-notes-file={}", notes.display()),
-                "--groups=cantos-internal,qa".to_owned(),
+                "--groups=cantos-internal,release".to_owned(),
                 format!("--testers-file={}", testers.display()),
                 "--non-interactive".to_owned(),
             ]
@@ -606,7 +608,7 @@ mod tests {
 
     #[test]
     fn production_destination_requires_exact_registered_production_package() {
-        let body = SDK_REGISTERED.replace("com.cantos.theatre.demo", "com.cantos.theatre");
+        let body = SDK_REGISTERED.replace("com.cantos.theatre.dev", "com.cantos.theatre");
         assert_eq!(
             interpret_lookup_package(&app(), "com.cantos.theatre", ok(0, &body, ""))
                 .unwrap()
@@ -626,7 +628,7 @@ mod tests {
             ok(0, SDK_REGISTERED, "- Downloading\n✔ Downloading"),
         )
         .unwrap();
-        assert_eq!(registered.package, "com.cantos.theatre.demo");
+        assert_eq!(registered.package, "com.cantos.theatre.dev");
     }
 
     #[test]
@@ -645,11 +647,11 @@ mod tests {
             interpret_lookup(&other, ok(0, SDK_REGISTERED, "")),
             Err(DestinationError::AppIdMismatch)
         );
-        let production = SDK_REGISTERED.replace("com.cantos.theatre.demo", "com.cantos.theatre");
+        let production = SDK_REGISTERED.replace("com.cantos.theatre.dev", "com.cantos.theatre");
         assert_eq!(
             interpret_lookup(&app(), ok(0, &production, "")),
             Err(DestinationError::PackageMismatch {
-                expected: "com.cantos.theatre.demo".into(),
+                expected: "com.cantos.theatre.dev".into(),
                 found: "com.cantos.theatre".into()
             })
         );
@@ -667,7 +669,7 @@ mod tests {
                 "{body}"
             );
         }
-        let no_package = SDK_REGISTERED.replace("com.cantos.theatre.demo", "");
+        let no_package = SDK_REGISTERED.replace("com.cantos.theatre.dev", "");
         assert!(matches!(
             interpret_lookup(&app(), ok(0, &no_package, "")),
             Err(DestinationError::Unrecognized(_))
@@ -706,7 +708,7 @@ mod tests {
             Err(DestinationError::Unavailable(_))
         ));
         // A key inside a successful body is never part of any error text.
-        let leaky = SDK_REGISTERED.replace("com.cantos.theatre.demo", "");
+        let leaky = SDK_REGISTERED.replace("com.cantos.theatre.dev", "");
         let error = interpret_lookup(&app(), ok(0, &leaky, ""))
             .unwrap_err()
             .to_string();
@@ -718,7 +720,7 @@ mod tests {
         let outcome = interpret_distribution(ok(0, CREATED, ""), DISTRIBUTE_TIMEOUT, &[]);
         match outcome {
             RemoteOutcome::Confirmed { release } => {
-                assert_eq!(release.display_version, "0.1.0-demo");
+                assert_eq!(release.display_version, "0.1.0-dev");
                 assert_eq!(release.build_version, "1");
                 assert_eq!(release.upload, UploadResult::Created);
                 assert!(release

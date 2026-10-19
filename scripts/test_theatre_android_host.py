@@ -32,7 +32,7 @@ class TheatreAndroidHostTest(unittest.TestCase):
         self.assertIsNone(application.get(ANDROID + "debuggable"))
         self.assertEqual(application.get(ANDROID + "usesCleartextTraffic"), "false")
         self.assertEqual({m.get(ANDROID + "name"):m.get(ANDROID + "value") for m in application.findall("meta-data")},
-                         {"CantosApiOrigin":"${cantosApiOrigin}", "CantosNativeIssuer":"${cantosNativeIssuer}"})
+                         {"CantosApiOrigin":"${cantosApiOrigin}", "CantosNativeIssuer":"${cantosNativeIssuer}", "CantosReleaseAudit":"${cantosReleaseAudit}"})
         services = application.findall("service")
         self.assertEqual(len(services), 1)
         self.assertEqual(services[0].get(ANDROID + "name"), "com.cantos.theatre.adapters.playback.CantosPlaybackService")
@@ -64,14 +64,18 @@ class TheatreAndroidHostTest(unittest.TestCase):
             self.assertEqual({item.get("name"): item.text for item in styles[0]}["android:windowBackground"],
                              "@color/cantos_launch_background")
 
-    def test_build_composes_shared_only_with_an_unshrunk_unsigned_release(self):
+    def test_build_composes_shared_only_with_an_isolated_unsigned_audit_of_optimized_release(self):
         build = (HOST / "build.gradle.kts").read_text()
         projects = re.findall(r'project\("([^"]+)"\)', build)
         self.assertEqual(projects, [":shared"])
         self.assertEqual(re.findall(r'applicationId = "([^"]+)"', build), ["com.cantos.theatre"])
-        self.assertIn("isMinifyEnabled = false", build)
-        self.assertIn("isShrinkResources = false", build)
-        self.assertNotIn("signingConfig", build)
+        self.assertIn("isMinifyEnabled = !releaseAudit", build)
+        self.assertIn("isShrinkResources = !releaseAudit", build)
+        self.assertIn("if (!releaseAudit", build)
+        self.assertIn("CANTOS_RELEASE_KEYSTORE", build)
+        self.assertIn("build-audit", build)
+        self.assertIn("ScopedArtifacts.Scope.ALL", build)
+        self.assertIn("ScopedArtifact.CLASSES", build)
         self.assertNotIn("debugImplementation", build)
         self.assertNotIn("preview-sandbox", build)
         self.assertNotIn("productFlavors", build)
@@ -120,7 +124,7 @@ class TheatreAndroidHostTest(unittest.TestCase):
     def test_removed_demo_modules_and_flavors_do_not_return(self):
         mobile = HOST.parent
         self.assertFalse((mobile / "androidProductionApp").exists())
-        self.assertFalse((HOST / "proguard-rules.pro").exists())
+        self.assertTrue((HOST / "proguard-rules.pro").exists())
         self.assertNotIn("androidProductionApp", (mobile / "settings.gradle.kts").read_text())
 
 

@@ -311,7 +311,7 @@
               {
                 "restore_cache": {
                   "keys": [
-                    "v2-android-{{ arch }}-gradle8143-{{ .Branch }}-{{ checksum \"apps/cantos-theatre/mobile/settings.gradle.kts\" }}-{{ checksum \"apps/cantos-theatre/mobile/androidApp/build.gradle.kts\" }}"
+                    "v3-android-release-audit-{{ arch }}-gradle8143-{{ .Branch }}-{{ checksum \"apps/cantos-theatre/mobile/settings.gradle.kts\" }}-{{ checksum \"apps/cantos-theatre/mobile/androidApp/build.gradle.kts\" }}"
                   ]
                 }
               }
@@ -431,7 +431,7 @@
               {
                 "restore_cache": {
                   "keys": [
-                    "v2-android-{{ arch }}-gradle8143-{{ .Branch }}-{{ checksum \"apps/cantos-theatre/mobile/settings.gradle.kts\" }}-{{ checksum \"apps/cantos-theatre/mobile/androidApp/build.gradle.kts\" }}"
+                    "v3-android-release-audit-{{ arch }}-gradle8143-{{ .Branch }}-{{ checksum \"apps/cantos-theatre/mobile/settings.gradle.kts\" }}-{{ checksum \"apps/cantos-theatre/mobile/androidApp/build.gradle.kts\" }}"
                   ]
                 }
               }

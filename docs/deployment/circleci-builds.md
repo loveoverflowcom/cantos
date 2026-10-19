@@ -72,7 +72,7 @@ Rust pin, packager/validator, and relevant Containerfile or Web Trunk/Hosting po
 | --- | --- |
 | API | `cantos-api.tar.zst`, `image.json`, `runtime.tar`; matching committed VPS assets, edge policy, legacy schema manifest and `REVISION`, plus Linux amd64 image ID/source/schema epoch |
 | Web | One component-specific `.tar.gz`; regular allow-listed static assets, including `index.html`; the existing Hosting bundle validator additionally checks app identity, references and integrity pins |
-| Android | Existing unsigned APK/AAB and isolation/dependency reports, application ID `com.cantos.theatre`, production versionCode/versionName; no device/login acceptance |
+| Android | Unsigned optimized APK/AAB, isolated unsigned unshrunk release audit APK/AAB, both isolation/dependency/pre-shrink reports, bound `mapping.txt` and `release-evidence.json`, application ID `com.cantos.theatre`, production versionCode/versionName; no device/login acceptance |
 
 Limits are 10,000 archive entries, 2 GiB aggregate expanded/payload bytes, 2 MiB JSON and 24 hours
 from request/artifact creation to promotion. Absolute/traversal paths, symlinks, hardlinks,

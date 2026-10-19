@@ -1,33 +1,18 @@
 # Firebase App Distribution operator inputs
 
-App Distribution is CLI-driven; there is no tracked Firebase `appDistribution` section or new
-configuration parser. The canonical executable contract is
-[`cargo xtask distribute firebase`](../../../xtask/README.md#distribute-firebase);
-setup, tester notification, retention and live acceptance remain in the
-[Theatre distribution runbook](../../../apps/cantos-theatre/mobile/docs/firebase-distribution.md).
+The executable owner is [`cargo xtask distribute firebase`](../../../xtask/README.md#distribute-firebase).
+The [release/distribution runbook](../../../apps/cantos-theatre/mobile/docs/firebase-distribution.md)
+owns exact package registration, signer inputs, dry-run, staged-byte/hash and mapping checks,
+recipient authorization, unknown-outcome recovery and independent device/live acceptance.
 
-| Existing input | Meaning |
-| --- | --- |
-| `--app-id` / `CANTOS_FIREBASE_DEMO_APP_ID` | Explicit Firebase **Android App ID**; the flag wins. No default/active Firebase project lookup |
-| `--channel demo` / `--channel demo-qa` / `--channel production` | Selects the debuggable demo, the optimized non-debuggable demo QA (same host, package and app ID) or the real production composition; not a Hosting channel |
-| `CANTOS_FIREBASE_DEMO_QA_CERT_SHA256` | Required expected certificate of the operator's QA key for a real `demo-qa` distribution |
-| `CANTOS_QA_KEYSTORE`, `CANTOS_QA_KEYSTORE_PASSWORD`, `CANTOS_QA_KEY_ALIAS`, `CANTOS_QA_KEY_PASSWORD` | The operator's QA signing key for Gradle; only presence is checked, never created or recorded |
-| `--artifact apk` | Only supported artifact; AAB remains unsupported |
-| `--groups` / `--testers` | Explicit recipients; distribution can invite/notify them |
-| `--release-notes` / `--release-notes-file` | Bounded release notes; otherwise a demo-labeled summary |
-| `CANTOS_FIREBASE_DEMO_CERT_SHA256` | Optional expected demo debug-signing certificate fingerprint |
-| `--app-id` / `CANTOS_FIREBASE_PRODUCTION_APP_ID` | Separate explicit production-composition Firebase Android App ID |
-| `CANTOS_FIREBASE_PRODUCTION_CERT_SHA256` | Required expected certificate for real production-composition distribution |
-| `--api-origin` / `--native-issuer` | Explicit HTTPS API origin and optional native identity issuer, inspected in the packaged production manifest |
+`development` selects `com.cantos.theatre.dev` debug; `production` selects optimized
+`com.cantos.theatre` release. Each needs its own matching Firebase Android App ID and certificate
+pin. Development variables use `CANTOS_FIREBASE_DEVELOPMENT_*`; production uses
+`CANTOS_FIREBASE_PRODUCTION_*`. Operator release key inputs use `CANTOS_RELEASE_*`.
+No key, registration, recipient list or real app identifier is tracked here. Retired `.demo`/QA
+inputs are never used as fallback. Firebase login/ADC stays operator-managed.
 
-An App ID is not a Hosting site, Hosting target, project alias or Functions codebase. Distribution
-keeps the Firebase CLI `appdistribution:distribute --app ...` argument/result contract, its private
-`artifacts/distributions/<run-id>/` run record and tester-file redaction. It never consumes the
-Hosting `.firebaserc`, `firebase.json` or Functions selector. Credentials remain operator-managed
-Firebase login/ADC, never tracked here. No recipient list or real app identifier is committed.
-
-`--dry-run` is pure planning: no Gradle/Firebase subprocess, artifact write, upload or invitation.
-A real invocation builds the selected Android host, never Web/Functions/API/edge. The production
-lane inspects actual sandbox exclusion before upload; build/distribution do not replace native
-device/login/playback acceptance. An agent requires explicit app and recipient authorization
-for the remote write.
+Distribution uses the Firebase CLI without a runtime SDK or google-services plugin. App IDs are
+not Hosting sites/targets, project aliases or Functions codebases; `.firebaserc`/Hosting config
+never chooses an App Distribution destination. AAB distribution remains refused. Build and CI
+package unsigned optimized output plus an isolated unshrunk audit; neither uploads or installs.

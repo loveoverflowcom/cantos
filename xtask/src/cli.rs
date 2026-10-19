@@ -643,13 +643,16 @@ mod tests {
         assert!(matches!(
             parse("theatre-host android-release").unwrap(),
             Task::TheatreHost {
-                action: HostAction::AndroidRelease { api_origin: None }
+                action: HostAction::AndroidRelease {
+                    api_origin: None,
+                    ..
+                }
             }
         ));
         assert!(matches!(
             parse("theatre-host android-release --api-origin https://api.cantos.example").unwrap(),
             Task::TheatreHost {
-                action: HostAction::AndroidRelease { api_origin: Some(origin) }
+                action: HostAction::AndroidRelease { api_origin: Some(origin), .. }
             } if origin == "https://api.cantos.example"
         ));
         assert!(matches!(

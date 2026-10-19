@@ -4,6 +4,7 @@
 /target/
 /apps/*/web/dist/
 **/build/
+/apps/cantos-theatre/mobile/androidApp/build-audit/
 .gradle/
 node_modules/
 .DS_Store
