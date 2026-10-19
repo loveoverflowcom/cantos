@@ -38,7 +38,7 @@ class AndroidReleaseEvidenceTests(unittest.TestCase):
                 archive.writestr('com/cantos/theatre/app/LiveCatalog.class', b'class fixture')
             self.assertEqual(boundary.input_findings([jar])[0], [])
             for name in ('com/cantos/theatre/app/MockCatalog.class', 'kotlin/test/Asserter.class',
-                         'io/ktor/client/engine/mock/MockEngine.class', 'org/junit/Test.class'):
+                         'io/ktor/client/engine/mock/MockEngine.class', 'org/junit/Test.class', 'junit/framework/TestCase.class'):
                 with self.subTest(name=name):
                     with zipfile.ZipFile(jar, 'w') as archive:
                         archive.writestr(name, b'forbidden compiled fixture')

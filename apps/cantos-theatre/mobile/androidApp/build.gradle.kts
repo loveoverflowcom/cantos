@@ -1,3 +1,7 @@
+import com.android.build.api.artifact.ScopedArtifact
+import com.android.build.api.variant.ScopedArtifacts
+import javax.inject.Inject
+import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -5,6 +9,24 @@ plugins {
     id("com.android.application")
     kotlin("android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+abstract class InspectProductionClasses : DefaultTask() {
+    @get:InputFiles abstract val allJars: ListProperty<RegularFile>
+    @get:InputFiles abstract val allDirectories: ListProperty<Directory>
+    @get:InputFile abstract val inspector: RegularFileProperty
+    // Location only: graph/source guards always run and inspect their own source sets.
+    @get:Internal abstract val mobile: DirectoryProperty
+    @get:OutputFile abstract val report: RegularFileProperty
+    @get:Inject abstract val execOperations: ExecOperations
+
+    @TaskAction fun inspect() {
+        val arguments = mutableListOf<Any>("python3", inspector.get().asFile,
+            "--mobile", mobile.get().asFile, "--report", report.get().asFile)
+        (allJars.get().map { it.asFile } + allDirectories.get().map { it.asFile })
+            .sortedBy { it.path }.forEach { arguments.addAll(listOf("--input", it)) }
+        execOperations.exec { commandLine(arguments) }
+    }
 }
 
 // The explicit audit uses the SAME release variant/graph, with isolated outputs and no signer.
@@ -162,14 +184,16 @@ tasks.register("assertDependencyBoundaries") {
     dependsOn(assertDebugDependencyBoundary, assertReleaseDependencyBoundary)
 }
 
-// Check actual resolved/compiled inputs immediately before R8, even on a cached-output rerun.
-// The graph check catches transitive dependencies; this also catches copied compiled classes.
-tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach {
-    outputs.upToDateWhen { false }
-    doFirst {
-        val arguments = mutableListOf<Any>("python3", rootProject.file("../../../scripts/android_boundary.py"),
-            "--mobile", rootProject.projectDir, "--report", layout.buildDirectory.file("reports/release-boundary/pre-shrink-inputs.json").get().asFile)
-        inputs.files.files.sortedBy { it.path }.forEach { arguments.addAll(listOf("--input", it)) }
-        project.exec { commandLine(arguments) }
+// Public AGP program-artifact scope includes app + transitive dependency classes, without SDK
+// boot/library stubs (android.jar contains junit.framework). Never whitelist by jar filename.
+androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
+    val boundary = tasks.register<InspectProductionClasses>("inspectReleaseProgramInputs") {
+        inspector.set(rootProject.layout.projectDirectory.file("../../../scripts/android_boundary.py"))
+        mobile.set(rootProject.layout.projectDirectory)
+        report.set(layout.buildDirectory.file("reports/release-boundary/pre-shrink-inputs.json"))
+        outputs.upToDateWhen { false }
     }
+    variant.artifacts.forScope(ScopedArtifacts.Scope.ALL).use(boundary)
+        .toGet(ScopedArtifact.CLASSES, InspectProductionClasses::allJars, InspectProductionClasses::allDirectories)
+    tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach { dependsOn(boundary) }
 }
