@@ -482,7 +482,7 @@ fn validate() { crate::script_ir::read_script(bytes); state.store.save(request);
 
     def test_editorial_http_allows_only_facts_and_document_projections(self):
         self.assertEqual(self.errors("interfaces/http/studio/editorial.rs", """
-use crate::contexts::editorial::{document, ReviewFacts, RevisionOperation};
+use crate::contexts::editorial::{document, RevisionFacts, RevisionHistory, ReviewFacts, RevisionOperation};
 fn project(facts: ReviewFacts) { document::revision(saved); document::issues(issues); }
 """), [])
         for dependency in ("document::decide_save", "domain::decide_save", "append_revision",

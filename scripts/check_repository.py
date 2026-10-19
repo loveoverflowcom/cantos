@@ -92,6 +92,8 @@ HTTP_PURE_BOUNDARIES = {
     ("contexts", "editorial", "domain", "diagnostics", "validation_issues"),
     # Editorial's facts/shape-only projections are not revision decisions or SQL access.
     ("contexts", "editorial", "RevisionOperation"),
+    ("contexts", "editorial", "RevisionFacts"),
+    ("contexts", "editorial", "RevisionHistory"),
     ("contexts", "editorial", "ReviewFacts"),
     ("contexts", "editorial", "document"),
     ("contexts", "editorial", "document", "revision"),
