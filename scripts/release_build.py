@@ -131,12 +131,15 @@ def build(root, target, sha, output, origin=API_ORIGIN):
     base = root / MOBILE / "androidApp/build"
     evidence = json.loads((base / "reports/release-boundary/release-evidence.json").read_text())
     if (evidence["configuration"]["api_origin"] != origin or
+            evidence["configuration"].get("native_issuer", "") != "" or
             Path(evidence["artifacts"]["optimized"]["apk"]["path"]).name != "androidApp-release-unsigned.apk"):
         raise ValueError("Android snapshot configuration differs from the requested unsigned package")
     snapshot = Path(contract.safe_name(evidence["snapshot_directory"]))
     if snapshot.parts[:2] != ("artifacts", "android-release") or len(snapshot.parts) != 3:
         raise ValueError("invalid Android snapshot directory")
     snapshot = root / snapshot
+    if contract.read_json(snapshot / "release-evidence.json") != evidence:
+        raise ValueError("Android snapshot record differs from the completed build record")
     contract.validate_android_outputs(snapshot, sha)
     for name in contract.EXPECTED["android"]:
         source = snapshot / name

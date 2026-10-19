@@ -34,17 +34,36 @@ class ReleaseBuildTests(unittest.TestCase):
             root = Path(temporary)
             report = root / release.MOBILE / "androidApp/build/reports/release-boundary/release-evidence.json"
             report.parent.mkdir(parents=True)
-            for origin, apk, snapshot, message in (
-                ("https://other.example", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
-                ("https://catalog.example", "androidApp-release.apk", "artifacts/android-release/run", "configuration differs"),
-                ("https://catalog.example", "androidApp-release-unsigned.apk", "../../outside", "unsafe archive path"),
-                ("https://catalog.example", "androidApp-release-unsigned.apk", "artifacts/other/run", "invalid Android snapshot"),
+            for origin, issuer, apk, snapshot, message in (
+                ("https://other.example", "", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "unexpected issuer", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "", "androidApp-release.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "", "androidApp-release-unsigned.apk", "../../outside", "unsafe archive path"),
+                ("https://catalog.example", "", "androidApp-release-unsigned.apk", "artifacts/other/run", "invalid Android snapshot"),
             ):
                 with self.subTest(origin=origin, apk=apk, snapshot=snapshot):
-                    report.write_text(json.dumps({"configuration": {"api_origin": origin},
+                    report.write_text(json.dumps({"configuration": {"api_origin": origin, "native_issuer": issuer},
                         "artifacts": {"optimized": {"apk": {"path": apk}}}, "snapshot_directory": snapshot}))
                     with patch.object(release, "run"), self.assertRaisesRegex(ValueError, message):
                         release.build(root, "android", "c" * 40, root / "out", "https://catalog.example")
+
+    def test_android_staging_binds_the_immutable_record_before_copying(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = root / release.MOBILE / "androidApp/build/reports/release-boundary/release-evidence.json"
+            report.parent.mkdir(parents=True)
+            snapshot = root / "artifacts/android-release/run"
+            snapshot.mkdir(parents=True)
+            evidence = {"configuration": {"api_origin": "https://catalog.example"},
+                        "artifacts": {"optimized": {"apk": {"path": "androidApp-release-unsigned.apk"}}},
+                        "snapshot_directory": "artifacts/android-release/run"}
+            report.write_text(json.dumps(evidence))
+            # Another completed build has the same source but a different configuration.
+            evidence["configuration"]["native_issuer"] = "foreign issuer"
+            (snapshot / "release-evidence.json").write_text(json.dumps(evidence))
+            with patch.object(release, "run"), self.assertRaisesRegex(ValueError, "snapshot record differs"):
+                release.build(root, "android", "c" * 40, root / "out", "https://catalog.example")
+            self.assertFalse((root / "out").exists())
 
     def test_hash_and_size_are_from_actual_bytes_and_symlinks_are_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
