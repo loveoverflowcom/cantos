@@ -2,12 +2,20 @@
 
 - Status: [pending / blocked / approved / published / withdrawn]
 - Episode ID: [ID]
-- Script revision and Script IR schema version: [versions]
+- Script revision and Script IR schema version: [versions if used, otherwise N/A with reason]
 - Render revision: [version]
+- Exact rendition / SHA-256 / content and brief digests: [immutable identities]
+- Release candidate ID / digest: [exact reviewed candidate, or not yet created]
 - Production run: [link]
 - Release owner: [person or team]
 - Intended publication time: [timestamp and timezone]
 - Required approvers: [roles or people, according to the episode's approval policy]
+
+Follow the [publication contract](../packages/contracts/publication-v1.md) and
+[production pipeline](../docs/product/production-pipeline.md). Keep private evidence outside
+Git; pin instruction links when copying. An approval, API admission and observed public release
+are separate facts. Leave boxes unchecked until their named evidence exists; record unrun
+checks explicitly and use N/A only with an applicable reason.
 
 ## Permissions and metadata
 
@@ -29,7 +37,7 @@ Evidence: [links to permission and metadata review records]
 
 Evidence: [QC results, measurements, and preview approval]
 
-## Delivery and listener experience
+## Pre-release delivery readiness
 
 - [ ] Final assets are uploaded and their integrity is verified.
 - [ ] Delivery URLs resolve through the intended storage/CDN configuration.
@@ -39,24 +47,39 @@ Evidence: [QC results, measurements, and preview approval]
 
 Evidence and supported clients checked: [results; mark unimplemented clients explicitly]
 
-## Approval and release
+## Publication approval
 
-- [ ] Required approval records identify the exact script and render revisions.
+- [ ] Required current rights/QC/editorial and publication approval records bind the exact candidate and revisions/checksums.
 - [ ] Approved cost and actual production usage have been reconciled or an outstanding item has an owner.
 - [ ] The release owner has recorded a correction or withdrawal path.
 - [ ] The intended publication time and visibility are confirmed.
-- [ ] Publication is confirmed in the listener catalog and the final asset plays successfully.
+
+Changed content, brief, rendition, review, rights or metadata must be checked for approval
+invalidation under the contract; never carry approval to different bytes by episode name alone.
+
+## Explicit release action
+
+- [ ] The authorized publication operation records the exact candidate, expected active release/pointer and durable receipt.
+- New release ID / manifest digest / superseded release: [actual identities, or NOT_RUN]
+- Operation ID / outcome / receipt: [actual result; reconcile an uncertain outcome before retry]
+
+## Post-release verification
+
+- [ ] The intended release is confirmed through listener catalog/manifest readback.
+- [ ] The exact final asset plays through the intended delivery path without exposing private assets.
+- Actual observation time / supported clients / evidence / remaining gaps: [results, or NOT_RUN]
 
 | Approval or action | Responsible person | Decision or result | Evidence and timestamp |
 | --- | --- | --- | --- |
 | Rights review | [person] | [pending / approved / blocked] | [reference] |
 | QC review | [person] | [pending / approved / blocked] | [reference] |
 | Publication approval | [person] | [pending / approved / blocked] | [reference] |
+| Publication action | [person] | [actual receipt/outcome or NOT_RUN] | [reference] |
 | Publication verification | [person] | [pending / passed / failed] | [reference] |
 
 ## Corrections and recovery
 
-- Previous published revision, if any: [reference or N/A]
+- Previous published revision/release and immutable manifest, if any: [reference or N/A]
 - Correction, replacement, or withdrawal steps: [documented procedure]
 - CDN/cache and offline-download handling for a replacement: [procedure or N/A]
 - Remaining limitations and follow-up issues: [links or none]
