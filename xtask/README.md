@@ -43,6 +43,7 @@ cargo xtask build cantos-theatre --web [--release]         # trunk build --locke
 cargo xtask web-performance cantos-studio|cantos-theatre  # release build + offline asset inventory
 cargo xtask hosting-report --record PATH [--dry-run]    # offline operator-declared rollout report
 cargo xtask hosting-report --self-test                  # synthetic report regressions only
+cargo xtask hosting-smoke <cantos-theatre|cantos-studio> --origin ORIGIN --api-origin ORIGIN --deployment ID --release-manifest PATH --release-digest SHA256 --release-sha SHA (--local-artifact | --release-request PATH) [--dry-run]
 cargo xtask theatre-size --apk PATH [--baseline report.json]  # offline APK size groups/deltas (no upload or install)
 cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
@@ -187,6 +188,38 @@ The Rust command plan is covered by existing Rust checks. This adds no runtime/C
 verification-tooling changes retain conservative full preflight selection. #277/#278 own
 promotion/publishing, and #279 owns future cloud submit/status; this command implements none
 of those effects. User/browser/live recovery acceptance stays with #280 after operator setup.
+
+### Read-only Hosting HTTP observation
+
+`cargo xtask hosting-smoke` checks one explicit static HTTPS origin against a verified Web
+manifest v2, independently of `deploy`. It never builds, publishes, logs in, changes DNS,
+queries a provider account or sends requests to the declared API origin. Pass the actual
+returned deployment origin or approved final domain and its nonsecret deployment ID. The ID
+is an operator declaration; byte equality does not prove provider ownership or deployment identity.
+
+It reuses `release`'s artifact digest/source/configuration/provenance validation and safe extraction,
+then the existing static bundle validator and HTTP judge. Each run makes one observation round:
+entry HTML plus its JS/CSS/WASM, missing WASM/JS/CSS/PNG and a synthetic `/api/v1/*` path on the
+**static** origin. Curl ignores `.curlrc`, follows no redirects, negotiates/decodes compression,
+uses HTTPS/TLS with verification and a 60-second/128-MiB response bound. At most 128 paths are
+allowed. Entry privacy additionally requires no-store, no-referrer, nosniff and DENY.
+
+The fresh private `artifacts/hosting-smoke/<RUN>/receipt.json` records the declared deployment,
+manifest/source/bundle identities, observation time, independent artifact/HTTP statuses and
+per-path status/hash/decoded size/byte-match/static/privacy results. Partial observations persist
+before the next request. Raw headers/stderr/cookies and response bodies are never exported;
+bodies are removed after hashing. A process crash may leave a private partial body; sanitize
+the receipt before sharing and keep the whole run directory private. Missing curl is UNSUPPORTED;
+artifact refusal leaves HTTP NOT_RUN. A failed observation never publishes, retries or rolls back.
+
+`--dry-run` validates only argument syntax and prints the plan before any file read, tool probe,
+subprocess, network request or output write. Normal runs retain the release contract's 24-hour
+freshness/current-policy requirements; this command cannot qualify older retained rollback
+artifacts. Do not rebuild an old source and claim identical rollback bytes. Browser/API/auth,
+fonts/images, CSP/Permissions-Policy, ETag round trips, DNS and recovery remain separate checks in
+the [rollout runbook](../docs/deployment/cloudflare-rollout.md#standalone-read-only-http-check).
+This adds no gate, CI job, provider dependency or automatic live request; the existing Rust gate
+exercises deterministic fake extraction/HTTP boundaries.
 
 ### Optional Web release inventory
 

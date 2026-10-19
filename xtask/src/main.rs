@@ -75,6 +75,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::ReleaseBuild(args) => release_build::run(&workspace, &args, &tools, &mut runner),
         Task::Release(args) => release::run(&workspace, &args, &tools, &mut runner),
         Task::HostingReport(args) => hosting_report::run(&workspace, &args, &tools, &mut runner),
+        Task::HostingSmoke(args) => deploy::inspect::run(&workspace, &args, &tools),
         Task::Deploy(args) => deploy::execute(&workspace, &args, &tools, &mut runner),
         Task::Distribute(args) => distribute::execute(&workspace, &args, &tools, &mut runner),
         Task::Kanidm(args) => kanidm::run(&workspace, &args, &mut runner),

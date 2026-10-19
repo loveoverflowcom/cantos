@@ -59,6 +59,8 @@ pub enum Task {
     Release(crate::release::ReleaseArgs),
     /// Report a local operator-declared Hosting rollout record; no network or live verification.
     HostingReport(crate::hosting_report::HostingReportArgs),
+    /// Read-only HTTPS comparison with one verified Web release; never publishes or logs in.
+    HostingSmoke(crate::deploy::inspect::HostingSmokeArgs),
     /// Explicit static Web deployment of one app to Firebase Hosting (preview or live). A remote
     /// write; never invoked by build, run, verify, preflight or ci.
     Deploy(crate::deploy::DeployArgs),

@@ -19,7 +19,7 @@ do not interpret the requested target as observed DNS or an accepted provider cu
 | Owner | Required before operator execution |
 | --- | --- |
 | [#277](https://github.com/loveoverflowcom/cantos/issues/277) | Reviewed source/config/artifact identity, one resolved SHA, build-only credential isolation, workflow transfer/approval/order, artifact-consuming VPS deployment and partial-release receipts. Existing manifest v1/build/deploy commands do not establish these guarantees. |
-| [#278](https://github.com/loveoverflowcom/cantos/issues/278) | The Pages Direct Upload versus Workers Static Assets decision is recorded as [proposed ADR 0043](../decisions/0043-cloudflare-pages-direct-upload.md) (the owner accepts it); the publisher, policy and artifact checks are implemented in `cargo xtask deploy cloudflare` ([runbook](cloudflare-pages.md)) and tested against fixtures only. No real account deployment has run. This runbook neither accepts the ADR nor substitutes a Worker runtime. |
+| [#278](https://github.com/loveoverflowcom/cantos/issues/278) | The Pages Direct Upload versus Workers Static Assets decision is recorded as [proposed ADR 0043](../decisions/0043-cloudflare-pages-direct-upload.md) (the owner accepts it); the publisher, policy and artifact checks are implemented in `cargo xtask deploy cloudflare`, with source-bound preview observations in its [acceptance record](cloudflare-pages.md#acceptance-status). Production, CircleCI, browser/auth and domain cutover remain separate. This runbook neither accepts the ADR nor substitutes a Worker runtime. |
 | [#279](https://github.com/loveoverflowcom/cantos/issues/279) | Optional submit/status convenience. It is not a cutover prerequisite when an authorized CircleCI UI/API can run the reviewed #277 contract. Proposed `pipeline` commands are not available until implemented. |
 | [#253](https://github.com/loveoverflowcom/cantos/issues/253) | Qualify installed Bearer routes, callback/gateway and exact allowed origins. Do not repair auth or registration as a hosting workaround. |
 
@@ -118,14 +118,51 @@ code-free paths for read-only probes; never put a real email action code in a sm
 | Auth isolation | With separately authorized accounts: login through the API callback, API access, reload with the intended RAM-only/controlled-SSO behavior, logout and rejection of old credentials; Studio denial and Theatre-to-Studio isolation. No bearer/refresh token reaches the static host. Preserve [Bearer v1](../../packages/contracts/bearer-v1.md); do not change cookies/issuer to make hosting pass. |
 | Registration | Only with explicitly authorized test mailbox/account/actions: first-response protections, URL-code removal before telemetry, no code in screenshots/logs/receipts, real email verification and current handler behavior. Do not create Admin, reset credentials or broadly enable signup. Preserve the [activation gates](firebase-enrollment-proof.md). |
 
-Reuse #278's implemented bounded read-only HTTP smoke and #199's
-[static-byte judge](../../xtask/src/deploy/smoke.rs) when their contracts apply. The latter is
-currently internal to Firebase deploy, not an independent Cloudflare smoke command; it covers
-entry JS/CSS/WASM bytes/MIME/cache and two absence probes, **not this entire matrix**, fonts,
-first-response privacy, API, browser or auth. Do not call a publishing command merely to get its
-smoke. Missing checks are explicit NOT_RUN with prerequisites; local fixtures never accept live
+Reuse #278's publisher smoke and the standalone read-only command below, both using #199's
+[static-byte judge](../../xtask/src/deploy/smoke.rs). The standalone check covers entry
+JS/CSS/WASM bytes/MIME/cache, missing WASM/JS/CSS/PNG and static `/api/*` absence, plus entry
+no-store/no-referrer/nosniff/DENY. It does **not** cover this entire matrix, fonts/images,
+CSP/Permissions-Policy, ETag round trips, API, browser or auth. Missing checks are explicit NOT_RUN
+with prerequisites; local fixtures never accept live
 HTTP, an installed issuer, playback or human UI quality. Product gaps stay with their owners
 (for example #253, #269–#272, #174/#191/#206), not hosting workarounds.
+
+## Standalone read-only HTTP check
+
+Use this after a known publish, on a permitted preview origin, or on the final domain after
+operator cutover. It performs no publishing or provider readback and requires no cloud token.
+Copy `STATIC_ORIGIN` and `DEPLOYMENT_ID` from the actual provider readback; do not derive a URL
+from a proposed project name. Both are operator declarations in this receipt. Preserve the
+provider receipt separately to establish where/when the bytes were installed.
+
+```sh
+cargo xtask hosting-smoke cantos-theatre \
+  --origin https://STATIC_HOST --api-origin https://api.cantos.cc \
+  --deployment DEPLOYMENT_ID --release-manifest /ABS/ARTIFACT/manifest.json \
+  --release-digest MANIFEST_SHA256 --release-sha FULL_SOURCE_SHA --local-artifact --dry-run
+```
+
+Remove `--dry-run` for the read-only GETs. Select `cantos-studio` with its own artifact/origin/ID
+for Studio. `--local-artifact` explicitly acknowledges independently checked local provenance;
+within the producing CircleCI workflow use `--release-request /ABS/REQUEST.json` instead, under
+the [release contract](circleci-builds.md). The manifest digest and full source SHA must come
+from the reviewed artifact, not a directory timestamp. Both extraction and local static bundle
+validation must pass before the first HTTP request. This checks the application bytes; policy
+files added by the Pages publisher remain bound to its separate bundle/policy receipt.
+
+The [command contract](../../xtask/README.md#read-only-hosting-http-observation) owns bounds and
+receipt fields. Artifact refusal records HTTP NOT_RUN; missing curl records UNSUPPORTED;
+incomplete HTTP, stale bytes, wrong MIME/cache, HTML fallback and missing entry privacy fail.
+There is one round with no publish, retry or rollback. Store the sanitized receipt's digest as
+HTTP evidence in the [offline record](#offline-report-contract); `hosting-report` still only
+validates that declaration and does not read or verify this receipt. Keep browser/auth rows
+independent, and keep raw run directories private.
+
+The reused promotion contract accepts only fresh artifacts (24 hours) and the current build
+policy. Older retained production artifacts require a separately reviewed read-only byte
+comparison during recovery; do not relax promotion freshness, rebuild the artifact or treat
+a failed smoke as an instruction to deploy. No production/cutover/retirement acceptance follows
+from source tests or an HTTP PASS alone.
 
 ## Domain plan and three recoveries
 

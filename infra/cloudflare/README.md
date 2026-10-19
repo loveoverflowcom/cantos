@@ -24,3 +24,7 @@ and acceptance status. The [rollout runbook](../../docs/deployment/cloudflare-ro
 cutover and Hosting retirement. This directory changes no account, DNS record, production setting or
 cloud resource. `cargo xtask hosting-report` reads an operator-declared local record only and never
 publishes or queries a provider.
+For a known release, use the independent
+[`cargo xtask hosting-smoke`](../../xtask/README.md#read-only-hosting-http-observation) to compare
+the served static bytes without another publish. Its receipt is HTTP evidence only; provider
+identity, browser/auth, domain cutover and recovery need their separate observations.
