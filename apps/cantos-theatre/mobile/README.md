@@ -1,43 +1,35 @@
 # Cantos Theatre CMP
 
-The [PR137 Membership design follow-up](../../../docs/evidence/pr137-cmp-design-v2.md) composes
-six reviewed shared primitives through scoped v0.5.0 tokens and permanently labeled tonal
-fields. `MembershipPreviews.kt` adds Android layout-renderer specimens around the actual app:
-form and receipt in both themes, unpublished periods in both themes and a narrow 2× form.
-They live in the `:preview-sandbox` Android library (not an application); capture through `cargo xtask
-compose-preview cantos-theatre` only with a ready IDE. JVM image output remains a separate
-renderer and does not establish device, IME, OS Back or screen-reader acceptance.
-
-The demo is an isolated, memory-only **Cantos** listener application: shared Kotlin screens, an Android
-host, an iOS SwiftUI host and a JVM diagnostic window. It does not complete native listening
-in [050](../../../docs/work-plan/050-cmp-native-listening.md). A fake engine acknowledges mock
-commands; the default mock has no API, authentication, native media engine, audio, downloads,
-sync, billing, provider or durable domain persistence. Native hosts persist the nonsecret UI
-language in platform key/value preferences; ordinary previews remain session-only unless injected.
-The separate opt-in native identity boundary
-below never feeds authenticated data into mock state. Studio is web-only.
-
-The KMP build separates production-safe `:shared` from `:preview-sandbox`. The shared module
-owns domain/application logic, ports, non-mock adapters and the one listener experience:
-`CantosPresentation` over neutral immutable `ShellState`/`ShellEvent` models, which the Firebase
-demo already showed. Two composition roots mount it. **`CantosTheatreApp` (in `:shared`) is the
-application**: `TheatreShell` interprets the familiar controls against the live public catalog,
-the native account, the durable SQLDelight Library and the native player, and
-`projectTheatreShell` projects only those owners into the screens. The sandbox's `CantosDemoApp`
-mounts the same presentation over the mock owners for previews, tests and the explicit demo host;
-shared main sources never depend on it and provide no implicit mock factory.
-The single Android application `:androidApp` and iOS `Cantos` (`com.cantos.theatre`) compose
-`:shared` only. Android has exactly two build types and no flavors: `release` is
-`com.cantos.theatre` (label **Cantos**) and `debug` is the side-by-side `com.cantos.theatre.dev`
-(label **Cantos Dev**, version suffix `-dev`). Both are real-only: with an admitted API origin
-they mount `CantosTheatreApp`; otherwise they render the explicit `CantosListeningUnavailable`
-state. They never fall back to a mock, and there is no Android mock variant (#286). The mock
-`CantosDemoApp` remains only in the desktop JVM and iOS `CantosDemo` hosts.
+The Theatre listener application is one Kotlin Multiplatform composition. **`CantosTheatreApp`
+(in `:shared`) is the application**: it mounts the neutral `CantosPresentation` over `TheatreShell`,
+which interprets the familiar controls against the live public catalog, the native account, the
+durable SQLDelight Library and the native player, and `projectTheatreShell` projects only those
+owners into the screens. The single Android application `:androidApp` and iOS `Cantos`
+(`com.cantos.theatre`) compose `:shared` only. Android has exactly two build types and no flavors:
+`release` is `com.cantos.theatre` (label **Cantos**) and `debug` is the side-by-side
+`com.cantos.theatre.dev` (label **Cantos Dev**, version suffix `-dev`). Both are real-only: with an
+admitted API origin they mount `CantosTheatreApp`; otherwise they render the explicit
+`CantosListeningUnavailable` state. They never fall back to a mock (#286). Studio is web-only.
 See [what the application reads from where](#the-application-over-real-owners).
-`cargo xtask theatre-host android-release` builds its unsigned, unshrunk release APK/AAB and
-inspects the release classpaths, DEX classes, resources and manifest; a desktop or iOS demo
-build cannot accept that requirement. The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)
-records current checks separately from the historical results cited below.
+
+**Desktop Preview ([#287](https://github.com/loveoverflowcom/cantos/issues/287)).** `:preview-sandbox`
+is a JVM-desktop-only module (one `desktop` target; no Android or iOS target, framework or source
+set, and no Android SDK or Kotlin/Native needed) for the Desktop Preview, its scenario workbench and
+its tests. It mounts the **same** `CantosTheatreApp` over the **same** `TheatreShell`, with the same
+dispatch, projection, controllers and navigation as the native hosts. Only the *external* ports are
+mocks, wired at one composition boundary (`PreviewOwners`): the public catalog, playback access, a
+decoder stand-in, the identity transport and the remote Library API, plus locale storage. The
+Library is the production SQLite store on an in-memory database with its real outbox. There is no
+second reducer, domain model, navigation or auth handler. See
+[the Desktop Preview](#desktop-preview) for its limits; it plays no audio, makes no network call
+and establishes no native, device or persistence behavior. The Android and iOS runtimes contain no
+preview or mock code, and neither resolves nor packages `:preview-sandbox`.
+
+`cargo xtask theatre-host android-release` builds the unsigned, unshrunk release APK/AAB and
+inspects the release classpaths, DEX classes, resources and manifest, using the sandbox's compiled
+JVM classes only as a forbidden inventory; a Desktop Preview build cannot accept that requirement.
+The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md) records current checks
+separately from the historical results cited below.
 
 ## Opt-in native identity
 
@@ -111,16 +103,17 @@ new app-data sandbox: it does not inherit the database, tokens or Library of the
 the production install. Release keeps the `com.cantos.theatre` package, storage and signing/version
 upgrade policy.
 
-For iOS, the existing `CantosDemo` target's Debug and Release build settings
-`CANTOS_API_ORIGIN` / `CANTOS_NATIVE_ISSUER` default to empty. Both configurations consume the
-minimal `CantosDemo/Info.plist` source through `INFOPLIST_FILE`, expand its two Cantos keys and
-merge the generated system keys. Supply values as explicit Xcode build-setting overrides or an
-operator-owned Xcode configuration; plain environment variables may lose to the target defaults.
-The shared iOS scheme builds the `CantosDemo` mock host (`com.cantos.theatre.demo`). The existing
-`cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20`
-links only the simulator framework; open the existing Xcode project and Run the host separately
-when native acceptance is authorized. Framework linking does not prove the built app's Info.plist.
-No iOS build or toolchain installation was performed for the #191 slice.
+For iOS, the `Cantos` target's Debug and Release build settings
+`CANTOS_API_ORIGIN` / `CANTOS_NATIVE_ISSUER` default to empty. Both configurations consume
+`Cantos/Info.plist` through `INFOPLIST_FILE`, expand its two Cantos keys and merge the generated
+system keys. Supply values as explicit Xcode build-setting overrides or an operator-owned Xcode
+configuration; plain environment variables may lose to the target defaults. The shared `Cantos`
+scheme builds the production host (`com.cantos.theatre`); `cargo xtask theatre-host ios-build
+--kotlin-native-home /absolute/installed/native-2.2.20` links only the simulator frameworks, and
+Xcode runs the host separately when native acceptance is authorized. Framework linking does not
+prove the built app's Info.plist. There is no iOS mock host (#287): the former `CantosDemo` project
+and its `CantosTheatreDemo` framework were removed, and the launch storyboard, privacy manifest,
+asset catalog (icons) and `TheatreIdentity.swift` it shared with `Cantos` now live in `iosApp/Cantos`.
 
 Both hosts call the same pure `NativeClientConfiguration.resolve` before creating a controller.
 It retains the existing HTTPS API-origin and exact native-issuer/callback rules. It does not
@@ -136,11 +129,6 @@ normalize origins or accept a Studio/Web issuer. Inspect Android Application's
 Missing keys take diagnostic precedence: if either key is absent/empty, `Missing` identifies
 those keys before validating the other value. Once both are supplied, invalid API origin is
 reported before invalid issuer. Every unavailable outcome keeps identity disabled.
-
-The Android sandbox library owns its debug-only `ui-tooling:1.9.0` runtime as well as preview
-annotations. Android Studio renders the sandbox module directly, so tooling declared in an
-application module would not supply its `ComposeViewAdapter`. This dependency is conditional on the Android opt-in;
-it adds nothing to desktop/iOS-only or Android release configurations.
 
 Missing/invalid diagnostics contain enum fields only, never the supplied strings. Android
 preserves non-string manifest literals for invalid-value refusal instead of treating them as
@@ -174,7 +162,7 @@ deferred.
 
 ## Native launcher icons
 
-The Android and iOS demo hosts consume generated native launcher assets from the checksum-pinned
+The Android and iOS production hosts consume generated native launcher assets from the checksum-pinned
 [Cantos Logo Kit v2](../../../packages/ui-system/shared/assets/cantos-logo-kit-v2/Logo-Guide.md).
 These resources are independent of the launch presentation below. Both Android manifest icon
 attributes resolve to `ic_launcher`: opaque density-specific legacy PNGs for API23–25 and a
@@ -220,7 +208,7 @@ This launcher change does not complete production mobile or those issues.
 `PreferencesController` owns the selected UI language: valid saved canonical tag (`vi-VN` or
 `en`) wins over an explicitly injected host/preview seed, whose default is Vietnamese. Device
 language negotiation and broad catalog/library adoption remain open under #167. Android/iOS
-demo hosts inject SharedPreferences/UserDefaults; the production Android unavailable host also
+the production hosts inject SharedPreferences/UserDefaults; the Android unavailable host also
 reads the same app-owned preference boundary within its own application sandbox. Theme remains
 memory-only. Native API acceptance schedules persistence; it is not a forced disk-flush guarantee.
 Pre-acceptance save refusal preserves the choice, displays localized feedback and permits retry.
@@ -239,16 +227,15 @@ Android and deferred iOS/product evidence; issue #169 remains open.
 v2 into the one guest shell; the [evidence record](../../../docs/evidence/theatre-cmp-auth-account.md)
 holds the matrix, provenance and acceptance gaps. The app still opens on Discovery. Account is an
 optional avatar entry and Login is a separate explicit intent, never a wall, so
-`NativeIdentityApp` no longer replaces Home when identity is configured: the Android Application
-passes its process-owned `NativeAccountController` into `AppContainer`, which only observes it and
-never closes it. `AccountView` is the immutable projection (no actor, session, expiry, name or page
+identity never replaces Home: the host passes its process-owned `NativeAccountController` into
+`NativeSessionRuntime`, which `TheatreShell` only observes and never closes. `AccountView` is the immutable projection (no actor, session, expiry, name or page
 count); a missing identity capability is `Unavailable`, a guest shell and not a failure.
 
 - **Navigation** is the existing pure reducer plus `Login`/`Register`: a closed `Login[, Register]`
   suffix, never the root, whose return destination is the typed stack below it. `OpenLogin`,
   `OpenRegister` and `AuthCompleted` are idempotent; a completion that arrives after Back or any
   other destination is inert, and navigating elsewhere dismisses auth first.
-- **Lifecycle** stays in `NativeAccountController`. `AppContainer.back()` cancels a pending login
+- **Lifecycle** stays in `NativeAccountController`. `TheatreShell.back()` cancels a pending login
   before popping, so a late callback is fenced; `beginLogin()` is accepted only on the open Login
   route in a resting guest state (a double tap or pending flow cannot restart it) and
   `openLogin()` is refused for a signed-in listener. Provider cancellation leaves Login and its
@@ -274,24 +261,21 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
 
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
   the avatar opens a secondary **Không gian của bạn** screen: a guest profile with vertical Sign in
-  and Create account actions (a single disabled Sign in with its reason when no identity is
-  configured), a Membership card and the listening settings. The shell's session-only library
-  and positions are not an account library and sync is not claimed.
-- Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs.
-  History has a secondary full list and confirmed clear action; clearing it preserves
-  listening positions, saved works, bookmarks and the player.
+  and Create account actions, a Membership card and the listening settings.
+- Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs, for the verified
+  account that owns the Library; a guest is asked to sign in. History has a secondary full list and
+  a confirmed clear action; clearing it preserves listening positions and saved works.
 - Vietnamese search, work details and desired-state **Lưu / Bỏ lưu** actions on cards/details.
-  Resume opens the same synthetic episode at its saved position, paused. History records only
-  acknowledged simulated starts, including episodes at their end; opening a page creates none.
-- Mini/full player: bounded manual seek, duplicate-safe bookmarks and episode queue.
-- Contextual settings from the account screen: light/dark, vi/en UI, speed/timer preferences, manually selected
-  discovery scenarios and reset of the complete demo state.
+  Resume opens the same release at its saved position, paused. History records starts the player
+  acknowledged; opening a page creates none.
+- Mini/full player: bounded manual seek, speed, a sleep timer that pauses the real player and the
+  episode queue. Bookmarks have no API and are not offered.
+- Contextual settings from the account screen: light/dark, vi/en UI and speed/timer preferences.
 
-Transport explicitly **simulates** state. Time never advances on its own; timer and speed
-schedule nothing. State disappears on restart. Android system Back, visible Back/close and
-JVM Escape use the same pure navigation transitions. Play expresses intent; only a matching
-fake-engine acknowledgement confirms simulated running. Native back/insets and screen readers
-still need target evidence.
+Android system Back, visible Back/close and JVM Escape use the same pure navigation transitions.
+Play expresses intent; only a matching engine observation confirms running. The Desktop Preview
+shows exactly these screens with sample data and a decoder stand-in; native back/insets and screen
+readers still need target evidence.
 
 The [#35 CMP library MVP record](../../../docs/evidence/theatre-cmp-library-mvp.md) scopes this
 follow-up to parity with the merged [Web mock PR #83](https://github.com/loveoverflowcom/cantos/pull/83).
@@ -302,30 +286,26 @@ policy remain with #11–#17 and #34; this mock does not complete #35.
 
 ```text
 shared/src/commonMain/kotlin/com/cantos/theatre/
-  app/               explicitly injected AppContainer and pure navigation
-  domain/            pure publication/playback/listening models and transitions
-  application/       independent catalog/listening/preferences owners and one playback loop
-  ports/             CatalogPort, ProgressPort and observation-only MediaEngine
-  adapters/          HTTP and identity boundaries; no mock adapters
+  app/               CantosTheatreApp, TheatreShell, NativeSessionRuntime, pure navigation
+  domain/            pure publication/playback/listening/catalog models and transitions
+  application/       catalog, account, Library, player and preference owners
+  ports/             PublicCatalogPort, PlaybackAccessPort, StreamingMediaEngine, identity and Library ports
+  adapters/          HTTP, identity and SQLDelight Library boundaries; no mock adapters
   features/          actual stateless UI, CantosPresentation and auth/Membership presentation
   presentation/model/  neutral ShellState, ShellEvent, catalog projection and vi/en copy
-shared/src/commonTest/      core/typed/controller and fixture-only codec tests
+shared/src/commonTest/      core/typed/controller and fixture-only codec tests, shared sample presentation values
+shared/src/desktopTest/     JVM Compose presentation/layout and production-composition tests over test doubles
 shared/src/jvmHttpMain/     JVM/Android HTTP implementation
 shared/src/iosMain/         native identity adapter/controller owner
-preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/
-  adapters/mock/     synthetic catalog fixtures/mapping, MockCatalogPort and MockMediaEngine
-    sandbox/         memory-only mock app sandbox shared by demo hosts, previews and tests
-      database/      MockStorageDatabase and MockPersistentProgressPort behind ProgressPort
-      sessions/      MockStorageSession presets: Demo, Fresh, Restored
-  app/               mockAppContainer, CantosDemoApp, DemoAppSession, diagnostic projectors/slots
-  demo/              synthetic seeds/IDs; no duplicate UI models
-preview-sandbox/src/commonTest/  mock/port contracts, application/lifetime/reset regressions
-preview-sandbox/src/desktopMain/ diagnostic host and workbench around the shared UI
-preview-sandbox/src/desktopTest/ JVM interaction/semantics and fixed-size app captures
-preview-sandbox/src/androidMain/ thin @Preview wrappers around the same UI
-preview-sandbox/src/iosMain/     demo ComposeUIViewController composition root
+preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/   (JVM desktop only; no androidMain/iosMain)
+  adapters/preview/  mock EXTERNAL ports: PreviewCatalogPort, PreviewPlaybackAccess, PreviewStreamingEngine,
+                     PreviewIdentity (real NativeAccountController over mock transport), PreviewLibraryApi,
+                     PreviewLocalePreferenceStore and the synthetic Discovery fixtures (canonical UUIDs)
+  app/               PreviewOwners (the one composition boundary), PreviewTheatreApp, PreviewSeed/PreviewSession
+preview-sandbox/src/desktopMain/ Main.kt, the in-memory SQLite store and the scenario workbench
+preview-sandbox/src/desktopTest/ owner-level flow/auth tests, JVM interaction, semantics and capture tests
 androidApp/                the one Android application: process owner, Activity, Back, system bars; real-only
-iosApp/                    SwiftUI application owner and Xcode scheme; consumes built framework
+iosApp/                    the `Cantos` SwiftUI application owner and Xcode scheme; consumes the built framework
 ```
 
 The shared module directly compiles the canonical `packages/ui-system/cmp` source
@@ -347,19 +327,25 @@ Repository operations use [`cargo xtask`](../../../xtask/README.md). Put install
 No command installs Gradle/JDK/SDK/native compiler or weakens TLS.
 
 ```sh
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo build
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo verify
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo run
+# Desktop Preview (JVM only: no Android SDK and no Kotlin/Native are consulted).
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview build
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview verify
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
 
 # Existing platform 35 + build-tools 35.0.0 in ANDROID_HOME / ANDROID_SDK_ROOT.
-# `theatre-demo android-build` is retired (#286): there is no Android mock host.
 # The Android application (shared only): unsigned release APK/AAB plus artifact inspection.
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host android-release
 
-# Full Xcode and already installed Kotlin/Native 2.2.20 distribution.
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
+# Full Xcode and already installed Kotlin/Native 2.2.20 distribution: the production frameworks.
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host ios-build \
   --kotlin-native-home /absolute/path/to/installed/kotlin-native-2.2.20
 ```
+
+`theatre-demo` is the historical name of `theatre-preview` and runs the same Desktop Preview.
+`theatre-preview android-build` (retired by #286) and `theatre-preview ios-build` (retired by
+#287) are refused as `UNSUPPORTED` with the owning command named; they never build an Android or
+iOS mock. The gate formerly named `theatre-cmp-demo` is now `theatre-cmp-preview` (the old id is
+still accepted by `--skip`).
 
 `cargo xtask distribute firebase` is **retired for every channel** (#286): `demo` and `demo-qa`
 named the removed mock host and `qa` build type, and `production` expected a debug APK of
@@ -382,7 +368,7 @@ for compatibility; a debug build never audits or assembles release). The resolve
 classpaths of the variant may contain no local project except `:shared` and no test, mock or
 Compose tooling module, transitively; the module has no `:preview-sandbox` dependency in any
 configuration. Test classpaths are separate and not inspected. `theatre-host android-release` then compiles the
-sandbox's Android release classes only as a forbidden inventory and runs
+sandbox's JVM desktop classes (`preview-sandbox/build/classes/kotlin/desktop/main`) only as a forbidden inventory and runs
 `scripts/inspect_android_release.py`. It checks DEX class definitions, resource bytes/paths,
 Compose resource packages and the `aapt2`-decoded manifests of the actual unsigned, unshrunk
 APK and AAB. Reports are ignored files under `androidApp/build/reports/{release,debug}-boundary/`. Release remains deliberately unshrunk (R8 is a later step of the series, with an audit path that replaces this one).
@@ -392,35 +378,33 @@ recorded in the [isolation evidence](../../../docs/evidence/issue122-cmp-sandbox
 Android output: `androidApp/build/outputs/apk/debug/androidApp-debug.apk`. Open this Gradle root
 in Android Studio with `-Pcantos.android=true` for sync, then select `androidApp` to run on an
 existing device/emulator. The API 23 and iOS 15 floors are library build settings, not a
-production support decision. Desktop verification registers no native target.
-`cantos.android`, `cantos.ios` or `cantos.native` opt into native targets. iOS refuses a missing/
-unpinned installed compiler before target registration; SDK/JDK and native dependency downloads
-are disabled.
+production support decision. `cantos.android`, `cantos.ios` or `cantos.native` opt `:shared` and
+`:androidApp` into native targets; **`:preview-sandbox` ignores all three**, so a Desktop Preview
+sync, build or test never needs an Android SDK or Kotlin/Native. iOS refuses a missing/unpinned
+installed compiler before target registration; SDK/JDK and native dependency downloads are disabled.
 
-`ios-build` links only the sandbox's `CantosTheatreDemo` simulator framework, which exports
-`:shared`; the Swift import stays unchanged. Open `iosApp/CantosDemo.xcodeproj`, choose the
-shared `CantosDemo` scheme and an existing Apple Silicon simulator to build/run after the
-framework exists. Xcode's `Copy Compose resources` phase copies shared fonts/brand resources to
-`compose-resources/composeResources/com.cantos.theatre.resources` and sandbox sample art/provenance
-to `compose-resources/composeResources/com.cantos.theatre.preview.resources`, the namespaces
-read by pinned Compose 1.9.0 with this manually linked static framework. It does not invoke or
-download Gradle. Physical-device linking/signing and
-distribution are outside this mock. JVM `run` supervises its owned process group, with a
-foreground-launcher PID guard; it is not an Android/iOS run. Production
-`build/run cantos-theatre --mobile` stays `UNSUPPORTED`: native listening adapters are absent.
+`theatre-host ios-build` links the production `CantosTheatre` simulator frameworks from `:shared`.
+Open `iosApp/Cantos.xcodeproj`, choose the shared `Cantos` scheme and an existing Apple Silicon
+simulator to build/run after the framework exists. Xcode's `Copy Compose resources` phase copies the
+shared fonts/brand resources to `compose-resources/composeResources/com.cantos.theatre.resources`,
+the namespace read by pinned Compose 1.9.0 with this manually linked static framework. It does not
+invoke or download Gradle and copies no sandbox sample art or provenance (those are JVM resources of
+`:preview-sandbox` only). Physical-device linking/signing and distribution are outside this
+document. JVM `run` supervises its owned process group, with a foreground-launcher PID guard; it is
+not an Android/iOS run. Production `build/run cantos-theatre --mobile` stays `UNSUPPORTED`.
 
 ## Membership interest preview
 
-The mock Account screen has a labeled **Membership · preview** entry. Its default single
+The Account screen has a labeled **Membership · preview** entry. Its default single
 name/email form retains a session-only draft and reports real registration unavailable.
 It creates no account, receipt, entitlement, payment or audio command. Plans are a separate
 screen with unpublished illustrative monthly/annual layouts and no plan selection.
-The native configured identity screen and Android/iOS hosts are unchanged.
+The native hosts never receive the fixture; `TheatreShell` starts Membership unavailable.
 
-The diagnostic desktop host alone can explicitly opt into manual fixture outcomes:
+The Desktop Preview alone can explicitly opt into manual fixture outcomes (`TheatreShell(initialMembership = …)`):
 
 ```sh
-CANTOS_MEMBERSHIP_PREVIEW_FIXTURE=1 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo run
+CANTOS_MEMBERSHIP_PREVIEW_FIXTURE=1 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
 ```
 
 Open Account → Membership preview. Fixture controls can confirm a receipt, fail a request,
@@ -432,146 +416,109 @@ The [scope and acceptance record](../../../docs/product/membership-interest.md) 
 these preview rules from deferred backend, native and visual acceptance. Test/capture
 declarations become evidence only after the supported command executes and captures are opened.
 
-## Android Studio preview
+<a id="desktop-preview"></a>
+<a id="mock-storage-simulator"></a>
 
-After Android sync/build in **Quail 2+**, follow the existing
-[capture workflow](../../../.agents/skills/cantos-cmp-mobile/references/compose-preview.md):
+## Desktop Preview
 
-```sh
-cargo xtask compose-preview cantos-theatre \
-  --file apps/cantos-theatre/mobile/preview-sandbox/src/androidMain/kotlin/com/cantos/theatre/app/TheatrePreviews.kt \
-  --composable TheatreDiscoveryLightPreview --label discovery-light-390
-```
+There is no Android or iOS preview host (#286, #287) and no Android Studio `@Preview` wrapper of the
+sandbox: `cargo xtask compose-preview cantos-theatre` has nothing to render until a future,
+production-safe stateless preview exists. The preview is the JVM desktop window and its tests.
+`PreviewOwners` (`app/`) builds the owners the native hosts build and replaces only their external
+ports:
 
-Other wrappers cover dark player/error, 840 dp discovery and 320 dp work at 2× text, plus the
-`TheatreFreshSessionPreview` / `TheatreRestoredSessionPreview` mock-storage fixtures below. Capture
-needs the official Android CLI and correct synced IDE project; the old SDK `android` executable
-is insufficient. Open PNGs and inspect exported semantics before asserting evidence.
-JVM tests capture the same UI under `preview-sandbox/build/reports/theatre-demo`, or the selected
-`CANTOS_THEATRE_DEMO_CAPTURE_DIR`. Those captures are not OS screenshots or native runtime tests.
+| Owner (production class, unchanged) | External port replaced in the preview |
+| --- | --- |
+| `PublicCatalogController` | `PreviewCatalogPort` (`PublicCatalogPort`): the sample works and units under canonical UUIDs, source search, paging by cursor, and the `Ready`/`Loading`/`Empty`/`Error` scenarios |
+| `NativeListeningController` + `AuthorizingMediaEngine` | `PreviewPlaybackAccess` (`PlaybackAccessPort`, with injectable refusal) and `PreviewStreamingEngine` (`StreamingMediaEngine`): a decoder stand-in that acknowledges commands and reports the resumed position; no audio, no clock |
+| `NativeAccountController` | `PreviewIdentity`: a deterministic `NativeIdentityApi`, entropy, system browser, credential journal and logout barrier. `PreviewLoginMode` approves, holds or refuses the provider return; two sample accounts make account switching real |
+| `NativeLibraryController` (`NativeLibrarySync`) | `PreviewLibraryApi` (`LibraryApi`): an in-memory remote with idempotent receipts, plus the real SQLite store (`previewLibraryStore()`, `:memory:`) so the transactions, outbox and account partitions are production code |
+| `PreferencesController` | `PreviewLocalePreferenceStore` (`LocalePreferenceStore`) |
+| `TheatreShell` | none: the same class, navigation, dispatch and `projectTheatreShell` |
 
-<a id="fake-storage-simulator"></a>
+Shared values the preview must not re-model are used as is: `PublicWork`/`PublicUnit`/page values,
+`AudioIdentity`, `NativeGrant`, the Library wire types and `ShellState`/`ShellEvent`. A
+`PreviewSeed` only describes where a scenario starts (route, theme, saved works, positions, whether
+the first sample account is signed in); `PreviewOwners` applies it through the shell's own events
+and the remote Library data, never by writing state. The only addition to `:shared` for this is the
+optional `TheatreShell(initialMembership = …)` argument, which defaults to unavailable.
 
-## Mock storage simulator
-
-The `:preview-sandbox` module's `adapters/mock/sandbox/` is the one local-storage simulation used by
-the demo hosts, Android `@Preview` wrappers and tests. It is **memory-only**; process death
-discards it.
-
-| Part | Location | Role |
-| --- | --- | --- |
-| Mock database | `sandbox/database/` | `MockStorageDatabase`, its read-only `MockStorageState` and the `MockPersistentProgressPort` connection behind the unchanged `ProgressPort` |
-| Mock sessions / presets | `sandbox/sessions/` | `MockStorageSession` seeds: `Demo` (the sandbox factory default), `Fresh` and `Restored` |
-| Mock app documents / directory | absent | no file I/O consumer exists; [ADR 0026](../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed) keeps a file-system double for #16 download staging, never for SQLite |
-
-`MockStorageDatabase` is a deterministic session store for testing the Nghe tiếp / Đã lưu /
-Lịch sử / Dấu trang UX before a local metadata store is chosen.
-`MockPersistentProgressPort(database, MockStorageConfig(...))` implements `ProgressPort`;
-several ports and recreated `ListeningController`s may share one database, and a recreated
-owner sees stored data only after an explicit `reload()`. A new database holds only its seed.
-The sandbox-only `mockAppContainer(scope, seed, storage = …)` connects the listening owner to one database
-created by `storage` from the controller's exact start snapshot. With its default zero latency
-and no faults, that database behaves as the former single-port `MemoryProgressPort` did (load
-returns the last committed snapshot, store returns `Stored`), so the separate memory adapter
-was removed rather than kept as a second mock. Shared `AppContainer` requires explicit ports
-and `AppStartState`; no missing production dependency selects this factory automatically.
-
-- Every read and write, including its opt-in read/write latency (default `0`, never negative),
-  runs inside one fair mutex owned by the database. Operations from all ports therefore commit
-  in request order: a slow older write cannot land after a newer accepted one.
-- `failNextWrites(n)`, `failAllWrites()` (storage full) and `recoverWrites()` are storage-level
-  faults consumed only at a write's commit point. A refused write changes nothing and returns
-  `Unavailable`; the controller's existing retry semantics apply.
-- `reset(seed)` replaces the contents immediately and fences every write requested before it;
-  a fenced write returns `Unavailable` and consumes no fault. Cancellation propagates, never
-  commits and consumes no fault. `database.state` is a read-only inspection value.
-- `preview-sandbox/.../app/MockStorageSessionApp.kt` is diagnostic composition-root wiring:
-  `mountMockStorageSession(scope, preset)` builds the container through `mockAppContainer` and
-  exposes its database; `MockStorageSessionApp(preset)` mounts `CantosDemoApp`, which renders the
-  actual shared `CantosPresentation`. Storage adapters never import the composition root.
-  The `Fresh`/`Restored` Android `@Preview` wrappers and the JVM UI/capture tests render that
-  function; `CantosDemoApp()` and the Android, iOS and desktop demo hosts use `mockAppContainer(scope)`,
-  the `Demo` preset over its own database. There are no interactive storage controls in the app UI.
-
-`ProgressPortContract` in `preview-sandbox/src/commonTest/.../ports` is the adapter-agnostic port behavior from
-ADR 0026: exact round trip, whole-snapshot replacement, shared reopened connections, isolated
-stores and no commit after cancellation. It is bound to this mock with and without latency;
-a future durable adapter must pass the same suite, while latency, faults and reset fencing stay
-mock-only. The suite and bindings move together, so shared tests have no reverse sandbox
-dependency. The ADR substitutes each I/O layer with its own double: this mock for listening, a
-file-system double for staged bytes and the real SQL engine (in memory or a temporary file) for
-a metadata store. No storage library or durable adapter is adopted.
-
-`cargo xtask theatre-demo verify` runs these common/JVM tests. They are `example-tested` /
-`mock-integration-tested` evidence over a mock: they establish no durable persistence, SQLite
-schema or migration, Android/iOS process death or device behavior.
+Limits, stated once: the stand-in engine produces no audio and never advances the position by
+itself; the in-memory SQLite store and "Restored" are seeds, not evidence of disk persistence or of
+process death; the identity ports prove the lifecycle, fencing and cleanup of the production owner,
+not a live provider, secure storage or a system browser; JVM semantics and pixels are not device,
+IME, OS Back or screen-reader evidence. Sample artwork and its
+[provenance](preview-sandbox/src/commonMain/composeResources/files/provenance.json) stay in the sandbox
+resources; the production fonts/brand resources stay in `:shared`.
 
 ## Scenario workbench
 
 The desktop-only `preview-sandbox/src/desktopMain/.../app/workbench` host (`com.cantos.theatre.app.workbench`)
-orchestrates the actual
-`CantosDemoApp` over the existing mock ports and sandbox. It adds no second screen copy,
-storage simulator, real file/HTTP/SQL adapter, auth flow or native audio engine. The sandbox's
-`DemoAppSession` binds route UI inputs and dispatches the neutral `ShellEvent`s; shared screens retain
-their immutable projection and intent boundary. Android static previews keep their immutable
-seeds and are separate from the desktop's interactive controls.
+orchestrates `PreviewOwners` and mounts `PreviewTheatreApp` (the shared `CantosTheatreApp`) inside a
+declared frame. It adds no second screen copy, auth flow, storage simulator or audio engine, and its
+controls live outside the product navigation: the app has no "Fresh", "Restored", reset or failure
+button.
 
 ```sh
-CANTOS_THEATRE_WORKBENCH=1 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo run
+CANTOS_THEATRE_WORKBENCH=1 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
 ```
 
 `TheatreRecipe.select` validates a versioned synthetic fixture, seed, injected `PreviewSettings`,
-write latency and ordered `TheatreStep`s. Its fixture IDs are `theatre-fresh-v1`,
-`theatre-restored-v1`, `theatre-empty-v1`, `theatre-loading-v1`, `theatre-error-v1` and
-`theatre-offline-v1`. Fresh and Restored reuse #109's `MockStorageSession` seeds. Empty/Loading/
-Error select existing catalog outcomes; Offline combines that unavailable catalog with refused
-mock progress writes. It simulates no device connectivity or native offline entitlement.
-Only seed 1 is supported, with at most 40 scripted intents and 0–5000 ms write latency.
+write latency and ordered `TheatreStep`s. Its fixture IDs are `theatre-fresh-v1` (a guest on the
+Library tab), `theatre-restored-v1` (the first sample account, signed in, with saved works, continue
+entries and history already on the remote), `theatre-empty-v1`, `theatre-loading-v1`,
+`theatre-error-v1` (catalog scenarios) and `theatre-offline-v1` (a signed-in listener whose catalog
+and remote Library are unreachable, so a save stays a durable, visibly pending intent). It simulates
+no device connectivity or native offline entitlement. Only seed 1 is supported, with at most 40
+scripted intents and 0–5000 ms remote Library latency. Steps reuse app intents: `OpenSonHa` opens the
+work page and `PlayFirstSonHa` plays a unit the API has listed; the sleep timer is real and pauses
+the stand-in player when it fires.
 
-`TheatreWorkbenchController` owns one `TheatreMount` at a time. Select and **Reset to selected**
-remount that recipe; **Recreate** starts fresh controllers over the current synthetic projection.
-Appearance settings preserve accepted query, route and listening values while injecting the
-new theme, locale, density, scale, constraint and motion preference into the same owner/session
-and composition. The diagnostic controls use the admitted shared `Surface` with zero insets,
-an opaque canonical background and light/compact preferences; recipe preferences apply only to
-the Theatre frame. The composition root supplies the system-theme fact without replacing the
-selected owner. Snapshot transfer uses the admitted caller-controlled `TextField`; its compact
-single-line viewport accepts the complete versioned payload for copy/paste. The event log is
-read-only text. These diagnostics do not bypass shared-component admission.
+`TheatreWorkbenchController` owns one `TheatreMount` (its `PreviewOwners`, replay scope and counters)
+at a time. Select and **Reset to selected** remount that recipe with new owners and a new in-memory
+database; **Recreate** starts fresh owners from the current projection. `ShellEvent.Reset` and
+`ShellEvent.CatalogMode` arriving through the fenced `callback()` are workbench scenario controls
+(remount, and a catalog scenario change plus refresh); they are never forwarded to the product
+shell, which has no such events. Appearance settings preserve accepted query, route and listening
+values while injecting the new theme, locale, density, scale, constraint and motion preference into
+the same owners and composition. The diagnostic controls use the admitted shared `Surface` with zero
+insets, an opaque canonical background and light/compact preferences. Snapshot transfer uses the
+admitted caller-controlled `TextField`; the event log is read-only text and records workbench
+actions and replayed intents, while user taps are observed through the read-only projection.
 **Replay** resets the selected fixture and dispatches its supported app intents in order on an
-explicit simulation clock, 50 ms apart. The read-only projection and bounded event log expose
-the outcome; controls use app intents rather than changing the mock database. Timer choices
-still schedule nothing. Recorded simulation time establishes no native timer, background,
-network, audio or process-lifecycle behavior.
+explicit simulation clock, 50 ms apart. Recorded simulation time establishes no native timer,
+background, network, audio or process-lifecycle behavior.
 
-Each owned mount has its own child scope, session and container. Replacement invalidates old
-session callbacks, cancels replay/work, then closes that mount once; callbacks captured before
-a later selection cannot act on it. Externally injected containers remain borrowed and are
-closed only by their external owner. Verify recipe and lifecycle claims through the existing
-`cargo xtask theatre-demo verify` route; Android/iOS behavior requires its own acceptance.
-Lifecycle controls are explicitly unavailable for a borrowed container: selecting/resetting,
-changing settings, replaying, recreating or restoring it cannot claim to rebuild its external
-owner. Closing the workbench invalidates its binding without closing that container.
+Each owned mount has its own child scope, owners and database. Replacement cancels replay and work,
+then closes that mount once; callbacks captured before a later selection cannot act on it.
+Externally injected `PreviewOwners` remain borrowed and are closed only by their external owner.
+Lifecycle controls are explicitly unavailable for borrowed owners: selecting/resetting, changing
+settings, replaying, recreating or restoring cannot claim to rebuild an external owner.
 
 `encodeTheatreSnapshot` returns `TheatreSnapshotExport.Exported` or `UnsupportedState`;
 `decodeTheatreSnapshot` returns `TheatreSnapshotResult.Accepted`, `UnsupportedVersion`,
-`UnknownRecipe` or `Invalid`. The JSON schema is version 1 and bounds imported payloads at
-65,536 characters, navigation at 32 entries and each bookmark/progress/history list at 40;
-export validates those same limits before reporting success.
-Only declared synthetic query IDs (empty, `Đèn`, `Sơn Hà`) are exported; other typed search text
-stays local and export refuses it. Membership state, storage failures and transient or
-inconsistent playback states cannot be exported or recreated. Settle/reset them first.
-Supported stable snapshots contain recipe/settings, scripted intent IDs and synthetic UI values;
-restore creates owners through the same injection seam. It serializes no scopes, controllers,
-services, credential, native path, private text or media. Invalid payloads create no default
-live adapter and leave the current mount intact.
+`UnknownRecipe` or `Invalid`. The JSON schema is **version 2** (the bookmark list was removed with
+the bookmark capability, and `signedIn` was added) and bounds imported payloads at 65,536
+characters, navigation at 32 entries and each progress/history list at 40; export validates those
+same limits before reporting success. Only declared synthetic query IDs (empty, `Đèn`, `Sơn Hà`) are
+exported; other typed search text stays local and export refuses it. Membership state, unsettled
+Library writes or failures and transient or inconsistent playback states cannot be exported or
+recreated. Settle/reset them first. Supported stable snapshots contain recipe/settings, scripted
+intent IDs and synthetic UI values; restore creates owners through the same seed seam. It
+serializes no scopes, controllers, services, credential, native path, private text or media.
+Invalid payloads create no default live adapter and leave the current mount intact.
 
 The workbench imports only the self-contained shared preview settings directory in `desktopMain`;
-`commonMain` does not reverse-import shared preview orchestration. This is the bounded #144
-consumer seam. The sandbox has a separate KMP build boundary, and
-[#122](https://github.com/loveoverflowcom/cantos/issues/122)'s production release graph and
-APK/AAB exclusion are checked on the production host by `cargo xtask theatre-host android-release`.
-No desktop preview, source-set check or mock APK build substitutes for that artifact proof.
+`commonMain` does not reverse-import shared preview orchestration. The sandbox has a separate KMP
+build boundary, and [#122](https://github.com/loveoverflowcom/cantos/issues/122)'s production release
+graph and APK/AAB exclusion are checked on the production host by `cargo xtask theatre-host
+android-release`. No Desktop Preview, source-set check or mock build substitutes for that artifact proof.
+
+`cargo xtask theatre-preview verify` runs `:shared:desktopTest` and `:preview-sandbox:desktopTest`.
+They are `example-tested` / `mock-integration-tested` (production owners over named mock external
+ports) / `DOM`-free `semantics-tested` and `screenshot-captured` evidence on the JVM renderer: they
+establish no durable persistence, SQLite migration, Android/iOS process death, device behavior,
+audio, live identity or live API behavior.
 
 ## Design and acceptance
 
@@ -639,9 +586,8 @@ failure/empty state. Release keeps `usesCleartextTraffic=false`.
 
 The separate shipping iOS project/scheme is `iosApp/Cantos.xcodeproj` / `Cantos`, bundle identifier
 `com.cantos.theatre`. It imports the static `CantosTheatre` framework built directly by `:shared`,
-links only `shared/build/bin/...` and copies only shared Compose resources. The independent
-`CantosDemo` project continues to import `CantosTheatreDemo` from `:preview-sandbox`; it remains a
-mock and is not the shipping target. Shipping `CANTOS_API_ORIGIN` is an explicit Xcode build
+links only `shared/build/bin/...` and copies only shared Compose resources. It is the only iOS
+project: the former `CantosDemo` mock host was removed (#287). Shipping `CANTOS_API_ORIGIN` is an explicit Xcode build
 setting (empty by default), consumed through `Cantos/Info.plist`; HTTPS is required on every iOS
 configuration. It creates no native identity/session or media engine. The application owner closes
 all catalog requests with its lifecycle. Xcode/Apple SDK builds and runtime observations require
@@ -658,7 +604,7 @@ cargo xtask theatre-host android-release --api-origin https://api.example.org
 cargo xtask theatre-host ios-build --kotlin-native-home /absolute/installed/native-2.2.20
 # Open iosApp/Cantos.xcodeproj, choose the Cantos scheme and set CANTOS_API_ORIGIN.
 # Opt-in live API walk and production Compose flow (skipped unless the variable is set).
-CANTOS_THEATRE_LIVE_ORIGIN=http://127.0.0.1:8080 CANTOS_THEATRE_REQUIRE_SEEDED=true cargo xtask theatre-demo verify
+CANTOS_THEATRE_LIVE_ORIGIN=http://127.0.0.1:8080 CANTOS_THEATRE_REQUIRE_SEEDED=true cargo xtask theatre-preview verify
 ```
 
 `android-debug` refuses any origin other than `https://` or loopback `http://` with a port, and
@@ -691,8 +637,8 @@ shared with the opt-in Android source set. It probes only the actual reserved
 fake catalog or media. Publication, identity, playback, downloads and progress report explicit
 unsupported capabilities. No Studio cookie, producer bearer or Studio DTO enters this port.
 
-The demo Android/iOS/desktop app hosts remain **isolated mock previews** through
-the sandbox's explicit `mockAppContainer`; they do not mount this adapter as a real player. Constructing a
+The Desktop Preview is the only mock host; it replaces this adapter's *consumers' ports* with
+`PreviewOwners` and does not mount this adapter as a real player. Constructing a
 `ListenerClient(ApiOrigin.parse(...), JvmHttpTransport())` crosses a real HTTP boundary but
 cannot fetch any listener resource yet. TLS checks stay platform-default; HTTP is limited to
 explicit loopback development. Redirects, caches and ambient cookie runtimes are refused;
@@ -700,7 +646,7 @@ responses are bounded to8KiB. The future iOS concrete HTTP adapter and listener 
 the reviewed Theatre backend contract before probe wiring. This legacy probe is independent of
 the implemented iOS public-catalog transport above.
 
-`cargo xtask theatre-demo verify` compiles the common/JVM code, executes the shared
+`cargo xtask theatre-preview verify` compiles the common/JVM code, executes the shared
 [error fixtures](../../../packages/contracts/fixtures/client-boundary/v1/README.md), exercises
 noncooperative late responses and drives the JVM adapter against a fresh local HTTP server.
 These are common/JVM and mocked HTTP integration evidence, not Android/iOS device or playback
@@ -712,8 +658,8 @@ The [UI repair evidence](../../../docs/evidence/theatre-cmp-ui-repair.md) covers
 episode rows, exact reference paintings and OFL Noto font resources, the tonal mini-player,
 ordered icon transport and preference dialogs. Independent app owners project theme/language
 and playback speed/timer; native hosts additionally persist UI language as described above.
-Catalog scenarios and reset are under the separate Demo tools dialog.
-The simulated timer performs no countdown. The sandbox's
+Catalog scenarios and reset are workbench controls, not product navigation. The sleep timer is the
+real `TheatreShell` timer. The sandbox's
 [asset provenance](preview-sandbox/src/commonMain/composeResources/files/provenance.json)
 records sample-art hashes and the remaining production artwork-rights review. Native runtime,
 TalkBack/VoiceOver and iOS framework/resource acceptance remain separate from JVM evidence.
@@ -734,8 +680,8 @@ byte/value oracles, hostile-input bounds, reproducible checks and separate JVM/A
 See the [step-2 implementation/evidence](../../../docs/evidence/theatre-native-step2.md) for the
 pinned #247 dependency, real MediaEngine adapters, process-owned mini/full player, API-confirmed
 native account, full Library/progress client and account SQLDelight/outbox. The `Cantos` iOS
-scheme links the shared production framework and native Swift adapters; the demo scheme remains
-separate. Android debug (`com.cantos.theatre.dev`) is an installable QA artifact of `androidApp`, with actual
+scheme links the shared production framework and native Swift adapters; there is no demo scheme
+(#287). Android debug (`com.cantos.theatre.dev`) is an installable QA artifact of `androidApp`, with actual
 package/origin/signature/version/exclusion checks. Native device/audio/force-stop, iOS codec
 compatibility and browser-facing identity remain acceptance gates; no device success follows
 from JVM tests or packaging. Production distribution is opt-in and requires the named app,
@@ -743,7 +689,7 @@ certificate and recipients. Native registration/bookmarks/downloads are still un
 
 ## The application over real owners
 
-`CantosTheatreApp` shows the screens the demo established — Discover, Search, Work, Player, Queue,
+`CantosTheatreApp` shows the established screens — Discover, Search, Work, Player, Queue,
 Library, History, Account, Settings, Login/Register, Membership preview and the mini-player — with
 the same layout, tokens, motion and copy. `ShellCatalogView`/`ShellState` are read-only
 projections; identities are the API's lower-case UUIDs, never a sample key.

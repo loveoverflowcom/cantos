@@ -2,9 +2,6 @@ package com.cantos.theatre.app
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -23,12 +20,16 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.adapters.preview.PreviewAccount
+import com.cantos.theatre.adapters.preview.PreviewLoginMode
+import com.cantos.theatre.app.PreviewOwners
+import com.cantos.theatre.app.PreviewTestRoot
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Test
 
 /**
- * The real guest shell, container and account owner over deterministic identity ports. These
+ * The real guest shell, TheatreShell and account owner over deterministic identity ports. These
  * JVM interactions prove presentation, intents and fencing; they say nothing about the provider,
  * secure storage, the system browser, OS Back or a screen reader on a device.
  */
@@ -38,18 +39,16 @@ class AuthAccountUiTest {
         width: Int = 390,
         height: Int = 844,
         textScale: Float = 1f,
-        body: ComposeUiTest.(IdentityHarness) -> Unit,
+        body: ComposeUiTest.(PreviewOwners) -> Unit,
     ) = runDesktopComposeUiTest(width = width, height = height) {
-        lateinit var harness: IdentityHarness
+        lateinit var owners: PreviewOwners
         setContent {
-            val scope = rememberCoroutineScope()
-            val owner = remember { IdentityHarness(scope).also { harness = it } }
-            DisposableEffect(owner) { onDispose { owner.close() } }
             Box(Modifier.requiredSize(width.dp, height.dp)) {
-                CantosDemoApp(textScale = textScale, appContainer = owner.app)
+                // The provider is held so each test decides when, and whether, the browser returns.
+                PreviewTestRoot(textScale = textScale, onOwners = { it.identity.mode = PreviewLoginMode.Hold; owners = it })
             }
         }
-        body(harness)
+        body(owners)
     }
 
     private fun ComposeUiTest.openLoginFromAccount() {
@@ -73,8 +72,8 @@ class AuthAccountUiTest {
         onNodeWithText("Điều khoản", substring = true).assertDoesNotExist()
         onNodeWithText("Quyền riêng tư", substring = true).assertDoesNotExist()
         // Opening Login starts nothing: only the listener's explicit action contacts the provider.
-        assertEquals(0, h.api.begins)
-        assertTrue(h.browser.opened.isEmpty())
+        assertEquals(0, h.identity.begins)
+        assertEquals(0, h.identity.browserOpens)
 
         onNodeWithTag("back").performClick()
         waitForIdle()
@@ -96,7 +95,7 @@ class AuthAccountUiTest {
         // Nothing here is an invented name, total, conflict or Membership entitlement.
         onNodeWithText("Minh An", substring = true).assertDoesNotExist()
         onNodeWithText("12:48 / 18:25", substring = true).assertDoesNotExist()
-        assertEquals(0, h.api.begins)
+        assertEquals(0, h.identity.begins)
     }
 
     @Test
@@ -104,7 +103,7 @@ class AuthAccountUiTest {
         openLoginFromAccount()
         onNodeWithTag("login-primary").performClick()
         waitForIdle()
-        assertEquals(1, h.browser.opened.size)
+        assertEquals(1, h.identity.browserOpens)
         onNodeWithTag("login-primary").assertIsNotEnabled()
         onNodeWithTag("login-create").assertDoesNotExist()
         onNodeWithText("Đang xác minh phiên đăng nhập…").assertExists()
@@ -113,7 +112,7 @@ class AuthAccountUiTest {
         waitForIdle()
         onNodeWithTag("login-primary").assertIsEnabled()
         assertEquals(NativeAccountState.SignedOut, h.account.state.value)
-        assertEquals(1, h.browser.opened.size)
+        assertEquals(1, h.identity.browserOpens)
     }
 
     @Test
@@ -121,16 +120,16 @@ class AuthAccountUiTest {
         openLoginFromAccount()
         onNodeWithTag("login-primary").performClick()
         waitForIdle()
-        h.account.callback(h.first(hasError = true))
+        h.identity.returnFromBrowser(approve = false)
         waitForIdle()
         onNodeWithText("Đăng nhập đã hủy hoặc hết hạn. Vui lòng thử lại.").assertExists()
         onNodeWithTag("login-primary").assertIsEnabled()
-        assertEquals(1, h.browser.opened.size)
-        assertEquals(0, h.api.exchanges)
+        assertEquals(1, h.identity.browserOpens)
+        assertEquals(0, h.identity.exchanges)
 
         onNodeWithTag("login-primary").performClick()
         waitForIdle()
-        assertEquals(2, h.browser.opened.size)
+        assertEquals(2, h.identity.browserOpens)
     }
 
     @Test
@@ -142,9 +141,9 @@ class AuthAccountUiTest {
         waitForIdle()
         onNodeWithTag("sign-in").assertExists()
 
-        h.account.callback(h.first())
+        h.identity.returnFromBrowser(approve = true)
         waitForIdle()
-        assertEquals(0, h.api.exchanges)
+        assertEquals(0, h.identity.exchanges)
         assertEquals(NativeAccountState.SignedOut, h.account.state.value)
         onNodeWithTag("sign-in").assertIsEnabled()
         onNodeWithTag("open-library").assertDoesNotExist()
@@ -155,16 +154,16 @@ class AuthAccountUiTest {
         openLoginFromAccount()
         onNodeWithTag("login-primary").performClick()
         waitForIdle()
-        h.account.callback(h.first())
+        h.identity.returnFromBrowser(approve = true)
         waitForIdle()
         onNodeWithTag("sign-in").assertDoesNotExist()
         onNodeWithTag("open-library").performScrollTo().assertIsDisplayed()
         onNodeWithText("Đã đăng nhập").assertExists()
         onNodeWithTag("logout").performScrollTo().assertIsDisplayed()
         // No actor, session or credential, and no invented name, total or conflict.
-        onAllNodes(hasText(h.actor, substring = true)).assertCountEquals(0)
-        onAllNodes(hasText(h.session, substring = true)).assertCountEquals(0)
-        onAllNodes(hasText(h.token, substring = true)).assertCountEquals(0)
+        onAllNodes(hasText(PreviewAccount.Linh.actor, substring = true)).assertCountEquals(0)
+        onAllNodes(hasText(PreviewAccount.Linh.session, substring = true)).assertCountEquals(0)
+        onAllNodes(hasText("ca1_n_", substring = true)).assertCountEquals(0)
         onNodeWithText("Minh An", substring = true).assertDoesNotExist()
     }
 
@@ -173,17 +172,17 @@ class AuthAccountUiTest {
         openLoginFromAccount()
         onNodeWithTag("login-primary").performClick()
         waitForIdle()
-        h.account.callback(h.first())
+        h.identity.returnFromBrowser(approve = true)
         waitForIdle()
 
-        h.store.clearFails = true
+        h.identity.clearFails = true
         onNodeWithTag("logout").performScrollTo().performClick()
         waitForIdle()
         onNodeWithTag("open-library").assertDoesNotExist()
         onNodeWithText("Cần hoàn tất xóa phiên cũ trước khi đăng nhập lại.").assertExists()
         onNodeWithTag("sign-in").performScrollTo().assertIsNotEnabled()
 
-        h.store.clearFails = false
+        h.identity.clearFails = false
         onNodeWithTag("auth-retry-cleanup").performScrollTo().performClick()
         waitForIdle()
         onNodeWithTag("sign-in").performScrollTo().assertIsEnabled()
@@ -207,8 +206,8 @@ class AuthAccountUiTest {
         onNodeWithTag("back").performClick()
         waitForIdle()
         onNodeWithTag("sign-in").assertIsFocused()
-        assertEquals(0, h.api.begins)
-        assertTrue(h.browser.opened.isEmpty())
+        assertEquals(0, h.identity.begins)
+        assertEquals(0, h.identity.browserOpens)
     }
 
     @Test

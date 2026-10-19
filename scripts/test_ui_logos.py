@@ -105,7 +105,7 @@ class NativeLauncherLogos(unittest.TestCase):
                 self.assertLessEqual(math.hypot(x * sx + tx - 54, y * sy + ty - 54) + 1.5 * sx, 33)
 
     def test_ios_target_binds_default_and_dark_opaque_1024_icons_with_os_owned_corners(self):
-        project = (ui_logos.MOBILE / "iosApp/CantosDemo.xcodeproj/project.pbxproj").read_text()
+        project = (ui_logos.MOBILE / "iosApp/Cantos.xcodeproj/project.pbxproj").read_text()
         self.assertEqual(project.count("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;"), 2)
         self.assertIn("Assets.xcassets in Resources", project)
         contents = json.loads((ui_logos.IOS_ICONS / "Contents.json").read_text())

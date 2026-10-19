@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     config::{GRADLE_SUPPORTED_VERSIONS, UI_CMP_ANDROID_DIR, UI_CMP_DIR, WASM_TARGET},
-    theatre_demo,
+    theatre_preview,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -24,7 +24,7 @@ pub enum Tool {
     Java,
     CmpGradleProject,
     CmpAndroidGradleProject,
-    TheatreDemoGradleProject,
+    TheatrePreviewGradleProject,
     Python3,
     Node,
     Git,
@@ -50,7 +50,7 @@ impl Tool {
         Tool::Java,
         Tool::CmpGradleProject,
         Tool::CmpAndroidGradleProject,
-        Tool::TheatreDemoGradleProject,
+        Tool::TheatrePreviewGradleProject,
         Tool::Python3,
         Tool::Node,
         Tool::Git,
@@ -76,7 +76,7 @@ impl Tool {
             Tool::Java => "java",
             Tool::CmpGradleProject => "CMP Gradle project",
             Tool::CmpAndroidGradleProject => "CMP Android preview Gradle project",
-            Tool::TheatreDemoGradleProject => "Theatre mock Gradle project",
+            Tool::TheatrePreviewGradleProject => "Theatre Desktop Preview Gradle project",
             Tool::Python3 => "python3",
             Tool::Node => "Node 22+ (Forge wrapper tests)",
             Tool::Git => "git",
@@ -110,7 +110,7 @@ impl Tool {
             Tool::CmpAndroidGradleProject => {
                 "settings.gradle(.kts) and build.gradle(.kts) must exist in packages/ui-system/cmp/android-preview"
             }
-            Tool::TheatreDemoGradleProject => {
+            Tool::TheatrePreviewGradleProject => {
                 "the isolated Gradle project, shared core and preview-sandbox KMP modules with common/desktop sources must exist in apps/cantos-theatre/mobile"
             }
             Tool::Kani => "prepare the official Kani 0.68.0 bundle with its matching nightly and CBMC 6.11.0 separately; set KANI_HOME; xtask never installs or runs the installer proxy",
@@ -140,7 +140,7 @@ impl Tool {
             Tool::Java => Some(("java", &["-version"])),
             Tool::CmpGradleProject => None,
             Tool::CmpAndroidGradleProject => None,
-            Tool::TheatreDemoGradleProject => None,
+            Tool::TheatrePreviewGradleProject => None,
             Tool::Python3 => Some(("python3", &["--version"])),
             Tool::Node => Some(("node", &["--version"])),
             Tool::Git => Some(("git", &["--version"])),
@@ -188,7 +188,7 @@ impl SystemTools {
             Tool::Wasm32Target
                 | Tool::CmpGradleProject
                 | Tool::CmpAndroidGradleProject
-                | Tool::TheatreDemoGradleProject
+                | Tool::TheatrePreviewGradleProject
         ) {
             return self.available(tool).then(|| "available".to_owned());
         }
@@ -248,8 +248,8 @@ impl SystemTools {
             Tool::CmpAndroidGradleProject => {
                 cmp_gradle_project_exists(&self.root.join(UI_CMP_ANDROID_DIR))
             }
-            Tool::TheatreDemoGradleProject => {
-                theatre_demo::project_exists(&self.root.join(crate::config::THEATRE_MOBILE_DIR))
+            Tool::TheatrePreviewGradleProject => {
+                theatre_preview::project_exists(&self.root.join(crate::config::THEATRE_MOBILE_DIR))
             }
             Tool::Gradle => self
                 .version(tool)

@@ -27,6 +27,6 @@ include(":shared", ":preview-sandbox")
 val androidEnabled = providers.gradleProperty("cantos.android").orNull == "true" ||
     providers.gradleProperty("cantos.native").orNull == "true"
 if (androidEnabled) {
-    // The one Android application consumes :shared only; :preview-sandbox is desktop/iOS tooling.
+    // The one Android application consumes :shared only; :preview-sandbox is JVM desktop tooling.
     include(":androidApp")
 }

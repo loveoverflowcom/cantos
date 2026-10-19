@@ -35,7 +35,7 @@ Use the renderer package's implemented recipe contract, not an invented screensh
 |---|---|---|
 | Leptos gallery | [scenario workbench](../../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay), `cargo xtask ui-preview leptos run` | browser presentation, no native evidence |
 | CMP gallery | [scenario recipes and replay](../../../../packages/ui-system/cmp/README.md#scenario-recipes-and-replay), `cargo xtask ui-preview cmp run` | shared components on a JVM preview root |
-| Theatre CMP composition | [desktop scenario workbench](../../../../apps/cantos-theatre/mobile/README.md#scenario-workbench), its documented `cargo xtask theatre-demo run` opt-in | real mock composition and memory sessions, no durable storage or native audio |
+| Theatre CMP composition | [desktop scenario workbench](../../../../apps/cantos-theatre/mobile/README.md#scenario-workbench), its documented `cargo xtask theatre-preview run` opt-in | the real `CantosTheatreApp`/`TheatreShell` over mock external ports and in-memory sessions, no durable storage or native audio |
 
 Keep these steps in the evidence record:
 

@@ -46,25 +46,25 @@
         A10000000000000000000022 /* TheatreIdentity.swift */ = {
             isa = PBXFileReference;
             lastKnownFileType = sourcecode.swift;
-            path = ../CantosDemo/TheatreIdentity.swift;
+            path = TheatreIdentity.swift;
             sourceTree = "<group>";
         };
         A1000000000000000000001A /* PrivacyInfo.xcprivacy */ = {
             isa = PBXFileReference;
             lastKnownFileType = text.xml;
-            path = ../CantosDemo/PrivacyInfo.xcprivacy;
+            path = PrivacyInfo.xcprivacy;
             sourceTree = "<group>";
         };
         A10000000000000000000016 /* LaunchScreen.storyboard */ = {
             isa = PBXFileReference;
             lastKnownFileType = file.storyboard;
-            path = ../CantosDemo/LaunchScreen.storyboard;
+            path = LaunchScreen.storyboard;
             sourceTree = "<group>";
         };
         A10000000000000000000018 /* Assets.xcassets */ = {
             isa = PBXFileReference;
             lastKnownFileType = folder.assetcatalog;
-            path = ../CantosDemo/Assets.xcassets;
+            path = Assets.xcassets;
             sourceTree = "<group>";
         };
         A10000000000000000000002 /* CantosApp.swift */ = {

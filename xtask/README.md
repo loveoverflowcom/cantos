@@ -105,8 +105,8 @@ deploy a Function. No `run` command starts Forge.
 `cantos-studio` (creators) is web-only: pass
 `--web`; `--mobile` is rejected as a usage error (exit 2), not a reserved implementation.
 `cantos-theatre` (listeners, alias `cantos`) supports `--web` and `--mobile`; one must be named.
-Theatre Mobile has an isolated mock Gradle project. Production `--mobile` remains
-`UNSUPPORTED` pending native runtime acceptance; use `theatre-demo` for mock evidence
+Theatre Mobile has a JVM-only Desktop Preview Gradle module. Production `--mobile` remains
+`UNSUPPORTED` pending native runtime acceptance; use `theatre-preview` for Desktop Preview evidence
 and `theatre-host android-release` for the production host's release isolation.
 Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
 out-of-scope directory. `build all` covers the API, Forge and both Web clients and notes that Theatre
@@ -504,7 +504,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `web-build` | `trunk build --locked` per Web client (Theatre: the production lane, no previews) | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
-| `theatre-cmp-demo` | installed Gradle `:shared:desktopTest :preview-sandbox:desktopTest` in the isolated Theatre mock | compatible gradle, java, both KMP modules |
+| `theatre-cmp-preview` (formerly `theatre-cmp-demo`, still accepted by `--skip`) | installed Gradle `:shared:desktopTest :preview-sandbox:desktopTest` for the Theatre Desktop Preview | compatible gradle, java, both KMP modules |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | cargo, python3, initdb, pg_ctl, psql, ffmpeg, ffprobe |
 | `postgres (theatre-firebase)` | `scripts/test_postgres.py --suite theatre-firebase` (new disposable cluster; Firebase enrollment and SMTP registration SQL only) | cargo, python3, initdb, pg_ctl, psql |
@@ -645,13 +645,13 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 - An affected Web package selects `web-lint`/`web-build` for that client. Shared
   `packages/ui-system` tokens, icons, Leptos components and their generators affect `cantos-ui`,
   both Web consumers and `ui-preview`; shared semantic inputs and generators also select
-  `cmp-ui-preview` and `theatre-cmp-demo`. Package-local CMP source, Gradle and resource changes
+  `cmp-ui-preview` and `theatre-cmp-preview`. Package-local CMP source, Gradle and resource changes
   select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
   An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
 - Non-document inputs beneath `services/cantos-forge-functions` select its Rust lint/tests and
   `forge-functions`; they do not select the API, database or Web clients.
-- Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-demo` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
+- Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-preview` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Non-document `specs/behavior`, `tools/behavior` and `scripts/verify_behavior.py` inputs select
   the default model-only behavior gate; their Markdown needs only the always-on gates.
@@ -661,7 +661,7 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 - Documents, templates, skills and issue forms need only the always-on gates. The service
   manifest, PostgreSQL/Kanidm examples and configuration docs are statically validated by
   `repository`; no Podman or runtime input is required. The Studio Mobile scope notice is documentation only.
-  Theatre mock Kotlin/Gradle/native host inputs select `theatre-cmp-demo`; its docs are documents.
+  Theatre mock Kotlin/Gradle/native host inputs select `theatre-cmp-preview`; its docs are documents.
 - Shared Cargo inputs (`Cargo.toml`, `Cargo.lock`, `.cargo/`, toolchain/format/lint files),
   verification tooling (`xtask/`, `.github/workflows/`), an
   unclassified path or an empty change set select every gate.
@@ -793,7 +793,7 @@ output before making a `bounded-model-checked` claim; ordinary adapter tests do 
 `cargo xtask ci` runs all four locally; [the workflow](../.github/workflows/repository-checks.yml)
 runs one per GitHub job after `rustup show active-toolchain` selects the exact
 [`rust-toolchain.toml`](../rust-toolchain.toml) pin. CI has no `--skip`. Every full-preflight gate
-runs in CI except `mutation`, `cmp-ui-preview` and `theatre-cmp-demo`. Mutation stays opt-in through
+runs in CI except `mutation`, `cmp-ui-preview` and `theatre-cmp-preview`. Mutation stays opt-in through
 `verify mutation` and is selected by preflight when Script IR sources change. The CMP desktop preview is
 a local `ui-preview cmp verify` / preflight gate until a separately provisioned Gradle CI lane is
 added. Existing `verify web` and the Web CI job never require the Kotlin toolchain. Branch
@@ -815,8 +815,8 @@ It requires Android Studio Quail 2+ running with the selected Android Gradle pro
 it does not require an emulator or phone. `ui-system-cmp` selects the isolated shared-component
 library in `packages/ui-system/cmp/android-preview`; compile it with `ui-preview cmp android-build`
 before rendering its thin `@Preview` wrappers around shared source. Theatre Mobile now selects
-the isolated mock Gradle root and its shared Android `TheatrePreviews.kt`; compile it with
-`theatre-demo android-build` and sync the root with `-Pcantos.android=true`. Missing CLI or
+the Gradle root, which has no Android preview module today (#287); a production-safe stateless
+preview would need its own consumer first. Missing CLI or
 Quail 2+ readiness still makes capture **UNSUPPORTED**. Studio Mobile has no capture target. Tool/IDE setup is manual and never performed by
 xtask. This optional operation is outside `preflight`/CI; its deterministic adapter tests run
 in the existing repository gate.
@@ -882,7 +882,7 @@ process tests start and stop real `sh` and `python3` children. Run them with
 ## Adding a capability
 
 Add a command only for an implemented, reviewed capability. The isolated Theatre mock is
-planned through `theatre-demo`; the generic production mobile gate remains `UNSUPPORTED`. Studio is web-only;
+planned through `theatre-preview`; the generic production mobile gate remains `UNSUPPORTED`. Studio is web-only;
 do not add a mobile plan, scaffold or target without an explicit future roadmap request. A new script becomes a gate
 in `gate.rs`, is classified in `preflight/select.rs` and, if CI must run it, is added to a job
 in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure; the
@@ -1298,32 +1298,31 @@ comparison. This differs from account-provisioning identity and from the plan-on
 [`cargo xtask kanidm reconcile`](#studio-kanidm-operator-tools). Neither establishes
 cross-site `web.app`/DuckDNS authentication with Strict session cookies.
 
-### theatre-demo
+### theatre-preview
 
-An explicitly isolated mock command surface; starts no API, database, identity or audio adapter.
+The Desktop Preview command surface (#287); starts no API, database, identity provider or audio
+adapter. `theatre-demo` is its historical name and runs the same commands.
 
 ```sh
-cargo xtask theatre-demo build          # :preview-sandbox:compileKotlinDesktop (depends on :shared)
-cargo xtask theatre-demo verify         # :shared:desktopTest + :preview-sandbox:desktopTest
-cargo xtask theatre-demo run            # same app, supervised diagnostic desktop window
-cargo xtask theatre-demo android-build  # retired (#286): refused as UNSUPPORTED; use theatre-host android-debug
-cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
+cargo xtask theatre-preview build          # :preview-sandbox:compileKotlinDesktop (depends on :shared)
+cargo xtask theatre-preview verify         # :shared:desktopTest + :preview-sandbox:desktopTest
+cargo xtask theatre-preview run            # the one app over mock external ports, supervised desktop window
+cargo xtask theatre-preview android-build  # retired (#286): refused as UNSUPPORTED; use theatre-host android-debug
+cargo xtask theatre-preview ios-build      # retired (#287): refused as UNSUPPORTED; use theatre-host ios-build
 ```
 
-Build/verify/run require installed Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 and a full JDK 17+. Android checks an existing
-absolute SDK path, platform35 and build-tools35.0.0 before Gradle; downloads are disabled.
-iOS checks the installed compiler's exact2.2.20 version plus an available Xcode simulator SDK,
-then links only `:preview-sandbox:linkDebugFrameworkIosSimulatorArm64`, which exports the shared
-core through the existing `CantosTheatreDemo` framework; no compiler/LLVM is downloaded.
-Missing prerequisites are `UNSUPPORTED`, failed executed steps are `FAIL`.
+Build/verify/run require installed Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 and a full JDK 17+. They
+consult no Android SDK, Xcode or Kotlin/Native and pass no `cantos.android|ios|native` property: the
+sandbox is a JVM-desktop-only module. Missing prerequisites are `UNSUPPORTED`, failed executed steps
+are `FAIL`; the retired verbs are refused before any probe.
 
-The demo desktop, Android and iOS hosts explicitly consume `:preview-sandbox`; the production-safe
-`:shared` module never depends on it. Verification retains both the independent shared-core suite
-and sandbox port/workbench/UI tests. These commands produce demo evidence only; a demo debug APK
-cannot accept production `releaseCompileClasspath` / `releaseRuntimeClasspath` or APK/AAB
-exclusion. Use [`theatre-host`](#theatre-host) for those claims.
+Only the Desktop Preview consumes `:preview-sandbox`; the production-safe `:shared` module never
+depends on it. Verification retains both the independent shared-core suite and the sandbox
+owner/workbench/UI tests. These commands produce Desktop Preview evidence only; they cannot accept
+production `releaseCompileClasspath` / `releaseRuntimeClasspath` or APK/AAB exclusion. Use
+[`theatre-host`](#theatre-host) for those claims.
 
-The local `theatre-cmp-demo` preflight gate runs mock common/JVM tests when its source/build
+The local `theatre-cmp-preview` preflight gate runs mock common/JVM tests when its source/build
 inputs or consumed CMP/shared tokens change. It does not stand for native acceptance or
 component qualification. It is outside CI until a Gradle lane is separately provisioned.
 `run` aligns JVM args, passes its owned launcher PID, rejects detached run JVMs, and uses
@@ -1375,7 +1374,7 @@ device is the developer's own `adb install`.
 `theatre-host ios-build --kotlin-native-home PATH` checks the installed Kotlin/Native 2.2.20
 compiler and Xcode simulator SDK, then links only `:shared` debug/release iOS simulator frameworks
 named `CantosTheatre`. The production `iosApp/Cantos.xcodeproj` / `Cantos` scheme consumes these
-frameworks and shared resources; it imports no `CantosTheatreDemo` or sandbox. Set the scheme's
+frameworks and shared resources; it imports no sandbox (the `CantosTheatreDemo` framework no longer exists). Set the scheme's
 nonsecret `CANTOS_API_ORIGIN` to an HTTPS origin. No compiler, Xcode or SDK is installed/selected;
 missing prerequisites are `UNSUPPORTED`. Framework compilation is separate from app/device acceptance.
 

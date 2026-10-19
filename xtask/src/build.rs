@@ -92,7 +92,7 @@ pub fn app_of(target: BuildTarget) -> Option<App> {
 }
 
 /// Studio is web-only. Theatre production mobile remains UNSUPPORTED; its isolated mock
-/// presentation build belongs to `theatre-demo` and cannot establish native listening.
+/// presentation build belongs to `theatre-preview` and cannot establish native listening.
 pub fn app_surface(app: App, surface: Option<Surface>) -> Result<(), Refusal> {
     match (app, surface) {
         (_, Some(Surface::Web)) => Ok(()),
@@ -105,11 +105,11 @@ pub fn app_surface(app: App, surface: Option<Surface>) -> Result<(), Refusal> {
         (App::Theatre, Some(Surface::Mobile)) => Err(Refusal::Unsupported {
             subject: "cantos-theatre --mobile".into(),
             reason: format!(
-                "{THEATRE_MOBILE_DIR} contains an isolated mock UI; use theatre-demo for it. Production native listening remains unavailable"
+                "{THEATRE_MOBILE_DIR} contains an isolated mock UI; use theatre-preview for it. Production native listening remains unavailable"
             ),
         }),
         (App::Theatre, None) => Err(Refusal::Usage(
-            "cantos-theatre has two surfaces: pass --web (implemented) or --mobile (UNSUPPORTED: production native listening; use theatre-demo for the isolated mock UI)".into(),
+            "cantos-theatre has two surfaces: pass --web (implemented) or --mobile (UNSUPPORTED: production native listening; use theatre-preview for the Desktop Preview)".into(),
         )),
     }
 }

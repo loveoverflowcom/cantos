@@ -18,6 +18,7 @@ mod gate;
 mod hosting_report;
 mod kani;
 mod kanidm;
+mod mobile_toolchain;
 mod pipeline;
 mod preflight;
 mod probe;
@@ -30,8 +31,8 @@ mod run_files;
 mod seed;
 mod services;
 mod theatre_auth;
-mod theatre_demo;
 mod theatre_host;
+mod theatre_preview;
 mod theatre_size;
 mod tools;
 mod ui_preview;
@@ -103,7 +104,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             };
             let mut report = pipeline::execute("build", &steps, &tools, &mut runner);
             if target == build::BuildTarget::All {
-                report.note("built, not run: cantos-forge. Not built: production mobile listening (theatre-demo builds only the isolated mock UI) and services/kanidm (configuration only)");
+                report.note("built, not run: cantos-forge. Not built: production mobile listening (theatre-preview builds only the JVM Desktop Preview over mock ports) and services/kanidm (configuration only)");
             }
             report.print();
             Ok(report.exit_code())
@@ -154,8 +155,8 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::UiPreview { renderer, action } => {
             ui_preview::execute(&workspace, renderer, action, &tools, &mut runner)
         }
-        Task::TheatreDemo { action } => {
-            theatre_demo::execute(&workspace, action, &tools, &mut runner)
+        Task::TheatrePreview { action } => {
+            theatre_preview::execute(&workspace, action, &tools, &mut runner)
         }
         Task::TheatreHost { action } => {
             theatre_host::execute(&workspace, action, &tools, &mut runner)

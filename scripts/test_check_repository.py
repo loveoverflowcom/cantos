@@ -883,7 +883,6 @@ import com.cantos.theatre.application.X
             ("ports/MediaEngine.kt", "import com.cantos.theatre.adapters.mock.MockCatalogAdapter", "ports"),
             ("application/playback/PlaybackController.kt", "import androidx.compose.runtime.Composable", "application"),
             ("features/shell/presentation/PlayerSection.kt", "import com.cantos.theatre.app.CopyKey", "features"),
-            ("demo/DemoIdentities.kt", "import com.cantos.theatre.app.Navigation", "demo"),
             ("presentation/model/ShellState.kt", "import com.cantos.theatre.app.AppContainer", "presentation"),
             ("app/AppContainer.kt", "import com.cantos.theatre.adapters.mock.MockStorageDatabase", "app"),
             ("adapters/http/ListenerClient.kt", "import io.ktor.client.engine.mock.MockEngine", "adapters"),
@@ -891,7 +890,7 @@ import com.cantos.theatre.application.X
         for location, forbidden, layer in mutants:
             with self.subTest(layer=layer), tempfile.TemporaryDirectory() as directory:
                 copy = Path(directory)
-                source = checks.THEATRE_SANDBOX_SOURCE if layer == "demo" else checks.THEATRE_SOURCE
+                source = checks.THEATRE_SANDBOX_SOURCE if layer == "sandbox" else checks.THEATRE_SOURCE
                 shutil.copytree(checks.ROOT / source, copy / source)
                 target = copy / source / "commonMain/kotlin/com/cantos/theatre" / location
                 text = target.read_text(encoding="utf-8")

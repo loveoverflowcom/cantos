@@ -1,6 +1,8 @@
 package com.cantos.theatre.app
 
-import com.cantos.theatre.demo.demoState
+import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.PreviewTestRoot
+import com.cantos.theatre.app.previewState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.Modifier
@@ -80,8 +82,10 @@ class MembershipCaptureTest {
         runDesktopComposeUiTest(width = width, height = height) {
             setContent {
                 Box(Modifier.requiredSize(width.dp, height.dp).testTag("membership-capture-root")) {
-                    CantosDemoApp(initialState = demoState(stack = listOf(ShellRoute.Account, ShellRoute.MembershipPreview), theme = theme, locale = locale),
-                        membershipPreviewState = membership, textScale = textScale)
+                    PreviewTestRoot(PreviewSeed(
+                        previewState(stack = listOf(ShellRoute.Account, ShellRoute.MembershipPreview), theme = theme, locale = locale),
+                        membership = membership,
+                    ), textScale = textScale)
                 }
             }
             scrollTo?.let { onNodeWithTag(it).performScrollTo() }
@@ -94,7 +98,7 @@ class MembershipCaptureTest {
             val bytes = requireNotNull(Image.makeFromBitmap(image.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)).bytes
             File(output, "$name.png").writeBytes(bytes)
             File(output, "$name.semantics.txt").writeText(onNodeWithTag("membership-capture-root", useUnmergedTree = true).printToString())
-            File(output, "$name.txt").writeText("JVM Desktop Compose UI test; CantosDemoApp; $width x $height dp; " +
+            File(output, "$name.txt").writeText("JVM Desktop Compose UI test; PreviewTheatreApp → CantosTheatreApp; $width x $height dp; " +
                 "theme=$theme; locale=$locale; textScale=$textScale; mode=${membership.mode}; screen=${membership.screen}; " +
                 "fixture data only; screenshot-captured; inspection pending\n")
         }

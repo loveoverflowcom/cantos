@@ -195,7 +195,7 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         let dir = workspace.path(THEATRE_MOBILE_DIR);
         assert!(dir.join("README.md").is_file());
-        assert!(crate::theatre_demo::project_exists(&dir));
+        assert!(crate::theatre_preview::project_exists(&dir));
         let settings = read(&format!("{THEATRE_MOBILE_DIR}/settings.gradle.kts"));
         assert!(!settings.contains("cantos-studio"), "Studio is web-only");
     }

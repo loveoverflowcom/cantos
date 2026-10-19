@@ -1,6 +1,8 @@
 package com.cantos.theatre.app
 
-import com.cantos.theatre.demo.demoState
+import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.PreviewTestRoot
+import com.cantos.theatre.app.previewState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.Composable
@@ -37,7 +39,7 @@ import com.cantos.theatre.domain.membership.MembershipState
 import org.junit.Test
 import kotlin.test.assertTrue
 
-/** JVM renderer drives the real mock composition. No native or identity acceptance claim. */
+/** JVM renderer drives the one app over mock external ports. No native or identity acceptance claim. */
 @OptIn(ExperimentalTestApi::class)
 class MembershipPreviewTest {
     @Test
@@ -62,7 +64,7 @@ class MembershipPreviewTest {
     @Test
     fun account_entry_opens_a_blank_single_form_with_no_plan_or_consent_selection() {
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { MembershipTestRoot(initial = demoState(stack = listOf(ShellRoute.Discovery, ShellRoute.Account))) }
+            setContent { MembershipTestRoot(initial = previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Account))) }
             onNodeWithTag("membership-preview-entry").performScrollTo().performClick()
             onNodeWithTag("membership-start").performScrollTo().performClick()
             onNodeWithTag("membership-name").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
@@ -190,13 +192,13 @@ class MembershipPreviewTest {
 
 @Composable
 private fun MembershipTestRoot(
-    initial: ShellState = demoState(stack = listOf(ShellRoute.Account, ShellRoute.MembershipPreview)),
+    initial: ShellState = previewState(stack = listOf(ShellRoute.Account, ShellRoute.MembershipPreview)),
     fixture: MembershipState = MembershipState.unavailable(),
     width: Int = 390,
     height: Int = 844,
     textScale: Float = 1f,
 ) {
     Box(Modifier.requiredSize(width.dp, height.dp)) {
-        CantosDemoApp(initialState = initial, membershipPreviewState = fixture, textScale = textScale)
+        PreviewTestRoot(PreviewSeed(initial, membership = fixture), textScale = textScale)
     }
 }

@@ -1,8 +1,8 @@
 # Compose preview without an emulator
 
 Use Android Studio's layout renderer for a quick pixel and semantics pass over actual Compose
-code. Theatre Mobile's isolated mock has a Gradle Android host and existing wrappers in
-`preview-sandbox/src/androidMain`; its capture target still requires the official CLI and ready IDE.
+code. Theatre Mobile has no Android preview module after #287 (the sandbox is JVM-desktop only), so its
+capture target has nothing to render until a production-safe stateless preview has its own consumer.
 Studio is web-only and has no mobile capture target; never scaffold one for preview evidence. The separate `ui-system-cmp` target selects a real Android library host in
 `packages/ui-system/cmp/android-preview`, with thin wrappers around the shared components and
 existing deterministic fixtures. The [PR43 host record](../../../../docs/evidence/cmp-pr43-android-preview.md)
@@ -64,9 +64,8 @@ The three Design v3 wrappers are composition roots: each reads `isSystemInDarkTh
 injects it with `ThemeMode.System`, so the preview follows the annotation's `uiMode` without any
 component reading the OS. They show a read-only map of the design export; proposals have no sample.
 
-The Theatre mock has real wrappers around the same shared app. Compile with
-`cargo xtask theatre-demo android-build`, open its Gradle root and sync with
-`-Pcantos.android=true` before capture:
+Historical example (the Theatre wrappers were removed in #287; the command shape still applies to
+`ui-system-cmp`):
 
 ```sh
 cargo xtask compose-preview cantos-theatre \
@@ -149,7 +148,7 @@ source sets, test runner, SDK, graphics mode and tasks; pinned AGP versions may 
 `testDebugUnitTest` or `testAndroidHostTest`, with module-specific names. Do not copy VOTHub's
 `:sharedUi:testAndroidHostTest` into Cantos: no such module or task exists here. Add an actual
 native test gate to xtask only when its runner is implemented. The current
-`cargo xtask theatre-demo verify` runs common/desktop Compose tests, as
+`cargo xtask theatre-preview verify` runs common/desktop Compose tests, as
 [CMP testing](cmp-testing.md) records; Robolectric dependencies/runners remain candidates.
 Label a host run with its actual renderer and selected/executed test counts; it does
 not close the [native acceptance matrix](../../../../docs/architecture/mobile.md#future-acceptance-matrix).

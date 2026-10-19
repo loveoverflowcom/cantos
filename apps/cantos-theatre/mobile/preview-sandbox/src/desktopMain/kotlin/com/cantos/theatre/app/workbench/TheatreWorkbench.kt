@@ -32,8 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.cantos.theatre.app.CantosDemoApp
-import com.cantos.theatre.app.DemoAppSession
+import com.cantos.theatre.app.PreviewTheatreApp
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonVariant
@@ -63,7 +62,7 @@ fun TheatreWorkbench(controller: TheatreWorkbenchController? = null) {
     SideEffect { owned.updateSystemTheme(systemIsDark) }
     val mount by owned.mount.collectAsState()
     val log by owned.eventLog.collectAsState()
-    val snapshot = observeSnapshot(mount.session)
+    val snapshot by remember(mount) { mount.observe() }.collectAsState(initial = mount.snapshot())
     var transfer by remember { mutableStateOf("") }
     var outcome by remember { mutableStateOf("Snapshot contains synthetic Theatre UI facts only.") }
     val recipe by owned.recipe.collectAsState()
@@ -120,7 +119,7 @@ fun TheatreWorkbench(controller: TheatreWorkbenchController? = null) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                         Button("Export snapshot", {
                             when (val exported = encodeTheatreSnapshot(owned.snapshot())) {
-                                is TheatreSnapshotExport.Exported -> { transfer = exported.text; outcome = "Exported version 1 synthetic UI snapshot." }
+                                is TheatreSnapshotExport.Exported -> { transfer = exported.text; outcome = "Exported version 2 synthetic UI snapshot." }
                                 is TheatreSnapshotExport.UnsupportedState -> outcome = exported.reason
                             }
                         }, variant = ButtonVariant.Text, controlModifier = Modifier.testTag("workbench-export"))
@@ -142,13 +141,14 @@ fun TheatreWorkbench(controller: TheatreWorkbenchController? = null) {
                             log.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
                         }
                     }
-                    Text("Memory only. Offline simulates unavailable catalog/writes. Timer is a selection. Native audio, process death and screen readers remain untested.", style = MaterialTheme.typography.bodySmall)
+                    Text("In-memory sample data through the real owners. Offline simulates an unreachable catalog and remote Library; writes stay pending. Playback is a decoder stand-in: no audio, process death or screen reader is exercised.", style = MaterialTheme.typography.bodySmall)
                 }
                 Box(Modifier.weight(1f).fillMaxSize().horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopStart) {
                     key(mount) {
-                        CantosDemoApp(
+                        PreviewTheatreApp(
+                            mount.owners,
                             modifier = Modifier.requiredSize(settings.constraints.widthDp.dp, settings.constraints.heightDp.dp).testTag("workbench-theatre-frame"),
-                            appSession = mount.session, textScale = settings.fontScale, density = settings.density,
+                            textScale = settings.fontScale, density = settings.density,
                             motionPreference = if (settings.reducedMotion) MotionPreference.Reduced else MotionPreference.Full,
                         )
                     }
@@ -156,18 +156,6 @@ fun TheatreWorkbench(controller: TheatreWorkbenchController? = null) {
             }
         }
     }
-}
-
-@Composable
-private fun observeSnapshot(session: DemoAppSession): ShellState {
-    val ui by session.ui.collectAsState()
-    val navigation by session.container.navigation.collectAsState()
-    val catalog by session.container.catalog.state.collectAsState()
-    val listening by session.container.listening.state.collectAsState()
-    val playback by session.container.playback.state.collectAsState()
-    val preferences by session.container.preferences.state.collectAsState()
-    return com.cantos.theatre.app.projectDemoState(navigation, catalog, listening, playback, preferences,
-        ui.query, ui.libraryTab, ui.timer, session.seed)
 }
 
 private fun TheatreRecipe.withLatency(latency: Long): TheatreRecipe =

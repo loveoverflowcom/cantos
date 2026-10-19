@@ -1,9 +1,10 @@
 package com.cantos.theatre.app.workbench
 
-import com.cantos.theatre.demo.demoState
-import com.cantos.theatre.adapters.mock.mockInventory
-import com.cantos.theatre.adapters.mock.toEpisodeKey
-import com.cantos.theatre.presentation.model.ShellBookmark
+import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
+import com.cantos.theatre.adapters.preview.PreviewFixtures
+import com.cantos.theatre.app.PreviewNoSelection
+import com.cantos.theatre.adapters.preview.PreviewWorkIds
+import com.cantos.theatre.app.previewState
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellEpisodeId
 import com.cantos.theatre.presentation.model.ShellLibraryTab
@@ -28,8 +29,18 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** No membership form/session data, native paths, service objects, or credentials are exported. */
-class TheatreSnapshot(val recipe: TheatreRecipe, val state: ShellState)
+/**
+ * No membership form/session data, native paths, service objects, or credentials are exported.
+ * [signedIn] only says whether the sample account is the Library owner; the account itself is a
+ * seed fact and never carries a credential.
+ */
+class TheatreSnapshot(
+    val recipe: TheatreRecipe,
+    val state: ShellState,
+    val signedIn: Boolean = recipe.startsSignedIn,
+    /** False while the Library has unsent writes, a failure or a refresh in flight. */
+    val settled: Boolean = true,
+)
 
 sealed interface TheatreSnapshotExport {
     data class Exported(val text: String) : TheatreSnapshotExport
@@ -61,6 +72,7 @@ private data class SnapshotWire(
     val reducedMotion: Boolean,
     val writeLatencyMs: Long,
     val steps: List<String>,
+    val signedIn: Boolean,
     val state: StateWire,
 )
 
@@ -73,7 +85,6 @@ private data class StateWire(
     val episode: String,
     val positionMs: Long,
     val savedWorks: List<String>,
-    val bookmarks: List<PointWire>,
     val progress: List<PointWire>,
     val history: List<PointWire>,
     val libraryTab: String,
@@ -92,18 +103,17 @@ fun encodeTheatreSnapshot(snapshot: TheatreSnapshot): TheatreSnapshotExport {
     val settings = recipe.settings
     val queryId = syntheticQueries.entries.firstOrNull { it.value == state.query }?.key
         ?: return TheatreSnapshotExport.UnsupportedState("Export supports declared synthetic queries only; clear the search first")
-    if (state.listeningFailure != null || ShellRoute.MembershipPreview in state.stack ||
-        state.playbackStatus !in setOf(PlaybackUiStatus.Paused, PlaybackUiStatus.Simulating) ||
-        (state.playbackStatus == PlaybackUiStatus.Simulating) != state.transportRequested) {
+    if (!snapshot.settled || state.listeningFailure != null || ShellRoute.MembershipPreview in state.stack ||
+        state.playbackStatus !in setOf(PlaybackUiStatus.Idle, PlaybackUiStatus.Paused, PlaybackUiStatus.Playing) ||
+        (state.playbackStatus == PlaybackUiStatus.Playing) != state.transportRequested) {
         return TheatreSnapshotExport.UnsupportedState("Settle or reset transient playback/storage and membership state before export")
     }
     val encoded = snapshotJson.encodeToString(SnapshotWire(
         TheatreRecipe.Version, recipe.id, recipe.seed, settings.themeMode.name, settings.density.name,
         settings.locale.name, settings.fontScale, settings.constraints.widthDp, settings.constraints.heightDp,
-        settings.reducedMotion, recipe.writeLatencyMs, recipe.steps.map { it.name },
+        settings.reducedMotion, recipe.writeLatencyMs, recipe.steps.map { it.name }, snapshot.signedIn,
         StateWire(state.stack.map(::routeId), state.selectedEpisode.value, state.positionMs,
             state.savedWorks.map { it.value }.sorted(),
-            state.bookmarks.map { PointWire(it.episodeId.value, it.positionMs) },
             state.progress.map { PointWire(it.episodeId.value, it.positionMs) },
             state.history.map { PointWire(it.episodeId.value, it.positionMs) },
             state.libraryTab.name, queryId, state.catalogMode.name, state.theme.name, state.locale.name,
@@ -134,7 +144,7 @@ fun decodeTheatreSnapshot(text: String): TheatreSnapshotResult {
             is TheatreRecipeResult.UnknownRecipe -> return TheatreSnapshotResult.UnknownRecipe(selected.id)
             is TheatreRecipeResult.Invalid -> return TheatreSnapshotResult.Invalid(selected.reason)
         }
-        TheatreSnapshotResult.Accepted(TheatreSnapshot(recipe, wire.state.toState()))
+        TheatreSnapshotResult.Accepted(TheatreSnapshot(recipe, wire.state.toState(), wire.signedIn))
     } catch (_: SerializationException) {
         TheatreSnapshotResult.Invalid("Malformed snapshot fields")
     } catch (_: IllegalArgumentException) {
@@ -148,7 +158,7 @@ private inline fun <reified E : Enum<E>> enumValue(value: String): E =
     enumValues<E>().firstOrNull { it.name == value } ?: throw IllegalArgumentException("Unknown enum value")
 
 private fun StateWire.toState(): ShellState {
-    require(stack.size in 1..32 && savedWorks.size <= 3 && bookmarks.size <= 40 && progress.size <= 40 && history.size <= 40)
+    require(stack.size in 1..32 && savedWorks.size <= 3 && progress.size <= 40 && history.size <= 40)
     val query = requireNotNull(syntheticQueries[queryId])
     require(savedWorks.distinct().size == savedWorks.size)
     val episode = episodeId(episode)
@@ -162,23 +172,27 @@ private fun StateWire.toState(): ShellState {
     val history = history.map(::point)
     require(progress.distinctBy { it.episodeId }.size == progress.size)
     require(history.distinctBy { it.episodeId.workId }.size == history.size)
-    return demoState(
-        stack = stack.map(::decodeRoute).also { require(ShellRoute.MembershipPreview !in it) }, selectedEpisode = episode,
-        positionSeconds = (positionMs / 1000L).toInt(), positionMs = positionMs,
-        savedWorks = savedWorks.map { workId(it) }.toSet(),
-        bookmarks = bookmarks.map(::point).map { ShellBookmark(it.episodeId, it.positionSeconds, it.positionMs) },
+    val selected = episode
+    return previewState(
+        stack = stack.map(::decodeRoute).also { require(ShellRoute.MembershipPreview !in it) }, selectedEpisode = selected,
+        positionMs = positionMs, savedWorks = savedWorks.map { workId(it) }.toSet(),
         progress = progress, history = history, libraryTab = enumValue(libraryTab), query = query,
         catalogMode = enumValue(catalogMode), theme = enumValue(theme), locale = enumValue(locale),
         speedPercent = speedPercent, timer = enumValue(timer), transportRequested = transportRequested,
-        playbackStatus = if (transportRequested) PlaybackUiStatus.Simulating else PlaybackUiStatus.Paused,
+        playbackStatus = when {
+            transportRequested -> PlaybackUiStatus.Playing
+            selected == PreviewNoSelection -> PlaybackUiStatus.Idle
+            else -> PlaybackUiStatus.Paused
+        },
     )
 }
 
 private val syntheticQueries = mapOf("empty" to "", "night" to "Đèn", "son-ha" to "Sơn Hà")
 
 private fun validatePosition(id: ShellEpisodeId, positionMs: Long) {
-    val episode = requireNotNull(mockInventory().episode(id.toEpisodeKey()))
-    require(positionMs in 0L..episode.durationMs)
+    if (id == PreviewNoSelection) return require(positionMs == 0L)
+    val (_, unit) = requireNotNull(PreviewFixtures.unit(id.value))
+    require(positionMs in 0L..unit.durationMs)
 }
 
 private fun routeId(route: ShellRoute): String = when (route) {
@@ -215,9 +229,10 @@ private fun decodeRoute(id: String): ShellRoute = when (id) {
 }
 
 private fun workId(value: String): ShellWorkId =
-    com.cantos.theatre.demo.DemoWorkIds.entries.firstOrNull { it.value == value }
+    PreviewWorkIds.entries.firstOrNull { it.value == value }
         ?: throw IllegalArgumentException("Unknown synthetic work identity")
 
 private fun episodeId(value: String): ShellEpisodeId =
-    com.cantos.theatre.demo.DemoEpisodeIds.entries.firstOrNull { it.value == value }
+    if (value == PreviewNoSelection.value) PreviewNoSelection
+    else PreviewEpisodeIds.entries.firstOrNull { it.value == value }
         ?: throw IllegalArgumentException("Unknown synthetic episode identity")

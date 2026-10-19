@@ -1,6 +1,10 @@
 package com.cantos.theatre.app
 
-import com.cantos.theatre.demo.demoState
+import com.cantos.theatre.adapters.preview.PreviewLoginMode
+import com.cantos.theatre.app.PreviewOwners
+import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.PreviewTestRoot
+import com.cantos.theatre.app.previewState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.DisposableEffect
@@ -39,9 +43,11 @@ import org.junit.Test
 @OptIn(ExperimentalTestApi::class)
 class AuthCaptureTest {
     private fun login(theme: ShellTheme = ShellTheme.Light, locale: ShellLocale = ShellLocale.Vietnamese) =
-        demoState(stack = listOf(ShellRoute.Discovery, ShellRoute.Login), theme = theme, locale = locale)
+        PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Login), theme = theme, locale = locale))
 
-    private val account = demoState(stack = listOf(ShellRoute.Discovery, ShellRoute.Account))
+    private fun PreviewSeed.themed(theme: ShellTheme) = copy(state = state.copy(theme = theme))
+
+    private val account = PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Account)))
 
     @Test
     fun login_is_captured_across_widths_themes_languages_and_text_scales() {
@@ -59,50 +65,42 @@ class AuthCaptureTest {
         capture("login-pending-light-390x844", 390, 844, login()) { it.click("login-primary") }
         capture("login-failed-light-390x844", 390, 844, login()) { d ->
             d.click("login-primary")
-            d.h.account.callback(d.h.first(hasError = true))
+            d.h.identity.returnFromBrowser(approve = false)
         }
         capture("login-cleanup-dark-390x844", 390, 844, login(ShellTheme.Dark)) { d ->
             d.click("login-primary")
-            d.h.account.callback(d.h.first())
-            d.h.store.clearFails = true
-            d.h.app.logout()
-            d.h.app.openLogin()
+            d.h.identity.returnFromBrowser(approve = true)
+            d.h.identity.clearFails = true
+            d.h.shell.logout()
+            d.h.shell.openLogin()
         }
     }
 
     @Test
     fun registration_unavailable_is_captured() {
-        val state = demoState(stack = listOf(ShellRoute.Discovery, ShellRoute.Login, ShellRoute.Register))
+        val state = PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Login, ShellRoute.Register)))
         capture("register-light-390x844", 390, 844, state)
-        capture("register-dark-320x568", 320, 568, state.copy(theme = ShellTheme.Dark))
+        capture("register-dark-320x568", 320, 568, state.themed(ShellTheme.Dark))
         capture("register-light-text2-320x800", 320, 800, state, textScale = 2f)
-    }
-
-    @Test
-    fun account_without_an_identity_capability_matches_the_baseline_scenarios() {
-        capture("account-unavailable-light-390x844", 390, 844, account, identity = false)
-        capture("account-unavailable-dark-390x844", 390, 844, account.copy(theme = ShellTheme.Dark), identity = false)
-        capture("account-unavailable-light-text2-320x800", 320, 800, account, textScale = 2f, identity = false)
-        capture("account-unavailable-light-768x1024", 768, 1024, account, identity = false)
     }
 
     @Test
     fun account_is_captured_as_guest_and_signed_in() {
         capture("account-guest-light-390x844", 390, 844, account)
-        capture("account-guest-dark-390x844", 390, 844, account.copy(theme = ShellTheme.Dark))
+        capture("account-guest-dark-390x844", 390, 844, account.themed(ShellTheme.Dark))
         capture("account-guest-light-text2-320x800", 320, 800, account, textScale = 2f)
         capture("account-guest-light-text2-settings-320x800", 320, 800, account, textScale = 2f, scrollToTag = "settings")
         capture("account-guest-light-768x1024", 768, 1024, account)
         capture("account-signed-light-390x844", 390, 844, account) { it.completeLogin() }
-        capture("account-signed-dark-390x844", 390, 844, account.copy(theme = ShellTheme.Dark)) { it.completeLogin() }
+        capture("account-signed-dark-390x844", 390, 844, account.themed(ShellTheme.Dark)) { it.completeLogin() }
         capture("account-signed-light-text2-320x800", 320, 800, account, textScale = 2f) { it.completeLogin() }
         capture("account-signed-light-text2-logout-320x800", 320, 800, account, textScale = 2f, scrollToTag = "logout") {
             it.completeLogin()
         }
     }
 
-    /** The identity harness plus the Compose test that drives it, so a step can click and settle. */
-    private class Drive(val test: ComposeUiTest, val h: IdentityHarness) {
+    /** The preview owners plus the Compose test that drives them, so a step can click and settle. */
+    private class Drive(val test: ComposeUiTest, val h: PreviewOwners) {
         fun click(tag: String) {
             test.onNodeWithTag(tag).performScrollTo().performClick()
             test.waitForIdle()
@@ -111,7 +109,7 @@ class AuthCaptureTest {
         fun completeLogin() {
             click("sign-in")
             click("login-primary")
-            h.account.callback(h.first())
+            h.identity.returnFromBrowser(approve = true)
             test.waitForIdle()
         }
     }
@@ -120,26 +118,22 @@ class AuthCaptureTest {
         name: String,
         width: Int,
         height: Int,
-        state: ShellState,
+        state: PreviewSeed,
         textScale: Float = 1f,
         scrollToTag: String? = null,
-        identity: Boolean = true,
         steps: (Drive) -> Unit = {},
     ) {
         var rendererDensity = Float.NaN
         runDesktopComposeUiTest(width = width, height = height) {
-            lateinit var harness: IdentityHarness
+            lateinit var owners: PreviewOwners
             setContent {
                 rendererDensity = LocalDensity.current.density
-                val scope = rememberCoroutineScope()
-                // Without identity the default container has no account owner: the guest-only build.
-                val owner = if (identity) remember { IdentityHarness(scope, state).also { harness = it } } else null
-                DisposableEffect(owner) { onDispose { owner?.close() } }
                 Box(Modifier.requiredSize(width.dp, height.dp).testTag("capture-root")) {
-                    CantosDemoApp(initialState = state, textScale = textScale, appContainer = owner?.app)
+                    // The provider is held so each step decides when the browser returns.
+                    PreviewTestRoot(state, textScale = textScale, onOwners = { it.identity.mode = PreviewLoginMode.Hold; owners = it })
                 }
             }
-            if (identity) steps(Drive(this, harness))
+            steps(Drive(this, owners))
             waitForIdle()
             if (scrollToTag != null) onNodeWithTag(scrollToTag).performScrollTo()
             waitForIdle()
@@ -156,13 +150,13 @@ class AuthCaptureTest {
                 """
                 {
                   "renderer": "JVM Desktop Compose UI test",
-                  "entrypoint": "CantosDemoApp over deterministic identity ports",
+                  "entrypoint": "PreviewTheatreApp → CantosTheatreApp over deterministic identity ports",
                   "requestedWidthDp": $width,
                   "requestedHeightDp": $height,
                   "rendererDensity": $rendererDensity,
                   "requestedAppTextScale": $textScale,
-                  "theme": "${state.theme}",
-                  "locale": "${state.locale}",
+                  "theme": "${state.state.theme}",
+                  "locale": "${state.state.locale}",
                   "scrolledToTag": ${scrollToTag?.let { "\"$it\"" } ?: "null"},
                   "evidence": "screenshot-captured; inspection pending"
                 }

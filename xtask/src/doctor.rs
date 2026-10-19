@@ -77,7 +77,7 @@ pub fn run(tools: &SystemTools) -> ExitCode {
     report.record(
         "surface cantos-theatre --mobile",
         Status::Unsupported,
-        format!("production native listening is unavailable; {THEATRE_MOBILE_DIR} has a separate theatre-demo mock UI"),
+        format!("production native listening is unavailable; {THEATRE_MOBILE_DIR} has a JVM-only Desktop Preview (theatre-preview) over mock ports"),
     );
     report.record(
         "services/kanidm",

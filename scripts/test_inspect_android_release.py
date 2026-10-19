@@ -27,7 +27,7 @@ PRODUCTION = [
     "Lcom/cantos/theatre/features/launch/presentation/CantosListeningUnavailableKt;",
     "Landroidx/activity/ComponentActivity;",
 ]
-SANDBOX = "Lcom/cantos/theatre/app/MockAppContainerKt;"
+SANDBOX = "Lcom/cantos/theatre/app/PreviewOwnersKt;"
 
 # Trimmed from real aapt2 35.0.0 output: binary APK form, then the AAB proto (Raw) form.
 APK_MANIFEST = f"""N: android=http://schemas.android.com/apk/res/android (line=6)
@@ -145,7 +145,7 @@ class DexParserTest(unittest.TestCase):
             root = Path(directory)
             (root / "com/cantos/theatre/app").mkdir(parents=True)
             (root / "META-INF").mkdir()
-            (root / "com/cantos/theatre/app/MockAppContainerKt.class").write_bytes(b"x")
+            (root / "com/cantos/theatre/app/PreviewOwnersKt.class").write_bytes(b"x")
             (root / "com/cantos/theatre/app/Outer$Inner.class").write_bytes(b"x")
             (root / "META-INF/main.kotlin_module").write_bytes(b"x")
             self.assertEqual(inspector.class_inventory(root),
@@ -231,7 +231,7 @@ class InspectTest(unittest.TestCase):
         self.root = Path(self.directory.name)
         classes = self.root / "sandbox-classes/com/cantos/theatre/app"
         classes.mkdir(parents=True)
-        (classes / "MockAppContainerKt.class").write_bytes(b"x")
+        (classes / "PreviewOwnersKt.class").write_bytes(b"x")
         resources = self.root / "sandbox-resources/drawable"
         resources.mkdir(parents=True)
         (resources / "son_ha_moon.png").write_bytes(b"sandbox artwork")
