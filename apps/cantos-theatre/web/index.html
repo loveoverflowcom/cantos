@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Resolve legacy Hosting aliases before loading the application.
+    if (["cantoss-theatre.web.app", "cantoss-theatre.firebaseapp.com"].includes(window.location.hostname)) {
+      window.location.replace("https://cantos.cc" + window.location.pathname + window.location.search + window.location.hash);
+    }
+  </script>
   <title>Cantos</title>
   <link data-trunk rel="css" href="../../../packages/ui-system/leptos/tokens.css">
   <link data-trunk rel="css" href="../../../packages/ui-system/leptos/foundation.css">

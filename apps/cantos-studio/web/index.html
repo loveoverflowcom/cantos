@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Resolve legacy Hosting aliases before loading the application.
+    if (["cantoss-studio.web.app", "cantoss-studio.firebaseapp.com"].includes(window.location.hostname)) {
+      window.location.replace("https://studio.cantos.cc" + window.location.pathname + window.location.search + window.location.hash);
+    }
+  </script>
   <title>Cantos Studio</title>
   <link data-trunk rel="rust" data-bin="cantos-studio">
   <link data-trunk rel="css" href="../../../packages/ui-system/leptos/tokens.css">

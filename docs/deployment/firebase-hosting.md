@@ -6,6 +6,21 @@ Mac or Linux machine. The command contract is the
 [xtask README](../../xtask/README.md#deploy-firebase); this page is the setup, the routine, the
 verification and the recovery.
 
+## Canonical browser domains
+
+The two Web entrypoints redirect the exact legacy aliases `cantoss-theatre.web.app` and
+`cantoss-theatre.firebaseapp.com` to `https://cantos.cc`, and `cantoss-studio.web.app` and
+`cantoss-studio.firebaseapp.com` to `https://studio.cantos.cc`. A synchronous script before
+the application loader uses `location.replace`, preserving the pathname, query and fragment.
+The canonical domains, localhost and preview-channel hosts do not redirect. JavaScript must
+be enabled; asset requests and HTTP clients do not receive an HTTP 301/308 response. Do not
+add a site-wide Hosting redirect to these same sites: it would also redirect their canonical
+custom domains back to themselves. Site IDs remain internal Hosting identifiers; the custom
+domains serve directly from Firebase and both Web builds use `https://api.cantos.cc`.
+
+This alias redirect does not migrate the initialized Kanidm authority, credentials or sessions.
+Legacy identity ingress has its own [gateway and migration boundary](vps-production.md).
+
 > **Status — implemented; live releases of both apps ran on 2026-10-17.** Preview channels are
 > still unexercised. See [what is and is not accepted](#acceptance-status).
 > Creating a site or running a deploy changes **your** Firebase project; nothing here does it for
