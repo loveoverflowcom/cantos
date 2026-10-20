@@ -27,6 +27,7 @@ rebuild their implemented portions. Keep speculative expansion in [backlog](back
 | Dependencies, phase exit and GitHub workflow | [Project planning](project-planning.md) |
 | Brief/private audio completion | [020](020-cast-and-generate-dialogue.md), [live client matrix](live-client-api-matrix.md) |
 | Review/storage/publication acceptance | [030](030-mix-review-and-publish.md) |
+| First private audio on VPS filesystem (#309) | [VPS runbook](../deployment/vps-production.md#development-private-audio-on-the-vps); retain Long Vân as the optional S3 target and preserve original target reads. Real deployment/storage/restart/backup acceptance is separate. |
 | Theatre Web auth and Library adoption (#271, #272) | Review independent login/registration readiness, [presented Web lists and authenticated Save/progress/history/resume sync](../../apps/cantos-theatre/web/README.md#scope-and-honest-behavior); qualify real issuer/emulator/PostgreSQL multi-device acceptance separately from unit/loopback evidence. |
 | Theatre Web and native listening | [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md), [Library/Progress handoff](listener-library-progress-handoff.md) |
 | Public catalog, cover and metadata | [Catalog states](theatre-catalog-state-handoff.md), [cover handoff](public-cover-implementation-handoff.md), [P1 decisions](public-metadata-decision-handoff.md) |

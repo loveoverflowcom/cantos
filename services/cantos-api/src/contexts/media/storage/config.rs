@@ -194,6 +194,19 @@ mod tests {
         }
     }
     #[test]
+    fn vps_default_profile_selects_only_the_persistent_filesystem_target() {
+        let text = include_str!("../../../../../../infra/vps/config/storage.filesystem.toml");
+        let config = StorageConfig::parse(text).unwrap();
+        let id = StorageTargetId::parse("legacy-filesystem").unwrap();
+        assert_eq!(config.active, id);
+        assert_eq!(config.targets.len(), 1);
+        assert!(matches!(
+            config.targets.get(&id),
+            Some(TargetConfig::Filesystem(root)) if root == Path::new("/var/lib/cantos/private")
+        ));
+    }
+
+    #[test]
     fn long_van_profile_parses_as_non_secret_topology_with_conservative_capabilities() {
         let text = include_str!("../../../../config/storage.longvan.example.toml");
         let config = StorageConfig::parse(text).unwrap();

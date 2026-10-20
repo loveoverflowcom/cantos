@@ -41,6 +41,11 @@ readonly BACKUP_KEEP=${CANTOS_BACKUP_KEEP:-14}
 readonly API_UNITS=(cantos-api-theatre cantos-api-studio)
 readonly SOCKET_URL_SUFFIX='@/cantos?host=/run/postgresql'
 readonly SCHEMA_EPOCH=2
+# Private Studio media is outside the container image, release directories and SQL backups.
+# The fixed mount paths must match cantos-api-studio.container and the storage TOML profile.
+readonly MEDIA_STORAGE_PARENT=/var/lib/cantos
+readonly MEDIA_STORAGE_ROOT=$MEDIA_STORAGE_PARENT/private
+readonly MEDIA_STORAGE_CONFIG=$CONFIG/storage.toml
 CANTOS_VPS_LOCK_OWNER=
 
 log() { printf '[cantos-vps] %s\n' "$*" >&2; }
@@ -50,6 +55,48 @@ die() {
 }
 
 require_root() { [[ ${EUID:-$(id -u)} -eq 0 ]] || die "run as root" 77; }
+
+# Never repair ownership or overwrite a stored profile automatically: doing so could make
+# historical bytes unreadable or change which provider receives new media.
+check_private_media_storage() {
+  local identity
+  [[ -d $MEDIA_STORAGE_PARENT && ! -L $MEDIA_STORAGE_PARENT ]] ||
+    die "private media parent is missing or symlinked: $MEDIA_STORAGE_PARENT" 65
+  identity=$(stat -c '%u:%g:%a' "$MEDIA_STORAGE_PARENT")
+  case $identity in
+    0:0:700|0:0:755) ;;
+    *) die "private media parent must be root-owned and non-writable by other users" 65 ;;
+  esac
+  [[ -d $MEDIA_STORAGE_ROOT && ! -L $MEDIA_STORAGE_ROOT ]] ||
+    die "private media root is missing or symlinked: $MEDIA_STORAGE_ROOT" 65
+  [[ $(stat -c '%u:%g:%a' "$MEDIA_STORAGE_ROOT") == 10001:10001:700 ]] ||
+    die "private media root must be owned by Cantos 10001:10001 with mode 0700" 65
+  [[ -d $CONFIG && ! -L $CONFIG ]] ||
+    die "private API configuration directory is missing or symlinked" 65
+  [[ $(stat -c '%u:%g:%a' "$CONFIG") == 0:0:700 ]] ||
+    die "private API configuration directory must be root-owned with mode 0700" 65
+  [[ -f $MEDIA_STORAGE_CONFIG && ! -L $MEDIA_STORAGE_CONFIG ]] ||
+    die "storage topology must be a regular, non-symlink file" 65
+  [[ $(stat -c '%u:%g:%a' "$MEDIA_STORAGE_CONFIG") == 0:0:644 ]] ||
+    die "storage topology must be root-owned with mode 0644 (no secrets)" 65
+}
+
+ensure_private_media_storage() {
+  [[ ! -L $MEDIA_STORAGE_PARENT && ! -L $MEDIA_STORAGE_ROOT &&
+     ! -L $CONFIG && ! -L $MEDIA_STORAGE_CONFIG ]] ||
+    die "private media paths must not be symlinks" 65
+  [[ -e $MEDIA_STORAGE_PARENT ]] || install -d -m 0755 "$MEDIA_STORAGE_PARENT"
+  if [[ ! -e $MEDIA_STORAGE_ROOT ]]; then
+    install -d -m 0700 -o 10001 -g 10001 "$MEDIA_STORAGE_ROOT"
+  fi
+  install -d -m 0700 "$CONFIG"
+  if [[ ! -e $MEDIA_STORAGE_CONFIG ]]; then
+    [[ -f $RUNTIME/config/storage.filesystem.toml ]] ||
+      die "bundled filesystem storage topology is missing" 66
+    install -m 0644 "$RUNTIME/config/storage.filesystem.toml" "$MEDIA_STORAGE_CONFIG"
+  fi
+  check_private_media_storage
+}
 
 with_lock() {
   # Internal install/recovery shares the caller's lock; reopening fd 9 would briefly
@@ -169,8 +216,8 @@ require_oidc_callback_receipt() {
 validate_supplemental_environment() {
   local file=$1 surface=$2 line
   [[ -f $file ]] || die "supplemental API EnvironmentFile is missing: $file" 66
-  if grep -Eq '^[[:space:]]*(CANTOS_ENV|CANTOS_BIND_ADDRESS|CANTOS_WEB_ORIGIN|CANTOS_API_ORIGIN|CANTOS_BROWSER_API_SURFACE)[[:space:]]*=' "$file"; then
-    die "$file overrides protected API browser configuration; keep those keys only in api-$surface.env" 65
+  if grep -Eq '^[[:space:]]*(CANTOS_ENV|CANTOS_BIND_ADDRESS|CANTOS_WEB_ORIGIN|CANTOS_API_ORIGIN|CANTOS_BROWSER_API_SURFACE|CANTOS_STORAGE_CONFIG|CANTOS_AUDIO_ROOT)[[:space:]]*=' "$file"; then
+    die "$file overrides protected API configuration; keep protected values in tracked Quadlet or api-$surface.env" 65
   fi
   while IFS= read -r line || [[ -n $line ]]; do
     [[ $line =~ ^[[:space:]]*(#|$) ]] && continue
@@ -203,8 +250,8 @@ validate_api_dropins() {
             die "$file has an unsupported API Environment assignment; use one simple assignment or a supplemental env file" 65
           key=${BASH_REMATCH[1]}
           case $key in
-            CANTOS_ENV|CANTOS_BIND_ADDRESS|CANTOS_WEB_ORIGIN|CANTOS_API_ORIGIN|CANTOS_BROWSER_API_SURFACE)
-              die "$file overrides protected API browser configuration; keep $key only in api-$surface.env" 65 ;;
+            CANTOS_ENV|CANTOS_BIND_ADDRESS|CANTOS_WEB_ORIGIN|CANTOS_API_ORIGIN|CANTOS_BROWSER_API_SURFACE|CANTOS_STORAGE_CONFIG|CANTOS_AUDIO_ROOT)
+              die "$file overrides protected API configuration: $key" 65 ;;
             CANTOS_*OIDC_ISSUER)
               require_oidc_callback_receipt "$surface" ;;
           esac
@@ -220,6 +267,7 @@ validate_api_dropins() {
 # must reconcile it first, so failed image switches cannot strand a changed browser boundary.
 validate_runtime_browser_configuration() {
   validate_browser_configuration
+  check_private_media_storage
   local surface file
   for surface in theatre studio; do
     file=$CONFIG/api-$surface.env
@@ -280,6 +328,8 @@ install_bundle() {
   cp "$tree/REVISION" "$RUNTIME.new/REVISION" 2>/dev/null || true
   [[ -d $RUNTIME ]] && { rm -rf "$RUNTIME.previous"; mv "$RUNTIME" "$RUNTIME.previous"; }
   mv "$RUNTIME.new" "$RUNTIME"
+  # Initialize only if absent; an operator-selected Long Vân/local target is never reset.
+  ensure_private_media_storage
 
   local changed=() file name
   for file in "$RUNTIME"/quadlet/*; do
@@ -419,6 +469,7 @@ bootstrap() {
   with_lock
   [[ -d $RUNTIME ]] || die "run cantos-vps install TREE_DIR first" 66
   install -d -m 0700 "$ROOT" "$CONFIG" "$STATE" "$SECRETS" "$BACKUPS" "$KANIDM_DIR" "$EDGE_DIR" "$CA_DIR"
+  ensure_private_media_storage
   render_configuration
   ensure_password postgres-superuser
   ensure_password db-owner

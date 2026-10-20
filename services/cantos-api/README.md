@@ -180,7 +180,9 @@ leave private orphans; no request deletes a shared object. Reference-aware clean
 production isolation and real-provider/CDN acceptance are deferred. S3 conditional writes verify
 actual bytes; protected reads pin by version or strong ETag. Direct grants require a usable
 version ID, otherwise refreshable access redirects to the protected API stream. Switching new
-writes never migrates old bytes. No producer receives a Studio cookie and no upload/preview
+writes never migrates old bytes. The [VPS Studio composition](../../docs/deployment/vps-production.md#development-private-audio-on-the-vps)
+selects the existing filesystem driver on a persistent host mount during initial development,
+without Long Vân credentials; the separate Theatre API process is not given private file access. No producer receives a Studio cookie and no upload/preview
 becomes a release. Migration0014 adds immutable Content/Brief submissions, revocations,
 renditions, reviews and candidates; its application-role grants are SELECT/INSERT only.
 Brief read-grant issuance also needs SELECT on `audio_submissions` for credential-separation checks.
