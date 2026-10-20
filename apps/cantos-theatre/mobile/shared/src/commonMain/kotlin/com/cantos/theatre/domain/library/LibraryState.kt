@@ -5,7 +5,8 @@ import com.cantos.theatre.domain.playback.AudioIdentity
 enum class LibrarySection(val path: String) { Continue("continue"), Saved("saved"), History("history"), Bookmarks("bookmarks") }
 enum class LibrarySync { Pending, Confirmed, Failed }
 /** One bookmark's own sync truth: [Offline] is a pending change the last attempt could not deliver. */
-enum class BookmarkSync { Synced, Pending, Offline, Failed }
+/** [Failed] is a create the server refused for good; [DeleteFailed] is a deletion that could not be completed (the bookmark still exists). */
+enum class BookmarkSync { Synced, Pending, Offline, Failed, DeleteFailed }
 enum class LibraryResume { ExactAvailable, ReleaseReplaced, AccessUnavailable, NeedsRefresh }
 enum class ProgressIntent(val wire: String) { Checkpoint("checkpoint"), ExplicitSeek("explicit_seek"), Restart("restart"), ResolveHere("resolve_here"), ResolveOther("resolve_other"), MarkCompleted("mark_completed") }
 enum class LibraryWorkKind { Novel, Story, Podcast }

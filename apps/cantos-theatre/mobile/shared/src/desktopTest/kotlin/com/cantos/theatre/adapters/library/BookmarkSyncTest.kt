@@ -322,6 +322,25 @@ class BookmarkSyncTest {
         }
     }
 
+    @Test fun a_delete_the_server_refuses_for_good_keeps_the_bookmark_shown_as_delete_failed_and_can_be_retried() = withFolder { folder ->
+        runTest {
+            val server = BookmarkServer()
+            val library = controller(server, folder.store())
+            library.enterAs(actorA); runCurrent()
+            val id = assertNotNull(library.createBookmark(audio(1), 15_000)); runCurrent()
+            server.refuseDeleteWith = "corrupt_state"
+            library.deleteBookmark(id); runCurrent()
+            assertEquals(listOf(id to BookmarkSync.DeleteFailed), library.state.value.rows, "it still exists, and says its deletion failed")
+            assertEquals(1, server.live(actorA).size)
+            server.refuseDeleteWith = null
+            library.deleteBookmark(id); runCurrent()
+            assertTrue(library.state.value.bookmarks.isEmpty())
+            assertEquals(1, server.tombstones(actorA).size)
+            assertEquals(0, library.state.value.pending)
+            library.close()
+        }
+    }
+
     @Test fun pages_append_in_the_servers_order_and_a_first_page_read_replaces_the_rows() = withFolder { folder ->
         runTest {
             val server = BookmarkServer().apply { pageSize = 2 }

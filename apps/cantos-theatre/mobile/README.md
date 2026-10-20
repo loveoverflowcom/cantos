@@ -285,7 +285,8 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   synced; the account remembers its deletions, so neither a stale page nor a replayed response brings one back.
   Opening a bookmark restores its exact release at its position through the one player owner, **paused**, or moves
   the loaded release; a replaced or unavailable release is explained and never substituted. A guest is taken to sign
-  in and nothing is saved. Evidence: JVM and a real API/PostgreSQL loopback run; no device or audio.
+  in and nothing is saved. Evidence: JVM tests, the production authorized HTTP port's route allow-list, and a loopback run of the sync adapter
+  and client over a JDK transport against the real API and PostgreSQL; no device, audio, deployed run or real identity provider.
 - Contextual settings from the account screen: light/dark, vi/en UI and speed/timer preferences.
 
 Android system Back, visible Back/close and JVM Escape use the same pure navigation transitions.

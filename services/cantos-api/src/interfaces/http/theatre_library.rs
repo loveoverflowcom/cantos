@@ -455,6 +455,34 @@ mod tests {
             assert!(Query::<PageQuery>::try_from_uri(&raw.parse::<Uri>().unwrap()).is_err());
         }
     }
+    #[test]
+    fn bookmark_mutations_are_bearer_only_in_exactly_their_shapes() {
+        use axum::http::Method;
+        let id = "00000000-0000-4000-8000-0000000000b1";
+        let create = format!("/api/v1/theatre/library/bookmarks/{id}");
+        let delete = format!("{create}/delete");
+        assert!(bearer_mutation(&Method::PUT, &create));
+        assert!(bearer_mutation(&Method::POST, &delete));
+        for (method, path) in [
+            (Method::PUT, "/api/v1/theatre/library/bookmarks/".to_owned()),
+            (Method::PUT, format!("{create}/delete")),
+            (Method::PUT, format!("{create}/x")),
+            (Method::POST, create.clone()),
+            (
+                Method::POST,
+                "/api/v1/theatre/library/bookmarks//delete".to_owned(),
+            ),
+            (Method::POST, format!("{delete}/x")),
+            (Method::DELETE, create.clone()),
+            (Method::GET, create.clone()),
+            (
+                Method::PUT,
+                format!("/api/v1/studio/library/bookmarks/{id}"),
+            ),
+        ] {
+            assert!(!bearer_mutation(&method, &path), "{method} {path}");
+        }
+    }
     #[tokio::test]
     async fn error_projection_is_total_and_never_leaks_private_or_sql_fields() {
         for (e, status, code, retryable) in [

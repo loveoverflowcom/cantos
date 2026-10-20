@@ -260,7 +260,7 @@ transactional-memory double, `mock-integration-tested` at most), for example
 `application/tests.rs::bookmarks` (transactional-memory double), `domain/tests.rs::bookmarks` (including the
 property `tombstones_are_final_and_each_id_is_accepted_once_over_arbitrary_schedules`) and, against real
 PostgreSQL, `postgres/tests.rs::bookmarks` (HTTP create/list/delete, restart, pagination, concurrent duplicate,
-replaced/withdrawn release, table guards) plus the CMP production-client harness `cmp_production_client_against_the_real_api`.
+replaced/withdrawn release, table guards) plus the harness `cmp_production_client_against_the_real_api` (CMP sync adapter, store and client over a JDK transport against the real Router and database).
 
 ### Interleaving properties
 

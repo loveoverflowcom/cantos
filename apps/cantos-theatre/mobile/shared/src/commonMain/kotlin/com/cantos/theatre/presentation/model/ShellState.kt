@@ -35,7 +35,7 @@ enum class ShellListeningFailure { MemoryStoreUnavailable, ReleaseUnavailable }
 enum class PlaybackUiStatus { Idle, Loading, Paused, Simulating, Playing, Buffering, Ended, Failed }
 
 /** Where one bookmark stands against the server. [Offline] is a change the last attempt could not deliver. */
-enum class ShellBookmarkSync { Synced, Pending, Offline, Failed }
+enum class ShellBookmarkSync { Synced, Pending, Offline, Failed, DeleteFailed }
 
 /**
  * A pinned position. A sample carries only the defaults; a real, account-owned bookmark carries its [id], its sync truth

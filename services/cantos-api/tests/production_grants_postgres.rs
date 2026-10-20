@@ -176,6 +176,8 @@ async fn deployed_runtime_grants_alone_serve_studio_and_theatre_requests() {
         ("catalog_works", "DELETE"),
         ("catalog_works", "TRUNCATE"),
         ("script_revisions", "UPDATE"),
+        ("listener_bookmarks", "DELETE"),
+        ("listener_bookmarks", "TRUNCATE"),
     ] {
         let granted: bool = owner
             .query_one(
@@ -186,6 +188,41 @@ async fn deployed_runtime_grants_alone_serve_studio_and_theatre_requests() {
             .unwrap()
             .get(0);
         assert!(!granted, "cantos_app must not hold {privilege} on {table}");
+    }
+    // Release-bound bookmarks (migration 0003): create-once rows whose only change is the final tombstone.
+    for privilege in ["SELECT", "INSERT"] {
+        assert!(
+            table_privilege(&owner, "listener_bookmarks", privilege).await,
+            "the deployed grants must give cantos_app {privilege} on listener_bookmarks"
+        );
+    }
+    for column in [
+        "deleted",
+        "listener_order",
+        "accepted_at",
+        "snapshot",
+        "snapshot_digest",
+    ] {
+        assert!(
+            column_update(&owner, "listener_bookmarks", column).await,
+            "UPDATE({column}) on listener_bookmarks"
+        );
+    }
+    for column in [
+        "listener_id",
+        "bookmark_id",
+        "publication_id",
+        "work_id",
+        "unit_id",
+        "rendition_id",
+        "sha256",
+        "duration_ms",
+        "position_ms",
+    ] {
+        assert!(
+            !column_update(&owner, "listener_bookmarks", column).await,
+            "the immutable column {column} is never updatable"
+        );
     }
     let creates: bool = owner
         .query_one(

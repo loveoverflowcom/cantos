@@ -78,7 +78,10 @@ not establish a deployed route. In particular, use the actual methods in
 [Bearer v1](../../packages/contracts/bearer-v1.md); a GET of the POST-only flow path is only a
 routing diagnostic. Do not run a consuming login/exchange/refresh merely as a presence probe.
 
-The new API requires epoch 2 migrations 0001 and 0002. `preflight_schema` currently invokes the
+The Bearer API requires epoch 2 migrations 0001 and 0002. Release-bound bookmarks (#299) add migration
+0003, which the strict `preflight_schema` also refuses on a `[1,2]` database; no reviewed rollout protocol
+exists for it yet, and an image carrying 0003 is not usable with any earlier binary once applied. Until that
+protocol is reviewed, do not deploy an image carrying 0003 and do not apply it by hand. `preflight_schema` currently invokes the
 strict target `--check` before backup/migration: an existing 0001-only registry is refused by
 ordinary deployment. Do not bypass that guard, edit registry rows or run a production migration
 by hand to force a rollout. Use only the explicit [paired prefix-upgrade lane](postgres-prefix-upgrade.md)

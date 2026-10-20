@@ -238,7 +238,7 @@ internal fun projectBookmarks(
     pending.filter { it.key.startsWith("bookmark:") && it.method == "POST" }.forEach { intent ->
         val id = intent.key.removePrefix("bookmark:")
         if (intent.failure == null) rows.remove(id)
-        else rows[id]?.let { (order, row) -> rows[id] = order to row.copy(sync = BookmarkSync.Failed) }
+        else rows[id]?.let { (order, row) -> rows[id] = order to row.copy(sync = BookmarkSync.DeleteFailed) }
     }
     return rows.values.sortedWith(compareByDescending<Pair<Long, BookmarkEntry>> { it.first }.thenBy { it.second.id }).map { it.second }
 }

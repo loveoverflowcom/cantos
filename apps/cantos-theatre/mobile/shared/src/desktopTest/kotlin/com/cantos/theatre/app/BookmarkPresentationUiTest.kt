@@ -52,6 +52,7 @@ class BookmarkPresentationUiTest {
     private val pending = ShellBookmark(SampleEpisodeIds.SonHa01, 30, id = "b-pending", sync = ShellBookmarkSync.Pending)
     private val offline = ShellBookmark(SampleEpisodeIds.DenKhua01, 91, id = "b-offline", sync = ShellBookmarkSync.Offline)
     private val failed = ShellBookmark(SampleEpisodeIds.DenKhua02, 5, id = "b-failed", sync = ShellBookmarkSync.Failed)
+    private val stuck = ShellBookmark(SampleEpisodeIds.CanhBuom01, 12, id = "b-stuck", sync = ShellBookmarkSync.DeleteFailed)
     private val replaced = ShellBookmark(
         ShellEpisodeId("tap-ban-cu", ShellWorkId("ban-cu")), 40, id = "b-replaced", resume = ShellResume.ReleaseReplaced,
         titles = ShellRowTitles("Chuyện bản thu cũ", "Tập bản thu cũ"), durationSeconds = 90,
@@ -88,6 +89,18 @@ class BookmarkPresentationUiTest {
             onNodeWithText(vi.text(CopyKey.DiscardBookmark)).assertExists()
             onNodeWithTag("library-bookmark-b-synced-delete").assertContentDescriptionContains("Xóa dấu trang", substring = true)
             onNodeWithText("Người giữ tiếng chuông · 12:48").assertExists()
+        }
+    }
+
+    @Test
+    fun a_delete_that_failed_says_the_bookmark_is_still_saved_and_offers_to_try_again() {
+        val events = mutableListOf<ShellEvent>()
+        render(library(stuck), events = events) {
+            onNodeWithTag("library-bookmark-b-stuck-status", useUnmergedTree = true).performScrollTo().assert(hasText(vi.text(CopyKey.BookmarkDeleteFailed)))
+            onNodeWithTag("library-bookmark-b-stuck-delete").assertContentDescriptionContains("Thử xóa lại dấu trang", substring = true)
+            onNodeWithText(vi.text(CopyKey.RetryDeleteBookmark)).assertExists()
+            onNodeWithTag("library-bookmark-b-stuck-delete").performScrollTo().performClick()
+            assertEquals<List<ShellEvent>>(listOf(ShellEvent.DeleteBookmark("b-stuck")), events)
         }
     }
 

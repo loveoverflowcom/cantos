@@ -43,6 +43,7 @@ internal class BookmarkServer : LibraryApi {
     /** Commit the next mutation, then report an unknown outcome as a lost response does. */
     var loseNextResponse = false
     var refuseCreateWith: String? = null
+    var refuseDeleteWith: String? = null
     /** Resume status the listing reports for every bookmark (the server's current-release view). */
     var resume = ResumeStatus.exact_available
     var presentation: (WireAudio) -> AudioPresentation? = { null }
@@ -99,6 +100,7 @@ internal class BookmarkServer : LibraryApi {
         account.receipts[operation]?.let { return LibraryResult.Value(it) }
         val receipt = if (intent.path.endsWith("/delete")) {
             val id = intent.path.removePrefix("/library/bookmarks/").removeSuffix("/delete")
+            refuseDeleteWith?.let { return LibraryResult.Failed(it, false) }
             val current = account.bookmarks[id] ?: return LibraryResult.Failed("not_found", false)
             if (current.deleted) Receipt(operation, "already_current", null, MutationState.Bookmark(current))
             else {

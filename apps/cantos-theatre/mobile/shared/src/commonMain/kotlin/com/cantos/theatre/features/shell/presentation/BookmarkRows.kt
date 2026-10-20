@@ -53,6 +53,7 @@ private fun BookmarkRow(bookmark: ShellBookmark, catalog: ShellCatalogView, copy
         ShellBookmarkSync.Pending -> CopyKey.SyncPending
         ShellBookmarkSync.Offline -> CopyKey.BookmarkOffline
         ShellBookmarkSync.Failed -> CopyKey.BookmarkFailed
+        ShellBookmarkSync.DeleteFailed -> CopyKey.BookmarkDeleteFailed
     }
     Column(Modifier.fillMaxWidth().testTag(rowTag), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -66,16 +67,24 @@ private fun BookmarkRow(bookmark: ShellBookmark, catalog: ShellCatalogView, copy
                 modifier = Modifier.heightIn(min = 48.dp).testTag("$rowTag-delete").semantics {
                     // The spoken name is the visible one: a bookmark the server never accepted is discarded, not deleted.
                     contentDescription = copy.text(
-                        if (bookmark.sync == ShellBookmarkSync.Failed) CopyKey.DiscardBookmarkName else CopyKey.DeleteBookmarkName,
+                        when (bookmark.sync) {
+                            ShellBookmarkSync.Failed -> CopyKey.DiscardBookmarkName
+                            ShellBookmarkSync.DeleteFailed -> CopyKey.RetryDeleteBookmarkName
+                            else -> CopyKey.DeleteBookmarkName
+                        },
                         "title" to title, "time" to copy.spokenTime(bookmark.positionSeconds),
                     )
                 }) {
-                Text(copy.text(if (bookmark.sync == ShellBookmarkSync.Failed) CopyKey.DiscardBookmark else CopyKey.DeleteBookmark))
+                Text(copy.text(when (bookmark.sync) {
+                    ShellBookmarkSync.Failed -> CopyKey.DiscardBookmark
+                    ShellBookmarkSync.DeleteFailed -> CopyKey.RetryDeleteBookmark
+                    else -> CopyKey.DeleteBookmark
+                }))
             }
         }
         if (reason != null) Text(copy.text(reason), style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("$rowTag-reason"))
         if (status != null) Text(copy.text(status), style = MaterialTheme.typography.bodySmall,
-            color = if (bookmark.sync == ShellBookmarkSync.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (bookmark.sync == ShellBookmarkSync.Failed || bookmark.sync == ShellBookmarkSync.DeleteFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.testTag("$rowTag-status").semantics { liveRegion = LiveRegionMode.Polite })
     }
 }

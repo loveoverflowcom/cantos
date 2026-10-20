@@ -185,6 +185,7 @@ private fun BookmarkSync.toShell(): ShellBookmarkSync = when (this) {
     BookmarkSync.Pending -> ShellBookmarkSync.Pending
     BookmarkSync.Offline -> ShellBookmarkSync.Offline
     BookmarkSync.Failed -> ShellBookmarkSync.Failed
+    BookmarkSync.DeleteFailed -> ShellBookmarkSync.DeleteFailed
 }
 
 private fun LibraryResume.toShell(): ShellResume = when (this) {
