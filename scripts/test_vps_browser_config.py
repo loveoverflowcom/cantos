@@ -260,13 +260,14 @@ configure_browser_clients idm.example.test
         supplemental = self.root / "config/api-studio-oidc.env"
         self.write_dropin(f"[Container]\nEnvironmentFile={supplemental}\n")
         for key in ("CANTOS_ENV", "CANTOS_BIND_ADDRESS", "CANTOS_WEB_ORIGIN",
-                    "CANTOS_API_ORIGIN", "CANTOS_BROWSER_API_SURFACE"):
+                    "CANTOS_API_ORIGIN", "CANTOS_BROWSER_API_SURFACE",
+                    "CANTOS_STORAGE_CONFIG", "CANTOS_AUDIO_ROOT"):
             for assignment in (f"{key}=stale", f"  {key} =stale"):
                 with self.subTest(assignment=assignment):
                     supplemental.write_text(f"{assignment}\n")
                     result = self.run_host("validate_runtime_browser_configuration\n")
                     self.assertEqual(result.returncode, 65, result.stderr)
-                    self.assertIn("overrides protected API browser configuration", result.stderr)
+                    self.assertIn("overrides protected API configuration", result.stderr)
 
     def test_unsupported_override_directives_are_refused(self):
         self.assertEqual(self.run_host("render_configuration\n").returncode, 0)
@@ -305,7 +306,7 @@ configure_browser_clients idm.example.test
         self.write_dropin("[Container]\nEnvironment=CANTOS_API_ORIGIN=https://stale.example.test\n")
         result = self.run_host("validate_runtime_browser_configuration\n")
         self.assertEqual(result.returncode, 65, result.stderr)
-        self.assertIn("overrides protected API browser configuration", result.stderr)
+        self.assertIn("overrides protected API configuration", result.stderr)
 
     def test_supplemental_environment_refuses_host_forwarding_and_nonassignment_forms(self):
         self.assertEqual(self.run_host("render_configuration\n").returncode, 0)

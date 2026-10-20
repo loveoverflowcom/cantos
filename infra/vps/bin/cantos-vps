@@ -58,44 +58,102 @@ require_root() { [[ ${EUID:-$(id -u)} -eq 0 ]] || die "run as root" 77; }
 
 # Never repair ownership or overwrite a stored profile automatically: doing so could make
 # historical bytes unreadable or change which provider receives new media.
-check_private_media_storage() {
+check_existing_private_media_paths() {
   local identity
-  [[ -d $MEDIA_STORAGE_PARENT && ! -L $MEDIA_STORAGE_PARENT ]] ||
-    die "private media parent is missing or symlinked: $MEDIA_STORAGE_PARENT" 65
-  identity=$(stat -c '%u:%g:%a' "$MEDIA_STORAGE_PARENT")
-  case $identity in
-    0:0:700|0:0:755) ;;
-    *) die "private media parent must be root-owned and non-writable by other users" 65 ;;
-  esac
-  [[ -d $MEDIA_STORAGE_ROOT && ! -L $MEDIA_STORAGE_ROOT ]] ||
-    die "private media root is missing or symlinked: $MEDIA_STORAGE_ROOT" 65
-  [[ $(stat -c '%u:%g:%a' "$MEDIA_STORAGE_ROOT") == 10001:10001:700 ]] ||
-    die "private media root must be owned by Cantos 10001:10001 with mode 0700" 65
-  [[ -d $CONFIG && ! -L $CONFIG ]] ||
-    die "private API configuration directory is missing or symlinked" 65
-  [[ $(stat -c '%u:%g:%a' "$CONFIG") == 0:0:700 ]] ||
-    die "private API configuration directory must be root-owned with mode 0700" 65
-  [[ -f $MEDIA_STORAGE_CONFIG && ! -L $MEDIA_STORAGE_CONFIG ]] ||
-    die "storage topology must be a regular, non-symlink file" 65
-  [[ $(stat -c '%u:%g:%a' "$MEDIA_STORAGE_CONFIG") == 0:0:644 ]] ||
-    die "storage topology must be root-owned with mode 0644 (no secrets)" 65
-}
-
-ensure_private_media_storage() {
   [[ ! -L $MEDIA_STORAGE_PARENT && ! -L $MEDIA_STORAGE_ROOT &&
      ! -L $CONFIG && ! -L $MEDIA_STORAGE_CONFIG ]] ||
     die "private media paths must not be symlinks" 65
-  [[ -e $MEDIA_STORAGE_PARENT ]] || install -d -m 0755 "$MEDIA_STORAGE_PARENT"
-  if [[ ! -e $MEDIA_STORAGE_ROOT ]]; then
-    install -d -m 0700 -o 10001 -g 10001 "$MEDIA_STORAGE_ROOT"
+  if [[ -e $MEDIA_STORAGE_PARENT ]]; then
+    [[ -d $MEDIA_STORAGE_PARENT ]] || die 'private media parent must be a directory' 65
+    identity=$(stat -c '%u:%g:%a' "$MEDIA_STORAGE_PARENT")
+    case $identity in
+      0:0:700|0:0:755) ;;
+      *) die "private media parent must be root-owned and non-writable by other users" 65 ;;
+    esac
   fi
-  install -d -m 0700 "$CONFIG"
-  if [[ ! -e $MEDIA_STORAGE_CONFIG ]]; then
-    [[ -f $RUNTIME/config/storage.filesystem.toml ]] ||
-      die "bundled filesystem storage topology is missing" 66
-    install -m 0644 "$RUNTIME/config/storage.filesystem.toml" "$MEDIA_STORAGE_CONFIG"
+  if [[ -e $MEDIA_STORAGE_ROOT ]]; then
+    [[ -d $MEDIA_STORAGE_ROOT && $(stat -c '%u:%g:%a' "$MEDIA_STORAGE_ROOT") == 10001:10001:700 ]] ||
+      die "private media root must be owned by Cantos 10001:10001 with mode 0700" 65
+  fi
+  if [[ -e $CONFIG ]]; then
+    [[ -d $CONFIG && $(stat -c '%u:%g:%a' "$CONFIG") == 0:0:700 ]] ||
+      die "private API configuration directory must be root-owned with mode 0700" 65
+  fi
+  if [[ -e $MEDIA_STORAGE_CONFIG ]]; then
+    [[ -f $MEDIA_STORAGE_CONFIG && $(stat -c '%u:%g:%a' "$MEDIA_STORAGE_CONFIG") == 0:0:644 ]] ||
+      die "storage topology must be a regular root-owned file with mode 0644 (no secrets)" 65
+  fi
+}
+
+# Host composition check only: Rust remains the owner of provider settings/capabilities.
+# Parse inert TOML, retain the historical mount binding, and never read provider credentials.
+check_private_media_profile() {
+  command -v python3 >/dev/null || die 'python3 is required for storage preflight' 69
+  python3 - "$1" "$MEDIA_STORAGE_ROOT" <<'PY'
+import sys
+try:
+    import tomllib
+except ImportError:
+    print('[cantos-vps] ERROR: storage preflight requires Python 3.11+', file=sys.stderr)
+    sys.exit(69)
+try:
+    with open(sys.argv[1], 'rb') as source:
+        contents = source.read(65_537)
+    if not 0 < len(contents) <= 65_536:
+        raise ValueError()
+    document = tomllib.loads(contents.decode('utf-8'))
+    storage = document['storage']
+    targets = storage['targets']
+    if (type(document['version']) is not int or document['version'] != 1
+            or not 1 <= len(targets) <= 16 or storage['active_write_target'] not in targets
+            or targets['legacy-filesystem'] != {'driver': 'filesystem', 'private_root': sys.argv[2]}):
+        raise ValueError()
+except (OSError, UnicodeError, ValueError, KeyError, TypeError):
+    print('[cantos-vps] ERROR: invalid storage topology or changed historical filesystem binding', file=sys.stderr)
+    sys.exit(65)
+PY
+}
+
+check_private_media_storage() {
+  check_existing_private_media_paths
+  [[ -d $MEDIA_STORAGE_PARENT && -d $MEDIA_STORAGE_ROOT && -d $CONFIG && -f $MEDIA_STORAGE_CONFIG ]] ||
+    die 'private media storage is missing; prepare it from the incoming bundle before activation' 65
+  check_private_media_profile "$MEDIA_STORAGE_CONFIG"
+}
+
+ensure_private_media_storage() {
+  local profile=${1:-$RUNTIME/config/storage.filesystem.toml} temporary status
+  # Refuse existing drift before creating anything or rotating runtime/recovery assets.
+  check_existing_private_media_paths
+  if [[ -e $MEDIA_STORAGE_CONFIG ]]; then
+    check_private_media_storage
+    return
+  fi
+  [[ -f $profile && ! -L $profile ]] || die 'bundled filesystem storage topology is missing' 66
+  check_private_media_profile "$profile"
+  [[ -e $MEDIA_STORAGE_PARENT ]] || install -d -m 0755 "$MEDIA_STORAGE_PARENT"
+  [[ -e $MEDIA_STORAGE_ROOT ]] || install -d -m 0700 -o 10001 -g 10001 "$MEDIA_STORAGE_ROOT"
+  [[ -e $CONFIG ]] || install -d -m 0700 "$CONFIG"
+  # Publish a complete file without replacing an operator profile. Interrupted copies have
+  # unique pending names and are never treated as effective configuration on retry.
+  temporary=$(mktemp "$CONFIG/storage.toml.pending.XXXXXX")
+  if install -m 0644 "$profile" "$temporary" && ln "$temporary" "$MEDIA_STORAGE_CONFIG"; then
+    rm -f "$temporary"
+  else
+    status=$?; rm -f "$temporary"; return "$status"
   fi
   check_private_media_storage
+}
+
+# Image rollback/reload reuses installed Quadlets. Legacy units without this capability must
+# remain recoverable even if an unused candidate's private storage is absent or invalid.
+validate_runtime_storage_configuration() {
+  local unit=$QUADLET_DIR/cantos-api-studio.container
+  if [[ -f $unit ]] && grep -q '^Environment=CANTOS_STORAGE_CONFIG=' "$unit"; then
+    grep -qxF 'Environment=CANTOS_STORAGE_CONFIG=/etc/cantos-storage.toml' "$unit" ||
+      die 'installed Studio storage config path differs from the supported mount' 65
+    check_private_media_storage
+  fi
 }
 
 with_lock() {
@@ -270,7 +328,6 @@ validate_api_dropins() {
 # must reconcile it first, so failed image switches cannot strand a changed browser boundary.
 validate_runtime_browser_configuration() {
   validate_browser_configuration
-  check_private_media_storage
   local surface file
   for surface in theatre studio; do
     file=$CONFIG/api-$surface.env
@@ -296,6 +353,7 @@ reload_browser() {
   with_lock
   [[ -f $tree/infra/edge/Caddyfile ]] || die 'browser bundle has no Caddyfile' 66
   validate_runtime_browser_configuration
+  validate_runtime_storage_configuration
   local unit
   for unit in cantos-edge "${API_UNITS[@]}"; do
     unit_active "$unit" || die "$unit must already be active" 69
@@ -323,6 +381,7 @@ install_bundle() {
   # TREE_DIR is an extracted `git archive` subset: REVISION, infra/vps and infra/edge/Caddyfile.
   [[ -f $tree/infra/vps/bin/cantos-vps && -d $tree/infra/vps/quadlet && -f $tree/infra/edge/Caddyfile ]] ||
     die "not a cantos-vps bundle tree: $tree" 66
+  ensure_private_media_storage "$tree/infra/vps/config/storage.filesystem.toml"
   install -d -m 0700 "$ROOT" "$EDGE_DIR"
   rm -rf "$RUNTIME.new"
   install -d -m 0700 "$RUNTIME.new/edge"
@@ -331,9 +390,6 @@ install_bundle() {
   cp "$tree/REVISION" "$RUNTIME.new/REVISION" 2>/dev/null || true
   [[ -d $RUNTIME ]] && { rm -rf "$RUNTIME.previous"; mv "$RUNTIME" "$RUNTIME.previous"; }
   mv "$RUNTIME.new" "$RUNTIME"
-  # Initialize only if absent; an operator-selected Long Vân/local target is never reset.
-  ensure_private_media_storage
-
   local changed=() file name
   for file in "$RUNTIME"/quadlet/*; do
     name=$(basename "$file")
@@ -471,8 +527,8 @@ bootstrap() {
   require_root
   with_lock
   [[ -d $RUNTIME ]] || die "run cantos-vps install TREE_DIR first" 66
-  install -d -m 0700 "$ROOT" "$CONFIG" "$STATE" "$SECRETS" "$BACKUPS" "$KANIDM_DIR" "$EDGE_DIR" "$CA_DIR"
   ensure_private_media_storage
+  install -d -m 0700 "$ROOT" "$CONFIG" "$STATE" "$SECRETS" "$BACKUPS" "$KANIDM_DIR" "$EDGE_DIR" "$CA_DIR"
   render_configuration
   ensure_password postgres-superuser
   ensure_password db-owner
@@ -720,6 +776,7 @@ promote_artifact() {
   validate_runtime_browser_configuration
   unit_active cantos-postgres || die 'cantos-postgres must already be running; no implicit bootstrap' 69
   preflight_schema "$revision"
+  ensure_private_media_storage "$tree/infra/vps/config/storage.filesystem.toml"
   install_bundle "$tree"
   deploy "$revision"
 }
@@ -729,6 +786,7 @@ deploy() {
   require_root
   with_lock
   validate_runtime_browser_configuration
+  validate_runtime_storage_configuration
   check_revision "$revision"
   unit_active cantos-postgres || die "cantos-postgres is not running; run cantos-vps bootstrap" 69
   preflight_schema "$revision"
@@ -854,6 +912,7 @@ rollback() {
   require_root
   with_lock
   validate_runtime_browser_configuration
+  validate_runtime_storage_configuration
   [[ -s $STATE/previous ]] || die "no previous revision recorded" 66
   local previous current
   previous=$(<"$STATE/previous")

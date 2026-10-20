@@ -257,6 +257,7 @@ locked() {
 }
 install_bundle() { locked install; }
 deploy() { locked deploy; }
+ensure_private_media_storage() { locked storage-prepare; }
 validate_runtime_browser_configuration() { event browser-check; }
 unit_active() { return 0; }
 preflight_schema() { event schema-check; return "$TEST_SCHEMA_STATUS"; }
@@ -273,7 +274,7 @@ preflight_schema() { event schema-check; return "$TEST_SCHEMA_STATUS"; }
     def test_actual_host_protocol_locks_image_load_through_runtime_and_deploy(self):
         result, events = self.host()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(events, ["checksum", "decompress", "load", "browser-check", "schema-check", "install-locked", "deploy-locked"])
+        self.assertEqual(events, ["checksum", "decompress", "load", "browser-check", "schema-check", "storage-prepare-locked", "install-locked", "deploy-locked"])
 
     def test_wrong_loaded_image_and_pending_cutover_refuse_before_runtime_install(self):
         result, events = self.host(wrong_id=True)

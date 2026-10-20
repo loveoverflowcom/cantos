@@ -33,6 +33,11 @@ read-only operator-owned `storage.toml` profile. The host helper initializes the
 directory as UID/GID 10001 with mode 0700 and refuses unsafe replacement; it
 never rewrites a chosen profile or media bytes. `legacy-filesystem` remains the
 durable target identity, even when Long Vân becomes the active write target.
+First promotion prepares storage from the incoming bundle before runtime installation,
+without repeating bootstrap. Existing drift is refused before runtime/recovery rotation;
+new profiles are published without overwrite. Host TOML preflight uses Python 3.11+;
+Rust retains provider validation. Browser-only validation is independent, while
+image switches/restarts check storage when the installed Studio unit enables it.
 The Theatre API has **no private media mount**. See the
 [VPS media runbook](../../docs/deployment/vps-production.md#development-private-audio-on-the-vps).
 

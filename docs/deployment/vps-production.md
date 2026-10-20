@@ -281,6 +281,37 @@ is root-owned mode `0644` under a root-only config directory. Startup refuses
 missing, symlinked or incorrectly permissioned paths. This deployment is an
 operator-facing configuration **option**, not proof that today's VPS has activated it.
 
+**First upgrade and refusal:** artifact promotion validates browser inputs and the
+existing schema, then prepares private storage from the **incoming bundle** before
+installing its runtime/Quadlets or switching images. An existing API/DB host without
+media therefore needs no repeated full `bootstrap`, account changes or identity
+reconciliation solely to enable storage. Direct bundle installation uses the same
+storage preparation before rotating `runtime`/`runtime.previous`; bootstrap checks
+storage before its other setup effects. Existing paths are checked before any
+provisioning: wrong owner/mode, symlinks, malformed TOML or a changed historical
+filesystem binding are refused, never repaired automatically. An existing profile
+with a missing media root is drift, not permission to create an empty replacement.
+
+Only absent resources are created. A new profile is copied to a unique pending
+file and linked into place without overwrite; a failed copy removes its pending
+file, and a killed copy can leave an inert `storage.toml.pending.*` file. After
+investigation, retry the same authorized operation; pending files are never selected
+as effective configuration. A valid operator profile keeps its inode and bytes.
+Storage preflight requires Python 3.11+ (`tomllib`, included with the VPS Ubuntu
+24.04 Python). This host check parses inert TOML and enforces the historical mount
+binding; the Rust API still owns complete provider/capability/credential validation.
+
+Browser/origin validation itself has no storage dependency. Deploy, image rollback,
+browser reload (which restarts APIs), and the prefix-upgrade source guard check
+storage separately **only when the installed Studio Quadlet enables it**. Legacy
+units remain recoverable if an unused candidate has invalid storage. Existing-client
+identity reconciliation remains browser-only. Epoch cutover and prefix commit use
+the same bundle installer before activating their candidate; their journals and
+database recovery rules remain in their respective runbooks. A runtime that uses
+private storage refuses drift before image switching or browser restarts; repair
+the actual storage under operator review instead of disabling its guard. See
+[#314](https://github.com/loveoverflowcom/cantos/issues/314).
+
 The default installed profile is:
 
 ```toml
@@ -317,7 +348,8 @@ authorized Studio session, read it back with byte/hash and Range checks, and con
 a second user and anonymous users cannot fetch it. Repeat the read after a Studio
 container restart and image redeploy/rollback without changing the original
 `storage_target_id`. No provider credentials should be needed for this default.
-These runtime checks are **NOT_RUN** until an actual VPS test receipt exists.
+These runtime checks are **NOT_RUN** until an actual VPS test receipt exists;
+[#179](https://github.com/loveoverflowcom/cantos/issues/179) owns deployed acceptance.
 
 **Backup requirement:** the existing scheduled PostgreSQL `pg_dump` does **not**
 include `/var/lib/cantos/private`. Back it up independently **off-VPS**, preserve
@@ -325,7 +357,10 @@ immutable file contents and ownership/modes on restore, and drill a receipt-to-b
 restore with the matching PostgreSQL snapshot. Do not delete or prune this directory
 during deploy, rollback or image cleanup. Provision enough disk capacity and monitor
 free space before large audio batches. Publication assets, when activated, need
-a different root and independent backup policy. Tracking: [#309](https://github.com/loveoverflowcom/cantos/issues/309).
+a different root and independent backup policy. Source composition is scoped by
+[#309](https://github.com/loveoverflowcom/cantos/issues/309); off-host backup/restore
+and runtime durability acceptance remain with
+[#179](https://github.com/loveoverflowcom/cantos/issues/179).
 
 ## Runtime assets, recovery and checks
 
