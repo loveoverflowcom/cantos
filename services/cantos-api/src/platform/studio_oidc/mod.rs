@@ -82,7 +82,7 @@ impl StudioOidc {
         Ok(Self {
             bearer: crate::platform::bearer::BearerIdentity::new(
                 config.clone(),
-                crate::platform::bearer::core::Client::Studio,
+                crate::platform::bearer::client::Client::Studio,
             )?,
             provider: Provider::new(config.clone())?,
             config,
