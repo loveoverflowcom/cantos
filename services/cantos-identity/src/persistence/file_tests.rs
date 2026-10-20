@@ -481,6 +481,113 @@ async fn settled_events_receipts_ids_and_epoch_reject_direct_mutation() {
 }
 
 #[tokio::test]
+async fn receipts_require_exact_event_subject_and_version_associations() {
+    let run = TestRun::new("identity-receipt-event-binding");
+    let store = create(&run).await;
+    let tx = store.database.begin_write().await.unwrap();
+    // These are valid synthetic rows under the real schema. No receipt exists for any
+    // fixture event, so UNIQUE(event_seq) cannot mask a broken composite foreign key.
+    for sql in [
+        "INSERT INTO identity_subjects(subject_id,security_version,state) \
+         VALUES(x'00000000000000000000000000000001',2,2)",
+        "INSERT INTO identity_subjects(subject_id,security_version,state) \
+         VALUES(x'00000000000000000000000000000002',1,1)",
+        "INSERT INTO security_events(seq,subject_id,security_version,state,kind,recorded_at) \
+         VALUES(101,x'00000000000000000000000000000001',1,1,1,0)",
+        "INSERT INTO security_events(seq,subject_id,security_version,state,kind,recorded_at) \
+         VALUES(102,x'00000000000000000000000000000002',1,1,1,1)",
+        "INSERT INTO security_events(seq,subject_id,security_version,state,kind,recorded_at) \
+         VALUES(103,x'00000000000000000000000000000001',2,2,2,2)",
+    ] {
+        assert_eq!(tx.execute(sql, ()).await.unwrap(), 1);
+    }
+    tx.commit().await.unwrap();
+    assert_eq!(
+        count(&store, "SELECT count(*) FROM operation_receipts").await,
+        0
+    );
+
+    const INSERT_RECEIPT: &str = "INSERT INTO operation_receipts(\
+        operation_id,subject_id,kind,expected_version,committed_version,event_seq) \
+        VALUES(?1,?2,?3,?4,?5,?6)";
+    for (label, id, bound_subject, kind, expected, committed, event_seq) in [
+        ("wrong subject", 21, subject(2), 1, 0, 1, 101),
+        ("wrong version", 22, subject(1), 2, 2, 3, 103),
+        ("different existing event", 23, subject(1), 1, 0, 1, 102),
+        ("missing event", 24, subject(1), 1, 0, 1, 104),
+    ] {
+        let tx = store.database.begin_write().await.unwrap();
+        let result = tx
+            .execute(
+                INSERT_RECEIPT,
+                cantos_store_turso::params_from_iter([
+                    Value::Blob(operation(id).to_bytes().to_vec()),
+                    Value::Blob(bound_subject.to_bytes().to_vec()),
+                    Value::Integer(kind),
+                    Value::Integer(expected),
+                    Value::Integer(committed),
+                    Value::Integer(event_seq),
+                ]),
+            )
+            .await;
+        assert_eq!(
+            result,
+            Err(StoreFault::Constraint {
+                kind: ConstraintKind::ForeignKey,
+                target: None,
+            }),
+            "{label} must fail the composite event binding, not another constraint"
+        );
+        tx.rollback().await.unwrap();
+        assert_eq!(store.receipt(operation(id)).await.unwrap(), None);
+        assert_eq!(
+            count(&store, "SELECT count(*) FROM operation_receipts").await,
+            0
+        );
+    }
+
+    // Positive controls use the same previously unreceipted events and statement. They
+    // rule out a blanket rejection of all receipt inserts as the negative-test oracle.
+    for (id, bound_subject, kind, expected, committed, event_seq) in [
+        (31, subject(1), 1, 0, 1, 101),
+        (32, subject(1), 2, 1, 2, 103),
+        (33, subject(2), 1, 0, 1, 102),
+    ] {
+        let tx = store.database.begin_write().await.unwrap();
+        assert_eq!(
+            tx.execute(
+                INSERT_RECEIPT,
+                cantos_store_turso::params_from_iter([
+                    Value::Blob(operation(id).to_bytes().to_vec()),
+                    Value::Blob(bound_subject.to_bytes().to_vec()),
+                    Value::Integer(kind),
+                    Value::Integer(expected),
+                    Value::Integer(committed),
+                    Value::Integer(event_seq),
+                ]),
+            )
+            .await
+            .unwrap(),
+            1
+        );
+        tx.commit().await.unwrap();
+        let receipt = store.receipt(operation(id)).await.unwrap().unwrap();
+        assert_eq!(receipt.subject, bound_subject);
+        assert_eq!(receipt.committed_version, version(committed as u64));
+        assert_eq!(receipt.event_seq, event_seq as u64);
+        assert_eq!(receipt.epoch, store.epoch());
+    }
+    assert_eq!(
+        count(&store, "SELECT count(*) FROM operation_receipts").await,
+        3
+    );
+    assert_eq!(
+        count(&store, "SELECT count(*) FROM security_events").await,
+        3
+    );
+}
+
+#[tokio::test]
 async fn invalid_stored_shapes_and_non_disable_transitions_are_refused() {
     let run = TestRun::new("identity-row-constraints");
     let store = create(&run).await;

@@ -442,3 +442,6 @@ async fn initialize_instance(
 
 #[cfg(test)]
 mod file_tests;
+
+#[cfg(test)]
+mod row_tests;
