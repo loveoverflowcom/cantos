@@ -240,10 +240,47 @@ class LocalizationRegressionTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "not a two-parent merge ref"):
                     checks.default_base(root)
 
-    def test_repository_checkout_retains_the_parent_for_changed_file_guard(self):
+    @patch.dict("os.environ", {"GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/feature/localization"})
+    def test_manual_feature_dispatch_needs_full_history_and_checks_all_branch_changes(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            origin = root / "origin"
+            origin.mkdir()
+            subprocess.run(["git", "init", "-q", "-b", "develop"], cwd=origin, check=True)
+            path = origin / WEB
+            path.parent.mkdir(parents=True)
+            path.write_text('view! { <p>{text(Key::Title, locale)}</p> }\n', encoding="utf-8")
+            commit = ["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm"]
+            subprocess.run(["git", "add", "."], cwd=origin, check=True)
+            subprocess.run(commit + ["base"], cwd=origin, check=True)
+            base = checks.git(origin, "rev-parse", "HEAD").strip()
+            subprocess.run(["git", "checkout", "-qb", "feature/localization"], cwd=origin, check=True)
+            for index in range(3):
+                with path.open("a", encoding="utf-8") as output:
+                    output.write(f'view! {{ <p>"New copy {index}"</p> }}\n')
+                subprocess.run(["git", "add", "."], cwd=origin, check=True)
+                subprocess.run(commit + [f"feature {index}"], cwd=origin, check=True)
+
+            shallow = root / "shallow"
+            subprocess.run(["git", "clone", "-q", "--depth", "2", "--single-branch", "--branch", "feature/localization", origin.as_uri(), str(shallow)], check=True)
+            self.assertEqual(checks.git(shallow, "rev-parse", "--is-shallow-repository").strip(), "true")
+            with self.assertRaisesRegex(ValueError, "fetch develop history"):
+                checks.changed_sources(shallow)
+
+            complete = root / "complete"
+            subprocess.run(["git", "clone", "-q", "--branch", "feature/localization", origin.as_uri(), str(complete)], check=True)
+            self.assertEqual(checks.git(complete, "rev-parse", "--is-shallow-repository").strip(), "false")
+            self.assertEqual(checks.default_base(complete), base)
+            lines = checks.changed_sources(complete)[WEB]
+            self.assertEqual(lines, {2, 3, 4})
+            self.assertEqual(len(self.failures((complete / WEB).read_text(encoding="utf-8"), lines=lines)), 3)
+
+    def test_repository_checkout_retains_develop_history_for_manual_feature_dispatch(self):
         workflow = (checks.ROOT / ".github/workflows/repository-checks.yml").read_text(encoding="utf-8")
         repository = workflow.split("  repository:", 1)[1].split("  rust:", 1)[0]
-        self.assertIn("fetch-depth: 2", repository)
+        self.assertIn("fetch-depth: 0", repository)
+        self.assertIn("persist-credentials: false", repository)
 
     def test_scopes_exclude_backend_and_studio_mobile(self):
         self.assertFalse(checks.in_scope("services/cantos-server/src/main.rs"))

@@ -26,8 +26,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # The localization guard compares PR merge parent 1 / the prior develop commit.
-          fetch-depth: 2
+          # Manual feature-branch dispatch needs origin/develop and its shared ancestry.
+          fetch-depth: 0
       - name: Select pinned Rust toolchain for xtask
         run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
       - name: Documents, fixtures, skills and the Script IR oracle
