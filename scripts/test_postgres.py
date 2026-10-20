@@ -82,7 +82,21 @@ def adaptation_http(port, token, path, payload, expected_status=200):
 
 
 def run(command, env=None, output=None):
-    result = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=180)
+    try:
+        result = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=180)
+    except subprocess.TimeoutExpired as error:
+        # TimeoutExpired output can be bytes even when subprocess uses text=True.
+        partial = "".join(part.decode("utf-8", errors="replace") if isinstance(part, bytes)
+                          else (part or "") for part in (error.stdout, error.stderr))
+        if output:
+            try:
+                output.write_text(partial)
+            except OSError as evidence_error:
+                print(f"Timeout evidence write failed ({type(evidence_error).__name__}); "
+                      "original timeout retained", file=sys.stderr)
+        if partial:
+            print(partial)
+        raise
     if output:
         output.write_text(result.stdout + result.stderr)
     if result.returncode:

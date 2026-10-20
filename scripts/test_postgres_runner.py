@@ -15,6 +15,30 @@ import serve_studio
 
 
 class PostgresRunnerTests(unittest.TestCase):
+    def test_real_child_timeout_preserves_partial_output_and_stays_failed(self):
+        actual_run = subprocess.run
+
+        def bounded_child(*arguments, **options):
+            self.assertEqual(options["timeout"], 180)
+            return actual_run(*arguments, **dict(options, timeout=1))
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "partial.log"
+            code = "import sys,time; print('child stdout',flush=True); print('child stderr',file=sys.stderr,flush=True); time.sleep(5)"
+            for output in (evidence, None, Path(directory)):
+                with self.subTest(output=output), \
+                        patch.object(runner.subprocess, "run", side_effect=bounded_child), \
+                        contextlib.redirect_stdout(io.StringIO()) as printed, \
+                        contextlib.redirect_stderr(io.StringIO()) as diagnostics:
+                    with self.assertRaises(subprocess.TimeoutExpired):
+                        runner.run([sys.executable, "-c", code], output=output)
+                self.assertIn("child stdout", printed.getvalue())
+                self.assertIn("child stderr", printed.getvalue())
+                if output == evidence:
+                    self.assertIn("child stdout", evidence.read_text())
+                    self.assertIn("child stderr", evidence.read_text())
+                if output == Path(directory):
+                    self.assertIn("original timeout retained", diagnostics.getvalue())
+
     def test_scoped_sql_selection_refuses_retention_and_unknown_suites_before_tools(self):
         self.assertEqual(runner.parse_args([]).suite, "full")
         self.assertTrue(runner.parse_args(["--keep"]).keep)
