@@ -29,6 +29,45 @@ and a final integrated PR to `develop`. Do not merge an incompatible intermediat
 schema or authentication cutover. Preserve other worktrees and reconcile concurrent work.
 The documentation preparation changes no executable, installed runtime, database or account.
 
+## Single-process HTTP review boundary
+
+[#333.1](https://github.com/loveoverflowcom/cantos/issues/333) first composes the existing
+Studio/Theatre/Admin HTTP surfaces in one `cantos-server`, retaining PostgreSQL. Its prerequisite
+is #332 PR-A, including the #332.0 reconciliation of the latest `develop` and
+[#330's checked SessionPolicy and credential split](https://github.com/loveoverflowcom/cantos/pull/330)
+into the renamed tree. A mechanical rename alone does not establish that reconciliation.
+Preserve the single session-policy implementation, credential prefixes/bindings,
+replay/revocation precedence and deadline semantics when resolving the renamed paths.
+
+The [pre-composition regressions](../../services/cantos-server/tests/surface_policy_baseline.rs)
+exercise the current production API router and origin-pinned browser wrapper. They add no
+multi-origin configuration or new host composition. Prefix-shaped sentinels are deliberately
+unissued; an own-purpose sentinel reaches an unavailable verifier as a routing/parsing control,
+while a wrong-purpose or ambiguous credential is refused before that verifier. That control
+is not successful authentication or auth E2E evidence. No database, issuer, test session,
+network listener or provider is started by these tests.
+
+| Preserved boundary | Pre-composition oracle | Remaining #333.1 acceptance |
+| --- | --- | --- |
+| Exact browser origin and route | Studio/Theatre host × current/sibling/Admin/legacy route × own/sibling/foreign/null/lookalike origin × all three Bearer prefixes | One process with separate configured allowlists for Studio, Theatre and Admin, without unioning them |
+| Credential purpose and ambiguity | Own-purpose unavailable control versus wrong-prefix, duplicate Authorization, Cookie-only and mixed Cookie/Bearer refusals on real Bearer session routes | Issued credentials across protected resources, accounts and all surfaces; real cookie admission, duplicate-cookie parsing, expiry, fencing, replay and revocation |
+| Preflight | Exact methods and own session headers admitted; other-surface headers, duplicate Origin/method and sibling origin refused | The same matrix through the combined route composition, including Admin policy |
+| Authority source | Spoofed Host/Forwarded/X-Forwarded headers cannot admit a sibling browser Origin | Combined-host authority comes only from trusted configuration and the matched route |
+| Error and cache policy | Exact Studio/legacy and Admin API errors, separate Theatre Library error shape, refusal/preflight `no-store`, no cookies minted | Authenticated/public/private-media success, timeout errors and transport-owned cache policy through the combined host |
+
+Do not concatenate two origin-pinned wrappers around the whole router: each would reject the
+other surface. Apply each surface's CORS/CSRF, authentication, deadline, error and cache policy
+at its own route boundary. Keep deprecated Studio aliases under Studio authority. Admin's
+dedicated verifier and audit admission cannot derive authority from Studio/Theatre sessions.
+Native cookie-free requests retain their existing purpose-specific admission; development
+credentials remain outside production composition.
+
+The runtime PR must also demonstrate one owned Server process in `cargo xtask run` without
+provisioning infrastructure. Live Quadlet/systemd changes belong to #336. Subsequent persistence
+slices 333.2–333.8 target `refactor/333-server-turso-persistence` without changing composition;
+333.9 owns the Turso flip. The origin-pinned baseline tests do not satisfy any of those runtime,
+Turso, Kani, browser/device or footprint acceptance gates.
+
 ## Selected target
 
 ```text
