@@ -11,12 +11,13 @@ HOST = (ROOT / 'infra/vps/bin/cantos-vps').read_text().removesuffix('\nmain "$@"
 COMMON = (ROOT / 'infra/vps/bin/cantos-epoch2-cutover').read_text()
 PREFIX = (ROOT / 'infra/vps/bin/cantos-prefix-upgrade').read_text()
 TARGET, OLD, ATTEMPT = 'a' * 40, 'b' * 40, '1' * 32
+CHECKSUMS = [f'{n:x}' * 64 for n in (1, 2, 3)]
 STAGING, RETAINED = f'cantos_e2_prefix_{ATTEMPT}', f'cantos_e2_retained_{ATTEMPT}'
 
 
 class PrefixUpgradeTests(unittest.TestCase):
     def shell(self, body, *, phase='prepared', old_name='cantos', new_name=STAGING,
-              real_prefix=False, real_lock=False):
+              real_prefix=False, real_lock=False, target_rows=2, source_rows=1, extra_env=None):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             state = root / 'state'
@@ -25,7 +26,8 @@ class PrefixUpgradeTests(unittest.TestCase):
             incoming = root / 'incoming' / TARGET / ATTEMPT
             tree = incoming / 'tree'
             (tree / 'infra/vps/postgres').mkdir(parents=True)
-            (tree / 'infra/vps/postgres/epoch2-prefix-registry.tsv').write_text('1|baseline\n2|bearer\n')
+            (tree / 'infra/vps/postgres/epoch2-prefix-registry.tsv').write_text(
+                ''.join(f'{n + 1}|{CHECKSUMS[n]}\n' for n in range(target_rows)))
             (tree / 'REVISION').write_text(TARGET + '\n')
             (state / 'current').write_text(OLD + '\n')
             if phase is not None:
@@ -35,8 +37,11 @@ class PrefixUpgradeTests(unittest.TestCase):
                 (journal / 'meta').write_text(
                     f'target={TARGET}\nattempt={ATTEMPT}\nprevious={OLD}\n'
                     f'staging={STAGING}\nretained={RETAINED}\nold_oid=100\nnew_oid=200\nold_limit=-1\n')
-                for name in ['rows-frozen.tsv', 'registry-full.tsv', 'schema-target.sql']:
+                for name in ['rows-frozen.tsv', 'schema-target.sql']:
                     (journal / name).write_text('synthetic\n')
+                rows = [f'{n + 1}|{CHECKSUMS[n]}\n' for n in range(target_rows)]
+                (journal / 'registry-full.tsv').write_text(''.join(rows))
+                (journal / 'registry-prefix.tsv').write_text(''.join(rows[:source_rows]))
                 (journal / 'installed-host').write_text('synthetic host\n')
                 (journal / 'edge-was-active').touch()
                 if phase not in ['initializing', 'snapshotted', 'refused', 'rolled-back']:
@@ -100,7 +105,8 @@ epoch2_create_database() { event "create-db $1"; }
 epoch2_migrate_database() { event "migrator $*"; [[ $1 != "$TARGET" || ${FAIL_MIGRATION:-0} != 1 ]]; }
 epoch2_schema() { printf 'schema\n' >"$2"; }
 epoch2_registry() {
-  case $1 in *full_*|*prefix_*) printf '1|baseline\n2|bearer\n' ;; *) printf '1|baseline\n' ;; esac >"$2"
+  case $1 in *full_*|*prefix_*) cat "$TREE/infra/vps/postgres/epoch2-prefix-registry.tsv" ;;
+    *) if ((SOURCE_ROWS > 0)); then head -n "$SOURCE_ROWS" "$TREE/infra/vps/postgres/epoch2-prefix-registry.tsv"; fi ;; esac >"$2"
 }
 epoch2_dump() { event "dump $1"; printf 'synthetic dump\n' >"$2"; }
 epoch2_restore_dump() { event "restore $1"; }
@@ -121,7 +127,8 @@ prefix_target_guard() { event "target-guard $1"; }
 '''
             env = dict(os.environ, CANTOS_VPS_ROOT=str(root), TARGET=TARGET, OLD=OLD,
                        ATTEMPT=ATTEMPT, STAGING=STAGING, RETAINED=RETAINED,
-                       JOURNAL=str(journal), TREE=str(tree))
+                       JOURNAL=str(journal), TREE=str(tree), SOURCE_ROWS=str(source_rows),
+                       **(extra_env or {}))
             result = subprocess.run(['bash'], input=host + COMMON + PREFIX + doubles + body,
                                     text=True, capture_output=True, env=env, timeout=15)
             events = (root / 'events').read_text().splitlines() if (root / 'events').exists() else []
@@ -268,12 +275,90 @@ prefix_commit "$TARGET" "$TREE" "$ATTEMPT"
         self.assertLess(events.index(freeze), events.index('install-bundle'))
         self.assertIn('sql GRANT CONNECT ON DATABASE cantos TO cantos_app;', events)
 
-    def test_registry_contract_is_bound_to_the_two_real_migration_files(self):
+    def test_registry_contract_is_bound_to_every_real_migration_file(self):
         import hashlib
+        schema = ROOT / 'services/cantos-api/schema'
+        files = sorted(schema.glob('[0-9][0-9][0-9][0-9]_*.sql'))
+        # The migrator numbers versions by position: a gap or reorder would be a different registry.
+        self.assertEqual([int(path.name[:4]) for path in files], list(range(1, len(files) + 1)))
         rows = (ROOT / 'infra/vps/postgres/epoch2-prefix-registry.tsv').read_text().splitlines()
-        self.assertEqual(rows, [f'{version}|{hashlib.sha256((ROOT / path).read_bytes()).hexdigest()}'
-                               for version, path in [(1, 'services/cantos-api/schema/0001_current.sql'),
-                                                     (2, 'services/cantos-api/schema/0002_bearer.sql')]])
+        self.assertEqual(rows, [f'{number}|{hashlib.sha256(path.read_bytes()).hexdigest()}'
+                               for number, path in enumerate(files, 1)])
+
+    def test_source_prefix_is_the_live_registry_and_must_be_exact_and_proper(self):
+        select = 'prefix_select_registries "$TREE" "$JOURNAL"\nawk "END {print NR}" "$JOURNAL/registry-prefix.tsv"\n'
+        for source, target in [(1, 2), (1, 3), (2, 3)]:
+            with self.subTest(source=source, target=target):
+                result, events, _ = self.shell(select, target_rows=target, source_rows=source)
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, str(source)), result.stderr)
+        for source, target in [(2, 2), (3, 2), (0, 3)]:
+            with self.subTest(source=source, target=target):
+                result, _, _ = self.shell(select, target_rows=target, source_rows=source)
+                self.assertEqual(result.returncode, 65, result.stderr)
+        edited = ('epoch2_registry() { { head -n 1 "$TREE/infra/vps/postgres/epoch2-prefix-registry.tsv";'
+                  ' printf "2|%s\\n" ' + '0' * 64 + '; } >"$2"; }\n')
+        result, _, _ = self.shell(edited + select, target_rows=3, source_rows=2)
+        self.assertEqual(result.returncode, 65, result.stderr)
+        for registry in [f'1|{CHECKSUMS[0]}\n3|{CHECKSUMS[2]}\n', f'1|{CHECKSUMS[0]}\n2|short\n',
+                         f'0|{CHECKSUMS[0]}\n1|{CHECKSUMS[1]}\n', f'1|{CHECKSUMS[0]}\n']:
+            with self.subTest(registry=registry):
+                body = f'printf %b {registry!r} >"$TREE/infra/vps/postgres/epoch2-prefix-registry.tsv"\n' + select
+                result, _, _ = self.shell(body, source_rows=1)
+                self.assertEqual(result.returncode, 65, result.stderr)
+
+    def test_prepare_upgrades_a_bearer_registry_to_the_three_migration_target(self):
+        result, events, state = self.shell(
+            'prefix_prepare "$TARGET" "$TREE" "$ATTEMPT"\nawk "END {print NR}" "$JOURNAL/registry-prefix.tsv"\n',
+            phase=None, target_rows=3, source_rows=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), '2')
+        self.assertEqual(state['phase'], 'prepared')
+        # The source stays at the previous image's [1,2]; only the restored sibling earns version 3.
+        self.assertIn(f'migrator {OLD} {STAGING} --check', events)
+        self.assertIn(f'migrator {TARGET} {STAGING}', events)
+        self.assertFalse(any(event == f'migrator {TARGET} cantos' for event in events))
+        self.assertLess(events.index('systemctl stop cantos-api-theatre.service cantos-api-studio.service'),
+                        events.index('dump cantos'))
+
+    def test_registry_refusals_happen_before_any_freeze_or_database_change(self):
+        for source, target in [(2, 2), (3, 2)]:
+            with self.subTest(source=source, target=target):
+                result, events, state = self.shell('prefix_prepare "$TARGET" "$TREE" "$ATTEMPT"\n',
+                                                   phase=None, target_rows=target, source_rows=source)
+                self.assertEqual(result.returncode, 65, result.stderr)
+                self.assertFalse(state['pending'])
+                self.assertFalse(any(event.startswith('systemctl stop') or event.startswith('create-db')
+                                     or event.startswith('dump ') for event in events))
+
+    def test_every_table_added_by_the_suffix_must_be_empty_before_acceptance(self):
+        body = r'''
+printf 'actors\nbearer_tokens\ncantos_schema\n' >"$JOURNAL/baseline-tables"
+epoch2_query() {
+  event "sql $2"
+  case "$2" in
+    *'SELECT tablename'*) printf 'actors\nbearer_tokens\ncantos_schema\nlistener_bookmarks\n' ;;
+    *'public."listener_bookmarks"'*) printf '%s\n' "$BOOKMARKS_EMPTY" ;;
+    *) return 1 ;;
+  esac
+}
+prefix_new_tables_empty cantos "$JOURNAL"
+'''
+        result, events, _ = self.shell(body, extra_env={'BOOKMARKS_EMPTY': 't'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # Baseline tables (including Bearer on a [1,2] source) are fingerprinted, not required empty.
+        self.assertFalse(any('bearer_tokens"' in event for event in events))
+        self.assertTrue(any('public."listener_bookmarks"' in event for event in events))
+        result, _, _ = self.shell(body, extra_env={'BOOKMARKS_EMPTY': 'f'})
+        self.assertEqual(result.returncode, 65, result.stderr)
+
+    def test_acceptance_retires_the_image_only_rollback_and_records_the_registry_step(self):
+        result, events, state = self.shell(
+            'echo previous >"$STATE/previous"\nprefix_commit "$TARGET" "$TREE" "$ATTEMPT"\n'
+            '[[ ! -e $STATE/previous ]] || exit 1\nrollback\n', target_rows=3, source_rows=2)
+        # No `previous` record remains, so `cantos-vps rollback` has nothing to switch to.
+        self.assertEqual(result.returncode, 66, result.stderr)
+        self.assertEqual(state['phase'], 'complete')
+        self.assertFalse(any(event.startswith(f'switch {OLD}') for event in events))
 
     def test_corrupt_offhost_archive_never_reaches_installation(self):
         result, events, state = self.shell(

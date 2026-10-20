@@ -106,7 +106,8 @@ and the existing backup/schema/grants/switch/health protocol. It adds no bootstr
 epoch-conversion authority. See [artifact promotion](../../docs/deployment/vps-production.md#verified-artifact-promotion).
 
 The explicit same-epoch [prefix-upgrade lane](../../docs/deployment/postgres-prefix-upgrade.md)
-restores a full epoch-2 `[1]` database into a sibling before applying `[1,2]`. It uses separate
+restores a full epoch-2 database (`[1]` or `[1,2]`) into a sibling before applying the candidate's
+exact additive registry suffix (`[1,2]` or `[1,2,3]`). It uses separate
 attempt-bound journals and pending guards, preserves the original DB, and recovers the
 DB/image/runtime pair before acceptance; accepted recovery only finalizes. It does not
 provision media, reconcile identity or weaken ordinary schema checks. PostgreSQL dumps

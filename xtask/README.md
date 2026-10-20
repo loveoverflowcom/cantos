@@ -1144,7 +1144,7 @@ cargo xtask deploy vps cantos-api --host root@HOST --reload-browser
 cargo xtask deploy vps cantos-api --host root@HOST --smoke-origin https://api.example.org
 cargo xtask deploy vps cantos-api --host root@HOST --rollback   # previous image
 cargo xtask deploy vps cantos-api --host root@HOST --status     # read-only
-# Explicit same-epoch prefix [1] -> [1,2] sibling upgrade; native Linux x86_64 only.
+# Explicit same-epoch registry-suffix sibling upgrade ([1]->[1,2], [1,2]->[1,2,3]); native Linux x86_64 only.
 cargo xtask deploy vps cantos-api --host root@HOST --upgrade-epoch2-prefix --dry-run
 # Explicit narrow legacy conversion; inspect the complete plan first.
 cargo xtask deploy vps cantos-api --host root@HOST --cutover-epoch2 --dry-run
@@ -1210,7 +1210,8 @@ password and private CA; the host-local old image and separate protected disaste
 copies remain necessary. Cutover runtime/production acceptance is separate from command tests.
 
 `--upgrade-epoch2-prefix` is a separate explicit, attempt-bound sibling-database lane for
-epoch 2 registry `[1]` → `[1,2]`; it never migrates the source database. It shares the durable
+an exact epoch 2 registry prefix → the candidate's reviewed registry (`[1]` → `[1,2]`, `[1,2]` →
+`[1,2,3]`); it never migrates the source database and refuses non-additive migrations. It shares the durable
 off-host-copy protocol, but uses its own pending journal and `prefix-prepare/commit/recover`.
 Native Linux x86_64, PostgreSQL 17.11 and unchanged non-API infrastructure are mandatory; Mac
 may print its dry run only. Before acceptance recovery restores the DB/image/runtime pair;

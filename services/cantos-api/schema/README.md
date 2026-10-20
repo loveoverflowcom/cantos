@@ -5,7 +5,12 @@ current constraints/functions/triggers/indexes without replaying retired provide
 The metadata registries are created by `platform/postgres/migrations.rs` in the same transaction.
 `0002_bearer.sql` is the additive epoch-2 version 2 expansion. The migrator validates every
 applied checksum and applies only the exact missing suffix, atomically. There is no executable
-epoch-1 upgrade chain or parallel SQL bootstrap command. Runtime verification requires both versions.
+epoch-1 upgrade chain or parallel SQL bootstrap command. Runtime verification requires every version.
+A binary rejects any registry longer than its own, so an expansion is never image-only reversible.
+Production applies a new additive version only through the explicit
+[registry-suffix lane](../../../docs/deployment/postgres-prefix-upgrade.md), never by hand and never
+through ordinary deploy, whose preflight stays strict. Adding a `NNNN_*.sql` file requires its row in
+`infra/vps/postgres/epoch2-prefix-registry.tsv` (a repository test binds the two).
 Use `cantos-migrate` through the owning deployment/test commands; server startup is read-only.
 
 An applied version's SHA-256 is immutable within its epoch. Future changes need a separately

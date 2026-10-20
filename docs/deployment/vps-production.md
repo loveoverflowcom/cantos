@@ -78,14 +78,19 @@ not establish a deployed route. In particular, use the actual methods in
 [Bearer v1](../../packages/contracts/bearer-v1.md); a GET of the POST-only flow path is only a
 routing diagnostic. Do not run a consuming login/exchange/refresh merely as a presence probe.
 
-The new API requires epoch 2 migrations 0001 and 0002. `preflight_schema` currently invokes the
-strict target `--check` before backup/migration: an existing 0001-only registry is refused by
-ordinary deployment. Do not bypass that guard, edit registry rows or run a production migration
-by hand to force a rollout. Use only the explicit [paired prefix-upgrade lane](postgres-prefix-upgrade.md)
-after its operator prerequisites and rehearsal when the live inventory shows that prefix.
+The new API requires epoch 2 migrations 0001 and 0002. `preflight_schema` invokes the
+strict target `--check` before backup/migration: any registry that is not the image's complete
+set (an existing 0001-only database for a two-migration image, a `[1,2]` database for an image
+carrying 0003) is refused by ordinary deployment. Do not bypass that guard, edit registry rows or
+run a production migration by hand to force a rollout. Use only the explicit
+[paired prefix-upgrade lane](postgres-prefix-upgrade.md) after its operator prerequisites and
+rehearsal when the live inventory shows an exact proper prefix of the candidate's reviewed
+registry (`[1]` → `[1,2]`, and `[1,2]` → `[1,2,3]` for release-bound bookmarks, #299; see
+[its version-3 protocol](postgres-prefix-upgrade.md#version-3-release-bound-listener-bookmarks-299)).
 It migrates a fully restored sibling, retains the source and pairs database/runtime recovery;
-ordinary deployment remains strict. The old 0001-only binary rejects the expanded registry;
-its pre-migration health does not establish a usable image-only rollback after 0002. Preserve
+ordinary deployment remains strict. A binary rejects any registry longer than its own, so the old
+0001-only binary rejects `[1,2]`, and a two-migration binary rejects `[1,2,3]`; pre-migration
+health does not establish a usable image-only rollback after the expansion. Preserve
 checked backups and verified data-preserving recovery; never promise ordinary binary rollback
 across this boundary or automatically restore/drop production data.
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Sourced by cantos-vps only for the explicit epoch-2 [1] -> [1,2] lane.
+# Sourced by cantos-vps only for the explicit epoch-2 additive registry-suffix lane: the live
+# registry must be an exact proper prefix of the candidate image's reviewed registry
+# (epoch2-prefix-registry.tsv), e.g. [1] -> [1,2] or [1,2] -> [1,2,3].
 # Reuses the existing cutover's snapshot/restore/SQL primitives, never its epoch-1
 # transformer or provider reconciliation. Databases, images and journals are retained.
 
@@ -152,6 +154,41 @@ ORDER BY row_to_json(t)::text COLLATE \"C\") TO STDOUT;" | sha256sum) || return
   mv "$output.partial" "$output"
 }
 
+prefix_select_registries() {
+  local tree=$1 journal=$2 line expected=1 source_rows target_rows
+  cp "$tree/infra/vps/postgres/epoch2-prefix-registry.tsv" "$journal/registry-full.tsv"
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ $line == "$expected|"* && ${line#*|} =~ ^[0-9a-f]{64}$ ]] || die 'malformed target migration registry' 65
+    expected=$((expected + 1))
+  done <"$journal/registry-full.tsv"
+  target_rows=$((expected - 1))
+  ((target_rows >= 2)) || die 'unsupported target migration set' 65
+  # The live registry decides the source prefix. It must be exactly the reviewed leading
+  # rows: any extra, missing, reordered or edited row (checksum) is refused, never repaired.
+  epoch2_registry cantos "$journal/registry-source.tsv"
+  source_rows=$(awk 'END {print NR}' "$journal/registry-source.tsv")
+  ((source_rows >= 1 && source_rows < target_rows)) ||
+    die 'source registry is not a proper prefix of the reviewed target registry' 65
+  head -n "$source_rows" "$journal/registry-full.tsv" >"$journal/registry-prefix.tsv"
+  cmp -s "$journal/registry-prefix.tsv" "$journal/registry-source.tsv" ||
+    die 'source registry differs from the reviewed registry prefix' 65
+}
+
+# A migration earns only objects the baseline did not have. Existing tables are covered by the
+# row/sequence fingerprints; every table the suffix adds must still be empty before acceptance,
+# so a write by the new binary can never exist on a database that recovery may discard.
+prefix_new_tables_empty() {
+  local database=$1 journal=$2 table tables
+  tables=$(epoch2_query "$database" "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename<>'cantos_migrations' ORDER BY tablename;") || return
+  while IFS= read -r table; do
+    [[ -n $table ]] || continue
+    [[ $table =~ ^[a-z_][a-z0-9_]*$ ]] || die 'invalid candidate table name' 65
+    ! grep -qxF -- "$table" "$journal/baseline-tables" || continue
+    [[ $(epoch2_query "$database" "SELECT NOT EXISTS(SELECT FROM public.\"$table\");") == t ]] ||
+      die 'candidate accepted unexpected writes to an added table before acceptance' 65
+  done <<<"$tables"
+}
+
 prefix_source_guard() {
   local database=$1 journal=$2 schema=$3
   prefix_objects_guard "$database"
@@ -198,9 +235,7 @@ prefix_prepare() (
   epoch2_snapshot_host "$journal" "$tree"
   [[ -f $journal/edge-was-active ]] || die 'edge activity changed during snapshot' 65
   epoch2_phase "$journal" snapshotted; prefix_install_guard "$journal"
-  cp "$tree/infra/vps/postgres/epoch2-prefix-registry.tsv" "$journal/registry-full.tsv"
-  [[ $(awk 'END {print NR}' "$journal/registry-full.tsv") == 2 ]] || die 'unsupported target migration set' 65
-  head -1 "$journal/registry-full.tsv" >"$journal/registry-prefix.tsv"
+  prefix_select_registries "$tree" "$journal"
   epoch2_create_database "$oracle"; epoch2_migrate_database "$previous" "$oracle"
   epoch2_schema "$oracle" "$journal/schema-oracle.sql"
   prefix_source_guard "$oracle" "$journal" schema-oracle.sql
@@ -257,8 +292,7 @@ prefix_target_guard() {
   cmp -s "$journal/schema-target.sql" "$journal/schema-candidate.sql" || die 'candidate schema drift' 65
   prefix_fingerprint "$database" "$journal" "$journal/rows-candidate.tsv"
   cmp -s "$journal/rows-frozen.tsv" "$journal/rows-candidate.tsv" || die 'candidate changed baseline rows or sequences' 65
-  [[ $(epoch2_query "$database" 'SELECT NOT EXISTS(SELECT FROM bearer_flows) AND NOT EXISTS(SELECT FROM bearer_families) AND NOT EXISTS(SELECT FROM bearer_tokens);') == t ]] ||
-    die 'candidate accepted unexpected Bearer writes before acceptance' 65
+  prefix_new_tables_empty "$database" "$journal"
 }
 
 prefix_recheck_target() {
@@ -305,7 +339,8 @@ prefix_commit() (
   printf '%s\n' "$revision" >"$STATE/current"
   # The old image is not an ordinary schema-compatible rollback target.
   rm -f "$STATE/previous"
-  printf '%s upgrade-epoch2-prefix %s retained %s\n' "$(date -u +%FT%TZ)" "$revision" "$retained" >>"$STATE/history"
+  printf '%s upgrade-epoch2-prefix %s registry %s->%s retained %s\n' "$(date -u +%FT%TZ)" "$revision" \
+    "$(awk 'END {print NR}' "$journal/registry-prefix.tsv")" "$(awk 'END {print NR}' "$journal/registry-full.tsv")" "$retained" >>"$STATE/history"
   epoch2_phase "$journal" accepted
   prefix_finalize "$journal" "$revision" "$new_oid"
 )
