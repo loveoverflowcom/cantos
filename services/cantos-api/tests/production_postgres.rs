@@ -7,8 +7,8 @@ use axum::{
     Router,
 };
 use cantos_api::{
+    adapters::inbound::http::{router, AppState},
     contexts::production::production_catalog,
-    interfaces::http::{router, AppState},
     platform::postgres::{local_config, migrate, token_hash, Store, StoreError},
     script_ir::read_script,
 };

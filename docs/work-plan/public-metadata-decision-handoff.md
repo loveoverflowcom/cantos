@@ -30,7 +30,7 @@ The following are **inspection facts**, not newly executed runtime tests:
 | Implemented authority | Source and observed boundary |
 | --- | --- |
 | Public Work/unit wire shape | [strict shared Rust DTOs](../../packages/contracts/api/src/theatre.rs), [JSON Schema](../../packages/contracts/schema/theatre/discovery/v1.schema.json) and [literal fixtures](../../packages/contracts/fixtures/theatre/discovery/v1); no genre/credits/season fields |
-| Query keys and typed rejection | [HTTP Theatre owner](../../services/cantos-api/src/interfaces/http/theatre.rs): works/search accept q, kind, language, limit and cursor; both query structs deny unknown fields and translate rejection to invalid_request |
+| Query keys and typed rejection | [HTTP Theatre owner](../../services/cantos-api/src/adapters/inbound/http/theatre.rs): works/search accept q, kind, language, limit and cursor; both query structs deny unknown fields and translate rejection to invalid_request |
 | Pure eligibility and query normalization | [Media listening core](../../services/cantos-api/src/contexts/media/domain/listening.rs): exact pinned/current identity checks, current visibility/archive/owner/rights gating; bounded q/language/limit |
 | Metadata and media projection | [listener projection](../../services/cantos-api/src/contexts/media/listener_projection.rs): released Work/unit text, actual released audio language, immutable listing anchors; no private envelope fields |
 | Revision authority and batched reads | [Catalog facade](../../services/cantos-api/src/contexts/catalog/postgres/listener.rs) loads exact release-pinned revisions plus current eligibility snapshots, checks their digests and bounds requests to 51; no per-item Catalog query |

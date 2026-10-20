@@ -11,8 +11,8 @@ use axum::{
     Router,
 };
 use cantos_api::{
+    adapters::inbound::http::{router, AppState},
     contexts::catalog::{domain::WorkId, CatalogCommand, MemberRole},
-    interfaces::http::{router, AppState},
     platform::postgres::{local_config, migrate, token_hash, Store},
 };
 use http_body_util::BodyExt;

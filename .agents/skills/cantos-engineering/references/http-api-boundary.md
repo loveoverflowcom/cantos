@@ -8,7 +8,7 @@
 Listener-facing contracts are owned by [`cantos-listening`](../../cantos-listening/references/listener-api.md);
 this reference owns the general shape every endpoint follows. Implemented today: the Studio v1,
 manuscript import, adaptation and production-input contracts in
-[`services/cantos-api/src/interfaces/http`](../../../../services/cantos-api/src/interfaces/http/mod.rs) (`studio`, `theatre`, `admin`), each with a
+[`services/cantos-api/src/adapters/inbound/http`](../../../../services/cantos-api/src/adapters/inbound/http/mod.rs) (`studio`, `theatre`, `admin`), each with a
 hand-authored JSON Schema, fixtures and raw DTOs in `cantos-contracts` shared by the server and the
 Studio ([contracts README](../../../../packages/contracts/README.md)). There is no OpenAPI document,
 no generated client. The [Theatre Discovery/Playback v1 core](../../../../packages/contracts/theatre-discovery-v1.md) adds a strict public-only listener JSON boundary; actual PG/public delivery and generated-client acceptance are pending. Whether a route also carries MessagePack is owned by
@@ -21,7 +21,7 @@ non-GET handlers; the HTTP verb alone does not decide DBSP suitability or freshn
 ## One route group per surface
 
 The host serves three groups under `/api/v1`: `studio` (implemented), `theatre` (anonymous Discovery/Playback core, fail-closed delivery) and `admin`
-(reserved, empty, `404 not_found`). Each has its own router module in `src/interfaces/http/`, its DTO module
+(reserved, empty, `404 not_found`). Each has its own router module in `src/adapters/inbound/http/`, its DTO module
 in `cantos-contracts`, its own authentication and authorization, and its own `Store` methods or
 adapter; shared code is middleware, error mapping, domain modules and the PostgreSQL authority.
 Rules: a handler never calls another group's handler; a session for one surface grants nothing on
@@ -94,9 +94,9 @@ to `InvalidRequest`/`Unavailable`. Classification is based on meaning, not a dri
 [`CatalogError`](../../../../services/cantos-api/src/contexts/catalog/domain/error.rs) is pure;
 [`CatalogStoreError`](../../../../services/cantos-api/src/contexts/catalog/application/mod.rs)
 wraps domain/storage errors and context cases;
-[`catalog_error` / `domain_error`](../../../../services/cantos-api/src/interfaces/http/studio/catalog.rs)
+[`catalog_error` / `domain_error`](../../../../services/cantos-api/src/adapters/inbound/http/studio/catalog.rs)
 maps them to responses. Shared
-[`StoreError`](../../../../services/cantos-api/src/platform/postgres/mod.rs) still mixes
+[`StoreError`](../../../../services/cantos-api/src/application.rs) still mixes
 application outcomes with storage failures; its PostgreSQL conversion currently maps driver
 failures to `Unavailable`. This is an implementation observation, not a claim that context-owned
 port errors or a complete taxonomy are implemented everywhere. Improve only a touched boundary

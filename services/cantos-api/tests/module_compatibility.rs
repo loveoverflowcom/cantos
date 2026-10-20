@@ -45,4 +45,14 @@ fn media_inspection_is_not_coupled_to_synthesis() {
 #[test]
 fn postgres_alias_uses_the_same_store() {
     let _: fn(postgres::Store) -> cantos_api::platform::postgres::Store = identity;
+    let _: fn(postgres::Store) -> cantos_api::application::Store = identity;
+    let _: fn(postgres::StoreError) -> cantos_api::application::StoreError = identity;
+}
+
+#[test]
+fn root_http_alias_keeps_the_canonical_router_and_state_types() {
+    use cantos_api::{adapters::inbound::http as canonical, http};
+    let _: fn(http::AppState) -> canonical::AppState = identity;
+    let _: fn(http::AppState) -> axum::Router = canonical::api_router;
+    let _: fn(canonical::AppState) -> axum::Router = http::api_router;
 }

@@ -22,8 +22,8 @@ and needs a measured listener payload first. Progress and bookmark semantics are
 
 Every listener route lives under `/api/v1/theatre` (`cantos_contracts::routes::THEATRE_BASE`) and
 never reuses a Studio route, session or editor `Store` method; a Studio session grants nothing
-here. Two routers implement it: `interfaces/http/theatre.rs` (anonymous Discovery/Playback, DTOs
-in `cantos_contracts::theatre`) and `interfaces/http/theatre_library.rs` (account-owned Library,
+here. Two routers implement it: `adapters/inbound/http/theatre.rs` (anonymous Discovery/Playback, DTOs
+in `cantos_contracts::theatre`) and `adapters/inbound/http/theatre_library.rs` (account-owned Library,
 DTOs in `cantos_contracts::listener_library`). The actual contracts own names and behavior:
 [Discovery v1](../../../../packages/contracts/theatre-discovery-v1.md) and
 [Library v1](../../../../packages/contracts/listener-library-v1.md). Actual public delivery is

@@ -3,14 +3,14 @@ use axum::{
     body::Body,
     http::{header, Request, StatusCode},
 };
-use cantos_api::interfaces::http::with_browser_cors;
+use cantos_api::adapters::inbound::http::with_browser_cors;
 use cantos_contracts::web_api::WebSurface;
 use tower::ServiceExt;
 
 #[tokio::test]
 async fn production_api_capability_handler_is_readable_but_other_surface_stays_closed() {
     use cantos_api::platform::postgres::{local_config, Store};
-    let state = cantos_api::interfaces::http::AppState {
+    let state = cantos_api::adapters::inbound::http::AppState {
         store: Store::new(
             local_config("host=127.0.0.1 port=1 user=cantos_test dbname=cantos_test").unwrap(),
         )
@@ -19,7 +19,7 @@ async fn production_api_capability_handler_is_readable_but_other_surface_stays_c
         web_origin: "https://cantoss-theatre.web.app".into(),
     };
     let app = with_browser_cors(
-        cantos_api::interfaces::http::api_router(state),
+        cantos_api::adapters::inbound::http::api_router(state),
         "https://cantoss-theatre.web.app",
         WebSurface::Theatre,
     )

@@ -22,7 +22,7 @@ executed and deferred acceptance.
   [protobuf](../../packages/contracts/api/src/protobuf/mod.rs).
 - JSON/MessagePack helpers and media parsing: [wire](../../packages/contracts/api/src/wire.rs).
   Generic Serde encode/decode refuse Protobuf; only the four `ProtobufDto` roots use pilot helpers.
-- HTTP negotiation/extractors: [http/wire.rs](../../services/cantos-api/src/interfaces/http/wire.rs).
+- HTTP negotiation/extractors: [http/wire.rs](../../services/cantos-api/src/adapters/inbound/http/wire.rs).
 - Studio request/actual-response decoding:
   [client wire](../../apps/cantos-studio/web/src/wire.rs),
   [fetch adapter](../../apps/cantos-studio/web/src/api.rs).

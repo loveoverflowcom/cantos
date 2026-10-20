@@ -185,7 +185,7 @@ impl RegistrationAdmission {
     }
 }
 
-impl crate::composition::Store {
+impl crate::application::Store {
     pub fn with_theatre_registration(mut self, runtime: RegistrationRuntime) -> Self {
         self.theatre_firebase_enrollment = None;
         self.theatre_registration = Some(Arc::new(runtime));

@@ -45,7 +45,7 @@ Arrows denote dependencies. Domain values contain no endpoint, URL, bucket, cred
 HTTP response or PostgreSQL client. Media owns this port because private audio intake and
 preview are its concrete consumers; there is no new crate, service or generic repository.
 
-The concrete `Store` and aggregate `StoreError` are owned by `src/composition.rs`. This handle
+The concrete `Store` and aggregate `StoreError` are owned by `src/application.rs`. This handle
 joins the PostgreSQL pool and Media's registry for owning application use cases.
 `platform/postgres` retains compatibility reexports and connection/session plumbing, with no
 Media import. The Media read application facade owns authorization, storage effects and the
@@ -290,7 +290,7 @@ live passes.
 
 ## Shared HTTP mechanics, separate delivery authority
 
-Owner audio preview now consumes `interfaces/http/audio_transport.rs`, with the same private
+Owner audio preview now consumes `adapters/inbound/http/audio_transport.rs`, with the same private
 application authorization/open/recheck ordering. It owns HTTP conditional/range responses and
 pull-driven exact-length bodies, not storage scope or listener authority. The
 [transport record](../evidence/playback-range-transport.md) separates its deterministic evidence

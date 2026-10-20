@@ -6,7 +6,7 @@ use cantos_api::contexts::media::{
     PublicationDelivery, PublicationDeliveryFuture, PublicationObject,
 };
 use cantos_api::{
-    contexts::media::PublicationService, interfaces::http::router_with_publication_delivery,
+    adapters::inbound::http::router_with_publication_delivery, contexts::media::PublicationService,
 };
 use std::sync::Arc;
 struct VerifiedDeliveryFake;

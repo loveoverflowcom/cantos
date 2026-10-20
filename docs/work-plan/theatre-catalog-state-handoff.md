@@ -11,7 +11,7 @@ user on 2026-10-16 (no separate Product, Listening or Publication owner sign-off
 Original baseline: `develop@43db968`, re-read after the issue's `a079e72` survey.
 The PostgreSQL walk follow-up starts from `develop@64b5a60`; it exercises the accepted policy
 without changing the DTO, schema, routes, SQL or deployment composition. Sources:
-[Theatre DTOs](../../packages/contracts/api/src/theatre.rs), [routes](../../services/cantos-api/src/interfaces/http/theatre.rs),
+[Theatre DTOs](../../packages/contracts/api/src/theatre.rs), [routes](../../services/cantos-api/src/adapters/inbound/http/theatre.rs),
 [application](../../services/cantos-api/src/contexts/media/listener_application.rs),
 [projection](../../services/cantos-api/src/contexts/media/listener_projection.rs),
 [PostgreSQL reader](../../services/cantos-api/src/contexts/media/postgres/listener.rs),

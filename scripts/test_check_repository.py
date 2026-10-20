@@ -458,7 +458,7 @@ const QUERY: &str = "SELECT id FROM catalog_works";
                             "SQL table source_records belongs to ingestion")
 
     def test_catalog_application_and_http_cannot_execute_catalog_sql(self):
-        for path in ("contexts/catalog/application.rs", "interfaces/http/studio/catalog.rs"):
+        for path in ("contexts/catalog/application.rs", "adapters/inbound/http/studio/catalog.rs"):
             with self.subTest(path=path):
                 self.assertRejected(path,
                                     'const QUERY: &str = "UPDATE catalog_works SET head_revision=$1";',
@@ -474,21 +474,21 @@ const QUERY: &str = "SELECT id FROM catalog_works";
                             "Script IR shared kernel must not depend")
 
     def test_http_allows_wire_admission_and_delegates_business_use_case(self):
-        self.assertEqual(self.errors("interfaces/http/studio/mod.rs", """
+        self.assertEqual(self.errors("adapters/inbound/http/studio/mod.rs", """
 use crate::platform::postgres::{Store, StoreError};
 use crate::contexts::editorial::domain::diagnostics::validation_issues;
 fn validate() { crate::script_ir::read_script(bytes); state.store.save(request); }
 """), [])
 
     def test_editorial_http_allows_only_facts_and_document_projections(self):
-        self.assertEqual(self.errors("interfaces/http/studio/editorial.rs", """
+        self.assertEqual(self.errors("adapters/inbound/http/studio/editorial.rs", """
 use crate::contexts::editorial::{document, RevisionFacts, RevisionHistory, ReviewFacts, RevisionOperation};
 fn project(facts: ReviewFacts) { document::revision(saved); document::issues(issues); }
 """), [])
         for dependency in ("document::decide_save", "domain::decide_save", "append_revision",
                            "postgres::load_revision", "application::authorize"):
             with self.subTest(dependency=dependency):
-                self.assertRejected("interfaces/http/studio/editorial.rs",
+                self.assertRejected("adapters/inbound/http/studio/editorial.rs",
                     f"use crate::contexts::editorial::{dependency};",
                     "HTTP must delegate business decisions")
 
@@ -507,7 +507,7 @@ fn project(facts: ReviewFacts) { document::revision(saved); document::issues(iss
             "use cantos_contracts::{RevisionResponse, ImportResponse};"), [])
 
     def test_catalog_http_allows_pure_wire_admission_and_typed_error_mapping(self):
-        self.assertEqual(self.errors("interfaces/http/studio/catalog.rs", """
+        self.assertEqual(self.errors("adapters/inbound/http/studio/catalog.rs", """
 use crate::contexts::catalog::{wire as input, CatalogCommand, CatalogCursor, CatalogStoreError};
 use crate::contexts::catalog::domain::CatalogError;
 fn f() { input::create_work(request); CatalogCursor::decode(cursor); }
@@ -517,12 +517,12 @@ fn error(e: CatalogStoreError) { match e { CatalogStoreError::Domain(CatalogErro
     def test_catalog_http_cannot_call_domain_transition_or_command_constructor(self):
         for symbol in ("domain::Work::new", "domain::Work::archive", "CatalogCommand::ArchiveWork"):
             with self.subTest(symbol=symbol):
-                self.assertRejected("interfaces/http/studio/catalog.rs",
+                self.assertRejected("adapters/inbound/http/studio/catalog.rs",
                     f"fn f() {{ crate::contexts::catalog::{symbol}(input); }}",
                     "HTTP must delegate business decisions")
 
     def test_media_http_allows_the_reviewed_private_read_facade(self):
-        self.assertEqual(self.errors("interfaces/http/studio/audio_reads.rs", """
+        self.assertEqual(self.errors("adapters/inbound/http/studio/audio_reads.rs", """
 use crate::contexts::media::read::{
     AudioReadScope, ByteRange, NormalizedByteRange, RangeError, StorageCapability, StorageError, StorageStream,
 };
@@ -543,12 +543,12 @@ fn read() { AudioReadScope::ScriptIntent { script, intent }; state.store.authori
             "read::PrivateObjectRef",
         ):
             with self.subTest(dependency=dependency):
-                self.assertRejected("interfaces/http/studio/audio_reads.rs",
+                self.assertRejected("adapters/inbound/http/studio/audio_reads.rs",
                     f"use crate::contexts::media::{dependency};",
                     "HTTP must delegate business decisions through application use cases")
 
     def test_publication_http_allows_only_typed_errors_and_host_composition(self):
-        self.assertEqual(self.errors("interfaces/http/studio/publication.rs", """
+        self.assertEqual(self.errors("adapters/inbound/http/studio/publication.rs", """
 use crate::contexts::media::{PublicationService, PublicationDelivery, PublicationStoreError, PublicationDependencyError};
 use crate::contexts::media::domain::publication::PublicationError;
 fn f(store: Store) { PublicationService::new(store); }
@@ -558,12 +558,12 @@ fn error(e: PublicationStoreError) { match e { PublicationStoreError::Domain(Pub
     def test_publication_http_cannot_evaluate_or_publish_domain_rules(self):
         for symbol in ("evaluate", "decide", "AudioRelease::publish", "retained_release_eligible", "DeliveryEvidence::new"):
             with self.subTest(symbol=symbol):
-                self.assertRejected("interfaces/http/studio/publication.rs",
+                self.assertRejected("adapters/inbound/http/studio/publication.rs",
                     f"fn f() {{ crate::contexts::media::domain::publication::{symbol}(input); }}",
                     "HTTP must delegate business decisions")
 
     def test_artwork_http_allows_only_composition_receipts_and_typed_errors(self):
-        self.assertEqual(self.errors("interfaces/http/studio/artwork.rs", """
+        self.assertEqual(self.errors("adapters/inbound/http/studio/artwork.rs", """
 use crate::contexts::media::{ArtworkService, ArtworkReceipt, ArtworkApplicationError, ImageObjectError};
 use crate::contexts::media::domain::{image::ImageError, artwork::ArtworkError};
 use crate::contexts::media::image_intake::ImageIntakeError;
@@ -579,7 +579,7 @@ fn error(e: ArtworkApplicationError) { match e { ArtworkApplicationError::Image(
             "postgres::image::insert_asset",
         ):
             with self.subTest(symbol=symbol):
-                self.assertRejected("interfaces/http/studio/artwork.rs",
+                self.assertRejected("adapters/inbound/http/studio/artwork.rs",
                     f"fn f() {{ crate::contexts::media::{symbol}(input); }}",
                     "HTTP must delegate business decisions")
 
@@ -591,16 +591,16 @@ fn error(e: ArtworkApplicationError) { match e { ArtworkApplicationError::Image(
                     "platform must not depend on a business context")
 
     def test_listener_http_admits_only_composition_errors_and_credentials(self):
-        self.assertEqual(self.errors("interfaces/http/theatre_library.rs", """
+        self.assertEqual(self.errors("adapters/inbound/http/theatre_library.rs", """
 use crate::contexts::listening::{LibraryService, LibraryError};
 use crate::contexts::listening::auth::{ListenerAuthenticator, ListenerCredentials, AuthenticatedListener};
 fn f() { crate::contexts::listening::LibraryService::new(store); crate::contexts::listening::auth::TheatreListenerAuthenticator::new(store); }
 """), [])
         for symbol in ("reconcile_progress", "projection::continue_records"):
-            self.assertRejected("interfaces/http/theatre_library.rs",
+            self.assertRejected("adapters/inbound/http/theatre_library.rs",
                 f"fn f() {{ crate::contexts::listening::domain::{symbol}(input); }}",
                 "HTTP must delegate business decisions")
-        self.assertRejected("interfaces/http/theatre_library.rs",
+        self.assertRejected("adapters/inbound/http/theatre_library.rs",
             "fn f() { crate::contexts::listening::auth::AuthenticatedListener::from_verified_actor(actor); }",
             "HTTP must delegate business decisions")
 
@@ -609,24 +609,71 @@ fn f() { crate::contexts::listening::LibraryService::new(store); crate::contexts
 use crate::contexts::media::library_publications;
 use crate::contexts::catalog::lock_listener_catalog;
 """), [])
-        fixture="use crate::interfaces::http::{router_with_listener_identity,AppState};"
+        fixture="use crate::adapters::inbound::http::{router_with_listener_identity,AppState};"
         self.assertEqual(self.errors("contexts/listening/postgres/tests.rs",fixture), [])
         self.assertRejected("contexts/listening/postgres.rs",fixture,"context must not depend on an interface")
         self.assertRejected("contexts/listening/postgres/tests.rs",
-            "use crate::interfaces::http::theatre_library::routes;", "context must not depend on an interface")
+            "use crate::adapters::inbound::http::theatre_library::routes;", "context must not depend on an interface")
         self.assertRejected("contexts/media/postgres.rs",
             "use crate::contexts::listening::LibraryService;", "media must not depend on listening")
 
     def test_http_cannot_import_business_policy(self):
-        self.assertRejected("interfaces/http/studio/production.rs", """
+        self.assertRejected("adapters/inbound/http/studio/production.rs", """
 use crate::contexts::production::{domain::assess_eligibility as assess};
 """, "HTTP must delegate business decisions")
 
     def test_http_cannot_reach_transaction_or_sql_client(self):
-        self.assertRejected("interfaces/http/studio/production.rs", """
+        self.assertRejected("adapters/inbound/http/studio/production.rs", """
 use crate::platform::postgres::{Store, Tx};
 fn f() { state.store.connection(); client.transaction(); tx.query_one(sql, args); }
 """, "HTTP must not execute SQL or open transactions")
+
+    def test_nested_inbound_http_keeps_sql_provider_and_policy_guards(self):
+        for source, reason in (
+            ("fn f() { tx.query(sql, args); }", "HTTP must not execute SQL"),
+            ("use reqwest::Client;", "HTTP must not call a database or external provider"),
+            ("use crate::contexts::media::storage::registry::StorageRegistry;",
+             "HTTP must delegate business decisions"),
+        ):
+            with self.subTest(source=source):
+                self.assertRejected("adapters/inbound/http/studio/nested/handler.rs", source, reason)
+
+    def test_inner_layers_cannot_import_inbound_adapters_directly_or_through_aliases(self):
+        for path in ("contexts/editorial/application.rs", "contexts/editorial/domain.rs",
+                     "script_ir/validation.rs", "application.rs"):
+            for source in (
+                "use crate::adapters::inbound::http::AppState;",
+                "use crate::adapters as transport; fn f() { transport::inbound::http::api_router(state); }",
+            ):
+                with self.subTest(path=path, source=source):
+                    self.assertRejected(path, source, "must not depend on an interface")
+
+    def test_context_cannot_reuse_http_store_facade_through_canonical_or_compatibility_types(self):
+        for namespace in ("application", "platform::postgres"):
+            for method in ("load", "save", "history", "review"):
+                for call in (
+                    f"fn f(store: &Handle) {{ store.{method}(request); }}",
+                    f"fn f(store: &Handle) {{ Handle::{method}(store, request); }}",
+                    f"impl Handle {{ fn f(&self) {{ self.{method}(request); }} }}",
+                ):
+                    with self.subTest(namespace=namespace, method=method, call=call):
+                        self.assertRejected("contexts/editorial/application.rs",
+                            f"use crate::{namespace}::Store as Handle; {call}",
+                            "context must not call the HTTP-owned Store facade")
+
+    def test_context_owned_history_and_internal_editorial_operations_stay_allowed(self):
+        self.assertEqual(self.errors("contexts/listening/application.rs", """
+use crate::application::Store;
+fn f(service: &LibraryService, store: &Store) {
+    service.history(request);
+    store.editorial_history(request);
+    store.load_editorial_revision(request);
+}
+"""), [])
+
+    def test_domain_cannot_use_concrete_application_glue(self):
+        self.assertRejected("contexts/editorial/domain.rs", "use crate::application::Store;",
+                            "pure domain must not depend on application glue")
 
     def test_context_sql_cannot_read_or_write_another_contexts_table(self):
         self.assertRejected("contexts/ingestion/postgres.rs", """

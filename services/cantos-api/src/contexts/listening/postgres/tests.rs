@@ -1,6 +1,7 @@
 //! Real PostgreSQL + Router regressions. Ignored until the owned disposable-cluster gate runs.
 use super::*;
 use crate::{
+    adapters::inbound::http::{router_with_listener_identity, AppState},
     contexts::{
         catalog::{
             domain::{ContentUnitId, UnitPatch, Visibility, WorkId, WorkPatch},
@@ -11,7 +12,6 @@ use crate::{
         },
         media::ListenerService,
     },
-    interfaces::http::{router_with_listener_identity, AppState},
     listener_postgres_test_fixture::audio_lifecycle_http::publication_http::PublishedFixture,
     platform::identity::domain::ActorId,
 };

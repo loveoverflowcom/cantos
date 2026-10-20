@@ -3,11 +3,11 @@
 //! app connection/session, with a private write-ahead journal for safe replay; it never creates,
 //! migrates, grants, drops or resets a persistent database.
 use super::*;
+use cantos_api::adapters::inbound::http::router_with_public_media;
 use cantos_api::contexts::media::{
     domain::playback_grant::GrantKey, FilesystemPublicationStorage, OriginPlayback,
     PublicMediaOrigin,
 };
-use cantos_api::interfaces::http::router_with_public_media;
 use cantos_contracts::theatre::{PublicationManifest, UnitPage, WorkPage, WorkSummary};
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
@@ -1561,7 +1561,7 @@ async fn persistent_http_transport_binds_real_session_and_public_reads_cross_act
                 axum::response::Redirect::temporary("https://unrelated.example.invalid")
             }),
         );
-    let app = cantos_api::interfaces::http::with_browser_cors(
+    let app = cantos_api::adapters::inbound::http::with_browser_cors(
         app,
         "https://studio.example.org",
         cantos_contracts::web_api::WebSurface::Studio,

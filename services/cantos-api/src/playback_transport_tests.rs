@@ -4,6 +4,7 @@
 //! eligibility and publication-class object storage are named test doubles, never
 //! PrivateStorage; the bytes are arbitrary transport bytes, not a claimed playable Opus file.
 use crate::{
+    adapters::inbound::http::playback_contract_router,
     contexts::media::{
         domain::{
             object_storage::{NormalizedByteRange, StorageError},
@@ -14,7 +15,6 @@ use crate::{
         PlaybackFixtureEligibility, PlaybackPermit, PublicMediaOrigin, PublicationObjectRef,
         PublicationObjects,
     },
-    interfaces::http::playback_contract_router,
 };
 use axum::{
     body::Body,

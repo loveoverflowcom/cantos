@@ -27,17 +27,54 @@ to validate owner-bound references to existing revisions, rights records and man
 it does not read those contexts' tables directly. `contexts/media/domain/wav_inspection` is a
 pure inspector, with no provider/model dependency. Media also reads editorial entrypoints for
 owner/revision authorization in its narrow private development intake; it does not import
-production adapters or move context-specific storage into platform plumbing. Media consumes Catalog domain/facts and Production admitted Briefs through owning entrypoints. The sole reverse Production→Media inquiry is `upload_token_registered`, needed to reject bearer-secret reuse across read/upload issuance under the same Catalog fence. It permits no table/adapter shortcut or general reverse dependency. `interfaces/http`
+production adapters or move context-specific storage into platform plumbing. Media consumes Catalog domain/facts and Production admitted Briefs through owning entrypoints. The sole reverse Production→Media inquiry is `upload_token_registered`, needed to reject bearer-secret reuse across read/upload issuance under the same Catalog fence. It permits no table/adapter shortcut or general reverse dependency. `adapters/inbound/http`
 owns routers and maps
 errors; `platform` owns pool/session/migrations/IDs and generic incremental computation,
 not business-context shortcuts. The source checker in `scripts/check_repository.py`
 enforces the allowed context edges.
 
-`src/composition.rs` owns the concrete application `Store` and aggregate `StoreError`. It
+`src/application.rs` owns the concrete application `Store` and aggregate `StoreError`. It
 joins the PostgreSQL pool with Media's private-storage registry; it is not a new context or
 generic repository framework. `platform/postgres` implements connection/session plumbing and
 retains compatibility reexports of those types, with no Media import. Application use cases
 map their owned errors into the aggregate; pure domain decisions do not construct it.
+
+Application shells deliberately open/commit PostgreSQL transactions and call context-local
+`contexts/<context>/postgres` functions with authorization and locks in the same transaction.
+This refactor introduces no generic Repository/UnitOfWork or global outbound adapter tree.
+
+## HTTP assembly and transport owners
+
+The canonical Rust path is `adapters::inbound::http`. The former `interfaces/http` implementation
+and namespace were moved in #327; the crate-root `cantos_api::http` alias remains for compatibility.
+Historical source hashes and commit-pinned links retain their original paths. Naming this
+concrete Axum adapter does not claim that the former name violated Hexagonal Architecture.
+
+`adapters/inbound/http/assembly.rs` is the trusted outer composition owner: it constructs one
+concrete capability bundle and selects identity, artwork and static-serving capabilities.
+`router.rs` consumes that bundle to mount/layer the same Studio, Theatre, Admin and deprecated
+Studio routes. `state.rs` owns request state; `errors.rs` owns JSON error projection; `policy.rs`
+owns cross-surface Origin, deadline and cache/security headers. Studio credential selection,
+session/query/header fencing and the admission lease around the handler live in
+`studio/admission.rs`. Cookies, CORS, codecs and binary transport remain HTTP-owned.
+
+Dependency arrows (not response/data flow) point from outer assembly and HTTP to application
+capabilities. Inner contexts never import this assembly or HTTP DTO compatibility methods.
+Moving the concrete handle from the former `composition.rs` to `application.rs` makes that
+distinction explicit without pulling Media storage ownership into PostgreSQL plumbing.
+
+| Existing host entrypoint | Identity/artwork selection | Static fallback |
+| --- | --- | --- |
+| `router` | Configured Theatre identity, otherwise deny; artwork only with private storage | Development dist only without private storage/artwork |
+| `api_router` | Same capability selection | Never; production host also disables development Studio credentials before assembly |
+| `router_with_publication_delivery`, `router_with_theatre_delivery`, `router_with_origin_playback` | Same selection; override only the named delivery capability | Same development guard |
+| `router_with_public_media` | Same selection; caller supplies publication service plus matching origin playback | Never |
+| `router_with_listener_identity` | Explicit authenticator; same artwork selection | Same development guard |
+| `router_with_private_artwork` | Explicit artwork and denied Library authenticator, preserving this seam even with configured identity routes | Never |
+
+Without delivery configuration, publication/playback remains unavailable. The host-settings
+module remains a pure configuration decision; it is not an Axum runtime container. This source
+reorganization changes no URL, DTO, issuer, token, transaction, deployment or #295 auth policy.
 
 Media owns the private read facade used by Studio HTTP. Its use cases resolve owner-authorized
 exact receipt/rendition locations, perform object I/O outside transactions and reauthorize the

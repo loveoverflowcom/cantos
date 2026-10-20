@@ -6,7 +6,7 @@ use axum::{
     Router,
 };
 use cantos_api::{
-    interfaces::http::{router, AppState},
+    adapters::inbound::http::{router, AppState},
     platform::postgres::{local_config, Store},
 };
 use cantos_contracts::routes::{ADMIN_BASE, API_BASE, STUDIO_BASE, THEATRE_BASE};
