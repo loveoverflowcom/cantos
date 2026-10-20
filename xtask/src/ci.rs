@@ -20,7 +20,8 @@ pub enum CiJob {
     /// Documents, links, skills, Python tests and the independent Script IR oracle.
     Repository,
     /// Formatting, clippy and tests for the whole Cargo workspace, the API with its experimental
-    /// DBSP feature, offline Forge wrapper tests, the WAV oracle and read-only Opus inspection.
+    /// DBSP feature, offline Forge wrapper tests, the embedded Turso store foundation, the WAV oracle
+    /// and read-only Opus inspection.
     Rust,
     /// WASM clippy and Trunk builds of both Web clients and the UI gallery.
     Web,
@@ -40,6 +41,7 @@ impl CiJob {
                 Gate::RustLint(Scope::Workspace),
                 Gate::RustTests(Scope::Workspace),
                 Gate::ForgeFunctions,
+                Gate::Turso,
                 Gate::Dbsp,
                 Gate::WavReference,
                 Gate::AudioInspection,

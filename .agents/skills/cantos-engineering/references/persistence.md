@@ -27,6 +27,9 @@ Domain types reject invalid values first; constraints and guarded writes catch c
 adapter bugs and operator mistakes. Do not assume a SQLite-compatible engine implements a
 particular constraint, trigger, isolation level or SQL function correctly for this workload.
 Qualify the selected Turso version/features with real file-backed tests before relying on it.
+The pinned engine's measured behavior (what is absent, what is silently open, how to back up) is
+recorded in the [capability report](../../../../docs/evidence/turso-capability-report.md) and
+enforced by `cargo xtask verify turso`; read it before designing a constraint, guard or backup.
 
 | Invariant | Mechanism to implement and verify |
 | --- | --- |

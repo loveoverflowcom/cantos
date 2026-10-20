@@ -24,6 +24,17 @@ operator-authorized cutover of #336; see the
 [rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api). Everything
 else in this record remains a target, except the bounded library slice below.
 
+**Implemented by the #332.4 foundation slice:** [`packages/store-turso`](../../packages/store-turso/README.md)
+supplies the single-owner lock, the checksummed schema registry with a pure startup decision, a
+serialized `BEGIN IMMEDIATE` writer with typed commit outcomes, an injected clock and a verified
+`VACUUM INTO` backup, plus [probes of the pinned engine](../evidence/turso-capability-report.md)
+(`cargo xtask verify turso`). It is `integration-tested` on Linux x86_64 (`tmpfs` and `ext4`) and macOS arm64 and has **no
+consumer**: neither `cantos-server` nor `cantos-identity` calls it, no Server table has been ported
+and PostgreSQL stays authoritative. A true full-disk, footprint and the schema mapping
+remain `NOT_RUN`. The probes corrected several planning assumptions (see the report): recursive CTEs
+work, unknown collations are refused, a broken `REGEXP` `CHECK` is silently open unless wrapped in
+`coalesce`, and `VACUUM INTO` is stale unless run on the writer after a refreshing read.
+
 The [Identity security-core library](../../services/cantos-identity/README.md) supplies
 checked, distinct subject/operation/instance IDs, storage-bounded security versions and a pure
 completion recheck for active/current state, binding, surface and assurance. Its mailbox-proof

@@ -27,6 +27,10 @@ pub const DEFAULT_BASE: &str = "origin/develop";
 pub const API_PACKAGE: &str = "cantos-server";
 /// The producer-side Forge CLI. xtask builds it; it never runs it inside build/test/preflight.
 pub const FORGE_PACKAGE: &str = "cantos-forge";
+pub const TURSO_STORE_PACKAGE: &str = "cantos-store-turso";
+/// Feature that exposes only run-owned temp directories and a deterministic clock; never a runtime build.
+pub const TURSO_TESTING_FEATURE: &str = "testing";
+pub const TURSO_CAPABILITY_BIN: &str = "cantos-turso-capability";
 /// The opt-in experimental DBSP incremental core of the API; off in every other gate and build.
 pub const DBSP_FEATURE: &str = "dbsp-experimental";
 pub const UI_PACKAGE: &str = "cantos-ui";

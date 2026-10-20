@@ -95,7 +95,11 @@ impl PackageGraph {
                             package.name
                         )
                     })?;
-                    deps.insert(name.clone());
+                    // A package may enable its own test-support feature through a dev-dependency
+                    // on itself; that is not an edge to a different package.
+                    if *name != package.name {
+                        deps.insert(name.clone());
+                    }
                 }
             }
             packages.push(LocalPackage {
@@ -158,6 +162,7 @@ pub mod testing {
                     &["cantos-contracts"],
                 ),
                 package("cantos-identity", "services/cantos-identity", &[]),
+                package("cantos-store-turso", "packages/store-turso", &[]),
                 package(
                     "cantos-theatre",
                     "apps/cantos-theatre/web",
@@ -192,6 +197,19 @@ mod tests {
         assert_eq!(api.name, "cantos-server");
         assert_eq!(api.deps.iter().collect::<Vec<_>>(), ["cantos-contracts"]);
         assert!(graph.owner("services/kanidm/README.md").is_none());
+    }
+
+    #[test]
+    fn a_dev_dependency_on_the_package_itself_is_not_an_edge() {
+        let json = r#"{"packages":[
+            {"name":"store","manifest_path":"/r/packages/store/Cargo.toml",
+             "dependencies":[{"name":"store","path":"/r/packages/store"}]}]}"#;
+        let graph = PackageGraph::from_metadata(Path::new("/r"), json).unwrap();
+        assert!(graph
+            .owner("packages/store/src/lib.rs")
+            .unwrap()
+            .deps
+            .is_empty());
     }
 
     #[test]

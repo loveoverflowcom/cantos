@@ -62,7 +62,7 @@ cargo xtask theatre-host android-release [--api-origin HTTPS_ORIGIN] # productio
 cargo xtask theatre-host ios-build --kotlin-native-home PATH # shared-only simulator frameworks; macOS + Xcode
 cargo xtask theatre-host android-debug --api-origin URL  # production host debug APK for the live catalog; installs nothing
 
-cargo xtask verify repository|rust|forge|web|contracts|mutation|dbsp
+cargo xtask verify repository|rust|forge|turso|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
 cargo xtask verify postgres [--keep]
 cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
@@ -556,6 +556,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `behavior` | behavior (locked model tool, named runs/properties/witnesses/controls; optional pure-core conformance) |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
 | `forge` | rust-lint (cantos-forge), rust-tests (cantos-forge), forge-functions |
+| `turso` | turso (clippy, tests and the capability report of `cantos-store-turso`) |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
 | `contracts` | script-ir-reference, protobuf-reference, contract-tests, wav-reference, audio-inspection |
 | `mutation` | mutation |
@@ -578,6 +579,18 @@ Cargo/Node or an older/prerelease Node version is
 `UNSUPPORTED` before any selected command executes. Local stable Node 22+ is sufficient for
 these wrapper tests; their result does not qualify the separately selected hosted Node 22
 runtime. This prerequisite is independent of the exact Node/npm pins for Quint.
+
+`verify turso` checks the embedded Turso store foundation in `packages/store-turso` and prints
+its engine capability report. It runs clippy and every test with the crate's `testing` feature
+(run-owned temporary directories and a deterministic clock, enabled by no other gate), then the
+`cantos-turso-capability` binary, which exits non-zero when any of its probes differs from the
+expectation recorded beside it. Files live in a private temporary directory removed afterwards. The
+gate starts no server, container, database daemon or cloud service; the process probes spawn only
+the report binary and `sh` (a file-size limit simulates a full disk). It is selected by changes to
+that package and its dependents, belongs to the `rust` CI job, and is part of the full preflight.
+Its result is for the pinned engine, this host and this filesystem
+([report](../docs/evidence/turso-capability-report.md)); macOS arm64 and a real `ENOSPC` are not
+covered. Use `report DIR` of the binary to probe another disk.
 
 The `audio-inspection` gate explicitly runs the ignored real-media tests that ordinary
 `cargo test` skips. Tests encode owned synthetic signals into temporary files at runtime,
