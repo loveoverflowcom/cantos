@@ -54,6 +54,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCapabilities
 import com.cantos.theatre.presentation.model.ShellCatalogMode
@@ -161,7 +162,11 @@ fun CantosPresentation(
                 },
             ) {
                 if (state.route == ShellRoute.MembershipPreview && membershipHeader != null) membershipHeader()
-                else if (state.route.isAuth() && authHeader != null) authHeader()
+                else if (state.route.isAuth() && authHeader != null) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                        Box(Modifier.widthIn(max = AUTH_FRAME_MAX_WIDTH).fillMaxWidth()) { authHeader() }
+                    }
+                }
                 else ShellHeader(state, copy, dispatch, entryFocus.account)
                 state.listeningFailure?.let { failure ->
                     Column(
@@ -181,7 +186,7 @@ fun CantosPresentation(
                 val framed = state.route == ShellRoute.MembershipPreview || state.route.isAuth()
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Column(
-                        Modifier.widthIn(max = tokenDp("breakpoint.expanded"))
+                        Modifier.widthIn(max = if (state.route.isAuth()) AUTH_FRAME_MAX_WIDTH else tokenDp("breakpoint.expanded"))
                             .fillMaxWidth().verticalScroll(scroll).padding(tokenDp(if (framed) "space.section" else "space.md"))
                             .semantics { paneTitle = routeTitle(state.route, copy) }
                             .testTag("screen"),
@@ -221,6 +226,10 @@ fun CantosPresentation(
         }
     }
 }
+
+// Auth frame cap from the Auth v2 `.mobile .page { max-width: 430px }` recipe; header and body share it
+// so a tablet keeps a compact, centered form without changing the app-wide `breakpoint.expanded`.
+private val AUTH_FRAME_MAX_WIDTH = 430.dp
 
 private fun routeTitle(route: ShellRoute, copy: ShellCopy): String = copy.text(
     when (route) {
