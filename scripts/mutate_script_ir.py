@@ -99,7 +99,8 @@ def main():
             shutil.copy2(ROOT / name, workspace / name)
         # Cargo resolves every workspace manifest, even for a package-scoped test, so each
         # member is copied without generated bundles.
-        for member in ("services/cantos-server", "services/cantos-forge-functions", "apps/cantos-theatre/web",
+        for member in ("services/cantos-server", "services/cantos-identity", "services/cantos-forge-functions",
+                       "apps/cantos-theatre/web",
                        "apps/cantos-studio/web", "packages/contracts", "packages/store-turso", "packages/web-auth",
                        "packages/ui-system", "xtask"):
             shutil.copytree(ROOT / member, workspace / member, ignore=shutil.ignore_patterns("dist"))
