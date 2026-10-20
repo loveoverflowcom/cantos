@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::{command::CommandSpec, workspace::Workspace};
 
 pub const CONFORMANCE_SCRIPT: &str = "scripts/verify_behavior_conformance.py";
-pub const OBSERVER: &str = "services/cantos-api/src/contexts/media/quint_conformance_tests.rs";
+pub const OBSERVER: &str = "services/cantos-server/src/contexts/media/quint_conformance_tests.rs";
 
 pub const SCRIPT: &str = "scripts/verify_behavior.py";
 

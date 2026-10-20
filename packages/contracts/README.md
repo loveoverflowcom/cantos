@@ -14,7 +14,7 @@ required Rust/PostgreSQL execution is **NOT_RUN** in its implementation environm
 
 This directory owns versioned interchange descriptions and representative fixtures. Script IR
 `0.1.0` has a hand-authored [JSON Schema](schema/script-ir/0.1.0.schema.json), a
-[Rust reader and semantic validator](../../services/cantos-api/src/script_ir/mod.rs), and
+[Rust reader and semantic validator](../../services/cantos-server/src/script_ir/mod.rs), and
 [Vietnamese fixtures](fixtures/script-ir/0.1.0). This implements the contract part of
 [#1](https://github.com/loveoverflowcom/cantos/issues/1). The [Studio v1 contract](studio-v1.md)
 now serves the Axum/PostgreSQL store and Leptos consumer through shared raw Rust DTOs,
@@ -185,7 +185,7 @@ Rust byte reader rejects both. Serde's default recursion limit remains enabled.
 Draft admission trims and collapses the frozen Unicode White_Space set to ASCII space (C1 NEL
 is rejected), removes U+200B/U+FEFF/U+00AD, then applies NFC using Unicode 16.0.0 tables. Tabs
 and line breaks become spaces. Other C0/C1 controls and the explicit invisible/format ranges in
-[the validator](../../services/cantos-api/src/script_ir/validation.rs) are rejected. This bounded admission
+[the validator](../../services/cantos-server/src/script_ir/validation.rs) are rejected. This bounded admission
 profile is not an exhaustive Unicode security filter. NFC preserves punctuation and tone
 placement: `hòa` and `hoà` remain distinct. Source bytes are kept outside Git and never normalized.
 

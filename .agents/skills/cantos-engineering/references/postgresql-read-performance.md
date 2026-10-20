@@ -11,13 +11,13 @@
 ## Reality, terminology and authority
 
 At reviewed baseline `cccb547c08585e1266e26b2b07ead3a2c887697e`, PostgreSQL is authoritative
-and `dbsp` 0.198.0 is optional behind `dbsp-experimental` in `cantos-api`. Its original TTS job
+and `dbsp` 0.198.0 is optional behind `dbsp-experimental` in `cantos-server`. Its original TTS job
 summary consumer was retired under [ADR 0018](../../../../docs/decisions/0018-external-audio-production.md).
 The remaining grouped-count sample and `cargo xtask verify dbsp` are not a live production
 read model or a Turso connector. Reinspect the checkout, lockfile, feature graph and current
 [platform review](../../../../docs/evidence/dbsp-platform-review.md) before proposing reuse.
 
-The sample at `services/cantos-api/src/platform/incremental` contains signed changes/counts
+The sample at `services/cantos-server/src/platform/incremental` contains signed changes/counts
 and pure freshness decisions, but its committed-position explanation uses PostgreSQL
 `xid8`, `xmin` and snapshot coverage. These assumptions do not become valid for Turso by
 renaming a field or using an AUTOINCREMENT row ID. The prior feed/migrations/benchmark were

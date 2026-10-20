@@ -112,7 +112,7 @@ its original meaning and is never synthesized from ownership.
 With the seed complete, only the Theatre context can serve it without the full fixture record:
 
 ```bash
-CANTOS_TEST_CONTEXT=theatre cargo xtask run cantos-api --test-cluster \
+CANTOS_TEST_CONTEXT=theatre cargo xtask run cantos-server --test-cluster \
   --web-origin http://127.0.0.1:8082
 ```
 
@@ -225,7 +225,7 @@ ownership-only environment requires a new seed before Theatre startup.
 Run this only for a specifically authorized environment. The operator supplies an existing
 loopback/socket app-role URL (or a separately established local tunnel), a valid Studio session
 and a registered synthetic rights evidence ID owned by that actor. The named lane defaults to
-`__Secure-cantos_studio`, matching secure [Studio OIDC session naming](../../services/cantos-api/src/platform/studio_oidc/mod.rs).
+`__Secure-cantos_studio`, matching secure [Studio OIDC session naming](../../services/cantos-server/src/platform/studio_oidc/mod.rs).
 Use `--studio-cookie-name cantos_session` only when the selected server explicitly uses the
 insecure development spelling. These are the only admitted names; the tool sends exactly one
 configured cookie and never retries with another spelling after an authentication failure.

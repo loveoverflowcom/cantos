@@ -546,7 +546,7 @@ bootstrap() {
   provision_database
   systemctl start cantos-kanidm.service cantos-edge.service
   systemctl enable --now cantos-backup.timer >/dev/null
-  log "bootstrap complete; deploy an API image with: cargo xtask deploy vps cantos-api"
+  log "bootstrap complete; deploy an API image with: cargo xtask deploy vps cantos-server"
 }
 
 # ----------------------------------------------------------------------------------- backup

@@ -64,9 +64,9 @@ that helper on `PATH` as well as the Cargo cache; the Mac run used
 The [performance audit](../../../docs/evidence/web-performance-patterns.md) records measurement
 limits and deferred editor/SSR/splitting experiments. The inventory does not measure browser
 startup or change the existing private/session cache boundary.
-Serve the built files with the local Axum host, using the [isolated database runner](../../../services/cantos-api/README.md).
+Serve the built files with the local Axum host, using the [isolated database runner](../../../services/cantos-server/README.md).
 The actual walkthrough used `python3 scripts/serve_studio.py` at `http://127.0.0.1:8080`; today
-`cargo xtask run cantos-api --test-cluster` starts that same primitive after
+`cargo xtask run cantos-server --test-cluster` starts that same primitive after
 `cargo xtask verify postgres --keep`.
 
 `Trunk.toml` also declares an optional 8081 development proxy to 8080.

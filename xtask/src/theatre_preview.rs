@@ -196,7 +196,7 @@ mod tests {
                     || arg.contains("cantos.ios")
                     || arg.contains("cantos.native")
                     || arg.contains("kotlin.native.home")
-                    || arg.contains("cantos-api")
+                    || arg.contains("cantos-server")
                     || arg.contains("cantos-studio")
                     || arg.contains("wrapper"))
             );

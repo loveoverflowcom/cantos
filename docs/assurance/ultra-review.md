@@ -128,7 +128,7 @@ identified above. Counts below overlap and must not be summed as an all-green ru
 
 | Executed command / scope | Actual result |
 | --- | --- |
-| `cargo test --locked -p cantos-api` | PASS: 311 executable + 10 doc barriers; 136 ignored executable cases. |
+| `cargo test --locked -p cantos-server` | PASS: 311 executable + 10 doc barriers; 136 ignored executable cases. |
 | `cargo test --locked -p cantos-studio -p cantos-theatre -p cantos-ui` | PASS: Studio 166 + 1 doc, Theatre 86 + 3 doc, UI 51 + 2 doc; zero ignored. |
 | `cargo xtask verify contracts` | PASS: all four gates, including 61 contract cases and actual synthetic-byte WAV/Opus inspection. |
 | `cargo xtask verify dbsp` | PASS: 326 executed, 136 ignored; real experimental circuit and API doc barriers, not a live integration. |

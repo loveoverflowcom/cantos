@@ -397,7 +397,7 @@ A code comment saying "this never triggers TTS" is `documented`; only the test i
 ## Testing ladder for a listener endpoint
 
 1. Pure decisions with exact error variants: access, visibility projection, cursor decoding
-   (`cargo test -p cantos-api --lib contexts::listening`, plus the `--doc` compile-fail barriers).
+   (`cargo test -p cantos-server --lib contexts::listening`, plus the `--doc` compile-fail barriers).
 2. Fixtures decoded and re-encoded by Rust wire types (`cargo xtask verify contracts`); Kotlin
    and regenerate-and-diff are proposed.
 3. Handler tests against real PostgreSQL: visibility matrix, denials, exact code and status,

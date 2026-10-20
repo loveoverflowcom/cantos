@@ -67,7 +67,7 @@ separate task through [`cantos-work-item`](../cantos-work-item/SKILL.md) or the 
 ## Repository reality
 
 Read the current [repository layout](../../../docs/architecture/repository-layout.md),
-[API guide](../../../services/cantos-api/README.md), [Forge guide](../../../services/cantos-forge-functions/README.md)
+[API guide](../../../services/cantos-server/README.md), [Forge guide](../../../services/cantos-forge-functions/README.md)
 and affected [Web](../../../apps/cantos-theatre/web/README.md) or
 [Mobile](../../../apps/cantos-theatre/mobile/README.md) implementation boundary before selecting
 review targets. These owners distinguish implemented production adapters, isolated previews and

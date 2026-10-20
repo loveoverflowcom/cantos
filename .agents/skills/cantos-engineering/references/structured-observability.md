@@ -9,7 +9,7 @@
 
 ## Repository reality
 
-**These conventions are proposed. None is enforced by a tool.** Today `cantos-api` has no
+**These conventions are proposed. None is enforced by a tool.** Today `cantos-server` has no
 `tracing`, `tracing-subscriber`, request ID, metric or trace pipeline. `cantos-server` writes a
 few plain stderr lines; the CLIs (`validate-script`, `inspect-wav`, `diff-script`) write data
 to stdout and errors to stderr; xtask prints `==> <step>` headers and a summary table; runners
@@ -88,7 +88,7 @@ when one exists; they do not invent a parallel vocabulary. Their reducers never 
 | Field | Contract |
 |---|---|
 | Level / scope | MUST for any filter or level change |
-| Rule / rationale | The default level is `INFO`. Raise detail per module and per process for an investigation, for example `RUST_LOG=warn,cantos_api::contexts::media=debug` once `tracing` with an environment filter exists, with JSON output for machine reading. Never commit a raised default or require debug output for correctness. |
+| Rule / rationale | The default level is `INFO`. Raise detail per module and per process for an investigation, for example `RUST_LOG=warn,cantos_server::contexts::media=debug` once `tracing` with an environment filter exists, with JSON output for machine reading. Never commit a raised default or require debug output for correctness. |
 | Good / counterexample | a one-command environment variable during a diagnosis vs. `debug` persisted in `.cargo/config.toml`, a service manifest or CI |
 | Oracle / enforcement | review of configuration diffs; manual |
 | Exception | none |

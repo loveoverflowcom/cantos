@@ -77,7 +77,7 @@ impl Manifest {
             "unsupported service manifest version"
         );
         let expected = [
-            ("cantos-api", Runtime::Native),
+            ("cantos-server", Runtime::Native),
             ("kanidm", Runtime::Podman),
             ("object-storage", Runtime::External),
             ("postgresql", Runtime::Podman),
@@ -138,8 +138,8 @@ impl Manifest {
             manifest.visit(name, &mut Vec::new())?;
         }
         ensure!(
-            manifest.service("cantos-api")?.required_dependencies == ["postgresql"],
-            "cantos-api must require PostgreSQL only"
+            manifest.service("cantos-server")?.required_dependencies == ["postgresql"],
+            "cantos-server must require PostgreSQL only"
         );
         ensure!(
             manifest

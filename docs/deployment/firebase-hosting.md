@@ -171,7 +171,7 @@ cargo xtask deploy firebase cantos-studio --web --project "$PROJECT_ID" --channe
 - `--expires` (`30m`, `12h`, `7d`; at most `30d`) applies only to preview channels. Without it the
   CLI's default of 7 days applies to a new channel, and an existing channel is extended to at least
   that. It is refused with `--channel live`.
-- Targets other than the two Web apps (`cantos-api`, `cantos-forge`, `all`, mobile) are rejected
+- Targets other than the two Web apps (`cantos-server`, `cantos-forge`, `all`, mobile) are rejected
   before anything runs. There is no `--no-build`, artifact path, deploy-all, automatic promotion or
   automatic rollback.
 

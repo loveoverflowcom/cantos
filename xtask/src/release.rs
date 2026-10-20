@@ -261,7 +261,14 @@ mod tests {
 
     #[test]
     fn artifact_input_requires_exact_manifest_digest_and_source_and_never_accepts_a_dist_bypass() {
-        let base = ["xtask", "deploy", "vps", "cantos-api", "--host", "root@h"];
+        let base = [
+            "xtask",
+            "deploy",
+            "vps",
+            "cantos-server",
+            "--host",
+            "root@h",
+        ];
         for suffix in [
             vec!["--release-manifest", "manifest.json"],
             vec!["--release-sha", "a"],

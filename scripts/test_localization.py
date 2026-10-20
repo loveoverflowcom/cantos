@@ -246,7 +246,7 @@ class LocalizationRegressionTest(unittest.TestCase):
         self.assertIn("fetch-depth: 2", repository)
 
     def test_scopes_exclude_backend_and_studio_mobile(self):
-        self.assertFalse(checks.in_scope("services/cantos-api/src/main.rs"))
+        self.assertFalse(checks.in_scope("services/cantos-server/src/main.rs"))
         self.assertFalse(checks.in_scope("apps/cantos-studio/mobile/Example.kt"))
         self.assertTrue(checks.in_scope(WEB))
         self.assertTrue(checks.in_scope("packages/ui-system/leptos/preview/main.rs"))

@@ -330,7 +330,7 @@ mod tests {
         assert_eq!(leptos.len(), 3);
         assert!(!leptos
             .iter()
-            .any(|line| line.contains("cantos-api") || line.contains("postgres")));
+            .any(|line| line.contains("cantos-server") || line.contains("postgres")));
     }
 
     #[test]

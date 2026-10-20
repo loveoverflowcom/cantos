@@ -70,7 +70,7 @@ class BenchmarkTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes((bench.ROOT / relative).read_bytes())
-            schema_source = root / "services/cantos-api/src/platform/postgres/migrations.rs"
+            schema_source = root / "services/cantos-server/src/platform/postgres/migrations.rs"
             schema_source.write_text(schema_source.read_text() + '\nlet unrelated = "line one\nline two";\n')
             with patch.object(bench, "ROOT", root):
                 self.assertEqual(bench.source_queries(), expected)

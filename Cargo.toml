@@ -1,5 +1,5 @@
 [workspace]
-members = ["services/cantos-api", "services/cantos-forge-functions", "apps/cantos-theatre/web", "apps/cantos-studio/web", "packages/contracts/api", "packages/web-auth", "packages/ui-system/leptos", "xtask"]
+members = ["services/cantos-server", "services/cantos-forge-functions", "apps/cantos-theatre/web", "apps/cantos-studio/web", "packages/contracts/api", "packages/web-auth", "packages/ui-system/leptos", "xtask"]
 resolver = "3"
 
 [profile.dev]

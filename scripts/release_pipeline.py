@@ -200,7 +200,7 @@ def promote(root, transfer, component):
     try:
         if component == "api":
             host = os.environ["VPS_USER"] + "@" + os.environ["VPS_HOST"]
-            argv = ["cargo", "xtask", "deploy", "vps", "cantos-api", "--host", host,
+            argv = ["cargo", "xtask", "deploy", "vps", "cantos-server", "--host", host,
                     "--smoke-origin", request["api_origin"], *artifact]
         else:
             # Web-only releases require a healthy compatible API, never an implicit API deploy.
@@ -350,7 +350,7 @@ def deploy_api(root, args):
         contract.write_new(run_dir / "receipt.json", receipt)
         print("API component receipt: " + str(run_dir / "receipt.json"))
         if receipt["activation"] == "unknown":
-            print("Remote result unknown: run cargo xtask deploy vps cantos-api --host " + args.host + " --status and inspect retained incoming state before retrying.")
+            print("Remote result unknown: run cargo xtask deploy vps cantos-server --host " + args.host + " --status and inspect retained incoming state before retrying.")
 
 
 def main():

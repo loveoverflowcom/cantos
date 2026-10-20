@@ -11,7 +11,7 @@ records a later private-access failure separately; **full Long Vân acceptance r
 
 Delivers:
 
-- a non-secret [Long Vân profile](../../services/cantos-api/config/storage.longvan.example.toml)
+- a non-secret [Long Vân profile](../../services/cantos-server/config/storage.longvan.example.toml)
   that the production configuration parser accepts (unit-tested) and that declares no
   unaccepted capability beyond the two the active write target requires;
 - an operator-run live-acceptance harness over the **production** S3 adapter, with a redacted

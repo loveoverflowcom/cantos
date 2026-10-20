@@ -4,7 +4,7 @@
 
 Status: implemented local sample probe and inspection contract, not a production synthesis or
 audio-ingestion API.
-Rust decoding and [tests](https://github.com/loveoverflowcom/cantos/blob/2de8c69/services/cantos-api/tests/tts_receipt.rs) own this experimental file shape;
+Rust decoding and [tests](https://github.com/loveoverflowcom/cantos/blob/2de8c69/services/cantos-server/tests/tts_receipt.rs) own this experimental file shape;
 no HTTP route, shared DTO, database receipt or JSON Schema is added. The user selected local
 TTS for [#6](https://github.com/loveoverflowcom/cantos/issues/6). The concrete eSpeak NG 1.52.0
 probe retains private file records; commercial selection/terms/budget and its live sample are

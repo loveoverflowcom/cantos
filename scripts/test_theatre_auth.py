@@ -228,7 +228,7 @@ def run_isolated(environment):
             checked(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c",
                      "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE;"], owned_env)
             # Exact named cfg(test) fixture, not a test executable/URL supplied by the caller.
-            output = checked(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline",
+            output = checked(["cargo", "test", "-p", "cantos-server", "--lib", "--locked", "--offline",
                               TEST, "--", "--ignored", "--exact", "--test-threads=1"], owned_env, 1200)
             return passing_test_count(output)
         finally:

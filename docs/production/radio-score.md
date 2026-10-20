@@ -143,8 +143,8 @@ both the active map and snapshots.
 
 ## Map intent to the implemented contract
 
-The [Rust reader and validator](../../services/cantos-api/src/script_ir/mod.rs), with its
-[wire definitions](../../services/cantos-api/src/script_ir/wire.rs), is authoritative for semantic
+The [Rust reader and validator](../../services/cantos-server/src/script_ir/mod.rs), with its
+[wire definitions](../../services/cantos-server/src/script_ir/wire.rs), is authoritative for semantic
 acceptance. JSON Schema validation alone is insufficient.
 
 | Authoring intent | Admitted representation | Review obligation |
@@ -204,7 +204,7 @@ Do not add them to the JSON schema.
 `rights_record_id` references. These are not Drive file IDs, URLs or rights-status strings.
 The [Studio revision API](../../packages/contracts/studio-v1.md) resolves every external reference against
 an immutable owner-scoped evidence registry and preserves the complete provenance document.
-Use the [operator tools](../../services/cantos-api/README.md#editorial-handoff-and-operator-tools) to
+Use the [operator tools](../../services/cantos-server/README.md#editorial-handoff-and-operator-tools) to
 record preserved source text and register rights assertions before saving. Registry ownership,
 storage acceptance and editorial review do not establish production or publication eligibility.
 

@@ -137,8 +137,8 @@ does not establish that capability or provider retention.
 ## Checked configuration and switching
 
 `CANTOS_STORAGE_CONFIG` is an absolute path to a non-secret TOML topology. The
-[example](../../services/cantos-api/config/storage.example.toml) and
-[API guide](../../services/cantos-api/README.md#private-audio-storage) describe setup.
+[example](../../services/cantos-server/config/storage.example.toml) and
+[API guide](../../services/cantos-server/README.md#private-audio-storage) describe setup.
 The existing `CANTOS_AUDIO_ROOT` setting selects `legacy-filesystem`. Setting both is a
 startup error. Leaving both unset preserves existing editorial/static behavior and makes
 private audio storage unavailable. Either storage setting disables same-process static serving;
@@ -265,7 +265,7 @@ locations do not cross it. Theatre cannot reuse Studio cookies/handlers or invok
 | Publication | Separate release core; delivery gated | Not implied by private S3 intake | Separate manifest/identity/isolation/delivery acceptance under #11/#12/#170 |
 
 Long Vân, R2 and B2 are configuration targets, not domain variants. This slice has no live
-acceptance for any of them. The [Long Vân profile](../../services/cantos-api/config/storage.longvan.example.toml)
+acceptance for any of them. The [Long Vân profile](../../services/cantos-server/config/storage.longvan.example.toml)
 and the operator-run live-acceptance harness are recorded in the
 [Long Vân evidence](../evidence/longvan-s3-acceptance.md); until that harness passes against the
 real account, the profile is a declaration, not acceptance. A one-bucket plan that cannot isolate future publication policy

@@ -10,7 +10,7 @@ description: >-
 # Cantos external audio producer
 
 **Run this skill in the AI host/plugin or producer's workstation, never inside
-`services/cantos-api`.** Cantos is a CMS, instruction source and publication authority.
+`services/cantos-server`.** Cantos is a CMS, instruction source and publication authority.
 [ADR 0018](../../../docs/decisions/0018-external-audio-production.md) and the
 [handoff contract](../../../packages/contracts/external-audio-handoff-v1.md) are authoritative.
 The API contract is **proposed**, not yet implemented: do not fabricate endpoints, pretend a

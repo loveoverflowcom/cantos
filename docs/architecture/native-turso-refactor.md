@@ -16,6 +16,14 @@ Kanidm supplies authentication, and the VPS uses container-oriented assets with 
 Studio and Theatre API processes. The HTTP adapter is already `adapters/inbound/http` after
 PR #329. Re-read actual source before implementation; do not restore obsolete HTTP ownership.
 
+**Implemented by #332 (checkpoint 1/5):** the crate, directory, workspace entry, lockfile
+entry, xtask selectors, build scripts, guards and active documents now say `cantos-server`
+(`services/cantos-server`). The deployed legacy VPS runtime keeps its operational names
+(Quadlet units, container and image names, release bundle file name, Caddy snippet) until the
+operator-authorized cutover of #336; see the
+[rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api). Everything
+else in this record remains a target, not implemented behavior.
+
 The integration branch is `refactor/cantos-native-turso`, with reviewable commits/checkpoints
 and a final integrated PR to `develop`. Do not merge an incompatible intermediate rename,
 schema or authentication cutover. Preserve other worktrees and reconcile concurrent work.

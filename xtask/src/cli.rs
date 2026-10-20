@@ -88,7 +88,7 @@ pub enum Task {
         /// Optimized local artifact (cargo/trunk --release); not a production image.
         #[arg(long)]
         release: bool,
-        /// cantos-api only: compile the opt-in experimental DBSP incremental core.
+        /// cantos-server only: compile the opt-in experimental DBSP incremental core.
         #[arg(long)]
         dbsp_experimental: bool,
     },
@@ -233,11 +233,11 @@ pub enum VerifySuite {
     Contracts,
     /// Bounded Script IR validator/encoder mutations on a disposable copy (offline Cargo).
     Mutation,
-    /// clippy and every cantos-api test with the experimental DBSP incremental core compiled in.
+    /// clippy and every cantos-server test with the experimental DBSP incremental core compiled in.
     Dbsp,
     /// PostgreSQL integration and restart tests in a new disposable cluster.
     Postgres {
-        /// Retain the cluster for `run cantos-api --test-cluster`; the stop command is printed.
+        /// Retain the cluster for `run cantos-server --test-cluster`; the stop command is printed.
         #[arg(long)]
         keep: bool,
         /// Explicit narrow acceptance; omission runs the complete PostgreSQL gate.
@@ -446,9 +446,9 @@ mod tests {
     #[test]
     fn parses_the_target_interface() {
         assert!(matches!(
-            parse("build cantos-api").unwrap(),
+            parse("build cantos-server").unwrap(),
             Task::Build {
-                target: BuildTarget::CantosApi,
+                target: BuildTarget::CantosServer,
                 release: false,
                 ..
             }
@@ -463,9 +463,9 @@ mod tests {
             }
         ));
         assert!(matches!(
-            parse("build cantos-api --dbsp-experimental").unwrap(),
+            parse("build cantos-server --dbsp-experimental").unwrap(),
             Task::Build {
-                target: BuildTarget::CantosApi,
+                target: BuildTarget::CantosServer,
                 dbsp_experimental: true,
                 ..
             }
@@ -493,9 +493,9 @@ mod tests {
             }
         ));
         assert!(matches!(
-            parse("run cantos-api --test-cluster").unwrap(),
+            parse("run cantos-server --test-cluster").unwrap(),
             Task::Run {
-                target: RunTarget::CantosApi,
+                target: RunTarget::CantosServer,
                 test_cluster: true,
                 ..
             }
@@ -750,7 +750,7 @@ mod tests {
             "distribute firebase cantos-theatre --groups g",
             "distribute firebase cantos-theatre --channel nightly --groups g",
             "distribute firebase cantos-studio --channel demo --groups g",
-            "distribute firebase cantos-api --channel demo --groups g",
+            "distribute firebase cantos-server --channel demo --groups g",
             "distribute firebase cantos-theatre --channel demo --artifact ipa --groups g",
             "distribute firebase cantos-theatre --channel demo --groups g --release-notes a --release-notes-file b",
             "distribute firebase cantos-theatre --channel demo --groups g --no-build",
@@ -785,7 +785,7 @@ mod tests {
             "build cantos-studio --web --mobile",
             "build cantos-web",
             "run all",
-            "app cantos-api",
+            "app cantos-server",
             "preflight --skip everything",
             "ci --job deploy",
             "verify",

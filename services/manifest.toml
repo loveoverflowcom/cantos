@@ -1,7 +1,7 @@
 # Process inventory, schema 1. No credentials or host-specific paths belong here.
 version = 1
 
-[services.cantos-api]
+[services.cantos-server]
 runtime = "native"
 implementation = "implemented"
 owner = "Cantos backend maintainers"
@@ -13,7 +13,7 @@ environment = ["DATABASE_URL", "CANTOS_ENV", "CANTOS_BIND", "CANTOS_AUDIO_ROOT",
 ports = [8080]
 health = "Native run checks TCP readiness; no identity or publication readiness implied"
 persistence = "PostgreSQL metadata; explicit private development audio root"
-lifecycle = "cargo xtask run cantos-api owns only its foreground process group"
+lifecycle = "cargo xtask run cantos-server owns only its foreground process group"
 
 [services.postgresql]
 runtime = "podman"

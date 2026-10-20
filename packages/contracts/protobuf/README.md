@@ -6,7 +6,7 @@ Existing Serde DTOs in `api/src/lib.rs` remain the application/JSON contract.
 
 ## Inventory and conversion table
 
-Inspected develop `b09c180`; `services/cantos-api/src/interfaces/http/studio/mod.rs` mounts the
+Inspected develop `b09c180`; `services/cantos-server/src/interfaces/http/studio/mod.rs` mounts the
 same handlers at `/api/v1/studio` and legacy `/api/v1` (legacy adds deprecation headers).
 
 | Existing route (both mounts) | Request message | Success message |
@@ -112,7 +112,7 @@ Test-only unencodable DTOs must explicitly implement ProtobufDto if using pilot 
 | Commit / worker | Exclusive edits |
 | --- | --- |
 | C1 A | packages/contracts/api/**; packages/contracts/fixtures/protobuf/**; scripts/reference_protobuf.py; scripts/test_reference_protobuf.py; scripts/protobuf-oracle/** |
-| C2 B | services/cantos-api/src/interfaces/http/**; services/cantos-api/tests/** |
+| C2 B | services/cantos-server/src/interfaces/http/**; services/cantos-server/tests/** |
 | C3 C | apps/cantos-studio/web/** |
 | C4 D | apps/cantos-theatre/mobile/** |
 | C5 integrator | shared root Cargo.lock, Gradle lock reconciliation, xtask/CI selectors, architecture/skills/work queue/evidence/rollout documentation |

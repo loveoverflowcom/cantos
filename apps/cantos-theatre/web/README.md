@@ -360,7 +360,7 @@ To reuse an already-running API, use separate terminals. The API terminal requir
 operator-prepared `DATABASE_URL` (or its retained test-cluster option):
 
 ```sh
-cargo xtask run cantos-api --web-origin http://127.0.0.1:8082
+cargo xtask run cantos-server --web-origin http://127.0.0.1:8082
 cargo xtask app cantos-theatre --web
 ```
 

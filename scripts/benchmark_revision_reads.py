@@ -82,15 +82,15 @@ def make_document(dialogues):
 
 # Every Rust file that owns a query on the revision read path.
 REVISION_READ_SOURCES = (
-    "services/cantos-api/src/platform/postgres/session.rs",
-    "services/cantos-api/src/platform/postgres/migrations.rs",
-    "services/cantos-api/src/contexts/editorial/postgres.rs",
+    "services/cantos-server/src/platform/postgres/session.rs",
+    "services/cantos-server/src/platform/postgres/migrations.rs",
+    "services/cantos-server/src/contexts/editorial/postgres.rs",
 )
 
 # HTTP policy/wiring moved out of mod.rs; keep future measurements attributable to the
 # actual request path without rewriting any historical benchmark report/hash inventory.
 REVISION_HTTP_SOURCES = tuple(
-    "services/cantos-api/src/adapters/inbound/http/" + path for path in (
+    "services/cantos-server/src/adapters/inbound/http/" + path for path in (
         "mod.rs", "assembly.rs", "router.rs", "state.rs", "policy.rs", "errors.rs",
         "studio/mod.rs", "studio/admission.rs", "studio/editorial.rs", "wire.rs",
     )
@@ -557,7 +557,7 @@ def main():
         raise RuntimeError("resource budget: less than 5 GiB disk free")
     output = OUTPUT / f"run-{time.time_ns()}"
     output.mkdir(parents=True)
-    run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"])
+    run(["cargo", "build", "-p", "cantos-server", "--bins", "--locked", "--offline"])
     benchmark = Benchmark(output, args)
     report = {"source_sha": run(["git", "rev-parse", "HEAD"]),
               "dirty_paths": run(["git", "status", "--porcelain"]), "args": vars(args),
@@ -567,8 +567,8 @@ def main():
               "query_hashes": {key: hashlib.sha256(query.encode()).hexdigest() for key, query in benchmark.queries.items()},
               "source_hashes": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in
                                 (*REVISION_READ_SOURCES, *REVISION_HTTP_SOURCES,
-                                 "services/cantos-api/src/application.rs",
-                                 "services/cantos-api/schema/0001_current.sql", "scripts/benchmark_revision_reads.py")},
+                                 "services/cantos-server/src/application.rs",
+                                 "services/cantos-server/schema/0001_current.sql", "scripts/benchmark_revision_reads.py")},
               "candidate": CANDIDATE, "results": benchmark.results, "phases": []}
     try:
         benchmark.start()

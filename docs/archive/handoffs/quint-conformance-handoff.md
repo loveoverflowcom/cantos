@@ -16,7 +16,7 @@ wider API/Leptos/CMP scenarios stay deferred. GitHub owns execution status.
 
 Consume stable capability `cantos.media.private-audio-admission` and its catalog property/run/
 witness IDs. Add a **test-only observation adapter** calling the existing production functions
-in [Media lifecycle](../../../services/cantos-api/src/contexts/media/domain/lifecycle.rs):
+in [Media lifecycle](../../../services/cantos-server/src/contexts/media/domain/lifecycle.rs):
 
 - `decide_admission(&AudioSubmission, now, revoked, current, sha256, length, Option<&AudioRendition>)`
   returns exact `AdmissionDecision::{Inspect, Replay}` or `AudioError`.
@@ -26,7 +26,7 @@ in [Media lifecycle](../../../services/cantos-api/src/contexts/media/domain/life
 - The separate `transition(state, SubmissionEvent)` matrix stays native and may receive an
   explicitly scoped conformance extension only after its distinct event semantics are modeled.
 
-Put tests beside [lifecycle_tests.rs](../../../services/cantos-api/src/contexts/media/lifecycle_tests.rs)
+Put tests beside [lifecycle_tests.rs](../../../services/cantos-server/src/contexts/media/lifecycle_tests.rs)
 so the crate-visible constructor remains private. Call actual production decisions at every
 Begin/Complete event checkpoint. Named test assertions are marked `Assertion`/`NoOutcome`:
 preserve and compare those no-effect checkpoints without reapplying the preceding operation
@@ -86,7 +86,7 @@ in PR 117; current integrated results belong in the PR ledger.
 ## PR B implementation checkpoint
 
 The [observation protocol](../../../specs/behavior/observation-protocol.md), registered test-only
-[observer](../../../services/cantos-api/src/contexts/media/quint_conformance_tests.rs) and
+[observer](../../../services/cantos-server/src/contexts/media/quint_conformance_tests.rs) and
 [`--conformance` primitive](../../../scripts/verify_behavior_conformance.py) implement the bounded
 pure-core handoff. [Evidence](../../evidence/quint-code-conformance.md) records executed scope
 and residual acceptance. No production semantics or API/Protobuf/database fields changed.

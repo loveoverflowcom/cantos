@@ -1,7 +1,7 @@
 # Applications
 
 Two products: Cantos Theatre supports Web and Mobile; Cantos Studio supports Web only. They share contracts and design tokens from
-[`packages/`](../packages/README.md) and talk to [`services/cantos-api`](../services/cantos-api/README.md)
+[`packages/`](../packages/README.md) and talk to [`services/cantos-server`](../services/cantos-server/README.md)
 over HTTP; they never import each other. See the
 [repository layout](../docs/architecture/repository-layout.md).
 

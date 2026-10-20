@@ -174,7 +174,7 @@ originals (1 MiB) and Script IR exports (2 MiB) remain in PostgreSQL under their
 `CANTOS_AUDIO_ROOT` retains legacy development behavior; `CANTOS_STORAGE_CONFIG` selects
 strict non-secret version-1 TOML and is mutually exclusive with it. Historical target IDs and
 locations must remain configured and stable. Changing the active write target performs no copy.
-See the [configuration example](../../services/cantos-api/config/storage.example.toml),
+See the [configuration example](../../services/cantos-server/config/storage.example.toml),
 [read routes and wire behavior](../../packages/contracts/private-content-reads-v1.md) and
 [architecture/provider security matrix](../architecture/object-storage.md).
 
