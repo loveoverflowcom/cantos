@@ -215,8 +215,10 @@ class AuthAccountUiTest {
         openLoginFromAccount()
         val back = onNodeWithTag("back").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val theme = onNodeWithTag("auth-theme").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        // Large text wraps Back's label; it never squeezes the toggle below its 48dp control size.
-        assertTrue(back.left >= 0f && back.right <= theme.left)
+        val logo = onNodeWithTag("header-title").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        // Back is icon-only: it keeps a 48dp touch target, and the logo sits beside it, never dropped.
+        assertTrue(back.width >= 48f * density.density - 1f && back.height >= 48f * density.density - 1f)
+        assertTrue(back.left >= 0f && back.right <= logo.left && logo.right <= theme.left)
         assertTrue(theme.right <= 320f * density.density)
         assertTrue(theme.width >= 48f * density.density - 1f && theme.height >= 48f * density.density - 1f)
         onNodeWithTag("login-primary").performScrollTo().assertIsDisplayed()

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -14,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -40,7 +40,6 @@ import com.cantos.ui.Surface
 import com.cantos.ui.SurfaceTone
 import com.cantos.ui.SurfaceVariant
 import com.cantos.ui.tokenDp
-import androidx.compose.ui.unit.Dp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import com.cantos.ui.rememberCantosIconVector
@@ -89,48 +88,28 @@ fun AuthHeader(
     modifier: Modifier = Modifier,
 ) {
     val copy = AuthCopy(locale)
-    AuthHeaderLayout(
+    Row(
         modifier.fillMaxWidth().padding(horizontal = tokenDp("space.section"), vertical = tokenDp("space.sm")),
-        gap = tokenDp("space.inset"),
-        minLogo = tokenDp("size.authLogo") / 2,
+        horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset")),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Back is icon-only so a long destination label can never squeeze the logo; the full
+        // localized destination stays in its accessible name.
         BackButton(
             AccessibleName.of(copy.text(destination.label)), { onIntent(AuthIntent.Back) },
-            iconOnly = false, controlModifier = Modifier.testTag("back"),
+            iconOnly = true, controlModifier = Modifier.testTag("back"),
         )
         Logo(
             modifier = Modifier.width(tokenDp("size.authLogo")).heightIn(max = tokenDp("size.backControl")).testTag("header-title"),
             tone = if (theme == ShellTheme.Dark) LogoTone.Dark else LogoTone.Light,
             accessibleName = AccessibleName.of(copy.text(AuthText.Brand)),
         )
+        Spacer(Modifier.weight(1f))
         IconButton(onClick = { onIntent(AuthIntent.ToggleTheme) }, modifier = Modifier.size(tokenDp("size.backControl")).testTag("auth-theme")) {
             Icon(
                 if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
                 contentDescription = copy.text(AuthText.ToggleTheme),
             )
-        }
-    }
-}
-
-/**
- * Children are Back, the brand logo and the theme toggle, in priority order: the toggle keeps its
- * size, Back takes what remains and wraps its label, and the decorative logo appears only in the
- * space left over, so large text can never squeeze a control away.
- */
-@Composable
-private fun AuthHeaderLayout(modifier: Modifier, gap: Dp, minLogo: Dp, content: @Composable () -> Unit) {
-    Layout(content, modifier) { measurables, constraints ->
-        val gapPx = gap.roundToPx()
-        val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val theme = measurables[2].measure(loose)
-        val back = measurables[0].measure(loose.copy(maxWidth = (constraints.maxWidth - theme.width - gapPx).coerceAtLeast(0)))
-        val room = constraints.maxWidth - back.width - theme.width - 2 * gapPx
-        val logo = if (room >= minLogo.roundToPx()) measurables[1].measure(loose.copy(maxWidth = room)) else null
-        val height = maxOf(back.height, theme.height, logo?.height ?: 0)
-        layout(constraints.maxWidth, height) {
-            back.placeRelative(0, (height - back.height) / 2)
-            theme.placeRelative(constraints.maxWidth - theme.width, (height - theme.height) / 2)
-            logo?.placeRelative(constraints.maxWidth - theme.width - gapPx - logo.width, (height - logo.height) / 2)
         }
     }
 }
