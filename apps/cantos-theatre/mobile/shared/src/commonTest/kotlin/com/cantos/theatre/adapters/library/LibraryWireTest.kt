@@ -5,6 +5,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -40,6 +41,43 @@ class LibraryWireTest {
         assertNull(LibraryCodec.decode<HistoryStart>("HistoryStart", JsonObject(start + ("event" to JsonPrimitive("play_requested"))).toString()))
     }
 
+    private fun bookmark(name: String) = libraryBookmarkFixtures.getValue("$name.json")
+    @Test fun everyBookmarkFixtureUsesGeneratedSchemaAndTypes() {
+        assertEquals(7, libraryBookmarkFixtures.size)
+        fun <T> roundtrip(file: String, value: T?, encode: (T) -> String) {
+            val raw = bookmark(file)
+            assertNotNull(value, "$file must decode")
+            assertEquals(LibraryCodec.json.parseToJsonElement(raw), LibraryCodec.json.parseToJsonElement(encode(value)), "$file roundtrip keeps explicit null")
+        }
+        roundtrip("bookmark_write", LibraryCodec.decode<BookmarkWrite>("BookmarkWrite", bookmark("bookmark_write")), { LibraryCodec.json.encodeToString(it) })
+        roundtrip("bookmark_delete", LibraryCodec.decode<BookmarkDelete>("BookmarkDelete", bookmark("bookmark_delete")), { LibraryCodec.json.encodeToString(it) })
+        for (receipt in listOf("bookmark_accepted", "bookmark_delete_accepted", "bookmark_deleted")) {
+            roundtrip(receipt, LibraryCodec.decode<Receipt>("Receipt", bookmark(receipt)), { LibraryCodec.json.encodeToString(it) })
+        }
+        for (page in listOf("bookmarks", "bookmarks_empty")) {
+            roundtrip(page, LibraryCodec.decode<BookmarkPage>("BookmarkPage", bookmark(page)), { LibraryCodec.json.encodeToString(it) })
+        }
+        val refused = assertNotNull(LibraryCodec.decode<Receipt>("Receipt", bookmark("bookmark_deleted")))
+        assertEquals("bookmark_deleted", refused.outcome)
+        assertEquals("keep_server", refused.resolution)
+        assertTrue(assertIs<MutationState.Bookmark>(refused.state).current.deleted)
+    }
+    @Test fun bookmarkContractIsStrictAboutAuthorityLabelsNullablesAndBounds() {
+        val write = LibraryCodec.json.parseToJsonElement(bookmark("bookmark_write")).jsonObject
+        for (member in listOf("actor_id", "listener_id", "label", "note", "revision")) {
+            assertNull(LibraryCodec.decode<BookmarkWrite>("BookmarkWrite", JsonObject(write + (member to JsonPrimitive("x"))).toString()), member)
+        }
+        assertNull(LibraryCodec.decode<BookmarkWrite>("BookmarkWrite", JsonObject(write - "bookmark_id").toString()))
+        assertNull(LibraryCodec.decode<BookmarkWrite>("BookmarkWrite", JsonObject(write + ("bookmark_id" to JsonPrimitive("NOT-A-UUID"))).toString()))
+        assertNull(LibraryCodec.decode<BookmarkWrite>("BookmarkWrite", JsonObject(write + ("position_ms" to JsonPrimitive(-1))).toString()))
+        val page = LibraryCodec.json.parseToJsonElement(bookmark("bookmarks")).jsonObject
+        val item = page.getValue("items").jsonArray.first().jsonObject
+        assertNull(LibraryCodec.decode<BookmarkPage>("BookmarkPage", JsonObject(page + ("items" to JsonArray(listOf(JsonObject(item - "presentation"))))).toString()), "missing is not null")
+        assertNull(LibraryCodec.decode<BookmarkPage>("BookmarkPage", JsonObject(page + ("items" to JsonArray(List(51) { item }))).toString()), "at most 50 items")
+        val unavailable = assertNotNull(LibraryCodec.decode<BookmarkPage>("BookmarkPage", bookmark("bookmarks")))
+        assertNull(unavailable.items[1].presentation, "an unavailable release keeps the bookmark with null metadata")
+        assertEquals(unavailable.items[0].bookmark.audio, unavailable.items[1].bookmark.audio)
+    }
     private fun presented(name: String) = libraryPresentationFixtures.getValue("$name.json")
     private fun JsonObject.item() = getValue("items").jsonArray.single().jsonObject
     private fun JsonObject.withItem(edit: (JsonObject) -> JsonObject) = JsonObject(this + ("items" to JsonArray(listOf(edit(item()))))).toString()

@@ -2,8 +2,10 @@ package com.cantos.theatre.domain.library
 
 import com.cantos.theatre.domain.playback.AudioIdentity
 
-enum class LibrarySection(val path: String) { Continue("continue"), Saved("saved"), History("history") }
+enum class LibrarySection(val path: String) { Continue("continue"), Saved("saved"), History("history"), Bookmarks("bookmarks") }
 enum class LibrarySync { Pending, Confirmed, Failed }
+/** One bookmark's own sync truth: [Offline] is a pending change the last attempt could not deliver. */
+enum class BookmarkSync { Synced, Pending, Offline, Failed }
 enum class LibraryResume { ExactAvailable, ReleaseReplaced, AccessUnavailable, NeedsRefresh }
 enum class ProgressIntent(val wire: String) { Checkpoint("checkpoint"), ExplicitSeek("explicit_seek"), Restart("restart"), ResolveHere("resolve_here"), ResolveOther("resolve_other"), MarkCompleted("mark_completed") }
 enum class LibraryWorkKind { Novel, Story, Podcast }
@@ -39,6 +41,15 @@ data class HistoryEntry(
     val presentation: LibraryPresentation<LibraryUnitInfo> = LibraryPresentation.Unread,
 )
 
+/**
+ * A release-bound bookmark: the exact [audio] it was made on and a position inside it. [resume] says whether
+ * that exact release can still be opened; a bookmark never names another release, and owning one grants no access.
+ */
+data class BookmarkEntry(
+    val id: String, val audio: AudioIdentity, val positionMs: Long, val resume: LibraryResume, val sync: BookmarkSync,
+    val presentation: LibraryPresentation<LibraryUnitInfo> = LibraryPresentation.Unread,
+)
+
 /** Where one section's own paging stands. A read in one section never changes another's. */
 data class LibrarySectionState(
     /** The first page of this account/session has been applied (so an empty list is truly empty). */
@@ -56,6 +67,8 @@ data class LibraryState(
     val saved: List<SavedEntry> = emptyList(),
     val continueListening: List<ContinueEntry> = emptyList(),
     val history: List<HistoryEntry> = emptyList(),
+    /** Newest first; a change not yet delivered is shown at once and marked, a deleted one is gone. */
+    val bookmarks: List<BookmarkEntry> = emptyList(),
     val cursors: Map<LibrarySection, String?> = emptyMap(),
     val sections: Map<LibrarySection, LibrarySectionState> = emptyMap(),
     val pending: Int = 0,
@@ -63,6 +76,8 @@ data class LibraryState(
     val conflicts: List<LibraryConflict> = emptyList(),
     val restoredPaused: PausedCheckpoint? = null,
     val failure: String? = null,
+    /** The last delivery attempt failed in transport: pending changes wait, they are not lost. */
+    val offline: Boolean = false,
 ) {
     fun section(section: LibrarySection): LibrarySectionState = sections[section] ?: LibrarySectionState()
     /** Any section read in flight; each section's own state is in [sections]. */

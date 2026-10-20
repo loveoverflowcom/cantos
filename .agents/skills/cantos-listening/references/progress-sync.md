@@ -25,7 +25,7 @@ The server half is implemented in `services/cantos-api/src/contexts/listening` u
 [Library v1 contract](../../../../packages/contracts/listener-library-v1.md): pure registers in
 `domain/`, use cases in `application.rs`, PostgreSQL in `postgres.rs` (migration
 `0019_listener_library_progress.sql`). No client sends these mutations yet: the client contract
-below is binding for the future Web/CMP outboxes, and **bookmarks are not implemented**.
+below is binding for the future Web/CMP outboxes. **Bookmarks are implemented** (Library v1.2, #299: API, PostgreSQL and the CMP outbox consumer); Web has no bookmark consumer.
 
 ## What is synchronized
 
@@ -34,7 +34,7 @@ below is binding for the future Web/CMP outboxes, and **bookmarks are not implem
 | Progress | one current register with a server revision and exact `AudioIdentity` | listener + publication (`listener_progress` PK); work, unit, rendition, SHA-256 and duration are immutable per row (trigger) | conditional replacement | implemented |
 | Saved | desired state `saved: bool` with a revision; unsave keeps a `false` record | listener + work | conditional replacement; never a toggle | implemented |
 | History | latest confirmed playback start per work, plus account `history_revision` and `history_epoch` | listener + work; engine-session tombstones per listener + device + session | start, or explicit clear that bumps the epoch | implemented |
-| Bookmark | an immutable value | account + client-generated bookmark ID | create once; delete by tombstone; "move" is delete plus create | proposed |
+| Bookmark | an immutable value | account + client-generated bookmark ID; one device-sequence key `bookmark:<id>` | create once; delete by final tombstone; "move" is delete plus create | implemented |
 
 Progress is a revisioned register, not a counter: a rewind is a legitimate write. Continue is a
 projection of progress registers (`projection::continue_records`), never a second store.
@@ -206,15 +206,15 @@ milliseconds. Rows map to the implemented decision; the domain and application t
 | C14 | r4 by B @15:00 | as C7, with `device_reported_at_ms` one day in the future | identical to C7 | device clocks are context |
 | C15 | none for `pub_9c21` (new release) | A seq 7, `pub_7f3a` (the release it played) | `accepted` under the `pub_7f3a` key if that audio is current-public, else `not_found`; `pub_9c21` untouched | progress is keyed per publication |
 
-## Bookmarks and tombstones (proposed)
+## Bookmarks and tombstones (implemented, #299)
 
-Nothing in this section is implemented. The only tombstones that exist today are
-`listener_playback_sessions` rows (append-only, kept across history clear) and the revisioned
-`saved = false` register. A bookmark would be `{bookmark_id, publication_id, position_ms, created_at}` with a client-generated ID
-(a UUID variant is a candidate), stable across retries. Primary key `(account_id, bookmark_id)`,
-so an ID collision across accounts cannot alias. Deletion writes a tombstone with the same key
-and a change sequence. Clients sync with `GET …/bookmarks?since=<change_seq>`, which returns live
-bookmarks and tombstones in change order.
+A bookmark is `{bookmark_id, exact AudioIdentity, position_ms}` with a client-minted UUID, stable across
+retries; primary key `(listener_id, bookmark_id)`, so an ID collision across accounts cannot alias. Deletion
+writes a final tombstone with the same key, a new `listener_order` and the same exact audio. The contract is
+[Library v1.2](../../../../packages/contracts/listener-library-v1.md#release-bound-bookmarks-v120): there is no
+`since` delta sync; the listing returns **live** bookmarks only (bounded keyset pages, newest first) and the client
+keeps its own record of deletions, so a stale or replayed page can never revive one (I5). Pure core:
+`reconcile_bookmark_create` / `reconcile_bookmark_delete`; the table guard refuses any change except live→tombstone.
 
 | # | Server | Operation | Expected |
 |---|---|---|---|
@@ -223,7 +223,7 @@ bookmarks and tombstones in change order.
 | B3 | `bm-1` live | delete `bm-1` | tombstone, change 42 |
 | B4 | `bm-1` tombstone | the B1 operation replayed from an old outbox | replay of B1's original response; the client's next delta sync applies the tombstone |
 | B5 | `bm-1` tombstone | create `bm-1` with a new operation ID (local restore) | `bookmark_deleted`; no resurrection |
-| B6 | none | delete `bm-9` (never seen by the server) | tombstone; a later create of `bm-9` is refused |
+| B6 | none | delete `bm-9` (never seen by the server) | **`404 not_found`, no receipt, no effect** (decided in #299: a client's outbox is FIFO per bookmark key, so a delete can never overtake its create; a later create of `bm-9` is simply accepted) |
 | B7 | `bm-1` tombstone | delete `bm-1` again | idempotent; tombstone unchanged |
 
 B4 is the subtle one: idempotency correctly replays a response that is no longer the current
@@ -256,8 +256,11 @@ transactional-memory double, `mock-integration-tested` at most), for example
 `end_position_is_not_completion_and_only_explicit_restart_resets_completion`,
 `device_clocks_are_context_and_audio_replacement_never_changes_stored_identity`,
 `ten_identical_retries_have_one_record_one_revision_and_one_receipt_after_restart` and
-`changed_intent_key_and_old_sequence_are_exact_atomic_rejections`. Bookmark rows (B1–B7) have
-no tests because bookmarks do not exist.
+`changed_intent_key_and_old_sequence_are_exact_atomic_rejections`. Bookmark rows B1–B7 are tests in
+`application/tests.rs::bookmarks` (transactional-memory double), `domain/tests.rs::bookmarks` (including the
+property `tombstones_are_final_and_each_id_is_accepted_once_over_arbitrary_schedules`) and, against real
+PostgreSQL, `postgres/tests.rs::bookmarks` (HTTP create/list/delete, restart, pagination, concurrent duplicate,
+replaced/withdrawn release, table guards) plus the CMP production-client harness `cmp_production_client_against_the_real_api`.
 
 ### Interleaving properties
 

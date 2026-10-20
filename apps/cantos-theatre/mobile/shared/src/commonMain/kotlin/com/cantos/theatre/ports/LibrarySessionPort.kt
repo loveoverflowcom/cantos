@@ -16,6 +16,14 @@ interface LibrarySessionPort {
     fun progressCheckpoint(audio: AudioIdentity, positionMs: Long, kind: ProgressIntent = ProgressIntent.Checkpoint, force: Boolean = false)
     fun engineStarted(audio: AudioIdentity, engineSession: String)
     fun clearHistory()
+    /**
+     * Records one release-bound bookmark at [positionMs] of exactly [audio], durably, before any network. The caller
+     * takes both from one snapshot the player owner confirmed. Returns the bookmark's ID, or the existing one when
+     * the same release position is already bookmarked; null when nothing could be recorded.
+     */
+    fun createBookmark(audio: AudioIdentity, positionMs: Long): String?
+    /** Deletes (or, for a bookmark the server never accepted, discards) one bookmark; it never returns. */
+    fun deleteBookmark(id: String)
     fun refresh()
     /** Re-reads one section from its first page; the other sections and their rows are untouched. */
     fun refresh(section: LibrarySection)

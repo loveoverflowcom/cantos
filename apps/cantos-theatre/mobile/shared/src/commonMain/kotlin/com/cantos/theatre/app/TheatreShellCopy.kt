@@ -11,8 +11,8 @@ import com.cantos.theatre.presentation.model.ShellText
 val TheatreShellCopyOverrides: Map<CopyKey, ShellText> = mapOf(
     CopyKey.EpisodesCount to ShellText("{count} tập", "{count} episodes", "{count} episode"),
     CopyKey.LibrarySession to ShellText(
-        "Các tác phẩm đã lưu, điểm nghe và lịch sử nghe của bạn.",
-        "Your saved works, listening positions and listening history.",
+        "Các tác phẩm đã lưu, điểm nghe, dấu trang và lịch sử nghe của bạn.",
+        "Your saved works, listening positions, bookmarks and listening history.",
     ),
     CopyKey.HistoryHelp to ShellText(
         "Các câu chuyện đã nghe, gần nhất ở trên.",

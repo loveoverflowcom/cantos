@@ -1,6 +1,9 @@
 package com.cantos.theatre.adapters.library
 
 import com.cantos.theatre.adapters.library.wire.AudioPresentation
+import com.cantos.theatre.adapters.library.wire.BookmarkDelete
+import com.cantos.theatre.adapters.library.wire.BookmarkRecord
+import com.cantos.theatre.adapters.library.wire.BookmarkWrite
 import com.cantos.theatre.adapters.library.wire.ContinueItem
 import com.cantos.theatre.adapters.library.wire.HistoryClear
 import com.cantos.theatre.adapters.library.wire.HistoryItem
@@ -18,6 +21,7 @@ import com.cantos.theatre.adapters.library.wire.SavedWrite
 import com.cantos.theatre.adapters.library.wire.AudioIdentity as WireAudio
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.isSupportedPlaybackSpeed
+import com.cantos.theatre.domain.library.BookmarkSync
 import com.cantos.theatre.domain.library.LibraryLoad
 import com.cantos.theatre.domain.library.LibraryReadFailure
 import com.cantos.theatre.domain.library.LibrarySection
@@ -66,6 +70,7 @@ internal class NativeLibrarySync(
     private var retryAttempt = 0
     private val reads = mutableMapOf<LibrarySection, Long>()
     private val pageCursors = mutableMapOf<LibrarySection, String?>()
+    private var offline = false
     private var lastCheckpointAt = Long.MIN_VALUE
     private var lastCheckpointPublication: String? = null
     companion object { const val CHECKPOINT_INTERVAL_MS = 30_000L }
@@ -82,7 +87,7 @@ internal class NativeLibrarySync(
     override fun leave() {
         jobs.forEach { it.cancel() }; jobs.clear()
         auth = null; generation += 1; draining = false
-        retryJob?.cancel(); retryJob = null; retryAttempt = 0
+        retryJob?.cancel(); retryJob = null; retryAttempt = 0; offline = false
         lastCheckpointAt = Long.MIN_VALUE; lastCheckpointPublication = null
         pageCursors.clear()
         mutableState.value = LibraryState()
@@ -168,6 +173,57 @@ internal class NativeLibrarySync(
         }
         publish(); drain()
     }
+    /**
+     * The bookmark and its create intent are one local transaction: nothing waits for the network. The same release
+     * position already bookmarked, confirmed or pending, is the same bookmark; a failed one is not, so it can be retried.
+     */
+    override fun createBookmark(audio: AudioIdentity, positionMs: Long): String? {
+        if (positionMs !in 0..audio.durationMs) return null
+        val id = local {
+            val existing = projectBookmarks(records(), intents(), offline)
+                .firstOrNull { it.audio.publicationId == audio.publicationId && it.positionMs == positionMs && it.sync != BookmarkSync.Failed }
+            if (existing != null) return@local existing.id
+            val fresh = newOperation()
+            check(Regex("[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}").matches(fresh))
+            val key = "bookmark:$fresh"
+            val op = operation(this, key)
+            val body = json.encodeToString(BookmarkWrite(op, fresh, wire(audio), positionMs))
+            enqueue(LocalLibraryIntent(op.operation_id, key, "PUT", "/library/bookmarks/$fresh", body))
+            fresh
+        }
+        publish(); drain()
+        return id
+    }
+    override fun deleteBookmark(id: String) {
+        if (!Regex("[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}").matches(id)) return
+        local {
+            val key = "bookmark:$id"
+            // A failed intent of this bookmark is the listener's to discard or retry; it must not wedge the key.
+            val failedCreate = intents().any { it.key == key && it.method == "PUT" && it.failure != null }
+            intents().filter { it.key == key && it.failure != null }.forEach { retire(this, it) }
+            val live = intents().filter { it.key == key }
+            if (live.any { it.method == "POST" }) return@local
+            val unsentCreate = live.firstOrNull { it.method == "PUT" && !it.sent }
+            val serverKnows = record(LibraryResources.Bookmark, id) != null || live.any { it.method == "PUT" && it.sent }
+            when {
+                // Never sent: the server cannot know it, so cancelling is the whole deletion.
+                unsentCreate != null -> { retire(this, unsentCreate); markBookmarkGone(this, id) }
+                // Refused for good: the server never accepted it, so discarding is the whole deletion.
+                !serverKnows && failedCreate -> markBookmarkGone(this, id)
+                !serverKnows -> Unit
+                else -> {
+                    val op = operation(this, key)
+                    enqueue(LocalLibraryIntent(op.operation_id, key, "POST", "/library/bookmarks/$id/delete", json.encodeToString(BookmarkDelete(op))))
+                }
+            }
+        }
+        publish(); drain()
+    }
+    private fun markBookmarkGone(tx: LibraryTransaction, id: String, order: Long = 0) {
+        tx.put(LocalLibraryRecord(LibraryResources.BookmarkGone, id, "", order))
+        tx.delete(LibraryResources.Bookmark, id)
+        tx.delete(LibraryResources.BookmarkResume, id)
+    }
     override fun refresh() { mutableState.value = mutableState.value.copy(failure = null); LibrarySection.entries.forEach { loadPage(it, false) } }
     override fun refresh(section: LibrarySection) { loadPage(section, false) }
     override fun nextPage(section: LibrarySection) { loadPage(section, true) }
@@ -212,6 +268,21 @@ internal class NativeLibrarySync(
                         }
                     } else null
                 }
+                LibrarySection.Bookmarks -> when (val result = api.bookmarkPage(owner, cursor)) {
+                    is LibraryResult.Failed -> result
+                    is LibraryResult.Value -> if (accepts()) apply(section, next, result.value.next_cursor) {
+                        if (!next) { deleteResource(LibraryResources.Bookmark); deleteResource(LibraryResources.BookmarkResume) }
+                        result.value.items.forEach { item ->
+                            val id = item.bookmark.bookmark_id
+                            // This account already deleted it: a stale page never brings it back.
+                            if (record(LibraryResources.BookmarkGone, id) != null) return@forEach
+                            put(LocalLibraryRecord(LibraryResources.Bookmark, id, json.encodeToString(item.bookmark), item.bookmark.listener_order))
+                            put(LocalLibraryRecord(LibraryResources.BookmarkResume, id, item.resume.name, 0))
+                            putUnitPresentation(this, item.bookmark.audio.publication_id, item.presentation)
+                        }
+                        if (!next) pruneUnitPresentations(this)
+                    } else null
+                }
                 LibrarySection.History -> when (val result = api.historyPage(owner, cursor)) {
                     is LibraryResult.Failed -> result
                     is LibraryResult.Value -> if (accepts()) apply(section, next, result.value.next_cursor) {
@@ -229,6 +300,7 @@ internal class NativeLibrarySync(
                 }
             }
             if (!accepts()) return@launch
+            offline = failed != null && failed.retryable && failed.code != "storage"
             if (failed != null) {
                 failedRead(issued, owner, section, next, failed)
                 // An expired cursor is the server's contract; the first page is the only honest recovery.
@@ -252,6 +324,7 @@ internal class NativeLibrarySync(
             when (stored.resource) {
                 LibraryResources.Continue -> LibraryCodec.decode<ContinueItem>("ContinueItem", stored.body)?.let { live += it.progress.audio.publication_id }
                 LibraryResources.History -> LibraryCodec.decode<HistoryItem>("HistoryItem", stored.body)?.let { live += it.audio.publication_id }
+                LibraryResources.Bookmark -> LibraryCodec.decode<BookmarkRecord>("BookmarkRecord", stored.body)?.let { live += it.audio.publication_id }
                 "reconciled" -> if (stored.key.startsWith("progress:")) live += stored.key.removePrefix("progress:")
             }
         }
@@ -357,15 +430,29 @@ internal class NativeLibrarySync(
                                 invalidateSession(owner)
                                 break
                             }
-                            if (!result.retryable && !result.unknownOutcome) local {
-                                fail(frozen.operation, result.code)
-                                put(LocalLibraryRecord("receipt_archive", frozen.operation, json.encodeToString(com.cantos.theatre.adapters.library.wire.LibraryError(result.code, false)), 0))
+                            offline = result.retryable
+                            if (result.code == "not_found" && frozen.method == "POST" && frozen.key.startsWith("bookmark:")) {
+                                // The server never accepted this bookmark, so its deletion is already true.
+                                local { markBookmarkGone(this, frozen.key.removePrefix("bookmark:")); retire(this, frozen) }
+                                resolved = true
+                            } else {
+                                if (!result.retryable && !result.unknownOutcome) local {
+                                    fail(frozen.operation, result.code)
+                                    put(LocalLibraryRecord("receipt_archive", frozen.operation, json.encodeToString(com.cantos.theatre.adapters.library.wire.LibraryError(result.code, false)), 0))
+                                    // A create the server refused for good, followed by this account's own deletion of it:
+                                    // nothing was ever accepted, so both end here and the bookmark stays gone.
+                                    if (frozen.method == "PUT" && frozen.key.startsWith("bookmark:") && intents().any { it.key == frozen.key && it.method == "POST" }) {
+                                        intents().filter { it.key == frozen.key }.forEach { retire(this, it) }
+                                        markBookmarkGone(this, frozen.key.removePrefix("bookmark:"))
+                                    }
+                                }
+                                else retryNeeded = true
+                                blocked += frozen.key
                             }
-                            else retryNeeded = true
-                            blocked += frozen.key
                         }
                         is LibraryResult.Value -> {
                             val receipt = result.value
+                            offline = false
                             if (receipt.operation_id != frozen.operation || !receiptMatches(frozen, receipt.state)) { local { fail(frozen.operation, "protocol") }; blocked += frozen.key }
                             else { local { reconcile(this, frozen, receipt) }; resolved = true }
                         }
@@ -394,6 +481,7 @@ internal class NativeLibrarySync(
         is MutationState.Progress -> intent.key.startsWith("progress:") && (state.current == null || (intent.key == "progress:${state.current.audio.publication_id}" && LibraryCodec.decode<ProgressWrite>("ProgressWrite", intent.body)?.audio == state.current.audio))
         is MutationState.Saved -> intent.key == "saved:${state.current.work_id}"
         is MutationState.History -> intent.key == "history"
+        is MutationState.Bookmark -> intent.key == "bookmark:${state.current.bookmark_id}"
     }
     private fun reconcile(tx: LibraryTransaction, intent: LocalLibraryIntent, receipt: Receipt) {
         tx.put(LocalLibraryRecord("receipt_archive", intent.operation, json.encodeToString(receipt), 0))
@@ -404,6 +492,13 @@ internal class NativeLibrarySync(
             is MutationState.Progress -> value.current?.let {
                 if (receipt.outcome == "accepted") tx.put(LocalLibraryRecord("own_ack", intent.key, intent.operation, it.revision))
                 adoptProgress(tx, it, true)
+            }
+            is MutationState.Bookmark -> {
+                val record = value.current
+                if (record.deleted) markBookmarkGone(tx, record.bookmark_id, record.listener_order)
+                else if (tx.record(LibraryResources.BookmarkGone, record.bookmark_id) == null) {
+                    tx.put(LocalLibraryRecord(LibraryResources.Bookmark, record.bookmark_id, json.encodeToString(record), record.listener_order))
+                }
             }
             is MutationState.History -> {
                 if (value.current.revision >= historyState(tx).revision) tx.put(LocalLibraryRecord("history_state", "history", json.encodeToString(value.current), value.current.revision))
@@ -443,13 +538,13 @@ internal class NativeLibrarySync(
         val owner = liveOwner() ?: return
         val (projected, pending) = local {
             val outbox = intents()
-            projectLibraryRows(records(), outbox) { resource, key -> record(resource, key) } to outbox
+            projectLibraryRows(records(), outbox, offline) { resource, key -> record(resource, key) } to outbox
         } ?: return
         val previous = mutableState.value
-        mutableState.value = LibraryState(owner.account, projected.saved, projected.continueListening, projected.history,
+        mutableState.value = LibraryState(owner.account, projected.saved, projected.continueListening, projected.history, projected.bookmarks,
             pageCursors.toMap(), previous.sections,
             pending.count { it.failure == null }, pending.mapNotNull { it.failure?.let { reason -> it.operation to reason } }.toMap(), projected.conflicts, projected.checkpoint,
-            previous.failure)
+            previous.failure, offline)
     }
     override fun close() { leave(); store.close() }
 }

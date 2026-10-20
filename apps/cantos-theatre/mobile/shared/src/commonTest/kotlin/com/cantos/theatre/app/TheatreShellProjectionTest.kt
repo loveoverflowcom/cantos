@@ -16,6 +16,8 @@ import com.cantos.theatre.domain.catalog.PublicCatalogSamples.work
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples.worksPage
 import com.cantos.theatre.domain.catalog.PublicUnitKind
 import com.cantos.theatre.domain.catalog.PublicWorkKind
+import com.cantos.theatre.domain.library.BookmarkEntry
+import com.cantos.theatre.domain.library.BookmarkSync
 import com.cantos.theatre.domain.library.ContinueEntry
 import com.cantos.theatre.domain.library.HistoryEntry
 import com.cantos.theatre.domain.library.LibraryLoad
@@ -363,7 +365,7 @@ class TheatreShellProjectionTest {
         fun phases(library: LibraryState) = projectTheatreShell(inputs(library = library)).catalog.library
         assertEquals(ShellLibraryView(), phases(LibraryState()), "a guest has no Library to load")
         val fresh = LibraryState(account = "actor-a")
-        assertEquals(ShellLibraryView(ShellLibraryPhase.Loading, ShellLibraryPhase.Loading, ShellLibraryPhase.Loading), phases(fresh), "not read yet is loading, not empty")
+        assertEquals(ShellLibraryView(ShellLibraryPhase.Loading, ShellLibraryPhase.Loading, ShellLibraryPhase.Loading, ShellLibraryPhase.Loading), phases(fresh), "not read yet is loading, not empty")
         val loaded = LibrarySectionState(loaded = true)
         assertEquals(ShellLibraryView(), phases(fresh.copy(sections = LibrarySection.entries.associateWith { loaded })), "read and empty is empty")
         val mixed = fresh.copy(
@@ -371,17 +373,75 @@ class TheatreShellProjectionTest {
                 LibrarySection.Continue to loaded.copy(loading = LibraryLoad.NextPage),
                 LibrarySection.Saved to loaded.copy(failure = LibraryReadFailure("unavailable", true, nextPage = true)),
                 LibrarySection.History to LibrarySectionState(failure = LibraryReadFailure("unavailable", true, nextPage = false)),
+                LibrarySection.Bookmarks to loaded.copy(loading = LibraryLoad.Refreshing),
             ),
             cursors = mapOf(LibrarySection.Continue to "c".repeat(64), LibrarySection.Saved to "d".repeat(64)),
         )
-        assertEquals(ShellLibraryView(ShellLibraryPhase.LoadingMore, ShellLibraryPhase.MoreFailed, ShellLibraryPhase.Failed), phases(mixed))
+        assertEquals(ShellLibraryView(ShellLibraryPhase.LoadingMore, ShellLibraryPhase.MoreFailed, ShellLibraryPhase.Failed, ShellLibraryPhase.Loading), phases(mixed))
         val stale = mixed.copy(
             history = listOf(HistoryEntry(audio(1, 1), 1, LibraryResume.ExactAvailable)),
-            sections = mixed.sections + (LibrarySection.Continue to loaded) + (LibrarySection.Saved to loaded),
+            bookmarks = listOf(BookmarkEntry("b0000000-0000-4000-8000-000000000001", audio(1, 1), 1_000, LibraryResume.ExactAvailable, BookmarkSync.Synced)),
+            sections = mixed.sections + (LibrarySection.Continue to loaded) + (LibrarySection.Saved to loaded) +
+                (LibrarySection.Bookmarks to loaded.copy(failure = LibraryReadFailure("unavailable", true, nextPage = false))),
         )
-        assertEquals(ShellLibraryView(ShellLibraryPhase.More, ShellLibraryPhase.More, ShellLibraryPhase.Stale), phases(stale),
+        assertEquals(ShellLibraryView(ShellLibraryPhase.More, ShellLibraryPhase.More, ShellLibraryPhase.Stale, ShellLibraryPhase.Stale), phases(stale),
             "a failed refresh over rows already shown is stale, a section with more pages offers them")
         val refreshing = fresh.copy(sections = mapOf(LibrarySection.Saved to loaded.copy(loading = LibraryLoad.Refreshing)))
         assertEquals(ShellLibraryPhase.Loading, phases(refreshing).saved)
+    }
+
+    private val bookmarkId = "b0000000-0000-4000-8000-000000000001"
+    private fun info(workNumber: Int, unitNumber: Int, unitTitle: String) = LibraryUnitInfo(
+        LibraryWorkInfo(work(workNumber).id.value, unit(unitNumber).publicationId.value, "Ánh đèn cuối sân khấu", LibraryWorkKind.Story, "vi-VN"),
+        unit(unitNumber).id.value, unitTitle)
+
+    @Test
+    fun a_bookmark_projects_its_exact_release_position_titles_and_the_states_that_are_true_of_it() {
+        val exact = audio(1, 1)
+        val library = LibraryState(account = "actor-a", bookmarks = listOf(
+            BookmarkEntry(bookmarkId, exact, 61_000, LibraryResume.ExactAvailable, BookmarkSync.Synced,
+                LibraryPresentation.Available(info(1, 1, "Một tiếng chuông trong sương"))),
+            BookmarkEntry("b0000000-0000-4000-8000-000000000002", audio(2, 2), 1_500, LibraryResume.ReleaseReplaced, BookmarkSync.Offline),
+            BookmarkEntry("b0000000-0000-4000-8000-000000000003", audio(3, 3), 0, LibraryResume.NeedsRefresh, BookmarkSync.Failed),
+        ))
+        val shown = projectTheatreShell(inputs(library = library)).state.bookmarks
+        assertEquals(listOf(bookmarkId, "b0000000-0000-4000-8000-000000000002", "b0000000-0000-4000-8000-000000000003"), shown.map { it.id }, "the Library's order is kept")
+        val first = shown[0]
+        assertEquals(ShellEpisodeId(exact.unitId, ShellWorkId(exact.workId)), first.episodeId)
+        assertEquals(61, first.positionSeconds)
+        assertEquals(61_000L, first.positionMs, "exact milliseconds survive projection")
+        assertEquals(61, first.durationSeconds, "the duration is the exact stored release's")
+        assertEquals("Một tiếng chuông trong sương", first.titles?.unitTitle)
+        assertEquals(com.cantos.theatre.presentation.model.ShellBookmarkSync.Synced, first.sync)
+        assertEquals(ShellResume.Available, first.resume)
+        assertEquals(ShellResume.ReleaseReplaced, shown[1].resume)
+        assertEquals(com.cantos.theatre.presentation.model.ShellBookmarkSync.Offline, shown[1].sync)
+        assertEquals(1, shown[1].positionSeconds)
+        assertEquals(1_500L, shown[1].positionMs)
+        assertEquals(ShellResume.NeedsRefresh, shown[2].resume)
+        assertEquals(com.cantos.theatre.presentation.model.ShellBookmarkSync.Failed, shown[2].sync)
+    }
+
+    @Test
+    fun a_bookmark_of_an_unavailable_release_borrows_no_title_from_a_replacement_release() {
+        send(PublicCatalogIntent.Start)
+        send(WorksResolved(token(), PublicCatalogRead.Ready(worksPage(listOf(work(1))))))
+        val oldRelease = requireNotNull(AudioIdentity.of(work(1).id.value, unit(1).id.value, "30000000-0000-4000-8000-0000000000aa",
+            "60000000-0000-4000-8000-0000000000aa", "d".repeat(64), 61_000))
+        val library = LibraryState(account = "actor-a", bookmarks = listOf(
+            BookmarkEntry(bookmarkId, oldRelease, 5_000, LibraryResume.ReleaseReplaced, BookmarkSync.Synced, LibraryPresentation.Unavailable)))
+        val projected = projectTheatreShell(inputs(library = library))
+        val row = projected.state.bookmarks.single()
+        assertEquals(ShellResume.ReleaseReplaced, row.resume)
+        // The API said it cannot name this release: the catalog's title for the NEW release must not label it.
+        assertEquals(ShellRowTitles("Tác phẩm", "Tác phẩm"), row.titles, "neutral wording, never the replacement's title")
+        assertTrue(unit(1).title != row.titles?.unitTitle)
+    }
+
+    @Test
+    fun a_guest_has_no_bookmarks_even_if_stale_state_names_some() {
+        val stale = LibraryState(account = null, bookmarks = listOf(BookmarkEntry(bookmarkId, audio(1, 1), 1, LibraryResume.ExactAvailable, BookmarkSync.Synced)))
+        // The shell only ever exposes a Library for the verified account; the projection still shows a guest no loading phase.
+        assertEquals(ShellLibraryView(), projectTheatreShell(inputs(library = stale)).catalog.library)
     }
 }

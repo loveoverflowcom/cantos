@@ -35,6 +35,8 @@ import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEpisode
 import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellLibraryPhase
+import com.cantos.theatre.presentation.model.ShellLibrarySection
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.PlaybackUiStatus
@@ -72,18 +74,14 @@ internal fun PlayerScreen(state: ShellState, catalog: ShellCatalogView, copy: Sh
     }
     PlayerControls(state, episode, copy, dispatch)
     Text(copy.text(CopyKey.PlayerExplanation), style = MaterialTheme.typography.bodySmall)
-    if (state.bookmarks.isNotEmpty()) {
-        SectionHeading(CopyKey.Bookmarks, copy)
-        state.bookmarks.forEach { bookmark ->
-            val markedEpisode = catalog.episode(bookmark.episodeId)
-            if (markedEpisode != null) TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.OpenBookmark(bookmark)) }, modifier = Modifier.semantics {
-                contentDescription = copy.text(CopyKey.OpenBookmark, "title" to markedEpisode.title, "time" to copy.spokenTime(bookmark.positionSeconds))
-            }) {
-                Text(copy.text(CopyKey.BookmarkCaption, "title" to markedEpisode.title, "time" to clockTime(bookmark.positionSeconds)))
-            }
+    val bookmarkPhase = catalog.library.bookmarks
+    if (state.bookmarks.isNotEmpty() || bookmarkPhase != ShellLibraryPhase.Complete) {
+        Column(Modifier.testTag("player-bookmarks"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            SectionHeading(CopyKey.Bookmarks, copy)
+            BookmarkRows(state, catalog, copy, dispatch, "player-bookmark")
+            LibraryFooter(bookmarkPhase, ShellLibrarySection.Bookmarks, "player-bookmarks", copy, dispatch)
         }
     }
-
 }
 
 @Composable

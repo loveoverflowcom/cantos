@@ -41,6 +41,7 @@ class SqlLibraryPersistenceTest {
             if (lateUnauthorizedOnCancel) LibraryResult.Failed("unauthenticated", false) else throw cancelled
         }
         override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(historyResult.presented())
+        override suspend fun bookmarkPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(com.cantos.theatre.adapters.library.wire.BookmarkPage(emptyList(), null))
         override suspend fun saved(auth: LibraryAuthorization, work: String) = LibraryResult.Value(SavedRecord(work, false, 0, 0, 0))
         override suspend fun progress(auth: LibraryAuthorization, publication: String) = LibraryResult.Value(MutationState.Progress(null))
         override suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt> {

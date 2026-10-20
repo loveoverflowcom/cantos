@@ -26,7 +26,10 @@ same recorded previous image. The old image must declare epoch 2 and pass the
 read-only schema check on `[1]`. The candidate image's independently initialized
 oracle must have exactly the two checksums in
 [`epoch2-prefix-registry.tsv`](../../infra/vps/postgres/epoch2-prefix-registry.tsv).
-Changing a migration or adding a third requires a separately reviewed protocol.
+Changing a migration or adding a third requires a separately reviewed protocol. Version 3
+(`0003_listener_bookmarks.sql`, #299) is **not** part of this lane: an image that carries it has a
+three-checksum oracle, so the lane refuses it until its protocol is reviewed for that registry. An
+ordinary deploy applies version 3 as the exact missing suffix after the database is at `[1,2]`.
 
 Before starting, qualify live browser/callback configuration independently. The
 lane refuses changes to non-API Quadlets, systemd units or Caddy, and database-level

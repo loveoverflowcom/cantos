@@ -33,6 +33,8 @@ putRecord:
 INSERT OR REPLACE INTO local_record VALUES (?, ?, ?, ?, ?);
 deleteResource:
 DELETE FROM local_record WHERE account = ? AND resource = ?;
+deleteRecord:
+DELETE FROM local_record WHERE account = ? AND resource = ? AND resource_key = ?;
 intents:
 SELECT * FROM local_intent WHERE account = ? ORDER BY ordinal;
 insertIntent:
