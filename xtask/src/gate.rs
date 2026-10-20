@@ -13,7 +13,8 @@ use crate::{
     command::CommandSpec,
     config::{
         App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, THEATRE_PREVIEW_FEATURE,
-        THEATRE_WEB_PACKAGE, UI_PACKAGE, WASM_TARGET,
+        THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE,
+        UI_PACKAGE, WASM_TARGET,
     },
     kani::{self, Kernel},
     pipeline::Step,
@@ -34,6 +35,7 @@ pub enum GateKind {
     RustLint,
     RustTests,
     ForgeFunctions,
+    Turso,
     Dbsp,
     ContractTests,
     WavReference,
@@ -104,6 +106,9 @@ pub enum Gate {
     RustTests(Scope),
     /// Offline Node wrapper tests; mocks own every external identity/provider/storage port.
     ForgeFunctions,
+    /// The embedded Turso store foundation: lint, file-backed tests on the pinned engine and the
+    /// capability report. No server, container or cloud service is started.
+    Turso,
     /// The API built with its experimental DBSP incremental core: lint and every non-ignored test,
     /// so the feature's added dependency features cannot silently change existing behavior.
     Dbsp,
@@ -162,6 +167,7 @@ impl Gate {
             Gate::RustLint(_) => GateKind::RustLint,
             Gate::RustTests(_) => GateKind::RustTests,
             Gate::ForgeFunctions => GateKind::ForgeFunctions,
+            Gate::Turso => GateKind::Turso,
             Gate::Dbsp => GateKind::Dbsp,
             Gate::ContractTests => GateKind::ContractTests,
             Gate::WavReference => GateKind::WavReference,
@@ -225,7 +231,7 @@ impl Gate {
             Gate::Kani(_) => vec![Tool::Cargo, Tool::Python3, Tool::Git, Tool::Kani],
             Gate::ScriptIrReference => vec![Tool::Python3],
             Gate::ProtobufReference => vec![Tool::Cargo, Tool::Python3, Tool::Clippy],
-            Gate::RustLint(_) | Gate::Dbsp => vec![Tool::Cargo, Tool::Clippy],
+            Gate::RustLint(_) | Gate::Dbsp | Gate::Turso => vec![Tool::Cargo, Tool::Clippy],
             Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
             Gate::ForgeFunctions => vec![Tool::Cargo, Tool::Node],
             Gate::WavReference | Gate::Mutation => vec![Tool::Cargo, Tool::Python3],
@@ -346,6 +352,40 @@ impl Gate {
                     "test/native-worker.test.mjs",
                 ]),
             ],
+            Gate::Turso => vec![
+                cargo(&[
+                    "clippy",
+                    "-p",
+                    TURSO_STORE_PACKAGE,
+                    "--features",
+                    TURSO_TESTING_FEATURE,
+                    "--all-targets",
+                    "--locked",
+                    "--",
+                    "-D",
+                    "warnings",
+                ]),
+                cargo(&[
+                    "test",
+                    "-p",
+                    TURSO_STORE_PACKAGE,
+                    "--features",
+                    TURSO_TESTING_FEATURE,
+                    "--locked",
+                ]),
+                cargo(&[
+                    "run",
+                    "--locked",
+                    "-p",
+                    TURSO_STORE_PACKAGE,
+                    "--features",
+                    TURSO_TESTING_FEATURE,
+                    "--bin",
+                    TURSO_CAPABILITY_BIN,
+                    "--",
+                    "report",
+                ]),
+            ],
             Gate::Dbsp => vec![
                 cargo(&["clippy", "-p", API_PACKAGE, "--features", DBSP_FEATURE]).args([
                     "--all-targets",
@@ -452,6 +492,7 @@ pub fn full() -> Vec<Gate> {
         Gate::RustLint(Scope::Workspace),
         Gate::RustTests(Scope::Workspace),
         Gate::ForgeFunctions,
+        Gate::Turso,
         Gate::Dbsp,
         Gate::WavReference,
         Gate::AudioInspection,
@@ -505,6 +546,7 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
                 Gate::ForgeFunctions,
             ]
         }
+        VerifySuite::Turso => vec![Gate::Turso],
         VerifySuite::Web => vec![
             Gate::WebLint(App::ALL.into_iter().collect()),
             Gate::WebBuild(App::Studio),
@@ -594,6 +636,33 @@ mod tests {
             ]
         );
         assert_eq!(verify_suite(&VerifySuite::Dbsp), [Gate::Dbsp]);
+    }
+
+    #[test]
+    fn turso_suite_lints_tests_and_prints_the_capability_report_with_no_service() {
+        assert_eq!(verify_suite(&VerifySuite::Turso), [Gate::Turso]);
+        assert_eq!(
+            lines(&Gate::Turso),
+            [
+                "cargo clippy -p cantos-store-turso --features testing --all-targets --locked -- -D warnings",
+                "cargo test -p cantos-store-turso --features testing --locked",
+                "cargo run --locked -p cantos-store-turso --features testing --bin cantos-turso-capability -- report",
+            ]
+        );
+        assert_eq!(Gate::Turso.tools(), [Tool::Cargo, Tool::Clippy]);
+        assert_eq!(Gate::Turso.name(), "turso");
+        assert!(full().contains(&Gate::Turso));
+        // The testing feature is a gate-only input: no other gate may enable it.
+        for gate in full().iter().filter(|gate| **gate != Gate::Turso) {
+            for command in gate.commands(&workspace()) {
+                assert!(
+                    !command
+                        .display(workspace().root())
+                        .contains("--features testing"),
+                    "{gate:?}"
+                );
+            }
+        }
     }
 
     #[test]

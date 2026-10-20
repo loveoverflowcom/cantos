@@ -73,6 +73,7 @@ packages/
   contracts/               Script IR/Studio/production schemas, fixtures, contract docs and
     api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
   web-auth/                Shared RAM Bearer lifecycle + browser adapter for both Web apps IMPLEMENTED
+  store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (library, no consumer yet)
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
     cmp/                   Shared native controls and JVM desktop diagnostics              PREVIEW
@@ -200,6 +201,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 | --- | --- | --- |
 | Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-server`, `cantos-studio`, `cantos-theatre` |
 | RAM credential lifecycle and browser authorization adapter | `packages/web-auth` | Studio Web and Theatre Web; separate purposes/instances |
+| Single-owner embedded Turso foundation (owner lock, schema registry, serialized writer, backup) | `packages/store-turso` | none yet; planned for `cantos-server` (#333) and `cantos-identity` (#334) |
 | Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web live auth/account and isolated mock; development gallery |
 
 Not shared, deliberately:
@@ -235,6 +237,7 @@ The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds 
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
 | `packages/contracts/api` | `cantos-contracts` | native and WASM |
+| `packages/store-turso` | `cantos-store-turso` | native; file-backed tests, a capability-report binary behind the `testing` feature and `cargo xtask verify turso` |
 | `packages/web-auth` | `cantos-web-auth` | native core tests and WASM browser adapter |
 | `packages/ui-system/leptos` | `cantos-ui` | native string-render checks and WASM CSR |
 | `xtask` | `xtask` | native developer tool; never a dependency of another member |
