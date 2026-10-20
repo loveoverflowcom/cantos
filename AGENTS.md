@@ -199,6 +199,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
 | Identity pure security core | Existing `rust` gate includes `cantos-identity`; metadata-based preflight selects its lint/tests. Focused primitive: `cargo test --locked -p cantos-identity`. Optional `verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof` needs actual D1 Ubuntu x86_64 evidence; macOS tests are not Kani evidence. |
 | Forge worker/process boundary | `cargo xtask verify forge` (Rust producer plus Node wrapper tests; no provider or cloud calls) |
+| Embedded Turso store foundation (`packages/store-turso`) | `cargo xtask verify turso` (clippy, file-backed tests on the pinned engine and the capability report; no server, container or cloud service) |
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observer; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |

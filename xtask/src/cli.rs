@@ -221,6 +221,8 @@ pub enum VerifySuite {
     Rust,
     /// Forge Rust lint/tests and offline Firebase Functions wrapper tests (Node 22+).
     Forge,
+    /// Embedded Turso store foundation: lint, file-backed tests and the engine capability report.
+    Turso,
     /// Explicit isolated Chromium / mocked-API Bearer journeys for both Web apps.
     WebBearer {
         /// Print the loopback-only fixture plan without starting anything.
@@ -526,6 +528,7 @@ mod tests {
             ("verify repository", VerifySuite::Repository),
             ("verify rust", VerifySuite::Rust),
             ("verify forge", VerifySuite::Forge),
+            ("verify turso", VerifySuite::Turso),
             ("verify web", VerifySuite::Web),
             ("verify contracts", VerifySuite::Contracts),
             ("verify mutation", VerifySuite::Mutation),
