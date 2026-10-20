@@ -20,9 +20,9 @@ PROVIDER_PREFIXES = (
     "theatre_registration", "theatre_firebase_",
 )
 DECLARATION = re.compile(
-    r"\bCREATE\s+TABLE\s+public\.([a-z_][a-z_0-9]*)\s*\(", re.IGNORECASE,
+    r"\bCREATE\s+TABLE\s+public\.([a-z_][a-z_0-9]*)\s*\(", re.IGNORECASE | re.ASCII,
 )
-CREATE_TABLE = re.compile(r"\bCREATE\s+(?:[a-z_][a-z_0-9]*\s+)*TABLE\b", re.IGNORECASE)
+CREATE_TABLE = re.compile(r"\bCREATE\s+(?:[a-z_][a-z_0-9]*\s+)*TABLE\b", re.IGNORECASE | re.ASCII)
 
 
 def without_sql_comments(text):
@@ -108,11 +108,17 @@ def source_tables(root):
         # masking Rust strings would erase the very SQL declarations being inventoried.
         if path.suffix == ".sql":
             text = without_sql_comments(text)
+        elif "/*" in text or "--" in text:
+            # Do not guess which Rust literal contains SQL or interpret its escapes.
+            # The current registry has no SQL comment markers; refuse unfamiliar source.
+            raise ValueError(f"{path.relative_to(root)}: unsupported SQL comment marker in migrator source")
         declarations = list(DECLARATION.finditer(text))
         if len(declarations) != len(CREATE_TABLE.findall(text)):
             raise ValueError(f"{path.relative_to(root)}: unsupported CREATE TABLE declaration")
         for declaration in declarations:
-            table = declaration.group(1)
+            # Only ASCII unquoted identifiers are supported; PostgreSQL folds them before
+            # lookup, ownership classification and duplicate detection.
+            table = declaration.group(1).lower()
             if table in tables:
                 raise ValueError(f"duplicate source table: {table}")
             tables[table] = path.relative_to(root).as_posix()
@@ -134,7 +140,10 @@ def validate(manifest, tables):
             raise ValueError(f"{disposition}: expected a table-name array")
         if names != sorted(names):
             errors.append(f"{disposition}: table names must be sorted")
-        for table in names:
+        for raw_table in names:
+            table = raw_table.lower()
+            if re.fullmatch(r"[a-z_][a-z_0-9]*", raw_table, flags=re.ASCII) is None:
+                errors.append(f"{raw_table}: expected canonical lowercase unquoted table name")
             classified.append(table)
             required = (
                 "replace-provider-auth" if table.startswith(PROVIDER_PREFIXES)

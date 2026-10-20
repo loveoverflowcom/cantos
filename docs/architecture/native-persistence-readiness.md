@@ -33,6 +33,11 @@ general SQL/Rust parser, production data inventory, export allowlist or secret d
 Dynamic/generated declarations and future source locations need explicit review. These source
 checks conservatively refuse backslash-escaped quote forms rather than infer a SQL string
 escape mode. They do not establish database constraints, migration parity or runtime conformance.
+Supported unquoted source identifiers use PostgreSQL lowercase folding; manifest names must
+be canonical ASCII lowercase, and duplicate detection uses the folded identity. The migrator
+is scanned as literal Rust source, so SQL comment markers (`/*` or `--`) anywhere in that
+source are conservatively refused. This avoids silently missing comment-separated DDL without
+claiming to parse or unescape Rust SQL literals; even a harmless future marker needs review.
 
 ## Actual serving path
 

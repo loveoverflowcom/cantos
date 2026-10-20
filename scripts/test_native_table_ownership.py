@@ -111,6 +111,56 @@ class NativeTableOwnershipTests(unittest.TestCase):
         self.sql.write_text("CREATE TABLE public.actors (id text);\n" * 2, encoding="utf-8")
         self.assertEqual(self.errors(), ["native table ownership: duplicate source table: actors"])
 
+    def test_unquoted_identifier_case_cannot_bypass_ownership_policy(self):
+        for table, required in [("bearer_secrets", "replace-provider-auth"),
+                                ("sessions", "development-only"),
+                                ("cantos_schema", "replace-registry")]:
+            with self.subTest(table=table):
+                original = self.sql.read_text(encoding="utf-8")
+                if table == "bearer_secrets":
+                    self.sql.write_text(original + "CREATE TABLE public.BEARER_SECRETS (id text);",
+                                        encoding="utf-8")
+                else:
+                    path = self.root / ownership.REGISTRY if table == "cantos_schema" else self.sql
+                    saved = path.read_text(encoding="utf-8")
+                    path.write_text(saved.replace(f"public.{table}", f"public.{table.upper()}"),
+                                    encoding="utf-8")
+                manifest = copy.deepcopy(self.manifest)
+                if table != "bearer_secrets":
+                    manifest["dispositions"][required].remove(table)
+                manifest["dispositions"]["server"] = sorted(["actors", table.upper()])
+                self.assertEqual(ownership.validate(manifest, ownership.source_tables(self.root)), [
+                    f"{table.upper()}: expected canonical lowercase unquoted table name",
+                    f"{table}: expected {required}, found server",
+                ])
+                if table != "bearer_secrets":
+                    path.write_text(saved, encoding="utf-8")
+                self.sql.write_text(original, encoding="utf-8")
+
+    def test_unquoted_identifier_case_cannot_hide_duplicate_source_tables(self):
+        with self.sql.open("a", encoding="utf-8") as file:
+            file.write("CREATE TABLE public.ACTORS (id text);")
+        self.assertEqual(self.errors(), ["native table ownership: duplicate source table: actors"])
+
+    def test_manifest_case_alias_is_refused_and_counted_as_a_duplicate(self):
+        self.manifest["dispositions"]["server"] = ["ACTORS", "actors"]
+        self.assertEqual(self.errors(), [
+            "native table ownership: ACTORS: expected canonical lowercase unquoted table name",
+            "native table ownership: actors: classified 2 times",
+        ])
+
+    def test_migrator_sql_comment_separated_ddl_is_conservatively_refused(self):
+        registry = self.root / ownership.REGISTRY
+        original = registry.read_text(encoding="utf-8")
+        for comment in ["/* note */", "/* nested /* note */ ; */", "-- note\n"]:
+            with self.subTest(comment=comment):
+                registry.write_text(original + f'\n"CREATE {comment} TABLE public.unmapped_secret (id text);"',
+                                    encoding="utf-8")
+                self.assertEqual(self.errors(), [
+                    "native table ownership: services/cantos-server/src/platform/postgres/migrations.rs: "
+                    "unsupported SQL comment marker in migrator source",
+                ])
+
     def test_comments_are_not_table_declarations(self):
         with self.sql.open("a", encoding="utf-8") as file:
             file.write("\n-- CREATE TABLE ignored (id text);\n/* /* nested */ CREATE TABLE ignored2 (id int); */")
