@@ -246,6 +246,28 @@ prefix_target_guard() { event "target-guard $1"; }
         self.assertNotIn(f'switch {OLD}', events)
         self.assertNotIn('restore-host', events)
 
+    def test_prepared_target_recheck_opens_only_owner_then_refreezes_before_install(self):
+        body = r'''
+original_query=$(declare -f epoch2_query)
+eval "${original_query/epoch2_query/original_epoch2_query}"
+epoch2_query() {
+  original_epoch2_query "$@"
+  case "$2" in
+    *'REVOKE CONNECT'*'CONNECTION LIMIT 1;'*) touch "$ROOT/owner-open" ;;
+    "ALTER DATABASE $STAGING CONNECTION LIMIT 0;") rm -f "$ROOT/owner-open" ;;
+  esac
+}
+prefix_target_guard() { [[ -f $ROOT/owner-open ]]; event owner-rechecked; }
+prefix_commit "$TARGET" "$TREE" "$ATTEMPT"
+'''
+        result, events, state = self.shell(body)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(state['phase'], 'complete')
+        freeze = f'sql ALTER DATABASE {STAGING} CONNECTION LIMIT 0;'
+        self.assertLess(events.index('owner-rechecked'), events.index(freeze))
+        self.assertLess(events.index(freeze), events.index('install-bundle'))
+        self.assertIn('sql GRANT CONNECT ON DATABASE cantos TO cantos_app;', events)
+
     def test_registry_contract_is_bound_to_the_two_real_migration_files(self):
         import hashlib
         rows = (ROOT / 'infra/vps/postgres/epoch2-prefix-registry.tsv').read_text().splitlines()

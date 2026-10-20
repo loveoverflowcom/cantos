@@ -84,6 +84,9 @@ existing SSH agent/config and never reads, prints, installs or uploads a key.
    Verify SHA-256 and synchronize file/directory entries before acknowledging the
    exact checksum. The commit phase refuses restarted edge ingress, an absent/mismatched acknowledgement,
    changed OIDs, schema drift or source/candidate row drift after the copy.
+   Recheck temporarily admits one migration-owner connection while `PUBLIC` and
+   the runtime role lack `CONNECT`, then refreezes the sibling before installation.
+   The runtime's connection grant returns only after the canonical rename.
 7. Persist install/rename intent, install the matched runtime, set the candidate
    app's default transactions read-only, then rename by the recorded identities:
    original `cantos` → retained name; staged sibling → `cantos`. Apply runtime grants

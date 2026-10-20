@@ -261,6 +261,17 @@ prefix_target_guard() {
     die 'candidate accepted unexpected Bearer writes before acceptance' 65
 }
 
+prefix_recheck_target() {
+  local database=$1 journal=$2 revision=$3
+  # CONNECTION LIMIT 0 also excludes the non-superuser migration owner. Keep the
+  # runtime role and PUBLIC denied while admitting one owner check, then refreeze.
+  epoch2_query postgres "REVOKE CONNECT ON DATABASE $database FROM PUBLIC,cantos_app;
+ALTER DATABASE $database CONNECTION LIMIT 1;" >/dev/null
+  prefix_target_guard "$database" "$journal" "$revision"
+  epoch2_query postgres "ALTER DATABASE $database CONNECTION LIMIT 0;" >/dev/null
+  epoch2_no_clients "$database"
+}
+
 prefix_commit() (
   set -Eeuo pipefail
   local revision=$1 tree=$2 attempt=$3 journal incoming=${2%/tree} target retained old_oid new_oid
@@ -278,7 +289,7 @@ prefix_commit() (
   prefix_source_guard cantos "$journal" schema-oracle.sql
   prefix_fingerprint cantos "$journal" "$journal/rows-commit.tsv"
   cmp -s "$journal/rows-frozen.tsv" "$journal/rows-commit.tsv" || die 'frozen source changed after off-host copy' 65
-  prefix_target_guard "$target" "$journal" "$revision"
+  prefix_recheck_target "$target" "$journal" "$revision"
   epoch2_phase "$journal" install-intent
   install_bundle "$tree"
   validate_runtime_browser_configuration
@@ -287,6 +298,7 @@ prefix_commit() (
   epoch2_query postgres "ALTER DATABASE cantos RENAME TO $retained;" >/dev/null
   epoch2_query postgres "ALTER DATABASE $target RENAME TO cantos;" >/dev/null
   epoch2_query postgres "ALTER DATABASE cantos CONNECTION LIMIT $(config_value "$journal/meta" old_limit);" >/dev/null
+  epoch2_query postgres 'GRANT CONNECT ON DATABASE cantos TO cantos_app;' >/dev/null
   check_schema "$revision"; apply_grants
   epoch2_phase "$journal" health-check
   switch_to "$revision"; prefix_private_probe
