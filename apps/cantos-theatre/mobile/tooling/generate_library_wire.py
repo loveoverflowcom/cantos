@@ -44,5 +44,12 @@ text = '// Generated from the canonical Library fixture bytes. Do not edit.\npac
 for fixture in fixtures:
     text += '    ' + quoted(fixture.name) + ' to ' + quoted(fixture.read_text()) + ',\n'
 text += ')\n'
+# The opt-in presentation=1 corpus is a separate map: the default corpus stays byte-for-byte as before.
+presented = sorted((fixtures_path / 'presentation').glob('*.json'))
+assert presented
+text += 'internal val libraryPresentationFixtures = mapOf(\n'
+for fixture in presented:
+    text += '    ' + quoted(fixture.name) + ' to ' + quoted(fixture.read_text()) + ',\n'
+text += ')\n'
 test_path.parent.mkdir(parents=True, exist_ok=True)
 test_path.write_text(text)

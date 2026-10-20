@@ -34,13 +34,13 @@ class SqlLibraryPersistenceTest {
         var savedDeferred: CompletableDeferred<LibraryResult<SavedPage>>? = null
         var savedFailure: LibraryResult.Failed? = null
         var lateUnauthorizedOnCancel = false
-        override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<ContinuePage> = continueFailure ?: LibraryResult.Value(continueResult)
-        override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<SavedPage> = try {
-            savedFailure ?: savedDeferred?.await() ?: LibraryResult.Value(savedResult)
+        override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedContinuePage> = continueFailure ?: LibraryResult.Value(continueResult.presented())
+        override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedSavedPage> = try {
+            savedFailure ?: savedDeferred?.await()?.let { r -> when (r) { is LibraryResult.Value -> LibraryResult.Value(r.value.presented()); is LibraryResult.Failed -> r } } ?: LibraryResult.Value(savedResult.presented())
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             if (lateUnauthorizedOnCancel) LibraryResult.Failed("unauthenticated", false) else throw cancelled
         }
-        override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(historyResult)
+        override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(historyResult.presented())
         override suspend fun saved(auth: LibraryAuthorization, work: String) = LibraryResult.Value(SavedRecord(work, false, 0, 0, 0))
         override suspend fun progress(auth: LibraryAuthorization, publication: String) = LibraryResult.Value(MutationState.Progress(null))
         override suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt> {
@@ -376,7 +376,7 @@ class SqlLibraryPersistenceTest {
             assertEquals(42_000, confirmed.positionMs)
             assertEquals(com.cantos.theatre.domain.library.LibrarySync.Confirmed, confirmed.sync)
             assertEquals(com.cantos.theatre.domain.library.LibraryResume.NeedsRefresh, confirmed.resume, "progress authority does not invent current playback eligibility")
-            assertEquals("unavailable", first.state.value.failure)
+            assertEquals("unavailable", first.state.value.section(com.cantos.theatre.domain.library.LibrarySection.Continue).failure?.code)
             assertEquals(0, first.state.value.pending)
             first.close()
             val reopened = nativeLibraryController(backgroundScope, api, desktopLibraryStore(path), ::id) { 1001 }

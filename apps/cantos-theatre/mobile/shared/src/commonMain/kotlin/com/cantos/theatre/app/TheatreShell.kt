@@ -23,7 +23,9 @@ import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 import com.cantos.theatre.domain.catalog.PublicWorkId
 import com.cantos.theatre.domain.library.LibraryResume
+import com.cantos.theatre.domain.library.LibrarySection
 import com.cantos.theatre.domain.library.LibraryState
+import com.cantos.theatre.domain.library.valueOrNull
 import com.cantos.theatre.domain.membership.MembershipEvent
 import com.cantos.theatre.domain.membership.MembershipScreen
 import com.cantos.theatre.domain.membership.MembershipState
@@ -31,6 +33,7 @@ import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.publication.WorkKey
 import com.cantos.theatre.presentation.model.ShellEpisodeId
 import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellLibrarySection
 import com.cantos.theatre.presentation.model.ShellLibraryTab
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
@@ -199,6 +202,8 @@ class TheatreShell(
             is ShellEvent.SelectLibrary -> mutableUi.update { it.copy(libraryTab = event.tab) }
             is ShellEvent.Search -> mutableUi.update { it.copy(query = event.query) }
             ShellEvent.Retry -> retry()
+            is ShellEvent.LoadMoreLibrary -> activeLibrary()?.nextPage(event.section.toDomain())
+            is ShellEvent.RetryLibrary -> retryLibrary(event.section.toDomain())
             ShellEvent.LoadMore -> loadMore()
             ShellEvent.Refresh -> refresh()
             is ShellEvent.SetTheme -> preferences.setTheme(if (event.theme == ShellTheme.Dark) PreferenceTheme.Dark else PreferenceTheme.Light)
@@ -346,6 +351,13 @@ class TheatreShell(
 
     private fun activeLibrary() = runtime.library?.takeIf { library.value.account != null }
 
+    /** A failed next page repeats that page; any other failed read restarts only its own section. */
+    private fun retryLibrary(section: LibrarySection) {
+        val owner = activeLibrary() ?: return
+        val state = library.value
+        if (state.section(section).failure?.nextPage == true && state.cursors[section] != null) owner.nextPage(section) else owner.refresh(section)
+    }
+
     private fun savedIds(): Set<String> = library.value.saved.filter { it.saved }.map { it.workId }.toSet()
 
     private fun setSaved(workId: String, saved: Boolean) {
@@ -373,12 +385,18 @@ class TheatreShell(
     /** Continue and History reopen the saved position paused, or ask the API again when it is stale. */
     private fun resume(id: ShellEpisodeId, fromHistory: Boolean) {
         val state = library.value
-        val entry = state.continueListening.firstOrNull { it.audio.unitId == id.value }
+        val historyRow = state.history.firstOrNull { it.audio.unitId == id.value }
+        // From History, only a Continue entry for the very release that row names may be resumed.
+        val entry = state.continueListening.firstOrNull {
+            it.audio.unitId == id.value && (!fromHistory || historyRow == null || it.audio.publicationId == historyRow.audio.publicationId)
+        }
         if (entry != null) {
             when (entry.resume) {
                 LibraryResume.ExactAvailable -> {
                     mutableRequested.value = null
-                    runtime.listening.restore(entry.audio, entry.positionMs)
+                    // Titles only when the API confirmed them for this exact release; never a guess.
+                    val info = entry.presentation.valueOrNull
+                    runtime.listening.restore(entry.audio, entry.positionMs, title = info?.unitTitle.orEmpty(), workTitle = info?.work?.title.orEmpty())
                     navigate(NavigationEvent.OpenPlayer)
                 }
                 LibraryResume.NeedsRefresh -> activeLibrary()?.refresh()
@@ -387,9 +405,16 @@ class TheatreShell(
             }
             return
         }
-        val history = state.history.firstOrNull { it.audio.unitId == id.value }
-        if (fromHistory && history != null && history.resume == LibraryResume.ExactAvailable) open(id)
-        else navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
+        val history = historyRow
+        if (fromHistory && history != null && history.resume == LibraryResume.ExactAvailable) {
+            // The stored release, named by the API, needs no catalog row to be reopened.
+            val info = history.presentation.valueOrNull
+            if (info != null) {
+                start(UnitRequest(history.audio.workId, history.audio.unitId, history.audio.publicationId, info.unitTitle, info.work.title))
+                navigate(NavigationEvent.OpenPlayer)
+            } else if (known.value.unit(id.value)?.unit?.publicationId?.value == history.audio.publicationId) open(id)
+            else navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
+        } else navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
     }
 
     private fun setTimer(timer: ShellTimer) {
@@ -411,6 +436,12 @@ class TheatreShell(
         timerJob?.cancel()
         registration?.leave()
     }
+}
+
+private fun ShellLibrarySection.toDomain(): LibrarySection = when (this) {
+    ShellLibrarySection.Continue -> LibrarySection.Continue
+    ShellLibrarySection.Saved -> LibrarySection.Saved
+    ShellLibrarySection.History -> LibrarySection.History
 }
 
 private fun ShellRoute.toTheatreRoute(): TheatreRoute = when (this) {

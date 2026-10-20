@@ -1,6 +1,6 @@
 package com.cantos.theatre.adapters.library
 
-import com.cantos.theatre.adapters.library.wire.Completion
+import com.cantos.theatre.adapters.library.wire.AudioPresentation
 import com.cantos.theatre.adapters.library.wire.ContinueItem
 import com.cantos.theatre.adapters.library.wire.HistoryClear
 import com.cantos.theatre.adapters.library.wire.HistoryItem
@@ -13,22 +13,17 @@ import com.cantos.theatre.adapters.library.wire.ProgressKind
 import com.cantos.theatre.adapters.library.wire.ProgressRecord
 import com.cantos.theatre.adapters.library.wire.ProgressWrite
 import com.cantos.theatre.adapters.library.wire.Receipt
-import com.cantos.theatre.adapters.library.wire.ResumeStatus
 import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.adapters.library.wire.SavedWrite
 import com.cantos.theatre.adapters.library.wire.AudioIdentity as WireAudio
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.isSupportedPlaybackSpeed
-import com.cantos.theatre.domain.library.ContinueEntry
-import com.cantos.theatre.domain.library.HistoryEntry
-import com.cantos.theatre.domain.library.LibraryConflict
-import com.cantos.theatre.domain.library.LibraryResume
+import com.cantos.theatre.domain.library.LibraryLoad
+import com.cantos.theatre.domain.library.LibraryReadFailure
 import com.cantos.theatre.domain.library.LibrarySection
+import com.cantos.theatre.domain.library.LibrarySectionState
 import com.cantos.theatre.domain.library.LibraryState
-import com.cantos.theatre.domain.library.LibrarySync
-import com.cantos.theatre.domain.library.PausedCheckpoint
 import com.cantos.theatre.domain.library.ProgressIntent
-import com.cantos.theatre.domain.library.SavedEntry
 import com.cantos.theatre.ports.LibraryLocalPort
 import com.cantos.theatre.ports.LibraryTransaction
 import com.cantos.theatre.ports.LocalLibraryIntent
@@ -100,8 +95,6 @@ internal class NativeLibrarySync(
         return owner
     }
     private fun wire(audio: AudioIdentity) = WireAudio(audio.workId, audio.unitId, audio.publicationId, audio.renditionId, audio.sha256, audio.durationMs)
-    private fun domain(audio: WireAudio) = AudioIdentity.of(audio.work_id, audio.unit_id, audio.publication_id, audio.rendition_id, audio.sha256, audio.duration_ms)
-    private fun resume(value: ResumeStatus) = when (value) { ResumeStatus.exact_available -> LibraryResume.ExactAvailable; ResumeStatus.release_replaced -> LibraryResume.ReleaseReplaced; ResumeStatus.access_unavailable -> LibraryResume.AccessUnavailable }
     private fun operation(tx: LibraryTransaction, key: String): Operation {
         val (device, sequence) = tx.nextSequence(key, newOperation)
         val id = newOperation()
@@ -176,53 +169,111 @@ internal class NativeLibrarySync(
         publish(); drain()
     }
     override fun refresh() { mutableState.value = mutableState.value.copy(failure = null); LibrarySection.entries.forEach { loadPage(it, false) } }
+    override fun refresh(section: LibrarySection) { loadPage(section, false) }
     override fun nextPage(section: LibrarySection) { loadPage(section, true) }
+    private fun updateSection(section: LibrarySection, change: (LibrarySectionState) -> LibrarySectionState) {
+        val state = mutableState.value
+        mutableState.value = state.copy(sections = state.sections + (section to change(state.section(section))))
+    }
     private fun loadPage(section: LibrarySection, next: Boolean) {
         val owner = liveOwner() ?: return
         val issued = generation
+        // A next-page tap while this section is already reading is the same request, not a second one.
+        if (next && mutableState.value.section(section).loading != LibraryLoad.Idle) return
+        val cursor = if (next) mutableState.value.cursors[section] ?: return else null
         val read = (reads[section] ?: 0L) + 1
         reads[section] = read
         fun accepts() = current(issued, owner) && reads[section] == read
-        val cursor = if (next) mutableState.value.cursors[section] ?: return else null
         jobs += scope.launch {
             if (!accepts()) return@launch
-            mutableState.value = mutableState.value.copy(refreshing = true)
-            when (section) {
+            updateSection(section) { it.copy(loading = if (next) LibraryLoad.NextPage else LibraryLoad.Refreshing, failure = null) }
+            val failed: LibraryResult.Failed? = when (section) {
                 LibrarySection.Continue -> when (val result = api.continuePage(owner, cursor)) {
-                    is LibraryResult.Failed -> if (accepts()) { failedRead(issued, owner, result); if (next && result.code == "invalid_cursor") loadPage(section, false) }
-                    is LibraryResult.Value -> if (accepts()) local {
-                        if (!next) deleteResource("continue")
+                    is LibraryResult.Failed -> result
+                    is LibraryResult.Value -> if (accepts()) apply(section, next, result.value.next_cursor) {
+                        if (!next) deleteResource(LibraryResources.Continue)
                         result.value.items.forEach { item ->
-                            put(LocalLibraryRecord("continue", item.progress.audio.work_id, json.encodeToString(item), item.progress.revision))
+                            put(LocalLibraryRecord(LibraryResources.Continue, item.progress.audio.work_id, json.encodeToString(ContinueItem(item.progress, item.resume)), item.progress.revision))
+                            putUnitPresentation(this, item.progress.audio.publication_id, item.presentation)
                             adoptProgress(this, item.progress)
                         }
-                        putCursor(section, result.value.next_cursor)
-                    }
+                        if (!next) pruneUnitPresentations(this)
+                    } else null
                 }
                 LibrarySection.Saved -> when (val result = api.savedPage(owner, cursor)) {
-                    is LibraryResult.Failed -> if (accepts()) { failedRead(issued, owner, result); if (next && result.code == "invalid_cursor") loadPage(section, false) }
-                    is LibraryResult.Value -> if (accepts()) local {
-                        if (!next) deleteResource("saved")
-                        result.value.items.forEach { item -> adoptSaved(this, item.saved); put(LocalLibraryRecord("saved", item.saved.work_id, json.encodeToString(item.saved), item.saved.revision)) }
-                        putCursor(section, result.value.next_cursor)
-                    }
+                    is LibraryResult.Failed -> result
+                    is LibraryResult.Value -> if (accepts()) apply(section, next, result.value.next_cursor) {
+                        if (!next) { deleteResource(LibraryResources.Saved); deleteResource(LibraryResources.SavedPresentation) }
+                        result.value.items.forEach { item ->
+                            adoptSaved(this, item.saved)
+                            put(LocalLibraryRecord(LibraryResources.Saved, item.saved.work_id, json.encodeToString(item.saved), item.saved.revision))
+                            put(LocalLibraryRecord(LibraryResources.SavedPresentation, item.saved.work_id,
+                                item.presentation?.let { json.encodeToString(it) } ?: LibraryResources.NullPresentation, item.saved.revision))
+                        }
+                    } else null
                 }
                 LibrarySection.History -> when (val result = api.historyPage(owner, cursor)) {
-                    is LibraryResult.Failed -> if (accepts()) { failedRead(issued, owner, result); if (next && result.code == "invalid_cursor") loadPage(section, false) }
-                    is LibraryResult.Value -> if (accepts()) local {
-                        if (!next) deleteResource("history")
-                        result.value.items.forEach { item -> put(LocalLibraryRecord("history", item.audio.work_id, json.encodeToString(item), item.listener_order)); item.progress?.let { adoptProgress(this, it) } }
+                    is LibraryResult.Failed -> result
+                    is LibraryResult.Value -> if (accepts()) apply(section, next, result.value.next_cursor) {
+                        if (!next) deleteResource(LibraryResources.History)
+                        result.value.items.forEach { item ->
+                            put(LocalLibraryRecord(LibraryResources.History, item.audio.work_id,
+                                json.encodeToString(HistoryItem(item.audio, item.started_at_ms, item.listener_order, item.progress, item.resume)), item.listener_order))
+                            putUnitPresentation(this, item.audio.publication_id, item.presentation)
+                            item.progress?.let { adoptProgress(this, it) }
+                        }
+                        if (!next) pruneUnitPresentations(this)
                         val old = historyState(this)
                         if (result.value.state.revision >= old.revision) put(LocalLibraryRecord("history_state", "history", json.encodeToString(result.value.state), result.value.state.revision))
-                        putCursor(section, result.value.next_cursor)
-                    }
+                    } else null
                 }
             }
-            if (accepts()) { publish(); mutableState.value = mutableState.value.copy(refreshing = false) }
+            if (!accepts()) return@launch
+            if (failed != null) {
+                failedRead(issued, owner, section, next, failed)
+                // An expired cursor is the server's contract; the first page is the only honest recovery.
+                if (next && failed.code == "invalid_cursor" && accepts()) loadPage(section, false)
+            }
+            publish()
         }
     }
-    private fun LibraryTransaction.putCursor(section: LibrarySection, cursor: String?) { pageCursors[section] = cursor }
-    private fun failedRead(issued: Long, owner: LibraryAuthorization, failure: LibraryResult.Failed) {
+    /** The API's answer for one exact publication, null included, replaces any earlier answer for it. */
+    private fun putUnitPresentation(tx: LibraryTransaction, publication: String, presentation: AudioPresentation?) {
+        tx.put(LocalLibraryRecord(LibraryResources.UnitPresentation, publication, presentation?.let { json.encodeToString(it) } ?: LibraryResources.NullPresentation, 0))
+    }
+    /**
+     * A first-page read replaces its rows, so metadata no stored row, History entry or acknowledged
+     * register still names is dropped; what remains is bounded by what the account can display.
+     */
+    private fun pruneUnitPresentations(tx: LibraryTransaction) {
+        val records = tx.records()
+        val live = HashSet<String>()
+        records.forEach { stored ->
+            when (stored.resource) {
+                LibraryResources.Continue -> LibraryCodec.decode<ContinueItem>("ContinueItem", stored.body)?.let { live += it.progress.audio.publication_id }
+                LibraryResources.History -> LibraryCodec.decode<HistoryItem>("HistoryItem", stored.body)?.let { live += it.audio.publication_id }
+                "reconciled" -> if (stored.key.startsWith("progress:")) live += stored.key.removePrefix("progress:")
+            }
+        }
+        val kept = records.filter { it.resource == LibraryResources.UnitPresentation && it.key in live }
+        tx.deleteResource(LibraryResources.UnitPresentation)
+        kept.forEach { tx.put(it) }
+    }
+    /** Applies one verified page in a single local transaction; its failure is the section's, rows stay. */
+    private fun apply(section: LibrarySection, next: Boolean, cursor: String?, write: LibraryTransaction.() -> Unit): LibraryResult.Failed? {
+        val stored = local { write(); true } == true
+        if (!stored) return LibraryResult.Failed("storage", true)
+        pageCursors[section] = cursor
+        updateSection(section) { it.copy(loaded = true, loading = LibraryLoad.Idle, failure = null) }
+        return null
+    }
+    private fun failedRead(issued: Long, owner: LibraryAuthorization, section: LibrarySection, next: Boolean, failure: LibraryResult.Failed) {
+        if (!current(issued, owner)) return
+        if (failure.code == "unauthenticated" || failure.code == "session_changed") invalidateSession(owner)
+        else updateSection(section) { it.copy(loading = LibraryLoad.Idle, failure = LibraryReadFailure(failure.code, failure.retryable, next)) }
+    }
+    /** One-record reads (Saved register, progress) carry no section state; only authority loss is acted on. */
+    private fun failedSingleRead(issued: Long, owner: LibraryAuthorization, failure: LibraryResult.Failed) {
         if (!current(issued, owner)) return
         if (failure.code == "unauthenticated" || failure.code == "session_changed") invalidateSession(owner)
         else mutableState.value = mutableState.value.copy(failure = failure.code)
@@ -237,7 +288,7 @@ internal class NativeLibrarySync(
         jobs += scope.launch {
             if (!current(issued, owner)) return@launch
             when (val result = api.saved(owner, workId)) {
-                is LibraryResult.Failed -> failedRead(issued, owner, result)
+                is LibraryResult.Failed -> failedSingleRead(issued, owner, result)
                 is LibraryResult.Value -> if (current(issued, owner)) {
                     local { adoptSaved(this, result.value); put(LocalLibraryRecord("saved", workId, json.encodeToString(result.value), result.value.revision)) }
                     publish()
@@ -250,7 +301,7 @@ internal class NativeLibrarySync(
         jobs += scope.launch {
             if (!current(issued, owner)) return@launch
             when (val result = api.progress(owner, publicationId)) {
-                is LibraryResult.Failed -> failedRead(issued, owner, result)
+                is LibraryResult.Failed -> failedSingleRead(issued, owner, result)
                 is LibraryResult.Value -> if (current(issued, owner)) {
                     result.value.current?.let { record -> local { adoptProgress(this, record) } }
                     publish()
@@ -390,50 +441,15 @@ internal class NativeLibrarySync(
     }
     private fun publish() {
         val owner = liveOwner() ?: return
-        val snapshot = local {
-            val records = records(); val pending = intents()
-            val saved = records.filter { it.resource == "saved" }.mapNotNull { LibraryCodec.decode<SavedRecord>("SavedRecord", it.body) }.associateBy { it.work_id }.toMutableMap()
-            records.filter { it.resource == "reconciled" && it.key.startsWith("saved:") }.mapNotNull { LibraryCodec.decode<SavedRecord>("SavedRecord", it.body) }.forEach { value -> if (value.work_id in saved && value.revision >= (saved[value.work_id]?.revision ?: -1)) saved[value.work_id] = value }
-            val savedViews = saved.mapValues { (_, value) -> SavedEntry(value.work_id, value.saved, value.revision, LibrarySync.Confirmed) }.toMutableMap()
-            pending.filter { it.key.startsWith("saved:") }.forEach { intent -> LibraryCodec.decode<SavedWrite>("SavedWrite", intent.body)?.let { value -> val work = intent.key.substringAfter(':'); savedViews[work] = SavedEntry(work, value.saved, value.base_revision, if (intent.failure == null) LibrarySync.Pending else LibrarySync.Failed) } }
-            val admittedContinue = records.filter { it.resource == "continue" }.mapNotNull { LibraryCodec.decode<ContinueItem>("ContinueItem", it.body) }
-            val continues = admittedContinue.mapNotNull { item -> domain(item.progress.audio)?.let { ContinueEntry(it, item.progress.position_ms, item.progress.revision, resume(item.resume), LibrarySync.Confirmed) } }.associateBy { it.audio.workId }.toMutableMap()
-            pending.filter { it.key.startsWith("progress:") }.forEach { intent -> LibraryCodec.decode<ProgressWrite>("ProgressWrite", intent.body)?.let { value -> domain(value.audio)?.let { audio -> continues[audio.workId] = ContinueEntry(audio, value.position_ms, value.base_revision, continues[audio.workId]?.takeIf { it.audio == audio }?.resume ?: LibraryResume.NeedsRefresh, if (intent.failure == null) LibrarySync.Pending else LibrarySync.Failed) } } }
-            // Continue is a projection of durable progress, including an acknowledged local
-            // register whose subsequent page refresh failed. Match the server's newest-per-Work
-            // ordering; a progress receipt itself does not establish present playback access.
-            records.filter { it.resource == "reconciled" && it.key.startsWith("progress:") }
-                .mapNotNull { LibraryCodec.decode<ProgressRecord>("ProgressRecord", it.body) }
-                .sortedWith(compareByDescending<ProgressRecord> { it.listener_order }.thenBy { it.audio.publication_id })
-                .distinctBy { it.audio.work_id }
-                .forEach { value ->
-                    val audio = domain(value.audio) ?: return@forEach
-                    val previous = continues[audio.workId]
-                    val admitted = admittedContinue.firstOrNull { it.progress.audio.work_id == audio.workId }
-                    val latest = admitted == null || value.listener_order > admitted.progress.listener_order ||
-                        (value.listener_order == admitted.progress.listener_order && value.audio.publication_id <= admitted.progress.audio.publication_id)
-                    if (previous?.sync != LibrarySync.Pending && previous?.sync != LibrarySync.Failed &&
-                        pending.none { it.key == "progress:${audio.publicationId}" } && latest) {
-                        if (value.completion == Completion.completed) continues.remove(audio.workId)
-                        else {
-                            val availability = previous?.takeIf { it.audio == audio }?.resume ?: LibraryResume.NeedsRefresh
-                            continues[audio.workId] = ContinueEntry(audio, value.position_ms, value.revision, availability, LibrarySync.Confirmed)
-                        }
-                    }
-                }
-            val history = records.filter { it.resource == "history" }.sortedByDescending { it.revision }.mapNotNull { LibraryCodec.decode<HistoryItem>("HistoryItem", it.body) }.mapNotNull { value -> domain(value.audio)?.let { HistoryEntry(it, value.started_at_ms, resume(value.resume)) } }
-            val checkpoint = record("checkpoint", "latest")?.let { LibraryCodec.decode<ProgressWrite>("ProgressWrite", it.body) }?.let { value -> domain(value.audio)?.let { PausedCheckpoint(it, value.position_ms, record("playback_speed", it.publicationId)?.body?.toIntOrNull()?.takeIf(::isSupportedPlaybackSpeed) ?: 1000) } }
-            val conflicts = records.filter { it.resource == "conflict" && it.body.isNotEmpty() }.mapNotNull { record ->
-                val receipt = LibraryCodec.decode<Receipt>("Receipt", record.body) ?: return@mapNotNull null
-                val candidate = pending.firstOrNull { it.operation == receipt.operation_id }?.let { LibraryCodec.decode<ProgressWrite>("ProgressWrite", it.body) }
-                val server = (receipt.state as? MutationState.Progress)?.current
-                LibraryConflict(record.key, receipt.operation_id, candidate?.position_ms, server?.position_ms, server?.revision ?: 0)
-            }
-            LibraryState(owner.account, savedViews.values.toList(), continues.values.toList(), history,
-                pageCursors.toMap(),
-                pending.count { it.failure == null }, pending.mapNotNull { it.failure?.let { reason -> it.operation to reason } }.toMap(), conflicts, checkpoint)
+        val (projected, pending) = local {
+            val outbox = intents()
+            projectLibraryRows(records(), outbox) { resource, key -> record(resource, key) } to outbox
         } ?: return
-        mutableState.value = snapshot.copy(failure = mutableState.value.failure)
+        val previous = mutableState.value
+        mutableState.value = LibraryState(owner.account, projected.saved, projected.continueListening, projected.history,
+            pageCursors.toMap(), previous.sections,
+            pending.count { it.failure == null }, pending.mapNotNull { it.failure?.let { reason -> it.operation to reason } }.toMap(), projected.conflicts, projected.checkpoint,
+            previous.failure)
     }
     override fun close() { leave(); store.close() }
 }

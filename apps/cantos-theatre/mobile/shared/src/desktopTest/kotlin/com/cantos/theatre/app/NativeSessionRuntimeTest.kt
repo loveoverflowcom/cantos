@@ -3,6 +3,8 @@ package com.cantos.theatre.app
 import com.cantos.theatre.adapters.library.desktopLibraryStore
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.adapters.library.nativeLibraryController
+import com.cantos.theatre.adapters.library.presented
+import com.cantos.theatre.adapters.library.wire.PresentedContinuePage
 import com.cantos.theatre.adapters.library.LibraryApi
 import com.cantos.theatre.adapters.library.LibraryAuthorization
 import com.cantos.theatre.adapters.library.LibraryResult
@@ -59,13 +61,13 @@ class NativeSessionRuntimeTest {
     private class LibraryApiFixture : LibraryApi {
         var continueReads = 0
         var nextReadFailure: LibraryResult.Failed? = null
-        override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<ContinuePage> {
+        override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedContinuePage> {
             continueReads += 1
             nextReadFailure?.let { nextReadFailure = null; return it }
-            return LibraryResult.Value(ContinuePage(emptyList(), null))
+            return LibraryResult.Value(ContinuePage(emptyList(), null).presented())
         }
-        override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(SavedPage(emptyList(), null))
-        override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(HistoryPage(HistoryState(0, 0), emptyList(), null))
+        override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(SavedPage(emptyList(), null).presented())
+        override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(HistoryPage(HistoryState(0, 0), emptyList(), null).presented())
         override suspend fun saved(auth: LibraryAuthorization, work: String) = LibraryResult.Value(SavedRecord(work, false, 0, 0, 0))
         override suspend fun progress(auth: LibraryAuthorization, publication: String) = LibraryResult.Value(MutationState.Progress(null))
         override suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt> = LibraryResult.Failed("unavailable", true, true)

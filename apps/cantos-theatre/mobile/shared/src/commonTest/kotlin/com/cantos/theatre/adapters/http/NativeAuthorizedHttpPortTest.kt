@@ -95,7 +95,7 @@ class NativeAuthorizedHttpPortTest {
                 return object : NativeRequestHandle { override fun cancel() { pending.cancelled = true } }
             }
         })
-        fun request(method: String = "GET", route: String = "/library/saved?limit=20", bearer: String = initialBearer,
+        fun request(method: String = "GET", route: String = "/library/saved?limit=20&presentation=1", bearer: String = initialBearer,
                     session: String = family) = NativeHttpRequest(method, configuration.apiOrigin + "/api/v1/theatre" + route,
             if (method == "GET") null else "{}", bearer, session)
         fun reply(index: Int = requests.lastIndex, status: Int = 200) {
@@ -152,14 +152,14 @@ class NativeAuthorizedHttpPortTest {
         val f = Fixture(backgroundScope)
         try {
             runCurrent()
-            val urls = listOf("https://api.invalid.attacker.test/api/v1/theatre/library/saved?limit=20",
-                "https://api.invalid@attacker.test/api/v1/theatre/library/saved?limit=20",
+            val urls = listOf("https://api.invalid.attacker.test/api/v1/theatre/library/saved?limit=20&presentation=1",
+                "https://api.invalid@attacker.test/api/v1/theatre/library/saved?limit=20&presentation=1",
                 "https://api.invalid/api/v1/studio/works", "https://api.invalid/api/v1/admin/session",
                 "https://api.invalid/api/v1/theatre/session", "https://api.invalid/api/v1/theatre/auth/refresh",
                 "https://api.invalid/api/v1/theatre/library/../session",
                 "https://api.invalid/api/v1/theatre/library/%2e%2e/session",
-                "https://api.invalid/api/v1/theatre/library/saved?limit=20&access_token=${f.initialBearer}",
-                "https://api.invalid/api/v1/theatre/library/saved?limit=20#fragment")
+                "https://api.invalid/api/v1/theatre/library/saved?limit=20&presentation=1&access_token=${f.initialBearer}",
+                "https://api.invalid/api/v1/theatre/library/saved?limit=20&presentation=1#fragment")
             val replies = mutableListOf<NativeHttpResponse>()
             urls.forEach { f.http.send(NativeHttpRequest("GET", it, null, f.initialBearer, f.family), replies::add) }
             runCurrent()
@@ -167,6 +167,29 @@ class NativeAuthorizedHttpPortTest {
             assertEquals(urls.size, replies.size)
             assertTrue(replies.all { it.failure == "protocol" && it.body == null })
             assertEquals(0, f.refreshes)
+        } finally { f.close() }
+    }
+
+    @Test
+    fun libraryPagesAreSentOnlyWithTheClosedPresentationOptIn() = runTest {
+        val f = Fixture(backgroundScope)
+        try {
+            runCurrent()
+            val cursor = "c".repeat(64)
+            val allowed = listOf("continue", "saved", "history").flatMap { section ->
+                listOf("/library/$section?limit=20&presentation=1", "/library/$section?limit=20&presentation=1&cursor=$cursor")
+            }
+            val refused = listOf("/library/saved?limit=20", "/library/saved?limit=20&cursor=$cursor",
+                "/library/saved?limit=20&presentation=0", "/library/saved?limit=20&presentation=true",
+                "/library/saved?presentation=1&limit=20", "/library/saved?limit=20&presentation=1&presentation=1",
+                "/library/saved?limit=20&presentation=1&cursor=${cursor.uppercase()}")
+            val replies = mutableListOf<NativeHttpResponse>()
+            (allowed + refused).forEach { f.http.send(f.request(route = it), replies::add) }
+            runCurrent()
+            assertEquals(allowed.size, f.requests.size, "only the opted-in page reads leave the process")
+            assertEquals(allowed, f.requests.map { it.request.url.substringAfter("/api/v1/theatre") })
+            assertTrue(replies.all { it.failure == "protocol" })
+            assertEquals(refused.size, replies.size)
         } finally { f.close() }
     }
 

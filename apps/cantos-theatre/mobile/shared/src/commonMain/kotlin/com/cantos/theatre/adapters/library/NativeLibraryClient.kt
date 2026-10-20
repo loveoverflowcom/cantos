@@ -1,16 +1,15 @@
 package com.cantos.theatre.adapters.library
 
-import com.cantos.theatre.adapters.library.wire.ContinuePage
 import com.cantos.theatre.adapters.library.wire.HistoryClear
 import com.cantos.theatre.adapters.library.wire.HistoryStart
 import com.cantos.theatre.adapters.library.wire.ProgressWrite
 import com.cantos.theatre.adapters.library.wire.SavedWrite
-import com.cantos.theatre.adapters.library.wire.HistoryPage
-import com.cantos.theatre.adapters.library.LibraryCodec
 import com.cantos.theatre.adapters.library.wire.LibraryError
 import com.cantos.theatre.adapters.library.wire.MutationState
+import com.cantos.theatre.adapters.library.wire.PresentedContinuePage
+import com.cantos.theatre.adapters.library.wire.PresentedHistoryPage
+import com.cantos.theatre.adapters.library.wire.PresentedSavedPage
 import com.cantos.theatre.adapters.library.wire.Receipt
-import com.cantos.theatre.adapters.library.wire.SavedPage
 import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.adapters.http.ApiOrigin
@@ -54,11 +53,19 @@ class NativeLibraryClient(private val apiOrigin: ApiOrigin, private val http: Na
     }
     private fun page(section: String, cursor: String?): String? {
         if (cursor != null && !Regex("[a-f0-9]{64}").matches(cursor)) return null
-        return "/library/$section?limit=20" + (cursor?.let { "&cursor=$it" } ?: "")
+        return "/library/$section?limit=20&presentation=1" + (cursor?.let { "&cursor=$it" } ?: "")
     }
-    override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<ContinuePage> = page("continue", cursor)?.let { request(auth, "GET", it, "ContinuePage") } ?: LibraryResult.Failed("invalid_cursor", false)
-    override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<SavedPage> = page("saved", cursor)?.let { request(auth, "GET", it, "SavedPage") } ?: LibraryResult.Failed("invalid_cursor", false)
-    override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<HistoryPage> = page("history", cursor)?.let { request(auth, "GET", it, "HistoryPage") } ?: LibraryResult.Failed("invalid_cursor", false)
+    /** A page whose metadata names another record or release is a contract violation, never a label. */
+    private fun <T> bound(result: LibraryResult<T>, matches: (T) -> Boolean): LibraryResult<T> = when (result) {
+        is LibraryResult.Value -> if (matches(result.value)) result else LibraryResult.Failed("protocol", false)
+        is LibraryResult.Failed -> result
+    }
+    override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedContinuePage> =
+        page("continue", cursor)?.let { path -> bound(request<PresentedContinuePage>(auth, "GET", path, "PresentedContinuePage")) { it.items.all { item -> LibraryBinding.exact(item.progress.audio, item.presentation) } } } ?: LibraryResult.Failed("invalid_cursor", false)
+    override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedSavedPage> =
+        page("saved", cursor)?.let { path -> bound(request<PresentedSavedPage>(auth, "GET", path, "PresentedSavedPage")) { it.items.all { item -> item.presentation == null || item.presentation.work_id == item.saved.work_id } } } ?: LibraryResult.Failed("invalid_cursor", false)
+    override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedHistoryPage> =
+        page("history", cursor)?.let { path -> bound(request<PresentedHistoryPage>(auth, "GET", path, "PresentedHistoryPage")) { it.items.all { item -> LibraryBinding.exact(item.audio, item.presentation) } } } ?: LibraryResult.Failed("invalid_cursor", false)
     override suspend fun saved(auth: LibraryAuthorization, work: String): LibraryResult<SavedRecord> {
         if (!uuid.matches(work)) return LibraryResult.Failed("invalid_request", false)
         return when (val result = request<SavedRecord>(auth, "GET", "/library/saved/$work", "SavedRecord")) {

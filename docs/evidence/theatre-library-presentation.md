@@ -65,8 +65,9 @@ withdrawal without substitution, current privacy/revocation, counts beyond one p
 archived exclusion, duplicate/gapped positions and rank-before-pagination. Their source alone
 does not establish execution; the PR must report whether the disposable PostgreSQL gate ran.
 
-Required follow-ups: finish any unrun Rust/PostgreSQL and read-performance qualification, then
-adopt the explicit representation in `projectTheatreShell` in a separate client PR. UI,
+Required follow-ups: finish any unrun Rust/PostgreSQL and read-performance qualification. The
+CMP client adopts the explicit representation in `projectTheatreShell` through #297 (JVM/source
+evidence; live API/PostgreSQL, native sign-in and device acceptance remain open). UI,
 localization resources, shared components and preview qualifications are unchanged here.
 Android/iOS device, live identity, playback, deployment and production acceptance are not
 established by these tests. Next acceptance owner is unassigned; assignment is required before

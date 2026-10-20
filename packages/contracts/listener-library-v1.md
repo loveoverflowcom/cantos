@@ -63,7 +63,9 @@ publication substitution, progress migration or playback is introduced.
 
 Schemas and fixtures use separate `Presented*` definitions because adding even an optional
 response field breaks existing strict readers. This capability is additive only for explicitly
-opted-in callers; existing clients are not switched here. Client adoption and #177's genres,
+opted-in callers; the API change itself switched no client. The CMP Library client adopts the
+representation in [#297](https://github.com/loveoverflowcom/cantos/issues/297) (JVM/source evidence; a
+Page whose metadata names another record or release is a protocol failure). #177's genres,
 credits, seasons and numbering remain separate follow-ups.
 
 ## Identity, concurrency and receipts

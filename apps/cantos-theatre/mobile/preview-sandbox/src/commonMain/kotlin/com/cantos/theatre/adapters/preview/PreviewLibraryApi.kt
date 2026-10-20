@@ -5,21 +5,24 @@ import com.cantos.theatre.adapters.library.LibraryAuthorization
 import com.cantos.theatre.adapters.library.LibraryResult
 import com.cantos.theatre.adapters.library.wire.AudioIdentity as WireAudio
 import com.cantos.theatre.adapters.library.wire.Completion
-import com.cantos.theatre.adapters.library.wire.ContinueItem
-import com.cantos.theatre.adapters.library.wire.ContinuePage
 import com.cantos.theatre.adapters.library.wire.HistoryClear
 import com.cantos.theatre.adapters.library.wire.HistoryItem
-import com.cantos.theatre.adapters.library.wire.HistoryPage
 import com.cantos.theatre.adapters.library.wire.HistoryStart
 import com.cantos.theatre.adapters.library.wire.HistoryState
 import com.cantos.theatre.adapters.library.wire.MutationState
+import com.cantos.theatre.adapters.library.wire.AudioPresentation
+import com.cantos.theatre.adapters.library.wire.PresentedContinueItem
+import com.cantos.theatre.adapters.library.wire.PresentedContinuePage
+import com.cantos.theatre.adapters.library.wire.PresentedHistoryItem
+import com.cantos.theatre.adapters.library.wire.PresentedHistoryPage
+import com.cantos.theatre.adapters.library.wire.PresentedSavedItem
+import com.cantos.theatre.adapters.library.wire.PresentedSavedPage
+import com.cantos.theatre.adapters.library.wire.WorkPresentation
 import com.cantos.theatre.adapters.library.wire.ProgressKind
 import com.cantos.theatre.adapters.library.wire.ProgressRecord
 import com.cantos.theatre.adapters.library.wire.ProgressWrite
 import com.cantos.theatre.adapters.library.wire.Receipt
 import com.cantos.theatre.adapters.library.wire.ResumeStatus
-import com.cantos.theatre.adapters.library.wire.SavedItem
-import com.cantos.theatre.adapters.library.wire.SavedPage
 import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.adapters.library.wire.SavedWrite
 import com.cantos.theatre.domain.playback.AudioIdentity
@@ -73,19 +76,22 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
         account.historyState = HistoryState(if (account.history.isEmpty()) 0 else 1, 0)
     }
 
-    override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<ContinuePage> = served {
+    override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedContinuePage> = served {
         val items = account(auth.account).progress.values.sortedByDescending { it.listener_order }
-            .map { ContinueItem(it, ResumeStatus.exact_available) }
-        ContinuePage(items, null)
+            .map { PresentedContinueItem(it, ResumeStatus.exact_available, presentationOf(it.audio)) }
+        PresentedContinuePage(items, null)
     }
 
-    override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<SavedPage> = served {
-        SavedPage(account(auth.account).saved.values.filter { it.saved }.sortedByDescending { it.listener_order }.map(::SavedItem), null)
+    override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedSavedPage> = served {
+        PresentedSavedPage(account(auth.account).saved.values.filter { it.saved }.sortedByDescending { it.listener_order }
+            .map { PresentedSavedItem(it, PreviewFixtures.work(it.work_id)?.let(::workPresentation)) }, null)
     }
 
-    override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<HistoryPage> = served {
+    override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedHistoryPage> = served {
         val account = account(auth.account)
-        HistoryPage(account.historyState, account.history, null)
+        PresentedHistoryPage(account.historyState, account.history.map {
+            PresentedHistoryItem(it.audio, it.started_at_ms, it.listener_order, it.progress, it.resume, presentationOf(it.audio))
+        }, null)
     }
 
     override suspend fun saved(auth: LibraryAuthorization, work: String): LibraryResult<SavedRecord> = served {
@@ -189,6 +195,15 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
     )
 
     private fun account(actor: String): Account = accounts.getOrPut(actor) { Account() }
+
+    /** The sample release's own metadata; a publication the preview catalog lacks has none, like the API's null. */
+    private fun presentationOf(audio: WireAudio): AudioPresentation? = PreviewFixtures.unitByPublication(audio.publication_id)?.let { (work, unit) ->
+        AudioPresentation(workPresentation(work), unit.id.value, unit.title)
+    }
+
+    private fun workPresentation(work: PreviewWork) = WorkPresentation(
+        work.work.id.value, work.units.first().publicationId.value, work.work.title, work.work.kind.name.lowercase(), work.work.language,
+    )
 
     private fun audioOf(unitId: String): WireAudio? = PreviewFixtures.unit(unitId)?.let { (work, unit) ->
         PreviewFixtures.audio(work, unit).toWire()

@@ -1184,10 +1184,18 @@ class LibraryWireGenerationBoundaryTest(unittest.TestCase):
             self.assertNotIn("libraryFixtures", production)
             self.assertNotIn("progress_write.json", production)
             self.assertIn("libraryFixtures", fixtures)
+            self.assertNotIn("libraryPresentationFixtures", production)
+            # The default corpus and the opt-in presentation=1 corpus are separate maps.
+            default_part, presented_part = fixtures.split("internal val libraryPresentationFixtures")
             expected = sorted((contract / "fixtures/theatre/library/v1").glob("*.json"))
-            self.assertEqual(len(expected), fixtures.count(" to "))
+            self.assertEqual(len(expected), default_part.count(" to "))
             for file in expected:
-                self.assertIn(json.dumps(file.name), fixtures)
+                self.assertIn(json.dumps(file.name), default_part)
+                self.assertNotIn(json.dumps(file.name), presented_part)
+            presented = sorted((contract / "fixtures/theatre/library/v1/presentation").glob("*.json"))
+            self.assertEqual(len(presented), presented_part.count(" to "))
+            for file in presented:
+                self.assertIn(json.dumps(file.name), presented_part)
 
 
 if __name__ == "__main__":

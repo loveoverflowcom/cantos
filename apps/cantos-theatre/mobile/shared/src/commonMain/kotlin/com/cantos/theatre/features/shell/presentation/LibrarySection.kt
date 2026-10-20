@@ -31,9 +31,13 @@ import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellLibraryPhase
+import com.cantos.theatre.presentation.model.ShellLibrarySection
 import com.cantos.theatre.presentation.model.ShellProgress
+import com.cantos.theatre.presentation.model.ShellResume
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
+import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.clockTime
 import com.cantos.theatre.presentation.model.continuingProgress
 import com.cantos.ui.CantosShapes
@@ -49,24 +53,51 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     Column(Modifier.testTag("library-continue"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         SectionHeading(CopyKey.Continuing, copy)
         val points = continuingProgress(state)
-        if (points.isEmpty()) SectionEmpty(CopyKey.NoContinue, CopyKey.NoContinueHelp, copy, dispatch)
+        val phase = catalog.library.continuing
+        if (points.isEmpty() && phase == ShellLibraryPhase.Complete) SectionEmpty(CopyKey.NoContinue, CopyKey.NoContinueHelp, copy, dispatch)
         points.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = false, tag = "resume-${it.episodeId}") }
+        LibraryFooter(phase, ShellLibrarySection.Continue, "library-continue", copy, dispatch)
     }
     Column(Modifier.testTag("library-saved"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         SectionHeading(CopyKey.SavedTab, copy)
-        val works = catalog.knownWorks.filter { it.id in state.savedWorks }
-        if (works.isEmpty()) SectionEmpty(CopyKey.NoSaved, CopyKey.NoSavedHelp, copy, dispatch)
-        else WorkShelf(works, state, copy, dispatch)
+        // The API's order (newest save first), not the browsing catalog's.
+        val works = state.savedWorks.mapNotNull { catalog.work(it) }
+        val phase = catalog.library.saved
+        if (works.isEmpty() && phase == ShellLibraryPhase.Complete) SectionEmpty(CopyKey.NoSaved, CopyKey.NoSavedHelp, copy, dispatch)
+        else {
+            val (bare, described) = works.partition { it.unavailable }
+            if (described.isNotEmpty()) WorkShelf(described, state, copy, dispatch)
+            bare.forEach { UndescribedSaved(it, state, copy, dispatch) }
+        }
         if (works.size < state.savedWorks.size) Text(copy.text(CopyKey.SelectionUnavailableNote))
+        LibraryFooter(phase, ShellLibrarySection.Saved, "library-saved", copy, dispatch)
     }
     Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         SectionHeading(CopyKey.History, copy)
         TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.History)) }, modifier = Modifier.testTag("history-all")) {
             Text(copy.text(CopyKey.ViewAllHistory))
         }
-        if (state.history.isEmpty()) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
+        val phase = catalog.library.history
+        if (state.history.isEmpty() && phase == ShellLibraryPhase.Complete) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
         state.history.take(3).forEach {
             ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "recent-${it.episodeId}")
+        }
+        // Only the full History list pages; here a read in flight or a failure is still shown honestly.
+        if (phase == ShellLibraryPhase.Loading || phase == ShellLibraryPhase.Failed || phase == ShellLibraryPhase.Stale) {
+            LibraryFooter(phase, ShellLibrarySection.History, "library-history", copy, dispatch)
+        }
+    }
+}
+
+/** A saved Work the API gave no released metadata for: kept, named neutrally, with the reason and its own Unsave. */
+@Composable
+private fun UndescribedSaved(work: ShellWork, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+    Surface(modifier = Modifier.fillMaxWidth().testTag("saved-undescribed-${work.id}"),
+        color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.large) {
+        Column(Modifier.padding(tokenDp("space.inset")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Text(work.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(copy.text(CopyKey.SavedUndescribed), style = MaterialTheme.typography.bodySmall)
+            SaveWorkButton(work, state, copy, dispatch, "save-card-${work.id}")
         }
     }
 }
@@ -88,9 +119,18 @@ internal fun ListeningPoint(
     tag: String,
 ) {
     val episode = catalog.episode(point.episodeId)
-    if (episode == null || episode.durationSeconds <= 0) {
+    // Row titles and duration belong to the exact stored release; samples read them from the episode.
+    val unitTitle = point.titles?.unitTitle ?: episode?.title
+    val workTitle = point.titles?.workTitle ?: catalog.work(point.episodeId.workId)?.title.orEmpty()
+    val durationSeconds = point.durationSeconds ?: episode?.durationSeconds ?: 0
+    if (unitTitle == null || durationSeconds <= 0) {
         Text(copy.text(CopyKey.SelectionUnavailableNote))
         return
+    }
+    val reason = when (point.resume) {
+        ShellResume.Available -> null
+        ShellResume.NeedsRefresh -> CopyKey.ResumeNeedsRefresh
+        ShellResume.ReleaseReplaced, ShellResume.Unavailable -> CopyKey.ReleaseUnavailable
     }
     Surface(
         onClick = {
@@ -98,21 +138,24 @@ internal fun ListeningPoint(
         },
         modifier = Modifier.fillMaxWidth().testTag(tag).semantics {
             role = Role.Button
-            contentDescription = copy.text(CopyKey.ResumeSampleName, "title" to episode.title, "time" to copy.spokenTime(point.positionSeconds))
+            contentDescription = copy.text(CopyKey.ResumeSampleName, "title" to unitTitle, "time" to copy.spokenTime(point.positionSeconds))
         },
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = if (reason == null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.large,
     ) {
         Row(Modifier.padding(tokenDp("space.inset")), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
-            WorkArtwork(episode.workId, Modifier.size(tokenDp("size.control")), shape = CantosShapes.thumbnail)
+            WorkArtwork(point.episodeId.workId, Modifier.size(tokenDp("size.control")), shape = CantosShapes.thumbnail)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-                Text(episodeLabel(episode, catalog.work(episode.workId)?.title.orEmpty(), copy), style = MaterialTheme.typography.bodySmall)
-                Text(episode.title, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(if (episode != null && point.titles == null) episodeLabel(episode, workTitle, copy) else workTitle, style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(unitTitle, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(copy.text(CopyKey.PositionCaption, "elapsed" to clockTime(point.positionSeconds),
-                    "total" to clockTime(episode.durationSeconds)), style = MaterialTheme.typography.bodySmall)
+                    "total" to clockTime(durationSeconds)), style = MaterialTheme.typography.bodySmall)
+                if (reason != null) Text(copy.text(reason), style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("$tag-reason"))
             }
-            Icon(rememberCantosIconVector("play_arrow"), null)
+            if (reason == null) Icon(rememberCantosIconVector("play_arrow"), null)
         }
     }
 }
@@ -122,11 +165,13 @@ internal fun HistoryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     var confirming by remember { mutableStateOf(false) }
     SectionHeading(CopyKey.History, copy)
     Text(copy.text(CopyKey.HistoryHelp))
-    if (state.history.isEmpty()) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
+    val phase = catalog.library.history
+    if (state.history.isEmpty()) { if (phase == ShellLibraryPhase.Complete) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch) }
     else {
         TextButton(shape = MaterialTheme.shapes.small, onClick = { confirming = true }, modifier = Modifier.testTag("history-clear")) { Text(copy.text(CopyKey.ClearHistory)) }
         state.history.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "history-${it.episodeId}") }
     }
+    LibraryFooter(phase, ShellLibrarySection.History, "history", copy, dispatch)
     if (confirming) AlertDialog(
         shape = MaterialTheme.shapes.extraLarge,
         modifier = Modifier.testTag("history-dialog"),

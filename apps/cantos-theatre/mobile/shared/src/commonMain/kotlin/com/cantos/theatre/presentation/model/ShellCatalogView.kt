@@ -49,7 +49,29 @@ data class ShellWork(
     val unitKind: ShellUnitKind = ShellUnitKind.Episode,
     val unitsPhase: ShellListPhase = ShellListPhase.Complete,
     val detailPhase: ShellDetailPhase = ShellDetailPhase.Ready,
+    /** True only when the API answered `presentation:null` for a retained record and nothing else names it. */
+    val unavailable: Boolean = false,
 )
+
+/**
+ * Where one Library section stands. [Complete] is the end of its list (an empty list is then truly
+ * empty, and the default for fixtures); [Loading] is a first read (rows already shown stay);
+ * [Failed] is a first read that failed with nothing to show; [Stale] is a refresh that failed
+ * while earlier rows are still shown; [MoreFailed] is a next page that failed.
+ */
+enum class ShellLibraryPhase { Complete, Loading, LoadingMore, More, Failed, MoreFailed, Stale }
+
+data class ShellLibraryView(
+    val continuing: ShellLibraryPhase = ShellLibraryPhase.Complete,
+    val saved: ShellLibraryPhase = ShellLibraryPhase.Complete,
+    val history: ShellLibraryPhase = ShellLibraryPhase.Complete,
+) {
+    fun phase(section: ShellLibrarySection): ShellLibraryPhase = when (section) {
+        ShellLibrarySection.Continue -> continuing
+        ShellLibrarySection.Saved -> saved
+        ShellLibrarySection.History -> history
+    }
+}
 
 /** What this host can honestly do. Absent capabilities are not offered, never simulated. */
 data class ShellCapabilities(
@@ -69,6 +91,8 @@ class ShellCatalogView(
     val searchedBySource: Boolean = false,
     referenced: List<ShellWork> = emptyList(),
     referencedEpisodes: List<ShellEpisode> = emptyList(),
+    /** Per-section Library paging; [ShellLibraryView] defaults to every section complete. */
+    val library: ShellLibraryView = ShellLibraryView(),
 ) {
     private val snapshot: List<ShellWork> = works.map { work -> work.copy(episodes = work.episodes.toList()) }
     private val referencedSnapshot: List<ShellWork> = referenced.map { work -> work.copy(episodes = work.episodes.toList()) }
@@ -88,9 +112,10 @@ class ShellCatalogView(
 
     override fun equals(other: Any?): Boolean = other is ShellCatalogView && snapshot == other.snapshot &&
         worksPhase == other.worksPhase && searchedBySource == other.searchedBySource &&
-        referencedSnapshot == other.referencedSnapshot && referencedEpisodeSnapshot == other.referencedEpisodeSnapshot
+        referencedSnapshot == other.referencedSnapshot && referencedEpisodeSnapshot == other.referencedEpisodeSnapshot &&
+        library == other.library
 
-    override fun hashCode(): Int = listOf(snapshot, worksPhase, searchedBySource, referencedSnapshot, referencedEpisodeSnapshot).hashCode()
+    override fun hashCode(): Int = listOf(snapshot, worksPhase, searchedBySource, referencedSnapshot, referencedEpisodeSnapshot, library).hashCode()
 
     private fun detached(work: ShellWork): ShellWork = work.copy(episodes = work.episodes.toList())
 }

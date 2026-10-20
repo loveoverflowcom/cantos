@@ -80,7 +80,8 @@ class NativeAuthorizedHttpPort(
         val route = request.url.removePrefix(prefix)
         val id = "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
         return when (request.method) {
-            "GET" -> route.matches(Regex("/library/(continue|saved|history)\\?limit=(20|100)(&cursor=[0-9a-f]{64})?")) ||
+            // Pages are only ever read with the closed `presentation=1` opt-in (Library v1.1); the default shape has no consumer.
+            "GET" -> route.matches(Regex("/library/(continue|saved|history)\\?limit=(20|100)&presentation=1(&cursor=[0-9a-f]{64})?")) ||
                 route.matches(Regex("/library/saved/$id")) ||
                 route.matches(Regex("/(progress|operations)/$id"))
             "PUT" -> route.matches(Regex("/library/saved/$id")) || route.matches(Regex("/progress/$id"))
