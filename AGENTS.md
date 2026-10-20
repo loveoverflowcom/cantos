@@ -187,6 +187,13 @@ callback readback, preservation checks and cutover recovery follow the same runb
 
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
+The explicit `cargo xtask verify native-isolation --test-binary PATH --test NAME` lane runs
+one prebuilt exact Rust test with private run directories, an empty PATH and credential,
+executable and supported Linux network negative controls. It never builds or provisions;
+macOS reports network isolation and overall acceptance as `UNSUPPORTED`. Its regression tests
+belong to existing repository/Rust gates. Read the [guard boundary](docs/assurance/native-isolation.md)
+before using a receipt: it is not two-binary native E2E, authentication or Kani evidence.
+
 The table maps affected scope to checks at the applicable milestone, not a sequence to run
 after every edit. Preflight already includes repository/format and selected suites; do not
 run their standalone equivalents again when covered by that handoff run.

@@ -189,6 +189,8 @@ pub enum Task {
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum VerifySuite {
+    /// Isolate exactly one prebuilt native Rust test; no build, infrastructure or installation.
+    NativeIsolation(crate::native_isolation::NativeIsolationArgs),
     /// Explicit local Theatre registration acceptance; never selected by preflight or CI.
     TheatreAuth {
         #[arg(long, value_enum)]
@@ -267,6 +269,24 @@ mod tests {
     #[test]
     fn the_command_definition_is_consistent() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn native_isolation_requires_an_exact_target_and_bounded_deadline() {
+        assert!(matches!(
+            parse("verify native-isolation --test-binary /tmp/prebuilt --test fixture::exact --timeout-seconds 12 --dry-run").unwrap(),
+            Task::Verify { suite: VerifySuite::NativeIsolation(args) }
+            if args.dry_run && args.timeout_seconds == 12 && args.test == "fixture::exact"
+        ));
+        for line in [
+            "verify native-isolation",
+            "verify native-isolation --test-binary /tmp/prebuilt",
+            "verify native-isolation --test-binary /tmp/prebuilt --test fixture --timeout-seconds 0",
+            "verify native-isolation --test-binary /tmp/prebuilt --test fixture --timeout-seconds 121",
+            "verify native-isolation --test-binary /tmp/prebuilt --test fixture --setup",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
     }
 
     #[test]

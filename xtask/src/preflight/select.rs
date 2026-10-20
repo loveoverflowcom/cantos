@@ -306,6 +306,7 @@ fn classify_script(script: &str, impact: &mut Impact) {
         | "render_compose_preview.py"
         | "prepare_story_workspace.py"
         | "benchmark_revision_reads.py"
+        | "verify_native_isolation.py"
         | "serve_studio.py"
         | "seed_theatre.py"
         | "apk_size.py" => {}
@@ -684,6 +685,12 @@ mod tests {
         let seed = pick(&["scripts/seed_theatre.py", "scripts/test_seed_theatre.py"]);
         assert_eq!(seed.broadened, None);
         assert_eq!(names(&seed), ["repository", "rust-format"]);
+        let isolation = pick(&[
+            "scripts/verify_native_isolation.py",
+            "scripts/test_verify_native_isolation.py",
+        ]);
+        assert_eq!(isolation.broadened, None);
+        assert_eq!(names(&isolation), ["repository", "rust-format"]);
     }
 
     #[test]

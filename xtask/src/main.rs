@@ -19,6 +19,7 @@ mod hosting_report;
 mod kani;
 mod kanidm;
 mod mobile_toolchain;
+mod native_isolation;
 mod pipeline;
 mod preflight;
 mod probe;
@@ -163,6 +164,9 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             theatre_host::execute(&workspace, action, &tools, &mut runner)
         }
         Task::Verify { suite } => {
+            if let cli::VerifySuite::NativeIsolation(args) = &suite {
+                return native_isolation::execute(&workspace, args);
+            }
             if let cli::VerifySuite::WebBearer { dry_run } = suite {
                 return web_bearer::execute(&workspace, dry_run, &tools, &mut runner);
             }

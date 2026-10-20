@@ -471,7 +471,9 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
     match suite {
         // Explicit local fixtures have their own bounded executor. They are deliberately
         // absent from the ordinary gate catalog and cannot become a preflight dependency.
-        VerifySuite::TheatreAuth { .. } | VerifySuite::WebBearer { .. } => Vec::new(),
+        VerifySuite::TheatreAuth { .. }
+        | VerifySuite::WebBearer { .. }
+        | VerifySuite::NativeIsolation(_) => Vec::new(),
         VerifySuite::Behavior {
             capability,
             setup,
