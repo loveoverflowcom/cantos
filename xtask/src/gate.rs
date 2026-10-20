@@ -12,9 +12,9 @@ use crate::{
     cli::{PostgresScope, VerifySuite},
     command::CommandSpec,
     config::{
-        App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, THEATRE_PREVIEW_FEATURE,
-        THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE,
-        UI_PACKAGE, WASM_TARGET,
+        App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, IDENTITY_PACKAGE,
+        IDENTITY_PERSISTENCE_FEATURE, THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE,
+        TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET,
     },
     kani::{self, Kernel},
     pipeline::Step,
@@ -356,6 +356,26 @@ impl Gate {
                 cargo(&[
                     "clippy",
                     "-p",
+                    IDENTITY_PACKAGE,
+                    "--features",
+                    IDENTITY_PERSISTENCE_FEATURE,
+                    "--all-targets",
+                    "--locked",
+                    "--",
+                    "-D",
+                    "warnings",
+                ]),
+                cargo(&[
+                    "test",
+                    "-p",
+                    IDENTITY_PACKAGE,
+                    "--features",
+                    IDENTITY_PERSISTENCE_FEATURE,
+                    "--locked",
+                ]),
+                cargo(&[
+                    "clippy",
+                    "-p",
                     TURSO_STORE_PACKAGE,
                     "--features",
                     TURSO_TESTING_FEATURE,
@@ -644,6 +664,8 @@ mod tests {
         assert_eq!(
             lines(&Gate::Turso),
             [
+                "cargo clippy -p cantos-identity --features persistence --all-targets --locked -- -D warnings",
+                "cargo test -p cantos-identity --features persistence --locked",
                 "cargo clippy -p cantos-store-turso --features testing --all-targets --locked -- -D warnings",
                 "cargo test -p cantos-store-turso --features testing --locked",
                 "cargo run --locked -p cantos-store-turso --features testing --bin cantos-turso-capability -- report",

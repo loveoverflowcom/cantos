@@ -1,8 +1,10 @@
-# Cantos Identity security core
+# Cantos Identity
 
-This is the dependency-free library slice of [#334](https://github.com/loveoverflowcom/cantos/issues/334),
-on `refactor/cantos-native-turso`. It has no executable, listener, database, credential verifier
-or production consumer. It does not complete 334.1 or provide native authentication.
+This service contains the default dependency-free decision core and an opt-in `persistence`
+shell for [#334](https://github.com/loveoverflowcom/cantos/issues/334), on
+`refactor/cantos-native-turso`. The shell consumes the shared embedded Turso owner for real
+file-backed security state. There is no executable, listener, credential verifier, authenticated
+RPC or production composition. This partial schema does not complete 334.1 or native authentication.
 
 ## Implemented boundary
 
@@ -65,12 +67,13 @@ they authorize. Two copies of a plan are **not** two admissible commits. Reconci
 commit outcomes through receipts; never treat a timeout as rollback or reopen Pending.
 The sequenced pure-state tests do not demonstrate real races, durable consume-once or recovery.
 
-## Shell obligations and prerequisites
+## Historical mailbox-proof base and remaining shell obligations
 
 The base for the mailbox-proof slice is integration `26d957b37f6d6de57d86a75ee4614d4491611464`,
 containing #337 (rename), #338 (pre-composition regressions) and #339 (security-state core). It lacks #330's
 reconciliation, #332's shared Turso owner/migrations, Identity RPC draft and qualified dependency
-pins. This slice supplies no substitute for those prerequisites.
+pins. The shared Turso owner is now accepted and the optional security-state shell below
+consumes it. The mailbox-proof core itself supplies no substitute for the remaining prerequisites.
 
 After #332, the Identity owner must:
 
@@ -86,10 +89,54 @@ After #332, the Identity owner must:
 - preserve Server ActorId/bindings/permissions; no email auto-link or credential export.
 
 Email/password/secret-proof checked types, actual mailbox verification/signup/recovery, Argon2id, Studio passkey
-ceremonies and one-use recovery codes, events/receipts/schema, mail-port relocation, private
+ceremonies and one-use recovery codes, credential/proof schema, mail-port relocation, private
 gRPC/UDS authentication, footprint and end-to-end acceptance remain later #334 slices.
 Actor/session/HTTP/frontend integration belongs to #335. No server core or mail implementation
 is copied or moved before its replacement is ready.
+
+## File-backed security state
+
+The optional `persistence` feature supplies `IdentityStore` over the existing
+[`cantos-store-turso`](../../packages/store-turso/README.md) `OwnedDatabase`. It uses
+`DatabaseKind::Identity`, its own checksummed epoch-1 migration and the same exclusive file
+lease, serialized writer, trusted clock and commit-outcome types; it adds no engine wrapper,
+cross-service file access or second database owner.
+
+The [storage contract](../../packages/contracts/identity-security-store-v1.md) owns the exact
+scope and compatibility rules. The schema has instance metadata, checked subject/security state,
+ordered events and immutable operation receipts. `Intent::Migrate` may initialize a fresh random
+instance epoch only when every service table is empty; `Serve` refuses missing metadata and
+ordinary reopen retains the existing epoch. A partial first initialization is resumed only by
+explicit migrate. Missing metadata alongside data is corruption, never a fresh installation.
+
+The two internal owner-authorized mutations are subject creation and Active→Disabled. They
+require the expected instance epoch. Disable also requires the observed security version and
+uses the existing checked successor. Subject state, version, next event and bound receipt commit
+in one transaction. New operation IDs cannot resurrect a disabled subject, transfer a subject or
+reuse an ID with a different kind/subject/expected version. A repeated operation returns its
+original receipt, which is deliberately not a current Active snapshot or authentication fact.
+Reading security state is separate from reading an old receipt.
+
+These library methods do not authorize their caller, provision a live account, verify any
+credential, create an ActorId or issue Studio/Admin/resource authority. No public transport calls
+them. The default core and Kani commands leave `persistence` off; file-backed test fixtures are
+test-only. The storage feature is verified explicitly through the existing Turso gate and Rust CI.
+
+`CommitFault::Unknown` is preserved. Reconcile the exact operation/epoch/binding through the
+durable receipt before interpreting or retrying an uncertain effect. Real tests discard a
+successful post-commit response, reopen the file and replay without another event; that is not
+an injected engine COMMIT-Unknown result. Engine uncertainty classification remains the shared
+owner's separately tested boundary. Trigger-injected event failure proves partial subject writes
+roll back. Initialization commit uncertainty has its own typed outcome and requires reopening
+instance metadata, since this startup step has no subject-operation receipt. Concurrent CAS/replay,
+immutable guards, bounded event pages, integer exhaustion,
+wrong-epoch/foreign-owner refusal and reopen have real pinned-engine tests.
+
+This slice does not persist mailbox proofs/credentials, implement general recovery/re-enable/
+delete policy, rotate an epoch on restore, provide authenticated RPC, consume events in Server
+or establish revocation propagation/login. A copied old file cannot identify its own restore;
+the explicit restore rotation and Server resync remain #334/#335/#336 acceptance, as do crash,
+true ENOSPC, browser/device, footprint and actual D1 Kani proof evidence.
 
 ## Verification
 
@@ -102,6 +149,8 @@ Focused development checks use the same Cargo primitives:
 ```sh
 cargo test --locked -p cantos-identity
 cargo clippy --locked -p cantos-identity --all-targets -- -D warnings
+cargo test --locked -p cantos-identity --features persistence
+cargo xtask verify turso
 cargo xtask preflight --changed-only --base origin/refactor/cantos-native-turso
 ```
 
@@ -128,5 +177,5 @@ kernels; admission's `Purpose` also selects mailbox-proof; mailbox sources selec
 
 Kani evidence is **NOT_RUN** until an actual pinned Ubuntu x86_64 D1 workflow produces a run
 URL, exact source SHA and complete assertion/unwinding/cover output. macOS tests and registry/
-adapter tests do not establish `bounded-model-checked`. Real Turso, cryptographic and RPC
-evidence is separate and not supplied by this library slice.
+adapter tests do not establish `bounded-model-checked`. The optional persistence shell has
+separate real Turso tests; cryptographic and authenticated RPC evidence remains absent.

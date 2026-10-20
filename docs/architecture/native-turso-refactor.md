@@ -28,9 +28,10 @@ else in this record remains a target, except the bounded library slice below.
 supplies the single-owner lock, the checksummed schema registry with a pure startup decision, a
 serialized `BEGIN IMMEDIATE` writer with typed commit outcomes, an injected clock and a verified
 `VACUUM INTO` backup, plus [probes of the pinned engine](../evidence/turso-capability-report.md)
-(`cargo xtask verify turso`). It is `integration-tested` on Linux x86_64 (`tmpfs` and `ext4`) and macOS arm64 and has **no
-consumer**: neither `cantos-server` nor `cantos-identity` calls it, no Server table has been ported
-and PostgreSQL stays authoritative. A true full-disk, footprint and the schema mapping
+(`cargo xtask verify turso`). Its foundation is `integration-tested` on Linux x86_64 (`tmpfs` and `ext4`)
+and macOS arm64. Identity now has an opt-in [security-state persistence consumer](../../services/cantos-identity/README.md#file-backed-security-state)
+with real-file tests; Server still has no consumer and no Server table has been ported.
+PostgreSQL stays authoritative for serving. A true full-disk, footprint and the Server schema mapping
 remain `NOT_RUN`. The probes corrected several planning assumptions (see the report): recursive CTEs
 work, unknown collations are refused, a broken `REGEXP` `CHECK` is silently open unless wrapped in
 `coalesce`, and `VACUUM INTO` is stale unless run on the writer after a refreshing read.
@@ -41,8 +42,9 @@ completion recheck for active/current state, binding, surface and assurance. Its
 planners add bound explicit-confirmation/expiry, terminal cancel/consume and replacement
 decisions with expected/successor snapshots; secret verification and atomic persistence remain
 shell obligations. It introduces no
-binary, DB, crypto verifier, RPC, authentication fact or session; runtime prerequisites still
-belong to #332 and later #334 slices. Pure decisions do not establish durable revocation,
+binary, crypto verifier, RPC, authentication fact or session. The separate opt-in persistence
+shell supplies an Identity schema and atomic disable/version/event/receipt storage; runtime
+composition and credential/RPC prerequisites still belong to later #334 slices. Pure decisions do not establish durable revocation,
 restore safety, atomic consume-once or auth E2E acceptance. Kani harness registration is not
 evidence that a model checker ran.
 

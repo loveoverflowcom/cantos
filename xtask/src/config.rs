@@ -28,6 +28,8 @@ pub const API_PACKAGE: &str = "cantos-server";
 /// The producer-side Forge CLI. xtask builds it; it never runs it inside build/test/preflight.
 pub const FORGE_PACKAGE: &str = "cantos-forge";
 pub const TURSO_STORE_PACKAGE: &str = "cantos-store-turso";
+pub const IDENTITY_PACKAGE: &str = "cantos-identity";
+pub const IDENTITY_PERSISTENCE_FEATURE: &str = "persistence";
 /// Feature that exposes only run-owned temp directories and a deterministic clock; never a runtime build.
 pub const TURSO_TESTING_FEATURE: &str = "testing";
 pub const TURSO_CAPABILITY_BIN: &str = "cantos-turso-capability";

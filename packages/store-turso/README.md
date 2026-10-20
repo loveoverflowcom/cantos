@@ -6,11 +6,11 @@ both services would otherwise build twice and holds **no business table, query o
 in each service's contexts. See the [native Turso decision](../../docs/architecture/native-turso-refactor.md)
 and [epic #331](https://github.com/loveoverflowcom/cantos/issues/331).
 
-**Status: implemented library, no production consumer yet.** [#333](https://github.com/loveoverflowcom/cantos/issues/333)
-(Server) and [#334](https://github.com/loveoverflowcom/cantos/issues/334) (Identity) are the intended
-consumers; it enters `packages/` ahead of them because both need it before either can store
-anything ([#332.4](https://github.com/loveoverflowcom/cantos/issues/332)). Nothing in `cantos-server`
-or `cantos-identity` calls it yet, and PostgreSQL remains the Server's authority until the #333.9 flip.
+**Implemented library with an opt-in Identity persistence consumer.**
+[`cantos-identity`](../../services/cantos-identity/README.md#file-backed-security-state) uses this owner
+for its service-owned instance/subject security state, disable events and operation receipts.
+That library consumer has real file-backed tests but no executable, credential verifier or RPC.
+`cantos-server` does not consume the store yet; PostgreSQL remains its authority until #333.9.
 
 ## What it provides
 

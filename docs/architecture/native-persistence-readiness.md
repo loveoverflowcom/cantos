@@ -45,20 +45,20 @@ Inspect these owners before attempting the native connection:
 
 | Boundary | Implemented source | Consequence for the next slice |
 | --- | --- | --- |
-| Shared embedded store | [`cantos-store-turso`](../../packages/store-turso/README.md) supplies `OwnedDatabase`, checked startup/migrations, serialized writes, typed commit outcomes and verified backup | The shared foundation is present, but neither service consumes it. Reuse this owner API when adding service schemas/adapters; engine tests alone do not establish a Server or Identity runtime connection. |
+| Shared embedded store | [`cantos-store-turso`](../../packages/store-turso/README.md) supplies `OwnedDatabase`, checked startup/migrations, serialized writes, typed commit outcomes and verified backup | Identity's opt-in security-state shell consumes this owner. Server does not. Reuse the owner API; engine tests alone do not establish serving/auth runtime acceptance. |
 | Process entrypoint | [`cantos-server`](../../services/cantos-server/src/bin/cantos-server.rs) reads `DATABASE_URL`, calls PostgreSQL `verify_schema`, constructs `Store::new`, then composes HTTP | Selecting `CANTOS_THEATRE_NATIVE_ISSUER` still configures the existing provider adapter; it does not start or call Cantos Identity. |
 | Application storage | [`Store`](../../services/cantos-server/src/application.rs) contains `deadpool_postgres::Pool`; [`platform::postgres`](../../services/cantos-server/src/platform/postgres/mod.rs) owns connections and concrete transactions | A new file flag or disconnected actor DB would not replace this durable path. All context adapters and cross-context transaction fences must be ready before #333.9's atomic flip. |
 | HTTP/session admission | [`Studio admission`](../../services/cantos-server/src/adapters/inbound/http/studio/admission.rs), [`bearer`](../../services/cantos-server/src/platform/bearer/mod.rs) and its [`PostgreSQL adapter`](../../services/cantos-server/src/platform/bearer/postgres.rs) | Preserve provider checks, final transaction admission, purpose, roster, ActorId, expiry and resource fences until the accepted native verifier/session path replaces them. SessionPolicy reuse is not credential verification. |
 | Durable business writes | Context-owned adapters under [`contexts`](../../services/cantos-server/src/contexts), e.g. editorial revision/receipt/head updates and listening state/device-sequence/receipt updates | Preserve each atomic unit, late authority recheck and unknown-outcome reconciliation; do not translate PostgreSQL locks/functions by text substitution. |
 | Current identity | [`Studio OIDC`](../../services/cantos-server/src/platform/studio_oidc), [`Theatre identity`](../../services/cantos-server/src/platform/theatre_identity), [`registration configuration`](../../services/cantos-server/src/platform/theatre_registration/config.rs), [`Admin`](../../services/cantos-server/src/platform/admin) | Kanidm/OIDC introspection, SMTP `KanidmIssuer`, PostgreSQL registration/audit/revocation and optional Firebase enrollment still have genuine consumers. |
-| Native Identity | [`cantos-identity`](../../services/cantos-identity/README.md) is a dependency-free decision library | `check_completion` and mailbox transition plans establish no credential, authentication fact, durable consume-once effect or session. There is no Identity binary, database or authenticated private RPC in this source boundary. |
+| Native Identity | [`cantos-identity`](../../services/cantos-identity/README.md) has a default pure core and opt-in file-backed security-state shell | Instance/subject state, disable events and operation receipts are stored through the shared owner. Mailbox proofs and credentials are not persisted by this slice. There is no Identity binary, credential verifier, authenticated private RPC or production session. |
 
 ## Ordered prerequisites for a real connection
 
 1. Reuse the shared [`cantos-store-turso`](../../packages/store-turso/README.md)
    owner/migration/transaction API supplied by [#341](https://github.com/loveoverflowcom/cantos/pull/341)
-   on the integration branch. Its foundation is implemented; the service consumers below are
-   still missing. Do not copy it or create a competing owner. Engine tests alone do not
+   on the integration branch. Its Identity security-state consumer is implemented; Server and
+   Identity runtime composition below are still missing. Do not copy it or create a competing owner. Engine tests alone do not
    establish a service consumer.
 2. Complete #332's draft `cantos.identity.v1` RPC contract, compatible Tonic/Prost and credential
    library qualification. A generated DTO is not a sealed authentication fact.

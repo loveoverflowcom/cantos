@@ -34,9 +34,11 @@ Retired SQL is auditable through its manifest and original Git history, never si
 
 ### Platform scope
 
-`services/cantos-identity` currently contains only the dependency-free
-[security-state and mailbox-proof decision library](services/cantos-identity/README.md) for #334. It has no executable,
-database, credential verifier, transport or production consumer. Checked snapshots and a
+`services/cantos-identity` contains the default dependency-free
+[security-state and mailbox-proof decision library](services/cantos-identity/README.md) and an opt-in
+`persistence` shell using the shared Turso owner for instance/subject security state, disable
+events and operation receipts. It has no executable, credential verifier, transport or production
+composition. Checked snapshots and a
 passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
 #331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.
 
@@ -206,7 +208,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
 | Identity pure security core | Existing `rust` gate includes `cantos-identity`; metadata-based preflight selects its lint/tests. Focused primitive: `cargo test --locked -p cantos-identity`. Optional `verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof` needs actual D1 Ubuntu x86_64 evidence; macOS tests are not Kani evidence. |
 | Forge worker/process boundary | `cargo xtask verify forge` (Rust producer plus Node wrapper tests; no provider or cloud calls) |
-| Embedded Turso store foundation (`packages/store-turso`) | `cargo xtask verify turso` (clippy, file-backed tests on the pinned engine and the capability report; no server, container or cloud service) |
+| Embedded Turso foundation and Identity security persistence | `cargo xtask verify turso` (Identity `persistence` clippy/tests, shared-store file-backed tests and engine capability report; no server, container or cloud service). Focused primitive: `cargo test --locked -p cantos-identity --features persistence`. |
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observer; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |

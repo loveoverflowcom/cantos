@@ -59,7 +59,7 @@ apps/
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
   cantos-server/           Rust + Axum + PostgreSQL modular monolith (package cantos-server)  IMPLEMENTED
-  cantos-identity/         Pure security/proof plans; no binary, credentials, DB or RPC      CORE ONLY
+  cantos-identity/         Pure security/proof core + optional file-backed security state   NO BINARY/CREDENTIAL VERIFIER/RPC
   manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
   postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
   kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
@@ -73,7 +73,7 @@ packages/
   contracts/               Script IR/Studio/production schemas, fixtures, contract docs and
     api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
   web-auth/                Shared RAM Bearer lifecycle + browser adapter for both Web apps IMPLEMENTED
-  store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (library, no consumer yet)
+  store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (Identity persistence consumer; Server pending)
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
     cmp/                   Shared native controls and JVM desktop diagnostics              PREVIEW
@@ -190,7 +190,8 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   consumer and reviewed runtime decision under #203.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
   example server config. The API implements a separate opt-in [Studio OIDC verifier](studio-oidc.md);
-  nothing in this repository reimplements an identity provider.
+  the [native Identity persistence slice](../../services/cantos-identity/README.md#file-backed-security-state)
+  supplies no credential verifier or login replacement for it.
   The [internal actor registry](identity-registry.md) now owns exact external bindings under
   `platform/identity`, preserving existing actors and development sessions; it does not verify
   provider claims, add OIDC login or grant Theatre/Admin authority.
@@ -201,7 +202,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 | --- | --- | --- |
 | Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-server`, `cantos-studio`, `cantos-theatre` |
 | RAM credential lifecycle and browser authorization adapter | `packages/web-auth` | Studio Web and Theatre Web; separate purposes/instances |
-| Single-owner embedded Turso foundation (owner lock, schema registry, serialized writer, backup) | `packages/store-turso` | none yet; planned for `cantos-server` (#333) and `cantos-identity` (#334) |
+| Single-owner embedded Turso foundation (owner lock, schema registry, serialized writer, backup) | `packages/store-turso` | opt-in [`cantos-identity` persistence](../../services/cantos-identity/README.md#file-backed-security-state) (#334); Server consumer remains planned (#333), no production composition |
 | Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web live auth/account and isolated mock; development gallery |
 
 Not shared, deliberately:
@@ -232,7 +233,7 @@ The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds 
 | Member | Package | Build target |
 | --- | --- | --- |
 | `services/cantos-server` | `cantos-server` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
-| `services/cantos-identity` | `cantos-identity` | dependency-free security-state and mailbox-proof plans only; [runtime prerequisites and evidence boundary](../../services/cantos-identity/README.md) |
+| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events and bound receipts; no executable, credential verifier, RPC or production composition |
 | `services/cantos-forge-functions` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
