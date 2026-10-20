@@ -107,6 +107,10 @@ Turso, Kani, browser/device or footprint acceptance gates.
 
 ## Selected target
 
+The [per-table persistence ownership and runtime prerequisite map](native-persistence-readiness.md)
+connects this selected target to current source owners. Its checked inventory is preparatory;
+it does not establish a Turso service consumer, native authentication or legacy retirement.
+
 ```text
 cantos/
   apps/
