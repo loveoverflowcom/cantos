@@ -1,10 +1,10 @@
 package com.cantos.theatre.adapters.library
 
-import com.cantos.theatre.adapters.library.wire.ContinuePage
-import com.cantos.theatre.adapters.library.wire.HistoryPage
 import com.cantos.theatre.adapters.library.wire.MutationState
+import com.cantos.theatre.adapters.library.wire.PresentedContinuePage
+import com.cantos.theatre.adapters.library.wire.PresentedHistoryPage
+import com.cantos.theatre.adapters.library.wire.PresentedSavedPage
 import com.cantos.theatre.adapters.library.wire.Receipt
-import com.cantos.theatre.adapters.library.wire.SavedPage
 import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.ports.LocalLibraryIntent
 
@@ -17,9 +17,10 @@ sealed interface LibraryResult<out T> {
     data class Failed(val code: String, val retryable: Boolean, val unknownOutcome: Boolean = false) : LibraryResult<Nothing>
 }
 interface LibraryApi {
-    suspend fun continuePage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<ContinuePage>
-    suspend fun savedPage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<SavedPage>
-    suspend fun historyPage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<HistoryPage>
+    /** Page reads always opt in to `presentation=1`: every item carries its required, nullable metadata. */
+    suspend fun continuePage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<PresentedContinuePage>
+    suspend fun savedPage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<PresentedSavedPage>
+    suspend fun historyPage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<PresentedHistoryPage>
     suspend fun saved(auth: LibraryAuthorization, work: String): LibraryResult<SavedRecord>
     suspend fun progress(auth: LibraryAuthorization, publication: String): LibraryResult<MutationState.Progress>
     suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt>

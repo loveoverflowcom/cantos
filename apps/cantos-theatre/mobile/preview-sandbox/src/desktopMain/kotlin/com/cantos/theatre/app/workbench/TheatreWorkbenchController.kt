@@ -5,6 +5,8 @@ import com.cantos.theatre.application.identity.NativeAccountState
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.ShellProgress
+import com.cantos.theatre.presentation.model.ShellResume
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.adapters.preview.PreviewCatalogScenario
@@ -188,8 +190,13 @@ class TheatreWorkbenchController(
     fun snapshot(): TheatreSnapshot {
         val owners = mutableMount.value.owners
         val library = owners.shell.library.value
-        val settled = library.pending == 0 && library.failure == null && library.failures.isEmpty() && !library.refreshing
-        return TheatreSnapshot(selectedRecipe, owners.projection(), owners.account.state.value is NativeAccountState.SignedIn, settled)
+        val projected = owners.projection()
+        // Snapshots carry positions only. Row titles and durations are re-derived from the API values
+        // on restore, and a row that cannot resume has no wire form, so it is never exported.
+        val state = projected.copy(progress = projected.progress.map(ShellProgress::positionOnly), history = projected.history.map(ShellProgress::positionOnly))
+        val exportable = (projected.progress + projected.history).all { it.resume == ShellResume.Available }
+        val settled = exportable && library.pending == 0 && library.failure == null && library.failures.isEmpty() && !library.refreshing
+        return TheatreSnapshot(selectedRecipe, state, owners.account.state.value is NativeAccountState.SignedIn, settled)
     }
 
     fun restore(snapshot: TheatreSnapshot) {
@@ -235,3 +242,5 @@ private fun eventLabel(event: ShellEvent): String = when (event) {
     is ShellEvent.Search -> "Search (${event.query.length} characters)"
     else -> event::class.simpleName ?: "ShellEvent"
 }
+
+private fun ShellProgress.positionOnly() = ShellProgress(episodeId, positionSeconds, positionMs)

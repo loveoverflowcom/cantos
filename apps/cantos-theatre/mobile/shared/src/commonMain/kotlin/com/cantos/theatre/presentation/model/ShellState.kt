@@ -19,6 +19,9 @@ sealed interface ShellRoute {
 
 enum class ShellLibraryTab { Continuing, Saved, Bookmarks }
 
+/** The paged Library sections. They read, fail and retry independently. */
+enum class ShellLibrarySection { Continue, Saved, History }
+
 enum class ShellCatalogMode { Ready, Loading, Empty, Error }
 
 enum class ShellTheme { Light, Dark }
@@ -47,11 +50,25 @@ data class ShellBookmark(
     }
 }
 
-/** A position-only projection. Progress and accepted-play history have distinct owners. */
+/** What a stored Library row can still do. Samples and fixtures are [Available]. */
+enum class ShellResume { Available, NeedsRefresh, ReleaseReplaced, Unavailable }
+
+/** Titles the API confirmed for the exact stored release of one row; never a neighbouring release's. */
+data class ShellRowTitles(val workTitle: String, val unitTitle: String)
+
+/**
+ * A position-only projection. Progress and accepted-play history have distinct owners.
+ * [titles] are present only when the API confirmed them for this exact release; [resume] says
+ * whether this exact release can still be resumed.
+ */
 data class ShellProgress(
     val episodeId: ShellEpisodeId,
     val positionSeconds: Int,
     val positionMs: Long = positionSeconds.toLong() * 1000L,
+    val resume: ShellResume = ShellResume.Available,
+    val titles: ShellRowTitles? = null,
+    /** Duration of the exact stored release; null in samples, which read it from the episode. */
+    val durationSeconds: Int? = null,
 ) {
     init {
         require(positionSeconds >= 0 && positionMs >= 0 && positionSeconds.toLong() == positionMs / 1000L) {
@@ -230,6 +247,10 @@ sealed interface ShellEvent {
     data class SetLocale(val locale: ShellLocale) : ShellEvent
     data class SetSpeed(val percent: Int) : ShellEvent
     data class SetTimer(val timer: ShellTimer) : ShellEvent
+    /** Reads the next page of one Library section only; the other sections are untouched. */
+    data class LoadMoreLibrary(val section: ShellLibrarySection) : ShellEvent
+    /** Repeats the failed read of one Library section: its next page, or its first page. */
+    data class RetryLibrary(val section: ShellLibrarySection) : ShellEvent
 }
 
 fun canGoBack(state: ShellState): Boolean = state.stack.size > 1

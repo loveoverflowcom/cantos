@@ -29,7 +29,7 @@ val generateLibraryWire = tasks.register<Exec>("generateLibraryWire") {
     val schema = rootProject.file("../../../packages/contracts/schema/theatre/library/v1.schema.json")
     val fixtures = rootProject.file("../../../packages/contracts/fixtures/theatre/library/v1")
     val generator = rootProject.file("tooling/generate_library_wire.py")
-    inputs.files(schema, generator, fileTree(fixtures) { include("*.json") })
+    inputs.files(schema, generator, fileTree(fixtures) { include("*.json", "presentation/*.json") })
     outputs.dirs(generatedLibraryMain, generatedLibraryTests)
     commandLine("python3", generator.absolutePath, schema.absolutePath, fixtures.absolutePath,
         generatedLibraryMain.get().asFile.resolve("com/cantos/theatre/adapters/library/wire/LibraryWire.kt").absolutePath,

@@ -37,7 +37,8 @@ internal object LibraryCodec {
                     obj.all { (key, item) -> properties[key]?.let { validate(it.jsonObject, item) } ?: true }
             }
             "array" -> value is JsonArray && value.size <= (schema["maxItems"]?.jsonPrimitive?.int ?: Int.MAX_VALUE) && value.all { validate(schema.getValue("items").jsonObject, it) }
-            "string" -> value is JsonPrimitive && value.isString && (schema["pattern"]?.jsonPrimitive?.content?.let { Regex(it).matches(value.content) } ?: true)
+            "string" -> value is JsonPrimitive && value.isString && withinLength(schema, value.content) &&
+                (schema["pattern"]?.jsonPrimitive?.content?.let { Regex(it).matches(value.content) } ?: true)
             "boolean" -> value is JsonPrimitive && !value.isString && value.booleanOrNull != null
             "integer" -> {
                 val primitive = value as? JsonPrimitive ?: return false
@@ -47,6 +48,9 @@ internal object LibraryCodec {
             else -> false
         }
     }
+    /** JSON Schema counts Unicode code points, so a surrogate pair is one character. */
+    private fun withinLength(schema: JsonObject, text: String): Boolean =
+        text.count { !it.isLowSurrogate() } <= (schema["maxLength"]?.jsonPrimitive?.int ?: Int.MAX_VALUE)
     inline fun <reified T> decode(type: String, raw: String): T? = try {
         val value = json.parseToJsonElement(raw)
         if (valid(type, value)) json.decodeFromJsonElement<T>(value) else null

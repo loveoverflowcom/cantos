@@ -265,7 +265,11 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   and Create account actions, a Membership card and the listening settings.
 - Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs, for the verified
   account that owns the Library; a guest is asked to sign in. History has a secondary full list and
-  a confirmed clear action; clearing it preserves listening positions and saved works.
+  a confirmed clear action; clearing it preserves listening positions and saved works. The three
+  sections read, page, fail and retry independently: a failed next page keeps the rows already
+  shown, a section never read is "loading" or "failed" rather than empty, and a row that cannot
+  resume (release replaced, access unavailable, needs refresh) says why. Metadata is stored per exact
+  publication in the existing SQLite store (no second store, no per-Work fetch).
 - Vietnamese search, work details and desired-state **Lưu / Bỏ lưu** actions on cards/details.
   Resume opens the same release at its saved position, paused. History records starts the player
   acknowledged; opening a page creates none.
@@ -771,9 +775,11 @@ projections; identities are the API's lower-case UUIDs, never a sample key.
 | Theme, language | `PreferencesController` (language persisted) |
 | Sleep timer | local to `TheatreShell`: pauses the real player after 15/30 minutes |
 
-Absent facts are absent, not invented: bookmarks have no API (the control is hidden), the Library
-API returns identities without titles (a work or unit the process has not been shown is named
-neutrally), artwork has no projection yet (the tonal placeholder remains) and an episode number is
+Absent facts are absent, not invented: bookmarks have no API (the control is hidden), Library pages
+are read with the opt-in `presentation=1` (Library v1.1, #297) so Continue, Saved and History rows
+are named by the API's released Work/unit titles even for works the catalog never listed; a row
+whose metadata is `null` (replaced, withdrawn or private release) keeps its record and exact audio and is named
+neutrally, never by another release's title, artwork has no projection yet (the tonal placeholder remains) and an episode number is
 never derived from `position`. Gaps are tracked in the BE issues linked from the PR and #180.
 
 The [Android release/distribution runbook](docs/firebase-distribution.md) owns R8, same-release

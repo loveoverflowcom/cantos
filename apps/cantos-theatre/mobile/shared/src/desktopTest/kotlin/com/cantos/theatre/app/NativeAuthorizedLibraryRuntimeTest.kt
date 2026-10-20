@@ -6,13 +6,13 @@ import com.cantos.theatre.adapters.library.LibraryCodec
 import com.cantos.theatre.adapters.library.NativeLibraryClient
 import com.cantos.theatre.adapters.library.desktopLibraryStore
 import com.cantos.theatre.adapters.library.nativeLibraryController
-import com.cantos.theatre.adapters.library.wire.ContinuePage
-import com.cantos.theatre.adapters.library.wire.HistoryPage
+import com.cantos.theatre.adapters.library.wire.PresentedContinuePage
+import com.cantos.theatre.adapters.library.wire.PresentedHistoryPage
 import com.cantos.theatre.adapters.library.wire.HistoryStart
 import com.cantos.theatre.adapters.library.wire.HistoryState
 import com.cantos.theatre.adapters.library.wire.MutationState
 import com.cantos.theatre.adapters.library.wire.Receipt
-import com.cantos.theatre.adapters.library.wire.SavedPage
+import com.cantos.theatre.adapters.library.wire.PresentedSavedPage
 import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.adapters.library.wire.SavedWrite
 import com.cantos.theatre.application.identity.NativeAccountController
@@ -144,11 +144,11 @@ class NativeAuthorizedLibraryRuntimeTest {
                 val route = request.url.removePrefix(origin.probeUrl)
                 val body = when {
                     request.method == "GET" && route.startsWith("/library/continue?") ->
-                        LibraryCodec.json.encodeToString(ContinuePage(emptyList(), null))
+                        LibraryCodec.json.encodeToString(PresentedContinuePage(emptyList(), null))
                     request.method == "GET" && route.startsWith("/library/saved?") ->
-                        LibraryCodec.json.encodeToString(SavedPage(emptyList(), null))
+                        LibraryCodec.json.encodeToString(PresentedSavedPage(emptyList(), null))
                     request.method == "GET" && route.startsWith("/library/history?") ->
-                        LibraryCodec.json.encodeToString(HistoryPage(HistoryState(1, 0), emptyList(), null))
+                        LibraryCodec.json.encodeToString(PresentedHistoryPage(HistoryState(1, 0), emptyList(), null))
                     request.method == "GET" && route.startsWith("/operations/") ->
                         LibraryCodec.json.encodeToString(requireNotNull(receipts[route.substringAfterLast('/')]))
                     request.method == "POST" && route == "/library/history/playback-starts" -> {
@@ -226,13 +226,13 @@ class NativeAuthorizedLibraryRuntimeTest {
             assertNotEquals(authority.bearer, f.account.verifiedSession.value?.bearer)
             pending.complete(); runCurrent()
             assertEquals(f.actor, f.library.state.value.account)
-            assertEquals("authority_changed", f.library.state.value.failure)
+            assertEquals("authority_changed", f.library.state.value.section(com.cantos.theatre.domain.library.LibrarySection.Continue).failure?.code)
             assertEquals(1, f.sessionChecks, "a stale local lease is not a server denial of the new authority")
             assertEquals(player.identity, f.runtime.listening.playback.state.value.identity)
             assertEquals(PlaybackStatus.Playing, f.runtime.listening.playback.state.value.status)
             assertEquals(authority.intent, f.account.verifiedSession.value?.intent)
             f.library.refresh(); runCurrent()
-            assertEquals(null, f.library.state.value.failure)
+            assertEquals(null, f.library.state.value.section(com.cantos.theatre.domain.library.LibrarySection.Continue).failure)
             assertEquals(player.identity, f.runtime.listening.playback.state.value.identity)
         } finally { f.close() }
     }

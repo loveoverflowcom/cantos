@@ -19,25 +19,106 @@ class NativeLibraryClientTest {
         }
     }
     private fun client(http: Http) = NativeLibraryClient(requireNotNull(NativeClientConfiguration.create("https://api.example", "https://idm.example/oauth2/openid/cantos-theatre-native")), http)
-    @Test fun pagesReturnActualRowsAndOpaqueCursorWithBearerSessionFence() = runTest {
+    private fun presented(name: String) = libraryPresentationFixtures.getValue("$name.json")
+    @Test fun pagesAskForPresentationAndReturnActualRowsAndOpaqueCursorWithBearerSessionFence() = runTest {
         val http = Http(); val client = client(http)
-        val saved = Json.parseToJsonElement(libraryFixtures.getValue("saved.json")).jsonObject
+        val saved = Json.parseToJsonElement(presented("presented_saved")).jsonObject
         val cursor = "c".repeat(64)
         http.response = NativeHttpResponse(200, "application/json", JsonObject(saved + ("next_cursor" to JsonPrimitive(cursor))).toString(), null, session)
-        val result = assertIs<LibraryResult.Value<com.cantos.theatre.adapters.library.wire.SavedPage>>(client.savedPage(auth))
+        val result = assertIs<LibraryResult.Value<com.cantos.theatre.adapters.library.wire.PresentedSavedPage>>(client.savedPage(auth))
         assertEquals(cursor, result.value.next_cursor)
         assertEquals(saved.getValue("items").jsonArray.size, result.value.items.size)
         assertTrue(result.value.items.all { it.saved.saved })
+        assertEquals("Ánh đèn cuối sân khấu — Một lời hẹn chưa nói", result.value.items.single().presentation?.title)
         assertEquals(auth.bearer, http.requests.single().bearer)
         assertEquals(session, http.requests.single().expectedSession)
+        assertTrue(http.requests.single().url.endsWith("/library/saved?limit=20&presentation=1"))
         client.savedPage(auth, cursor)
-        assertTrue(http.requests.last().url.endsWith("?limit=20&cursor=$cursor"))
-        http.response = NativeHttpResponse(200, "application/json", libraryFixtures.getValue("continue.json"), null, session)
+        assertTrue(http.requests.last().url.endsWith("?limit=20&presentation=1&cursor=$cursor"))
+        http.response = NativeHttpResponse(200, "application/json", presented("presented_continue"), null, session)
         assertIs<LibraryResult.Value<*>>(client.continuePage(auth))
-        http.response = NativeHttpResponse(200, "application/json", libraryFixtures.getValue("history.json"), null, session)
+        assertTrue(http.requests.last().url.endsWith("/library/continue?limit=20&presentation=1"))
+        http.response = NativeHttpResponse(200, "application/json", presented("presented_history"), null, session)
         assertIs<LibraryResult.Value<*>>(client.historyPage(auth))
+        assertTrue(http.requests.last().url.endsWith("/library/history?limit=20&presentation=1"))
         http.response = NativeHttpResponse(200, "application/json", libraryFixtures.getValue("progress_read.json"), null, session)
         assertIs<LibraryResult.Value<*>>(client.progress(auth, id))
+        assertFalse(http.requests.last().url.contains("presentation"), "single-record reads never opt in")
+    }
+    @Test fun unavailablePresentationIsAValidNullNotAProtocolFailure() = runTest {
+        val http = Http(); val client = client(http)
+        for ((name, call) in listOf<Pair<String, suspend () -> LibraryResult<*>>>(
+            "presented_continue_unavailable" to { client.continuePage(auth) },
+            "presented_saved_unavailable" to { client.savedPage(auth) },
+            "presented_history_unavailable" to { client.historyPage(auth) },
+        )) {
+            http.response = NativeHttpResponse(200, "application/json", presented(name), null, session)
+            assertIs<LibraryResult.Value<*>>(call(), name)
+        }
+    }
+    @Test fun aPageWithoutRequiredPresentationOrFromTheDefaultContractIsAProtocolFailure() = runTest {
+        val http = Http(); val client = client(http)
+        // A default-shape page (no presentation key) answered to an opted-in request is not conformant.
+        http.response = NativeHttpResponse(200, "application/json", libraryFixtures.getValue("continue.json"), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.continuePage(auth)).code)
+        http.response = NativeHttpResponse(200, "application/json", libraryFixtures.getValue("saved.json"), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.savedPage(auth)).code)
+        http.response = NativeHttpResponse(200, "application/json", libraryFixtures.getValue("history.json"), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.historyPage(auth)).code)
+        // Missing is not null: dropping the key from an otherwise valid presented item is rejected.
+        val page = Json.parseToJsonElement(presented("presented_continue_unavailable")).jsonObject
+        val item = page.getValue("items").jsonArray.single().jsonObject
+        http.response = NativeHttpResponse(200, "application/json",
+            JsonObject(page + ("items" to JsonArray(listOf(JsonObject(item - "presentation"))))).toString(), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.continuePage(auth)).code)
+    }
+    @Test fun presentationNamingAnotherReleaseOrWorkIsAProtocolFailureNeverALabel() = runTest {
+        val http = Http(); val client = client(http)
+        val other = "00000000-0000-4000-8000-0000000000ff"
+        fun swap(name: String, edit: (JsonObject) -> JsonObject): String {
+            val page = Json.parseToJsonElement(presented(name)).jsonObject
+            val item = page.getValue("items").jsonArray.single().jsonObject
+            return JsonObject(page + ("items" to JsonArray(listOf(edit(item))))).toString()
+        }
+        fun JsonObject.with(key: String, value: JsonElement) = JsonObject(this + (key to value))
+        fun JsonObject.nested(key: String, edit: (JsonObject) -> JsonObject) = with(key, edit(getValue(key).jsonObject))
+        // Another release of the same unit supplies the metadata.
+        http.response = NativeHttpResponse(200, "application/json", swap("presented_continue") { item ->
+            item.nested("presentation") { p -> p.nested("work") { it.with("publication_id", JsonPrimitive(other)) } } }, null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.continuePage(auth)).code)
+        // Another unit.
+        http.response = NativeHttpResponse(200, "application/json", swap("presented_continue") { item ->
+            item.nested("presentation") { it.with("unit_id", JsonPrimitive(other)) } }, null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.continuePage(auth)).code)
+        // History item metadata for another Work.
+        http.response = NativeHttpResponse(200, "application/json", swap("presented_history") { item ->
+            item.nested("presentation") { p -> p.nested("work") { it.with("work_id", JsonPrimitive(other)) } } }, null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.historyPage(auth)).code)
+        // Saved metadata for another Work.
+        http.response = NativeHttpResponse(200, "application/json", swap("presented_saved") { item ->
+            item.nested("presentation") { it.with("work_id", JsonPrimitive(other)) } }, null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.savedPage(auth)).code)
+        // The exact release still decodes.
+        http.response = NativeHttpResponse(200, "application/json", presented("presented_continue"), null, session)
+        assertIs<LibraryResult.Value<*>>(client.continuePage(auth))
+    }
+    @Test fun anInvalidCursorNeverReachesTheNetworkForAnySection() = runTest {
+        val http = Http(); val client = client(http)
+        assertEquals("invalid_cursor", assertIs<LibraryResult.Failed>(client.continuePage(auth, "not-a-cursor")).code)
+        assertEquals("invalid_cursor", assertIs<LibraryResult.Failed>(client.savedPage(auth, "C".repeat(64))).code)
+        assertEquals("invalid_cursor", assertIs<LibraryResult.Failed>(client.historyPage(auth, "c".repeat(63))).code)
+        assertTrue(http.requests.isEmpty())
+    }
+    @Test fun oversizedPageIsRejectedByBytesAndByItemCount() = runTest {
+        val http = Http(); val client = client(http)
+        val page = Json.parseToJsonElement(presented("presented_saved")).jsonObject
+        val item = page.getValue("items").jsonArray.single()
+        http.response = NativeHttpResponse(200, "application/json", JsonObject(page + ("items" to JsonArray(List(51) { item }))).toString(), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.savedPage(auth)).code)
+        http.response = NativeHttpResponse(200, "application/json", " ".repeat(1_048_577) + presented("presented_saved"), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.savedPage(auth)).code)
+        http.response = NativeHttpResponse(200, "application/json", JsonObject(page + ("items" to JsonArray(List(50) { item }))).toString(), null, session)
+        assertEquals(50, assertIs<LibraryResult.Value<com.cantos.theatre.adapters.library.wire.PresentedSavedPage>>(client.savedPage(auth)).value.items.size)
     }
     @Test fun mutationsUsePutOrPostAndRetainExactBodyAndUnknownOutcome() = runTest {
         val http = Http(); val client = client(http)

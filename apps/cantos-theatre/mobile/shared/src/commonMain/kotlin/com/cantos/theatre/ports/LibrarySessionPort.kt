@@ -17,6 +17,8 @@ interface LibrarySessionPort {
     fun engineStarted(audio: AudioIdentity, engineSession: String)
     fun clearHistory()
     fun refresh()
+    /** Re-reads one section from its first page; the other sections and their rows are untouched. */
+    fun refresh(section: LibrarySection)
     fun nextPage(section: LibrarySection)
     fun refreshSaved(workId: String)
     fun refreshProgress(publicationId: String)

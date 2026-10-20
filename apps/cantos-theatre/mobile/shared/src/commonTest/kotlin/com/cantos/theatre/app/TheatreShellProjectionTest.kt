@@ -18,8 +18,16 @@ import com.cantos.theatre.domain.catalog.PublicUnitKind
 import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.domain.library.ContinueEntry
 import com.cantos.theatre.domain.library.HistoryEntry
+import com.cantos.theatre.domain.library.LibraryLoad
+import com.cantos.theatre.domain.library.LibraryPresentation
+import com.cantos.theatre.domain.library.LibraryReadFailure
 import com.cantos.theatre.domain.library.LibraryResume
+import com.cantos.theatre.domain.library.LibrarySection
+import com.cantos.theatre.domain.library.LibrarySectionState
 import com.cantos.theatre.domain.library.LibraryState
+import com.cantos.theatre.domain.library.LibraryUnitInfo
+import com.cantos.theatre.domain.library.LibraryWorkInfo
+import com.cantos.theatre.domain.library.LibraryWorkKind
 import com.cantos.theatre.domain.library.LibrarySync
 import com.cantos.theatre.domain.library.SavedEntry
 import com.cantos.theatre.domain.playback.AudioIdentity
@@ -35,7 +43,11 @@ import com.cantos.theatre.presentation.model.PlaybackUiStatus
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellDetailPhase
 import com.cantos.theatre.presentation.model.ShellEpisodeId
+import com.cantos.theatre.presentation.model.ShellLibraryPhase
+import com.cantos.theatre.presentation.model.ShellLibraryView
 import com.cantos.theatre.presentation.model.ShellListPhase
+import com.cantos.theatre.presentation.model.ShellResume
+import com.cantos.theatre.presentation.model.ShellRowTitles
 import com.cantos.theatre.presentation.model.ShellListeningFailure
 import com.cantos.theatre.presentation.model.ShellLibraryTab
 import com.cantos.theatre.presentation.model.ShellLocale
@@ -264,5 +276,112 @@ class TheatreShellProjectionTest {
         }
         assertEquals(null, bounded.work(work(101).id.value), "the oldest works are dropped first once the bound is reached")
         assertEquals(work(1_100).id, bounded.work(work(1_100).id.value)?.id)
+    }
+
+    // --- Library presentation (#297) ------------------------------------------------------------
+
+    private fun unitInfo(workNumber: Int, unitNumber: Int, workTitle: String, unitTitle: String, kind: LibraryWorkKind = LibraryWorkKind.Story) =
+        LibraryUnitInfo(LibraryWorkInfo(work(workNumber).id.value, unit(unitNumber).publicationId.value, workTitle, kind, "vi-VN"), unit(unitNumber).id.value, unitTitle)
+
+    @Test
+    fun a_library_row_for_a_work_the_catalog_never_listed_is_named_by_the_apis_presentation() {
+        val info = unitInfo(7, 7, "Ánh đèn cuối sân khấu — Một lời hẹn chưa nói", "Một tiếng chuông trong sương")
+        val library = LibraryState(account = "actor-a",
+            saved = listOf(SavedEntry(work(8).id.value, true, 2, LibrarySync.Confirmed,
+                LibraryPresentation.Available(LibraryWorkInfo(work(8).id.value, unit(8).publicationId.value, "Sơn Hà Ký", LibraryWorkKind.Podcast, "vi-VN")))),
+            continueListening = listOf(ContinueEntry(audio(7, 7, 125_000), 40_000, 3, LibraryResume.ExactAvailable, LibrarySync.Confirmed, LibraryPresentation.Available(info))),
+            history = listOf(HistoryEntry(audio(7, 7, 125_000), 1, LibraryResume.ExactAvailable, LibraryPresentation.Available(info))))
+        val view = projectTheatreShell(inputs(library = library))
+        val row = view.state.progress.single()
+        assertEquals(ShellRowTitles("Ánh đèn cuối sân khấu — Một lời hẹn chưa nói", "Một tiếng chuông trong sương"), row.titles)
+        assertEquals(125, row.durationSeconds)
+        assertEquals(40, row.positionSeconds)
+        assertEquals(ShellResume.Available, row.resume)
+        assertEquals(row.titles, view.state.history.single().titles)
+        assertEquals("Một tiếng chuông trong sương", view.catalog.episode(row.episodeId)?.title)
+        val saved = view.catalog.work(ShellWorkId(work(8).id.value))
+        assertEquals("Sơn Hà Ký", saved?.title)
+        assertEquals("Podcast", saved?.category)
+        assertEquals(ShellUnitKind.Episode, saved?.unitKind)
+        assertTrue(saved?.unavailable == false)
+        assertTrue(view.catalog.works.isEmpty(), "referenced Works never join the browsing list")
+    }
+
+    @Test
+    fun a_row_never_borrows_the_title_or_duration_of_another_release_of_the_same_unit() {
+        val story = work(1)
+        send(PublicCatalogIntent.Start)
+        send(WorksResolved(token(), PublicCatalogRead.Ready(worksPage(listOf(story)))))
+        send(PublicCatalogIntent.OpenWork(story))
+        send(WorkResolved(token(), PublicCatalogRead.Ready(story)))
+        send(UnitsResolved(token(), PublicCatalogRead.Ready(unitsPage(story, listOf(unit(1))))))
+        val catalogUnit = unit(1)
+        // The listener's stored audio is an older release of the same unit with another duration.
+        val old = requireNotNull(AudioIdentity.of(story.id.value, catalogUnit.id.value, "30000000-0000-4000-8000-0000000000aa",
+            "60000000-0000-4000-8000-0000000000aa", "c".repeat(64), 90_000))
+        assertTrue(old.publicationId != catalogUnit.publicationId.value)
+        val replaced = LibraryState(account = "actor-a",
+            continueListening = listOf(ContinueEntry(old, 30_000, 1, LibraryResume.ReleaseReplaced, LibrarySync.Confirmed, LibraryPresentation.Unavailable)))
+        val row = projectTheatreShell(inputs(library = replaced)).state.progress.single()
+        assertEquals(ShellResume.ReleaseReplaced, row.resume)
+        assertEquals(90, row.durationSeconds, "the exact stored release's duration, not the catalog's 61 seconds")
+        assertEquals(30, row.positionSeconds)
+        assertTrue(row.titles?.unitTitle != catalogUnit.title, "the newer release's unit title must not label the older audio")
+        assertEquals("Tác phẩm", row.titles?.workTitle, "the API said it cannot name this release: no catalog title of a newer release fills in")
+
+        // The same release may be named by the catalog when the API gave no metadata for it.
+        val same = LibraryState(account = "actor-a",
+            continueListening = listOf(ContinueEntry(audio(1, 1), 30_000, 1, LibraryResume.NeedsRefresh, LibrarySync.Confirmed, LibraryPresentation.Unread)))
+        val named = projectTheatreShell(inputs(library = same)).state.progress.single()
+        assertEquals(catalogUnit.title, named.titles?.unitTitle)
+        assertEquals(story.title, named.titles?.workTitle, "an unread row may use the catalog's name for the same release")
+        assertEquals(ShellResume.NeedsRefresh, named.resume)
+
+        // The API's presentation wins over the catalog for its own row.
+        val presented = LibraryState(account = "actor-a", continueListening = listOf(ContinueEntry(audio(1, 1), 30_000, 1, LibraryResume.ExactAvailable, LibrarySync.Confirmed,
+            LibraryPresentation.Available(unitInfo(1, 1, "Tên theo bản phát hành", "Tập theo bản phát hành")))))
+        assertEquals(ShellRowTitles("Tên theo bản phát hành", "Tập theo bản phát hành"), projectTheatreShell(inputs(library = presented)).state.progress.single().titles)
+    }
+
+    @Test
+    fun a_saved_work_the_api_gave_no_metadata_for_is_kept_and_marked_undescribed_never_named_by_a_sample() {
+        val library = LibraryState(account = "actor-a", saved = listOf(
+            SavedEntry(work(5).id.value, true, 1, LibrarySync.Confirmed, LibraryPresentation.Unavailable),
+            SavedEntry(work(6).id.value, true, 1, LibrarySync.Confirmed, LibraryPresentation.Unread)))
+        val view = projectTheatreShell(inputs(library = library))
+        assertEquals(listOf(ShellWorkId(work(5).id.value), ShellWorkId(work(6).id.value)), view.state.savedWorks.toList(), "the API's saved order")
+        view.state.savedWorks.forEach { id ->
+            val shown = view.catalog.work(id)
+            assertEquals("Tác phẩm", shown?.title)
+        }
+        assertTrue(view.catalog.work(ShellWorkId(work(5).id.value))?.unavailable == true, "the API's explicit null says so")
+        assertTrue(view.catalog.work(ShellWorkId(work(6).id.value))?.unavailable == false, "an unread record claims nothing")
+    }
+
+    @Test
+    fun each_library_section_reports_its_own_phase() {
+        fun phases(library: LibraryState) = projectTheatreShell(inputs(library = library)).catalog.library
+        assertEquals(ShellLibraryView(), phases(LibraryState()), "a guest has no Library to load")
+        val fresh = LibraryState(account = "actor-a")
+        assertEquals(ShellLibraryView(ShellLibraryPhase.Loading, ShellLibraryPhase.Loading, ShellLibraryPhase.Loading), phases(fresh), "not read yet is loading, not empty")
+        val loaded = LibrarySectionState(loaded = true)
+        assertEquals(ShellLibraryView(), phases(fresh.copy(sections = LibrarySection.entries.associateWith { loaded })), "read and empty is empty")
+        val mixed = fresh.copy(
+            sections = mapOf(
+                LibrarySection.Continue to loaded.copy(loading = LibraryLoad.NextPage),
+                LibrarySection.Saved to loaded.copy(failure = LibraryReadFailure("unavailable", true, nextPage = true)),
+                LibrarySection.History to LibrarySectionState(failure = LibraryReadFailure("unavailable", true, nextPage = false)),
+            ),
+            cursors = mapOf(LibrarySection.Continue to "c".repeat(64), LibrarySection.Saved to "d".repeat(64)),
+        )
+        assertEquals(ShellLibraryView(ShellLibraryPhase.LoadingMore, ShellLibraryPhase.MoreFailed, ShellLibraryPhase.Failed), phases(mixed))
+        val stale = mixed.copy(
+            history = listOf(HistoryEntry(audio(1, 1), 1, LibraryResume.ExactAvailable)),
+            sections = mixed.sections + (LibrarySection.Continue to loaded) + (LibrarySection.Saved to loaded),
+        )
+        assertEquals(ShellLibraryView(ShellLibraryPhase.More, ShellLibraryPhase.More, ShellLibraryPhase.Stale), phases(stale),
+            "a failed refresh over rows already shown is stale, a section with more pages offers them")
+        val refreshing = fresh.copy(sections = mapOf(LibrarySection.Saved to loaded.copy(loading = LibraryLoad.Refreshing)))
+        assertEquals(ShellLibraryPhase.Loading, phases(refreshing).saved)
     }
 }

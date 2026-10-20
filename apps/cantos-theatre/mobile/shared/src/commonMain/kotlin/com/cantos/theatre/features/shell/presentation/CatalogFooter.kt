@@ -15,6 +15,8 @@ import androidx.compose.ui.semantics.semantics
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellLibraryPhase
+import com.cantos.theatre.presentation.model.ShellLibrarySection
 import com.cantos.theatre.presentation.model.ShellListPhase
 import com.cantos.ui.tokenDp
 
@@ -38,6 +40,36 @@ internal fun ListFooter(phase: ShellListPhase, copy: ShellCopy, dispatch: (Shell
             Text(copy.text(if (first) CopyKey.Error else CopyKey.NextPageFailed), color = MaterialTheme.colorScheme.error)
             Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Retry) },
                 modifier = Modifier.testTag("list-retry")) { Text(copy.text(CopyKey.Retry)) }
+        }
+    }
+}
+
+/**
+ * The end of one Library section. Each section reads, fails and retries on its own, so its footer
+ * dispatches that section's events only. Rows already shown stay above any failure.
+ */
+@Composable
+internal fun LibraryFooter(phase: ShellLibraryPhase, section: ShellLibrarySection, tag: String, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+    when (phase) {
+        ShellLibraryPhase.Complete -> Unit
+        ShellLibraryPhase.Loading, ShellLibraryPhase.LoadingMore -> Text(
+            copy.text(if (phase == ShellLibraryPhase.Loading) CopyKey.Loading else CopyKey.LoadingMore),
+            Modifier.testTag("$tag-loading").semantics { liveRegion = LiveRegionMode.Polite },
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ShellLibraryPhase.More -> FilledTonalButton(shape = MaterialTheme.shapes.medium,
+            onClick = { dispatch(ShellEvent.LoadMoreLibrary(section)) }, modifier = Modifier.testTag("$tag-more")) {
+            Text(copy.text(CopyKey.LoadMore))
+        }
+        ShellLibraryPhase.Failed, ShellLibraryPhase.MoreFailed, ShellLibraryPhase.Stale -> Column(
+            Modifier.testTag("$tag-failed").semantics { liveRegion = LiveRegionMode.Polite },
+            verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Text(copy.text(when (phase) {
+                ShellLibraryPhase.MoreFailed -> CopyKey.NextPageFailed
+                ShellLibraryPhase.Stale -> CopyKey.LibrarySectionStale
+                else -> CopyKey.LibrarySectionFailed
+            }), color = MaterialTheme.colorScheme.error)
+            Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.RetryLibrary(section)) },
+                modifier = Modifier.testTag("$tag-retry")) { Text(copy.text(CopyKey.Retry)) }
         }
     }
 }

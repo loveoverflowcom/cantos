@@ -11,7 +11,15 @@ import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.domain.catalog.PublicUnitKind
 import com.cantos.theatre.domain.catalog.unitKind
+import com.cantos.theatre.domain.library.LibraryLoad
+import com.cantos.theatre.domain.library.LibraryPresentation
+import com.cantos.theatre.domain.library.LibraryResume
+import com.cantos.theatre.domain.library.LibrarySection
 import com.cantos.theatre.domain.library.LibraryState
+import com.cantos.theatre.domain.library.LibraryUnitInfo
+import com.cantos.theatre.domain.library.LibraryWorkInfo
+import com.cantos.theatre.domain.library.LibraryWorkKind
+import com.cantos.theatre.domain.library.valueOrNull
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.PlaybackIntent
 import com.cantos.theatre.domain.playback.PlaybackState
@@ -24,11 +32,15 @@ import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellDetailPhase
 import com.cantos.theatre.presentation.model.ShellEpisode
 import com.cantos.theatre.presentation.model.ShellEpisodeId
+import com.cantos.theatre.presentation.model.ShellLibraryPhase
 import com.cantos.theatre.presentation.model.ShellLibraryTab
+import com.cantos.theatre.presentation.model.ShellLibraryView
 import com.cantos.theatre.presentation.model.ShellListPhase
 import com.cantos.theatre.presentation.model.ShellListeningFailure
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellProgress
+import com.cantos.theatre.presentation.model.ShellResume
+import com.cantos.theatre.presentation.model.ShellRowTitles
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
@@ -88,10 +100,16 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
         if (work != null) builder.add(work) else builder.stub(detail.id.value)
         builder.detail(detail.id.value, detail.phase, detail.units)
     }
-    val saved = i.library.saved.filter { it.saved }.map { it.workId }
-    saved.forEach { builder.reference(it) }
-    i.library.continueListening.forEach { builder.reference(it.audio.workId); builder.unit(it.audio, null) }
-    i.library.history.forEach { builder.reference(it.audio.workId); builder.unit(it.audio, null) }
+    val savedEntries = i.library.saved.filter { it.saved }
+    val saved = savedEntries.map { it.workId }
+    // Saved first: its representative describes the Work; an exact release only describes its own row.
+    savedEntries.forEach {
+        builder.reference(it.workId)
+        it.presentation.valueOrNull?.let(builder::describe)
+        if (it.presentation == LibraryPresentation.Unavailable) builder.markUnavailable(it.workId)
+    }
+    i.library.continueListening.forEach { builder.reference(it.audio.workId); builder.unit(it.audio, null, it.presentation); it.presentation.valueOrNull?.let { unit -> builder.describe(unit.work) } }
+    i.library.history.forEach { builder.reference(it.audio.workId); builder.unit(it.audio, null, it.presentation); it.presentation.valueOrNull?.let { unit -> builder.describe(unit.work) } }
     if (audio != null) {
         builder.reference(audio.workId)
         builder.unit(audio, i.selection?.takeIf { it.title.isNotBlank() })
@@ -108,12 +126,15 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
         searchedBySource = true,
         referenced = referenced,
         referencedEpisodes = builder.extraEpisodes(),
+        library = i.library.toLibraryView(),
     )
 
     val matchesSelection = selectedUnit != null && pending == null && audio?.unitId == selectedUnit
     val selected = selectedUnit?.let { unit -> ShellEpisodeId(unit, ShellWorkId(selectedWork ?: "none")) } ?: NoSelection
     val positionMs = if (matchesSelection) session?.positionMs ?: 0L else 0L
     val continueByPublication = i.library.continueListening.associateBy { it.audio.publicationId }
+    fun row(audio: AudioIdentity, positionMs: Long, resume: LibraryResume, presentation: LibraryPresentation<LibraryUnitInfo>) =
+        audio.toProgress(positionMs, resume.toShell(), builder.rowTitles(audio, presentation))
     val state = ShellState(
         stack = i.navigation.stack.map { it.toShellRoute() },
         selectedEpisode = selected,
@@ -131,18 +152,44 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
         transportRequested = if (pending != null) !i.accessFailed
             else matchesSelection && session?.intent == PlaybackIntent.Play && session.failure == null,
         // Newest first from the API; the presentation orders its progress oldest first.
-        progress = i.library.continueListening.asReversed().map { it.audio.toProgress(it.positionMs) },
+        progress = i.library.continueListening.asReversed().map { row(it.audio, it.positionMs, it.resume, it.presentation) },
         history = i.library.history.map { entry ->
-            entry.audio.toProgress(continueByPublication[entry.audio.publicationId]?.positionMs ?: 0L)
+            row(entry.audio, continueByPublication[entry.audio.publicationId]?.positionMs ?: 0L, entry.resume, entry.presentation)
         },
         listeningFailure = if (i.accessFailed && pending != null) ShellListeningFailure.ReleaseUnavailable else null,
     )
     return ShellProjection(state, view)
 }
 
-private fun AudioIdentity.toProgress(positionMs: Long): ShellProgress {
+private fun AudioIdentity.toProgress(positionMs: Long, resume: ShellResume, titles: ShellRowTitles): ShellProgress {
     val bounded = positionMs.coerceIn(0L, durationMs)
-    return ShellProgress(ShellEpisodeId(unitId, ShellWorkId(workId)), (bounded / 1000L).toInt(), bounded)
+    return ShellProgress(ShellEpisodeId(unitId, ShellWorkId(workId)), (bounded / 1000L).toInt(), bounded, resume, titles,
+        ((durationMs + 999L) / 1000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
+}
+
+private fun LibraryResume.toShell(): ShellResume = when (this) {
+    LibraryResume.ExactAvailable -> ShellResume.Available
+    LibraryResume.NeedsRefresh -> ShellResume.NeedsRefresh
+    LibraryResume.ReleaseReplaced -> ShellResume.ReleaseReplaced
+    LibraryResume.AccessUnavailable -> ShellResume.Unavailable
+}
+
+/** A guest has no Library, so nothing is loading or failed for it. */
+private fun LibraryState.toLibraryView(): ShellLibraryView =
+    if (account == null) ShellLibraryView()
+    else ShellLibraryView(phase(LibrarySection.Continue, continueListening.isNotEmpty()), phase(LibrarySection.Saved, saved.any { it.saved }), phase(LibrarySection.History, history.isNotEmpty()))
+
+private fun LibraryState.phase(section: LibrarySection, hasRows: Boolean): ShellLibraryPhase {
+    val state = section(section)
+    return when {
+        state.loading == LibraryLoad.NextPage -> ShellLibraryPhase.LoadingMore
+        state.loading == LibraryLoad.Refreshing -> ShellLibraryPhase.Loading
+        state.failure?.nextPage == true -> ShellLibraryPhase.MoreFailed
+        state.failure != null -> if (hasRows) ShellLibraryPhase.Stale else ShellLibraryPhase.Failed
+        !state.loaded -> ShellLibraryPhase.Loading
+        cursors[section] != null -> ShellLibraryPhase.More
+        else -> ShellLibraryPhase.Complete
+    }
 }
 
 private fun TheatreRoute.toShellRoute(): ShellRoute = when (this) {
@@ -201,6 +248,10 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
         var unitsPhase = ShellListPhase.More
         var detailPhase = ShellDetailPhase.Ready
         var fallbackTitle: String? = null
+        /** The API's released metadata for a Work the catalog has not shown; the catalog value wins when present. */
+        var described: LibraryWorkInfo? = null
+        /** The API's explicit null for this Work's retained record; an unread record says nothing. */
+        var unavailable = false
         /** The open detail's list is exactly what the API walked; nothing else joins it. */
         var authoritative = false
     }
@@ -223,16 +274,38 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
         entries.getOrPut(id) { Entry(known.work(id)) }
     }
 
-    /** Titles of a unit named only by its audio identity: known metadata, a selection or neutral wording. */
-    fun unit(audio: AudioIdentity, selection: NativeSelection?) {
+    fun markUnavailable(id: String) {
+        entries.getOrPut(id) { Entry(known.work(id)) }.unavailable = true
+    }
+
+    fun describe(info: LibraryWorkInfo) {
+        val entry = entries.getOrPut(info.workId) { Entry(known.work(info.workId)) }
+        if (entry.described == null) entry.described = info
+    }
+
+    /** A catalog unit names [audio] only when it is the same release; a newer release is another recording. */
+    private fun exactUnit(audio: AudioIdentity): PublicUnit? =
+        known.unit(audio.unitId)?.unit?.takeIf { it.publicationId.value == audio.publicationId }
+
+    /** Row titles, resolved once: the API's metadata for this exact release, else only what is provably it. */
+    fun rowTitles(audio: AudioIdentity, presentation: LibraryPresentation<LibraryUnitInfo>): ShellRowTitles {
+        val info = presentation.valueOrNull
+        // The API's null says it cannot name this release: no catalog title (of a newer release) fills in.
+        val catalogWork = if (presentation == LibraryPresentation.Unavailable) null else known.work(audio.workId)
+        val workTitle = info?.work?.title ?: catalogWork?.title ?: copy.text(CopyKey.Work)
+        val exact = if (presentation == LibraryPresentation.Unavailable) null else exactUnit(audio)
+        return ShellRowTitles(workTitle, info?.unitTitle ?: exact?.title ?: workTitle)
+    }
+
+    /** Titles of a unit named only by its audio identity: API metadata, known metadata of that release, a selection or neutral wording. */
+    fun unit(audio: AudioIdentity, selection: NativeSelection?, presentation: LibraryPresentation<LibraryUnitInfo> = LibraryPresentation.Unread) {
         val entry = entries.getOrPut(audio.workId) { Entry(known.work(audio.workId)) }
         if (selection != null && entry.work == null) entry.fallbackTitle = selection.workTitle.takeIf(String::isNotBlank)
         if (audio.unitId in entry.units || audio.unitId in extras) return
-        val knownUnit = known.unit(audio.unitId)?.unit
         val workId = ShellWorkId(audio.workId)
         (if (entry.authoritative) extras else entry.units)[audio.unitId] = ShellEpisode(
             id = ShellEpisodeId(audio.unitId, workId), workId = workId, index = entry.units.size + 1,
-            title = knownUnit?.title ?: selection?.title ?: entry.work?.title ?: copy.text(CopyKey.Work),
+            title = presentation.valueOrNull?.unitTitle ?: exactUnit(audio)?.title ?: selection?.title ?: entry.work?.title ?: copy.text(CopyKey.Work),
             durationSeconds = seconds(audio.durationMs), numbered = false,
         )
     }
@@ -278,9 +351,15 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
         if (!entry.authoritative) known.unitsOf(id).forEach { episodes[it.id.value] = episode(id, it, episodes.size + 1) }
         entry.units.forEach { (unitId, episode) -> episodes[unitId] = episode }
         val ordered = episodes.values.mapIndexed { index, episode -> episode.copy(index = index + 1) }
-        return if (work == null) {
+        val described = entry.described
+        return if (work == null && described != null) {
+            val kind = described.kind.toPublic()
+            ShellWork(workId, described.title, copy.text(kind.label()), "", ordered,
+                if (kind.unitKind == PublicUnitKind.Chapter) ShellUnitKind.Chapter else ShellUnitKind.Episode,
+                entry.unitsPhase, entry.detailPhase)
+        } else if (work == null) {
             ShellWork(workId, entry.fallbackTitle ?: copy.text(CopyKey.Work), "", "", ordered,
-                ShellUnitKind.Episode, entry.unitsPhase, entry.detailPhase)
+                ShellUnitKind.Episode, entry.unitsPhase, entry.detailPhase, unavailable = entry.unavailable && entry.fallbackTitle == null)
         } else {
             ShellWork(workId, work.title, copy.text(work.kind.label()), work.description, ordered,
                 if (work.kind.unitKind == PublicUnitKind.Chapter) ShellUnitKind.Chapter else ShellUnitKind.Episode,
@@ -294,6 +373,12 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
     }
 
     private fun seconds(durationMs: Long): Int = ((durationMs + 999L) / 1000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+}
+
+private fun LibraryWorkKind.toPublic(): PublicWorkKind = when (this) {
+    LibraryWorkKind.Novel -> PublicWorkKind.Novel
+    LibraryWorkKind.Story -> PublicWorkKind.Story
+    LibraryWorkKind.Podcast -> PublicWorkKind.Podcast
 }
 
 internal fun PublicWorkKind.label(): CopyKey = when (this) {

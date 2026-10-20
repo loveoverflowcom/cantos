@@ -545,7 +545,7 @@ internal fun EpisodeSelection(episode: ShellEpisode, state: ShellState, copy: Sh
 }
 
 @Composable
-private fun SaveWorkButton(work: ShellWork, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, tag: String) {
+internal fun SaveWorkButton(work: ShellWork, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, tag: String) {
     val saved = work.id in state.savedWorks
     FilledTonalButton(shape = MaterialTheme.shapes.medium,
         onClick = { dispatch(ShellEvent.SetSaved(work.id, saved = !saved)) },

@@ -23,8 +23,6 @@ import com.cantos.theatre.application.errors.ErrorEvent
 import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.application.identity.toAccountView
 import com.cantos.theatre.application.preferences.PreferenceTheme
-import com.cantos.theatre.domain.library.LibraryResume
-import com.cantos.theatre.domain.library.LibrarySection
 import com.cantos.theatre.domain.library.LibraryState
 import com.cantos.theatre.domain.membership.MembershipEvent
 import com.cantos.theatre.features.auth.presentation.AccountContent
@@ -190,8 +188,8 @@ private fun CatalogNotice(status: CatalogCacheStatus?, copy: ShellCopy, dispatch
 }
 
 /**
- * What the durable Library adds to the known Library screen: sign-in for a guest, sync state,
- * stale-release and conflict choices, and paging. Rows themselves are the familiar sections.
+ * What the durable Library adds to the known Library screen: sign-in for a guest, sync state and
+ * conflict choices. Rows, their reasons and each section's paging belong to the sections themselves.
  */
 @Composable
 private fun LibraryHeader(
@@ -221,15 +219,8 @@ private fun LibraryHeader(
                 Text(copy.text(CopyKey.RetryListening))
             }
         }
-        if (library.refreshing) Text(copy.text(CopyKey.Loading), Modifier.testTag("library-refreshing"))
         if (library.failure != null || library.failures.isNotEmpty()) Text(copy.text(CopyKey.SyncFailed), Modifier.testTag("library-sync-failed"))
         if (library.pending > 0) Text(copy.text(CopyKey.SyncPending), Modifier.testTag("library-sync-pending"))
-        if (library.continueListening.any { it.resume == LibraryResume.NeedsRefresh }) {
-            Text(copy.text(CopyKey.ResumeNeedsRefresh), Modifier.testTag("library-needs-refresh"))
-        }
-        if (library.continueListening.any { it.resume == LibraryResume.ReleaseReplaced || it.resume == LibraryResume.AccessUnavailable }) {
-            Text(copy.text(CopyKey.ReleaseUnavailable), Modifier.testTag("library-release-unavailable"))
-        }
         library.conflicts.filter { it.resourceKey.startsWith("progress:") }.forEach { conflict ->
             Text(copy.text(CopyKey.ProgressConflict))
             val publication = conflict.resourceKey.removePrefix("progress:")
@@ -240,11 +231,6 @@ private fun LibraryHeader(
                 TextButton({ controller?.resolveProgress(publication, false) }, modifier = Modifier.heightIn(min = 48.dp).testTag("library-use-other")) {
                     Text(copy.text(CopyKey.UseOther))
                 }
-            }
-        }
-        LibrarySection.entries.filter { library.cursors[it] != null }.forEach { section ->
-            TextButton({ controller?.nextPage(section) }, modifier = Modifier.heightIn(min = 48.dp).testTag("library-more-${section.path}")) {
-                Text(copy.text(CopyKey.LoadMore))
             }
         }
     }
