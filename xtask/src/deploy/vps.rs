@@ -36,6 +36,8 @@ Operations (exactly one; deploy is the default):
   --reload-browser upload the host bundle; validate/restart existing edge/API, no SQL or secrets
   --rollback    switch the API back to the previous image on the VPS
   --status      print the VPS service status
+  --upgrade-epoch2-prefix  preserve a full epoch-2 [1] database; migrate a sibling to [1,2],
+                verify off-host recovery, then switch the database/image pair
   --cutover-epoch2  explicitly convert the inventoried empty-business epoch-1 installation;
                 rehearse, freeze, verify an off-host recovery copy, then switch DB/image together
 
@@ -80,6 +82,9 @@ pub struct VpsArgs {
     /// Explicit two-phase, lossless epoch-1 (28 migrations) to epoch-2 cutover.
     #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "status", "reload_browser"])]
     pub cutover_epoch2: bool,
+    /// Explicit paired sibling-database epoch-2 [1] to [1,2] upgrade (Linux x86_64 only).
+    #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "status", "reload_browser", "cutover_epoch2"])]
+    pub upgrade_epoch2_prefix: bool,
     /// Public API origin probed from this machine afterwards, e.g. https://api.example.org.
     #[arg(long, value_name = "ORIGIN")]
     pub smoke_origin: Option<String>,
@@ -96,6 +101,21 @@ pub enum Operation {
     Rollback,
     Status,
     CutoverEpoch2,
+    UpgradeEpoch2Prefix,
+}
+
+impl Operation {
+    fn is_cutover(self) -> bool {
+        matches!(self, Self::CutoverEpoch2 | Self::UpgradeEpoch2Prefix)
+    }
+
+    fn cutover_command(self) -> &'static str {
+        if self == Self::UpgradeEpoch2Prefix {
+            "prefix"
+        } else {
+            "cutover"
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -177,7 +197,7 @@ impl std::fmt::Display for CutoverAttempt {
 }
 
 fn incoming_directory(request: &Request, revision: &str, attempt: &CutoverAttempt) -> String {
-    if request.operation == Operation::CutoverEpoch2 {
+    if request.operation.is_cutover() {
         format!("{REMOTE_ROOT}/incoming/{revision}/{attempt}")
     } else {
         format!("{REMOTE_ROOT}/incoming/{revision}")
@@ -217,19 +237,23 @@ pub fn resolve(args: &VpsArgs) -> Result<Request, Refusal> {
             ));
         }
     }
-    let operation = match (
-        args.bootstrap,
-        args.rollback,
-        args.status,
-        args.cutover_epoch2,
-        args.reload_browser,
-    ) {
-        (true, _, _, _, _) => Operation::Bootstrap,
-        (_, true, _, _, _) => Operation::Rollback,
-        (_, _, true, _, _) => Operation::Status,
-        (_, _, _, true, _) => Operation::CutoverEpoch2,
-        (_, _, _, _, true) => Operation::ReloadBrowser,
-        _ => Operation::Deploy,
+    let operation = if args.upgrade_epoch2_prefix {
+        Operation::UpgradeEpoch2Prefix
+    } else {
+        match (
+            args.bootstrap,
+            args.rollback,
+            args.status,
+            args.cutover_epoch2,
+            args.reload_browser,
+        ) {
+            (true, _, _, _, _) => Operation::Bootstrap,
+            (_, true, _, _, _) => Operation::Rollback,
+            (_, _, true, _, _) => Operation::Status,
+            (_, _, _, true, _) => Operation::CutoverEpoch2,
+            (_, _, _, _, true) => Operation::ReloadBrowser,
+            _ => Operation::Deploy,
+        }
     };
     if operation == Operation::Status && args.smoke_origin.is_some() {
         return Err(Refusal::Usage(
@@ -373,13 +397,13 @@ pub fn plan(
 
     let mut steps = Vec::new();
     match request.operation {
-        Operation::Deploy | Operation::CutoverEpoch2 => {
-            if request.operation == Operation::CutoverEpoch2 {
+        Operation::Deploy | Operation::CutoverEpoch2 | Operation::UpgradeEpoch2Prefix => {
+            if request.operation.is_cutover() {
                 steps.push(durability_step(workspace, run, "attempt"));
             }
             steps.extend(source);
             let context = path("context");
-            steps.push(local(
+            let mut image_build = local(
                 "image build",
                 "podman",
                 vec![
@@ -395,7 +419,14 @@ pub fn plan(
                     image.clone(),
                     context,
                 ],
-            ));
+            );
+            if request.operation == Operation::UpgradeEpoch2Prefix {
+                image_build
+                    .command
+                    .args
+                    .insert(1, "--platform=linux/amd64".into());
+            }
+            steps.push(image_build);
             steps.push(local(
                 "image export",
                 "podman",
@@ -437,13 +468,14 @@ pub fn plan(
                 format!("zstd -dc {incoming}/cantos-api.tar.zst | podman load -q"),
                 true,
             ));
-            if request.operation == Operation::CutoverEpoch2 {
+            if request.operation.is_cutover() {
                 let extracted = format!("d={incoming}; install -d -m 0700 \"$d/tree\" && tar -xf \"$d/bundle.tar\" -C \"$d/tree\"");
                 steps.push(ssh("extract cutover bundle", extracted, true));
                 let cutover = format!("{incoming}/tree/infra/vps/bin/cantos-vps");
+                let protocol = request.operation.cutover_command();
                 steps.push(ssh(
                     "remote cutover prepare",
-                    format!("{cutover} cutover-prepare {revision} {incoming}/tree {attempt}"),
+                    format!("{cutover} {protocol}-prepare {revision} {incoming}/tree {attempt}"),
                     true,
                 ));
                 steps.push(Step {
@@ -481,7 +513,7 @@ pub fn plan(
                 });
                 steps.push(ssh(
                     "remote cutover commit",
-                    format!("{cutover} cutover-commit {revision} {incoming}/tree {attempt}"),
+                    format!("{cutover} {protocol}-commit {revision} {incoming}/tree {attempt}"),
                     true,
                 ));
             } else {
@@ -570,7 +602,7 @@ pub fn render_plan(
         ));
     }
     if request.dry_run {
-        if request.operation == Operation::CutoverEpoch2 {
+        if request.operation.is_cutover() {
             text.push_str("Cutover attempt is an all-zero planning placeholder; execution generates a fresh identity.\n");
         }
         text.push_str("Dry run: nothing was built, uploaded or run.\n");
@@ -582,6 +614,19 @@ const NEEDED: &[(Operation, &[&str])] = &[
     (
         Operation::Deploy,
         &["git", "tar", "podman", "zstd", "ssh", "scp"],
+    ),
+    (
+        Operation::UpgradeEpoch2Prefix,
+        &[
+            "git",
+            "tar",
+            "podman",
+            "zstd",
+            "ssh",
+            "scp",
+            "sha256sum",
+            "python3",
+        ],
     ),
     (Operation::Bootstrap, &["git", "tar", "ssh", "scp"]),
     (Operation::ReloadBrowser, &["git", "tar", "ssh", "scp"]),
@@ -650,18 +695,19 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
             | Operation::Bootstrap
             | Operation::ReloadBrowser
             | Operation::CutoverEpoch2
+            | Operation::UpgradeEpoch2Prefix
     );
     let revision = if needs_source {
         head_revision(workspace.root())?
     } else {
         "-".repeat(40)
     };
-    let attempt = if request.operation == Operation::CutoverEpoch2 && !request.dry_run {
+    let attempt = if request.operation.is_cutover() && !request.dry_run {
         CutoverAttempt::generate()?
     } else {
         CutoverAttempt::PREVIEW
     };
-    let attempt_suffix = if request.operation == Operation::CutoverEpoch2 {
+    let attempt_suffix = if request.operation.is_cutover() {
         format!("-{attempt}")
     } else {
         String::new()
@@ -677,6 +723,13 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
         return Ok(ExitCode::SUCCESS);
     }
     let mut report = Report::new("deploy vps cantos-api");
+    if request.operation == Operation::UpgradeEpoch2Prefix
+        && !(cfg!(target_os = "linux") && cfg!(target_arch = "x86_64"))
+    {
+        report.record("native builder", Status::Unsupported, "prefix upgrade requires a native Linux x86_64 builder; no Mac/emulation or remote work attempted");
+        report.print();
+        return Ok(report.exit_code());
+    }
     let needed = NEEDED
         .iter()
         .find(|(operation, _)| *operation == request.operation)
@@ -707,11 +760,11 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
         std::fs::create_dir_all(run.join("context"))
             .with_context(|| format!("could not create {}", run.display()))?;
         #[cfg(unix)]
-        if request.operation == Operation::CutoverEpoch2 {
+        if request.operation.is_cutover() {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700))?;
         }
-        if request.operation == Operation::CutoverEpoch2 {
+        if request.operation.is_cutover() {
             use std::io::Write;
             let mut record = std::fs::OpenOptions::new()
                 .write(true)
@@ -781,9 +834,10 @@ fn execute_plan(
         // Recovery is state-aware: before acceptance it restores the paired legacy DB/image;
         // after acceptance it finalizes only, because the new database may have accepted writes.
         let incoming = incoming_directory(request, revision, attempt);
+        let protocol = request.operation.cutover_command();
         let recovery = CommandSpec::new("ssh", workspace.root()).args([
             "-o".to_owned(), "BatchMode=yes".to_owned(), request.host.clone(),
-            format!("{incoming}/tree/infra/vps/bin/cantos-vps cutover-recover {revision} {incoming}/tree {attempt}"),
+            format!("{incoming}/tree/infra/vps/bin/cantos-vps {protocol}-recover {revision} {incoming}/tree {attempt}"),
         ]);
         match runner.run(&recovery) {
             Ok(()) => report.record("remote cutover recovery", Status::Pass, "state-aware recovery completed; original failure remains FAIL"),
@@ -899,12 +953,14 @@ mod tests {
             Operation::Rollback,
             Operation::Status,
             Operation::CutoverEpoch2,
+            Operation::UpgradeEpoch2Prefix,
         ] {
             raw.bootstrap = operation == Operation::Bootstrap;
             raw.reload_browser = operation == Operation::ReloadBrowser;
             raw.rollback = operation == Operation::Rollback;
             raw.status = operation == Operation::Status;
             raw.cutover_epoch2 = operation == Operation::CutoverEpoch2;
+            raw.upgrade_epoch2_prefix = operation == Operation::UpgradeEpoch2Prefix;
             raw.smoke_origin = None;
             let mut runner = crate::command::testing::RecordingRunner::default();
             assert!(execute(&workspace(), &raw, &mut runner).is_err());
@@ -1363,5 +1419,112 @@ mod tests {
         assert_eq!(civil_from_days(0), (1970, 1, 1));
         assert_eq!(civil_from_days(20_743), (2026, 10, 17));
         assert_eq!(civil_from_days(11_016), (2000, 2, 29));
+    }
+    #[cfg(unix)]
+    #[test]
+    fn prefix_upgrade_uses_its_own_protocol_and_durable_attempt_bound_recovery() {
+        let request = resolve(&args(&["--upgrade-epoch2-prefix"])).unwrap();
+        assert_eq!(request.operation, Operation::UpgradeEpoch2Prefix);
+        assert!(
+            plan(&workspace(), &request, REV, Path::new("/tmp/run"), &ATTEMPT)
+                .iter()
+                .find(|step| step.name == "image build")
+                .unwrap()
+                .command
+                .args
+                .contains(&"--platform=linux/amd64".into())
+        );
+        let steps = plan(&workspace(), &request, REV, Path::new("/tmp/run"), &ATTEMPT);
+        let prepare = steps
+            .iter()
+            .find(|step| step.name == "remote cutover prepare")
+            .unwrap();
+        assert!(prepare
+            .command
+            .args
+            .last()
+            .unwrap()
+            .contains("prefix-prepare"));
+        assert!(prepare
+            .command
+            .args
+            .last()
+            .unwrap()
+            .contains(&format!("/{REV}/{ATTEMPT}/tree {ATTEMPT}")));
+        let commit = steps
+            .iter()
+            .find(|step| step.name == "remote cutover commit")
+            .unwrap();
+        assert!(commit
+            .command
+            .args
+            .last()
+            .unwrap()
+            .contains("prefix-commit"));
+        assert!(!steps
+            .iter()
+            .any(|step| step.name == "remote install" || step.name == "remote deploy"));
+        let order = names(&steps);
+        assert!(
+            order
+                .iter()
+                .position(|name| *name == "persist off-host recovery copy")
+                .unwrap()
+                < order
+                    .iter()
+                    .position(|name| *name == "acknowledge verified off-host copy")
+                    .unwrap()
+        );
+        let mut runner = crate::command::testing::RecordingRunner {
+            fail_on: Some(" prefix-commit ".into()),
+            ..Default::default()
+        };
+        let mut report = Report::new("test prefix");
+        let fixture = LocalRun::new();
+        execute_plan(
+            &fixture.workspace,
+            &request,
+            REV,
+            &fixture.run,
+            &ATTEMPT,
+            &mut runner,
+            &mut report,
+        )
+        .unwrap();
+        assert!(runner
+            .commands
+            .last()
+            .unwrap()
+            .args
+            .last()
+            .unwrap()
+            .contains("prefix-recover"));
+    }
+
+    #[test]
+    fn prefix_upgrade_flag_conflicts_with_every_other_operator_operation() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Probe {
+            #[command(flatten)]
+            vps: VpsArgs,
+        }
+        for flag in [
+            "--bootstrap",
+            "--rollback",
+            "--status",
+            "--reload-browser",
+            "--cutover-epoch2",
+        ] {
+            assert!(Probe::try_parse_from([
+                "probe",
+                "cantos-api",
+                "--host",
+                "root@203.0.113.10",
+                "--upgrade-epoch2-prefix",
+                flag
+            ])
+            .is_err());
+        }
     }
 }

@@ -499,3 +499,79 @@ async fn bearer_expansion_preserves_exact_baseline_and_refuses_runtime_upgrade()
         "preserved-owner"
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite schema"]
+async fn prefix_helper_fingerprints_rows_and_sequence_state_and_detects_drift() {
+    use std::{fs, process::Command};
+
+    let (config, admin) = database().await;
+    migrate(&config).await.unwrap();
+    admin
+        .batch_execute(
+            "INSERT INTO actors(id) VALUES('prefix-fixture-a'),('prefix-fixture-b');
+             CREATE SEQUENCE prefix_fixture_sequence;
+             SELECT setval('prefix_fixture_sequence',17,false);",
+        )
+        .await
+        .unwrap();
+    let directory = env::temp_dir().join(format!("cantos-prefix-fingerprint-{}", Uuid::new_v4()));
+    fs::create_dir(&directory).unwrap();
+    fs::write(directory.join("baseline-tables"), "actors\ncantos_schema\n").unwrap();
+    fs::write(
+        directory.join("baseline-sequences"),
+        "prefix_fixture_sequence\n",
+    )
+    .unwrap();
+    let helper = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../infra/vps/bin/cantos-prefix-upgrade");
+    let fingerprint = |name: &str| {
+        let output = directory.join(name);
+        let result = Command::new("bash")
+            .arg("-c")
+            .arg(
+                r#"set -Eeuo pipefail
+source "$HELPER"
+die() { printf '%s\n' "$1" >&2; exit 65; }
+epoch2_query() {
+  printf '\pset tuples_only on\n\pset format unaligned\n%s\n' "$2" |
+    psql -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$PORT" -U cantos_test_admin -d "$DB"
+}
+prefix_fingerprint "$DB" "$DIRECTORY" "$OUTPUT"
+"#,
+            )
+            .env_clear()
+            .env("PATH", env::var_os("PATH").unwrap())
+            .env("HELPER", &helper)
+            .env("PORT", config.get_ports()[0].to_string())
+            .env("DB", config.get_dbname().unwrap())
+            .env("DIRECTORY", &directory)
+            .env("OUTPUT", &output)
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        fs::read(output).unwrap()
+    };
+    let before = fingerprint("before.tsv");
+    migrate(&config).await.unwrap();
+    assert_eq!(fingerprint("replayed.tsv"), before);
+    admin
+        .batch_execute("UPDATE actors SET active=false WHERE id='prefix-fixture-a'")
+        .await
+        .unwrap();
+    assert_ne!(fingerprint("changed-row.tsv"), before);
+    admin
+        .batch_execute(
+            "UPDATE actors SET active=true WHERE id='prefix-fixture-a';
+             SELECT setval('prefix_fixture_sequence',17,true);",
+        )
+        .await
+        .unwrap();
+    assert_ne!(fingerprint("changed-sequence.tsv"), before);
+    fs::remove_dir_all(directory).unwrap();
+}

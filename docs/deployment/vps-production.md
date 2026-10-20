@@ -81,8 +81,10 @@ routing diagnostic. Do not run a consuming login/exchange/refresh merely as a pr
 The new API requires epoch 2 migrations 0001 and 0002. `preflight_schema` currently invokes the
 strict target `--check` before backup/migration: an existing 0001-only registry is refused by
 ordinary deployment. Do not bypass that guard, edit registry rows or run a production migration
-by hand to force a rollout. A separately reviewed additive-upgrade/recovery path is required
-if the live inventory shows that prefix. The old 0001-only binary rejects the expanded registry;
+by hand to force a rollout. Use only the explicit [paired prefix-upgrade lane](postgres-prefix-upgrade.md)
+after its operator prerequisites and rehearsal when the live inventory shows that prefix.
+It migrates a fully restored sibling, retains the source and pairs database/runtime recovery;
+ordinary deployment remains strict. The old 0001-only binary rejects the expanded registry;
 its pre-migration health does not establish a usable image-only rollback after 0002. Preserve
 checked backups and verified data-preserving recovery; never promise ordinary binary rollback
 across this boundary or automatically restore/drop production data.

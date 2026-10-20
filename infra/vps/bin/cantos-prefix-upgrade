@@ -1,0 +1,395 @@
+#!/usr/bin/env bash
+# Sourced by cantos-vps only for the explicit epoch-2 [1] -> [1,2] lane.
+# Reuses the existing cutover's snapshot/restore/SQL primitives, never its epoch-1
+# transformer or provider reconciliation. Databases, images and journals are retained.
+
+prefix_pending() { [[ -s $STATE/epoch2-prefix.pending ]]; }
+
+prefix_action() {
+  case $1 in
+    initializing|refused|rolled-back) printf 'clear\n' ;;
+    snapshotted|freeze-intent|prepared|install-intent|rename-intent|health-check) printf 'rollback\n' ;;
+    accepted|complete) printf 'finalize\n' ;;
+    *) return 65 ;;
+  esac
+}
+
+prefix_load() {
+  local revision=$1 attempt=$2 name journal key value line phase
+  [[ $revision =~ ^[0-9a-f]{40}$ && $attempt =~ ^[0-9a-f]{32}$ ]] || die 'invalid prefix attempt' 65
+  [[ ! -L $STATE/epoch2-prefix.pending ]] || die 'symlink prefix journal pointer' 65
+  name=$(<"$STATE/epoch2-prefix.pending")
+  [[ $name == "${revision:0:12}-$attempt" ]] || die 'another attempt owns prefix recovery' 75
+  journal=$STATE/epoch2-prefix-upgrades/$name
+  [[ -d $journal && ! -L $journal && -f $journal/meta && ! -L $journal/meta &&
+     -f $journal/phase && ! -L $journal/phase ]] || die 'invalid prefix journal files' 65
+  local -A seen=()
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ $line == *=* ]] || die 'malformed prefix metadata' 65
+    key=${line%%=*}; value=${line#*=}
+    [[ $key =~ ^[a-z_]+$ ]] || die 'invalid prefix metadata key' 65
+    [[ -z ${seen[$key]+present} ]] || die 'duplicate prefix metadata' 65
+    case $key in
+      target|previous) [[ $value =~ ^[0-9a-f]{40}$ ]] || die 'invalid prefix revision' 65 ;;
+      attempt) [[ $value == "$attempt" ]] || die 'prefix attempt mismatch' 65 ;;
+      staging) [[ $value == "cantos_e2_prefix_$attempt" ]] || die 'prefix staging mismatch' 65 ;;
+      retained) [[ $value == "cantos_e2_retained_$attempt" ]] || die 'prefix retained mismatch' 65 ;;
+      old_oid|new_oid) [[ $value =~ ^[1-9][0-9]*$ ]] || die 'invalid prefix database OID' 65 ;;
+      old_limit) [[ $value =~ ^(-1|[0-9]+)$ ]] || die 'invalid prefix connection limit' 65 ;;
+      *) die 'unknown prefix metadata' 65 ;;
+    esac
+    seen[$key]=$value
+  done <"$journal/meta"
+  for key in target previous attempt staging retained old_oid old_limit; do
+    [[ -n ${seen[$key]:-} ]] || die 'incomplete prefix metadata' 65
+  done
+  [[ ${seen[target]} == "$revision" && ${seen[previous]} != "$revision" ]] || die 'prefix revision mismatch' 65
+  [[ -z ${seen[new_oid]:-} || ${seen[new_oid]} != "${seen[old_oid]}" ]] || die 'prefix database identities collide' 65
+  phase=$(<"$journal/phase")
+  prefix_action "$phase" >/dev/null || die 'unknown prefix phase; retain freeze for investigation' 65
+  case $phase in
+    prepared|install-intent|rename-intent|health-check|accepted|complete)
+      [[ -n ${seen[new_oid]:-} ]] || die 'missing prefix target OID' 65 ;;
+  esac
+  PREFIX_JOURNAL=$journal
+}
+
+prefix_record_pending() {
+  printf '%s\n' "${1##*/}" >"$STATE/epoch2-prefix.pending.partial"
+  mv "$STATE/epoch2-prefix.pending.partial" "$STATE/epoch2-prefix.pending"
+  sync -f "$STATE/epoch2-prefix.pending"
+}
+
+prefix_install_guard() {
+  local journal=$1
+  {
+    printf '#!/usr/bin/env bash\nset -Eeuo pipefail\numask 077\n'
+    printf 'pending=%q\noriginal=%q\n' "$STATE/epoch2-prefix.pending" "$journal/installed-host"
+    printf 'if [[ -s $pending && ${1:-} != status ]]; then printf "prefix upgrade pending; use incoming prefix-recover\\n" >&2; exit 75; fi\nexec "$original" "$@"\n'
+  } >"$journal/pending-guard"
+  install -m 0750 "$journal/pending-guard" /usr/local/sbin/cantos-vps.partial
+  mv /usr/local/sbin/cantos-vps.partial /usr/local/sbin/cantos-vps
+}
+
+prefix_infra_guard() {
+  local tree=$1 source name
+  [[ $(uname -sm) == 'Linux x86_64' ]] || die 'prefix upgrade requires Linux x86_64' 65
+  [[ $(epoch2_query cantos "SELECT current_setting('server_version_num');") == 170011 ]] ||
+    die 'prefix upgrade is qualified only for PostgreSQL 17.11' 65
+  validate_runtime_browser_configuration
+  for source in "$tree"/infra/vps/quadlet/*; do
+    name=${source##*/}
+    case $name in cantos-api-studio.container|cantos-api-theatre.container) continue ;; esac
+    cmp -s "$source" "$QUADLET_DIR/$name" || die 'non-API infrastructure drift; reconcile separately' 65
+  done
+  for source in "$tree"/infra/vps/systemd/*; do
+    cmp -s "$source" "$SYSTEMD_DIR/${source##*/}" || die 'systemd infrastructure drift; reconcile separately' 65
+  done
+  cmp -s "$tree/infra/edge/Caddyfile" "$EDGE_DIR/Caddyfile" || die 'edge drift; reconcile separately' 65
+  local unit
+  for unit in cantos-postgres cantos-edge "${API_UNITS[@]}"; do
+    unit_active "$unit" || die 'prefix source services must be active' 69
+  done
+  for unit in "${API_UNITS[@]}"; do
+    [[ -z $(podman port "$unit") ]] || die 'API has ingress outside the owned edge; reconcile separately' 65
+  done
+  if grep -qE '^[[:space:]]*PublishPort=' "$tree"/infra/vps/quadlet/cantos-api-*.container; then
+    die 'candidate API must not bypass the paused edge' 65
+  fi
+  [[ $(epoch2_query postgres "SELECT count(*) FROM pg_db_role_setting WHERE setdatabase=(SELECT oid FROM pg_database WHERE datname='cantos');") == 0 ]] ||
+    die 'database-specific role settings require separate review' 65
+  local size mount available required path
+  size=$(epoch2_query cantos 'SELECT pg_database_size(current_database());')
+  [[ $size =~ ^[0-9]+$ && ${#size} -le 14 ]] || die 'unrecognized database size' 65
+  required=$((size * 8 + 1073741824))
+  mount=$(podman volume inspect --format '{{.Mountpoint}}' cantos-postgres-data)
+  [[ -d $mount && ! -L $mount ]] || die 'unrecognized PostgreSQL volume mount' 65
+  for path in "$ROOT" "$mount"; do
+    available=$(df -Pk "$path" | awk 'END {print $4}')
+    [[ $available =~ ^[0-9]+$ && $((available * 1024)) -ge $required ]] ||
+      die 'insufficient room for retained databases, dumps and WAL reserve' 65
+  done
+}
+
+prefix_objects_guard() {
+  # Refuse state that the bounded schema/row/sequence comparison does not preserve.
+  epoch2_query "$1" "DO \$\$ BEGIN
+IF (SELECT count(*) FROM pg_roles WHERE rolname IN ('cantos_app','cantos_owner'))<>2
+ OR EXISTS(SELECT FROM pg_extension WHERE extname<>'plpgsql')
+ OR EXISTS(SELECT FROM pg_namespace WHERE nspname !~ '^pg_' AND nspname NOT IN ('public','information_schema'))
+ OR EXISTS(SELECT FROM pg_largeobject_metadata)
+ OR EXISTS(SELECT FROM pg_prepared_xacts WHERE database=current_database())
+ OR EXISTS(SELECT FROM pg_replication_slots WHERE database=current_database())
+ OR EXISTS(SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+           WHERE n.nspname='public' AND c.relkind IN ('r','S') AND
+             (c.relowner<>(SELECT oid FROM pg_roles WHERE rolname='cantos_owner') OR c.relrowsecurity))
+ OR EXISTS(SELECT FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+           WHERE n.nspname='public' AND p.proowner<>(SELECT oid FROM pg_roles WHERE rolname='cantos_owner'))
+ OR EXISTS(SELECT FROM pg_roles WHERE rolname IN ('cantos_app','cantos_owner')
+           AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+ OR EXISTS(SELECT FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='cantos_app'))
+THEN RAISE EXCEPTION 'unsupported prefix database objects or ownership'; END IF;
+END \$\$;" >/dev/null
+}
+
+prefix_fingerprint() {
+  local database=$1 journal=$2 output=$3 table digest count sequence
+  : >"$output.partial"
+  # Names are from a checked, independently generated baseline oracle. Raw rows only
+  # flow through the private pipe into SHA-256; neither rows nor credentials are logged.
+  while IFS= read -r table; do
+    [[ $table =~ ^[a-z_][a-z0-9_]*$ ]] || die 'invalid baseline table name' 65
+    digest=$(epoch2_query "$database" "COPY (SELECT row_to_json(t)::text FROM public.\"$table\" t
+ORDER BY row_to_json(t)::text COLLATE \"C\") TO STDOUT;" | sha256sum) || return
+    count=$(epoch2_query "$database" "SELECT count(*) FROM public.\"$table\";") || return
+    printf 'table|%s|%s|%s\n' "$table" "$count" "${digest%% *}" >>"$output.partial"
+  done <"$journal/baseline-tables"
+  while IFS= read -r sequence; do
+    [[ $sequence =~ ^[a-z_][a-z0-9_]*$ ]] || die 'invalid baseline sequence name' 65
+    digest=$(epoch2_query "$database" "SELECT last_value::text||'|'||is_called::text FROM public.\"$sequence\";" | sha256sum) || return
+    printf 'sequence|%s|%s\n' "$sequence" "${digest%% *}" >>"$output.partial"
+  done <"$journal/baseline-sequences"
+  mv "$output.partial" "$output"
+}
+
+prefix_source_guard() {
+  local database=$1 journal=$2 schema=$3
+  prefix_objects_guard "$database"
+  epoch2_schema "$database" "$journal/schema-$database.sql"
+  cmp -s "$journal/$schema" "$journal/schema-$database.sql" || die 'prefix source schema drift' 65
+  epoch2_registry "$database" "$journal/registry-$database.tsv"
+  cmp -s "$journal/registry-prefix.tsv" "$journal/registry-$database.tsv" || die 'prefix source registry drift' 65
+}
+
+prefix_prepare() (
+  set -Eeuo pipefail
+  local revision=$1 tree=$2 attempt=$3 journal previous target retained oracle restored full
+  require_root; with_lock prefix
+  ! prefix_pending || die 'prefix attempt pending; recover before preparing another' 75
+  [[ ! -L $STATE/epoch2-prefix-upgrades && ! -L $STATE/epoch2-prefix.pending ]] || die 'symlink prefix state refused' 65
+  prefix_infra_guard "$tree"
+  check_revision "$revision"; require_schema_image "$revision"
+  previous=$(<"$STATE/current"); check_revision "$previous"; require_schema_image "$previous"
+  [[ $previous != "$revision" ]] || die 'prefix source and target revisions must differ' 65
+  local image_revision
+  for image_revision in "$revision" "$previous"; do
+    [[ $(podman image inspect --format '{{.Os}}/{{.Architecture}}' "$(image_for "$image_revision")") == linux/amd64 ]] ||
+      die 'prefix source and target images must be linux/amd64' 65
+  done
+  check_schema "$previous"
+  local unit current_image expected_image
+  expected_image=$(podman image inspect --format '{{.Id}}' "$(image_for "$previous")")
+  for unit in "${API_UNITS[@]}"; do
+    current_image=$(podman inspect --format '{{.Image}}' "$unit")
+    [[ ${current_image#sha256:} == "${expected_image#sha256:}" ]] || die 'running source image drift' 65
+  done
+  journal=$STATE/epoch2-prefix-upgrades/${revision:0:12}-$attempt
+  install -d -m 0700 "$STATE/epoch2-prefix-upgrades"
+  mkdir -m 0700 "$journal"
+  target=cantos_e2_prefix_$attempt; retained=cantos_e2_retained_$attempt
+  oracle=cantos_e2_oracle_$attempt; restored=cantos_e2_restore_$attempt
+  full=cantos_e2_full_$attempt
+  printf 'target=%s\nattempt=%s\nprevious=%s\nstaging=%s\nretained=%s\nold_oid=%s\nold_limit=%s\n' \
+    "$revision" "$attempt" "$previous" "$target" "$retained" "$(epoch2_database_oid cantos)" \
+    "$(epoch2_query postgres "SELECT datconnlimit FROM pg_database WHERE datname='cantos';")" >"$journal/meta"
+  sync -f "$journal/meta"
+  epoch2_phase "$journal" initializing; prefix_record_pending "$journal"
+  trap 'status=$?; trap - EXIT; if ((status != 0)); then prefix_recover_impl "$revision" "$tree" "$attempt" || log "prefix recovery incomplete; retain journal and freeze"; fi; exit "$status"' EXIT
+  epoch2_snapshot_host "$journal" "$tree"
+  [[ -f $journal/edge-was-active ]] || die 'edge activity changed during snapshot' 65
+  epoch2_phase "$journal" snapshotted; prefix_install_guard "$journal"
+  cp "$tree/infra/vps/postgres/epoch2-prefix-registry.tsv" "$journal/registry-full.tsv"
+  [[ $(awk 'END {print NR}' "$journal/registry-full.tsv") == 2 ]] || die 'unsupported target migration set' 65
+  head -1 "$journal/registry-full.tsv" >"$journal/registry-prefix.tsv"
+  epoch2_create_database "$oracle"; epoch2_migrate_database "$previous" "$oracle"
+  epoch2_schema "$oracle" "$journal/schema-oracle.sql"
+  prefix_source_guard "$oracle" "$journal" schema-oracle.sql
+  prefix_source_guard cantos "$journal" schema-oracle.sql
+  epoch2_query "$oracle" "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename<>'cantos_migrations' ORDER BY tablename;" >"$journal/baseline-tables"
+  epoch2_query "$oracle" "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='S' ORDER BY c.relname;" >"$journal/baseline-sequences"
+  [[ -s $journal/baseline-tables ]] || die 'empty baseline inventory' 65
+  epoch2_dump "$oracle" "$journal/oracle.dump"
+  epoch2_restore_dump "$restored" "$journal/oracle.dump"
+  epoch2_schema "$restored" "$journal/schema-restored.sql"
+  prefix_source_guard "$restored" "$journal" schema-restored.sql
+  # Build an independent restored target oracle with precisely the approved migrations.
+  epoch2_restore_dump "$full" "$journal/oracle.dump"
+  epoch2_migrate_database "$revision" "$full"
+  epoch2_migrate_database "$revision" "$full" --check
+  epoch2_registry "$full" "$journal/registry-target.tsv"
+  cmp -s "$journal/registry-full.tsv" "$journal/registry-target.tsv" || die 'unsupported target migration set' 65
+  epoch2_schema "$full" "$journal/schema-target.sql"
+  epoch2_phase "$journal" freeze-intent
+  prefix_pause_edge
+  systemctl stop "${API_UNITS[@]/%/.service}"
+  epoch2_query postgres 'ALTER DATABASE cantos CONNECTION LIMIT 0;' >/dev/null
+  epoch2_no_clients cantos
+  prefix_source_guard cantos "$journal" schema-oracle.sql
+  prefix_fingerprint cantos "$journal" "$journal/rows-frozen.tsv"
+  epoch2_dump cantos "$journal/source-final.dump"
+  # Restore the exact frozen recovery media; production's original DB is never migrated.
+  epoch2_restore_dump "$target" "$journal/source-final.dump"
+  printf 'new_oid=%s\n' "$(epoch2_database_oid "$target")" >>"$journal/meta"
+  sync -f "$journal/meta"
+  prefix_source_guard "$target" "$journal" schema-restored.sql
+  epoch2_migrate_database "$previous" "$target" --check
+  prefix_fingerprint "$target" "$journal" "$journal/rows-restored.tsv"
+  cmp -s "$journal/rows-frozen.tsv" "$journal/rows-restored.tsv" || die 'final backup restore differs from frozen source' 65
+  epoch2_migrate_database "$revision" "$target"
+  prefix_target_guard "$target" "$journal" "$revision"
+  epoch2_query postgres "ALTER DATABASE $target CONNECTION LIMIT 0;" >/dev/null
+  epoch2_phase "$journal" prepared
+  local incoming=${tree%/tree}
+  rm -f "$incoming/cutover-offhost.sha256"
+  tar -C "$(dirname "$journal")" -cf "$incoming/cutover-backup.tar.partial" "${journal##*/}"
+  mv "$incoming/cutover-backup.tar.partial" "$incoming/cutover-backup.tar"
+  (cd "$incoming" && sha256sum cutover-backup.tar >cutover-backup.tar.sha256)
+  sync -f "$incoming/cutover-backup.tar"
+  log 'prefix prepared; APIs stopped pending verified off-host recovery copy'
+)
+
+prefix_target_guard() {
+  local database=$1 journal=$2 revision=$3
+  epoch2_migrate_database "$revision" "$database" --check
+  epoch2_registry "$database" "$journal/registry-candidate.tsv"
+  cmp -s "$journal/registry-full.tsv" "$journal/registry-candidate.tsv" || die 'candidate registry drift' 65
+  epoch2_schema "$database" "$journal/schema-candidate.sql"
+  cmp -s "$journal/schema-target.sql" "$journal/schema-candidate.sql" || die 'candidate schema drift' 65
+  prefix_fingerprint "$database" "$journal" "$journal/rows-candidate.tsv"
+  cmp -s "$journal/rows-frozen.tsv" "$journal/rows-candidate.tsv" || die 'candidate changed baseline rows or sequences' 65
+  [[ $(epoch2_query "$database" 'SELECT NOT EXISTS(SELECT FROM bearer_flows) AND NOT EXISTS(SELECT FROM bearer_families) AND NOT EXISTS(SELECT FROM bearer_tokens);') == t ]] ||
+    die 'candidate accepted unexpected Bearer writes before acceptance' 65
+}
+
+prefix_commit() (
+  set -Eeuo pipefail
+  local revision=$1 tree=$2 attempt=$3 journal incoming=${2%/tree} target retained old_oid new_oid
+  require_root; with_lock prefix; prefix_load "$revision" "$attempt"; journal=$PREFIX_JOURNAL
+  [[ $(<"$journal/phase") == prepared ]] || die 'prefix is not prepared; recover before continuing' 75
+  [[ -f $incoming/cutover-offhost.sha256 ]] &&
+    cmp -s "$incoming/cutover-backup.tar.sha256" "$incoming/cutover-offhost.sha256" || die 'verified off-host acknowledgement missing' 65
+  (cd "$incoming" && sha256sum --check --strict cutover-backup.tar.sha256) >/dev/null
+  target=$(config_value "$journal/meta" staging); retained=$(config_value "$journal/meta" retained)
+  old_oid=$(config_value "$journal/meta" old_oid); new_oid=$(config_value "$journal/meta" new_oid)
+  [[ $(epoch2_database_oid cantos) == "$old_oid" && $(epoch2_database_oid "$target") == "$new_oid" ]] || die 'prepared prefix OIDs changed' 65
+  trap 'status=$?; trap - EXIT; if ((status != 0)); then prefix_recover_impl "$revision" "$tree" "$attempt" || log "prefix recovery incomplete; retain journal and freeze"; fi; exit "$status"' EXIT
+  ! unit_active cantos-edge || die 'prepared edge freeze changed; recover before retrying' 65
+  epoch2_no_clients cantos; epoch2_no_clients "$target"
+  prefix_source_guard cantos "$journal" schema-oracle.sql
+  prefix_fingerprint cantos "$journal" "$journal/rows-commit.tsv"
+  cmp -s "$journal/rows-frozen.tsv" "$journal/rows-commit.tsv" || die 'frozen source changed after off-host copy' 65
+  prefix_target_guard "$target" "$journal" "$revision"
+  epoch2_phase "$journal" install-intent
+  install_bundle "$tree"
+  validate_runtime_browser_configuration
+  epoch2_phase "$journal" rename-intent
+  epoch2_query postgres "ALTER ROLE cantos_app IN DATABASE $target SET default_transaction_read_only=on;" >/dev/null
+  epoch2_query postgres "ALTER DATABASE cantos RENAME TO $retained;" >/dev/null
+  epoch2_query postgres "ALTER DATABASE $target RENAME TO cantos;" >/dev/null
+  epoch2_query postgres "ALTER DATABASE cantos CONNECTION LIMIT $(config_value "$journal/meta" old_limit);" >/dev/null
+  check_schema "$revision"; apply_grants
+  epoch2_phase "$journal" health-check
+  switch_to "$revision"; prefix_private_probe
+  printf '%s\n' "$revision" >"$STATE/current"
+  # The old image is not an ordinary schema-compatible rollback target.
+  rm -f "$STATE/previous"
+  printf '%s upgrade-epoch2-prefix %s retained %s\n' "$(date -u +%FT%TZ)" "$revision" "$retained" >>"$STATE/history"
+  epoch2_phase "$journal" accepted
+  prefix_finalize "$journal" "$revision" "$new_oid"
+)
+
+prefix_finalize() {
+  local journal=$1 revision=$2 new_oid=$3
+  [[ $(epoch2_database_oid cantos) == "$new_oid" && $(<"$STATE/current") == "$revision" ]] || return 65
+  check_schema "$revision" || return
+  epoch2_query postgres 'ALTER ROLE cantos_app IN DATABASE cantos RESET default_transaction_read_only;' >/dev/null || return
+  systemctl restart "${API_UNITS[@]/%/.service}" || return
+  prefix_resume_edge "$journal" || return
+  epoch2_phase "$journal" complete || return
+  rm "$STATE/epoch2-prefix.pending" || return
+  log 'accepted prefix upgrade finalized; original database/image/runtime and journal retained'
+}
+
+prefix_pause_edge() {
+  systemctl stop cantos-edge.service || return
+  ! unit_active cantos-edge || die 'edge ingress did not stop' 65
+}
+
+prefix_private_probe() {
+  local unit
+  for unit in "${API_UNITS[@]}"; do
+    podman exec "$unit" curl -fsS -o /dev/null --max-time 5 \
+      http://127.0.0.1:8080/api/v1/theatre/works >/dev/null || return
+  done
+}
+
+prefix_resume_edge() {
+  [[ -f $1/edge-was-active ]] || return 65
+  systemctl start cantos-edge.service || return
+  unit_active cantos-edge || return 69
+  edge_probe
+}
+
+prefix_recover_impl() {
+  local revision=$1 tree=$2 attempt=$3 journal phase action previous target retained old_oid new_oid old_name new_name
+  prefix_pending || return 0
+  prefix_load "$revision" "$attempt"; journal=$PREFIX_JOURNAL; phase=$(<"$journal/phase")
+  action=$(prefix_action "$phase") || return
+  if [[ $action == clear ]]; then
+    [[ $phase != initializing ]] || epoch2_phase "$journal" refused || return
+    rm "$STATE/epoch2-prefix.pending" || return
+    return
+  fi
+  previous=$(config_value "$journal/meta" previous)
+  target=$(config_value "$journal/meta" staging); retained=$(config_value "$journal/meta" retained)
+  old_oid=$(config_value "$journal/meta" old_oid)
+  new_oid=$(config_value "$journal/meta" new_oid 2>/dev/null) || new_oid=''
+  if [[ $action == finalize ]]; then
+    prefix_finalize "$journal" "$revision" "$new_oid"
+    return
+  fi
+  if [[ $phase == snapshotted ]]; then
+    # Only the pending wrapper changed; leave it in place until recovery is durable.
+    # After pointer removal it transparently delegates to the retained old helper.
+    :
+  else
+    prefix_pause_edge || return
+    systemctl stop "${API_UNITS[@]/%/.service}" || return
+    old_name=$(epoch2_database_by_oid "$old_oid") || return
+    new_name=''
+    [[ -z $new_oid ]] || new_name=$(epoch2_database_by_oid "$new_oid") || return
+    case $old_name:$new_name in
+      cantos:*) [[ -z $new_name || $new_name == "$target" ]] || return 65 ;;
+      "$retained":cantos)
+        epoch2_no_clients cantos || return
+        epoch2_query postgres "ALTER DATABASE cantos RENAME TO $target;" >/dev/null || return
+        epoch2_query postgres "ALTER DATABASE $retained RENAME TO cantos;" >/dev/null || return ;;
+      "$retained":"$target")
+        [[ -z $(epoch2_database_oid cantos) ]] || return 65
+        epoch2_query postgres "ALTER DATABASE $retained RENAME TO cantos;" >/dev/null || return ;;
+      *) log 'unknown prefix database identity; APIs remain stopped'; return 65 ;;
+    esac
+    epoch2_no_clients cantos || return
+    case $phase in
+      install-intent|rename-intent|health-check)
+        prefix_install_guard "$journal" || return
+        epoch2_restore_host "$journal" prefix || return ;;
+    esac
+    epoch2_query postgres "ALTER DATABASE cantos CONNECTION LIMIT $(config_value "$journal/meta" old_limit);" >/dev/null || return
+    check_schema "$previous" || return
+    switch_to "$previous" || return
+    prefix_resume_edge "$journal" || return
+  fi
+  epoch2_phase "$journal" rolled-back || return
+  rm "$STATE/epoch2-prefix.pending" || return
+  # A crash here leaves a harmless delegating wrapper; no pending mutation can
+  # reach an old helper before the paired recovery and its phase are durable.
+  install -m 0750 "$journal/installed-host" /usr/local/sbin/cantos-vps || return
+  log 'prefix rolled back as database/image/runtime pair; all sibling data retained'
+}
+
+prefix_recover() (
+  set -Eeuo pipefail
+  require_root; with_lock prefix
+  prefix_recover_impl "$1" "$2" "$3"
+)
