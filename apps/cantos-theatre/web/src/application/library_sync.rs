@@ -2468,3 +2468,35 @@ mod tests {
         assert_eq!(recovered[0].recovery, RecoveryMode::ReadReceiptFirst);
     }
 }
+
+/// Refuse unreadable, oversized or cross-account durable state without replacing it.
+pub fn decode_journal(
+    raw: &str,
+    actor: &str,
+) -> Result<AccountSyncJournal, super::account_view::JournalStorageFault> {
+    use super::account_view::JournalStorageFault;
+    if raw.len() > 65_536 {
+        return Err(JournalStorageFault::Corrupt);
+    }
+    AccountSyncJournal::from_json_str(raw)
+        .and_then(|journal| journal.restore_for_actor(actor))
+        .ok_or(JournalStorageFault::Corrupt)
+}
+#[cfg(test)]
+mod journal_refusal_tests {
+    use super::*;
+    #[test]
+    fn malformed_and_oversized_journals_are_explicit_failures_not_absence() {
+        for raw in [
+            "{}".to_owned(),
+            "null".to_owned(),
+            "invalid".to_owned(),
+            " ".repeat(65_537),
+        ] {
+            assert_eq!(
+                decode_journal(&raw, "a").err(),
+                Some(super::super::account_view::JournalStorageFault::Corrupt)
+            );
+        }
+    }
+}

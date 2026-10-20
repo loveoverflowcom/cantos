@@ -106,7 +106,25 @@ class TheatreShell(
     }.stateIn(scope, SharingStarted.Eagerly, LibraryState())
 
     init {
-        scope.launch { catalog.state.collect { state -> mutableKnown.update { it.merge(state) } } }
+        scope.launch { catalog.state.collect { state ->
+            mutableKnown.update { it.merge(state) }
+            fun observe(operation: ErrorOperation, failure: com.cantos.theatre.application.catalog.CatalogFailure?, hasContent: Boolean, settled: Boolean) {
+                if (failure != null) onErrorEvent(ErrorEvent.Reported(failure.toErrorNotice(operation), hasContent))
+                else if (settled) ErrorKind.entries.forEach { kind -> onErrorEvent(ErrorEvent.Resolved(ErrorKey(kind, operation))) }
+            }
+            val phase = state.works.phase
+            observe(ErrorOperation.LoadCatalog, (phase as? com.cantos.theatre.application.catalog.WalkPhase.Failed)?.failure,
+                state.works.items.isNotEmpty(), phase == com.cantos.theatre.application.catalog.WalkPhase.Complete || phase == com.cantos.theatre.application.catalog.WalkPhase.More)
+            state.detail?.let { detail ->
+                observe(ErrorOperation.LoadWork, (detail.phase as? com.cantos.theatre.application.catalog.DetailPhase.Failed)?.failure,
+                    false, detail.phase is com.cantos.theatre.application.catalog.DetailPhase.Ready)
+                detail.units?.let { walk ->
+                    val units = walk.phase
+                    observe(ErrorOperation.LoadUnits, (units as? com.cantos.theatre.application.catalog.WalkPhase.Failed)?.failure,
+                        walk.items.isNotEmpty(), units == com.cantos.theatre.application.catalog.WalkPhase.Complete || units == com.cantos.theatre.application.catalog.WalkPhase.More)
+                }
+            }
+        } }
         // The open work follows the navigation stack: the nearest Work route at or below the top.
         scope.launch { navigation.collect { syncDetail(it) } }
         scope.launch {
@@ -322,6 +340,9 @@ class TheatreShell(
     private fun onWorkRoute(): Boolean = mutableNavigation.value.stack.any { it is TheatreRoute.Work }
 
     private fun retry() {
+        for (operation in listOf(ErrorOperation.LoadCatalog, ErrorOperation.LoadWork, ErrorOperation.LoadUnits)) {
+            ErrorKind.entries.forEach { kind -> onErrorEvent(ErrorEvent.Resolved(ErrorKey(kind, operation))) }
+        }
         val state = catalog.state.value
         if (onWorkRoute() && state.detail != null) {
             val detail = state.detail

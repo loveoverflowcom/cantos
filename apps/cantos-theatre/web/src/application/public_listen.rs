@@ -18,6 +18,7 @@ use uuid::Uuid;
 /// What the listener sees while a release is being resolved or after it could not be.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListenFailure {
+    Diagnostic(crate::application::errors::ErrorKind),
     /// The release is gone: withdrawn, revoked or replaced since the list was read.
     NotFound,
     /// Transport or a retryable server answer; trying again is reasonable.
@@ -176,6 +177,7 @@ impl ListenState {
                 }
                 Err(rejection) => ListenFailure::from(rejection),
             },
+            Err(CatalogReadError::Diagnostic(kind)) => ListenFailure::Diagnostic(kind),
             Err(CatalogReadError::NotFound) => ListenFailure::NotFound,
             Err(CatalogReadError::Unavailable) => ListenFailure::Unavailable,
             Err(CatalogReadError::Protocol | CatalogReadError::InvalidCursor) => {

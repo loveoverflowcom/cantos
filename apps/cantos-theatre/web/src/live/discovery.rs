@@ -40,6 +40,7 @@ pub fn decode_response(
 ) -> Result<PresentedWorkPage, DiscoveryReadError> {
     if status != 200 {
         return Err(match classify_error(status, content_type, body) {
+            CatalogReadError::Diagnostic(kind) => DiscoveryReadError::Diagnostic(kind),
             CatalogReadError::Unavailable => DiscoveryReadError::Unavailable,
             // Page one carries no cursor, so it cannot be an invalid cursor.
             CatalogReadError::InvalidCursor if cursor_sent => DiscoveryReadError::InvalidCursor,
@@ -76,6 +77,7 @@ pub async fn load(
     let (status, content_type, body) = super::public_work::get(&path, MAX_RESPONSE_BYTES)
         .await
         .map_err(|error| match error {
+            CatalogReadError::Diagnostic(kind) => DiscoveryReadError::Diagnostic(kind),
             CatalogReadError::Protocol => DiscoveryReadError::Protocol,
             _ => DiscoveryReadError::Unavailable,
         })?;
@@ -207,7 +209,7 @@ mod tests {
 
     #[test]
     fn errors_are_classified_by_the_contract_pairing_of_status_code_and_retryability() {
-        let cases: [(u16, &[u8], bool, DiscoveryReadError); 11] = [
+        let cases: [(u16, &[u8], bool, DiscoveryReadError); 13] = [
             (400, INVALID_CURSOR, true, DiscoveryReadError::InvalidCursor),
             (400, INVALID_CURSOR, false, DiscoveryReadError::Protocol),
             (400, INVALID_REQUEST, true, DiscoveryReadError::Protocol),
@@ -220,7 +222,26 @@ mod tests {
                 false,
                 DiscoveryReadError::Protocol,
             ),
-            (401, b"{}", false, DiscoveryReadError::Unavailable),
+            (
+                401,
+                b"{}",
+                false,
+                DiscoveryReadError::Diagnostic(
+                    crate::application::errors::ErrorKind::Unauthenticated,
+                ),
+            ),
+            (
+                403,
+                b"{}",
+                false,
+                DiscoveryReadError::Diagnostic(crate::application::errors::ErrorKind::Forbidden),
+            ),
+            (
+                504,
+                b"",
+                false,
+                DiscoveryReadError::Diagnostic(crate::application::errors::ErrorKind::Timeout),
+            ),
             (
                 502,
                 b"<html>Bad gateway</html>",

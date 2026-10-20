@@ -28,6 +28,7 @@ const val MaxAutoFollows: Int = 5
 const val MaxCursorRestarts: Int = 1
 
 sealed interface CatalogFailure {
+    data class Access(val fault: com.cantos.theatre.ports.CatalogAccessFault) : CatalogFailure
     data object NotFound : CatalogFailure
     data class Unavailable(val retryable: Boolean) : CatalogFailure
     data object Protocol : CatalogFailure
@@ -236,6 +237,7 @@ private fun resolveWork(state: PublicCatalogState, event: WorkResolved): PublicC
             )
         }
         // A cursor is never sent for a detail read.
+        is PublicCatalogRead.AccessFailure -> state.failDetail(detail, CatalogFailure.Access(outcome.fault))
         PublicCatalogRead.InvalidCursor -> state.failDetail(detail, CatalogFailure.Protocol)
         PublicCatalogRead.NotFound -> state.failDetail(detail, CatalogFailure.NotFound)
         is PublicCatalogRead.Unavailable -> state.failDetail(detail, CatalogFailure.Unavailable(outcome.retryable))
@@ -304,6 +306,7 @@ private sealed interface WalkOutcome<out T> {
 
 private fun <P, T> PublicCatalogRead<P>.toWalkOutcome(page: (P) -> Pair<List<T>, CatalogCursor?>): WalkOutcome<T> = when (this) {
     is PublicCatalogRead.Ready -> page(value).let { (items, next) -> WalkOutcome.Page(items, next) }
+    is PublicCatalogRead.AccessFailure -> WalkOutcome.Failure(CatalogFailure.Access(fault))
     PublicCatalogRead.InvalidCursor -> WalkOutcome.InvalidCursor
     PublicCatalogRead.NotFound -> WalkOutcome.Failure(CatalogFailure.NotFound)
     is PublicCatalogRead.Unavailable -> WalkOutcome.Failure(CatalogFailure.Unavailable(retryable))

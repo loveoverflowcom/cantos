@@ -27,7 +27,7 @@ class TheatreIosIdentityConfigurationTest(unittest.TestCase):
         for _, settings, _ in targets:
             values = dict(re.findall(r"^\s*(\w+) = ([^;]*);", settings, re.M))
             self.assertEqual(values["GENERATE_INFOPLIST_FILE"], "YES")
-            self.assertEqual(values["CANTOS_API_ORIGIN"], '""')
+            self.assertEqual(values["CANTOS_API_ORIGIN"], '"__CANTOS_DEFAULT_API_ORIGIN__"')
             self.assertEqual(values["CANTOS_NATIVE_ISSUER"], '""')
             self.assertEqual(values["INFOPLIST_FILE"], '"Cantos/Info.plist"')
             self.assertNotIn("INFOPLIST_KEY_CantosApiOrigin", values)
@@ -54,7 +54,7 @@ class TheatreIosIdentityConfigurationTest(unittest.TestCase):
         swift = (MOBILE / "iosApp/Cantos/CantosApp.swift").read_text()
         self.assertIn('Bundle.main.object(forInfoDictionaryKey: "CantosApiOrigin") as? String', swift)
         self.assertIn('Bundle.main.object(forInfoDictionaryKey: "CantosNativeIssuer") as? String', swift)
-        self.assertEqual(swift.count("IosNativeIdentityOwner(apiOrigin: origin,"), 1)
+        self.assertEqual(swift.count('IosNativeIdentityOwner(apiOrigin: origin ?? packagedOrigin ?? "",'), 1)
         owner = (MOBILE / "shared/src/iosMain/kotlin/com/cantos/theatre/app/IosNativeOwner.kt").read_text()
         self.assertIn("val availability = NativeClientConfiguration.resolve(apiOrigin, issuer)", owner)
         self.assertIn("is NativeIdentityAvailability.Available -> resolved.configuration.let", owner)

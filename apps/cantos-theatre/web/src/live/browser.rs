@@ -7,7 +7,17 @@ pub(super) struct Deadline {
     window: web_sys::Window,
     pub(super) controller: AbortController,
     timer: i32,
+    timed_out: std::rc::Rc<std::cell::Cell<bool>>,
     _callback: Closure<dyn FnMut()>,
+}
+impl Deadline {
+    pub(super) fn failure_kind(&self) -> crate::application::errors::ErrorKind {
+        if self.timed_out.get() {
+            crate::application::errors::ErrorKind::Timeout
+        } else {
+            crate::application::errors::ErrorKind::Network
+        }
+    }
 }
 impl Drop for Deadline {
     fn drop(&mut self) {
@@ -47,7 +57,12 @@ pub async fn probe(controller: AbortController) -> ProbePhase {
 pub(super) fn deadline(controller: AbortController) -> Result<Deadline, ()> {
     let window = web_sys::window().ok_or(())?;
     let abort = controller.clone();
-    let callback = Closure::wrap(Box::new(move || abort.abort()) as Box<dyn FnMut()>);
+    let timed_out = std::rc::Rc::new(std::cell::Cell::new(false));
+    let expired = timed_out.clone();
+    let callback = Closure::wrap(Box::new(move || {
+        expired.set(true);
+        abort.abort();
+    }) as Box<dyn FnMut()>);
     let timer = window
         .set_timeout_with_callback_and_timeout_and_arguments_0(
             callback.as_ref().unchecked_ref(),
@@ -58,6 +73,7 @@ pub(super) fn deadline(controller: AbortController) -> Result<Deadline, ()> {
         window,
         controller,
         timer,
+        timed_out,
         _callback: callback,
     })
 }

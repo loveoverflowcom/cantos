@@ -24,6 +24,7 @@ const MAX_CURSOR_BYTES: usize = 512;
 /// Classified result of one anonymous catalog read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CatalogReadError {
+    Diagnostic(crate::application::errors::ErrorKind),
     /// The contract's merged anonymous answer: absent, private, withdrawn or draft-only.
     NotFound,
     InvalidCursor,
@@ -35,6 +36,7 @@ pub enum CatalogReadError {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ReadFailure {
+    Diagnostic(crate::application::errors::ErrorKind),
     Unavailable,
     Protocol,
 }
@@ -42,6 +44,7 @@ pub enum ReadFailure {
 impl From<CatalogReadError> for ReadFailure {
     fn from(error: CatalogReadError) -> Self {
         match error {
+            CatalogReadError::Diagnostic(kind) => Self::Diagnostic(kind),
             CatalogReadError::Unavailable => Self::Unavailable,
             CatalogReadError::NotFound
             | CatalogReadError::InvalidCursor

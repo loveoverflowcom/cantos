@@ -127,6 +127,7 @@ impl ListenControls {
 
 const fn resolve_failure_key(failure: ListenFailure) -> Key {
     match failure {
+        ListenFailure::Diagnostic(kind) => crate::messages::error_key(kind),
         ListenFailure::NotFound => Key::ListenResolveNotFound,
         ListenFailure::Unavailable => Key::ListenResolveUnavailable,
         ListenFailure::Protocol => Key::ListenResolveProtocol,
@@ -191,6 +192,9 @@ fn status_line(units: &UnitList, work_kind: WorkKind, locale: Locale) -> String 
         // The Load more control announces its own busy reason.
         PageStatus::Loading => None,
         PageStatus::Failed(_) if !rows => None,
+        PageStatus::Failed(ReadFailure::Diagnostic(kind)) => {
+            Some(crate::messages::error_key(*kind))
+        }
         PageStatus::Failed(ReadFailure::Unavailable) => Some(Key::PublicWorkPageUnavailable),
         PageStatus::Failed(ReadFailure::Protocol) => Some(Key::PublicWorkPageProtocol),
         PageStatus::Idle if units.is_empty_terminal() => Some(match work_kind {
@@ -251,6 +255,7 @@ pub(crate) fn PublicWorkDetail(
                 }.into_any(),
                 Shape::Failed(failure) => {
                     let (heading, help) = match failure {
+                        ReadFailure::Diagnostic(kind) => (Key::ErrorDialogTitle, crate::messages::error_key(kind)),
                         ReadFailure::Unavailable => (Key::PublicWorkUnavailable, Key::PublicConnectionUnavailableHelp),
                         ReadFailure::Protocol => (Key::PublicWorkProtocol, Key::PublicWorkProtocolHelp),
                     };
@@ -518,6 +523,7 @@ fn ReadyWork(
             </ol>
             {move || first_page_failure().map(|failure| {
                 let help = match failure {
+                    ReadFailure::Diagnostic(kind) => crate::messages::error_key(kind),
                     ReadFailure::Unavailable => Key::PublicWorkUnitsUnavailableHelp,
                     ReadFailure::Protocol => Key::PublicWorkUnitsProtocolHelp,
                 };

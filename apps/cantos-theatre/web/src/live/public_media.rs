@@ -67,6 +67,7 @@ pub fn decode_authorization(
         failure(status, content_type, body)
     };
     Err(match error {
+        CatalogReadError::Diagnostic(kind) => AuthorizationError::Diagnostic(kind),
         CatalogReadError::NotFound => AuthorizationError::NotFound,
         CatalogReadError::Unavailable => AuthorizationError::Unavailable,
         CatalogReadError::Protocol | CatalogReadError::InvalidCursor => {
@@ -85,10 +86,13 @@ async fn send(
     use web_sys::RequestCredentials;
 
     // Held until the body is read; dropping it clears the timer and aborts the request.
-    let deadline =
-        super::browser::deadline(controller).map_err(|_| CatalogReadError::Unavailable)?;
+    let deadline = super::browser::deadline(controller).map_err(|_| {
+        CatalogReadError::Diagnostic(crate::application::errors::ErrorKind::Network)
+    })?;
     let signal = deadline.controller.signal();
-    let url = crate::api_endpoint::endpoint(path).map_err(|_| CatalogReadError::Unavailable)?;
+    let url = crate::api_endpoint::endpoint(path).map_err(|_| {
+        CatalogReadError::Diagnostic(crate::application::errors::ErrorKind::Configuration)
+    })?;
     let request = if post {
         Request::post(&url)
     } else {
@@ -100,7 +104,7 @@ async fn send(
         .abort_signal(Some(&signal))
         .send()
         .await
-        .map_err(|_| CatalogReadError::Unavailable)?;
+        .map_err(|_| CatalogReadError::Diagnostic(deadline.failure_kind()))?;
     let declared = response
         .headers()
         .get("content-length")
@@ -112,7 +116,7 @@ async fn send(
     let body = response
         .binary()
         .await
-        .map_err(|_| CatalogReadError::Unavailable)?;
+        .map_err(|_| CatalogReadError::Diagnostic(deadline.failure_kind()))?;
     Ok((response.status(), content_type, body))
 }
 
@@ -136,6 +140,7 @@ pub async fn authorize(
         Ok((status, content_type, body)) => {
             decode_authorization(status, content_type.as_deref(), &body)
         }
+        Err(CatalogReadError::Diagnostic(kind)) => Err(AuthorizationError::Diagnostic(kind)),
         Err(CatalogReadError::Unavailable) => Err(AuthorizationError::Unavailable),
         Err(_) => Err(AuthorizationError::Protocol),
     }
@@ -244,7 +249,23 @@ mod tests {
                 AuthorizationError::Unavailable,
             ),
             (502, "", AuthorizationError::Unavailable),
-            (401, "{}", AuthorizationError::Unavailable),
+            (
+                401,
+                "{}",
+                AuthorizationError::Diagnostic(
+                    crate::application::errors::ErrorKind::Unauthenticated,
+                ),
+            ),
+            (
+                403,
+                "{}",
+                AuthorizationError::Diagnostic(crate::application::errors::ErrorKind::Forbidden),
+            ),
+            (
+                504,
+                "",
+                AuthorizationError::Diagnostic(crate::application::errors::ErrorKind::Timeout),
+            ),
         ];
         for (status, body, expected) in cases {
             assert_eq!(

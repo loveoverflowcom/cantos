@@ -21,3 +21,5 @@ pub(crate) mod queue;
 pub(crate) mod signup;
 #[cfg(feature = "preview")]
 pub(crate) mod work_detail;
+
+pub(crate) mod error_dialog;

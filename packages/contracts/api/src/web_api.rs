@@ -40,7 +40,12 @@ impl ApiOrigin {
     }
 }
 
-/// Absent configuration retains the local Trunk proxy. Invalid configuration never falls back.
+/// Theatre defaults to the owner-selected production API. Studio retains its existing proxy
+/// contract. Local Theatre runners/fixtures must inject a loopback origin explicitly.
+/// An explicit empty or invalid override never falls back to another environment.
+pub const DEFAULT_THEATRE_API_ORIGIN: &str = "https://api.cantos.cc";
+
+/// Resolve addressing once for all Theatre resources and the shared Web auth client.
 pub fn api_url(
     configured_origin: Option<&str>,
     surface: WebSurface,
@@ -57,7 +62,11 @@ pub fn api_url(
     {
         return Err(AddressError::WrongSurface);
     }
-    let origin = configured_origin.map(ApiOrigin::parse).transpose()?;
+    let selected = match (configured_origin, surface) {
+        (None, WebSurface::Theatre) => Some(DEFAULT_THEATRE_API_ORIGIN),
+        (value, _) => value,
+    };
+    let origin = selected.map(ApiOrigin::parse).transpose()?;
     Ok(format!(
         "{}{path}",
         origin.as_ref().map_or("", ApiOrigin::as_str)
@@ -70,7 +79,24 @@ mod tests {
     #[test]
     fn configured_api_routes_keep_the_surface_and_query_and_local_proxy() {
         let path = "/api/v1/theatre/works?limit=20&query=Long%20V%C3%A2n";
-        assert_eq!(api_url(None, WebSurface::Theatre, path), Ok(path.into()));
+        assert_eq!(
+            api_url(None, WebSurface::Theatre, path),
+            Ok(format!("https://api.cantos.cc{path}"))
+        );
+        assert_eq!(
+            api_url(None, WebSurface::Studio, "/api/v1/studio/session"),
+            Ok("/api/v1/studio/session".into())
+        );
+        for invalid in ["", " ", "invalid", "http://api.cantos.cc"] {
+            assert_eq!(
+                api_url(Some(invalid), WebSurface::Theatre, path),
+                Err(AddressError::InvalidOrigin)
+            );
+        }
+        assert_eq!(
+            api_url(Some("http://127.0.0.1:8080"), WebSurface::Theatre, path),
+            Ok(format!("http://127.0.0.1:8080{path}"))
+        );
         assert_eq!(
             api_url(Some("https://api.example.org"), WebSurface::Theatre, path),
             Ok(format!("https://api.example.org{path}"))

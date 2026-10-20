@@ -19,6 +19,11 @@ pub fn check_response(
 ) -> Result<(), AccountFailure> {
     match status {
         401 => return Err(AccountFailure::SignedOut),
+        403 => {
+            return Err(AccountFailure::Diagnostic(
+                crate::application::errors::ErrorKind::Forbidden,
+            ))
+        }
         200 | 409 => (),
         _ => return Err(AccountFailure::Unavailable),
     }
@@ -621,8 +626,10 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
         .access(Some(expected_session))
         .await
         .map_err(super::account::auth_error)?;
-    let controller = AbortController::new().map_err(|_| AccountFailure::Unavailable)?;
-    let deadline = super::browser::deadline(controller).map_err(|_| AccountFailure::Unavailable)?;
+    let controller = AbortController::new()
+        .map_err(|_| AccountFailure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
+    let deadline = super::browser::deadline(controller)
+        .map_err(|_| AccountFailure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
     let response = Request::get(
         &crate::api_endpoint::endpoint(&request_path(request))
             .map_err(|_| AccountFailure::Unavailable)?,
@@ -635,7 +642,7 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
     .header("X-Cantos-Theatre-Session", expected_session)
     .send()
     .await
-    .map_err(|_| AccountFailure::Unavailable)?;
+    .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
     credential
         .response(response.status())
         .map_err(super::account::auth_error)?;
@@ -662,7 +669,7 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
         let body = response
             .binary()
             .await
-            .map_err(|_| AccountFailure::Unavailable)?;
+            .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
         credential.check().map_err(super::account::auth_error)?;
         return match serde_json::from_slice::<dto::LibraryError>(&body) {
             Ok(dto::LibraryError {
@@ -684,7 +691,7 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
     let body = response
         .binary()
         .await
-        .map_err(|_| AccountFailure::Unavailable)?;
+        .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
     credential.check().map_err(super::account::auth_error)?;
     decode_page(request.page.section, &body)
 }

@@ -87,8 +87,8 @@ boundary when both validated configuration keys are present. That boundary is no
 screen: it is composed into the [guest shell](#guest-first-account-and-auth) (the #130 change edits
 only `MainActivity`'s composition and the Application's container wiring, not the manifest, callback
 filter or callback delivery). Missing or invalid identity configuration keeps Sign in disabled and explained; the native
-host has no mock fallback, and catalog availability depends on the separate API-origin input. The build inputs below default to empty; the repository supplies no live
-origins and changes no OS network/TLS setting.
+host has no mock fallback, and catalog availability depends on the separate API-origin input. The API origin defaults to the owner-selected production API; the identity issuer remains
+explicitly configured. No OS network/TLS setting is relaxed.
 
 ### Native identity build inputs and operator diagnostics
 
@@ -442,7 +442,10 @@ CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER=https://idm.local.example/oauth2/openid/can
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
 ```
 
-Both inputs are required and must pass the existing native HTTPS/issuer validation. Use an
+An explicit API origin alone opens the real public catalog preview; a missing/invalid issuer
+is explained in Account and does not block Home. A supplied issuer with no API origin is refused
+before network, so a fixture cannot inherit production. When both inputs form a valid native
+HTTPS/issuer configuration, the existing enrollment preview opens. Use an
 explicitly owned isolated environment and trusted local TLS. The command starts only the preview;
 it never provisions an API, PostgreSQL, Auth Emulator, Kanidm, certificates or mail. Do not point
 the registration form at a real-mail environment without separate recipient/operator authority.
@@ -645,7 +648,7 @@ Origin policy: `androidApp` main declares INTERNET and the explicit
 `CantosApiOrigin` metadata for both variants. Runtime resolution is one owner
 (`selectCatalogOrigin`, #298): an explicit override, else `DefaultProductionApiOrigin`
 (`https://api.cantos.cc`) in both build types; a build type never selects another backend. Packaging
-cannot omit a key, so an empty `CantosApiOrigin`/`CANTOS_API_ORIGIN` build value means "no override";
+preserves absence with `__CANTOS_DEFAULT_API_ORIGIN__`; an empty `CantosApiOrigin`/`CANTOS_API_ORIGIN` value is refused;
 a value that is present but empty, malformed or `http://` outside the debug loopback exception is a
 typed `HostConfigurationFault` shown before any request, and it never silently falls back to the
 default. Runtime admits `https://` in release; only a debuggable build also admits
@@ -658,7 +661,7 @@ The separate shipping iOS project/scheme is `iosApp/Cantos.xcodeproj` / `Cantos`
 `com.cantos.theatre`. It imports the static `CantosTheatre` framework built directly by `:shared`,
 links only `shared/build/bin/...` and copies only shared Compose resources. It is the only iOS
 project: the former `CantosDemo` mock host was removed (#287). Shipping `CANTOS_API_ORIGIN` is an explicit Xcode build
-setting (empty by default, meaning the production default), consumed through `Cantos/Info.plist`
+setting (the absence marker selects the production default), consumed through `Cantos/Info.plist`
 and resolved by the same Kotlin owner (`packagedApiOriginText`); HTTPS is required on every iOS
 configuration. It creates no native identity/session or media engine. The application owner closes
 all catalog requests with its lifecycle. Xcode/Apple SDK builds and runtime observations require
@@ -785,3 +788,9 @@ never derived from `position`. Gaps are tracked in the BE issues linked from the
 The [Android release/distribution runbook](docs/firebase-distribution.md) owns R8, same-release
 audit pairing, exact staged APK/mapping hashes and the explicit development/production policies.
 Device and live Firebase acceptance remain independent of source/build/audit results.
+
+The [client error contract](../../../packages/contracts/client-error-presentation-v1.md) also
+owns the paired Web/CMP taxonomy and safe actions. Catalog 401/403 and HTTP/JVM deadlines survive
+as typed diagnostics into the shared shell ErrorCenter. Unknown Library outcomes keep their
+existing receipt owner and never gain a generic modal Retry. Native identity configuration
+refusals now reach the Account view as typed reasons while public catalog remains available.

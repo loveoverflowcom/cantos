@@ -206,10 +206,11 @@ class PreviewShellFlowTest {
     fun an_unreachable_catalog_shows_the_retryable_error_and_recovery_keeps_the_selection() = run(PreviewSeed(previewState(
         selectedEpisode = PreviewEpisodeIds.SonHa03, positionMs = 768_000L, catalogMode = ShellCatalogMode.Error,
     ))) { owners ->
-        untilTag("retry")
-        onNodeWithTag("mini-open").assert(hasText("12:48"))
+        untilTag("error-dialog")
+        // The modal owns focus; recovery uses its safe read action and keeps the player owner.
+        assertEquals(768_000L, owners.runtime.listening.playback.state.value.session?.positionMs)
         owners.catalogPort.setScenario(com.cantos.theatre.adapters.preview.PreviewCatalogScenario.Ready)
-        onNodeWithTag("retry").performScrollTo().performClick()
+        onNodeWithTag("error-dialog-primary").performClick()
         untilTag("work-$sonHa")
         onNodeWithTag("mini-open").assert(hasText("12:48"))
     }

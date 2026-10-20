@@ -122,7 +122,7 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
         val owner = shell
         if (owner == null) CantosListeningUnavailable(ui, locale = locale.locale.toShellLocale(),
             fault = (selectedOrigin as? HostOrigin.Refused)?.fault)
-        else CantosTheatreApp(owner, cache = cache)
+        else CantosTheatreApp(owner, cache = cache, identityAvailability = identity.availability)
     }
 
     private fun reloadCatalogForAccount() { catalog?.dispatch(PublicCatalogIntent.AccountChanged) }

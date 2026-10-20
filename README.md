@@ -49,7 +49,7 @@ The [native identity configuration slice](docs/evidence/theatre-auth-activation.
 nonsecret Android metadata/iOS plist build inputs and typed missing/invalid configuration
 diagnostics. Source regression evidence does not establish a configured artifact or live login.
 Production Android and iOS hosts compose `:shared` only, without a playback seed. Android
-release accepts an explicit HTTPS API origin and fails closed when unconfigured.
+release uses the production API default unless explicitly overridden, and refuses empty/invalid overrides.
 `cargo xtask theatre-host android-release --api-origin https://api.cantoss.duckdns.org` pairs an
 unshrunk release audit with optimized release and checks sandbox/mock/test exclusion; the
 [release runbook](apps/cantos-theatre/mobile/docs/firebase-distribution.md) separates that

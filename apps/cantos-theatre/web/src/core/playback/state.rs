@@ -66,6 +66,10 @@ pub enum Intent {
 /// Why the engine cannot play. The listener may try again; nothing here retries by itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Failure {
+    Timeout,
+    Unauthenticated,
+    Forbidden,
+    Configuration,
     /// The browser declined to start audio (autoplay policy or an interrupted request).
     PlayRefused,
     /// The release is no longer available: withdrawn, revoked or replaced.

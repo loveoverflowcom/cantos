@@ -42,7 +42,7 @@ class JvmCatalogTransport(
                 val bytes = stream?.use { it.readAtMost(request.maxBodyBytes) } ?: ByteArray(0)
                 if (continuation.isActive) continuation.resume(CatalogHttpResponse(status, connection.contentType, bytes))
             } catch (failure: Exception) {
-                if (continuation.isActive) continuation.resumeWithException(failure)
+                if (continuation.isActive) continuation.resumeWithException(if (failure is java.net.SocketTimeoutException) CatalogTimeoutException() else failure)
             } finally {
                 connection.disconnect()
             }

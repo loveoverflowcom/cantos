@@ -137,6 +137,7 @@ pub fn kind_from_name(name: &str) -> Option<WorkKind> {
 /// Classified result of one anonymous list read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DiscoveryReadError {
+    Diagnostic(crate::application::errors::ErrorKind),
     /// Transport, timeout, 503 or an uncoded server answer; retryable.
     Unavailable,
     /// The response does not satisfy the public contract.
@@ -147,6 +148,7 @@ pub enum DiscoveryReadError {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PublicDiscoveryFailure {
+    Diagnostic(crate::application::errors::ErrorKind),
     Unavailable,
     Protocol,
 }
@@ -367,6 +369,10 @@ impl PublicDiscoveryState {
             // Page one carries no cursor, so it cannot be an invalid cursor.
             Err(DiscoveryReadError::InvalidCursor | DiscoveryReadError::Protocol) => {
                 self.status = Status::Failed(PublicDiscoveryFailure::Protocol);
+                return Step::Settled;
+            }
+            Err(DiscoveryReadError::Diagnostic(kind)) => {
+                self.status = Status::Failed(PublicDiscoveryFailure::Diagnostic(kind));
                 return Step::Settled;
             }
             Err(DiscoveryReadError::Unavailable) => {

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.cantos.theatre.application.errors.ErrorEvent
 import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.application.identity.toAccountView
+import com.cantos.theatre.application.identity.diagnostic
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.domain.library.LibraryState
 import com.cantos.theatre.domain.membership.MembershipEvent
@@ -69,6 +70,7 @@ fun CantosTheatreApp(
     cache: CatalogCachePort? = null,
     density: Density = Density.Comfortable,
     motionPreference: MotionPreference = MotionPreference.Reduced,
+    identityAvailability: com.cantos.theatre.domain.identity.NativeIdentityAvailability? = null,
 ) {
     val navigation by shell.navigation.collectAsState()
     val catalog by shell.catalog.state.collectAsState()
@@ -91,7 +93,8 @@ fun CantosTheatreApp(
         projectTheatreShell(TheatreShellInputs(navigation, catalog, known, playback, selection, requested,
             failure != null, library, theme, locale, ui.query, ui.libraryTab, ui.timer))
     }
-    val accountView = accountState.toAccountView()
+    val identityFault = identityAvailability?.diagnostic()
+    val accountView = if (accountState == null && identityFault != null) AccountView.ConfigurationUnavailable(identityFault) else accountState.toAccountView()
     // A private draft must not outlive the account that made it; a guest draft survives sign-in.
     val signedIn = accountView == AccountView.SignedIn
     var wasSignedIn by remember(shell) { mutableStateOf(signedIn) }

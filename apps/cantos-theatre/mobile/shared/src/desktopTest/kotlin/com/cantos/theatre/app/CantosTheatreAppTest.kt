@@ -219,9 +219,10 @@ class CantosTheatreAppTest {
                 CantosTheatreApp(owner.shell)
             }
             waitForIdle()
-            onNodeWithText("Chưa mở được danh sách").assertExists()
+            onNodeWithTag("error-dialog").assertExists()
+            onNodeWithText("Chưa kết nối được với máy chủ. Hãy kiểm tra mạng và thử lại.").assertExists()
             fail = false
-            onNodeWithTag("retry").performScrollTo().performClick()
+            onNodeWithTag("error-dialog-primary").performClick()
             waitUntil { onAllNodesWithTagExists("work-${first.id.value}") }
             // Page one of two: no count claims a total, and the footer offers the next page.
             onNodeWithText("1 tập").assertDoesNotExist()

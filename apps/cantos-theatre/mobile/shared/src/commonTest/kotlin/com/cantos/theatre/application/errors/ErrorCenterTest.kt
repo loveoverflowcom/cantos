@@ -137,11 +137,12 @@ class ErrorCenterTest {
         assertEquals("https://api.cantos.cc", defaultReady.origin.toString())
         assertEquals(OriginSource.Default, defaultReady.source)
         assertEquals("https://api.cantos.cc", packagedApiOriginText(null))
-        assertEquals("https://api.cantos.cc", packagedApiOriginText(""))
+        assertEquals(null, packagedApiOriginText(""))
+        assertEquals("https://api.cantos.cc", packagedApiOriginText(com.cantos.theatre.adapters.http.PackagedDefaultApiOrigin))
 
-        val emptyPackagedReady = assertIs<HostOrigin.Ready>(hostOrigin(selectPackagedApiOrigin("", allowLoopbackHttp = false), networkDeclared = true))
-        assertEquals("https://api.cantos.cc", emptyPackagedReady.origin.toString())
-        assertEquals(OriginSource.Default, emptyPackagedReady.source)
+        assertEquals(HostOrigin.Refused(HostConfigurationFault.OriginEmpty),
+            hostOrigin(selectPackagedApiOrigin("", allowLoopbackHttp = false)))
+
 
         assertEquals(
             HostOrigin.Refused(HostConfigurationFault.NetworkNotDeclared),

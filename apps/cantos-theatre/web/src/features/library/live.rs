@@ -384,6 +384,7 @@ fn row_count(projection: &LibraryProjection, section: Section) -> usize {
 fn status(projection: &LibraryProjection, section: Section, locale: Locale) -> String {
     let key = match projection.phase(section) {
         PagePhase::Idle | PagePhase::Loading => Key::LiveLibraryLoading,
+        PagePhase::Failed(AccountFailure::Diagnostic(kind)) => crate::messages::error_key(kind),
         PagePhase::Failed(AccountFailure::CursorExpired) => Key::LiveLibraryCursorExpired,
         PagePhase::Failed(AccountFailure::Protocol) => Key::LiveLibraryInvalidPage,
         PagePhase::Failed(_) => Key::LiveLibraryPageError,

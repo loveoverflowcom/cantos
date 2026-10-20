@@ -230,6 +230,8 @@ fun interface CatalogHttpTransport {
     suspend fun get(request: CatalogHttpRequest): CatalogHttpResponse
 }
 
+class CatalogTimeoutException : IllegalStateException("Catalog request deadline exceeded")
+
 class CatalogResponseTooLargeException : IllegalStateException("Catalog response exceeds its bound")
 
 /** Production HTTP adapter for the anonymous Theatre catalog (no Studio route, no session). */
@@ -279,6 +281,8 @@ class PublicCatalogHttpAdapter(
             transport.get(CatalogHttpRequest(url, CatalogBodyLimitBytes))
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (_: CatalogTimeoutException) {
+            return PublicCatalogRead.AccessFailure(com.cantos.theatre.ports.CatalogAccessFault.Timeout)
         } catch (_: CatalogResponseTooLargeException) {
             return PublicCatalogRead.Protocol(CatalogProtocolFault.Oversized)
         } catch (_: Exception) {
@@ -303,6 +307,11 @@ internal fun <W, T> classifyCatalogResponse(
     serializer: KSerializer<W>,
     map: (W) -> T?,
 ): PublicCatalogRead<T> {
+    when (response.status) {
+        401 -> return PublicCatalogRead.AccessFailure(com.cantos.theatre.ports.CatalogAccessFault.Unauthenticated)
+        403 -> return PublicCatalogRead.AccessFailure(com.cantos.theatre.ports.CatalogAccessFault.Forbidden)
+        408, 504 -> return PublicCatalogRead.AccessFailure(com.cantos.theatre.ports.CatalogAccessFault.Timeout)
+    }
     if (response.body.size > CatalogBodyLimitBytes) return PublicCatalogRead.Protocol(CatalogProtocolFault.Oversized)
     val json = response.contentType?.substringBefore(';')?.trim()?.lowercase() == "application/json"
     val text = try {

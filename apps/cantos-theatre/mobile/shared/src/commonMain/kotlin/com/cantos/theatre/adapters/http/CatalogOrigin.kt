@@ -62,14 +62,11 @@ fun selectCatalogOrigin(override: String?, allowLoopbackHttp: Boolean): CatalogO
     return CatalogOriginSelection.Configured(origin)
 }
 
-/**
- * Entry for a value read from native packaging (Android manifest placeholder, iOS `Info.plist`
- * build setting). Packaging cannot omit a key, so the build tooling's own empty value means
- * "no override was supplied". An explicit empty override is refused at the build/CLI boundary
- * (for example xtask's `--api-origin`), so an empty packaged value is never a user override.
- */
+/** Packaging preserves absence with a sentinel; an explicit empty override is still an error. */
+const val PackagedDefaultApiOrigin: String = "__CANTOS_DEFAULT_API_ORIGIN__"
+
 fun selectPackagedApiOrigin(packaged: String?, allowLoopbackHttp: Boolean): CatalogOriginSelection =
-    selectCatalogOrigin(packaged?.takeIf { it.isNotEmpty() }, allowLoopbackHttp)
+    selectCatalogOrigin(if (packaged == PackagedDefaultApiOrigin) null else packaged, allowLoopbackHttp)
 
 /** Must equal the debug network security config's cleartext domains. */
 internal val CleartextLoopbackHosts = setOf("127.0.0.1", "localhost")
