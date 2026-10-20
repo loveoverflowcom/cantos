@@ -21,6 +21,11 @@ CLI identity. Source placement does not register Forge in the local process inve
 establish Functions packaging, deployment or provider acceptance.
 The API never synthesizes audio or calls Gemini.
 
+[`cantos-identity`](cantos-identity/README.md) is also a Cargo member, currently a pure
+security-state library for #334. It has no binary, listener, storage or registered process;
+the native service and its shared #332 Turso owner remain unimplemented. It is intentionally
+absent from the process inventory until a runnable composition exists.
+
 Cross-environment deployment configuration lives in [`infra/`](../infra/README.md): the VPS
 production runtime ([`infra/vps`](../infra/vps/README.md)), the public edge and static Firebase
 Hosting are not registered xtask services; production PostgreSQL/Kanidm there are Quadlet

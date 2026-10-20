@@ -22,7 +22,15 @@ entry, xtask selectors, build scripts, guards and active documents now say `cant
 (Quadlet units, container and image names, release bundle file name, Caddy snippet) until the
 operator-authorized cutover of #336; see the
 [rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api). Everything
-else in this record remains a target, not implemented behavior.
+else in this record remains a target, except the bounded library slice below.
+
+The [Identity security-state library](../../services/cantos-identity/README.md) supplies
+checked, distinct subject/operation/instance IDs, storage-bounded security versions and a pure
+completion recheck for active/current state, binding, surface and assurance. It introduces no
+binary, DB, crypto verifier, RPC, authentication fact or session; runtime prerequisites still
+belong to #332 and later #334 slices. Pure decisions do not establish durable revocation,
+restore safety, atomic consume-once or auth E2E acceptance. Kani harness registration is not
+evidence that a model checker ran.
 
 The integration branch is `refactor/cantos-native-turso`, with reviewable commits/checkpoints
 and a final integrated PR to `develop`. Do not merge an incompatible intermediate rename,

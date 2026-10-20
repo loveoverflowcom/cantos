@@ -43,6 +43,11 @@ PACKAGES = {
         ("services/cantos-forge-functions/src", ".cargo"),
         ("Cargo.toml", "services/cantos-forge-functions/Cargo.toml", "scripts/verify_kani.py", "xtask/src/kani.rs"),
     ),
+    "cantos-identity": (
+        "services/cantos-identity/Cargo.toml",
+        ("services/cantos-identity/src", ".cargo"),
+        ("Cargo.toml", "services/cantos-identity/Cargo.toml", "scripts/verify_kani.py", "xtask/src/kani.rs"),
+    ),
 }
 FORBIDDEN_ENVIRONMENT = frozenset((
     "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC", "RUSTC_WRAPPER",

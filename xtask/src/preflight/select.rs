@@ -563,6 +563,29 @@ mod tests {
     }
 
     #[test]
+    fn identity_core_inputs_select_only_their_rust_package() {
+        for path in [
+            "services/cantos-identity/src/lib.rs",
+            "services/cantos-identity/src/domain/security_version.rs",
+            "services/cantos-identity/src/domain/admission.rs",
+            "services/cantos-identity/Cargo.toml",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository",
+                    "rust-format",
+                    "rust-lint (cantos-identity)",
+                    "rust-tests (cantos-identity)",
+                ],
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
     fn forge_service_inputs_select_rust_and_offline_wrapper_without_api_or_database() {
         for path in [
             "services/cantos-forge-functions/src/domain/attempt.rs",

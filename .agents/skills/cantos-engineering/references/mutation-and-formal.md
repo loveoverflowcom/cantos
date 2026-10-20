@@ -109,16 +109,18 @@ violated proposition; it is not authorization for panic-driven production contro
 
 ### Actual execution and repository integration
 
-**Current implemented scope:** `cargo xtask verify kani` registers eleven
+**Current implemented scope:** `cargo xtask verify kani` registers thirteen
 production kernels: ten in the API library (`catalog-revision`, `image-bounds`, `wav-payload`,
 `submission-window`, `publication-commit`, `listener-access`, `listener-reconcile`,
 `byte-range`, `playback-grant` and `public-cover`) and one in the Forge crate
-(`forge-attempt-ledger`, the paid-attempt integer kernel). Each kernel names its one package.
-Omission selects all eleven; repeat `--harness` for a subset. Registration is not execution:
+(`forge-attempt-ledger`, the paid-attempt integer kernel), plus two in `cantos-identity`
+(`identity-security-version`, `identity-completion`; both NOT_RUN until an actual pinned
+Ubuntu x86_64 D1 workflow has attributable results). Each kernel names its one package.
+Omission selects all thirteen; repeat `--harness` for a subset. Registration is not execution:
 the ledger records which kernels have an actual attributable run.
 The fixed model pins Kani 0.68.0, bundled rustc 1.100.0-nightly (8925ea358,
 nightly-2026-08-21), CBMC 6.11.0 and x86_64-unknown-linux-gnu/64-bit usize,
-API library/no default features, CaDiCaL and unwind 2. Actual execution, source
+the selected package's library/no default features, CaDiCaL and unwind 2. Actual execution, source
 identity, covers and residuals are recorded in
 [the proof ledger](../../../../docs/assurance/kani.md). Production remains Rust
 1.98.1; the verifier has no runtime dependency and no automatic install/setup.

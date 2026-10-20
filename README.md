@@ -98,6 +98,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `services/cantos-forge-functions`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow, attempt/recovery core, local attempt persistence and finite Rust/Node worker boundary. The owner-selected Studio-controlled local/Functions and private Drive app-data execution remains #203 implementation work; this build makes no provider call or API submission.
 - `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated JVM `preview-sandbox`; native listening acceptance separate.
 - `services/cantos-server`: authoritative modular metadata/rights/revision/production-planning backend, Studio catalog API and pure media inspection; this does not forbid separately owned processes.
+- `services/cantos-identity`: dependency-free [security-state library](services/cantos-identity/README.md) for #334; checked IDs/versions and stale-completion decisions only. No native Identity executable, credentials, database or RPC is implemented by this slice.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
 - `services/kanidm`: operator-owned identity configuration; Studio OIDC is implemented in the API, live acceptance pending.
@@ -138,7 +139,7 @@ and Kotlin/Native frameworks already live under excluded module `build` director
 Use the exact Rust 1.98.1 pin in [`rust-toolchain.toml`](rust-toolchain.toml), a local PostgreSQL 17 or 18
 cluster for database tests, and Trunk for Leptos Web. `rustup show active-toolchain` installs the
 minimal compiler, matching rustfmt/Clippy and `wasm32-unknown-unknown` target when needed.
-All seven package MSRVs are 1.98.1; edition 2021 and locked dependency versions stay unchanged.
+All workspace package MSRVs are 1.98.1; edition 2021 and locked dependency versions stay unchanged.
 Kani keeps its separately bundled nightly compiler. See the [upgrade review boundary](docs/architecture/rust-toolchain.md).
 
 ```sh
