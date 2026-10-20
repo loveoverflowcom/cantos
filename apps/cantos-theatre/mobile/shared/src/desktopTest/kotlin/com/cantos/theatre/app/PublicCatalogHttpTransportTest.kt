@@ -182,6 +182,17 @@ class PublicCatalogHttpTransportTest {
     }
 
     @Test
+    fun a_real_socket_deadline_is_a_timeout_not_a_generic_transport_failure() = runBlocking {
+        Server { exchange ->
+            Thread.sleep(150)
+            runCatching { exchange.json(200, """{"items":[],"next_cursor":null}""") }
+        }.use { server ->
+            val adapter = PublicCatalogHttpAdapter(server.origin, JvmCatalogTransport(readTimeoutMs = 25))
+            assertEquals(PublicCatalogRead.AccessFailure(com.cantos.theatre.ports.CatalogAccessFault.Timeout), adapter.works(null))
+        }
+    }
+
+    @Test
     fun cancellation_disconnects_a_stalled_read_and_a_closed_port_is_a_transport_failure() = runBlocking {
         val received = CountDownLatch(1)
         val release = CountDownLatch(1)
@@ -200,6 +211,7 @@ class PublicCatalogHttpTransportTest {
         }
         val closed = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val port = closed.address.port
+        closed.start()
         closed.stop(0)
         val adapter = PublicCatalogHttpAdapter(ApiOrigin.parse("http://127.0.0.1:$port"), JvmCatalogTransport(connectTimeoutMs = 2_000))
         assertEquals(PublicCatalogRead.Transport, adapter.works(null))

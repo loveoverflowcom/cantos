@@ -12,7 +12,6 @@ compile_error!(
     "cantos-theatre tests cover the isolated previews: run them with `--features preview` \
      (for the workspace: `--features cantos-theatre/preview`), as `cargo xtask verify` does"
 );
-#[cfg(target_arch = "wasm32")]
 mod api_endpoint;
 pub mod app;
 pub mod application;

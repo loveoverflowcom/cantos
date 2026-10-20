@@ -8,9 +8,10 @@ use crate::{
         },
         library::Section,
         library_sync::{
-            audio_identity_from_source, generate_uuid_string, record_started_in_projection,
-            release_matches_audio_identity, AccountSyncJournal, LibrarySyncState, PendingMutation,
-            RecoveryMode, RereadTarget, ResumeAttemptState, ResumeRefusal,
+            audio_identity_from_source, decode_journal, generate_uuid_string,
+            record_started_in_projection, release_matches_audio_identity, AccountSyncJournal,
+            LibrarySyncState, PendingMutation, RecoveryMode, RereadTarget, ResumeAttemptState,
+            ResumeRefusal,
         },
         player_session::{PlaybackObservation, PlayerSession},
         public_listen::{ListenLabel, NowPlaying},
@@ -65,34 +66,52 @@ fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-fn load_journal_from_storage(actor: &str) -> Option<AccountSyncJournal> {
-    let storage = web_sys::window()?.local_storage().ok()??;
-    let raw = storage.get_item(&storage_key(actor)).ok()??;
-    if raw.len() > MAX_JOURNAL_BYTES {
-        return None;
-    }
-    let parsed = AccountSyncJournal::from_json_str(&raw)?;
-    parsed.restore_for_actor(actor)
+fn load_journal_from_storage(
+    actor: &str,
+) -> Result<Option<AccountSyncJournal>, crate::application::account_view::JournalStorageFault> {
+    use crate::application::account_view::JournalStorageFault;
+    let storage = web_sys::window()
+        .ok_or(JournalStorageFault::Unavailable)?
+        .local_storage()
+        .map_err(|_| JournalStorageFault::Unavailable)?
+        .ok_or(JournalStorageFault::Unavailable)?;
+    let Some(raw) = storage
+        .get_item(&storage_key(actor))
+        .map_err(|_| JournalStorageFault::Unavailable)?
+    else {
+        return Ok(None);
+    };
+    decode_journal(&raw, actor).map(Some)
 }
 
-pub fn persist_sync_journal(state: RwSignal<AccountViewState>) {
-    let Some(journal) = state
-        .try_with_untracked(|s| s.sync().map(LibrarySyncState::to_journal))
-        .flatten()
-    else {
-        return;
-    };
-    let Some(storage) = web_sys::window()
-        .and_then(|w| w.local_storage().ok())
-        .flatten()
-    else {
-        return;
-    };
-    if let Some(json) = journal.to_json_string() {
-        if json.len() <= MAX_JOURNAL_BYTES {
-            let _ = storage.set_item(&storage_key(&journal.actor_id), &json);
+/// Persist before any mutation send. A corrupt/unread journal must never be overwritten with
+/// an empty replacement, losing operation IDs that could already have reached the API.
+pub fn persist_sync_journal(state: RwSignal<AccountViewState>) -> bool {
+    use crate::application::account_view::JournalStorageFault;
+    let Some(Some((fence, journal))) = state.try_with_untracked(|s| {
+        if !s.can_persist_journal() {
+            return None;
         }
-    }
+        Some((s.fence()?, s.sync()?.to_journal()))
+    }) else {
+        return false;
+    };
+    let result = (|| {
+        let json = journal
+            .to_json_string()
+            .filter(|json| json.len() <= MAX_JOURNAL_BYTES)
+            .ok_or(JournalStorageFault::Unavailable)?;
+        let storage = web_sys::window()
+            .ok_or(JournalStorageFault::Unavailable)?
+            .local_storage()
+            .map_err(|_| JournalStorageFault::Unavailable)?
+            .ok_or(JournalStorageFault::Unavailable)?;
+        storage
+            .set_item(&storage_key(&journal.actor_id), &json)
+            .map_err(|_| JournalStorageFault::Unavailable)
+    })();
+    let _ = state.try_update(|s| s.record_storage(&fence, result));
+    result.is_ok()
 }
 
 fn presentation_from_now_playing(
@@ -181,10 +200,18 @@ async fn finish_lookup(
     match completion {
         Some(Ok(SessionCompletion::Authenticated(fence))) => {
             if let Some(actor_id) = actor {
-                if let Some(journal) = load_journal_from_storage(&actor_id) {
-                    let _ = state.try_update(|current| {
-                        current.restore_sync_journal(&fence, journal);
-                    });
+                match load_journal_from_storage(&actor_id) {
+                    Ok(Some(journal)) => {
+                        let _ = state.try_update(|current| {
+                            current.restore_sync_journal(&fence, journal);
+                        });
+                    }
+                    Ok(None) => (),
+                    Err(fault) => {
+                        let _ = state.try_update(|current| {
+                            current.record_journal_restore(&fence, Err(fault))
+                        });
+                    }
                 }
             }
             persist_sync_journal(state);
@@ -526,7 +553,20 @@ async fn execute_mutation(
     pending: PendingMutation,
     session_change_budget: u8,
 ) {
-    persist_sync_journal(state);
+    if !state
+        .try_with_untracked(|s| s.accepts(&fence))
+        .unwrap_or(false)
+    {
+        return;
+    }
+    if !persist_sync_journal(state) {
+        let _ = state.try_update(|s| {
+            s.with_fenced_sync_mut(&fence, |sync, _| {
+                sync.record_unknown_outcome(&pending.operation_id)
+            });
+        });
+        return;
+    }
     if pending.recovery == RecoveryMode::ReadReceiptFirst {
         match super::library::load_operation_receipt(fence.session(), &pending.operation_id).await {
             super::library::OperationLookupOutcome::Found(receipt) => {
@@ -568,6 +608,13 @@ async fn execute_mutation(
         }
     }
 
+    // Receipt lookup awaited I/O: account B must never inherit account A's replay callback.
+    if !state
+        .try_with_untracked(|s| s.accepts(&fence))
+        .unwrap_or(false)
+    {
+        return;
+    }
     match super::library::send_mutation(fence.session(), &pending.payload).await {
         super::library::WriteHttpOutcome::Receipt(receipt) => {
             apply_and_follow_receipt(
@@ -1092,7 +1139,8 @@ pub fn resume_exact_release(
                 });
             }
             Err(
-                CatalogReadError::Unavailable
+                CatalogReadError::Diagnostic(_)
+                | CatalogReadError::Unavailable
                 | CatalogReadError::Protocol
                 | CatalogReadError::InvalidCursor,
             ) => {
@@ -1262,4 +1310,24 @@ pub fn mount(
         });
     });
     refresh(state);
+}
+
+/// Explicit storage recovery. An unread journal is reloaded through account admission; a write
+/// failure retries persistence in this mount, then resumes only the exact retained receipt plans.
+pub fn retry_journal_storage(state: RwSignal<AccountViewState>) {
+    if state.with_untracked(AccountViewState::journal_restore_blocked) {
+        refresh(state);
+        return;
+    }
+    if !persist_sync_journal(state) {
+        return;
+    }
+    let Some(Some((fence, pending))) =
+        state.try_with_untracked(|s| Some((s.fence()?, s.sync()?.pending_mutations())))
+    else {
+        return;
+    };
+    for operation in pending {
+        leptos::task::spawn_local(execute_mutation(state, fence.clone(), operation, 1));
+    }
 }

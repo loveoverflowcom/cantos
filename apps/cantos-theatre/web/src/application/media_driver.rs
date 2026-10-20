@@ -40,6 +40,7 @@ pub struct AttachId(u64);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuthorizationError {
+    Diagnostic(super::errors::ErrorKind),
     /// The contract's merged answer: withdrawn, revoked, expired or never public.
     NotFound,
     /// Transport, timeout or a retryable server answer.
@@ -370,6 +371,29 @@ impl MediaDriver {
                     GrantRejection::IdentityChanged => Failure::IdentityChanged,
                     GrantRejection::Protocol => Failure::Protocol,
                 }),
+            Err(AuthorizationError::Diagnostic(kind)) => {
+                use super::errors::ErrorKind;
+                if matches!(kind, ErrorKind::Network | ErrorKind::Timeout)
+                    && request.attempt < MAX_ATTEMPTS
+                {
+                    return self.retry(request);
+                }
+                if matches!(kind, ErrorKind::Network | ErrorKind::Timeout)
+                    && request.purpose == Purpose::Refresh
+                {
+                    return Vec::new();
+                }
+                Err(match kind {
+                    ErrorKind::Network => Failure::Network,
+                    ErrorKind::Timeout => Failure::Timeout,
+                    ErrorKind::Unauthenticated => Failure::Unauthenticated,
+                    ErrorKind::Forbidden => Failure::Forbidden,
+                    ErrorKind::Configuration => Failure::Configuration,
+                    ErrorKind::ContentUnavailable => Failure::Unavailable,
+                    ErrorKind::Protocol | ErrorKind::Storage => Failure::Protocol,
+                    ErrorKind::ServiceUnavailable => Failure::Network,
+                })
+            }
             Err(AuthorizationError::NotFound) => Err(Failure::Unavailable),
             Err(AuthorizationError::Protocol) => Err(Failure::Protocol),
             Err(AuthorizationError::Unavailable) => {

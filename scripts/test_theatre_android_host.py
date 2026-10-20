@@ -102,7 +102,7 @@ class TheatreAndroidHostTest(unittest.TestCase):
         self.assertEqual(label(HOST / "src/main/res/values/app_name.xml"), "Cantos")
         self.assertEqual(label(HOST / "src/debug/res/values/app_name.xml"), "Cantos Dev")
 
-    def test_native_configuration_build_inputs_reach_metadata_with_empty_defaults(self):
+    def test_native_configuration_build_inputs_preserve_absence_separately_from_empty(self):
         gradle = (HOST / "build.gradle.kts").read_text()
         for placeholder, property_name, environment_name in [
             ("cantosApiOrigin", "cantos.apiOrigin", "CANTOS_API_ORIGIN"),
@@ -113,7 +113,7 @@ class TheatreAndroidHostTest(unittest.TestCase):
                 rf'manifestPlaceholders\["{placeholder}"\]\s*=\s*'
                 rf'providers\.gradleProperty\("{property_name}"\)\s*'
                 rf'\.orElse\(providers\.environmentVariable\("{environment_name}"\)\)\s*'
-                r'\.orElse\(""\)\.get\(\)',
+                rf'\.orElse\("{"__CANTOS_DEFAULT_API_ORIGIN__" if placeholder == "cantosApiOrigin" else ""}"\)\.get\(\)',
             )
 
     def test_callback_profile_comes_from_the_final_application_id(self):

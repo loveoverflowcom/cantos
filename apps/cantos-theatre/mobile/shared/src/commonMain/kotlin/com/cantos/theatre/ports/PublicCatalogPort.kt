@@ -23,7 +23,10 @@ enum class CatalogProtocolFault {
  * Closed result of one anonymous public-catalog read. `NotFound` deliberately merges absent,
  * private, withdrawn and draft (the client never names a reason it was not given).
  */
+enum class CatalogAccessFault { Unauthenticated, Forbidden, Timeout }
+
 sealed interface PublicCatalogRead<out T> {
+    data class AccessFailure(val fault: CatalogAccessFault) : PublicCatalogRead<Nothing>
     data class Ready<T>(val value: T) : PublicCatalogRead<T>
     data object NotFound : PublicCatalogRead<Nothing>
     /** The cursor expired, was evicted or no longer binds this walk; restart from page one. */

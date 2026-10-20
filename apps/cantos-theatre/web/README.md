@@ -595,3 +595,21 @@ removes the cookie/same-site prerequisite. Gateway, callback reconciliation and 
 cross-site browser acceptance remain separate from mocked client journeys. The
 [current production runbook](../../../docs/deployment/vps-production.md) owns destinations;
 a successful local build is not deployed-user acceptance.
+
+## Default API and error recovery (#298)
+
+Theatre Web follows [client error presentation v1](../../../packages/contracts/client-error-presentation-v1.md):
+an omitted `CANTOS_API_ORIGIN` selects `https://api.cantos.cc`; explicit invalid/empty input fails
+before network. Local `xtask run|app` injects a loopback API origin explicitly. Build commands keep
+the production default unless an explicit override is supplied. This does not change Studio.
+
+The shell owns one ErrorCenter and composes the shared Dialog/Button for actionable failures.
+Catalog/detail reads preserve typed network/timeout/401/403/protocol failures and current tickets;
+retained rows remain inline. No request failure becomes a mock or an empty success. Identity
+failures remain scoped to the explicit account flow, keeping public Home usable. Account and
+route changes retire old notices; dismiss suppresses repeated reports until resolution/new intent.
+
+Durable journal access and parsing failures are visible, do not overwrite unread bytes, and block
+mutation sends until persistence/reconciliation succeeds. The storage action reuses the existing
+receipt/session owners and never retries a mutation generically. Source/host tests and local API
+checks do not establish browser or native acceptance; use the PR's deferred acceptance checklist.

@@ -24,12 +24,15 @@ pub async fn session() -> Result<AccountScope, Failure> {
         .access(None)
         .await
         .map_err(auth_error)?;
-    let controller = AbortController::new().map_err(|_| Failure::Unavailable)?;
-    let deadline = super::browser::deadline(controller).map_err(|_| Failure::Unavailable)?;
+    let controller = AbortController::new()
+        .map_err(|_| Failure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
+    let deadline = super::browser::deadline(controller)
+        .map_err(|_| Failure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
     let signal = deadline.controller.signal();
     let response = Request::get(
-        &crate::api_endpoint::endpoint("/api/v1/theatre/auth/bearer/session")
-            .map_err(|_| Failure::Unavailable)?,
+        &crate::api_endpoint::endpoint("/api/v1/theatre/auth/bearer/session").map_err(|_| {
+            Failure::Diagnostic(crate::application::errors::ErrorKind::Configuration)
+        })?,
     )
     .credentials(RequestCredentials::Omit)
     .redirect(web_sys::RequestRedirect::Error)
@@ -38,8 +41,13 @@ pub async fn session() -> Result<AccountScope, Failure> {
     .header("Accept", "application/json")
     .send()
     .await
-    .map_err(|_| Failure::Unavailable)?;
+    .map_err(|_| Failure::Diagnostic(deadline.failure_kind()))?;
     credential.response(response.status()).map_err(auth_error)?;
+    if response.status() == 403 {
+        return Err(Failure::Diagnostic(
+            crate::application::errors::ErrorKind::Forbidden,
+        ));
+    }
     if response.status() != 200 {
         return Err(Failure::Unavailable);
     }
@@ -51,7 +59,10 @@ pub async fn session() -> Result<AccountScope, Failure> {
     }) {
         return Err(Failure::Protocol);
     }
-    let body = response.binary().await.map_err(|_| Failure::Unavailable)?;
+    let body = response
+        .binary()
+        .await
+        .map_err(|_| Failure::Diagnostic(deadline.failure_kind()))?;
     if body.len() > 8192 {
         return Err(Failure::Protocol);
     }

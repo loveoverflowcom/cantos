@@ -191,6 +191,27 @@ pub(crate) fn focus_by_id(id: String) {
     });
 }
 
+/// A startup error has no pressed opener. Focus a stable shell return target synchronously,
+/// before Dialog captures the active element; animation-frame focus would run after showModal.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn prepare_error_focus() -> Result<(), ()> {
+    use leptos::wasm_bindgen::JsCast;
+    let document = leptos::web_sys::window()
+        .and_then(|window| window.document())
+        .ok_or(())?;
+    if document
+        .active_element()
+        .is_some_and(|element| element.tag_name() != "BODY")
+    {
+        return Ok(());
+    }
+    let main = document
+        .get_element_by_id("theatre-main")
+        .and_then(|element| element.dyn_into::<leptos::web_sys::HtmlElement>().ok())
+        .ok_or(())?;
+    main.focus().map_err(|_| ())
+}
+
 /// Mirrors the interface locale onto `<html lang>` so the whole document, including browser UI
 /// and content outside the app root, is announced in the chosen language.
 #[cfg(target_arch = "wasm32")]

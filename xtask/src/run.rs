@@ -235,7 +235,12 @@ fn test_cluster_record(
 fn trunk_service(workspace: &Workspace, app: App, profile: Profile) -> Service {
     Service {
         name: format!("{} web (trunk serve)", app.cli_name()),
-        command: build::trunk(workspace, app, "serve", profile),
+        command: match app {
+            // Local integration must never inherit Theatre's production default.
+            App::Theatre => build::trunk(workspace, app, "serve", profile)
+                .env("CANTOS_API_ORIGIN", "http://127.0.0.1:8080"),
+            App::Studio => build::trunk(workspace, app, "serve", profile),
+        },
         tools: vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk],
         addr: loopback(app.web_port()),
         readiness: Readiness::Http {
@@ -828,6 +833,10 @@ mod tests {
         assert_eq!(plan.services.len(), 2);
         assert_eq!(plan.services[0].addr, loopback(8080));
         assert_eq!(plan.services[1].addr, loopback(8082));
+        assert_eq!(
+            env_of(&plan.services[1], "CANTOS_API_ORIGIN").as_deref(),
+            Some("http://127.0.0.1:8080")
+        );
         assert!(matches!(
             &plan.requirements[..],
             [Requirement::EnvVar {

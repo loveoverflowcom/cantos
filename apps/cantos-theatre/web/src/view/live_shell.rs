@@ -1,4 +1,7 @@
 //! Public discovery is independent of account availability; auth is always an explicit route.
+use crate::application::errors::{
+    ErrorAction, ErrorCenter, ErrorKind, ErrorNotice, ErrorOperation,
+};
 use crate::{
     app::{live_navigation::LiveNavigation, routes::Route},
     application::{
@@ -274,7 +277,17 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let captured = signup_browser::capture_link();
     let history_blocked =
         RwSignal::new(captured == Err(signup_browser::CaptureFailure::HistoryUnavailable));
-    let network_allowed = Signal::derive(move || !history_blocked.get());
+    let configuration_valid = preview || crate::api_endpoint::validate().is_ok();
+    let network_allowed = Signal::derive(move || !history_blocked.get() && configuration_valid);
+    let errors = RwSignal::new(ErrorCenter::default());
+    if !configuration_valid {
+        errors.update(|s| {
+            s.report(
+                ErrorNotice::read(ErrorKind::Configuration, ErrorOperation::LoadCatalog),
+                false,
+            )
+        });
+    }
     let signup = RwSignal::new(SignupState::default());
     let incoming_link_navigation = StoredValue::new(false);
     signup.update(|current| match captured {
@@ -329,7 +342,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }
     });
     let nav = LiveNavigation::new(state, main, preview);
-    if !network_allowed.get_untracked() {
+    if history_blocked.get_untracked() {
         nav.route.set(Route::Auth(AuthRoute::register(
             crate::application::auth_navigation::ReturnDestination::Home,
         )));
@@ -686,6 +699,10 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }),
     };
     let on_work_retry = Callback::new(move |()| {
+        errors.update(|s| {
+            s.resolve(ErrorOperation::LoadWork);
+            s.resolve(ErrorOperation::LoadUnits);
+        });
         if preview || !network_allowed.get_untracked() {
             return;
         }
@@ -760,6 +777,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }
     });
     let on_discovery_retry = Callback::new(move |()| {
+        errors.update(|s| s.resolve(ErrorOperation::LoadCatalog));
         if preview || !network_allowed.get_untracked() {
             return;
         }
@@ -848,6 +866,111 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             false,
         )
     });
+    // Observe only admitted current states: stale callbacks have already been rejected by
+    // the account/route/request owners. Loading does not resolve a dismissed failure episode.
+    Effect::new(move |_| {
+        use crate::application::public_discovery::{PublicDiscoveryPhase, Tail};
+        if !configuration_valid {
+            return;
+        }
+        let route = nav.route.get();
+        let catalog = discovery.get();
+        errors.update(|center| {
+            if !matches!(route, Route::Discover | Route::Explore) {
+                center.resolve(ErrorOperation::LoadCatalog);
+            } else {
+                match catalog.phase() {
+                    PublicDiscoveryPhase::Failed(failure) => center.report(
+                        ErrorNotice::read(failure.into(), ErrorOperation::LoadCatalog),
+                        false,
+                    ),
+                    PublicDiscoveryPhase::Ready | PublicDiscoveryPhase::Incomplete => {
+                        match catalog.tail() {
+                            Tail::Failed(failure) => center.report(
+                                ErrorNotice::read(failure.into(), ErrorOperation::LoadCatalog),
+                                true,
+                            ),
+                            Tail::Loading => (),
+                            _ => center.resolve(ErrorOperation::LoadCatalog),
+                        }
+                    }
+                    PublicDiscoveryPhase::Empty => center.resolve(ErrorOperation::LoadCatalog),
+                    _ => (),
+                }
+            }
+        });
+        let work = work_detail.get();
+        errors.update(|center| match work.phase() {
+            WorkDetailPhase::Failed(failure) => center.report(
+                ErrorNotice::read((*failure).into(), ErrorOperation::LoadWork),
+                false,
+            ),
+            WorkDetailPhase::Ready { units, .. } => {
+                center.resolve(ErrorOperation::LoadWork);
+                if let crate::application::public_work::PageStatus::Failed(failure) = units.status()
+                {
+                    center.report(
+                        ErrorNotice::read((*failure).into(), ErrorOperation::LoadUnits),
+                        !units.rows().is_empty(),
+                    );
+                } else if !matches!(
+                    units.status(),
+                    crate::application::public_work::PageStatus::Loading
+                ) {
+                    center.resolve(ErrorOperation::LoadUnits);
+                }
+            }
+            WorkDetailPhase::NotFound | WorkDetailPhase::Idle => {
+                center.resolve(ErrorOperation::LoadWork);
+                center.resolve(ErrorOperation::LoadUnits);
+            }
+            _ => (),
+        });
+    });
+    let observed_account_generation =
+        StoredValue::new(state.with_untracked(AccountViewState::generation));
+    Effect::new(move |_| {
+        let current = state.get();
+        if observed_account_generation.get_value() != current.generation() {
+            observed_account_generation.set_value(current.generation());
+            errors.update(|c| {
+                c.resolve(ErrorOperation::SignIn);
+                c.resolve(ErrorOperation::UpdateLibrary);
+            });
+        }
+        // Identity diagnostics belong to the explicit account flow; a guest's public Home
+        // stays usable. A fresh account generation clears notices issued for the old account.
+        if !matches!(
+            nav.route.get(),
+            Route::Account | Route::Auth(_) | Route::Library | Route::History
+        ) {
+            errors.update(|c| c.resolve(ErrorOperation::SignIn));
+            return;
+        }
+        errors.update(|c| match current.phase() {
+            SessionPhase::Failed(crate::application::account_view::AccountFailure::Diagnostic(
+                kind,
+            )) => c.report(ErrorNotice::read(kind, ErrorOperation::SignIn), true),
+            SessionPhase::Guest | SessionPhase::SignedIn => c.resolve(ErrorOperation::SignIn),
+            _ => (),
+        });
+    });
+    let on_error_action = Callback::new(move |action| {
+        let mut operation = None;
+        errors.update(|center| operation = center.choose(action));
+        if let Some(operation) = operation {
+            match action {
+                ErrorAction::SignIn => on_login.run(()),
+                ErrorAction::Retry => match operation {
+                    ErrorOperation::LoadCatalog => on_discovery_retry.run(()),
+                    ErrorOperation::LoadWork | ErrorOperation::LoadUnits => on_work_retry.run(()),
+                    // Mutations and account cleanup keep their receipt/session owners.
+                    _ => (),
+                },
+                ErrorAction::Close => (),
+            }
+        }
+    });
     let on_clear_unsafe_link = Callback::new(move |()| {
         // Reload only after successful scrub. A fresh mount restores every normal lifecycle
         // listener once; failed scrub/reload keeps this owner blocked and exposes no signup IO.
@@ -887,7 +1010,9 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                         </div>
                     </header>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
-                            {move || match nav.route.get() {
+                            {move || if !configuration_valid {
+                                view! { <LiveRecovery locale heading=Key::ErrorDialogTitle help=Key::ErrorConfiguration/> }.into_any()
+                            } else { match nav.route.get() {
                                 Route::Auth(auth) => view! { <AuthPage state registration signup locale route=auth preview_icons=preview
                                     on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
                                     on_register on_login=Callback::new(move |()| { crate::live::signup::leave(signup, preview); if network_allowed.get_untracked() { nav.login(state, registration.get_untracked()); } })
@@ -927,11 +1052,21 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 Route::Queue => view! { <LiveRecovery locale heading=Key::LiveRouteUnavailable help=Key::LiveRouteUnavailableHelp/> }.into_any(),
                                 // Mock fixture slugs are mapped to `NotFound` before they get here.
                                 Route::NotFound | Route::Work(_) => view! { <LiveRecovery locale heading=Key::LiveNotFound help=Key::LiveNotFoundHelp/> }.into_any(),
-                            }}
+                            } }}
                         </main>
                     </super::LiveContainer>
                 </div>
+                <Show when=move || state.with(|s| s.storage_fault().is_some())>
+                    <div class="theatre-public-state" role="alert">
+                        <p>{move || messages::text(Key::ErrorStorage, locale.get())}</p>
+                        <Button id="theatre-storage-retry" variant=ButtonVariant::Tonal focus_on_press=true on_press=Callback::new(move |_| {
+                            #[cfg(target_arch = "wasm32")]
+                            crate::live::runtime::retry_journal_storage(state);
+                        })>{move || messages::text(Key::ErrorStorageRecovery, locale.get())}</Button>
+                    </div>
+                </Show>
                 <LiveMiniPlayer live route=nav.route/>
+                <crate::features::error_dialog::ErrorWindow center=errors locale on_action=on_error_action/>
             </div>
             </crate::features::signup::SignupLinkSafety>
         </super::LiveFrame>

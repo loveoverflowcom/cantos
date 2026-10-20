@@ -306,3 +306,6 @@ The provider bearer never reaches either client. Session UUID headers reject lat
 intents and correlate private responses; they are fences, never authentication evidence.
 Combined Theatre verification is pending; the Android host activation exception and actual
 Web/device/provider/secure-store acceptance remain separate from these implemented contracts.
+
+The [Theatre client error presentation v1](client-error-presentation-v1.md) owns default origin,
+client taxonomy, modal lifetime and safe recovery semantics shared by Web/CMP.

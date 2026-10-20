@@ -128,6 +128,7 @@ internal fun loginState(account: AccountView, copy: AuthCopy): ButtonState = whe
     AccountView.SignedOut, is AccountView.Failed -> ButtonState.Enabled
     AccountView.Pending, AccountView.SignedIn -> ButtonState.Loading(DisabledReason.of(copy.text(AuthText.PendingReason)))
     AccountView.CleanupRequired -> ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.CleanupReason)))
+    is AccountView.ConfigurationUnavailable -> ButtonState.Disabled(DisabledReason.of(copy.configuration(account.reason)))
     AccountView.Unavailable -> ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.UnavailableReason)))
 }
 
@@ -142,6 +143,7 @@ internal fun AccountView.offersRegistration(): Boolean =
 @Composable
 internal fun AccountStatus(account: AccountView, copy: AuthCopy, nothingSaved: Boolean = false) {
     val message = when (account) {
+        is AccountView.ConfigurationUnavailable -> copy.configuration(account.reason)
         is AccountView.Failed -> copy.failure(account.reason)
         AccountView.CleanupRequired -> copy.text(AuthText.CleanupRequired)
         AccountView.Pending -> copy.text(AuthText.PendingStatus)
@@ -213,7 +215,7 @@ fun LoginScreen(
                     icon = if (previewActionIcons) authActionIcon(AuthIntent.RestoreSession) else null,
                     variant = ButtonVariant.Text, controlModifier = Modifier.fillMaxWidth().testTag("auth-restore"),
                 )
-                AccountView.SignedIn, AccountView.Unavailable -> Unit
+                AccountView.SignedIn, AccountView.Unavailable, is AccountView.ConfigurationUnavailable -> Unit
             }
             SupportingText(copy.text(AuthText.ProviderHelp))
         }

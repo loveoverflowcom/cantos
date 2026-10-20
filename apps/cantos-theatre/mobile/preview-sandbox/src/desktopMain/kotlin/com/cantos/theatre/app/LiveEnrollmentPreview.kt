@@ -194,7 +194,26 @@ fun LiveEnrollmentPreview(config: NativeClientConfiguration) {
     CantosTheme(UiPreferences()) {
         Column(Modifier.fillMaxSize()) {
             LiveEnrollmentTools(owners::callback)
-            CantosTheatreApp(owners.shell, Modifier.weight(1f))
+            CantosTheatreApp(owners.shell, Modifier.weight(1f), identityAvailability = com.cantos.theatre.domain.identity.NativeIdentityAvailability.Available(config))
         }
     }
+}
+
+/** Public real-API preview does not depend on valid identity configuration. No fallback ports. */
+private class LivePublicCatalogOwners(scope: CoroutineScope, origin: ApiOrigin) {
+    private val http = PreviewNativeHttp(scope, origin)
+    private val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport()))
+        .also { it.dispatch(com.cantos.theatre.application.catalog.PublicCatalogIntent.Start) }
+    private val runtime = NativeSessionRuntime(scope, { UnavailableDesktopAudio() }, PlaybackAccessHttp(origin, http) { System.currentTimeMillis() },
+        null, null, { UUID.randomUUID().toString() }, { System.currentTimeMillis() })
+    val shell = TheatreShell(scope, catalog, runtime, PreferencesController())
+    fun close() { shell.close(); runtime.close(); catalog.close() }
+}
+
+@Composable
+fun LivePublicCatalogPreview(origin: ApiOrigin, identity: com.cantos.theatre.domain.identity.NativeIdentityAvailability?) {
+    val scope = rememberCoroutineScope()
+    val owners = remember(origin) { LivePublicCatalogOwners(scope, origin) }
+    DisposableEffect(owners) { onDispose { owners.close() } }
+    CantosTheatreApp(owners.shell, identityAvailability = identity)
 }

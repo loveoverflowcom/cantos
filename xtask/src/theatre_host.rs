@@ -121,6 +121,10 @@ pub fn prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static s
 
 pub fn validate_native_issuer(api_origin: &str, issuer: &str) -> Result<(), String> {
     validate_release_api_origin(api_origin)?;
+    validate_issuer(issuer)
+}
+
+fn validate_issuer(issuer: &str) -> Result<(), String> {
     let base = issuer
         .strip_suffix("/oauth2/openid/cantos-theatre-native")
         .filter(|_| issuer.len() <= 2048)
@@ -137,9 +141,12 @@ pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> Co
         "-Pcantos.android=true",
         "-Pandroid.builder.sdkDownload=false",
     ]);
-    // An explicit empty property also overrides ambient Gradle/environment configuration.
+    // The absence marker overrides ambient Gradle/environment configuration without erasing empty overrides.
     command = command.args([
-        format!("-Pcantos.apiOrigin={}", origin.unwrap_or_default()),
+        format!(
+            "-Pcantos.apiOrigin={}",
+            origin.unwrap_or("__CANTOS_DEFAULT_API_ORIGIN__")
+        ),
         "-Pcantos.nativeIssuer=".to_owned(),
     ]);
     command.args([
@@ -211,7 +218,7 @@ fn release_evidence_with_inputs(
 ) -> CommandSpec {
     release_evidence_command(workspace).args([
         "--api-origin",
-        origin.unwrap_or_default(),
+        origin.unwrap_or("__CANTOS_DEFAULT_API_ORIGIN__"),
         "--native-issuer",
         issuer.unwrap_or_default(),
     ])
@@ -250,7 +257,7 @@ fn boundary_probe_command(workspace: &Workspace, variant: &str, probe: &str) -> 
         "-Pandroid.builder.sdkDownload=false",
         "-Pcantos.releaseAudit=false",
         "-Pcantos.releaseSigning=false",
-        "-Pcantos.apiOrigin=",
+        "-Pcantos.apiOrigin=__CANTOS_DEFAULT_API_ORIGIN__",
         "-Pcantos.nativeIssuer=",
     ]);
     let mut command = CommandSpec::new("python3", workspace.root()).args([
@@ -382,7 +389,7 @@ pub fn inspection_command(workspace: &Workspace, sdk: &str, origin: Option<&str>
     ]);
     args.extend([
         "--api-origin".to_owned(),
-        origin.unwrap_or_default().to_owned(),
+        origin.unwrap_or("__CANTOS_DEFAULT_API_ORIGIN__").to_owned(),
     ]);
     CommandSpec::new("python3", workspace.root()).args(args)
 }
@@ -540,9 +547,9 @@ pub fn execute(
                 }
             }
             if let Some(issuer) = &native_issuer {
-                if let Err(message) =
-                    validate_native_issuer(api_origin.as_deref().unwrap_or_default(), issuer)
-                {
+                // The optional origin was validated above; absence selects the native default.
+                // Validate the explicit issuer without inventing one or erasing that absence.
+                if let Err(message) = validate_issuer(issuer) {
                     eprintln!("xtask: error: {message}");
                     return Ok(ExitCode::from(2));
                 }
@@ -764,7 +771,7 @@ mod tests {
         assert!(command.args.ends_with(&[
             "-Pcantos.android=true".to_owned(),
             "-Pandroid.builder.sdkDownload=false".to_owned(),
-            "-Pcantos.apiOrigin=".to_owned(),
+            "-Pcantos.apiOrigin=__CANTOS_DEFAULT_API_ORIGIN__".to_owned(),
             "-Pcantos.nativeIssuer=".to_owned(),
             "-Pcantos.releaseAudit=false".to_owned(),
             "-Pcantos.releaseSigning=false".to_owned(),
@@ -844,7 +851,7 @@ mod tests {
             .contains(&format!("-Pcantos.apiOrigin={origin}")));
         assert!(gradle_release_command(&workspace, None)
             .args
-            .contains(&"-Pcantos.apiOrigin=".to_owned()));
+            .contains(&"-Pcantos.apiOrigin=__CANTOS_DEFAULT_API_ORIGIN__".to_owned()));
         assert!(inspection_command(&workspace, "/sdk", Some(origin))
             .args
             .windows(2)

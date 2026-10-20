@@ -95,7 +95,7 @@ class ErrorNotice(
         ErrorKind.Unauthenticated -> listOf(ErrorAction.SignIn, ErrorAction.Close)
         ErrorKind.Forbidden, ErrorKind.ContentUnavailable, ErrorKind.Configuration -> listOf(ErrorAction.Close)
         ErrorKind.Network, ErrorKind.Timeout, ErrorKind.Storage, ErrorKind.Protocol, ErrorKind.ServiceUnavailable ->
-            if (retryable) listOf(ErrorAction.Retry, ErrorAction.Close) else listOf(ErrorAction.Close)
+            if (retryable && operation != ErrorOperation.UpdateLibrary && kind != ErrorKind.Storage) listOf(ErrorAction.Retry, ErrorAction.Close) else listOf(ErrorAction.Close)
     }
 
     val primary: ErrorAction get() = actions.first()
@@ -130,6 +130,11 @@ fun errorKindForHttpStatus(status: Int): ErrorKind = when (status) {
 
 /** Catalog failure → notice. [CatalogFailure.NotFound] is content state, not an outage. */
 fun CatalogFailure.toErrorNotice(operation: ErrorOperation): ErrorNotice = when (this) {
+    is CatalogFailure.Access -> ErrorNotice(when (fault) {
+        com.cantos.theatre.ports.CatalogAccessFault.Unauthenticated -> ErrorKind.Unauthenticated
+        com.cantos.theatre.ports.CatalogAccessFault.Forbidden -> ErrorKind.Forbidden
+        com.cantos.theatre.ports.CatalogAccessFault.Timeout -> ErrorKind.Timeout
+    }, operation)
     CatalogFailure.NotFound -> ErrorNotice(ErrorKind.ContentUnavailable, operation, retryable = false)
     is CatalogFailure.Unavailable -> ErrorNotice(ErrorKind.ServiceUnavailable, operation, retryable)
     CatalogFailure.Protocol -> ErrorNotice(ErrorKind.Protocol, operation)

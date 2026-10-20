@@ -352,6 +352,9 @@ pub(crate) fn PublicHome(
             locale.get(),
             &[("count", count().to_string())],
         ),
+        Tail::Failed(PublicDiscoveryFailure::Diagnostic(kind)) => {
+            text(crate::messages::error_key(kind), locale.get()).to_owned()
+        }
         Tail::Failed(PublicDiscoveryFailure::Unavailable) => {
             text(Key::DiscoveryPageUnavailable, locale.get()).to_owned()
         }
@@ -458,6 +461,7 @@ pub(crate) fn PublicHome(
                     }.into_any(),
                     Region::Failed(failure) => {
                         let (heading, help) = match failure {
+                            PublicDiscoveryFailure::Diagnostic(kind) => (Key::ErrorDialogTitle, crate::messages::error_key(kind)),
                             PublicDiscoveryFailure::Unavailable => (Key::PublicHomeUnavailable, Key::PublicConnectionUnavailableHelp),
                             PublicDiscoveryFailure::Protocol => (Key::PublicHomeProtocol, Key::PublicHomeProtocolHelp),
                         };

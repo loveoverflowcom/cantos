@@ -91,6 +91,7 @@ pub(crate) fn Account(ctx: TheatreContext) -> impl IntoView {
 
 pub(crate) fn account_failure_key(failure: AccountFailure) -> Key {
     match failure {
+        AccountFailure::Diagnostic(kind) => crate::messages::error_key(kind),
         AccountFailure::SignedOut => Key::LiveGuestStatus,
         AccountFailure::SessionChanged => Key::AccountSessionChanged,
         AccountFailure::Unavailable => Key::AccountUnavailable,

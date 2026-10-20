@@ -28,7 +28,7 @@ struct CantosApp: App {
         transport = platform
         let nativePlatform = TheatreNativePlatform(apiOrigin: origin ?? "")
         identityPlatform = nativePlatform
-        let identityOwner = IosNativeIdentityOwner(apiOrigin: origin,
+        let identityOwner = IosNativeIdentityOwner(apiOrigin: origin ?? packagedOrigin ?? "",
             issuer: Bundle.main.object(forInfoDictionaryKey: "CantosNativeIssuer") as? String,
             platform: nativePlatform)
         identity = identityOwner

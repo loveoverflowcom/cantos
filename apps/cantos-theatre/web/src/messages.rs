@@ -78,6 +78,18 @@ macro_rules! resources {
 }
 
 resources! {
+    ErrorDialogTitle => ("Chưa hoàn tất thao tác", "Couldn’t complete that"),
+    CloseError => ("Đóng", "Close"),
+    ErrorNetwork => ("Chưa kết nối được với máy chủ. Hãy kiểm tra mạng và thử lại.", "Couldn’t reach the server. Check your connection and try again."),
+    ErrorTimeout => ("Phản hồi từ máy chủ quá thời gian chờ. Hãy thử lại.", "The server took too long to respond. Try again."),
+    ErrorUnauthenticated => ("Cần đăng nhập để thực hiện thao tác này.", "Sign in to continue with this action."),
+    ErrorForbidden => ("Tài khoản hiện tại không có quyền thực hiện thao tác này.", "Your account does not have access to this action."),
+    ErrorContentUnavailable => ("Nội dung này đã thay đổi hoặc không còn mở công khai.", "This content has changed or is no longer available."),
+    ErrorProtocol => ("Phản hồi từ máy chủ không đúng định dạng mong đợi. Hãy thử lại.", "The server returned an unexpected response. Try again."),
+    ErrorConfiguration => ("Cấu hình máy chủ của bản dựng này không hợp lệ.", "This build’s server configuration is invalid."),
+    ErrorStorage => ("Chưa truy cập được dữ liệu trên thiết bị này. Các thao tác đang chờ được giữ lại; Cantos chưa xác nhận đã đồng bộ.", "Local data is unavailable. Pending actions are kept; sync has not been confirmed."),
+    ErrorStorageRecovery => ("Kiểm tra lại bộ nhớ", "Check storage again"),
+    ErrorServiceUnavailable => ("Dịch vụ đang tạm thời gián đoạn. Hãy thử lại sau ít phút.", "The service is temporarily unavailable. Try again in a moment."),
     PublicHomeEyebrow => ("VỌNG ĐÀI · NHỮNG MIỀN THANH ÂM", "VỌNG ĐÀI · WORLDS OF SOUND"),
     PublicHomeIntroduction => ("Một câu chuyện hay không cần đợi bạn đăng nhập. Khám phá nội dung công khai ngay tại đây.", "A good story does not need to wait for sign-in. Explore public stories here."),
     PublicHomeLoading => ("Đang mở những câu chuyện đã công bố…", "Opening published stories…"),
@@ -789,12 +801,30 @@ pub fn listening_status_key(status: Status) -> Key {
 
 pub fn failure_key(failure: Failure) -> Key {
     match failure {
+        Failure::Timeout => Key::ErrorTimeout,
+        Failure::Unauthenticated => Key::ErrorUnauthenticated,
+        Failure::Forbidden => Key::ErrorForbidden,
+        Failure::Configuration => Key::ErrorConfiguration,
         Failure::PlayRefused => Key::ListenFailedPlayRefused,
         Failure::Unavailable => Key::ListenFailedUnavailable,
         Failure::Network => Key::ListenFailedNetwork,
         Failure::Decode => Key::ListenFailedDecode,
         Failure::Protocol => Key::ListenFailedProtocol,
         Failure::IdentityChanged => Key::ListenFailedIdentity,
+    }
+}
+
+pub const fn error_key(kind: crate::application::errors::ErrorKind) -> Key {
+    match kind {
+        crate::application::errors::ErrorKind::Network => Key::ErrorNetwork,
+        crate::application::errors::ErrorKind::Timeout => Key::ErrorTimeout,
+        crate::application::errors::ErrorKind::Unauthenticated => Key::ErrorUnauthenticated,
+        crate::application::errors::ErrorKind::Forbidden => Key::ErrorForbidden,
+        crate::application::errors::ErrorKind::ContentUnavailable => Key::ErrorContentUnavailable,
+        crate::application::errors::ErrorKind::Protocol => Key::ErrorProtocol,
+        crate::application::errors::ErrorKind::Configuration => Key::ErrorConfiguration,
+        crate::application::errors::ErrorKind::Storage => Key::ErrorStorage,
+        crate::application::errors::ErrorKind::ServiceUnavailable => Key::ErrorServiceUnavailable,
     }
 }
 

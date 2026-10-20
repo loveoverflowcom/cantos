@@ -172,7 +172,7 @@ enum class CopyKey(val vi: String, val en: String, val enOne: String? = null) {
     ErrorContentUnavailable("Nội dung này đã thay đổi hoặc không còn mở công khai.", "This content has changed or is no longer available."),
     ErrorProtocol("Phản hồi từ máy chủ không đúng định dạng mong đợi. Hãy thử lại.", "The server returned an unexpected response. Try again."),
     ErrorConfiguration("Cấu hình máy chủ của bản dựng này không hợp lệ.", "This build’s server configuration is invalid."),
-    ErrorStorage("Chưa lưu được dữ liệu trên thiết bị này. Hãy thử lại.", "Couldn’t save data on this device. Try again."),
+    ErrorStorage("Chưa truy cập được dữ liệu trên thiết bị này. Các thao tác đang chờ được giữ lại; Cantos chưa xác nhận đã đồng bộ.", "Local data is unavailable. Pending actions are kept; sync has not been confirmed."),
     ErrorServiceUnavailable("Dịch vụ đang tạm thời gián đoạn. Hãy thử lại sau ít phút.", "The service is temporarily unavailable. Try again in a moment."),
 }
 

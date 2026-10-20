@@ -60,6 +60,7 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
     val cache = store?.let { AccountCatalogCache(it) { accountScope } }
     val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport(), cache), { cache?.invalidate() })
         .also { it.dispatch(PublicCatalogIntent.Start) }
+    val identityAvailability = com.cantos.theatre.domain.identity.NativeClientConfiguration.resolveForApplication(origin.toString(), app.nativeMetadata("CantosNativeIssuer"), app.packageName)
     private val account = createAndroidNativeAccount(scope, app, origin.toString(), app.nativeMetadata("CantosNativeIssuer"))
     private val authorizedHttp = account?.let { NativeAuthorizedHttpPort(scope, origin, it, http) } ?: http
     private val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), it,

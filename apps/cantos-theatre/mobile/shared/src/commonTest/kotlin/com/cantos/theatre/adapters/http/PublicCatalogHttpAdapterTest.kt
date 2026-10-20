@@ -109,9 +109,9 @@ class PublicCatalogHttpAdapterTest {
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Malformed),
             outcome(json(404, """{"code":"not_found","current_revision":null,"issues":[]}""")))
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.UnexpectedStatus), outcome(json(302, "", type = null)))
-        assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.UnexpectedStatus), outcome(json(401, "", type = null)))
+        assertEquals(PublicCatalogRead.AccessFailure(com.cantos.theatre.ports.CatalogAccessFault.Unauthenticated), outcome(json(401, "", type = null)))
         assertEquals(PublicCatalogRead.Unavailable(retryable = true), outcome(json(502, "<html>Bad gateway</html>", type = "text/html")))
-        assertEquals(PublicCatalogRead.Unavailable(retryable = true), outcome(json(504, "", type = null)))
+        assertEquals(PublicCatalogRead.AccessFailure(com.cantos.theatre.ports.CatalogAccessFault.Timeout), outcome(json(504, "", type = null)))
     }
 
     @Test
@@ -149,8 +149,8 @@ class PublicCatalogHttpAdapterTest {
             selectCatalogOrigin(null, allowLoopbackHttp = false))
         assertEquals(selectCatalogOrigin(null, allowLoopbackHttp = false), selectCatalogOrigin(null, allowLoopbackHttp = true))
         assertEquals("https://api.cantos.cc", DefaultProductionApiOrigin)
-        // Packaging cannot omit a key: its empty build value means "no override", the strict path does not.
-        assertEquals(selectCatalogOrigin(null, allowLoopbackHttp = false), selectPackagedApiOrigin("", allowLoopbackHttp = false))
+        // Packaging preserves absent versus empty instead of silently switching environments.
+        assertEquals(selectCatalogOrigin(null, allowLoopbackHttp = false), selectPackagedApiOrigin(PackagedDefaultApiOrigin, allowLoopbackHttp = false))
         assertEquals(selectCatalogOrigin(null, allowLoopbackHttp = false), selectPackagedApiOrigin(null, allowLoopbackHttp = true))
         assertEquals(CatalogOriginSelection.Rejected(ApiOriginRefusal.Empty), selectCatalogOrigin("", allowLoopbackHttp = true))
         assertEquals(CatalogOriginSelection.Rejected(ApiOriginRefusal.Empty), selectCatalogOrigin("   ", allowLoopbackHttp = false))

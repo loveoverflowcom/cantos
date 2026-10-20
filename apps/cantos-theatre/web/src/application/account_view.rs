@@ -7,6 +7,7 @@ pub use super::library_sync::{AccountSyncJournal, LibrarySyncState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccountFailure {
+    Diagnostic(super::errors::ErrorKind),
     SignedOut,
     SessionChanged,
     Unavailable,
@@ -57,9 +58,46 @@ pub struct AccountViewState {
     sync: Option<LibrarySyncState>,
     cleanup_in_flight: bool,
     cleanup_intent: CleanupIntent,
+    storage_fault: Option<JournalStorageFault>,
+    journal_restore_blocked: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JournalStorageFault {
+    Unavailable,
+    Corrupt,
 }
 
 impl AccountViewState {
+    pub fn storage_fault(&self) -> Option<JournalStorageFault> {
+        self.storage_fault
+    }
+    pub fn record_storage(
+        &mut self,
+        fence: &RequestFence,
+        result: Result<(), JournalStorageFault>,
+    ) {
+        if self.accepts(fence) {
+            self.storage_fault = result.err();
+        }
+    }
+    pub fn record_journal_restore(
+        &mut self,
+        fence: &RequestFence,
+        result: Result<(), JournalStorageFault>,
+    ) {
+        if self.accepts(fence) {
+            self.journal_restore_blocked = result.is_err();
+            self.storage_fault = result.err();
+        }
+    }
+    pub fn journal_restore_blocked(&self) -> bool {
+        self.journal_restore_blocked
+    }
+    pub fn can_persist_journal(&self) -> bool {
+        !self.journal_restore_blocked && self.storage_fault != Some(JournalStorageFault::Corrupt)
+    }
+
     pub fn phase(&self) -> SessionPhase {
         self.phase
     }
@@ -106,6 +144,8 @@ impl AccountViewState {
         }
     }
     fn clear_private(&mut self) {
+        self.storage_fault = None;
+        self.journal_restore_blocked = false;
         self.library = None;
         self.sync = None;
     }
@@ -175,6 +215,11 @@ impl AccountViewState {
         &mut self,
         f: impl FnOnce(&mut LibrarySyncState, Option<&mut LibraryProjection>) -> R,
     ) -> Option<(RequestFence, R)> {
+        // An unread durable journal may already contain committed operations. Keep reads and
+        // the player available, but do not construct new private intents until reload succeeds.
+        if self.journal_restore_blocked {
+            return None;
+        }
         let fence = self.fence()?;
         let sync = self.sync.as_mut()?;
         let out = f(sync, self.library.as_mut());
@@ -388,6 +433,21 @@ mod tests {
     fn page() -> LibraryPage {
         crate::live::library::decode_page(Section::Saved, include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json")).unwrap()
     }
+    #[test]
+    fn old_account_storage_failures_cannot_block_a_new_account_or_overwrite_its_journal() {
+        let mut state = AccountViewState::default();
+        authenticate(&mut state, "a", 1);
+        let old = state.fence().unwrap();
+        state.record_journal_restore(&old, Err(JournalStorageFault::Corrupt));
+        assert!(!state.can_persist_journal());
+        authenticate(&mut state, "b", 2);
+        state.record_journal_restore(&old, Err(JournalStorageFault::Corrupt));
+        state.record_storage(&old, Err(JournalStorageFault::Unavailable));
+        assert_eq!(state.storage_fault(), None);
+        assert!(state.can_persist_journal());
+        assert_eq!(state.actor(), Some("b"));
+    }
+
     #[test]
     fn bootstrap_signed_out_requires_acknowledged_cleanup_before_authorization() {
         let mut s = AccountViewState::default();

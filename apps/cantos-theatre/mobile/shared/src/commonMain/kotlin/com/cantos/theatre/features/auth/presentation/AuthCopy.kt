@@ -38,6 +38,13 @@ internal class AuthCopy(private val locale: ShellLocale) {
  * Nothing here is a name, count or entitlement: those need a real contract before display.
  */
 internal enum class AuthText(val vi: String, val en: String) {
+    ApiOriginMissing("Thiếu cấu hình API cho đăng nhập.", "The sign-in API origin is missing."),
+    IssuerMissing("Chưa cấu hình dịch vụ đăng nhập. Bạn vẫn có thể khám phá nội dung công khai.", "The identity service is not configured. You can still explore public content."),
+    BothMissing("Thiếu cấu hình API và dịch vụ đăng nhập.", "The API origin and identity service are not configured."),
+    ApiOriginInvalid("Cấu hình API cho đăng nhập không hợp lệ.", "The sign-in API origin is invalid."),
+    IssuerInvalid("Cấu hình dịch vụ đăng nhập không hợp lệ.", "The identity service configuration is invalid."),
+    CallbackInvalid("Cấu hình đường trở về ứng dụng không hợp lệ.", "The app callback configuration is invalid."),
+
     Brand("Cantos", "Cantos"),
     Back("Quay lại", "Back"),
     ReturnHome("Về Khám phá", "Back to Discover"),
@@ -171,3 +178,12 @@ internal enum class AuthText(val vi: String, val en: String) {
     Logout("Đăng xuất", "Sign out"),
     LogoutHint("Trở về trạng thái người nghe khách", "Return to the guest listener state"),
 }
+
+internal fun AuthCopy.configuration(reason: com.cantos.theatre.application.identity.IdentityConfigurationFault): String = text(when (reason) {
+    com.cantos.theatre.application.identity.IdentityConfigurationFault.ApiOriginMissing -> AuthText.ApiOriginMissing
+    com.cantos.theatre.application.identity.IdentityConfigurationFault.IssuerMissing -> AuthText.IssuerMissing
+    com.cantos.theatre.application.identity.IdentityConfigurationFault.BothMissing -> AuthText.BothMissing
+    com.cantos.theatre.application.identity.IdentityConfigurationFault.ApiOriginInvalid -> AuthText.ApiOriginInvalid
+    com.cantos.theatre.application.identity.IdentityConfigurationFault.IssuerInvalid -> AuthText.IssuerInvalid
+    com.cantos.theatre.application.identity.IdentityConfigurationFault.CallbackInvalid -> AuthText.CallbackInvalid
+})

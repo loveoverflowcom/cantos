@@ -35,13 +35,16 @@ fun main() = application {
     val workbench = System.getenv("CANTOS_THEATRE_WORKBENCH") == "1"
     val apiOrigin = System.getenv("CANTOS_THEATRE_PREVIEW_API_ORIGIN")
     val issuer = System.getenv("CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER")
-    val live = remember(apiOrigin, issuer) {
-        if (apiOrigin == null && issuer == null) null else {
+    val requestedLive = apiOrigin != null || issuer != null
+    val liveOrigin = remember(apiOrigin, issuer) {
+        // A fixture may never reach production because its origin env was omitted.
+        if (!requestedLive) null else {
             check(!workbench) { "Live integration and mock workbench must be selected separately" }
-            val selected = NativeClientConfiguration.resolve(apiOrigin, issuer)
-            check(selected is NativeIdentityAvailability.Available) { "Live preview requires valid API_ORIGIN and NATIVE_ISSUER; no mock fallback" }
-            selected.configuration
+            hostOrigin(com.cantos.theatre.adapters.http.selectCatalogOrigin(apiOrigin ?: "", allowLoopbackHttp = true))
         }
+    }
+    val identity = remember(liveOrigin, issuer) {
+        (liveOrigin as? HostOrigin.Ready)?.let { NativeClientConfiguration.resolve(it.origin.toString(), issuer) }
     }
     // Diagnostic desktop opt-in only; Android/iOS hosts never receive a Membership fixture.
     val membership = remember {
@@ -53,8 +56,16 @@ fun main() = application {
         title = "Cantos · xem thử trên máy tính",
         state = rememberWindowState(width = if (workbench) 1200.dp else 420.dp, height = if (workbench) 1000.dp else 900.dp),
     ) {
-        if (live != null) {
-            LiveEnrollmentPreview(live)
+        if (requestedLive) {
+            when (val selected = liveOrigin) {
+                is HostOrigin.Ready -> {
+                    val available = identity as? NativeIdentityAvailability.Available
+                    if (available != null) LiveEnrollmentPreview(available.configuration)
+                    else LivePublicCatalogPreview(selected.origin, identity)
+                }
+                is HostOrigin.Refused -> com.cantos.theatre.features.launch.presentation.CantosListeningUnavailable(com.cantos.ui.UiPreferences(), fault = selected.fault)
+                null -> Unit
+            }
             return@Window
         }
         if (workbench) {

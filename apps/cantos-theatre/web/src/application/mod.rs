@@ -16,3 +16,5 @@ pub mod public_work;
 pub mod registration;
 pub(crate) mod scrub;
 pub mod signup;
+
+pub mod errors;

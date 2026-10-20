@@ -51,6 +51,16 @@ pub(super) fn classify_error(
     content_type: Option<&str>,
     body: &[u8],
 ) -> CatalogReadError {
+    use crate::application::errors::ErrorKind;
+    let diagnostic = match status {
+        401 => Some(ErrorKind::Unauthenticated),
+        403 => Some(ErrorKind::Forbidden),
+        408 | 504 => Some(ErrorKind::Timeout),
+        _ => None,
+    };
+    if let Some(kind) = diagnostic {
+        return CatalogReadError::Diagnostic(kind);
+    }
     let coded = (is_json(content_type) && body.len() <= MAX_ERROR_BYTES)
         .then(|| serde_json::from_slice::<ListenerError>(body).ok())
         .flatten();
@@ -126,20 +136,23 @@ pub(super) async fn get(
     use gloo_net::http::Request;
     use web_sys::{AbortController, RequestCredentials};
 
-    let controller = AbortController::new().map_err(|_| CatalogReadError::Unavailable)?;
+    let controller = AbortController::new().map_err(|_| {
+        CatalogReadError::Diagnostic(crate::application::errors::ErrorKind::Network)
+    })?;
     // Held until the body is read; dropping it clears the timer and aborts the request.
-    let deadline =
-        super::browser::deadline(controller).map_err(|_| CatalogReadError::Unavailable)?;
+    let deadline = super::browser::deadline(controller).map_err(|_| {
+        CatalogReadError::Diagnostic(crate::application::errors::ErrorKind::Network)
+    })?;
     let signal = deadline.controller.signal();
-    let response = Request::get(
-        &crate::api_endpoint::endpoint(path).map_err(|_| CatalogReadError::Unavailable)?,
-    )
+    let response = Request::get(&crate::api_endpoint::endpoint(path).map_err(|_| {
+        CatalogReadError::Diagnostic(crate::application::errors::ErrorKind::Configuration)
+    })?)
     .credentials(RequestCredentials::Omit)
     .header("Accept", "application/json")
     .abort_signal(Some(&signal))
     .send()
     .await
-    .map_err(|_| CatalogReadError::Unavailable)?;
+    .map_err(|_| CatalogReadError::Diagnostic(deadline.failure_kind()))?;
     let declared = response
         .headers()
         .get("content-length")
@@ -151,7 +164,7 @@ pub(super) async fn get(
     let body = response
         .binary()
         .await
-        .map_err(|_| CatalogReadError::Unavailable)?;
+        .map_err(|_| CatalogReadError::Diagnostic(deadline.failure_kind()))?;
     Ok((response.status(), content_type, body))
 }
 
@@ -311,7 +324,23 @@ mod tests {
             (503, NOT_FOUND, CatalogReadError::Protocol),
             (404, "<html>Not Found</html>", CatalogReadError::Unavailable),
             (502, "", CatalogReadError::Unavailable),
-            (401, "{}", CatalogReadError::Unavailable),
+            (
+                401,
+                "{}",
+                CatalogReadError::Diagnostic(
+                    crate::application::errors::ErrorKind::Unauthenticated,
+                ),
+            ),
+            (
+                403,
+                "{}",
+                CatalogReadError::Diagnostic(crate::application::errors::ErrorKind::Forbidden),
+            ),
+            (
+                504,
+                "",
+                CatalogReadError::Diagnostic(crate::application::errors::ErrorKind::Timeout),
+            ),
         ];
         for (status, body, expected) in cases {
             assert_eq!(
