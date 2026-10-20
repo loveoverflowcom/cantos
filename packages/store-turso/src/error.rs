@@ -215,6 +215,12 @@ pub enum OpenError {
         version: u32,
         fault: StoreFault,
     },
+    /// COMMIT may have become durable. Reconcile the header/history on the next startup;
+    /// do not retry the migration on the assumption that it was rolled back.
+    MigrationCommitUnknown {
+        version: u32,
+        fault: StoreFault,
+    },
     Io(io::ErrorKind),
 }
 
@@ -227,6 +233,9 @@ impl fmt::Display for OpenError {
             Self::Store(fault) => write!(f, "database store fault: {fault}"),
             Self::MigrationFailed { version, fault } => {
                 write!(f, "migration {version} failed and was rolled back: {fault}")
+            }
+            Self::MigrationCommitUnknown { version, fault } => {
+                write!(f, "migration {version} commit outcome is unknown: {fault}")
             }
             Self::Io(kind) => write!(f, "database file I/O failed: {kind}"),
         }

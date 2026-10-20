@@ -27,8 +27,8 @@ mod sql;
 pub mod testing;
 
 pub use database::{
-    BackupError, BackupReceipt, OpenRequest, OwnedDatabase, ReadConnection, WriteTransaction,
+    BackupError, BackupReceipt, OpenRequest, OwnedDatabase, ReadConnection, Rows, WriteTransaction,
     DEFAULT_BUSY_TIMEOUT,
 };
 // Consumers name engine value types through this crate so the exact pin stays in one place.
-pub use turso::{params_from_iter, IntoParams, Row, Rows, Value};
+pub use turso::{params_from_iter, IntoParams, Row, Value};

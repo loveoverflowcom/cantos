@@ -68,7 +68,7 @@ cargo xtask verify postgres [--keep]
 cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
 cargo xtask verify postgres --suite schema           # current baseline/refusal and SQL acceptance
 cargo xtask verify theatre-auth --suite firebase-emulator|firebase-web-e2e [--dry-run]
-cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger|identity-security-version|identity-completion]...
+cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger|identity-security-version|identity-completion|identity-mailbox-proof]...
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
@@ -96,10 +96,10 @@ cargo xtask visual-compare --spike-pairs JSON [--python PATH]
 
 `cargo xtask <command> --help` documents every flag.
 
-The `cantos-identity` Cargo member is currently a dependency-free security-state library,
+The `cantos-identity` Cargo member is currently a dependency-free security-state and mailbox-proof decision library,
 included by the existing Rust workspace gate and metadata-based preflight. It has no build/run
 service selector or process registration. Its optional Kani kernels are
-`identity-security-version` and `identity-completion`; use `cargo xtask verify kani --harness`
+`identity-security-version`, `identity-completion` and `identity-mailbox-proof`; use `cargo xtask verify kani --harness`
 with those names. They retain the existing verifier/toolchain/solver/target pins and require
 actual Ubuntu x86_64 D1 evidence; registry tests or macOS unit tests are not formal evidence.
 
@@ -746,18 +746,18 @@ process. See the [observation protocol](../specs/behavior/observation-protocol.m
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly thirteen registered propositions. Ten are API-library
+`cargo xtask verify kani` selects exactly fourteen registered propositions. Ten are API-library
 kernels: `catalog-revision`, `image-bounds`, `wav-payload`, `submission-window`,
 `publication-commit`, `listener-access`, `listener-reconcile`, `byte-range`, `playback-grant`
 and `public-cover`. One is in the `cantos-forge` package: `forge-attempt-ledger`
-(`services/cantos-forge-functions/src/domain/attempt.rs`). Two are in `cantos-identity`:
-`identity-security-version` and `identity-completion`. Every kernel names exactly one workspace package
+(`services/cantos-forge-functions/src/domain/attempt.rs`). Three are in `cantos-identity`:
+`identity-security-version`, `identity-completion` and `identity-mailbox-proof`. Every kernel names exactly one workspace package
 (the closed allowlist is `cantos-server`, `cantos-forge` and `cantos-identity`) and passes it to the primitive as
 `--package`; the primitive refuses any other name, and an absent value means `cantos-server`.
 Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
 fully qualified harness names, unwind 2, expected covers (6/13/7/8/6/5/7/6/6/6 for the API
-kernels in the order above, 9 for `forge-attempt-ledger`, 6/10 for the Identity kernels) and
+kernels in the order above, 9 for `forge-attempt-ledger`, 6/10/16 for the Identity kernels) and
 reviewed unreachable checks (none for Forge or Identity).
 The last three API kernels were registered for #170/#171 without an actual Kani run (pinned x86_64 Linux
 model unavailable on the authoring host); see the [proof ledger](../docs/assurance/kani.md#public-media-kernels-registered-not-yet-run).
@@ -770,7 +770,7 @@ primitive's synthetic tests are not a Kani execution of its harness. It becomes 
 0.68.0 bundle and its retained output is inspected. It adds no new tool, dependency or CI job:
 the same pinned bundle, primitive and opt-in gate serve all three packages.
 
-The two Identity kernels are also `NOT_RUN`, with [their unrun ledger](../docs/assurance/kani.md#native-identity-kernels-registered-not-yet-run).
+The three Identity kernels are also `NOT_RUN`, with [their unrun ledger](../docs/assurance/kani.md#native-identity-kernels-registered-not-yet-run).
 Under #331 D1 their evidence requires an actual pinned Ubuntu x86_64 `workflow_dispatch`
 run URL/SHA and complete assertion/unwinding/cover results. Normal macOS unit tests and
 synthetic verifier-adapter output do not establish `bounded-model-checked`.
@@ -781,9 +781,10 @@ Kernel source/owner inputs select their propositions. Selection is package-local
 manifest/build/contract inputs select only the ten API kernels, and a changed
 `services/cantos-forge-functions/src/domain/**`, `services/cantos-forge-functions/src/lib.rs` or `services/cantos-forge-functions/Cargo.toml`
 selects only `forge-attempt-ledger`. Identity manifest/lib/module/ID/version inputs select
-both Identity kernels because completion reaches the ID/version constructors; its admission
-source selects `identity-completion`. The primitive and its tests, shared Cargo/toolchain/
-verification and uncertain changes select all thirteen. Unrelated documents, Web/CMP, other Forge
+all three Identity kernels because completion/proof reach the ID/version constructors. Admission
+source selects `identity-completion` and `identity-mailbox-proof` (which uses `Purpose`);
+`domain/mailbox_proof.rs` and its child sources select `identity-mailbox-proof`. The primitive and its tests, shared Cargo/toolchain/
+verification and uncertain changes select all fourteen. Unrelated documents, Web/CMP, other Forge
 modules and service configuration select none and print a no-affected-kernel note.
 `--skip kani` reports selected proofs as `NOT_RUN`;
 `--dry-run` prints plans without probing or executing the verifier. Service infrastructure is

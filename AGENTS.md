@@ -35,9 +35,9 @@ Retired SQL is auditable through its manifest and original Git history, never si
 ### Platform scope
 
 `services/cantos-identity` currently contains only the dependency-free
-[security-state library](services/cantos-identity/README.md) for #334. It has no executable,
+[security-state and mailbox-proof decision library](services/cantos-identity/README.md) for #334. It has no executable,
 database, credential verifier, transport or production consumer. Checked snapshots and a
-passed completion decision are not authentication facts. New persistence/auth work for
+passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
 #331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.
 
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
@@ -197,7 +197,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Repository hygiene (documents, skills, scripts) | `repository` gate, included in handoff preflight; `cargo xtask verify repository` for a focused hygiene check when needed |
 | Completed handoff or a pull request | `cargo xtask preflight --changed-only` on the final diff, or cite a still-valid run covering it (broadens to every gate when impact is uncertain) |
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
-| Identity pure security core | Existing `rust` gate includes `cantos-identity`; metadata-based preflight selects its lint/tests. Focused primitive: `cargo test --locked -p cantos-identity`. Optional `verify kani --harness identity-security-version --harness identity-completion` needs actual D1 Ubuntu x86_64 evidence; macOS tests are not Kani evidence. |
+| Identity pure security core | Existing `rust` gate includes `cantos-identity`; metadata-based preflight selects its lint/tests. Focused primitive: `cargo test --locked -p cantos-identity`. Optional `verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof` needs actual D1 Ubuntu x86_64 evidence; macOS tests are not Kani evidence. |
 | Forge worker/process boundary | `cargo xtask verify forge` (Rust producer plus Node wrapper tests; no provider or cloud calls) |
 | Embedded Turso store foundation (`packages/store-turso`) | `cargo xtask verify turso` (clippy, file-backed tests on the pinned engine and the capability report; no server, container or cloud service) |
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observer; explicit `--setup` for the locked development tool) |

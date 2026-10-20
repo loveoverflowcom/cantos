@@ -24,6 +24,8 @@ pub enum Outcome {
     Pass,
     Unsupported,
     Fail,
+    /// Setup, query or I/O failed before the probe established its behavioral predicate.
+    Error,
 }
 
 impl Outcome {
@@ -32,6 +34,7 @@ impl Outcome {
             Self::Pass => "PASS",
             Self::Unsupported => "UNSUPPORTED",
             Self::Fail => "FAIL",
+            Self::Error => "ERROR",
         }
     }
 }
@@ -51,7 +54,7 @@ pub struct Probe {
 
 impl Probe {
     pub fn as_expected(&self) -> bool {
-        self.outcome == self.expected
+        self.outcome != Outcome::Error && self.outcome == self.expected
     }
 }
 
@@ -102,11 +105,12 @@ impl Report {
         }
         let count = |outcome| self.probes.iter().filter(|p| p.outcome == outcome).count();
         out.push_str(&format!(
-            "\ntotal {}: {} PASS, {} UNSUPPORTED, {} FAIL; {} differ from the recorded expectation\n",
+            "\ntotal {}: {} PASS, {} UNSUPPORTED, {} FAIL, {} ERROR; {} differ from the recorded expectation\n",
             self.probes.len(),
             count(Outcome::Pass),
             count(Outcome::Unsupported),
             count(Outcome::Fail),
+            count(Outcome::Error),
             self.unexpected().len()
         ));
         out
@@ -271,17 +275,30 @@ async fn check_regexp_invalid_pattern_is_open(env: &Env) -> ProbeResult {
         "CREATE TABLE plain(a TEXT NOT NULL CHECK (a REGEXP '(')) STRICT",
     )
     .await?;
-    let accepted = failure(&db.conn, "INSERT INTO plain VALUES ('anything')")
-        .await
-        .is_none();
+    let insert = run(&db.conn, "INSERT INTO plain VALUES ('anything')").await;
     // FAIL is the engine silently weakening an invariant. PASS here would mean the hazard is gone.
-    Ok(if accepted {
-        Fail(
-            "a CHECK whose pattern does not compile evaluates to NULL and accepts every row".into(),
-        )
-    } else {
-        Pass("the invalid pattern was refused at DDL or insert; the NULL-passes hazard no longer exists".into())
-    })
+    match insert {
+        Ok(_) => {
+            let values = words(&db.conn, "SELECT a REGEXP '(' FROM plain").await?;
+            if values == ["NULL"] {
+                Ok(Fail("a CHECK whose pattern does not compile evaluates to NULL and accepts the inserted row".into()))
+            } else {
+                Err(turso::Error::Error(format!(
+                    "unexpected invalid-pattern values: {values:?}"
+                )))
+            }
+        }
+        Err(error)
+            if matches!(&error, turso::Error::Constraint(message)
+                if matches!(classify_constraint(message), StoreFault::Constraint { kind: ConstraintKind::Check, .. })) =>
+        {
+            Ok(Pass(
+                "the invalid pattern was refused by CHECK; the NULL-passes hazard no longer exists"
+                    .into(),
+            ))
+        }
+        Err(error) => Err(error),
+    }
 }
 
 async fn check_regexp_coalesce_fails_closed(env: &Env) -> ProbeResult {
@@ -1150,13 +1167,49 @@ async fn backup_with_stale_schema_leaves_a_partial_file(env: &Env) -> ProbeResul
     run(&db.conn, "CREATE TABLE t(x INTEGER PRIMARY KEY) STRICT").await?;
     run(&db.conn, "INSERT INTO t VALUES (1)").await?;
     let target = env.dir.join("backup_schema_copy.db");
+    match std::fs::symlink_metadata(&target) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(turso::Error::IoError(
+                error.kind(),
+                "inspect probe destination",
+            ))
+        }
+        Ok(_) => {
+            return Err(turso::Error::Misuse(
+                "probe destination already existed".into(),
+            ))
+        }
+    }
     let result = failure(&b, &format!("VACUUM INTO '{}'", target.display())).await;
     let left_over = target.exists();
-    Ok(match (&result, left_over) {
-        (Some(error), true) => Fail(format!("a connection that predates the schema change failed with `{}` and left the output file behind", brief(error))),
-        (Some(error), false) => Fail(format!("failed with `{}` (no file left)", brief(error))),
-        (None, _) => Pass("a connection that predates a schema change copied without error".into()),
-    })
+    stale_schema_verdict(result, left_over, &target)
+}
+
+fn stale_schema_verdict(
+    result: Option<turso::Error>,
+    left_over: bool,
+    target: &Path,
+) -> ProbeResult {
+    match (result, left_over) {
+        (Some(error), remains)
+            if error.to_string()
+                == format!(
+                    "Parse error: output file already exists: {}",
+                    target.display()
+                ) =>
+        {
+            Ok(if remains {
+                Fail(format!("a connection that predates the schema change failed with `{}` and left the output file behind", brief(&error)))
+            } else {
+                Pass("the known stale-schema refusal no longer leaves an output file".into())
+            })
+        }
+        (Some(error), _) => Err(error),
+        (None, _) => Ok(Pass(
+            "a connection that predates a schema change copied without error".into(),
+        )),
+    }
 }
 
 async fn backup_after_refresh_is_current(env: &Env) -> ProbeResult {
@@ -1299,7 +1352,7 @@ fn cases() -> Vec<Case> {
         case!("durability", "durability.checkpoint_truncate", "log checkpoint", Pass, None, durability_checkpoint_truncate),
         case!("durability", "backup.no_experimental_flag", "online backup path without experimental features", Pass, None, backup_needs_no_experimental_flag),
         case!("durability", "backup.stale_for_another_connection", "VACUUM INTO must include every committed row", Fail, Some("copy on the writer connection after a refreshing read, then compare a row-count manifest"), backup_is_stale_for_another_connections_commits),
-        case!("durability", "backup.stale_schema_partial_file", "a failed VACUUM INTO must not leave a half-written copy", Fail, Some("refresh with a read first; remove a destination this process created when the copy fails"), backup_with_stale_schema_leaves_a_partial_file),
+        case!("durability", "backup.stale_schema_partial_file", "a failed VACUUM INTO must not leave a half-written copy", Fail, Some("refresh with a read first; clean only a reserved attempt's private staging file on failure"), backup_with_stale_schema_leaves_a_partial_file),
         case!("durability", "backup.after_refresh_read", "refreshing read before VACUUM INTO", Pass, None, backup_after_refresh_is_current),
         case!("durability", "backup.consistent_under_writes", "VACUUM INTO while another connection writes", Pass, None, backup_copy_is_consistent_under_writes),
     ]
@@ -1317,7 +1370,7 @@ pub async fn run_all(dir: &Path) -> Report {
             Ok(Unsupported(detail)) => (Outcome::Unsupported, detail),
             Ok(Fail(detail)) => (Outcome::Fail, detail),
             Err(error) => (
-                Outcome::Fail,
+                Outcome::Error,
                 format!("unexpected engine error: {}", brief(&error)),
             ),
         };
@@ -1376,6 +1429,45 @@ fn filesystem_of(dir: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn removing_the_stale_schema_partial_file_changes_the_expected_hazard() {
+        let target = Path::new("/run-owned/copy.db");
+        let known_refusal = || {
+            turso::Error::Error(format!(
+                "Parse error: output file already exists: {}",
+                target.display()
+            ))
+        };
+        assert!(matches!(
+            stale_schema_verdict(Some(known_refusal()), true, target),
+            Ok(Fail(_))
+        ));
+        assert!(matches!(
+            stale_schema_verdict(Some(known_refusal()), false, target),
+            Ok(Pass(_))
+        ));
+        assert!(matches!(
+            stale_schema_verdict(None, true, target),
+            Ok(Pass(_))
+        ));
+        assert!(matches!(
+            stale_schema_verdict(
+                Some(turso::Error::IoError(
+                    std::io::ErrorKind::PermissionDenied,
+                    "injected"
+                )),
+                true,
+                target
+            ),
+            Err(turso::Error::IoError(
+                std::io::ErrorKind::PermissionDenied,
+                _
+            ))
+        ));
+    }
+
     #[test]
     fn the_report_pin_matches_the_manifest() {
         let manifest = include_str!("../Cargo.toml");

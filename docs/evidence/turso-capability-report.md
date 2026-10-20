@@ -8,17 +8,42 @@ production durability claim.** PostgreSQL remains the Server's authority; nothin
 | Field | Value |
 | --- | --- |
 | Engine | `turso =0.8.3`, `default-features = false` (SQLite compatibility version reported: 3.50.4) |
-| Source | `refactor/333-server-turso-persistence` on integration `26d957b3` (20 October 2026) |
-| Hosts run | Linux x86_64, filesystem `tmpfs` (default `$TMPDIR`) and `ext4` (`target/`), Rust 1.98.1 |
-| Hosts **not** run | macOS arm64 (required by #332.4): `NOT_RUN`, no such host available in this session |
+| Source | Linux record: `refactor/333-server-turso-persistence` on integration `26d957b3`; macOS repair record: PR #341 on integration `8b1944be` (20 October 2026) |
+| Hosts run | Linux x86_64, filesystem `tmpfs` and `ext4`; macOS arm64, default private temporary directory (filesystem type not detected by the report), Rust 1.98.1 |
 | Command | `cargo xtask verify turso` (clippy, tests, then this report); `cargo run -p cantos-store-turso --features testing --bin cantos-turso-capability -- report [DIR]` |
-| Result | 48 probes: 42 PASS, 3 UNSUPPORTED, 3 FAIL; **0 differ from the recorded expectation** on both filesystems |
+| Result | 48 probes: 42 PASS, 3 UNSUPPORTED, 3 expected FAIL; macOS additionally reports 0 ERROR; **0 differ from the recorded expectation** on all recorded runs |
 
 A probe reports `PASS` (the behavior the schema needs holds), `UNSUPPORTED` (the construct is absent;
 a substitute is chosen) or `FAIL` (the engine silently weakens an invariant). The three `FAIL` rows
 are *recorded hazards with a mitigation*, deliberately expected: if an engine upgrade removes one,
 the probe turns unexpected and forces a review. The expected outcome of every probe lives next to
 its code in [`capability.rs`](../../packages/store-turso/src/capability.rs).
+Unexpected setup/query/I/O errors are separately `ERROR` and can never match an expected hazard.
+The stale-schema hazard requires the exact pinned-engine refusal plus a newly left output file;
+the hazard's disappearance forces review as well.
+
+## macOS repair qualification
+
+`cargo xtask verify turso` ran on macOS arm64 with Rust 1.98.1, with debug symbols and incremental
+compilation disabled to fit the available disk. The original PR head `e1dd89e6` passed its original
+gate. New regressions then reproduced the reviewed defects before their fixes: escaped reader and
+reader/writer cursors released ownership too early, competing backups could remove another
+attempt's file, and a setup error matched an expected hazard. A separate fault injection discarded
+the acknowledgement **after a real migration COMMIT** and reproduced the incorrect rollback claim.
+
+The repaired gate includes real file-backed/process regressions for these boundaries:
+
+| Boundary | Oracle |
+| --- | --- |
+| Retained ownership | A second process returns `AlreadyOwned` after `OwnedDatabase` closes while a reader or reader/writer cursor remains; it opens only after the last handle closes, including an exhausted cursor. |
+| Backup publication | Two attempts are polled behind a held writer; the reserved winner's verified file survives. A foreign destination published while waiting retains its exact bytes. Cancellation cleans only owned staging; an existing reservation is preserved. |
+| Migration uncertainty | Losing the acknowledgement after real COMMIT returns `MigrationCommitUnknown` with the exact fault; reopen observes the durable row. |
+| Probe honesty | A missing setup directory makes every probe unexpected. Exact stale-schema predicates distinguish retained partial file, hazard removal and unrelated I/O error. |
+
+The process probes again observed 60 acknowledged rows surviving SIGKILL and the simulated
+full-file error `CommitFault::Unknown(Io(FileTooLarge))` with a consistent reopen. This is not true
+`ENOSPC`, power-loss or production durability evidence. Full gate/runner transcripts and the exact
+checked repair SHA belong to PR #341; the report does not establish Server or Identity integration.
 
 ## Findings that change the plan
 
@@ -109,7 +134,7 @@ its code in [`capability.rs`](../../packages/store-turso/src/capability.rs).
 | `durability.checkpoint_truncate` | PASS | log checkpoint | wal_checkpoint(TRUNCATE) shrank the log from 482072 to 0 bytes | — |
 | `backup.no_experimental_flag` | PASS | online backup path without experimental features | VACUUM INTO produces a readable copy with no experimental feature enabled; in-place VACUUM stays off | — |
 | `backup.stale_for_another_connection` | FAIL | VACUUM INTO must include every committed row | VACUUM INTO on a connection that did not make the newest commits omitted them (rows missing per round: [3, 6, 9, 12, 15]) | copy on the writer connection after a refreshing read, then compare a row-count manifest |
-| `backup.stale_schema_partial_file` | FAIL | a failed VACUUM INTO must not leave a half-written copy | a connection that predates the schema change failed with `Parse error: output file already exists: <run>/backup_schema_copy.db` and left the output file behind | refresh with a read first; remove a destination this process created when the copy fails |
+| `backup.stale_schema_partial_file` | FAIL | a failed VACUUM INTO must not leave a half-written copy | a connection that predates the schema change failed with `Parse error: output file already exists: <run>/backup_schema_copy.db` and left the output file behind | refresh first; clean only the reserved attempt's private staging file |
 | `backup.after_refresh_read` | PASS | refreshing read before VACUUM INTO | a read on the copying connection just before VACUUM INTO makes the copy include every committed row | — |
 | `backup.consistent_under_writes` | PASS | VACUUM INTO while another connection writes | 26 pairs were committed before the copy and 46 by the end of the load; the copy holds 27 t rows and 27 twin rows, integrity ok | — |
 
@@ -132,12 +157,12 @@ Reviewed 20 October 2026 for #332.7 as far as it concerns the one new database d
 | Advisories | `cargo deny check advisories` over the new tree found RUSTSEC-2026-0009 in `time 0.3.45` (via `tracing-appender`); `Cargo.lock` now resolves `time 0.3.55` and the check is clean. No advisory DB is committed or pinned; this is a dated manual run, `cargo-deny 0.20.2` |
 | Licenses | Only permissive licenses (MIT, Apache-2.0, Unicode-3.0, BSD-3-Clause, Zlib, Unlicense and their OR-combinations); `cfg_block 0.1.1` declares no license field in its manifest (upstream dual MIT/Apache-2.0 by README, not verified here) |
 | Lockfile side effects | `icu_*` 2.2 → 2.3 (required by `turso_core`'s `icu_collator`), `num-conv`, `time*`; `prost 0.14.4` now coexists with the API's `prost =0.13.5` because `turso_sdk_kit` uses the newer one |
-| MSRV and OS | Builds and tests on Rust 1.98.1 Linux x86_64. macOS arm64 build and test: `NOT_RUN` |
+| MSRV and OS | Builds and tests on Rust 1.98.1 Linux x86_64 and macOS arm64 |
 | `cargo-deny` / `cargo-audit` in the repository | Not added; a repository policy is a separate decision (#332.7) |
 
 ## Not established
 
-- macOS arm64 behavior and any filesystem other than `tmpfs` and `ext4`.
+- Unrecorded hosts/filesystems; the macOS report does not detect its filesystem type.
 - True `ENOSPC`, power-loss or fsync-reordering durability; SIGKILL durability was shown only at the OS-buffered level a process kill can reach.
 - MVCC / `BEGIN CONCURRENT` (kept off), engine multi-process access (kept off; ownership is the sidecar lock) and Windows.
 - Throughput, latency percentiles, RSS or binary size; behavior of the 82-table schema (this report probes constructs, not the schema).

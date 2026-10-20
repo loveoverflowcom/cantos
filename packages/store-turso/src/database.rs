@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 use tokio::sync::{Mutex, MutexGuard};
-use turso::{Builder, Connection, IntoParams, Rows, Value};
+use turso::{Builder, Connection, IntoParams, Row, Value};
 
 use crate::clock::Clock;
 use crate::error::{CommitFault, OpenError, StoreFault};
@@ -72,7 +72,7 @@ pub struct OwnedDatabase {
     path: PathBuf,
     busy_timeout: Duration,
     // Declared last so the engine handles close before the ownership lock is released.
-    _owner: OwnerLock,
+    owner: Arc<OwnerLock>,
 }
 
 impl OwnedDatabase {
@@ -102,7 +102,7 @@ impl OwnedDatabase {
             clock: request.clock,
             path: request.path,
             busy_timeout: request.busy_timeout,
-            _owner: owner,
+            owner: Arc::new(owner),
         })
     }
 
@@ -121,18 +121,26 @@ impl OwnedDatabase {
         recover(&guard).await?;
         let now = self.clock.now().map_err(|_| StoreFault::Clock)?;
         guard.execute("BEGIN IMMEDIATE", ()).await?;
-        Ok(WriteTransaction { guard, now })
+        Ok(WriteTransaction {
+            guard,
+            now,
+            owner: self.owner.clone(),
+        })
     }
 
     /// A new connection that cannot write. Its snapshot is isolated from the open writer.
     pub async fn reader(&self) -> Result<ReadConnection, StoreFault> {
         let conn = self.database.connect()?;
         configure(&conn, self.busy_timeout, true).await?;
-        Ok(ReadConnection { conn })
+        Ok(ReadConnection {
+            conn,
+            owner: self.owner.clone(),
+        })
     }
 
-    /// Online backup by the owner: `VACUUM INTO` a new private file while holding the writer,
-    /// then verify integrity and that the copy is a current Cantos file before returning.
+    /// Reserve a private attempt directory, copy under the writer, verify and publish with an
+    /// atomic no-clobber hard link. Cancellation/failure removes only this attempt's temporary
+    /// files; a destination published by another attempt is never removed.
     /// The engine has no backup API, so the copy is the only supported online path.
     pub async fn backup_to(&self, destination: &Path) -> Result<BackupReceipt, BackupError> {
         private_directory_of(destination).map_err(BackupError::Destination)?;
@@ -142,7 +150,9 @@ impl OwnedDatabase {
         {
             return Err(BackupError::DestinationExists);
         }
-        let literal = destination
+        let attempt = BackupAttempt::reserve(destination)?;
+        let literal = attempt
+            .path
             .to_str()
             .filter(|text| !text.contains('\0'))
             .ok_or(BackupError::Io(std::io::ErrorKind::InvalidInput))?
@@ -161,22 +171,11 @@ impl OwnedDatabase {
             row_manifest(&guard).await
         }
         .await;
-        let live = match copied {
-            Ok(live) => live,
-            Err(fault) => {
-                // The destination did not exist above, so any file there is this attempt's.
-                let _ = fs::remove_file(destination);
-                return Err(BackupError::Store(fault));
-            }
-        };
-        match self.verify_copy(destination, &live).await {
-            Ok(receipt) => Ok(receipt),
-            Err(error) => {
-                // The copy is ours and unverified; leaving it would invite a bad restore.
-                let _ = fs::remove_file(destination);
-                Err(error)
-            }
-        }
+        let live = copied?;
+        let mut receipt = self.verify_copy(&attempt.path, &live).await?;
+        attempt.publish(destination)?;
+        receipt.path = destination.to_path_buf();
+        Ok(receipt)
     }
 
     async fn verify_copy(
@@ -239,6 +238,7 @@ impl OwnedDatabase {
 pub struct WriteTransaction<'a> {
     guard: MutexGuard<'a, Connection>,
     now: UnixMicros,
+    owner: Arc<OwnerLock>,
 }
 
 impl WriteTransaction<'_> {
@@ -254,7 +254,10 @@ impl WriteTransaction<'_> {
     /// Drain or drop the returned `Rows` before the next statement: a write while a `RETURNING`
     /// cursor is open is refused as busy by the engine.
     pub async fn query(&self, sql: &str, params: impl IntoParams) -> Result<Rows, StoreFault> {
-        Ok(self.guard.query(sql, params).await?)
+        Ok(Rows {
+            inner: self.guard.query(sql, params).await?,
+            _owner: self.owner.clone(),
+        })
     }
 
     pub async fn commit(self) -> Result<(), CommitFault> {
@@ -279,11 +282,108 @@ impl WriteTransaction<'_> {
 
 pub struct ReadConnection {
     conn: Connection,
+    owner: Arc<OwnerLock>,
 }
 
 impl ReadConnection {
     pub async fn query(&self, sql: &str, params: impl IntoParams) -> Result<Rows, StoreFault> {
-        Ok(self.conn.query(sql, params).await?)
+        Ok(Rows {
+            inner: self.conn.query(sql, params).await?,
+            _owner: self.owner.clone(),
+        })
+    }
+}
+
+/// A query cursor retains the owner lease even after its connection, transaction and database
+/// wrappers close. No raw statement/connection escape can detach those engine handles from it.
+pub struct Rows {
+    inner: turso::Rows,
+    // Keep last: the statement and its engine handles must close before releasing ownership.
+    _owner: Arc<OwnerLock>,
+}
+
+impl Rows {
+    pub async fn next(&mut self) -> Result<Option<Row>, StoreFault> {
+        Ok(self.inner.next().await?)
+    }
+
+    pub fn column_count(&self) -> usize {
+        self.inner.column_count()
+    }
+
+    pub fn column_name(&self, index: usize) -> Result<String, StoreFault> {
+        Ok(self.inner.column_name(index)?)
+    }
+
+    pub fn column_names(&self) -> Vec<String> {
+        self.inner.column_names()
+    }
+
+    pub fn column_index(&self, name: &str) -> Result<usize, StoreFault> {
+        Ok(self.inner.column_index(name)?)
+    }
+
+    pub fn columns(&self) -> Vec<turso::Column> {
+        self.inner.columns()
+    }
+}
+
+/// `create_dir` reserves this destination across tasks/processes before waiting for the writer.
+/// An interrupted process leaves a visible reservation for operator reconciliation, never an
+/// apparently complete backup. We never adopt or remove an existing reservation.
+struct BackupAttempt {
+    directory: PathBuf,
+    path: PathBuf,
+}
+
+impl BackupAttempt {
+    fn reserve(destination: &Path) -> Result<Self, BackupError> {
+        let mut name = destination.as_os_str().to_owned();
+        name.push(".backup");
+        let directory = PathBuf::from(name);
+        let mut builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(0o700);
+        }
+        builder
+            .create(&directory)
+            .map_err(|error| match error.kind() {
+                std::io::ErrorKind::AlreadyExists => BackupError::DestinationExists,
+                kind => BackupError::Io(kind),
+            })?;
+        Ok(Self {
+            path: directory.join("copy.db"),
+            directory,
+        })
+    }
+
+    fn publish(&self, destination: &Path) -> Result<(), BackupError> {
+        if fs::symlink_metadata(lock_path(destination)).is_ok() {
+            return Err(BackupError::DestinationExists);
+        }
+        // Unlike rename, hard_link refuses an existing path atomically on both supported OSes.
+        fs::hard_link(&self.path, destination).map_err(|error| match error.kind() {
+            std::io::ErrorKind::AlreadyExists => BackupError::DestinationExists,
+            kind => BackupError::Io(kind),
+        })?;
+        let (parent, _) = private_directory_of(destination).map_err(BackupError::Destination)?;
+        fs::File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .map_err(|error| BackupError::Io(error.kind()))
+    }
+}
+
+impl Drop for BackupAttempt {
+    fn drop(&mut self) {
+        // Only exact paths inside the directory this attempt atomically created are ours.
+        for suffix in ["", "-wal", "-shm"] {
+            let mut name = self.path.as_os_str().to_owned();
+            name.push(suffix);
+            let _ = fs::remove_file(PathBuf::from(name));
+        }
+        let _ = fs::remove_dir(&self.directory);
     }
 }
 
@@ -297,7 +397,7 @@ pub struct BackupReceipt {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BackupError {
     Destination(OpenError),
-    /// The destination (or its owner-lock sidecar) already exists; backups never overwrite.
+    /// The destination, owner-lock sidecar or backup reservation exists; never overwrite/adopt.
     DestinationExists,
     Store(StoreFault),
     IntegrityCheckFailed,
@@ -559,6 +659,21 @@ async fn transact<F>(conn: &Connection, first: u32, body: F) -> Result<(), OpenE
 where
     F: AsyncFnOnce(&Progress) -> Result<(), StoreFault>,
 {
+    transact_with_commit(conn, first, body, async || conn.execute("COMMIT", ()).await).await
+}
+
+/// Keep the commit acknowledgement as an explicit boundary so tests can lose it after the real
+/// engine has committed. The production path always supplies the actual engine COMMIT above.
+async fn transact_with_commit<F, C>(
+    conn: &Connection,
+    first: u32,
+    body: F,
+    commit: C,
+) -> Result<(), OpenError>
+where
+    F: AsyncFnOnce(&Progress) -> Result<(), StoreFault>,
+    C: AsyncFnOnce() -> Result<u64, turso::Error>,
+{
     let progress = Progress(std::cell::Cell::new(first));
     let failed = |progress: &Progress, fault: StoreFault| OpenError::MigrationFailed {
         version: progress.0.get(),
@@ -571,15 +686,20 @@ where
         let _ = conn.execute("ROLLBACK", ()).await;
         return Err(failed(&progress, fault));
     }
-    match conn.execute("COMMIT", ()).await {
+    match commit().await {
         Ok(_) => Ok(()),
         Err(error) => {
             let fault = CommitFault::classify(error);
-            if matches!(fault, CommitFault::Rejected(_)) {
-                let _ = conn.execute("ROLLBACK", ()).await;
+            match fault {
+                CommitFault::Rejected(fault) => {
+                    let _ = conn.execute("ROLLBACK", ()).await;
+                    Err(failed(&progress, fault))
+                }
+                CommitFault::Unknown(fault) => Err(OpenError::MigrationCommitUnknown {
+                    version: progress.0.get(),
+                    fault,
+                }),
             }
-            // An unknown commit is settled by the next startup observing the file.
-            Err(failed(&progress, fault.fault().clone()))
         }
     }
 }
@@ -605,4 +725,60 @@ async fn apply(
     )
     .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::TestRun;
+
+    #[tokio::test]
+    async fn a_lost_migration_commit_acknowledgement_is_not_reported_as_rolled_back() {
+        let run = TestRun::new("migration_unknown");
+        let path = run.path("migration.db");
+        let database = build(&path, false).await.unwrap();
+        let conn = database.connect().unwrap();
+        conn.execute("CREATE TABLE receipt(id INTEGER PRIMARY KEY) STRICT", ())
+            .await
+            .unwrap();
+        let failure = transact_with_commit(
+            &conn,
+            7,
+            async |_| {
+                conn.execute("INSERT INTO receipt VALUES (1)", ()).await?;
+                Ok(())
+            },
+            async || {
+                conn.execute("COMMIT", ()).await?;
+                Err(turso::Error::IoError(
+                    std::io::ErrorKind::ConnectionAborted,
+                    "injected lost acknowledgement after the real commit",
+                ))
+            },
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(
+            failure,
+            OpenError::MigrationCommitUnknown {
+                version: 7,
+                fault: StoreFault::Io(std::io::ErrorKind::ConnectionAborted),
+            }
+        );
+        assert!(failure.to_string().contains("commit outcome is unknown"));
+        assert!(!failure.to_string().contains("rolled back"));
+        drop(conn);
+        drop(database);
+        let reopened = build(&path, true).await.unwrap();
+        assert_eq!(
+            sql::scalar_integer(
+                &reopened.connect().unwrap(),
+                "SELECT count(*) FROM receipt",
+                ()
+            )
+            .await
+            .unwrap(),
+            1
+        );
+    }
 }
