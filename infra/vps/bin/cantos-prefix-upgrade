@@ -79,6 +79,7 @@ prefix_infra_guard() {
   [[ $(epoch2_query cantos "SELECT current_setting('server_version_num');") == 170011 ]] ||
     die 'prefix upgrade is qualified only for PostgreSQL 17.11' 65
   validate_runtime_browser_configuration
+  validate_runtime_storage_configuration
   for source in "$tree"/infra/vps/quadlet/*; do
     name=${source##*/}
     case $name in cantos-api-studio.container|cantos-api-theatre.container) continue ;; esac
