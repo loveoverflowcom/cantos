@@ -122,7 +122,7 @@ TABLE_OWNER = {
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
     "media_image_intents": "media", "media_image_assets": "media",
     "media_work_artwork_changes": "media", "media_artwork_operations": "media",
-    **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations")},
+    **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations", "listener_bookmarks")},
 }
 RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
 USE_TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z_0-9]*|::|[{},*]")

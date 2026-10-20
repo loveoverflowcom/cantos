@@ -2,7 +2,8 @@
 use super::*;
 use crate::{
     contexts::listening::domain::{
-        reconcile_progress, reconcile_saved, AudioIdentity, HistoryState, Revision,
+        reconcile_bookmark_create, reconcile_bookmark_delete, reconcile_progress, reconcile_saved,
+        AudioIdentity, BookmarkRecord, HistoryState, Revision,
     },
     platform::identity::domain::ActorId,
 };
@@ -15,6 +16,7 @@ struct Account {
     order: u64,
     progress: BTreeMap<String, ProgressRecord>,
     saved: BTreeMap<String, SavedRecord>,
+    bookmarks: BTreeMap<String, BookmarkRecord>,
     history: BTreeMap<String, (dto::AudioIdentity, u64)>,
     history_state: Option<HistoryState>,
     sessions: BTreeSet<String>,
@@ -88,6 +90,30 @@ impl LibraryRepository for MemoryRepository {
                         state.order = order.value();
                     }
                     saved_receipt(intent.operation(), &out)
+                }
+                Command::Bookmark(c) => {
+                    let key = c.id().as_str().to_owned();
+                    if w.withdrawn && !state.bookmarks.contains_key(&key) {
+                        return Err(LibraryError::NotFound);
+                    }
+                    let out = reconcile_bookmark_create(state.bookmarks.get(&key), c, 1000, order)?;
+                    if let BookmarkCreateOutcome::Accepted(record) = &out {
+                        state.bookmarks.insert(key, record.clone());
+                        state.order = order.value();
+                    }
+                    bookmark_create_receipt(intent.operation(), &out)
+                }
+                Command::BookmarkDelete(c) => {
+                    let key = c.id().as_str().to_owned();
+                    let out = reconcile_bookmark_delete(state.bookmarks.get(&key), c, 1000, order)?;
+                    if let BookmarkDeleteOutcome::Accepted(record) = &out {
+                        state.bookmarks.insert(key, record.clone());
+                        state.order = order.value();
+                    }
+                    let Some(receipt) = bookmark_delete_receipt(intent.operation(), &out) else {
+                        return Err(LibraryError::NotFound);
+                    };
+                    receipt
                 }
                 Command::Start(c) => {
                     if w.withdrawn {
@@ -188,6 +214,12 @@ impl LibraryRepository for MemoryRepository {
                             .iter()
                             .map(|(work, (_, order))| (*order, work.clone()))
                             .collect(),
+                        PageKind::Bookmarks => state
+                            .bookmarks
+                            .values()
+                            .filter(|v| !v.deleted())
+                            .map(|v| (v.raw().listener_order, v.id().to_owned()))
+                            .collect(),
                     };
                     keys.retain(|(order, work)| {
                         *order <= upper
@@ -242,6 +274,15 @@ impl LibraryRepository for MemoryRepository {
                                     .collect(),
                             )
                         }
+                        PageKind::Bookmarks => PageData::Bookmarks(
+                            keys.iter()
+                                .map(|(_, id)| dto::BookmarkItem {
+                                    presentation: None,
+                                    bookmark: state.bookmarks[id].raw().clone(),
+                                    resume,
+                                })
+                                .collect(),
+                        ),
                         PageKind::History => PageData::History {
                             state: state
                                 .history_state
@@ -744,5 +785,402 @@ proptest::proptest! {
                 repo.0.lock().unwrap().fail_before_commit=false;
             }
         });
+    }
+}
+
+mod bookmarks {
+    //! Bookmark rows B1-B7 of the sync reference over the same transactional-memory double:
+    //! `mock-integration-tested` at most, never account-sync acceptance.
+    use super::*;
+    fn bm(n: u64) -> String {
+        uid(0xb00 + n)
+    }
+    fn create(id: u64, op: u64, seq: u64, pos: u64) -> dto::BookmarkWrite {
+        dto::BookmarkWrite {
+            operation: dto::Operation {
+                operation_id: uid(0x400 + op),
+                device_id: uid(90),
+                device_sequence: seq,
+                device_reported_at_ms: None,
+            },
+            bookmark_id: bm(id),
+            audio: audio(),
+            position_ms: pos,
+        }
+    }
+    fn delete(op: u64, seq: u64) -> dto::BookmarkDelete {
+        dto::BookmarkDelete {
+            operation: dto::Operation {
+                operation_id: uid(0x400 + op),
+                device_id: uid(90),
+                device_sequence: seq,
+                device_reported_at_ms: None,
+            },
+        }
+    }
+    fn current(r: &dto::Receipt) -> &dto::BookmarkRecord {
+        match &r.state {
+            dto::MutationState::Bookmark { current } => current,
+            other => panic!("{other:?}"),
+        }
+    }
+    #[tokio::test]
+    async fn create_is_idempotent_by_operation_and_by_identical_value_and_never_duplicates() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        let first = svc
+            .create_bookmark(&a, &bm(1), create(1, 1, 1, 15000))
+            .await
+            .unwrap();
+        assert_eq!(first.outcome, dto::WriteOutcome::Accepted);
+        assert_eq!(current(&first).position_ms, 15000);
+        for _ in 0..5 {
+            assert_eq!(
+                svc.create_bookmark(&a, &bm(1), create(1, 1, 1, 15000))
+                    .await,
+                Ok(first.clone()),
+                "B2: the same operation replays its receipt"
+            );
+        }
+        let again = svc
+            .create_bookmark(&a, &bm(1), create(1, 2, 2, 15000))
+            .await
+            .unwrap();
+        assert_eq!(again.outcome, dto::WriteOutcome::AlreadyCurrent);
+        assert_eq!(current(&again), current(&first));
+        let page = svc.bookmarks(&a, 20, None).await.unwrap();
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].bookmark, *current(&first));
+    }
+    #[tokio::test]
+    async fn one_id_names_one_immutable_value_and_the_path_must_name_the_body() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        svc.create_bookmark(&a, &bm(1), create(1, 1, 1, 15000))
+            .await
+            .unwrap();
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(1), create(1, 2, 2, 16000))
+                .await,
+            Err(LibraryError::OperationReused),
+            "a different value under a used ID is never silently rewritten"
+        );
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(2), create(1, 3, 3, 15000))
+                .await,
+            Err(LibraryError::InvalidRequest),
+            "path and body IDs must agree"
+        );
+        assert_eq!(svc.bookmarks(&a, 20, None).await.unwrap().items.len(), 1);
+    }
+    #[tokio::test]
+    async fn position_is_bounded_by_the_verified_duration_and_malformed_ids_are_refused() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(1), create(1, 1, 1, 60_001))
+                .await,
+            Err(LibraryError::InvalidPosition)
+        );
+        let end = svc
+            .create_bookmark(&a, &bm(1), create(1, 2, 1, 60_000))
+            .await
+            .unwrap();
+        assert_eq!(end.outcome, dto::WriteOutcome::Accepted);
+        let start = svc
+            .create_bookmark(&a, &bm(2), create(2, 3, 1, 0))
+            .await
+            .unwrap();
+        assert_eq!(start.outcome, dto::WriteOutcome::Accepted);
+        let mut bad = create(3, 4, 1, 1);
+        bad.bookmark_id = "NOT-A-UUID".into();
+        assert_eq!(
+            svc.create_bookmark(&a, "NOT-A-UUID", bad).await,
+            Err(LibraryError::InvalidRequest)
+        );
+    }
+    #[tokio::test]
+    async fn tombstones_are_final_for_replays_restores_and_repeated_deletes() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        let made = svc
+            .create_bookmark(&a, &bm(1), create(1, 1, 1, 15000))
+            .await
+            .unwrap();
+        let gone = svc.delete_bookmark(&a, &bm(1), delete(2, 2)).await.unwrap();
+        assert_eq!(gone.outcome, dto::WriteOutcome::Accepted);
+        assert!(current(&gone).deleted);
+        assert!(current(&gone).listener_order > current(&made).listener_order);
+        assert_eq!(current(&gone).audio, current(&made).audio);
+        assert!(svc.bookmarks(&a, 20, None).await.unwrap().items.is_empty());
+        // B4: the old outbox replay returns the historical receipt and creates nothing.
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(1), create(1, 1, 1, 15000))
+                .await,
+            Ok(made.clone())
+        );
+        assert!(svc.bookmarks(&a, 20, None).await.unwrap().items.is_empty());
+        // B5: a local restore with a new operation is refused, naming the tombstone.
+        let refused = svc
+            .create_bookmark(&a, &bm(1), create(1, 3, 3, 15000))
+            .await
+            .unwrap();
+        assert_eq!(refused.outcome, dto::WriteOutcome::BookmarkDeleted);
+        assert_eq!(refused.resolution, Some(dto::Resolution::KeepServer));
+        assert_eq!(current(&refused), current(&gone));
+        // B7: deleting again changes nothing.
+        let repeat = svc.delete_bookmark(&a, &bm(1), delete(4, 4)).await.unwrap();
+        assert_eq!(repeat.outcome, dto::WriteOutcome::AlreadyCurrent);
+        assert_eq!(current(&repeat), current(&gone));
+        assert!(svc.bookmarks(&a, 20, None).await.unwrap().items.is_empty());
+    }
+    #[tokio::test]
+    async fn deleting_an_id_the_account_never_created_is_not_found_and_leaves_no_effect() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        assert_eq!(
+            svc.delete_bookmark(&a, &bm(9), delete(1, 1)).await,
+            Err(LibraryError::NotFound)
+        );
+        assert_eq!(
+            svc.receipt(&a, &uid(0x401)).await,
+            Err(LibraryError::NotFound),
+            "a 404 writes no receipt"
+        );
+        let made = svc
+            .create_bookmark(&a, &bm(9), create(9, 2, 1, 5))
+            .await
+            .unwrap();
+        assert_eq!(made.outcome, dto::WriteOutcome::Accepted);
+    }
+    #[tokio::test]
+    async fn bookmarks_are_account_scoped_and_one_actor_cannot_read_or_delete_anothers() {
+        let repo = MemoryRepository::default();
+        let (svc, alice, bob) = (service(&repo), principal("alice"), principal("bob"));
+        let made = svc
+            .create_bookmark(&alice, &bm(1), create(1, 1, 1, 15000))
+            .await
+            .unwrap();
+        assert!(svc
+            .bookmarks(&bob, 20, None)
+            .await
+            .unwrap()
+            .items
+            .is_empty());
+        assert_eq!(
+            svc.delete_bookmark(&bob, &bm(1), delete(2, 1)).await,
+            Err(LibraryError::NotFound)
+        );
+        assert_eq!(
+            svc.receipt(&bob, &uid(0x401)).await,
+            Err(LibraryError::NotFound)
+        );
+        assert_eq!(
+            svc.bookmarks(&alice, 20, None).await.unwrap().items.len(),
+            1
+        );
+        // The same client-minted ID is independent per account.
+        let theirs = svc
+            .create_bookmark(&bob, &bm(1), create(1, 3, 1, 7))
+            .await
+            .unwrap();
+        assert_eq!(theirs.outcome, dto::WriteOutcome::Accepted);
+        assert_eq!(current(&theirs).position_ms, 7);
+        assert_eq!(
+            svc.bookmarks(&alice, 20, None).await.unwrap().items[0].bookmark,
+            *current(&made)
+        );
+    }
+    #[tokio::test]
+    async fn pages_are_newest_first_bounded_and_cursors_bind_account_and_route() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        for n in 1..=5 {
+            svc.create_bookmark(&a, &bm(n), create(n, n, 1, n * 1000))
+                .await
+                .unwrap();
+        }
+        svc.delete_bookmark(&a, &bm(3), delete(30, 2))
+            .await
+            .unwrap();
+        let (mut seen, mut cursor) = (Vec::new(), None);
+        loop {
+            let page = svc.bookmarks(&a, 2, cursor.as_deref()).await.unwrap();
+            assert!(page.items.len() <= 2);
+            seen.extend(page.items.iter().map(|i| i.bookmark.bookmark_id.clone()));
+            cursor = page.next_cursor;
+            if cursor.is_none() {
+                break;
+            }
+        }
+        assert_eq!(
+            seen,
+            vec![bm(5), bm(4), bm(2), bm(1)],
+            "live only, descending acceptance"
+        );
+        let first = svc.bookmarks(&a, 2, None).await.unwrap();
+        let token = first.next_cursor.as_deref();
+        assert_eq!(
+            svc.bookmarks(&principal("bob"), 2, token).await,
+            Err(LibraryError::InvalidCursor)
+        );
+        assert_eq!(
+            svc.saved_works(&a, 2, token).await,
+            Err(LibraryError::InvalidCursor)
+        );
+        assert_eq!(
+            svc.bookmarks(&a, 3, token).await,
+            Err(LibraryError::InvalidCursor)
+        );
+        assert_eq!(
+            svc.bookmarks(&a, 0, None).await,
+            Err(LibraryError::InvalidRequest)
+        );
+        assert_eq!(
+            svc.bookmarks(&a, 51, None).await,
+            Err(LibraryError::InvalidRequest)
+        );
+    }
+    #[tokio::test]
+    async fn saved_progress_history_and_clear_never_create_or_delete_a_bookmark() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        let made = svc
+            .create_bookmark(&a, &bm(1), create(1, 1, 1, 15000))
+            .await
+            .unwrap();
+        svc.put_progress(
+            &a,
+            &uid(3),
+            write(2, 0, 20000, dto::ProgressKind::Checkpoint),
+        )
+        .await
+        .unwrap();
+        for (n, saved, base) in [(3, true, 0), (4, false, 1)] {
+            svc.set_saved(
+                &a,
+                &uid(1),
+                dto::SavedWrite {
+                    operation: intent(n),
+                    base_revision: base,
+                    saved,
+                },
+            )
+            .await
+            .unwrap();
+        }
+        svc.clear_history(
+            &a,
+            dto::HistoryClear {
+                operation: intent(5),
+                base_revision: 0,
+                history_epoch: 0,
+                confirmation: dto::ClearConfirmation::ClearHistory,
+            },
+        )
+        .await
+        .unwrap();
+        let page = svc.bookmarks(&a, 20, None).await.unwrap();
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].bookmark, *current(&made));
+        assert_eq!(
+            svc.progress(&a, &uid(3))
+                .await
+                .unwrap()
+                .unwrap()
+                .position_ms,
+            20000
+        );
+        // ... and the converse: deleting a bookmark leaves Saved and progress alone.
+        svc.delete_bookmark(&a, &bm(1), delete(6, 2)).await.unwrap();
+        assert_eq!(
+            svc.progress(&a, &uid(3))
+                .await
+                .unwrap()
+                .unwrap()
+                .position_ms,
+            20000
+        );
+    }
+    #[tokio::test]
+    async fn withdrawn_audio_keeps_the_bookmark_unavailable_and_blocks_only_new_ones() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        svc.create_bookmark(&a, &bm(1), create(1, 1, 1, 15000))
+            .await
+            .unwrap();
+        repo.0.lock().unwrap().withdrawn = true;
+        let page = svc.bookmarks(&a, 20, None).await.unwrap();
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].resume, dto::ResumeStatus::AccessUnavailable);
+        assert_eq!(page.items[0].presentation, None);
+        assert_eq!(
+            page.items[0].bookmark.audio,
+            audio(),
+            "no remap to another release"
+        );
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(2), create(2, 2, 1, 1)).await,
+            Err(LibraryError::NotFound)
+        );
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(1), create(1, 3, 2, 15000))
+                .await
+                .unwrap()
+                .outcome,
+            dto::WriteOutcome::AlreadyCurrent,
+            "an owned value is decided from its record, not from current access"
+        );
+    }
+    #[tokio::test]
+    async fn uncertain_precommit_failure_commits_neither_effect_nor_receipt_and_retry_is_the_same_intent(
+    ) {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        repo.0.lock().unwrap().fail_before_commit = true;
+        let request = create(1, 1, 1, 15000);
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(1), request.clone()).await,
+            Err(LibraryError::Unavailable)
+        );
+        assert!(svc.bookmarks(&a, 20, None).await.unwrap().items.is_empty());
+        assert_eq!(
+            svc.receipt(&a, &request.operation.operation_id).await,
+            Err(LibraryError::NotFound)
+        );
+        repo.0.lock().unwrap().fail_before_commit = false;
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(1), request.clone())
+                .await
+                .unwrap()
+                .outcome,
+            dto::WriteOutcome::Accepted
+        );
+        // Lost response: the receipt is readable and equals the original answer.
+        let receipt = svc
+            .receipt(&a, &request.operation.operation_id)
+            .await
+            .unwrap();
+        assert_eq!(receipt.outcome, dto::WriteOutcome::Accepted);
+        assert_eq!(svc.bookmarks(&a, 20, None).await.unwrap().items.len(), 1);
+    }
+    #[tokio::test]
+    async fn changed_body_under_one_operation_and_a_reused_sequence_are_exact_rejections() {
+        let repo = MemoryRepository::default();
+        let (svc, a) = (service(&repo), principal("alice"));
+        svc.create_bookmark(&a, &bm(1), create(1, 1, 1, 15000))
+            .await
+            .unwrap();
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(1), create(1, 1, 1, 16000))
+                .await,
+            Err(LibraryError::OperationReused)
+        );
+        assert_eq!(
+            svc.create_bookmark(&a, &bm(1), create(1, 9, 1, 15000))
+                .await,
+            Err(LibraryError::StaleSequence)
+        );
+        assert_eq!(svc.bookmarks(&a, 20, None).await.unwrap().items.len(), 1);
     }
 }

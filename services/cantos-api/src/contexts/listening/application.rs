@@ -3,9 +3,10 @@ use super::{
     auth::AuthenticatedListener,
     cursor::{CursorVault, PageAnchor},
     domain::{
-        self, DomainError, HistoryClear, HistoryOutcome, HistoryStart, Intent, ListenerId,
-        OperationId, ProgressCandidate, ProgressOutcome, ProgressRecord, SavedCandidate,
-        SavedOutcome, SavedRecord,
+        self, BookmarkCandidate, BookmarkCreateOutcome, BookmarkDeleteOutcome, BookmarkDeletion,
+        DomainError, HistoryClear, HistoryOutcome, HistoryStart, Intent, ListenerId, OperationId,
+        ProgressCandidate, ProgressOutcome, ProgressRecord, SavedCandidate, SavedOutcome,
+        SavedRecord,
     },
 };
 use crate::contexts::catalog::domain::WorkId;
@@ -39,6 +40,7 @@ impl From<DomainError> for LibraryError {
             | DomainError::InvalidTime
             | DomainError::BindingMismatch => Self::InvalidRequest,
             DomainError::InvalidPosition => Self::InvalidPosition,
+            DomainError::IdentityReused => Self::OperationReused,
             DomainError::RevisionExhausted => Self::RevisionExhausted,
         }
     }
@@ -48,6 +50,7 @@ pub(super) enum PageKind {
     Continue,
     Saved,
     History,
+    Bookmarks,
 }
 #[derive(Clone, Debug)]
 pub(super) enum Command {
@@ -55,6 +58,8 @@ pub(super) enum Command {
     Saved(SavedCandidate),
     Start(HistoryStart),
     Clear(HistoryClear),
+    Bookmark(BookmarkCandidate),
+    BookmarkDelete(BookmarkDeletion),
 }
 impl Command {
     pub fn intent(&self) -> &Intent {
@@ -63,6 +68,8 @@ impl Command {
             Self::Saved(c) => c.intent(),
             Self::Start(c) => c.intent(),
             Self::Clear(c) => c.intent(),
+            Self::Bookmark(c) => c.intent(),
+            Self::BookmarkDelete(c) => c.intent(),
         }
     }
     pub fn sequence_key(&self) -> String {
@@ -70,6 +77,8 @@ impl Command {
             Self::Progress(c) => format!("progress:{}", c.audio().publication().as_str()),
             Self::Saved(c) => format!("saved:{}", c.work().as_str()),
             Self::Start(_) | Self::Clear(_) => "history".into(),
+            Self::Bookmark(c) => format!("bookmark:{}", c.id().as_str()),
+            Self::BookmarkDelete(c) => format!("bookmark:{}", c.id().as_str()),
         }
     }
 }
@@ -103,6 +112,7 @@ pub(super) enum PageData {
         state: dto::HistoryState,
         items: Vec<dto::PresentedHistoryItem>,
     },
+    Bookmarks(Vec<dto::BookmarkItem>),
 }
 pub(super) struct PageSnapshot {
     pub data: PageData,
@@ -260,6 +270,51 @@ impl LibraryService {
         self.mutate(principal, "history:clear", &raw, Command::Clear(candidate))
             .await
     }
+    /// Create-once at an exact release position; the account comes only from the principal.
+    pub async fn create_bookmark(
+        &self,
+        principal: &AuthenticatedListener,
+        bookmark: &str,
+        raw: dto::BookmarkWrite,
+    ) -> Result<dto::Receipt, LibraryError> {
+        let candidate = BookmarkCandidate::new(bookmark, &raw)?;
+        self.mutate(
+            principal,
+            &format!("bookmark:{bookmark}"),
+            &raw,
+            Command::Bookmark(candidate),
+        )
+        .await
+    }
+    pub async fn delete_bookmark(
+        &self,
+        principal: &AuthenticatedListener,
+        bookmark: &str,
+        raw: dto::BookmarkDelete,
+    ) -> Result<dto::Receipt, LibraryError> {
+        let candidate = BookmarkDeletion::new(bookmark, &raw)?;
+        self.mutate(
+            principal,
+            &format!("bookmark:{bookmark}:delete"),
+            &raw,
+            Command::BookmarkDelete(candidate),
+        )
+        .await
+    }
+    pub async fn bookmarks(
+        &self,
+        principal: &AuthenticatedListener,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<dto::BookmarkPage, LibraryError> {
+        let (PageData::Bookmarks(items), next_cursor) = self
+            .page(principal, PageKind::Bookmarks, limit, cursor)
+            .await?
+        else {
+            return Err(LibraryError::Corrupt);
+        };
+        Ok(dto::BookmarkPage { items, next_cursor })
+    }
     pub(super) async fn page(
         &self,
         principal: &AuthenticatedListener,
@@ -309,6 +364,7 @@ impl LibraryService {
             PageData::Continue(v) => (PageKind::Continue, v.len()),
             PageData::Saved(v) => (PageKind::Saved, v.len()),
             PageData::History { items, .. } => (PageKind::History, items.len()),
+            PageData::Bookmarks(v) => (PageKind::Bookmarks, v.len()),
         };
         if actual_kind != kind || len > usize::from(limit) {
             return Err(LibraryError::Corrupt);
@@ -501,6 +557,47 @@ pub(super) fn history_receipt(operation: &OperationId, outcome: HistoryOutcome) 
             current: state.raw(),
         },
     }
+}
+pub(super) fn bookmark_create_receipt(
+    operation: &OperationId,
+    outcome: &BookmarkCreateOutcome,
+) -> dto::Receipt {
+    let (kind, record, resolution) = match outcome {
+        BookmarkCreateOutcome::Accepted(v) => (dto::WriteOutcome::Accepted, v, None),
+        BookmarkCreateOutcome::AlreadyCurrent(v) => (dto::WriteOutcome::AlreadyCurrent, v, None),
+        BookmarkCreateOutcome::Deleted(v) => (
+            dto::WriteOutcome::BookmarkDeleted,
+            v,
+            Some(dto::Resolution::KeepServer),
+        ),
+    };
+    dto::Receipt {
+        operation_id: operation.as_str().into(),
+        outcome: kind,
+        resolution,
+        state: dto::MutationState::Bookmark {
+            current: record.raw().clone(),
+        },
+    }
+}
+/// `None` is the absent-bookmark case: it is a `not_found` error with no receipt and no effect.
+pub(super) fn bookmark_delete_receipt(
+    operation: &OperationId,
+    outcome: &BookmarkDeleteOutcome,
+) -> Option<dto::Receipt> {
+    let (kind, record) = match outcome {
+        BookmarkDeleteOutcome::Accepted(v) => (dto::WriteOutcome::Accepted, v),
+        BookmarkDeleteOutcome::AlreadyCurrent(v) => (dto::WriteOutcome::AlreadyCurrent, v),
+        BookmarkDeleteOutcome::Unknown => return None,
+    };
+    Some(dto::Receipt {
+        operation_id: operation.as_str().into(),
+        outcome: kind,
+        resolution: None,
+        state: dto::MutationState::Bookmark {
+            current: record.raw().clone(),
+        },
+    })
 }
 #[cfg(test)]
 mod tests;

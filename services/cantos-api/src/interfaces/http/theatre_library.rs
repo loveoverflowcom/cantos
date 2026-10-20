@@ -10,7 +10,7 @@ use axum::{
     extract::{Extension, Path, Query},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
 use cantos_contracts::listener_library as dto;
@@ -24,6 +24,12 @@ pub(super) fn routes() -> Router<AppState> {
         .route("/library/history", get(history))
         .route("/library/history/playback-starts", post(playback_started))
         .route("/library/history/clear", post(clear_history))
+        .route("/library/bookmarks", get(bookmarks))
+        .route("/library/bookmarks/{bookmark}", put(create_bookmark))
+        .route(
+            "/library/bookmarks/{bookmark}/delete",
+            post(delete_bookmark),
+        )
         .route("/progress/{publication}", get(progress).put(put_progress))
         .route("/operations/{operation}", get(receipt))
 }
@@ -108,9 +114,9 @@ fn write_response(result: Result<dto::Receipt, LibraryError>) -> Response {
         Ok(r) => {
             let status = match r.outcome {
                 dto::WriteOutcome::Accepted | dto::WriteOutcome::AlreadyCurrent => StatusCode::OK,
-                dto::WriteOutcome::RevisionConflict | dto::WriteOutcome::HistoryEpochConflict => {
-                    StatusCode::CONFLICT
-                }
+                dto::WriteOutcome::RevisionConflict
+                | dto::WriteOutcome::HistoryEpochConflict
+                | dto::WriteOutcome::BookmarkDeleted => StatusCode::CONFLICT,
             };
             (status, Json(r)).into_response()
         }
@@ -223,6 +229,66 @@ async fn history(
         Ok(v) => Json(v).into_response(),
         Err(e) => error(e),
     }
+}
+async fn bookmarks(
+    Extension(service): Extension<LibraryService>,
+    Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
+    headers: HeaderMap,
+    query: PageInput,
+) -> Response {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    // Bookmark pages always carry their metadata, so the opt-in query of older pages is refused.
+    let Ok(Query(q)) = query else {
+        return error(LibraryError::InvalidRequest);
+    };
+    if q.presentation.is_some() {
+        return error(LibraryError::InvalidRequest);
+    }
+    match service
+        .bookmarks(&p, q.limit.unwrap_or(20), q.cursor.as_deref())
+        .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error(e),
+    }
+}
+async fn create_bookmark(
+    Extension(service): Extension<LibraryService>,
+    Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
+    headers: HeaderMap,
+    Path(bookmark): Path<String>,
+    body: RawJson<dto::BookmarkWrite>,
+) -> Response {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let Ok(Json(v)) = body else {
+        return error(LibraryError::InvalidRequest);
+    };
+    write_response(service.create_bookmark(&p, &bookmark, v).await)
+}
+async fn delete_bookmark(
+    Extension(service): Extension<LibraryService>,
+    Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
+    headers: HeaderMap,
+    Path(bookmark): Path<String>,
+    body: RawJson<dto::BookmarkDelete>,
+) -> Response {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let Ok(Json(v)) = body else {
+        return error(LibraryError::InvalidRequest);
+    };
+    write_response(service.delete_bookmark(&p, &bookmark, v).await)
 }
 async fn progress(
     Extension(service): Extension<LibraryService>,
@@ -345,7 +411,10 @@ pub(super) fn bearer_mutation(method: &axum::http::Method, path: &str) -> bool {
             path,
             "/api/v1/theatre/library/history/clear"
                 | "/api/v1/theatre/library/history/playback-starts"
-        );
+        ) || path
+            .strip_prefix("/api/v1/theatre/library/bookmarks/")
+            .and_then(|rest| rest.strip_suffix("/delete"))
+            .is_some_and(|id| !id.is_empty() && !id.contains('/'));
     }
     if method != axum::http::Method::PUT {
         return false;
@@ -353,6 +422,7 @@ pub(super) fn bearer_mutation(method: &axum::http::Method, path: &str) -> bool {
     [
         "/api/v1/theatre/progress/",
         "/api/v1/theatre/library/saved/",
+        "/api/v1/theatre/library/bookmarks/",
     ]
     .iter()
     .any(|prefix| {

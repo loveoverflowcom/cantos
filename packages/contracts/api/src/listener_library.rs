@@ -229,6 +229,47 @@ pub struct PresentedHistoryPage {
     #[serde(deserialize_with = "required_nullable")]
     pub next_cursor: Option<String>,
 }
+/// Create-once bookmark at an exact release position. The ID is client-minted and stable across
+/// retries; the owner is never a field. There is no label, note or edit.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BookmarkWrite {
+    pub operation: Operation,
+    pub bookmark_id: String,
+    pub audio: AudioIdentity,
+    pub position_ms: u64,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BookmarkDelete {
+    pub operation: Operation,
+}
+/// The accepted value, or its final tombstone (`deleted`). Audio and position never change.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BookmarkRecord {
+    pub bookmark_id: String,
+    pub audio: AudioIdentity,
+    pub position_ms: u64,
+    pub deleted: bool,
+    pub listener_order: u64,
+    pub accepted_at_ms: i64,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BookmarkItem {
+    pub bookmark: BookmarkRecord,
+    pub resume: ResumeStatus,
+    #[serde(deserialize_with = "required_nullable")]
+    pub presentation: Option<AudioPresentation>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BookmarkPage {
+    pub items: Vec<BookmarkItem>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WriteOutcome {
@@ -236,6 +277,8 @@ pub enum WriteOutcome {
     AlreadyCurrent,
     RevisionConflict,
     HistoryEpochConflict,
+    /// A create for a bookmark ID whose tombstone is final; deletion is never undone by a replay.
+    BookmarkDeleted,
 }
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -255,6 +298,9 @@ pub enum MutationState {
     },
     History {
         current: HistoryState,
+    },
+    Bookmark {
+        current: BookmarkRecord,
     },
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

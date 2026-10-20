@@ -260,6 +260,8 @@ fn receipt_valid(receipt: &Receipt, expected_operation: &str, expected_status: u
             None => is_conflict,
         },
         MutationState::History { current } => history_state_valid(current),
+        // Theatre Web sends no bookmark mutation, so no bookmark receipt can be an answer to it.
+        MutationState::Bookmark { .. } => false,
     }
 }
 

@@ -1,6 +1,6 @@
 # Listener Library and Progress v1
 
-Schema version **1.1.0**, additive opt-in resources under `/api/v1/theatre`. This reviewed core
+Schema version **1.2.0**, additive opt-in resources under `/api/v1/theatre`. This reviewed core
 contract is shared by Web/CMP; their current mock reducers are not production consumers.
 JSON Schema, strict Rust DTO fixture conformance and HTTP tests accompany it. OpenAPI,
 generated/drift-checked Kotlin and real-client adoption remain acceptance work.
@@ -16,6 +16,9 @@ generated/drift-checked Kotlin and real-client adoption remain acceptance work.
 | POST | `/library/history/playback-starts` | only an acknowledged actual engine start, not Play intent or page view |
 | POST | `/library/history/clear` | explicitly confirmed conditional clear, only history |
 | GET, PUT | `/progress/{publication}` | exact publication progress authority, conditional update/reconcile |
+| GET | `/library/bookmarks` | live release-bound bookmarks, newest accepted first, with exact audio and required nullable metadata; no playback effect |
+| PUT | `/library/bookmarks/{bookmark}` | create-once bookmark at an exact release position, client-minted ID |
+| POST | `/library/bookmarks/{bookmark}/delete` | final tombstone of one bookmark; Saved, progress and history are untouched |
 | GET | `/operations/{operation}` | original outcome receipt for unknown/lost mutation response |
 
 Account-owned routes require a separate Listener authenticator. Studio cookies, development
@@ -67,6 +70,45 @@ opted-in callers; the API change itself switched no client. The CMP Library clie
 representation in [#297](https://github.com/loveoverflowcom/cantos/issues/297) (JVM/source evidence; a
 Page whose metadata names another record or release is a protocol failure). #177's genres,
 credits, seasons and numbering remain separate follow-ups.
+
+## Release-bound bookmarks v1.2.0
+
+[#299](https://github.com/loveoverflowcom/cantos/issues/299) adds a **bookmark**: an immutable
+`(bookmark_id, exact AudioIdentity, position_ms)` value owned by the authenticated Listener. It
+is a different resource from Saved Work (a Work-level desire) and from progress (one revisioned
+register per release); creating, deleting or listing bookmarks never changes either, and Save/Unsave,
+progress, history and clear-history never create or delete a bookmark. There is no label, note,
+edit, playlist or ordering other than acceptance order.
+
+- **Create** `PUT /library/bookmarks/{bookmark}` carries the standard operation envelope, the
+  same `bookmark_id` as the path, the exact audio identity and `position_ms` in `[0,duration_ms]`.
+  A new bookmark requires the audio to be **currently public**, exactly as a new progress key does;
+  position is checked against the identity's verified duration. A bookmark grants no listening
+  permission: playback still goes through Discovery's authorization for the exact publication.
+- **Outcomes.** A first accepted create returns `accepted`. The same ID with an identical live
+  value returns `already_current` (a replayed intent with a new operation ID cannot duplicate).
+  The same ID with a different value is `idempotency_key_reused`. An ID whose tombstone exists
+  returns `409 bookmark_deleted` (resolution `keep_server`, `deleted:true`): **a replayed or
+  re-sent create never resurrects a deletion**. A replayed operation ID returns its stored original
+  receipt even after the bookmark was deleted, so a client applies a list read after draining its outbox
+  and never treats a replayed create as proof the bookmark is live.
+- **Delete** `POST /library/bookmarks/{bookmark}/delete` turns a live bookmark into its tombstone
+  (`accepted`, `deleted:true`); a repeat is `already_current`. A bookmark ID the account never created
+  is `404 not_found` and writes nothing: a client's outbox is FIFO per bookmark key, so a delete can
+  never overtake its own create. Tombstones are retained indefinitely (no horizon is approved).
+- **List** `GET /library/bookmarks?limit=1..50&cursor=` returns live bookmarks only, descending
+  acceptance order then ID, with the same opaque, account/route/limit/frontier-bound cursor as the
+  other pages. Each item carries `resume` and a **required, nullable** `presentation` computed only for
+  the **exact stored release** after current eligibility is rechecked: replaced, withdrawn or private
+  audio keeps the bookmark with `presentation:null` and `release_replaced`/`access_unavailable`, and
+  no newer release ever supplies fallback metadata or position. Opening a bookmark is a client
+  action that names the stored identity; the API never substitutes a release.
+- Sequence and receipt rules are unchanged: resource key `bookmark:<id>` (device sequence per key),
+  immutable body across retries, receipts committed atomically with the effect.
+
+Fixtures live in `fixtures/theatre/library/v1/bookmarks/` (a separate corpus so the default one,
+and its strict readers, are unchanged); the schema/DTO additions are strictly additive:
+`WriteOutcome::bookmark_deleted` and `MutationState::bookmark` occur only for bookmark operations.
 
 ## Identity, concurrency and receipts
 

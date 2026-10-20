@@ -1,0 +1,23 @@
+{
+  "operation_id": "00000000-0000-4000-8000-000000000022",
+  "outcome": "accepted",
+  "resolution": null,
+  "state": {
+    "resource": "bookmark",
+    "current": {
+      "bookmark_id": "00000000-0000-4000-8000-0000000000b1",
+      "audio": {
+        "work_id": "00000000-0000-4000-8000-000000000001",
+        "unit_id": "00000000-0000-4000-8000-000000000002",
+        "publication_id": "00000000-0000-4000-8000-000000000003",
+        "rendition_id": "00000000-0000-4000-8000-000000000004",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "duration_ms": 60000
+      },
+      "position_ms": 15000,
+      "deleted": true,
+      "listener_order": 2,
+      "accepted_at_ms": 2000
+    }
+  }
+}
