@@ -276,6 +276,8 @@ because they describe what was run at the time. Their links point to the current
 
 | Before | After |
 | --- | --- |
+| `services/cantos-api/src/interfaces/http/` | `services/cantos-api/src/adapters/inbound/http/` (#327; Rust `adapters::inbound::http`, crate-root `http` alias retained) |
+| `services/cantos-api/src/composition.rs` | `services/cantos-api/src/application.rs` (#327 concrete application handle; HTTP outer assembly is separate) |
 | `services/edge/` | `infra/edge/` (#212 deployment assets only) |
 | `services/firebase-hosting/` | `infra/firebase/hosting/` (#212 deployment assets only) |
 | `apps/server/` | `services/cantos-api/` |

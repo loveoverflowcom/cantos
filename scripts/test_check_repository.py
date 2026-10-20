@@ -640,13 +640,40 @@ fn f() { state.store.connection(); client.transaction(); tx.query_one(sql, args)
 
     def test_inner_layers_cannot_import_inbound_adapters_directly_or_through_aliases(self):
         for path in ("contexts/editorial/application.rs", "contexts/editorial/domain.rs",
-                     "script_ir/validation.rs"):
+                     "script_ir/validation.rs", "application.rs"):
             for source in (
                 "use crate::adapters::inbound::http::AppState;",
                 "use crate::adapters as transport; fn f() { transport::inbound::http::api_router(state); }",
             ):
                 with self.subTest(path=path, source=source):
                     self.assertRejected(path, source, "must not depend on an interface")
+
+    def test_context_cannot_reuse_http_store_facade_through_canonical_or_compatibility_types(self):
+        for namespace in ("application", "platform::postgres"):
+            for method in ("load", "save", "history", "review"):
+                for call in (
+                    f"fn f(store: &Handle) {{ store.{method}(request); }}",
+                    f"fn f(store: &Handle) {{ Handle::{method}(store, request); }}",
+                    f"impl Handle {{ fn f(&self) {{ self.{method}(request); }} }}",
+                ):
+                    with self.subTest(namespace=namespace, method=method, call=call):
+                        self.assertRejected("contexts/editorial/application.rs",
+                            f"use crate::{namespace}::Store as Handle; {call}",
+                            "context must not call the HTTP-owned Store facade")
+
+    def test_context_owned_history_and_internal_editorial_operations_stay_allowed(self):
+        self.assertEqual(self.errors("contexts/listening/application.rs", """
+use crate::application::Store;
+fn f(service: &LibraryService, store: &Store) {
+    service.history(request);
+    store.editorial_history(request);
+    store.load_editorial_revision(request);
+}
+"""), [])
+
+    def test_domain_cannot_use_concrete_application_glue(self):
+        self.assertRejected("contexts/editorial/domain.rs", "use crate::application::Store;",
+                            "pure domain must not depend on application glue")
 
     def test_context_sql_cannot_read_or_write_another_contexts_table(self):
         self.assertRejected("contexts/ingestion/postgres.rs", """

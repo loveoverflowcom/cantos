@@ -96,7 +96,7 @@ to `InvalidRequest`/`Unavailable`. Classification is based on meaning, not a dri
 wraps domain/storage errors and context cases;
 [`catalog_error` / `domain_error`](../../../../services/cantos-api/src/adapters/inbound/http/studio/catalog.rs)
 maps them to responses. Shared
-[`StoreError`](../../../../services/cantos-api/src/platform/postgres/mod.rs) still mixes
+[`StoreError`](../../../../services/cantos-api/src/application.rs) still mixes
 application outcomes with storage failures; its PostgreSQL conversion currently maps driver
 failures to `Unavailable`. This is an implementation observation, not a claim that context-owned
 port errors or a complete taxonomy are implemented everywhere. Improve only a touched boundary

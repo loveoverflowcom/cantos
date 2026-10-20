@@ -92,7 +92,7 @@ creating routes or DTOs. A proposal is not an existing API.
 
 ```text
 src/
-  composition.rs            # concrete Store/use-case errors joining pool and Media storage
+  application.rs            # concrete Store/use-case errors joining pool and Media storage
   script_ir/                # pure structured text contract
   contexts/
     catalog/                # works/units, permissions and immutable history
@@ -103,10 +103,22 @@ src/
     media/                  # private intake/review/read/storage and publication authority
       domain/               # pure lifecycle/publication/profile/integrity/range/WAV rules
     listening/              # separate account-owned Library/progress/history
-  adapters/inbound/http/          # separate Studio, Theatre and Admin surfaces
+  adapters/inbound/http/    # separate Studio, Theatre and Admin surfaces
+    assembly.rs            # trusted concrete service/capability construction
+    router.rs              # route graph and layer order, consuming assembled services
+    state.rs               # HTTP request state
+    errors.rs              # safe JSON application/storage error projection
+    policy.rs              # cross-surface Origin/deadline/cache middleware
+    studio/admission.rs    # Studio credentials, fences and admission lease
   platform/                 # postgres/session/IDs/migrations/optional grouped-count core
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
 ```
+
+The canonical HTTP namespace is `cantos_api::adapters::inbound::http`; `cantos_api::http`
+remains a compatibility alias. See the [assembly/host matrix](../../docs/architecture/api-contexts.md#http-assembly-and-transport-owners)
+for the existing constructor seams and fail-closed capability/static policy. `application::Store`
+is concrete application glue, with retained `platform::postgres::{Store, StoreError}` aliases;
+it is not an abstract repository. Persistence and transaction orchestration stay context-owned.
 
 The former `contexts/synthesis`, `cantos-worker`, `production-jobs`, `probe-*-tts` and
 `inspect-tts-receipt` code paths were intentionally removed, not wrapped with a disabled

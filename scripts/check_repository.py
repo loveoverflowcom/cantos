@@ -512,18 +512,63 @@ def table_owner(table):
     return TABLE_OWNER.get(table)
 
 
-def dependency_error(path, owner, domain, http, listener_pg_test=False):
+HTTP_STORE_METHODS = {"load", "save", "history", "review"}
+STORE_PATHS = {("application", "Store"), ("platform", "postgres", "Store")}
+
+
+def braced_body(code, opening):
+    depth = 1
+    for match in re.finditer(r"[{}]", code[opening + 1:]):
+        depth += 1 if match.group() == "{" else -1
+        if depth == 0:
+            return code[opening + 1:opening + 1 + match.start()]
+    return ""
+
+
+def http_store_method_calls(code):
+    """Find direct typed receivers/impls; this lexical check is not Rust type inference.
+
+    Inherent HTTP compatibility methods have no HTTP import at the callsite. Recognize
+    imported Store aliases, typed parameters and self inside their impl blocks, while leaving
+    context-owned service.history and atomic.load alone. Macros and inferred receiver aliases
+    remain review obligations, as with the other source-path checks.
+    """
+    names = {"Store"}
+    for match in re.finditer(r"\buse\s+([^;]+);", code):
+        for path, alias in use_paths(USE_TOKEN.findall(match.group(1))):
+            if path[:1] == ("crate",) and path[1:] in STORE_PATHS and alias != "*":
+                names.add(alias)
+    types = "(?:" + "|".join(sorted(names)) + ")"
+    methods = "(?:" + "|".join(sorted(HTTP_STORE_METHODS)) + ")"
+    scopes = []
+    for match in re.finditer(r"\bimpl\s+" + types + r"\s*\{", code):
+        scopes.append((match.end(), {"self"}))
+    for match in re.finditer(r"\bfn\s+\w+\s*(?:<[^{};]*>)?\s*\(([^{};]*)\)[^{;]*\{", code):
+        receivers = set(re.findall(
+            r"\b(\w+)\s*:\s*(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)?"
+            r"(?:\w+\s*::\s*)*" + types + r"\b", match.group(1)))
+        scopes.append((match.end(), receivers))
+    for start, receivers in scopes:
+        body = braced_body(code, start - 1)
+        for receiver in receivers:
+            for match in re.finditer(r"\b" + receiver + r"\s*\.\s*" + methods + r"\s*\(", body):
+                yield start + match.start()
+
+
+def dependency_error(path, owner, domain, http, listener_pg_test=False, application_glue=False):
     """Return the boundary violated by one path, or None for an admitted dependency."""
     if not path:
         return None
-    if (owner or domain or http) and path[0] == "<legacy>":
+    if (owner or domain or http or application_glue) and path[0] == "<legacy>":
         return "context uses a legacy crate alias; name the owning context explicitly"
-    if owner and path[0] in {"interfaces", "adapters"} and not (listener_pg_test and path in {
+    if (owner or application_glue) and path[0] in {"interfaces", "adapters"} and not (listener_pg_test and path in {
         ("adapters", "inbound", "http", "router_with_listener_identity"),
         ("adapters", "inbound", "http", "AppState"),
     }):
         return "context must not depend on an interface"
     if domain:
+        if path[0] == "application":
+            return "pure domain must not depend on application glue"
         if path[0] in DOMAIN_EXTERNAL or path[:2] in {
             ("std", "fs"), ("std", "net"), ("std", "process"), ("std", "env"),
             ("std", "thread"), ("std", "time"), ("std", "os"),
@@ -542,6 +587,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("cantos_contracts", "FieldIssue"), ("cantos_contracts", "AdaptationProblem"),
         }:
             return "pure diagnostics must use safe domain facts; project wire errors at the boundary"
+    if owner and path[:-1] in STORE_PATHS and path[-1] in HTTP_STORE_METHODS:
+        return "context must not call the HTTP-owned Store facade; use internal Editorial operations"
     if path[0] == "contexts" and len(path) >= 2:
         target = path[1]
         credential_inquiry = owner == "production" and not domain and path == ("contexts", "media", "upload_token_registered")
@@ -653,7 +700,9 @@ def check_api_architecture(root=ROOT):
         content = file.read_text(encoding="utf-8")
         code, strings = rust_code(content)
         for offset, path in source_paths(code, module):
-            error = dependency_error(path, owner, domain, http, relative == Path("contexts/listening/postgres/tests.rs"))
+            error = dependency_error(path, owner, domain, http,
+                listener_pg_test=relative == Path("contexts/listening/postgres/tests.rs"),
+                application_glue=relative == Path("application.rs"))
             if parts[0] == "platform" and path[0] == "contexts":
                 error = "platform must not depend on a business context"
             if error:
@@ -664,6 +713,10 @@ def check_api_architecture(root=ROOT):
         if owner and relative == Path(f"contexts/{owner}/mod.rs"):
             for match in re.finditer(r"\bpub(?:\s*\([^)]*\))?\s+mod\s+(postgres|application)\b", code):
                 errors.add(f"{API_SOURCE / relative}: {match.group(1)} must remain private")
+        if owner:
+            for offset in http_store_method_calls(code):
+                line = code.count("\n", 0, offset) + 1
+                errors.add(f"{API_SOURCE / relative}:{line}: context must not call the HTTP-owned Store facade; use internal Editorial operations")
         if http:
             for match in re.finditer(
                 r"\.\s*(connection|transaction|query|query_one|query_opt|execute|batch_execute)\s*\(", code,
