@@ -417,7 +417,7 @@ async fn baseline_replay_preserves_checksums_and_database_refuses_phase_rollback
         .iter()
         .map(|row| (row.get(0), row.get(1)))
         .collect();
-    assert_eq!(previous.len(), 2);
+    assert_eq!(previous.len(), 3);
     // Current baseline replay preserves existing authoritative records.
     h.admin
         .batch_execute("INSERT INTO actors(id) VALUES('registration-legacy-fixture');")
