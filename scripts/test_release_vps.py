@@ -14,18 +14,19 @@ from unittest.mock import patch
 
 import release_artifact as contract
 import release_pipeline as release
+import release_build
 from test_release_artifact import ORIGIN, SHA
 
 # Keep tool discovery consistent with skipUnless while clearing all CI/credential inputs.
 # Homebrew and other explicit tool installations need not live on os.defpath.
 TOOL_PATH = os.environ.get("PATH", os.defpath)
 
-def tar_bytes(path, files):
+def tar_bytes(path, files, *, host_mode=0o755):
     with tarfile.open(path, "w") as archive:
         for name, data in files.items():
             member = tarfile.TarInfo(name)
             member.size = len(data)
-            member.mode = 0o700
+            member.mode = host_mode if name == "infra/vps/bin/cantos-vps" else 0o600
             archive.addfile(member, io.BytesIO(data))
 
 
@@ -42,7 +43,7 @@ def docker_archive(path, *, revision=SHA, platform="amd64", bad_layer=False):
     return {"id": "sha256:" + image_id, "source_sha": SHA, "architecture": "amd64", "os": "linux", "schema_epoch": 2}
 
 
-def api_fixture(root):
+def api_fixture(root, *, host_mode=0o755):
     output = root / "artifact"
     output.mkdir()
     image = {"id": "sha256:" + "d" * 64, "source_sha": SHA, "architecture": "amd64", "os": "linux", "schema_epoch": 2}
@@ -50,7 +51,7 @@ def api_fixture(root):
     (output / "cantos-api.tar.zst").write_bytes(b"compressed image fixture; decompressor mocked")
     tar_bytes(output / "runtime.tar", {"REVISION": (SHA + "\n").encode(),
         "infra/vps/bin/cantos-vps": b"#!/bin/sh\nexit 0\n", "infra/edge/Caddyfile": b"fixture",
-        "services/cantos-api/schema/legacy-epoch-1-manifest.json": b"{}"})
+        "services/cantos-api/schema/legacy-epoch-1-manifest.json": b"{}"}, host_mode=host_mode)
     config = {"component": "api", "api_origin": None, "profile": "release", "platform": "linux/amd64"}
     manifest = {"schema_version": 2, "repository": contract.REPOSITORY, "target": "api",
         "source_sha": SHA, "checkout_sha": SHA, "config_sha": SHA, "deployed": False,
@@ -66,6 +67,54 @@ def api_fixture(root):
 
 @patch.dict(os.environ, {"PATH": TOOL_PATH}, clear=True)
 class VpsTests(unittest.TestCase):
+    def test_committed_host_entrypoint_and_extracted_release_are_executable(self):
+        repository = Path(__file__).resolve().parents[1]
+        entrypoint = "infra/vps/bin/cantos-vps"
+        revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip()
+        tree = subprocess.check_output(["git", "ls-tree", revision, "--", entrypoint],
+                                       cwd=repository, text=True)
+        self.assertEqual(tree.split()[0], "100755", tree)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            context = root / "context"
+            context.mkdir()
+            source = root / "source.tar"
+            subprocess.run(["git", "archive", "--format=tar", "-o", str(source), revision,
+                            "infra/vps", "infra/edge/Caddyfile",
+                            "services/cantos-api/schema/legacy-epoch-1-manifest.json"],
+                           cwd=repository, check=True)
+            subprocess.run(["tar", "-xf", str(source), "-C", str(context)], check=True)
+            self.assertTrue(os.access(context / entrypoint, os.X_OK))
+            (context / "REVISION").write_text(revision + "\n")
+            runtime = root / "runtime.tar"
+            release_build.runtime_archive(context, runtime)
+            contract.extract(runtime, root / "tree", runtime=True,
+                             expected=contract.file_record(runtime, root))
+            self.assertTrue(os.access(root / "tree" / entrypoint, os.X_OK))
+            host_tree = root / "host-tree"
+            host_tree.mkdir()
+            subprocess.run(["tar", "-xf", str(runtime), "-C", str(host_tree)], check=True)
+            self.assertTrue(os.access(host_tree / entrypoint, os.X_OK))
+            self.assertEqual((root / "tree/REVISION").read_text().strip(), revision)
+            self.assertEqual((root / "tree" / entrypoint).read_bytes(), (context / entrypoint).read_bytes())
+            (context / entrypoint).chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "runtime entrypoint must be executable"):
+                release_build.runtime_archive(context, root / "non-executable.tar")
+
+    @patch.object(release, "inspect_image")
+    def test_mode_100644_is_rejected_before_extraction_and_any_remote_command(self, inspect):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            # The manifest hashes the actual 0644 tar: this is a mode failure, not corruption.
+            args = api_fixture(root, host_mode=0o644)
+            with self.assertRaisesRegex(ValueError, "runtime entrypoint must be executable"):
+                contract.extract(args.release_manifest.parent / "runtime.tar", root / "tree", runtime=True)
+            self.assertFalse((root / "tree").exists())
+            with patch.object(release, "run") as run:
+                with self.assertRaisesRegex(ValueError, "runtime entrypoint must be executable"):
+                    release.deploy_api(root, args)
+                run.assert_not_called()
+
     @unittest.skipUnless(shutil.which("zstd"), "installed zstd required for actual decoder evidence")
     def test_real_zstd_frame_decodes_and_truncation_fails_before_any_ssh(self):
         with tempfile.TemporaryDirectory() as temporary:

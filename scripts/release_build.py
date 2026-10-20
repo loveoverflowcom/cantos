@@ -79,6 +79,20 @@ def android_version(root):
     return {"name": name[1], "code": int(code[1])}
 
 
+def runtime_archive(context, destination):
+    with tarfile.open(destination, "w") as archive:
+        paths = [context / "REVISION", context / "infra/edge/Caddyfile",
+                 context / "services/cantos-api/schema/legacy-epoch-1-manifest.json"]
+        paths += sorted((context / "infra/vps").rglob("*"))
+        for path in paths:
+            if path.is_dir():
+                continue
+            contract.regular(path)
+            archive.add(path, arcname=path.relative_to(context), recursive=False)
+    with tarfile.open(destination) as archive:
+        contract.archive_members(archive, runtime=True)
+
+
 def build(root, target, sha, output, origin=API_ORIGIN):
     if target == "api":
         if platform.system() != "Linux" or platform.machine() != "x86_64":
@@ -106,15 +120,7 @@ def build(root, target, sha, output, origin=API_ORIGIN):
                 "architecture": "amd64", "os": "linux", "source_sha": sha,
                 "schema_epoch": 2}, indent=2) + "\n")
             (context / "REVISION").write_text(sha + "\n")
-            with tarfile.open(output / "runtime.tar", "w") as archive:
-                paths = [context / "REVISION", context / "infra/edge/Caddyfile",
-                         context / "services/cantos-api/schema/legacy-epoch-1-manifest.json"]
-                paths += sorted((context / "infra/vps").rglob("*"))
-                for path in paths:
-                    if path.is_dir():
-                        continue
-                    contract.regular(path)
-                    archive.add(path, arcname=path.relative_to(context), recursive=False)
+            runtime_archive(context, output / "runtime.tar")
         return {"name": tomllib.loads((root / "services/cantos-api/Cargo.toml").read_text())["package"]["version"]}
     if target in ("theatre-web", "studio-web"):
         app = "cantos-" + target.removesuffix("-web")
