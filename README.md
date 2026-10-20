@@ -10,6 +10,9 @@ playback never starts production.
 The current direction is governed by [ADR 0018](docs/decisions/0018-external-audio-production.md)
 and the [external audio handoff proposal](packages/contracts/external-audio-handoff-v1.md).
 Older TTS experiments and job migrations are historical evidence, **not current runtime scope**.
+The independent [native qualification guard](docs/assurance/native-isolation.md) runs one
+prebuilt exact Rust test through `cargo xtask verify native-isolation`; its environment controls
+do not establish the pending two-binary native runtime or authentication acceptance.
 The [current schema and cutover policy](docs/deployment/postgres-schema-cutover.md) makes fresh
 initialization explicit and ordinary deployment refuses legacy databases. An explicit narrow
 `--cutover-epoch2` lane checks the known 28-migration empty-business source, rehearses a sibling

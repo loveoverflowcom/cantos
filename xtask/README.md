@@ -69,6 +69,7 @@ cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP re
 cargo xtask verify postgres --suite schema           # current baseline/refusal and SQL acceptance
 cargo xtask verify theatre-auth --suite firebase-emulator|firebase-web-e2e [--dry-run]
 cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger|identity-security-version|identity-completion|identity-mailbox-proof]...
+cargo xtask verify native-isolation --test-binary /absolute/prebuilt-rust-test --test fully::qualified::name [--timeout-seconds 60] [--dry-run]
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
@@ -563,6 +564,16 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `dbsp` | dbsp |
 | `postgres` | postgres |
 | `kani` | explicitly selected registered `kani` kernels only; opt-in |
+| `native-isolation` | explicit prebuilt exact-test isolation; separate executable/credential/network controls, never an implicit build or infrastructure start |
+
+`verify native-isolation` accepts one absolute prebuilt Rust test executable and exact test
+name. It sanitizes the child environment, creates private run directories and exercises real
+executable/credential injection controls. Linux additionally requires fresh network/PID
+namespaces and kernel egress refusal; macOS records best-effort test results but reports overall
+`UNSUPPORTED`. `--dry-run` is a pure `NOT_RUN` plan. Its regression tests are registered with
+the existing repository/Rust CI jobs; a failure before discovery does not exercise them.
+The explicit fixture lane stays outside ordinary gates and CI.
+Read the [guard contract and evidence limits](../docs/assurance/native-isolation.md).
 
 The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a
 new machine. On macOS setups affected by `/var` versus `/private/var`, prefix Python-heavy runs
