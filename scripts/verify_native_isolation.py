@@ -42,6 +42,19 @@ class Unsupported(Exception):
     """An absent host capability, without installation or fallback."""
 
 
+class OwnedTemporaryDirectory(tempfile.TemporaryDirectory):
+    """Defer cancellation before cleanup detaches the finalizer, through directory removal."""
+
+    def cleanup(self):
+        previous_mask = signal.pthread_sigmask(
+            signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM, signal.SIGHUP})
+        try:
+            super().cleanup()
+        finally:
+            # A pending cancellation may raise here, after the owned directory is gone.
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+
 def sha256(path):
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -458,7 +471,7 @@ def main(argv=None):
             run_target(args, Path(args.isolated_directory), result, args.parent_netns, args.ip)
         else:
             # Ignore ambient TMPDIR and avoid inherited credential or application locations.
-            with tempfile.TemporaryDirectory(prefix="cantos-native-isolation-", dir="/tmp") as temporary:
+            with OwnedTemporaryDirectory(prefix="cantos-native-isolation-", dir="/tmp") as temporary:
                 directory = Path(temporary)
                 directory.chmod(0o700)
                 result["source"] = source_identity(directory)

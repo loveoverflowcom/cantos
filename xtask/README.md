@@ -569,8 +569,9 @@ same catalog in [`gate.rs`](src/gate.rs).
 name. It sanitizes the child environment, creates private run directories and exercises real
 executable/credential injection controls. Linux additionally requires fresh network/PID
 namespaces and kernel egress refusal; macOS records best-effort test results but reports overall
-`UNSUPPORTED`. `--dry-run` is a pure `NOT_RUN` plan. Its regression tests run in the existing
-repository/Rust CI jobs; the explicit fixture lane stays outside ordinary gates and CI.
+`UNSUPPORTED`. `--dry-run` is a pure `NOT_RUN` plan. Its regression tests are registered with
+the existing repository/Rust CI jobs; a failure before discovery does not exercise them.
+The explicit fixture lane stays outside ordinary gates and CI.
 Read the [guard contract and evidence limits](../docs/assurance/native-isolation.md).
 
 The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a

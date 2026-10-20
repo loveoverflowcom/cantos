@@ -211,6 +211,66 @@ class CaptureTests(PrivateFixture):
         self.assertEqual(observed, environment)
 
 
+@unittest.skipUnless(sys.platform in ("darwin", "linux"), "requires POSIX signal masking")
+class DirectoryCleanupTests(PrivateFixture):
+    def test_repeated_cancellation_during_directory_removal_cannot_leave_owned_files(self):
+        binary = self.executable("cleanup-target", "pass\n")
+        cancellations = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+        previous_handlers = {number: signal.getsignal(number) for number in cancellations}
+        previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+        original_rmtree = guard.tempfile.TemporaryDirectory._rmtree
+        source = {"sha": "a" * 40, "dirty": False, "diff_sha256": "b" * 64,
+                  "guard_sha256": "c" * 64}
+        try:
+            for cancellation in cancellations:
+                for cancelled_in_body in (False, True):
+                    with self.subTest(signal=cancellation, cancelled_in_body=cancelled_in_body):
+                        owned = []
+
+                        def run_target(_args, directory, result):
+                            owned.append(directory)
+                            (directory / "nested").mkdir()
+                            (directory / "nested" / "fixture").write_text("synthetic owned file")
+                            if cancelled_in_body:
+                                os.kill(os.getpid(), cancellation)
+                            result.update(status="UNSUPPORTED", reason="synthetic target completed")
+
+                        def cancel_at_removal(path, *args, **kwargs):
+                            os.kill(os.getpid(), cancellation)
+                            os.kill(os.getpid(), cancellation)
+                            return original_rmtree(path, *args, **kwargs)
+
+                        try:
+                            # The target/source doubles isolate main's real directory lifecycle.
+                            # No child, kernel namespace, external network or real data is used.
+                            with mock.patch.object(guard.sys, "platform", "darwin"), \
+                                    mock.patch.object(guard, "source_identity", return_value=source), \
+                                    mock.patch.object(guard, "run_target", side_effect=run_target), \
+                                    mock.patch.object(guard.tempfile.TemporaryDirectory, "_rmtree",
+                                                      side_effect=cancel_at_removal), \
+                                    contextlib.redirect_stdout(io.StringIO()) as output:
+                                code = guard.main(["--test-binary", str(binary), "--test", TEST])
+                            result = json.loads(output.getvalue())
+                            self.assertEqual(code, 1)
+                            self.assertEqual(result["status"], "FAIL")
+                            self.assertEqual(result["reason"], "owned guard invocation was interrupted")
+                            self.assertEqual(len(owned), 1)
+                            self.assertFalse(owned[0].exists(), "cancellation left the owned run directory")
+                            self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, set()), previous_mask)
+                            for number in cancellations:
+                                self.assertEqual(signal.getsignal(number), guard.interrupted)
+                        finally:
+                            # Preserve the failure result, but remove only this test's own fixture
+                            # if running the regression against the old leaking implementation.
+                            for path in owned:
+                                if path.exists():
+                                    original_rmtree(str(path))
+        finally:
+            for number, handler in previous_handlers.items():
+                signal.signal(number, handler)
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+
 class NetworkTests(unittest.TestCase):
     def test_real_reachable_loopback_connection_is_a_guard_failure(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:

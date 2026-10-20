@@ -75,8 +75,9 @@ production linkage still require independent review. Private HOME does not preve
 absolute filesystem reads or access to an existing Unix socket. Native two-binary tests must
 own their files/sockets and preserve separate database owners under the runtime contract.
 
-Regression coverage belongs to the existing repository Python tests and Rust xtask tests,
-already run by the repository/Rust CI jobs. The explicit guarded test is not automatically
+Regressions are registered with the existing repository Python tests and Rust xtask tests,
+which the repository/Rust CI jobs select. A CI failure before test discovery does not exercise
+those tests. The explicit guarded test is not automatically
 selected by ordinary gates, preflight or CI, since no production native E2E consumer exists yet.
 Kani remains the separate pinned [proof lane and ledger](kani.md). No Kani, Turso, RPC, HTTP,
 browser/device, migration, footprint or production acceptance follows from this guard.
