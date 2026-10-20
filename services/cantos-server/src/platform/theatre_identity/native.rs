@@ -1,11 +1,12 @@
 //! Native code-response verification groundwork. This is NOT resource admission.
 //! No raw/native ID token can construct Library's authenticated witness through this API.
+pub use crate::platform::oidc::config::{
+    THEATRE_NATIVE_CLIENT_ID as NATIVE_CLIENT_ID, THEATRE_NATIVE_REDIRECT as NATIVE_REDIRECT,
+};
 use crate::platform::{
     identity::domain::ExternalIdentityKey,
     oidc::core::{verify_for_client, AuthError, JwkSet, VerifiedIdentity},
 };
-pub const NATIVE_CLIENT_ID: &str = "cantos-theatre-native";
-pub const NATIVE_REDIRECT: &str = "com.cantos.theatre:/oauth2/callback";
 
 /// Verified OIDC identity for a pending native exchange; not a standing access credential.
 pub struct VerifiedNativeCodeResponse(VerifiedIdentity);
