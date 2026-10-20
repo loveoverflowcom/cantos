@@ -102,7 +102,7 @@ pub(super) fn routes_with_artwork(
             .route("/session", post(login).get(current_session).delete(logout))
             .merge(auth::routes())
             .merge(super::bearer::routes(
-                crate::platform::bearer::core::Client::Studio,
+                crate::platform::bearer::client::Client::Studio,
             )),
         Mount::Legacy => scripts
             .route_layer(middleware::from_fn_with_state(state, authenticated))

@@ -1,6 +1,8 @@
 //! Cantos opaque credentials reuse the existing OIDC verifier, registry and provider adapter.
 //! Clients never receive provider artifacts. Transactions contain no network calls.
+pub mod client;
 pub mod core;
+pub mod credential;
 pub(crate) mod postgres;
 use crate::platform::{
     oidc::{
@@ -13,7 +15,7 @@ use crate::platform::{
 use cantos_contracts::bearer::{
     CancelRequest, ExchangeRequest, Flow, FlowRequest, RefreshRequest, Session, TokenPair,
 };
-use core::Client;
+use client::Client;
 
 pub struct BearerIdentity {
     config: OidcConfig,
@@ -46,7 +48,7 @@ impl BearerIdentity {
         store: &Store,
         state: &str,
     ) -> Result<String, AuthError> {
-        if self.client == Client::TheatreNative || !core::secret(state) {
+        if self.client == Client::TheatreNative || !credential::secret(state) {
             return Err(AuthError::State);
         }
         let (id, client_state) = postgres::reject_callback(store, &self.config, state).await?;
@@ -72,9 +74,9 @@ impl BearerIdentity {
         Ok(())
     }
     pub async fn begin(&self, store: &Store, request: FlowRequest) -> Result<Flow, AuthError> {
-        if !core::protocol(&request.state)
-            || !core::protocol(&request.nonce)
-            || !core::challenge(&request.code_challenge)
+        if !credential::protocol(&request.state)
+            || !credential::protocol(&request.nonce)
+            || !credential::challenge(&request.code_challenge)
         {
             return Err(AuthError::State);
         }
@@ -140,7 +142,7 @@ impl BearerIdentity {
         state: &str,
         code: &str,
     ) -> Result<String, AuthError> {
-        if self.client == Client::TheatreNative || !core::secret(state) || !code_valid(code) {
+        if self.client == Client::TheatreNative || !credential::secret(state) || !code_valid(code) {
             return Err(AuthError::State);
         }
         let handoff = random()?;
@@ -234,7 +236,7 @@ impl BearerIdentity {
         let result = async {
             self.authorize_subject(store, exchange.proof.key().subject())?;
             let lifetime = core::issue(
-                self.client,
+                self.client.policy(),
                 now()?,
                 exchange.proof.expires(),
                 exchange.access_expiry,
@@ -283,8 +285,8 @@ impl BearerIdentity {
         request: CancelRequest,
     ) -> Result<bool, AuthError> {
         if uuid::Uuid::parse_str(flow).is_err()
-            || !core::protocol(&request.state)
-            || !core::protocol(&request.code_verifier)
+            || !credential::protocol(&request.state)
+            || !credential::protocol(&request.code_verifier)
         {
             return Err(AuthError::State);
         }
@@ -305,7 +307,7 @@ impl BearerIdentity {
         }
     }
     pub async fn authenticate(&self, store: &Store, token: &str) -> Result<Session, AuthError> {
-        if core::access_client(token) != Some(self.client) {
+        if credential::access_client(token) != Some(self.client) {
             return Err(AuthError::InvalidToken);
         }
         let credential = postgres::credential(store, &self.config, token).await?;
@@ -355,7 +357,7 @@ impl BearerIdentity {
         self.finish_revoke(store, access).await
     }
     pub async fn logout(&self, store: &Store, token: &str) -> Result<bool, AuthError> {
-        if core::access_client(token) != Some(self.client) {
+        if credential::access_client(token) != Some(self.client) {
             return Err(AuthError::InvalidToken);
         }
         let access = postgres::revoke(store, &self.config, token, None, false).await?;
@@ -399,7 +401,7 @@ impl BearerIdentity {
     }
 }
 fn validate_refresh(request: &RefreshRequest) -> Result<(), AuthError> {
-    if !core::refresh_secret(&request.refresh_token)
+    if !credential::refresh_secret(&request.refresh_token)
         || uuid::Uuid::parse_str(&request.session_id).is_err()
     {
         return Err(AuthError::InvalidToken);
@@ -408,8 +410,8 @@ fn validate_refresh(request: &RefreshRequest) -> Result<(), AuthError> {
 }
 fn validate_exchange(flow: &str, request: &ExchangeRequest) -> Result<(), AuthError> {
     if uuid::Uuid::parse_str(flow).is_err()
-        || !core::protocol(&request.state)
-        || !core::protocol(&request.code_verifier)
+        || !credential::protocol(&request.state)
+        || !credential::protocol(&request.code_verifier)
         || !code_valid(&request.code)
     {
         return Err(AuthError::State);
@@ -443,7 +445,7 @@ struct Secrets {
 impl Secrets {
     fn new(client: Client) -> Result<Self, AuthError> {
         Ok(Self {
-            access: format!("{}{}", client.prefix(), random()?),
+            access: format!("{}{}", credential::access_prefix(client), random()?),
             refresh: format!("cr1_{}", random()?),
         })
     }

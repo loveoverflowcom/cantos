@@ -73,7 +73,7 @@ impl Store {
     pub async fn authenticate(&self, token: &str) -> Result<String, StoreError> {
         if token.starts_with("ca1_") {
             let service = self
-                .bearer(crate::platform::bearer::core::Client::Studio)
+                .bearer(crate::platform::bearer::client::Client::Studio)
                 .ok_or(StoreError::Unauthenticated)?;
             return service
                 .authenticate(self, token)

@@ -68,7 +68,7 @@ impl TheatreIdentity {
         Ok(Self {
             bearer: crate::platform::bearer::BearerIdentity::new(
                 config.clone(),
-                crate::platform::bearer::core::Client::TheatreWeb,
+                crate::platform::bearer::client::Client::TheatreWeb,
             )?,
             provider: Provider::new(config.clone())?,
             // At most3 leases in the existing8-connection pool leaves capacity for dispatch.

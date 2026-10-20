@@ -31,10 +31,10 @@ pub(super) fn routes(state: AppState, dist: Option<&str>, services: HttpServices
                 .merge(theatre_auth::routes(theatre_web))
                 .merge(theatre_native_auth::routes(theatre_native))
                 .merge(bearer::routes(
-                    crate::platform::bearer::core::Client::TheatreWeb,
+                    crate::platform::bearer::client::Client::TheatreWeb,
                 ))
                 .merge(bearer::routes(
-                    crate::platform::bearer::core::Client::TheatreNative,
+                    crate::platform::bearer::client::Client::TheatreNative,
                 ))
                 .merge(theatre_library::routes())
                 .layer(middleware::from_fn_with_state(

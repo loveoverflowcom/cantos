@@ -2,6 +2,10 @@
 
 The [#253 Bearer foundation](../../packages/contracts/bearer-v1.md) implements scoped opaque access/refresh, durable rotation/revoke and two-leg Web exchange. [#295](https://github.com/loveoverflowcom/cantos/issues/295) selects Web cookies on the custom domains with migration pending; native retains Bearer. Existing cookie handlers require review before reuse; live issuer/gateway/browser/device acceptance remains separate.
 
+The [session-policy boundary](../../docs/architecture/api-contexts.md#session-policy-and-credential-boundary)
+keeps checked immutable lifetime decisions in `platform/bearer/core.rs`, trusted registration/
+policy mapping in `bearer/client.rs` and opaque-token/protocol syntax in `bearer/credential.rs`.
+
 The `cantos-server` Rust/Axum package is one modular backend for Studio and Theatre.
 [ADR 0018](../../docs/decisions/0018-external-audio-production.md) removes server-side
 TTS and workers: no executable voice model, local/cloud TTS transport, provider dispatch

@@ -50,6 +50,21 @@ into the renamed tree. A mechanical rename alone does not establish that reconci
 Preserve the single session-policy implementation, credential prefixes/bindings,
 replay/revocation precedence and deadline semantics when resolving the renamed paths.
 
+The renamed Server now includes that reconciliation from `0611c41a` (PR #330): checked
+`SessionPolicy` and lifetime/rotation remain in `platform/bearer/core.rs`, registration mapping
+in `bearer/client.rs`, and opaque credential/protocol parsing in `bearer/credential.rs`.
+Application, PostgreSQL and inbound admission callers use those same owners. This is reuse of
+the existing implementation, with unchanged TTLs and native token format, not a second session
+engine or the native issuer cutover.
+
+For [#335](https://github.com/loveoverflowcom/cantos/issues/335), the real Identity binary and
+authenticated UDS server of #334.7 are prerequisites of the RPC client; the #333 PR-B Turso
+composition is a prerequisite of sessions, binding and atomic event checkpoints. The current
+Identity library supplies neither executable nor credential/RPC adapter, and Server still owns
+PostgreSQL persistence. Reconciled policy tests and the pre-composition controls below cannot
+accept any of those missing integration layers. Keep the old provider until its real replacement
+is available; public first-party forms and Studio passkeys retain the settled D4/D3 decisions.
+
 The [pre-composition regressions](../../services/cantos-server/tests/surface_policy_baseline.rs)
 exercise the current production API router and origin-pinned browser wrapper. They add no
 multi-origin configuration or new host composition. Prefix-shaped sentinels are deliberately
