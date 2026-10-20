@@ -1,5 +1,23 @@
 # Bounded proofs for critical API kernels
 
+## Native Identity kernels registered, not yet run
+
+The #334 [security-state library](../../services/cantos-identity/README.md) registers two
+additional kernels in the existing xtask runner. This is registration evidence only;
+the historical API campaigns below do not cover Identity.
+
+| Selector / production reach | Model and covers | Actual evidence |
+| --- | --- | --- |
+| `identity-security-version` / `SecurityVersion::{new,get,successor}` | Full raw `u64`, wider arithmetic oracle, no assumptions/stubs; unwind 2, 6 covers | NOT_RUN: no pinned Ubuntu x86_64 D1 workflow run URL/SHA or verifier output |
+| `identity-completion` / `check_completion`, checked ID/version constructors | Nonzero full-width IDs, valid storage versions, all account states/purposes/assurances; constructor-domain assumptions only, no stubs; unwind 2, 10 covers | NOT_RUN: same D1 runner/output gap |
+
+Reproducible selection: `cargo xtask verify kani --harness identity-security-version --harness identity-completion`.
+Retain the existing Kani/compiler/solver/target pins, safety and unwinding checks. Acceptance
+needs the actual #331 D1 GitHub Actions Ubuntu x86_64 `workflow_dispatch` run, exact source SHA,
+assertion/unwinding results and all cover outcomes. macOS unit/registry tests and synthetic
+verifier-bundle adapter tests are not `bounded-model-checked`; no real Turso, crypto, RPC,
+consume-once or durable revocation claim follows from these kernels.
+
 ## Recorded decision and scope
 
 Ordered assurance commit 7 selects three small production kernels after their

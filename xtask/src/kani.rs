@@ -32,15 +32,17 @@ const MAX_CONFIGURATION_BYTES: u64 = 1024 * 1024;
 pub enum Package {
     Api,
     Forge,
+    Identity,
 }
 
 impl Package {
-    pub const ALL: [Self; 2] = [Self::Api, Self::Forge];
+    pub const ALL: [Self; 3] = [Self::Api, Self::Forge, Self::Identity];
 
     pub fn name(self) -> &'static str {
         match self {
             Self::Api => "cantos-server",
             Self::Forge => "cantos-forge",
+            Self::Identity => "cantos-identity",
         }
     }
 
@@ -49,6 +51,7 @@ impl Package {
         match self {
             Self::Api => "services/cantos-server/Cargo.toml",
             Self::Forge => "services/cantos-forge-functions/Cargo.toml",
+            Self::Identity => "services/cantos-identity/Cargo.toml",
         }
     }
 
@@ -69,11 +72,13 @@ pub enum Kernel {
     ByteRange,
     PlaybackGrant,
     PublicCover,
+    IdentitySecurityVersion,
+    IdentityCompletion,
     ForgeAttemptLedger,
 }
 
 impl Kernel {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 13] = [
         Self::CatalogRevision,
         Self::ImageBounds,
         Self::WavPayload,
@@ -84,6 +89,8 @@ impl Kernel {
         Self::ByteRange,
         Self::PlaybackGrant,
         Self::PublicCover,
+        Self::IdentitySecurityVersion,
+        Self::IdentityCompletion,
         Self::ForgeAttemptLedger,
     ];
 
@@ -99,6 +106,8 @@ impl Kernel {
             Self::ByteRange => "byte-range",
             Self::PlaybackGrant => "playback-grant",
             Self::PublicCover => "public-cover",
+            Self::IdentitySecurityVersion => "identity-security-version",
+            Self::IdentityCompletion => "identity-completion",
             Self::ForgeAttemptLedger => "forge-attempt-ledger",
         }
     }
@@ -117,6 +126,7 @@ impl Kernel {
             | Self::PlaybackGrant
             | Self::PublicCover => Package::Api,
             Self::ForgeAttemptLedger => Package::Forge,
+            Self::IdentitySecurityVersion | Self::IdentityCompletion => Package::Identity,
         }
     }
 
@@ -138,6 +148,8 @@ impl Kernel {
             Self::ByteRange => "contexts::media::domain::object_storage::kani_proofs::byte_range_normalization_stays_inside_the_exact_object",
             Self::PlaybackGrant => "contexts::media::domain::playback_grant::kani_proofs::playback_grant_expiry_and_fetch_fail_closed",
             Self::PublicCover => "contexts::media::domain::public_cover::kani_proofs::public_cover_requires_pinned_bound_image_and_current_disclosure",
+            Self::IdentitySecurityVersion => "domain::security_version::kani_proofs::security_version_never_wraps_or_leaves_storage_range",
+            Self::IdentityCompletion => "domain::admission::kani_proofs::completion_requires_current_active_bound_security_state",
             Self::ForgeAttemptLedger => "domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry",
         }
     }
@@ -166,6 +178,10 @@ impl Kernel {
                 "services/cantos-server/src/contexts/media/domain/playback_grant.rs"
             }
             Self::PublicCover => "services/cantos-server/src/contexts/media/domain/public_cover.rs",
+            Self::IdentitySecurityVersion => {
+                "services/cantos-identity/src/domain/security_version.rs"
+            }
+            Self::IdentityCompletion => "services/cantos-identity/src/domain/admission.rs",
             Self::ForgeAttemptLedger => "services/cantos-forge-functions/src/domain/attempt.rs",
         }
     }
@@ -182,6 +198,8 @@ impl Kernel {
             Self::ByteRange => 6,
             Self::PlaybackGrant => 6,
             Self::PublicCover => 6,
+            Self::IdentitySecurityVersion => 6,
+            Self::IdentityCompletion => 10,
             Self::ForgeAttemptLedger => 9,
         }
     }
@@ -203,6 +221,7 @@ impl Kernel {
             Self::ByteRange => Vec::new(),
             Self::PlaybackGrant => Vec::new(),
             Self::PublicCover => Vec::new(),
+            Self::IdentitySecurityVersion | Self::IdentityCompletion => Vec::new(),
             Self::ForgeAttemptLedger => Vec::new(),
         }
     }
@@ -290,6 +309,17 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
             || path.starts_with("services/cantos-forge-functions/src/domain/")
         {
             selected.extend(Kernel::in_package(Package::Forge));
+        }
+        if matches!(
+            path.as_str(),
+            "services/cantos-identity/Cargo.toml"
+                | "services/cantos-identity/src/lib.rs"
+                | "services/cantos-identity/src/domain/mod.rs"
+                | "services/cantos-identity/src/domain/ids.rs"
+                | "services/cantos-identity/src/domain/security_version.rs"
+        ) {
+            // The completion kernel reaches the checked version/identifier constructors too.
+            selected.extend(Kernel::in_package(Package::Identity));
         }
         if path == "services/cantos-server/src/contexts/listening/mod.rs"
             || path.starts_with("services/cantos-server/src/contexts/listening/domain/")
@@ -749,7 +779,12 @@ mod tests {
     #[test]
     fn changed_kernels_select_only_registered_affected_propositions() {
         for kernel in Kernel::ALL {
-            assert_eq!(pick(&[kernel.source()], false), [kernel]);
+            let expected = if kernel == Kernel::IdentitySecurityVersion {
+                vec![Kernel::IdentitySecurityVersion, Kernel::IdentityCompletion]
+            } else {
+                vec![kernel]
+            };
+            assert_eq!(pick(&[kernel.source()], false), expected);
         }
         assert_eq!(
             pick(
@@ -812,7 +847,7 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         assert_eq!(
             Package::ALL.map(Package::name),
-            ["cantos-server", "cantos-forge"]
+            ["cantos-server", "cantos-forge", "cantos-identity"]
         );
         for package in Package::ALL {
             assert_eq!(Package::from_name(package.name()), Some(package));
@@ -866,6 +901,34 @@ mod tests {
     }
 
     #[test]
+    fn identity_proofs_select_their_real_shared_construction_dependencies() {
+        let identity = [Kernel::IdentitySecurityVersion, Kernel::IdentityCompletion];
+        assert_eq!(
+            Kernel::in_package(Package::Identity).collect::<Vec<_>>(),
+            identity
+        );
+        for path in [
+            Package::Identity.manifest(),
+            "services/cantos-identity/src/lib.rs",
+            "services/cantos-identity/src/domain/mod.rs",
+            "services/cantos-identity/src/domain/ids.rs",
+            Kernel::IdentitySecurityVersion.source(),
+        ] {
+            assert_eq!(pick(&[path], false), identity, "{path}");
+        }
+        assert_eq!(
+            pick(&[Kernel::IdentityCompletion.source()], false),
+            [Kernel::IdentityCompletion]
+        );
+        assert_eq!(pick(&["services/cantos-identity/README.md"], false), []);
+        assert_eq!(Kernel::IdentitySecurityVersion.covers(), 6);
+        assert_eq!(Kernel::IdentityCompletion.covers(), 10);
+        for kernel in identity {
+            assert!(kernel.unreachable().is_empty());
+        }
+    }
+
+    #[test]
     fn forge_attempt_ledger_registration_is_exact() {
         let kernel = Kernel::ForgeAttemptLedger;
         assert_eq!(kernel.name(), "forge-attempt-ledger");
@@ -879,7 +942,7 @@ mod tests {
         );
         assert_eq!(kernel.covers(), 9);
         assert!(kernel.unreachable().is_empty());
-        assert_eq!(Kernel::ALL.len(), 11);
+        assert_eq!(Kernel::ALL.len(), 13);
         assert_eq!(Kernel::ALL.last(), Some(&kernel));
     }
 

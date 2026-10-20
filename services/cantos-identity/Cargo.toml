@@ -1,0 +1,11 @@
+[package]
+name = "cantos-identity"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98.1"
+publish = false
+description = "Pure security-state kernels for the Cantos native Identity boundary"
+
+[lints.rust]
+# Kani injects its crate only for cfg(kani); normal builds have no verifier dependency.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

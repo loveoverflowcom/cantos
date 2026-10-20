@@ -157,6 +157,7 @@ pub mod testing {
                     "services/cantos-server",
                     &["cantos-contracts"],
                 ),
+                package("cantos-identity", "services/cantos-identity", &[]),
                 package(
                     "cantos-theatre",
                     "apps/cantos-theatre/web",

@@ -1415,14 +1415,17 @@ class PackageAllowlistTest(unittest.TestCase):
     def tearDown(self):
         self.directory.cleanup()
 
-    def test_the_allowlist_is_exactly_the_two_registered_packages_and_manifests(self):
+    def test_the_allowlist_is_exactly_the_three_registered_packages_and_manifests(self):
         # Independent of the implementation's table.
-        self.assertEqual(set(verifier.PACKAGES), {"cantos-server", "cantos-forge"})
+        self.assertEqual(set(verifier.PACKAGES), {"cantos-server", "cantos-forge", "cantos-identity"})
         self.assertEqual(
             verifier.package_registration("cantos-server")[0], "services/cantos-server/Cargo.toml"
         )
         self.assertEqual(
             verifier.package_registration("cantos-forge")[0], "services/cantos-forge-functions/Cargo.toml"
+        )
+        self.assertEqual(
+            verifier.package_registration("cantos-identity")[0], "services/cantos-identity/Cargo.toml"
         )
         self.assertEqual(verifier.DEFAULT_PACKAGE, "cantos-server")
 
@@ -1435,6 +1438,8 @@ class PackageAllowlistTest(unittest.TestCase):
         self.assertEqual(verifier.parser().parse_args(required).package, "cantos-server")
         forge = verifier.parser().parse_args([*required, "--package", "cantos-forge"])
         self.assertEqual(verifier.package_of(forge), "cantos-forge")
+        identity = verifier.parser().parse_args([*required, "--package", "cantos-identity"])
+        self.assertEqual(verifier.package_of(identity), "cantos-identity")
 
     def test_every_unregistered_name_fails_closed_without_echoing_it(self):
         for name in (
@@ -1507,6 +1512,18 @@ class PackageModelInputsTest(unittest.TestCase):
         "scripts/verify_kani.py",
         "xtask/src/kani.rs",
     )
+    IDENTITY_INPUTS = (
+        ".cargo/config.toml",
+        "Cargo.toml",
+        "services/cantos-identity/Cargo.toml",
+        "services/cantos-identity/src/lib.rs",
+        "services/cantos-identity/src/domain/mod.rs",
+        "services/cantos-identity/src/domain/ids.rs",
+        "services/cantos-identity/src/domain/security_version.rs",
+        "services/cantos-identity/src/domain/admission.rs",
+        "scripts/verify_kani.py",
+        "xtask/src/kani.rs",
+    )
     UNBOUND = (
         "Cargo.lock",
         "README.md",
@@ -1521,7 +1538,7 @@ class PackageModelInputsTest(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
-        for relative in (*self.API_INPUTS, *self.FORGE_INPUTS, *self.UNBOUND):
+        for relative in (*self.API_INPUTS, *self.FORGE_INPUTS, *self.IDENTITY_INPUTS, *self.UNBOUND):
             self.write(relative, "original " + relative + "\n")
 
     def tearDown(self):
@@ -1551,6 +1568,18 @@ class PackageModelInputsTest(unittest.TestCase):
         self.assertTrue(
             all(not path.startswith(("services/cantos-server/", "packages/")) for path in identity)
         )
+
+    def test_identity_hashes_its_complete_source_tree_and_only_shared_tooling(self):
+        original = self.digests("cantos-identity")
+        self.assertEqual(sorted(original), sorted(self.IDENTITY_INPUTS))
+        for relative in ("services/cantos-server/src/lib.rs", "services/cantos-forge-functions/src/lib.rs"):
+            self.write(relative, "other service changed\n")
+        self.assertEqual(self.digests("cantos-identity"), original)
+        self.write("services/cantos-identity/src/domain/ids.rs", "checked construction changed\n")
+        self.assertNotEqual(self.digests("cantos-identity"), original)
+        before_new_file = self.digests("cantos-identity")
+        self.write("services/cantos-identity/src/domain/new.rs", "new model input\n")
+        self.assertNotEqual(self.digests("cantos-identity"), before_new_file)
 
     def test_forge_identity_needs_no_api_or_contract_file_to_exist(self):
         for relative in self.API_INPUTS:
