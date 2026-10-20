@@ -51,7 +51,7 @@ def api_fixture(root, *, host_mode=0o755):
     (output / "cantos-api.tar.zst").write_bytes(b"compressed image fixture; decompressor mocked")
     tar_bytes(output / "runtime.tar", {"REVISION": (SHA + "\n").encode(),
         "infra/vps/bin/cantos-vps": b"#!/bin/sh\nexit 0\n", "infra/edge/Caddyfile": b"fixture",
-        "services/cantos-api/schema/legacy-epoch-1-manifest.json": b"{}"}, host_mode=host_mode)
+        "services/cantos-server/schema/legacy-epoch-1-manifest.json": b"{}"}, host_mode=host_mode)
     config = {"component": "api", "api_origin": None, "profile": "release", "platform": "linux/amd64"}
     manifest = {"schema_version": 2, "repository": contract.REPOSITORY, "target": "api",
         "source_sha": SHA, "checkout_sha": SHA, "config_sha": SHA, "deployed": False,
@@ -81,7 +81,7 @@ class VpsTests(unittest.TestCase):
             source = root / "source.tar"
             subprocess.run(["git", "archive", "--format=tar", "-o", str(source), revision,
                             "infra/vps", "infra/edge/Caddyfile",
-                            "services/cantos-api/schema/legacy-epoch-1-manifest.json"],
+                            "services/cantos-server/schema/legacy-epoch-1-manifest.json"],
                            cwd=repository, check=True)
             subprocess.run(["tar", "-xf", str(source), "-C", str(context)], check=True)
             self.assertTrue(os.access(context / entrypoint, os.X_OK))

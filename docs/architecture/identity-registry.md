@@ -7,7 +7,7 @@ sessions remain available when it is disabled. Theatre and Admin credentials rem
 
 ## Ownership and consumers
 
-`services/cantos-api/src/platform/identity` owns pure values/decisions, `IdentityRegistry`,
+`services/cantos-server/src/platform/identity` owns pure values/decisions, `IdentityRegistry`,
 `IdentityService` and the PostgreSQL adapter. Platform already owns `actors` and `sessions`.
 Explicit operator registration/linking uses the production service/adapter; application tests
 supply an atomic in-memory registry and an unavailable registry. Existing actor creation and

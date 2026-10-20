@@ -36,7 +36,7 @@ agents/human producers select their own voices, models, costs and mixing tools.
   changing published releases. Cantos may flag stale instructions, but never regenerates audio.
 - Surface submitted, rejected, incomplete and pending-review status in Studio Web.
 
-Full production/mixing occurs in the external producer, not `services/cantos-api`.
+Full production/mixing occurs in the external producer, not `services/cantos-server`.
 No backend TTS probe, local neural model, Google adapter, worker leasing, TTS receipt dispatch
 or DBSP generation-job read model may be reintroduced.
 

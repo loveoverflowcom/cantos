@@ -39,7 +39,7 @@ impl Package {
 
     pub fn name(self) -> &'static str {
         match self {
-            Self::Api => "cantos-api",
+            Self::Api => "cantos-server",
             Self::Forge => "cantos-forge",
         }
     }
@@ -47,7 +47,7 @@ impl Package {
     /// Workspace-relative manifest that must exist and carry no implicit Kani configuration.
     pub fn manifest(self) -> &'static str {
         match self {
-            Self::Api => "services/cantos-api/Cargo.toml",
+            Self::Api => "services/cantos-server/Cargo.toml",
             Self::Forge => "services/cantos-forge-functions/Cargo.toml",
         }
     }
@@ -144,24 +144,28 @@ impl Kernel {
 
     pub fn source(self) -> &'static str {
         match self {
-            Self::CatalogRevision => "services/cantos-api/src/contexts/catalog/domain/revision.rs",
-            Self::ImageBounds => "services/cantos-api/src/contexts/media/domain/image.rs",
+            Self::CatalogRevision => {
+                "services/cantos-server/src/contexts/catalog/domain/revision.rs"
+            }
+            Self::ImageBounds => "services/cantos-server/src/contexts/media/domain/image.rs",
             Self::WavPayload => {
-                "services/cantos-api/src/contexts/media/domain/wav_inspection/chunks.rs"
+                "services/cantos-server/src/contexts/media/domain/wav_inspection/chunks.rs"
             }
-            Self::SubmissionWindow => "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+            Self::SubmissionWindow => {
+                "services/cantos-server/src/contexts/media/domain/lifecycle.rs"
+            }
             Self::PublicationCommit => {
-                "services/cantos-api/src/contexts/media/domain/publication.rs"
+                "services/cantos-server/src/contexts/media/domain/publication.rs"
             }
-            Self::ListenerAccess => "services/cantos-api/src/contexts/media/domain/listening.rs",
+            Self::ListenerAccess => "services/cantos-server/src/contexts/media/domain/listening.rs",
             Self::ListenerReconcile => {
-                "services/cantos-api/src/contexts/listening/domain/reconcile.rs"
+                "services/cantos-server/src/contexts/listening/domain/reconcile.rs"
             }
-            Self::ByteRange => "services/cantos-api/src/contexts/media/domain/object_storage.rs",
+            Self::ByteRange => "services/cantos-server/src/contexts/media/domain/object_storage.rs",
             Self::PlaybackGrant => {
-                "services/cantos-api/src/contexts/media/domain/playback_grant.rs"
+                "services/cantos-server/src/contexts/media/domain/playback_grant.rs"
             }
-            Self::PublicCover => "services/cantos-api/src/contexts/media/domain/public_cover.rs",
+            Self::PublicCover => "services/cantos-server/src/contexts/media/domain/public_cover.rs",
             Self::ForgeAttemptLedger => "services/cantos-forge-functions/src/domain/attempt.rs",
         }
     }
@@ -270,11 +274,11 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
         // API build inputs reach only API kernels; Forge sources reach only the Forge kernel.
         if matches!(
             path.as_str(),
-            "services/cantos-api/Cargo.toml"
-                | "services/cantos-api/build.rs"
+            "services/cantos-server/Cargo.toml"
+                | "services/cantos-server/build.rs"
                 | "packages/contracts/api/build.rs"
-                | "services/cantos-api/src/lib.rs"
-                | "services/cantos-api/src/contexts/mod.rs"
+                | "services/cantos-server/src/lib.rs"
+                | "services/cantos-server/src/contexts/mod.rs"
                 | "packages/contracts/api/Cargo.toml"
         ) || path.starts_with("packages/contracts/api/src/")
             || path.starts_with("packages/contracts/schema/")
@@ -287,8 +291,8 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
         {
             selected.extend(Kernel::in_package(Package::Forge));
         }
-        if path == "services/cantos-api/src/contexts/listening/mod.rs"
-            || path.starts_with("services/cantos-api/src/contexts/listening/domain/")
+        if path == "services/cantos-server/src/contexts/listening/mod.rs"
+            || path.starts_with("services/cantos-server/src/contexts/listening/domain/")
         {
             selected.insert(Kernel::ListenerReconcile);
         }
@@ -299,16 +303,16 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
         }
         if matches!(
             path.as_str(),
-            "services/cantos-api/src/contexts/catalog/mod.rs"
-                | "services/cantos-api/src/contexts/catalog/domain/mod.rs"
-                | "services/cantos-api/src/contexts/catalog/domain/error.rs"
+            "services/cantos-server/src/contexts/catalog/mod.rs"
+                | "services/cantos-server/src/contexts/catalog/domain/mod.rs"
+                | "services/cantos-server/src/contexts/catalog/domain/error.rs"
         ) {
             selected.insert(Kernel::CatalogRevision);
         }
         if matches!(
             path.as_str(),
-            "services/cantos-api/src/contexts/media/mod.rs"
-                | "services/cantos-api/src/contexts/media/domain/mod.rs"
+            "services/cantos-server/src/contexts/media/mod.rs"
+                | "services/cantos-server/src/contexts/media/domain/mod.rs"
         ) {
             selected.extend([
                 Kernel::ImageBounds,
@@ -321,7 +325,7 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
                 Kernel::PublicCover,
             ]);
         }
-        if path == "services/cantos-api/src/contexts/media/domain/wav_inspection/mod.rs" {
+        if path == "services/cantos-server/src/contexts/media/domain/wav_inspection/mod.rs" {
             selected.insert(Kernel::WavPayload);
         }
     }
@@ -629,7 +633,7 @@ mod tests {
             assert!(candidates.contains(&home.join(name)));
         }
         assert!(candidates.contains(&root.join("Cargo.toml")));
-        assert!(candidates.contains(&root.join("services/cantos-api/Cargo.toml")));
+        assert!(candidates.contains(&root.join("services/cantos-server/Cargo.toml")));
     }
 
     #[test]
@@ -749,14 +753,14 @@ mod tests {
         }
         assert_eq!(
             pick(
-                &["services/cantos-api/src/contexts/catalog/domain/error.rs"],
+                &["services/cantos-server/src/contexts/catalog/domain/error.rs"],
                 false
             ),
             [Kernel::CatalogRevision]
         );
         assert_eq!(
             pick(
-                &["services/cantos-api/src/contexts/media/domain/mod.rs"],
+                &["services/cantos-server/src/contexts/media/domain/mod.rs"],
                 false
             ),
             [
@@ -776,14 +780,14 @@ mod tests {
             assert_eq!(pick(&[path], false), Kernel::ALL);
         }
         for path in [
-            "services/cantos-api/Cargo.toml",
-            "services/cantos-api/build.rs",
+            "services/cantos-server/Cargo.toml",
+            "services/cantos-server/build.rs",
             "packages/contracts/api/build.rs",
             "packages/contracts/api/Cargo.toml",
             "packages/contracts/api/src/lib.rs",
             "packages/contracts/schema/script-ir.schema.json",
-            "services/cantos-api/src/lib.rs",
-            "services/cantos-api/src/contexts/mod.rs",
+            "services/cantos-server/src/lib.rs",
+            "services/cantos-server/src/contexts/mod.rs",
         ] {
             assert_eq!(pick(&[path], false), API_KERNELS, "{path}");
         }
@@ -808,7 +812,7 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         assert_eq!(
             Package::ALL.map(Package::name),
-            ["cantos-api", "cantos-forge"]
+            ["cantos-server", "cantos-forge"]
         );
         for package in Package::ALL {
             assert_eq!(Package::from_name(package.name()), Some(package));
@@ -818,15 +822,15 @@ mod tests {
         }
         for name in [
             "",
-            "cantos-api ",
+            "cantos-server ",
             "CANTOS-FORGE",
             "cantos-contracts",
             "../cantos-forge",
-            "cantos-api,cantos-forge",
+            "cantos-server,cantos-forge",
         ] {
             assert_eq!(Package::from_name(name), None, "{name:?}");
         }
-        assert_eq!(Package::Api.manifest(), "services/cantos-api/Cargo.toml");
+        assert_eq!(Package::Api.manifest(), "services/cantos-server/Cargo.toml");
         assert_eq!(
             Package::Forge.manifest(),
             "services/cantos-forge-functions/Cargo.toml"
@@ -903,7 +907,7 @@ mod tests {
             .args
             .windows(2)
             .any(|args| args == ["--package", "cantos-forge"]));
-        assert!(!forge.args.iter().any(|arg| arg == "cantos-api"));
+        assert!(!forge.args.iter().any(|arg| arg == "cantos-server"));
         assert!(forge
             .args
             .windows(2)
@@ -913,7 +917,7 @@ mod tests {
         assert!(api
             .args
             .windows(2)
-            .any(|args| args == ["--package", "cantos-api"]));
+            .any(|args| args == ["--package", "cantos-server"]));
     }
 
     #[test]
@@ -929,8 +933,8 @@ mod tests {
             &[][..],
             &["--package"][..],
             &["--package", "cantos-contracts"][..],
-            &["--package", "cantos-api", "--package", "cantos-forge"][..],
-            &["--package", "cantos-api", "--package", "cantos-api"][..],
+            &["--package", "cantos-server", "--package", "cantos-forge"][..],
+            &["--package", "cantos-server", "--package", "cantos-server"][..],
         ] {
             assert!(command_package(&command(args)).is_err(), "{args:?}");
         }
@@ -942,10 +946,10 @@ mod tests {
         let home = Path::new("/separate/cargo-home");
         let api = configuration_candidates(root, Some(home), Package::Api);
         let forge = configuration_candidates(root, Some(home), Package::Forge);
-        assert!(api.contains(&root.join("services/cantos-api/Cargo.toml")));
+        assert!(api.contains(&root.join("services/cantos-server/Cargo.toml")));
         assert!(!api.contains(&root.join("services/cantos-forge-functions/Cargo.toml")));
         assert!(forge.contains(&root.join("services/cantos-forge-functions/Cargo.toml")));
-        assert!(!forge.contains(&root.join("services/cantos-api/Cargo.toml")));
+        assert!(!forge.contains(&root.join("services/cantos-server/Cargo.toml")));
         for candidates in [&api, &forge] {
             assert!(candidates.contains(&root.join("Cargo.toml")));
             assert!(candidates.contains(&home.join("config.toml")));
@@ -959,7 +963,7 @@ mod tests {
                 .collect::<BTreeSet<_>>()
         };
         assert_eq!(
-            shared(&api, "services/cantos-api/Cargo.toml"),
+            shared(&api, "services/cantos-server/Cargo.toml"),
             shared(&forge, "services/cantos-forge-functions/Cargo.toml")
         );
     }
@@ -1000,15 +1004,15 @@ mod tests {
         assert_eq!(api[&key("Cargo.toml")], digest("Cargo.toml"));
         assert_eq!(forge[&key("Cargo.toml")], digest("Cargo.toml"));
         assert_eq!(
-            api[&key("services/cantos-api/Cargo.toml")],
-            digest("services/cantos-api/Cargo.toml")
+            api[&key("services/cantos-server/Cargo.toml")],
+            digest("services/cantos-server/Cargo.toml")
         );
         assert!(!api.contains_key(&key("services/cantos-forge-functions/Cargo.toml")));
         assert_eq!(
             forge[&key("services/cantos-forge-functions/Cargo.toml")],
             digest("services/cantos-forge-functions/Cargo.toml")
         );
-        assert!(!forge.contains_key(&key("services/cantos-api/Cargo.toml")));
+        assert!(!forge.contains_key(&key("services/cantos-server/Cargo.toml")));
     }
 
     #[test]
@@ -1047,14 +1051,14 @@ mod tests {
         );
         // No API path selects the Forge kernel, and no Forge path selects an API kernel.
         let api_paths = [
-            "services/cantos-api/Cargo.toml",
-            "services/cantos-api/build.rs",
-            "services/cantos-api/src/lib.rs",
-            "services/cantos-api/src/contexts/mod.rs",
-            "services/cantos-api/src/contexts/media/mod.rs",
-            "services/cantos-api/src/contexts/media/domain/mod.rs",
-            "services/cantos-api/src/contexts/catalog/domain/error.rs",
-            "services/cantos-api/src/contexts/listening/domain/mod.rs",
+            "services/cantos-server/Cargo.toml",
+            "services/cantos-server/build.rs",
+            "services/cantos-server/src/lib.rs",
+            "services/cantos-server/src/contexts/mod.rs",
+            "services/cantos-server/src/contexts/media/mod.rs",
+            "services/cantos-server/src/contexts/media/domain/mod.rs",
+            "services/cantos-server/src/contexts/catalog/domain/error.rs",
+            "services/cantos-server/src/contexts/listening/domain/mod.rs",
             "packages/contracts/api/Cargo.toml",
             "packages/contracts/api/src/lib.rs",
             "packages/contracts/schema/script-ir.schema.json",

@@ -35,8 +35,8 @@ distribution or deployment.
 ## Commands
 
 ```sh
-cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
-cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experimental (opt-in incremental core; no consumer)
+cargo xtask build cantos-server [--release]          # cargo build --locked -p cantos-server --bins
+cargo xtask build cantos-server --dbsp-experimental # adds --features dbsp-experimental (opt-in incremental core; no consumer)
 cargo xtask build cantos-forge [--release]        # cargo build --locked -p cantos-forge --bins
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
@@ -47,7 +47,7 @@ cargo xtask hosting-smoke <cantos-theatre|cantos-studio> --origin ORIGIN --api-o
 cargo xtask theatre-size --apk PATH [--baseline report.json]  # offline APK size groups/deltas (no upload or install)
 cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
-cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
+cargo xtask run cantos-server [--test-cluster] [--web-origin URL]
 cargo xtask run cantos-studio --web [--test-cluster] [--web-origin URL] [--open]
 cargo xtask run cantos-theatre --web [--test-cluster] [--web-origin URL] [--open]
 cargo xtask app cantos-studio --web [--open]
@@ -84,7 +84,7 @@ cargo xtask deploy firebase cantos-theatre|cantos-studio --web --project PROJECT
   --channel live|PREVIEW_CHANNEL [--expires 7d] [--dry-run]   # explicit static Web deploy to Firebase Hosting
 cargo xtask deploy cloudflare cantos-theatre|cantos-studio --web --account ACCOUNT_ID --project NAME \
   --branch BRANCH --environment production|preview --artifact DIR [--dry-run]  # opt-in Pages Direct Upload of a release-build artifact
-cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2] \
+cargo xtask deploy vps cantos-server --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2] \
   [--smoke-origin https://API_HOST] [--dry-run]               # explicit API deploy to the production VPS
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
@@ -98,7 +98,7 @@ cargo xtask visual-compare --spike-pairs JSON [--python PATH]
 
 ### Targets, surfaces and profiles
 
-`cantos-api` is the Axum/PostgreSQL backend. `cantos-forge` is the producer-side CLI
+`cantos-server` is the Axum/PostgreSQL backend. `cantos-forge` is the producer-side CLI
 ([ADR 0022](../docs/decisions/0022-cantos-forge-producer-cli.md)); it takes no surface flag and
 xtask builds its binaries and `verify forge` checks its Rust package and offline Functions
 wrapper. Ordinary gates use fixtures and injected doubles; they never call a live provider or
@@ -156,7 +156,7 @@ archive/provenance validation, config/checkout/release revisions, expiry, strict
 freshness, context prerequisites, additive-workspace rerun refusal and component receipts.
 Cross-pipeline promotion is unsupported. No cache supplies a release or a deploy binary.
 
-Both `deploy vps cantos-api` and `deploy firebase APP --web --project ID --channel CHANNEL`
+Both `deploy vps cantos-server` and `deploy firebase APP --web --project ID --channel CHANNEL`
 accept `--release-manifest PATH --release-digest SHA256 --release-sha FULL_SHA`, together with
 `--release-request PATH` in CircleCI or `--local-artifact` outside CI. The latter is the operator's
 explicit acknowledgement of independently verified local provenance, not proof supplied by a
@@ -282,11 +282,11 @@ adds no required gate: the primitive tests run in `repository`, the command-plan
 
 | Command | Starts | Requires |
 | --- | --- | --- |
-| `run cantos-api` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
-| `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-api` |
-| `run cantos-theatre --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8082`, then `trunk serve` on 8082; checks anonymous discovery directly and through the proxy | as `run cantos-api`; a readable Theatre public catalog, including a legitimate empty page |
+| `run cantos-server` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
+| `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-server` |
+| `run cantos-theatre --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8082`, then `trunk serve` on 8082; checks anonymous discovery directly and through the proxy | as `run cantos-server`; a readable Theatre public catalog, including a legitimate empty page |
 | `app cantos-theatre --web` | only `trunk serve` on 8082; warns prominently when the existing API's public catalog cannot be reached or decoded | no API for explicit offline previews (which need `TRUNK_BUILD_FEATURES=preview`, see below); live mode needs an API already listening on 8080 |
-| `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-api --web-origin http://127.0.0.1:8081` |
+| `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-server --web-origin http://127.0.0.1:8081` |
 
 **Theatre preview lane.** Theatre Web's offline previews (`?mode=mock`, `?mode=auth-preview`,
 `?mode=membership-preview`) are compiled only by the opt-in Cargo feature `preview`; a default
@@ -312,7 +312,7 @@ See the [decision and evidence ledger](../docs/evidence/theatre-local-run.md).
 Web `run` profiles select their actual Trunk origin. An explicit `--web-origin` must exactly
 match `http://127.0.0.1:8081` for Studio or `http://127.0.0.1:8082` for Theatre; a different
 port or `localhost` is rejected before launch. Host identity matters for cookies and callbacks.
-Standalone `run cantos-api --web-origin URL` remains configurable within its loopback HTTP
+Standalone `run cantos-server --web-origin URL` remains configurable within its loopback HTTP
 origin contract. `app` starts no API and takes neither `--web-origin` nor `--test-cluster`.
 The development host has one Web origin; simultaneous Studio and Theatre authentication
 against that one host is not established by these profiles.
@@ -387,7 +387,7 @@ without retaining its database. The primitive `scripts/seed_theatre.py`:
   inherited `PG*`/`CANTOS_*` variable;
 - confirms with `SHOW data_directory` that the recorded loopback port is still served by that
   retained `pgdata` before any write;
-- runs `cargo test -p cantos-api --test catalog_http_postgres -- --ignored --exact
+- runs `cargo test -p cantos-server --test catalog_http_postgres -- --ignored --exact
   …::theatre_development_catalog_seed` with `CANTOS_TEST_CLUSTER_URL` set to the retained
   admin URL. The test publishes through the real Studio HTTP routes, app-role SQL and private
   Ogg/Opus intake, automatic promotion to a separate publication filesystem, and actual-byte delivery;
@@ -529,10 +529,10 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `rust-lint` | `cargo clippy <workspace or -p …> [--features cantos-theatre/preview] --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> [--features cantos-theatre/preview] --locked` | cargo |
 | `forge-functions` | `cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target`, then `node --test test/boundary.test.mjs test/native-worker.test.mjs` in `services/cantos-forge-functions/firebase` | cargo, installed stable Node.js 22+ |
-| `dbsp` | `cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings`; `cargo test -p cantos-api --features dbsp-experimental --locked` | clippy |
-| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets | cargo |
-| `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
-| `audio-inspection` | `cargo test -p cantos-api --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
+| `dbsp` | `cargo clippy -p cantos-server --features dbsp-experimental --all-targets --locked -- -D warnings`; `cargo test -p cantos-server --features dbsp-experimental --locked` | clippy |
+| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-server` Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets | cargo |
+| `wav-reference` | `cargo build -p cantos-server --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
+| `audio-inspection` | `cargo test -p cantos-server --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
 | `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview,cantos-theatre/preview --locked -- -D warnings`, then the production lane `cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings` | clippy, wasm32 target |
 | `web-build` | `trunk build --locked` per Web client (Theatre: the production lane, no previews) | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
@@ -681,7 +681,7 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   `cmp-ui-preview` and `theatre-cmp-preview`. Package-local CMP source, Gradle and resource changes
   select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
-  An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
+  An affected `cantos-server` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
 - Non-document inputs beneath `services/cantos-forge-functions` select its Rust lint/tests and
   `forge-functions`; they do not select the API, database or Web clients.
 - Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-preview` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
@@ -731,8 +731,8 @@ kernels: `catalog-revision`, `image-bounds`, `wav-payload`, `submission-window`,
 `publication-commit`, `listener-access`, `listener-reconcile`, `byte-range`, `playback-grant`
 and `public-cover`. One is in the `cantos-forge` package: `forge-attempt-ledger`
 (`services/cantos-forge-functions/src/domain/attempt.rs`). Every kernel names exactly one workspace package
-(the closed allowlist is `cantos-api` and `cantos-forge`) and passes it to the primitive as
-`--package`; the primitive refuses any other name, and an absent value means `cantos-api`.
+(the closed allowlist is `cantos-server` and `cantos-forge`) and passes it to the primitive as
+`--package`; the primitive refuses any other name, and an absent value means `cantos-server`.
 Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
 fully qualified harness names, unwind 2, expected covers (6/13/7/8/6/5/7/6/6/6 for the API
@@ -779,7 +779,7 @@ implicit Kani manifest/Cargo configuration are rejected rather than weakening th
 additional Python 3.11/TOML parser is required. Rust uses the already locked TOML parser.
 It hashes the exact bytes it approves and binds existing and absent root/ancestor/Cargo-home
 configuration candidates to each proof command. The required manifests are the workspace
-manifest and the owning package's manifest only (`services/cantos-api/Cargo.toml` or
+manifest and the owning package's manifest only (`services/cantos-server/Cargo.toml` or
 `services/cantos-forge-functions/Cargo.toml`); Rust computes one snapshot per package and the primitive
 re-derives the identical set from the same package name, so an approval for one package is
 never accepted for the other. The primitive refuses stale approval before
@@ -985,7 +985,7 @@ build/run commands keeps relative Trunk-proxy paths;
 cross-site web.app authentication is not accepted. See the [current topology/runbook](../docs/deployment/vps-production.md).
 
 **Request.** The app (`cantos-theatre` or `cantos-studio`, nothing else), `--web`, `--project` and
-`--channel` are required and never defaulted; `cantos-api`, `cantos-forge`, `all` and mobile are
+`--channel` are required and never defaulted; `cantos-server`, `cantos-forge`, `all` and mobile are
 rejected before any tool runs (usage error, exit 2; Theatre mobile is `UNSUPPORTED` like `build`).
 Four identifiers stay distinct: the **project ID** (`--project`), the **Hosting site ID** (read from
 the operator's `.firebaserc`), the **deploy target** (`cantos-theatre` → `theatre`, `cantos-studio` →
@@ -1135,19 +1135,19 @@ a second provider adapter, long-lived caching of hashed assets. Real-account acc
 
 ```sh
 # Plan only: resolves HEAD and prints every step; builds, uploads and runs nothing.
-cargo xtask deploy vps cantos-api --host root@HOST --dry-run
+cargo xtask deploy vps cantos-server --host root@HOST --dry-run
 # One-time and idempotent host setup from the committed infra/vps bundle (no image).
-cargo xtask deploy vps cantos-api --host root@HOST --bootstrap
+cargo xtask deploy vps cantos-server --host root@HOST --bootstrap
 # Existing host only: validate/restart installed browser configuration, no SQL or secrets.
-cargo xtask deploy vps cantos-api --host root@HOST --reload-browser
+cargo xtask deploy vps cantos-server --host root@HOST --reload-browser
 # Build HEAD's image here, upload, then backup -> migrate -> grants -> switch -> health gate.
-cargo xtask deploy vps cantos-api --host root@HOST --smoke-origin https://api.example.org
-cargo xtask deploy vps cantos-api --host root@HOST --rollback   # previous image
-cargo xtask deploy vps cantos-api --host root@HOST --status     # read-only
+cargo xtask deploy vps cantos-server --host root@HOST --smoke-origin https://api.example.org
+cargo xtask deploy vps cantos-server --host root@HOST --rollback   # previous image
+cargo xtask deploy vps cantos-server --host root@HOST --status     # read-only
 # Explicit same-epoch registry-suffix sibling upgrade ([1]->[1,2], [1,2]->[1,2,3]); native Linux x86_64 only.
-cargo xtask deploy vps cantos-api --host root@HOST --upgrade-epoch2-prefix --dry-run
+cargo xtask deploy vps cantos-server --host root@HOST --upgrade-epoch2-prefix --dry-run
 # Explicit narrow legacy conversion; inspect the complete plan first.
-cargo xtask deploy vps cantos-api --host root@HOST --cutover-epoch2 --dry-run
+cargo xtask deploy vps cantos-server --host root@HOST --cutover-epoch2 --dry-run
 ```
 
 The third opt-in remote write ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md),

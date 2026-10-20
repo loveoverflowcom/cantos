@@ -275,7 +275,7 @@ specific approval for the concrete environment, identities and authority.
 
 #### Explicit host inputs
 
-[`config::from_lookup`](../cantos-api/src/platform/theatre_registration/config.rs) composes
+[`config::from_lookup`](../cantos-server/src/platform/theatre_registration/config.rs) composes
 registration without discovery, a provider call, SMTP connection or bootstrap. By default all
 registration/SMTP inputs are absent and the module is off. An explicit `ENABLED=false` is also
 off **only when every other registration/SMTP input is absent**. Partial/orphan configuration,

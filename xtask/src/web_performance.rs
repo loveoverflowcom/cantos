@@ -198,7 +198,7 @@ mod tests {
             .command,
             Task::WebPerformance(_)
         ));
-        assert!(Cli::try_parse_from(["cargo xtask", "web-performance", "cantos-api"]).is_err());
+        assert!(Cli::try_parse_from(["cargo xtask", "web-performance", "cantos-server"]).is_err());
         assert!(Cli::try_parse_from([
             "cargo xtask",
             "web-performance",

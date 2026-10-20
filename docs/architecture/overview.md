@@ -36,7 +36,7 @@ Theatre never triggers synthesis. Static Firebase Hosting serves the Web bundles
 separate deployment boundary from Functions and the VPS API.
 
 Application code, deployment assets and developer orchestration have separate owners:
-`services/cantos-api` remains the authoritative modular backend, Forge code lives at
+`services/cantos-server` remains the authoritative modular backend, Forge code lives at
 `services/cantos-forge-functions` with the `cantos-forge` package/CLI identity,
 [`infra/`](../../infra/README.md) holds deployment assets, and `xtask/` owns commands. #212 is only
 the mechanical infrastructure boundary; #203 owns the separate producer runtime. Source

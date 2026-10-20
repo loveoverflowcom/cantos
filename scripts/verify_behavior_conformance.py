@@ -17,7 +17,7 @@ from verify_kani import FORBIDDEN_ENVIRONMENT, KaniError, bounded_run, configura
 CAPABILITY = "cantos.media.private-audio-admission"
 SCHEMA = "cantos-private-audio-admission-observation-v1"
 SCRIPT = "scripts/verify_behavior_conformance.py"
-OBSERVER = "services/cantos-api/src/contexts/media/quint_conformance_tests.rs"
+OBSERVER = "services/cantos-server/src/contexts/media/quint_conformance_tests.rs"
 TEST = "contexts::media::domain::lifecycle::tests::quint_conformance_tests::replay_quint_private_admission"
 ERRORS = {"PermissionRevoked", "PermissionExpired", "InvalidExpiry", "StaleBrief", "DigestMismatch", "OperationReused"}
 OWNERS = {"AwaitingBytes", "OwnerAdmitted", "Expired", "Revoked", "Stale"}
@@ -139,12 +139,12 @@ def decode_trace(raw):
 def snapshot(root, behavior):
     """Pin implementation, fixture, compiler configuration and comparison inputs."""
     paths = {SCRIPT, "scripts/test_verify_behavior_conformance.py", "Cargo.toml", "Cargo.lock", ".cargo/config.toml", "rust-toolchain.toml"}
-    for directory in ("services/cantos-api", "packages/contracts/api"):
+    for directory in ("services/cantos-server", "packages/contracts/api"):
         paths.add(directory + "/Cargo.toml")
         paths.update(str(path.relative_to(root)) for path in (root / directory / "src").rglob("*.rs"))
     paths.update(str(path.relative_to(root)) for path in (root / "packages/contracts/fixtures/briefs").rglob("*.json"))
     paths.update(str(path.relative_to(root)) for path in (root / "packages/contracts/schema").rglob("*.json"))
-    for relative in ("services/cantos-api/build.rs", "packages/contracts/api/build.rs", "rust-toolchain", "rust-toolchain.toml"):
+    for relative in ("services/cantos-server/build.rs", "packages/contracts/api/build.rs", "rust-toolchain", "rust-toolchain.toml"):
         if (root / relative).exists():
             paths.add(relative)
     return {path: behavior.digest(behavior.local_path(root, path)) for path in sorted(paths)}
@@ -351,7 +351,7 @@ def execute(root, cap, bundle, report, versions, inputs, revision, behavior):
         env = observer_environment(behavior, input_path, output_path, fault)
         cargo = result["implementationTools"]["cargo"]["toolchainBinary"]
         env["RUSTC"] = result["implementationTools"]["rustc"]["toolchainBinary"]
-        command = [cargo, "test", "-p", "cantos-api", "--lib", "--locked", "--offline", TEST, "--", "--ignored", "--exact", "--nocapture"]
+        command = [cargo, "test", "-p", "cantos-server", "--lib", "--locked", "--offline", TEST, "--", "--ignored", "--exact", "--nocapture"]
         entry = {"label": label, "argv": command, "cwd": str(root), "timeoutSeconds": 180,
                  "inputSha256": behavior.digest(input_path), "fault": fault, "rustc": env["RUSTC"]}
         result["commands"].append(entry)

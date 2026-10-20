@@ -53,7 +53,7 @@ installed edge has it. Keep authentication unavailable rather than disabling bro
 ## Read-only inventory
 
 ```bash
-cargo xtask deploy vps cantos-api --host root@42.96.18.245 --status
+cargo xtask deploy vps cantos-server --host root@42.96.18.245 --status
 firebase hosting:sites:list --project cantos-a348b --json
 firebase hosting:channel:list --site cantoss-theatre --project cantos-a348b \
   --config /ABS/PATH/infra/firebase/hosting/firebase.json --json
@@ -130,7 +130,7 @@ CANTOS_STUDIO_OIDC_CALLBACK=https://api.cantos.cc/api/v1/studio/auth/callback
 Keep a root-only copy of the previous edge/API/callback files. The existing authorized
 `cantos-vps identity --reconcile-existing` updates only existing clients, preserves accounts,
 groups, roster and credential digests, and renders API env files. Apply the reviewed config
-with `cargo xtask deploy vps cantos-api --host root@42.96.18.245 --reload-browser`; this lane
+with `cargo xtask deploy vps cantos-server --host root@42.96.18.245 --reload-browser`; this lane
 avoids bootstrap, SQL, migrations, secret changes and image replacement. Build/deploy both Web
 apps with `CANTOS_API_ORIGIN=https://api.cantos.cc` through their existing explicit Hosting
 commands. Preserve host-only Secure/HttpOnly Strict sessions, Lax flow cookies and CSRF guards.
@@ -218,9 +218,9 @@ Use the [xtask command contracts](../../xtask/README.md#deploy-vps) and the
 host, or Firebase project/channel/app. An audit/PR request is not deployment permission.
 
 ```bash
-cargo xtask deploy vps cantos-api --host root@42.96.18.245 --dry-run
-cargo xtask deploy vps cantos-api --host root@42.96.18.245 --bootstrap --dry-run
-cargo xtask deploy vps cantos-api --host root@42.96.18.245 --cutover-epoch2 --dry-run
+cargo xtask deploy vps cantos-server --host root@42.96.18.245 --dry-run
+cargo xtask deploy vps cantos-server --host root@42.96.18.245 --bootstrap --dry-run
+cargo xtask deploy vps cantos-server --host root@42.96.18.245 --cutover-epoch2 --dry-run
 CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org \
   cargo xtask deploy firebase cantos-theatre --web --project cantos-a348b --channel live --dry-run
 CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org \
@@ -333,7 +333,7 @@ storage mount**. A release played by Theatre uses the separate
 change deliberately does **not** enable.
 
 When Long Vân is ready, add `[storage.targets.longvan-hn1]` from the
-[Long Vân example](../../services/cantos-api/config/storage.longvan.example.toml)
+[Long Vân example](../../services/cantos-server/config/storage.longvan.example.toml)
 to that same TOML and choose `active_write_target = "longvan-hn1"`. **Retain**
 `legacy-filesystem` with its original root for every historical audio receipt.
 External secrets are supplied by operator-managed API EnvironmentFile/Podman
@@ -370,7 +370,7 @@ are in [infra/vps](../../infra/vps/README.md). Preserve volumes `cantos-postgres
 `cantos-postgres-socket`, `cantos-kanidm-data`, `cantos-edge-data` and `cantos-edge-config`.
 The edge publishes 80/443; host SSH is separately operator managed. Never prune persistent data.
 
-API rollback: `cargo xtask deploy vps cantos-api --host root@42.96.18.245 --rollback` (remote write).
+API rollback: `cargo xtask deploy vps cantos-server --host root@42.96.18.245 --rollback` (remote write).
 Rollback swaps the API image only after its epoch label and read-only schema check pass.
 Restore requires exactly the dump and its `.schema-epoch` sidecar in the checksum manifest,
 epoch 2 and a compatible current image/database, takes a `pre-restore` backup, stops both APIs
@@ -416,7 +416,7 @@ Reboot persistence, failed-health switch-back and native playback each need thei
 
 ## Verified artifact promotion
 
-`cargo xtask deploy vps cantos-api --host USER@HOST --smoke-origin https://api.example.org
+`cargo xtask deploy vps cantos-server --host USER@HOST --smoke-origin https://api.example.org
 --release-manifest PATH --release-digest SHA256 --release-sha FULL_SHA` consumes an already-built
 manifest v2 release. Add `--release-request PATH` inside its trusted CircleCI workflow, or
 `--local-artifact` outside CI after independently qualifying producer/source/provenance.

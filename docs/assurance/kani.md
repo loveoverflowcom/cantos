@@ -37,9 +37,9 @@ rerun after a rebase or relevant dependency/toolchain change:
 
 | Source | SHA-256 |
 | --- | --- |
-| `services/cantos-api/src/contexts/catalog/domain/revision.rs` | `9e31570514f79fda5ad9ac4dae4e04158deae3cf490edeb32e3489407fcd4f9f` |
-| `services/cantos-api/src/contexts/media/domain/wav_inspection/chunks.rs` | `9507128e47b0d638e7e864e1850a699dd88a009bfb1f2c3b059df1ad2bae6db8` |
-| `services/cantos-api/src/contexts/media/domain/lifecycle.rs` | `2f7b823fe1e73170ce0e6587477d075dc51babc14cf2a0afe00d799d5ccd9ddb` |
+| `services/cantos-server/src/contexts/catalog/domain/revision.rs` | `9e31570514f79fda5ad9ac4dae4e04158deae3cf490edeb32e3489407fcd4f9f` |
+| `services/cantos-server/src/contexts/media/domain/wav_inspection/chunks.rs` | `9507128e47b0d638e7e864e1850a699dd88a009bfb1f2c3b059df1ad2bae6db8` |
+| `services/cantos-server/src/contexts/media/domain/lifecycle.rs` | `2f7b823fe1e73170ce0e6587477d075dc51babc14cf2a0afe00d799d5ccd9ddb` |
 
 `Cargo.lock` before and after execution was SHA-256
 `1967688497c7d1cf4a62bbfa79ab8b7cc2646bd619cb82649831051a336ab7e8`.
@@ -72,11 +72,11 @@ There were no counterexamples or failed unwinding obligations.
 From the repository root, with the isolated Kani environment loaded:
 
 ```sh
-CARGO_BUILD_JOBS=2 cargo kani -p cantos-api --lib --no-default-features \
+CARGO_BUILD_JOBS=2 cargo kani -p cantos-server --lib --no-default-features \
   --harness catalog_revision_admission_and_successor --unwind 2 --target-dir target/phase2-kani
-CARGO_BUILD_JOBS=2 cargo kani -p cantos-api --lib --no-default-features \
+CARGO_BUILD_JOBS=2 cargo kani -p cantos-server --lib --no-default-features \
   --harness wav_payload_range_is_checked --unwind 2 --target-dir target/phase2-kani
-CARGO_BUILD_JOBS=2 cargo kani -p cantos-api --lib --no-default-features \
+CARGO_BUILD_JOBS=2 cargo kani -p cantos-server --lib --no-default-features \
   --harness submission_window_admission_and_membership --unwind 2 --target-dir target/phase2-kani
 ```
 
@@ -169,7 +169,7 @@ harness is:
 
 ```sh
 "$KANI_HOME/kani-0.68.0/bin/kani-driver" kani \
-  --manifest-path "$REPO/Cargo.toml" -p cantos-api --lib --no-default-features \
+  --manifest-path "$REPO/Cargo.toml" -p cantos-server --lib --no-default-features \
   --exact --harness "$REGISTERED_FULLY_QUALIFIED_HARNESS" --unwind 2 \
   --solver cadical --output-format regular --target-dir "$REPO/target/assurance-kani"
 ```

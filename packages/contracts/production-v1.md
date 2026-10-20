@@ -189,7 +189,7 @@ triggers reject update/delete/truncate. Runtime roles get SELECT/INSERT on produ
 EXECUTE on the migration-owner's narrow `production_lock_actor(text)` /
 `production_lock_member(text,text)` helpers. No authority-table UPDATE privilege is granted.
 Fixed search path/qualified SQL and revoked PUBLIC execution bound these share-lock helpers;
-[server rollout grants](../../services/cantos-api/README.md#casting-and-production-input-authorization)
+[server rollout grants](../../services/cantos-server/README.md#casting-and-production-input-authorization)
 name the exact signatures. Current actor,
 session, owner/membership and script locks make permission checks and decisions transactional.
 The operation identity is `(script, actor, operation_id)` within each operation kind; exact

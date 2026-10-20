@@ -47,8 +47,8 @@ const DOCUMENT_TREES: [&str; 5] = ["docs", "templates", ".agents", ".claude", ".
 const REPOSITORY_FILES: [&str; 3] = [".editorconfig", ".gitignore", ".env.example"];
 const CONTRACTS: &str = "packages/contracts";
 const CONTRACTS_PACKAGE: &str = "cantos-contracts";
-const SCRIPT_IR_SOURCES: &str = "services/cantos-api/src/script_ir";
-const SCRIPT_IR_TESTS: &str = "services/cantos-api/tests/script_ir.rs";
+const SCRIPT_IR_SOURCES: &str = "services/cantos-server/src/script_ir";
+const SCRIPT_IR_TESTS: &str = "services/cantos-server/tests/script_ir.rs";
 const SCRIPT_IR_FIXTURES: &str = "packages/contracts/fixtures/script-ir";
 
 pub fn within(path: &str, dir: &str) -> bool {
@@ -163,9 +163,9 @@ fn conformance_input(path: &str) -> bool {
         crate::behavior::CONFORMANCE_SCRIPT,
         crate::behavior::OBSERVER,
         "scripts/test_verify_behavior_conformance.py",
-        "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
-        "services/cantos-api/src/contexts/media/lifecycle_tests.rs",
-        "services/cantos-api/src/contexts/production/domain/brief.rs",
+        "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
+        "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
+        "services/cantos-server/src/contexts/production/domain/brief.rs",
         "packages/contracts/api/src/audio_lifecycle.rs",
         "packages/contracts/api/src/audio_intake.rs",
     ]
@@ -334,7 +334,7 @@ mod tests {
             crate::behavior::CONFORMANCE_SCRIPT,
             "scripts/test_verify_behavior_conformance.py",
             crate::behavior::OBSERVER,
-            "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+            "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
         ] {
             let selection = pick(&[path]);
             assert!(
@@ -436,7 +436,7 @@ mod tests {
             "README.md",
             "docs/architecture/overview.md",
             ".agents/skills/cantos-engineering/SKILL.md",
-            "services/cantos-api/README.md",
+            "services/cantos-server/README.md",
             "packages/contracts/adaptation-v1.md",
             "packages/ui-system/README.md",
             ".github/pull_request_template.md",
@@ -473,8 +473,8 @@ mod tests {
             [
                 "repository",
                 "rust-format",
-                "rust-lint (cantos-api, cantos-contracts, cantos-studio, cantos-theatre, cantos-web-auth)",
-                "rust-tests (cantos-api, cantos-contracts, cantos-studio, cantos-theatre, cantos-web-auth)",
+                "rust-lint (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
+                "rust-tests (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
                 "dbsp",
                 "wav-reference",
                 "audio-inspection",
@@ -507,23 +507,23 @@ mod tests {
     fn script_ir_fixtures_and_markdown_manuscripts_are_contract_inputs() {
         let selection = pick(&["packages/contracts/fixtures/script-ir/0.1.0/cases.json"]);
         assert!(selection.gates.contains(&Gate::ScriptIrReference));
-        assert!(selection.affected.contains("cantos-api"));
+        assert!(selection.affected.contains("cantos-server"));
         let manuscript = pick(&["packages/contracts/fixtures/manuscript/chapter-vi.md"]);
-        assert!(manuscript.affected.contains("cantos-api"));
+        assert!(manuscript.affected.contains("cantos-server"));
         assert!(!manuscript.gates.contains(&Gate::ScriptIrReference));
     }
 
     #[test]
     fn script_ir_sources_add_the_mutation_gate() {
         for path in [
-            "services/cantos-api/src/script_ir/validation.rs",
-            "services/cantos-api/tests/script_ir.rs",
+            "services/cantos-server/src/script_ir/validation.rs",
+            "services/cantos-server/tests/script_ir.rs",
             "scripts/mutate_script_ir.py",
         ] {
             assert!(pick(&[path]).gates.contains(&Gate::Mutation), "{path}");
         }
         assert!(
-            !pick(&["services/cantos-api/src/adapters/inbound/http/mod.rs"])
+            !pick(&["services/cantos-server/src/adapters/inbound/http/mod.rs"])
                 .gates
                 .contains(&Gate::Mutation)
         );
@@ -531,14 +531,14 @@ mod tests {
 
     #[test]
     fn an_api_change_does_not_build_unrelated_web_clients() {
-        let selection = pick(&["services/cantos-api/schema/0001_current.sql"]);
+        let selection = pick(&["services/cantos-server/schema/0001_current.sql"]);
         assert_eq!(
             names(&selection),
             [
                 "repository",
                 "rust-format",
-                "rust-lint (cantos-api)",
-                "rust-tests (cantos-api)",
+                "rust-lint (cantos-server)",
+                "rust-tests (cantos-server)",
                 "dbsp",
                 "wav-reference",
                 "audio-inspection",
@@ -597,8 +597,8 @@ mod tests {
     #[test]
     fn media_sources_and_audio_contract_inputs_require_actual_media_inspection() {
         for path in [
-            "services/cantos-api/src/contexts/media/audio_intake.rs",
-            "services/cantos-api/tests/audio_intake.rs",
+            "services/cantos-server/src/contexts/media/audio_intake.rs",
+            "services/cantos-server/tests/audio_intake.rs",
             "packages/contracts/api/src/audio_intake.rs",
             "packages/contracts/schema/audio-intake/v1.schema.json",
             "packages/contracts/fixtures/audio-intake/v1/receipt-response.json",
@@ -657,7 +657,7 @@ mod tests {
             ])),
             ["repository", "rust-format"]
         );
-        // Its offline unit tests run in repository; the seed test itself is a cantos-api test.
+        // Its offline unit tests run in repository; the seed test itself is a cantos-server test.
         let seed = pick(&["scripts/seed_theatre.py", "scripts/test_seed_theatre.py"]);
         assert_eq!(seed.broadened, None);
         assert_eq!(names(&seed), ["repository", "rust-format"]);

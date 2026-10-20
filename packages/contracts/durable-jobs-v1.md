@@ -11,7 +11,7 @@ approval and [TTS receipt v1](tts-receipt-v1.md) owns attempt/audio admission. T
 
 ## Execution boundary
 
-`production-jobs` and `cantos-worker` are binaries in `services/cantos-api`, sharing the same
+`production-jobs` and `cantos-worker` are binaries in `services/cantos-server`, sharing the same
 PostgreSQL store and pure `jobs` rules as the backend. No new crate, microservice, broker,
 generic provider framework, HTTP route or shared wire DTO is introduced. Both CLIs require
 `CANTOS_ENV=development` and `CANTOS_DATABASE_URL`; it is rejected unless it names a permitted

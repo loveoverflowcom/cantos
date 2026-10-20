@@ -7,7 +7,7 @@ runtime boundary; [manifest.toml](manifest.toml) is the versioned process invent
 
 | Service | Runtime | Current state | Owner |
 | --- | --- | --- | --- |
-| `cantos-api` | native Rust/Axum (development); Podman Quadlet image on the VPS (production) | implemented; deployed as two single-origin processes ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md), [runbook](../docs/deployment/vps-production.md)) | backend maintainers |
+| `cantos-server` | native Rust/Axum (development); Podman Quadlet image on the VPS (production) | implemented; deployed as two single-origin processes ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md), [runbook](../docs/deployment/vps-production.md)) | backend maintainers |
 | `cantos-forge-functions` | Rust producer library/CLI/finite worker, Node process adapter | existing CLI retained, local attempt persistence; HTTP unavailable, no registered local service or live Functions acceptance | producer maintainers |
 | `postgresql` | rootless Podman OCI | local runtime configuration; backend SQL and native verification implemented | infrastructure operator |
 | `kanidm` | rootless Podman OCI (local); Quadlet on the VPS | API Studio/Theatre OIDC adapters implemented; running privately on the VPS behind the edge, live clients/accounts created only by the operator-run `cantos-vps identity` | identity operator |
@@ -15,7 +15,7 @@ runtime boundary; [manifest.toml](manifest.toml) is the versioned process invent
 
 The API is the authoritative modular content backend, not a restriction to one possible service
 process. Application/domain/API contracts do not depend on the container runtime. `services/`
-holds service implementations and their canonical local definitions/guides. `cantos-api` and
+holds service implementations and their canonical local definitions/guides. `cantos-server` and
 `cantos-forge-functions` are Cargo members; the latter preserves the `cantos-forge` package and
 CLI identity. Source placement does not register Forge in the local process inventory or
 establish Functions packaging, deployment or provider acceptance.

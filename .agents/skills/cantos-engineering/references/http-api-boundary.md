@@ -8,7 +8,7 @@
 Listener-facing contracts are owned by [`cantos-listening`](../../cantos-listening/references/listener-api.md);
 this reference owns the general shape every endpoint follows. Implemented today: the Studio v1,
 manuscript import, adaptation and production-input contracts in
-[`services/cantos-api/src/adapters/inbound/http`](../../../../services/cantos-api/src/adapters/inbound/http/mod.rs) (`studio`, `theatre`, `admin`), each with a
+[`services/cantos-server/src/adapters/inbound/http`](../../../../services/cantos-server/src/adapters/inbound/http/mod.rs) (`studio`, `theatre`, `admin`), each with a
 hand-authored JSON Schema, fixtures and raw DTOs in `cantos-contracts` shared by the server and the
 Studio ([contracts README](../../../../packages/contracts/README.md)). There is no OpenAPI document,
 no generated client. The [Theatre Discovery/Playback v1 core](../../../../packages/contracts/theatre-discovery-v1.md) adds a strict public-only listener JSON boundary; actual PG/public delivery and generated-client acceptance are pending. Whether a route also carries MessagePack is owned by
@@ -27,7 +27,7 @@ adapter; shared code is middleware, error mapping, domain modules and the Postgr
 Rules: a handler never calls another group's handler; a session for one surface grants nothing on
 another (cookies are scoped by `Path`); a reserved group gets routes only with real behavior, never
 mock data; the unprefixed `/api/v1/*` Studio paths are a deprecated alias that shares Studio
-handlers and gets no new routes. Oracle: `services/cantos-api/tests/surface_routes.rs`.
+handlers and gets no new routes. Oracle: `services/cantos-server/tests/surface_routes.rs`.
 
 ## A handler is a shell
 
@@ -91,12 +91,12 @@ to `InvalidRequest`/`Unavailable`. Classification is based on meaning, not a dri
 
 ### Current code and incremental application
 
-[`CatalogError`](../../../../services/cantos-api/src/contexts/catalog/domain/error.rs) is pure;
-[`CatalogStoreError`](../../../../services/cantos-api/src/contexts/catalog/application/mod.rs)
+[`CatalogError`](../../../../services/cantos-server/src/contexts/catalog/domain/error.rs) is pure;
+[`CatalogStoreError`](../../../../services/cantos-server/src/contexts/catalog/application/mod.rs)
 wraps domain/storage errors and context cases;
-[`catalog_error` / `domain_error`](../../../../services/cantos-api/src/adapters/inbound/http/studio/catalog.rs)
+[`catalog_error` / `domain_error`](../../../../services/cantos-server/src/adapters/inbound/http/studio/catalog.rs)
 maps them to responses. Shared
-[`StoreError`](../../../../services/cantos-api/src/application.rs) still mixes
+[`StoreError`](../../../../services/cantos-server/src/application.rs) still mixes
 application outcomes with storage failures; its PostgreSQL conversion currently maps driver
 failures to `Unavailable`. This is an implementation observation, not a claim that context-owned
 port errors or a complete taxonomy are implemented everywhere. Improve only a touched boundary

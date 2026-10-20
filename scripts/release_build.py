@@ -82,7 +82,7 @@ def android_version(root):
 def runtime_archive(context, destination):
     with tarfile.open(destination, "w") as archive:
         paths = [context / "REVISION", context / "infra/edge/Caddyfile",
-                 context / "services/cantos-api/schema/legacy-epoch-1-manifest.json"]
+                 context / "services/cantos-server/schema/legacy-epoch-1-manifest.json"]
         paths += sorted((context / "infra/vps").rglob("*"))
         for path in paths:
             if path.is_dir():
@@ -121,7 +121,7 @@ def build(root, target, sha, output, origin=API_ORIGIN):
                 "schema_epoch": 2}, indent=2) + "\n")
             (context / "REVISION").write_text(sha + "\n")
             runtime_archive(context, output / "runtime.tar")
-        return {"name": tomllib.loads((root / "services/cantos-api/Cargo.toml").read_text())["package"]["version"]}
+        return {"name": tomllib.loads((root / "services/cantos-server/Cargo.toml").read_text())["package"]["version"]}
     if target in ("theatre-web", "studio-web"):
         app = "cantos-" + target.removesuffix("-web")
         dist = root / "apps" / app / "web/dist"

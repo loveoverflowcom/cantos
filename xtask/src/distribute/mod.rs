@@ -549,7 +549,7 @@ mod tests {
         );
         for target in [
             crate::build::BuildTarget::All,
-            crate::build::BuildTarget::CantosApi,
+            crate::build::BuildTarget::CantosServer,
             crate::build::BuildTarget::CantosForge,
         ] {
             if let Ok(steps) =

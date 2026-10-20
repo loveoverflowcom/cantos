@@ -58,7 +58,7 @@ apps/
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
-  cantos-api/              Rust + Axum + PostgreSQL modular monolith (package cantos-api)  IMPLEMENTED
+  cantos-server/           Rust + Axum + PostgreSQL modular monolith (package cantos-server)  IMPLEMENTED
   manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
   postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
   kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
@@ -131,7 +131,7 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 | Listener API module, route group and DTOs | `theatre` (`/api/v1/theatre`, `cantos_contracts::theatre`) |
 | Creator app path, package, API route group | `cantos-studio`, `studio` (`/api/v1/studio`) |
 | Operations API module and route group | `admin` (`/api/v1/admin`) |
-| Shared backend | `cantos-api` |
+| Shared backend | `cantos-server` |
 | Listener-facing title, navigation, splash, manifest, metadata, localization | **Cantos** |
 | Creator-facing product title | **Cantos Studio** |
 
@@ -145,7 +145,7 @@ as an alias of `cantos-theatre`.
 ## Dependency direction
 
 ```text
-apps/*  ──HTTP──▶  services/cantos-api
+apps/*  ──HTTP──▶  services/cantos-server
 apps/*  ──code/data──▶  packages/*          services/*  ──code/data──▶  packages/*
 ```
 
@@ -158,7 +158,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   context. A listener request must never reach a Studio route and a Studio screen must not ship in
   the Theatre bundle. Enforcement stays in the backend: private drafts, voice assets and previews
   remain unavailable to public delivery whichever client asks.
-- **One authoritative modular backend.** `services/cantos-api` owns authoritative metadata and
+- **One authoritative modular backend.** `services/cantos-server` owns authoritative metadata and
   product APIs for both products, as decided in
   [decision 0001](../decisions/0001-modular-monolith.md). This is not a claim that Cantos can have
   only one runnable process: infrastructure and the planned Forge producer remain separate
@@ -197,13 +197,13 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 
 | Shared | Where | Consumers today |
 | --- | --- | --- |
-| Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-api`, `cantos-studio`, `cantos-theatre` |
+| Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-server`, `cantos-studio`, `cantos-theatre` |
 | RAM credential lifecycle and browser authorization adapter | `packages/web-auth` | Studio Web and Theatre Web; separate purposes/instances |
 | Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web live auth/account and isolated mock; development gallery |
 
 Not shared, deliberately:
 
-- **Script IR rules, revisions and production instructions** remain modules of `cantos-api`
+- **Script IR rules, revisions and production instructions** remain modules of `cantos-server`
   (`script_ir` and the domain modules under `contexts/`). The Studio editor validates through
   the API. There is **no** synthesis worker or provider client to share that package.
   Domain code stays free of HTTP, UI and provider runtime types.
@@ -228,7 +228,7 @@ The root `Cargo.toml` lists seven members and one `Cargo.lock`. Each builds on i
 
 | Member | Package | Build target |
 | --- | --- | --- |
-| `services/cantos-api` | `cantos-api` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
+| `services/cantos-server` | `cantos-server` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
 | `services/cantos-forge-functions` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
@@ -246,7 +246,7 @@ Package names follow their directories, except `cantos-contracts`, which was ren
 Trunk and refuses reserved surfaces instead of simulating them.
 
 ```sh
-cargo xtask build cantos-api           # service binaries (native)
+cargo xtask build cantos-server           # service binaries (native)
 cargo xtask build cantos-forge         # producer-side Forge CLI (native); built, never run by xtask
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
 cargo xtask build cantos-theatre --web         # Theatre Web live boundary and isolated mock through Trunk
@@ -287,6 +287,7 @@ because they describe what was run at the time. Their links point to the current
 | `contracts/design/studio-tokens-0.1.0.json` | `packages/ui-system/shared/legacy/studio-tokens-0.1.0.json` (via `packages/design-tokens`) |
 | package `cantos-server` | package `cantos-api` (binary `cantos-server` unchanged) |
 | package `cantos-api` | package `cantos-contracts` |
+| `services/cantos-api/` (package `cantos-api`) | `services/cantos-server/` (package `cantos-server`; #332, checkpoint 1/5 of #331) — the binary, routes and wire contracts are unchanged; see the [rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api) for what intentionally keeps the old name |
 
 The subsequent [UI foundation migration](ui-system-migration.md) renames the token package and
 adds renderer primitives; the restructure itself did not implement these components.

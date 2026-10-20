@@ -26,15 +26,15 @@ TIMEOUT_SECONDS = 900
 MAX_LOG_BYTES = 4 * 1024 * 1024
 MAX_CONFIGURATION_BYTES = 1024 * 1024
 MAX_GROUP_STATUS_BYTES = 64 * 1024
-DEFAULT_PACKAGE = "cantos-api"
+DEFAULT_PACKAGE = "cantos-server"
 # Closed allowlist of workspace packages that may own a proof kernel (mirrors xtask's
 # `Package`): manifest, hashed source directories and hashed files, all workspace-relative.
 # The API row is the long-standing model and must not change; a new package is a new row.
 PACKAGES = {
-    "cantos-api": (
-        "services/cantos-api/Cargo.toml",
-        ("services/cantos-api/src", "packages/contracts/api/src", "packages/contracts/schema", ".cargo"),
-        ("Cargo.toml", "services/cantos-api/Cargo.toml", "services/cantos-api/build.rs",
+    "cantos-server": (
+        "services/cantos-server/Cargo.toml",
+        ("services/cantos-server/src", "packages/contracts/api/src", "packages/contracts/schema", ".cargo"),
+        ("Cargo.toml", "services/cantos-server/Cargo.toml", "services/cantos-server/build.rs",
          "packages/contracts/api/Cargo.toml", "packages/contracts/api/build.rs",
          "scripts/verify_kani.py", "xtask/src/kani.rs"),
     ),

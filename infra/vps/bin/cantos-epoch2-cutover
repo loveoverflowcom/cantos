@@ -272,7 +272,7 @@ epoch2_prepare() (
   epoch2_install_pending_guard "$journal"
   epoch2_snapshot_browser "$journal"
   podman image inspect --format '{{.Id}} {{ index .Labels "org.opencontainers.image.revision" }}' "$(image_for "$previous")" >"$journal/legacy-image"
-  python3 - "$tree/services/cantos-api/schema/legacy-epoch-1-manifest.json" >"$journal/registry-expected.tsv" <<'PY'
+  python3 - "$tree/services/cantos-server/schema/legacy-epoch-1-manifest.json" >"$journal/registry-expected.tsv" <<'PY'
 import json,sys
 manifest=json.load(open(sys.argv[1],encoding='utf-8'))
 rows=[row for row in manifest['migrations'] if row['version'] <= 28]

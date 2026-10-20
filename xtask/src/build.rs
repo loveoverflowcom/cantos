@@ -18,8 +18,8 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum BuildTarget {
-    /// The Axum/PostgreSQL backend and its CLIs (`services/cantos-api`).
-    CantosApi,
+    /// The Axum/PostgreSQL backend and its CLIs (`services/cantos-server`).
+    CantosServer,
     /// Cantos Forge, the producer-side CLI (`services/cantos-forge-functions`); runs outside the API.
     CantosForge,
     /// Cantos Studio, the creator product (`apps/cantos-studio`).
@@ -87,7 +87,7 @@ pub fn app_of(target: BuildTarget) -> Option<App> {
     match target {
         BuildTarget::CantosStudio => Some(App::Studio),
         BuildTarget::CantosTheatre => Some(App::Theatre),
-        BuildTarget::CantosApi | BuildTarget::CantosForge | BuildTarget::All => None,
+        BuildTarget::CantosServer | BuildTarget::CantosForge | BuildTarget::All => None,
     }
 }
 
@@ -117,7 +117,7 @@ pub fn app_surface(app: App, surface: Option<Surface>) -> Result<(), Refusal> {
 pub fn resolve(target: BuildTarget, surface: Option<Surface>) -> Result<Vec<Unit>, Refusal> {
     match (target, app_of(target)) {
         (_, Some(app)) => app_surface(app, surface).map(|()| vec![Unit::Web(app)]),
-        (BuildTarget::CantosApi, None) if surface.is_none() => Ok(vec![Unit::Api]),
+        (BuildTarget::CantosServer, None) if surface.is_none() => Ok(vec![Unit::Api]),
         (BuildTarget::CantosForge, None) if surface.is_none() => Ok(vec![Unit::Forge]),
         (BuildTarget::All, None) if surface.is_none() => Ok(vec![
             Unit::Api,
@@ -126,7 +126,7 @@ pub fn resolve(target: BuildTarget, surface: Option<Surface>) -> Result<Vec<Unit
             Unit::Web(App::Theatre),
         ]),
         _ => Err(Refusal::Usage(
-            "--web/--mobile select an app surface; cantos-api, cantos-forge and all take no surface flag".into(),
+            "--web/--mobile select an app surface; cantos-server, cantos-forge and all take no surface flag".into(),
         )),
     }
 }
@@ -219,7 +219,7 @@ pub fn step(workspace: &Workspace, unit: Unit, profile: Profile, dbsp: bool) -> 
     }
 }
 
-/// `dbsp` compiles the API's opt-in experimental DBSP incremental core; only `cantos-api` takes it.
+/// `dbsp` compiles the API's opt-in experimental DBSP incremental core; only `cantos-server` takes it.
 pub fn plan(
     workspace: &Workspace,
     target: BuildTarget,
@@ -227,9 +227,9 @@ pub fn plan(
     profile: Profile,
     dbsp: bool,
 ) -> Result<Vec<Step>, Refusal> {
-    if dbsp && target != BuildTarget::CantosApi {
+    if dbsp && target != BuildTarget::CantosServer {
         return Err(Refusal::Usage(
-            "--dbsp-experimental applies only to cantos-api".into(),
+            "--dbsp-experimental applies only to cantos-server".into(),
         ));
     }
     Ok(resolve(target, surface)?
@@ -255,27 +255,33 @@ mod tests {
     #[test]
     fn api_builds_every_binary_with_cargo() {
         assert_eq!(
-            lines(BuildTarget::CantosApi, None, Profile::Dev),
-            ["cargo build --locked -p cantos-api --bins"]
+            lines(BuildTarget::CantosServer, None, Profile::Dev),
+            ["cargo build --locked -p cantos-server --bins"]
         );
         assert_eq!(
-            lines(BuildTarget::CantosApi, None, Profile::Release),
-            ["cargo build --locked -p cantos-api --bins --release"]
+            lines(BuildTarget::CantosServer, None, Profile::Release),
+            ["cargo build --locked -p cantos-server --bins --release"]
         );
     }
 
     #[test]
     fn only_the_api_opts_into_the_experimental_dbsp_feature() {
         let workspace = Workspace::discover().unwrap();
-        let commands: Vec<_> = plan(&workspace, BuildTarget::CantosApi, None, Profile::Dev, true)
-            .unwrap()
-            .iter()
-            .flat_map(|step| step.commands.iter())
-            .map(|command| command.display(workspace.root()))
-            .collect();
+        let commands: Vec<_> = plan(
+            &workspace,
+            BuildTarget::CantosServer,
+            None,
+            Profile::Dev,
+            true,
+        )
+        .unwrap()
+        .iter()
+        .flat_map(|step| step.commands.iter())
+        .map(|command| command.display(workspace.root()))
+        .collect();
         assert_eq!(
             commands,
-            ["cargo build --locked -p cantos-api --bins --features dbsp-experimental"]
+            ["cargo build --locked -p cantos-server --bins --features dbsp-experimental"]
         );
         for (target, surface) in [
             (BuildTarget::All, None),
@@ -283,7 +289,7 @@ mod tests {
         ] {
             assert!(matches!(
                 plan(&workspace, target, surface, Profile::Dev, true),
-                Err(Refusal::Usage(message)) if message.contains("cantos-api")
+                Err(Refusal::Usage(message)) if message.contains("cantos-server")
             ));
         }
     }
@@ -307,7 +313,7 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         assert!(matches!(
             plan(&workspace, BuildTarget::CantosForge, None, Profile::Dev, true),
-            Err(Refusal::Usage(message)) if message.contains("only to cantos-api")
+            Err(Refusal::Usage(message)) if message.contains("only to cantos-server")
         ));
     }
 
@@ -406,7 +412,7 @@ mod tests {
             Err(Refusal::Usage(message)) if message.contains("--web")
         ));
         assert!(matches!(
-            resolve(BuildTarget::CantosApi, Some(Surface::Web)),
+            resolve(BuildTarget::CantosServer, Some(Surface::Web)),
             Err(Refusal::Usage(_))
         ));
         assert!(matches!(

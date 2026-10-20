@@ -240,7 +240,7 @@ class PostgresRunnerTests(unittest.TestCase):
             runner.catalog_http_postgres_tests(environment,evidence)
         self.assertEqual(execute.call_count,2)
         ordinary,seed=execute.call_args_list
-        prefix=["cargo","test","-p","cantos-api","--test","catalog_http_postgres",
+        prefix=["cargo","test","-p","cantos-server","--test","catalog_http_postgres",
                 "--locked","--offline","--","--ignored","--test-threads=1"]
         self.assertEqual(ordinary.args[0],prefix+["--skip","catalog_http_recovery_after_server_restart",
                                                 "--skip","theatre_development_catalog_seed"])

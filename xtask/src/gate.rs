@@ -132,7 +132,7 @@ pub enum Gate {
     Kani(Kernel),
 }
 
-/// Integration test targets of `cantos-api` for metadata, wire, Script IR and read-only media
+/// Integration test targets of `cantos-server` for metadata, wire, Script IR and read-only media
 /// admission. Tool-backed ignored tests belong to `Gate::AudioInspection`; database tests
 /// belong to `Gate::Postgres`.
 pub const API_CONTRACT_TESTS: [&str; 13] = [
@@ -587,8 +587,8 @@ mod tests {
         assert_eq!(
             lines(&Gate::Dbsp),
             [
-                "cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings",
-                "cargo test -p cantos-api --features dbsp-experimental --locked",
+                "cargo clippy -p cantos-server --features dbsp-experimental --all-targets --locked -- -D warnings",
+                "cargo test -p cantos-server --features dbsp-experimental --locked",
             ]
         );
         assert_eq!(verify_suite(&VerifySuite::Dbsp), [Gate::Dbsp]);
@@ -744,7 +744,7 @@ mod tests {
     fn audio_inspection_runs_the_ignored_real_media_target_with_both_tool_prerequisites() {
         assert_eq!(
             lines(&Gate::AudioInspection),
-            ["cargo test -p cantos-api --test audio_intake --locked -- --ignored"]
+            ["cargo test -p cantos-server --test audio_intake --locked -- --ignored"]
         );
         assert_eq!(
             Gate::AudioInspection.tools(),
@@ -868,14 +868,14 @@ mod tests {
 
     #[test]
     fn package_scopes_are_explicit_and_sorted() {
-        let scope = Scope::Packages(["xtask".into(), "cantos-api".into()].into());
+        let scope = Scope::Packages(["xtask".into(), "cantos-server".into()].into());
         assert_eq!(
             lines(&Gate::RustTests(scope.clone())),
-            ["cargo test -p cantos-api -p xtask --locked"]
+            ["cargo test -p cantos-server -p xtask --locked"]
         );
         assert_eq!(
             Gate::RustLint(scope).name(),
-            "rust-lint (cantos-api, xtask)"
+            "rust-lint (cantos-server, xtask)"
         );
     }
 
@@ -891,7 +891,7 @@ mod tests {
             ["cargo clippy -p cantos-theatre -p xtask --features cantos-theatre/preview --all-targets --locked -- -D warnings"]
         );
         // A feature of an unselected package would be an error: leave it out.
-        let without = Scope::Packages(["cantos-api".into()].into());
+        let without = Scope::Packages(["cantos-server".into()].into());
         for gate in [Gate::RustTests(without.clone()), Gate::RustLint(without)] {
             assert!(
                 lines(&gate).iter().all(|line| !line.contains("preview")),
@@ -999,7 +999,7 @@ mod tests {
             }
         }
         for test in API_CONTRACT_TESTS {
-            let path = format!("services/cantos-api/tests/{test}.rs");
+            let path = format!("services/cantos-server/tests/{test}.rs");
             assert!(workspace.path(&path).is_file(), "{path}");
         }
     }

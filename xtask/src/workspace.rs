@@ -64,7 +64,9 @@ mod tests {
     #[test]
     fn discovers_the_cantos_root_independently_of_the_current_directory() {
         let workspace = Workspace::discover().unwrap();
-        assert!(workspace.path("services/cantos-api/Cargo.toml").is_file());
+        assert!(workspace
+            .path("services/cantos-server/Cargo.toml")
+            .is_file());
         assert!(workspace.path("xtask/Cargo.toml").is_file());
         assert_eq!(workspace.relative(workspace.root()), ".");
         assert_eq!(

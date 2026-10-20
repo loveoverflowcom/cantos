@@ -68,7 +68,7 @@ explicit unlink. Its [UI evidence](docs/evidence/studio-private-artwork-ui.md) k
 fixtures separate from outstanding API/storage acceptance and public delivery.
 
 A voice model or provider named by a Studio planning fixture is only descriptive metadata.
-No source inside `services/cantos-api` may invoke speech engines or cloud TTS providers.
+No source inside `services/cantos-server` may invoke speech engines or cloud TTS providers.
 
 ## Content flow
 
@@ -97,7 +97,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `services/cantos-forge-functions`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow, attempt/recovery core, local attempt persistence and finite Rust/Node worker boundary. The owner-selected Studio-controlled local/Functions and private Drive app-data execution remains #203 implementation work; this build makes no provider call or API submission.
 - `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated JVM `preview-sandbox`; native listening acceptance separate.
-- `services/cantos-api`: authoritative modular metadata/rights/revision/production-planning backend, Studio catalog API and pure media inspection; this does not forbid separately owned processes.
+- `services/cantos-server`: authoritative modular metadata/rights/revision/production-planning backend, Studio catalog API and pure media inspection; this does not forbid separately owned processes.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
 - `services/kanidm`: operator-owned identity configuration; Studio OIDC is implemented in the API, live acceptance pending.

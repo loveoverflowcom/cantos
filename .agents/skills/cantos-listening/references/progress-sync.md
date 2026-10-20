@@ -21,7 +21,7 @@ concurrency control in general: [`persistence.md`](../../cantos-engineering/refe
 
 ## Repository reality
 
-The server half is implemented in `services/cantos-api/src/contexts/listening` under the
+The server half is implemented in `services/cantos-server/src/contexts/listening` under the
 [Library v1 contract](../../../../packages/contracts/listener-library-v1.md): pure registers in
 `domain/`, use cases in `application.rs`, PostgreSQL in `postgres.rs` (migration
 `0019_listener_library_progress.sql`). No client sends these mutations yet: the client contract

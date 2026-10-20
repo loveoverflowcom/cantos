@@ -13,14 +13,14 @@ unimplemented. [ADR 0018](../decisions/0018-external-audio-production.md) preser
 ## Supported source and deployment boundary
 
 The executable fresh baseline is
-[`services/cantos-api/schema/0001_current.sql`](../../services/cantos-api/schema/0001_current.sql).
+[`services/cantos-server/schema/0001_current.sql`](../../services/cantos-server/schema/0001_current.sql).
 Its registry identifies **schema epoch 2**; migration version 1 and its checksum belong to that
 epoch, rather than replacing the meaning of historical migration 0001. The current migrator
 accepts a genuinely empty application database or a matching current registry. It refuses
 unmarked populated databases, legacy migration registries, unknown epochs and mismatched
 checksums. The API's startup check is read-only and requires an existing current schema.
 `cantos-migrate --check` performs that same check without bootstrapping or changing a database.
-See the [API guide](../../services/cantos-api/README.md) for commands and the retained legacy
+See the [API guide](../../services/cantos-server/README.md) for commands and the retained legacy
 manifest. No baseline is replayed onto a legacy installation.
 
 The [VPS host script](../../infra/vps/bin/cantos-vps) additionally requires the image label
@@ -143,7 +143,7 @@ present; `pg_stat_activity` does not discover offline clients or future schedule
 
 ## Implemented narrow epoch-1 cutover
 
-`cargo xtask deploy vps cantos-api --host USER@HOST --cutover-epoch2` builds committed `HEAD`
+`cargo xtask deploy vps cantos-server --host USER@HOST --cutover-epoch2` builds committed `HEAD`
 locally and executes the two-phase host procedure. Ordinary deploy/rollback retains its epoch
 refusal; this flag is a separate operation, mutually exclusive with `--bootstrap`, `--rollback`
 and `--status`. `--dry-run` prints the plan without building, uploading or changing the host.

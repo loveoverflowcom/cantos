@@ -33,7 +33,7 @@ const THEATRE_SEED_RECORD: &str = "target/revision-evidence/theatre-seed.json";
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum RunTarget {
     /// The Axum API host (`cantos-server`) in the foreground.
-    CantosApi,
+    CantosServer,
     /// Cantos Studio: with --web, the API plus a `trunk serve` frontend.
     CantosStudio,
     /// Cantos Theatre: with --web, the API plus a `trunk serve` frontend.
@@ -152,7 +152,7 @@ fn api_service(
         (
             Requirement::EnvVar {
                 name: "DATABASE_URL",
-                hint: "export a migrated local app-role URL (services/cantos-api/README.md) \
+                hint: "export a migrated local app-role URL (services/cantos-server/README.md) \
                        or pass --test-cluster"
                     .into(),
             },
@@ -290,10 +290,10 @@ pub fn plan_run(
     options: &LaunchOptions,
 ) -> Result<LaunchPlan, Refusal> {
     match target {
-        RunTarget::CantosApi => {
+        RunTarget::CantosServer => {
             if options.surface.is_some() {
                 return Err(Refusal::Usage(
-                    "cantos-api takes no --web/--mobile flag".into(),
+                    "cantos-server takes no --web/--mobile flag".into(),
                 ));
             }
             let profile = check_flags(options, true, false)?;
@@ -331,7 +331,7 @@ fn run_web(
     {
         return Err(Refusal::Usage(format!(
             "run {} --web requires --web-origin {origin}, matching its Trunk server; \
-             use run cantos-api --web-origin ORIGIN with app {} --web for a separate profile",
+             use run cantos-server --web-origin ORIGIN with app {} --web for a separate profile",
             app.cli_name(),
             app.cli_name()
         )));
@@ -374,7 +374,7 @@ pub fn plan_app(
                     name: API_SERVER_BIN,
                     addr: api_addr(),
                     hint: format!(
-                        "start it first with `cargo xtask run cantos-api --web-origin {origin}` \
+                        "start it first with `cargo xtask run cantos-server --web-origin {origin}` \
                          (or use `cargo xtask run cantos-studio --web`)"
                     ),
                 }],
@@ -393,7 +393,7 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
     Ok(LaunchPlan {
         requirements: vec![Requirement::TheatreApi {
             addr: api_addr(),
-            hint: "start `cargo xtask run cantos-api --web-origin http://127.0.0.1:8082` \
+            hint: "start `cargo xtask run cantos-server --web-origin http://127.0.0.1:8082` \
                    with a migrated app-role DATABASE_URL, or use \
                    `cargo xtask run cantos-theatre --web [--test-cluster]`; \
                    explicit ?mode=mock or ?mode=membership-preview remain offline previews"
@@ -643,7 +643,12 @@ mod tests {
     #[test]
     fn run_api_builds_the_server_and_requires_an_explicit_database() {
         let workspace = workspace();
-        let plan = plan_run(&workspace, RunTarget::CantosApi, &LaunchOptions::default()).unwrap();
+        let plan = plan_run(
+            &workspace,
+            RunTarget::CantosServer,
+            &LaunchOptions::default(),
+        )
+        .unwrap();
         assert!(matches!(
             &plan.requirements[..],
             [Requirement::EnvVar {
@@ -653,7 +658,7 @@ mod tests {
         ));
         assert_eq!(
             plan.prepare[0].commands[0].display(workspace.root()),
-            "cargo build --locked -p cantos-api --bin cantos-server"
+            "cargo build --locked -p cantos-server --bin cantos-server"
         );
         let api = &plan.services[0];
         assert_eq!(
@@ -672,7 +677,7 @@ mod tests {
             web_origin: Some("http://127.0.0.1:8081".into()),
             ..Default::default()
         };
-        let plan = plan_run(&workspace, RunTarget::CantosApi, &options).unwrap();
+        let plan = plan_run(&workspace, RunTarget::CantosServer, &options).unwrap();
         assert!(matches!(&plan.requirements[..], [Requirement::File { .. }]));
         assert_eq!(
             plan.services[0].command.display(workspace.root()),
@@ -683,7 +688,7 @@ mod tests {
             ..options
         };
         assert!(matches!(
-            plan_run(&workspace, RunTarget::CantosApi, &release),
+            plan_run(&workspace, RunTarget::CantosServer, &release),
             Err(Refusal::Usage(_))
         ));
     }
@@ -983,7 +988,7 @@ mod tests {
             ..Default::default()
         };
         assert!(matches!(
-            plan_run(&workspace, RunTarget::CantosApi, &open_api),
+            plan_run(&workspace, RunTarget::CantosServer, &open_api),
             Err(Refusal::Usage(_))
         ));
     }

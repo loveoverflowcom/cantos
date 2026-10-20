@@ -66,10 +66,10 @@ before combining them; do not treat this lane as fixing those separate defects.
 
 ```bash
 # Pure plan; permitted on Mac. Starts no runtime, SSH or build.
-cargo xtask deploy vps cantos-api --host root@HOST --upgrade-epoch2-prefix --dry-run
+cargo xtask deploy vps cantos-server --host root@HOST --upgrade-epoch2-prefix --dry-run
 
 # Explicit remote write; approved Linux x86_64 builder and maintenance window only.
-cargo xtask deploy vps cantos-api --host root@HOST --upgrade-epoch2-prefix \
+cargo xtask deploy vps cantos-server --host root@HOST --upgrade-epoch2-prefix \
   --smoke-origin https://api.example.org
 ```
 

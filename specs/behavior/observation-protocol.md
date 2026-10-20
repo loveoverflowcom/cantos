@@ -3,7 +3,7 @@
 Capability: `cantos.media.private-audio-admission`; schema:
 `cantos-private-audio-admission-observation-v1`. Lifecycle remains **draft**. The
 [model](media/private_audio_admission.qnt) and [catalog](catalog.json) own expectations/IDs;
-[production lifecycle](../../services/cantos-api/src/contexts/media/domain/lifecycle.rs)
+[production lifecycle](../../services/cantos-server/src/contexts/media/domain/lifecycle.rs)
 owns actual decisions. This is a test protocol, not an API, replacement DSL or production dependency.
 
 ## Command and boundaries

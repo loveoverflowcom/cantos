@@ -54,9 +54,9 @@ side in the same change when it is in scope.
 ## Repository reality
 
 Cantos implements Script IR validation, authenticated PostgreSQL revisions and the Leptos
-Studio; inspect [the API service guide](../../services/cantos-api/README.md) and the current
+Studio; inspect [the API service guide](../../services/cantos-server/README.md) and the current
 [contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos-theatre/{web,mobile}` (Theatre) and
-`apps/cantos-studio/web` (Studio), the authoritative modular backend in `services/cantos-api`,
+`apps/cantos-studio/web` (Studio), the authoritative modular backend in `services/cantos-server`,
 current Forge code in `services/cantos-forge-functions`, Kanidm configuration in `services/kanidm` and shared
 `packages/`. Deployment/runtime assets live under [`infra/`](../../infra/README.md); `xtask/`
 owns command orchestration, not those assets. The #212 split adds no runtime; #203 relocates the existing Forge crate without changing its

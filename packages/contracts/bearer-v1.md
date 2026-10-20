@@ -162,7 +162,7 @@ API/Library and actual Android/iOS decoder/Range acceptance still require named 
 
 ## Persistence, read cost and gates
 
-[Migration 0002](../../services/cantos-api/schema/0002_bearer.sql) is additive to exact epoch-2
+[Migration 0002](../../services/cantos-server/schema/0002_bearer.sql) is additive to exact epoch-2
 version 1; no baseline rewrite, epoch-1 conversion or live schema operation. The app receives
 narrow bearer-table grants plus the registry definer, no actor/registry INSERT grant. Runtime
 schema verification refuses the pre-expansion registry; migration checks every known checksum,

@@ -152,7 +152,11 @@ pub mod testing {
                     &["cantos-contracts", "cantos-ui", "cantos-web-auth"],
                 ),
                 package("cantos-contracts", "packages/contracts/api", &[]),
-                package("cantos-api", "services/cantos-api", &["cantos-contracts"]),
+                package(
+                    "cantos-server",
+                    "services/cantos-server",
+                    &["cantos-contracts"],
+                ),
                 package(
                     "cantos-theatre",
                     "apps/cantos-theatre/web",
@@ -177,14 +181,14 @@ mod tests {
     #[test]
     fn parses_local_path_dependencies_from_metadata() {
         let json = r#"{"packages":[
-            {"name":"cantos-api","manifest_path":"/r/services/cantos-api/Cargo.toml",
+            {"name":"cantos-server","manifest_path":"/r/services/cantos-server/Cargo.toml",
              "dependencies":[{"name":"cantos-contracts","path":"/r/packages/contracts/api"},
                              {"name":"serde"}]},
             {"name":"cantos-contracts","manifest_path":"/r/packages/contracts/api/Cargo.toml",
              "dependencies":[]}]}"#;
         let graph = PackageGraph::from_metadata(Path::new("/r"), json).unwrap();
-        let api = graph.owner("services/cantos-api/src/lib.rs").unwrap();
-        assert_eq!(api.name, "cantos-api");
+        let api = graph.owner("services/cantos-server/src/lib.rs").unwrap();
+        assert_eq!(api.name, "cantos-server");
         assert_eq!(api.deps.iter().collect::<Vec<_>>(), ["cantos-contracts"]);
         assert!(graph.owner("services/kanidm/README.md").is_none());
     }
@@ -203,8 +207,8 @@ mod tests {
         assert_eq!(
             affected.into_iter().collect::<Vec<_>>(),
             [
-                "cantos-api",
                 "cantos-contracts",
+                "cantos-server",
                 "cantos-studio",
                 "cantos-theatre",
                 "cantos-web-auth"
@@ -258,11 +262,11 @@ mod tests {
     fn the_inward_rule_rejects_each_forbidden_edge() {
         let mut graph = testing::cantos();
         let edges = [
-            ("cantos-forge", "cantos-api"),
+            ("cantos-forge", "cantos-server"),
             ("cantos-forge", "cantos-studio"),
             ("cantos-contracts", "cantos-ui"),
-            ("cantos-contracts", "cantos-api"),
-            ("cantos-api", "cantos-studio"),
+            ("cantos-contracts", "cantos-server"),
+            ("cantos-server", "cantos-studio"),
             ("cantos-ui", "xtask"),
         ];
         for (from, to) in edges {
@@ -276,10 +280,10 @@ mod tests {
         assert_eq!(
             inward_violations(&graph),
             [
-                "cantos-forge (services/cantos-forge-functions) -> cantos-api (services/cantos-api)",
+                "cantos-forge (services/cantos-forge-functions) -> cantos-server (services/cantos-server)",
                 "cantos-forge (services/cantos-forge-functions) -> cantos-studio (apps/cantos-studio/web)",
-                "cantos-contracts (packages/contracts/api) -> cantos-api (services/cantos-api)",
-                "cantos-api (services/cantos-api) -> cantos-studio (apps/cantos-studio/web)",
+                "cantos-contracts (packages/contracts/api) -> cantos-server (services/cantos-server)",
+                "cantos-server (services/cantos-server) -> cantos-studio (apps/cantos-studio/web)",
                 "cantos-ui (packages/ui-system/leptos) -> xtask (xtask)",
             ]
         );

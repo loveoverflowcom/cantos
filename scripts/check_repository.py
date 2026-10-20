@@ -42,7 +42,7 @@ REQUIRED = (
     "apps/cantos-theatre/web/README.md",
     "apps/cantos-theatre/mobile/README.md",
     "apps/cantos-studio/web/README.md",
-    "services/cantos-api/README.md",
+    "services/cantos-server/README.md",
     "services/kanidm/README.md",
     "packages/README.md",
     "packages/ui-system/README.md",
@@ -69,7 +69,9 @@ FRONTMATTER_KEY = re.compile(r"^([a-z][a-z0-9_-]*):(.*)$")
 BLOCK_SCALARS = {">", ">-", "|", "|-"}
 YAML_PAIR = re.compile(r'^  ([a-z_]+): "([^"\\]*)"$')
 
-API_SOURCE = Path("services/cantos-api/src")
+API_SOURCE = Path("services/cantos-server/src")
+# The pre-#332 crate path. A manifest here would be a second canonical server implementation.
+LEGACY_API_CRATE = Path("services/cantos-api")
 CONTEXT_UPSTREAM = {
     "editorial": set(),
     "ingestion": {"editorial"},
@@ -683,7 +685,16 @@ def check_api_architecture(root=ROOT):
     claim to resolve macros, dynamic SQL or prove the absence of arbitrary business logic.
     """
     errors = set()
-    for file in sorted((root / API_SOURCE).rglob("*.rs")):
+    if (root / LEGACY_API_CRATE / "Cargo.toml").exists():
+        errors.add(f"{LEGACY_API_CRATE}: second server implementation; "
+                   f"{API_SOURCE.parent} is the only canonical crate")
+    files = sorted((root / API_SOURCE).rglob("*.rs"))
+    if not files:
+        # An empty walk would report no violations and pass: fail when the guarded tree moves.
+        errors.add(f"{API_SOURCE}: no Rust sources to check, so the architecture guard "
+                   "would pass vacuously; update API_SOURCE when the crate moves")
+        return sorted(errors)
+    for file in files:
         relative = file.relative_to(root / API_SOURCE)
         parts = relative.parts
         owner = parts[1] if parts[0] == "contexts" and len(parts) > 2 else None

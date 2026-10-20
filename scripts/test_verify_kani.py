@@ -47,7 +47,7 @@ def check_block(number, identifier, status, description="fixture property"):
         f"Check {number}: {identifier}\n"
         f"\t - Status: {status}\n"
         f'\t - Description: "{description}"\n'
-        "\t - Location: services/cantos-api/src/contexts/catalog/domain/"
+        "\t - Location: services/cantos-server/src/contexts/catalog/domain/"
         f"revision.rs:100:9 in function {HARNESS}\n"
     )
 
@@ -552,7 +552,7 @@ class ConfigurationIdentityTest(unittest.TestCase):
         self.checkout = self.root / "projects/checkout"
         self.checkout.mkdir(parents=True)
         (self.checkout / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
-        self.api_manifest = self.checkout / "services/cantos-api/Cargo.toml"
+        self.api_manifest = self.checkout / "services/cantos-server/Cargo.toml"
         self.api_manifest.parent.mkdir(parents=True)
         self.api_manifest.write_text("[package]\nname = 'fixture'\n", encoding="utf-8")
         self.environment = {
@@ -920,7 +920,7 @@ class VerifyAdapterTest(unittest.TestCase):
         self.fake = FakeInstalledBundle(self.root)
         self.checkout = self.root / "checkout"
         self.checkout.mkdir()
-        self.source = Path("services/cantos-api/src/contexts/catalog/domain/revision.rs")
+        self.source = Path("services/cantos-server/src/contexts/catalog/domain/revision.rs")
         source = self.checkout / self.source
         source.parent.mkdir(parents=True)
         source.write_text(
@@ -928,10 +928,10 @@ class VerifyAdapterTest(unittest.TestCase):
             encoding="utf-8",
         )
         (self.checkout / "Cargo.toml").write_text("[workspace]\nmembers = []\n", encoding="utf-8")
-        (self.checkout / "services/cantos-api/Cargo.toml").write_text(
-            "[package]\nname = 'cantos-api'\nversion = '0.1.0'\n", encoding="utf-8"
+        (self.checkout / "services/cantos-server/Cargo.toml").write_text(
+            "[package]\nname = 'cantos-server'\nversion = '0.1.0'\n", encoding="utf-8"
         )
-        self.transitive_source = Path("services/cantos-api/src/contexts/catalog/domain/snapshot.rs")
+        self.transitive_source = Path("services/cantos-server/src/contexts/catalog/domain/snapshot.rs")
         (self.checkout / self.transitive_source).write_text(
             "// Separate transitive API input.\n", encoding="utf-8"
         )
@@ -943,7 +943,7 @@ class VerifyAdapterTest(unittest.TestCase):
         for relative in (
             "packages/contracts/api/Cargo.toml",
             "packages/contracts/api/build.rs",
-            "services/cantos-api/build.rs",
+            "services/cantos-server/build.rs",
             "packages/contracts/schema/script-ir.schema.json",
             "scripts/verify_kani.py",
             "xtask/src/kani.rs",
@@ -1067,8 +1067,8 @@ class VerifyAdapterTest(unittest.TestCase):
         self.assertFalse(hasattr(self.args, "package"))
         result = self.verify()
         command = self.proof_calls()[0]["argv"]
-        self.assertEqual(command[command.index("-p") + 1], "cantos-api")
-        self.assertEqual(result["package"], "cantos-api")
+        self.assertEqual(command[command.index("-p") + 1], "cantos-server")
+        self.assertEqual(result["package"], "cantos-server")
         # Independent oracle: the long-standing API/contracts input set, byte for byte.
         self.assertEqual(
             sorted(self.retained()[1]["model_inputs"]),
@@ -1080,10 +1080,10 @@ class VerifyAdapterTest(unittest.TestCase):
                 "packages/contracts/api/src/lib.rs",
                 "packages/contracts/schema/script-ir.schema.json",
                 "scripts/verify_kani.py",
-                "services/cantos-api/Cargo.toml",
-                "services/cantos-api/build.rs",
-                "services/cantos-api/src/contexts/catalog/domain/revision.rs",
-                "services/cantos-api/src/contexts/catalog/domain/snapshot.rs",
+                "services/cantos-server/Cargo.toml",
+                "services/cantos-server/build.rs",
+                "services/cantos-server/src/contexts/catalog/domain/revision.rs",
+                "services/cantos-server/src/contexts/catalog/domain/snapshot.rs",
                 "xtask/src/kani.rs",
             ]),
         )
@@ -1124,7 +1124,7 @@ class VerifyAdapterTest(unittest.TestCase):
             "contexts::media::domain::wav_inspection::chunks::kani_proofs::"
             "wav_payload_range_is_checked"
         )
-        self.args.source = "services/cantos-api/src/contexts/media/domain/wav_inspection/chunks.rs"
+        self.args.source = "services/cantos-server/src/contexts/media/domain/wav_inspection/chunks.rs"
         self.args.unwind = 2
         self.args.cover_count = 7
         self.args.allow_unreachable = []
@@ -1359,7 +1359,7 @@ class VerifyAdapterTest(unittest.TestCase):
         self.assertEqual(path.read_text(encoding="utf-8"), "changed transitive API source\n")
 
     def test_new_transitive_api_source_is_rejected_after_successful_output(self):
-        path = self.checkout / "services/cantos-api/src/new_transitive_input.rs"
+        path = self.checkout / "services/cantos-server/src/new_transitive_input.rs"
         self.assertFalse(path.exists())
         self.assert_model_change_rejected(
             f"pathlib.Path({str(path)!r}).write_text('new transitive API source\\n')"
@@ -1417,29 +1417,29 @@ class PackageAllowlistTest(unittest.TestCase):
 
     def test_the_allowlist_is_exactly_the_two_registered_packages_and_manifests(self):
         # Independent of the implementation's table.
-        self.assertEqual(set(verifier.PACKAGES), {"cantos-api", "cantos-forge"})
+        self.assertEqual(set(verifier.PACKAGES), {"cantos-server", "cantos-forge"})
         self.assertEqual(
-            verifier.package_registration("cantos-api")[0], "services/cantos-api/Cargo.toml"
+            verifier.package_registration("cantos-server")[0], "services/cantos-server/Cargo.toml"
         )
         self.assertEqual(
             verifier.package_registration("cantos-forge")[0], "services/cantos-forge-functions/Cargo.toml"
         )
-        self.assertEqual(verifier.DEFAULT_PACKAGE, "cantos-api")
+        self.assertEqual(verifier.DEFAULT_PACKAGE, "cantos-server")
 
     def test_a_missing_package_is_the_api_and_the_parser_defaults_to_it(self):
-        self.assertEqual(verifier.package_of(argparse.Namespace()), "cantos-api")
+        self.assertEqual(verifier.package_of(argparse.Namespace()), "cantos-server")
         required = [
             "--kani-version", KANI_VERSION, "--cbmc-version", CBMC_VERSION,
             "--rustc-version", RUSTC_VERSION, "--toolchain", TOOLCHAIN, "--target", TARGET,
         ]
-        self.assertEqual(verifier.parser().parse_args(required).package, "cantos-api")
+        self.assertEqual(verifier.parser().parse_args(required).package, "cantos-server")
         forge = verifier.parser().parse_args([*required, "--package", "cantos-forge"])
         self.assertEqual(verifier.package_of(forge), "cantos-forge")
 
     def test_every_unregistered_name_fails_closed_without_echoing_it(self):
         for name in (
-            "", "cantos-contracts", "cantos-api ", "CANTOS-API", "cantos-forge\n",
-            "../cantos-forge", "cantos-api,cantos-forge", "evil-package", None, 7, ["cantos-api"],
+            "", "cantos-contracts", "cantos-server ", "CANTOS-API", "cantos-forge\n",
+            "../cantos-forge", "cantos-server,cantos-forge", "evil-package", None, 7, ["cantos-server"],
         ):
             with self.subTest(name=name):
                 for call in (
@@ -1491,10 +1491,10 @@ class PackageModelInputsTest(unittest.TestCase):
         "packages/contracts/api/src/lib.rs",
         "packages/contracts/schema/script-ir.schema.json",
         "scripts/verify_kani.py",
-        "services/cantos-api/Cargo.toml",
-        "services/cantos-api/build.rs",
-        "services/cantos-api/src/contexts/media/domain/image.rs",
-        "services/cantos-api/src/lib.rs",
+        "services/cantos-server/Cargo.toml",
+        "services/cantos-server/build.rs",
+        "services/cantos-server/src/contexts/media/domain/image.rs",
+        "services/cantos-server/src/lib.rs",
         "xtask/src/kani.rs",
     )
     FORGE_INPUTS = (
@@ -1514,7 +1514,7 @@ class PackageModelInputsTest(unittest.TestCase):
         "services/cantos-forge-functions/tests/cli.rs",
         "apps/cantos-theatre/web/src/lib.rs",
         "scripts/test_verify_kani.py",
-        "services/cantos-api/tests/http.rs",
+        "services/cantos-server/tests/http.rs",
         "xtask/src/gate.rs",
     )
 
@@ -1539,7 +1539,7 @@ class PackageModelInputsTest(unittest.TestCase):
     def test_the_api_set_is_the_unchanged_api_and_contracts_set(self):
         identity = self.digests()
         self.assertEqual(sorted(identity), sorted(self.API_INPUTS))
-        self.assertEqual(identity, self.digests("cantos-api"))
+        self.assertEqual(identity, self.digests("cantos-server"))
         for relative, digest in identity.items():
             self.assertEqual(
                 digest, hashlib.sha256(("original " + relative + "\n").encode()).hexdigest()
@@ -1549,7 +1549,7 @@ class PackageModelInputsTest(unittest.TestCase):
         identity = self.digests("cantos-forge")
         self.assertEqual(sorted(identity), sorted(self.FORGE_INPUTS))
         self.assertTrue(
-            all(not path.startswith(("services/cantos-api/", "packages/")) for path in identity)
+            all(not path.startswith(("services/cantos-server/", "packages/")) for path in identity)
         )
 
     def test_forge_identity_needs_no_api_or_contract_file_to_exist(self):
@@ -1559,39 +1559,39 @@ class PackageModelInputsTest(unittest.TestCase):
         self.assertEqual(sorted(self.digests("cantos-forge")), sorted(self.FORGE_INPUTS))
 
     def test_a_package_digest_changes_only_with_its_own_inputs(self):
-        api, forge = self.digests("cantos-api"), self.digests("cantos-forge")
-        self.write("services/cantos-api/src/lib.rs", "changed\n")
+        api, forge = self.digests("cantos-server"), self.digests("cantos-forge")
+        self.write("services/cantos-server/src/lib.rs", "changed\n")
         self.write("packages/contracts/api/src/new.rs", "new\n")
-        self.assertNotEqual(self.digests("cantos-api"), api)
+        self.assertNotEqual(self.digests("cantos-server"), api)
         self.assertEqual(self.digests("cantos-forge"), forge)
-        api = self.digests("cantos-api")
+        api = self.digests("cantos-server")
         self.write("services/cantos-forge-functions/src/domain/attempt.rs", "changed\n")
         self.write("services/cantos-forge-functions/src/domain/new.rs", "new\n")
         (self.root / "services/cantos-forge-functions/src/application/mod.rs").unlink()
         self.assertNotEqual(self.digests("cantos-forge"), forge)
-        self.assertEqual(self.digests("cantos-api"), api)
+        self.assertEqual(self.digests("cantos-server"), api)
 
     def test_shared_tooling_and_configuration_change_both_packages(self):
         for relative in (
             "Cargo.toml", ".cargo/config.toml", "scripts/verify_kani.py", "xtask/src/kani.rs"
         ):
             with self.subTest(changed=relative):
-                before = (self.digests("cantos-api"), self.digests("cantos-forge"))
+                before = (self.digests("cantos-server"), self.digests("cantos-forge"))
                 self.write(relative, "changed shared input\n")
-                self.assertNotEqual(self.digests("cantos-api"), before[0])
+                self.assertNotEqual(self.digests("cantos-server"), before[0])
                 self.assertNotEqual(self.digests("cantos-forge"), before[1])
 
     def test_unrelated_files_are_never_bound(self):
-        before = (self.digests("cantos-api"), self.digests("cantos-forge"))
+        before = (self.digests("cantos-server"), self.digests("cantos-forge"))
         for relative in self.UNBOUND:
             self.write(relative, "changed unrelated file\n")
-        self.assertEqual((self.digests("cantos-api"), self.digests("cantos-forge")), before)
+        self.assertEqual((self.digests("cantos-server"), self.digests("cantos-forge")), before)
 
 
 class PackageConfigurationTest(unittest.TestCase):
     """Required manifests are the workspace manifest plus the owning package's manifest."""
 
-    API_MANIFEST = "services/cantos-api/Cargo.toml"
+    API_MANIFEST = "services/cantos-server/Cargo.toml"
     FORGE_MANIFEST = "services/cantos-forge-functions/Cargo.toml"
 
     def setUp(self):
@@ -1620,7 +1620,7 @@ class PackageConfigurationTest(unittest.TestCase):
 
     def test_each_package_binds_the_workspace_and_only_its_own_manifest(self):
         checkout = self.checkout.resolve()
-        api, forge = self.identity("cantos-api"), self.identity("cantos-forge")
+        api, forge = self.identity("cantos-server"), self.identity("cantos-forge")
         self.assertEqual(api, self.identity())
         self.assertIn(str(checkout / self.API_MANIFEST), api)
         self.assertNotIn(str(checkout / self.FORGE_MANIFEST), api)
@@ -1643,17 +1643,17 @@ class PackageConfigurationTest(unittest.TestCase):
         forge = self.identity("cantos-forge")
         self.assertEqual(self.accepted(forge, package="cantos-forge"), forge)
         with self.assertRaisesRegex(verifier.KaniError, "(?i)approved"):
-            self.accepted(self.identity("cantos-api"))
+            self.accepted(self.identity("cantos-server"))
         (self.checkout / self.FORGE_MANIFEST).unlink()
         with self.assertRaisesRegex(verifier.KaniError, "(?i)approved"):
             self.accepted(self.identity("cantos-forge"), package="cantos-forge")
 
     def test_an_approval_for_one_package_is_never_accepted_for_the_other(self):
-        api, forge = self.identity("cantos-api"), self.identity("cantos-forge")
+        api, forge = self.identity("cantos-server"), self.identity("cantos-forge")
         self.assertEqual(self.accepted(api), api)
-        self.assertEqual(self.accepted(api, package="cantos-api"), api)
+        self.assertEqual(self.accepted(api, package="cantos-server"), api)
         self.assertEqual(self.accepted(forge, package="cantos-forge"), forge)
-        for approved, package in ((api, "cantos-forge"), (forge, "cantos-api")):
+        for approved, package in ((api, "cantos-forge"), (forge, "cantos-server")):
             with self.subTest(package=package):
                 with self.assertRaisesRegex(verifier.KaniError, "(?i)approved"):
                     self.accepted(approved, package=package)
@@ -1701,7 +1701,7 @@ class ForgePackageAdapterTest(unittest.TestCase):
             path = self.checkout / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("disposable Forge input " + relative + "\n", encoding="utf-8")
-        for relative in ("services/cantos-api/Cargo.toml", "services/cantos-api/src/lib.rs"):
+        for relative in ("services/cantos-server/Cargo.toml", "services/cantos-server/src/lib.rs"):
             path = self.checkout / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("disposable API input, never a Forge input\n", encoding="utf-8")
@@ -1779,7 +1779,7 @@ class ForgePackageAdapterTest(unittest.TestCase):
                 "--target-dir", str((self.checkout / "target/assurance-kani").resolve()),
             ],
         )
-        self.assertNotIn("cantos-api", command)
+        self.assertNotIn("cantos-server", command)
         metadata = self.retained()
         self.assertEqual(metadata["package"], "cantos-forge")
         self.assertEqual(metadata["status"], "PASS")
@@ -1787,13 +1787,13 @@ class ForgePackageAdapterTest(unittest.TestCase):
         self.assertEqual(self.lock.read_bytes(), self.original_lock)
 
     def test_the_forge_proof_requires_no_api_manifest_or_source(self):
-        shutil.rmtree(self.checkout / "services/cantos-api")
+        shutil.rmtree(self.checkout / "services/cantos-server")
         self.approve()
         self.assertEqual(self.verify()["status"], "PASS")
         self.assertEqual(len(self.proof_calls()), 1)
 
     def test_an_api_manifest_change_after_forge_approval_is_not_a_forge_input(self):
-        (self.checkout / "services/cantos-api/Cargo.toml").write_text(
+        (self.checkout / "services/cantos-server/Cargo.toml").write_text(
             "[package]\nname = 'changed'\n", encoding="utf-8"
         )
         self.assertEqual(self.verify()["status"], "PASS")
@@ -1811,7 +1811,7 @@ class ForgePackageAdapterTest(unittest.TestCase):
         self.assert_refused_before_execution("(?i)configuration|approved")
 
     def test_an_approval_for_the_wrong_package_is_refused_before_any_probe(self):
-        self.approve("cantos-api")
+        self.approve("cantos-server")
         self.assert_refused_before_execution("(?i)approved")
         self.approve()
         del self.args.package  # No package means the API, whose manifest set differs.

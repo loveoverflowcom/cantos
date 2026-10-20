@@ -150,7 +150,7 @@ REGISTRATION_SQL_TARGETS = (
 def registration_postgres_tests(env, evidence):
     """Both registration owners share the actual migration path, never media fixtures."""
     for name, selector in REGISTRATION_SQL_TARGETS:
-        output = run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline",
+        output = run(["cargo", "test", "-p", "cantos-server", "--lib", "--locked", "--offline",
                       selector, "--", "--ignored", "--test-threads=1", "--nocapture"],
                      env=env, output=evidence / f"{name}.log")
         summary = re.search(r"test result: ok\. ([0-9]+) passed; ([0-9]+) failed;", output)
@@ -196,7 +196,7 @@ def schema_postgres_tests(env, evidence, include_current=False):
     """Current schema and SQL owners accept only this runner's disposable databases."""
     checks = []
     for target, name, skipped in schema_sql_targets(include_current):
-        command = ["cargo", "test", "-p", "cantos-api", "--test", target,
+        command = ["cargo", "test", "-p", "cantos-server", "--test", target,
                    "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"]
         for test in skipped:
             command.extend(["--skip", test])
@@ -215,7 +215,7 @@ def schema_postgres_tests(env, evidence, include_current=False):
 
 def catalog_http_postgres_tests(env, evidence):
     """Keep the long actual-byte seed inside the full gate with its own finite run budget."""
-    base = ["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres",
+    base = ["cargo", "test", "-p", "cantos-server", "--test", "catalog_http_postgres",
             "--locked", "--offline", "--", "--ignored", "--test-threads=1"]
     ordinary = base + ["--skip", "catalog_http_recovery_after_server_restart",
                        "--skip", SEED_TEST.rsplit("::", 1)[-1]]
@@ -918,40 +918,40 @@ def main():
             return
         schema_postgres_tests(env, EVIDENCE)
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "admin_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture", "--skip", "admin_recovery_after_database_restart"], env=env, output=EVIDENCE / "admin-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "admin_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture", "--skip", "admin_recovery_after_database_restart"], env=env, output=EVIDENCE / "admin-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-identity-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "theatre_identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-identity-postgres-tests.log")
         registration_postgres_tests(env, EVIDENCE)
-        run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_native_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-native-postgres-tests.log")
-        run(["cargo", "test", "-p", "cantos-api", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "theatre_native_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-native-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "identity-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "identity-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "catalog_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         catalog_http_postgres_tests(env, EVIDENCE)
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "delegation_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "delegation-http-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "delegation_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "delegation-http-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline", "contexts::media::postgres::artwork::tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "private-artwork-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--lib", "--locked", "--offline", "contexts::media::postgres::artwork::tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "private-artwork-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline", "contexts::media::image_application::postgres::postgres_tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "private-artwork-repository-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--lib", "--locked", "--offline", "contexts::media::image_application::postgres::postgres_tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "private-artwork-repository-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "private_artwork_storage_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "private-artwork-storage-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "private_artwork_storage_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "private-artwork-storage-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline", "contexts::listening::postgres::tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "listener-library-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--lib", "--locked", "--offline", "contexts::listening::postgres::tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "listener-library-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-api", "--test", "audio_intake_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "audio-intake-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-server", "--test", "audio_intake_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "audio-intake-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
+        run(["cargo", "build", "-p", "cantos-server", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
         fixture = json.loads((EVIDENCE / "restart.json").read_text())
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())
         catalog = json.loads((CATALOG_EVIDENCE / "http-restart.json").read_text())
@@ -1018,11 +1018,11 @@ def main():
             audio_host.wait(timeout=5)
             audio_host = None
             run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-m", "fast", "-w", "restart"], env=env)
-            run(["cargo", "test", "-p", "cantos-api", "--test", "admin_postgres", "--locked", "--offline", "admin_recovery_after_database_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "admin-restart-tests.log")
+            run(["cargo", "test", "-p", "cantos-server", "--test", "admin_postgres", "--locked", "--offline", "admin_recovery_after_database_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "admin-restart-tests.log")
             print("PASS: Admin PostgreSQL restart + immutable block/audit + original-operation receipt under fresh verified synthetic binding")
-            run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "catalog_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-restart-tests.log")
+            run(["cargo", "test", "-p", "cantos-server", "--test", "catalog_postgres", "--locked", "--offline", "catalog_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-restart-tests.log")
             print("PASS: Catalog PostgreSQL restart + exact work/unit snapshots + migration replay + original-operation replay + independent row counts")
-            run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "catalog_http_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-http-restart-tests.log")
+            run(["cargo", "test", "-p", "cantos-server", "--test", "catalog_http_postgres", "--locked", "--offline", "catalog_http_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-http-restart-tests.log")
             print("PASS: Studio Catalog real HTTP adapter + PostgreSQL restart + exact work/unit snapshots + original-operation replay + independent row counts")
             migration_env = dict(env, DATABASE_URL=f"postgresql://cantos_test_admin@127.0.0.1:{port}/{fixture['database']}")
             run([str(ROOT / "target/debug/cantos-migrate")], env=migration_env)

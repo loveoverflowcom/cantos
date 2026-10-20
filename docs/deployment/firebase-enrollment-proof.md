@@ -138,7 +138,7 @@ The explicit isolated lane below is independent of the ordinary unit/SQL gates. 
 passing emulator run nor the existing real-mail record completes the full local Web acceptance.
 
 ```sh
-RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo test --locked -p cantos-api --lib theatre_registration
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo test --locked -p cantos-server --lib theatre_registration
 RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask verify postgres --suite theatre-firebase
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask build cantos-theatre --web
 RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only
@@ -150,7 +150,7 @@ ignored Auth-emulator test uses an **already installed** `firebase-tools` auth/s
 named by `CANTOS_TEST_FIREBASE_AUTH_MODULE`, Node and a fresh loopback-only `demo-*` project:
 
 ```sh
-RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo test --locked -p cantos-api --lib platform::theatre_registration::firebase_action::emulator_tests::installed_auth_emulator_exercises_exact_action_consumption_and_resend_limits -- --ignored --exact
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo test --locked -p cantos-server --lib platform::theatre_registration::firebase_action::emulator_tests::installed_auth_emulator_exercises_exact_action_consumption_and_resend_limits -- --ignored --exact
 ```
 
 Use the full printed Rust test path with `--exact`, or omit `--exact` for the unique suffix.
@@ -199,7 +199,7 @@ This is an implementation gap as well as an acceptance gap, not a skipped succes
 | Firebase bootstrap | Existing `FirebaseBootstrapClient` request construction, signing and response parsers; `cfg(test)` loopback transport and fixed mock access-token source | Does not exercise real OAuth, IAM or signature acceptance; existing signing/OAuth fixture tests remain separate |
 | Email proof | Existing `FirebaseActionClient` against an owned Auth Emulator; inventory delta matches the new action and exact continuation | No real email, template configuration, API-key/project association or realistic provider expiry |
 | Kanidm onboarding | Recording mock of the existing `Issuer` port | A setup-ready response proves neither real credential setup nor OIDC/session authentication |
-| Recipient/browser support | `services/cantos-api/tests/support/theatre-auth/{recipient,browser}.mjs`, outside application routes and bundles | Helper tests use a small HTTP fixture, not the Cantos Web app or a real issuer |
+| Recipient/browser support | `services/cantos-server/tests/support/theatre-auth/{recipient,browser}.mjs`, outside application routes and bundles | Helper tests use a small HTTP fixture, not the Cantos Web app or a real issuer |
 | Stateful expectations | Existing draft `cantos.identity.theatre-registration` catalog and native application/SQL regressions | No new model or lifecycle promotion; model evidence never establishes adapter conformance |
 
 ### Prerequisites and private lifecycle

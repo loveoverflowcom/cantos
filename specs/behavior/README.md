@@ -48,7 +48,7 @@ The official Quint CLI is used unchanged. The runner only validates selected dec
 output contracts and the raw ITF envelope/hashes. It does not parse a new model language,
 evaluate actions or reproduce expected state transitions in Python/Rust. With `--conformance`,
 the [registered codec](../../scripts/verify_behavior_conformance.py) decodes existing ITF outputs
-and compares an [event-only Rust observer](../../services/cantos-api/src/contexts/media/quint_conformance_tests.rs).
+and compares an [event-only Rust observer](../../services/cantos-server/src/contexts/media/quint_conformance_tests.rs).
 The existing POSIX bounded process primitive owns timeout/output/group cleanup. Current
 execution requires POSIX with waitid/WNOWAIT; another host is UNSUPPORTED at tool probing.
 The behavior gate is opt-in outside full preflight/CI. Non-document changes under

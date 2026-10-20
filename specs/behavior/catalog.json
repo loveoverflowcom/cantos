@@ -4,15 +4,15 @@
     {
       "id": "cantos.media.private-audio-admission",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+      "owner": "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
       "sourceRefs": [
         "packages/contracts/audio-lifecycle-v1.md#state-reviews-and-candidate-blockers",
         "docs/decisions/0020-studio-private-audio-intake.md#decision",
         "docs/assurance/domain-invariants.md",
-        "services/cantos-api/src/contexts/production/domain/brief.rs",
-        "services/cantos-api/src/contexts/production/application/briefs.rs",
-        "services/cantos-api/src/contexts/catalog/domain/work.rs",
-        "services/cantos-api/src/contexts/catalog/domain/unit.rs"
+        "services/cantos-server/src/contexts/production/domain/brief.rs",
+        "services/cantos-server/src/contexts/production/application/briefs.rs",
+        "services/cantos-server/src/contexts/catalog/domain/work.rs",
+        "services/cantos-server/src/contexts/catalog/domain/unit.rs"
       ],
       "model": "specs/behavior/media/private_audio_admission.qnt",
       "module": "private_audio_admission",
@@ -233,14 +233,14 @@
     {
       "id": "cantos.media.public-playback-delivery",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/contexts/media/domain/playback_grant.rs",
+      "owner": "services/cantos-server/src/contexts/media/domain/playback_grant.rs",
       "sourceRefs": [
         "packages/contracts/theatre-discovery-v1.md#origin-mode-media-proposed-adr-0032",
         "docs/decisions/0032-theatre-origin-playback-delivery.md#decision",
         "docs/decisions/0038-publication-streaming-evidence-gates.md#decision",
-        "services/cantos-api/src/contexts/media/listener_media.rs",
-        "services/cantos-api/src/contexts/media/listener_application.rs",
-        "services/cantos-api/src/contexts/media/domain/listening.rs"
+        "services/cantos-server/src/contexts/media/listener_media.rs",
+        "services/cantos-server/src/contexts/media/listener_application.rs",
+        "services/cantos-server/src/contexts/media/domain/listening.rs"
       ],
       "model": "specs/behavior/media/public_playback_delivery.qnt",
       "module": "public_playback_delivery",
@@ -407,12 +407,12 @@
     {
       "id": "cantos.media.public-cover-projection",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/contexts/media/domain/public_cover.rs",
+      "owner": "services/cantos-server/src/contexts/media/domain/public_cover.rs",
       "sourceRefs": [
         "docs/decisions/0033-release-pinned-public-cover.md#decision",
         "packages/contracts/artwork-v1.md#bounds-and-receipts",
-        "services/cantos-api/src/contexts/media/domain/artwork.rs",
-        "services/cantos-api/src/contexts/media/domain/listening.rs"
+        "services/cantos-server/src/contexts/media/domain/artwork.rs",
+        "services/cantos-server/src/contexts/media/domain/listening.rs"
       ],
       "model": "specs/behavior/media/public_cover_projection.qnt",
       "module": "public_cover_projection",
@@ -563,7 +563,7 @@
     {
       "id": "cantos.publishing.lifecycle",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/contexts/media/domain/publication.rs",
+      "owner": "services/cantos-server/src/contexts/media/domain/publication.rs",
       "sourceRefs": [
         "packages/contracts/publication-v1.md"
       ],
@@ -574,7 +574,7 @@
     {
       "id": "cantos.listening.progress",
       "lifecycle": "needs-decision",
-      "owner": "services/cantos-api/src/contexts/listening/domain/reconcile.rs",
+      "owner": "services/cantos-server/src/contexts/listening/domain/reconcile.rs",
       "sourceRefs": [
         "packages/contracts/listener-library-v1.md",
         "docs/product/business-rules.md#publication-and-listening"
@@ -798,14 +798,14 @@
     {
       "id": "cantos.identity.theatre-registration",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/platform/theatre_registration/application.rs",
+      "owner": "services/cantos-server/src/platform/theatre_registration/application.rs",
       "sourceRefs": [
         "docs/decisions/0034-theatre-signup-and-provisioned-studio.md#decision",
         "docs/decisions/0036-firebase-enrollment-proof.md#decision",
         "packages/contracts/theatre-identity-v1.md",
-        "services/cantos-api/schema/0001_current.sql",
-        "services/cantos-api/src/platform/theatre_registration/firebase_enrollment/application.rs",
-        "services/cantos-api/src/platform/theatre_registration/firebase_enrollment/postgres.rs"
+        "services/cantos-server/schema/0001_current.sql",
+        "services/cantos-server/src/platform/theatre_registration/firebase_enrollment/application.rs",
+        "services/cantos-server/src/platform/theatre_registration/firebase_enrollment/postgres.rs"
       ],
       "model": "specs/behavior/identity/theatre_registration.qnt",
       "module": "theatre_registration",
@@ -1135,11 +1135,11 @@
     {
       "id": "cantos.identity.bearer-lifecycle",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/platform/bearer/core.rs",
+      "owner": "services/cantos-server/src/platform/bearer/core.rs",
       "sourceRefs": [
         "packages/contracts/bearer-v1.md",
         "docs/decisions/0041-direct-hosting-api-boundary.md",
-        "services/cantos-api/tests/bearer_postgres.rs",
+        "services/cantos-server/tests/bearer_postgres.rs",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/domain/identity/NativeGrant.kt",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/identity/NativeAccountController.kt",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/ports/NativeCredentialJournal.kt",

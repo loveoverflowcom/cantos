@@ -12,7 +12,7 @@ with one owner process/file per service. Do not substitute libSQL remote, Turso 
 or redb. Media bytes remain in approved private/object storage. Other tasks must follow their
 actual implemented storage/decision rather than assuming this refactor has already landed.
 
-The historical `services/cantos-api/src/platform/postgres/migrations.rs` owns the PostgreSQL
+The historical `services/cantos-server/src/platform/postgres/migrations.rs` owns the PostgreSQL
 epoch/checksum policy. Inspect its current location after the service rename. Do not rewrite
 applied SQL/checksums, silently adopt an existing file/database or reset data to obtain a pass.
 External upload recovery belongs to the [production owner](../../cantos-production-pipeline/references/durable-jobs.md);

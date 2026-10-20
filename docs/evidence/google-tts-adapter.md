@@ -36,7 +36,7 @@ capability; and every observation after a connection opened is `may_have_execute
 shared planner never advises a resend. A body becomes audio only through the shared inspector's
 Google profile. No record contains a credential, dialogue text or a provider error message.
 
-[`tts/google_contract.rs`](../../services/cantos-api/src/contexts/production/domain/catalog/google.rs) is pure identity used by
+[`tts/google_contract.rs`](../../services/cantos-server/src/contexts/production/domain/catalog/google.rs) is pure identity used by
 casting and the audit. [`tts/google.rs`](https://github.com/loveoverflowcom/cantos/blob/2de8c694ec695f36fd80a34f4b8305580d5edace/services/cantos-api/src/contexts/synthesis/providers/google/mod.rs) is pure: no
 network, clock, credential or file access. [`tts/google_http.rs`](https://github.com/loveoverflowcom/cantos/blob/2de8c694ec695f36fd80a34f4b8305580d5edace/services/cantos-api/src/contexts/synthesis/providers/google/http.rs)
 is the shell and sends exactly once per call. [`probe-google-tts`](https://github.com/loveoverflowcom/cantos/blob/2de8c694ec695f36fd80a34f4b8305580d5edace/services/cantos-api/src/bin/probe-google-tts.rs)

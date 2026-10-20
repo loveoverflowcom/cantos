@@ -46,7 +46,7 @@ This refactor introduces no generic Repository/UnitOfWork or global outbound ada
 ## HTTP assembly and transport owners
 
 The canonical Rust path is `adapters::inbound::http`. The former `interfaces/http` implementation
-and namespace were moved in #327; the crate-root `cantos_api::http` alias remains for compatibility.
+and namespace were moved in #327; the crate-root `cantos_server::http` alias remains for compatibility.
 Historical source hashes and commit-pinned links retain their original paths. Naming this
 concrete Axum adapter does not claim that the former name violated Hexagonal Architecture.
 

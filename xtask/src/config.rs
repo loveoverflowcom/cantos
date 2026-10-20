@@ -24,7 +24,7 @@ pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 /// Default comparison base for `preflight --changed-only`.
 pub const DEFAULT_BASE: &str = "origin/develop";
 
-pub const API_PACKAGE: &str = "cantos-api";
+pub const API_PACKAGE: &str = "cantos-server";
 /// The producer-side Forge CLI. xtask builds it; it never runs it inside build/test/preflight.
 pub const FORGE_PACKAGE: &str = "cantos-forge";
 /// The opt-in experimental DBSP incremental core of the API; off in every other gate and build.
@@ -168,7 +168,7 @@ mod tests {
             &[toml::Value::from(WASM_TARGET)]
         );
         for manifest in [
-            "services/cantos-api/Cargo.toml",
+            "services/cantos-server/Cargo.toml",
             "services/cantos-forge-functions/Cargo.toml",
             "apps/cantos-studio/web/Cargo.toml",
             "apps/cantos-theatre/web/Cargo.toml",

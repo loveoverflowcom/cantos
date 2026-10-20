@@ -39,7 +39,7 @@ The image initializes a fresh empty volume with its `postgres` administrative ro
 and password authentication (`scram-sha-256`). No app-role grants, SQL initialization scripts
 or Cantos migrations run automatically. The API must use a separately provisioned least-privilege
 app role and explicitly approved migrations; do not point the API at the administrative role.
-`cargo xtask run cantos-api` retains its explicit `DATABASE_URL`/test-cluster requirements.
+`cargo xtask run cantos-server` retains its explicit `DATABASE_URL`/test-cluster requirements.
 
 ## Persistence and recovery
 

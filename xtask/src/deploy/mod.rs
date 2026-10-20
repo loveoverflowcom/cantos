@@ -598,7 +598,7 @@ mod tests {
         }
         // Only the two Web apps are targets: not the API, Forge, `all`, or Theatre's alias.
         for target in [
-            "cantos-api",
+            "cantos-server",
             "cantos-forge",
             "all",
             "cantos",
@@ -751,7 +751,7 @@ mod tests {
         );
         for target in [
             build::BuildTarget::All,
-            build::BuildTarget::CantosApi,
+            build::BuildTarget::CantosServer,
             build::BuildTarget::CantosForge,
             build::BuildTarget::CantosStudio,
             build::BuildTarget::CantosTheatre,

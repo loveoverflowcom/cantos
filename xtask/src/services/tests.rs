@@ -127,7 +127,7 @@ fn volume(plan: &Plan) -> Output {
 #[test]
 fn inventory_records_real_native_configured_container_and_planned_external_boundaries() {
     let m = inventory();
-    assert_eq!(m.service("cantos-api").unwrap().runtime, Runtime::Native);
+    assert_eq!(m.service("cantos-server").unwrap().runtime, Runtime::Native);
     assert_eq!(
         m.service("postgresql")
             .unwrap()
@@ -180,7 +180,7 @@ fn schema_rejects_unknown_fields_runtime_mismatch_bad_pins_and_dependency_cycles
         (
             "runtime = \"native\"",
             "runtime = \"external\"",
-            "cantos-api: runtime differs from the reviewed boundary",
+            "cantos-server: runtime differs from the reviewed boundary",
         ),
         (
             "17.11-bookworm",
@@ -195,12 +195,12 @@ fn schema_rejects_unknown_fields_runtime_mismatch_bad_pins_and_dependency_cycles
         (
             "optional_dependencies = [\"kanidm\", \"object-storage\"]",
             "optional_dependencies = [\"postgresql\"]",
-            "cantos-api: duplicate dependency postgresql",
+            "cantos-server: duplicate dependency postgresql",
         ),
         (
             "required_dependencies = []",
-            "required_dependencies = [\"cantos-api\"]",
-            "required dependency cycle at cantos-api",
+            "required_dependencies = [\"cantos-server\"]",
+            "required dependency cycle at cantos-server",
         ),
     ] {
         assert_eq!(

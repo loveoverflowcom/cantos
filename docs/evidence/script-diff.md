@@ -21,12 +21,12 @@ addition, and inserting or deleting a sibling moves nobody. The report is a pure
 two inputs. Metadata is never hidden behind the content digest: provenance and rights references
 are outside it, so equal digests with `identical: false` mean a metadata-only difference.
 
-[`script_ir/diff/`](../../services/cantos-api/src/script_ir/diff/mod.rs) lives inside the Script IR module
+[`script_ir/diff/`](../../services/cantos-server/src/script_ir/diff/mod.rs) lives inside the Script IR module
 because validated content has private fields; it has no HTTP, SQL, UI, provider, file-system or
 clock dependency. It never parses JSON itself: both inputs go through `read_script`, the same
 admission as `validate-script`, so text is NFC and whitespace normalized once and characters,
 provenance sources, provenance references and pronunciation overrides are already in their
-canonical order. [`diff-script`](../../services/cantos-api/src/bin/diff-script.rs) is the imperative
+canonical order. [`diff-script`](../../services/cantos-server/src/bin/diff-script.rs) is the imperative
 shell: argument parsing, a bounded read of each file, JSON output and exit codes. The only edit to
 an existing source file is the export line in `script_ir/mod.rs`; no crate, dependency or
 `Cargo.lock` change was needed. No ADR: the slice adds no dependency, schema, digest scheme or

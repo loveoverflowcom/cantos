@@ -249,6 +249,41 @@ class ApiArchitectureTest(unittest.TestCase):
         errors = self.errors(path, content)
         self.assertTrue(any(reason in error for error in errors), errors)
 
+    def test_guard_cannot_pass_vacuously_when_its_source_tree_is_absent_or_moved(self):
+        """Negative control: a rename that leaves API_SOURCE dangling must fail, not pass."""
+        reason = "no Rust sources to check"
+        self.assertTrue(any(reason in error for error in checks.check_api_architecture(self.root)))
+        (self.root / checks.API_SOURCE).mkdir(parents=True)
+        self.assertTrue(any(reason in error for error in checks.check_api_architecture(self.root)))
+        # Rust under the pre-rename path must not be silently accepted as the guarded tree.
+        old = self.root / "services/cantos-api/src/adapters/inbound/http/studio/x.rs"
+        old.parent.mkdir(parents=True)
+        old.write_text("fn f() { tx.query(sql, args); }\n", encoding="utf-8")
+        self.assertTrue(any(reason in error for error in checks.check_api_architecture(self.root)))
+
+    def test_guard_is_pinned_to_the_canonical_server_crate_by_literal_path(self):
+        """Positive control independent of API_SOURCE: a violation at the real path is caught."""
+        self.assertEqual(checks.API_SOURCE, Path("services/cantos-server/src"))
+        file = self.root / "services/cantos-server/src/adapters/inbound/http/studio/x.rs"
+        file.parent.mkdir(parents=True)
+        file.write_text("fn f() { tx.query(sql, args); }\n", encoding="utf-8")
+        errors = checks.check_api_architecture(self.root)
+        self.assertTrue(any("HTTP must not execute SQL" in error for error in errors), errors)
+
+    def test_a_second_server_crate_is_rejected_beside_the_canonical_one(self):
+        legacy = self.root / checks.LEGACY_API_CRATE
+        legacy.mkdir(parents=True)
+        (legacy / "Cargo.toml").write_text('[package]\nname = "cantos-api"\n', encoding="utf-8")
+        errors = self.errors("lib.rs", "")
+        self.assertTrue(any("second server implementation" in error for error in errors), errors)
+
+    def test_repository_has_one_populated_server_crate_with_the_http_adapter(self):
+        root = checks.ROOT
+        for anchor in ("Cargo.toml", "src/lib.rs", "src/adapters/inbound/http/mod.rs", "src/contexts"):
+            self.assertTrue((root / checks.API_SOURCE.parent / anchor).exists(), anchor)
+        self.assertFalse((root / checks.LEGACY_API_CRATE / "Cargo.toml").exists())
+        self.assertEqual(checks.check_api_architecture(root), [])
+
     def test_domain_accepts_pure_collections_and_in_memory_byte_readers(self):
         self.assertEqual(self.errors("contexts/ingestion/domain/extraction/docx.rs", """
 use std::{collections::BTreeSet, io::{Cursor, Read}};

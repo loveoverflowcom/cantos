@@ -3,7 +3,7 @@
 --
 -- Source of truth: each statement is the union of the narrow grants that the PostgreSQL
 -- integration tests give the same role for the route groups this deployment enables
--- (services/cantos-api/tests/*_postgres.rs and the services/kanidm operator contract).
+-- (services/cantos-server/tests/*_postgres.rs and the services/kanidm operator contract).
 -- Deliberately absent: DDL, TRUNCATE, actor/registry writes, retired TTS tables,
 -- Admin functions/tables (Admin stays unconfigured), Theatre native
 -- identity, Theatre registration (SMTP mode has no block). Firebase enrollment has its own

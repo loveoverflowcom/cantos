@@ -43,10 +43,10 @@ Operations (exactly one; deploy is the default):
                 rehearse, freeze, verify an off-host recovery copy, then switch DB/image together
 
 Examples:
-  cargo xtask deploy vps cantos-api --host root@203.0.113.10 --dry-run
-  cargo xtask deploy vps cantos-api --host root@203.0.113.10 --bootstrap
-  cargo xtask deploy vps cantos-api --host root@203.0.113.10 --smoke-origin https://api.example.org
-  cargo xtask deploy vps cantos-api --host root@203.0.113.10 --rollback
+  cargo xtask deploy vps cantos-server --host root@203.0.113.10 --dry-run
+  cargo xtask deploy vps cantos-server --host root@203.0.113.10 --bootstrap
+  cargo xtask deploy vps cantos-server --host root@203.0.113.10 --smoke-origin https://api.example.org
+  cargo xtask deploy vps cantos-server --host root@203.0.113.10 --rollback
 
 SSH authenticates with your own agent or ~/.ssh configuration (BatchMode, no prompts).
 Host secrets are generated and kept on the VPS. See docs/deployment/vps-production.md.";
@@ -54,7 +54,7 @@ Host secrets are generated and kept on the VPS. See docs/deployment/vps-producti
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum VpsTarget {
     /// The Cantos API (both Web-origin processes share one image).
-    CantosApi,
+    CantosServer,
 }
 
 #[derive(Debug, Args)]
@@ -224,7 +224,7 @@ fn durability_step(workspace: &Workspace, run: &Path, mode: &str) -> Step {
 }
 
 pub fn resolve(args: &VpsArgs) -> Result<Request, Refusal> {
-    let VpsTarget::CantosApi = args.target;
+    let VpsTarget::CantosServer = args.target;
     if !valid_ssh_destination(&args.host) {
         return Err(Refusal::Usage(
             "--host must be user@host (letters, digits, '.', '-', '_'; no options or ports)".into(),
@@ -367,7 +367,7 @@ pub fn plan(
             "REVISION".into(),
             "infra/vps".into(),
             "infra/edge/Caddyfile".into(),
-            "services/cantos-api/schema/legacy-epoch-1-manifest.json".into(),
+            "services/cantos-server/schema/legacy-epoch-1-manifest.json".into(),
         ],
     );
     let upload_dir = ssh(
@@ -582,7 +582,7 @@ pub fn render_plan(
     steps: &[Step],
 ) -> String {
     let mut text = format!(
-        "deploy vps cantos-api: {:?} on {}",
+        "deploy vps cantos-server: {:?} on {}",
         request.operation, request.host
     );
     if is_revision(revision) {
@@ -674,7 +674,7 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
             println!("NOT_RUN deploy vps: artifact plan only; no remote action");
             return Ok(ExitCode::SUCCESS);
         }
-        let mut report = Report::new("deploy vps cantos-api artifact");
+        let mut report = Report::new("deploy vps cantos-server artifact");
         match runner.run(&command) {
             Ok(()) => report.record(
                 "artifact promotion",
@@ -723,7 +723,7 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
     if request.dry_run {
         return Ok(ExitCode::SUCCESS);
     }
-    let mut report = Report::new("deploy vps cantos-api");
+    let mut report = Report::new("deploy vps cantos-server");
     if request.operation == Operation::UpgradeEpoch2Prefix
         && !(cfg!(target_os = "linux") && cfg!(target_arch = "x86_64"))
     {
@@ -918,7 +918,7 @@ mod tests {
             #[command(flatten)]
             vps: VpsArgs,
         }
-        let mut line = vec!["probe", "cantos-api", "--host", "root@203.0.113.10"];
+        let mut line = vec!["probe", "cantos-server", "--host", "root@203.0.113.10"];
         line.extend_from_slice(extra);
         Probe::try_parse_from(line).unwrap().vps
     }
@@ -1103,7 +1103,7 @@ mod tests {
             .unwrap()
             .command
             .args
-            .contains(&"services/cantos-api/schema/legacy-epoch-1-manifest.json".to_owned()));
+            .contains(&"services/cantos-server/schema/legacy-epoch-1-manifest.json".to_owned()));
     }
 
     #[test]
@@ -1337,7 +1337,7 @@ mod tests {
         for other in ["--status", "--rollback", "--bootstrap", "--reload-browser"] {
             assert!(Probe::try_parse_from([
                 "probe",
-                "cantos-api",
+                "cantos-server",
                 "--host",
                 "root@h",
                 "--cutover-epoch2",
@@ -1519,7 +1519,7 @@ mod tests {
         ] {
             assert!(Probe::try_parse_from([
                 "probe",
-                "cantos-api",
+                "cantos-server",
                 "--host",
                 "root@203.0.113.10",
                 "--upgrade-epoch2-prefix",
