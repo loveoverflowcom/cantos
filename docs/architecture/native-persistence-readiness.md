@@ -2,8 +2,8 @@
 
 This is the source ownership prerequisite for [#332.2](https://github.com/loveoverflowcom/cantos/issues/332),
 under the [selected native architecture](native-turso-refactor.md). It describes the current
-PostgreSQL source and the selected destination of its data. It supplies no importer, Turso
-schema, database owner, credential verifier or runtime switch.
+PostgreSQL source and the selected destination of its data. This inventory supplies no importer,
+service schema, credential verifier or runtime switch.
 
 ## Per-table disposition
 
@@ -45,6 +45,7 @@ Inspect these owners before attempting the native connection:
 
 | Boundary | Implemented source | Consequence for the next slice |
 | --- | --- | --- |
+| Shared embedded store | [`cantos-store-turso`](../../packages/store-turso/README.md) supplies `OwnedDatabase`, checked startup/migrations, serialized writes, typed commit outcomes and verified backup | The shared foundation is present, but neither service consumes it. Reuse this owner API when adding service schemas/adapters; engine tests alone do not establish a Server or Identity runtime connection. |
 | Process entrypoint | [`cantos-server`](../../services/cantos-server/src/bin/cantos-server.rs) reads `DATABASE_URL`, calls PostgreSQL `verify_schema`, constructs `Store::new`, then composes HTTP | Selecting `CANTOS_THEATRE_NATIVE_ISSUER` still configures the existing provider adapter; it does not start or call Cantos Identity. |
 | Application storage | [`Store`](../../services/cantos-server/src/application.rs) contains `deadpool_postgres::Pool`; [`platform::postgres`](../../services/cantos-server/src/platform/postgres/mod.rs) owns connections and concrete transactions | A new file flag or disconnected actor DB would not replace this durable path. All context adapters and cross-context transaction fences must be ready before #333.9's atomic flip. |
 | HTTP/session admission | [`Studio admission`](../../services/cantos-server/src/adapters/inbound/http/studio/admission.rs), [`bearer`](../../services/cantos-server/src/platform/bearer/mod.rs) and its [`PostgreSQL adapter`](../../services/cantos-server/src/platform/bearer/postgres.rs) | Preserve provider checks, final transaction admission, purpose, roster, ActorId, expiry and resource fences until the accepted native verifier/session path replaces them. SessionPolicy reuse is not credential verification. |
@@ -54,9 +55,11 @@ Inspect these owners before attempting the native connection:
 
 ## Ordered prerequisites for a real connection
 
-1. Accept the shared `cantos-store-turso` owner/migration/transaction API from
-   [#341](https://github.com/loveoverflowcom/cantos/pull/341). Do not copy it or create a competing
-   owner. Acceptance of engine tests alone does not establish a service consumer.
+1. Reuse the shared [`cantos-store-turso`](../../packages/store-turso/README.md)
+   owner/migration/transaction API supplied by [#341](https://github.com/loveoverflowcom/cantos/pull/341)
+   on the integration branch. Its foundation is implemented; the service consumers below are
+   still missing. Do not copy it or create a competing owner. Engine tests alone do not
+   establish a service consumer.
 2. Complete #332's draft `cantos.identity.v1` RPC contract, compatible Tonic/Prost and credential
    library qualification. A generated DTO is not a sealed authentication fact.
 3. #333 owns single-Server composition, the complete `server.db` schema/invariant mapping,
