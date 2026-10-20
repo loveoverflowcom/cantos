@@ -19,6 +19,7 @@ use crate::platform::{
 };
 use std::{collections::BTreeMap, io::Read, path::Path, sync::Arc};
 const PREFIX: &str = "CANTOS_THEATRE_REGISTRATION_FIREBASE_";
+const OPTIONAL_FIELDS: &[&str] = &["NATIVE_ENABLED"];
 #[cfg(test)]
 const PREFIX_COMMON: &str = "CANTOS_THEATRE_REGISTRATION_";
 // ADMIN_ACCESS_TOKEN is retired: a hand-supplied bearer expires in about an hour. The API mints
@@ -42,6 +43,7 @@ const FIELDS: &[&str] = &[
 pub(crate) fn has_inputs(lookup: &mut impl FnMut(&str) -> Option<String>) -> bool {
     FIELDS
         .iter()
+        .chain(OPTIONAL_FIELDS.iter())
         .chain(UNSUPPORTED.iter())
         .any(|name| lookup(&format!("{PREFIX}{name}")).is_some())
 }
@@ -60,8 +62,14 @@ pub fn from_lookup(
     }
     let fields: BTreeMap<_, _> = FIELDS
         .iter()
+        .chain(OPTIONAL_FIELDS.iter())
         .filter_map(|name| lookup(&format!("{PREFIX}{name}")).map(|v| (*name, v)))
         .collect();
+    let native_enabled = match fields.get("NATIVE_ENABLED").map(String::as_str) {
+        None | Some("false") => false,
+        Some("true") => true,
+        Some(_) => return Err(RegistrationError::Configuration),
+    };
     let common: BTreeMap<_, _> = COMMON_FIELDS
         .iter()
         .filter_map(|name| {
@@ -188,7 +196,13 @@ pub fn from_lookup(
         number("MAX_INFLIGHT")?,
         attempts,
     )
-    .map(|runtime| Some(runtime.with_peer_policy(peer_policy)))
+    .map(|runtime| {
+        Some(
+            runtime
+                .with_peer_policy(peer_policy)
+                .with_native_enabled(native_enabled),
+        )
+    })
 }
 
 fn read_existing_secret(value: &str) -> Result<Vec<u8>, RegistrationError> {
@@ -357,6 +371,31 @@ mod tests {
             composed,
             Some(super::super::super::config::RegistrationMode::Firebase(_))
         ));
+        for (setting, expected) in [(None, false), (Some("false"), false), (Some("true"), true)] {
+            let mut candidate = fields.clone();
+            if let Some(value) = setting {
+                candidate.insert(format!("{PREFIX}NATIVE_ENABLED"), value.to_owned());
+            }
+            let runtime = super::super::super::config::from_lookup(
+                identity_store(),
+                "https://cantos.example",
+                |name| candidate.get(name).cloned(),
+            )
+            .unwrap();
+            let Some(super::super::super::config::RegistrationMode::Firebase(runtime)) = runtime
+            else {
+                panic!("expected selected Firebase")
+            };
+            assert_eq!(runtime.native_enabled(), expected);
+        }
+        let mut malformed = fields.clone();
+        malformed.insert(format!("{PREFIX}NATIVE_ENABLED"), "1".to_owned());
+        assert!(super::super::super::config::from_lookup(
+            identity_store(),
+            "https://cantos.example",
+            |name| malformed.get(name).cloned()
+        )
+        .is_err());
         for field in FIELDS {
             let mut missing = fields.clone();
             missing.remove(&format!("{PREFIX}{field}"));

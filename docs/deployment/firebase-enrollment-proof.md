@@ -163,6 +163,14 @@ add a separate exact RS256/rotating-key/time/revocation verifier; this flow admi
 
 ## Isolated local enrollment testing
 
+The [CMP live enrollment preview](../../apps/cantos-theatre/mobile/README.md#live-enrollment-integration-296)
+reuses these API/Firebase/Kanidm owners. Its proposed native admission surface is separately
+disabled by default; `CANTOS_THEATRE_REGISTRATION_FIREBASE_NATIVE_ENABLED=true` requires the
+complete existing Firebase configuration and does not select an emulator in a production host.
+Use the isolated lane below for OOB actions, never real mail or a client-written verified flag.
+The preview adds no new fixture stack. This lane's Linux isolation and unfinished complete
+Kanidm journey remain prerequisites: a JVM protocol fixture or preview render cannot accept them.
+
 The implementation boundary for [#242](https://github.com/loveoverflowcom/cantos/issues/242)
 is a test-only composition of existing enrollment code. Production configuration, provider
 origins, registration activation and identity/session validation are unchanged. No test route,

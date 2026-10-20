@@ -36,6 +36,21 @@ val generateLibraryWire = tasks.register<Exec>("generateLibraryWire") {
         generatedLibraryTests.get().asFile.resolve("com/cantos/theatre/adapters/library/LibraryFixtures.kt").absolutePath)
 }
 
+val generatedRegistrationMain = layout.buildDirectory.dir("generated/registrationWire/commonMain/kotlin")
+val generatedRegistrationTests = layout.buildDirectory.dir("generated/registrationWire/commonTest/kotlin")
+val generateRegistrationWire = tasks.register<Exec>("generateRegistrationWire") {
+    val contract = rootProject.file("../../../packages/contracts")
+    val schema = contract.resolve("schemas/theatre-registration-v1.schema.json")
+    val fixtures = contract.resolve("fixtures/theatre-registration/v1/cases.json")
+    val generator = rootProject.file("tooling/generate_registration_wire.py")
+    inputs.files(schema, fixtures, generator)
+    outputs.dirs(generatedRegistrationMain, generatedRegistrationTests)
+    commandLine("python3", generator.absolutePath, schema.absolutePath,
+        generatedRegistrationMain.get().asFile.resolve("com/cantos/theatre/adapters/http/registrationwire/RegistrationWire.kt").absolutePath,
+        generatedRegistrationTests.get().asFile.resolve("com/cantos/theatre/adapters/http/RegistrationCorpus.kt").absolutePath,
+        fixtures.absolutePath)
+}
+
 // Tests consume the one reviewed corpus, including Native test sources when that target is
 // available. These generated strings preserve input bytes; they never generate expectations.
 val playbackCorpus = rootProject.file("../../../packages/contracts/fixtures/theatre/playback/v1")
@@ -350,6 +365,7 @@ kotlin {
 
     sourceSets {
         commonMain {
+            kotlin.srcDir(layout.buildDirectory.dir("generated/registrationWire/commonMain/kotlin"))
             kotlin.srcDir(layout.buildDirectory.dir("generated/libraryWire/commonMain/kotlin"))
             // Consume the canonical source exactly as the isolated Android preview does.
             // App compositions use its theme/tokens; unqualified registered wrappers stay unused.
@@ -370,6 +386,7 @@ kotlin {
             }
         }
         commonTest {
+            kotlin.srcDir(generateRegistrationWire.map { generatedRegistrationTests.get() })
             kotlin.srcDir(generateLibraryWire.map { generatedLibraryTests.get() })
             kotlin.srcDir(generatePlaybackVectors)
             kotlin.srcDir(generateMembershipVectors)
@@ -480,6 +497,7 @@ tasks.configureEach {
         (name.startsWith("compile") && !name.contains("Test", ignoreCase = true))) {
         dependsOn(assertProductionSafeDependencies)
         dependsOn(generateLibraryWire)
+        dependsOn(generateRegistrationWire)
     }
 }
 

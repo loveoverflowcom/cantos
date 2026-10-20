@@ -52,6 +52,19 @@ import com.cantos.ui.tokenDp
 // Diagnostic controls need a stable reading column, separate from the declared content frame.
 private val WorkbenchControlWidth = 360.dp
 
+/** Fixed-English diagnostic tools stay with this sandbox owner, outside localized product UI. */
+@Composable
+internal fun LiveEnrollmentTools(onCallback: (String) -> Boolean) {
+    var callback by remember { mutableStateOf("") }
+    var invalid by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+        Text("Live HTTP · transient desktop credentials · manual browser return", style = MaterialTheme.typography.labelSmall)
+        TextField("Paste the native OAuth callback after browser sign-in", callback, { callback = it.take(16_384) }, modifier = Modifier.fillMaxWidth())
+        Button("Return sign-in result", { val candidate = callback; callback = ""; invalid = !onCallback(candidate) }, variant = ButtonVariant.Text)
+        if (invalid) Text("Callback refused. Check the exact URI and current sign-in attempt.")
+    }
+}
+
 /** Actual Theatre composition inside a declared frame; desktop controls remain outside it. */
 @Composable
 fun TheatreWorkbench(controller: TheatreWorkbenchController? = null) {

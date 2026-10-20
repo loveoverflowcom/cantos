@@ -17,6 +17,28 @@
     }
   },
   "$defs": {
+    "native_configuration": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["status", "action_origin"],
+          "properties": {
+            "status": {"const": "firebase_email_verification"},
+            "action_origin": {"type": "string"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["status"],
+          "properties": {"status": {"const": "unavailable"}}
+        }
+      ]
+    },
+    "accepted": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status"],
+      "properties": {"status": {"enum": ["accepted"], "type": "string"}}
+    },
     "email_request": {
       "type": "object",
       "additionalProperties": false,

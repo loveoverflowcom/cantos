@@ -31,6 +31,14 @@ pub enum FirebaseConfirmation {
     Unavailable {},
 }
 
+/// Public metadata for the separately enabled native admission surface; never an issuer probe.
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum NativeRegistrationConfiguration {
+    FirebaseEmailVerification { action_origin: String },
+    Unavailable {},
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AcceptedStatus {
@@ -125,6 +133,13 @@ mod tests {
                 "proof_request" => serde_json::from_value::<TokenRequest>(value.clone()).is_ok(),
                 "firebase_confirm_request" => {
                     serde_json::from_value::<FirebaseConfirmRequest>(value.clone()).is_ok()
+                }
+                "native_configuration" => {
+                    serde_json::from_value::<NativeRegistrationConfiguration>(value.clone()).is_ok()
+                }
+                "accepted" => serde_json::from_value::<Accepted>(value.clone()).is_ok(),
+                "firebase_confirmation" => {
+                    serde_json::from_value::<FirebaseConfirmation>(value.clone()).is_ok()
                 }
                 _ => panic!("unknown request fixture"),
             };

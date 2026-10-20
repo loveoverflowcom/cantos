@@ -407,7 +407,8 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     let theatre_request = original_path.starts_with("/api/v1/theatre/");
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
     let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
-    let native_mutation = theatre_native_auth::native_mutation(request.method(), original_path);
+    let native_mutation = theatre_native_auth::native_mutation(request.method(), original_path)
+        || theatre_registration::native_mutation(request.method(), original_path);
     let scoped_bearer = bearer::mutation(
         request.method(),
         original_path,

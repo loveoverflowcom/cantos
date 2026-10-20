@@ -26,11 +26,23 @@ import com.cantos.theatre.app.PreviewSession
 import com.cantos.theatre.app.PreviewTheatreApp
 import com.cantos.theatre.adapters.preview.previewLibraryStore
 import com.cantos.theatre.app.seed
+import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.domain.identity.NativeIdentityAvailability
 
-// The Desktop Preview: the one CantosTheatreApp over mock external ports. It plays no audio and
-// calls no network; scenario controls are the workbench's (CANTOS_THEATRE_WORKBENCH=1).
+// Explicit live mode uses the same production app/controllers over real HTTP. The default
+// diagnostic recipes remain offline; neither host supplies native/device acceptance.
 fun main() = application {
     val workbench = System.getenv("CANTOS_THEATRE_WORKBENCH") == "1"
+    val apiOrigin = System.getenv("CANTOS_THEATRE_PREVIEW_API_ORIGIN")
+    val issuer = System.getenv("CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER")
+    val live = remember(apiOrigin, issuer) {
+        if (apiOrigin == null && issuer == null) null else {
+            check(!workbench) { "Live integration and mock workbench must be selected separately" }
+            val selected = NativeClientConfiguration.resolve(apiOrigin, issuer)
+            check(selected is NativeIdentityAvailability.Available) { "Live preview requires valid API_ORIGIN and NATIVE_ISSUER; no mock fallback" }
+            selected.configuration
+        }
+    }
     // Diagnostic desktop opt-in only; Android/iOS hosts never receive a Membership fixture.
     val membership = remember {
         if (System.getenv("CANTOS_MEMBERSHIP_PREVIEW_FIXTURE") == "1") MembershipState.fixture()
@@ -41,6 +53,10 @@ fun main() = application {
         title = "Cantos · xem thử trên máy tính",
         state = rememberWindowState(width = if (workbench) 1200.dp else 420.dp, height = if (workbench) 1000.dp else 900.dp),
     ) {
+        if (live != null) {
+            LiveEnrollmentPreview(live)
+            return@Window
+        }
         if (workbench) {
             TheatreWorkbench()
             return@Window

@@ -48,6 +48,15 @@ async fn fixture_with_peers(
     peers: PeerPolicy,
     per_network: u32,
 ) -> (Router, Arc<Memory>, ActionServer, Events) {
+    fixture_with_native(awaiting, peers, per_network, false).await
+}
+
+async fn fixture_with_native(
+    awaiting: bool,
+    peers: PeerPolicy,
+    per_network: u32,
+    native: bool,
+) -> (Router, Arc<Memory>, ActionServer, Events) {
     let events = Arc::new(Mutex::new(Vec::new()));
     let memory = Arc::new(if awaiting {
         Memory::awaiting(events.clone())
@@ -74,7 +83,8 @@ async fn fixture_with_peers(
                 AttemptPolicy::new(60, 100, per_network).unwrap(),
             )
             .unwrap()
-            .with_peer_policy(peers),
+            .with_peer_policy(peers)
+            .with_native_enabled(native),
         );
     (
         router(
@@ -127,6 +137,222 @@ async fn receipt(app: Router, request: Request<Body>) -> (StatusCode, Value) {
 
 fn action() -> Value {
     json!({"operation_id":Uuid::from_u128(1).to_string(),"oob_code":"actual-action"})
+}
+
+fn native_request(path: &str, value: Value, peer: bool) -> Request<Body> {
+    let mut req = request(Method::POST, path, value, peer);
+    req.headers_mut().remove(header::ORIGIN);
+    req
+}
+
+#[test]
+fn only_the_three_exact_post_handlers_can_own_native_registration_admission() {
+    for path in [
+        "/api/v1/theatre/native/auth/registration",
+        "/api/v1/theatre/native/auth/registration/firebase/confirm",
+        "/api/v1/theatre/native/auth/registration/firebase/cancel",
+    ] {
+        assert!(super::native_mutation(&Method::POST, path));
+        for method in [Method::GET, Method::HEAD, Method::PUT, Method::DELETE] {
+            assert!(!super::native_mutation(&method, path));
+        }
+        assert!(!super::native_mutation(
+            &Method::POST,
+            &format!("{path}/extra")
+        ));
+    }
+    for path in [
+        BASE,
+        CONFIRM,
+        CANCEL,
+        "/api/v1/studio/native/auth/registration",
+        "/api/v1/theatre/native/auth/registration/verify",
+    ] {
+        assert!(!super::native_mutation(&Method::POST, path));
+    }
+}
+
+#[tokio::test]
+async fn native_surface_is_off_by_default_and_never_weakens_web_origin_admission() {
+    let (app, _, server, events) = fixture(true).await;
+    let base = "/api/v1/theatre/native/auth/registration";
+    let config = receipt(
+        app.clone(),
+        request(
+            Method::GET,
+            &format!("{base}/configuration"),
+            Value::Null,
+            false,
+        ),
+    )
+    .await;
+    assert_eq!(config, (StatusCode::OK, json!({"status":"unavailable"})));
+    assert_eq!(
+        receipt(
+            app.clone(),
+            native_request(base, json!({"email":"a@example.test"}), true)
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        receipt(
+            app,
+            native_request(BASE, json!({"email":"a@example.test"}), true)
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert!(server.bodies.lock().unwrap().is_empty());
+    assert!(events.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn native_browser_metadata_credentials_and_missing_peer_are_refused_before_effects() {
+    let (app, memory, server, events) =
+        fixture_with_native(true, PeerPolicy::DirectPeer, 100, true).await;
+    let base = "/api/v1/theatre/native/auth/registration";
+    for path in [
+        base.to_owned(),
+        format!("{base}/firebase/confirm"),
+        format!("{base}/firebase/cancel"),
+    ] {
+        for name in [
+            "origin",
+            "cookie",
+            "authorization",
+            "sec-fetch-site",
+            "sec-fetch-mode",
+            "sec-fetch-dest",
+            "sec-fetch-user",
+        ] {
+            let mut req = native_request(&path, action(), true);
+            req.headers_mut().insert(
+                axum::http::HeaderName::from_bytes(name.as_bytes()).unwrap(),
+                "".parse().unwrap(),
+            );
+            assert_eq!(
+                receipt(app.clone(), req).await.0,
+                StatusCode::FORBIDDEN,
+                "{name}"
+            );
+        }
+        let body = if path == base {
+            json!({"email":"a@example.test"})
+        } else {
+            action()
+        };
+        assert_eq!(
+            receipt(app.clone(), native_request(&path, body, false))
+                .await
+                .0,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert_eq!(
+            receipt(app.clone(), request(Method::GET, &path, Value::Null, true))
+                .await
+                .0,
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+    assert_eq!(memory.phase(), Some(Phase::AwaitingAction));
+    assert!(server.bodies.lock().unwrap().is_empty());
+    assert!(events.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn native_confirmation_uses_the_existing_one_winner_service_and_never_authenticates() {
+    let (app, memory, _server, events) =
+        fixture_with_native(true, PeerPolicy::DirectPeer, 100, true).await;
+    let confirm = "/api/v1/theatre/native/auth/registration/firebase/confirm";
+    let configuration = receipt(
+        app.clone(),
+        request(
+            Method::GET,
+            "/api/v1/theatre/native/auth/registration/configuration",
+            Value::Null,
+            false,
+        ),
+    )
+    .await;
+    assert_eq!(
+        configuration,
+        (
+            StatusCode::OK,
+            json!({"status":"firebase_email_verification","action_origin":ORIGIN})
+        )
+    );
+    let result = receipt(app.clone(), native_request(confirm, action(), true)).await;
+    assert_eq!(result.0, StatusCode::OK);
+    assert_eq!(result.1["status"], "setup_ready");
+    assert_eq!(memory.phase(), Some(Phase::HandedOff));
+    // A native and a Web caller share consumption, never a second enrollment operation.
+    assert_eq!(
+        receipt(app.clone(), request(Method::POST, CONFIRM, action(), true)).await,
+        (StatusCode::OK, json!({"status":"unavailable"}))
+    );
+    assert_eq!(
+        receipt(app.clone(), native_request(confirm, action(), true)).await,
+        (StatusCode::OK, json!({"status":"unavailable"}))
+    );
+    assert_eq!(
+        events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| **event == "create")
+            .count(),
+        1
+    );
+    assert_eq!(
+        events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| **event == "setup")
+            .count(),
+        1
+    );
+    assert_eq!(
+        receipt(
+            app,
+            request(Method::GET, "/api/v1/theatre/session", Value::Null, true)
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+#[tokio::test]
+async fn native_cancel_consumes_proof_without_provisioning_and_replay_cannot_create() {
+    let (app, memory, _server, events) =
+        fixture_with_native(true, PeerPolicy::DirectPeer, 100, true).await;
+    let prefix = "/api/v1/theatre/native/auth/registration/firebase";
+    assert_eq!(
+        receipt(
+            app.clone(),
+            native_request(&format!("{prefix}/cancel"), action(), true)
+        )
+        .await,
+        (StatusCode::ACCEPTED, json!({"status":"accepted"}))
+    );
+    assert_eq!(
+        receipt(
+            app,
+            native_request(&format!("{prefix}/confirm"), action(), true)
+        )
+        .await,
+        (StatusCode::OK, json!({"status":"unavailable"}))
+    );
+    assert!(!events
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|event| *event == "create" || *event == "setup"));
+    assert_eq!(memory.phase(), Some(Phase::Cancelled));
 }
 
 #[tokio::test]

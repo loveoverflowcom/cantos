@@ -56,7 +56,7 @@ class NativeClientConfiguration private constructor(val apiOrigin: String, val i
                 is NativeIdentityAvailability.Invalid -> null
             }
 
-        private fun validApiOrigin(apiOrigin: String): Boolean {
+        internal fun validApiOrigin(apiOrigin: String): Boolean {
             val match = Regex("https://([a-z0-9.-]+)(?::([0-9]{1,5}))?").matchEntire(apiOrigin) ?: return false
             val host = match.groupValues[1]
             val port = match.groupValues[2]

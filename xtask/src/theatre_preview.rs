@@ -1,7 +1,7 @@
 //! Theatre Desktop Preview. It mounts the one `CantosTheatreApp` over mock external ports (public
 //! catalog, playback access, decoder stand-in, identity provider and remote Library) on the JVM
-//! desktop. These commands never exercise a listener API, a native audio engine, a download, a
-//! real account or a production mobile application, and there is no Android or iOS preview host.
+//! desktop. Explicitly configured live enrollment uses real HTTP/account owners in that same
+//! host. No mode starts infrastructure, a native audio engine or an Android/iOS preview host.
 
 use std::{path::Path, process::ExitCode};
 
@@ -27,7 +27,7 @@ pub enum TheatrePreviewAction {
     Build,
     /// Run deterministic state and rendered desktop UI tests (the shared core and the sandbox).
     Verify,
-    /// Supervise the Desktop Preview window; no audio, network or native device is started.
+    /// Supervise offline recipes or explicitly configured live enrollment; starts no infrastructure.
     Run,
     /// Retired (#286): the Android mock host was merged into the one real-only `:androidApp`.
     AndroidBuild,

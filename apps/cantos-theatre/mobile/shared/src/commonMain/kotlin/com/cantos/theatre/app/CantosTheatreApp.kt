@@ -31,6 +31,7 @@ import com.cantos.theatre.features.auth.presentation.AuthHeader
 import com.cantos.theatre.features.auth.presentation.AuthIntent
 import com.cantos.theatre.features.auth.presentation.LoginScreen
 import com.cantos.theatre.features.auth.presentation.RegisterScreen
+import com.cantos.theatre.features.auth.presentation.RegistrationIntent
 import com.cantos.theatre.features.auth.presentation.authReturnFor
 import com.cantos.theatre.features.membership.presentation.MembershipHeader
 import com.cantos.theatre.features.membership.presentation.MembershipPreview
@@ -82,6 +83,7 @@ fun CantosTheatreApp(
     val prefs by shell.preferences.state.collectAsState()
     val localeUpdate by shell.preferences.localeUpdate.collectAsState()
     val accountState = shell.runtime.account?.state?.collectAsState()?.value
+    val registration = shell.registration?.state?.collectAsState()?.value
     val cacheStatus = cache?.status?.collectAsState()?.value
     val locale = prefs.locale.toShellLocale()
     val theme = if (prefs.theme == PreferenceTheme.Dark) ShellTheme.Dark else ShellTheme.Light
@@ -141,7 +143,18 @@ fun CantosTheatreApp(
             membershipScreen = ui.membership.screen,
             accountContent = { loginFocus -> AccountContent(locale, theme, accountView, onAuth, loginFocus, previewActionIcons = true) },
             authContent = {
-                if (state.route == ShellRoute.Register) RegisterScreen(locale, onAuth, previewActionIcons = true)
+                if (state.route == ShellRoute.Register) RegisterScreen(locale, onAuth, previewActionIcons = true,
+                    registration = registration, onRegistration = { intent ->
+                        shell.registration?.let { owner -> when (intent) {
+                            is RegistrationIntent.Email -> owner.editEmail(intent.value)
+                            is RegistrationIntent.Import -> owner.importAction(intent.link)
+                            RegistrationIntent.Submit -> owner.submit()
+                            RegistrationIntent.Confirm -> owner.confirm()
+                            RegistrationIntent.Cancel -> owner.cancel()
+                            RegistrationIntent.OpenSetup -> owner.openSetup()
+                            RegistrationIntent.Restart -> owner.restart()
+                        } }
+                    })
                 else LoginScreen(locale, accountView, nothingSaved, onAuth, previewActionIcons = true)
             },
             authHeader = { AuthHeader(locale, theme, authReturnFor(state.stack), onAuth) },

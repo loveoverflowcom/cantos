@@ -111,7 +111,7 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
 
 
     /** Navigation and typed route text live with the process owners, like the catalog and runtime. */
-    private val shell = if (catalog != null && runtime != null) TheatreShell(scope, catalog, runtime, preferences) else null
+    private val shell = if (catalog != null && runtime != null) TheatreShell(scope, catalog, runtime, preferences, registration = identity.registration) else null
 
     fun viewController(): UIViewController = ComposeUIViewController {
         val locale by preferences.state.collectAsState()
