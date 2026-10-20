@@ -1235,6 +1235,9 @@ def check():
     errors += check_api_architecture(ROOT)
     errors += check_theatre_architecture(ROOT)
 
+    from native_table_ownership import repository_failures as native_ownership_failures
+    errors += native_ownership_failures(ROOT)
+
     # Added UI copy is checked against exact reviewed owners and exceptions.
     # Full catalog parity is independent from the displayed-literal diff.
     from check_localization import repository_failures as localization_failures

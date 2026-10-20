@@ -1,5 +1,11 @@
 # Current PostgreSQL schema
 
+The [per-table native disposition manifest](native-table-ownership.json) and
+[ownership/runtime prerequisite map](../../../docs/architecture/native-persistence-readiness.md)
+cover the 82 SQL tables plus the two migrator metadata tables. The existing repository gate
+checks source coverage and refuses provider-auth tables classified as business data. This is
+source inventory only; it neither ports rows nor changes this authoritative PostgreSQL runtime.
+
 `0001_current.sql` is the canonical **epoch 2, version 1** fresh-install DDL. It materializes
 current constraints/functions/triggers/indexes without replaying retired provider migrations.
 The metadata registries are created by `platform/postgres/migrations.rs` in the same transaction.

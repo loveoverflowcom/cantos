@@ -1,0 +1,164 @@
+"""Source-only #332 ownership coverage, called by the existing repository gate.
+
+This recognizes the repository's literal CREATE TABLE public.name (...) declarations.
+It does not parse general SQL, inspect a database or authorize migration/retirement.
+An unrecognized CREATE TABLE form fails closed for explicit review.
+"""
+
+import json
+import re
+from collections import Counter
+from pathlib import Path
+
+
+MANIFEST = Path("services/cantos-server/schema/native-table-ownership.json")
+SCHEMA = Path("services/cantos-server/schema")
+REGISTRY = Path("services/cantos-server/src/platform/postgres/migrations.rs")
+DISPOSITIONS = {"server", "replace-provider-auth", "development-only", "replace-registry"}
+PROVIDER_PREFIXES = (
+    "bearer_", "studio_oidc_", "theatre_identity_", "theatre_native_",
+    "theatre_registration", "theatre_firebase_",
+)
+DECLARATION = re.compile(
+    r"\bCREATE\s+TABLE\s+public\.([a-z_][a-z_0-9]*)\s*\(", re.IGNORECASE,
+)
+CREATE_TABLE = re.compile(r"\bCREATE\s+(?:[a-z_][a-z_0-9]*\s+)*TABLE\b", re.IGNORECASE)
+
+
+def without_sql_comments(text):
+    """Preserve quoted text; remove SQL comments without hiding later declarations.
+
+    Kept string contents can conservatively flag DDL examples as unsupported. This is
+    source coverage, not a claim to resolve dynamic SQL or execute PostgreSQL grammar.
+    """
+    result = []
+    index = 0
+    while index < len(text):
+        if text.startswith("--", index):
+            end = text.find("\n", index)
+            index = len(text) if end < 0 else end
+            result.append(" ")
+        elif text.startswith("/*", index):
+            depth = 1
+            index += 2
+            while index < len(text) and depth:
+                if text.startswith("/*", index):
+                    depth += 1
+                    index += 2
+                elif text.startswith("*/", index):
+                    depth -= 1
+                    index += 2
+                else:
+                    index += 1
+            if depth:
+                raise ValueError("unterminated SQL block comment")
+            result.append(" ")
+        elif text[index] in "\"'":
+            start, quote = index, text[index]
+            index += 1
+            while index < len(text):
+                if text[index] == "\\" and index + 1 < len(text) and text[index + 1] == quote:
+                    # E-strings and standard_conforming_strings can disagree here. Refuse
+                    # the source shape rather than choosing a mode and masking later DDL.
+                    raise ValueError("unsupported backslash-escaped SQL quote")
+                if text[index] == quote:
+                    index += 1
+                    if index < len(text) and text[index] == quote:
+                        index += 1
+                    else:
+                        break
+                else:
+                    index += 1
+            else:
+                raise ValueError("unterminated SQL quote")
+            result.append(text[start:index])
+        elif text[index] == "$" and (tag := re.match(r"\$(?:[a-zA-Z_][a-zA-Z_0-9]*)?\$", text[index:])):
+            delimiter = tag.group()
+            end = text.find(delimiter, index + len(delimiter))
+            if end < 0:
+                raise ValueError("unterminated SQL dollar quote")
+            end += len(delimiter)
+            result.append(text[index:end])
+            index = end
+        else:
+            result.append(text[index])
+            index += 1
+    return "".join(result)
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def source_tables(root):
+    """Return exact table -> source path, refusing duplicate/unsupported declarations."""
+    files = sorted((root / SCHEMA).glob("*.sql"))
+    if not files:
+        raise ValueError("no current schema SQL files")
+    files.append(root / REGISTRY)
+    tables = {}
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        # The Rust registry is deliberately scanned as literal source, including comments;
+        # masking Rust strings would erase the very SQL declarations being inventoried.
+        if path.suffix == ".sql":
+            text = without_sql_comments(text)
+        declarations = list(DECLARATION.finditer(text))
+        if len(declarations) != len(CREATE_TABLE.findall(text)):
+            raise ValueError(f"{path.relative_to(root)}: unsupported CREATE TABLE declaration")
+        for declaration in declarations:
+            table = declaration.group(1)
+            if table in tables:
+                raise ValueError(f"duplicate source table: {table}")
+            tables[table] = path.relative_to(root).as_posix()
+    return tables
+
+
+def validate(manifest, tables):
+    if not isinstance(manifest, dict) or set(manifest) != {"version", "dispositions"}:
+        raise ValueError("expected version and dispositions")
+    if type(manifest["version"]) is not int or manifest["version"] != 1:
+        raise ValueError("unsupported ownership manifest version")
+    groups = manifest["dispositions"]
+    if not isinstance(groups, dict) or set(groups) != DISPOSITIONS:
+        raise ValueError("expected the four explicit native dispositions")
+    classified = []
+    errors = []
+    for disposition, names in groups.items():
+        if not isinstance(names, list) or any(not isinstance(name, str) for name in names):
+            raise ValueError(f"{disposition}: expected a table-name array")
+        if names != sorted(names):
+            errors.append(f"{disposition}: table names must be sorted")
+        for table in names:
+            classified.append(table)
+            required = (
+                "replace-provider-auth" if table.startswith(PROVIDER_PREFIXES)
+                else "development-only" if table == "sessions"
+                else "replace-registry" if table in {"cantos_schema", "cantos_migrations"}
+                else "server"
+            )
+            if disposition != required:
+                errors.append(f"{table}: expected {required}, found {disposition}")
+    for table, count in sorted(Counter(classified).items()):
+        if count != 1:
+            errors.append(f"{table}: classified {count} times")
+    for table in sorted(set(tables) - set(classified)):
+        errors.append(f"{table}: missing native disposition ({tables[table]})")
+    for table in sorted(set(classified) - set(tables)):
+        errors.append(f"{table}: no current source declaration")
+    return errors
+
+
+def repository_failures(root):
+    try:
+        manifest = json.loads((root / MANIFEST).read_text(encoding="utf-8"),
+                              object_pairs_hook=unique_object)
+        errors = validate(manifest, source_tables(root))
+    except (OSError, ValueError) as error:
+        errors = [str(error)]
+    return [f"native table ownership: {error}" for error in errors]
