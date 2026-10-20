@@ -21,10 +21,14 @@ CLI identity. Source placement does not register Forge in the local process inve
 establish Functions packaging, deployment or provider acceptance.
 The API never synthesizes audio or calls Gemini.
 
-[`cantos-identity`](cantos-identity/README.md) is also a Cargo member, currently a pure
-security-state and mailbox-proof decision library for #334. It has no binary, listener, storage or registered process;
-the native service and its shared #332 Turso owner remain unimplemented. It is intentionally
-absent from the process inventory until a runnable composition exists.
+[`cantos-identity`](cantos-identity/README.md) is also a Cargo member. Its default security-state
+and mailbox-proof decision core remains dependency-free; the optional
+[`persistence` feature](cantos-identity/README.md#file-backed-security-state) uses the shared
+Turso `OwnedDatabase` for the Identity-owned epoch, subjects/security versions, Active→Disabled
+changes, ordered events and immutable bound receipts. It has no executable, listener, credential
+verifier, authenticated RPC or production composition. It remains absent from the process
+inventory until a runnable composition exists; stored state does not establish login authority
+or restore acceptance.
 
 Cross-environment deployment configuration lives in [`infra/`](../infra/README.md): the VPS
 production runtime ([`infra/vps`](../infra/vps/README.md)), the public edge and static Firebase

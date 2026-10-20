@@ -8,7 +8,10 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    config::{App, API_PACKAGE, FORGE_PACKAGE, TURSO_STORE_PACKAGE, UI_CMP_DIR, UI_PACKAGE},
+    config::{
+        App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_PACKAGE, TURSO_STORE_PACKAGE, UI_CMP_DIR,
+        UI_PACKAGE,
+    },
     gate::{self, Gate, Scope},
 };
 
@@ -138,7 +141,7 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         gates.insert(Gate::AudioInspection);
         gates.insert(Gate::Postgres { keep: false });
     }
-    if affected.contains(TURSO_STORE_PACKAGE) {
+    if affected.contains(TURSO_STORE_PACKAGE) || affected.contains(IDENTITY_PACKAGE) {
         gates.insert(Gate::Turso);
     }
     if affected.contains(UI_PACKAGE) {
@@ -567,11 +570,13 @@ mod tests {
     }
 
     #[test]
-    fn identity_core_inputs_select_only_their_rust_package() {
+    fn identity_inputs_select_their_rust_package_and_persistence() {
         for path in [
             "services/cantos-identity/src/lib.rs",
             "services/cantos-identity/src/domain/security_version.rs",
             "services/cantos-identity/src/domain/admission.rs",
+            "services/cantos-identity/src/persistence/mod.rs",
+            "services/cantos-identity/src/persistence/schema.sql",
             "services/cantos-identity/Cargo.toml",
         ] {
             let selection = pick(&[path]);
@@ -583,6 +588,7 @@ mod tests {
                     "rust-format",
                     "rust-lint (cantos-identity)",
                     "rust-tests (cantos-identity)",
+                    "turso",
                 ],
                 "{path}"
             );
@@ -604,8 +610,8 @@ mod tests {
                 [
                     "repository",
                     "rust-format",
-                    "rust-lint (cantos-store-turso)",
-                    "rust-tests (cantos-store-turso)",
+                    "rust-lint (cantos-identity, cantos-store-turso)",
+                    "rust-tests (cantos-identity, cantos-store-turso)",
                     "turso",
                 ],
                 "{path}"

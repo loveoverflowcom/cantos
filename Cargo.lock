@@ -971,6 +971,11 @@ dependencies = [
 [[package]]
 name = "cantos-identity"
 version = "0.1.0"
+dependencies = [
+ "cantos-store-turso",
+ "getrandom 0.3.4",
+ "tokio",
+]
 
 [[package]]
 name = "cantos-server"
