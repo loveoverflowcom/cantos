@@ -235,14 +235,15 @@ fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit, previewA
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             Button(
                 copy.text(AuthText.ReturnLogin), { onIntent(AuthIntent.OpenLogin) },
-                variant = if (registration == null) ButtonVariant.AuthPrimary else ButtonVariant.AuthOutlined,
-                icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenLogin) else "arrow_back",
+                variant = if (registration == null) ButtonVariant.AuthPrimary else ButtonVariant.Text,
+                icon = if (previewActionIcons || registration != null) authActionIcon(AuthIntent.OpenLogin) else "arrow_back",
                 controlModifier = Modifier.fillMaxWidth().testTag("register-login"),
             )
             Button(
                 copy.text(AuthText.RegisterLater), { onIntent(AuthIntent.OpenHome) },
                 icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenHome) else null,
-                variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
+                variant = if (registration == null) ButtonVariant.AuthOutlined else ButtonVariant.Text,
+                controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
             )
         }
     }
