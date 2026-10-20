@@ -1330,4 +1330,111 @@ mod bookmarks {
             1
         );
     }
+
+    /// The production CMP client (sync adapter, SQLite store, codec, HTTP client) against this real Router over
+    /// loopback HTTP and the real database. The Kotlin side is `LiveBookmarkApiTest`; this harness owns the server,
+    /// the seeded rows and the final database assertions, so a Kotlin pass cannot stand in for them.
+    #[tokio::test]
+    #[ignore = "requires xtask disposable PostgreSQL plus Gradle and the CMP desktop toolchain on PATH; no audio decoder or real identity provider"]
+    async fn cmp_production_client_against_the_real_api() {
+        const SEEDED: u64 = 22;
+        let (f, service, a) = world().await;
+        assert!(
+            a.duration_ms >= 100,
+            "fixture audio too short for distinct bookmark positions"
+        );
+        let alice = principal("alice");
+        for n in 1..=SEEDED {
+            service
+                .create_bookmark(&alice, &bm(n), create(&a, n, 1, 90, n))
+                .await
+                .unwrap();
+        }
+        let router = app(f.listener_handles().1);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move { axum::serve(listener, router).await });
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let identity = serde_json::to_string(&a).unwrap();
+        let output = tokio::task::spawn_blocking(move || {
+            std::process::Command::new("gradle")
+                .current_dir(root)
+                .args([
+                    "--project-dir",
+                    "apps/cantos-theatre/mobile",
+                    "--no-daemon",
+                    "-Dorg.gradle.java.installations.auto-download=false",
+                    "--max-workers",
+                    "2",
+                    "-Pkotlin.compiler.execution.strategy=in-process",
+                    "--no-configuration-cache",
+                    "-i",
+                    ":shared:desktopTest",
+                    "--rerun",
+                    "--tests",
+                    "com.cantos.theatre.adapters.library.LiveBookmarkApiTest",
+                ])
+                .env("CANTOS_LIVE_API_ORIGIN", format!("http://127.0.0.1:{port}"))
+                .env("CANTOS_LIVE_AUDIO", identity)
+                .env("CANTOS_LIVE_SEEDED", SEEDED.to_string())
+                .output()
+        })
+        .await
+        .unwrap()
+        .expect("gradle could not be started");
+        server.abort();
+        let log = String::from_utf8_lossy(&output.stdout).into_owned();
+        assert!(
+            output.status.success(),
+            "{log}\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            log.contains("LIVE-BOOKMARK-OK"),
+            "the live test was skipped, not passed:\n{log}"
+        );
+        println!(
+            "{}",
+            log.lines()
+                .find(|l| l.contains("LIVE-BOOKMARK-OK"))
+                .unwrap_or_default()
+                .trim()
+        );
+        // The database is the authority: what the client believes must be exactly what PostgreSQL holds.
+        let admin = f.listener_handles().0;
+        async fn count(admin: &tokio_postgres::Client, sql: &str) -> i64 {
+            admin.query_one(sql, &[]).await.unwrap().get::<_, i64>(0)
+        }
+        let alice_live =
+            "SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND NOT deleted";
+        assert_eq!(count(admin, alice_live).await, SEEDED as i64 + 2);
+        assert_eq!(
+            count(
+                admin,
+                "SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND deleted"
+            )
+            .await,
+            1
+        );
+        assert_eq!(
+            count(
+                admin,
+                "SELECT count(*) FROM listener_bookmarks WHERE listener_id='bob'"
+            )
+            .await,
+            0,
+            "no row for another account"
+        );
+        assert_eq!(
+            count(admin, "SELECT count(*) FROM (SELECT publication_id,position_ms FROM listener_bookmarks WHERE listener_id='alice' AND NOT deleted GROUP BY 1,2 HAVING count(*)>1) d").await,
+            0,
+            "no duplicate at one release position"
+        );
+        let foreign = format!("SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND publication_id<>'{}'", a.publication_id);
+        assert_eq!(
+            count(admin, &foreign).await,
+            0,
+            "every row names the exact release"
+        );
+    }
 }
