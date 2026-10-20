@@ -144,21 +144,47 @@ class PublicCatalogHttpAdapterTest {
     }
 
     @Test
+    fun an_absent_override_selects_the_production_default_and_never_an_empty_one() {
+        assertEquals(CatalogOriginSelection.Configured(ApiOrigin.parse("https://api.cantos.cc"), OriginSource.Default),
+            selectCatalogOrigin(null, allowLoopbackHttp = false))
+        assertEquals(selectCatalogOrigin(null, allowLoopbackHttp = false), selectCatalogOrigin(null, allowLoopbackHttp = true))
+        assertEquals("https://api.cantos.cc", DefaultProductionApiOrigin)
+        // Packaging cannot omit a key: its empty build value means "no override", the strict path does not.
+        assertEquals(selectCatalogOrigin(null, allowLoopbackHttp = false), selectPackagedApiOrigin("", allowLoopbackHttp = false))
+        assertEquals(selectCatalogOrigin(null, allowLoopbackHttp = false), selectPackagedApiOrigin(null, allowLoopbackHttp = true))
+        assertEquals(CatalogOriginSelection.Rejected(ApiOriginRefusal.Empty), selectCatalogOrigin("", allowLoopbackHttp = true))
+        assertEquals(CatalogOriginSelection.Rejected(ApiOriginRefusal.Empty), selectCatalogOrigin("   ", allowLoopbackHttp = false))
+        assertEquals(CatalogOriginSelection.Rejected(ApiOriginRefusal.NotHttps), selectPackagedApiOrigin("http://127.0.0.1:8080", allowLoopbackHttp = false))
+        assertEquals(CatalogOriginSelection.Configured(ApiOrigin.parse("https://api.cantos.example"), OriginSource.Override),
+            selectPackagedApiOrigin("https://api.cantos.example", allowLoopbackHttp = false))
+    }
+
+    @Test
     fun release_admits_only_https_and_debug_additionally_admits_explicit_loopback() {
-        assertEquals(CatalogOriginSelection.NotConfigured, selectCatalogOrigin(null, allowLoopbackHttp = false))
-        assertEquals(CatalogOriginSelection.NotConfigured, selectCatalogOrigin("", allowLoopbackHttp = true))
         assertEquals(CatalogOriginSelection.Configured(ApiOrigin.parse("https://api.cantos.example")),
             selectCatalogOrigin("https://api.cantos.example", allowLoopbackHttp = false))
-        assertEquals(CatalogOriginSelection.Rejected, selectCatalogOrigin("http://127.0.0.1:8080", allowLoopbackHttp = false))
+        assertEquals(CatalogOriginSelection.Rejected(ApiOriginRefusal.NotHttps), selectCatalogOrigin("http://127.0.0.1:8080", allowLoopbackHttp = false))
         assertEquals(CatalogOriginSelection.Configured(ApiOrigin.parse("http://127.0.0.1:8080")),
             selectCatalogOrigin("http://127.0.0.1:8080", allowLoopbackHttp = true))
         assertEquals(CatalogOriginSelection.Configured(ApiOrigin.parse("http://localhost:8090")),
             selectCatalogOrigin("http://localhost:8090", allowLoopbackHttp = true))
         // ApiOrigin parses [::1], but the debug network security config permits no cleartext there.
-        for (raw in listOf("http://[::1]:8080", "http://192.168.1.20:8080", "http://api.cantos.example", "https://api.cantos.example/",
-            "https://user@api.cantos.example", "https://api.cantos.example/api/v1/studio", " https://api.cantos.example",
-            "ftp://127.0.0.1", "https://api.cantos.example:0", "https://api.cantos.example:70000")) {
-            assertEquals(CatalogOriginSelection.Rejected, selectCatalogOrigin(raw, allowLoopbackHttp = true), raw)
+        val refusals = mapOf(
+            "http://[::1]:8080" to ApiOriginRefusal.CleartextHostNotAllowed,
+            "http://192.168.1.20:8080" to ApiOriginRefusal.CleartextHostNotAllowed,
+            "http://api.cantos.example" to ApiOriginRefusal.CleartextHostNotAllowed,
+            "https://api.cantos.example/" to ApiOriginRefusal.Malformed,
+            "https://user@api.cantos.example" to ApiOriginRefusal.Malformed,
+            "https://api.cantos.example/api/v1/studio" to ApiOriginRefusal.Malformed,
+            " https://api.cantos.example" to ApiOriginRefusal.Malformed,
+            "api.cantos.cc" to ApiOriginRefusal.Malformed,
+            "ftp://127.0.0.1" to ApiOriginRefusal.NotHttps,
+            "https://api.cantos.example:0" to ApiOriginRefusal.Malformed,
+            "https://api.cantos.example:70000" to ApiOriginRefusal.Malformed,
+        )
+        for ((raw, refusal) in refusals) {
+            // Never the default, never a mock: a refusal is typed and identical for every build type's input.
+            assertEquals(CatalogOriginSelection.Rejected(refusal), selectCatalogOrigin(raw, allowLoopbackHttp = true), raw)
         }
     }
 }

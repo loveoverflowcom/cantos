@@ -8,7 +8,7 @@ pinned there; production native media libraries and platform support policy rema
 The mock remains isolated. Separate production Android and iOS catalog hosts compose the existing
 JSON catalog adapter/controller directly from `:shared`, with server search/filter, Work/unit
 pagination and explicit unavailable listening/account/Library capabilities. Android release pins
-an optional HTTPS API origin; iOS has its own shared-only framework/project/scheme. Neither host
+an optional HTTPS API origin override over the `https://api.cantos.cc` default (#298); iOS has its own shared-only framework/project/scheme. Neither host
 creates a fake playback session for startup. Native audio, downloads and durable sync remain
 unimplemented; a framework link or JVM test does not establish native runtime verification.
 

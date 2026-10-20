@@ -8,8 +8,9 @@ owners into the screens. The single Android application `:androidApp` and iOS `C
 (`com.cantos.theatre`) compose `:shared` only. Android has exactly two build types and no flavors:
 `release` is `com.cantos.theatre` (label **Cantos**) and `debug` is the side-by-side
 `com.cantos.theatre.dev` (label **Cantos Dev**, version suffix `-dev`). Both are real-only: with an
-admitted API origin they mount `CantosTheatreApp`; otherwise they render the explicit
-`CantosListeningUnavailable` state. They never fall back to a mock (#286). Studio is web-only.
+admitted API origin (an explicit override, else the production default `https://api.cantos.cc`)
+they mount `CantosTheatreApp`; a refused override or packaging renders `CantosListeningUnavailable`
+with a typed configuration diagnostic. They never fall back to a mock (#286, #298). Studio is web-only.
 See [what the application reads from where](#the-application-over-real-owners).
 
 **Desktop Preview ([#287](https://github.com/loveoverflowcom/cantos/issues/287)).** `:preview-sandbox`
@@ -637,17 +638,24 @@ work list → work detail → chapter/episode list, keyed only by the server's U
   familiar Discover, Search and Work screens (see below).
 
 Origin policy: `androidApp` main declares INTERNET and the explicit
-`CantosApiOrigin` metadata for both variants. Runtime admits `https://` in release; only a
-debuggable build also admits `http://127.0.0.1|localhost` through its loopback-only network security
-config. Missing/rejected configuration renders the unavailable state. There is no default origin,
-fixture fallback, playback source or sandbox dependency. API failure/empty data stays a real
-failure/empty state. Release keeps `usesCleartextTraffic=false`.
+`CantosApiOrigin` metadata for both variants. Runtime resolution is one owner
+(`selectCatalogOrigin`, #298): an explicit override, else `DefaultProductionApiOrigin`
+(`https://api.cantos.cc`) in both build types; a build type never selects another backend. Packaging
+cannot omit a key, so an empty `CantosApiOrigin`/`CANTOS_API_ORIGIN` build value means "no override";
+a value that is present but empty, malformed or `http://` outside the debug loopback exception is a
+typed `HostConfigurationFault` shown before any request, and it never silently falls back to the
+default. Runtime admits `https://` in release; only a debuggable build also admits
+`http://127.0.0.1|localhost` through its loopback-only network security config. There is no fixture
+fallback, playback source or sandbox dependency. API failure/empty data stays a real failure/empty
+state. Release keeps `usesCleartextTraffic=false`. Local integration picks its API explicitly
+(`android-debug --api-origin`, `CANTOS_THEATRE_LIVE_ORIGIN`) and never inherits production by omission.
 
 The separate shipping iOS project/scheme is `iosApp/Cantos.xcodeproj` / `Cantos`, bundle identifier
 `com.cantos.theatre`. It imports the static `CantosTheatre` framework built directly by `:shared`,
 links only `shared/build/bin/...` and copies only shared Compose resources. It is the only iOS
 project: the former `CantosDemo` mock host was removed (#287). Shipping `CANTOS_API_ORIGIN` is an explicit Xcode build
-setting (empty by default), consumed through `Cantos/Info.plist`; HTTPS is required on every iOS
+setting (empty by default, meaning the production default), consumed through `Cantos/Info.plist`
+and resolved by the same Kotlin owner (`packagedApiOriginText`); HTTPS is required on every iOS
 configuration. It creates no native identity/session or media engine. The application owner closes
 all catalog requests with its lifecycle. Xcode/Apple SDK builds and runtime observations require
 macOS and are separate from JVM evidence.

@@ -20,7 +20,10 @@ struct CantosApp: App {
     private let identity: IosNativeIdentityOwner
     private let media: AvPlayerDriver
     init() {
-        let origin = Bundle.main.object(forInfoDictionaryKey: "CantosApiOrigin") as? String
+        // The packaged explicit override, if any. The Kotlin owner applies the production default and
+        // refuses an invalid value before any request; Swift never picks an environment itself.
+        let packagedOrigin = Bundle.main.object(forInfoDictionaryKey: "CantosApiOrigin") as? String
+        let origin = HostOriginKt.packagedApiOriginText(packaged: packagedOrigin)
         let platform = CatalogPlatform(apiOrigin: origin ?? "")
         transport = platform
         let nativePlatform = TheatreNativePlatform(apiOrigin: origin ?? "")
@@ -39,7 +42,7 @@ struct CantosApp: App {
         var resourceValues = URLResourceValues()
         resourceValues.isExcludedFromBackup = true
         try? protectedDirectory.setResourceValues(resourceValues)
-        native = IosCatalogOwner(apiOrigin: origin, platform: platform, identity: identityOwner,
+        native = IosCatalogOwner(apiOrigin: packagedOrigin, platform: platform, identity: identityOwner,
             identityPlatform: nativePlatform, mediaDriver: driver, applicationSupportDirectory: directory.path)
     }
     func viewController() -> UIViewController { native.viewController() }

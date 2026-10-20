@@ -18,6 +18,7 @@ import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.features.launch.presentation.CantosListeningUnavailable
+import com.cantos.theatre.presentation.model.HostConfigurationFault
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
@@ -53,6 +54,53 @@ class ListeningUnavailablePresentationTest {
                     onNodeWithTag(tag).assertDoesNotExist()
                 }
                 assertTrue("Diagnostics" !in onNodeWithTag("listening-unavailable").printToString())
+            }
+        }
+    }
+
+    @Test
+    fun typed_host_configuration_faults_render_localized_explanations_without_raw_input() {
+        val cases = listOf(
+            Triple(
+                HostConfigurationFault.OriginEmpty,
+                "Địa chỉ máy chủ được cấu hình đang để trống. Hãy cài bản dựng có địa chỉ hợp lệ.",
+                "The configured server address is empty. Install a build with a valid address.",
+            ),
+            Triple(
+                HostConfigurationFault.OriginMalformed,
+                "Địa chỉ máy chủ được cấu hình không đúng dạng https://tên-miền.",
+                "The configured server address isn’t in the form https://host.",
+            ),
+            Triple(
+                HostConfigurationFault.OriginNotHttps,
+                "Địa chỉ máy chủ phải dùng HTTPS.",
+                "The server address must use HTTPS.",
+            ),
+            Triple(
+                HostConfigurationFault.OriginCleartextHostNotAllowed,
+                "Bản dev chỉ cho phép http với 127.0.0.1 hoặc localhost.",
+                "Dev builds allow http only for 127.0.0.1 or localhost.",
+            ),
+            Triple(
+                HostConfigurationFault.NetworkNotDeclared,
+                "Bản dựng này không có quyền truy cập mạng nên không thể gọi máy chủ.",
+                "This build has no network permission, so it can’t reach the server.",
+            ),
+        )
+        for ((fault, viText, enText) in cases) {
+            inLocale("vi") {
+                runDesktopComposeUiTest(width = 390, height = 844) {
+                    setContent { CantosListeningUnavailable(UiPreferences(), locale = ShellLocale.Vietnamese, fault = fault) }
+                    onNodeWithTag("listening-unavailable-title").assertTextEquals("Cấu hình máy chủ chưa hợp lệ")
+                    onNodeWithTag("listening-unavailable-body").assertTextEquals(viText)
+                }
+            }
+            inLocale("en") {
+                runDesktopComposeUiTest(width = 390, height = 844) {
+                    setContent { CantosListeningUnavailable(UiPreferences(), locale = ShellLocale.English, fault = fault) }
+                    onNodeWithTag("listening-unavailable-title").assertTextEquals("Server configuration isn’t valid")
+                    onNodeWithTag("listening-unavailable-body").assertTextEquals(enText)
+                }
             }
         }
     }

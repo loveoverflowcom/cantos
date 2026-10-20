@@ -1267,7 +1267,9 @@ The one Theatre Android application (`:androidApp`; `release` is `com.cantos.the
 `com.cantos.theatre.dev`, no flavors) composes `:shared` only, with no mock, sample or diagnostic fallback. Debug and release browse the real
 public catalog when built with an API origin; release accepts HTTPS only. Both declare INTERNET
 and origin metadata; release forbids cleartext. An omitted release origin is passed as an explicit
-empty Gradle property, overriding ambient settings, and renders unavailable. Native playback,
+empty Gradle property, overriding ambient settings: the app then uses the production default
+`https://api.cantos.cc` (#298); it never renders a mock and an invalid origin is refused at runtime
+with a typed configuration diagnostic. Native playback,
 account and Library owners are composed; platform runtime/auth acceptance remains separately
 tracked under #14/#35/#191.
 

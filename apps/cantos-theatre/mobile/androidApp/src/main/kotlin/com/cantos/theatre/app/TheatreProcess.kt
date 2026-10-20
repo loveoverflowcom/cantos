@@ -7,12 +7,11 @@ import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import com.cantos.theatre.R
 import com.cantos.theatre.adapters.http.ApiOrigin
-import com.cantos.theatre.adapters.http.CatalogOriginSelection
 import com.cantos.theatre.adapters.http.JvmCatalogTransport
 import com.cantos.theatre.adapters.http.NativeAuthorizedHttpPort
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
-import com.cantos.theatre.adapters.http.selectCatalogOrigin
+import com.cantos.theatre.adapters.http.selectPackagedApiOrigin
 import com.cantos.theatre.adapters.identity.AndroidNativeHttp
 import com.cantos.theatre.adapters.identity.createAndroidNativeAccount
 import com.cantos.theatre.adapters.identity.createAndroidRegistration
@@ -32,15 +31,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-internal fun ComponentActivity.liveCatalogOrigin(): ApiOrigin? {
+/**
+ * The host's origin: the packaged explicit override, else the production default (#298). An
+ * invalid override or a missing network declaration is a typed refusal shown before any request;
+ * it never selects another environment and never composes a mock.
+ */
+internal fun ComponentActivity.liveCatalogOrigin(): HostOrigin {
     val raw = nativeMetadata("CantosApiOrigin")
     val debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
     val allowLoopback = debuggable && resources.getBoolean(R.bool.cantos_loopback_origin_allowed)
     val networkDeclared = checkSelfPermission(Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED
-    return when (val selection = selectCatalogOrigin(raw, allowLoopback)) {
-        is CatalogOriginSelection.Configured -> selection.origin.takeIf { networkDeclared }
-        CatalogOriginSelection.NotConfigured, CatalogOriginSelection.Rejected -> null
-    }
+    return hostOrigin(selectPackagedApiOrigin(raw, allowLoopback), networkDeclared)
 }
 
 private fun Context.nativeMetadata(key: String): String? = try {

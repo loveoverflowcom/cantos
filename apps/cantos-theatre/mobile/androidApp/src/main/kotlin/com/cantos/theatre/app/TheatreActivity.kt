@@ -25,8 +25,8 @@ import com.cantos.ui.resolve
 
 /**
  * The Cantos Theatre application: the listener experience over the live catalog, account,
- * durable Library and native player. Without an admitted API origin it shows the explicit
- * unavailable state and never a sample.
+ * durable Library and native player. The API is the packaged override or the production default;
+ * a refused configuration shows its typed diagnostic and never a sample.
  */
 class TheatreActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,9 +37,9 @@ class TheatreActivity : ComponentActivity() {
         // A uiMode change recreates this Activity, so the resolved theme never goes stale.
         val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         updateSystemBars(dark)
-        val origin = liveCatalogOrigin()
-        if (origin != null) {
-            val owner = theatreOwner(origin, dark)
+        val resolved = liveCatalogOrigin()
+        if (resolved is HostOrigin.Ready) {
+            val owner = theatreOwner(resolved.origin, dark)
             setContent {
                 val preferences by owner.preferences.state.collectAsState()
                 CantosLocalLaunch(localReady = true, preferences = UiPreferences(), locale = preferences.locale.toShellLocale()) {
@@ -57,7 +57,9 @@ class TheatreActivity : ComponentActivity() {
         val ui = UiPreferences(theme = ThemeMode.System.resolve(systemIsDark = dark))
         val locale = PreferencesController(localePreferenceStore = AndroidLocalePreferenceStore(this))
             .state.value.locale.toShellLocale()
-        setContent { CantosListeningUnavailable(ui, locale = locale) }
+        setContent {
+            CantosListeningUnavailable(ui, locale = locale, fault = (resolved as HostOrigin.Refused).fault)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

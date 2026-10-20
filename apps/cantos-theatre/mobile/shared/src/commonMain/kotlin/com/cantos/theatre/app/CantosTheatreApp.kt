@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.cantos.theatre.application.errors.ErrorEvent
 import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.application.identity.toAccountView
 import com.cantos.theatre.application.preferences.PreferenceTheme
@@ -78,6 +79,7 @@ fun CantosTheatreApp(
     val selection by shell.runtime.listening.selection.collectAsState()
     val failure by shell.runtime.listening.failure.collectAsState()
     val requested by shell.requested.collectAsState()
+    val errors by shell.errors.collectAsState()
     val library by shell.library.collectAsState()
     val ui by shell.ui.collectAsState()
     val prefs by shell.preferences.state.collectAsState()
@@ -161,6 +163,9 @@ fun CantosTheatreApp(
             density = density,
             motionPreference = motionPreference,
             localeSaveUnavailable = localeUpdate == PreferencesUpdate.LocaleStoreUnavailable,
+            activeError = errors.active,
+            onErrorAction = { shell.onErrorEvent(ErrorEvent.ActionChosen(it)) },
+            onErrorDismiss = { shell.onErrorEvent(ErrorEvent.Dismissed) },
         )
     }
 }
