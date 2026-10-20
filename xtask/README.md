@@ -1144,6 +1144,8 @@ cargo xtask deploy vps cantos-api --host root@HOST --reload-browser
 cargo xtask deploy vps cantos-api --host root@HOST --smoke-origin https://api.example.org
 cargo xtask deploy vps cantos-api --host root@HOST --rollback   # previous image
 cargo xtask deploy vps cantos-api --host root@HOST --status     # read-only
+# Explicit same-epoch prefix [1] -> [1,2] sibling upgrade; native Linux x86_64 only.
+cargo xtask deploy vps cantos-api --host root@HOST --upgrade-epoch2-prefix --dry-run
 # Explicit narrow legacy conversion; inspect the complete plan first.
 cargo xtask deploy vps cantos-api --host root@HOST --cutover-epoch2 --dry-run
 ```
@@ -1206,6 +1208,15 @@ mutations refuse a pending cutover. Keep the old database/image/runtime and priv
 The off-host archive excludes OCI image bytes, Podman secrets, the Kanidm administrator
 password and private CA; the host-local old image and separate protected disaster-recovery
 copies remain necessary. Cutover runtime/production acceptance is separate from command tests.
+
+`--upgrade-epoch2-prefix` is a separate explicit, attempt-bound sibling-database lane for
+epoch 2 registry `[1]` → `[1,2]`; it never migrates the source database. It shares the durable
+off-host-copy protocol, but uses its own pending journal and `prefix-prepare/commit/recover`.
+Native Linux x86_64, PostgreSQL 17.11 and unchanged non-API infrastructure are mandatory; Mac
+may print its dry run only. Before acceptance recovery restores the DB/image/runtime pair;
+after acceptance it finalizes only. Ordinary deploy/rollback and artifact-promotion guards
+stay strict. Read the [prefix upgrade runbook](../docs/deployment/postgres-prefix-upgrade.md)
+for prerequisites, retained resources, separate media backup and remaining live acceptance.
 
 The host primitive `identity --reconcile-existing` updates only existing-client landing URLs,
 exact callbacks and strict redirect matching, using provider readback and a callback receipt.

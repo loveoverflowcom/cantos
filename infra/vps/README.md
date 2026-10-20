@@ -104,3 +104,10 @@ Verified release artifacts also carry this exact source bundle. The artifact-onl
 operation holds the existing operation lock across checksum/image inspection, runtime install
 and the existing backup/schema/grants/switch/health protocol. It adds no bootstrap, identity or
 epoch-conversion authority. See [artifact promotion](../../docs/deployment/vps-production.md#verified-artifact-promotion).
+
+The explicit same-epoch [prefix-upgrade lane](../../docs/deployment/postgres-prefix-upgrade.md)
+restores a full epoch-2 `[1]` database into a sibling before applying `[1,2]`. It uses separate
+attempt-bound journals and pending guards, preserves the original DB, and recovers the
+DB/image/runtime pair before acceptance; accepted recovery only finalizes. It does not
+provision media, reconcile identity or weaken ordinary schema checks. PostgreSQL dumps
+exclude media bytes; Linux x86_64/17.11 host and media recovery acceptance remain separate.

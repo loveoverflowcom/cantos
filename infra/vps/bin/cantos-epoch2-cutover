@@ -196,7 +196,8 @@ epoch2_install_pending_guard() {
 }
 
 epoch2_restore_host() {
-  local journal=$1 path unit
+  local journal=$1 path unit keep_guard=${2:-false}
+  [[ $keep_guard == false || $keep_guard == prefix ]] || return 65
   # Only files changed by installation/browser reconciliation are replaced. Secrets, identity
   # data, certificates, media and persistent volumes are never removed or exported.
   rm -rf "$RUNTIME" "$RUNTIME.previous" || return
@@ -205,9 +206,14 @@ epoch2_restore_host() {
     "$CONFIG/oidc-callbacks.env" "$STATE/current" "$STATE/previous" "$STATE/history" || return
   tar -C "$ROOT" -xf "$journal/host-root.tar" || return
   while IFS= read -r path; do
+    [[ $keep_guard != prefix || $path != /usr/local/sbin/cantos-vps ]] || continue
     [[ ! -e $path ]] || rm -rf "$path" || return
   done <"$journal/all-system-paths" || return
-  tar -C / -xf "$journal/host-system.tar" || return
+  if [[ $keep_guard == prefix ]]; then
+    tar --exclude=usr/local/sbin/cantos-vps -C / -xf "$journal/host-system.tar" || return
+  else
+    tar -C / -xf "$journal/host-system.tar" || return
+  fi
   systemctl daemon-reload || return
   if [[ -f $journal/runtime-restarted-units ]]; then
     while IFS= read -r unit; do
@@ -215,7 +221,7 @@ epoch2_restore_host() {
       systemctl restart "$unit.service" || return
     done <"$journal/runtime-restarted-units" || return
   fi
-  if [[ -f $journal/edge-was-active ]]; then
+  if [[ -f $journal/edge-was-active && $keep_guard != prefix ]]; then
     podman exec cantos-edge caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null || return
     podman exec cantos-edge caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || return
   fi
