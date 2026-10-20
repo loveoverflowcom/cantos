@@ -16,11 +16,11 @@ use std::{
 
 use axum::http::StatusCode;
 use cantos_api::{
+    adapters::inbound::http::{router, AppState},
     contexts::catalog::{
         domain::{OwnerId, WorkId},
         CatalogCommand, MemberRole,
     },
-    interfaces::http::{router, AppState},
     platform::postgres::{local_config, migrate, token_hash, Store},
 };
 use cantos_contracts as dto;

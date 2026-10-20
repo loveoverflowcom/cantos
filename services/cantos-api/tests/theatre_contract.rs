@@ -4,7 +4,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use cantos_api::{
-    interfaces::http::{router, AppState},
+    adapters::inbound::http::{router, AppState},
     platform::postgres::{local_config, Store},
 };
 use http_body_util::BodyExt;

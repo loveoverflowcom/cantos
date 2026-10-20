@@ -290,7 +290,7 @@ live passes.
 
 ## Shared HTTP mechanics, separate delivery authority
 
-Owner audio preview now consumes `interfaces/http/audio_transport.rs`, with the same private
+Owner audio preview now consumes `adapters/inbound/http/audio_transport.rs`, with the same private
 application authorization/open/recheck ordering. It owns HTTP conditional/range responses and
 pull-driven exact-length bodies, not storage scope or listener authority. The
 [transport record](../evidence/playback-range-transport.md) separates its deterministic evidence

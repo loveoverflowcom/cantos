@@ -8,7 +8,7 @@ use axum::{
 };
 use cantos_contracts::{ErrorCode, ImportRequest};
 
-use crate::interfaces::http::{cookie_token, error_response, failure, AppState};
+use crate::adapters::inbound::http::{cookie_token, error_response, failure, AppState};
 use crate::platform::postgres::StoreError;
 
 pub(super) fn routes() -> Router<AppState> {

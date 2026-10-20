@@ -557,7 +557,7 @@ def main():
               "hardware": run(["sysctl", "-n", "machdep.cpu.brand_string", "hw.memsize", "hw.logicalcpu"]),
               "query_hashes": {key: hashlib.sha256(query.encode()).hexdigest() for key, query in benchmark.queries.items()},
               "source_hashes": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in
-                                (*REVISION_READ_SOURCES, "services/cantos-api/src/interfaces/http/mod.rs",
+                                (*REVISION_READ_SOURCES, "services/cantos-api/src/adapters/inbound/http/mod.rs",
                                  "services/cantos-api/schema/0001_current.sql", "scripts/benchmark_revision_reads.py")},
               "candidate": CANDIDATE, "results": benchmark.results, "phases": []}
     try:

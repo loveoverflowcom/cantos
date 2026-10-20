@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use tower::ServiceExt;
 
 use crate::{
-    interfaces::http::{router, AppState},
+    adapters::inbound::http::{router, AppState},
     platform::{
         theatre_identity::TheatreIdentity,
         theatre_registration::{

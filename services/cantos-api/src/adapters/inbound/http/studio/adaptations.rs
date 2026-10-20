@@ -11,7 +11,7 @@ use cantos_contracts::{
     SubmitAdaptationProposalRequest,
 };
 
-use crate::interfaces::http::{cookie_token, error_response, failure, AppState};
+use crate::adapters::inbound::http::{cookie_token, error_response, failure, AppState};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

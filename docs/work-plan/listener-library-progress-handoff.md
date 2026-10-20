@@ -32,7 +32,7 @@ Publication/delivery defaults still fail closed; private Storage PR90 does not s
 `contexts::listening::auth::ListenerAuthenticator` receives redacted `ListenerCredentials`, and
 returns sealed `AuthenticatedListener` or a typed unauthenticated/unavailable outcome.
 Only a trusted crate-local issuer adapter can call `AuthenticatedListener::from_verified_actor`.
-`interfaces::http::router_with_listener_identity` is the explicit composition seam; the normal host
+`adapters::inbound::http::router_with_listener_identity` is the explicit composition seam; the normal host
 uses `DenyListenerAuthentication`. No raw actor ID, Studio cookie or private development token
 is accepted by that adapter. Mapping issuer/subject to actors is not authentication.
 

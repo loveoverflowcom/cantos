@@ -67,7 +67,7 @@ pub(super) fn delegate_routes() -> Router<AppState> {
 }
 
 /// Bearer-only and cookie-free, so the Origin CSRF barrier does not apply to this mutation.
-pub(in crate::interfaces::http) fn bearer_mutation(
+pub(in crate::adapters::inbound::http) fn bearer_mutation(
     method: &axum::http::Method,
     path: &str,
 ) -> bool {

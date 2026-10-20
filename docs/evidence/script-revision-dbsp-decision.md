@@ -15,7 +15,7 @@
 
 Retain the existing PostgreSQL serving path and migration. The
 [read inventory](script-revision-reads.md) and current
-[Store](../../services/cantos-api/src/platform/postgres/mod.rs), [routes](../../services/cantos-api/src/interfaces/http/mod.rs) and
+[Store](../../services/cantos-api/src/platform/postgres/mod.rs), [routes](../../services/cantos-api/src/adapters/inbound/http/mod.rs) and
 [schema](https://github.com/loveoverflowcom/cantos/blob/3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a/services/cantos-api/migrations/0001_script_revisions.sql) supply head/history point
 reads, authentication, save replay and evidence resolution. The session–actor join is bounded
 by a token lookup; no implemented list, catalog, repeated large join or aggregate consumer

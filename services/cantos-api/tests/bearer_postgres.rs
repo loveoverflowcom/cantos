@@ -6,7 +6,7 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use cantos_api::{
-    interfaces::http::{router, AppState},
+    adapters::inbound::http::{router, AppState},
     platform::{
         bearer::core::Client,
         postgres::{local_config, migrate, Store},

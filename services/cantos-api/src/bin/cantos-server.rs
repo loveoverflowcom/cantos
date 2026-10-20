@@ -1,5 +1,5 @@
 use cantos_api::{
-    interfaces::http::{api_router, router, router_with_public_media, AppState},
+    adapters::inbound::http::{api_router, router, router_with_public_media, AppState},
     platform::host::{host_settings, HostMode},
     platform::postgres::{local_config, verify_schema, Store},
     platform::studio_oidc::{OidcConfig, StudioOidc},
@@ -167,7 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "theatre" => cantos_contracts::web_api::WebSurface::Theatre,
                 _ => return Err("CANTOS_BROWSER_API_SURFACE must be studio or theatre".into()),
             };
-            cantos_api::interfaces::http::with_browser_cors(app, host.web_origin(), surface)?
+            cantos_api::adapters::inbound::http::with_browser_cors(app, host.web_origin(), surface)?
         }
         Err(env::VarError::NotPresent) => app,
         Err(_) => return Err("invalid CANTOS_BROWSER_API_SURFACE".into()),

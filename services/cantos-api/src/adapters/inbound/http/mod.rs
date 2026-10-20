@@ -642,7 +642,7 @@ mod tests {
     #[tokio::test]
     async fn invalid_script_error_keeps_json_status_codes_paths_and_redaction() {
         let mut shape: serde_json::Value = serde_json::from_slice(include_bytes!(
-            "../../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+            "../../../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
         ))
         .unwrap();
         shape["work"]["id"] = serde_json::json!("private-id-sentinel!");

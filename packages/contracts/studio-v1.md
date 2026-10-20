@@ -7,7 +7,7 @@ a session cookie from the alias is scoped to `/api/v1`, one from `/api/v1/studio
 `/api/v1/studio`. Wire DTOs and error codes did not change. Listener and administration APIs are
 separate groups (`/api/v1/theatre`, `/api/v1/admin`), reserved and empty.
 
-Implemented development boundary: [Axum](../../services/cantos-api/src/interfaces/http/studio/mod.rs) →
+Implemented development boundary: [Axum](../../services/cantos-api/src/adapters/inbound/http/studio/mod.rs) →
 [PostgreSQL](../../services/cantos-api/src/contexts/editorial/postgres.rs), consumed by [Leptos](../../apps/cantos-studio/web/src/api.rs).
 The [Schema](schema/studio/v1.schema.json), [raw Rust DTOs](api/src/lib.rs) and
 [fixtures](fixtures/studio/v1) are hand-authored. Both consumers test the same fixture source;

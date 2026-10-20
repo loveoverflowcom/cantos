@@ -4,7 +4,7 @@ use super::{
     audio_intake::limit_upload,
     catalog::{json_only, CatalogBody},
 };
-use crate::interfaces::http::{cookie_token, error_response, failure, AppState};
+use crate::adapters::inbound::http::{cookie_token, error_response, failure, AppState};
 use crate::platform::postgres::{Store, StoreError};
 use axum::{
     body::Bytes,

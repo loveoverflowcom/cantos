@@ -6,7 +6,7 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use cantos_api::{
-    interfaces::http::{router, AppState},
+    adapters::inbound::http::{router, AppState},
     platform::{
         postgres::{local_config, migrate, Store},
         studio_oidc::{AuthError, OidcConfig, StudioOidc},

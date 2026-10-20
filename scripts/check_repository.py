@@ -518,9 +518,9 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
         return None
     if (owner or domain or http) and path[0] == "<legacy>":
         return "context uses a legacy crate alias; name the owning context explicitly"
-    if owner and path[0] == "interfaces" and not (listener_pg_test and path in {
-        ("interfaces", "http", "router_with_listener_identity"),
-        ("interfaces", "http", "AppState"),
+    if owner and path[0] in {"interfaces", "adapters"} and not (listener_pg_test and path in {
+        ("adapters", "inbound", "http", "router_with_listener_identity"),
+        ("adapters", "inbound", "http", "AppState"),
     }):
         return "context must not depend on an interface"
     if domain:
@@ -533,7 +533,7 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             return "pure domain must not depend on console I/O"
         if path[0] == "platform" and path[:2] != ("platform", "ids") and path[:3] != ("platform", "identity", "domain"):
             return "pure domain may use only pure platform::ids or identity::domain values"
-        if path[0] == "interfaces":
+        if path[0] in {"interfaces", "adapters"}:
             return "pure domain must not depend on an interface"
         # Persisted canonical documents may live in contracts; listener read projections may not.
         if path[:2] == ("cantos_contracts", "theatre"):
@@ -648,7 +648,7 @@ def check_api_architecture(root=ROOT):
         )
         domain = domain or relative == Path("platform/ids.rs")
         domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/oidc/core.rs"), Path("platform/admin/domain.rs")}
-        http = parts[:2] == ("interfaces", "http")
+        http = parts[:3] == ("adapters", "inbound", "http")
         module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
         content = file.read_text(encoding="utf-8")
         code, strings = rust_code(content)

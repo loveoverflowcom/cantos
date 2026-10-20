@@ -7,16 +7,16 @@ use axum::{
     Router,
 };
 use cantos_api::{
+    adapters::inbound::http::{
+        router, router_with_listener_identity, router_with_private_artwork,
+        router_with_publication_delivery, router_with_theatre_delivery, AppState,
+    },
     contexts::{
         listening::auth::DenyListenerAuthentication,
         media::{
             ArtworkService, PlaybackDelivery, PlaybackDeliveryFuture, PlaybackPermit,
             PublicationDelivery, PublicationDeliveryFuture, PublicationObject,
         },
-    },
-    interfaces::http::{
-        router, router_with_listener_identity, router_with_private_artwork,
-        router_with_publication_delivery, router_with_theatre_delivery, AppState,
     },
     platform::{
         postgres::{local_config, Store},

@@ -20,7 +20,7 @@ use super::{
     runtime::FirebaseEnrollmentRuntime,
 };
 use crate::{
-    interfaces::http::{router, AppState},
+    adapters::inbound::http::{router, AppState},
     platform::{
         postgres::{local_config, migrate, Store},
         theatre_identity::TheatreIdentity,

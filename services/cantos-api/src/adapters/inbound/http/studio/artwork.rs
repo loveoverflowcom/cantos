@@ -13,6 +13,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::{catalog, StudioPath};
 use crate::{
+    adapters::inbound::http::{cookie_token, error_response, wire, AppState},
     contexts::{
         catalog::CatalogStoreError,
         media::{
@@ -21,7 +22,6 @@ use crate::{
             ArtworkApplicationError, ArtworkReceipt, ArtworkService, ImageObjectError,
         },
     },
-    interfaces::http::{cookie_token, error_response, wire, AppState},
     platform::postgres::StoreError,
 };
 

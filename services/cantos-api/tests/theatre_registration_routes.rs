@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use cantos_api::{
-    interfaces::http::{router, AppState},
+    adapters::inbound::http::{router, AppState},
     platform::{
         postgres::{local_config, Store},
         theatre_identity::{NativeIdentity, TheatreIdentity},

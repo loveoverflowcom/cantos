@@ -1,6 +1,6 @@
 # Manuscript import API v1
 
-Implemented private development boundary: [Axum](../../services/cantos-api/src/interfaces/http/studio/imports.rs) →
+Implemented private development boundary: [Axum](../../services/cantos-api/src/adapters/inbound/http/studio/imports.rs) →
 [the existing PostgreSQL source registry](../../services/cantos-api/src/contexts/ingestion/postgres.rs), consumed by
 Cantos Studio. The [JSON Schema](schema/manuscript/v1.schema.json) and
 [shared raw Rust DTOs](api/src/imports.rs) are hand-authored. Independent literal wire examples

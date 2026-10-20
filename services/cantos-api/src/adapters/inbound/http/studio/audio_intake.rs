@@ -12,7 +12,7 @@ use axum::{
 use cantos_contracts::{CreateAudioIntentRequest, ErrorCode};
 use tokio::sync::Semaphore;
 
-use crate::interfaces::http::{cookie_token, error_response, failure, AppState};
+use crate::adapters::inbound::http::{cookie_token, error_response, failure, AppState};
 use crate::platform::postgres::{Store, StoreError};
 
 static UPLOAD_REQUESTS: Semaphore = Semaphore::const_new(4);

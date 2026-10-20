@@ -1,8 +1,8 @@
 //! Binary private audio delivery is independent of JSON/MessagePack metadata negotiation.
 use super::StudioPath;
 use crate::{
+    adapters::inbound::http::{audio_transport, cookie_token, error_response, failure, AppState},
     contexts::media::read::AudioReadScope,
-    interfaces::http::{audio_transport, cookie_token, error_response, failure, AppState},
     platform::postgres::StoreError,
 };
 use axum::{

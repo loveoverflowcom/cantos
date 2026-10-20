@@ -18,7 +18,7 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 use crate::{
-    interfaces::http::{router, AppState},
+    adapters::inbound::http::{router, AppState},
     platform::{
         theatre_identity::TheatreIdentity,
         theatre_registration::{

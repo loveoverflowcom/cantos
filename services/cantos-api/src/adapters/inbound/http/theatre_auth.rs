@@ -1,6 +1,6 @@
 //! Theatre-only OIDC HTTP boundary.
 use crate::{
-    interfaces::http::{failure, AppState},
+    adapters::inbound::http::{failure, AppState},
     platform::theatre_identity::{AuthError, TheatreIdentity},
 };
 use axum::{
@@ -58,7 +58,7 @@ async fn configuration(State(state): State<AppState>) -> Json<dto::Configuration
     })
 }
 
-use crate::interfaces::http::cookies::unique_cookie;
+use crate::adapters::inbound::http::cookies::unique_cookie;
 
 #[derive(Deserialize)]
 struct LoginQuery {
@@ -654,7 +654,7 @@ fn flow_inventory(headers: &HeaderMap, expected: &str) -> Result<Vec<(String, St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::interfaces::http::cookie_token_for_name;
+    use crate::adapters::inbound::http::cookie_token_for_name;
 
     fn callback_query(
         query: &str,

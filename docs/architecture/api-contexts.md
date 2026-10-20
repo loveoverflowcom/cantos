@@ -27,7 +27,7 @@ to validate owner-bound references to existing revisions, rights records and man
 it does not read those contexts' tables directly. `contexts/media/domain/wav_inspection` is a
 pure inspector, with no provider/model dependency. Media also reads editorial entrypoints for
 owner/revision authorization in its narrow private development intake; it does not import
-production adapters or move context-specific storage into platform plumbing. Media consumes Catalog domain/facts and Production admitted Briefs through owning entrypoints. The sole reverse Production→Media inquiry is `upload_token_registered`, needed to reject bearer-secret reuse across read/upload issuance under the same Catalog fence. It permits no table/adapter shortcut or general reverse dependency. `interfaces/http`
+production adapters or move context-specific storage into platform plumbing. Media consumes Catalog domain/facts and Production admitted Briefs through owning entrypoints. The sole reverse Production→Media inquiry is `upload_token_registered`, needed to reject bearer-secret reuse across read/upload issuance under the same Catalog fence. It permits no table/adapter shortcut or general reverse dependency. `adapters/inbound/http`
 owns routers and maps
 errors; `platform` owns pool/session/migrations/IDs and generic incremental computation,
 not business-context shortcuts. The source checker in `scripts/check_repository.py`

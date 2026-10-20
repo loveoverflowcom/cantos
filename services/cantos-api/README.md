@@ -103,7 +103,7 @@ src/
     media/                  # private intake/review/read/storage and publication authority
       domain/               # pure lifecycle/publication/profile/integrity/range/WAV rules
     listening/              # separate account-owned Library/progress/history
-  interfaces/http/          # separate Studio, Theatre and Admin surfaces
+  adapters/inbound/http/          # separate Studio, Theatre and Admin surfaces
   platform/                 # postgres/session/IDs/migrations/optional grouped-count core
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
 ```

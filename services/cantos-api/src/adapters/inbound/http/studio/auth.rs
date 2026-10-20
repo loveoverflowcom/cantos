@@ -1,6 +1,6 @@
 //! Only the current Studio mount exposes OIDC. Handlers never inspect provider claims.
 use crate::{
-    interfaces::http::{
+    adapters::inbound::http::{
         error_response, failure, studio_fence_matches, studio_fenced_response, AppState,
     },
     platform::studio_oidc::{AuthError, BrowserInventory, StudioOidc, MAX_BROWSER_FLOWS},
@@ -22,7 +22,7 @@ pub(super) fn routes() -> Router<AppState> {
         .route("/auth/callback", get(callback))
 }
 
-pub(in crate::interfaces::http) use crate::interfaces::http::cookies::unique_cookie;
+pub(in crate::adapters::inbound::http) use crate::adapters::inbound::http::cookies::unique_cookie;
 
 /// A production host without Studio OIDC has no Studio credential; it never reports the
 /// development token mode it cannot honor.
@@ -341,7 +341,7 @@ fn error(error: AuthError) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::interfaces::http::cookie_token_for_name;
+    use crate::adapters::inbound::http::cookie_token_for_name;
     #[test]
     fn duplicate_cookie_headers_and_mixed_session_names_are_rejected() {
         let mut headers = HeaderMap::new();
