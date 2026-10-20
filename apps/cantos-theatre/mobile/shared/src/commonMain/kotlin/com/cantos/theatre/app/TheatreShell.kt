@@ -22,6 +22,7 @@ import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 import com.cantos.theatre.domain.catalog.PublicWorkId
+import com.cantos.theatre.domain.library.BookmarkSync
 import com.cantos.theatre.domain.library.LibraryResume
 import com.cantos.theatre.domain.library.LibrarySection
 import com.cantos.theatre.domain.library.LibraryState
@@ -193,8 +194,9 @@ class TheatreShell(
             is ShellEvent.SaveWork -> setSaved(event.id.value, saved = event.id.value !in savedIds())
             ShellEvent.ClearHistory -> activeLibrary()?.clearHistory()
             ShellEvent.RetryListening -> mutableRequested.value?.let(::start)
-            // The Library API has no bookmark resource; the control is not offered (see capabilities).
-            is ShellEvent.OpenBookmark, ShellEvent.Bookmark -> Unit
+            ShellEvent.Bookmark -> addBookmark()
+            is ShellEvent.OpenBookmark -> openBookmark(event.bookmark.id)
+            is ShellEvent.DeleteBookmark -> activeLibrary()?.deleteBookmark(event.id)
             ShellEvent.ToggleSimulation -> runtime.listening.playback.toggleIntent()
             is ShellEvent.Seek -> runtime.listening.playback.dispatch(PlaybackEvent.SkipRequested(
                 (event.deltaSeconds.toLong() * 1000L).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
@@ -365,6 +367,51 @@ class TheatreShell(
         if (owner == null) requireAccount() else owner.setSaved(workId, saved)
     }
 
+    /**
+     * A guest is taken to sign in, never shown a bookmark that exists nowhere. For an account the audio identity and the
+     * position come from one snapshot the player owner holds at this moment, so they always name the same release and
+     * episode even when the listener changes episode right after pressing the control. The snapshot is read on the
+     * owner's own loop, and the account is checked again there: a callback that outlives its account does nothing.
+     */
+    private fun addBookmark() {
+        if (activeLibrary() == null) { requireAccount(); return }
+        val account = library.value.account
+        runtime.listening.playback.captureBookmarkPoint { snapshot ->
+            val audio = snapshot.source.audio ?: return@captureBookmarkPoint
+            val owner = activeLibrary()
+            if (closed || owner == null || library.value.account != account) return@captureBookmarkPoint
+            owner.createBookmark(audio, snapshot.positionMs)
+        }
+    }
+
+    /**
+     * Opens exactly the bookmark's stored release at its stored position through the one player owner, paused: the
+     * listener presses Play (listing bookmarks never plays). A replaced or unavailable release is explained, never
+     * substituted. If that very release is already loaded it is simply moved, keeping the listener's own intent.
+     */
+    private fun openBookmark(id: String) {
+        val entry = library.value.bookmarks.firstOrNull { it.id == id } ?: return
+        // A bookmark this device just made, not yet listed back, was made on the very release that was playing.
+        val resume = if (entry.resume == LibraryResume.NeedsRefresh && (entry.sync == BookmarkSync.Pending || entry.sync == BookmarkSync.Offline)) {
+            LibraryResume.ExactAvailable
+        } else entry.resume
+        when (resume) {
+            LibraryResume.ExactAvailable -> {
+                mutableRequested.value = null
+                val playback = runtime.listening.playback
+                if (playback.state.value.session?.source?.audio == entry.audio) {
+                    playback.dispatch(PlaybackEvent.SeekRequested(entry.positionMs))
+                } else {
+                    val info = entry.presentation.valueOrNull
+                    runtime.listening.restore(entry.audio, entry.positionMs, title = info?.unitTitle.orEmpty(), workTitle = info?.work?.title.orEmpty())
+                }
+                navigate(NavigationEvent.OpenPlayer)
+            }
+            LibraryResume.NeedsRefresh -> activeLibrary()?.refresh(LibrarySection.Bookmarks)
+            LibraryResume.ReleaseReplaced, LibraryResume.AccessUnavailable -> navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
+        }
+    }
+
     private fun open(id: ShellEpisodeId) {
         val known = known.value
         val unit = known.unit(id.value)
@@ -442,6 +489,7 @@ private fun ShellLibrarySection.toDomain(): LibrarySection = when (this) {
     ShellLibrarySection.Continue -> LibrarySection.Continue
     ShellLibrarySection.Saved -> LibrarySection.Saved
     ShellLibrarySection.History -> LibrarySection.History
+    ShellLibrarySection.Bookmarks -> LibrarySection.Bookmarks
 }
 
 private fun ShellRoute.toTheatreRoute(): TheatreRoute = when (this) {

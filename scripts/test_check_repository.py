@@ -1185,8 +1185,9 @@ class LibraryWireGenerationBoundaryTest(unittest.TestCase):
             self.assertNotIn("progress_write.json", production)
             self.assertIn("libraryFixtures", fixtures)
             self.assertNotIn("libraryPresentationFixtures", production)
-            # The default corpus and the opt-in presentation=1 corpus are separate maps.
-            default_part, presented_part = fixtures.split("internal val libraryPresentationFixtures")
+            # The default corpus, the opt-in presentation=1 corpus and the bookmark corpus are separate maps.
+            default_part, rest = fixtures.split("internal val libraryPresentationFixtures")
+            presented_part, bookmark_part = rest.split("internal val libraryBookmarkFixtures")
             expected = sorted((contract / "fixtures/theatre/library/v1").glob("*.json"))
             self.assertEqual(len(expected), default_part.count(" to "))
             for file in expected:
@@ -1196,6 +1197,12 @@ class LibraryWireGenerationBoundaryTest(unittest.TestCase):
             self.assertEqual(len(presented), presented_part.count(" to "))
             for file in presented:
                 self.assertIn(json.dumps(file.name), presented_part)
+            bookmarks = sorted((contract / "fixtures/theatre/library/v1/bookmarks").glob("*.json"))
+            self.assertEqual(len(bookmarks), bookmark_part.count(" to "))
+            for file in bookmarks:
+                self.assertIn(json.dumps(file.name), bookmark_part)
+                self.assertNotIn(json.dumps(file.name), default_part)
+                self.assertNotIn(json.dumps(file.name), presented_part)
 
 
 if __name__ == "__main__":

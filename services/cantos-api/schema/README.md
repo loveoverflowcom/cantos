@@ -6,6 +6,8 @@ The metadata registries are created by `platform/postgres/migrations.rs` in the 
 `0002_bearer.sql` is the additive epoch-2 version 2 expansion. The migrator validates every
 applied checksum and applies only the exact missing suffix, atomically. There is no executable
 epoch-1 upgrade chain or parallel SQL bootstrap command. Runtime verification requires every version.
+`0003_listener_bookmarks.sql` is the additive version 3 (release-bound listener bookmarks, #299); no earlier
+checksum is touched, and `cantos-migrate` (without `--check`) applies exactly this suffix to a `[1,2]` database.
 A binary rejects any registry longer than its own, so an expansion is never image-only reversible.
 Production applies a new additive version only through the explicit
 [registry-suffix lane](../../../docs/deployment/postgres-prefix-upgrade.md), never by hand and never

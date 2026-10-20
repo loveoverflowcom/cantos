@@ -1,5 +1,6 @@
 package com.cantos.theatre.adapters.library
 
+import com.cantos.theatre.adapters.library.wire.BookmarkPage
 import com.cantos.theatre.adapters.library.wire.MutationState
 import com.cantos.theatre.adapters.library.wire.PresentedContinuePage
 import com.cantos.theatre.adapters.library.wire.PresentedHistoryPage
@@ -21,6 +22,8 @@ interface LibraryApi {
     suspend fun continuePage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<PresentedContinuePage>
     suspend fun savedPage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<PresentedSavedPage>
     suspend fun historyPage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<PresentedHistoryPage>
+    /** Live bookmarks only; every item carries its required, nullable exact-release metadata. */
+    suspend fun bookmarkPage(auth: LibraryAuthorization, cursor: String? = null): LibraryResult<BookmarkPage>
     suspend fun saved(auth: LibraryAuthorization, work: String): LibraryResult<SavedRecord>
     suspend fun progress(auth: LibraryAuthorization, publication: String): LibraryResult<MutationState.Progress>
     suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt>

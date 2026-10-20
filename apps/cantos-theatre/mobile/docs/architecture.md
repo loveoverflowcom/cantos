@@ -10,7 +10,7 @@ compile/runtime graphs and actual unsigned APK/AAB are inspected by `cargo xtask
 android-release`. A Desktop Preview build establishes neither production exclusion nor native listening
 acceptance. The production hosts mount `CantosTheatreApp` over the live catalog, account, durable
 Library and native player (see the [README](../README.md#the-application-over-real-owners)); it
-claims no download or bookmark capability. [ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md)
+claims no download capability; bookmarks are the account Library's release-bound resource ([#299](https://github.com/loveoverflowcom/cantos/issues/299), README). [ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md)
 remains proposed.
 
 The historical architecture/evidence below began with the requested 407-line brief and

@@ -153,3 +153,88 @@ fn required_nullable_members_must_be_present_for_wire_schema_conformance() {
     value["state"].as_object_mut().unwrap().remove("current");
     assert!(serde_json::from_value::<dto::Receipt>(value).is_err());
 }
+
+macro_rules! bookmark_fixture {
+    ($file:literal) => {
+        include_str!(concat!(
+            "../../fixtures/theatre/library/v1/bookmarks/",
+            $file,
+            ".json"
+        ))
+    };
+}
+#[test]
+fn bookmark_fixtures_decode_and_reencode_without_drift() {
+    check::<dto::BookmarkWrite>("BookmarkWrite", bookmark_fixture!("bookmark_write"));
+    check::<dto::BookmarkDelete>("BookmarkDelete", bookmark_fixture!("bookmark_delete"));
+    for name in [
+        bookmark_fixture!("bookmark_accepted"),
+        bookmark_fixture!("bookmark_delete_accepted"),
+        bookmark_fixture!("bookmark_deleted"),
+    ] {
+        check::<dto::Receipt>("Receipt", name);
+    }
+    check::<dto::BookmarkPage>("BookmarkPage", bookmark_fixture!("bookmarks"));
+    check::<dto::BookmarkPage>("BookmarkPage", bookmark_fixture!("bookmarks_empty"));
+}
+#[test]
+fn bookmark_pages_keep_unavailable_releases_without_metadata_and_never_remap() {
+    let page: dto::BookmarkPage = serde_json::from_str(bookmark_fixture!("bookmarks")).unwrap();
+    assert_eq!(page.items.len(), 2);
+    let available = &page.items[0];
+    let presentation = available.presentation.as_ref().unwrap();
+    assert_eq!(
+        presentation.work.publication_id,
+        available.bookmark.audio.publication_id
+    );
+    let retained = &page.items[1];
+    assert_eq!(retained.resume, dto::ResumeStatus::AccessUnavailable);
+    assert!(retained.presentation.is_none());
+    assert_eq!(retained.bookmark.audio, available.bookmark.audio);
+}
+#[test]
+fn bookmark_requests_reject_raw_authority_missing_nullables_and_label_fields() {
+    for member in ["actor_id", "listener_id", "label", "note", "revision"] {
+        let mut v: Value = serde_json::from_str(bookmark_fixture!("bookmark_write")).unwrap();
+        v[member] = Value::String("attacker".into());
+        assert!(
+            serde_json::from_value::<dto::BookmarkWrite>(v).is_err(),
+            "{member}"
+        );
+    }
+    let mut v: Value = serde_json::from_str(bookmark_fixture!("bookmark_write")).unwrap();
+    v.as_object_mut().unwrap().remove("bookmark_id");
+    assert!(serde_json::from_value::<dto::BookmarkWrite>(v).is_err());
+    let mut v: Value = serde_json::from_str(bookmark_fixture!("bookmarks")).unwrap();
+    v["items"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("presentation");
+    assert!(serde_json::from_value::<dto::BookmarkPage>(v).is_err());
+    let mut v: Value = serde_json::from_str(bookmark_fixture!("bookmark_delete")).unwrap();
+    v["bookmark_id"] = Value::String("00000000-0000-4000-8000-0000000000b1".into());
+    assert!(serde_json::from_value::<dto::BookmarkDelete>(v).is_err());
+}
+#[test]
+fn bookmark_schema_bounds_page_size_ids_and_deleted_receipt_outcome() {
+    let root: Value = serde_json::from_str(SCHEMA).unwrap();
+    let valid = |definition: &str, value: &Value| {
+        let mut schema = root.clone();
+        schema["$ref"] = Value::String(format!("#/$defs/{definition}"));
+        schema.as_object_mut().unwrap().remove("anyOf");
+        jsonschema::validator_for(&schema).unwrap().is_valid(value)
+    };
+    let mut write: Value = serde_json::from_str(bookmark_fixture!("bookmark_write")).unwrap();
+    assert!(valid("BookmarkWrite", &write));
+    write["bookmark_id"] = Value::String("NOT-A-UUID".into());
+    assert!(!valid("BookmarkWrite", &write));
+    let mut page: Value = serde_json::from_str(bookmark_fixture!("bookmarks")).unwrap();
+    let item = page["items"][0].clone();
+    page["items"] = Value::Array(vec![item; 51]);
+    assert!(!valid("BookmarkPage", &page));
+    let deleted: Value = serde_json::from_str(bookmark_fixture!("bookmark_deleted")).unwrap();
+    assert!(valid("Receipt", &deleted));
+    let mut bad = deleted.clone();
+    bad["outcome"] = Value::String("resurrected".into());
+    assert!(!valid("Receipt", &bad));
+}

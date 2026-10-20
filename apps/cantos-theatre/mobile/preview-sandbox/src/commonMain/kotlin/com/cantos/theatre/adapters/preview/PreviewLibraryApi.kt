@@ -4,6 +4,11 @@ import com.cantos.theatre.adapters.library.LibraryApi
 import com.cantos.theatre.adapters.library.LibraryAuthorization
 import com.cantos.theatre.adapters.library.LibraryResult
 import com.cantos.theatre.adapters.library.wire.AudioIdentity as WireAudio
+import com.cantos.theatre.adapters.library.wire.BookmarkDelete
+import com.cantos.theatre.adapters.library.wire.BookmarkItem
+import com.cantos.theatre.adapters.library.wire.BookmarkPage
+import com.cantos.theatre.adapters.library.wire.BookmarkRecord
+import com.cantos.theatre.adapters.library.wire.BookmarkWrite
 import com.cantos.theatre.adapters.library.wire.Completion
 import com.cantos.theatre.adapters.library.wire.HistoryClear
 import com.cantos.theatre.adapters.library.wire.HistoryItem
@@ -38,7 +43,8 @@ class PreviewListeningSeed(val unitId: String, val positionMs: Long)
  * The remote Library as the native sync adapter sees it. Mutations are idempotent by operation ID
  * and per-account, so the production [com.cantos.theatre.adapters.library.NativeLibrarySync] and its
  * SQLite outbox run unchanged: an offline server leaves intents durable, a replayed operation
- * returns its first receipt. Conflict resolution and multi-device ordering are not modelled.
+ * returns its first receipt. Conflict resolution and multi-device ordering are not modelled. Bookmarks keep the
+ * server's own rules: create-once by ID, a final tombstone no replay can undo, an unknown ID is not found.
  */
 class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Long = 0) : LibraryApi {
     private class Account {
@@ -47,7 +53,10 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
         var history = emptyList<HistoryItem>()
         var historyState = HistoryState(0, 0)
         val receipts = HashMap<String, Receipt>()
+        val bookmarks = LinkedHashMap<String, BookmarkRecord>()
     }
+
+    private class UnknownBookmark : RuntimeException()
 
     private val accounts = HashMap<String, Account>()
     private var order = 0L
@@ -74,6 +83,25 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
             HistoryItem(audio, nowMs(), ++order, account.progress[audio.publication_id], ResumeStatus.exact_available)
         }.asReversed()
         account.historyState = HistoryState(if (account.history.isEmpty()) 0 else 1, 0)
+    }
+
+    /** Replaces [actor]'s bookmarks with live ones at these positions, oldest first. */
+    fun seedBookmarks(actor: String, bookmarks: List<PreviewListeningSeed>) {
+        val account = account(actor)
+        account.bookmarks.clear()
+        bookmarks.forEachIndexed { index, entry ->
+            val audio = audioOf(entry.unitId) ?: return@forEachIndexed
+            val id = "b0000000-0000-4000-8000-${(index + 1).toString().padStart(12, '0')}"
+            account.bookmarks[id] = BookmarkRecord(id, audio, entry.positionMs.coerceIn(0, audio.duration_ms), false, ++order, nowMs())
+        }
+    }
+
+    /** What the server holds for [actor], deleted bookmarks included, for assertions about authority. */
+    fun bookmarkRecords(actor: String): List<BookmarkRecord> = account(actor).bookmarks.values.toList()
+
+    override suspend fun bookmarkPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<BookmarkPage> = served {
+        BookmarkPage(account(auth.account).bookmarks.values.filter { !it.deleted }.sortedByDescending { it.listener_order }
+            .map { BookmarkItem(it, ResumeStatus.exact_available, presentationOf(it.audio)) }, null)
     }
 
     override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedContinuePage> = served {
@@ -109,6 +137,8 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
         val account = account(auth.account)
         return try {
             LibraryResult.Value(apply(account, intent))
+        } catch (_: UnknownBookmark) {
+            LibraryResult.Failed("not_found", retryable = false)
         } catch (_: SerializationException) {
             LibraryResult.Failed("invalid_request", retryable = false)
         } catch (_: IllegalArgumentException) {
@@ -137,6 +167,8 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
         val body = intent.body
         val operation = when {
             intent.path.startsWith("/library/saved/") -> json.decodeFromString<SavedWrite>(body).operation.operation_id
+            intent.path.startsWith("/library/bookmarks/") && intent.path.endsWith("/delete") -> json.decodeFromString<BookmarkDelete>(body).operation.operation_id
+            intent.path.startsWith("/library/bookmarks/") -> json.decodeFromString<BookmarkWrite>(body).operation.operation_id
             intent.path.startsWith("/progress/") -> json.decodeFromString<ProgressWrite>(body).operation.operation_id
             intent.path == "/library/history/playback-starts" -> json.decodeFromString<HistoryStart>(body).operation.operation_id
             intent.path == "/library/history/clear" -> json.decodeFromString<HistoryClear>(body).operation.operation_id
@@ -145,12 +177,38 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
         account.receipts[operation]?.let { return it }
         val receipt = when {
             intent.path.startsWith("/library/saved/") -> saved(account, operation, intent.path.removePrefix("/library/saved/"), json.decodeFromString(body))
+            intent.path.startsWith("/library/bookmarks/") && intent.path.endsWith("/delete") ->
+                bookmarkDelete(account, operation, intent.path.removePrefix("/library/bookmarks/").removeSuffix("/delete"))
+            intent.path.startsWith("/library/bookmarks/") -> bookmarkCreate(account, operation, json.decodeFromString(body))
             intent.path.startsWith("/progress/") -> progress(account, operation, json.decodeFromString(body))
             intent.path == "/library/history/playback-starts" -> historyStart(account, operation, json.decodeFromString(body))
             else -> historyClear(account, operation, json.decodeFromString(body))
         }
         account.receipts[operation] = receipt
         return receipt
+    }
+
+    private fun bookmarkCreate(account: Account, operation: String, write: BookmarkWrite): Receipt {
+        val current = account.bookmarks[write.bookmark_id]
+        if (current?.deleted == true) {
+            return Receipt(operation, "bookmark_deleted", "keep_server", MutationState.Bookmark(current))
+        }
+        if (current != null) {
+            require(current.audio == write.audio && current.position_ms == write.position_ms) { "bookmark ID reused" }
+            return Receipt(operation, "already_current", null, MutationState.Bookmark(current))
+        }
+        require(write.position_ms in 0..write.audio.duration_ms) { "position outside the verified duration" }
+        val next = BookmarkRecord(write.bookmark_id, write.audio, write.position_ms, false, ++order, nowMs())
+        account.bookmarks[write.bookmark_id] = next
+        return Receipt(operation, "accepted", null, MutationState.Bookmark(next))
+    }
+
+    private fun bookmarkDelete(account: Account, operation: String, id: String): Receipt {
+        val current = account.bookmarks[id] ?: throw UnknownBookmark()
+        if (current.deleted) return Receipt(operation, "already_current", null, MutationState.Bookmark(current))
+        val next = current.copy(deleted = true, listener_order = ++order, accepted_at_ms = nowMs())
+        account.bookmarks[id] = next
+        return Receipt(operation, "accepted", null, MutationState.Bookmark(next))
     }
 
     private fun saved(account: Account, operation: String, work: String, write: SavedWrite): Receipt {

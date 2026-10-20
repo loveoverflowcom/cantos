@@ -51,5 +51,12 @@ text += 'internal val libraryPresentationFixtures = mapOf(\n'
 for fixture in presented:
     text += '    ' + quoted(fixture.name) + ' to ' + quoted(fixture.read_text()) + ',\n'
 text += ')\n'
+# The release-bound bookmark corpus (#299) is its own map too, for the same reason.
+bookmarks = sorted((fixtures_path / 'bookmarks').glob('*.json'))
+assert bookmarks
+text += 'internal val libraryBookmarkFixtures = mapOf(\n'
+for fixture in bookmarks:
+    text += '    ' + quoted(fixture.name) + ' to ' + quoted(fixture.read_text()) + ',\n'
+text += ')\n'
 test_path.parent.mkdir(parents=True, exist_ok=True)
 test_path.write_text(text)

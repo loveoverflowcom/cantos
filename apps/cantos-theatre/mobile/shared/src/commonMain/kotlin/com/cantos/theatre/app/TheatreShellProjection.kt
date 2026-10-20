@@ -11,6 +11,8 @@ import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.domain.catalog.PublicUnitKind
 import com.cantos.theatre.domain.catalog.unitKind
+import com.cantos.theatre.domain.library.BookmarkEntry
+import com.cantos.theatre.domain.library.BookmarkSync
 import com.cantos.theatre.domain.library.LibraryLoad
 import com.cantos.theatre.domain.library.LibraryPresentation
 import com.cantos.theatre.domain.library.LibraryResume
@@ -26,6 +28,8 @@ import com.cantos.theatre.domain.playback.PlaybackState
 import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.PlaybackUiStatus
+import com.cantos.theatre.presentation.model.ShellBookmark
+import com.cantos.theatre.presentation.model.ShellBookmarkSync
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellCopy
@@ -110,6 +114,7 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
     }
     i.library.continueListening.forEach { builder.reference(it.audio.workId); builder.unit(it.audio, null, it.presentation); it.presentation.valueOrNull?.let { unit -> builder.describe(unit.work) } }
     i.library.history.forEach { builder.reference(it.audio.workId); builder.unit(it.audio, null, it.presentation); it.presentation.valueOrNull?.let { unit -> builder.describe(unit.work) } }
+    i.library.bookmarks.forEach { builder.reference(it.audio.workId); builder.unit(it.audio, null, it.presentation); it.presentation.valueOrNull?.let { unit -> builder.describe(unit.work) } }
     if (audio != null) {
         builder.reference(audio.workId)
         builder.unit(audio, i.selection?.takeIf { it.title.isNotBlank() })
@@ -156,6 +161,7 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
         history = i.library.history.map { entry ->
             row(entry.audio, continueByPublication[entry.audio.publicationId]?.positionMs ?: 0L, entry.resume, entry.presentation)
         },
+        bookmarks = i.library.bookmarks.map { it.toShell(builder.rowTitles(it.audio, it.presentation)) },
         listeningFailure = if (i.accessFailed && pending != null) ShellListeningFailure.ReleaseUnavailable else null,
     )
     return ShellProjection(state, view)
@@ -165,6 +171,21 @@ private fun AudioIdentity.toProgress(positionMs: Long, resume: ShellResume, titl
     val bounded = positionMs.coerceIn(0L, durationMs)
     return ShellProgress(ShellEpisodeId(unitId, ShellWorkId(workId)), (bounded / 1000L).toInt(), bounded, resume, titles,
         ((durationMs + 999L) / 1000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
+}
+
+/** The exact release the bookmark names, with that release's own titles; nothing is remapped or borrowed. */
+private fun BookmarkEntry.toShell(titles: ShellRowTitles): ShellBookmark {
+    val bounded = positionMs.coerceIn(0L, audio.durationMs)
+    return ShellBookmark(ShellEpisodeId(audio.unitId, ShellWorkId(audio.workId)), (bounded / 1000L).toInt(), bounded, id,
+        sync.toShell(), resume.toShell(), titles, ((audio.durationMs + 999L) / 1000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
+}
+
+private fun BookmarkSync.toShell(): ShellBookmarkSync = when (this) {
+    BookmarkSync.Synced -> ShellBookmarkSync.Synced
+    BookmarkSync.Pending -> ShellBookmarkSync.Pending
+    BookmarkSync.Offline -> ShellBookmarkSync.Offline
+    BookmarkSync.Failed -> ShellBookmarkSync.Failed
+    BookmarkSync.DeleteFailed -> ShellBookmarkSync.DeleteFailed
 }
 
 private fun LibraryResume.toShell(): ShellResume = when (this) {
@@ -177,7 +198,8 @@ private fun LibraryResume.toShell(): ShellResume = when (this) {
 /** A guest has no Library, so nothing is loading or failed for it. */
 private fun LibraryState.toLibraryView(): ShellLibraryView =
     if (account == null) ShellLibraryView()
-    else ShellLibraryView(phase(LibrarySection.Continue, continueListening.isNotEmpty()), phase(LibrarySection.Saved, saved.any { it.saved }), phase(LibrarySection.History, history.isNotEmpty()))
+    else ShellLibraryView(phase(LibrarySection.Continue, continueListening.isNotEmpty()), phase(LibrarySection.Saved, saved.any { it.saved }),
+        phase(LibrarySection.History, history.isNotEmpty()), phase(LibrarySection.Bookmarks, bookmarks.isNotEmpty()))
 
 private fun LibraryState.phase(section: LibrarySection, hasRows: Boolean): ShellLibraryPhase {
     val state = section(section)

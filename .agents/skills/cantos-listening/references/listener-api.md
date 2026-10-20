@@ -41,7 +41,7 @@ Kotlin generation remain required client acceptance.
 | Playback start, clear | `POST /library/history/playback-starts`, `POST /library/history/clear` | implemented | history revision and epoch | `no-store` |
 | Progress | `GET`, `PUT /progress/{publication}` | implemented | revisioned; conditional | `no-store` |
 | Operation receipt | `GET /operations/{operation}` | implemented | immutable | `no-store` |
-| Bookmarks | `GET /bookmarks?since=…`, `PUT`, `DELETE /bookmarks/{bookmark_id}` | proposed | revisioned; tombstoned | `no-store` |
+| Bookmarks | `GET /library/bookmarks` (`limit`, `cursor`), `PUT /library/bookmarks/{bookmark}`, `POST /library/bookmarks/{bookmark}/delete` | implemented (Library v1.2, #299), account-only | immutable value; final tombstone; metadata always present | `no-store` |
 | Download manifest, grants, authorizations | see [`downloads-contract.md`](downloads-contract.md) | proposed | manifest immutable; grant revisioned; URL disposable | `no-store` except the manifest |
 
 Account routes (`/library/*`, `/progress/*`, `/operations/*`) pass through
@@ -262,12 +262,13 @@ revisioned state and an explicit resolution
 | `corrupt_state` | 500 | no | server invariant failure; report |
 | outcome `revision_conflict` | 409 | — | receipt: reconcile from `state` and `resolution` |
 | outcome `history_epoch_conflict` | 409 | — | receipt: the acknowledgement predates a clear; drop it |
+| outcome `bookmark_deleted` | 409 | — | receipt: the ID's tombstone is final; the create is refused, never retried |
 
 Discovery/Playback errors are owned by [Discovery v1](../../../../packages/contracts/theatre-discovery-v1.md).
 
 **Proposed, not implemented:** `publication_withdrawn` (410), `access_denied` (403),
 `access_expired` (401 after one refresh), `rendition_unavailable` (503, never a trigger for
-generation or transcoding), `bookmark_deleted` (409), `offline_not_permitted` (403),
+generation or transcoding), `offline_not_permitted` (403),
 `operation_expired` (422) and `contract_version_unsupported` (400). Each one needs a fixture and
 an exact-code test before it ships. Tests assert the exact variant and code per case — never
 `is_err()` or a bare status. Returning `403` for a draft would confirm that it exists; drafts and

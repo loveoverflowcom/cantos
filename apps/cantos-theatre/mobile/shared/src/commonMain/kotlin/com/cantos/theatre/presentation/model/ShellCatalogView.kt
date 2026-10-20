@@ -65,11 +65,13 @@ data class ShellLibraryView(
     val continuing: ShellLibraryPhase = ShellLibraryPhase.Complete,
     val saved: ShellLibraryPhase = ShellLibraryPhase.Complete,
     val history: ShellLibraryPhase = ShellLibraryPhase.Complete,
+    val bookmarks: ShellLibraryPhase = ShellLibraryPhase.Complete,
 ) {
     fun phase(section: ShellLibrarySection): ShellLibraryPhase = when (section) {
         ShellLibrarySection.Continue -> continuing
         ShellLibrarySection.Saved -> saved
         ShellLibrarySection.History -> history
+        ShellLibrarySection.Bookmarks -> bookmarks
     }
 }
 

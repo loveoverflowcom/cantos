@@ -122,6 +122,11 @@ class PreviewOwners(
             // ShellState lists history newest first; the remote seed is oldest first.
             history = if (seed.signedIn) state.history.asReversed().map(::seedOf) else emptyList(),
         )
+        // Bookmarks seed the same remote authority; a guest has none, so a guest's seed is never a saved bookmark.
+        libraryApi.seedBookmarks(
+            firstAccount.actor,
+            if (seed.signedIn) state.bookmarks.asReversed().map { PreviewListeningSeed(it.episodeId.value, it.positionMs) } else emptyList(),
+        )
     }
 
     /** True while the verified owner of the Library is signed in, for snapshots and tests. */

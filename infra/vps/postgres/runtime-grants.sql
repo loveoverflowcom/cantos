@@ -92,6 +92,12 @@ GRANT UPDATE (publication_id, unit_id, listener_order, started_at, snapshot, sna
     DELETE ON listener_history TO cantos_app;
 GRANT UPDATE (sequence) ON listener_device_sequences TO cantos_app;
 
+-- Release-bound listener bookmarks (migration 0003): create-once rows whose only change is the
+-- final tombstone. No DELETE: the table also rejects it, and TRUNCATE.
+GRANT SELECT, INSERT ON listener_bookmarks TO cantos_app;
+GRANT UPDATE (deleted, listener_order, accepted_at, snapshot, snapshot_digest)
+    ON listener_bookmarks TO cantos_app;
+
 -- Cantos-issued surface-scoped Bearer families. No direct registry write privilege.
 GRANT SELECT, INSERT ON bearer_flows, bearer_families, bearer_tokens TO cantos_app;
 GRANT UPDATE (consumed, cancelled, completed, handoff_hash, subject, proof_hash, provider_access,

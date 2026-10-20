@@ -43,13 +43,13 @@ Inspect the code before citing it; this table is the status at the last sync, no
 | Surface | Implemented | Owning contract / code |
 |---|---|---|
 | Discovery and playback authorization | `/api/v1/theatre/{works,search,works/{work},works/{work}/units,publications/{publication},publications/{publication}/playback-authorizations}`; `ListenerPublication` witness | [Discovery v1](../../../packages/contracts/theatre-discovery-v1.md); `contexts/media` (`ListenerService`, pure `domain/listening.rs`, wire mapping `listener_projection.rs`); `interfaces/http/theatre.rs` |
-| Library and progress | Continue, Saved, History, playback starts, clear, progress, operation receipts | [Library v1](../../../packages/contracts/listener-library-v1.md); `contexts/listening`; `interfaces/http/theatre_library.rs`; migration `0019_listener_library_progress.sql` |
+| Library and progress | Continue, Saved, History, playback starts, clear, progress, release-bound bookmarks (v1.2), operation receipts | [Library v1](../../../packages/contracts/listener-library-v1.md); `contexts/listening`; `interfaces/http/theatre_library.rs`; migration `0019_listener_library_progress.sql` |
 | Listener admission | sealed `AuthenticatedListener`, default `DenyListenerAuthentication`, Theatre Web cookie and native bearer adapters | [Theatre identity v1](../../../packages/contracts/theatre-identity-v1.md); `listening/{auth,theatre_identity}.rs`; `theatre_auth::bff_identity` |
 | Wire contract | JSON Schema `schema/theatre/library/v1.schema.json`, strict Rust DTOs `cantos_contracts::listener_library`, 22 fixtures in `fixtures/theatre/library/v1/` | `packages/contracts/api/tests/listener_library_wire.rs` |
 | Mock player | Rust `core/playback/reducer.rs` (Theatre Web) and Kotlin `reducePlayback` (CMP) both run the `theatre-mock-playback@1` corpus | `packages/contracts/fixtures/theatre/playback/v1/` |
 | Clients | Theatre Web reads Continue/Saved/History (`live/library.rs`); no client sends Library mutations or keeps an outbox | — |
 
-**Not implemented (still proposals here):** bookmarks and their tombstones, downloads (manifest,
+**Not implemented (still proposals here):** downloads (manifest,
 grant, authorization), receipt expiry (`operation_expired`), the production player and native
 engine adapters, OpenAPI with generated or drift-checked Kotlin, and the behavioral
 "listening is free" row-count test. Real PostgreSQL and account-sync acceptance follow the
@@ -141,7 +141,7 @@ cards with a good example, a counterexample and the exception live in the linked
 | L9 | Cold launch, sleep-timer expiry, explicit pause and remote progress never start or move playback | unexpected audio; the playhead jumps under the listener | vectors plus a property over random event sequences | partial: mock `restore-session` vectors; property and sleep timer proposed |
 | L10 | A session plays one immutable publication; a new release is an offer, never a silent swap | the listener lands in mismatched timing | vector `active-release-changed-while-playing` | proposed (server side: `resume_status` never substitutes) |
 | L11 | A progress write is accepted only against the current server revision; otherwise the response carries the current record. No max-position merge; device clocks are context | a late offline device erases newer progress, or rewinds are lost | conflict table, interleaving property, PostgreSQL concurrency test | implemented server-side; see [`progress-sync.md`](references/progress-sync.md) |
-| L12 | Bookmark deletion is a tombstone; replayed creates cannot resurrect it | deleted bookmarks reappear after offline replay | property over replays; tombstone table | proposed |
+| L12 | Bookmark deletion is a tombstone; replayed creates cannot resurrect it | deleted bookmarks reappear after offline replay | property over replays; tombstone table | implemented (pure core, table guard and CMP client record, #299) |
 | L13 | A download is identified by immutable publication and asset checksums; signed URLs are disposable; revocation limits are stated honestly, with no DRM claim | corrupt or mismatched offline files; promises the product cannot keep | manifest immutability test; denial table; copy review | proposed / manual |
 
 ## Ledger seeds

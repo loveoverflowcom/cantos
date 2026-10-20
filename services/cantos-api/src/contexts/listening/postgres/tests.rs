@@ -912,3 +912,529 @@ async fn latest_completed_release_suppresses_older_unfinished_work_without_erasi
         dto::Completion::Completed
     );
 }
+
+mod bookmarks {
+    //! Release-bound bookmarks against real PostgreSQL through the production Router.
+    use super::*;
+    fn bm(n: u64) -> String {
+        uid(0xb00 + n)
+    }
+    fn create(
+        a: &dto::AudioIdentity,
+        id: u64,
+        seq: u64,
+        device: u64,
+        at: u64,
+    ) -> dto::BookmarkWrite {
+        dto::BookmarkWrite {
+            operation: intent(seq, device),
+            bookmark_id: bm(id),
+            audio: a.clone(),
+            position_ms: at,
+        }
+    }
+    fn delete(seq: u64, device: u64) -> dto::BookmarkDelete {
+        dto::BookmarkDelete {
+            operation: intent(seq, device),
+        }
+    }
+    async fn put(r: &Router, actor: &str, w: &dto::BookmarkWrite) -> (StatusCode, Value) {
+        request(
+            r,
+            "PUT",
+            &format!("/library/bookmarks/{}", w.bookmark_id),
+            actor,
+            Some(serde_json::to_value(w).unwrap()),
+        )
+        .await
+    }
+    async fn remove(
+        r: &Router,
+        actor: &str,
+        id: u64,
+        d: &dto::BookmarkDelete,
+    ) -> (StatusCode, Value) {
+        request(
+            r,
+            "POST",
+            &format!("/library/bookmarks/{}/delete", bm(id)),
+            actor,
+            Some(serde_json::to_value(d).unwrap()),
+        )
+        .await
+    }
+    async fn list(r: &Router, actor: &str, query: &str) -> (StatusCode, Value) {
+        request(r, "GET", &format!("/library/bookmarks{query}"), actor, None).await
+    }
+    /// Positions relative to the fixture's verified duration, distinct and strictly inside it.
+    fn at(a: &dto::AudioIdentity, tenths: u64) -> u64 {
+        assert!(
+            a.duration_ms >= 100,
+            "fixture audio too short for distinct positions"
+        );
+        a.duration_ms * tenths / 10
+    }
+    fn ids(page: &Value) -> Vec<String> {
+        page["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|i| i["bookmark"]["bookmark_id"].as_str().unwrap().to_owned())
+            .collect()
+    }
+
+    #[tokio::test]
+    #[ignore = "requires xtask disposable PostgreSQL; no native-engine or live-delivery claim"]
+    async fn create_list_delete_over_http_survive_restart_isolate_accounts_and_bound_positions() {
+        let (f, _service, a) = world().await;
+        let store = f.listener_handles().1;
+        let router = app(store.clone());
+        let first = create(&a, 1, 1, 90, at(&a, 1));
+        let (status, accepted) = put(&router, "alice", &first).await;
+        assert_eq!(
+            (status, accepted["outcome"].as_str()),
+            (StatusCode::OK, Some("accepted"))
+        );
+        assert_eq!(
+            accepted["state"]["current"]["audio"],
+            serde_json::to_value(&a).unwrap()
+        );
+        // The same operation again is byte-identical, whatever happened in between.
+        assert_eq!(
+            put(&router, "alice", &first).await,
+            (StatusCode::OK, accepted.clone())
+        );
+        assert_eq!(
+            put(&router, "alice", &create(&a, 1, 2, 90, at(&a, 1)))
+                .await
+                .1["outcome"],
+            "already_current"
+        );
+        for (id, seq, at) in [(2, 1, at(&a, 2)), (3, 1, at(&a, 3)), (4, 1, a.duration_ms)] {
+            assert_eq!(
+                put(&router, "alice", &create(&a, id, seq, 90, at)).await.0,
+                StatusCode::OK
+            );
+        }
+        // The account row is a real restart boundary: a new Router and service see the same rows.
+        let restarted = app(store.clone());
+        let (status, page) = list(&restarted, "alice", "?limit=3").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(ids(&page), vec![bm(4), bm(3), bm(2)]);
+        let item = &page["items"][0];
+        assert_eq!(item["resume"], "exact_available");
+        assert_eq!(item["presentation"]["unit_id"], a.unit_id);
+        assert_eq!(
+            item["presentation"]["work"]["publication_id"],
+            a.publication_id
+        );
+        let cursor = page["next_cursor"].as_str().unwrap().to_owned();
+        let (_, rest) = list(&restarted, "alice", &format!("?limit=3&cursor={cursor}")).await;
+        assert_eq!(ids(&rest), vec![bm(1)]);
+        assert!(rest["next_cursor"].is_null());
+        // A walk across a process restart is a refused cursor, never a silent restart of the walk.
+        let (status, refused) = list(
+            &app(store.clone()),
+            "alice",
+            &format!("?limit=3&cursor={cursor}"),
+        )
+        .await;
+        assert_eq!(
+            (status, refused["code"].as_str()),
+            (StatusCode::BAD_REQUEST, Some("invalid_cursor"))
+        );
+        // Bounds: past the verified duration, an unknown release and a foreign path ID are refused.
+        let (status, error) = put(&router, "alice", &create(&a, 5, 1, 90, a.duration_ms + 1)).await;
+        assert_eq!(
+            (status, error["code"].as_str()),
+            (StatusCode::UNPROCESSABLE_ENTITY, Some("invalid_position"))
+        );
+        let mut unknown = create(&a, 5, 1, 90, 1);
+        unknown.audio.publication_id = uid(0xdead);
+        let (status, error) = put(&router, "alice", &unknown).await;
+        assert_eq!(
+            (status, error["code"].as_str()),
+            (StatusCode::NOT_FOUND, Some("not_found"))
+        );
+        let mismatched = create(&a, 6, 1, 90, 1);
+        let (status, _) = request(
+            &router,
+            "PUT",
+            &format!("/library/bookmarks/{}", bm(7)),
+            "alice",
+            Some(serde_json::to_value(&mismatched).unwrap()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            list(&router, "alice", "?presentation=1").await.0,
+            StatusCode::BAD_REQUEST
+        );
+        for limit in ["0", "51"] {
+            assert_eq!(
+                list(&router, "alice", &format!("?limit={limit}")).await.0,
+                StatusCode::BAD_REQUEST
+            );
+        }
+        // Authentication and account isolation.
+        assert_eq!(
+            list(&router, "mallory", "").await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            put(&router, "mallory", &first).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(ids(&list(&router, "bob", "").await.1), Vec::<String>::new());
+        assert_eq!(
+            remove(&router, "bob", 1, &delete(1, 91)).await.0,
+            StatusCode::NOT_FOUND
+        );
+        let (_, theirs) = put(&router, "bob", &create(&a, 1, 1, 91, at(&a, 5))).await;
+        assert_eq!(theirs["outcome"], "accepted");
+        assert_eq!(theirs["state"]["current"]["position_ms"], at(&a, 5));
+        assert_eq!(ids(&list(&router, "bob", "").await.1), vec![bm(1)]);
+        // Delete: tombstone, never listed again, replays never resurrect it.
+        let (status, gone) = remove(&router, "alice", 1, &delete(3, 90)).await;
+        assert_eq!(
+            (status, gone["outcome"].as_str()),
+            (StatusCode::OK, Some("accepted"))
+        );
+        assert_eq!(gone["state"]["current"]["deleted"], true);
+        assert_eq!(
+            ids(&list(&router, "alice", "?limit=50").await.1),
+            vec![bm(4), bm(3), bm(2)]
+        );
+        assert_eq!(
+            put(&router, "alice", &first).await,
+            (StatusCode::OK, accepted.clone())
+        );
+        let (status, refused) = put(&router, "alice", &create(&a, 1, 4, 90, at(&a, 1))).await;
+        assert_eq!(
+            (status, refused["outcome"].as_str()),
+            (StatusCode::CONFLICT, Some("bookmark_deleted"))
+        );
+        assert_eq!(refused["resolution"], "keep_server");
+        assert_eq!(refused["state"]["current"]["deleted"], true);
+        assert_eq!(
+            remove(&router, "alice", 1, &delete(5, 90)).await.1["outcome"],
+            "already_current"
+        );
+        assert_eq!(
+            ids(&list(&router, "alice", "?limit=50").await.1),
+            vec![bm(4), bm(3), bm(2)]
+        );
+        // Lost response: the receipt is readable and carries the original answer.
+        let (status, receipt) = request(
+            &router,
+            "GET",
+            &format!("/operations/{}", first.operation.operation_id),
+            "alice",
+            None,
+        )
+        .await;
+        assert_eq!((status, receipt), (StatusCode::OK, accepted));
+        // Bookmarks leave Saved, progress and history alone (and the converse).
+        let service = LibraryService::new(store);
+        let p = principal("alice");
+        remember_audio(&service, &p, &a).await;
+        assert_eq!(
+            service.bookmarks(&p, 50, None).await.unwrap().items.len(),
+            3
+        );
+        assert_eq!(
+            service.saved_works(&p, 20, None).await.unwrap().items.len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "requires xtask disposable PostgreSQL; exercises real concurrent bookmark intents"]
+    async fn concurrent_duplicate_create_and_delete_intents_commit_one_row_and_one_final_tombstone()
+    {
+        let (f, service, a) = world().await;
+        let p = principal("alice");
+        let id = bm(1);
+        let (x, y, z) = tokio::join!(
+            service.create_bookmark(&p, &id, create(&a, 1, 1, 90, at(&a, 1))),
+            service.create_bookmark(&p, &id, create(&a, 1, 1, 91, at(&a, 1))),
+            service.create_bookmark(&p, &id, create(&a, 1, 1, 92, at(&a, 1))),
+        );
+        let outcomes = [x.unwrap(), y.unwrap(), z.unwrap()].map(|r| r.outcome);
+        assert_eq!(
+            outcomes
+                .iter()
+                .filter(|o| **o == dto::WriteOutcome::Accepted)
+                .count(),
+            1
+        );
+        assert_eq!(
+            outcomes
+                .iter()
+                .filter(|o| **o == dto::WriteOutcome::AlreadyCurrent)
+                .count(),
+            2
+        );
+        let count = |sql: &'static str| {
+            let admin = f.listener_handles().0;
+            async move { admin.query_one(sql, &[]).await.unwrap().get::<_, i64>(0) }
+        };
+        assert_eq!(
+            count("SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice'").await,
+            1
+        );
+        let (d1, d2) = tokio::join!(
+            service.delete_bookmark(&p, &id, delete(2, 90)),
+            service.delete_bookmark(&p, &id, delete(2, 91)),
+        );
+        let outcomes = [d1.unwrap(), d2.unwrap()].map(|r| r.outcome);
+        assert_eq!(
+            outcomes
+                .iter()
+                .filter(|o| **o == dto::WriteOutcome::Accepted)
+                .count(),
+            1
+        );
+        assert_eq!(
+            outcomes
+                .iter()
+                .filter(|o| **o == dto::WriteOutcome::AlreadyCurrent)
+                .count(),
+            1
+        );
+        let (c1, c2) = tokio::join!(
+            service.create_bookmark(&p, &id, create(&a, 1, 3, 90, at(&a, 1))),
+            service.create_bookmark(&p, &id, create(&a, 1, 3, 91, at(&a, 1))),
+        );
+        for r in [c1.unwrap(), c2.unwrap()] {
+            assert_eq!(r.outcome, dto::WriteOutcome::BookmarkDeleted);
+        }
+        assert_eq!(
+            count("SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND deleted")
+                .await,
+            1
+        );
+        assert_eq!(
+            count(
+                "SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND NOT deleted"
+            )
+            .await,
+            0
+        );
+        assert!(service
+            .bookmarks(&p, 20, None)
+            .await
+            .unwrap()
+            .items
+            .is_empty());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires xtask disposable PostgreSQL; no retained-release/public-byte claim"]
+    async fn replaced_and_withdrawn_releases_keep_exact_bookmarks_without_remap_or_new_access() {
+        let (f, service, a) = world().await;
+        let p = principal("alice");
+        service
+            .create_bookmark(&p, &bm(1), create(&a, 1, 1, 90, at(&a, 1)))
+            .await
+            .unwrap();
+        let replaced = f.listener_publish(1, json!(a.publication_id)).await;
+        let replacement = replaced["release"]["id"].as_str().unwrap().to_owned();
+        let page = service.bookmarks(&p, 20, None).await.unwrap();
+        assert_eq!(page.items[0].resume, dto::ResumeStatus::ReleaseReplaced);
+        assert_eq!(
+            page.items[0].presentation, None,
+            "no replacement title labels the old release"
+        );
+        assert_eq!(
+            page.items[0].bookmark.audio, a,
+            "never remapped to the replacement"
+        );
+        assert_eq!(page.items[0].bookmark.position_ms, at(&a, 1));
+        assert_eq!(
+            service
+                .create_bookmark(&p, &bm(2), create(&a, 2, 2, 90, 100))
+                .await,
+            Err(LibraryError::NotFound),
+            "a bookmark does not grant or restore access to a superseded release"
+        );
+        assert_eq!(
+            service
+                .create_bookmark(&p, &bm(1), create(&a, 1, 3, 90, at(&a, 1)))
+                .await
+                .unwrap()
+                .outcome,
+            dto::WriteOutcome::AlreadyCurrent
+        );
+        f.listener_withdraw(&replacement, 2).await;
+        let page = service.bookmarks(&p, 20, None).await.unwrap();
+        assert_eq!(page.items[0].resume, dto::ResumeStatus::AccessUnavailable);
+        assert_eq!(page.items[0].presentation, None);
+        // Deleting is still possible for the owner: it needs no listening access at all.
+        assert_eq!(
+            service
+                .delete_bookmark(&p, &bm(1), delete(4, 90))
+                .await
+                .unwrap()
+                .outcome,
+            dto::WriteOutcome::Accepted
+        );
+        assert!(service
+            .bookmarks(&p, 20, None)
+            .await
+            .unwrap()
+            .items
+            .is_empty());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires xtask disposable PostgreSQL; table guards are exercised with the owner role"]
+    async fn bookmark_table_refuses_resurrection_mutation_deletion_and_snapshot_drift() {
+        let (f, service, a) = world().await;
+        let p = principal("alice");
+        service
+            .create_bookmark(&p, &bm(1), create(&a, 1, 1, 90, at(&a, 1)))
+            .await
+            .unwrap();
+        service
+            .create_bookmark(&p, &bm(2), create(&a, 2, 1, 90, at(&a, 2)))
+            .await
+            .unwrap();
+        service
+            .delete_bookmark(&p, &bm(2), delete(2, 90))
+            .await
+            .unwrap();
+        let admin = f.listener_handles().0;
+        let code = |e: tokio_postgres::Error| e.code().map(|c| c.code().to_owned());
+        let (live, gone) = (bm(1), bm(2));
+        for (sql, id, expected) in [
+            // A tombstone is final; a live value cannot change identity or position.
+            ("UPDATE listener_bookmarks SET deleted=false,listener_order=listener_order+1 WHERE bookmark_id=$1", &gone, "55000"),
+            ("UPDATE listener_bookmarks SET position_ms=position_ms+1,deleted=true,listener_order=listener_order+1 WHERE bookmark_id=$1", &live, "55000"),
+            ("UPDATE listener_bookmarks SET deleted=true WHERE bookmark_id=$1", &live, "55000"),
+            ("UPDATE listener_bookmarks SET listener_id='bob' WHERE bookmark_id=$1", &live, "55000"),
+            ("DELETE FROM listener_bookmarks WHERE bookmark_id=$1", &live, "55000"),
+            // The snapshot must name the scalar columns, including the tombstone flag.
+            ("UPDATE listener_bookmarks SET deleted=true,listener_order=listener_order+1 WHERE bookmark_id=$1", &live, "23514"),
+        ] {
+            let error = admin.execute(sql, &[id]).await.unwrap_err();
+            assert_eq!(code(error).as_deref(), Some(expected), "{sql}");
+        }
+        let error = admin
+            .batch_execute("TRUNCATE listener_bookmarks")
+            .await
+            .unwrap_err();
+        assert_eq!(code(error).as_deref(), Some("55000"));
+        assert_eq!(
+            service.bookmarks(&p, 20, None).await.unwrap().items.len(),
+            1
+        );
+    }
+
+    /// The production CMP client (sync adapter, SQLite store, codec, HTTP client) against this real Router over
+    /// loopback HTTP and the real database. The Kotlin side is `LiveBookmarkApiTest`; this harness owns the server,
+    /// the seeded rows and the final database assertions, so a Kotlin pass cannot stand in for them.
+    #[tokio::test]
+    #[ignore = "requires xtask disposable PostgreSQL plus Gradle and the CMP desktop toolchain on PATH; no audio decoder or real identity provider"]
+    async fn cmp_production_client_against_the_real_api() {
+        const SEEDED: u64 = 22;
+        let (f, service, a) = world().await;
+        assert!(
+            a.duration_ms >= 100,
+            "fixture audio too short for distinct bookmark positions"
+        );
+        let alice = principal("alice");
+        for n in 1..=SEEDED {
+            service
+                .create_bookmark(&alice, &bm(n), create(&a, n, 1, 90, n))
+                .await
+                .unwrap();
+        }
+        let router = app(f.listener_handles().1);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move { axum::serve(listener, router).await });
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let identity = serde_json::to_string(&a).unwrap();
+        let output = tokio::task::spawn_blocking(move || {
+            std::process::Command::new("gradle")
+                .current_dir(root)
+                .args([
+                    "--project-dir",
+                    "apps/cantos-theatre/mobile",
+                    "--no-daemon",
+                    "-Dorg.gradle.java.installations.auto-download=false",
+                    "--max-workers",
+                    "2",
+                    "-Pkotlin.compiler.execution.strategy=in-process",
+                    "--no-configuration-cache",
+                    "-i",
+                    ":shared:desktopTest",
+                    "--rerun",
+                    "--tests",
+                    "com.cantos.theatre.adapters.library.LiveBookmarkApiTest",
+                ])
+                .env("CANTOS_LIVE_API_ORIGIN", format!("http://127.0.0.1:{port}"))
+                .env("CANTOS_LIVE_AUDIO", identity)
+                .env("CANTOS_LIVE_SEEDED", SEEDED.to_string())
+                .output()
+        })
+        .await
+        .unwrap()
+        .expect("gradle could not be started");
+        server.abort();
+        let log = String::from_utf8_lossy(&output.stdout).into_owned();
+        assert!(
+            output.status.success(),
+            "{log}\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            log.contains("LIVE-BOOKMARK-OK"),
+            "the live test was skipped, not passed:\n{log}"
+        );
+        println!(
+            "{}",
+            log.lines()
+                .find(|l| l.contains("LIVE-BOOKMARK-OK"))
+                .unwrap_or_default()
+                .trim()
+        );
+        // The database is the authority: what the client believes must be exactly what PostgreSQL holds.
+        let admin = f.listener_handles().0;
+        async fn count(admin: &tokio_postgres::Client, sql: &str) -> i64 {
+            admin.query_one(sql, &[]).await.unwrap().get::<_, i64>(0)
+        }
+        let alice_live =
+            "SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND NOT deleted";
+        assert_eq!(count(admin, alice_live).await, SEEDED as i64 + 2);
+        assert_eq!(
+            count(
+                admin,
+                "SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND deleted"
+            )
+            .await,
+            1
+        );
+        assert_eq!(
+            count(
+                admin,
+                "SELECT count(*) FROM listener_bookmarks WHERE listener_id='bob'"
+            )
+            .await,
+            0,
+            "no row for another account"
+        );
+        assert_eq!(
+            count(admin, "SELECT count(*) FROM (SELECT publication_id,position_ms FROM listener_bookmarks WHERE listener_id='alice' AND NOT deleted GROUP BY 1,2 HAVING count(*)>1) d").await,
+            0,
+            "no duplicate at one release position"
+        );
+        let foreign = format!("SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND publication_id<>'{}'", a.publication_id);
+        assert_eq!(
+            count(admin, &foreign).await,
+            0,
+            "every row names the exact release"
+        );
+    }
+}

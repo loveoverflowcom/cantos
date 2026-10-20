@@ -4,8 +4,13 @@ use crate::{
     platform::{identity::domain::ActorId, ids::canonical_uuid},
 };
 use cantos_contracts::listener_library as dto;
+pub mod bookmark;
 pub(crate) mod projection;
 pub mod reconcile;
+pub use bookmark::{
+    reconcile_bookmark_create, reconcile_bookmark_delete, BookmarkCandidate, BookmarkCreateOutcome,
+    BookmarkDeleteOutcome, BookmarkDeletion, BookmarkRecord,
+};
 pub use reconcile::{classify, successor, Admission};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,6 +21,8 @@ pub enum DomainError {
     InvalidPosition,
     InvalidTime,
     BindingMismatch,
+    /// One identifier names one immutable value; a different body under it is never accepted.
+    IdentityReused,
     RevisionExhausted,
 }
 macro_rules! uuid_id {
@@ -37,6 +44,7 @@ uuid_id!(DeviceId);
 uuid_id!(PublicationId);
 uuid_id!(RenditionId);
 uuid_id!(EngineSessionId);
+uuid_id!(BookmarkId);
 /// The account scope of listener state: a registry actor acting as a listener, never a catalog
 /// owner. Parsing identity does not authenticate. Only an authenticator may bind this to a principal.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

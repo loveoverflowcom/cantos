@@ -141,6 +141,85 @@ class NativeLibraryClientTest {
         client.mutate(auth, LocalLibraryIntent(clearOperation, "history", "POST", "/library/history/clear", clear))
         assertEquals("POST", http.requests.last().method)
     }
+    private fun bookmark(name: String) = libraryBookmarkFixtures.getValue("$name.json")
+    @Test fun bookmarkPagesAlwaysCarryMetadataAndNeverAskForTheOptIn() = runTest {
+        val http = Http(); val client = client(http)
+        val cursor = "c".repeat(64)
+        http.response = NativeHttpResponse(200, "application/json", bookmark("bookmarks"), null, session)
+        val page = assertIs<LibraryResult.Value<com.cantos.theatre.adapters.library.wire.BookmarkPage>>(client.bookmarkPage(auth))
+        assertEquals(2, page.value.items.size)
+        assertEquals(cursor, page.value.next_cursor)
+        assertTrue(http.requests.single().url.endsWith("/library/bookmarks?limit=20"))
+        assertEquals(auth.bearer, http.requests.single().bearer)
+        assertEquals(session, http.requests.single().expectedSession)
+        client.bookmarkPage(auth, cursor)
+        assertTrue(http.requests.last().url.endsWith("/library/bookmarks?limit=20&cursor=$cursor"))
+        assertEquals("invalid_cursor", assertIs<LibraryResult.Failed>(client.bookmarkPage(auth, "C".repeat(64))).code)
+        assertEquals(2, http.requests.size, "an invalid cursor never reaches the network")
+    }
+    @Test fun aBookmarkPageNamingADeletedBookmarkADuplicateOrAnotherReleaseIsAProtocolFailure() = runTest {
+        val http = Http(); val client = client(http)
+        val page = Json.parseToJsonElement(bookmark("bookmarks")).jsonObject
+        val items = page.getValue("items").jsonArray
+        fun withItems(list: List<JsonElement>) = JsonObject(page + ("items" to JsonArray(list))).toString()
+        fun JsonObject.nested(key: String, edit: (JsonObject) -> JsonObject) = JsonObject(this + (key to edit(getValue(key).jsonObject)))
+        val first = items[0].jsonObject
+        http.response = NativeHttpResponse(200, "application/json", withItems(listOf(first.nested("bookmark") { JsonObject(it + ("deleted" to JsonPrimitive(true))) })), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.bookmarkPage(auth)).code, "a tombstone is never listed")
+        http.response = NativeHttpResponse(200, "application/json", withItems(listOf(first, first)), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.bookmarkPage(auth)).code, "one ID appears once")
+        val other = "00000000-0000-4000-8000-0000000000ff"
+        http.response = NativeHttpResponse(200, "application/json", withItems(listOf(first.nested("presentation") { p ->
+            p.nested("work") { JsonObject(it + ("publication_id" to JsonPrimitive(other))) } })), null, session)
+        assertEquals("protocol", assertIs<LibraryResult.Failed>(client.bookmarkPage(auth)).code, "metadata of another release is never a label")
+        http.response = NativeHttpResponse(200, "application/json", page.toString(), null, session)
+        assertIs<LibraryResult.Value<*>>(client.bookmarkPage(auth))
+    }
+    @Test fun bookmarkMutationsUseTheirOwnRoutesRetainExactBodiesAndDecodeADeletedRefusal() = runTest {
+        val http = Http(); val client = client(http)
+        val write = bookmark("bookmark_write")
+        val parsed = Json.parseToJsonElement(write).jsonObject
+        val bookmarkId = parsed.getValue("bookmark_id").jsonPrimitive.content
+        val operation = parsed.getValue("operation").jsonObject.getValue("operation_id").jsonPrimitive.content
+        val create = LocalLibraryIntent(operation, "bookmark:$bookmarkId", "PUT", "/library/bookmarks/$bookmarkId", write)
+        assertTrue(assertIs<LibraryResult.Failed>(client.mutate(auth, create)).unknownOutcome)
+        assertEquals(write, http.requests.single().body)
+        assertEquals("PUT", http.requests.single().method)
+        assertTrue(http.requests.single().url.endsWith("/library/bookmarks/$bookmarkId"))
+        http.response = NativeHttpResponse(200, "application/json", bookmark("bookmark_accepted"), null, session)
+        assertIs<LibraryResult.Value<*>>(client.mutate(auth, create))
+        val remove = bookmark("bookmark_delete")
+        val removeOperation = Json.parseToJsonElement(remove).jsonObject.getValue("operation").jsonObject.getValue("operation_id").jsonPrimitive.content
+        val delete = LocalLibraryIntent(removeOperation, "bookmark:$bookmarkId", "POST", "/library/bookmarks/$bookmarkId/delete", remove)
+        http.response = NativeHttpResponse(409, "application/json", bookmark("bookmark_deleted"), null, session)
+        val refused = assertIs<LibraryResult.Value<com.cantos.theatre.adapters.library.wire.Receipt>>(client.mutate(auth, delete))
+        assertEquals("bookmark_deleted", refused.value.outcome)
+        assertEquals("POST", http.requests.last().method)
+        assertTrue(http.requests.last().url.endsWith("/library/bookmarks/$bookmarkId/delete"))
+        http.response = NativeHttpResponse(404, "application/json", libraryFixtures.getValue("not_found.json"), null, session)
+        val unknown = assertIs<LibraryResult.Failed>(client.mutate(auth, delete))
+        assertEquals("not_found", unknown.code)
+        assertFalse(unknown.retryable)
+    }
+    @Test fun bookmarkIntentsCannotEscapeTheirBookmarkKeyOrBindAnotherOperation() = runTest {
+        val http = Http(); val client = client(http)
+        val write = bookmark("bookmark_write")
+        val parsed = Json.parseToJsonElement(write).jsonObject
+        val bookmarkId = parsed.getValue("bookmark_id").jsonPrimitive.content
+        val operation = parsed.getValue("operation").jsonObject.getValue("operation_id").jsonPrimitive.content
+        val other = "00000000-0000-4000-8000-0000000000ff"
+        for (intent in listOf(
+            LocalLibraryIntent(operation, "bookmark:$other", "PUT", "/library/bookmarks/$bookmarkId", write),
+            LocalLibraryIntent(operation, "bookmark:$other", "PUT", "/library/bookmarks/$other", write),
+            LocalLibraryIntent(other, "bookmark:$bookmarkId", "PUT", "/library/bookmarks/$bookmarkId", write),
+            LocalLibraryIntent(operation, "bookmark:$bookmarkId", "PUT", "/library/bookmarks/NOT-A-UUID", write),
+            LocalLibraryIntent(operation, "bookmark:$bookmarkId", "POST", "/library/bookmarks/$bookmarkId/delete", write),
+            LocalLibraryIntent(operation, "bookmark:$bookmarkId", "DELETE", "/library/bookmarks/$bookmarkId", write),
+        )) {
+            assertEquals("invalid_request", assertIs<LibraryResult.Failed>(client.mutate(auth, intent)).code, intent.path + intent.method)
+        }
+        assertTrue(http.requests.isEmpty())
+    }
     @Test fun successfulResponseFromDifferentSessionCannotPopulateLibrary() = runTest {
         val http = Http(); val client = client(http)
         http.response = NativeHttpResponse(200, "application/json", libraryFixtures.getValue("saved.json"), null, id)

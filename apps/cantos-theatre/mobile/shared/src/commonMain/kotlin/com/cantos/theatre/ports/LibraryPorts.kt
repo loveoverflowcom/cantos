@@ -9,6 +9,7 @@ interface LibraryTransaction {
     fun record(resource: String, key: String): LocalLibraryRecord?
     fun put(record: LocalLibraryRecord)
     fun deleteResource(resource: String)
+    fun delete(resource: String, key: String)
     fun intents(): List<LocalLibraryIntent>
     fun enqueue(intent: LocalLibraryIntent)
     fun freeze(operation: String, body: String)

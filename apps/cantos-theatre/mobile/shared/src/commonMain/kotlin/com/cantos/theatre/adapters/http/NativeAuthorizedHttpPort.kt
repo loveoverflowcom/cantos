@@ -82,10 +82,14 @@ class NativeAuthorizedHttpPort(
         return when (request.method) {
             // Pages are only ever read with the closed `presentation=1` opt-in (Library v1.1); the default shape has no consumer.
             "GET" -> route.matches(Regex("/library/(continue|saved|history)\\?limit=(20|100)&presentation=1(&cursor=[0-9a-f]{64})?")) ||
+                // Bookmark pages always carry metadata: the server refuses the opt-in query, so it has its own shape.
+                route.matches(Regex("/library/bookmarks\\?limit=20(&cursor=[0-9a-f]{64})?")) ||
                 route.matches(Regex("/library/saved/$id")) ||
                 route.matches(Regex("/(progress|operations)/$id"))
-            "PUT" -> route.matches(Regex("/library/saved/$id")) || route.matches(Regex("/progress/$id"))
-            "POST" -> route in setOf("/library/history/playback-starts", "/library/history/clear")
+            "PUT" -> route.matches(Regex("/library/saved/$id")) || route.matches(Regex("/progress/$id")) ||
+                route.matches(Regex("/library/bookmarks/$id"))
+            "POST" -> route in setOf("/library/history/playback-starts", "/library/history/clear") ||
+                route.matches(Regex("/library/bookmarks/$id/delete"))
             else -> false
         }
     }

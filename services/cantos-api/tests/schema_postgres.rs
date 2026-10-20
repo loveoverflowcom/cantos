@@ -68,6 +68,7 @@ async fn fresh_epoch_has_only_current_tables_and_replay_preserves_authoritative_
         "audio_submissions",
         "audio_releases",
         "listener_progress",
+        "listener_bookmarks",
         "actor_external_identities",
         "theatre_firebase_enrollments",
         "adaptation_submissions",
@@ -102,7 +103,7 @@ async fn fresh_epoch_has_only_current_tables_and_replay_preserves_authoritative_
         .await
         .unwrap();
     let before = registry(&admin).await;
-    assert_eq!(before.len(), 2);
+    assert_eq!(before.len(), 3);
     migrate(&config).await.unwrap();
     assert_eq!(registry(&admin).await, before);
     assert_eq!(
@@ -217,12 +218,12 @@ async fn foreign_epoch_and_unexpected_version_are_refused() {
     admin
         .batch_execute(
             "UPDATE cantos_schema SET epoch=2;
-        INSERT INTO cantos_migrations VALUES(3,decode(repeat('11',32),'hex'))",
+        INSERT INTO cantos_migrations VALUES(4,decode(repeat('11',32),'hex'))",
         )
         .await
         .unwrap();
     assert_eq!(migrate(&config).await, Err(SchemaError::RegistryMismatch));
-    assert_eq!(registry(&admin).await.len(), 3);
+    assert_eq!(registry(&admin).await.len(), 4);
 }
 
 #[tokio::test]
@@ -301,7 +302,7 @@ async fn failed_baseline_rolls_back_registry_and_ddl_then_allows_clean_retry() {
         .unwrap();
     migrate(&config).await.unwrap();
     verify_schema(&config).await.unwrap();
-    assert_eq!(registry(&admin).await.len(), 2);
+    assert_eq!(registry(&admin).await.len(), 3);
 }
 
 #[tokio::test]
@@ -432,7 +433,7 @@ async fn concurrent_bootstrap_commits_one_epoch_and_read_only_app_check_needs_no
     let (left, right) = tokio::join!(migrate(&config), migrate(&config));
     left.unwrap();
     right.unwrap();
-    assert_eq!(registry(&admin).await.len(), 2);
+    assert_eq!(registry(&admin).await.len(), 3);
     admin
         .batch_execute(
             "GRANT USAGE ON SCHEMA public TO cantos_app;
@@ -574,4 +575,63 @@ prefix_fingerprint "$DB" "$DIRECTORY" "$OUTPUT"
         .unwrap();
     assert_ne!(fingerprint("changed-sequence.tsv"), before);
     fs::remove_dir_all(directory).unwrap();
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite schema"]
+async fn listener_bookmark_expansion_is_the_exact_suffix_after_registry_one_two() {
+    use sha2::{Digest, Sha256};
+    let (config, admin) = database().await;
+    let baseline = include_str!("../schema/0001_current.sql");
+    let bearer = include_str!("../schema/0002_bearer.sql");
+    admin.batch_execute("CREATE TABLE cantos_schema(singleton boolean PRIMARY KEY CHECK(singleton),epoch integer NOT NULL CHECK(epoch=2)); CREATE TABLE cantos_migrations(version integer PRIMARY KEY,checksum bytea NOT NULL); INSERT INTO cantos_schema VALUES(true,2);").await.unwrap();
+    admin.batch_execute(baseline).await.unwrap();
+    admin.batch_execute(bearer).await.unwrap();
+    for (version, sql) in [(1, baseline), (2, bearer)] {
+        admin
+            .execute(
+                "INSERT INTO cantos_migrations VALUES($1,$2)",
+                &[&version, &Sha256::digest(sql.as_bytes()).to_vec()],
+            )
+            .await
+            .unwrap();
+    }
+    admin
+        .batch_execute("INSERT INTO actors(id) VALUES('kept-owner')")
+        .await
+        .unwrap();
+    let old = registry(&admin).await;
+    assert_eq!(old.len(), 2);
+    assert!(admin
+        .query_one(
+            "SELECT to_regclass('public.listener_bookmarks') IS NULL",
+            &[]
+        )
+        .await
+        .unwrap()
+        .get::<_, bool>(0));
+    // The runtime binary never upgrades; only the migration actor applies the missing suffix.
+    assert_eq!(
+        verify_schema(&config).await,
+        Err(SchemaError::RegistryMismatch)
+    );
+    migrate(&config).await.unwrap();
+    verify_schema(&config).await.unwrap();
+    let after = registry(&admin).await;
+    assert_eq!(after.len(), 3);
+    assert_eq!(after[..2], old[..], "applied checksums are never rewritten");
+    assert_eq!(
+        after[2].1,
+        Sha256::digest(include_str!("../schema/0003_listener_bookmarks.sql").as_bytes()).to_vec()
+    );
+    assert_eq!(
+        admin
+            .query_one("SELECT id FROM actors", &[])
+            .await
+            .unwrap()
+            .get::<_, String>(0),
+        "kept-owner"
+    );
+    migrate(&config).await.unwrap();
+    assert_eq!(registry(&admin).await, after);
 }
