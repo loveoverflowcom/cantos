@@ -41,20 +41,19 @@ distinguishes connected forms from deferred controls and user acceptance. Theatr
 public discovery through the implemented anonymous API; an API outage remains unavailable.
 The isolated [UI mock](docs/evidence/theatre-web-mock.md) requires the opt-in `preview` Cargo
 feature and is selected explicitly by `?mode=mock`; production builds contain no preview runtime.
-Theatre Mobile retains its isolated
-[CMP mock](apps/cantos-theatre/mobile/README.md), with production-safe UI/domain/application
-code in `:shared` and explicit demo adapters/composition in the separate `:preview-sandbox`
-KMP module, plus a tested common/JVM listener transport seam;
-production catalog hosts use the real API on Android and iOS; native audio remains deferred. Public media delivery is opt-in and fail-closed when unconfigured. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
+Theatre Mobile has production-safe UI/domain/application code in `:shared` and a separate
+JVM-only [Desktop Preview](apps/cantos-theatre/mobile/README.md) in `:preview-sandbox`, mounting
+the same shell with mock external ports. Android/iOS hosts compose real catalog, native playback,
+account and Library owners; their device/runtime acceptance remains separate. Public media delivery is opt-in and fail-closed when unconfigured. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
 The [native identity configuration slice](docs/evidence/theatre-auth-activation.md) supplies
 nonsecret Android metadata/iOS plist build inputs and typed missing/invalid configuration
 diagnostics. Source regression evidence does not establish a configured artifact or live login.
-Production Android and iOS catalog hosts compose `:shared` only, without a playback seed. Android
-release accepts an explicit HTTPS API origin; listening, account and Library remain unavailable.
-`cargo xtask theatre-host android-release --api-origin https://api.cantoss.duckdns.org` inspects
-its release classpaths and unsigned APK/AAB bytes for sandbox, mock and test content; the demo
-APK establishes no production isolation.
-See the [sandbox isolation record](docs/evidence/issue122-cmp-sandbox-isolation.md) for current checks.
+Production Android and iOS hosts compose `:shared` only, without a playback seed. Android
+release accepts an explicit HTTPS API origin and fails closed when unconfigured.
+`cargo xtask theatre-host android-release --api-origin https://api.cantoss.duckdns.org` pairs an
+unshrunk release audit with optimized release and checks sandbox/mock/test exclusion; the
+[release runbook](apps/cantos-theatre/mobile/docs/firebase-distribution.md) separates that
+source/artifact boundary from signing, device, callback and tester acceptance.
 
 [Private object storage](docs/architecture/object-storage.md) implements filesystem and generic
 S3-compatible adapters, durable original targets and [exact owner-authorized audio reads](packages/contracts/private-content-reads-v1.md).
@@ -97,7 +96,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `services/cantos-forge-functions`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow, attempt/recovery core, local attempt persistence and finite Rust/Node worker boundary. The owner-selected Studio-controlled local/Functions and private Drive app-data execution remains #203 implementation work; this build makes no provider call or API submission.
-- `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated `preview-sandbox` CMP demo; native listening planned.
+- `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated JVM `preview-sandbox`; native listening acceptance separate.
 - `services/cantos-api`: authoritative modular metadata/rights/revision/production-planning backend, Studio catalog API and pure media inspection; this does not forbid separately owned processes.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.

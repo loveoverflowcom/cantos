@@ -149,7 +149,7 @@ impl BearerIdentity {
             .provider
             .exchange(code, &flow.verifier, &flow.nonce, now)
             .await?;
-        self.complete_exchange(store, &flow.id, exchange, &handoff)
+        self.complete_exchange(store, &flow.id, exchange, &handoff, &self.config.redirect)
             .await?;
         let mut url = url::Url::parse(&format!("{}/auth/bearer/complete", self.config.web_origin))
             .map_err(|_| AuthError::Configuration)?;
@@ -167,7 +167,7 @@ impl BearerIdentity {
         request: ExchangeRequest,
     ) -> Result<TokenPair, AuthError> {
         validate_exchange(flow, &request)?;
-        if self.client == Client::TheatreNative {
+        let redirect = if self.client == Client::TheatreNative {
             let (nonce, redirect) = postgres::consume_native(
                 store,
                 &self.config,
@@ -186,11 +186,24 @@ impl BearerIdentity {
                     now,
                 )
                 .await?;
-            self.complete_exchange(store, flow, exchange, "").await?;
-        }
+            self.complete_exchange(store, flow, exchange, "", &redirect)
+                .await?;
+            redirect
+        } else {
+            self.config.redirect.clone()
+        };
         let result = match Secrets::new(self.client) {
             Ok(secrets) => {
-                postgres::issue(store, &self.config, self.client, flow, &request, secrets).await
+                postgres::issue(
+                    store,
+                    &self.config,
+                    self.client,
+                    flow,
+                    &request,
+                    secrets,
+                    &redirect,
+                )
+                .await
             }
             Err(error) => Err(error),
         };
@@ -216,6 +229,7 @@ impl BearerIdentity {
         flow: &str,
         exchange: crate::platform::oidc::provider::Exchange,
         handoff: &str,
+        redirect: &str,
     ) -> Result<(), AuthError> {
         let result = async {
             self.authorize_subject(store, exchange.proof.key().subject())?;
@@ -233,13 +247,20 @@ impl BearerIdentity {
                 &exchange,
                 lifetime.absolute,
                 handoff,
+                redirect,
             )
             .await
         }
         .await;
         if result.is_err() {
-            match postgres::abandon_exchange(store, &self.config, flow, &exchange.access_token)
-                .await
+            match postgres::abandon_exchange(
+                store,
+                &self.config,
+                flow,
+                &exchange.access_token,
+                redirect,
+            )
+            .await
             {
                 Ok(receipt) => {
                     let _ = self.finish_revoke(store, receipt).await;

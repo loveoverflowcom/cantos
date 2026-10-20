@@ -49,8 +49,9 @@ cargo xtask deploy firebase cantos-studio --web --project ID --channel NAME --dr
 
 The explicit, manual `deploy firebase` can publish this app's static bundle to Firebase Hosting
 ([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves static files and clients
-use the explicit Cantos API origin. Direct-origin sign-in remains gated by Bearer/gateway/issuer
-acceptance. Never upload private Studio content to a preview, which is public.
+use the explicit Cantos API origin. [#295](https://github.com/loveoverflowcom/cantos/issues/295)
+selects Web cookies on the custom domains with migration pending; current source still uses
+Bearer. Direct-origin sign-in remains gated by gateway/issuer/browser acceptance. Never upload private Studio content to a preview, which is public.
 Studio keeps its own Hosting site and browser origin. The preferred `cantos-studio.web.app`
 name is conditional on verified allocation; `studio.cantos.web.app` is not supported. The
 [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
@@ -413,10 +414,11 @@ Build with nonsecret `CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org` through
 `cargo xtask build|app|deploy` command. Unset retains the local Trunk proxy. All live HTTP,
 XHR/private reads and login navigation resolve within this app's own API group; invalid origins
 fail closed. The client never takes an identity-provider URL or provider token as configuration.
-Every Web request omits cookies. Owner Bearer, producer capability and anonymous requests retain
-their separate authority and fences. The server needs exact per-surface Web CORS and configured
-Bearer callbacks. [ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md) no longer
-requires same-site/custom domains for authentication. The restricted identity gateway, new
-callback reconciliation and real cross-site issuer/browser acceptance remain activation gates.
+Current Web requests omit cookies. Owner Bearer, producer capability and anonymous requests
+retain their separate authority and fences. The server needs exact per-surface Web CORS and
+configured Bearer callbacks. [ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+now selects #295 Web cookies on the custom domains, with migration pending. Exact credentialed
+CORS, CSRF, cookie scope, callback and browser qualification remain activation gates; previews
+need their own declared topology. Native Bearer is unchanged.
 The [current production runbook](../../../docs/deployment/vps-production.md) owns destinations;
 a successful local build or mocked browser run is not deployed-user acceptance.

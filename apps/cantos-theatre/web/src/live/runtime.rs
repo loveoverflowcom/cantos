@@ -241,9 +241,23 @@ async fn finish_page(
     let result = super::library::load(&request).await;
     let section = request.page.section;
     let changed = result == Err(AccountFailure::SessionChanged);
-    let Some(completion) = state.try_update(|s| s.finish_page(&request, result)) else {
+    let Some(completion) =
+        state.try_update(|s| s.finish_page_with_followup(&request, result, generate_uuid_string))
+    else {
         return;
     };
+    let completion = completion.map(|(completion, pending)| {
+        if let Some(pending) = pending {
+            persist_sync_journal(state);
+            leptos::task::spawn_local(execute_mutation(
+                state,
+                request.fence().clone(),
+                pending,
+                session_change_budget,
+            ));
+        }
+        completion
+    });
     match completion {
         Ok(LibraryCompletion::Cleanup(issued)) => {
             let intent = state.with_untracked(|s| s.cleanup_intent().clone());
@@ -936,7 +950,7 @@ pub fn resume_exact_release(
 ) {
     let pub_for_closure = audio.publication_id.clone();
     let pres_for_closure = presentation.clone();
-    let Some(Some((fence, admitted))) = state.try_update(|s| {
+    let Some(Some((fence, ticket))) = state.try_update(|s| {
         s.with_sync_mut(|sync, _| {
             if let Some(p) = pres_for_closure {
                 sync.remember_audio_presentation(p);
@@ -947,29 +961,25 @@ pub fn resume_exact_release(
                         publication_id: pub_for_closure,
                         reason: ResumeRefusal::ReleaseReplaced,
                     });
-                    false
+                    None
                 }
                 ResumeStatus::AccessUnavailable => {
                     sync.set_resume_attempt(ResumeAttemptState::Refused {
                         publication_id: pub_for_closure,
                         reason: ResumeRefusal::AccessUnavailable,
                     });
-                    false
+                    None
                 }
-                ResumeStatus::ExactAvailable => {
-                    sync.set_resume_attempt(ResumeAttemptState::Preparing {
-                        publication_id: pub_for_closure,
-                    });
-                    true
-                }
+                ResumeStatus::ExactAvailable => sync.begin_resume(pub_for_closure),
             }
         })
     }) else {
         return;
     };
-    if !admitted {
+    let Some(ticket) = ticket else {
         return;
-    }
+    };
+    let player_generation = player.state.get_untracked().generation();
 
     // If the exact release is already loaded in the player, restore the position paused directly.
     if let Some(source) = player.source.get_untracked() {
@@ -1007,10 +1017,14 @@ pub fn resume_exact_release(
             }
             Err(_) => Err(CatalogReadError::Unavailable),
         };
-        let Some(accepted) = state.try_with_untracked(|s| s.accepts(&fence)) else {
+        let Some(accepted) = state.try_with_untracked(|s| {
+            s.accepts(&fence) && s.sync().is_some_and(|sync| sync.accepts_resume(ticket))
+        }) else {
             return;
         };
-        if !accepted {
+        if !accepted
+            || player.state.try_with_untracked(|s| s.generation()) != Some(player_generation)
+        {
             return;
         }
         match result {

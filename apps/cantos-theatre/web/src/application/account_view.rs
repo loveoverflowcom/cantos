@@ -1,7 +1,8 @@
 //! Mounted listener account lifecycle; private projections are owned by one verified session.
 use super::account::{AccountError, AccountGeneration, AccountScope, AccountState, RequestFence};
 pub use super::library::LibraryProjection;
-use super::library::{LibraryPage, PageRequest, Section};
+use super::library::{LibraryPage, PagePhase, PageRequest, Section};
+use super::library_sync::PendingMutation;
 pub use super::library_sync::{AccountSyncJournal, LibrarySyncState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -330,6 +331,30 @@ impl AccountViewState {
             _ => Ok(LibraryCompletion::Applied),
         }
     }
+
+    /// Admit the page before releasing a start that was waiting for its initial history epoch.
+    pub fn finish_page_with_followup(
+        &mut self,
+        request: &LibraryRequest,
+        result: Result<LibraryPage, AccountFailure>,
+        next_operation_id: impl FnOnce() -> String,
+    ) -> Result<(LibraryCompletion, Option<PendingMutation>), AccountError> {
+        let completion = self.finish_page(request, result)?;
+        let pending = if completion == LibraryCompletion::Applied
+            && request.page.section == Section::History
+            && self
+                .library()
+                .is_some_and(|library| library.phase(Section::History) == PagePhase::Ready)
+        {
+            self.with_fenced_sync_mut(request.fence(), |sync, _| {
+                sync.flush_queued_history_start(next_operation_id, None)
+            })
+            .flatten()
+        } else {
+            None
+        };
+        Ok((completion, pending))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -491,6 +516,88 @@ mod tests {
         s.begin_logout().unwrap();
         assert_eq!(s.cleanup_intent(), &expected);
     }
+    #[test]
+    fn initial_history_page_releases_one_waiting_engine_start_and_ignores_replays() {
+        use super::super::library_sync::MutationPayload;
+        use crate::core::{
+            playback::{CallbackIdentity, Source},
+            public_ids::PublicWorkId,
+            public_track::{PinnedRelease, ReleaseRequest},
+        };
+        use cantos_contracts::listener_library::{HistoryState, PresentedHistoryPage};
+
+        let manifest: cantos_contracts::theatre::PublicationManifest =
+            serde_json::from_str(include_str!(
+                "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+            ))
+            .unwrap();
+        let release = PinnedRelease::admit(
+            &manifest,
+            ReleaseRequest::parse(
+                PublicWorkId::parse(&manifest.work_id).unwrap(),
+                &manifest.unit_id,
+                &manifest.publication_id,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let source = Source::public(release.track(), release.duration_ms()).unwrap();
+        let identity = CallbackIdentity {
+            generation: 1,
+            track: source.track(),
+        };
+        let mut state = AccountViewState::default();
+        authenticate(&mut state, "listener-a", 1);
+        let request = state.begin_library(Section::History, false).unwrap();
+        let (_, pending) = state
+            .with_sync_mut(|sync, _| {
+                sync.record_engine_started(
+                    identity,
+                    source,
+                    || uuid::Uuid::from_u128(50).to_string(),
+                    || uuid::Uuid::from_u128(51).to_string(),
+                    None,
+                )
+            })
+            .unwrap();
+        assert!(pending.is_none());
+        let failed = state
+            .finish_page_with_followup(&request, Err(AccountFailure::Unavailable), || {
+                uuid::Uuid::from_u128(52).to_string()
+            })
+            .unwrap();
+        assert_eq!(failed, (LibraryCompletion::Applied, None));
+        let request = state.begin_library(Section::History, false).unwrap();
+        let page = LibraryPage::History(PresentedHistoryPage {
+            state: HistoryState {
+                revision: 2,
+                epoch: 1,
+            },
+            items: Vec::new(),
+            next_cursor: None,
+        });
+        let (completion, pending) = state
+            .finish_page_with_followup(&request, Ok(page.clone()), || {
+                uuid::Uuid::from_u128(52).to_string()
+            })
+            .unwrap();
+        assert_eq!(completion, LibraryCompletion::Applied);
+        let pending = pending.expect("observed history epoch must release the acknowledged start");
+        let MutationPayload::HistoryStart { write } = pending.payload else {
+            panic!("expected history start");
+        };
+        assert_eq!(
+            write.engine_session_id,
+            uuid::Uuid::from_u128(50).to_string()
+        );
+        assert_eq!(write.history_epoch, 1);
+        assert_eq!(write.audio.publication_id, manifest.publication_id);
+        let repeated = state
+            .finish_page_with_followup(&request, Ok(page), || uuid::Uuid::from_u128(53).to_string())
+            .unwrap();
+        assert_eq!(repeated, (LibraryCompletion::Ignored, None));
+    }
+
     #[test]
     fn account_switch_isolates_sync_registers_and_fences_late_command_responses() {
         let mut s = AccountViewState::default();

@@ -108,12 +108,13 @@ class PreviewIdentity(
     private val browser = object : SystemBrowser {
         override fun open(url: String): Boolean {
             browserOpens += 1
-            pendingState = Regex("[?&]state=([A-Za-z0-9._~-]+)").find(url)?.groupValues?.get(1) ?: return false
+            val state = Regex("[?&]state=([A-Za-z0-9._~-]+)").find(url)?.groupValues?.get(1) ?: return false
+            pendingState = state
             when (mode) {
                 PreviewLoginMode.Hold -> Unit
                 // The provider returns after the listener leaves the app; never within `open`.
-                PreviewLoginMode.Approve -> scope.launch { delay(CallbackDelayMs); returnFromBrowser(approve = true) }
-                PreviewLoginMode.Deny -> scope.launch { delay(CallbackDelayMs); returnFromBrowser(approve = false) }
+                PreviewLoginMode.Approve -> scope.launch { delay(CallbackDelayMs); returnFromBrowser(state, approve = true) }
+                PreviewLoginMode.Deny -> scope.launch { delay(CallbackDelayMs); returnFromBrowser(state, approve = false) }
             }
             return true
         }
@@ -171,6 +172,10 @@ class PreviewIdentity(
      */
     fun returnFromBrowser(approve: Boolean) {
         val state = pendingState ?: return
+        returnFromBrowser(state, approve)
+    }
+
+    private fun returnFromBrowser(state: String, approve: Boolean) {
         controller.callback(
             NativeCallback(configuration.identity.redirect, state, if (approve) "preview-code" else "", hasError = !approve),
         )

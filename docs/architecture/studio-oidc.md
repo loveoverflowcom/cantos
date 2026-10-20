@@ -1,11 +1,11 @@
 # Studio OIDC credential and session boundary
 
-> **#253 Bearer amendment (2026-10-18):** the target API credential is a Cantos-issued opaque
-> Bearer with rotating refresh. The [Bearer v1 contract](../../packages/contracts/bearer-v1.md) owns new routes/lifecycle,
-> JSON-only identity wire, fresh-auth evidence, RAM/F5 and compatibility cutover. Cookie-only
-> statements below describe the retained **legacy compatibility** flow until the Web migration;
-> they no longer impose a same-site domain or cookie prerequisite on the target architecture.
-> Client migration and real gateway/issuer/browser/native acceptance remain separate.
+> **#295 Web-cookie amendment (2026-10-19):** the owner selects API-issued HttpOnly/Secure
+> cookies for Theatre and Studio Web on the custom domains; migration and browser acceptance
+> remain pending. [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+> owns the selected policy. Current Web source still uses [Bearer v1](../../packages/contracts/bearer-v1.md);
+> cookie-only descriptions below record retained server compatibility, which needs review before
+> reuse. Native retains #253 Bearer, secure storage and its independent acceptance obligations.
 
 Implemented as an opt-in integration, with signed mocked-provider and local PostgreSQL evidence
 recorded [separately](../evidence/studio-oidc.md). `cantos-server` now has a validated
@@ -20,8 +20,9 @@ live sign-in acceptance is recorded only when it has actually run. [Surface boun
 The current Studio Web consumer uses the [shared RAM Bearer owner](../../packages/web-auth/README.md)
 and [Bearer v1](../../packages/contracts/bearer-v1.md). Cookie navigation, development-token form,
 callback binders and cookie observations below describe the retained **server compatibility**
-lane; they are not a Web fallback or an activation prerequisite for the target client. The new
-Web popup/callback protocol and actual signed recent-auth evidence retain separate acceptance.
+lane; they are not a fallback in the current Web client. #295 must review them before reuse.
+The implemented Web popup/callback protocol and actual signed recent-auth evidence retain
+separate acceptance; they do not establish the selected cookie migration.
 
 ## Closed Studio enrollment
 

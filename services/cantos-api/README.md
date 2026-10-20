@@ -1,6 +1,6 @@
 # Cantos API — Editorial and External Audio Authority
 
-The [#253 Bearer foundation](../../packages/contracts/bearer-v1.md) adds scoped opaque access/refresh, durable rotation/revoke and two-leg Web exchange. Legacy cookies are temporary compatibility; Web/CMP and live issuer/gateway acceptance remain pending.
+The [#253 Bearer foundation](../../packages/contracts/bearer-v1.md) implements scoped opaque access/refresh, durable rotation/revoke and two-leg Web exchange. [#295](https://github.com/loveoverflowcom/cantos/issues/295) selects Web cookies on the custom domains with migration pending; native retains Bearer. Existing cookie handlers require review before reuse; live issuer/gateway/browser/device acceptance remains separate.
 
 The `cantos-api` Rust/Axum package is one modular backend for Studio and Theatre.
 [ADR 0018](../../docs/decisions/0018-external-audio-production.md) removes server-side

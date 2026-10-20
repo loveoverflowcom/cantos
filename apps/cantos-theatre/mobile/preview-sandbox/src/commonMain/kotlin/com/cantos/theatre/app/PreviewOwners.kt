@@ -157,23 +157,21 @@ class PreviewOwners(
         if (state.libraryTab != ShellLibraryTab.Continuing) shell.dispatch(ShellEvent.SelectLibrary(state.libraryTab))
         if (state.timer != ShellTimer.Off) shell.dispatch(ShellEvent.SetTimer(state.timer))
         selectionSeed()?.let { selected ->
-            // A guest has no restored player (the runtime clears any session when the guest is established),
-            // so the selection is made the way a listener makes it: open the unit, then settle it paused.
             scope.launch {
+                // Account admission clears the player before binding its Library. A recreated mount
+                // has a fresh local store, so its remote progress cannot restore the selection for us.
+                if (seed.signedIn) shell.library.first { it.account == firstAccount.actor }
                 val (work, unit) = checkNotNull(PreviewFixtures.unit(selected.value))
                 val listening = runtime.listening
-                listening.open(work.work.id.value, unit.id.value, unit.publicationId.value, unit.title, work.work.title)
-                listening.playback.state.first { it.session?.source?.audio?.unitId == unit.id.value }
-                if (!state.transportRequested) listening.playback.dispatch(PlaybackEvent.PauseRequested)
-                if (state.positionMs > 0) listening.playback.dispatch(PlaybackEvent.SeekRequested(state.positionMs))
-                if (state.speedPercent != 100) listening.playback.dispatch(PlaybackEvent.SpeedRequested(state.speedPercent * 10))
+                listening.restore(PreviewFixtures.audio(work, unit), state.positionMs, state.speedPercent * 10,
+                    title = unit.title, workTitle = work.work.title)
+                if (state.transportRequested) listening.playback.dispatch(PlaybackEvent.PlayRequested)
             }
         }
     }
 
     private fun selectionSeed() = seed.state.selectedEpisode.takeIf {
-        PreviewFixtures.unit(it.value) != null && !seed.signedIn &&
-            (seed.state.transportRequested || seed.state.positionMs > 0 || ShellRoute.Player in seed.state.stack)
+        PreviewFixtures.unit(it.value) != null
     }
 
     private fun uuid(prefix: Int): String = "${prefix}0000000-0000-4000-8000-${(++operations).toString().padStart(12, '0')}"

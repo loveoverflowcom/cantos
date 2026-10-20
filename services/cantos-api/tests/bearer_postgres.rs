@@ -149,6 +149,12 @@ impl Harness {
         (status, headers, value)
     }
     async fn flow(&self) -> (Flow, ExchangeRequest) {
+        self.flow_with_profile(None).await
+    }
+    async fn flow_with_profile(
+        &self,
+        callback_profile: Option<cantos_contracts::bearer::CallbackProfile>,
+    ) -> (Flow, ExchangeRequest) {
         use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
         use sha2::{Digest, Sha256};
         let verifier = "v".repeat(64);
@@ -162,7 +168,7 @@ impl Harness {
                     nonce: "n".repeat(64),
                     code_challenge: URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes())),
                     reauthenticate: false,
-                    callback_profile: None,
+                    callback_profile,
                 })
                 .unwrap(),
                 None,
@@ -487,9 +493,14 @@ async fn cancelled_callback_receipt_retries_provider_cleanup_without_issuing_aut
 #[tokio::test]
 #[ignore = "cargo xtask verify postgres"]
 async fn cancel_during_provider_exchange_cleans_late_web_and_native_artifacts_durably() {
-    for client in [Client::TheatreWeb, Client::TheatreNative] {
-        let h = Harness::new(client).await;
-        let (flow, mut request) = h.flow().await;
+    use cantos_contracts::bearer::CallbackProfile;
+    for (client, profile) in [
+        (Client::TheatreWeb, None),
+        (Client::TheatreNative, None),
+        (Client::TheatreNative, Some(CallbackProfile::Development)),
+    ] {
+        let h = Harness::new_with(client, profile.is_some()).await;
+        let (flow, mut request) = h.flow_with_profile(profile).await;
         let (state, code) = h.provider.issue(&flow.authorization_url, "alice", None);
         let pause = h.provider.pause_code(&code);
         request.code = code.clone();
@@ -1132,7 +1143,14 @@ async fn native_callback_profile_is_closed_admitted_by_operator_and_pinned_per_f
     );
     assert_eq!(stored_redirects(&h).await.len(), 3);
 
-    let flow = development["flow_id"].as_str().unwrap();
+    let (bound_flow, mut exchange) = h
+        .flow_with_profile(Some(cantos_contracts::bearer::CallbackProfile::Development))
+        .await;
+    let (_, code) = h
+        .provider
+        .issue(&bound_flow.authorization_url, "alice", None);
+    exchange.code = code;
+    let flow = bound_flow.flow_id.as_str();
     // A stored callback no longer admitted (or tampered) can never be consumed.
     h.admin
         .execute(
@@ -1145,15 +1163,44 @@ async fn native_callback_profile_is_closed_admitted_by_operator_and_pinned_per_f
         .request(
             "POST",
             &format!("{}/flows/{flow}/exchange", h.root()),
-            serde_json::json!({
-                "state": "s".repeat(64),
-                "code": "code",
-                "code_verifier": "v".repeat(64),
-            }),
+            serde_json::to_value(&exchange).unwrap(),
             None,
         )
         .await;
-    assert_ne!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(h.provider.data.token_calls.load(Ordering::SeqCst), 0);
+    assert!(!h
+        .admin
+        .query_one(
+            "SELECT consumed FROM bearer_flows WHERE id=$1::text::uuid",
+            &[&flow],
+        )
+        .await
+        .unwrap()
+        .get::<_, bool>(0));
+
+    // The identical state, PKCE verifier and provider code must work once the sole
+    // invalid fact is restored. The mock provider checks its originally bound redirect,
+    // so defaulting development exchange to the production URI also fails this control.
+    h.admin
+        .execute(
+            "UPDATE bearer_flows SET redirect_uri='com.cantos.theatre.dev:/oauth2/callback' WHERE id=$1::text::uuid",
+            &[&flow],
+        )
+        .await
+        .unwrap();
+    let (status, _, value) = h
+        .request(
+            "POST",
+            &format!("{}/flows/{flow}/exchange", h.root()),
+            serde_json::to_value(&exchange).unwrap(),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{value}");
+    let pair: TokenPair = serde_json::from_value(value).unwrap();
+    assert_eq!(h.session(&pair.access_token).await, StatusCode::OK);
+    assert_eq!(h.provider.data.token_calls.load(Ordering::SeqCst), 1);
 }
 #[tokio::test]
 #[ignore = "cargo xtask verify postgres"]

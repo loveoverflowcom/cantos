@@ -34,7 +34,9 @@ offline reporting and standalone read-only HTTP comparison can proceed independe
 acceptance follows the [rollout runbook](../deployment/cloudflare-rollout.md).
 [#279](https://github.com/loveoverflowcom/cantos/issues/279) is optional submit/status convenience,
 not a blocker when the authorized CircleCI UI is usable. Preserve the direct Hosting/API,
-exact-origin/callback and Bearer boundaries from ADR 0041/#253, independently of schema cutover.
+exact-origin/callback boundaries from ADR 0041. #295 selects the pending Web-cookie migration
+on the custom domains; #253 native Bearer and secure storage remain unchanged. Qualify these
+independently of schema cutover.
 Reconcile [#237](https://github.com/loveoverflowcom/cantos/issues/237)'s old Firebase naming scope
 before proposing supersession; do not allocate/rename Firebase sites in parallel. Retain only
 the reviewed recovery window, then retire Hosting-only paths after operator acceptance without

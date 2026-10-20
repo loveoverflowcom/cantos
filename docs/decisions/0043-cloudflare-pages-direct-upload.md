@@ -8,7 +8,7 @@
   [#277](https://github.com/loveoverflowcom/cantos/issues/277) (artifact contract),
   [#280](https://github.com/loveoverflowcom/cantos/issues/280) (rollout)
 - Supersedes / superseded by: N/A. It does not change [ADR 0041](0041-direct-hosting-api-boundary.md)
-  (direct static Web → explicit API origin, exact per-surface CORS, Bearer); it chooses a second
+  (direct static Web → explicit API origin, exact per-surface CORS, and the #295 Web-cookie/native-Bearer direction); it chooses a second
   static host for the same bytes.
 
 ## Context
@@ -70,7 +70,8 @@ and anything under a custom domain.
 - Product and user impact: none until a domain is bound to a project and the owner accepts a
   cutover; a preview URL is public and the artifact's API origin is built in, so it is not a
   backend sandbox. Firebase Hosting remains the recovery path.
-- Compatibility and migrations: no change to the API, Bearer, CORS or auth. Domains, DNS and
+- Compatibility and migrations: the publisher changes no API or auth behavior. #295 separately
+  selects the pending Web-cookie migration; native Bearer is unchanged. Domains, DNS and
   `cantos.cc`/`studio.cantos.cc` binding stay with the [rollout runbook](../deployment/cloudflare-rollout.md).
 - Operations: a token limited to Account / Cloudflare Pages / Edit (Cloudflare offers no
   project-scoped Pages token), two Direct Upload projects, a pinned Node 22+ and Wrangler. The

@@ -1,5 +1,11 @@
 # Cantos Web Bearer owner
 
+> Implemented transport, pending migration: the [#295 owner decision](https://github.com/loveoverflowcom/cantos/issues/295)
+> selects API-issued HttpOnly/Secure cookies for Theatre and Studio Web on the custom domains.
+> [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+> owns the new target; this package still implements the Bearer behavior below. Preserve its
+> account/session and late-result fences during migration. Native Bearer is unchanged.
+
 `cantos-web-auth` is consumed by **both** Leptos Web apps. It imports contracts, never app or
 service code. A small shared package prevents the same refresh family from being independently
 rotated by competing fetch/XHR owners and gives both surfaces the same tested failure rules.

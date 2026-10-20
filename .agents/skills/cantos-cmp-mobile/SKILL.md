@@ -37,12 +37,12 @@ and never infer client/device acceptance from model simulation.
 
 - `apps/cantos-theatre/mobile/` separates production-safe UI/domain/application code and ports
   in `:shared` from mock adapters, fixtures, previews and diagnostic composition in the KMP
-  `:preview-sandbox` module. The SwiftUI/Xcode demo and JVM hosts (Android has no mock host) select the sandbox explicitly;
-  shared composition has no implicit mock fallback. The pure playback reducer, independent
-  controllers, narrow ports and mock adapters are real code. The demo has no native
-  audio, downloads or durable sync/persistence; separate opt-in native identity and listener
-  transport seams retain the [mock guide's](../../../apps/cantos-theatre/mobile/README.md)
-  integration and native acceptance limits. Production `--mobile` remains `UNSUPPORTED`.
+  JVM-only `:preview-sandbox` module. Only the Desktop Preview selects the sandbox; Android/iOS have no mock host.
+  Shared composition has no implicit mock fallback. The pure playback reducer, independent
+  controllers and narrow ports are real code. The preview mounts the shared shell and real
+  in-memory SQLite Library store with mock external ports; it establishes no native playback or
+  process-death persistence acceptance. The [mobile guide](../../../apps/cantos-theatre/mobile/README.md)
+  owns native implementation/acceptance status. The aggregate `--mobile` command remains `UNSUPPORTED`.
   The sole mobile product is Theatre; Studio is Web-only under the
   [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
   Shared libraries may serve Theatre Mobile and Studio Web.
@@ -61,9 +61,9 @@ and never infer client/device acceptance from model simulation.
   tests in both modules (the sandbox is JVM-desktop only; there is no Android or iOS mock host). Host
   tests establish no native runtime evidence. Only `ui-system-cmp` has Android preview wrappers
   (Theatre has none, #287); capture additionally needs CLI/Quail 2+ readiness. No native runtime test gate exists.
-- Unadopted libraries (Media3, AVFoundation wrappers, Ktor, SQLDelight, Room KMP,
-  WorkManager, Kotest, Roborazzi …) remain **candidates**. Check the actual Gradle pins; do not
-  describe existing coroutines/test dependencies as proposals. Adoption needs the ADR listed in
+- Inspect actual Gradle pins and platform adapters before proposing a dependency; for example,
+  SQLDelight is already adopted for Library storage. An unadopted library (Media3, Ktor, Room KMP,
+  WorkManager, Kotest, Roborazzi …) remains a **candidate**. New adoption needs the ADR listed in
   [mobile.md § Implementation decisions](../../../docs/architecture/mobile.md#implementation-decisions-to-record),
   written with [`templates/adr.md`](../../../templates/adr.md), and a pinned version checked
   against official documentation **for every target** — Android support does not imply

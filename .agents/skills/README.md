@@ -63,11 +63,11 @@ owns command orchestration, not those assets. The #212 split adds no runtime; #2
 `cantos-forge` package/CLI identity. Functions hosting and live-provider acceptance are separate. Read the
 [platform matrix](../../docs/architecture/repository-layout.md#platform-scope) before choosing consumers.
 Studio is web-only: do not implement, scaffold, build or maintain Studio Mobile unless explicitly
-requested in a future roadmap. Theatre Web has anonymous live discovery/account reads and
-explicit UI mocks. Theatre Mobile has a production-safe shared core, isolated Gradle CMP demo
-and production Android/iOS catalog hosts using the live public API. Android release accepts
-an explicit HTTPS origin; native audio, downloads and durable sync remain absent.
-Backend listener contracts exist; real client/provider acceptance stays separate.
+requested in a future roadmap. Theatre Web and native hosts have implemented listener owners;
+inspect the [Web](../../apps/cantos-theatre/web/README.md) and
+[Mobile](../../apps/cantos-theatre/mobile/README.md) guides for current playback/Library scope.
+The JVM Desktop Preview is isolated from native hosts; preview or source evidence never
+establishes device, issuer or production delivery acceptance.
 Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
 serve Theatre Mobile and Studio Web.
 Forge adds local artifact commands, attempt/recovery core, local durable attempt adapter and
@@ -75,8 +75,8 @@ finite Rust/Node worker boundary; real provider/Functions/Drive execution and AP
 absent. See the [worker acceptance boundary](../../docs/deployment/forge-worker.md).
 Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
 casting with frozen guidance; obsolete local/Google TTS probe CLIs are removed; optional MessagePack
-representation for four Studio routes are implemented. Production native listening
-remains planned. Story artifact skills
+representation for four Studio routes are implemented. Native listening acceptance
+remains separately scoped. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run.
 Every repository-level check runs through [`cargo xtask`](../../xtask/README.md). Skill edits

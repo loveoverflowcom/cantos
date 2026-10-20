@@ -85,8 +85,8 @@ are now mounted: one process owner, `singleTask` callback delivery and the optio
 boundary when both validated configuration keys are present. That boundary is no longer a separate
 screen: it is composed into the [guest shell](#guest-first-account-and-auth) (the #130 change edits
 only `MainActivity`'s composition and the Application's container wiring, not the manifest, callback
-filter or callback delivery). Missing or invalid configuration keeps the guest-only mock with Sign in
-disabled and explained. The build inputs below default to empty; the repository supplies no live
+filter or callback delivery). Missing or invalid identity configuration keeps Sign in disabled and explained; the native
+host has no mock fallback, and catalog availability depends on the separate API-origin input. The build inputs below default to empty; the repository supplies no live
 origins and changes no OS network/TLS setting.
 
 ### Native identity build inputs and operator diagnostics

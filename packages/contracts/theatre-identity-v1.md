@@ -1,11 +1,10 @@
 # Theatre Identity v1
 
-> **#253 Bearer amendment (2026-10-18):** the target API credential is a Cantos-issued opaque
-> Bearer with rotating refresh. The [Bearer v1 contract](bearer-v1.md) owns new routes/lifecycle,
-> JSON-only identity wire, fresh-auth evidence, RAM/F5 and compatibility cutover. Cookie-only
-> statements below describe the retained **legacy compatibility** flow until the Web migration;
-> they no longer impose a same-site domain or cookie prerequisite on the target architecture.
-> Client migration and real gateway/issuer/browser/native acceptance remain separate.
+> **#295 amendment (2026-10-19):** Web cookies on the custom domains are the selected target,
+> with coordinated API/Web migration and browser acceptance pending. Native retains
+> [Bearer v1](bearer-v1.md). [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+> owns the policy. The cookie routes below describe existing compatibility source, not an
+> accepted #295 implementation; review scope/CORS/CSRF and session fences before reuse.
 
 PR3 implements separate opt-in Web BFF and native public-client identity on the development host.
 Native exchange/resource admission and OS adapter mounting are code; provider/device acceptance

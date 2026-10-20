@@ -1,8 +1,9 @@
 # ADR 0041: Direct Firebase Hosting and the Cantos API browser boundary
 
 - Status: accepted owner direction; API addressing/CORS/callback support implemented in this slice;
-  Bearer API and Web/CMP consumer migration implemented; minimal identity gateway source implemented; server compatibility cutover and production acceptance remain pending
-- Date: 2026-10-17; Bearer amendment accepted by the owner on 2026-10-18 (#253)
+  Bearer API and Web/CMP consumers implemented; #295 selects Web cookies with migration pending;
+  minimal identity gateway source implemented; production acceptance remains pending
+- Date: 2026-10-17; Bearer amendment 2026-10-18 (#253); Web-cookie amendment 2026-10-19 (#295)
 - Decision owner: Cantos product owner (production-audit request and API-mediated Web clarification)
 - Related: [0034](0034-theatre-signup-and-provisioned-studio.md),
   [0036](0036-firebase-enrollment-proof.md), [0040](0040-firebase-email-proof-alternatives.md)
@@ -30,11 +31,12 @@ Both Web clients resolve only their own `/api/v1/theatre/*` or `/api/v1/studio/*
 an explicit, nonsecret build input `CANTOS_API_ORIGIN`; absence preserves the local Trunk proxy.
 An invalid origin or cross-surface path fails closed. The implementation reuses locked `url`
 2.5.8 to refuse silently normalized origins, userinfo, paths, queries and fragments. Fetch/XHR and
-login navigation go to Cantos API, never to a client-configured identity provider. All target protected client requests use `Authorization: Bearer` with cookies omitted and
-retain account/session fences. [Bearer v1](../../packages/contracts/bearer-v1.md) owns the
-Cantos-issued opaque credentials, bounded rotation/revoke and staged compatibility contract.
-Provider artifacts stay in the API. Legacy cookie clients remain temporarily supported until
-the Web/CMP migration in #253; mixed credentials are refused.
+login navigation go to Cantos API, never to a client-configured identity provider. Current
+implemented Web and native consumers use [Bearer v1](../../packages/contracts/bearer-v1.md),
+with cookies omitted and account/session fences retained. The owner-selected Web target is now
+HttpOnly/Secure cookies under #295 below; its coordinated API/client migration is pending. Native
+retains Bearer. Provider artifacts stay in the API; mixed credentials remain refused by existing
+Bearer routes. Existing cookie handlers require review before reuse, not just credentials Include.
 
 Each API process may opt into `CANTOS_BROWSER_API_SURFACE=theatre|studio`, with its one exact
 `CANTOS_WEB_ORIGIN` as the CORS allowlist. Preflight accepts only the declared surface, methods and
@@ -46,16 +48,36 @@ routes Studio paths to the Studio process and Theatre paths to the Theatre proce
 For split-origin OIDC, the API runtime's explicit `CANTOS_API_ORIGIN` pins the callback on the API
 host; completion returns only to the fixed configured Web origin. It never reflects a caller's
 return URL. Confidential clients, exact issuer/audience, state, nonce, PKCE S256, consumed-flow fences, roster checks,
-introspection and original proof/provider authority remain authoritative. The new Web flow uses
+introspection and original proof/provider authority remain authoritative. The implemented Bearer Web flow uses
 independent client/provider PKCE legs; its API callback returns only a one-use handoff code to the
 fixed Web origin. Exchange returns access/refresh via no-store JSON, never URLs. Native retains
 its distinct public OIDC client and exact system-browser redirect.
 
-### Owner-selected Bearer transport and reload policy (#253)
+### Owner-selected Web cookies; native Bearer retained (#295)
+
+On 2026-10-19 the [owner selected #295](https://github.com/loveoverflowcom/cantos/issues/295):
+Theatre Web at `https://cantos.cc` and Studio Web at `https://studio.cantos.cc` use API-issued
+HttpOnly/Secure cookies with `https://api.cantos.cc`. This supersedes only #253's mandatory
+RAM-only Web Bearer direction. The API/client migration, cookie policy and browser acceptance
+are pending; this decision does not report deployed cookies or undo existing session authority,
+refresh/revocation and account fences. CMP/native retains Bearer and secure storage.
+
+The migration must define narrow cookie scope, SameSite, path and expiry, preferring host-only
+API cookies where suitable; it does not authorize `Domain=.cantos.cc`. Include credentials only
+for the exact API/surface, including private resource flows. Preserve exact-origin credentialed
+CORS and mutation CSRF checks against foreign origins and same-site siblings. Distinct origin
+and distinct site are different conditions. Preview `web.app`/`pages.dev` and local topologies
+need separate declared qualification; production acceptance uses the custom HTTPS domains.
+No live DNS, issuer, credentials or database operation is authorized by this document.
+
+### Implemented Bearer transport and reload policy (#253; Web target superseded)
+
+The following records the implemented pre-#295 Web behavior and retained native contract.
+It is not the target Web cookie/reload policy.
 
 The owner selected Cantos-issued opaque Bearer for Theatre Web/CMP and Studio Web on 2026-10-18.
-**A same-site custom domain and third-party session cookie are no longer prerequisites for
-client API authentication.** Firebase Hosting and API may be cross-site. Exact per-surface CORS,
+For that Bearer implementation, a same-site custom domain or third-party session cookie is not
+a prerequisite. Firebase Hosting and API may be cross-site. Exact per-surface CORS,
 restricted interactive identity ingress and browser acceptance remain required; CORS itself
 never authenticates. Existing custom domains remain valid optional addressing decisions.
 
@@ -100,8 +122,8 @@ operator deployment authority. No security or identity configuration is deployed
 | --- | --- |
 | Continue the Web → VPS → Firebase proxy | Existing compatibility path; superseded as the target by the owner's direct-Hosting direction |
 | Direct web.app → DuckDNS with relaxed cookies | Public anonymous reads can use CORS; reliable authenticated sessions are not accepted under third-party-cookie restrictions |
-| Cantos opaque Bearer and exact CORS | Owner-selected target; cross-site Hosting/API supported by design, client/issuer/browser acceptance pending |
-| Same-site custom domains | Optional stable naming/topology; no longer an authentication prerequisite |
+| Cantos opaque Bearer and exact CORS | Implemented Web transport and retained native target; #295 supersedes the Web target; issuer/device acceptance remains separate |
+| Custom-domain Web cookies | Owner-selected Web target under #295; API/client migration, narrow cookie policy, exact-origin CORS/CSRF and real browser acceptance pending |
 | Firebase Functions/Cloud Run proxy | Adds another runtime/cost/credential boundary; not selected or provisioned |
 
 ## Validation and revisit conditions
@@ -110,8 +132,9 @@ Verify URL refusal partitions and CORS allow/deny boundaries locally, then inspe
 requests after explicitly authorized deployment. Accept auth only with real callback, reload,
 logout/revocation, roster refusal and Theatre-to-Studio denial, including restrictive cookie
 settings. Registration stays disabled under its independent ADR 0036/0040 gates. Native production
-acceptance remains separate. The Bearer amendment supersedes the original cookie/same-site gate;
-no domain purchase or cookie workaround is required to implement it.
+acceptance remains separate. #295 Web acceptance additionally inspects Set-Cookie, credentialed
+requests, scope and CSRF on the custom domains; historical Bearer acceptance cannot substitute
+for that migration or establish native regression coverage.
 
 Primary references: [Firebase custom domains](https://firebase.google.com/docs/hosting/custom-domain),
 [Hosting rewrite targets](https://firebase.google.com/docs/hosting/full-config),

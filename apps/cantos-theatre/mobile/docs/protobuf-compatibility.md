@@ -104,7 +104,12 @@ Android and Apple acceptance belong to the integration/release owner. The commit
 by issue #97 does not assert that any Native compiler or runtime passed. JVM execution alone
 cannot settle Apple compilation, device integer behavior or Native runtime allocation.
 
-## Reproduction through the existing verification route
+## Historical reproduction through the existing verification route
+
+The commands below belong to the source-bound C4 checkpoint, including its retired native mock
+hosts. For current inputs use `cargo xtask theatre-preview verify`; native build commands are
+owned by [theatre-host](../../../../xtask/README.md#theatre-host). Those production-host builds
+do not execute this common/JVM fixture suite or establish the old mock-build result.
 
 From the repository root with installed Rust 1.98.1, Python 3, a full JDK and Gradle 8.14.3:
 

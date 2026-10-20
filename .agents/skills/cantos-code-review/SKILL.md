@@ -66,13 +66,12 @@ separate task through [`cantos-work-item`](../cantos-work-item/SKILL.md) or the 
 
 ## Repository reality
 
-Cantos has a Rust backend (Axum, PostgreSQL), the shared `cantos-contracts` crate, Leptos
-Studio, Theatre Web live discovery/account/readonly Library boundaries plus explicit session-only
-mocks, `cargo xtask` and Python oracles. Forge has local artifact commands and a library-only
-attempt/recovery core with a mock provider; real provider/Functions/Drive execution remains absent.
-Theatre Mobile has a production-safe shared core, isolated Gradle CMP demo, unavailable production
-Android host and common/JVM listener transport seam; native audio, live client integration,
-downloads and durable sync remain absent. Host tests/linking are not device verification.
+Read the current [repository layout](../../../docs/architecture/repository-layout.md),
+[API guide](../../../services/cantos-api/README.md), [Forge guide](../../../services/cantos-forge-functions/README.md)
+and affected [Web](../../../apps/cantos-theatre/web/README.md) or
+[Mobile](../../../apps/cantos-theatre/mobile/README.md) implementation boundary before selecting
+review targets. These owners distinguish implemented production adapters, isolated previews and
+pending integration/device acceptance; do not preserve a stale capability snapshot in this skill.
 Studio is web-only. Flag Studio Mobile scaffolds or build/test/preview
 targets against the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope). Discover manifests and runners before saying a check exists,
 could run or ran ([local-execution](../cantos-engineering/references/local-execution.md)). Review

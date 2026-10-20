@@ -342,6 +342,25 @@ class AuthorizingMediaEngineTest {
     }
 
     @Test
+    fun restore_preserves_supplied_titles_without_authorization_load_or_start() = runTest {
+        val native = MockStreamingMediaEngine()
+        val access = MockPlaybackAccessPort { grant() }
+        val owner = NativeListeningController(this, native, access, { testScheduler.currentTime })
+        try {
+            owner.restore(audio, 42_000, 1250, title = "Ánh đèn cuối sân khấu", workTitle = "Một lời hẹn")
+            runCurrent()
+            val restoredSource = PlaybackSource.streaming(audio, "Ánh đèn cuối sân khấu", "Một lời hẹn")
+            val restored = PlaybackState(1, PlaybackSession(restoredSource, 42_000, 1250,
+                PlaybackIntent.Pause(PlaybackPauseCause.ColdRestore), PlaybackEngine.Preparing, PlaybackInterruption.None))
+            assertEquals(restored, owner.playback.state.value)
+            assertEquals(NativeSelection("Ánh đèn cuối sân khấu", "Một lời hẹn"), owner.selection.value)
+            assertEquals(emptyList(), access.authorizations)
+            assertEquals(emptyList(), native.loads)
+            assertEquals(emptyList(), native.starts)
+        } finally { owner.close() }
+    }
+
+    @Test
     fun stale_native_observations_after_pause_are_not_forwarded() = runTest {
         val native = MockStreamingMediaEngine()
         val access = MockPlaybackAccessPort { grant() }

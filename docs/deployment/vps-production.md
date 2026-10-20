@@ -12,7 +12,10 @@ host change; image, browser-config, identity and database authority remain separ
 > `/api/v1/{studio|theatre}/auth/bearer/callback` for the existing per-surface confidential client.
 > Registering/qualifying it, updating the existing-client reconciliation receipt and completing
 > the restricted identity gateway need their own reviewed source/operator rollout. This API
-> foundation performs no such live write. Legacy callbacks/cookies remain compatibility only.
+> foundation performs no such live write. Current cookie handlers are compatibility source;
+> [#295](https://github.com/loveoverflowcom/cantos/issues/295) now selects Web cookies on the custom
+> domains, with migration pending. Review callback/session reuse under that decision; native
+> retains Bearer. Do not retire cookie support as a consequence of the superseded Web target.
 
 This is the single current production topology/runbook. [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md)
 selects direct Firebase Hosting and API-mediated browser requests; [ADR 0039](../decisions/0039-vps-production-runtime.md)
@@ -190,12 +193,12 @@ uses the same reconciler with the six staged inputs described in the
 The receipt establishes those observed configuration inputs, not live discovery/login or
 underlying bytes hidden by provider redaction. Never hand-write it as a shortcut.
 
-Public anonymous reads can use web.app → DuckDNS after deployment. The #253 amendment selects
-[Cantos Bearer](../../packages/contracts/bearer-v1.md) for cross-site client authentication;
-same-site custom domains and third-party session cookies are no longer prerequisites. The API
-foundation retains cookie compatibility until Web/CMP cutover; deploy/qualify those clients and
-the restricted identity gateway before claiming real login. No live configuration is changed
-by the foundation, and existing cookie/CSRF defaults stay intact during staging. A source change
+Public anonymous reads can use web.app → DuckDNS after deployment. The current Web clients
+implement [Bearer v1](../../packages/contracts/bearer-v1.md), but #295 selects API-issued
+HttpOnly/Secure Web cookies on `cantos.cc` / `studio.cantos.cc` with `api.cantos.cc`; migration
+and real browser acceptance are pending. Native retains Bearer. Qualify exact credentialed CORS,
+CSRF, callback/session scope and the restricted identity gateway; raw Hosting previews need a
+separate declared topology. Existing cookie handlers require review before reuse. A source change
 does not rewrite the installed legacy inputs, issuer redirects or custom drop-ins; reconcile them
 together in the authorized cutover and retain the reviewed previous configuration for recovery.
 Image rollback leaves origin and identity configuration unchanged; restore those separately when

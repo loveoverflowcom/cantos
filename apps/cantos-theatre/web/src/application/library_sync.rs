@@ -549,6 +549,10 @@ pub enum ResumeAttemptState {
     },
 }
 
+/// One exact resume intent; a repeated request for the same publication is still a new intent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ResumeTicket(u64);
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RereadTarget {
     Saved { work_id: String },
@@ -588,6 +592,7 @@ pub struct LibrarySyncState {
     acknowledged_sessions: BTreeSet<String>,
     unsent_starts: VecDeque<QueuedHistoryStart>,
     resume_attempt: ResumeAttemptState,
+    resume_generation: u64,
 }
 
 impl LibrarySyncState {
@@ -611,6 +616,7 @@ impl LibrarySyncState {
             acknowledged_sessions: BTreeSet::new(),
             unsent_starts: VecDeque::new(),
             resume_attempt: ResumeAttemptState::Idle,
+            resume_generation: 0,
         };
         for item in journal.pending {
             let op_id = item.operation_id.clone();
@@ -712,7 +718,20 @@ impl LibrarySyncState {
     }
 
     pub fn set_resume_attempt(&mut self, state: ResumeAttemptState) {
+        self.resume_generation = self.resume_generation.saturating_add(1);
         self.resume_attempt = state;
+    }
+
+    pub fn begin_resume(&mut self, publication_id: String) -> Option<ResumeTicket> {
+        let generation = self.resume_generation.checked_add(1)?;
+        self.resume_generation = generation;
+        self.resume_attempt = ResumeAttemptState::Preparing { publication_id };
+        Some(ResumeTicket(generation))
+    }
+
+    pub fn accepts_resume(&self, ticket: ResumeTicket) -> bool {
+        ticket.0 == self.resume_generation
+            && matches!(self.resume_attempt, ResumeAttemptState::Preparing { .. })
     }
 
     /// Record presentation metadata for a Work/Unit so local projection updates can render titles.
@@ -1937,6 +1956,29 @@ mod tests {
             sha256: "a".repeat(64),
             duration_ms: 120_000,
         }
+    }
+
+    #[test]
+    fn only_the_latest_resume_intent_accepts_a_manifest_completion() {
+        let mut sync = LibrarySyncState::new("listener-a", uuid(1)).unwrap();
+        let first = sync.begin_resume(uuid(3)).unwrap();
+        assert!(sync.accepts_resume(first));
+        // Even choosing a different position of the same release supersedes the old request.
+        let second = sync.begin_resume(uuid(3)).unwrap();
+        assert!(!sync.accepts_resume(first));
+        assert!(sync.accepts_resume(second));
+        let other_release = sync.begin_resume(uuid(4)).unwrap();
+        assert!(!sync.accepts_resume(second));
+        assert!(sync.accepts_resume(other_release));
+        // A completed/refused request and a fresh public listen both invalidate old replies.
+        sync.set_resume_attempt(ResumeAttemptState::Restored {
+            publication_id: uuid(4),
+            position_ms: 25_000,
+        });
+        assert!(!sync.accepts_resume(other_release));
+        let cancelled = sync.begin_resume(uuid(3)).unwrap();
+        sync.set_resume_attempt(ResumeAttemptState::Idle);
+        assert!(!sync.accepts_resume(cancelled));
     }
 
     #[test]

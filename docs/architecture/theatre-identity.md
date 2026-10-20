@@ -1,12 +1,11 @@
 # Theatre identity and account isolation
 
-> **#253 Bearer amendment (2026-10-18):** the target API credential is a Cantos-issued opaque
-> Bearer with rotating refresh. The [Bearer v1 contract](../../packages/contracts/bearer-v1.md) owns new routes/lifecycle,
-> JSON-only identity wire, fresh-auth evidence, RAM/F5 and compatibility cutover. Cookie-only
-> statements below describe the retained **legacy compatibility** server flow;
-> they no longer impose a same-site domain or cookie prerequisite on the target architecture.
-> Web and native consumers use Bearer. Legacy server issuance cutover and real
-> gateway/issuer/browser/native acceptance remain separate.
+> **#295 Web-cookie amendment (2026-10-19):** the owner selects API-issued HttpOnly/Secure
+> cookies for Theatre and Studio Web on the custom domains; migration and browser acceptance
+> remain pending. [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+> owns the selected policy. Current Web source still uses [Bearer v1](../../packages/contracts/bearer-v1.md);
+> cookie-only descriptions below record retained server compatibility, which needs review before
+> reuse. Native retains #253 Bearer, secure storage and its independent acceptance obligations.
 
 Implemented PR3 boundary for #12/#35; issue #34 has no accepted guest-import policy.
 Public Discovery/Playback stays guest where its existing policy permits. Persistent Saved,
@@ -218,9 +217,14 @@ Production must accept at-rest/backup/role/secret/rate/retention and pending-rev
 before activation. Only existing development/loopback host is configurable here; no clients,
 grants, credentials, TLS, network, container or production activation is provisioned.
 
-## Web and CMP lifecycle
+## Retained Web BFF and CMP lifecycle
 
-Theatre Web mounts its same-origin BFF account owner in the default application shell. Anonymous
+The Web BFF client details in this section record the #129 checkpoint and retained server
+compatibility. Current Web uses the [shared Bearer owner](../../packages/web-auth/README.md) and
+[Library mutation/recovery implementation](../../apps/cantos-theatre/web/README.md#scope-and-honest-behavior);
+#295 cookie migration remains pending. Historical BFF evidence is not acceptance of that migration.
+
+The #129 Web shell mounted its same-origin BFF account owner in the default application shell. Anonymous
 Home reads published work summaries independently with credentials omitted; session lookup,
 readonly Library and explicit Login/Account routes retain separate ownership. Account/session
 generation fences success and failure callbacks and clears private projections immediately on
