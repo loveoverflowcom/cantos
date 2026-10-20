@@ -168,6 +168,8 @@ def archive_members(archive, *, web=False, runtime=False, image=False):
             require(entry.name == "REVISION" or entry.name.startswith("infra/vps/") or
                     entry.name in {"infra/edge/Caddyfile", "services/cantos-api/schema/legacy-epoch-1-manifest.json"},
                     "unexpected runtime asset")
+        if runtime and entry.name == "infra/vps/bin/cantos-vps":
+            require(entry.mode & 0o100, "runtime entrypoint must be executable")
         entries.append(entry)
     # Reject file/directory prefix conflicts before writing any member.
     require(not any(str(parent) in names for name in names for parent in PurePosixPath(name).parents

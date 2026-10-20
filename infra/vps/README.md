@@ -111,3 +111,13 @@ attempt-bound journals and pending guards, preserves the original DB, and recove
 DB/image/runtime pair before acceptance; accepted recovery only finalizes. It does not
 provision media, reconcile identity or weaken ordinary schema checks. PostgreSQL dumps
 exclude media bytes; Linux x86_64/17.11 host and media recovery acceptance remain separate.
+
+The committed `bin/cantos-vps` entrypoint must keep Git mode `100755`. Source-bundle install,
+browser reload and cutover/recovery execute it directly after extraction; installed bootstrap
+uses `/usr/local/sbin/cantos-vps` (installed with mode `0750`). Artifact promotion likewise
+executes the bundled entrypoint directly. Release packaging and extraction reject a runtime
+archive without its owner execute bit before remote writes; source identity and checksum
+validation still apply. The repository Python regressions check committed tree mode, real
+`git archive` extraction, release repackaging/extraction and a validly hashed `100644` negative
+control without running the host script or SSH. The other shell helpers are sourced, and
+`cantos-oidc-config.py` is invoked through Python; they do not need executable Git modes.
