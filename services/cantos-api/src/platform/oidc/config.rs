@@ -1,5 +1,5 @@
+pub use super::core::CLIENT_ID as STUDIO_CLIENT_ID;
 use super::{core::AuthError, trust::IssuerTrust};
-const STUDIO_CLIENT_ID: &str = "cantos-studio-web-bff";
 pub const THEATRE_WEB_CLIENT_ID: &str = "cantos-theatre-web-bff";
 pub const THEATRE_NATIVE_CLIENT_ID: &str = "cantos-theatre-native";
 pub const THEATRE_NATIVE_REDIRECT: &str = "com.cantos.theatre:/oauth2/callback";

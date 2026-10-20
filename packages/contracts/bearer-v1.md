@@ -78,6 +78,13 @@ never fall back. Their final server-side cutover remains an explicit acceptance 
 | Refresh idle deadline | at most 300 s since issuance/refresh | at most 600 s |
 | Absolute family deadline | at most 600 s from verified callback | at most 900 s |
 
+The server selects these fixed profiles in `platform/bearer/client.rs`, using the registration
+IDs owned by `platform/oidc/config.rs`. The immutable `SessionPolicy` in `bearer/core.rs` checks
+`0 < access_ttl <= idle_ttl <= absolute_ttl` at construction. Its issue/rotation decisions take
+only that policy and time/state facts; credential prefixes and PKCE/state syntax belong to
+`bearer/credential.rs`. Requests cannot select or override a policy. This separation changes
+neither the wire contract nor admission authority.
+
 Every deadline is additionally capped by the original verified identity proof **and** provider
 access expiry. This foundation does **not** use provider refresh tokens, request offline access,
 assume Kanidm refresh support or extend original authority. A new authorization is required at

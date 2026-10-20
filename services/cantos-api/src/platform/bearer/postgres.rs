@@ -1,7 +1,8 @@
 //! Durable flow consume, atomic refresh rotation and family revocation. No network I/O.
 use super::{
-    core::{self, Client, Lifetime, Rotation},
-    refusal, Secrets,
+    client::Client,
+    core::{self, Lifetime, Rotation},
+    credential, refusal, Secrets,
 };
 use crate::platform::{
     oidc::{
@@ -150,7 +151,8 @@ pub(super) async fn issue(
     let tx = connection.transaction().await.map_err(unavailable)?;
     let row=tx.query_opt("SELECT subject,proof_hash,provider_access,authority_expires,authenticated_at,expires_at FROM bearer_flows WHERE id=$1::text::uuid AND client_id=$2 AND issuer=$3 AND client_state=$4 AND challenge=$5 AND consumed AND NOT cancelled AND NOT completed AND handoff_hash=$6 AND redirect_uri=$7 AND return_origin=$8 AND expires_at>extract(epoch FROM clock_timestamp()) FOR UPDATE",&[&id,&config.client_id,&config.issuer,&request.state,&pkce_challenge(&request.code_verifier),&token_hash(if client==Client::TheatreNative{""}else{&request.code}),&redirect,&config.web_origin]).await.map_err(unavailable)?.ok_or(AuthError::State)?;
     let absolute = seconds(&row, "authority_expires")?;
-    let lifetime = core::issue(client, clock(&tx).await?, absolute, absolute).map_err(refusal)?;
+    let lifetime =
+        core::issue(client.policy(), clock(&tx).await?, absolute, absolute).map_err(refusal)?;
     let subject: String = row.get("subject");
     let candidate = uuid::Uuid::new_v4().to_string();
     let actor: String = tx
@@ -311,7 +313,7 @@ pub(super) async fn rotate(
     let actor: String = row.get("actor_id");
     let active = !row.get::<_, bool>("revoked") && actor_active(&tx, &actor, client).await?;
     let lifetime = match core::rotate(
-        client,
+        client.policy(),
         clock(&tx).await?,
         seconds(&row, "absolute_expires")?,
         seconds(&row, "idle_expires")?,
@@ -490,7 +492,7 @@ where
         .map_err(unavailable)?
         .ok_or(AuthError::Inactive)?;
     let actor: String = row.get("actor_id");
-    let client = core::access_client(token).ok_or(AuthError::InvalidToken)?;
+    let client = credential::access_client(token).ok_or(AuthError::InvalidToken)?;
     if !actor_active(&tx, &actor, client).await? {
         return Err(AuthError::Inactive);
     }
