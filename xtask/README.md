@@ -591,6 +591,10 @@ xtask never installs these tools. The Rust and PostgreSQL CI jobs provision the 
 trusted `ffmpeg` package, which supplies both executables. The PostgreSQL suite also needs them
 for its actual-byte private-intake/storage/replay tests.
 
+Each PostgreSQL runner subprocess keeps its existing 180-second limit. On timeout the runner
+prints and preserves available partial stdout/stderr in the selected evidence log, then
+rethrows the timeout; an evidence-file write failure also retains the original timeout.
+
 `cargo xtask verify postgres --suite theatre-firebase` selects a separately named narrow gate.
 It runs the Firebase enrollment repository tests and existing SMTP registration tests through
 the same migration path, each with a nonzero passing test requirement, in a newly initialized
@@ -847,6 +851,8 @@ runs in CI except `mutation`, `cmp-ui-preview` and `theatre-cmp-preview`. Mutati
 a local `ui-preview cmp verify` / preflight gate until a separately provisioned Gradle CI lane is
 added. Existing `verify web` and the Web CI job never require the Kotlin toolchain. Branch
 protection and required checks are configured outside this repository.
+The repository job checks out full history so manual feature-branch dispatch can compare
+against `origin/develop`; checkout credentials remain disabled and a missing base still fails closed.
 The Rust CI job also provisions Node 22 through a SHA-pinned `actions/setup-node` with package
 manager caching disabled, then runs the same offline wrapper gate. xtask itself installs nothing.
 
