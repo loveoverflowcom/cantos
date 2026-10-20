@@ -1,12 +1,13 @@
 ---
 name: cantos-engineering
 description: >-
-  Engineering foundation for Cantos (Rust, Axum, PostgreSQL, Leptos, Compose Multiplatform).
+  Engineering foundation for Cantos (Rust, Axum, Leptos, Compose Multiplatform).
   Invariant-first workflow, decoupled module boundaries, immutable values and revisions, types
   as proof barriers, functional core with imperative shell, clean readable syntax,
-  layered verification and progressive delivery, PostgreSQL read performance and conditional DBSP evaluation,
-  structured runtime events, one evidence vocabulary and a mandatory residual-risk report. Use for
-  any domain, backend, persistence, contract, test, refactoring or verification change.
+  layered verification and progressive delivery, persistence and conditional DBSP evaluation,
+  native Turso/identity refactoring with legacy PostgreSQL boundaries, structured runtime events,
+  one evidence vocabulary and a mandatory residual-risk report. Use for any domain, backend,
+  persistence, contract, test, refactoring or verification change.
 ---
 
 # Cantos engineering
@@ -19,19 +20,40 @@ Every Cantos skill composes its order, vocabulary and report without redefining 
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product/architecture doc,
   work item and touched code. Product rules live in [`docs/`](../../../docs/README.md); link, never duplicate them.
 - **Repository reality.** Script IR, Axum/PostgreSQL editorial/catalog/content/brief and private
-  audio lifecycle slices, and Leptos Studio exist. Read the current
+  audio lifecycle slices, and Leptos Studio exist at the native-refactor baseline. Read the current
   [platform implementation map](../../../docs/architecture/repository-layout.md#platform-scope)
-  for Theatre Web/CMP owners and their separate runtime acceptance; a preview never supplies it.
+  and actual source for Theatre Web/CMP owners and their separate runtime acceptance; a preview never supplies it.
   API TTS/workers were removed under [ADR 0018](../../../docs/decisions/0018-external-audio-production.md).
   Inspect commands and runtime capabilities; see [local execution](references/local-execution.md#runtime-portability).
 - **Platform scope.** Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
   Studio is web-only. Exclude Studio Mobile from implementation, scaffolding and build/test/preview automation unless explicitly requested in a future roadmap; retain Theatre Web/Mobile and shared libraries.
 - For registered stateful expectations/scenarios, compose [cantos-behavior](../cantos-behavior/SKILL.md); keep model and implementation evidence separate.
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
-  behavior and *verified* behavior with a named evidence level.
-- **Keep the stack.** Rust + Axum + PostgreSQL modular monolith, Leptos Web, CMP mobile with
-  native playback, S3-compatible storage. A new crate, service, trait, dependency or framework
-  needs a concrete consumer and a stated reason ([decision 0001](../../../docs/decisions/0001-modular-monolith.md)); runtime work follows [service-runtime](references/service-runtime.md).
+  behavior and *verified* behavior with a named evidence level. An owner-selected target is not a runtime result.
+- **Keep accepted boundaries.** Rust/Axum, Leptos Web, CMP native playback and S3-compatible
+  storage remain. The [native Turso decision](../../../docs/architecture/native-turso-refactor.md)
+  explicitly authorizes epic #331's Server/Identity split and replacement of PostgreSQL/Kanidm/container
+  dependencies. Older stack descriptions remain the current/legacy baseline, not a veto on that
+  selected target or a claim the replacement already exists. Outside the scoped refactor, follow
+  the actual accepted stack. A new crate, service, trait, dependency or framework still needs a
+  concrete consumer and stated reason; use [service-runtime](references/service-runtime.md).
+
+### Native identity and embedded-database refactoring
+
+For #331 read the owning [architecture](../../../docs/architecture/native-turso-refactor.md),
+then [persistence](references/persistence.md), [service runtime](references/service-runtime.md),
+[identity/session boundaries](references/identity-and-session-boundaries.md) and
+[read performance/DBSP](references/postgresql-read-performance.md) as each boundary is touched.
+They define the working method for qualifying the pinned local Turso engine, one owner per file,
+private RPC, durable cross-service revocation, minimal FE changes and measurable resource claims.
+Do not infer Turso behavior from SQLite, assume a ready-made DBSP connector, or start a container
+for native acceptance. Preserve legacy data and source-bound evidence; production effects still
+require explicit authority. Comprehensive active-doc/command migration belongs with implementation.
+
+Selected high-risk pure authentication/persistence kernels require targeted Kani work through
+[the existing formal method](references/mutation-and-formal.md#bounded-model-checking).
+That does not make crypto, database I/O, RPC or concurrency formally verified; their actual
+integration/fault evidence remains separate. Do not add a parallel skill, verifier or session engine.
 
 ## The required order
 
@@ -55,10 +77,11 @@ defer infrastructure acceptance and report exact evidence and residual risk.
 ### Database-backed GET, read and fetch work
 
 Before changing a database-backed read/query or a write feeding a read model, load
-[PostgreSQL read performance and DBSP evaluation](references/postgresql-read-performance.md).
-It owns inventory, PostgreSQL baseline, simpler optimization comparison, DBSP fit,
-differential/failure checks, benchmark record and acceptance. Adopt incremental views only
-when measured benefit and semantics justify them; prioritize hot paths.
+[database read performance and DBSP evaluation](references/postgresql-read-performance.md).
+It owns inventory, actual authoritative-engine baseline, simpler optimization comparison, DBSP fit,
+differential/failure checks, benchmark record and acceptance. Turso is the selected #331 target;
+PostgreSQL remains an explicit legacy baseline until migration acceptance. Adopt incremental views
+only when measured benefit and semantics justify them; prioritize hot paths.
 Mutations need a separate overhead/consistency decision. The generic optional DBSP library remains;
 its [old job-summary adapter](../../../docs/decisions/0017-experimental-dbsp-job-summary.md)
 is historical/retired, not a current production-adoption candidate.
@@ -81,7 +104,7 @@ Provider attempts/regeneration belong to external producers, never a new backend
 ```text
 pure domain values and rules   ←  application (permissions, transitions, gates)
         ↑                              ↑
-   adapters (PostgreSQL, private storage, read-only inspection)   ←  HTTP handlers, UI
+   adapters (database, private storage, read-only inspection)   ←  HTTP/RPC handlers, UI
 ```
 
 Dependencies point toward pure domain values. Script IR and domain rules never import Axum,
@@ -114,7 +137,7 @@ Load [typed errors and composition](references/typed-errors-and-composition.md) 
 ## 4. Functional core, imperative shell
 
 ```text
-world: HTTP · PostgreSQL · private storage · read-only audio tools · clock · IDs · randomness
+world: HTTP/RPC · database · private storage · read-only audio tools · clock · IDs · randomness
                          ↓
                   imperative shell        resolves facts, executes effects, retries
                          ↓
@@ -149,7 +172,7 @@ types / exhaustive match
 → property or state-machine test
 → replay / differential / golden-fixture oracle
 → fault injection at named crash points (jobs, uploads, publication)
-→ integration against real PostgreSQL / object storage / provider
+→ integration against the real selected database / object storage / provider
 → fuzzing of untrusted-input parsers (a different oracle: crash, hang, blow-up)
 → mutation testing (orthogonal: do the assertions kill defects?)
 → bounded model checking for a small critical kernel
@@ -184,7 +207,7 @@ mutation-tested           the assertions kill inserted defects
 bounded-model-checked     a proposition holds over a stated symbolic domain and bound
 fuzz-tested               a coverage-guided fuzzer ran a named target under resource bounds with no crash,
                           hang or blow-up (robustness only; says nothing about correct output)
-integration-tested        crossed a real PostgreSQL, object store or service boundary
+integration-tested        crossed a real database, object store or service boundary
 provider-live-tested      called a real TTS or adaptation provider under a cost limit
 audio-measured            loudness/peak/duration measured by a named tool and profile
 audio-listened            a named reviewer listened to the named render
@@ -203,8 +226,9 @@ production-observed       observed in production, not proven
 ```
 
 A fake provider alone is `example-tested`; a production flow across modules with external doubles
-is `mock-integration-tested`. Neither is `provider-live-tested`; an in-memory store is never
-`integration-tested`. A desktop or JVM host render is never `device-tested`.
+is `mock-integration-tested`. Neither is `provider-live-tested`; an in-memory repository double is
+never real-database integration evidence. An actual memory-only database test does not establish
+file durability/recovery. A desktop or JVM host render is never `device-tested`.
 A document check never proves that an app builds. Agent-authored JSON or assertions are not
 verifier output; report only what a tool actually printed.
 
@@ -276,8 +300,10 @@ A report must state actionable residual risk.
 | expected/domain/validation errors, infrastructure failures, unexpected faults, typed composition, cancellation, retry and translation | [`typed-errors-and-composition.md`](references/typed-errors-and-composition.md) |
 | Kotlin identities/factories/ADTs, pure reducers, ownership, SOLID or concurrency verification | [CMP Kotlin rules](../cantos-cmp-mobile/references/kotlin-conventions.md), [architecture](../cantos-cmp-mobile/references/cmp-architecture.md), [testing](../cantos-cmp-mobile/references/cmp-testing.md); load all three for a Kotlin decision |
 | serde, SQL rows, fixtures, AI output or migrations around a refined type | [`boundary-hardening.md`](references/boundary-hardening.md) |
-| PostgreSQL transactions, constraints, concurrency control, migrations, test databases | [`persistence.md`](references/persistence.md) |
-| database-backed GET/read/fetch, hot queries, indexes, DBSP incremental views, CDC, read-model invalidation or performance acceptance | [`postgresql-read-performance.md`](references/postgresql-read-performance.md) |
+| Turso/legacy PostgreSQL transactions, file ownership, constraints, concurrency, migrations and real database tests | [`persistence.md`](references/persistence.md) |
+| native processes, UDS/files, supervisors, no-container acceptance or explicit legacy runtime operations | [`service-runtime.md`](references/service-runtime.md) |
+| credentials, mailbox proof, recovery, MFA, private authentication RPC, session/revocation boundaries | [`identity-and-session-boundaries.md`](references/identity-and-session-boundaries.md) |
+| database-backed GET/read/fetch, hot queries, indexes, DBSP incremental views, committed feeds, read-model invalidation or performance acceptance | [`postgresql-read-performance.md`](references/postgresql-read-performance.md) |
 | Axum handlers, DTOs, error mapping, authorization and client contracts | [`http-api-boundary.md`](references/http-api-boundary.md) |
 | JSON or MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, wire goldens, codec benchmarks, extending the codec to Theatre or CMP | [`wire-codec.md`](references/wire-codec.md) |
 | naming, function shape, errors, comments, Rust/Kotlin/Leptos style | [`clean-code.md`](references/clean-code.md) |

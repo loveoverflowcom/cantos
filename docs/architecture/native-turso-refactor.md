@@ -1,0 +1,194 @@
+# Native Server and Identity with embedded Turso
+
+## Decision and evidence boundary
+
+The product owner selected this target on 20 October 2026. [Epic #331](https://github.com/loveoverflowcom/cantos/issues/331)
+owns execution and acceptance; its five checkpoints are [foundation #332](https://github.com/loveoverflowcom/cantos/issues/332),
+[Server persistence #333](https://github.com/loveoverflowcom/cantos/issues/333),
+[Identity #334](https://github.com/loveoverflowcom/cantos/issues/334),
+[integration #335](https://github.com/loveoverflowcom/cantos/issues/335) and
+[qualification/cutover #336](https://github.com/loveoverflowcom/cantos/issues/336).
+
+This is an **owner-selected architecture direction, not implemented-runtime evidence**.
+The reviewed baseline is `develop@cccb547c08585e1266e26b2b07ead3a2c887697e`.
+At that baseline the service is still `services/cantos-api`, PostgreSQL is authoritative,
+Kanidm supplies authentication, and the VPS uses container-oriented assets with separate
+Studio and Theatre API processes. The HTTP adapter is already `adapters/inbound/http` after
+PR #329. Re-read actual source before implementation; do not restore obsolete HTTP ownership.
+
+The integration branch is `refactor/cantos-native-turso`, with reviewable commits/checkpoints
+and a final integrated PR to `develop`. Do not merge an incompatible intermediate rename,
+schema or authentication cutover. Preserve other worktrees and reconcile concurrent work.
+The documentation preparation changes no executable, installed runtime, database or account.
+
+## Selected target
+
+```text
+cantos/
+  apps/
+    cantos-theatre/{web,mobile}/
+    cantos-studio/web/
+  services/
+    cantos-server/
+    cantos-identity/
+    cantos-forge-functions/
+  packages/
+```
+
+| Owner | Runtime and storage | Responsibility |
+| --- | --- | --- |
+| Cantos Server | One native Rust process, local in-process Turso `server.db` | Public Studio/Theatre/Admin APIs, ActorId, application sessions, resource authorization and business data |
+| Cantos Identity | One native Rust process, private RPC, local in-process Turso `identity.db` | Immutable subjects, credentials, mailbox proof, recovery, required MFA and security state |
+| Cantos Forge | Existing separate producer boundary | Audio production and private producer workflows; not a daemon required for login or ordinary serving |
+
+The database choice is **Turso Database through the Rust `turso` crate, local-only**.
+The request's spelling `tursor` refers to Turso. It does not select Turso Cloud, the `libsql`
+remote-replica client, a PostgreSQL-compatible network frontend, a `tursodb` daemon, or an
+implicit fallback to SQLite/redb. Pin and qualify the actual crate/version/features before
+schema adoption. SQLite compatibility is not evidence of equivalent transaction semantics.
+
+Each database file has one process owner. Multiple connections inside that owner may be
+used only with tested transaction behavior. There is no cross-service file access, ATTACH,
+SQL JOIN, foreign key or atomic transaction across the two databases. Identity data is
+protected by separate OS ownership and narrowly scoped RPC, not by shared credentials.
+Do not enable experimental multiprocess access merely to permit overlapping deployments.
+
+The serving stack must not require or start Podman, Docker, PostgreSQL, Kanidm, Firebase Auth
+Emulator, Redis, a message broker or a Feldera service. Native development targets macOS and
+Linux; production supervision uses native host tooling. Two backend processes do not mean
+that TLS ingress, media storage, browsers, build tools or the entire machine have two processes.
+Forge, Firebase Functions/App Distribution, Drive and approved media infrastructure are not
+removed by retiring Firebase Authentication or Kanidm.
+
+## Communication and authority
+
+The internal baseline is gRPC plus Protocol Buffers using Tonic/Prost: Unix domain sockets
+on one host, authenticated mTLS when crossing a network. FE continues using public HTTP
+contracts. A different internal protocol needs a reviewed compatibility/security contract
+and an equal-workload benchmark, not an unsupported claim of being faster.
+
+Identity authentication facts must be bound to the authenticated caller/request, subject,
+purpose, authentication time/assurance and security version. Deserializing a proto or knowing
+an email/subject does not create authority. Server owns actor binding, session issuance,
+Studio admission, dedicated Admin authority and resource/action authorization. Authentication
+does not grant membership, producer privileges or a shared cross-surface session.
+
+Preserve the existing session core where semantics remain valid, coordinating #261 and #326.
+Web uses HttpOnly/Secure cookies under #295; native uses opaque Bearer credentials and secure
+storage. Do not silently change TTLs, token formats or cross-purpose acceptance. Any needed
+authentication-contract amendment is explicit, with matching consumer migration.
+
+Credential reset, disabling and security-method changes require durable security-version and
+revocation propagation. Design idempotent provisioning/binding and an atomic Identity event
+outbox plus Server inbox/checkpoint, or an equivalent demonstrated protocol. State the
+revocation freshness bound and fail-closed behavior during unknown lag or outages. A delayed
+login result cannot revive a disabled account; an asynchronous event alone does not establish
+instantaneous global revocation. No distributed transaction or exactly-once effect is implied.
+
+## Product and frontend continuity
+
+Keep Theatre Web/CMP, web-only Studio, public API namespaces/domains, player ownership,
+Library/Progress/Bookmark semantics and native SQLDelight storage. Keep Script IR/revision
+bytes, accepted receipts, publication/rendition identities, hashes, rights and retraction
+semantics. Theatre is read-heavy, not write-free; Studio and listener/session mutations remain.
+
+One Server must replace the current two API processes using **route-scoped** origin, CSRF,
+credential and capability policies. Do not union Studio and Theatre origins into a global
+allowlist or relax exact-origin checks. Preserve separate Admin/producer authority.
+
+FE changes are limited to justified adapters/configuration/controllers and the credential,
+setup or MFA controls that replacing hosted Kanidm actually requires. Inventory exceptions;
+do not claim zero FE changes while removing a required login path. Preserve design, navigation,
+localization and error/retry behavior. No duplicate auth UI or production mock fallback.
+
+## Identity scope
+
+Implement only the account lifecycle needed by Cantos, not a general OIDC/LDAP/SCIM server.
+Use reviewed/pinned libraries for password KDFs, cryptography, randomness, mail and required
+MFA. Candidates include RustCrypto Argon2id, existing getrandom/lettre, secrecy/zeroize and
+reviewed TOTP/WebAuthn libraries. Dependency selection requires compatibility, advisory,
+license and feature review; a named candidate is not a dependency pin or security audit.
+
+The mailbox holder, not an initiating browser polling status, controls credential setup.
+GET/prefetch does not activate an account. Proofs are purpose-bound, expiring and single-use;
+existing identities cannot be adopted, reset or linked by matching email. Studio remains
+provisioned/login-only; replacing Kanidm must not silently remove its required second factor.
+
+Production mail still needs an explicitly configured, approved delivery path. Tests use a
+private run-owned inbox. No new SMTP server, live mailbox, provider login or cloud resource is
+required to run local tests. Account/password/passkey migration needs secure proof or explicit
+re-enrollment; it is not a presumed database copy.
+
+## Persistence and DBSP
+
+PostgreSQL locks, functions, grants, clock semantics and checksummed migrations protect real
+invariants. Port their guarantees deliberately to the pinned Turso engine; do not merely
+translate SQL or remove constraints. Keep context-owned adapters, short transactions,
+conditional mutations, immutable history and replay-safe receipts. File access control is a
+changed security boundary, not an equivalent replacement for PostgreSQL roles.
+
+DBSP is an optional in-process derived read model, never identity or authorization authority.
+The current sample has signed deltas but a PostgreSQL `xid8`/`xmin` freshness contract. There is
+no demonstrated Turso adapter at the reviewed baseline. Reuse appropriate computation, not
+PostgreSQL snapshot assumptions. A candidate needs an atomic committed change feed,
+snapshot/watermark alignment, whole-transaction publication, replay/deduplication, rebuild
+and bounded fallback to authoritative Turso SQL. Row IDs are not presumed commit ordering.
+
+Evaluate one concrete hot read against improved Turso SQL/index/cache baselines. Record
+`adopt | reject | defer`, including binary/RAM and write-maintenance cost. Reject/defer is
+valid; absent adoption evidence, DBSP stays out of the default release. No Feldera/broker
+process is added. No unmeasured throughput or footprint gain is claimed.
+
+## Assurance and native acceptance
+
+Use canonical engineering/behavior/domain/UI skills and existing xtask orchestration.
+Mandatory targeted Kani work covers selected high-risk pure production kernels: proof
+lifecycle, security epochs, session/replay decisions, revision exhaustion and, if adopted,
+feed/freshness decisions. Record assumptions, symbolic bounds, production reach and cover
+outcomes. Kani is not a proof of concurrent I/O, cryptographic libraries or database durability.
+
+Separate pure/property/model evidence from real Turso file-backed race/crash tests, actual
+crypto and gRPC, two-process API journeys, browser interactions and native device acceptance.
+Use owned temporary databases, deterministic clocks/IDs and a test-only inbox. Mocks do not
+satisfy real login/session evidence and must not enter production artifacts.
+
+Compare baseline/candidate on equivalent hardware, workloads, security and durability:
+stripped binaries plus dynamic dependencies, installed footprint, all-component idle/peak
+RSS/PSS, startup, build/test time, p50/p95/p99, errors, throughput and DB/WAL/backup bytes.
+Set budgets before tuning. Distinguish steady-state after retirement from migration peak
+holding recovery copies. Lower security or deleting user/media data is not optimization.
+
+## Migration and scoped supersession
+
+Provide a versioned, checksummed logical export/import and rehearse restore with stable IDs,
+permissions, immutable hashes and receipts. Existing PostgreSQL data is not assumed empty.
+Preserve historical SQL/checksums. Legacy export tooling is explicit migration work, never a
+default runtime/test dependency or permission to start containers.
+
+Coordinate the two databases' restore boundary and security epochs so restoring a snapshot
+cannot revive revoked sessions. A new owner cannot overlap an old owner on the same default
+Turso file. Once new writes are accepted, pointing back to an old database is not a no-loss
+rollback: define quiescence, reconciliation or forward recovery and test the failure points.
+
+Within this refactor, this decision supersedes the old PostgreSQL/Kanidm/container selection
+in ADR 0001/0021/0034/0036/0041, not their unrelated domain/security obligations. #332 owns
+reconciliation of active AGENTS/layout/contract/runbook references as code changes; historical
+records remain source-bound. Coordinate #174/#191/#242/#261/#295/#299/#326 and #277–#280,
+without closing them or creating competing implementations merely because a checkpoint merged.
+
+Review, issue logging and this documentation do not authorize deployment, DNS/IAM changes,
+real mail, account provisioning, database/media deletion or automatic merge. Live cutover and
+legacy retirement require separately authorized operator steps after restore acceptance.
+
+## Primary references
+
+- [Turso local Rust engine](https://docs.turso.tech/sdk/rust/quickstart),
+  [compatibility](https://docs.turso.tech/sql-reference/compatibility),
+  [transactions](https://docs.turso.tech/sql-reference/statements/transactions),
+  [single-process default](https://docs.turso.tech/sql-reference/multiprocess-access).
+- [Tonic](https://docs.rs/tonic/latest/tonic/),
+  [DBSP inputs](https://docs.rs/dbsp/latest/dbsp/operator/input/index.html),
+  [Kani limitations](https://model-checking.github.io/kani/tool-comparison.html).
+
+Documentation is research/decision evidence only. Runtime tests, Kani, benchmarks and live
+migration are not established by this record; GitHub owns their execution status.
