@@ -1062,25 +1062,28 @@ kotlin.exclude("com/cantos/ui/preview/**")
 }} }} }}''')
         self.assertEqual(self.errors(), [])
 
-    def test_library_codegen_route_is_literal_common_main_kotlin_and_requires_task_dependency(self):
-        route = 'kotlin.srcDir(layout.buildDirectory.dir("generated/libraryWire/commonMain/kotlin"))'
-        dependency = 'tasks.configureEach { dependsOn(generateLibraryWire) }'
-        self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}\n{dependency}")
-        self.assertEqual(self.errors(), [])
-        for scope, selected, hook in (
-            ("desktopMain", route, dependency),
-            ("commonMain", route.replace("kotlin.srcDir", "resources.srcDir"), dependency),
-            ("commonMain", route, ""),
-            ("commonMain", route.replace("commonMain/kotlin", "commonTest/kotlin"), dependency),
-            ("commonMain", route.replace("layout.buildDirectory.dir", "rootProject.file"), dependency),
-            ("commonMain", 'kotlin.srcDir(generatedLibraryMain)', dependency),
-        ):
-            with self.subTest(scope=scope, selected=selected, hook=hook):
-                self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ {scope} {{ {selected} }} }} }}\n{hook}")
-                self.assertViolation("source routing")
-        self.write("shared/build.gradle.kts", 'dependencies { implementation(project(":bridge")) }')
-        self.write("bridge/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}\n{dependency}")
-        self.assertViolation("source routing")
+    def test_schema_codegen_routes_are_literal_common_main_kotlin_and_require_their_exact_task(self):
+        for name, task in (("libraryWire", "generateLibraryWire"), ("registrationWire", "generateRegistrationWire")):
+            route = f'kotlin.srcDir(layout.buildDirectory.dir("generated/{name}/commonMain/kotlin"))'
+            dependency = f'tasks.configureEach {{ dependsOn({task}) }}'
+            self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}\n{dependency}")
+            self.assertEqual(self.errors(), [])
+            for scope, selected, hook in (
+                ("desktopMain", route, dependency),
+                ("commonMain", route.replace("kotlin.srcDir", "resources.srcDir"), dependency),
+                ("commonMain", route, ""),
+                ("commonMain", route, 'tasks.configureEach { dependsOn(generateUnreviewedWire) }'),
+                ("commonMain", route.replace("commonMain/kotlin", "commonTest/kotlin"), dependency),
+                ("commonMain", route.replace("layout.buildDirectory.dir", "rootProject.file"), dependency),
+                ("commonMain", 'kotlin.srcDir(generatedWireMain)', dependency),
+            ):
+                with self.subTest(name=name, scope=scope, selected=selected, hook=hook):
+                    self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ {scope} {{ {selected} }} }} }}\n{hook}")
+                    self.assertViolation("source routing")
+            self.write("shared/build.gradle.kts", 'dependencies { implementation(project(":bridge")) }')
+            self.write("bridge/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}\n{dependency}")
+            self.assertViolation("source routing")
+            self.write("bridge/build.gradle.kts", "")
 
     def test_binary_dependencies_and_non_kotlin_main_sources_require_policy(self):
         for dependency in ('implementation(files("../preview-sandbox/build/sandbox.jar"))',

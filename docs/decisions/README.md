@@ -9,6 +9,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 
 | ADR | Lifecycle | Scope / remaining boundary |
 | --- | --- | --- |
+| [0044 — Native enrollment preview](0044-native-enrollment-preview.md) | Proposed development boundary | Shared CMP registration and separately enabled native admission; isolated full journey and native/production acceptance remain separate |
 | [0001 — Modular monolith](0001-modular-monolith.md) | Accepted | Stack and inward module ownership; implemented baseline |
 | [0002 — Script IR](0002-script-ir-contract.md) | Proposed policy; implemented contract | Production adoption remains separate |
 | [0003 — Script revisions](0003-script-revision-persistence.md) | Proposed policy; implemented slice | Immutable local authenticated revision store |

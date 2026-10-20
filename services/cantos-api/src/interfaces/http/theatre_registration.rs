@@ -24,7 +24,103 @@ pub(super) fn routes() -> Router<AppState> {
             post(firebase_confirm),
         )
         .route("/auth/registration/firebase/cancel", post(firebase_cancel))
+        .route("/native/auth/registration", post(native_start))
+        .route(
+            "/native/auth/registration/firebase/confirm",
+            post(native_confirm),
+        )
+        .route(
+            "/native/auth/registration/firebase/cancel",
+            post(native_cancel),
+        )
         .layer(DefaultBodyLimit::max(8192))
+}
+
+#[derive(Clone, Copy)]
+enum RegistrationSurface {
+    Web,
+    Native,
+}
+
+/// Only these handlers own originless admission; never exempt a prefix or another surface.
+pub(super) fn native_mutation(method: &axum::http::Method, path: &str) -> bool {
+    method == axum::http::Method::POST
+        && matches!(
+            path,
+            "/api/v1/theatre/native/auth/registration"
+                | "/api/v1/theatre/native/auth/registration/firebase/confirm"
+                | "/api/v1/theatre/native/auth/registration/firebase/cancel"
+        )
+}
+
+/// Browser CSRF admission only, never evidence of app authenticity. No fabricated Origin.
+fn native_headers(headers: &HeaderMap) -> bool {
+    ![header::ORIGIN, header::COOKIE, header::AUTHORIZATION]
+        .iter()
+        .any(|name| headers.contains_key(name))
+        && !headers
+            .keys()
+            .any(|name| name.as_str().starts_with("sec-fetch-"))
+}
+
+fn firebase_admission(
+    state: &AppState,
+    headers: &HeaderMap,
+    surface: RegistrationSurface,
+) -> Option<Response> {
+    let Some(runtime) = state.store.theatre_firebase_enrollment() else {
+        return Some(failure(ErrorCode::NotFound, StatusCode::NOT_FOUND));
+    };
+    if matches!(surface, RegistrationSurface::Native) && !runtime.native_enabled() {
+        return Some(failure(ErrorCode::NotFound, StatusCode::NOT_FOUND));
+    }
+    let admitted = match surface {
+        RegistrationSurface::Web => same_origin(headers, runtime.web_origin(), &state.web_origin),
+        RegistrationSurface::Native => {
+            runtime.web_origin() == state.web_origin && native_headers(headers)
+        }
+    };
+    (!admitted).then(|| failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN))
+}
+
+pub(super) async fn native_configuration(
+    State(state): State<AppState>,
+) -> Json<dto::NativeRegistrationConfiguration> {
+    Json(match state.store.theatre_firebase_enrollment() {
+        Some(runtime) if runtime.native_enabled() && runtime.web_origin() == state.web_origin => {
+            dto::NativeRegistrationConfiguration::FirebaseEmailVerification {
+                action_origin: runtime.web_origin().to_owned(),
+            }
+        }
+        _ => dto::NativeRegistrationConfiguration::Unavailable {},
+    })
+}
+
+async fn native_start(
+    State(state): State<AppState>,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: Result<Json<dto::RegistrationRequest>, axum::extract::rejection::JsonRejection>,
+) -> Response {
+    firebase_start(state, peer, headers, body, RegistrationSurface::Native).await
+}
+
+async fn native_confirm(
+    State(state): State<AppState>,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: Result<Json<dto::FirebaseConfirmRequest>, axum::extract::rejection::JsonRejection>,
+) -> Response {
+    confirm_firebase(state, peer, headers, body, RegistrationSurface::Native).await
+}
+
+async fn native_cancel(
+    State(state): State<AppState>,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: Result<Json<dto::FirebaseConfirmRequest>, axum::extract::rejection::JsonRejection>,
+) -> Response {
+    cancel_firebase(state, peer, headers, body, RegistrationSurface::Native).await
 }
 
 fn accepted() -> Response {
@@ -55,7 +151,7 @@ async fn start(
     body: Result<Json<dto::RegistrationRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
     if state.store.theatre_firebase_enrollment().is_some() {
-        return firebase_start(state, peer, headers, body).await;
+        return firebase_start(state, peer, headers, body, RegistrationSurface::Web).await;
     }
     let Some(runtime) = state.store.theatre_registration() else {
         return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
@@ -176,13 +272,14 @@ async fn firebase_start(
     peer: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     body: Result<Json<dto::RegistrationRequest>, axum::extract::rejection::JsonRejection>,
+    surface: RegistrationSurface,
 ) -> Response {
+    if let Some(response) = firebase_admission(&state, &headers, surface) {
+        return response;
+    }
     let Some(runtime) = state.store.theatre_firebase_enrollment() else {
         return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
     };
-    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
-        return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
-    }
     let Ok(Json(body)) = body else {
         return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
     };
@@ -224,13 +321,23 @@ async fn firebase_confirm(
     headers: HeaderMap,
     body: Result<Json<dto::FirebaseConfirmRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
+    confirm_firebase(state, peer, headers, body, RegistrationSurface::Web).await
+}
+
+async fn confirm_firebase(
+    state: AppState,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: Result<Json<dto::FirebaseConfirmRequest>, axum::extract::rejection::JsonRejection>,
+    surface: RegistrationSurface,
+) -> Response {
+    if let Some(response) = firebase_admission(&state, &headers, surface) {
+        return response;
+    }
     use crate::platform::theatre_registration::firebase_enrollment::application::ConfirmationOutcome;
     let Some(runtime) = state.store.theatre_firebase_enrollment() else {
         return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
     };
-    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
-        return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
-    }
     let Ok(Json(body)) = body else {
         return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
     };
@@ -278,12 +385,22 @@ async fn firebase_cancel(
     headers: HeaderMap,
     body: Result<Json<dto::FirebaseConfirmRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
+    cancel_firebase(state, peer, headers, body, RegistrationSurface::Web).await
+}
+
+async fn cancel_firebase(
+    state: AppState,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: Result<Json<dto::FirebaseConfirmRequest>, axum::extract::rejection::JsonRejection>,
+    surface: RegistrationSurface,
+) -> Response {
+    if let Some(response) = firebase_admission(&state, &headers, surface) {
+        return response;
+    }
     let Some(runtime) = state.store.theatre_firebase_enrollment() else {
         return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
     };
-    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
-        return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
-    }
     let Ok(Json(body)) = body else {
         return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
     };

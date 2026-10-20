@@ -1218,12 +1218,15 @@ cross-site `web.app`/DuckDNS authentication with Strict session cookies.
 ### theatre-preview
 
 The Desktop Preview command surface (#287); starts no API, database, identity provider or audio
-adapter. `theatre-demo` is its historical name and runs the same commands.
+adapter. Its default recipes are offline. The explicit [live enrollment mode](../apps/cantos-theatre/mobile/README.md#live-enrollment-integration-296)
+uses real HTTP with `CANTOS_THEATRE_PREVIEW_API_ORIGIN` and
+`CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER`; it provisions no dependency and has no mock fallback.
+`theatre-demo` is its historical name and runs the same commands.
 
 ```sh
 cargo xtask theatre-preview build          # :preview-sandbox:compileKotlinDesktop (depends on :shared)
 cargo xtask theatre-preview verify         # :shared:desktopTest + :preview-sandbox:desktopTest
-cargo xtask theatre-preview run            # the one app over mock external ports, supervised desktop window
+cargo xtask theatre-preview run            # supervised desktop window; offline recipes or explicitly configured live enrollment
 cargo xtask theatre-preview android-build  # retired (#286): refused as UNSUPPORTED; use theatre-host android-debug
 cargo xtask theatre-preview ios-build      # retired (#287): refused as UNSUPPORTED; use theatre-host ios-build
 ```

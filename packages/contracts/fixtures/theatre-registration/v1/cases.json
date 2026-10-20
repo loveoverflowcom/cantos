@@ -103,5 +103,91 @@
       "operation_id": "op",
       "oob_code": null
     }
+  },
+  {
+    "kind": "native_configuration",
+    "valid": true,
+    "value": {
+      "status": "firebase_email_verification",
+      "action_origin": "https://cantos.example"
+    }
+  },
+  {
+    "kind": "native_configuration",
+    "valid": true,
+    "value": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "kind": "native_configuration",
+    "valid": false,
+    "value": {
+      "status": "firebase_email_verification"
+    }
+  },
+  {
+    "kind": "native_configuration",
+    "valid": false,
+    "value": {
+      "status": "unavailable",
+      "session_id": "forged"
+    }
+  },
+  {
+    "kind": "accepted",
+    "valid": true,
+    "value": {
+      "status": "accepted"
+    }
+  },
+  {
+    "kind": "accepted",
+    "valid": false,
+    "value": {
+      "status": "setup_link_sent"
+    }
+  },
+  {
+    "kind": "accepted",
+    "valid": false,
+    "value": {
+      "status": "accepted",
+      "session_id": "forged"
+    }
+  },
+  {
+    "kind": "firebase_confirmation",
+    "valid": true,
+    "value": {
+      "status": "setup_ready",
+      "login": "listener_fixture",
+      "setup_url": "https://idm.example/ui/reset?token=fixture-only"
+    }
+  },
+  {
+    "kind": "firebase_confirmation",
+    "valid": true,
+    "value": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "kind": "firebase_confirmation",
+    "valid": false,
+    "value": {
+      "status": "setup_ready",
+      "login": "listener_fixture"
+    }
+  },
+  {
+    "kind": "firebase_confirmation",
+    "valid": false,
+    "value": {
+      "status": "setup_ready",
+      "login": "listener_fixture",
+      "setup_url": "fixture",
+      "session_id": "forged"
+    }
   }
 ]

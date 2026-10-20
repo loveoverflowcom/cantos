@@ -196,7 +196,7 @@ class AuthAccountUiTest {
         waitForIdle()
         onNodeWithTag("back").assertContentDescriptionEquals("Về Đăng nhập")
         onNodeWithTag("register-unavailable").assertIsDisplayed()
-        onNodeWithText("Cantos không thu email hoặc mật khẩu tại đây", substring = true).assertExists()
+        onNodeWithText("Đăng ký chưa sẵn sàng", substring = true).assertExists()
         onAllNodes(hasSetTextAction()).assertCountEquals(0)
         onNodeWithText("Đăng ký hoàn tất", substring = true).assertDoesNotExist()
 

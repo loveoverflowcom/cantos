@@ -175,6 +175,14 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
         }
     }
     func cancelBrowser() { browser?.cancel(); browser = nil }
+    func openSetup(url: String, completion: @escaping (KotlinBoolean) -> KotlinUnit) {
+        guard let target = URL(string: url), target.scheme == "https" else {
+            _ = completion(KotlinBoolean(bool: false)); return
+        }
+        UIApplication.shared.open(target, options: [:]) { opened in
+            _ = completion(KotlinBoolean(bool: opened))
+        }
+    }
     private func failure(_ error: Error) -> String {
         switch error {
         case TheatreCredentialError.denied: return "denied"

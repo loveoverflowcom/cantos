@@ -14,7 +14,12 @@ use cantos_contracts::{theatre_identity as dto, ErrorCode};
 use serde::Deserialize;
 
 pub(super) fn routes(enabled: bool) -> Router<AppState> {
-    let routes = Router::new().route("/auth/configuration", get(configuration));
+    let routes = Router::new()
+        .route("/auth/configuration", get(configuration))
+        .route(
+            "/native/auth/registration/configuration",
+            get(super::theatre_registration::native_configuration),
+        );
     if !enabled {
         return routes;
     }

@@ -17,6 +17,7 @@ import com.cantos.theatre.app.TheatreShell
 import com.cantos.theatre.app.TheatreShellInputs
 import com.cantos.theatre.app.projectTheatreShell
 import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.preferences.PreferenceLocale
@@ -69,6 +70,7 @@ class PreviewOwners(
     localeStore: LocalePreferenceStore? = null,
     private val nowMs: () -> Long = { FixedNowMs },
     pageSize: Int = 50,
+    registration: RegistrationController? = null,
 ) {
     val catalogPort = PreviewCatalogPort(seed.state.catalogMode.toScenario(), pageSize)
     val access = PreviewPlaybackAccess(nowMs)
@@ -105,7 +107,7 @@ class PreviewOwners(
         newUuid = { uuid(8) }, nowMs = nowMs,
         onAccountChanged = { catalog.dispatch(PublicCatalogIntent.AccountChanged) },
     )
-    val shell = TheatreShell(scope, catalog, runtime, preferences, initialMembership = seed.membership)
+    val shell = TheatreShell(scope, catalog, runtime, preferences, initialMembership = seed.membership, registration = registration)
 
     init {
         applyInteractionSeed()

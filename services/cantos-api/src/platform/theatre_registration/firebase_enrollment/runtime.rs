@@ -11,6 +11,7 @@ use tokio::sync::OwnedSemaphorePermit;
 pub struct FirebaseEnrollmentRuntime {
     service: Arc<FirebaseEnrollmentService>,
     admission: RegistrationAdmission,
+    native_enabled: bool,
 }
 impl FirebaseEnrollmentRuntime {
     pub fn new(
@@ -22,6 +23,7 @@ impl FirebaseEnrollmentRuntime {
     ) -> Result<Self, RegistrationError> {
         Ok(Self {
             service,
+            native_enabled: false,
             admission: RegistrationAdmission::new(
                 web_origin,
                 network_key,
@@ -35,6 +37,14 @@ impl FirebaseEnrollmentRuntime {
     }
     pub fn web_origin(&self) -> &str {
         self.admission.web_origin()
+    }
+    /// Explicit development/activation boundary, independent of Web registration enablement.
+    pub fn with_native_enabled(mut self, enabled: bool) -> Self {
+        self.native_enabled = enabled;
+        self
+    }
+    pub fn native_enabled(&self) -> bool {
+        self.native_enabled
     }
     /// Replace the default direct-peer quota identity with an explicit, validated policy.
     pub fn with_peer_policy(mut self, policy: PeerPolicy) -> Self {

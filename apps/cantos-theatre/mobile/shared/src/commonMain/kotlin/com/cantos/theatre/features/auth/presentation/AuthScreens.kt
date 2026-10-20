@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.cantos.theatre.application.identity.AccountView
+import com.cantos.theatre.domain.identity.RegistrationState
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTheme
@@ -240,20 +241,22 @@ fun LoginScreen(
     }
 }
 
-/** Honest registration: the provider has no verified sign-up entry here, so no form and no success. */
+/** Production Register renders the enrollment owner; an absent owner remains explained. */
 @Composable
-fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit, previewActionIcons: Boolean = false) {
+fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit, previewActionIcons: Boolean = false,
+                   registration: RegistrationState? = null, onRegistration: (RegistrationIntent) -> Unit = {}) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
         AuthHeading(copy.text(AuthText.RegisterEyebrow), copy.text(AuthText.RegisterHeading), copy.text(AuthText.RegisterHelp))
-        Surface(Modifier.fillMaxWidth().testTag("register-unavailable").semantics { liveRegion = LiveRegionMode.Polite },
+        if (registration != null) RegistrationForm(registration, locale, onRegistration)
+        else Surface(Modifier.fillMaxWidth().testTag("register-unavailable").semantics { liveRegion = LiveRegionMode.Polite },
             tone = SurfaceTone.Container, variant = SurfaceVariant.Auth, inset = Space.Lg) {
             Text(copy.text(AuthText.SignupUnavailable), style = MaterialTheme.typography.bodyMedium)
         }
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             Button(
                 copy.text(AuthText.ReturnLogin), { onIntent(AuthIntent.OpenLogin) },
-                variant = ButtonVariant.AuthPrimary,
+                variant = if (registration == null) ButtonVariant.AuthPrimary else ButtonVariant.AuthOutlined,
                 icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenLogin) else "arrow_back",
                 controlModifier = Modifier.fillMaxWidth().testTag("register-login"),
             )

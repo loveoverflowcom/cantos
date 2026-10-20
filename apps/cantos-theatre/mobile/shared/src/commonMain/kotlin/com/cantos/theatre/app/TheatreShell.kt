@@ -5,6 +5,7 @@ import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.catalog.WalkPhase
 import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.identity.toAccountView
 import com.cantos.theatre.application.preferences.PreferenceLocale
 import com.cantos.theatre.application.preferences.PreferenceTheme
@@ -68,6 +69,8 @@ class TheatreShell(
     private val timerMinutesMs: (ShellTimer) -> Long = { if (it == ShellTimer.Fifteen) 15 * 60_000L else 30 * 60_000L },
     /** Membership starts unavailable; only a diagnostic host (the Desktop Preview) supplies a fixture. */
     initialMembership: MembershipState = MembershipState.unavailable(),
+    /** Borrowed from the platform owner; no controller means an honest unavailable destination. */
+    val registration: RegistrationController? = null,
 ) {
     private val mutableNavigation = MutableStateFlow(NavigationState())
     val navigation: StateFlow<NavigationState> = mutableNavigation.asStateFlow()
@@ -110,7 +113,9 @@ class TheatreShell(
             }
         }
         runtime.account?.let { owner ->
-            scope.launch { owner.state.collect { if (it is NativeAccountState.SignedIn) navigate(NavigationEvent.AuthCompleted) } }
+            scope.launch { owner.state.collect {
+                if (it is NativeAccountState.SignedIn) { registration?.reset(); navigate(NavigationEvent.AuthCompleted) }
+            } }
         }
     }
 
@@ -166,7 +171,12 @@ class TheatreShell(
     // --- navigation and account -----------------------------------------------------------------
 
     fun navigate(event: NavigationEvent) {
-        if (!closed) mutableNavigation.update { reduceNavigation(it, event) }
+        if (closed) return
+        val before = mutableNavigation.value
+        val next = reduceNavigation(before, event)
+        if (before.route == TheatreRoute.Register && next.route != TheatreRoute.Register) registration?.leave()
+        mutableNavigation.value = next
+        if (next.route == TheatreRoute.Register && before.route != TheatreRoute.Register) registration?.enter()
     }
 
     /** Back closes an open Login first (cancelling a pending attempt), then walks the typed stack. */
@@ -192,7 +202,7 @@ class TheatreShell(
         return true
     }
 
-    /** Registration is an explained-unavailable destination; it never reaches the identity owner. */
+    /** Registration borrows its separate enrollment owner, never the account's signed-in state. */
     fun openRegister(): Boolean {
         val owner = runtime.account ?: return false
         val state = owner.state.value
@@ -353,6 +363,7 @@ class TheatreShell(
     fun close() {
         closed = true
         timerJob?.cancel()
+        registration?.leave()
     }
 }
 

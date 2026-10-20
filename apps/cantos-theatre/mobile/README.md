@@ -245,9 +245,9 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   account ends, so Membership → Login → success resumes the guest's draft.
 - **Presentation** (`features/auth`): Login uses the vertical **Đăng nhập với Cantos ID** primary and
   **Tạo tài khoản Cantos** tonal actions from the #127 auth variants, with no tabs, legal links or
-  consent, and no password field. Native only opens the system browser with PKCE. Registration is an
-  explained **unavailable** step because no supported Cantos ID sign-up entry is verified; it never
-  collects an email or password or shows success. Guest and signed-in Account use the Profile,
+  consent, and no password field. Native login opens the system browser with PKCE. When its
+  enrollment owner is configured, Register uses the shared email/proof/setup flow below; otherwise
+  it explains the missing capability. Enrollment never authenticates the account. Guest and signed-in Account use the Profile,
   Membership and AccountGroup surfaces; signed-in shows no invented name, total, conflict or
   entitlement. Auth hides the tab bar and mini-player; the header gives priority to Back and the theme
   toggle and shows the logo only in leftover space. Back (visible, Android system and JVM Escape) is one
@@ -422,6 +422,63 @@ declarations become evidence only after the supported command executes and captu
 <a id="mock-storage-simulator"></a>
 
 ## Desktop Preview
+
+### Live enrollment integration (#296)
+
+The existing Desktop Preview has a separately selected live mode. It mounts the same
+`CantosTheatreApp` / `TheatreShell`, `RegistrationController`, generated registration wire types,
+`NativeRegistrationHttp`, `NativeAccountController` and `NativeIdentityClient` as native hosts.
+It never selects `PreviewIdentity`, a successful-session stub or a sample catalog in this mode.
+The default recipes/workbench remain offline and cannot silently replace a failed live mode.
+
+```sh
+CANTOS_THEATRE_PREVIEW_API_ORIGIN=https://api.local.example \
+CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER=https://idm.local.example/oauth2/openid/cantos-theatre-native \
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
+```
+
+Both inputs are required and must pass the existing native HTTPS/issuer validation. Use an
+explicitly owned isolated environment and trusted local TLS. The command starts only the preview;
+it never provisions an API, PostgreSQL, Auth Emulator, Kanidm, certificates or mail. Do not point
+the registration form at a real-mail environment without separate recipient/operator authority.
+The server needs its complete existing Firebase enrollment configuration and the separately
+disabled `CANTOS_THEATRE_REGISTRATION_FIREBASE_NATIVE_ENABLED=true` flag. The
+[contract](../../../packages/contracts/theatre-identity-v1.md#native-cmp-admission-296-development-opt-in)
+and proposed [ADR 0044](../../../docs/decisions/0044-native-enrollment-preview.md) own admission.
+
+Register checks capability, accepts an email and sends only on explicit Submit. A generic
+`accepted` response means neither delivery nor account creation. Obtain the exact action from
+the owned emulator's OOB inventory using the existing [#242 recipient tooling](../../../docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing);
+never send real mail, consume its default handler link, edit verified flags or manufacture a
+session. Paste the server-selected Web action link into Register, then explicitly confirm or
+cancel. Import validates the exact action origin, canonical operation continuation and closed
+query keys without dispatching a request. The API owns proof and provisioning.
+
+The one-shot setup button opens the configured Kanidm reset path in the external browser.
+Complete credentials there, return manually and select Login. The diagnostic strip can import
+the exact closed native OAuth callback from the system browser; it does not claim an OS deep link.
+The existing state/nonce/PKCE and API session checks still decide identity. Setup, proof, accepted
+and browser navigation never mark the account signed in. A failed/lost consuming response clears
+the capability and explains reconciliation; no automatic confirmation or setup retry occurs.
+Back preserves email and intent, forgets proof/setup and fences old replies. Cancel cannot recall
+a winning provider operation; its generic acknowledgement is not proof that cancellation won.
+
+Desktop credentials and the logout marker are deliberately RAM-only, erased on disposal. The
+live host has no audio decoder or durable Library adapter and reports those limits honestly.
+These desktop boundaries do not accept native storage, browser return, process death or playback.
+Static captures never select this mode or initiate network/mail. Android/iOS compose the same
+shared registration controller and adapter with their external-browser ports; separate device
+acceptance remains under #191/#184.
+
+`cargo xtask theatre-preview verify` includes strict shared-schema fixtures, hostile action/setup
+URLs, cancellation/Back/late responses, duplicate clicks and unknown consuming outcomes. The
+JVM UI tests use a loopback protocol fixture through the real desktop HTTP transport; that is
+**mocked integration**, with no Firebase, Kanidm or PostgreSQL. Captures under
+`preview-sandbox/build/reports/theatre-registration/` are synthetic, with theme/locale/frame/
+text-scale/density/hash sidecars. The [#296 ledger](../../../docs/evidence/issue296-cmp-enrollment.md)
+records actual results and remaining full-stack/native acceptance.
+
+### Offline recipes
 
 There is no Android or iOS preview host (#286, #287) and no Android Studio `@Preview` wrapper of the
 sandbox: `cargo xtask compose-preview cantos-theatre` has nothing to render until a future,

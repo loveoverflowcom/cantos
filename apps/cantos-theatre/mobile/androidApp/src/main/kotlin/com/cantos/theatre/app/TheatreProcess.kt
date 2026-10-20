@@ -15,6 +15,7 @@ import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
 import com.cantos.theatre.adapters.http.selectCatalogOrigin
 import com.cantos.theatre.adapters.identity.AndroidNativeHttp
 import com.cantos.theatre.adapters.identity.createAndroidNativeAccount
+import com.cantos.theatre.adapters.identity.createAndroidRegistration
 import com.cantos.theatre.adapters.library.AccountCatalogCache
 import com.cantos.theatre.adapters.library.NativeLibraryClient
 import com.cantos.theatre.adapters.library.androidLibraryStore
@@ -83,7 +84,8 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
             }
         })
     /** Navigation and typed route text outlive Activity recreation, like every other owner here. */
-    val shell = TheatreShell(scope, catalog, runtime, preferences)
+    private val registration = createAndroidRegistration(scope, app, origin.toString(), app.nativeMetadata("CantosNativeIssuer"))
+    val shell = TheatreShell(scope, catalog, runtime, preferences, registration = registration)
 }
 
 internal object ProductionProcess {

@@ -1,10 +1,24 @@
 package com.cantos.theatre.features.auth.presentation
 
 import com.cantos.theatre.application.identity.NativeAccountFailure
+import com.cantos.theatre.domain.identity.RegistrationFailure
 import com.cantos.theatre.presentation.model.ShellLocale
 
 internal class AuthCopy(private val locale: ShellLocale) {
     fun text(key: AuthText): String = if (locale == ShellLocale.English) key.en else key.vi
+
+    fun registrationFailure(reason: RegistrationFailure): String = text(when (reason) {
+        RegistrationFailure.InvalidEmail -> AuthText.RegisterInvalidEmail
+        RegistrationFailure.InvalidAction -> AuthText.RegisterInvalidAction
+        RegistrationFailure.Disabled -> AuthText.RegisterDisabled
+        RegistrationFailure.Unavailable -> AuthText.RegisterNetwork
+        RegistrationFailure.Denied -> AuthText.RegisterDenied
+        RegistrationFailure.Protocol -> AuthText.FailureProtocol
+        RegistrationFailure.ProofUnavailable -> AuthText.RegisterProofUnavailable
+        RegistrationFailure.StartUnknownOutcome -> AuthText.RegisterSendUnknown
+        RegistrationFailure.UnknownOutcome -> AuthText.RegisterUnknown
+        RegistrationFailure.Browser -> AuthText.RegisterBrowserFailed
+    })
 
     fun failure(reason: NativeAccountFailure): String = text(when (reason) {
         NativeAccountFailure.Configuration -> AuthText.FailureConfiguration
@@ -82,13 +96,43 @@ internal enum class AuthText(val vi: String, val en: String) {
     RegisterEyebrow("CANTOS ID · TÀI KHOẢN CỦA BẠN", "CANTOS ID · YOUR ACCOUNT"),
     RegisterHeading("Một nơi để trở lại.", "A place to return to."),
     RegisterHelp(
-        "Tài khoản Cantos dùng Cantos ID. Thông tin đăng ký được nhập tại bước xác thực khi dịch vụ hỗ trợ.",
-        "Your Cantos account uses Cantos ID. Registration details belong in the identity service when it supports sign-up.",
+        "Xác minh email trước, rồi đặt thông tin đăng nhập trong trình duyệt an toàn. Cantos không nhận mật khẩu tại đây.",
+        "Verify your email, then set up credentials in the secure browser. Cantos does not collect your password here.",
     ),
     SignupUnavailable(
-        "Tạo tài khoản chưa khả dụng. Cantos ID chưa có đường dẫn đăng ký được xác nhận; Cantos không thu email hoặc mật khẩu tại đây.",
-        "Account creation is unavailable. No supported Cantos ID registration entry has been confirmed; Cantos does not collect email or passwords here.",
+        "Đăng ký chưa sẵn sàng trên bản này. Bạn vẫn có thể đăng nhập hoặc nghe nội dung công khai.",
+        "Registration is not ready in this build. You can still sign in or play public stories.",
     ),
+    RegisterDisabled(
+        "Máy chủ chưa bật đăng ký cho bản này. Bạn vẫn có thể đăng nhập hoặc nghe nội dung công khai.",
+        "Registration is not enabled by the server for this build. You can still sign in or play public stories.",
+    ),
+    RegisterEmail("Địa chỉ email", "Email address"),
+    RegisterSend("Gửi yêu cầu xác minh", "Request email verification"),
+    RegisterSending("Đang gửi yêu cầu…", "Submitting the request…"),
+    RegisterChecking("Đang kiểm tra đăng ký…", "Checking registration availability…"),
+    RegisterWaiting("Yêu cầu đã được tiếp nhận. Kiểm tra hộp thư; phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo.", "The request was accepted. Check your inbox; this does not confirm delivery or account creation."),
+    RegisterLink("Dán liên kết xác minh từ email", "Paste the verification link from your email"),
+    RegisterImport("Kiểm tra liên kết", "Check the link"),
+    RegisterConfirm("Xác minh email", "Verify email"),
+    RegisterConfirmHelp("Liên kết đã sẵn sàng. Chỉ nút Xác minh email mới gửi mã tới máy chủ.", "The link is ready. Only Verify email sends the code to the server."),
+    RegisterVerifying("Đang xác minh email…", "Verifying email…"),
+    RegisterSetupReady("Email đã được xác minh. Mở bước đặt thông tin đăng nhập một lần trong trình duyệt; bạn chưa đăng nhập.", "Email verified. Open the one-time credential setup in the browser; you are not signed in yet."),
+    RegisterOpenSetup("Đặt thông tin đăng nhập", "Set up credentials"),
+    RegisterCredentialSetup("Hoàn tất trong trình duyệt, rồi trở lại Đăng nhập. Chỉ phiên được máy chủ xác nhận mới mở thư viện của bạn.", "Finish in the browser, then return to sign-in. Your library opens only after the server confirms your session."),
+    RegisterCancel("Hủy đăng ký", "Cancel registration"),
+    RegisterCancelling("Đang yêu cầu hủy…", "Requesting cancellation…"),
+    RegisterCancelled("Đã dừng đăng ký tại đây. Hủy không thu hồi thao tác máy chủ đã hoàn tất.", "Registration stopped here. Cancellation cannot undo work already completed by the server."),
+    RegisterRestart("Bắt đầu yêu cầu mới", "Start a new request"),
+    RegisterRetry("Kiểm tra lại", "Check again"),
+    RegisterInvalidEmail("Nhập địa chỉ email hợp lệ.", "Enter a valid email address."),
+    RegisterInvalidAction("Liên kết không hợp lệ hoặc không thuộc máy chủ này. Dán nguyên liên kết từ email.", "The link is invalid or belongs to another server. Paste the complete link from your email."),
+    RegisterNetwork("Không kết nối được dịch vụ đăng ký. Kiểm tra kết nối rồi thử lại.", "Registration could not be reached. Check your connection and try again."),
+    RegisterDenied("Máy chủ từ chối yêu cầu đăng ký trên bản này.", "The server refused registration from this build."),
+    RegisterProofUnavailable("Mã đã hết hạn, đã dùng hoặc không thể xác minh. Không gửi lại mã này; bắt đầu yêu cầu mới hoặc đăng nhập.", "The code is expired, already used or could not be verified. Do not resend this code; start a new request or sign in."),
+    RegisterSendUnknown("Chưa biết máy chủ đã nhận yêu cầu hay chưa. Kiểm tra hộp thư trước khi bắt đầu yêu cầu mới.", "The submission outcome is unknown. Check your inbox before starting a new request."),
+    RegisterUnknown("Chưa xác định được kết quả xác minh hoặc bàn giao. Không thử lại mã hay liên kết đặt thông tin; cần đối soát hoặc đăng nhập nếu đã hoàn tất.", "Verification or setup delivery has an unknown outcome. Do not retry the code or setup link; reconcile it, or sign in if setup finished."),
+    RegisterBrowserFailed("Không mở được trình duyệt. Liên kết một lần đã được bỏ khỏi ứng dụng; cần đối soát bàn giao trước khi thử lại.", "The browser could not open. The one-time link was removed from the app; reconcile setup delivery before trying again."),
     RegisterLater("Để sau, về Khám phá", "Later, back to Discover"),
 
     GuestBadge("Người nghe khách", "Guest listener"),

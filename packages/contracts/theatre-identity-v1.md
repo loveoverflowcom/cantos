@@ -39,6 +39,34 @@ mock state. Client intent IDs/bodies are stable; A's pending intents cannot be s
 
 ## Registration policy and implemented capability
 
+### Native CMP admission (#296, development opt-in)
+
+[ADR 0044](../../docs/decisions/0044-native-enrollment-preview.md) records the proposed native
+admission boundary, implemented for development review behind
+`CANTOS_THEATRE_REGISTRATION_FIREBASE_NATIVE_ENABLED=true` (default false). It requires the
+complete existing Firebase enrollment configuration and reuses that exact workflow and DTOs.
+
+| Route below `/api/v1/theatre/native/auth/registration` | Contract |
+| --- | --- |
+| GET `/configuration` | Strict registration schema's `native_configuration`: `firebase_email_verification` with the server-selected `action_origin` only when explicitly enabled, otherwise `unavailable`; no allocation or provider I/O |
+| POST base path | Existing email-only request and generic 202 `accepted` |
+| POST `/firebase/confirm` | Existing action request and one-shot `setup_ready` or `unavailable` |
+| POST `/firebase/cancel` | Existing action request and generic 202 acknowledgement; never proof that cancellation won |
+
+Native mutation admission refuses any Origin, Cookie, Authorization or `Sec-Fetch-*` header,
+including empty values. It requires JSON and the existing body limit, real peer/forwarding
+policy, global/peer quotas and in-flight limit. Web routes continue to require the exact Origin;
+they never inherit native admission. These anonymous routes grant no app authenticity or session.
+All responses remain no-store/no-referrer with no cookies. Disabled native mutation routes return
+404. The explicit flag does not establish production abuse protection or issuer acceptance.
+
+The first CMP return path imports an exact configured `https://ACTION_ORIGIN/?mode=verifyEmail…`
+link manually, with the same closed fields and fixed continuation as Web. Import performs no
+network action. Setup opens only the configured issuer's `/ui/reset?token=…`, once, from RAM.
+No arbitrary return URL or OS deep-link claim is introduced. Lost confirmation/setup delivery
+requires reconciliation; accepted/proof/setup states never authenticate. Native Bearer login
+and API session verification remain the only account authority.
+
 [ADR0034](../../docs/decisions/0034-theatre-signup-and-provisioned-studio.md) accepts
 public self-registration for Theatre and separately provisioned Studio administrators. Theatre
 registration never creates Studio authority or changes a Studio admission list. Product approval

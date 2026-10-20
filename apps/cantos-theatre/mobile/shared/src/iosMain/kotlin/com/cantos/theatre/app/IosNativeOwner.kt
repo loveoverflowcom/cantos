@@ -4,8 +4,12 @@ import com.cantos.theatre.domain.identity.NativeCallbackProfile
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeIdentityAvailability
 import com.cantos.theatre.adapters.http.NativeIdentityClient
+import com.cantos.theatre.adapters.http.NativeRegistrationHttp
+import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
 import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.RegistrationController
+import com.cantos.theatre.ports.RegistrationBrowser
 import com.cantos.theatre.domain.identity.LoginSecret
 import com.cantos.theatre.domain.identity.NativeCallback
 import com.cantos.theatre.ports.CredentialFailure
@@ -30,6 +34,7 @@ interface IosIdentityPlatform : NativeHttpPort {
     fun secureSecret(): String?
     fun s256(verifier: String): String?
     fun openBrowser(url: String): Boolean
+    fun openSetup(url: String, completion: (Boolean) -> Unit)
     fun cancelBrowser()
     fun readCredential(): IosStoreRead
     fun writeCredential(value: String): String?
@@ -48,6 +53,12 @@ class IosNativeIdentityOwner(apiOrigin: String?, issuer: String?, platform: IosI
         else -> CredentialFailure.Unavailable
     }
     val availability = NativeClientConfiguration.resolve(apiOrigin, issuer)
+    val registration = (availability as? NativeIdentityAvailability.Available)?.configuration?.let { config ->
+        RegistrationController(scope, NativeRegistrationHttp(ApiOrigin.parse(config.apiOrigin),
+            config.identity.issuer.substringBefore("/oauth2/openid/"), platform), object : RegistrationBrowser {
+            override fun openSetup(url: String, completion: (Boolean) -> Unit) = platform.openSetup(url, completion)
+        })
+    }
     val controller = when (val resolved = availability) {
         is NativeIdentityAvailability.Available -> resolved.configuration.let {
             val now = { NSDate().timeIntervalSince1970.toLong() }
@@ -85,5 +96,5 @@ class IosNativeIdentityOwner(apiOrigin: String?, issuer: String?, platform: IosI
         controller?.callback(NativeCallback(NativeCallbackProfile.Production.redirect, state, code, hasError))
     }
     fun browserCancelled() { controller?.cancelLogin() }
-    fun close() { controller?.close(); scope.cancel() }
+    fun close() { registration?.close(); controller?.close(); scope.cancel() }
 }
