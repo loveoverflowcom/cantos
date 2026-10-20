@@ -85,7 +85,7 @@ mock adapters, fixtures, previews, diagnostic composition and workbench in `:pre
 The sandbox depends on shared; shared has no reverse dependency or implicit mock fallback.
 The Desktop Preview is the only mock host; Android and iOS have none (#286, #287). The one Android application `androidApp`
 consumes shared plus production adapters only (`CantosTheatreApp` over the live catalog, account,
-Library and native player; without an API origin it renders an explicit unavailable state) and establishes release graph and actual APK/AAB exclusion independently
+Library and native player; the API origin is an explicit override else the production default, and a refused configuration renders a typed unavailable state, #298) and establishes release graph and actual APK/AAB exclusion independently
 through `cargo xtask theatre-host android-release`. Build/verify integrate
 `:shared:assertProductionSafeDependencies` for resolved shared desktop and opt-in Android
 release compile/runtime graphs; its report is `shared/build/reports/production-boundary/resolved-dependencies.txt`.

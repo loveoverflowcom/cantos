@@ -37,9 +37,10 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        // Public API origin for the live catalog in both debug and release. Explicit Gradle property
-        // overrides the environment (an empty property opts out). Manifest merger substitutes
-        // the attribute; no source is generated. Runtime admits https:// for any build and
+        // Optional API origin override for the live catalog in both debug and release. Explicit
+        // Gradle property overrides the environment. An empty value means "no override": the app
+        // resolves the production default in Kotlin (`selectCatalogOrigin`, #298), the one owner.
+        // Manifest merger substitutes the attribute; no source is generated. Runtime admits https:// for any build and
         // loopback http:// only for a debuggable build with the debug network config.
         manifestPlaceholders["cantosReleaseAudit"] = releaseAudit.toString()
         manifestPlaceholders["cantosApiOrigin"] = providers.gradleProperty("cantos.apiOrigin")

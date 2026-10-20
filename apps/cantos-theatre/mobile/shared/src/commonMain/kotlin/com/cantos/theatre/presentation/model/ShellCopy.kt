@@ -148,6 +148,18 @@ enum class CopyKey(val vi: String, val en: String, val enOne: String? = null) {
     KindStory("Truyện", "Story"),
     KindPodcast("Podcast", "Podcast"),
     Chapters("Các chương", "Chapters"),
+    // Standard error window (#298): closed vocabulary, never raw exception, SQL or provider text.
+    ErrorDialogTitle("Chưa hoàn tất thao tác", "Couldn’t complete that"),
+    CloseError("Đóng", "Close"),
+    ErrorNetwork("Chưa kết nối được với máy chủ. Hãy kiểm tra mạng và thử lại.", "Couldn’t reach the server. Check your connection and try again."),
+    ErrorTimeout("Phản hồi từ máy chủ quá thời gian chờ. Hãy thử lại.", "The server took too long to respond. Try again."),
+    ErrorUnauthenticated("Cần đăng nhập để thực hiện thao tác này.", "Sign in to continue with this action."),
+    ErrorForbidden("Tài khoản hiện tại không có quyền thực hiện thao tác này.", "Your account does not have access to this action."),
+    ErrorContentUnavailable("Nội dung này đã thay đổi hoặc không còn mở công khai.", "This content has changed or is no longer available."),
+    ErrorProtocol("Phản hồi từ máy chủ không đúng định dạng mong đợi. Hãy thử lại.", "The server returned an unexpected response. Try again."),
+    ErrorConfiguration("Cấu hình máy chủ của bản dựng này không hợp lệ.", "This build’s server configuration is invalid."),
+    ErrorStorage("Chưa lưu được dữ liệu trên thiết bị này. Hãy thử lại.", "Couldn’t save data on this device. Try again."),
+    ErrorServiceUnavailable("Dịch vụ đang tạm thời gián đoạn. Hãy thử lại sau ít phút.", "The service is temporarily unavailable. Try again in a moment."),
 }
 
 class ShellCopy(

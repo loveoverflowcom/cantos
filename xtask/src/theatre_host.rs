@@ -64,7 +64,8 @@ pub enum HostAction {
     /// Build the production Android host's unsigned release APK and AAB and inspect release
     /// classpaths, DEX classes, resources and manifest for sandbox, mock and test content.
     AndroidRelease {
-        /// Optional exact HTTPS API origin. Omission builds an explicitly unconfigured host.
+        /// Optional exact HTTPS API origin override. Omission builds the host that resolves the
+        /// production default `https://api.cantos.cc` (#298).
         #[arg(long, value_name = "ORIGIN")]
         api_origin: Option<String>,
         #[arg(long, value_name = "ISSUER")]

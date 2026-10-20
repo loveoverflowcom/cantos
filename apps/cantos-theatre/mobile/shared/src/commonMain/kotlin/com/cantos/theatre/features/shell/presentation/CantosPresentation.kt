@@ -55,6 +55,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.cantos.theatre.application.errors.ErrorAction
+import com.cantos.theatre.application.errors.ErrorNotice
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCapabilities
 import com.cantos.theatre.presentation.model.ShellCatalogMode
@@ -133,12 +135,16 @@ fun CantosPresentation(
     motionPreference: MotionPreference = MotionPreference.Reduced,
     density: Density = Density.Comfortable,
     localeSaveUnavailable: Boolean = false,
+    activeError: ErrorNotice? = null,
+    onErrorAction: (ErrorAction) -> Unit = {},
+    onErrorDismiss: () -> Unit = {},
+    errorReturnFocus: FocusRequester? = null,
 ) {
     val copy = ShellCopy(state.locale, LocalShellCopyOverrides.current)
     val notice = LocalShellNotice.current
-    val back = { dispatch(ShellEvent.Back) }
+    val back = { if (activeError != null) onErrorDismiss() else dispatch(ShellEvent.Back) }
     SideEffect { onThemeChanged(state.theme == ShellTheme.Dark) }
-    backHandler(canGoBack(state), back)
+    backHandler(activeError != null || canGoBack(state), back)
     val entryFocus = rememberAuthEntryFocus(state.stack)
     CantosTheme(
         UiPreferences(
@@ -222,6 +228,15 @@ fun CantosPresentation(
                     MiniPlayer(state, catalog, copy, dispatch)
                     ShellTabs(state, copy, dispatch)
                 }
+            }
+            if (activeError != null) {
+                ErrorDialog(
+                    notice = activeError,
+                    copy = copy,
+                    onAction = onErrorAction,
+                    onDismiss = onErrorDismiss,
+                    returnFocus = errorReturnFocus,
+                )
             }
         }
     }

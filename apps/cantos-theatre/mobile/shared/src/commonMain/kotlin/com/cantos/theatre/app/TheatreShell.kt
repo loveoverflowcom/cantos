@@ -4,6 +4,15 @@ import com.cantos.theatre.application.catalog.DetailPhase
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.catalog.WalkPhase
+import com.cantos.theatre.application.errors.ErrorAction
+import com.cantos.theatre.application.errors.ErrorCenterState
+import com.cantos.theatre.application.errors.ErrorEffect
+import com.cantos.theatre.application.errors.ErrorEvent
+import com.cantos.theatre.application.errors.ErrorKind
+import com.cantos.theatre.application.errors.ErrorKey
+import com.cantos.theatre.application.errors.ErrorOperation
+import com.cantos.theatre.application.errors.reduceErrors
+import com.cantos.theatre.application.errors.toErrorNotice
 import com.cantos.theatre.application.identity.NativeAccountState
 import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.identity.toAccountView
@@ -80,6 +89,8 @@ class TheatreShell(
     val known: StateFlow<KnownCatalog> = mutableKnown.asStateFlow()
     private val mutableRequested = MutableStateFlow<UnitRequest?>(null)
     val requested: StateFlow<UnitRequest?> = mutableRequested.asStateFlow()
+    private val mutableErrors = MutableStateFlow(ErrorCenterState())
+    val errors: StateFlow<ErrorCenterState> = mutableErrors.asStateFlow()
     private var timerJob: Job? = null
     private var closed = false
 
@@ -107,15 +118,50 @@ class TheatreShell(
         scope.launch {
             runtime.listening.playback.state.collect { state ->
                 val unit = state.session?.source?.audio?.unitId
-                if (unit != null && unit == mutableRequested.value?.unitId) mutableRequested.value = null
+                if (unit != null && unit == mutableRequested.value?.unitId) {
+                    mutableRequested.value = null
+                    ErrorKind.entries.forEach { kind ->
+                        onErrorEvent(ErrorEvent.Resolved(ErrorKey(kind, ErrorOperation.StartPlayback)))
+                    }
+                }
                 // The end of an episode satisfies "end of episode"; the timer does not outlive it.
                 if (state.status == com.cantos.theatre.domain.playback.PlaybackStatus.Ended && mutableUi.value.timer != ShellTimer.Off) setTimer(ShellTimer.Off)
             }
         }
+        scope.launch {
+            runtime.listening.failure.collect { failure ->
+                if (failure != null) {
+                    onErrorEvent(ErrorEvent.Reported(failure.toErrorNotice(ErrorOperation.StartPlayback), hasContent = false))
+                }
+            }
+        }
         runtime.account?.let { owner ->
             scope.launch { owner.state.collect {
-                if (it is NativeAccountState.SignedIn) { registration?.reset(); navigate(NavigationEvent.AuthCompleted) }
+                if (it is NativeAccountState.SignedIn) {
+                    ErrorKind.entries.forEach { kind ->
+                        onErrorEvent(ErrorEvent.Resolved(ErrorKey(kind, ErrorOperation.SignIn)))
+                    }
+                    registration?.reset()
+                    navigate(NavigationEvent.AuthCompleted)
+                }
             } }
+        }
+    }
+
+    /** Routes an [ErrorEvent] through the pure [reduceErrors] contract and executes any returned effect. */
+    fun onErrorEvent(event: ErrorEvent) {
+        if (closed) return
+        val transition = reduceErrors(mutableErrors.value, event)
+        mutableErrors.value = transition.state
+        when (val effect = transition.effect) {
+            null -> Unit
+            is ErrorEffect.Retry -> when (effect.operation) {
+                ErrorOperation.StartPlayback -> dispatch(ShellEvent.RetryListening)
+                ErrorOperation.UpdateLibrary -> runtime.library?.let { if (library.value.pending > 0) it.drain() else it.refresh() }
+                ErrorOperation.SignIn -> openLogin()
+                ErrorOperation.LoadCatalog, ErrorOperation.LoadWork, ErrorOperation.LoadUnits -> retry()
+            }
+            ErrorEffect.OpenSignIn -> requireAccount()
         }
     }
 

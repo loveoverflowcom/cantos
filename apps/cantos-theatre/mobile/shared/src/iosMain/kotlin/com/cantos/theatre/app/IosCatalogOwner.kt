@@ -8,10 +8,9 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.cantos.theatre.adapters.http.CatalogHttpRequest
 import com.cantos.theatre.adapters.http.CatalogHttpResponse
 import com.cantos.theatre.adapters.http.CatalogHttpTransport
-import com.cantos.theatre.adapters.http.CatalogOriginSelection
 import com.cantos.theatre.adapters.http.CatalogResponseTooLargeException
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
-import com.cantos.theatre.adapters.http.selectCatalogOrigin
+import com.cantos.theatre.adapters.http.selectPackagedApiOrigin
 import com.cantos.theatre.adapters.preferences.IosLocalePreferenceStore
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
@@ -74,20 +73,21 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
                       mediaDriver: IosMediaDriver, applicationSupportDirectory: String) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val preferences = PreferencesController(localePreferenceStore = IosLocalePreferenceStore())
-    private val selectedOrigin = selectCatalogOrigin(apiOrigin, allowLoopbackHttp = false)
+    // The packaged explicit override, else the production default; a refusal is typed and shown, never a mock.
+    private val selectedOrigin = hostOrigin(selectPackagedApiOrigin(apiOrigin, allowLoopbackHttp = false))
     private var accountScope: String? = null
-    private val store = (selectedOrigin as? CatalogOriginSelection.Configured)?.let {
+    private val store = (selectedOrigin as? HostOrigin.Ready)?.let {
         // Foreign database initialization is contained at the host; public discovery remains usable.
         try { iosLibraryStore(applicationSupportDirectory) } catch (_: Exception) { null }
     }
     private val cache = store?.let { AccountCatalogCache(it) { accountScope } }
     private val catalog = when (val origin = selectedOrigin) {
-        is CatalogOriginSelection.Configured -> PublicCatalogController(scope,
+        is HostOrigin.Ready -> PublicCatalogController(scope,
             PublicCatalogHttpAdapter(origin.origin, IosCatalogTransport(platform), cache), { cache?.invalidate() })
             .also { it.dispatch(PublicCatalogIntent.Start) }
-        CatalogOriginSelection.NotConfigured, CatalogOriginSelection.Rejected -> null
+        is HostOrigin.Refused -> null
     }
-    private val runtime = (selectedOrigin as? CatalogOriginSelection.Configured)?.let { configured ->
+    private val runtime = (selectedOrigin as? HostOrigin.Ready)?.let { configured ->
         val origin = configured.origin
         val authorizedHttp = identity.controller?.let { NativeAuthorizedHttpPort(scope, origin, it, identityPlatform) }
             ?: identityPlatform
@@ -120,7 +120,8 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
         remember(dark) { preferences.setTheme(if (dark) PreferenceTheme.Dark else PreferenceTheme.Light) }
         val ui = UiPreferences(theme = ThemeMode.System.resolve(systemIsDark = dark))
         val owner = shell
-        if (owner == null) CantosListeningUnavailable(ui, locale = locale.locale.toShellLocale())
+        if (owner == null) CantosListeningUnavailable(ui, locale = locale.locale.toShellLocale(),
+            fault = (selectedOrigin as? HostOrigin.Refused)?.fault)
         else CantosTheatreApp(owner, cache = cache)
     }
 
