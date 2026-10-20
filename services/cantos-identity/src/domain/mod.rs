@@ -2,4 +2,5 @@
 
 pub mod admission;
 pub mod ids;
+pub mod mailbox_proof;
 pub mod security_version;

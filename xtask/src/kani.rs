@@ -74,11 +74,12 @@ pub enum Kernel {
     PublicCover,
     IdentitySecurityVersion,
     IdentityCompletion,
+    IdentityMailboxProof,
     ForgeAttemptLedger,
 }
 
 impl Kernel {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::CatalogRevision,
         Self::ImageBounds,
         Self::WavPayload,
@@ -91,6 +92,7 @@ impl Kernel {
         Self::PublicCover,
         Self::IdentitySecurityVersion,
         Self::IdentityCompletion,
+        Self::IdentityMailboxProof,
         Self::ForgeAttemptLedger,
     ];
 
@@ -108,6 +110,7 @@ impl Kernel {
             Self::PublicCover => "public-cover",
             Self::IdentitySecurityVersion => "identity-security-version",
             Self::IdentityCompletion => "identity-completion",
+            Self::IdentityMailboxProof => "identity-mailbox-proof",
             Self::ForgeAttemptLedger => "forge-attempt-ledger",
         }
     }
@@ -126,7 +129,9 @@ impl Kernel {
             | Self::PlaybackGrant
             | Self::PublicCover => Package::Api,
             Self::ForgeAttemptLedger => Package::Forge,
-            Self::IdentitySecurityVersion | Self::IdentityCompletion => Package::Identity,
+            Self::IdentitySecurityVersion
+            | Self::IdentityCompletion
+            | Self::IdentityMailboxProof => Package::Identity,
         }
     }
 
@@ -150,6 +155,7 @@ impl Kernel {
             Self::PublicCover => "contexts::media::domain::public_cover::kani_proofs::public_cover_requires_pinned_bound_image_and_current_disclosure",
             Self::IdentitySecurityVersion => "domain::security_version::kani_proofs::security_version_never_wraps_or_leaves_storage_range",
             Self::IdentityCompletion => "domain::admission::kani_proofs::completion_requires_current_active_bound_security_state",
+            Self::IdentityMailboxProof => "domain::mailbox_proof::kani_proofs::mailbox_proof_plans_require_explicit_current_bound_unexpired_confirmation",
             Self::ForgeAttemptLedger => "domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry",
         }
     }
@@ -182,6 +188,9 @@ impl Kernel {
                 "services/cantos-identity/src/domain/security_version.rs"
             }
             Self::IdentityCompletion => "services/cantos-identity/src/domain/admission.rs",
+            Self::IdentityMailboxProof => {
+                "services/cantos-identity/src/domain/mailbox_proof/kani_proofs.rs"
+            }
             Self::ForgeAttemptLedger => "services/cantos-forge-functions/src/domain/attempt.rs",
         }
     }
@@ -200,6 +209,7 @@ impl Kernel {
             Self::PublicCover => 6,
             Self::IdentitySecurityVersion => 6,
             Self::IdentityCompletion => 10,
+            Self::IdentityMailboxProof => 16,
             Self::ForgeAttemptLedger => 9,
         }
     }
@@ -221,7 +231,9 @@ impl Kernel {
             Self::ByteRange => Vec::new(),
             Self::PlaybackGrant => Vec::new(),
             Self::PublicCover => Vec::new(),
-            Self::IdentitySecurityVersion | Self::IdentityCompletion => Vec::new(),
+            Self::IdentitySecurityVersion
+            | Self::IdentityCompletion
+            | Self::IdentityMailboxProof => Vec::new(),
             Self::ForgeAttemptLedger => Vec::new(),
         }
     }
@@ -318,8 +330,15 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
                 | "services/cantos-identity/src/domain/ids.rs"
                 | "services/cantos-identity/src/domain/security_version.rs"
         ) {
-            // The completion kernel reaches the checked version/identifier constructors too.
+            // Completion and mailbox proof reach the checked version/identifier constructors.
             selected.extend(Kernel::in_package(Package::Identity));
+        }
+        if path == "services/cantos-identity/src/domain/admission.rs"
+            || path == "services/cantos-identity/src/domain/mailbox_proof.rs"
+            || path.starts_with("services/cantos-identity/src/domain/mailbox_proof/")
+        {
+            // Mailbox recovery uses Purpose from admission; its proof module is split by role.
+            selected.insert(Kernel::IdentityMailboxProof);
         }
         if path == "services/cantos-server/src/contexts/listening/mod.rs"
             || path.starts_with("services/cantos-server/src/contexts/listening/domain/")
@@ -779,10 +798,16 @@ mod tests {
     #[test]
     fn changed_kernels_select_only_registered_affected_propositions() {
         for kernel in Kernel::ALL {
-            let expected = if kernel == Kernel::IdentitySecurityVersion {
-                vec![Kernel::IdentitySecurityVersion, Kernel::IdentityCompletion]
-            } else {
-                vec![kernel]
+            let expected = match kernel {
+                Kernel::IdentitySecurityVersion => vec![
+                    Kernel::IdentitySecurityVersion,
+                    Kernel::IdentityCompletion,
+                    Kernel::IdentityMailboxProof,
+                ],
+                Kernel::IdentityCompletion => {
+                    vec![Kernel::IdentityCompletion, Kernel::IdentityMailboxProof]
+                }
+                _ => vec![kernel],
             };
             assert_eq!(pick(&[kernel.source()], false), expected);
         }
@@ -902,7 +927,11 @@ mod tests {
 
     #[test]
     fn identity_proofs_select_their_real_shared_construction_dependencies() {
-        let identity = [Kernel::IdentitySecurityVersion, Kernel::IdentityCompletion];
+        let identity = [
+            Kernel::IdentitySecurityVersion,
+            Kernel::IdentityCompletion,
+            Kernel::IdentityMailboxProof,
+        ];
         assert_eq!(
             Kernel::in_package(Package::Identity).collect::<Vec<_>>(),
             identity
@@ -918,11 +947,23 @@ mod tests {
         }
         assert_eq!(
             pick(&[Kernel::IdentityCompletion.source()], false),
-            [Kernel::IdentityCompletion]
+            [Kernel::IdentityCompletion, Kernel::IdentityMailboxProof]
         );
+        for path in [
+            "services/cantos-identity/src/domain/mailbox_proof.rs",
+            "services/cantos-identity/src/domain/mailbox_proof/tests.rs",
+            Kernel::IdentityMailboxProof.source(),
+        ] {
+            assert_eq!(
+                pick(&[path], false),
+                [Kernel::IdentityMailboxProof],
+                "{path}"
+            );
+        }
         assert_eq!(pick(&["services/cantos-identity/README.md"], false), []);
         assert_eq!(Kernel::IdentitySecurityVersion.covers(), 6);
         assert_eq!(Kernel::IdentityCompletion.covers(), 10);
+        assert_eq!(Kernel::IdentityMailboxProof.covers(), 16);
         for kernel in identity {
             assert!(kernel.unreachable().is_empty());
         }
@@ -942,7 +983,7 @@ mod tests {
         );
         assert_eq!(kernel.covers(), 9);
         assert!(kernel.unreachable().is_empty());
-        assert_eq!(Kernel::ALL.len(), 13);
+        assert_eq!(Kernel::ALL.len(), 14);
         assert_eq!(Kernel::ALL.last(), Some(&kernel));
     }
 

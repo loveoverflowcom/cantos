@@ -59,7 +59,7 @@ apps/
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
   cantos-server/           Rust + Axum + PostgreSQL modular monolith (package cantos-server)  IMPLEMENTED
-  cantos-identity/         Pure security-state library; no binary, credentials, DB or RPC    CORE ONLY
+  cantos-identity/         Pure security/proof plans; no binary, credentials, DB or RPC      CORE ONLY
   manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
   postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
   kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
@@ -230,7 +230,7 @@ The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds 
 | Member | Package | Build target |
 | --- | --- | --- |
 | `services/cantos-server` | `cantos-server` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
-| `services/cantos-identity` | `cantos-identity` | dependency-free security-state library only; [runtime prerequisites and evidence boundary](../../services/cantos-identity/README.md) |
+| `services/cantos-identity` | `cantos-identity` | dependency-free security-state and mailbox-proof plans only; [runtime prerequisites and evidence boundary](../../services/cantos-identity/README.md) |
 | `services/cantos-forge-functions` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
