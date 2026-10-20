@@ -22,8 +22,8 @@ pub(crate) use session::{authenticate, session_token_registered};
 pub(crate) type Tx<'a> = deadpool_postgres::Transaction<'a>;
 
 // Retained public compatibility path; the aggregate and its use-case error vocabulary belong
-// to composition, while this module implements PostgreSQL connection/session plumbing only.
-pub use crate::composition::{Store, StoreError};
+// to application, while this module implements PostgreSQL connection/session plumbing only.
+pub use crate::application::{Store, StoreError};
 
 impl From<tokio_postgres::Error> for StoreError {
     fn from(_: tokio_postgres::Error) -> Self {

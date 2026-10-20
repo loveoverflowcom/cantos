@@ -9,13 +9,13 @@ use axum::{
 use cantos_contracts::{AppendContentRequest, ErrorCode};
 use serde::Deserialize;
 
-use super::super::{cookie_token, error_response, AppState};
+use super::super::{errors::error_response, studio::admission::cookie_token, AppState};
 use super::catalog::{catalog_error, failure, CatalogBody};
+use crate::application::StoreError;
 use crate::contexts::catalog::{
     wire::{content as input, validate_unit_id},
     CatalogStoreError,
 };
-use crate::platform::postgres::StoreError;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

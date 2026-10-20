@@ -53,7 +53,7 @@ fn supported_method(value: &str) -> bool {
 }
 
 fn refusal() -> Response {
-    let mut response = super::failure(
+    let mut response = super::errors::failure(
         cantos_contracts::ErrorCode::Forbidden,
         StatusCode::FORBIDDEN,
     );

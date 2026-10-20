@@ -1,7 +1,8 @@
 //! Only the current Studio mount exposes OIDC. Handlers never inspect provider claims.
 use crate::{
     adapters::inbound::http::{
-        error_response, failure, studio_fence_matches, studio_fenced_response, AppState,
+        errors::error_response, errors::failure, studio::admission::studio_fence_matches,
+        studio::admission::studio_fenced_response, AppState,
     },
     platform::studio_oidc::{AuthError, BrowserInventory, StudioOidc, MAX_BROWSER_FLOWS},
 };
@@ -123,7 +124,7 @@ async fn login(
         Err(e) => return error(e),
     };
     if previous.is_some()
-        || headers.contains_key(super::super::STUDIO_SESSION_HEADER)
+        || headers.contains_key(super::admission::STUDIO_SESSION_HEADER)
         || query.studio_session_id.is_some()
     {
         let session_id = match previous.as_deref() {
@@ -213,7 +214,7 @@ pub(super) async fn logout(state: AppState, headers: HeaderMap) -> Response {
             };
         }
     };
-    let expected = headers.contains_key(super::super::STUDIO_SESSION_HEADER);
+    let expected = headers.contains_key(super::admission::STUDIO_SESSION_HEADER);
     let stale_only = headers
         .get("x-cantos-studio-stale-only")
         .is_some_and(|value| value == "1");
@@ -248,7 +249,7 @@ pub(super) async fn logout(state: AppState, headers: HeaderMap) -> Response {
                         &retirement,
                     )
                 }
-                Err(crate::platform::postgres::StoreError::Unauthenticated) => {}
+                Err(crate::application::StoreError::Unauthenticated) => {}
                 Err(error) => return error_response(error),
             }
         }
@@ -283,7 +284,7 @@ pub(super) async fn logout(state: AppState, headers: HeaderMap) -> Response {
             // Browser cookies cannot condition an expiry header on the session value. A late
             // A response must not erase B's newly installed session/flow. The guarded UI leaves
             // only an inert locally revoked cookie, which the next successful login overwrites.
-            if headers.contains_key(super::super::STUDIO_SESSION_HEADER)
+            if headers.contains_key(super::admission::STUDIO_SESSION_HEADER)
                 || headers.contains_key("x-cantos-studio-stale-only")
             {
                 cookies(response, &retirement)
@@ -341,7 +342,7 @@ fn error(error: AuthError) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::inbound::http::cookie_token_for_name;
+    use crate::adapters::inbound::http::studio::admission::cookie_token_for_name;
     #[test]
     fn duplicate_cookie_headers_and_mixed_session_names_are_rejected() {
         let mut headers = HeaderMap::new();
@@ -349,7 +350,7 @@ mod tests {
         headers.append(header::COOKIE, HeaderValue::from_static("cantos_session=b"));
         assert!(matches!(
             cookie_token_for_name(&headers, "cantos_session"),
-            Err(crate::platform::postgres::StoreError::Unauthenticated)
+            Err(crate::application::StoreError::Unauthenticated)
         ));
         assert_eq!(
             unique_cookie(&headers, "cantos_session"),
@@ -362,7 +363,7 @@ mod tests {
         );
         assert!(matches!(
             cookie_token_for_name(&headers, "__Secure-cantos_studio"),
-            Err(crate::platform::postgres::StoreError::Unauthenticated)
+            Err(crate::application::StoreError::Unauthenticated)
         ));
         headers.clear();
         headers.insert(
@@ -371,7 +372,7 @@ mod tests {
         );
         assert!(matches!(
             cookie_token_for_name(&headers, "cantos_session"),
-            Err(crate::platform::postgres::StoreError::Unauthenticated)
+            Err(crate::application::StoreError::Unauthenticated)
         ));
     }
 }

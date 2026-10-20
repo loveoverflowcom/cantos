@@ -14,9 +14,13 @@ use cantos_contracts::{
 };
 use serde::Deserialize;
 
-use super::super::{cookie_token, error_response, AppState, STUDIO_SESSION_HEADER};
+use super::super::{
+    errors::error_response, studio::admission::cookie_token,
+    studio::admission::STUDIO_SESSION_HEADER, AppState,
+};
 use super::catalog::{catalog_error, failure, json_only, page_cursor, CatalogBody};
 use super::StudioPath;
+use crate::application::StoreError;
 use crate::contexts::catalog::{
     wire::{
         self as input, content as content_input,
@@ -24,7 +28,6 @@ use crate::contexts::catalog::{
     },
     CatalogStoreError,
 };
-use crate::platform::postgres::StoreError;
 
 const BODY_LIMIT: usize = 128 * 1024;
 const APPEND_PREFIX: &str = "/api/v1/studio/delegated/content-units/";

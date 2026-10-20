@@ -15,7 +15,7 @@ use cantos_contracts::{
 };
 use serde::{de::DeserializeOwned, Deserialize};
 
-use super::super::{cookie_token, error_response, wire, AppState};
+use super::super::{errors::error_response, studio::admission::cookie_token, wire, AppState};
 use crate::contexts::catalog::{
     domain::CatalogError, wire as input, CatalogCommand, CatalogCursor, CatalogStoreError,
 };
@@ -324,8 +324,8 @@ async fn list_works(
     let Query(query) = match query {
         Ok(query) => query,
         Err(_) => {
-            return super::super::error_response(
-                crate::platform::postgres::StoreError::InvalidRequest,
+            return super::super::errors::error_response(
+                crate::application::StoreError::InvalidRequest,
             )
         }
     };
@@ -365,8 +365,8 @@ async fn list_units(
     let Query(query) = match query {
         Ok(query) => query,
         Err(_) => {
-            return super::super::error_response(
-                crate::platform::postgres::StoreError::InvalidRequest,
+            return super::super::errors::error_response(
+                crate::application::StoreError::InvalidRequest,
             )
         }
     };
@@ -423,8 +423,8 @@ async fn history(
     let Query(query) = match query {
         Ok(query) => query,
         Err(_) => {
-            return super::super::error_response(
-                crate::platform::postgres::StoreError::InvalidRequest,
+            return super::super::errors::error_response(
+                crate::application::StoreError::InvalidRequest,
             )
         }
     };

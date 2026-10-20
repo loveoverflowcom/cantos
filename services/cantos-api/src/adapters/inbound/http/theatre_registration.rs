@@ -1,5 +1,5 @@
 //! Anonymous Theatre onboarding. No session, account ID or provider authority comes from JSON.
-use super::{failure, AppState};
+use super::{errors::failure, AppState};
 use crate::platform::theatre_registration::{
     application::VerificationOutcome,
     domain::{Email, RegistrationError},

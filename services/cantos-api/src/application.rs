@@ -1,5 +1,5 @@
-//! Concrete modular-monolith composition. This module joins application capabilities without
-//! making PostgreSQL plumbing depend on a bounded context or introducing a generic registry.
+//! Concrete application handle and aggregate use-case errors.
+//! This is inward-consumed application glue, not the outer HTTP composition root.
 use crate::contexts::media::{
     domain::object_storage::StorageError, storage::registry::StorageRegistry,
 };
@@ -36,7 +36,7 @@ pub enum StoreError {
     AudioInspectionUnavailable(&'static str),
 }
 
-/// Composition handle used by the owning application use cases. PostgreSQL owns its pool;
+/// Concrete handle used by the owning application use cases. PostgreSQL owns its pool;
 /// Media owns its concrete private-storage registry. Neither is part of a pure domain model.
 #[derive(Clone)]
 pub struct Store {

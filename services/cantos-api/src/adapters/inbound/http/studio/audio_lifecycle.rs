@@ -4,8 +4,10 @@ use super::{
     audio_intake::limit_upload,
     catalog::{json_only, CatalogBody},
 };
-use crate::adapters::inbound::http::{cookie_token, error_response, failure, AppState};
-use crate::platform::postgres::{Store, StoreError};
+use crate::adapters::inbound::http::{
+    errors::error_response, errors::failure, studio::admission::cookie_token, AppState,
+};
+use crate::application::{Store, StoreError};
 use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, State},

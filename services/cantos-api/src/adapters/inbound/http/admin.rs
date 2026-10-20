@@ -1,5 +1,5 @@
 //! Admin-only shell. Accepts a dedicated verified resource JWT, never cookies/identity headers.
-use super::{failure, not_found, AppState};
+use super::{errors::failure, router::not_found, AppState};
 use crate::platform::admin::AdminError;
 use axum::{
     extract::{

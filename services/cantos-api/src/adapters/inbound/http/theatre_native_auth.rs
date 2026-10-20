@@ -1,5 +1,5 @@
 //! Native-only public code exchange and session boundary. No Web cookies/client secret.
-use super::{failure, AppState};
+use super::{errors::failure, AppState};
 use crate::{
     contexts::listening::auth::{
         ListenerAuthenticator, ListenerCredentials, NativeListenerAuthenticator,

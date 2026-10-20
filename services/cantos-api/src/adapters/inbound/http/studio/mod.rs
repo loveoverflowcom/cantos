@@ -17,10 +17,12 @@ use cantos_contracts::{
 };
 
 use super::wire::{respond, Accepts, WireBody};
-use super::{authenticated, cookie_token, error_response, AppState};
-use crate::platform::postgres::StoreError;
+use super::{errors::error_response, AppState};
+use crate::application::StoreError;
+use admission::{authenticated, cookie_token};
 
 mod adaptations;
+pub(super) mod admission;
 mod artwork;
 mod audio_intake;
 mod audio_lifecycle;
@@ -139,7 +141,7 @@ async fn current_session(State(state): State<AppState>, headers: HeaderMap) -> R
     };
     match state.store.authenticate(&token).await {
         Ok(actor_id) => match state.store.studio_session_id(&token).await {
-            Ok(id) => super::studio_fenced_response(
+            Ok(id) => admission::studio_fenced_response(
                 Json(SessionResponse { actor_id }).into_response(),
                 id.as_deref(),
             ),
@@ -174,7 +176,7 @@ async fn start_session(
     if state.store.studio_oidc().is_some() || !state.store.development_sessions_enabled() {
         return error_response(StoreError::Forbidden);
     }
-    if headers.contains_key(super::STUDIO_SESSION_HEADER) {
+    if headers.contains_key(admission::STUDIO_SESSION_HEADER) {
         let actual = match cookie_token(&headers, &state.store) {
             Ok(token) => match state.store.studio_session_id(&token).await {
                 Ok(id) => id,
@@ -182,9 +184,9 @@ async fn start_session(
             },
             Err(_) => None,
         };
-        if !super::studio_fence_matches(&headers, actual.as_deref()) {
-            return super::studio_fenced_response(
-                super::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+        if !admission::studio_fence_matches(&headers, actual.as_deref()) {
+            return admission::studio_fenced_response(
+                super::errors::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
                 actual.as_deref(),
             );
         }
@@ -200,7 +202,7 @@ async fn start_session(
                 Ok(id) => id,
                 Err(error) => return error_response(error),
             };
-            response = super::studio_fenced_response(response, session_id.as_deref());
+            response = admission::studio_fenced_response(response, session_id.as_deref());
             // Only loopback development HTTP is supported. Production requires HTTPS/Secure.
             // The cookie is scoped to the mount so a Studio session is never sent to Theatre or
             // Admin routes.
@@ -246,9 +248,9 @@ async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: M
             Ok(id) => id,
             Err(error) => return error_response(error),
         };
-        if !super::studio_fence_matches(&headers, session_id.as_deref()) {
-            return super::studio_fenced_response(
-                super::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+        if !admission::studio_fence_matches(&headers, session_id.as_deref()) {
+            return admission::studio_fenced_response(
+                super::errors::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
                 session_id.as_deref(),
             );
         }
@@ -258,8 +260,8 @@ async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: M
         {
             match state.store.authenticate(&token).await {
                 Ok(_) => {
-                    return super::studio_fenced_response(
-                        super::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+                    return admission::studio_fenced_response(
+                        super::errors::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
                         session_id.as_deref(),
                     )
                 }
@@ -275,7 +277,7 @@ async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: M
     match result {
         Ok(()) => {
             let mut response = StatusCode::NO_CONTENT.into_response();
-            if headers.contains_key(super::STUDIO_SESSION_HEADER)
+            if headers.contains_key(admission::STUDIO_SESSION_HEADER)
                 || headers.contains_key("x-cantos-studio-stale-only")
             {
                 return response;

@@ -65,7 +65,7 @@ impl FirebaseEnrollmentRuntime {
         self.admission.acquire()
     }
 }
-impl crate::composition::Store {
+impl crate::application::Store {
     pub fn with_theatre_firebase_enrollment(mut self, runtime: FirebaseEnrollmentRuntime) -> Self {
         self.theatre_registration = None;
         self.theatre_firebase_enrollment = Some(Arc::new(runtime));

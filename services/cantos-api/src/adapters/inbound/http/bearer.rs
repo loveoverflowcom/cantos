@@ -1,5 +1,5 @@
 //! Cookie-free Cantos credential transport. Identity routes deliberately remain JSON-only.
-use super::{failure, AppState};
+use super::{errors::failure, AppState};
 use crate::platform::{
     bearer::{
         core::{self, Client},
@@ -434,7 +434,10 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                super::super::studio_query_fence_matches(&uri.parse().unwrap(), Some("a")),
+                super::super::studio::admission::studio_query_fence_matches(
+                    &uri.parse().unwrap(),
+                    Some("a")
+                ),
                 expected
             );
         }

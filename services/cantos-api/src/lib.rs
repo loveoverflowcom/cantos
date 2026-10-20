@@ -2,7 +2,7 @@
 //! production guidance and inspection of externally produced media.
 //! Neither this library nor the HTTP host executes text-to-speech or audio mixing.
 pub mod adapters;
-mod composition;
+pub mod application;
 pub mod contexts;
 pub mod platform;
 pub mod script_ir;

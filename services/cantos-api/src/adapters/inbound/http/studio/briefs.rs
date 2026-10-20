@@ -1,7 +1,7 @@
 //! Thin Studio owner and independently authenticated producer JSON adapters.
-use super::super::{cookie_token, error_response, AppState};
+use super::super::{errors::error_response, studio::admission::cookie_token, AppState};
 use super::catalog::CatalogBody;
-use crate::platform::postgres::StoreError;
+use crate::application::StoreError;
 
 fn brief_error(error: StoreError) -> Response {
     match error {

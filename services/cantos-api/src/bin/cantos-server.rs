@@ -1,7 +1,8 @@
 use cantos_api::{
     adapters::inbound::http::{api_router, router, router_with_public_media, AppState},
+    application::Store,
     platform::host::{host_settings, HostMode},
-    platform::postgres::{local_config, verify_schema, Store},
+    platform::postgres::{local_config, verify_schema},
     platform::studio_oidc::{OidcConfig, StudioOidc},
 };
 use std::{env, net::SocketAddr};

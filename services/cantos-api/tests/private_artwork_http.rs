@@ -8,14 +8,18 @@ use axum::{
 };
 use cantos_api::{
     adapters::inbound::http::{
-        router, router_with_listener_identity, router_with_private_artwork,
-        router_with_publication_delivery, router_with_theatre_delivery, AppState,
+        api_router, router, router_with_listener_identity, router_with_origin_playback,
+        router_with_private_artwork, router_with_public_media, router_with_publication_delivery,
+        router_with_theatre_delivery, AppState,
     },
     contexts::{
         listening::auth::DenyListenerAuthentication,
         media::{
-            ArtworkService, PlaybackDelivery, PlaybackDeliveryFuture, PlaybackPermit,
-            PublicationDelivery, PublicationDeliveryFuture, PublicationObject,
+            domain::{object_storage::NormalizedByteRange, playback_grant::GrantKey},
+            storage::port::{StorageFuture, StorageRead},
+            ArtworkService, OriginPlayback, PlaybackDelivery, PlaybackDeliveryFuture,
+            PlaybackPermit, PublicMediaOrigin, PublicationDelivery, PublicationDeliveryFuture,
+            PublicationObject, PublicationObjectRef, PublicationObjects, PublicationService,
         },
     },
     platform::{
@@ -41,9 +45,38 @@ impl PlaybackDelivery for UncalledDelivery {
         panic!("private artwork admission must never consult playback delivery");
     }
 }
-fn production_routers(state: AppState, dist: &str) -> [(&'static str, Router); 4] {
+impl PublicationObjects for UncalledDelivery {
+    fn open(
+        &self,
+        _: PublicationObjectRef,
+        _: Option<NormalizedByteRange>,
+    ) -> StorageFuture<StorageRead> {
+        panic!("private artwork admission must never read public objects");
+    }
+}
+fn origin_playback() -> OriginPlayback {
+    OriginPlayback::new(
+        PublicMediaOrigin::parse("https://listen.example.test").unwrap(),
+        GrantKey::new(&[7; 32]).unwrap(),
+        Arc::new(UncalledDelivery),
+    )
+}
+fn production_routers(state: AppState, dist: &str) -> [(&'static str, Router); 7] {
     [
         ("default", router(state.clone(), dist)),
+        ("API only", api_router(state.clone())),
+        (
+            "origin playback",
+            router_with_origin_playback(state.clone(), dist, origin_playback()),
+        ),
+        (
+            "public media",
+            router_with_public_media(
+                state.clone(),
+                PublicationService::new(state.store.clone()),
+                origin_playback(),
+            ),
+        ),
         (
             "publication delivery",
             router_with_publication_delivery(state.clone(), dist, Arc::new(UncalledDelivery)),

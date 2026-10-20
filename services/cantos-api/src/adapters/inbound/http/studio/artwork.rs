@@ -13,7 +13,10 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::{catalog, StudioPath};
 use crate::{
-    adapters::inbound::http::{cookie_token, error_response, wire, AppState},
+    adapters::inbound::http::{
+        errors::error_response, studio::admission::cookie_token, wire, AppState,
+    },
+    application::StoreError,
     contexts::{
         catalog::CatalogStoreError,
         media::{
@@ -22,7 +25,6 @@ use crate::{
             ArtworkApplicationError, ArtworkReceipt, ArtworkService, ImageObjectError,
         },
     },
-    platform::postgres::StoreError,
 };
 
 const METADATA_LIMIT: usize = 32 * 1024;

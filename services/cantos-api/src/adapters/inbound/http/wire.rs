@@ -19,8 +19,8 @@ use cantos_contracts::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-use super::error_response;
-use crate::platform::postgres::StoreError;
+use super::errors::error_response;
+use crate::application::StoreError;
 
 /// `Content-Type` positively named a representation these routes cannot decode.
 #[derive(Debug, PartialEq, Eq)]

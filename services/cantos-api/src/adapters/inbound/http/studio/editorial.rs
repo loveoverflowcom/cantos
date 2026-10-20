@@ -5,8 +5,8 @@ use cantos_contracts::{
     SaveRevisionRequest,
 };
 
+use crate::application::{Store, StoreError};
 use crate::contexts::editorial::{document, ReviewFacts, RevisionHistory, RevisionOperation};
-use crate::platform::postgres::{Store, StoreError};
 
 fn review(facts: ReviewFacts) -> ReviewResponse {
     ReviewResponse {

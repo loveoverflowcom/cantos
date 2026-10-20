@@ -1,6 +1,6 @@
 //! Theatre-only OIDC HTTP boundary.
 use crate::{
-    adapters::inbound::http::{failure, AppState},
+    adapters::inbound::http::{errors::failure, AppState},
     platform::theatre_identity::{AuthError, TheatreIdentity},
 };
 use axum::{
@@ -654,7 +654,7 @@ fn flow_inventory(headers: &HeaderMap, expected: &str) -> Result<Vec<(String, St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::inbound::http::cookie_token_for_name;
+    use crate::adapters::inbound::http::studio::admission::cookie_token_for_name;
 
     fn callback_query(
         query: &str,
@@ -846,7 +846,7 @@ mod tests {
         headers.append(header::COOKIE, HeaderValue::from_static("cantos_session=b"));
         assert!(matches!(
             cookie_token_for_name(&headers, "cantos_session"),
-            Err(crate::platform::postgres::StoreError::Unauthenticated)
+            Err(crate::application::StoreError::Unauthenticated)
         ));
         assert_eq!(
             unique_cookie(&headers, "cantos_session"),
@@ -859,7 +859,7 @@ mod tests {
         );
         assert!(matches!(
             cookie_token_for_name(&headers, "__Secure-cantos_studio"),
-            Err(crate::platform::postgres::StoreError::Unauthenticated)
+            Err(crate::application::StoreError::Unauthenticated)
         ));
         headers.clear();
         headers.insert(
@@ -868,7 +868,7 @@ mod tests {
         );
         assert!(matches!(
             cookie_token_for_name(&headers, "cantos_session"),
-            Err(crate::platform::postgres::StoreError::Unauthenticated)
+            Err(crate::application::StoreError::Unauthenticated)
         ));
     }
 }

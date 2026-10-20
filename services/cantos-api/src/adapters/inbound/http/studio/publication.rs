@@ -1,12 +1,15 @@
 //! Studio-only publication transport. No listener projection or storage URL crosses this API.
 use super::{catalog::CatalogBody, StudioPath};
 use crate::{
-    adapters::inbound::http::{cookie_token, error_response as storage_error, failure, AppState},
+    adapters::inbound::http::{
+        errors::error_response as storage_error, errors::failure, studio::admission::cookie_token,
+        AppState,
+    },
+    application::StoreError,
     contexts::media::{
         domain::publication::PublicationError, PublicationDependencyError, PublicationService,
         PublicationStoreError,
     },
-    platform::postgres::StoreError,
 };
 use axum::{
     extract::{Extension, State},
