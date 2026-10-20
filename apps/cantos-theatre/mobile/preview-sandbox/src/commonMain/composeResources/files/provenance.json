@@ -2,21 +2,23 @@
   "source": "https://drive.google.com/file/d/157jbpHUTKZ-tDzNfXD878nvnF4thWmM4/view",
   "html": "Cantos-Mobile-v2.html",
   "packageSha256": "bf55c2651c3db82fb1b7d07a44658c930d27175b0ebadc083f58dff865871fc9",
-  "extraction": "Embedded base64 bytes from the package; the two paintings were then re-encoded once from the original PNG to WebP quality 95 at unchanged pixel dimensions (#245); cropping happens at render time.",
+  "extraction": "Embedded base64 bytes from the package; the two paintings were then re-encoded once from the original PNG to WebP quality 95 at unchanged pixel dimensions (#245); cropping happens at render time. The two drawables were re-encoded again at q90, longest side 1024 px.",
   "artworkRights": "User-supplied design assets used for the requested isolated mock repair. The package does not name an artist or independent redistribution license; production rights review remains required.",
   "fonts": "Noto Sans / Noto Serif 2.015, regular and bold. Copyright 2022 The Noto Project Authors. SIL OFL 1.1; see OFL.txt.",
   "files": {
     "drawable/den_khuya.webp": {
-      "sha256": "3ee6a7722cd5b1bc123e257951768e90132bbce3067bdca1894e763772b5f09a",
+      "sha256": "27494fc203754fc927406377cd1bb510f082a472ecb4c6f0efeb039c1a077124",
       "source": "den-khuya.png",
       "derivedFromSha256": "f96ae8c1532385499546f21c8bc2ee59d75c127e1e374dff4fa8125a8e2a2760",
-      "encoding": "WebP lossy quality 95, method 6, 1254x1254"
+      "reencodedFromSha256": "3ee6a7722cd5b1bc123e257951768e90132bbce3067bdca1894e763772b5f09a",
+      "encoding": "WebP lossy quality 90, method 6, 1024x1024 (longest side reduced from 1254 px, LANCZOS; aspect ratio unchanged; render crops in CSS)"
     },
     "drawable/son_ha_moon.webp": {
-      "sha256": "d086b86908164ba64fbabf0b6fa685c90e20d53a9f921c99d4f14153b292fbb2",
+      "sha256": "d3eb82560c7a5523290338397aa83ec234afedb49f1f44c4dbcdd8db4bd2d8d2",
       "source": "son-ha-moon.png",
       "derivedFromSha256": "388f4770ef5c75d50f1bacd0426563a7546bd23675e5dfeb8f671a58c6dda393",
-      "encoding": "WebP lossy quality 95, method 6, 1536x1024"
+      "reencodedFromSha256": "d086b86908164ba64fbabf0b6fa685c90e20d53a9f921c99d4f14153b292fbb2",
+      "encoding": "WebP lossy quality 90, method 6, 1024x683 (longest side reduced from 1536 px, LANCZOS; aspect ratio unchanged; render crops in CSS)"
     },
     "font/noto_sans_bold.ttf": {
       "sha256": "3a08a47daa00cade516425c15c57615aef2fd418ec9811a7b9f465088f92cc05",
