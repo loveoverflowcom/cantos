@@ -41,7 +41,7 @@ impl NativeIdentity {
         Ok(Self {
             bearer: crate::platform::bearer::BearerIdentity::new(
                 config.clone(),
-                crate::platform::bearer::core::Client::TheatreNative,
+                crate::platform::bearer::client::Client::TheatreNative,
             )?,
             provider: Provider::new(config.clone())?,
             config,

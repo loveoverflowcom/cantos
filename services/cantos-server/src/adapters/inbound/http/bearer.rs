@@ -1,10 +1,7 @@
 //! Cookie-free Cantos credential transport. Identity routes deliberately remain JSON-only.
 use super::{errors::failure, AppState};
 use crate::platform::{
-    bearer::{
-        core::{self, Client},
-        BearerIdentity,
-    },
+    bearer::{client::Client, credential, BearerIdentity},
     studio_oidc::AuthError,
 };
 use axum::{
@@ -50,7 +47,7 @@ pub(super) fn access(headers: &HeaderMap) -> Result<&str, AuthError> {
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or(AuthError::InvalidToken)?;
-    if values.next().is_some() || core::access_client(token).is_none() {
+    if values.next().is_some() || credential::access_client(token).is_none() {
         return Err(AuthError::InvalidToken);
     }
     Ok(token)
@@ -253,7 +250,7 @@ async fn session(
         Ok(v) => v,
         Err(e) => return error(e),
     };
-    if core::access_client(token) != Some(client) {
+    if credential::access_client(token) != Some(client) {
         return error(AuthError::InvalidToken);
     }
     let service = match identity(&state, client) {
@@ -285,7 +282,7 @@ async fn logout(
         Ok(v) => v,
         Err(e) => return error(e),
     };
-    if core::access_client(token) != Some(client) {
+    if credential::access_client(token) != Some(client) {
         return error(AuthError::InvalidToken);
     }
     let service = match identity(&state, client) {
@@ -363,7 +360,8 @@ pub(super) async fn theatre(
         Ok(v) => v.to_owned(),
         Err(e) => return error(e),
     };
-    let Some(client) = core::access_client(&token).filter(|c| c.surface() == "theatre") else {
+    let Some(client) = credential::access_client(&token).filter(|c| c.surface() == "theatre")
+    else {
         return error(AuthError::InvalidToken);
     };
     let service = match identity(&state, client) {

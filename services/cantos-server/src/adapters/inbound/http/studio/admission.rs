@@ -105,14 +105,14 @@ async fn bearer_studio(state: AppState, request: Request, next: Next) -> Respons
         Ok(v) => v.to_owned(),
         Err(e) => return bearer::error(e),
     };
-    if crate::platform::bearer::core::access_client(&token)
-        != Some(crate::platform::bearer::core::Client::Studio)
+    if crate::platform::bearer::credential::access_client(&token)
+        != Some(crate::platform::bearer::client::Client::Studio)
     {
         return bearer::error(crate::platform::studio_oidc::AuthError::InvalidToken);
     }
     let Some(service) = state
         .store
-        .bearer(crate::platform::bearer::core::Client::Studio)
+        .bearer(crate::platform::bearer::client::Client::Studio)
     else {
         return bearer::error(crate::platform::studio_oidc::AuthError::Configuration);
     };

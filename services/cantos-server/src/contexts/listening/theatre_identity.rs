@@ -93,7 +93,7 @@ impl ListenerAuthenticator for BearerListenerAuthenticator {
         let store = self.store.clone();
         Box::pin(async move {
             let token = credentials.expose_to_verifier();
-            let client = crate::platform::bearer::core::access_client(token)
+            let client = crate::platform::bearer::credential::access_client(token)
                 .filter(|c| c.surface() == "theatre")
                 .ok_or(AuthenticationError::Unauthenticated)?;
             let service = store

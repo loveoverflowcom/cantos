@@ -43,6 +43,23 @@ Application shells deliberately open/commit PostgreSQL transactions and call con
 `contexts/<context>/postgres` functions with authorization and locks in the same transaction.
 This refactor introduces no generic Repository/UnitOfWork or global outbound adapter tree.
 
+## Session policy and credential boundary
+
+`platform/bearer/core.rs` owns immutable, checked `SessionPolicy` values and pure lifetime/
+rotation decisions. It has no registration, OIDC, surface, credential syntax, HTTP or SQL
+dependency. Clock, proof/provider expiry and active/spent state arrive as facts. The server's
+exhaustive `bearer/client.rs` mapping chooses the existing Studio or Theatre policy, referring
+to the canonical registration IDs in `oidc/config.rs`. `BearerIdentity` checks the exact
+configuration/client match; its application and persistence callers resolve the policy through
+that single server-owned mapping. `bearer/credential.rs` owns opaque-token routing
+tags and protocol syntax. A tag is a routing hint, never admission evidence.
+
+The [Bearer lifetime contract](../../packages/contracts/bearer-v1.md#lifetime-rotation-and-unknown-outcomes)
+keeps the exact TTLs, refusal/replay precedence and original absolute cap. The application and
+PostgreSQL shell retain roster checks, hash/client/issuer/family bindings, actor/family locks,
+provider I/O outside transactions and final-time rereads. This boundary does not implement
+#261's typed admission result or #295's Web-cookie migration.
+
 ## HTTP assembly and transport owners
 
 The canonical Rust path is `adapters::inbound::http`. The former `interfaces/http` implementation

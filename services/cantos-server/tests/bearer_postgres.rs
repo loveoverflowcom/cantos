@@ -11,7 +11,7 @@ use cantos_contracts::bearer::{
 use cantos_server::{
     adapters::inbound::http::{router, AppState},
     platform::{
-        bearer::core::Client,
+        bearer::client::Client,
         postgres::{local_config, migrate, Store},
         studio_oidc::{OidcConfig, StudioOidc},
         theatre_identity::{NativeIdentity, TheatreIdentity},
@@ -311,6 +311,136 @@ async fn all_surfaces_issue_rotate_revoke_with_exact_scope_and_stable_session() 
         assert_eq!(h.refresh(&next).await.0, StatusCode::UNAUTHORIZED);
     }
 }
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres"]
+async fn policy_extraction_preserves_exact_prefix_and_hash_client_issuer_purpose_bindings() {
+    for (client, prefix, wrong_client) in [
+        (Client::Studio, "ca1_s_", "cantos-theatre-web-bff"),
+        (Client::TheatreWeb, "ca1_t_", "cantos-theatre-native"),
+        (Client::TheatreNative, "ca1_n_", "cantos-studio-web-bff"),
+    ] {
+        let h = Harness::new(client).await;
+        let first = h.login("alice").await;
+        let secret = first.access_token.strip_prefix(prefix).unwrap();
+        assert_eq!(secret.len(), 64);
+        assert!(first.refresh_token.starts_with("cr1_"));
+        assert_eq!(
+            h.session(&first.refresh_token).await,
+            StatusCode::UNAUTHORIZED
+        );
+        for forged_prefix in ["ca1_s_", "ca1_t_", "ca1_n_"] {
+            if forged_prefix != prefix {
+                assert_eq!(
+                    h.request(
+                        "GET",
+                        &format!("{}/session", h.root()),
+                        serde_json::Value::Null,
+                        Some(&format!("{forged_prefix}{secret}")),
+                    )
+                    .await
+                    .0,
+                    StatusCode::UNAUTHORIZED
+                );
+            }
+        }
+        // Keep the real hash and valid syntax, but alter one SQL binding at a time.
+        h.admin
+            .execute(
+                "UPDATE bearer_families SET client_id=$2 WHERE id=$1::text::uuid",
+                &[&first.session_id, &wrong_client],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            h.session(&first.access_token).await,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(h.refresh(&first).await.0, StatusCode::UNAUTHORIZED);
+        h.admin
+            .execute(
+                "UPDATE bearer_families SET client_id=$2 WHERE id=$1::text::uuid",
+                &[&first.session_id, &client.name()],
+            )
+            .await
+            .unwrap();
+        assert_eq!(h.session(&first.access_token).await, StatusCode::OK);
+
+        let issuer = h.provider.issuer();
+        let foreign_issuer = format!("{issuer}/foreign");
+        h.admin.execute("INSERT INTO actor_external_identities(issuer,subject,actor_id) SELECT $2,subject,actor_id FROM bearer_families WHERE id=$1::text::uuid",
+            &[&first.session_id, &foreign_issuer]).await.unwrap();
+        h.admin
+            .execute(
+                "UPDATE bearer_families SET issuer=$2 WHERE id=$1::text::uuid",
+                &[&first.session_id, &foreign_issuer],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            h.session(&first.access_token).await,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(h.refresh(&first).await.0, StatusCode::UNAUTHORIZED);
+        h.admin
+            .execute(
+                "UPDATE bearer_families SET issuer=$2 WHERE id=$1::text::uuid",
+                &[&first.session_id, &issuer],
+            )
+            .await
+            .unwrap();
+        assert_eq!(h.session(&first.access_token).await, StatusCode::OK);
+    }
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres"]
+async fn spent_refresh_after_expiry_revokes_family_before_unavailable_provider_io() {
+    let h = Harness::new(Client::TheatreWeb).await;
+    let first = h.login("alice").await;
+    let (status, value) = h.refresh(&first).await;
+    assert_eq!(status, StatusCode::OK);
+    let next: TokenPair = serde_json::from_value(value).unwrap();
+    h.admin
+        .execute(
+            "UPDATE bearer_families SET idle_expires=0 WHERE id=$1::text::uuid",
+            &[&first.session_id],
+        )
+        .await
+        .unwrap();
+    h.admin
+        .execute(
+            "UPDATE bearer_tokens SET expires_at=0 WHERE family_id=$1::text::uuid",
+            &[&first.session_id],
+        )
+        .await
+        .unwrap();
+    let calls = h.provider.data.introspection_calls.load(Ordering::SeqCst);
+    h.provider
+        .data
+        .introspection_fail
+        .store(true, Ordering::SeqCst);
+    assert_eq!(h.refresh(&first).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        h.provider.data.introspection_calls.load(Ordering::SeqCst),
+        calls
+    );
+    let row = h
+        .admin
+        .query_one(
+            "SELECT revoked,revocation_pending FROM bearer_families WHERE id=$1::text::uuid",
+            &[&first.session_id],
+        )
+        .await
+        .unwrap();
+    assert!(row.get::<_, bool>("revoked"));
+    assert!(row.get::<_, bool>("revocation_pending"));
+    assert_eq!(
+        h.session(&next.access_token).await,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(h.refresh(&next).await.0, StatusCode::UNAUTHORIZED);
+}
+
 #[tokio::test]
 #[ignore = "cargo xtask verify postgres"]
 async fn lost_response_and_simultaneous_refresh_revoke_every_generation() {
