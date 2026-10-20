@@ -8,7 +8,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    config::{App, API_PACKAGE, FORGE_PACKAGE, UI_CMP_DIR, UI_PACKAGE},
+    config::{App, API_PACKAGE, FORGE_PACKAGE, TURSO_STORE_PACKAGE, UI_CMP_DIR, UI_PACKAGE},
     gate::{self, Gate, Scope},
 };
 
@@ -137,6 +137,9 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         gates.insert(Gate::WavReference);
         gates.insert(Gate::AudioInspection);
         gates.insert(Gate::Postgres { keep: false });
+    }
+    if affected.contains(TURSO_STORE_PACKAGE) {
+        gates.insert(Gate::Turso);
     }
     if affected.contains(UI_PACKAGE) {
         gates.insert(Gate::UiPreview);
@@ -583,6 +586,33 @@ mod tests {
                 "{path}"
             );
         }
+    }
+
+    #[test]
+    fn turso_store_inputs_select_their_package_and_the_capability_gate_only() {
+        for path in [
+            "packages/store-turso/src/lib.rs",
+            "packages/store-turso/src/registry.rs",
+            "packages/store-turso/tests/owned_database.rs",
+            "packages/store-turso/Cargo.toml",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository",
+                    "rust-format",
+                    "rust-lint (cantos-store-turso)",
+                    "rust-tests (cantos-store-turso)",
+                    "turso",
+                ],
+                "{path}"
+            );
+        }
+        // Its README is a document: no package gate and no capability run.
+        let readme = pick(&["packages/store-turso/README.md"]);
+        assert_eq!(names(&readme), ["repository", "rust-format"]);
     }
 
     #[test]
