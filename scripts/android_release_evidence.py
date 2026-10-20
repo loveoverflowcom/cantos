@@ -5,6 +5,42 @@ import json
 import re
 from pathlib import Path
 import subprocess
+import uuid
+
+
+def freeze(root, mobile, result):
+    """Retain exact inspected bytes outside mutable Gradle outputs, with the existing CI names."""
+    destination = root / "artifacts/android-release" / uuid.uuid4().hex
+    destination.mkdir(parents=True)
+    for mode, directory in (("optimized", "build"), ("audit", "build-audit")):
+        base = mobile / "androidApp" / directory
+        paths = {
+            "androidApp-release-unsigned.apk": result["artifacts"][mode]["apk"]["path"],
+            "androidApp-release.aab": result["artifacts"][mode]["aab"]["path"],
+            "artifact-inspection.txt": result["artifacts"][mode]["inspection"]["path"],
+            "resolved-dependencies.txt": str((base / "reports/release-boundary/resolved-dependencies.txt").relative_to(mobile)),
+            "pre-shrink.json": str((base / "reports/release-boundary/pre-shrink.json").relative_to(mobile)),
+        }
+        if mode == "optimized":
+            paths["mapping.txt"] = result["artifacts"][mode]["mapping"]["path"]
+        for name, relative in paths.items():
+            # Production may be signed; keep its actual filename in evidence and the stable
+            # package inventory here. CI packaging still builds unsigned releases only.
+            source = mobile / relative
+            sha(source)
+            target = destination / (("audit-" if mode == "audit" else "") + name)
+            with target.open("xb") as handle:
+                handle.write(source.read_bytes())
+            target.chmod(0o400)
+    from release_artifact import validate_android_outputs
+    result["snapshot_directory"] = destination.relative_to(root).as_posix()
+    record = destination / "release-evidence.json"
+    with record.open("x") as handle:
+        handle.write(json.dumps(result, indent=2) + "\n")
+    record.chmod(0o400)
+    # Detect replacement during copying as well as before the eventual CI transfer.
+    validate_android_outputs(destination, result["source_sha"])
+    return destination
 
 
 def sha(path):
@@ -64,6 +100,10 @@ def bind(root, mobile):
             if not re.search(r"^" + kind + r" .+ sha256=" + expected + r" ", text, re.M):
                 raise ValueError("inspection report/artifact hash mismatch")
     artifacts["optimized"]["mapping"] = record(optimized / "outputs/mapping/release/mapping.txt")
+    from inspect_android_release import mapping_classes
+    for kind in ("apk", "aab"):
+        mapping_classes(mobile / artifacts["optimized"]["mapping"]["path"],
+                        mobile / artifacts["optimized"][kind]["path"])
     source = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, text=True, capture_output=True).stdout.strip()
     return {"schema_version": 1, "source_sha": source,
             "configuration": {"application_id": "com.cantos.theatre", "build_type": "release",
@@ -98,6 +138,7 @@ def main():
     result = bind(root, args.mobile.resolve())
     result["source"] = snapshot
     result["configuration"].update(api_origin=args.api_origin, native_issuer=args.native_issuer)
+    freeze(root, args.mobile.resolve(), result)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(result, indent=2) + "\n")
     print("PASS audit/release identical pre-shrink inputs and resolved graph; exact artifact/mapping hashes recorded")

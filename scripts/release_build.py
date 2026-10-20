@@ -127,22 +127,25 @@ def build(root, target, sha, output, origin=API_ORIGIN):
         run(root, ["cargo", "xtask", "build", app, "--web", "--release"], env=env)
         web_archive(dist, output / f"{target}.tar.gz")
         return {"name": tomllib.loads((root / "apps" / app / "web/Cargo.toml").read_text())["package"]["version"]}
-    run(root, ["cargo", "xtask", "theatre-host", "android-release", "--api-origin", API_ORIGIN])
+    run(root, ["cargo", "xtask", "theatre-host", "android-release", "--api-origin", origin])
     base = root / MOBILE / "androidApp/build"
-    for mode, directory in (("optimized", base), ("audit", base.with_name("build-audit"))):
-        paths = ["outputs/apk/release/androidApp-release-unsigned.apk",
-                 "outputs/bundle/release/androidApp-release.aab",
-                 "reports/release-boundary/artifact-inspection.txt",
-                 "reports/release-boundary/resolved-dependencies.txt",
-                 "reports/release-boundary/pre-shrink.json"]
-        if mode == "optimized":
-            paths += ["outputs/mapping/release/mapping.txt", "reports/release-boundary/release-evidence.json"]
-        for relative in paths:
-            source = directory / relative
-            if not source.is_file() or source.is_symlink():
-                raise ValueError("missing or invalid production Android output")
-            name = source.name if mode == "optimized" else "audit-" + source.name
-            shutil.copyfile(source, output / name)
+    evidence = json.loads((base / "reports/release-boundary/release-evidence.json").read_text())
+    if (evidence["configuration"]["api_origin"] != origin or
+            evidence["configuration"].get("native_issuer", "") != "" or
+            Path(evidence["artifacts"]["optimized"]["apk"]["path"]).name != "androidApp-release-unsigned.apk"):
+        raise ValueError("Android snapshot configuration differs from the requested unsigned package")
+    snapshot = Path(contract.safe_name(evidence["snapshot_directory"]))
+    if snapshot.parts[:2] != ("artifacts", "android-release") or len(snapshot.parts) != 3:
+        raise ValueError("invalid Android snapshot directory")
+    snapshot = root / snapshot
+    if contract.read_json(snapshot / "release-evidence.json") != evidence:
+        raise ValueError("Android snapshot record differs from the completed build record")
+    contract.validate_android_outputs(snapshot, sha)
+    for name in contract.EXPECTED["android"]:
+        source = snapshot / name
+        contract.regular(source)
+        shutil.copyfile(source, output / name)
+    contract.validate_android_outputs(output, sha)
     return android_version(root)
 
 
@@ -158,7 +161,7 @@ def package(root, target, *, dry_run=False, origin=None, request=None, base=None
         if overrides:
             raise ValueError("ambient Web build configuration overrides are refused")
     else:
-        origin = API_ORIGIN if target == "android" else None
+        origin = contract.api_origin(API_ORIGIN if origin is None else origin) if target == "android" else None
     sha = source_revision(root, request)
     configuration = contract.configuration(root, target, origin)
     config_digest = contract.fingerprint(configuration)

@@ -100,7 +100,7 @@ def main():
         # Cargo resolves every workspace manifest, even for a package-scoped test, so each
         # member is copied without generated bundles.
         for member in ("services/cantos-api", "services/cantos-forge-functions", "apps/cantos-theatre/web",
-                       "apps/cantos-studio/web", "packages/contracts", "packages/ui-system", "xtask"):
+                       "apps/cantos-studio/web", "packages/contracts", "packages/web-auth", "packages/ui-system", "xtask"):
             shutil.copytree(ROOT / member, workspace / member, ignore=shutil.ignore_patterns("dist"))
         env = dict(os.environ, CARGO_TARGET_DIR=str(Path(temp) / "target"))
         # Only the unmutated baseline may need a cold isolated-target compilation.

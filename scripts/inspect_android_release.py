@@ -254,6 +254,21 @@ def dump_manifest(aapt2, archive, manifest, proto):
     return result.stdout
 
 
+def mapping_classes(mapping, artifact):
+    """Bind the real R8 mapping to the marker embedded in the optimized APK/AAB DEX."""
+    text = Path(mapping).read_text()
+    match = re.search(r"^# pg_map_id: (\w+)$", text, re.M)
+    if not match:
+        raise InspectionError("R8 mapping has no pg_map_id")
+    with zipfile.ZipFile(artifact) as archive:
+        dex = [archive.read(n) for n in archive.namelist()
+               if re.fullmatch(r"(?:base/dex/)?classes\d*\.dex", n)]
+    if not any(('"pg-map-id":"' + match[1] + '"').encode() in data for data in dex):
+        raise InspectionError("R8 mapping ID does not match artifact DEX marker")
+    return {"L" + source.replace(".", "/") + ";": "L" + target.replace(".", "/") + ";"
+            for source, target in re.findall(r"^([^ #\s]+) -> ([^\s]+):$", text, re.M)}
+
+
 def release_metadata_findings(elements, application_id, *, audit=False, callback=True):
     values = [attrs.get("value") for _, tag, attrs in elements
               if tag == "meta-data" and attrs.get("name") == "CantosReleaseAudit"]

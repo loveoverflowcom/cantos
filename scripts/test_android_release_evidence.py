@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 import android_release_evidence as evidence
@@ -21,7 +22,7 @@ class AuditEvidenceTests(unittest.TestCase):
                 "outputs/apk/release/output-metadata.json": json.dumps({"applicationId":"com.cantos.theatre",
                     "variantName":"release", "elements":[{"type":"SINGLE", "filters":[], "outputFile":"app.apk"}]}).encode(),
                 "outputs/bundle/release/androidApp-release.aab": b"synthetic bundle",
-                "outputs/mapping/release/mapping.txt": b"synthetic mapping",
+                "outputs/mapping/release/mapping.txt": b"# pg_map_id: ab123cd\ncom.cantos.Real -> a.b:\n",
                 "reports/release-boundary/resolved-dependencies.txt": b"same release graph",
                 "reports/release-boundary/pre-shrink.json": json.dumps({"status":"PASS", "variant":"release",
                     "class_count":10,"classes_sha256":"a" * 64,"inputs_sha256":"e" * 64,"source_sha256":"b" * 64}).encode(),
@@ -30,6 +31,11 @@ class AuditEvidenceTests(unittest.TestCase):
                 path = base / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(data)
+
+            for relative, dex in (("outputs/apk/release/app.apk", "classes.dex"),
+                                  ("outputs/bundle/release/androidApp-release.aab", "base/dex/classes.dex")):
+                with zipfile.ZipFile(base / relative, "w") as archive:
+                    archive.writestr(dex, b'{"pg-map-id":"ab123cd"}' + mode.encode())
 
             report = f"variant=release audit={mode == 'build-audit'}\n"
             for kind, path in (("apk", base / "outputs/apk/release/app.apk"),
@@ -64,6 +70,24 @@ class AuditEvidenceTests(unittest.TestCase):
         report.with_name("resolved-dependencies.txt").write_bytes(b"new transitive graph")
         with self.assertRaisesRegex(ValueError, "graph mismatch"):
             self.bind()
+
+    def test_wrong_r8_mapping_is_rejected_before_snapshot(self):
+        path = self.mobile / "androidApp/build/outputs/mapping/release/mapping.txt"
+        path.write_text("# pg_map_id: wrong\ncom.cantos.Real -> a.b:\n")
+        with self.assertRaisesRegex(inspector.InspectionError, "mapping ID does not match"):
+            self.bind()
+
+    def test_snapshot_survives_gradle_output_replacement_and_rejects_tampering(self):
+        import release_artifact as contract
+        result = self.bind()
+        snapshot = evidence.freeze(self.mobile, self.mobile, result)
+        (self.mobile / "androidApp/build/outputs/apk/release/app.apk").write_bytes(b"later build")
+        contract.validate_android_outputs(snapshot, "c" * 40)
+        copied = snapshot / "androidApp-release-unsigned.apk"
+        copied.chmod(0o600)
+        copied.write_bytes(b"replaced snapshot")
+        with self.assertRaisesRegex(ValueError, "differs from inspected"):
+            contract.validate_android_outputs(snapshot, "c" * 40)
 
     def test_inspection_report_cannot_attest_changed_artifact_bytes(self):
         (self.mobile / "androidApp/build/outputs/apk/release/app.apk").write_bytes(b"replaced after inspection")

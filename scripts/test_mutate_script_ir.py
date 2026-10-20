@@ -19,7 +19,8 @@ class MutationWorkspaceTest(unittest.TestCase):
         manifest = tomllib.loads((mutations.ROOT / "Cargo.toml").read_text())
         members = manifest["workspace"]["members"]
 
-        def inspect_copy(workspace, _env):
+        def inspect_copy(workspace, _env, *, timeout):
+            self.assertEqual(timeout, 600)
             self.assertEqual((Path(workspace) / "rust-toolchain.toml").read_bytes(),
                              (mutations.ROOT / "rust-toolchain.toml").read_bytes())
             for member in members:

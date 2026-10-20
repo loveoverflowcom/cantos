@@ -32,7 +32,9 @@ Theatre-host inspects debug bytes or, for release, performs this ordered sequenc
 
 1. Snapshot source SHA and source content hashes without recording environment/secrets.
 2. Build the **release variant** with `-Pcantos.releaseAudit=true`, optimization disabled and
-   signing disabled, into `androidApp/build-audit`. No tracked Gradle source is mutated.
+   signing disabled, into `androidApp/build-audit`. Its separate project cache at
+   `.gradle/release-audit` prevents Gradle's changed-output cleanup from deleting the audit APK
+   during the optimized build. No tracked Gradle source is mutated.
 3. Inspect audit APK/AAB manifest, DEX definitions, assets and resources before building optimized
    output. Require the production composition classes; compare against sandbox source inventory
    and fixture byte hashes without compiling any sandbox target.
@@ -44,8 +46,16 @@ Theatre-host inspects debug bytes or, for release, performs this ordered sequenc
    disagreement or source change. Record exact APK/AAB/report/mapping SHA-256 and byte size in
    `androidApp/build/reports/release-boundary/release-evidence.json`.
 
-Only declared optimization flags, the audit manifest marker, app output root and audit signing
-policy differ. Audit artifacts remain unsigned and carry `CantosReleaseAudit=true`. Distribution
+The release coordinator holds a checkout-local POSIX lock for the whole audit/build/inspection
+sequence; overlapping audits must use independent checkouts. Binding also checks the R8 mapping
+ID against the optimized APK and AAB DEX markers. Successful binding retains an immutable,
+hash-validated snapshot under `artifacts/android-release/<attempt>/`; CI packaging reads those
+bytes rather than mutable Gradle output paths and revalidates the copied package. The evidence
+record names its `snapshot_directory`. Failed or partial attempts never become accepted packages.
+An explicit packaging API origin is passed through to the build and recorded configuration.
+
+Only declared optimization flags, the audit manifest marker, app output root, isolated task history
+and audit signing policy differ. Audit artifacts remain unsigned and carry `CantosReleaseAudit=true`. Distribution
 inspects this marker in the actual staged manifest and requires false; renaming an audit APK or
 passing its bytes under another filename does not admit it. Default release remains optimized.
 AGP 8.11.1 keeps its existing separate resource shrinker; no AGP/CMP upgrade is included.

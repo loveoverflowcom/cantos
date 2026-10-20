@@ -156,8 +156,18 @@ pub fn gradle_audit_command(workspace: &Workspace, origin: Option<&str>) -> Comm
     command
         .args
         .retain(|arg| arg != "-Pcantos.releaseAudit=false");
-    command.args.push("-Pcantos.releaseAudit=true".to_owned());
-    command
+    // Gradle removes a task's previous outputs when its build directory changes.
+    // Separate task history keeps the optimized build from deleting the audit APK.
+    command.args([
+        "-Pcantos.releaseAudit=true".to_owned(),
+        "--project-cache-dir".to_owned(),
+        workspace
+            .root()
+            .join(THEATRE_MOBILE_DIR)
+            .join(".gradle/release-audit")
+            .to_string_lossy()
+            .into_owned(),
+    ])
 }
 
 pub fn audit_inspection_command(
@@ -316,6 +326,7 @@ pub fn gradle_debug_identity_command(
         format!("-Pcantos.apiOrigin={origin}"),
         format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
         "-Pcantos.releaseAudit=false".to_owned(),
+        "-Pcantos.releaseSigning=false".to_owned(),
         ":androidApp:assembleDebug".to_owned(),
     ])
 }
@@ -452,6 +463,28 @@ pub fn staged_release_inspection_command(
     command
 }
 
+fn release_lock(workspace: &Workspace) -> Result<std::fs::File> {
+    let directory = workspace.path(&format!("{THEATRE_MOBILE_DIR}/androidApp/build"));
+    std::fs::create_dir_all(&directory)?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(directory.join("release-audit.lock"))?;
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        // SAFETY: flock only reads the live owned File descriptor and retains no Rust pointer.
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            anyhow::bail!("another release audit owns this checkout; use an independent checkout or wait for it to finish");
+        }
+    }
+    #[cfg(not(unix))]
+    anyhow::bail!("the release audit requires a POSIX checkout lock");
+    #[cfg(unix)]
+    Ok(file)
+}
+
 fn unsupported(subject: &str, reason: &str) -> ExitCode {
     let mut report = Report::new("theatre-host");
     report.record(subject, Status::Unsupported, reason);
@@ -519,6 +552,7 @@ pub fn execute(
             }
             // The prerequisite has accepted an absolute UTF-8 SDK path.
             let sdk = sdk.as_deref().and_then(Path::to_str).unwrap_or_default();
+            let _lock = release_lock(workspace)?;
             let steps = vec![
                 Step::new(
                     "Theatre unshrunk release audit",
@@ -690,6 +724,18 @@ mod tests {
         Workspace::discover().unwrap()
     }
 
+    #[test]
+    fn concurrent_audits_cannot_replace_each_others_fixed_outputs() {
+        let workspace = workspace();
+        let first = release_lock(&workspace).unwrap();
+        assert!(release_lock(&workspace)
+            .unwrap_err()
+            .to_string()
+            .contains("another release audit"));
+        drop(first);
+        assert!(release_lock(&workspace).is_ok());
+    }
+
     fn sdk_fixture(name: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("xtask-theatre-host-{name}-{}", std::process::id()));
@@ -742,6 +788,27 @@ mod tests {
     }
 
     #[test]
+    fn audit_has_separate_gradle_history_from_optimized_build() {
+        let workspace = workspace();
+        let audit = gradle_audit_command(&workspace, None);
+        let cache = audit
+            .args
+            .windows(2)
+            .find(|args| args[0] == "--project-cache-dir")
+            .expect("audit task history must not own the optimized build's outputs");
+        assert_eq!(
+            Path::new(&cache[1]),
+            workspace
+                .root()
+                .join(THEATRE_MOBILE_DIR)
+                .join(".gradle/release-audit")
+        );
+        assert!(!gradle_release_command(&workspace, None)
+            .args
+            .contains(&"--project-cache-dir".to_owned()));
+    }
+
+    #[test]
     fn debug_build_names_only_the_production_debug_apk_and_the_origin() {
         let workspace = workspace();
         let command = gradle_debug_command(&workspace, "http://127.0.0.1:8080");
@@ -752,6 +819,7 @@ mod tests {
             "-Pcantos.apiOrigin=http://127.0.0.1:8080".to_owned(),
             "-Pcantos.nativeIssuer=".to_owned(),
             "-Pcantos.releaseAudit=false".to_owned(),
+            "-Pcantos.releaseSigning=false".to_owned(),
             ":androidApp:assembleDebug".to_owned(),
         ]));
         let tasks: Vec<_> = command

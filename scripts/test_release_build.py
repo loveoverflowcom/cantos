@@ -12,6 +12,76 @@ import release_artifact as contract
 
 
 class ReleaseBuildTests(unittest.TestCase):
+    def test_android_build_uses_the_declared_origin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.object(release, "run", side_effect=RuntimeError("stop before build")) as run:
+                with self.assertRaisesRegex(RuntimeError, "stop before build"):
+                    release.build(root, "android", "a" * 40, root, "https://catalog.example")
+            self.assertEqual(run.call_args.args[1][-2:], ["--api-origin", "https://catalog.example"])
+
+    def test_android_package_preserves_the_declared_origin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.object(release, "source_revision", return_value="a" * 40), \
+                 patch.object(contract, "configuration", side_effect=RuntimeError("stop at config")) as config:
+                with self.assertRaisesRegex(RuntimeError, "stop at config"):
+                    release.package(root, "android", origin="https://catalog.example")
+            self.assertEqual(config.call_args.args[-1], "https://catalog.example")
+
+    def test_android_staging_refuses_foreign_configuration_and_snapshot_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = root / release.MOBILE / "androidApp/build/reports/release-boundary/release-evidence.json"
+            report.parent.mkdir(parents=True)
+            for origin, issuer, apk, snapshot, message in (
+                ("https://other.example", "", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "unexpected issuer", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "", "androidApp-release.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "", "androidApp-release-unsigned.apk", "../../outside", "unsafe archive path"),
+                ("https://catalog.example", "", "androidApp-release-unsigned.apk", "artifacts/other/run", "invalid Android snapshot"),
+            ):
+                with self.subTest(origin=origin, apk=apk, snapshot=snapshot):
+                    report.write_text(json.dumps({"configuration": {"api_origin": origin, "native_issuer": issuer},
+                        "artifacts": {"optimized": {"apk": {"path": apk}}}, "snapshot_directory": snapshot}))
+                    with patch.object(release, "run"), self.assertRaisesRegex(ValueError, message):
+                        release.build(root, "android", "c" * 40, root / "out", "https://catalog.example")
+
+    def test_android_staging_binds_the_immutable_record_before_copying(self):
+        import shutil
+        import android_release_evidence as audit
+        from test_android_release_evidence import AuditEvidenceTests
+        fixture = AuditEvidenceTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        root = fixture.mobile
+        mobile = root / release.MOBILE
+        mobile.mkdir(parents=True)
+        shutil.move(root / "androidApp", mobile / "androidApp")
+        for mode in ("build", "build-audit"):
+            apk_directory = mobile / "androidApp" / mode / "outputs/apk/release"
+            (apk_directory / "app.apk").rename(apk_directory / "androidApp-release-unsigned.apk")
+            metadata_path = apk_directory / "output-metadata.json"
+            metadata = json.loads(metadata_path.read_text())
+            metadata["elements"][0]["outputFile"] = "androidApp-release-unsigned.apk"
+            metadata_path.write_text(json.dumps(metadata))
+        with patch.object(audit.subprocess, "run") as run:
+            run.return_value.stdout = "c" * 40
+            evidence = audit.bind(root, mobile)
+        evidence["configuration"].update(api_origin="https://catalog.example", native_issuer="foreign issuer")
+        snapshot = audit.freeze(root, mobile, evidence)
+        # This is a valid same-source artifact set for the ordinary artifact validator.
+        contract.validate_android_outputs(snapshot, "c" * 40)
+        evidence["configuration"]["native_issuer"] = ""
+        report = mobile / "androidApp/build/reports/release-boundary/release-evidence.json"
+        report.write_text(json.dumps(evidence))
+        output = root / "out"
+        output.mkdir()
+        with patch.object(release, "run"), patch.object(release, "android_version", return_value={"name": "fixture"}), \
+             self.assertRaisesRegex(ValueError, "snapshot record differs"):
+            release.build(root, "android", "c" * 40, output, "https://catalog.example")
+        self.assertEqual(list(output.iterdir()), [])
+
     def test_hash_and_size_are_from_actual_bytes_and_symlinks_are_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)
