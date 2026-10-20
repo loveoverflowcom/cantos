@@ -56,7 +56,7 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
                 error = if (failure == RegistrationFailure.InvalidEmail) copy.text(AuthText.RegisterInvalidEmail) else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), controlModifier = Modifier.testTag("register-email"))
             Button(copy.text(AuthText.RegisterSend), { onIntent(RegistrationIntent.Submit) },
-                variant = ButtonVariant.AuthPrimary,
+                variant = ButtonVariant.AuthPrimary, icon = "mail",
                 state = if (phase == RegistrationPhase.Submitting) ButtonState.Loading(DisabledReason.of(copy.text(AuthText.RegisterSending))) else ButtonState.Enabled,
                 controlModifier = Modifier.fillMaxWidth().testTag("register-submit"))
         }
@@ -91,11 +91,11 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
             variant = ButtonVariant.AuthPrimary, controlModifier = Modifier.fillMaxWidth().testTag("register-setup"))
         if (phase != RegistrationPhase.Idle && phase != RegistrationPhase.Checking && phase != RegistrationPhase.Cancelled && phase !is RegistrationPhase.Failed && phase != RegistrationPhase.CredentialSetup) {
             Button(copy.text(AuthText.RegisterCancel), { onIntent(RegistrationIntent.Cancel) },
-                variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("register-cancel"))
+                variant = ButtonVariant.Text, icon = "close", controlModifier = Modifier.fillMaxWidth().testTag("register-cancel"))
         }
         if (phase is RegistrationPhase.Failed && phase.reason != RegistrationFailure.InvalidEmail && phase.reason != RegistrationFailure.InvalidAction || phase == RegistrationPhase.Cancelled) {
             Button(copy.text(if (failure == RegistrationFailure.Unavailable || failure == RegistrationFailure.Disabled) AuthText.RegisterRetry else AuthText.RegisterRestart),
-                { onIntent(RegistrationIntent.Restart) }, variant = ButtonVariant.AuthOutlined,
+                { onIntent(RegistrationIntent.Restart) }, variant = ButtonVariant.AuthPrimary,
                 controlModifier = Modifier.fillMaxWidth().testTag("register-retry"))
         }
     }
