@@ -24,9 +24,12 @@ operator-authorized cutover of #336; see the
 [rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api). Everything
 else in this record remains a target, except the bounded library slice below.
 
-The [Identity security-state library](../../services/cantos-identity/README.md) supplies
+The [Identity security-core library](../../services/cantos-identity/README.md) supplies
 checked, distinct subject/operation/instance IDs, storage-bounded security versions and a pure
-completion recheck for active/current state, binding, surface and assurance. It introduces no
+completion recheck for active/current state, binding, surface and assurance. Its mailbox-proof
+planners add bound explicit-confirmation/expiry, terminal cancel/consume and replacement
+decisions with expected/successor snapshots; secret verification and atomic persistence remain
+shell obligations. It introduces no
 binary, DB, crypto verifier, RPC, authentication fact or session; runtime prerequisites still
 belong to #332 and later #334 slices. Pure decisions do not establish durable revocation,
 restore safety, atomic consume-once or auth E2E acceptance. Kani harness registration is not

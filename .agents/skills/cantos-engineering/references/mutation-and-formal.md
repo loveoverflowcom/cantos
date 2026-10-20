@@ -109,14 +109,14 @@ violated proposition; it is not authorization for panic-driven production contro
 
 ### Actual execution and repository integration
 
-**Current implemented scope:** `cargo xtask verify kani` registers thirteen
+**Current implemented scope:** `cargo xtask verify kani` registers fourteen
 production kernels: ten in the API library (`catalog-revision`, `image-bounds`, `wav-payload`,
 `submission-window`, `publication-commit`, `listener-access`, `listener-reconcile`,
 `byte-range`, `playback-grant` and `public-cover`) and one in the Forge crate
-(`forge-attempt-ledger`, the paid-attempt integer kernel), plus two in `cantos-identity`
-(`identity-security-version`, `identity-completion`; both NOT_RUN until an actual pinned
+(`forge-attempt-ledger`, the paid-attempt integer kernel), plus three in `cantos-identity`
+(`identity-security-version`, `identity-completion`, `identity-mailbox-proof`; NOT_RUN until a pinned
 Ubuntu x86_64 D1 workflow has attributable results). Each kernel names its one package.
-Omission selects all thirteen; repeat `--harness` for a subset. Registration is not execution:
+Omission selects all fourteen; repeat `--harness` for a subset. Registration is not execution:
 the ledger records which kernels have an actual attributable run.
 The fixed model pins Kani 0.68.0, bundled rustc 1.100.0-nightly (8925ea358,
 nightly-2026-08-21), CBMC 6.11.0 and x86_64-unknown-linux-gnu/64-bit usize,

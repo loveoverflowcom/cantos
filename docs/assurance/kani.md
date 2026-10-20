@@ -2,7 +2,7 @@
 
 ## Native Identity kernels registered, not yet run
 
-The #334 [security-state library](../../services/cantos-identity/README.md) registers two
+The #334 [security-core library](../../services/cantos-identity/README.md) registers three
 additional kernels in the existing xtask runner. This is registration evidence only;
 the historical API campaigns below do not cover Identity.
 
@@ -10,13 +10,23 @@ the historical API campaigns below do not cover Identity.
 | --- | --- | --- |
 | `identity-security-version` / `SecurityVersion::{new,get,successor}` | Full raw `u64`, wider arithmetic oracle, no assumptions/stubs; unwind 2, 6 covers | NOT_RUN: no pinned Ubuntu x86_64 D1 workflow run URL/SHA or verifier output |
 | `identity-completion` / `check_completion`, checked ID/version constructors | Nonzero full-width IDs, valid storage versions, all account states/purposes/assurances; constructor-domain assumptions only, no stubs; unwind 2, 10 covers | NOT_RUN: same D1 runner/output gap |
+| `identity-mailbox-proof` / `ProofTime::new`, `MailboxProof::{issue,plan_confirmation,plan_cancellation,plan_replacement}` and checked bindings | Full raw `u64` clock, nonzero full-width IDs, valid versions/nonempty stored windows; constructor-domain assumptions only; no stubs; unwind 2, 16 covers | NOT_RUN: same D1 runner/output gap; written assertions/registry tests are not executed proofs |
 
-Reproducible selection: `cargo xtask verify kani --harness identity-security-version --harness identity-completion`.
+Reproducible selection: `cargo xtask verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof`.
 Retain the existing Kani/compiler/solver/target pins, safety and unwinding checks. Acceptance
 needs the actual #331 D1 GitHub Actions Ubuntu x86_64 `workflow_dispatch` run, exact source SHA,
 assertion/unwinding results and all cover outcomes. macOS unit/registry tests and synthetic
 verifier-bundle adapter tests are not `bounded-model-checked`; no real Turso, crypto, RPC,
 consume-once or durable revocation claim follows from these kernels.
+
+The mailbox-proof proposition concerns transition **plans**, including explicit action, exact
+purpose/subject/version/operation/epoch/locator binding, inclusive issuance/exclusive expiry,
+terminal consumed/cancelled snapshots and rejection of a replaced locator. Sixteen reachability
+goals include the three intent classes, invalid/maximal clock input, refusal and terminal/
+replacement cases. The candidate binding and verifier-derived locator are input facts; no
+secret, actual HTTP request, account eligibility, clock trust, digest, transaction or receipt
+is verified. A stale copied plan must still lose an atomic compare at the shared Turso owner.
+The harness does not establish one-winner consumption under concurrency or unknown outcomes.
 
 ## Recorded decision and scope
 
