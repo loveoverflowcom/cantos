@@ -72,6 +72,16 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
         if (works.size < state.savedWorks.size) Text(copy.text(CopyKey.SelectionUnavailableNote))
         LibraryFooter(phase, ShellLibrarySection.Saved, "library-saved", copy, dispatch)
     }
+    Column(Modifier.testTag("library-bookmarks"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        SectionHeading(CopyKey.Bookmarks, copy)
+        val phase = catalog.library.bookmarks
+        if (state.bookmarks.isEmpty() && phase == ShellLibraryPhase.Complete) {
+            Text(copy.text(CopyKey.NoBookmarks), style = MaterialTheme.typography.titleMedium)
+            Text(copy.text(CopyKey.NoBookmarksHelp), style = MaterialTheme.typography.bodySmall)
+        }
+        BookmarkRows(state, catalog, copy, dispatch, "library-bookmark")
+        LibraryFooter(phase, ShellLibrarySection.Bookmarks, "library-bookmarks", copy, dispatch)
+    }
     Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         SectionHeading(CopyKey.History, copy)
         TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.History)) }, modifier = Modifier.testTag("history-all")) {

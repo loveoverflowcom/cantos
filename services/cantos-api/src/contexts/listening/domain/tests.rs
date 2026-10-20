@@ -380,3 +380,179 @@ proptest! {
         }
     }
 }
+
+mod bookmarks {
+    use super::*;
+    use std::collections::BTreeMap;
+    fn id(n: u32) -> String {
+        uid(0xb00 + n)
+    }
+    fn candidate(n: u32, position: u64) -> BookmarkCandidate {
+        BookmarkCandidate::new(
+            &id(n),
+            &dto::BookmarkWrite {
+                operation: operation(u64::from(n) + 1),
+                bookmark_id: id(n),
+                audio: audio(),
+                position_ms: position,
+            },
+        )
+        .unwrap()
+    }
+    fn deletion(n: u32) -> BookmarkDeletion {
+        BookmarkDeletion::new(
+            &id(n),
+            &dto::BookmarkDelete {
+                operation: operation(u64::from(n) + 1),
+            },
+        )
+        .unwrap()
+    }
+    #[test]
+    fn constructors_bind_path_to_body_and_position_to_the_verified_duration() {
+        let raw = |position| dto::BookmarkWrite {
+            operation: operation(1),
+            bookmark_id: id(1),
+            audio: audio(),
+            position_ms: position,
+        };
+        assert!(BookmarkCandidate::new(&id(1), &raw(60_000)).is_ok());
+        assert_eq!(
+            BookmarkCandidate::new(&id(1), &raw(60_001)),
+            Err(DomainError::InvalidPosition)
+        );
+        assert_eq!(
+            BookmarkCandidate::new(&id(2), &raw(1)),
+            Err(DomainError::BindingMismatch)
+        );
+        let mut bad = raw(1);
+        bad.bookmark_id = "NOT-A-UUID".into();
+        assert_eq!(
+            BookmarkCandidate::new("NOT-A-UUID", &bad),
+            Err(DomainError::InvalidId)
+        );
+        let mut zero = raw(0);
+        zero.audio.duration_ms = 0;
+        assert_eq!(
+            BookmarkCandidate::new(&id(1), &zero),
+            Err(DomainError::InvalidPosition)
+        );
+    }
+    #[test]
+    fn the_wire_shaped_value_cannot_forge_a_record_or_a_live_tombstone() {
+        let live = dto::BookmarkRecord {
+            bookmark_id: id(1),
+            audio: audio(),
+            position_ms: 1,
+            deleted: false,
+            listener_order: 1,
+            accepted_at_ms: 0,
+        };
+        assert!(BookmarkRecord::restore(live.clone()).is_ok());
+        for broken in [
+            dto::BookmarkRecord {
+                position_ms: 60_001,
+                ..live.clone()
+            },
+            dto::BookmarkRecord {
+                listener_order: 0,
+                ..live.clone()
+            },
+            dto::BookmarkRecord {
+                accepted_at_ms: -1,
+                ..live.clone()
+            },
+            dto::BookmarkRecord {
+                bookmark_id: "x".into(),
+                ..live.clone()
+            },
+        ] {
+            assert!(BookmarkRecord::restore(broken).is_err());
+        }
+    }
+    #[test]
+    fn delete_keeps_the_exact_value_and_only_advances_order_and_time() {
+        let order = |n| Revision::new(n).unwrap();
+        let BookmarkCreateOutcome::Accepted(made) =
+            reconcile_bookmark_create(None, &candidate(1, 15_000), 10, order(1)).unwrap()
+        else {
+            panic!()
+        };
+        let BookmarkDeleteOutcome::Accepted(gone) =
+            reconcile_bookmark_delete(Some(&made), &deletion(1), 20, order(2)).unwrap()
+        else {
+            panic!()
+        };
+        assert_eq!(
+            gone.raw(),
+            &dto::BookmarkRecord {
+                deleted: true,
+                listener_order: 2,
+                accepted_at_ms: 20,
+                ..made.raw().clone()
+            }
+        );
+        assert_eq!(
+            reconcile_bookmark_delete(Some(&gone), &deletion(1), 30, order(3)),
+            Ok(BookmarkDeleteOutcome::AlreadyCurrent(gone.clone()))
+        );
+        assert_eq!(
+            reconcile_bookmark_create(Some(&gone), &candidate(1, 15_000), 30, order(3)),
+            Ok(BookmarkCreateOutcome::Deleted(gone.clone()))
+        );
+        assert_eq!(
+            reconcile_bookmark_create(Some(&made), &candidate(1, 16_000), 30, order(3)),
+            Err(DomainError::IdentityReused)
+        );
+        assert_eq!(
+            reconcile_bookmark_delete(None, &deletion(1), 30, order(3)),
+            Ok(BookmarkDeleteOutcome::Unknown)
+        );
+        assert_eq!(
+            reconcile_bookmark_delete(Some(&made), &deletion(2), 30, order(3)),
+            Err(DomainError::BindingMismatch)
+        );
+    }
+    proptest! {
+        /// I5: once an ID is tombstoned no later state lists it live, and an ID is accepted at
+        /// most once, whatever interleaving of creates, deletes and replays the schedule has.
+        #[test]
+        fn tombstones_are_final_and_each_id_is_accepted_once_over_arbitrary_schedules(
+            steps in proptest::collection::vec((any::<bool>(), 0u32..4, 0u64..60_001), 1..60)
+        ) {
+            let mut store: BTreeMap<u32, BookmarkRecord> = BTreeMap::new();
+            let mut tombstoned = std::collections::BTreeSet::new();
+            let mut accepted = std::collections::BTreeMap::<u32, u32>::new();
+            let mut order = 0u64;
+            for (create, n, position) in steps {
+                order += 1;
+                let order_now = Revision::new(order).unwrap();
+                if create {
+                    let out = reconcile_bookmark_create(store.get(&n), &candidate(n, position), 1, order_now);
+                    match out {
+                        Ok(BookmarkCreateOutcome::Accepted(r)) => {
+                            prop_assert!(!store.contains_key(&n) && !tombstoned.contains(&n));
+                            *accepted.entry(n).or_default() += 1;
+                            store.insert(n, r);
+                        }
+                        Ok(BookmarkCreateOutcome::Deleted(r)) => {
+                            prop_assert!(tombstoned.contains(&n) && r.deleted());
+                        }
+                        Ok(BookmarkCreateOutcome::AlreadyCurrent(r)) => prop_assert!(!r.deleted()),
+                        Err(DomainError::IdentityReused) => prop_assert!(store.get(&n).is_some_and(|r| !r.deleted())),
+                        Err(other) => prop_assert!(false, "{other:?}"),
+                    }
+                } else if let Ok(BookmarkDeleteOutcome::Accepted(r)) =
+                    reconcile_bookmark_delete(store.get(&n), &deletion(n), 1, order_now)
+                {
+                    tombstoned.insert(n);
+                    store.insert(n, r);
+                }
+                for n in &tombstoned {
+                    prop_assert!(store[n].deleted());
+                }
+            }
+            prop_assert!(accepted.values().all(|count| *count == 1));
+        }
+    }
+}

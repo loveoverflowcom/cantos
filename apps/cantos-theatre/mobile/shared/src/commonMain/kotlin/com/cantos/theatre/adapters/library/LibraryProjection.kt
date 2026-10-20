@@ -1,6 +1,8 @@
 package com.cantos.theatre.adapters.library
 
 import com.cantos.theatre.adapters.library.wire.AudioPresentation
+import com.cantos.theatre.adapters.library.wire.BookmarkRecord
+import com.cantos.theatre.adapters.library.wire.BookmarkWrite
 import com.cantos.theatre.adapters.library.wire.Completion
 import com.cantos.theatre.adapters.library.wire.ContinueItem
 import com.cantos.theatre.adapters.library.wire.HistoryItem
@@ -13,6 +15,8 @@ import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.adapters.library.wire.SavedWrite
 import com.cantos.theatre.adapters.library.wire.WorkPresentation
 import com.cantos.theatre.adapters.library.wire.AudioIdentity as WireAudio
+import com.cantos.theatre.domain.library.BookmarkEntry
+import com.cantos.theatre.domain.library.BookmarkSync
 import com.cantos.theatre.domain.library.ContinueEntry
 import com.cantos.theatre.domain.library.HistoryEntry
 import com.cantos.theatre.domain.library.LibraryConflict
@@ -34,6 +38,7 @@ internal class LibraryRows(
     val saved: List<SavedEntry>,
     val continueListening: List<ContinueEntry>,
     val history: List<HistoryEntry>,
+    val bookmarks: List<BookmarkEntry>,
     val conflicts: List<LibraryConflict>,
     val checkpoint: PausedCheckpoint?,
 )
@@ -52,6 +57,12 @@ internal object LibraryResources {
     /** Per-Work presentation of a Saved row (the API's current representative), same encoding. */
     const val SavedPresentation = "saved_presentation"
     const val NullPresentation = "null"
+    /** A bookmark the API confirmed (page row or accepted receipt): the exact BookmarkRecord, key = bookmark ID. */
+    const val Bookmark = "bookmark"
+    /** The API's resume status of a listed bookmark. Absent for a row only a receipt has confirmed. */
+    const val BookmarkResume = "bookmark_resume"
+    /** A deletion this account made or was told of. It outlives a stale page, so a deleted bookmark never returns. */
+    const val BookmarkGone = "bookmark_gone"
 }
 
 private fun domain(audio: WireAudio) = AudioIdentity.of(audio.work_id, audio.unit_id, audio.publication_id, audio.rendition_id, audio.sha256, audio.duration_ms)
@@ -98,7 +109,7 @@ private class HistoryRow(val audio: WireAudio, val startedAtMs: Long, val resume
  * order); a local change not yet confirmed has no server order and is newest. Metadata follows
  * the exact stored audio: a different publication never inherits a row's title or duration.
  */
-internal fun projectLibraryRows(records: List<LocalLibraryRecord>, pending: List<LocalLibraryIntent>, record: (String, String) -> LocalLibraryRecord?): LibraryRows {
+internal fun projectLibraryRows(records: List<LocalLibraryRecord>, pending: List<LocalLibraryIntent>, offline: Boolean = false, record: (String, String) -> LocalLibraryRecord?): LibraryRows {
     val unconfirmed = Long.MAX_VALUE
     val savedRecords = records.filter { it.resource == LibraryResources.Saved }.mapNotNull { LibraryCodec.decode<SavedRecord>("SavedRecord", it.body) }.associateBy { it.work_id }.toMutableMap()
     records.filter { it.resource == "reconciled" && it.key.startsWith("saved:") }.mapNotNull { LibraryCodec.decode<SavedRecord>("SavedRecord", it.body) }
@@ -178,5 +189,56 @@ internal fun projectLibraryRows(records: List<LocalLibraryRecord>, pending: List
         val server = (receipt.state as? MutationState.Progress)?.current
         LibraryConflict(stored.key, receipt.operation_id, candidate?.position_ms, server?.position_ms, server?.revision ?: 0)
     }
-    return LibraryRows(saved, continueRows, history, conflicts, checkpoint)
+    return LibraryRows(saved, continueRows, history, projectBookmarks(records, pending, offline), conflicts, checkpoint)
+}
+
+private fun bookmarkResume(body: String?): LibraryResume = when (body) {
+    "exact_available" -> LibraryResume.ExactAvailable
+    "release_replaced" -> LibraryResume.ReleaseReplaced
+    "access_unavailable" -> LibraryResume.AccessUnavailable
+    else -> LibraryResume.NeedsRefresh
+}
+
+/**
+ * Bookmarks are server-confirmed rows overlaid with this account's undelivered intents, newest first. A
+ * pending create shows at once, a pending delete hides its row, and a remembered deletion hides the row for good,
+ * so neither a late page nor a replayed response brings a deleted bookmark back. A row keeps the exact audio it
+ * was made on; its metadata is only that release's own, and nothing remaps it to another release.
+ */
+internal fun projectBookmarks(
+    records: List<LocalLibraryRecord>, pending: List<LocalLibraryIntent>, offline: Boolean,
+): List<BookmarkEntry> {
+    val presentations = records.filter { it.resource == LibraryResources.UnitPresentation }.associateBy { it.key }
+    val gone = records.filter { it.resource == LibraryResources.BookmarkGone }.map { it.key }.toSet()
+    val resumes = records.filter { it.resource == LibraryResources.BookmarkResume }.associate { it.key to it.body }
+    val rows = LinkedHashMap<String, Pair<Long, BookmarkEntry>>()
+    fun entry(audio: WireAudio, id: String, position: Long, resume: LibraryResume, sync: BookmarkSync): BookmarkEntry? =
+        domain(audio)?.takeIf { position in 0..it.durationMs }
+            ?.let { BookmarkEntry(id, it, position, resume, sync, unitPresentationOf(presentations[it.publicationId], audio)) }
+    records.filter { it.resource == LibraryResources.Bookmark }
+        .mapNotNull { LibraryCodec.decode<BookmarkRecord>("BookmarkRecord", it.body) }
+        .filter { !it.deleted && it.bookmark_id !in gone }
+        .forEach { value ->
+            entry(value.audio, value.bookmark_id, value.position_ms, bookmarkResume(resumes[value.bookmark_id]), BookmarkSync.Synced)
+                ?.let { rows[value.bookmark_id] = value.listener_order to it }
+        }
+    val creates = pending.filter { it.key.startsWith("bookmark:") && it.method == "PUT" }
+    creates.forEachIndexed { index, intent ->
+        val write = LibraryCodec.decode<BookmarkWrite>("BookmarkWrite", intent.body) ?: return@forEachIndexed
+        if (write.bookmark_id in gone || intent.key != "bookmark:${write.bookmark_id}") return@forEachIndexed
+        val sync = when {
+            intent.failure != null -> BookmarkSync.Failed
+            offline -> BookmarkSync.Offline
+            else -> BookmarkSync.Pending
+        }
+        val known = rows[write.bookmark_id]?.second
+        entry(write.audio, write.bookmark_id, write.position_ms, known?.resume ?: LibraryResume.NeedsRefresh, sync)
+            ?.let { rows[write.bookmark_id] = (Long.MAX_VALUE - (creates.size - index)) to it }
+    }
+    pending.filter { it.key.startsWith("bookmark:") && it.method == "POST" }.forEach { intent ->
+        val id = intent.key.removePrefix("bookmark:")
+        if (intent.failure == null) rows.remove(id)
+        else rows[id]?.let { (order, row) -> rows[id] = order to row.copy(sync = BookmarkSync.DeleteFailed) }
+    }
+    return rows.values.sortedWith(compareByDescending<Pair<Long, BookmarkEntry>> { it.first }.thenBy { it.second.id }).map { it.second }
 }

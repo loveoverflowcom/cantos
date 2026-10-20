@@ -24,6 +24,7 @@ import com.cantos.theatre.ports.SystemBrowser
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -190,6 +191,59 @@ class NativeAuthorizedHttpPortTest {
             assertEquals(allowed, f.requests.map { it.request.url.substringAfter("/api/v1/theatre") })
             assertTrue(replies.all { it.failure == "protocol" })
             assertEquals(refused.size, replies.size)
+        } finally { f.close() }
+    }
+
+    @Test
+    fun bookmarkRoutesLeaveTheProcessOnlyInTheirExactShapeAndWithoutThePresentationOptIn() = runTest {
+        val f = Fixture(backgroundScope)
+        try {
+            runCurrent()
+            val cursor = "c".repeat(64)
+            val id = "b0000000-0000-4000-8000-000000000001"
+            val allowed = listOf(
+                "GET" to "/library/bookmarks?limit=20", "GET" to "/library/bookmarks?limit=20&cursor=$cursor",
+                "PUT" to "/library/bookmarks/$id", "POST" to "/library/bookmarks/$id/delete",
+            )
+            val refused = listOf(
+                "GET" to "/library/bookmarks?limit=20&presentation=1", "GET" to "/library/bookmarks", "GET" to "/library/bookmarks?limit=21",
+                "GET" to "/library/bookmarks?limit=20&cursor=${cursor.uppercase()}", "GET" to "/library/bookmarks/$id",
+                "PUT" to "/library/bookmarks", "PUT" to "/library/bookmarks/NOT-A-UUID", "PUT" to "/library/bookmarks/$id/delete",
+                "POST" to "/library/bookmarks/$id", "POST" to "/library/bookmarks/$id/delete/extra", "POST" to "/library/bookmarks/../session/delete",
+                "DELETE" to "/library/bookmarks/$id",
+            )
+            val replies = mutableListOf<NativeHttpResponse>()
+            (allowed + refused).forEach { (method, route) -> f.http.send(f.request(method, route), replies::add) }
+            runCurrent()
+            assertEquals(allowed.map { it.second }, f.requests.map { it.request.url.substringAfter("/api/v1/theatre") })
+            assertEquals(refused.size, replies.size)
+            assertTrue(replies.all { it.failure == "protocol" })
+        } finally { f.close() }
+    }
+
+    @Test
+    fun theProductionLibraryClientsBookmarkRequestsPassTheProductionAuthorizedPort() = runTest {
+        val f = Fixture(backgroundScope)
+        try {
+            runCurrent()
+            val client = com.cantos.theatre.adapters.library.NativeLibraryClient(f.configuration, f.http)
+            val auth = com.cantos.theatre.adapters.library.LibraryAuthorization("actor", f.family, f.initialBearer)
+            val write = com.cantos.theatre.adapters.library.libraryBookmarkFixtures.getValue("bookmark_write.json")
+            val delete = com.cantos.theatre.adapters.library.libraryBookmarkFixtures.getValue("bookmark_delete.json")
+            fun operation(body: String) = Regex("\"operation_id\":\\s*\"([^\"]+)\"").find(body)!!.groupValues[1]
+            val bookmark = "00000000-0000-4000-8000-0000000000b1"
+            val calls = listOf(
+                backgroundScope.launch { client.bookmarkPage(auth) },
+                backgroundScope.launch { client.bookmarkPage(auth, "c".repeat(64)) },
+                backgroundScope.launch { client.mutate(auth, com.cantos.theatre.ports.LocalLibraryIntent(operation(write), "bookmark:$bookmark", "PUT", "/library/bookmarks/$bookmark", write)) },
+                backgroundScope.launch { client.mutate(auth, com.cantos.theatre.ports.LocalLibraryIntent(operation(delete), "bookmark:$bookmark", "POST", "/library/bookmarks/$bookmark/delete", delete)) },
+            )
+            runCurrent()
+            assertEquals(4, f.requests.size, "no bookmark request is refused before the network")
+            assertEquals(listOf("GET /library/bookmarks?limit=20", "GET /library/bookmarks?limit=20&cursor=${"c".repeat(64)}",
+                "PUT /library/bookmarks/$bookmark", "POST /library/bookmarks/$bookmark/delete"),
+                f.requests.map { it.request.method + " " + it.request.url.substringAfter("/api/v1/theatre") })
+            calls.forEach { it.cancel() }
         } finally { f.close() }
     }
 

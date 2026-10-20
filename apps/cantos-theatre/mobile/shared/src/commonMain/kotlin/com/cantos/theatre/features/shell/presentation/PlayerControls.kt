@@ -29,7 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.cantos.theatre.presentation.model.CopyKey
-import com.cantos.theatre.presentation.model.ShellBookmark
+import com.cantos.theatre.presentation.model.ShellBookmarkSync
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEpisode
 import com.cantos.theatre.presentation.model.ShellEvent
@@ -108,7 +108,9 @@ internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: Shel
             Text(copy.text(timerKey(state.timer)))
         }
         if (LocalShellCapabilities.current.bookmarks) {
-            val bookmarked = ShellBookmark(state.selectedEpisode, state.positionSeconds, state.positionMs) in state.bookmarks
+            val bookmarked = state.bookmarks.any {
+                it.episodeId == state.selectedEpisode && it.positionMs == state.positionMs && it.sync != ShellBookmarkSync.Failed
+            }
             FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Bookmark) }, modifier = Modifier.testTag("bookmark")) {
                 Icon(rememberCantosIconVector("star"), null)
                 Text(copy.text(if (bookmarked) CopyKey.Bookmarked else CopyKey.Bookmark))

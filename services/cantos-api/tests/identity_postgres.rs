@@ -138,7 +138,7 @@ async fn baseline_replay_preserves_ownership_sessions_and_immutable_history() {
         )
         .await
         .unwrap();
-    assert_eq!(row.get::<_, i64>(0), 2);
+    assert_eq!(row.get::<_, i64>(0), 3);
     assert_eq!(row.get::<_, i32>(1), 1);
     assert_eq!(row.get::<_, i32>(2), 32);
     assert_eq!(h.counts().await, (1, 1));

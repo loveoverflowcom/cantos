@@ -147,6 +147,8 @@ class NativeAuthorizedLibraryRuntimeTest {
                         LibraryCodec.json.encodeToString(PresentedContinuePage(emptyList(), null))
                     request.method == "GET" && route.startsWith("/library/saved?") ->
                         LibraryCodec.json.encodeToString(PresentedSavedPage(emptyList(), null))
+                    request.method == "GET" && route.startsWith("/library/bookmarks?") ->
+                        LibraryCodec.json.encodeToString(com.cantos.theatre.adapters.library.wire.BookmarkPage(emptyList(), null))
                     request.method == "GET" && route.startsWith("/library/history?") ->
                         LibraryCodec.json.encodeToString(PresentedHistoryPage(HistoryState(1, 0), emptyList(), null))
                     request.method == "GET" && route.startsWith("/operations/") ->

@@ -123,7 +123,8 @@ fun CantosTheatreApp(
     }
     CompositionLocalProvider(
         LocalShellCopyOverrides provides TheatreShellCopyOverrides,
-        LocalShellCapabilities provides ShellCapabilities(bookmarks = false),
+        // Real bookmarks exist when the durable Library owner does; a guest is guided to sign in, not shown a fake save.
+        LocalShellCapabilities provides ShellCapabilities(bookmarks = shell.runtime.library != null),
         LocalShellNotice provides { _, copy -> CatalogNotice(cacheStatus, copy, dispatch) },
         LocalShellLibraryHeader provides {
             LibraryHeader(library, accountView, shell.runtime.library != null, ShellCopy(locale, TheatreShellCopyOverrides), shell, dispatch)

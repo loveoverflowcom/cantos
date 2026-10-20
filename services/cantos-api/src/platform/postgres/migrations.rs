@@ -6,7 +6,8 @@ use tokio_postgres::{Config, NoTls, Transaction};
 
 pub const SCHEMA_EPOCH: i32 = 2;
 const BEARER: &str = include_str!("../../../schema/0002_bearer.sql");
-const MIGRATIONS: [&str; 2] = [BASELINE, BEARER];
+const LISTENER_BOOKMARKS: &str = include_str!("../../../schema/0003_listener_bookmarks.sql");
+const MIGRATIONS: [&str; 3] = [BASELINE, BEARER, LISTENER_BOOKMARKS];
 const BASELINE: &str = include_str!("../../../schema/0001_current.sql");
 
 /// Static diagnostics deliberately contain no connection strings or database contents.

@@ -20,7 +20,7 @@ sealed interface ShellRoute {
 enum class ShellLibraryTab { Continuing, Saved, Bookmarks }
 
 /** The paged Library sections. They read, fail and retry independently. */
-enum class ShellLibrarySection { Continue, Saved, History }
+enum class ShellLibrarySection { Continue, Saved, History, Bookmarks }
 
 enum class ShellCatalogMode { Ready, Loading, Empty, Error }
 
@@ -34,11 +34,24 @@ enum class ShellListeningFailure { MemoryStoreUnavailable, ReleaseUnavailable }
 
 enum class PlaybackUiStatus { Idle, Loading, Paused, Simulating, Playing, Buffering, Ended, Failed }
 
-/** A pinned demo position. It carries no account, publication, or synchronization claim. */
+/** Where one bookmark stands against the server. [Offline] is a change the last attempt could not deliver. */
+enum class ShellBookmarkSync { Synced, Pending, Offline, Failed, DeleteFailed }
+
+/**
+ * A pinned position. A sample carries only the defaults; a real, account-owned bookmark carries its [id], its sync truth
+ * and whether its exact release can still be opened ([resume]). [titles] are the API's own for that release, never a
+ * neighbouring one's, and owning a bookmark grants no listening access.
+ */
 data class ShellBookmark(
     val episodeId: ShellEpisodeId,
     val positionSeconds: Int,
     val positionMs: Long = positionSeconds.toLong() * 1000L,
+    val id: String = "",
+    val sync: ShellBookmarkSync = ShellBookmarkSync.Synced,
+    val resume: ShellResume = ShellResume.Available,
+    val titles: ShellRowTitles? = null,
+    /** Duration of the exact release the bookmark was made on; null in samples, which read it from the episode. */
+    val durationSeconds: Int? = null,
 ) {
     init {
         require(positionSeconds >= 0) {
@@ -230,6 +243,8 @@ sealed interface ShellEvent {
     data object ClearHistory : ShellEvent
     data object RetryListening : ShellEvent
     data class OpenBookmark(val bookmark: ShellBookmark) : ShellEvent
+    /** Deletes (or discards a never-accepted) bookmark by its ID. */
+    data class DeleteBookmark(val id: String) : ShellEvent
     data object ToggleSimulation : ShellEvent
     data class Seek(val deltaSeconds: Int) : ShellEvent
     data class SeekTo(val seconds: Int) : ShellEvent

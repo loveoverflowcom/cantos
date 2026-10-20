@@ -1,0 +1,53 @@
+{
+  "items": [
+    {
+      "bookmark": {
+        "bookmark_id": "00000000-0000-4000-8000-0000000000b2",
+        "audio": {
+          "work_id": "00000000-0000-4000-8000-000000000001",
+          "unit_id": "00000000-0000-4000-8000-000000000002",
+          "publication_id": "00000000-0000-4000-8000-000000000003",
+          "rendition_id": "00000000-0000-4000-8000-000000000004",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "duration_ms": 60000
+        },
+        "position_ms": 42000,
+        "deleted": false,
+        "listener_order": 3,
+        "accepted_at_ms": 3000
+      },
+      "resume": "exact_available",
+      "presentation": {
+        "work": {
+          "work_id": "00000000-0000-4000-8000-000000000001",
+          "publication_id": "00000000-0000-4000-8000-000000000003",
+          "title": "Ánh đèn cuối sân khấu — Một lời hẹn chưa nói",
+          "kind": "story",
+          "language": "vi-VN"
+        },
+        "unit_id": "00000000-0000-4000-8000-000000000002",
+        "unit_title": "Một tiếng chuông trong sương"
+      }
+    },
+    {
+      "bookmark": {
+        "bookmark_id": "00000000-0000-4000-8000-0000000000b1",
+        "audio": {
+          "work_id": "00000000-0000-4000-8000-000000000001",
+          "unit_id": "00000000-0000-4000-8000-000000000002",
+          "publication_id": "00000000-0000-4000-8000-000000000003",
+          "rendition_id": "00000000-0000-4000-8000-000000000004",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "duration_ms": 60000
+        },
+        "position_ms": 15000,
+        "deleted": false,
+        "listener_order": 1,
+        "accepted_at_ms": 1000
+      },
+      "resume": "access_unavailable",
+      "presentation": null
+    }
+  ],
+  "next_cursor": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}

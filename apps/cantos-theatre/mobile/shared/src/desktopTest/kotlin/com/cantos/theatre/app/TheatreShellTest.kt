@@ -148,7 +148,7 @@ class TheatreShellTest {
     }
 
     @Test
-    fun a_guest_save_asks_for_an_account_and_bookmarks_and_sample_controls_do_nothing() = runTest {
+    fun a_guest_save_and_bookmark_ask_for_an_account_and_sample_controls_do_nothing() = runTest {
         val f = fixture()
         f.shell.dispatch(ShellEvent.SetSaved(ShellWorkId(f.work.id.value), true))
         runCurrent()

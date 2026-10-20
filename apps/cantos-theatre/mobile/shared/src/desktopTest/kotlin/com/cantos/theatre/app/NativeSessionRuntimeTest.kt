@@ -68,6 +68,7 @@ class NativeSessionRuntimeTest {
         }
         override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(SavedPage(emptyList(), null).presented())
         override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(HistoryPage(HistoryState(0, 0), emptyList(), null).presented())
+        override suspend fun bookmarkPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(com.cantos.theatre.adapters.library.wire.BookmarkPage(emptyList(), null))
         override suspend fun saved(auth: LibraryAuthorization, work: String) = LibraryResult.Value(SavedRecord(work, false, 0, 0, 0))
         override suspend fun progress(auth: LibraryAuthorization, publication: String) = LibraryResult.Value(MutationState.Progress(null))
         override suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt> = LibraryResult.Failed("unavailable", true, true)

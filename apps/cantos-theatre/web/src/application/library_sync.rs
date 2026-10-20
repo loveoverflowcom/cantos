@@ -1491,7 +1491,10 @@ impl LibrarySyncState {
                             current,
                         };
                     }
-                    WriteOutcome::HistoryEpochConflict => return Err(CommandError::Protocol),
+                    // Theatre Web has no bookmark owner; a bookmark outcome is never a Saved/progress answer.
+                    WriteOutcome::HistoryEpochConflict | WriteOutcome::BookmarkDeleted => {
+                        return Err(CommandError::Protocol)
+                    }
                 }
                 Ok(AppliedReceipt {
                     outcome: receipt.outcome,
@@ -1559,7 +1562,10 @@ impl LibrarySyncState {
                             None => return Err(CommandError::Protocol),
                         }
                     }
-                    WriteOutcome::HistoryEpochConflict => return Err(CommandError::Protocol),
+                    // Theatre Web has no bookmark owner; a bookmark outcome is never a Saved/progress answer.
+                    WriteOutcome::HistoryEpochConflict | WriteOutcome::BookmarkDeleted => {
+                        return Err(CommandError::Protocol)
+                    }
                 }
                 Ok(AppliedReceipt {
                     outcome: receipt.outcome,
@@ -1623,6 +1629,7 @@ impl LibrarySyncState {
                         self.clear_confirmation = Some(current.clone());
                         self.history_command = HistoryCommandPhase::ClearConflict { current };
                     }
+                    WriteOutcome::BookmarkDeleted => return Err(CommandError::Protocol),
                 }
                 if matches!(self.history_command, HistoryCommandPhase::Idle) {
                     next_dispatch = self.try_mint_history_start(next_operation_id, reported_at_ms);

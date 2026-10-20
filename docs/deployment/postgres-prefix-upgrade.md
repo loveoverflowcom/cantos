@@ -26,7 +26,13 @@ same recorded previous image. The old image must declare epoch 2 and pass the
 read-only schema check on `[1]`. The candidate image's independently initialized
 oracle must have exactly the two checksums in
 [`epoch2-prefix-registry.tsv`](../../infra/vps/postgres/epoch2-prefix-registry.tsv).
-Changing a migration or adding a third requires a separately reviewed protocol.
+Changing a migration or adding a third requires a separately reviewed protocol. Version 3
+(`0003_listener_bookmarks.sql`, #299) is **not** part of this lane: an image that carries it has a
+three-checksum oracle, so the lane refuses it. Ordinary deploy does not apply it either: its
+`preflight_schema` runs the strict `cantos-migrate --check`, which refuses a `[1,2]` database for an
+image that carries three migrations before any backup or migration. **No reviewed rollout path for
+version 3 exists yet**; it needs its own operator-owned protocol (see
+[vps-production](vps-production.md)). Do not bypass the guard or edit registry rows.
 
 Before starting, qualify live browser/callback configuration independently. The
 lane refuses changes to non-API Quadlets, systemd units or Caddy, and database-level

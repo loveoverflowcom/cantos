@@ -111,6 +111,7 @@ class TheatreShellLibraryTest {
             override suspend fun continuePage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedContinuePage> { calls += "continue:$cursor"; return continueAnswer(cursor) }
             override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedSavedPage> { calls += "saved:$cursor"; return savedAnswer(cursor) }
             override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedHistoryPage> { calls += "history:$cursor"; return historyAnswer(cursor) }
+            override suspend fun bookmarkPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(com.cantos.theatre.adapters.library.wire.BookmarkPage(emptyList(), null))
             override suspend fun saved(auth: LibraryAuthorization, work: String) = LibraryResult.Value(SavedRecord(work, false, 0, 0, 0))
             override suspend fun progress(auth: LibraryAuthorization, publication: String) = LibraryResult.Value(MutationState.Progress(null))
             override suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt> = LibraryResult.Failed("unavailable", true, true)

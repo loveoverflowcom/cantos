@@ -16,6 +16,7 @@ class SqlLibraryStore(private val driver: SqlDriver) : LibraryLocalPort {
             override fun record(resource: String, key: String) = db.libraryQueries.record(account, resource, key).executeAsOneOrNull()?.let { LocalLibraryRecord(it.resource, it.resource_key, it.body, it.revision) }
             override fun put(record: LocalLibraryRecord) { db.libraryQueries.putRecord(account, record.resource, record.key, record.body, record.revision) }
             override fun deleteResource(resource: String) { db.libraryQueries.deleteResource(account, resource) }
+            override fun delete(resource: String, key: String) { db.libraryQueries.deleteRecord(account, resource, key) }
             override fun intents() = db.libraryQueries.intents(account).executeAsList().map { LocalLibraryIntent(it.operation, it.resource_key, it.method, it.path, it.body, it.sent != 0L, it.failure) }
             override fun enqueue(intent: LocalLibraryIntent) { db.libraryQueries.insertIntent(account, intent.operation, intent.key, intent.method, intent.path, intent.body) }
             override fun freeze(operation: String, body: String) { db.libraryQueries.freezeIntent(body, account, operation) }

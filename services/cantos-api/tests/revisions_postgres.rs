@@ -632,7 +632,7 @@ async fn baseline_replay_preserves_accepted_revision_bytes_without_retired_runti
             .await
             .unwrap()
             .get::<_, i64>(0),
-        2
+        3
     );
     let row = h.admin.query_one("SELECT to_regclass('durable_runs')::text,to_regclass('speech_clips')::text,to_regclass('adaptation_attempts')::text", &[])
         .await.unwrap();

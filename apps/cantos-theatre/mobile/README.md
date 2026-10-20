@@ -274,7 +274,19 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   Resume opens the same release at its saved position, paused. History records starts the player
   acknowledged; opening a page creates none.
 - Mini/full player: bounded manual seek, speed, a sleep timer that pauses the real player and the
-  episode queue. Bookmarks have no API and are not offered.
+  episode queue.
+- **Release-bound bookmarks** ([Library v1.2](../../../packages/contracts/listener-library-v1.md#release-bound-bookmarks-v120), #299).
+  The player's *Bookmark this moment* control takes the exact audio identity and the position from **one
+  snapshot of the player owner**, records both in the existing SQLite store with its outbox intent in one local
+  transaction, and shows the row at once as pending (offline when the last attempt could not be delivered, failed
+  when the server refused it for good, silent once synced). Pressing again at the same release position is the
+  same bookmark. The list lives in the player and in the Library, reads pages from the API with each item's own
+  exact-release metadata, and survives restart and sign-in on another device. Deleting hides the row at once and is
+  synced; the account remembers its deletions, so neither a stale page nor a replayed response brings one back.
+  Opening a bookmark restores its exact release at its position through the one player owner, **paused**, or moves
+  the loaded release; a replaced or unavailable release is explained and never substituted. A guest is taken to sign
+  in and nothing is saved. Evidence: JVM tests, the production authorized HTTP port's route allow-list, and a loopback run of the sync adapter
+  and client over a JDK transport against the real API and PostgreSQL; no device, audio, deployed run or real identity provider.
 - Contextual settings from the account screen: light/dark, vi/en UI and speed/timer preferences.
 
 Android system Back, visible Back/close and JVM Escape use the same pure navigation transitions.
@@ -561,8 +573,8 @@ settings, replaying, recreating or restoring cannot claim to rebuild an external
 
 `encodeTheatreSnapshot` returns `TheatreSnapshotExport.Exported` or `UnsupportedState`;
 `decodeTheatreSnapshot` returns `TheatreSnapshotResult.Accepted`, `UnsupportedVersion`,
-`UnknownRecipe` or `Invalid`. The JSON schema is **version 2** (the bookmark list was removed with
-the bookmark capability, and `signedIn` was added) and bounds imported payloads at 65,536
+`UnknownRecipe` or `Invalid`. The JSON schema is **version 2** (the old memory-only bookmark list was removed;
+real bookmarks live in the account Library, and `signedIn` was added) and bounds imported payloads at 65,536
 characters, navigation at 32 entries and each progress/history list at 40; export validates those
 same limits before reporting success. Only declared synthetic query IDs (empty, `Đèn`, `Sơn Hà`) are
 exported; other typed search text stays local and export refuses it. Membership state, unsettled
@@ -756,7 +768,7 @@ scheme links the shared production framework and native Swift adapters; there is
 package/origin/signature/version/exclusion checks. Native device/audio/force-stop, iOS codec
 compatibility and browser-facing identity remain acceptance gates; no device success follows
 from JVM tests or packaging. Production distribution is opt-in and requires the named app,
-certificate and recipients. Native registration/bookmarks/downloads are still unavailable.
+certificate and recipients. Native registration and downloads are still unavailable; bookmarks have API, JVM and loopback evidence only (#299), no device run.
 
 ## The application over real owners
 
@@ -775,7 +787,7 @@ projections; identities are the API's lower-case UUIDs, never a sample key.
 | Theme, language | `PreferencesController` (language persisted) |
 | Sleep timer | local to `TheatreShell`: pauses the real player after 15/30 minutes |
 
-Absent facts are absent, not invented: bookmarks have no API (the control is hidden), Library pages
+Absent facts are absent, not invented: the bookmark control is offered when the durable Library owner exists (a guest is guided to sign in, never shown a fake save), Library pages
 are read with the opt-in `presentation=1` (Library v1.1, #297) so Continue, Saved and History rows
 are named by the API's released Work/unit titles even for works the catalog never listed; a row
 whose metadata is `null` (replaced, withdrawn or private release) keeps its record and exact audio and is named

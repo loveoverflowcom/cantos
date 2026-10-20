@@ -1,5 +1,8 @@
 package com.cantos.theatre.adapters.library
 
+import com.cantos.theatre.adapters.library.wire.BookmarkDelete
+import com.cantos.theatre.adapters.library.wire.BookmarkPage
+import com.cantos.theatre.adapters.library.wire.BookmarkWrite
 import com.cantos.theatre.adapters.library.wire.HistoryClear
 import com.cantos.theatre.adapters.library.wire.HistoryStart
 import com.cantos.theatre.adapters.library.wire.ProgressWrite
@@ -66,6 +69,18 @@ class NativeLibraryClient(private val apiOrigin: ApiOrigin, private val http: Na
         page("saved", cursor)?.let { path -> bound(request<PresentedSavedPage>(auth, "GET", path, "PresentedSavedPage")) { it.items.all { item -> item.presentation == null || item.presentation.work_id == item.saved.work_id } } } ?: LibraryResult.Failed("invalid_cursor", false)
     override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedHistoryPage> =
         page("history", cursor)?.let { path -> bound(request<PresentedHistoryPage>(auth, "GET", path, "PresentedHistoryPage")) { it.items.all { item -> LibraryBinding.exact(item.audio, item.presentation) } } } ?: LibraryResult.Failed("invalid_cursor", false)
+    /**
+     * Bookmarks always carry their metadata (no opt-in query). A page naming a deleted bookmark, or metadata of
+     * another record or release, is a contract violation, never a label or a row.
+     */
+    override suspend fun bookmarkPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<BookmarkPage> {
+        if (cursor != null && !Regex("[a-f0-9]{64}").matches(cursor)) return LibraryResult.Failed("invalid_cursor", false)
+        val path = "/library/bookmarks?limit=20" + (cursor?.let { "&cursor=$it" } ?: "")
+        return bound(request<BookmarkPage>(auth, "GET", path, "BookmarkPage")) { page ->
+            page.items.all { item -> !item.bookmark.deleted && LibraryBinding.exact(item.bookmark.audio, item.presentation) } &&
+                page.items.map { it.bookmark.bookmark_id }.toSet().size == page.items.size
+        }
+    }
     override suspend fun saved(auth: LibraryAuthorization, work: String): LibraryResult<SavedRecord> {
         if (!uuid.matches(work)) return LibraryResult.Failed("invalid_request", false)
         return when (val result = request<SavedRecord>(auth, "GET", "/library/saved/$work", "SavedRecord")) {
@@ -86,6 +101,17 @@ class NativeLibraryClient(private val apiOrigin: ApiOrigin, private val http: Na
                 val write = LibraryCodec.decode<ProgressWrite>("ProgressWrite", intent.body)
                 if (!uuid.matches(publication) || intent.key != "progress:$publication" || write?.audio?.publication_id != publication) return LibraryResult.Failed("invalid_request", false)
                 write.operation
+            }
+            intent.method == "PUT" && intent.path.startsWith("/library/bookmarks/") -> {
+                val id = intent.path.removePrefix("/library/bookmarks/")
+                val write = LibraryCodec.decode<BookmarkWrite>("BookmarkWrite", intent.body)
+                if (!uuid.matches(id) || intent.key != "bookmark:$id" || write?.bookmark_id != id) return LibraryResult.Failed("invalid_request", false)
+                write.operation
+            }
+            intent.method == "POST" && intent.path.startsWith("/library/bookmarks/") && intent.path.endsWith("/delete") -> {
+                val id = intent.path.removePrefix("/library/bookmarks/").removeSuffix("/delete")
+                if (!uuid.matches(id) || intent.key != "bookmark:$id") return LibraryResult.Failed("invalid_request", false)
+                LibraryCodec.decode<BookmarkDelete>("BookmarkDelete", intent.body)?.operation
             }
             intent.method == "POST" && intent.path == "/library/history/playback-starts" && intent.key == "history" -> LibraryCodec.decode<HistoryStart>("HistoryStart", intent.body)?.operation
             intent.method == "POST" && intent.path == "/library/history/clear" && intent.key == "history" -> LibraryCodec.decode<HistoryClear>("HistoryClear", intent.body)?.operation

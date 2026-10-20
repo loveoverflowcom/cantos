@@ -90,6 +90,9 @@ class LibraryPresentationSyncTest {
             calls += "history:$cursor"
             return historyPages[cursor] ?: LibraryResult.Value(PresentedHistoryPage(HistoryState(0, 0), emptyList(), null))
         }
+        val bookmarkPages = HashMap<String?, LibraryResult<com.cantos.theatre.adapters.library.wire.BookmarkPage>>()
+        override suspend fun bookmarkPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<com.cantos.theatre.adapters.library.wire.BookmarkPage> =
+            bookmarkPages[cursor] ?: LibraryResult.Value(com.cantos.theatre.adapters.library.wire.BookmarkPage(emptyList(), null))
         override suspend fun saved(auth: LibraryAuthorization, work: String) = LibraryResult.Value(SavedRecord(work, false, 0, 0, 0))
         override suspend fun progress(auth: LibraryAuthorization, publication: String) = LibraryResult.Value(MutationState.Progress(null))
         override suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt> = LibraryResult.Failed("unavailable", true, true)
@@ -288,6 +291,7 @@ class LibraryPresentationSyncTest {
                 continuePages[null] = LibraryResult.Failed("unavailable", true)
                 savedPages[null] = LibraryResult.Failed("unavailable", true)
                 historyPages[null] = LibraryResult.Failed("unavailable", true)
+                bookmarkPages[null] = LibraryResult.Failed("unavailable", true)
             }
             val store = desktopLibraryStore(path)
             val reopened = controller(down, store)

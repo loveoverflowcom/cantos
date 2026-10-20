@@ -3,6 +3,7 @@ package com.cantos.theatre.app
 import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
 import com.cantos.theatre.adapters.preview.PreviewWorkIds
 import com.cantos.theatre.presentation.model.PlaybackUiStatus
+import com.cantos.theatre.presentation.model.ShellBookmark
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellEpisodeId
 import com.cantos.theatre.presentation.model.ShellLibraryTab
@@ -28,6 +29,7 @@ fun previewState(
     savedWorks: Set<ShellWorkId> = emptySet(),
     progress: List<ShellProgress> = emptyList(),
     history: List<ShellProgress> = emptyList(),
+    bookmarks: List<ShellBookmark> = emptyList(),
     libraryTab: ShellLibraryTab = ShellLibraryTab.Continuing,
     query: String = "",
     catalogMode: ShellCatalogMode = ShellCatalogMode.Ready,
@@ -42,7 +44,7 @@ fun previewState(
     savedWorks = savedWorks, libraryTab = libraryTab, query = query, catalogMode = catalogMode, theme = theme, locale = locale,
     speedPercent = speedPercent, timer = timer,
     playbackStatus = playbackStatus,
-    transportRequested = transportRequested, progress = progress, history = history,
+    transportRequested = transportRequested, progress = progress, history = history, bookmarks = bookmarks,
 )
 
 fun previewProgress(episode: ShellEpisodeId, positionSeconds: Int) =

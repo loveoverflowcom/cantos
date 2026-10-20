@@ -5,7 +5,11 @@ current constraints/functions/triggers/indexes without replaying retired provide
 The metadata registries are created by `platform/postgres/migrations.rs` in the same transaction.
 `0002_bearer.sql` is the additive epoch-2 version 2 expansion. The migrator validates every
 applied checksum and applies only the exact missing suffix, atomically. There is no executable
-epoch-1 upgrade chain or parallel SQL bootstrap command. Runtime verification requires both versions.
+epoch-1 upgrade chain or parallel SQL bootstrap command. Runtime verification requires every version.
+`0003_listener_bookmarks.sql` is the additive version 3 (release-bound listener bookmarks, #299); no earlier
+checksum is touched, and `cantos-migrate` (without `--check`) applies exactly this suffix to a `[1,2]` database.
+The VPS deploy and prefix-upgrade lanes both refuse that state today: version 3 has no reviewed production
+rollout protocol yet ([cutover docs](../../../docs/deployment/postgres-prefix-upgrade.md)).
 Use `cantos-migrate` through the owning deployment/test commands; server startup is read-only.
 
 An applied version's SHA-256 is immutable within its epoch. Future changes need a separately
