@@ -1,0 +1,10 @@
+# Non-secret VPS Studio private media default.
+# Keep this target ID/root unchanged after audio is admitted: receipts bind to it.
+# Long Vân may be added and selected later, while this target stays configured for reads.
+version = 1
+[storage]
+active_write_target = "legacy-filesystem"
+
+[storage.targets.legacy-filesystem]
+driver = "filesystem"
+private_root = "/var/lib/cantos/private"

@@ -261,6 +261,65 @@ Service-account signing files need dedicated least privilege and an explicit pro
 the base Quadlet has none. Enable only reviewed registration grants; keep revocation idempotent.
 Kanidm browser-route allowlisting must be qualified separately from management access.
 
+## Development private audio on the VPS
+
+The first Studio audio uploads use the **existing** filesystem driver, not Long Vân.
+The VPS bundle installs `infra/vps/config/storage.filesystem.toml` once as
+`/root/cantos-services/config/storage.toml`; existing operator content is **never
+overwritten**. Only the Studio API Quadlet mounts that nonsecret TOML as
+`/etc/cantos-storage.toml`, sets `CANTOS_STORAGE_CONFIG`, and grants access to
+the bind-mounted host directory `/var/lib/cantos/private`. Container rootfs remains
+read-only. The host directory is UID/GID `10001:10001` with mode `0700`; config
+is root-owned mode `0644` under a root-only config directory. Startup refuses
+missing, symlinked or incorrectly permissioned paths. This deployment is an
+operator-facing configuration **option**, not proof that today's VPS has activated it.
+
+The default installed profile is:
+
+```toml
+version = 1
+[storage]
+active_write_target = "legacy-filesystem"
+
+[storage.targets.legacy-filesystem]
+driver = "filesystem"
+private_root = "/var/lib/cantos/private"
+```
+
+No S3 credential is necessary. The API admits only inspected immutable media
+through its existing authenticated Studio intake and serves approved private reads
+through the API; never expose the root through Caddy, static Hosting, public URLs,
+an additional writable mount or Theatre. The Theatre API Quadlet has **no private
+storage mount**. A release played by Theatre uses the separate
+`CANTOS_PUBLICATION_ROOT` and playback-key configuration (#170), which this
+change deliberately does **not** enable.
+
+When Long Vân is ready, add `[storage.targets.longvan-hn1]` from the
+[Long Vân example](../../services/cantos-api/config/storage.longvan.example.toml)
+to that same TOML and choose `active_write_target = "longvan-hn1"`. **Retain**
+`legacy-filesystem` with its original root for every historical audio receipt.
+External secrets are supplied by operator-managed API EnvironmentFile/Podman
+secrets, never in TOML or Git. The API validates **all** configured targets and
+requires their secret inputs even if not active; do not add Long Vân until these
+inputs and its real S3 capability acceptance are ready. There is **no fallback,
+implicit migration, or duplicate upload to providers** when a target fails.
+
+After the explicitly approved VPS deployment, verify the tracked Studio container
+mounts and exact filesystem target, upload a test Ogg/Opus file through a real
+authorized Studio session, read it back with byte/hash and Range checks, and confirm
+a second user and anonymous users cannot fetch it. Repeat the read after a Studio
+container restart and image redeploy/rollback without changing the original
+`storage_target_id`. No provider credentials should be needed for this default.
+These runtime checks are **NOT_RUN** until an actual VPS test receipt exists.
+
+**Backup requirement:** the existing scheduled PostgreSQL `pg_dump` does **not**
+include `/var/lib/cantos/private`. Back it up independently **off-VPS**, preserve
+immutable file contents and ownership/modes on restore, and drill a receipt-to-byte
+restore with the matching PostgreSQL snapshot. Do not delete or prune this directory
+during deploy, rollback or image cleanup. Provision enough disk capacity and monitor
+free space before large audio batches. Publication assets, when activated, need
+a different root and independent backup policy. Tracking: [#309](https://github.com/loveoverflowcom/cantos/issues/309).
+
 ## Runtime assets, recovery and checks
 
 Root-only `/root/cantos-services/` holds `config`, `secrets`, `internal-ca`, `kanidm`, `backups`,

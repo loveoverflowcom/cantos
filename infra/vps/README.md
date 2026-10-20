@@ -22,10 +22,19 @@ generated on the VPS and kept root-only there.
 | [`bin/cantos-epoch2-cutover`](bin/cantos-epoch2-cutover), [`postgres/epoch2-empty-business-guard.sql`](postgres/epoch2-empty-business-guard.sql) | Narrow explicit legacy-883e188/28-migration cutover: sibling rehearsal, frozen-row import, off-host recovery acknowledgement, paired recovery and post-acceptance finalization |
 | [`bin/cantos-oidc-reconcile`](bin/cantos-oidc-reconcile), [`bin/cantos-oidc-config.py`](bin/cantos-oidc-config.py) | Existing-client URL/callback reconciliation, secret-redacting plans, preservation checks and readback receipt; no accounts, resets, new grants or secret rotation |
 | [`config.example.env`](config.example.env) | Single nonsecret origin/callback input file `/root/cantos-services/config/edge.env`; reviewed values are required |
+| [`config/storage.filesystem.toml`](config/storage.filesystem.toml) | First-install **private Studio audio** target, selected locally without S3 credentials; installed once at `/root/cantos-services/config/storage.toml` |
 
 The edge routing policy stays in [`infra/edge/Caddyfile`](../edge/Caddyfile). Changing a Quadlet
 unit, the grants or the Caddyfile takes effect through `cargo xtask deploy vps`
 (or `--bootstrap`), which uploads this directory from the committed revision.
+
+The Studio API Quadlet bind-mounts `/var/lib/cantos/private` read/write and a
+read-only operator-owned `storage.toml` profile. The host helper initializes the
+directory as UID/GID 10001 with mode 0700 and refuses unsafe replacement; it
+never rewrites a chosen profile or media bytes. `legacy-filesystem` remains the
+durable target identity, even when Long Vân becomes the active write target.
+The Theatre API has **no private media mount**. See the
+[VPS media runbook](../../docs/deployment/vps-production.md#development-private-audio-on-the-vps).
 
 Invariants: PostgreSQL never listens on TCP; only `cantos-edge` publishes ports; each API process
 pins exactly one HTTPS Web origin; production refuses development Studio credentials; images are

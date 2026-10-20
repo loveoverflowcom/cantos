@@ -14,8 +14,12 @@ Pull=never
 Network=cantos.network
 NetworkAlias=cantos-api-studio
 Volume=cantos-postgres-socket:/run/postgresql
+# Only Studio owns private intake; files survive image changes on the VPS host.
+Volume=/var/lib/cantos/private:/var/lib/cantos/private:rw
+Volume=/root/cantos-services/config/storage.toml:/etc/cantos-storage.toml:ro
 Secret=cantos-db-app-url,type=env,target=DATABASE_URL
 EnvironmentFile=/root/cantos-services/config/api-studio.env
+Environment=CANTOS_STORAGE_CONFIG=/etc/cantos-storage.toml
 ReadOnly=true
 NoNewPrivileges=true
 DropCapability=ALL
