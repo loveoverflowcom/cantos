@@ -165,8 +165,8 @@ Production API deployment to the VPS is the explicit, opt-in
 image locally from committed `HEAD`, then the uploaded `infra/vps/bin/cantos-vps` backs up, migrates,
 grants, switches and health-gates with automatic switch-back. It is a remote write: `--dry-run` shows
 the plan, and an agent runs it only on the user's explicit request naming the host.
-The separate `--upgrade-epoch2-prefix` lane preserves an epoch-2 `[1]` database and upgrades
-a restored sibling to `[1,2]`; read its [operator/recovery runbook](docs/deployment/postgres-prefix-upgrade.md).
+The separate `--upgrade-epoch2-prefix` lane preserves an epoch-2 database and upgrades a restored
+sibling by the candidate's exact additive registry suffix (`[1]`→`[1,2]`, `[1,2]`→`[1,2,3]`); read its [operator/recovery runbook](docs/deployment/postgres-prefix-upgrade.md).
 It requires separately explicit operator authority and a native Linux x86_64/17.11 rehearsal;
 ordinary deploy checks remain strict.
 `cantos-vps identity` is operator-run: the operator may explicitly delegate it to an AI agent

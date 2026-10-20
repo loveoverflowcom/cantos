@@ -36,8 +36,9 @@ Operations (exactly one; deploy is the default):
   --reload-browser upload the host bundle; validate/restart existing edge/API, no SQL or secrets
   --rollback    switch the API back to the previous image on the VPS
   --status      print the VPS service status
-  --upgrade-epoch2-prefix  preserve a full epoch-2 [1] database; migrate a sibling to [1,2],
-                verify off-host recovery, then switch the database/image pair
+  --upgrade-epoch2-prefix  preserve a full epoch-2 database; migrate a sibling by the candidate's
+                additive registry suffix ([1]->[1,2], [1,2]->[1,2,3]), verify off-host
+                recovery, then switch the database/image pair
   --cutover-epoch2  explicitly convert the inventoried empty-business epoch-1 installation;
                 rehearse, freeze, verify an off-host recovery copy, then switch DB/image together
 
@@ -82,7 +83,7 @@ pub struct VpsArgs {
     /// Explicit two-phase, lossless epoch-1 (28 migrations) to epoch-2 cutover.
     #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "status", "reload_browser"])]
     pub cutover_epoch2: bool,
-    /// Explicit paired sibling-database epoch-2 [1] to [1,2] upgrade (Linux x86_64 only).
+    /// Explicit paired sibling-database epoch-2 additive registry-suffix upgrade (Linux x86_64 only).
     #[arg(long, conflicts_with_all = ["bootstrap", "rollback", "status", "reload_browser", "cutover_epoch2"])]
     pub upgrade_epoch2_prefix: bool,
     /// Public API origin probed from this machine afterwards, e.g. https://api.example.org.
