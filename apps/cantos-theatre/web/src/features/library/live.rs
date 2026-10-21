@@ -436,7 +436,7 @@ mod tests {
         assert!(html.contains("Xóa lịch sử nghe"));
 
         // Prompting clear history renders the confirmation region with confirm and cancel buttons.
-        s.with_sync_mut(|sync, _| {
+        s.seed_sync(|sync, _| {
             sync.prompt_clear_history();
         });
         let confirm_html = render_with_actions(s, Locale::Vietnamese);

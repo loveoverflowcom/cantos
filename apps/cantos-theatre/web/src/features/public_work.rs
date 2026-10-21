@@ -1544,7 +1544,7 @@ mod tests {
             ),
             Ok(SessionCompletion::Authenticated(_))
         ));
-        signed_in.with_sync_mut(|sync, _| {
+        signed_in.seed_sync(|sync, _| {
             sync.observe_saved_record(SavedRecord {
                 work_id: WORK.into(),
                 saved: true,

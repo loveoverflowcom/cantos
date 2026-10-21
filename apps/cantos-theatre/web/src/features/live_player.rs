@@ -801,7 +801,7 @@ mod tests {
 
             // Create a revision conflict on the active publication.
             let op_id = uuid::Uuid::from_u128(501).to_string();
-            account.with_sync_mut(|sync, _| {
+            account.seed_sync(|sync, _| {
                 sync.record_progress_intent(
                     audio.clone(),
                     45_000,

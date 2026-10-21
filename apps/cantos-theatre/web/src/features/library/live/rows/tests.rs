@@ -13,7 +13,7 @@ fn state() -> AccountViewState {
     s
 }
 fn edit_projection(s: &mut AccountViewState, edit: impl FnOnce(&mut LibraryProjection)) {
-    s.with_sync_mut(|sync, projection| {
+    s.seed_sync(|sync, projection| {
         // Isolate each presentation fact from reconciliation. Transition behavior has its
         // own application tests; these fixtures exercise the production row selectors.
         *sync = LibrarySyncState::new("listener-a", uuid::Uuid::from_u128(11).to_string()).unwrap();
@@ -131,14 +131,14 @@ fn command_and_resume_feedback_changes_are_projected_without_changing_membership
             },
         ] {
             signal.update(|s| {
-                s.with_sync_mut(|sync, _| sync.set_resume_attempt(feedback.clone()));
+                s.seed_sync(|sync, _| sync.set_resume_attempt(feedback.clone()));
             });
             assert_eq!(row.get().unwrap().feedback, feedback);
             assert!(resume_feedback(&row.get().unwrap(), Locale::English).is_some());
         }
         let operation = uuid::Uuid::from_u128(80).to_string();
         signal.update(|s| {
-            s.with_sync_mut(|sync, _| {
+            s.seed_sync(|sync, _| {
                 assert!(sync
                     .request_saved(WORK, false, operation.clone(), None)
                     .is_some());
@@ -149,7 +149,7 @@ fn command_and_resume_feedback_changes_are_projected_without_changing_membership
             SavedCommandPhase::Pending { .. }
         ));
         signal.update(|s| {
-            s.with_sync_mut(|sync, _| {
+            s.seed_sync(|sync, _| {
                 assert!(sync.record_unknown_outcome(&operation));
             });
         });
@@ -158,7 +158,7 @@ fn command_and_resume_feedback_changes_are_projected_without_changing_membership
             Some(Key::LiveSaveUnknown)
         );
         signal.update(|s| {
-            s.with_sync_mut(|sync, _| {
+            s.seed_sync(|sync, _| {
                 assert!(
                     sync.record_command_error(&operation, CommandError::Protocol, || {
                         uuid::Uuid::from_u128(81).to_string()
@@ -172,7 +172,7 @@ fn command_and_resume_feedback_changes_are_projected_without_changing_membership
         );
         let operation = uuid::Uuid::from_u128(90).to_string();
         signal.update(|s| {
-            s.with_sync_mut(|sync, _| {
+            s.seed_sync(|sync, _| {
                 assert!(sync
                     .record_progress_intent(
                         audio.clone(),
@@ -190,7 +190,7 @@ fn command_and_resume_feedback_changes_are_projected_without_changing_membership
             ProgressCommandPhase::Pending { .. }
         ));
         signal.update(|s| {
-            s.with_sync_mut(|sync, _| {
+            s.seed_sync(|sync, _| {
                 assert!(sync.record_unknown_outcome(&operation));
             });
         });
@@ -199,7 +199,7 @@ fn command_and_resume_feedback_changes_are_projected_without_changing_membership
             ProgressCommandPhase::UnknownOutcome { .. }
         ));
         signal.update(|s| {
-            s.with_sync_mut(|sync, _| {
+            s.seed_sync(|sync, _| {
                 assert!(
                     sync.record_command_error(&operation, CommandError::Protocol, || {
                         uuid::Uuid::from_u128(91).to_string()
@@ -389,7 +389,7 @@ fn conflict_projections_keep_both_positions_and_saved_feedback_then_return_to_id
             let audio = row.get().unwrap().audio;
             let operation = uuid::Uuid::from_u128(101).to_string();
             s.update(|s| {
-                s.with_sync_mut(|sync, _| {
+                s.seed_sync(|sync, _| {
                     sync.record_progress_intent(
                         audio.clone(),
                         35_000,
@@ -465,7 +465,7 @@ fn conflict_projections_keep_both_positions_and_saved_feedback_then_return_to_id
             let operation =
                 uuid::Uuid::from_u128(if expected.is_some() { 103 } else { 104 }).to_string();
             s.update(|s| {
-                s.with_sync_mut(|sync, _| {
+                s.seed_sync(|sync, _| {
                     sync.request_saved(WORK, false, operation.clone(), None)
                         .unwrap();
                     let mut current = sync.saved_work(WORK).unwrap().record.clone().unwrap();

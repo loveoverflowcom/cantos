@@ -276,7 +276,7 @@ mod tests {
             let fence = state.with_untracked(AccountViewState::fence).unwrap();
             for _ in 0..3 {
                 state.update(|s| {
-                    s.with_sync_mut(|sync, _| {
+                    s.seed_sync(|sync, _| {
                         sync.begin_saved_read(&uuid::Uuid::from_u128(99).to_string())
                     });
                 });

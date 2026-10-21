@@ -69,6 +69,11 @@ pub struct LibraryProjection {
     pages: [PageState; 3],
 }
 impl LibraryProjection {
+    #[cfg(test)]
+    pub(super) fn exhaust_page_generation_for_test(&mut self, section: Section) {
+        self.pages[section.index()].generation = u64::MAX;
+    }
+
     pub fn phase(&self, section: Section) -> PagePhase {
         self.pages[section.index()].phase
     }

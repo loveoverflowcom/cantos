@@ -223,6 +223,7 @@ declarations do not establish browser or native acceptance.
 | `src/application/player_session.rs` | Commit pure transitions, then interpret effects through `MediaPort`; derived status/view `Memo`s and playback observation callbacks |
 | `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
 | `src/application/account.rs`, `account_view.rs` | Deterministic session generation with shell-injected device IDs, fail-closed exhaustion, logout acknowledgement, private read projection and fenced sync state lifecycle |
+| `src/application/account_writer.rs` | Host-compilable Leptos writer for typed account/sync capabilities; journal snapshot and persist-before-dispatch orchestration, without browser imports |
 | `src/application/library.rs`, `library_sync.rs` | Pure presented Library projection, epoch-checked history paging, Save/progress/history write outbox, receipt reconciliation, account-scoped recovery journal and exact-release resume admission |
 | `src/application/auth_navigation.rs` | Closed internal auth return destinations and checked request epochs; routes never establish a session or registration receipt |
 | `src/application/public_discovery.rs` | Pure Work-list walk: normalized `DiscoveryQuery` (q/kind/language), ticket-fenced requests, opaque cursor bound to its query, bounded follow-up of empty pages, same-cursor retry, `invalid_cursor` → fresh walk (never merged), one-time row identity |
@@ -629,3 +630,24 @@ owner returns `Exhausted`.
 `generate_uuid_string` remains a shell utility: the browser first tries `crypto.randomUUID`,
 then falls through to the existing process-local counter if no valid UUID was returned. This
 change does not evaluate browser exception/fallback reachability or change that utility.
+
+
+Sync consumers use `AccountViewState` capabilities for Saved, progress, History, read/receipt
+completions, acknowledged playback and ticket-fenced Resume. Admission returns
+`Result<Admitted<T>, IntentRefusal>`: current intents distinguish `SignedOut`, `RestoreBlocked`
+and `NoSync`; fenced completions distinguish `StaleFence` and `NoSync`. Completion recovery
+remains allowed while journal restoration is blocked, matching the existing protocol. Admission
+refusals preserve the whole aggregate and do not call ID generators. Mutable sync/projection
+closures are private to the owner; fixture seeding exists only under `cfg(test)`.
+
+The host-compilable `AccountWriter` publishes owner results, releases its guards, snapshots only
+the journal and persists before constructing the network effect. Persistence failure retains the
+pending operation as an unknown outcome. Receipt-first recovery keeps its original ID/payload;
+the browser shell rechecks its fence after awaited I/O. Resume completions recheck both fence and
+ticket at the owner. Only admission refusals suppress publication in this slice; admitted no-op,
+storage and lifecycle notification refinement remains [#362](https://github.com/loveoverflowcom/cantos/issues/362).
+`AccountState`'s byte-projection/outbox API has test-only callers; production outbox evidence
+comes from `LibrarySyncState` and `AccountWriter`, not that legacy test API.
+
+See [the source-bound capability record](../../../docs/evidence/theatre-account-capabilities-361.md)
+for the local evidence boundary and remaining runtime acceptance.
