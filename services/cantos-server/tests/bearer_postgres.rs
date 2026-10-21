@@ -1705,20 +1705,36 @@ mod process_composition {
             .output()
             .unwrap();
         assert!(observed.status.success());
-        String::from_utf8(observed.stdout)
-            .unwrap()
+        parse_owned_server_pids(
+            &String::from_utf8(observed.stdout).unwrap(),
+            std::process::id(),
+        )
+    }
+
+    fn parse_owned_server_pids(observed: &str, owner: u32) -> Vec<u32> {
+        observed
             .lines()
             .filter_map(|line| {
-                let mut fields = line.split_whitespace();
-                let pid = fields.next()?.parse().ok()?;
-                let parent: u32 = fields.next()?.parse().ok()?;
-                let executable = fields.next()?;
-                (parent == std::process::id()
-                    && std::path::Path::new(executable).file_name()
+                let (pid, rest) = line.trim_start().split_once(char::is_whitespace)?;
+                let (parent, executable) = rest.trim_start().split_once(char::is_whitespace)?;
+                let pid = pid.parse().ok()?;
+                let parent: u32 = parent.parse().ok()?;
+                (parent == owner
+                    && std::path::Path::new(executable.trim()).file_name()
                         == Some(std::ffi::OsStr::new("cantos-server")))
                 .then_some(pid)
             })
             .collect()
+    }
+
+    #[test]
+    fn process_observation_preserves_paths_with_spaces_and_exact_parent() {
+        let observed = "  41   7 cantos-server\n\
+                        42 7 /Users/fixture/Work Chat/target/debug/cantos-server\n\
+                        43 8 /Users/fixture/Work Chat/target/debug/cantos-server\n\
+                        44 7 /Users/fixture/Work Chat/target/debug/cantos-server-helper\n\
+                        malformed\n";
+        assert_eq!(parse_owned_server_pids(observed, 7), vec![41, 42]);
     }
 
     async fn start(h: &Harness, port: u16, client: &reqwest::Client) -> OwnedServer {
