@@ -1,4 +1,5 @@
 //! Public discovery is independent of account availability; auth is always an explicit route.
+use crate::application::error_writer::update_errors;
 use crate::application::errors::{
     ErrorAction, ErrorCenter, ErrorKind, ErrorNotice, ErrorOperation,
 };
@@ -281,7 +282,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let network_allowed = Signal::derive(move || !history_blocked.get() && configuration_valid);
     let errors = RwSignal::new(ErrorCenter::default());
     if !configuration_valid {
-        errors.update(|s| {
+        update_errors(errors, |s| {
             s.report(
                 ErrorNotice::read(ErrorKind::Configuration, ErrorOperation::LoadCatalog),
                 false,
@@ -515,7 +516,9 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         else {
             return;
         };
-        let _ = crate::application::account_writer::AccountWriter::new(state).reset_resume();
+        let _ = crate::application::account_writer::AccountWriter::new(state)
+            .reset_resume()
+            .into_value();
         // The same release already in the player resumes; nothing is fetched or replaced.
         let resumes = player.source.get_untracked().is_some_and(|source| {
             matches!(source.track(), crate::core::playback::TrackId::Public(track)
@@ -633,11 +636,13 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }),
         on_prompt_clear_history: Callback::new(move |()| {
             let _ = crate::application::account_writer::AccountWriter::new(state)
-                .prompt_clear_history();
+                .prompt_clear_history()
+                .into_value();
         }),
         on_cancel_clear_history: Callback::new(move |()| {
             let _ = crate::application::account_writer::AccountWriter::new(state)
-                .cancel_clear_history();
+                .cancel_clear_history()
+                .into_value();
         }),
         on_confirm_clear_history: Callback::new(move |()| {
             if !preview && network_allowed.get_untracked() {
@@ -689,7 +694,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }),
     };
     let on_work_retry = Callback::new(move |()| {
-        errors.update(|s| {
+        update_errors(errors, |s| {
             s.resolve(ErrorOperation::LoadWork);
             s.resolve(ErrorOperation::LoadUnits);
         });
@@ -767,7 +772,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }
     });
     let on_discovery_retry = Callback::new(move |()| {
-        errors.update(|s| s.resolve(ErrorOperation::LoadCatalog));
+        update_errors(errors, |s| s.resolve(ErrorOperation::LoadCatalog));
         if preview || !network_allowed.get_untracked() {
             return;
         }
@@ -865,7 +870,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }
         let route = nav.route.get();
         discovery.with(|catalog| {
-            errors.update(|center| {
+            update_errors(errors, |center| {
                 if !matches!(route, Route::Discover | Route::Explore) {
                     center.resolve(ErrorOperation::LoadCatalog);
                 } else {
@@ -891,7 +896,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             })
         });
         work_detail.with(|work| {
-            errors.update(|center| match work.phase() {
+            update_errors(errors, |center| match work.phase() {
                 WorkDetailPhase::Failed(failure) => center.report(
                     ErrorNotice::read((*failure).into(), ErrorOperation::LoadWork),
                     false,
@@ -927,7 +932,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         let (generation, phase) = account_observation.get();
         if observed_account_generation.get_value() != generation {
             observed_account_generation.set_value(generation);
-            errors.update(|c| {
+            update_errors(errors, |c| {
                 c.resolve(ErrorOperation::SignIn);
                 c.resolve(ErrorOperation::UpdateLibrary);
             });
@@ -938,10 +943,10 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             nav.route.get(),
             Route::Account | Route::Auth(_) | Route::Library | Route::History
         ) {
-            errors.update(|c| c.resolve(ErrorOperation::SignIn));
+            update_errors(errors, |c| c.resolve(ErrorOperation::SignIn));
             return;
         }
-        errors.update(|c| match phase {
+        update_errors(errors, |c| match phase {
             SessionPhase::Failed(crate::application::account_view::AccountFailure::Diagnostic(
                 kind,
             )) => c.report(ErrorNotice::read(kind, ErrorOperation::SignIn), true),
@@ -950,8 +955,9 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         });
     });
     let on_error_action = Callback::new(move |action| {
-        let mut operation = None;
-        errors.update(|center| operation = center.choose(action));
+        let operation = update_errors(errors, |center| center.choose(action))
+            .into_value()
+            .flatten();
         if let Some(operation) = operation {
             match action {
                 ErrorAction::SignIn => on_login.run(()),

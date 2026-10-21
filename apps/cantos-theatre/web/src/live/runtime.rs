@@ -143,7 +143,9 @@ async fn cleanup(
             current.generation() == issued && current.phase() == SessionPhase::LogoutPending
         })
         .unwrap_or(false);
-    let _ = AccountWriter::new(state).finish_logout(issued, result);
+    let _ = AccountWriter::new(state)
+        .finish_logout(issued, result)
+        .into_value();
     if current_result && session_changed && session_change_budget > 0 {
         refresh_with_budget(state, session_change_budget - 1);
     }
@@ -165,7 +167,7 @@ fn refresh_with_budget(state: RwSignal<AccountViewState>, session_change_budget:
     {
         return;
     }
-    let Some(Ok(issued)) = AccountWriter::new(state).begin_refresh() else {
+    let Some(Ok(issued)) = AccountWriter::new(state).begin_refresh().into_value() else {
         return;
     };
     leptos::task::spawn_local(async move {
@@ -180,7 +182,9 @@ async fn finish_lookup(
     result: Result<crate::application::account::AccountScope, AccountFailure>,
     session_change_budget: u8,
 ) {
-    let completion = AccountWriter::new(state).finish_session(issued, result, generate_uuid_string);
+    let completion = AccountWriter::new(state)
+        .finish_session(issued, result, generate_uuid_string)
+        .into_value();
     let Some((cleanup_intent, actor)) = state.try_with_untracked(|current| {
         (
             current.cleanup_intent().clone(),
@@ -194,7 +198,9 @@ async fn finish_lookup(
             if let Some(actor_id) = actor {
                 match load_journal_from_storage(&actor_id) {
                     Ok(Some(journal)) => {
-                        let _ = AccountWriter::new(state).restore_sync_journal(&fence, journal);
+                        let _ = AccountWriter::new(state)
+                            .restore_sync_journal(&fence, journal)
+                            .into_value();
                     }
                     Ok(None) => (),
                     Err(fault) => {
@@ -241,7 +247,11 @@ pub fn load_library(
     session_change_budget: u8,
     focus: bool,
 ) {
-    let Some(request) = AccountWriter::new(state).begin_library(section, restart) else {
+    let Some(request) = AccountWriter::new(state)
+        .begin_library(section, restart)
+        .into_value()
+        .flatten()
+    else {
         return;
     };
     leptos::task::spawn_local(finish_page(state, request, session_change_budget, focus));
@@ -256,8 +266,9 @@ async fn finish_page(
     let result = super::library::load(&request).await;
     let section = request.page.section;
     let changed = result == Err(AccountFailure::SessionChanged);
-    let Some(completion) =
-        AccountWriter::new(state).finish_page(&request, result, generate_uuid_string)
+    let Some(completion) = AccountWriter::new(state)
+        .finish_page(&request, result, generate_uuid_string)
+        .into_value()
     else {
         return;
     };
@@ -295,7 +306,10 @@ async fn handle_command_auth_failure(
     session_change_budget: u8,
 ) {
     let changed = failure == AccountFailure::SessionChanged;
-    let Some(completion) = AccountWriter::new(state).fail_fenced_command(fence, failure) else {
+    let Some(completion) = AccountWriter::new(state)
+        .fail_fenced_command(fence, failure)
+        .into_value()
+    else {
         return;
     };
     match completion {
@@ -315,8 +329,9 @@ pub fn ensure_saved_loaded(
     work_id: String,
     presentation: Option<WorkPresentation>,
 ) {
-    let Some(Ok(Admitted { fence, value: true })) =
-        AccountWriter::new(state).ensure_saved_read(&work_id, presentation)
+    let Some(Ok(Admitted { fence, value: true })) = AccountWriter::new(state)
+        .ensure_saved_read(&work_id, presentation)
+        .into_value()
     else {
         return;
     };
@@ -332,14 +347,18 @@ async fn run_saved_point_read(
     let result = super::library::load_saved_point(fence.session(), &work_id).await;
     match result {
         Ok(record) => {
-            let _ = AccountWriter::new(state).finish_saved_read(&fence, record);
+            let _ = AccountWriter::new(state)
+                .finish_saved_read(&fence, record)
+                .into_value();
         }
         Err(error) => {
             if let Some(failure) = error.to_account_failure() {
                 handle_command_auth_failure(state, &fence, failure, session_change_budget).await;
                 return;
             }
-            let _ = AccountWriter::new(state).fail_saved_read(&fence, &work_id);
+            let _ = AccountWriter::new(state)
+                .fail_saved_read(&fence, &work_id)
+                .into_value();
         }
     }
 }
@@ -349,8 +368,9 @@ pub fn ensure_progress_loaded(
     publication_id: String,
     presentation: Option<AudioPresentation>,
 ) {
-    let Some(Ok(Admitted { fence, value: true })) =
-        AccountWriter::new(state).ensure_progress_read(&publication_id, presentation)
+    let Some(Ok(Admitted { fence, value: true })) = AccountWriter::new(state)
+        .ensure_progress_read(&publication_id, presentation)
+        .into_value()
     else {
         return;
     };
@@ -366,13 +386,9 @@ async fn run_progress_point_read(
     let result = super::library::load_progress_point(fence.session(), &publication_id).await;
     match result {
         Ok(record) => {
-            let next = AccountWriter::new(state).finish_progress_read(
-                &fence,
-                &publication_id,
-                record,
-                generate_uuid_string,
-                None,
-            );
+            let next = AccountWriter::new(state)
+                .finish_progress_read(&fence, &publication_id, record, generate_uuid_string, None)
+                .into_value();
             persist_sync_journal(state);
             if let Some(Ok(Admitted {
                 fence,
@@ -392,7 +408,9 @@ async fn run_progress_point_read(
                 handle_command_auth_failure(state, &fence, failure, session_change_budget).await;
                 return;
             }
-            let _ = AccountWriter::new(state).fail_progress_read(&fence, &publication_id);
+            let _ = AccountWriter::new(state)
+                .fail_progress_read(&fence, &publication_id)
+                .into_value();
         }
     }
 }
@@ -406,7 +424,9 @@ fn trigger_reread(
     match target {
         RereadTarget::Saved { work_id } => {
             if matches!(
-                AccountWriter::new(state).reread_saved(&fence, &work_id),
+                AccountWriter::new(state)
+                    .reread_saved(&fence, &work_id)
+                    .into_value(),
                 Some(Ok(Admitted { value: true, .. }))
             ) {
                 leptos::task::spawn_local(run_saved_point_read(
@@ -419,7 +439,9 @@ fn trigger_reread(
         }
         RereadTarget::Progress { publication_id } => {
             if matches!(
-                AccountWriter::new(state).reread_progress(&fence, &publication_id),
+                AccountWriter::new(state)
+                    .reread_progress(&fence, &publication_id)
+                    .into_value(),
                 Some(Ok(Admitted { value: true, .. }))
             ) {
                 leptos::task::spawn_local(run_progress_point_read(
@@ -444,14 +466,16 @@ async fn apply_and_follow_receipt(
     recovered_via_lookup: bool,
     session_change_budget: u8,
 ) {
-    let applied = AccountWriter::new(state).apply_receipt(
-        &fence,
-        &operation_id,
-        receipt,
-        recovered_via_lookup,
-        generate_uuid_string,
-        None,
-    );
+    let applied = AccountWriter::new(state)
+        .apply_receipt(
+            &fence,
+            &operation_id,
+            receipt,
+            recovered_via_lookup,
+            generate_uuid_string,
+            None,
+        )
+        .into_value();
     persist_sync_journal(state);
     match applied {
         Some(Ok(Admitted {
@@ -472,12 +496,9 @@ async fn apply_and_follow_receipt(
         Some(Ok(Admitted {
             value: Err(error), ..
         })) => {
-            let _ = AccountWriter::new(state).record_command_error(
-                &fence,
-                &operation_id,
-                error,
-                generate_uuid_string,
-            );
+            let _ = AccountWriter::new(state)
+                .record_command_error(&fence, &operation_id, error, generate_uuid_string)
+                .into_value();
             persist_sync_journal(state);
         }
         Some(Err(_)) | None => (),
@@ -527,14 +548,16 @@ async fn execute_persisted_mutation(
                         .await;
                     return;
                 }
-                let _ =
-                    AccountWriter::new(state).record_unknown_outcome(&fence, &pending.operation_id);
+                let _ = AccountWriter::new(state)
+                    .record_unknown_outcome(&fence, &pending.operation_id)
+                    .into_value();
                 persist_sync_journal(state);
                 return;
             }
             super::library::OperationLookupOutcome::UnknownOutcome => {
-                let _ =
-                    AccountWriter::new(state).record_unknown_outcome(&fence, &pending.operation_id);
+                let _ = AccountWriter::new(state)
+                    .record_unknown_outcome(&fence, &pending.operation_id)
+                    .into_value();
                 persist_sync_journal(state);
                 return;
             }
@@ -565,16 +588,15 @@ async fn execute_persisted_mutation(
                 handle_command_auth_failure(state, &fence, failure, session_change_budget).await;
                 return;
             }
-            let _ = AccountWriter::new(state).record_command_error(
-                &fence,
-                &pending.operation_id,
-                error,
-                generate_uuid_string,
-            );
+            let _ = AccountWriter::new(state)
+                .record_command_error(&fence, &pending.operation_id, error, generate_uuid_string)
+                .into_value();
             persist_sync_journal(state);
         }
         super::library::WriteHttpOutcome::UnknownOutcome => {
-            let _ = AccountWriter::new(state).record_unknown_outcome(&fence, &pending.operation_id);
+            let _ = AccountWriter::new(state)
+                .record_unknown_outcome(&fence, &pending.operation_id)
+                .into_value();
             persist_sync_journal(state);
         }
     }
@@ -589,13 +611,9 @@ pub fn set_saved(
     let Some(Ok(Admitted {
         fence,
         value: pending,
-    })) = AccountWriter::new(state).request_saved(
-        &work_id,
-        desired,
-        presentation,
-        generate_uuid_string,
-        None,
-    )
+    })) = AccountWriter::new(state)
+        .request_saved(&work_id, desired, presentation, generate_uuid_string, None)
+        .into_value()
     else {
         return;
     };
@@ -609,7 +627,9 @@ pub fn retry_saved(state: RwSignal<AccountViewState>, work_id: String) {
     let Some(Ok(Admitted {
         fence,
         value: Some(pending),
-    })) = AccountWriter::new(state).retry_saved(&work_id, generate_uuid_string, None)
+    })) = AccountWriter::new(state)
+        .retry_saved(&work_id, generate_uuid_string, None)
+        .into_value()
     else {
         return;
     };
@@ -633,13 +653,15 @@ pub fn handle_playback_observation(
     let progress_presentation = matches!(observation, PlaybackObservation::EngineStarted { .. })
         .then(|| presentation.clone())
         .flatten();
-    let dispatched = AccountWriter::new(state).observe_playback(
-        observation,
-        presentation,
-        now_ms(),
-        generate_uuid_string,
-        generate_uuid_string,
-    );
+    let dispatched = AccountWriter::new(state)
+        .observe_playback(
+            observation,
+            presentation,
+            now_ms(),
+            generate_uuid_string,
+            generate_uuid_string,
+        )
+        .into_value();
     if let Some(Ok(Admitted {
         fence,
         value: pending,
@@ -670,13 +692,15 @@ pub fn mark_completed(
     };
     let pres = presentation_from_now_playing(source, now_playing);
     let now = now_ms();
-    let dispatched = AccountWriter::new(state).request_progress(
-        audio,
-        ExplicitProgress::MarkCompleted,
-        pres,
-        now,
-        generate_uuid_string,
-    );
+    let dispatched = AccountWriter::new(state)
+        .request_progress(
+            audio,
+            ExplicitProgress::MarkCompleted,
+            pres,
+            now,
+            generate_uuid_string,
+        )
+        .into_value();
     if let Some(Ok(Admitted {
         fence,
         value: Some(pending),
@@ -700,13 +724,15 @@ pub fn restart_progress(
     };
     let pres = presentation_from_now_playing(source, now_playing);
     let now = now_ms();
-    let dispatched = AccountWriter::new(state).request_progress(
-        audio,
-        ExplicitProgress::Restart,
-        pres,
-        now,
-        generate_uuid_string,
-    );
+    let dispatched = AccountWriter::new(state)
+        .request_progress(
+            audio,
+            ExplicitProgress::Restart,
+            pres,
+            now,
+            generate_uuid_string,
+        )
+        .into_value();
     if let Some(Ok(Admitted {
         fence,
         value: Some(pending),
@@ -730,12 +756,9 @@ pub fn resolve_progress_conflict(
     let Some(Ok(Admitted {
         fence,
         value: Some((pending, resolved_pos_ms)),
-    })) = AccountWriter::new(state).resolve_progress_conflict(
-        &publication_id,
-        keep_local,
-        generate_uuid_string,
-        None,
-    )
+    })) = AccountWriter::new(state)
+        .resolve_progress_conflict(&publication_id, keep_local, generate_uuid_string, None)
+        .into_value()
     else {
         return;
     };
@@ -762,7 +785,9 @@ pub fn retry_progress(state: RwSignal<AccountViewState>, publication_id: String)
     let Some(Ok(Admitted {
         fence,
         value: Some(pending),
-    })) = AccountWriter::new(state).retry_progress(&publication_id, generate_uuid_string, None)
+    })) = AccountWriter::new(state)
+        .retry_progress(&publication_id, generate_uuid_string, None)
+        .into_value()
     else {
         return;
     };
@@ -774,7 +799,9 @@ pub fn confirm_clear_history(state: RwSignal<AccountViewState>) {
     let Some(Ok(Admitted {
         fence,
         value: Some(pending),
-    })) = AccountWriter::new(state).confirm_clear_history(generate_uuid_string, None)
+    })) = AccountWriter::new(state)
+        .confirm_clear_history(generate_uuid_string, None)
+        .into_value()
     else {
         return;
     };
@@ -786,7 +813,9 @@ pub fn retry_history(state: RwSignal<AccountViewState>) {
     let Some(Ok(Admitted {
         fence,
         value: Some(pending),
-    })) = AccountWriter::new(state).retry_history(generate_uuid_string, None)
+    })) = AccountWriter::new(state)
+        .retry_history(generate_uuid_string, None)
+        .into_value()
     else {
         return;
     };
@@ -806,11 +835,9 @@ pub fn resume_exact_release(
     let Some(Ok(Admitted {
         fence,
         value: ticket,
-    })) = AccountWriter::new(state).begin_resume(
-        audio.publication_id.clone(),
-        resume,
-        presentation.clone(),
-    )
+    })) = AccountWriter::new(state)
+        .begin_resume(audio.publication_id.clone(), resume, presentation.clone())
+        .into_value()
     else {
         return;
     };
@@ -828,7 +855,9 @@ pub fn resume_exact_release(
             let speed = current_speed_permille(&player);
             if let Some(snapshot) = build_resume_snapshot(source, clamped, speed) {
                 player.restore(snapshot);
-                let _ = AccountWriter::new(state).finish_resume(&fence, ticket, Ok(clamped));
+                let _ = AccountWriter::new(state)
+                    .finish_resume(&fence, ticket, Ok(clamped))
+                    .into_value();
                 return;
             }
         }
@@ -861,19 +890,15 @@ pub fn resume_exact_release(
         match result {
             Ok(manifest) => {
                 let Ok(release) = PinnedRelease::admit(&manifest, request) else {
-                    let _ = AccountWriter::new(state).finish_resume(
-                        &fence,
-                        ticket,
-                        Err(ResumeRefusal::ReleaseReplaced),
-                    );
+                    let _ = AccountWriter::new(state)
+                        .finish_resume(&fence, ticket, Err(ResumeRefusal::ReleaseReplaced))
+                        .into_value();
                     return;
                 };
                 if !release_matches_audio_identity(&release, &audio) {
-                    let _ = AccountWriter::new(state).finish_resume(
-                        &fence,
-                        ticket,
-                        Err(ResumeRefusal::ReleaseReplaced),
-                    );
+                    let _ = AccountWriter::new(state)
+                        .finish_resume(&fence, ticket, Err(ResumeRefusal::ReleaseReplaced))
+                        .into_value();
                     return;
                 }
                 let Some(source) = Source::public(release.track(), release.duration_ms()) else {
@@ -897,14 +922,14 @@ pub fn resume_exact_release(
                     )));
                 }
                 player.restore(snapshot);
-                let _ = AccountWriter::new(state).finish_resume(&fence, ticket, Ok(clamped));
+                let _ = AccountWriter::new(state)
+                    .finish_resume(&fence, ticket, Ok(clamped))
+                    .into_value();
             }
             Err(CatalogReadError::NotFound) => {
-                let _ = AccountWriter::new(state).finish_resume(
-                    &fence,
-                    ticket,
-                    Err(ResumeRefusal::AccessUnavailable),
-                );
+                let _ = AccountWriter::new(state)
+                    .finish_resume(&fence, ticket, Err(ResumeRefusal::AccessUnavailable))
+                    .into_value();
             }
             Err(
                 CatalogReadError::Diagnostic(_)
@@ -912,18 +937,20 @@ pub fn resume_exact_release(
                 | CatalogReadError::Protocol
                 | CatalogReadError::InvalidCursor,
             ) => {
-                let _ = AccountWriter::new(state).finish_resume(
-                    &fence,
-                    ticket,
-                    Err(ResumeRefusal::LoadFailed),
-                );
+                let _ = AccountWriter::new(state)
+                    .finish_resume(&fence, ticket, Err(ResumeRefusal::LoadFailed))
+                    .into_value();
             }
         }
     });
 }
 
 pub fn logout(state: RwSignal<AccountViewState>) {
-    let Some((issued, intent)) = AccountWriter::new(state).begin_logout() else {
+    let Some((issued, intent)) = AccountWriter::new(state)
+        .begin_logout()
+        .into_value()
+        .flatten()
+    else {
         return;
     };
     let expected = match &intent {
@@ -950,7 +977,7 @@ pub fn login(
             return;
         }
     };
-    let Some(Ok(issued)) = AccountWriter::new(state).begin_refresh() else {
+    let Some(Ok(issued)) = AccountWriter::new(state).begin_refresh().into_value() else {
         return;
     };
     leptos::task::spawn_local(async move {
@@ -977,7 +1004,11 @@ pub fn cancel_login() {
 }
 
 fn credentials_lost(state: RwSignal<AccountViewState>) {
-    let Some(issued) = AccountWriter::new(state).credentials_lost() else {
+    let Some(issued) = AccountWriter::new(state)
+        .credentials_lost()
+        .into_value()
+        .flatten()
+    else {
         return;
     };
     leptos::task::spawn_local(async move {
@@ -988,7 +1019,9 @@ fn credentials_lost(state: RwSignal<AccountViewState>) {
                 .map_err(super::account::auth_error),
             Err(error) => Err(super::account::auth_error(error)),
         };
-        let _ = AccountWriter::new(state).finish_logout(issued, result);
+        let _ = AccountWriter::new(state)
+            .finish_logout(issued, result)
+            .into_value();
     });
 }
 

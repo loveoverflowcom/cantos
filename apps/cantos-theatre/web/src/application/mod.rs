@@ -18,4 +18,5 @@ pub mod registration;
 pub(crate) mod scrub;
 pub mod signup;
 
+pub(crate) mod error_writer;
 pub mod errors;

@@ -644,8 +644,14 @@ The host-compilable `AccountWriter` publishes owner results, releases its guards
 the journal and persists before constructing the network effect. Persistence failure retains the
 pending operation as an unknown outcome. Receipt-first recovery keeps its original ID/payload;
 the browser shell rechecks its fence after awaited I/O. Resume completions recheck both fence and
-ticket at the owner. Only admission refusals suppress publication in this slice; admitted no-op,
-storage and lifecycle notification refinement remains [#362](https://github.com/loveoverflowcom/cantos/issues/362).
+ticket at the owner. The writer returns `Write::Disposed` or `Write::Done { value, published }`;
+publication is independent of admission and returned effects. Cold writes compare owned reader
+facts; playback compares only its bounded source/presentation entries and History command, without
+cloning the aggregate or journal. A changed cleanup flag publishes even when logout returns false.
+Transient progress coalescing and other explicitly classified non-presentation bookkeeping may
+change without publication; returned effects still run after guard release. ErrorWindow writes
+likewise publish only when the active notice changes, preserving queued and dismissed episodes.
+See [the publication boundary and finite oracle](../../../docs/evidence/theatre-account-publication-362.md).
 `AccountState`'s byte-projection/outbox API has test-only callers; production outbox evidence
 comes from `LibrarySyncState` and `AccountWriter`, not that legacy test API.
 
