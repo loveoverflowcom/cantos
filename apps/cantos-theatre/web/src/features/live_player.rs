@@ -793,14 +793,15 @@ mod tests {
                         "listener-a".into(),
                         uuid::Uuid::from_u128(10).to_string()
                     )
-                    .unwrap())
+                    .unwrap()),
+                    || uuid::Uuid::from_u128(100).to_string()
                 ),
                 Ok(SessionCompletion::Authenticated(_))
             ));
 
             // Create a revision conflict on the active publication.
             let op_id = uuid::Uuid::from_u128(501).to_string();
-            account.with_sync_mut(|sync, _| {
+            account.seed_sync(|sync, _| {
                 sync.record_progress_intent(
                     audio.clone(),
                     45_000,

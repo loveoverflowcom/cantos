@@ -332,7 +332,9 @@ mod tests {
         let mut state = AccountViewState::default();
         let issued = state.begin_refresh().unwrap();
         let SessionCompletion::Cleanup(cleanup) = state
-            .finish_session(issued, Err(AccountFailure::SignedOut))
+            .finish_session(issued, Err(AccountFailure::SignedOut), || {
+                uuid::Uuid::from_u128(100).to_string()
+            })
             .unwrap()
         else {
             panic!("guest lookup requires cleanup")
@@ -798,7 +800,7 @@ mod readiness_render_tests {
             let fence = state.with_untracked(AccountViewState::fence).unwrap();
             for _ in 0..3 {
                 state.update(|s| {
-                    s.with_sync_mut(|sync, _| {
+                    s.seed_sync(|sync, _| {
                         sync.begin_saved_read(&uuid::Uuid::from_u128(88).to_string())
                     });
                 });

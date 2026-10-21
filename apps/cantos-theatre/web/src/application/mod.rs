@@ -1,5 +1,6 @@
 pub mod account;
 pub mod account_view;
+pub mod account_writer;
 pub mod auth_navigation;
 #[cfg(feature = "preview")]
 pub mod catalog;

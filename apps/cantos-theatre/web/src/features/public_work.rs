@@ -1495,6 +1495,7 @@ mod tests {
         let _ = guest_account.finish_session(
             issued,
             Err(crate::application::account_view::AccountFailure::SignedOut),
+            || uuid::Uuid::from_u128(100).to_string(),
         );
 
         let render_with_sync = |account_state: AccountViewState, locale: Locale| -> String {
@@ -1538,11 +1539,12 @@ mod tests {
                     "listener-a".into(),
                     uuid::Uuid::from_u128(10).to_string()
                 )
-                .unwrap())
+                .unwrap()),
+                || uuid::Uuid::from_u128(100).to_string()
             ),
             Ok(SessionCompletion::Authenticated(_))
         ));
-        signed_in.with_sync_mut(|sync, _| {
+        signed_in.seed_sync(|sync, _| {
             sync.observe_saved_record(SavedRecord {
                 work_id: WORK.into(),
                 saved: true,

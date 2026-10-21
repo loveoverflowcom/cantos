@@ -515,11 +515,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         else {
             return;
         };
-        state.update(|s| {
-            s.with_sync_mut(|sync, _| {
-                sync.set_resume_attempt(crate::application::library_sync::ResumeAttemptState::Idle);
-            });
-        });
+        let _ = crate::application::account_writer::AccountWriter::new(state).reset_resume();
         // The same release already in the player resumes; nothing is fetched or replaced.
         let resumes = player.source.get_untracked().is_some_and(|source| {
             matches!(source.track(), crate::core::playback::TrackId::Public(track)
@@ -636,18 +632,12 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             }
         }),
         on_prompt_clear_history: Callback::new(move |()| {
-            state.update(|s| {
-                let _ = s.with_sync_mut(|sync, _| {
-                    sync.prompt_clear_history();
-                });
-            });
+            let _ = crate::application::account_writer::AccountWriter::new(state)
+                .prompt_clear_history();
         }),
         on_cancel_clear_history: Callback::new(move |()| {
-            state.update(|s| {
-                let _ = s.with_sync_mut(|sync, _| {
-                    sync.cancel_clear_history();
-                });
-            });
+            let _ = crate::application::account_writer::AccountWriter::new(state)
+                .cancel_clear_history();
         }),
         on_confirm_clear_history: Callback::new(move |()| {
             if !preview && network_allowed.get_untracked() {
@@ -1167,7 +1157,7 @@ mod tests {
             // Both a real projection mutation and the already-in-flight no-op notify state.
             for _ in 0..3 {
                 state.update(|s| {
-                    s.with_sync_mut(|sync, _| sync.begin_saved_read(&work));
+                    s.seed_sync(|sync, _| sync.begin_saved_read(&work));
                 });
                 assert!(read_effect.get());
             }
