@@ -1,4 +1,10 @@
 //! Pure listener capability/probe state. A successful socket never supplies a publication.
+//!
+//! Proof boundary (#363): `Mode` is live, but `ProbeState` has no runtime consumer and
+//! `classify` is reached only by tests and the uncalled browser probe. The retired verifier-only
+//! harnesses were never registered or executed, so their former presence supplies no proof
+//! coverage. Ordinary tests retain concrete guard/fixture evidence; live Account, discovery,
+//! sync and browser behavior remain unverified by Kani. See `docs/assurance/kani.md` for scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
     Live,
