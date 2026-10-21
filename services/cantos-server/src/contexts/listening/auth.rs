@@ -60,7 +60,8 @@ impl ListenerAuthenticator for DenyListenerAuthentication {
     }
 }
 pub use super::theatre_identity::{
-    BearerListenerAuthenticator, NativeListenerAuthenticator, TheatreListenerAuthenticator,
+    BearerListenerAuthenticator, NativeListenerAuthenticator, PasswordListenerAuthenticator,
+    TheatreListenerAuthenticator,
 };
 
 #[cfg(test)]

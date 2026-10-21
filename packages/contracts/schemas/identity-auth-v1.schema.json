@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/identity-auth-v1.schema.json",
+  "title": "Cantos identity auth v1 responses",
+  "oneOf": [
+    {
+      "title": "SignupAccepted",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted",
+        "proof_ttl_seconds"
+      ],
+      "properties": {
+        "accepted": {
+          "const": true
+        },
+        "proof_ttl_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    {
+      "title": "SignupCompleted",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "completed",
+            "replayed"
+          ]
+        }
+      }
+    },
+    {
+      "title": "Session",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_id",
+        "session_id",
+        "expires_at",
+        "absolute_expires_at",
+        "authenticated_at"
+      ],
+      "properties": {
+        "actor_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "absolute_expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "authenticated_at": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    {
+      "title": "TokenPair",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token_type",
+        "access_token",
+        "refresh_token",
+        "actor_id",
+        "session_id",
+        "expires_at",
+        "refresh_expires_at",
+        "absolute_expires_at",
+        "authenticated_at"
+      ],
+      "properties": {
+        "token_type": {
+          "const": "Bearer"
+        },
+        "access_token": {
+          "type": "string",
+          "pattern": "^ci1_n_[a-f0-9]{64}$"
+        },
+        "refresh_token": {
+          "type": "string",
+          "pattern": "^ci1_r_[a-f0-9]{64}$"
+        },
+        "actor_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "refresh_expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "absolute_expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "authenticated_at": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  ]
+}

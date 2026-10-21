@@ -117,6 +117,7 @@ TABLE_OWNER = {
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform", "cantos_schema": "platform",
     "actor_external_identities": "platform",
     "bearer_flows": "platform", "bearer_families": "platform", "bearer_tokens": "platform",
+    "identity_sessions": "platform", "identity_session_tokens": "platform",
     "admin_audit": "platform", "admin_operations": "platform", "admin_access_revocations": "platform",
     "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
     "theatre_identity_flows": "platform", "theatre_identity_sessions": "platform",
@@ -643,6 +644,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
             ("contexts", "listening", "auth", "BearerListenerAuthenticator", "new"),
             ("contexts", "listening", "auth", "NativeListenerAuthenticator"),
             ("contexts", "listening", "auth", "NativeListenerAuthenticator", "new"),
+            ("contexts", "listening", "auth", "PasswordListenerAuthenticator"),
+            ("contexts", "listening", "auth", "PasswordListenerAuthenticator", "new"),
             ("contexts", "listening", "auth", "ListenerCredentials"),
             ("contexts", "listening", "auth", "ListenerCredentials", "bearer"),
         } or path[:3] == ("contexts", "listening", "LibraryError") or path[:4] == (

@@ -145,6 +145,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ) => store.with_theatre_firebase_enrollment(runtime),
         };
     }
+    // Email/password sessions from a verified cantos-identity fact. Optional and explicit: with no
+    // socket configured, none of the Identity routes or credentials exist.
+    if let Some(config) =
+        cantos_server::platform::identity_auth::config::from_lookup(|name| env::var(name).ok())
+            .map_err(|_| "invalid or incomplete Identity password-session configuration")?
+    {
+        store = store.with_identity_auth(
+            cantos_server::platform::identity_auth::IdentityAuth::new(config, &web_origin),
+        );
+    }
     let public_media =
         cantos_server::contexts::media::public_media::from_lookup(|name| env::var(name).ok())
             .map_err(|error| error.message())?;

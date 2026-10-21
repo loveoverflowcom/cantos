@@ -41,6 +41,8 @@
       "catalog_units",
       "catalog_work_revisions",
       "catalog_works",
+      "identity_session_tokens",
+      "identity_sessions",
       "listener_bookmarks",
       "listener_device_sequences",
       "listener_history",

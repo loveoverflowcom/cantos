@@ -8,14 +8,14 @@ service schema, credential verifier or runtime switch.
 ## Per-table disposition
 
 The exhaustive [native table ownership manifest](../../services/cantos-server/schema/native-table-ownership.json)
-lists each of the 82 current SQL tables and the two metadata tables declared by the PostgreSQL
+lists each of the 84 current SQL tables and the two metadata tables declared by the PostgreSQL
 migrator. The existing repository gate checks the manifest against all current schema SQL files
 and the migrator's literal declarations. New, missing, duplicate or unrecognized table declarations
 require review; a newly added table does not inherit permission to migrate from its prefix.
 
 | Disposition | Source tables | Destination and restriction |
 | --- | --- | --- |
-| `server` | 67 tables, listed individually in the manifest | Server owns the corresponding business data in `server.db`. Preserve stable ActorId, exact external identity bindings, immutable revisions/digests, ownership, rights, receipts and listener sync semantics. A table name alone defines neither its Turso DDL nor a lossless conversion. |
+| `server` | 69 tables, listed individually in the manifest (including `identity_sessions` and `identity_session_tokens`, the provider-free [Identity auth sessions](../../packages/contracts/identity-auth-v1.md#storage-invariants-and-333-hand-off)) | Server owns the corresponding business data in `server.db`. Preserve stable ActorId, exact external identity bindings, immutable revisions/digests, ownership, rights, receipts and listener sync semantics. A table name alone defines neither its Turso DDL nor a lossless conversion. |
 | `replace-provider-auth` | 14 tables, listed individually | Do not port their provider sessions, access tokens, PKCE verifiers or enrollment state to either native DB. #334 owns fresh Identity state; #335 owns new Server sessions and resumable binding. Retain legacy source/data for authorized migration and recovery until replacement acceptance. |
 | `development-only` | `sessions` | This source table mixes `development` and `studio_oidc` rows. Only development-session behavior may exist in dev/test composition; **no existing `studio_oidc` row/token is eligible**. The manifest does not authorize copying even development rows or enable them in production. #335 supplies the new production session schema. |
 | `replace-registry` | `cantos_schema`, `cantos_migrations` | Keep the PostgreSQL epoch/checksums as legacy recognition evidence. Each native owner uses the shared foundation's own checked registry; never replay the PG registry as a Turso migration. |

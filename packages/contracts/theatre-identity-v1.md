@@ -6,6 +6,10 @@
 > owns the policy. The cookie routes below describe existing compatibility source, not an
 > accepted #295 implementation; review scope/CORS/CSRF and session fences before reuse.
 
+> **#335 slice (backend, PostgreSQL):** [Identity auth v1](identity-auth-v1.md) adds email/password
+> sign-in (Web HttpOnly cookie, native Bearer) beside the provider-bound routes below. Those
+> routes are **not retired** by it; their retirement and the frontend migration stay open.
+
 PR3 implements separate opt-in Web BFF and native public-client identity on the development host.
 Native exchange/resource admission and OS adapter mounting are code; provider/device acceptance
 and production activation remain separate gates.

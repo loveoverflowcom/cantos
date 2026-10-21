@@ -2,6 +2,11 @@
 
 [Cantos Bearer v1](bearer-v1.md) owns the #253 scoped opaque access/refresh API foundation and staged Web/CMP migration.
 
+[Identity auth v1](identity-auth-v1.md) owns the #335 email/password sign-in API (Web HttpOnly
+cookie, native Bearer, Studio roster, freshness and revocation numbers) built on the private
+[Identity RPC](identity-rpc-v1.md). It supersedes none of the provider-bound routes above, which
+remain until their separately accepted retirement.
+
 The [internal Identity security store v1](identity-security-store-v1.md) records the partial
 service-owned file schema, epoch/CAS/event/receipt behavior and real-file fixtures. It supplies
 no credential, public API/RPC or authentication-fact contract.

@@ -3,6 +3,7 @@ pub mod admin;
 pub mod bearer;
 pub mod host;
 pub mod identity;
+pub mod identity_auth;
 pub mod ids;
 pub mod incremental;
 pub(crate) mod oidc;

@@ -9,6 +9,10 @@ the custom domains; migration remains pending. **Native retains this Bearer cont
 owns the selected split. Web routes and phases below describe implemented Bearer behavior, not
 the future cookie wire or approval to retire/reuse compatibility handlers without review.
 
+> **#335 slice:** email/password sessions use the disjoint `ci1_` family and the separate routes of
+> [Identity auth v1](identity-auth-v1.md); nothing below changes. Provider-bound `ca1_`/`cr1_`
+> credentials are never accepted by that verifier and the reverse.
+
 ## Authority and wire
 
 Cantos issues opaque random 256-bit secrets, SHA-256 lookup at the API; these are not JWTs.
