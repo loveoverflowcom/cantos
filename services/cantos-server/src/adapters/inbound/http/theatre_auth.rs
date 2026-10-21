@@ -456,6 +456,27 @@ pub(super) async fn bff_identity(
         || path.starts_with("/progress/")
         || path.starts_with("/operations/")
         || path == "/session";
+    // Identity-issued sessions (cookie or native Bearer) have their own verifier; a request
+    // that mixes them with another credential kind is refused, never retried elsewhere.
+    if account && !(path == "/session" && request.method() != axum::http::Method::GET) {
+        match super::identity_auth::theatre_credential(&state, request.headers()) {
+            super::identity_auth::TheatreCredential::Absent => {}
+            super::identity_auth::TheatreCredential::Refused => {
+                return super::theatre_library::error(LibraryError::Unauthenticated)
+            }
+            // The Web `/session` view never accepts a native credential.
+            super::identity_auth::TheatreCredential::Present(
+                crate::platform::identity_auth::credential::Channel::Native,
+                _,
+            ) if path == "/session" => {
+                return super::theatre_library::error(LibraryError::Unauthenticated)
+            }
+            super::identity_auth::TheatreCredential::Present(channel, token) => {
+                return super::identity_auth::admit_theatre(state, request, next, channel, token)
+                    .await
+            }
+        }
+    }
     if account
         && request
             .headers()

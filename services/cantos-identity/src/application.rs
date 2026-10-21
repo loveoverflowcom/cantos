@@ -110,8 +110,6 @@ pub enum ServiceError {
     OutcomeUnknown,
     /// The operation or command exists with different content, or is already concluded.
     Conflict,
-    /// The purpose has no password path in this build.
-    Unsupported,
     NotFound,
 }
 
@@ -457,10 +455,6 @@ impl IdentityService {
         password: &str,
         client: ClientAddress,
     ) -> Result<AuthenticationFact, ServiceError> {
-        if purpose != Purpose::Theatre {
-            // Studio requires a user-verified passkey; it is never downgraded to a password.
-            return Err(ServiceError::Unsupported);
-        }
         let email = EmailAddress::parse(email).map_err(|_| ServiceError::InvalidRequest)?;
         let password = Arc::new(
             PasswordInput::for_verification(password).map_err(|_| ServiceError::InvalidRequest)?,

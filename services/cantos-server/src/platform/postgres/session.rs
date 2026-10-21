@@ -10,7 +10,7 @@ pub fn token_hash(token: &str) -> Vec<u8> {
 }
 
 pub(crate) async fn session_token_registered(tx: &Tx<'_>, token: &str) -> Result<bool, StoreError> {
-    if token.starts_with("ca1_") {
+    if token.starts_with("ca1_") || token.starts_with("ci1_") {
         return Ok(true);
     }
     Ok(tx
@@ -24,6 +24,9 @@ pub(crate) async fn session_token_registered(tx: &Tx<'_>, token: &str) -> Result
 
 /// Locks the session row for the transaction, so a concurrent revocation waits for it.
 pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, StoreError> {
+    if token.starts_with("ci1_") {
+        return crate::platform::identity_auth::postgres::admit_studio(tx, token).await;
+    }
     if token.starts_with("ca1_") {
         return crate::platform::bearer::postgres::admit_studio(tx, token).await;
     }
@@ -58,6 +61,9 @@ impl Store {
     }
     /// Public correlation only; knowing this UUID never authenticates a caller.
     pub async fn studio_session_id(&self, token: &str) -> Result<Option<String>, StoreError> {
+        if token.starts_with("ci1_") {
+            return crate::platform::identity_auth::postgres::studio_session_id(self, token).await;
+        }
         let client = self.connection().await?;
         if token.starts_with("ca1_") {
             return client.query_opt("SELECT f.id::text FROM bearer_tokens t JOIN bearer_families f ON f.id=t.family_id WHERE t.access_hash=$1 AND f.client_id='cantos-studio-web-bff'",&[&token_hash(token)]).await.map(|row|row.map(|r|r.get(0))).map_err(Into::into);
@@ -71,6 +77,23 @@ impl Store {
         Ok(row.and_then(|row| row.get(0)))
     }
     pub async fn authenticate(&self, token: &str) -> Result<String, StoreError> {
+        if token.starts_with("ci1_") {
+            use crate::platform::identity_auth::{
+                credential::{Channel, Surface},
+                AuthFailure,
+            };
+            let service = self.identity_auth().ok_or(StoreError::Unauthenticated)?;
+            return service
+                .authenticate(self, token, Channel::Web(Surface::Studio))
+                .await
+                .map(|record| record.actor_id)
+                .map_err(|failure| match failure {
+                    AuthFailure::Unavailable | AuthFailure::Throttled { .. } => {
+                        StoreError::Unavailable
+                    }
+                    _ => StoreError::Unauthenticated,
+                });
+        }
         if token.starts_with("ca1_") {
             let service = self
                 .bearer(crate::platform::bearer::client::Client::Studio)
@@ -125,6 +148,14 @@ impl Store {
     }
 
     pub async fn revoke(&self, token: &str) -> Result<(), StoreError> {
+        if token.starts_with("ci1_") {
+            use crate::platform::identity_auth::credential::{Channel, Surface};
+            let service = self.identity_auth().ok_or(StoreError::Unauthenticated)?;
+            return service
+                .logout(self, token, Channel::Web(Surface::Studio))
+                .await
+                .map_err(|_| StoreError::Unavailable);
+        }
         let client = self.connection().await?;
         client
             .execute(

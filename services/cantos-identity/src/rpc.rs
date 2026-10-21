@@ -167,9 +167,6 @@ fn status(error: ServiceError, denied: Code) -> Status {
             "outcome unknown: retry the identical command to reconcile it",
         ),
         ServiceError::Conflict => Status::aborted("request conflicts with an earlier request"),
-        ServiceError::Unsupported => {
-            Status::unimplemented("this purpose is not supported by this identity build")
-        }
         ServiceError::NotFound => Status::not_found("subject not found"),
     }
 }
@@ -258,7 +255,10 @@ impl Identity for IdentityRpc {
         Ok(Response::new(AuthenticatePasswordResponse {
             fact: Some(AuthenticationFact {
                 subject_id: fact.subject.to_bytes().to_vec(),
-                purpose: WirePurpose::Theatre as i32,
+                purpose: match fact.purpose {
+                    Purpose::Theatre => WirePurpose::Theatre,
+                    Purpose::Studio => WirePurpose::Studio,
+                } as i32,
                 assurance: WireAssurance::Password as i32,
                 authenticated_at_unix_micros: fact.authenticated_at_micros,
                 security_version: fact.security_version.get(),

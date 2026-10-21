@@ -76,7 +76,7 @@ composition is a prerequisite of sessions, binding and atomic event checkpoints.
 Identity library supplies neither executable nor credential/RPC adapter, and Server still owns
 PostgreSQL persistence. Reconciled policy tests and the pre-composition controls below cannot
 accept any of those missing integration layers. Keep the old provider until its real replacement
-is available; public first-party forms and Studio passkeys retain the settled D4/D3 decisions.
+is available; public first-party forms retain the settled D4 decision. The v1 Studio sign-in is email/password under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md); the D3 passkey/recovery target is deferred, not removed.
 
 The [single-process source composition](server-http-composition.md) now uses the canonical inbound
 assembly, one PostgreSQL pool and a listener with route-local origins/state/policies. Its

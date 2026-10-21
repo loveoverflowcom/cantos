@@ -1,6 +1,6 @@
 //! Cross-surface Origin admission, deadline and response cache/security policy.
 use super::{
-    audio_transport, bearer, errors::failure, studio, theatre, theatre_library,
+    audio_transport, bearer, errors::failure, identity_auth, studio, theatre, theatre_library,
     theatre_native_auth, theatre_registration, AppState,
 };
 use axum::{
@@ -56,7 +56,8 @@ pub(super) async fn origin_and_cache(
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
     let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
     let native_mutation = theatre_native_auth::native_mutation(request.method(), original_path)
-        || theatre_registration::native_mutation(request.method(), original_path);
+        || theatre_registration::native_mutation(request.method(), original_path)
+        || identity_auth::native_mutation(request.method(), original_path);
     let scoped_bearer = bearer::mutation(
         request.method(),
         original_path,

@@ -168,6 +168,17 @@ The private recovery tar includes DB/config/runtime snapshots, not OCI image byt
 Podman secrets, identity data, private CA or media. Retain those recovery dependencies
 separately. The old image staying on the same VPS is not off-host disaster recovery.
 
+## Version 4: Identity-issued sessions (#335)
+
+`0004_identity_sessions.sql` adds `identity_sessions`, `identity_session_tokens`, their guard
+function/triggers and the fixed-issuer `identity_session_register` function, plus the matching
+runtime grants in `infra/vps/postgres/runtime-grants.sql`. It touches no earlier table, row or
+checksum and needs the candidate registry file's fourth row; the previous image carries `[1,2,3]`
+and rejects `[1,2,3,4]`, so image-only rollback after it is impossible. The operator re-applies
+`runtime-grants.sql` for the new tables as in the other versions; the Server does nothing with these
+tables until `CANTOS_IDENTITY_SOCKET` is configured. This version has had only disposable-cluster
+verification; the live rehearsal, backup and acceptance of this lane remain operator steps.
+
 ## Version 3: release-bound listener bookmarks (#299)
 
 `0003_listener_bookmarks.sql` adds the `listener_bookmarks` table, its guard function/triggers and

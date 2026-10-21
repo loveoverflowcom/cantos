@@ -22,14 +22,49 @@ pub(in crate::adapters::inbound::http) fn cookie_token(
             .map(str::to_owned)
             .map_err(|_| StoreError::Unauthenticated);
     }
+    // An Identity-issued cookie is its own credential kind: found first, and never together
+    // with a provider-bound Studio cookie.
+    if let Some(token) = identity_cookie(headers, store)? {
+        return Ok(token);
+    }
     let name = store
         .studio_oidc()
         .map_or("cantos_session", |oidc| oidc.session_name());
     let token = cookie_token_for_name(headers, name)?;
-    if token.starts_with("ca1_") {
+    // Provider-bound and Identity-issued secrets each have their own cookie; neither may ride
+    // the legacy name, where the `__Secure-`/host-only guarantees of their own cookie are absent.
+    if token.starts_with("ca1_") || token.starts_with("ci1_") {
         return Err(StoreError::Unauthenticated);
     }
     Ok(token)
+}
+
+fn identity_cookie(headers: &HeaderMap, store: &Store) -> Result<Option<String>, StoreError> {
+    use crate::platform::identity_auth::credential::{self, Channel, Surface};
+    let Some(service) = store.identity_auth() else {
+        return Ok(None);
+    };
+    let (expected, other) = (
+        credential::cookie_name(Surface::Studio, service.secure()),
+        credential::cookie_name(Surface::Studio, !service.secure()),
+    );
+    let read =
+        |name| super::auth::unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated);
+    if read(other)?.is_some() {
+        return Err(StoreError::Unauthenticated);
+    }
+    let Some(token) = read(expected)? else {
+        return Ok(None);
+    };
+    let legacy = ["cantos_session", "__Secure-cantos_studio"]
+        .iter()
+        .any(|name| {
+            super::auth::unique_cookie(headers, name).map_or(true, |value| value.is_some())
+        });
+    if legacy || credential::access_channel(&token) != Some(Channel::Web(Surface::Studio)) {
+        return Err(StoreError::Unauthenticated);
+    }
+    Ok(Some(token))
 }
 
 pub(in crate::adapters::inbound::http) fn cookie_token_for_name(

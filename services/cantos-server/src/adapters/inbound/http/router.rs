@@ -1,7 +1,7 @@
 //! Route mounting/layers consume already assembled capabilities; no service construction.
 use super::{
-    admin, assembly::HttpServices, bearer, cors, errors::failure, policy, studio, theatre,
-    theatre_auth, theatre_library, theatre_native_auth, AppState,
+    admin, assembly::HttpServices, bearer, cors, errors::failure, identity_auth, policy, studio,
+    theatre, theatre_auth, theatre_library, theatre_native_auth, AppState,
 };
 use axum::{extract::DefaultBodyLimit, http::StatusCode, middleware, response::Response, Router};
 use cantos_contracts::{routes, ErrorCode};
@@ -82,6 +82,7 @@ pub(super) fn routes(
             .merge(bearer::routes(
                 crate::platform::bearer::client::Client::TheatreNative,
             ))
+            .merge(identity_auth::theatre_routes())
             .merge(theatre_library::routes())
             .layer(middleware::from_fn_with_state(
                 theatre_state.clone(),

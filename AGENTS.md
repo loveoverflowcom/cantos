@@ -41,8 +41,8 @@ events, mailbox-proof lifecycles and bound receipts. Proof confirmation grants n
 authority. Its opt-in `service` feature builds the `cantos-identity` executable: Theatre signup with
 a mailbox proof, Argon2id passwords and `AuthenticatePassword` over an OS-peer-authenticated private
 Unix-socket RPC ([draft contract](packages/contracts/identity-rpc-v1.md)); the result is an
-authentication fact, never a session. Studio passkeys, recovery, restore rotation, the Server
-consumer and front ends remain absent. Checked snapshots and a
+authentication fact, never a session. Studio passkeys, recovery, restore rotation and front ends remain absent; the
+Server consumer (PostgreSQL sessions, v1 email/password) is [Identity auth v1](packages/contracts/identity-auth-v1.md). Checked snapshots and a
 passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
 #331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.
 

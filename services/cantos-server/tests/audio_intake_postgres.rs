@@ -1614,7 +1614,7 @@ async fn baseline_replay_preserves_receipt_bytes_digests_storage_targets_and_rea
         .iter()
         .map(|row| (row.get(0), row.get(1)))
         .collect();
-    assert_eq!(original_migrations.len(), 3);
+    assert_eq!(original_migrations.len(), 4);
 
     migrate(&h.config).await.unwrap();
     migrate(&h.config).await.unwrap();

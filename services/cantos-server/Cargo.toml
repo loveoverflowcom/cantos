@@ -20,9 +20,11 @@ toml = { version = "=1.1.8", default-features = false, features = ["parse", "ser
 url = "=2.5.8"
 tokio-util = { version = "=0.7.19", features = ["io"] }
 cantos-contracts = { path = "../../packages/contracts/api" }
+cantos-identity-rpc = { path = "../../packages/contracts/identity-rpc" }
 dbsp = { version = "=0.198.0", optional = true }
 deadpool-postgres = "=0.14.2"
 futures-util = "=0.3.34"
+hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
 getrandom = "=0.3.4"
 image = { version = "=0.25.8", default-features = false, features = ["png", "jpeg"] }
 lettre = { version = "=0.11.23", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls", "ring", "webpki-roots"] }
@@ -34,6 +36,8 @@ base64 = "=0.22.1"
 unicode-normalization = "=0.1.24"
 tokio = { version = "=1.47.1", features = ["macros", "rt-multi-thread", "signal", "time", "net", "sync", "fs", "io-util"] }
 tokio-postgres = "=0.7.18"
+tonic = { version = "=0.14.5", default-features = false, features = ["transport", "codegen"] }
+tower = { version = "=0.5.2", default-features = false, features = ["util"] }
 tower-http = { version = "=0.6.6", features = ["fs"] }
 uuid = { version = "=1.18.1", features = ["v4"] }
 quick-xml = "=0.38.4"
@@ -43,9 +47,14 @@ zip = { version = "=4.6.1", default-features = false, features = ["deflate"] }
 libc = "=0.2.190"
 
 [dev-dependencies]
+# The journeys run the real Identity executable and, to disable a subject while it is stopped,
+# its owning library. Test-only: neither is a runtime dependency of the Server.
+cantos-identity = { path = "../cantos-identity", features = ["service"] }
+cantos-store-turso = { path = "../../packages/store-turso" }
+tokio = { version = "=1.47.1", features = ["process"] }
+tokio-stream = { version = "=0.1.19", default-features = false, features = ["net"] }
 flate2 = { version = "=1.1.10", default-features = false, features = ["zlib-rs"] }
 jsonschema = { version = "=0.33.0", default-features = false }
-tower = { version = "=0.5.2", features = ["util"] }
 http-body-util = "=0.1.3"
 proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 

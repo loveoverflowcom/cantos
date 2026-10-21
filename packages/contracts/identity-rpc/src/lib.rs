@@ -96,8 +96,9 @@ fn nonzero_id(bytes: &[u8]) -> Option<[u8; ID_BYTES]> {
     (id != [0; ID_BYTES]).then_some(id)
 }
 
-/// Validates a decoded fact against the operation and purpose the caller started. Theatre
-/// authentication is the only accepted purpose, and `Password` the only accepted assurance.
+/// Validates a decoded fact against the operation and purpose the caller started. Theatre and
+/// Studio are accepted purposes (#335 v1 decision), and `Password` the only accepted assurance;
+/// a Studio fact still says nothing about the Server's Studio roster.
 pub fn validate_fact(
     fact: &AuthenticationFact,
     operation: [u8; ID_BYTES],
@@ -116,7 +117,7 @@ pub fn validate_fact(
         return Err(FactRejected::WrongOperation);
     }
     let fact_purpose = Purpose::try_from(fact.purpose).map_err(|_| FactRejected::Malformed)?;
-    if fact_purpose != purpose || purpose != Purpose::Theatre {
+    if fact_purpose != purpose || purpose == Purpose::Unspecified {
         return Err(FactRejected::WrongPurpose);
     }
     match Assurance::try_from(fact.assurance) {
