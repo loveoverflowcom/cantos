@@ -464,6 +464,13 @@ pub(super) async fn bff_identity(
             super::identity_auth::TheatreCredential::Refused => {
                 return super::theatre_library::error(LibraryError::Unauthenticated)
             }
+            // The Web `/session` view never accepts a native credential.
+            super::identity_auth::TheatreCredential::Present(
+                crate::platform::identity_auth::credential::Channel::Native,
+                _,
+            ) if path == "/session" => {
+                return super::theatre_library::error(LibraryError::Unauthenticated)
+            }
             super::identity_auth::TheatreCredential::Present(channel, token) => {
                 return super::identity_auth::admit_theatre(state, request, next, channel, token)
                     .await

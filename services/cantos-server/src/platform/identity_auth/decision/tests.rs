@@ -204,6 +204,7 @@ fn admission_over_the_whole_finite_grid_matches_an_independent_oracle() {
 fn revoke_reasons_have_distinct_stored_spellings() {
     let all = [
         RevokeReason::SubjectMismatch,
+        RevokeReason::SubjectMissing,
         RevokeReason::Disabled,
         RevokeReason::EpochChanged,
         RevokeReason::VersionAdvanced,

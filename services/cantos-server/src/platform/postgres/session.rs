@@ -148,6 +148,14 @@ impl Store {
     }
 
     pub async fn revoke(&self, token: &str) -> Result<(), StoreError> {
+        if token.starts_with("ci1_") {
+            use crate::platform::identity_auth::credential::{Channel, Surface};
+            let service = self.identity_auth().ok_or(StoreError::Unauthenticated)?;
+            return service
+                .logout(self, token, Channel::Web(Surface::Studio))
+                .await
+                .map_err(|_| StoreError::Unavailable);
+        }
         let client = self.connection().await?;
         client
             .execute(

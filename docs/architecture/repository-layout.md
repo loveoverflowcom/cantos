@@ -59,7 +59,7 @@ apps/
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
   cantos-server/           Rust + Axum + PostgreSQL modular monolith (package cantos-server)  IMPLEMENTED
-  cantos-identity/         Security/proof core + file-backed state + `service` executable   Theatre signup/password over private UDS RPC; NO Studio/recovery/Server session
+  cantos-identity/         Security/proof core + file-backed state + `service` executable   Theatre signup/password (and Studio password) over private UDS RPC; NO passkey/recovery; Server sessions are the PostgreSQL consumer
   manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
   postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
   kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
@@ -233,7 +233,7 @@ The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds 
 | Member | Package | Build target |
 | --- | --- | --- |
 | `services/cantos-server` | `cantos-server` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
-| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events, mailbox-proof lifecycles and bound receipts; opt-in `service` feature: the `cantos-identity` executable with Theatre signup, Argon2id password authentication and an OS-peer-authenticated private Unix-socket RPC ([contract](../../packages/contracts/identity-rpc-v1.md)); no Studio passkey, recovery, Server consumer or production composition |
+| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events, mailbox-proof lifecycles and bound receipts; opt-in `service` feature: the `cantos-identity` executable with Theatre signup, Argon2id password authentication and an OS-peer-authenticated private Unix-socket RPC ([contract](../../packages/contracts/identity-rpc-v1.md)); no Studio passkey, recovery or production composition (the Server consumer is PostgreSQL sessions, see Identity auth v1) |
 | `services/cantos-forge-functions` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |

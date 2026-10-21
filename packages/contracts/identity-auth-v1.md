@@ -100,7 +100,7 @@ that header with another session's id gets `409` (see [Account switch](#account-
 | --- | --- |
 | Web mutation (`POST`/`DELETE`, including login, signup, renew, logout) | exactly one `Origin` equal to the configured Web origin; `Sec-Fetch-Site: cross-site` refused; JSON-only bodies. A cookie request **without** `Origin` is refused even on routes that exempt Bearer writes. `403` |
 | Web read | `Origin`, if present, must match; no `Authorization` header |
-| Native | **no** `Origin`, `Cookie` or `Sec-Fetch-*` header at all (they mark a browser); anonymous routes carry no `Authorization`; session routes exactly one Bearer of the native kind. `401` |
+| Native | on the `/native/identity/*` routes: **no** `Origin`, `Cookie` or `Sec-Fetch-*` header (they mark a browser); anonymous routes carry no `Authorization`; session routes exactly one Bearer of the native kind. `401`. On shared protected Library routes a native Bearer follows the existing Bearer rule (a supplied `Origin` must be the configured one); it is never accepted by the legacy Web `GET /session` |
 
 CORS stays exact-origin with credentials (existing `with_browser_cors`); native clients need no
 forged `Origin`.
@@ -152,7 +152,7 @@ permissions keep their own existing checks. The subject → `ActorId` binding is
 | --- | --- |
 | Fact age at login | an authentication fact is used only if `0 ≤ now − authenticated_at ≤ 30 s` (5 s tolerated ahead); otherwise `503` |
 | Identity re-read | `GetSecurityState` at **every** login, renewal and protected admission; no cache. Deadline 3 s |
-| Admission rule | admit only if the subject is `Active`, `instance_epoch` equals the session's and `security_version` equals the session's. Any difference (disabled, advanced, **lower** — a restored older file —, other epoch/subject) revokes the family **durably**; it is never resurrected when a later read matches again |
+| Admission rule | admit only if the subject is `Active`, `instance_epoch` equals the session's and `security_version` equals the session's. Any difference (disabled, advanced, **lower** — a restored older file —, other epoch/subject) revokes the family; once that write commits it is never resurrected when a later read matches again (the request is denied either way, and a write that failed is redone at the next admission). An unknown subject (`NOT_FOUND`) counts as a security change |
 | Maximum revocation latency | a change committed in Identity is seen by the next admission. A request already admitted keeps its lock until it ends, bounded by the host's 15 s request deadline. A change that lands while a request is running is therefore effective for the *next* request |
 | Identity unavailable | protected requests, login, signup and renewal fail closed (`503`) **without** revoking: an outage is not a security change. Logout and revocation are local writes and still work |
 | Login | exactly one attempt, never retried transparently; deadline 12 s; a deadline is an *unknown effect*, not a rollback |
@@ -181,6 +181,26 @@ account cannot be dispatched as the new one.
 
 An orphan variable without the socket is a startup error. `Secure` cookies follow the scheme of the
 configured Web origin.
+
+## Frontend checklist (what the next task needs, nothing more)
+
+* **Web**: send every call with `credentials: "include"` from the configured Web origin; the browser
+  adds `Origin`. Never read, store or forward the cookie (it is `HttpOnly`). Treat `401` as signed
+  out, `503`/`429` as retry-later with the shown `Retry-After`, `409` as "another tab changed
+  account": re-read `GET /identity/session` and adopt the stamped session id. Send the current
+  `x-cantos-{theatre,studio}-session` on every protected call, renew and logout. Call
+  `POST /identity/session/renew` before the idle deadline (`expires_at`); the absolute deadline
+  (`absolute_expires_at`) cannot be extended, so the user logs in again after it.
+* **Signup page**: read the mailed fragment once, remove it from the address bar/history, collect a
+  password locally, `POST signup/complete` with `explicit_confirmation: true` only on the user's
+  action, then send the user to login. On `503` repeat the *identical* request.
+* **Native**: no cookie jar, no `Origin`. Keep the `TokenPair` in secure storage, single-flight
+  `refresh`, replace the stored pair atomically; on any refresh failure call `revoke` with the old
+  pair and log in again. A spent refresh secret revokes the family, so never retry a refresh whose
+  outcome is unknown with the old value after a new one may exist.
+* **Studio**: a `403` at login means "the password is right but this account may not enter
+  Studio"; show a dedicated message. Studio has no signup or passkey in v1.
+* Errors never name the failing factor: do not infer account existence from any message.
 
 ## Storage invariants and #333 hand-off
 

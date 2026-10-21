@@ -31,7 +31,9 @@ pub(in crate::adapters::inbound::http) fn cookie_token(
         .studio_oidc()
         .map_or("cantos_session", |oidc| oidc.session_name());
     let token = cookie_token_for_name(headers, name)?;
-    if token.starts_with("ca1_") {
+    // Provider-bound and Identity-issued secrets each have their own cookie; neither may ride
+    // the legacy name, where the `__Secure-`/host-only guarantees of their own cookie are absent.
+    if token.starts_with("ca1_") || token.starts_with("ci1_") {
         return Err(StoreError::Unauthenticated);
     }
     Ok(token)

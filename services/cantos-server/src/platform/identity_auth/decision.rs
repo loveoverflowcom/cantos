@@ -181,6 +181,8 @@ pub fn decide_issue(
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevokeReason {
     SubjectMismatch,
+    /// Identity no longer knows the subject (for example a restored older file).
+    SubjectMissing,
     Disabled,
     EpochChanged,
     VersionAdvanced,
@@ -191,6 +193,7 @@ impl RevokeReason {
     pub(crate) fn stored(self) -> &'static str {
         match self {
             Self::SubjectMismatch => "subject-mismatch",
+            Self::SubjectMissing => "subject-missing",
             Self::Disabled => "disabled",
             Self::EpochChanged => "epoch-changed",
             Self::VersionAdvanced => "version-advanced",

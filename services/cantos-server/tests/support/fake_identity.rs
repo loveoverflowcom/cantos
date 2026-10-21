@@ -35,6 +35,7 @@ pub struct Script {
     pub state_delay: Duration,
     pub state_subject: Option<Vec<u8>>,
     pub state_value: Option<i32>,
+    pub state_not_found: bool,
     pub state_calls: u32,
 }
 
@@ -55,6 +56,7 @@ impl Script {
             state_delay: Duration::ZERO,
             state_subject: None,
             state_value: None,
+            state_not_found: false,
             state_calls: 0,
         }
     }
@@ -116,6 +118,9 @@ impl Identity for Fake {
             guard.clone()
         };
         tokio::time::sleep(script.state_delay).await;
+        if script.state_not_found {
+            return Err(Status::not_found("scripted"));
+        }
         let body = request.into_inner();
         Ok(Response::new(GetSecurityStateResponse {
             subject_id: script.state_subject.unwrap_or(body.subject_id),

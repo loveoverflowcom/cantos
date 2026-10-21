@@ -14,7 +14,7 @@ pub(crate) mod postgres;
 use self::{
     client::{IdentityClient, RpcFault},
     credential::{Channel, Secrets, Surface},
-    decision::{decide_admission, decide_issue, Admission, IssueRefusal, Subject},
+    decision::{decide_admission, decide_issue, Admission, IssueRefusal, RevokeReason, Subject},
     postgres::{SessionError, SessionRecord},
 };
 use crate::platform::{
@@ -25,7 +25,8 @@ use sha2::{Digest, Sha256};
 use std::{net::IpAddr, sync::Arc, time::Duration};
 
 /// Closed failure vocabulary of this module. The HTTP boundary projects it to generic statuses;
-/// no variant says which of password, account, proof or roster check failed.
+/// no variant says which of password, account, proof or security check failed. `Forbidden` is the
+/// one exception, reached only after the password verified: it names the Studio roster.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuthFailure {
     Unauthenticated,
@@ -224,11 +225,16 @@ impl IdentityAuth {
         {
             return Err(AuthFailure::Unauthenticated);
         }
-        let current = self
-            .client
-            .security_state(record.observed.subject)
-            .await
-            .map_err(rpc)?;
+        let current = match self.client.security_state(record.observed.subject).await {
+            Ok(current) => current,
+            // An unknown subject is a security fact (a restored older file), not an outage.
+            Err(RpcFault::NotFound) => {
+                let _ =
+                    postgres::revoke(store, &record.session_id, RevokeReason::SubjectMissing).await;
+                return Err(AuthFailure::Unauthenticated);
+            }
+            Err(fault) => return Err(rpc(fault)),
+        };
         match decide_admission(&record.observed, &current) {
             Admission::Admit => Ok(()),
             Admission::Revoke(reason) => {

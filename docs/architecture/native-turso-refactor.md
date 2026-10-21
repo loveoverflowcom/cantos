@@ -76,7 +76,7 @@ composition is a prerequisite of sessions, binding and atomic event checkpoints.
 Identity library supplies neither executable nor credential/RPC adapter, and Server still owns
 PostgreSQL persistence. Reconciled policy tests and the pre-composition controls below cannot
 accept any of those missing integration layers. Keep the old provider until its real replacement
-is available; public first-party forms and Studio passkeys retain the settled D4/D3 decisions.
+is available; public first-party forms retain the settled D4 decision. The v1 Studio sign-in is email/password under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md); the D3 passkey/recovery target is deferred, not removed.
 
 The [pre-composition regressions](../../services/cantos-server/tests/surface_policy_baseline.rs)
 exercise the current production API router and origin-pinned browser wrapper. They add no

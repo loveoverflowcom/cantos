@@ -32,6 +32,8 @@ pub async fn connect(config: &Config) -> tokio_postgres::Client {
 
 pub struct Database {
     pub admin: tokio_postgres::Client,
+    /// The operator role's configuration (explicit local operator tools, never the HTTP role).
+    pub operator: Config,
     pub runtime: Config,
 }
 
@@ -59,9 +61,11 @@ impl Database {
             ))
             .await
             .unwrap();
+        let operator = config.clone();
         config.user("cantos_app");
         Self {
             admin,
+            operator,
             runtime: config,
         }
     }

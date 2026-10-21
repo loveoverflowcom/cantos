@@ -20,7 +20,7 @@ CREATE TABLE public.identity_sessions (
     absolute_expires bigint NOT NULL,
     idle_expires bigint NOT NULL CHECK(idle_expires <= absolute_expires),
     revoked boolean NOT NULL DEFAULT false,
-    revoked_reason text CHECK(revoked_reason IN ('logout','replay','subject-mismatch','disabled','epoch-changed','version-advanced','version-regressed')),
+    revoked_reason text CHECK(revoked_reason IN ('logout','replay','subject-mismatch','subject-missing','disabled','epoch-changed','version-advanced','version-regressed')),
     CHECK(revoked = (revoked_reason IS NOT NULL)),
     FOREIGN KEY (issuer, subject) REFERENCES public.actor_external_identities(issuer, subject)
 );
