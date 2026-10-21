@@ -43,12 +43,15 @@ val generateRegistrationWire = tasks.register<Exec>("generateRegistrationWire") 
     val schema = contract.resolve("schemas/theatre-registration-v1.schema.json")
     val fixtures = contract.resolve("fixtures/theatre-registration/v1/cases.json")
     val generator = rootProject.file("tooling/generate_registration_wire.py")
-    inputs.files(schema, fixtures, generator)
+    val identitySchema = contract.resolve("schemas/identity-auth-v1.schema.json")
+    val identityGenerator = rootProject.file("tooling/generate_identity_v1_wire.py")
+    inputs.files(schema, fixtures, generator, identitySchema, identityGenerator)
     outputs.dirs(generatedRegistrationMain, generatedRegistrationTests)
     commandLine("python3", generator.absolutePath, schema.absolutePath,
         generatedRegistrationMain.get().asFile.resolve("com/cantos/theatre/adapters/http/registrationwire/RegistrationWire.kt").absolutePath,
         generatedRegistrationTests.get().asFile.resolve("com/cantos/theatre/adapters/http/RegistrationCorpus.kt").absolutePath,
-        fixtures.absolutePath)
+        fixtures.absolutePath, identitySchema.absolutePath,
+        generatedRegistrationMain.get().asFile.resolve("com/cantos/theatre/adapters/http/identityv1wire/IdentityV1Wire.kt").absolutePath)
 }
 
 // Tests consume the one reviewed corpus, including Native test sources when that target is

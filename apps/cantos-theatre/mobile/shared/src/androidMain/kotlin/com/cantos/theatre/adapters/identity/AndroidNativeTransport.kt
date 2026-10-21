@@ -74,13 +74,10 @@ class AndroidNativeHttp(private val scope: CoroutineScope, private val apiOrigin
                     connection.connectTimeout = 5_000
                     connection.readTimeout = 5_000
                     connection.requestMethod = request.method
-                    connection.setRequestProperty("Accept", "application/json")
-                    request.bearer?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
-                    request.expectedSession?.let { connection.setRequestProperty("X-Cantos-Theatre-Session", it) }
+                    request.headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
                     request.body?.let {
                         val bytes = it.toByteArray(Charsets.UTF_8)
                         connection.doOutput = true
-                        connection.setRequestProperty("Content-Type", "application/json")
                         connection.setFixedLengthStreamingMode(bytes.size)
                         connection.outputStream.use { output -> output.write(bytes) }
                     }
@@ -98,7 +95,7 @@ class AndroidNativeHttp(private val scope: CoroutineScope, private val apiOrigin
                         }
                         output.toByteArray()
                     } ?: ByteArray(0)
-                    NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null, connection.getHeaderField("X-Cantos-Theatre-Session"))
+                    NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null, connection.getHeaderField("X-Cantos-Theatre-Session"), connection.getHeaderField("Retry-After"))
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
               catch (_: IOException) { NativeHttpResponse(0, null, null, "transport") }

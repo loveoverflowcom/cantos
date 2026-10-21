@@ -105,7 +105,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
               url.scheme == "https", url.host == origin.host, url.port == origin.port,
               url.user == nil, url.password == nil, url.fragment == nil,
               ["GET", "POST", "PUT", "DELETE"].contains(request.method) else {
-            _ = completion(NativeHttpResponse(status: 0, contentType: nil, body: nil, failure: "configuration", actualSession: nil)); return
+            _ = completion(NativeHttpResponse(status: 0, contentType: nil, body: nil, failure: "configuration", actualSession: nil, retryAfter: nil)); return
         }
         let config = URLSessionConfiguration.ephemeral
         config.httpCookieStorage = nil; config.httpShouldSetCookies = false; config.urlCache = nil
@@ -115,12 +115,9 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
         session = ownedSession
         var nativeRequest = URLRequest(url: url)
         nativeRequest.httpMethod = request.method
-        nativeRequest.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let bearer = request.bearer { nativeRequest.setValue("Bearer " + bearer, forHTTPHeaderField: "Authorization") }
-        if let expected = request.expectedSession { nativeRequest.setValue(expected, forHTTPHeaderField: "X-Cantos-Theatre-Session") }
+        for (name, value) in request.headers { nativeRequest.setValue(value, forHTTPHeaderField: name) }
         if let body = request.body {
             nativeRequest.httpBody = Data(body.utf8)
-            nativeRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         task = ownedSession.dataTask(with: nativeRequest); task?.resume()
     }
@@ -144,7 +141,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
         guard !wasCancelled else { return }
         let body = String(data: bytes, encoding: .utf8)
         let failure = protocolFailure || body == nil ? "protocol" : (error == nil ? nil : "transport")
-        let result = NativeHttpResponse(status: Int32(response?.statusCode ?? 0), contentType: response?.value(forHTTPHeaderField: "Content-Type"), body: body, failure: failure, actualSession: response?.value(forHTTPHeaderField: "X-Cantos-Theatre-Session"))
+        let result = NativeHttpResponse(status: Int32(response?.statusCode ?? 0), contentType: response?.value(forHTTPHeaderField: "Content-Type"), body: body, failure: failure, actualSession: response?.value(forHTTPHeaderField: "X-Cantos-Theatre-Session"), retryAfter: response?.value(forHTTPHeaderField: "Retry-After"))
         DispatchQueue.main.async { _ = self.completion(result) }
     }
 }
