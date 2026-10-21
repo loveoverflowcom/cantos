@@ -21,8 +21,8 @@ entry, xtask selectors, build scripts, guards and active documents now say `cant
 (`services/cantos-server`). The deployed legacy VPS runtime keeps its operational names
 (Quadlet units, container and image names, release bundle file name, Caddy snippet) until the
 operator-authorized cutover of #336; see the
-[rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api). Everything
-else in this record remains a target, except the bounded library slice below.
+[rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api). The bounded
+implementation slices below are separate from the selected target and final runtime acceptance.
 
 **Implemented by the #332.4 foundation slice:** [`packages/store-turso`](../../packages/store-turso/README.md)
 supplies the single-owner lock, the checksummed schema registry with a pure startup decision, a
@@ -41,10 +41,13 @@ checked, distinct subject/operation/instance IDs, storage-bounded security versi
 completion recheck for active/current state, binding, surface and assurance. Its mailbox-proof
 planners add bound explicit-confirmation/expiry, terminal cancel/consume and replacement
 decisions with expected/successor snapshots; secret verification and atomic persistence remain
-shell obligations. It introduces no
-binary, crypto verifier, RPC, authentication fact or session. The separate opt-in persistence
-shell supplies an Identity schema and atomic disable/version/event/receipt storage; runtime
-composition and credential/RPC prerequisites still belong to later #334 slices. Pure decisions do not establish durable revocation,
+shell obligations. The default library introduces no binary, crypto verifier, RPC,
+authentication fact or session. The opt-in persistence shell supplies an Identity schema and
+atomic disable/version/event/receipt storage. The later opt-in `service` feature now supplies
+the signup/password executable (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md))
+and private authenticated UDS RPC; see the [service boundary](../../services/cantos-identity/README.md)
+and the v1 amendment below. The Server consumes it through [Identity auth v1](../../packages/contracts/identity-auth-v1.md)
+on PostgreSQL; first-party frontends remain pending. Pure decisions do not establish durable revocation,
 restore safety, atomic consume-once or auth E2E acceptance. Kani harness registration is not
 evidence that a model checker ran.
 
@@ -52,6 +55,42 @@ The integration branch is `refactor/cantos-native-turso`, with reviewable commit
 and a final integrated PR to `develop`. Do not merge an incompatible intermediate rename,
 schema or authentication cutover. Preserve other worktrees and reconcile concurrent work.
 The documentation preparation changes no executable, installed runtime, database or account.
+
+## Owner amendment: v1 authentication and parallel integration
+
+The owner selected this v1 scope on 21 October 2026 for #332/#334/#335/#336, coordinated with
+#295. It supersedes the earlier Studio D3/passkey requirement and blanket Server-Turso/event-
+consumer prerequisites **for v1**, without accepting unfinished implementation or closing issues.
+[ADR 0045](../decisions/0045-v1-email-password-sign-in.md) records the accepted email/password
+decision and [Identity auth v1](../../packages/contracts/identity-auth-v1.md) its backend contract;
+this section owns the parallel-integration and security-state strategy around them.
+
+| Selected v1 decision | Boundary |
+| --- | --- |
+| Email/password with email verification, including Studio password login | Identity proves identity; Server still checks Studio roster/admission, ActorId, roles and resource permissions. Studio stays provisioned/login-only, with no public signup or email-based auto-link. |
+| Reuse the existing session engine | Preserve SessionPolicy, TTL/replay/revocation and purpose fences; do not create a separate mobile session system. Web uses HttpOnly/Secure cookies with exact-origin CORS/CSRF; CMP uses opaque Bearer with its existing coordinator and secure storage. |
+| Auth and frontends proceed alongside Server PostgreSQL → Turso migration | Identity Turso + authoritative Server PostgreSQL is a valid transitional composition. Implement binding/session transactions in the current Server owner; do not create a disconnected partial `server.db` or claim cross-DB atomicity. |
+| Direct authoritative security-state checks are allowed | A durable event consumer is not a v1 prerequisite. Define freshness bounds and fail-closed issuance, renewal and protected/sensitive admission; recheck epoch/version/current state and reject late or stale facts. Events remain a possible later optimization, with their own recovery contract. |
+| Verify email in Web, then return to CMP | This is a valid v1 journey, with operation/purpose binding and explicit mailbox confirmation. Polling, a redirect or a client flag alone never authenticates the app. |
+
+Passkey/MFA, recovery/change-password, phone and Google login are **deferred**, not completed
+or prerequisites for v1. Their proof/recovery/assurance obligations still apply when introduced.
+Existing legacy provider paths retain their guards until their replacements are implemented and
+accepted; a documentation amendment does not authorize a runtime bypass.
+
+| Implementation observed in source | Verification boundary |
+| --- | --- |
+| Identity `service` implements Theatre mailbox-confirmed signup, Argon2id password authentication (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md)) and `GetSecurityState` over private UDS RPC | The [service guide](../../services/cantos-identity/README.md#verification) records source-bound prior runs; this amendment runs no authentication tests. |
+| Studio password is implemented in Identity: [the core](../../services/cantos-identity/src/domain/admission.rs) admits `(Studio, Password)` beside the deferred `UserVerifiedPasskey`, and the Server's roster decides Studio entry | Prior runs are recorded in [Identity auth v1](../../packages/contracts/identity-auth-v1.md#verification); this amendment runs none. Studio provisioning remains absent; a password result is never relabelled as passkey assurance. |
+| [Server serving](native-persistence-readiness.md#actual-serving-path) remains PostgreSQL; the [Identity auth v1](../../packages/contracts/identity-auth-v1.md) backend consumer issues sessions and ActorId bindings there | Real transitional PostgreSQL E2E may qualify that composition; it is not “without PostgreSQL” native acceptance. |
+| [Shared Web auth](../../packages/web-auth/README.md) still implements Bearer although the Server's v1 Web endpoints issue cookies; [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has Bearer coordination/secure storage over the current provider flow | Web cookie/fetch/XHR/session-restore migration and first-party v1 journeys remain pending, with separate browser/device acceptance. |
+
+The #335 backend slice consumes the authenticated RPC implementation and draft contract;
+completion of every Server Turso adapter was not a prerequisite. Final #336 native acceptance still needs the
+two production binaries, two file-backed Turso owners, real RPC/auth/revocation/restore journeys
+and separate browser/device/Kani evidence without PostgreSQL or container dependencies.
+[#348 packaging](../deployment/native-oci-release.md) selects production GHCR/Podman only; it
+does not make native development or tests container-dependent.
 
 ## Single-process HTTP review boundary
 
@@ -70,13 +109,15 @@ Application, PostgreSQL and inbound admission callers use those same owners. Thi
 the existing implementation, with unchanged TTLs and native token format, not a second session
 engine or the native issuer cutover.
 
-For [#335](https://github.com/loveoverflowcom/cantos/issues/335), the real Identity binary and
-authenticated UDS server of #334.7 are prerequisites of the RPC client; the #333 PR-B Turso
-composition is a prerequisite of sessions, binding and atomic event checkpoints. The current
-Identity library supplies neither executable nor credential/RPC adapter, and Server still owns
-PostgreSQL persistence. Reconciled policy tests and the pre-composition controls below cannot
-accept any of those missing integration layers. Keep the old provider until its real replacement
-is available; public first-party forms retain the settled D4 decision. The v1 Studio sign-in is email/password under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md); the D3 passkey/recovery target is deferred, not removed.
+For [#335](https://github.com/loveoverflowcom/cantos/issues/335), the backend slice consumes the
+implemented Identity executable/authenticated UDS and [draft RPC contract](../../packages/contracts/identity-rpc-v1.md)
+and issues sessions in the current authoritative Server PostgreSQL owner under the
+[v1 amendment](#owner-amendment-v1-authentication-and-parallel-integration) and
+[ADR 0045](../decisions/0045-v1-email-password-sign-in.md); see [Identity auth v1](../../packages/contracts/identity-auth-v1.md).
+Reconciled policy tests and pre-composition controls cannot accept missing frontend, browser/device
+or native layers. Keep the old provider until its replacement is actually accepted; public
+first-party forms retain the settled D4 decision, and the D3 passkey/recovery target is deferred,
+not removed. The Web client cookie migration and first-party frontends remain pending.
 
 The [single-process source composition](server-http-composition.md) now uses the canonical inbound
 assembly, one PostgreSQL pool and a listener with route-local origins/state/policies. Its
@@ -134,7 +175,7 @@ cantos/
 | Owner | Runtime and storage | Responsibility |
 | --- | --- | --- |
 | Cantos Server | One native Rust process, local in-process Turso `server.db` | Public Studio/Theatre/Admin APIs, ActorId, application sessions, resource authorization and business data |
-| Cantos Identity | One native Rust process, private RPC, local in-process Turso `identity.db` | Immutable subjects, credentials, mailbox proof, recovery, required MFA and security state |
+| Cantos Identity | One native Rust process, private RPC, local in-process Turso `identity.db` | Immutable subjects, v1 credentials/mailbox proof and security state; deferred factors/recovery follow the amendment |
 | Cantos Forge | Existing separate producer boundary | Audio production and private producer workflows; not a daemon required for login or ordinary serving |
 
 The database choice is **Turso Database through the Rust `turso` crate, local-only**.
@@ -180,10 +221,11 @@ Web uses HttpOnly/Secure cookies under #295; native uses opaque Bearer credentia
 storage. Do not silently change TTLs, token formats or cross-purpose acceptance. Any needed
 authentication-contract amendment is explicit, with matching consumer migration.
 
-Credential reset, disabling and security-method changes require durable security-version and
-revocation propagation. Design idempotent provisioning/binding and an atomic Identity event
-outbox plus Server inbox/checkpoint, or an equivalent demonstrated protocol. State the
-revocation freshness bound and fail-closed behavior during unknown lag or outages. A delayed
+Disabling and security changes require durable security-version state and a demonstrated
+admission/revocation protocol. Design idempotent provisioning/binding; direct current-state
+checks are allowed by the v1 amendment. If events are used, design an atomic Identity outbox
+plus Server inbox/checkpoint, with deduplication and recovery. State the
+revocation freshness bound and fail-closed behavior during unknown state, lag or outages. A delayed
 login result cannot revive a disabled account; an asynchronous event alone does not establish
 instantaneous global revocation. No distributed transaction or exactly-once effect is implied.
 
@@ -198,23 +240,24 @@ One Server must replace the current two API processes using **route-scoped** ori
 credential and capability policies. Do not union Studio and Theatre origins into a global
 allowlist or relax exact-origin checks. Preserve separate Admin/producer authority.
 
-FE changes are limited to justified adapters/configuration/controllers and the credential,
-setup or MFA controls that replacing hosted Kanidm actually requires. Inventory exceptions;
+FE changes are limited to justified adapters/configuration/controllers and v1 credential/mailbox
+controls under the amendment; deferred MFA is not a v1 UI prerequisite. Inventory exceptions;
 do not claim zero FE changes while removing a required login path. Preserve design, navigation,
 localization and error/retry behavior. No duplicate auth UI or production mock fallback.
 
 ## Identity scope
 
 Implement only the account lifecycle needed by Cantos, not a general OIDC/LDAP/SCIM server.
-Use reviewed/pinned libraries for password KDFs, cryptography, randomness, mail and required
-MFA. Candidates include RustCrypto Argon2id, existing getrandom/lettre, secrecy/zeroize and
+Use reviewed/pinned libraries for password KDFs, cryptography, randomness and mail; deferred
+factors need their own later qualification. Candidates include RustCrypto Argon2id, existing getrandom/lettre, secrecy/zeroize and
 reviewed TOTP/WebAuthn libraries. Dependency selection requires compatibility, advisory,
 license and feature review; a named candidate is not a dependency pin or security audit.
 
 The mailbox holder, not an initiating browser polling status, controls credential setup.
 GET/prefetch does not activate an account. Proofs are purpose-bound, expiring and single-use;
 existing identities cannot be adopted, reset or linked by matching email. Studio remains
-provisioned/login-only; replacing Kanidm must not silently remove its required second factor.
+provisioned/login-only; its v1 password factor is recorded in ADR 0045 and the amendment, and
+provisioning remains absent.
 
 Production mail still needs an explicitly configured, approved delivery path. Tests use a
 private run-owned inbox. No new SMTP server, live mailbox, provider login or cloud resource is
@@ -232,9 +275,18 @@ changed security boundary, not an equivalent replacement for PostgreSQL roles.
 DBSP is an optional in-process derived read model, never identity or authorization authority.
 The current sample has signed deltas but a PostgreSQL `xid8`/`xmin` freshness contract. There is
 no demonstrated Turso adapter at the reviewed baseline. Reuse appropriate computation, not
-PostgreSQL snapshot assumptions. A candidate needs an atomic committed change feed,
-snapshot/watermark alignment, whole-transaction publication, replay/deduplication, rebuild
-and bounded fallback to authoritative Turso SQL. Row IDs are not presumed commit ordering.
+PostgreSQL snapshot assumptions. Choose the maintenance contract by lifetime:
+
+- A volatile projection inside the same owner may use after-commit coordination, explicit
+  readiness/freshness, bounded authorized SQL fallback and full rebuild after restart. Test
+  commit/rollback ordering, concurrent writes, bootstrap races, partial publication, missed
+  notifications and failure/rebuild; no result is served as current after coordination is lost.
+- A durable or out-of-process projection needs a durable committed feed, snapshot/watermark
+  alignment, whole-transaction publication, checkpoints, replay/deduplication and recovery.
+  Row IDs are not presumed commit ordering; no cross-service file access is introduced.
+
+Neither branch mandates CDC for every projection. Both require a concrete DBSP consumer,
+consistency evidence and measured benefit against the actual authoritative SQL baseline.
 
 Evaluate one concrete hot read against improved Turso SQL/index/cache baselines. Record
 `adopt | reject | defer`, including binary/RAM and write-maintenance cost. Reject/defer is

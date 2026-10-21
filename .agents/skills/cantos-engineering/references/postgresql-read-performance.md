@@ -87,9 +87,23 @@ Mutations keep authoritative transactions, CAS, idempotency receipts and errors 
 write amplification, commit latency, backlog/checkpoint bytes and CPU/RAM. An asynchronous
 catalog view may fit where an approval or conditional-progress decision must remain authoritative.
 
-## Turso committed-feed and checkpoint design
+## Choose projection lifetime before capture design
 
-A proposed Turso adapter must first establish a recoverable source of truth:
+The [owning DBSP decision](../../../../docs/architecture/native-turso-refactor.md#persistence-and-dbsp)
+distinguishes volatile same-owner state from durable/out-of-process state. Record the chosen
+branch before prescribing CDC or checkpoints; both retain authoritative SQL and current access checks.
+
+For a **volatile same-owner projection**, after-commit coordination is allowed. Serialize or
+otherwise demonstrate commit-to-input ordering, bootstrap under writes and whole-transaction
+publication. Model readiness and known freshness explicitly; mark unavailable on lost coordination
+and bound authorized SQL fallback. A crash discards the projection and rebuilds from authoritative
+data before serving it as current. Test rollback, concurrent commits, missed notifications,
+bootstrap/rebuild races, partial publication and failure at commit/input/output boundaries.
+No durable projection checkpoint or universal CDC service is required for this branch.
+
+### Turso committed-feed and checkpoint design
+
+For a **durable or out-of-process projection**, establish a recoverable source of truth:
 
 - Store each business mutation and its required durable change record in the **same** tested
   transaction. Do not feed the engine before commit or rely on an in-memory after-commit callback
@@ -134,7 +148,8 @@ prove equivalence. Keep minimized counterexamples as deterministic regressions.
 | Freshness/failure | Lag below/above budget, unknown position, backpressure, engine outage and rebuild; exact wait/fallback/unavailable outcomes |
 
 Each applicable class maps to a production test and command or a stated execution gap.
-Adoption needs real Turso plus actual DBSP circuit/adapter evidence. In-memory repository doubles
+Adoption needs the actual authoritative engine plus DBSP circuit/adapter evidence (Turso for the
+native target). In-memory repository doubles
 and pure-model tests remain distinct; a real engine memory-only test does not prove disk recovery.
 
 ## Benchmark and evidence record
@@ -175,8 +190,9 @@ Execution gaps:         actual PASS/FAIL/NOT_RUN/UNSUPPORTED plus reasons
   exist, or missing measurements are explicitly NOT_RUN.
 - [ ] DBSP decision is explicit. Adoption has a concrete consumer, actual adapter and measured
   total benefit; reject/defer does not leave an unconditional release dependency.
-- [ ] Durable capture, ordering, snapshot alignment and full-transaction atomic visibility are
-  established for this database; no copied `xid8`/`xmin` assumption or unsupported connector.
+- [ ] Projection lifetime is explicit: volatile same-owner coordination/readiness/fallback/rebuild,
+  or durable/out-of-process feed/checkpoint/dedup/recovery. Ordering, snapshot alignment and
+  whole-transaction visibility are established; no copied `xid8`/`xmin` or unsupported connector.
 - [ ] Differential/fault tests cover relevant table rows at a shared committed position,
   including retractions, rollback, restart, rebuild, authorization and fallback.
 - [ ] Mutation consistency, receipt/idempotency and security boundaries are not weakened.

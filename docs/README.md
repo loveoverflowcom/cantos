@@ -26,6 +26,9 @@ acceptance from a merged PR.
 For #348's native production packaging, read the [OCI release contract and next slices](deployment/native-oci-release.md),
 then the [native architecture](architecture/native-turso-refactor.md) and [retained VPS runbook](deployment/vps-production.md).
 The offline contract verifier is separate from publish, native qualification and live activation.
+For first-party v1 auth and parallel migration, start with the
+[native owner amendment](architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration),
+then actual Identity/Server/Web/CMP consumers; older provider guides describe retained paths.
 
 | Goal | Start here |
 | --- | --- |

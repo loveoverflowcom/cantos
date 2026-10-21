@@ -1,4 +1,4 @@
 interface:
   display_name: "Cantos Work Item"
   short_description: "Deliver one work item from plan to pull request"
-  default_prompt: "Use $cantos-work-item to deliver this work item: confirm its prerequisites are accepted, pin one reviewable outcome, implement through the owning skills with a claim-to-evidence ledger, update the owning docs and the queue, and prepare a develop-targeted PR only when asked."
+  default_prompt: "Use $cantos-work-item to deliver this work item: confirm its prerequisites are accepted, resolve the user/work-item/default base, pin one reviewable outcome, implement through the owning skills with a claim-to-evidence ledger, update owning docs and the queue, and prepare a PR against that base only when asked."

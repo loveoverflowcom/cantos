@@ -52,9 +52,9 @@ the browser renders and drives it, the owner decides what is true.
 
 ## Ground rules
 
-- **Repository reality.** Studio Web, Theatre Web's scoped live account/Library boundary and
-  explicitly isolated listening mock, and the shared `cantos-ui`
-  foundation are Leptos CSR packages built with Trunk. Build, serve and verify Web through
+- **Repository reality.** Studio and Theatre Web are Leptos CSR apps built with Trunk.
+  The [implementation map](../../../docs/architecture/repository-layout.md#platform-scope) covers
+  discovery/account/Library, isolated mocks and shared UI/auth packages. Build, serve and verify through
   [`cargo xtask`](../../../xtask/README.md) (`build|run|app <app> --web`, `verify web`);
   native string-render component tests and the package-local searchable development gallery exist.
   Its [scenario contract](../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay)
@@ -111,7 +111,7 @@ Keep existing gallery fixtures and controlled state; source/string-render tests 
 | The editor keys rows by dialogue ID and never commits, reformats or rewrites text during IME composition | Telex/VNI input corrupted; edits attached to the wrong line | insert-above focus test; composition regression; recorded IME walkthrough | [`script-editor.md`](references/script-editor.md) |
 | Styles consume token roles; classes are semantic; state styles hang off semantic attributes; themes, reduced motion and focus are always handled | literal colors and radii; utility walls; invisible focus | manual review now, proposed style gate later; inspected captures | [`styling.md`](references/styling.md) |
 | Evidence is named exactly: `DOM-tested` ≠ `interaction-tested` ≠ `integration-tested`; `compiled` and `screenshot-captured` are not inspection | overclaiming from fakes, synthetic events or unopened images | report review against the vocabulary | [`web-testing.md`](references/web-testing.md) |
-| JSON or MessagePack is chosen once per route group by a client constant; responses decode by their own `Content-Type`; a request is sent once, never retried in another codec | a JSON error read as garbage; a timed-out save applied twice | host tests on the client `wire.rs`; bundle check for the JSON build | foundation [`wire-codec.md`](../cantos-engineering/references/wire-codec.md) |
+| JSON is default; opt-in versioned Protobuf follows the route contract; MessagePack is legacy. Decode actual response `Content-Type`, send once and never retry in another codec | a JSON error read as garbage; a timed-out save applied twice | client `wire.rs` tests and contract fixtures | foundation [`wire-codec.md`](../cantos-engineering/references/wire-codec.md) |
 
 How the foundation lands in the browser:
 
@@ -218,6 +218,7 @@ A skill-only or docs-only edit needs no app run; say that no Web behavior was ex
 | The work is about… | Reference |
 |---|---|
 | surfaces, permission contexts, layering, ports in context, core crates in WASM, secrets, shell-owned mini-player, modules, SSR vs CSR | [`web-architecture.md`](references/web-architecture.md) |
+| Web login/email verification, cookie/CSRF migration, fetch/XHR or session restore | [Web auth migration](references/web-architecture.md#web-authentication-migration), then foundation [identity/session method](../cantos-engineering/references/identity-and-session-boundaries.md); selected transport is not implemented evidence |
 | binary request/response bodies, the codec switch, decoding by `Content-Type`, codec bundle cost | foundation [`wire-codec.md`](../cantos-engineering/references/wire-codec.md) |
 | startup/bundle/interaction cost, cache eligibility, cold/warm/code-cache claims, signal clone/scope cost, rendering/splitting experiments | [`performance-and-caching.md`](references/performance-and-caching.md) |
 | resources, actions, explicit states, stale responses, duplicate submits, retries, optimistic UI, job progress | [`leptos-async.md`](references/leptos-async.md) |

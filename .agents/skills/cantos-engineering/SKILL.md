@@ -44,8 +44,9 @@ For #331 read the owning [architecture](../../../docs/architecture/native-turso-
 then [persistence](references/persistence.md), [service runtime](references/service-runtime.md),
 [identity/session boundaries](references/identity-and-session-boundaries.md) and
 [read performance/DBSP](references/postgresql-read-performance.md) as each boundary is touched.
-They define the working method for qualifying the pinned local Turso engine, one owner per file,
-private RPC, durable cross-service revocation, minimal FE changes and measurable resource claims.
+Read only the boundary being changed. The [v1 owner amendment](../../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
+owns factor scope, transitional integration and security-state choices. These references qualify
+the pinned engine, file ownership, private RPC, revocation and measurable resource claims.
 Do not infer Turso behavior from SQLite, assume a ready-made DBSP connector, or start a container
 for native acceptance. Preserve legacy data and source-bound evidence; production effects still
 require explicit authority. Comprehensive active-doc/command migration belongs with implementation.
@@ -192,49 +193,10 @@ independent of the implementation, and for a bug make the test fail first.
 
 ## 6. Never collapse evidence into the word "verified"
 
-This is the canonical vocabulary for every Cantos report:
-
-```text
-documented                a document or comment says so
-type-enforced             the type system rejects the alternative
-statically-checked        a lint, exhaustive match or architecture check enforces it
-example-tested            specific inputs are asserted
-property-tested           a law holds over generated inputs
-differentially-tested     an independent oracle or golden fixture agrees
-fault-injected            a crash, timeout or duplicate was injected at a named point
-mock-integration-tested   production modules exercised together with named mocked external dependencies
-mutation-tested           the assertions kill inserted defects
-bounded-model-checked     a proposition holds over a stated symbolic domain and bound
-fuzz-tested               a coverage-guided fuzzer ran a named target under resource bounds with no crash,
-                          hang or blow-up (robustness only; says nothing about correct output)
-integration-tested        crossed a real database, object store or service boundary
-provider-live-tested      called a real TTS or adaptation provider under a cost limit
-audio-measured            loudness/peak/duration measured by a named tool and profile
-audio-listened            a named reviewer listened to the named render
-compiled                  it builds — the weakest claim there is
-DOM-tested                structure or text asserted from a live DOM
-semantics-tested          assertions on a rendered Compose semantics tree; name the renderer
-interaction-tested        a real flow was driven by input events
-accessibility-checked     semantics + keyboard + focus (never screen-reader proof)
-screen-reader-walked      a named TalkBack/VoiceOver/NVDA walkthrough actually happened
-screenshot-captured       image files exist
-screenshot-inspected      someone opened the rendered pixels and judged them
-cross-viewport-inspected  inspected at each listed viewport
-cross-theme-inspected     inspected in light and dark
-device-tested             ran on a named Android/iOS device, emulator or simulator
-production-observed       observed in production, not proven
-```
-
-A fake provider alone is `example-tested`; a production flow across modules with external doubles
-is `mock-integration-tested`. Neither is `provider-live-tested`; an in-memory repository double is
-never real-database integration evidence. An actual memory-only database test does not establish
-file durability/recovery. A desktop or JVM host render is never `device-tested`.
-A document check never proves that an app builds. Agent-authored JSON or assertions are not
-verifier output; report only what a tool actually printed.
-
-Performance claims reuse this vocabulary with comparable baseline/delta, sample distribution,
-source/build/fixture/tool/host provenance and named cache conditions; report unrun measurements.
-Numbers add no evidence level. For Web, use [performance and caching](../cantos-leptos-web/references/performance-and-caching.md).
+Use the canonical [evidence vocabulary](references/verification-strategy.md#evidence-vocabulary)
+and its live/mock, file-durability, renderer and performance qualifications. Every report names
+the level and actual production boundary exercised; a document or build cannot accept runtime
+behavior. This anchor remains the shared entrypoint for existing consumers.
 
 ## 7. Verification tiers
 
@@ -302,10 +264,10 @@ A report must state actionable residual risk.
 | serde, SQL rows, fixtures, AI output or migrations around a refined type | [`boundary-hardening.md`](references/boundary-hardening.md) |
 | Turso/legacy PostgreSQL transactions, file ownership, constraints, concurrency, migrations and real database tests | [`persistence.md`](references/persistence.md) |
 | native processes, UDS/files, supervisors, no-container acceptance or explicit legacy runtime operations | [`service-runtime.md`](references/service-runtime.md) |
-| credentials, mailbox proof, recovery, MFA, private authentication RPC, session/revocation boundaries | [`identity-and-session-boundaries.md`](references/identity-and-session-boundaries.md) |
+| v1 authentication, mailbox proof, deferred factors/recovery, private RPC, session/revocation boundaries | [`identity-and-session-boundaries.md`](references/identity-and-session-boundaries.md) |
 | database-backed GET/read/fetch, hot queries, indexes, DBSP incremental views, committed feeds, read-model invalidation or performance acceptance | [`postgresql-read-performance.md`](references/postgresql-read-performance.md) |
 | Axum handlers, DTOs, error mapping, authorization and client contracts | [`http-api-boundary.md`](references/http-api-boundary.md) |
-| JSON or MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, wire goldens, codec benchmarks, extending the codec to Theatre or CMP | [`wire-codec.md`](references/wire-codec.md) |
+| JSON/versioned Protobuf or legacy MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, wire goldens, codec benchmarks, extending the codec to Theatre or CMP | [`wire-codec.md`](references/wire-codec.md) |
 | naming, function shape, errors, comments, Rust/Kotlin/Leptos style | [`clean-code.md`](references/clean-code.md) |
 | choosing an oracle, partitioning edge cases, the verification ledger | [`verification-strategy.md`](references/verification-strategy.md) |
 | laws over generated inputs, state machines, golden fixtures, reference models | [`property-and-differential-testing.md`](references/property-and-differential-testing.md) |

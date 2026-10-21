@@ -22,7 +22,7 @@ service that exposes the schema. A future network mode must use mTLS and is not 
 | `GetSecurityState` | Read a subject's state, security version and instance epoch | state, `security_version`, `instance_epoch` |
 
 There is no provisioning, recovery, change-password or operator method: none is declared, so none
-can be called. **#335 v1 amendment:** `PURPOSE_STUDIO` is accepted with `ASSURANCE_PASSWORD` for
+can be called. **#335 v1 amendment** ([ADR 0045](../../docs/decisions/0045-v1-email-password-sign-in.md)): `PURPOSE_STUDIO` is accepted with `ASSURANCE_PASSWORD` for
 `AuthenticatePassword`; the fact echoes the purpose it was asked for. Identity keeps no Studio
 roster: the Server's roster decides who may enter Studio, and a Studio fact grants nothing by
 itself. A passkey remains a separate, deferred assurance.

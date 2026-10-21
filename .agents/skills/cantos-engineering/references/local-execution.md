@@ -49,11 +49,14 @@ tool permission, configure connectors or authorize paid calls or additional exte
 Repository-level operations go through [`cargo xtask`](../../../../xtask/README.md); scripts and
 external tools are its primitives, not competing entrypoints. It runs from any directory:
 
+Resolve `BASE_REF` through the [base workflow](../../../../CONTRIBUTING.md#branch-and-pull-request-workflow)
+first; use that fetched ref consistently for diff, preflight, review and baseline reproduction.
+
 ```sh
 cargo xtask doctor                     # which tools, gates and surfaces exist here
 cargo xtask verify repository          # documents, links, JSON, skills, Python tests, whitespace
-cargo xtask preflight --changed-only   # gates selected from the diff; uncertain impact runs all
-cargo xtask preflight --changed-only --dry-run   # the plan, without running it
+cargo xtask preflight --changed-only --base "$BASE_REF"   # uncertain impact runs all
+cargo xtask preflight --changed-only --base "$BASE_REF" --dry-run   # plan only
 ```
 
 `verify repository` validates documents, links, JSON syntax, text hygiene and skill structure; it

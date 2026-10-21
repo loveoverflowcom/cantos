@@ -53,9 +53,12 @@ side in the same change when it is in scope.
 
 ## Repository reality
 
-Cantos implements Script IR validation, authenticated PostgreSQL revisions and the Leptos
-Studio; inspect [the API service guide](../../services/cantos-server/README.md) and the current
-[contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos-theatre/{web,mobile}` (Theatre) and
+Cantos implements Script IR, authenticated revisions, Studio and Theatre Web/CMP owners;
+inspect [the API guide](../../services/cantos-server/README.md),
+[contracts](../../packages/contracts/README.md) and code. PostgreSQL is the current Server
+authority; the selected replacement and v1 auth scope live in the
+[native architecture amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration).
+The layout is `apps/cantos-theatre/{web,mobile}` (Theatre) and
 `apps/cantos-studio/web` (Studio), the authoritative modular backend in `services/cantos-server`,
 current Forge code in `services/cantos-forge-functions`, Kanidm configuration in `services/kanidm` and shared
 `packages/`. Deployment/runtime assets live under [`infra/`](../../infra/README.md); `xtask/`
@@ -73,9 +76,10 @@ serve Theatre Mobile and Studio Web.
 Forge adds local artifact commands, attempt/recovery core, local durable attempt adapter and
 finite Rust/Node worker boundary; real provider/Functions/Drive execution and API handoff remain
 absent. See the [worker acceptance boundary](../../docs/deployment/forge-worker.md).
-Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
-casting with frozen guidance; obsolete local/Google TTS probe CLIs are removed; optional MessagePack
-representation for four Studio routes are implemented. Native listening acceptance
+Use the [implementation map](../../docs/architecture/repository-layout.md#platform-scope)
+instead of inferring capability from an old skill snapshot. The
+[wire contract](../../docs/architecture/wire-codec.md) owns JSON/versioned Protobuf and retained
+legacy MessagePack scope. Native listening acceptance
 remains separately scoped. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run.
@@ -100,7 +104,10 @@ Passing it proves skill hygiene only.
 | typed functional errors, refinement-preserving composition, cancellation, retry and boundary translation | [`cantos-engineering`](cantos-engineering/SKILL.md), then [typed errors and composition](cantos-engineering/references/typed-errors-and-composition.md); add the CMP/Web application reference only for that platform |
 | Kani for a selected high-risk pure Rust kernel, assumptions, bounds, cover and actual verification evidence | foundation [mutation/formal reference](cantos-engineering/references/mutation-and-formal.md#bounded-model-checking); no backend-wide or Kotlin UI mandate |
 | database-backed GET/read/fetch performance, DBSP evaluation, or writes feeding read models | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [read-performance workflow](cantos-engineering/references/postgresql-read-performance.md); add the domain owner |
-| JSON or MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, codec benchmarks | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [wire codec reference](cantos-engineering/references/wire-codec.md); add the renderer skill for client code |
+| JSON/versioned Protobuf or legacy MessagePack, negotiation, client codec switches or benchmarks | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [wire codec reference](cantos-engineering/references/wire-codec.md); add the renderer skill for client code |
+| v1 auth scope, Identity/Server integration, direct security-state checks or deferred factors | foundation [identity/session method](cantos-engineering/references/identity-and-session-boundaries.md), starting with the linked owning amendment; inspect actual source before claiming implementation |
+| Web auth transport, cookie/CSRF, fetch/XHR and restore | [`cantos-leptos-web`](cantos-leptos-web/SKILL.md), then [Web auth migration](cantos-leptos-web/references/web-architecture.md#web-authentication-migration) |
+| CMP auth, opaque Bearer coordination, secure storage or Web email verification/return | [`cantos-cmp-mobile`](cantos-cmp-mobile/SKILL.md), then the [native auth owner](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) and foundation identity/session method |
 | Script IR schema, stable IDs, revisions, digests, import, AI adaptation output, Narrative Forge | [`cantos-script-ir`](cantos-script-ir/SKILL.md) |
 | external AI producer briefs, scoped private uploads, received audio, codec profiles, QC and safe publication gates | [`cantos-production-pipeline`](cantos-production-pipeline/SKILL.md) |
 | rights, approvals, release manifests, object storage, CDN, publish/republish/retract | [`cantos-publication`](cantos-publication/SKILL.md) |

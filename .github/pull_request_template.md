@@ -13,7 +13,7 @@ Describe the problem and resulting behavior. Link the issue with `Closes #...` o
 List the checks actually run and their results. Include screenshots for UI changes and relevant failure/recovery evidence for pipeline changes.
 
 ```text
-cargo xtask preflight --changed-only
+cargo xtask preflight --changed-only --base "$BASE_REF"
 ```
 
 Follow the foundation's [verification cadence](../.agents/skills/cantos-engineering/references/verification-cadence.md):
@@ -21,6 +21,7 @@ run preflight once for the final handoff, or cite a still-valid run covering the
 inputs. Do not rerun its covered gates separately or repeat preflight just for commit/push/PR
 packaging. Include the checked source revision/dirty-content identity and any later changes.
 
+Record the resolved base branch/ref/SHA using the [base workflow](../CONTRIBUTING.md#branch-and-pull-request-workflow).
 Paste the preflight summary, plus any additional owner checks you ran separately. Report gates as
 xtask printed them (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`) and explain every skipped or
 unsupported gate. Add device or runtime checks once those implementations exist.
@@ -62,7 +63,7 @@ Describe migrations, Script IR/API compatibility, affected cache entries and aud
 
 ## Review checklist
 
-- [ ] The PR targets `develop` and has one reviewable purpose.
+- [ ] The PR targets the resolved base (user-selected, accepted integration/staging, else `develop`) and has one reviewable purpose.
 - [ ] Acceptance criteria are met, or remaining work is explicitly linked.
 - [ ] Documentation and reusable templates reflect the resulting behavior.
 - [ ] Logs, examples, and fixtures contain no secrets or unapproved source material.

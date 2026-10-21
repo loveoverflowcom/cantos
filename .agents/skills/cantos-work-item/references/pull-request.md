@@ -19,7 +19,7 @@ push or PR packages content already checked. Review evidence in this order; fix 
 |---|---|---|
 | 1. inventory | `git status --short` and `git diff --stat`; every path belongs to the review boundary | unrelated cleanup, stray files |
 | 2. evidence inventory | identify applicable format/lint/test and owner evidence, its covered inputs and remaining gaps under [§ 8](../../cantos-engineering/SKILL.md#8-clean-syntax-and-formatting-before-completion); use implemented commands and retain valid results | stale evidence, missing regression or formatting |
-| 3. final handoff gates | `cargo xtask preflight --changed-only` on the final diff, or cite a still-valid run covering it; it includes repository/format and selected suites, so do not run their equivalents again. Supplement uncovered owner evidence. For missing prerequisites use [local handoff](../../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr) or the narrow [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start). Intermediate commits do not trigger this step | broken links, skill structure, whitespace, uncovered gates |
+| 3. final handoff gates | `cargo xtask preflight --changed-only --base "$BASE_REF"` on the final diff, or cite a still-valid run covering that base and content; it includes repository/format and selected suites, so do not run their equivalents again. Supplement uncovered owner evidence. For missing prerequisites use [local handoff](../../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr) or the narrow [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start). Intermediate commits do not trigger this step | broken links, skill structure, whitespace, uncovered gates |
 | 4. content audit | read the full diff for the items in the next table | secrets and private material in history |
 | 5. stage by path | `git add <path> …`; review `git diff --cached` | `git add -A` sweeping untracked captures or `.env` files |
 
@@ -54,12 +54,13 @@ credentials is their decision, not an agent's.
 
 ```sh
 git push -u origin <branch>
-gh pr create --base develop --head <branch> --title "<type>: <outcome>" --body-file <scratch file>
+gh pr create --base "$BASE_BRANCH" --head <branch> --title "<type>: <outcome>" --body-file <scratch file>
 ```
 
-Write the body file outside the repository. A request to open a PR authorizes that PR against
-`develop`; choose a descriptive title and a regular PR unless the user asks for a draft. Never
-push to `develop` directly and never force-push a branch someone else may use. Labels, reviewers,
+Use the [resolved base](../SKILL.md#4-resolve-the-base-and-branch-from-its-latest-head):
+`BASE_REF=origin/$BASE_BRANCH` for local comparison and the same `BASE_BRANCH` for the PR.
+Write the body file outside the repository. Choose a descriptive title and a regular PR unless
+the user asks for a draft (`--draft`). Never push directly to the base or force-push a branch someone else may use. Labels, reviewers,
 assignees, milestones and Project status are separate GitHub writes: confirm each, and use only
 labels that `gh label list` shows exist.
 

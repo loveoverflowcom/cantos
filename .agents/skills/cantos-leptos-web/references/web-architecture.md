@@ -11,9 +11,29 @@ The product owner is [`apps/cantos-studio/web/README.md`](../../../../apps/canto
 dependency rule itself is the foundation's [`decoupling.md`](../../cantos-engineering/references/decoupling.md);
 this reference applies it to the browser. Two Leptos packages exist, one per product:
 [`apps/cantos-studio/web`](../../../../apps/cantos-studio/web/README.md) (implemented) and
-[`apps/cantos-theatre/web`](../../../../apps/cantos-theatre/web/README.md) (a skeleton with no listener behavior).
+[`apps/cantos-theatre/web`](../../../../apps/cantos-theatre/web/README.md) (discovery, account/Library and an isolated listening mock).
+Use the [implementation map](../../../../docs/architecture/repository-layout.md#platform-scope)
+and shared [`cantos-ui`](../../../../packages/ui-system/leptos/README.md)/
+[`cantos-web-auth`](../../../../packages/web-auth/README.md) owners rather than a fixed module snapshot.
 Every path, crate and type below that the repository does not contain is a **proposal** until a Web
 work item creates it.
+
+## Web authentication migration
+
+The [v1 amendment](../../../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
+owns selected login factors and Web/native transport; the
+[shared Web auth owner](../../../../packages/web-auth/README.md) describes current **Bearer**
+implementation. The Server's [Identity auth v1](../../../../packages/contracts/identity-auth-v1.md)
+endpoints already issue HttpOnly Web session cookies; the Web client migration, its consumers and
+browser acceptance remain pending.
+
+For that migration, trace session issuance/restore/revoke and every fetch, XHR, private-byte and
+resource adapter. Review credential inclusion, HttpOnly/Secure cookie scope, exact-origin
+CORS/CSRF, expiry and server-confirmed reload restore together. Preserve one owner per surface,
+account/family/intent fences and unknown-write reconciliation; never add a cookie/Bearer fallback
+or authenticate from local storage. Exercise missing/stale/ambiguous cookies, cross-surface/origin
+refusals, late account-switch responses and actual browser restore. Legacy source behavior is a
+migration input, not proof that the selected cookie path exists.
 
 ## 1. Two surfaces, two permission contexts
 
@@ -164,29 +184,13 @@ above the inspector, timeline and narrow-screen panes ([`script-editor.md`](scri
 
 ## 7. Feature-first module organization
 
-```text
-apps/cantos-studio/web/           implemented as flat modules (adaptation, authoring, editor, import,
-                                  inspector, production, view); this tree is the proposed direction
-  src/
-    app.rs                        router, surface root, context providers, theme/lang attributes
-    script_editor/                page, rows, status region, resources, styles (.scss beside .rs)
-    import/                       upload, source preview, adaptation review
-    casting/                      character ↔ voice profile, sample preview
-    production/                   run status, job progress, regeneration scope, QC findings
-    publication/                  approval and publish controls (render server gates)
-apps/cantos-theatre/web/                  skeleton today (lib, main, one placeholder view); proposed for the first item
-  src/
-    app.rs                        router, surface root, context providers, theme/lang attributes
-    discovery/  work/  episode/  library/
-    player/                       session, mini_player, full_player, media_host
-packages/                         code both apps really use; nothing Web-side is shared yet
-```
-
-Each package also gets `platform/` (web-sys helpers: media, storage, clipboard, dialog, visibility),
-`adapters/` (HTTP adapters per port over `cantos-contracts`) and
-`i18n/` (locale resources and message keys) when it needs them. `ui/` primitives (button, chip,
-dialog, field) move to `packages/` only once both apps have a real consumer; until then each app
-owns its own. Studio and Theatre never share a route tree, session context or permission context.
+Inspect [Studio](../../../../apps/cantos-studio/web/README.md),
+[Theatre](../../../../apps/cantos-theatre/web/README.md) and the
+[implementation map](../../../../docs/architecture/repository-layout.md#map) before adding a module.
+Both apps already consume shared UI and auth packages. Reuse those public APIs; keep app
+routes, feature ports, copy and permission contexts with their current owner. Add a platform
+helper or feature folder only for an actual consumer, not to realize an illustrative tree.
+Shared code never means a shared route tree, session authority or permission context.
 
 Never create `components/`, `hooks/`, `utils/`, `helpers/` or `common/` buckets; they collect
 unrelated reasons to change. A feature folder owns its page, its resources, its styles and its
@@ -204,8 +208,8 @@ job tracking) a pure reducer in a core crate and a thin Leptos layer over it.
 
 ## 9. CSR today; SSR needs a decision
 
-Both packages are client-side rendered and built with Trunk: Studio is implemented, Theatre is a
-skeleton. Moving any surface to server rendering (for example Theatre discovery) needs a decision
+Both implemented Web packages are client-side rendered and built with Trunk.
+Moving any surface to server rendering (for example Theatre discovery) needs a decision
 recorded with [`templates/adr.md`](../../../../templates/adr.md) first; do not add `cargo-leptos`
 or server functions without it.
 
