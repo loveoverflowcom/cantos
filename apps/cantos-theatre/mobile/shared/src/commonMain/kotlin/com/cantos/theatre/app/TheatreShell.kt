@@ -245,6 +245,7 @@ class TheatreShell(
         if (closed) return
         val before = mutableNavigation.value
         val next = reduceNavigation(before, event)
+        if (before.route == TheatreRoute.Login && next.route != TheatreRoute.Login) cancelLogin()
         if (before.route == TheatreRoute.Register && next.route != TheatreRoute.Register) registration?.leave()
         mutableNavigation.value = next
         if (next.route == TheatreRoute.Register && before.route != TheatreRoute.Register) registration?.enter()
@@ -283,6 +284,13 @@ class TheatreShell(
     }
 
     /** One attempt, only from the open Login route, never while another is pending or cleanup is owed. */
+    fun login(email: com.cantos.theatre.domain.identity.RegistrationEmail, password: String): Boolean {
+        val owner = runtime.account ?: return false
+        if (closed || mutableNavigation.value.route != TheatreRoute.Login || !owner.state.value.toAccountView().canBeginLogin) return false
+        owner.login(email, password)
+        return true
+    }
+
     fun beginLogin(): Boolean {
         val owner = runtime.account ?: return false
         if (closed || mutableNavigation.value.route != TheatreRoute.Login) return false
@@ -500,6 +508,7 @@ class TheatreShell(
 
     /** Stops this binding only; the catalog, runtime and preferences owners outlive it. */
     fun close() {
+        cancelLogin()
         closed = true
         timerJob?.cancel()
         registration?.leave()

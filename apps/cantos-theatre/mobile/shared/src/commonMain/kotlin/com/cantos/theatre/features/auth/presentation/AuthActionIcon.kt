@@ -4,6 +4,7 @@ package com.cantos.theatre.features.auth.presentation
  * Existing product rendering remains unchanged until both-renderer admission is complete.
  */
 internal fun authActionIcon(intent: AuthIntent): String? = when (intent) {
+    is AuthIntent.Login -> "login"
     AuthIntent.BeginLogin, AuthIntent.OpenLogin -> "login"
     AuthIntent.OpenRegister -> "person_add"
     AuthIntent.CancelLogin -> "close"

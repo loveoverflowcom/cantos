@@ -26,25 +26,24 @@ import com.cantos.theatre.app.PreviewSession
 import com.cantos.theatre.app.PreviewTheatreApp
 import com.cantos.theatre.adapters.preview.previewLibraryStore
 import com.cantos.theatre.app.seed
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
-import com.cantos.theatre.domain.identity.NativeIdentityAvailability
+import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
+import com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult
 
 // Explicit live mode uses the same production app/controllers over real HTTP. The default
 // diagnostic recipes remain offline; neither host supplies native/device acceptance.
 fun main() = application {
     val workbench = System.getenv("CANTOS_THEATRE_WORKBENCH") == "1"
     val apiOrigin = System.getenv("CANTOS_THEATRE_PREVIEW_API_ORIGIN")
-    val issuer = System.getenv("CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER")
-    val requestedLive = apiOrigin != null || issuer != null
-    val liveOrigin = remember(apiOrigin, issuer) {
+    val requestedLive = apiOrigin != null
+    val liveOrigin = remember(apiOrigin) {
         // A fixture may never reach production because its origin env was omitted.
         if (!requestedLive) null else {
             check(!workbench) { "Live integration and mock workbench must be selected separately" }
             hostOrigin(com.cantos.theatre.adapters.http.selectCatalogOrigin(apiOrigin ?: "", allowLoopbackHttp = true))
         }
     }
-    val identity = remember(liveOrigin, issuer) {
-        (liveOrigin as? HostOrigin.Ready)?.let { NativeClientConfiguration.resolve(it.origin.toString(), issuer) }
+    val identity = remember(liveOrigin) {
+        (liveOrigin as? HostOrigin.Ready)?.let { NativeIdentityV1Configuration.resolve(it.origin.toString()) }
     }
     // Diagnostic desktop opt-in only; Android/iOS hosts never receive a Membership fixture.
     val membership = remember {
@@ -59,7 +58,7 @@ fun main() = application {
         if (requestedLive) {
             when (val selected = liveOrigin) {
                 is HostOrigin.Ready -> {
-                    val available = identity as? NativeIdentityAvailability.Available
+                    val available = identity as? NativeIdentityV1ConfigurationResult.Available
                     if (available != null) LiveEnrollmentPreview(available.configuration)
                     else LivePublicCatalogPreview(selected.origin, identity)
                 }

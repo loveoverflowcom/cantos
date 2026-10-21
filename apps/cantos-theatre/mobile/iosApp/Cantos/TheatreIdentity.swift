@@ -161,6 +161,10 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
     func secureSecret() -> String? { try? TheatreIdentityCrypto.secret() }
     func s256(verifier: String) -> String? { TheatreIdentityCrypto.challenge(verifier) }
     func openBrowser(url: String) -> Bool {
+        #if CANTOS_PRODUCTION
+        // Identity v1 accepts only explicit CMP email/password; legacy callbacks are inert.
+        return false
+        #else
         guard let target = URL(string: url), let anchor = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene }).flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) else { return false }
         let next = TheatreSystemBrowser(anchor: anchor); browser = next
@@ -170,6 +174,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
             guard let parsed = TheatreNativeCallback.parse(callback) else { return }
             self.owner?.callback(state: parsed.state, code: parsed.code, hasError: parsed.hasError)
         }
+        #endif
     }
     func cancelBrowser() { browser?.cancel(); browser = nil }
     func openSetup(url: String, completion: @escaping (KotlinBoolean) -> KotlinUnit) {

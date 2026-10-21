@@ -1,6 +1,7 @@
 package com.cantos.theatre.features.auth.presentation
 
 import com.cantos.theatre.application.identity.NativeAccountFailure
+import com.cantos.theatre.application.identity.AccountLoginFailure
 import com.cantos.theatre.domain.identity.RegistrationFailure
 import com.cantos.theatre.presentation.model.ShellLocale
 
@@ -20,7 +21,17 @@ internal class AuthCopy(private val locale: ShellLocale) {
         RegistrationFailure.Browser -> AuthText.RegisterBrowserFailed
     })
 
-    fun failure(reason: NativeAccountFailure): String = text(when (reason) {
+    fun failure(reason: NativeAccountFailure, identity: AccountLoginFailure? = null): String {
+        if (identity is AccountLoginFailure.RateLimited) {
+            val seconds = identity.retryAfterSeconds
+            return if (seconds == null) text(AuthText.RetryLater) else text(AuthText.RetryAfter).replace("{seconds}", seconds.toString())
+        }
+        if (identity != null) return text(when (identity) {
+            AccountLoginFailure.InvalidCredentials -> AuthText.InvalidCredentials
+            AccountLoginFailure.Protocol -> AuthText.FailureProtocol
+            AccountLoginFailure.RetryLater, is AccountLoginFailure.RateLimited -> AuthText.RetryLater
+        })
+        return text(when (reason) {
         NativeAccountFailure.Configuration -> AuthText.FailureConfiguration
         NativeAccountFailure.Entropy -> AuthText.FailureEntropy
         NativeAccountFailure.Login -> AuthText.FailureLogin
@@ -31,6 +42,7 @@ internal class AuthCopy(private val locale: ShellLocale) {
         NativeAccountFailure.Protocol -> AuthText.FailureProtocol
         NativeAccountFailure.Exhausted -> AuthText.FailureExhausted
     })
+    }
 }
 
 /**
@@ -59,11 +71,18 @@ internal enum class AuthText(val vi: String, val en: String) {
         "Đăng nhập để trở lại thư viện của bạn. Nội dung công khai vẫn có thể nghe ngay mà không cần đăng nhập.",
         "Sign in to return to your library. Public stories are still available without signing in.",
     ),
-    CantosIdLogin("Đăng nhập với Cantos ID", "Sign in with Cantos ID"),
+    Password("Mật khẩu", "Password"),
+    PasswordRequired("Nhập mật khẩu.", "Enter your password."),
+    ShowPassword("Hiện mật khẩu", "Show password"),
+    HidePassword("Ẩn mật khẩu", "Hide password"),
+    InvalidCredentials("Không thể đăng nhập bằng thông tin này.", "Unable to sign in with these credentials."),
+    RetryLater("Đăng nhập tạm thời chưa khả dụng. Vui lòng thử lại sau.", "Sign-in is temporarily unavailable. Please try again later."),
+    RetryAfter("Vui lòng đợi {seconds} giây trước khi thử lại.", "Please wait {seconds} seconds before trying again."),
+    CantosIdLogin("Đăng nhập", "Sign in"),
     CreateAccount("Tạo tài khoản Cantos", "Create a Cantos account"),
     ProviderHelp(
-        "Mở bước xác thực an toàn trong trình duyệt hệ thống, rồi quay lại Cantos. Bạn có thể quay lại mà chưa đăng nhập.",
-        "Open secure authentication in the system browser, then return to Cantos. You can go back without signing in.",
+        "Dùng email và mật khẩu đã thiết lập sau khi xác minh hộp thư.",
+        "Use the email and password you set up after verifying your mailbox.",
     ),
     BrandHeading("Nhắm mắt lại. Mở một thế giới.", "Close your eyes. Open a world."),
     BrandHelp(
@@ -74,7 +93,7 @@ internal enum class AuthText(val vi: String, val en: String) {
     RestoreSession("Khôi phục phiên đã lưu", "Restore the saved session"),
     NothingSaved("Thiết bị này chưa lưu phiên nào để khôi phục.", "This device has no saved session to restore."),
     CancelLogin("Hủy đăng nhập", "Cancel sign-in"),
-    PendingReason("Đang mở Cantos ID. Không gửi yêu cầu lần hai.", "Opening Cantos ID. A second request is not sent."),
+    PendingReason("Đang đăng nhập. Không gửi yêu cầu lần hai.", "Signing in. A second request is not sent."),
     PendingStatus("Đang xác minh phiên đăng nhập…", "Verifying the sign-in session…"),
     UnavailableReason(
         "Đăng nhập chưa khả dụng trên bản này. Bạn vẫn nghe được nội dung công khai.",
@@ -118,7 +137,7 @@ internal enum class AuthText(val vi: String, val en: String) {
     RegisterSend("Gửi yêu cầu xác minh", "Request email verification"),
     RegisterSending("Đang gửi yêu cầu…", "Submitting the request…"),
     RegisterChecking("Đang kiểm tra đăng ký…", "Checking registration availability…"),
-    RegisterWaiting("Yêu cầu đã được tiếp nhận. Kiểm tra hộp thư; phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo.", "The request was accepted. Check your inbox; this does not confirm delivery or account creation."),
+    RegisterWaiting("Yêu cầu đã được tiếp nhận. Kiểm tra hộp thư và hoàn tất xác minh, đặt mật khẩu trên Web, rồi trở lại đây để đăng nhập. Phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo.", "The request was accepted. Check your inbox and complete verification and password setup on the Web, then return here to sign in. This does not confirm delivery or account creation."),
     RegisterLink("Dán liên kết xác minh từ email", "Paste the verification link from your email"),
     RegisterImport("Kiểm tra liên kết", "Check the link"),
     RegisterConfirm("Xác minh email", "Verify email"),
@@ -158,8 +177,8 @@ internal enum class AuthText(val vi: String, val en: String) {
     ),
     OpenLibrary("Mở thư viện", "Open my library"),
     LibraryNote(
-        "Thư viện của bản này vẫn chỉ lưu trong phiên, chưa đồng bộ với tài khoản.",
-        "This build's library is still session-only and is not synced with your account.",
+        "Thư viện được lưu riêng theo tài khoản. Các thay đổi đang chờ sẽ đồng bộ khi kết nối khả dụng.",
+        "Your library is stored separately for each account. Pending changes sync when a connection is available.",
     ),
     MembershipBadge("Sắp ra mắt", "Coming soon"),
     MembershipName("Cantos Membership", "Cantos Membership"),

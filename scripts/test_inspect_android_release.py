@@ -320,5 +320,14 @@ class InspectTest(unittest.TestCase):
             self.assertEqual(inspector.main(["--apk", str(self.root / "absent.apk"), *common[2:]]), 2)
 
 
+class NativeIdentityV1MetadataTest(unittest.TestCase):
+    def test_v1_admits_absent_issuer_and_rejects_any_retired_metadata(self):
+        self.assertEqual(inspector.native_identity_findings([], None), [])
+        self.assertEqual(inspector.native_identity_findings([], ""), [])
+        elements = [(1, "meta-data", {"name": "CantosNativeIssuer", "value": ""})]
+        self.assertEqual(inspector.native_identity_findings(elements), ["retired native issuer metadata is present in an Identity v1 host"])
+        self.assertEqual(inspector.native_identity_findings([], "https://issuer.invalid"), ["--native-issuer is retired for Identity v1; configure only the API origin"])
+
+
 if __name__ == "__main__":
     unittest.main()

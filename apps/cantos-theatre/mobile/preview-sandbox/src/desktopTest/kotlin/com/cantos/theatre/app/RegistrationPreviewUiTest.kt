@@ -107,7 +107,7 @@ class RegistrationPreviewUiTest {
                 click("register-confirm")
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase is RegistrationPhase.SetupReady }
                 assertEquals(NativeAccountState.SignedOut, owners.account.state.value)
-                assertEquals(0, owners.identity.begins)
+                assertEquals(0, owners.identity.loginRequests)
                 capture("setup-ready-light-390x844", 390, 844, ShellTheme.Light, ShellLocale.Vietnamese, 1f)
                 click("register-setup")
                 assertEquals(1, opens)
@@ -215,7 +215,7 @@ class RegistrationPreviewUiTest {
                 assertEquals(0, api.paths.count { it.endsWith("/confirm") })
                 click("register-login")
                 assertEquals(NativeAccountState.SignedOut, owner.account.state.value)
-                assertEquals(0, owner.identity.begins)
+                assertEquals(0, owner.identity.loginRequests)
             }
         }
     }

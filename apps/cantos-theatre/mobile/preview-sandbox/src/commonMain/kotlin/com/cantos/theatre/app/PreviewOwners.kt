@@ -107,7 +107,8 @@ class PreviewOwners(
         newUuid = { uuid(8) }, nowMs = nowMs,
         onAccountChanged = { catalog.dispatch(PublicCatalogIntent.AccountChanged) },
     )
-    val shell = TheatreShell(scope, catalog, runtime, preferences, initialMembership = seed.membership, registration = registration)
+    private val registrationOwner = registration ?: RegistrationController(scope, identity.api)
+    val shell = TheatreShell(scope, catalog, runtime, preferences, initialMembership = seed.membership, registration = registrationOwner)
 
     init {
         applyInteractionSeed()
@@ -186,6 +187,7 @@ class PreviewOwners(
     /** Ends the runtime (player, Library and account); the catalog and preference owners hold no resources. */
     fun close() {
         shell.close()
+        registrationOwner.close()
         runtime.close()
     }
 

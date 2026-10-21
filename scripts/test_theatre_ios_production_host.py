@@ -26,11 +26,11 @@ class TheatreIosProductionHostTest(unittest.TestCase):
         with (MOBILE / "iosApp/Cantos/Info.plist").open("rb") as source:
             plist = plistlib.load(source)
             self.assertEqual(plist["CantosApiOrigin"], "$(CANTOS_API_ORIGIN)")
-            self.assertEqual(plist["CantosNativeIssuer"], "$(CANTOS_NATIVE_ISSUER)")
+            self.assertNotIn("CantosNativeIssuer", plist)
             self.assertEqual(plist["UIBackgroundModes"], ["audio"])
             self.assertEqual(plist["CFBundleURLTypes"][0]["CFBundleURLSchemes"], ["com.cantos.theatre"])
         self.assertIn("TheatreIdentity.swift in Sources", project)
-        self.assertIn("CANTOS_NATIVE_ISSUER", project)
+        self.assertNotIn("CANTOS_NATIVE_ISSUER", project)
         self.assertEqual(project.count('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) CANTOS_PRODUCTION"'), 2)
 
 

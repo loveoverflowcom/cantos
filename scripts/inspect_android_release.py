@@ -331,17 +331,22 @@ def inspect(args, dump=dump_manifest):
         if getattr(args, "api_origin", None) is not None:
             own += [f"{label}: {finding}" for finding in catalog_origin_findings(
                 parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.api_origin, getattr(args, "debug_apk", False))]
-        issuer = getattr(args, "native_issuer", None)
-        if issuer is not None:
-            values = [attrs.get("value", "") for _, tag, attrs in parse_xmltree(dump(args.aapt2, path, manifest, proto))
-                      if tag == "meta-data" and attrs.get("name") == "CantosNativeIssuer"]
-            if values != [issuer]:
-                own.append(f"{label}: native issuer metadata does not match the requested build issuer")
+        own += [f"{label}: {finding}" for finding in native_identity_findings(elements, getattr(args, "native_issuer", None))]
         findings += own
     if "aab" in defined and defined["apk"] != defined["aab"]:
         findings.append("apk and aab define different class sets; they are not the same release build")
     report += [f"FINDING {finding}" for finding in findings] or ["PASS: no sandbox, mock, demo or test content found"]
     return findings, report
+
+
+def native_identity_findings(elements, retired_issuer=None):
+    """V1 hosts have one API authority; retired issuer metadata must never reactivate OIDC."""
+    findings = []
+    if any(tag == "meta-data" and attrs.get("name") == "CantosNativeIssuer" for _, tag, attrs in elements):
+        findings.append("retired native issuer metadata is present in an Identity v1 host")
+    if retired_issuer:
+        findings.append("--native-issuer is retired for Identity v1; configure only the API origin")
+    return findings
 
 
 def main(argv=None):
@@ -350,7 +355,7 @@ def main(argv=None):
     parser.add_argument("--apk", required=True, type=Path)
     parser.add_argument("--aab", type=Path)
     parser.add_argument("--debug-apk", action="store_true", help="inspect one production debug APK; never a release acceptance")
-    parser.add_argument("--native-issuer", help="expected optional native issuer metadata")
+    parser.add_argument("--native-issuer", help="retired compatibility argument; nonempty values are refused for Identity v1")
     parser.add_argument("--allowed-component", action="append", default=[])
     parser.add_argument("--aapt2", required=True, type=Path)
     parser.add_argument("--application-id", required=True)

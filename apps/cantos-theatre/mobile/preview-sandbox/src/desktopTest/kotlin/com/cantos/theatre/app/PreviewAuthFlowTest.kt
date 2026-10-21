@@ -21,38 +21,38 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * The real TheatreShell, account owner and Library over deterministic identity ports. The
- * provider is held so each test decides when (and whether) the browser returns; none of this is
+ * login response is held so each test decides when (and whether) it arrives; none of this is
  * evidence of live identity, secure storage or system-browser behavior.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PreviewAuthFlowTest {
+    private val email = (com.cantos.theatre.domain.identity.RegistrationEmail.parse("listener@example.test") as com.cantos.theatre.domain.identity.RegistrationResult.Accepted).value
     private fun TestScope.harness(seed: PreviewSeed = PreviewSession.Guest.seed()) =
         PreviewHarness(backgroundScope, seed).also { it.identity.mode = PreviewLoginMode.Hold }
 
     @Test
-    fun login_opens_only_by_explicit_intent_and_back_cancels_it_without_reopening_the_browser() = runTest {
+    fun login_opens_only_by_explicit_intent_and_back_cancels_it_without_replaying_credentials() = runTest {
         val h = harness()
         try {
             assertTrue(h.shell.openLogin()); runCurrent()
             assertEquals(TheatreRoute.Login, h.route)
-            assertEquals(0, h.identity.browserOpens)
-            assertEquals(0, h.identity.begins)
+            assertEquals(0, h.identity.loginRequests)
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
 
-            assertTrue(h.shell.beginLogin()); runCurrent()
+            assertTrue(h.shell.login(email, "preview-only")); runCurrent()
             assertEquals(NativeAccountState.Pending, h.account.state.value)
-            assertEquals(1, h.identity.browserOpens)
+            assertEquals(1, h.identity.loginRequests)
 
             h.shell.dispatch(ShellEvent.Back); runCurrent()
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
             assertEquals(TheatreRoute.Discovery, h.route)
 
-            // The old attempt's callback arrives late: no exchange, no account, no navigation.
-            h.identity.returnFromBrowser(approve = true); runCurrent()
-            assertEquals(0, h.identity.exchanges)
+            // The old attempt's response arrives late: no admission, no account, no navigation.
+            h.identity.completeLogin(approve = true); runCurrent()
+            assertEquals(0, h.identity.admissions)
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
             assertEquals(TheatreRoute.Discovery, h.route)
-            assertEquals(1, h.identity.browserOpens)
+            assertEquals(1, h.identity.loginRequests)
         } finally { h.close() }
     }
 
@@ -61,12 +61,11 @@ class PreviewAuthFlowTest {
         val h = harness()
         try {
             h.shell.openLogin()
-            assertTrue(h.shell.beginLogin())
-            assertFalse(h.shell.beginLogin())
+            assertTrue(h.shell.login(email, "preview-only"))
+            assertFalse(h.shell.login(email, "preview-only"))
             runCurrent()
-            assertFalse(h.shell.beginLogin())
-            assertEquals(1, h.identity.begins)
-            assertEquals(1, h.identity.browserOpens)
+            assertFalse(h.shell.login(email, "preview-only"))
+            assertEquals(1, h.identity.loginRequests)
         } finally { h.close() }
     }
 
@@ -77,21 +76,21 @@ class PreviewAuthFlowTest {
             try {
                 h.identity.mode = mode
                 h.shell.openLogin()
-                assertTrue(h.shell.beginLogin()); runCurrent()
+                assertTrue(h.shell.login(email, "preview-only")); runCurrent()
                 advanceTimeBy(20L)
                 h.shell.cancelLogin(); runCurrent()
                 assertEquals(NativeAccountState.SignedOut, h.account.state.value)
 
                 h.identity.mode = PreviewLoginMode.Hold
-                assertTrue(h.shell.beginLogin()); runCurrent()
+                assertTrue(h.shell.login(email, "preview-only")); runCurrent()
                 advanceTimeBy(40L); runCurrent()
-                assertEquals(2, h.identity.browserOpens)
-                assertEquals(0, h.identity.exchanges)
+                assertEquals(2, h.identity.loginRequests)
+                assertEquals(0, h.identity.admissions)
                 assertEquals(NativeAccountState.Pending, h.account.state.value)
                 assertEquals(TheatreRoute.Login, h.route)
 
-                h.identity.returnFromBrowser(approve = true); runCurrent()
-                assertEquals(1, h.identity.exchanges)
+                h.identity.completeLogin(approve = true); runCurrent()
+                assertEquals(1, h.identity.admissions)
                 assertIs<NativeAccountState.SignedIn>(h.account.state.value)
             } finally { h.close() }
         }
@@ -101,30 +100,29 @@ class PreviewAuthFlowTest {
     fun login_can_only_begin_while_the_login_route_is_open() = runTest {
         val h = harness()
         try {
-            assertFalse(h.shell.beginLogin())
+            assertFalse(h.shell.login(email, "preview-only"))
             h.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Account))
-            assertFalse(h.shell.beginLogin())
+            assertFalse(h.shell.login(email, "preview-only"))
             h.shell.openLogin(); h.shell.openRegister()
-            assertFalse(h.shell.beginLogin())
+            assertFalse(h.shell.login(email, "preview-only"))
             runCurrent()
-            assertEquals(0, h.identity.begins)
-            assertEquals(0, h.identity.browserOpens)
+            assertEquals(0, h.identity.loginRequests)
         } finally { h.close() }
     }
 
     @Test
-    fun provider_cancellation_returns_to_the_login_entry_and_waits_for_a_new_explicit_attempt() = runTest {
+    fun credential_refusal_returns_to_the_login_entry_and_waits_for_a_new_explicit_attempt() = runTest {
         val h = harness()
         try {
-            h.shell.openLogin(); h.shell.beginLogin(); runCurrent()
-            h.identity.returnFromBrowser(approve = false); runCurrent()
-            assertEquals(NativeAccountState.Failed(NativeAccountFailure.Login), h.account.state.value)
+            h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
+            h.identity.completeLogin(approve = false); runCurrent()
+            assertEquals(NativeAccountState.Failed(NativeAccountFailure.Api, com.cantos.theatre.ports.IdentityV1Failure.Unauthorized), h.account.state.value)
             assertEquals(TheatreRoute.Login, h.route)
-            assertEquals(1, h.identity.browserOpens)
-            assertEquals(0, h.identity.exchanges)
+            assertEquals(1, h.identity.loginRequests)
+            assertEquals(0, h.identity.admissions)
 
-            assertTrue(h.shell.beginLogin()); runCurrent()
-            assertEquals(2, h.identity.browserOpens)
+            assertTrue(h.shell.login(email, "preview-only")); runCurrent()
+            assertEquals(2, h.identity.loginRequests)
             assertEquals(NativeAccountState.Pending, h.account.state.value)
         } finally { h.close() }
     }
@@ -133,14 +131,14 @@ class PreviewAuthFlowTest {
     fun a_stale_failure_is_dismissed_when_login_is_opened_again() = runTest {
         val h = harness()
         try {
-            h.shell.openLogin(); h.shell.beginLogin(); runCurrent()
-            h.identity.returnFromBrowser(approve = false); runCurrent()
+            h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
+            h.identity.completeLogin(approve = false); runCurrent()
             h.shell.dispatch(ShellEvent.Back); runCurrent()
             assertIs<NativeAccountState.Failed>(h.account.state.value)
 
             assertTrue(h.shell.openLogin()); runCurrent()
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
-            assertEquals(1, h.identity.begins)
+            assertEquals(1, h.identity.loginRequests)
         } finally { h.close() }
     }
 
@@ -149,8 +147,8 @@ class PreviewAuthFlowTest {
         val h = harness()
         try {
             h.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Account))
-            h.shell.openLogin(); h.shell.beginLogin(); runCurrent()
-            h.identity.returnFromBrowser(approve = true); runCurrent()
+            h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
+            h.identity.completeLogin(approve = true); runCurrent()
             assertIs<NativeAccountState.SignedIn>(h.account.state.value)
             assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Account), h.stack)
             // A signed-in listener has no Login destination.
@@ -165,8 +163,8 @@ class PreviewAuthFlowTest {
         try {
             h.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Account))
             h.shell.navigate(NavigationEvent.Navigate(TheatreRoute.MembershipPreview))
-            h.shell.openLogin(); h.shell.beginLogin(); runCurrent()
-            h.identity.returnFromBrowser(approve = true); runCurrent()
+            h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
+            h.identity.completeLogin(approve = true); runCurrent()
             assertEquals(TheatreRoute.MembershipPreview, h.route)
             assertEquals(3, h.stack.size)
         } finally { h.close() }
@@ -210,8 +208,7 @@ class PreviewAuthFlowTest {
         try {
             assertTrue(h.shell.openRegister()); runCurrent()
             assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Login, TheatreRoute.Register), h.stack)
-            assertEquals(0, h.identity.begins)
-            assertEquals(0, h.identity.browserOpens)
+            assertEquals(0, h.identity.loginRequests)
             h.shell.dispatch(ShellEvent.Back); assertEquals(TheatreRoute.Login, h.route)
             h.shell.dispatch(ShellEvent.Back); assertEquals(TheatreRoute.Discovery, h.route)
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
@@ -222,24 +219,24 @@ class PreviewAuthFlowTest {
     fun login_stays_blocked_until_old_credential_cleanup_is_acknowledged() = runTest {
         val h = harness()
         try {
-            h.shell.openLogin(); h.shell.beginLogin(); runCurrent()
-            h.identity.returnFromBrowser(approve = true); runCurrent()
+            h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
+            h.identity.completeLogin(approve = true); runCurrent()
             h.identity.clearFails = true
             h.shell.logout(); runCurrent()
             assertEquals(NativeAccountState.CleanupRequired, h.account.state.value)
 
             // The Login route is open, so only the account state can be what blocks the attempt.
             assertTrue(h.shell.openLogin())
-            val begins = h.identity.begins
-            assertFalse(h.shell.beginLogin()); runCurrent()
-            assertEquals(begins, h.identity.begins)
+            val begins = h.identity.loginRequests
+            assertFalse(h.shell.login(email, "preview-only")); runCurrent()
+            assertEquals(begins, h.identity.loginRequests)
             assertEquals(NativeAccountState.CleanupRequired, h.account.state.value)
 
             h.identity.clearFails = false
             h.shell.logout(); runCurrent()
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
-            assertTrue(h.shell.beginLogin()); runCurrent()
-            assertEquals(begins + 1, h.identity.begins)
+            assertTrue(h.shell.login(email, "preview-only")); runCurrent()
+            assertEquals(begins + 1, h.identity.loginRequests)
         } finally { h.close() }
     }
 
@@ -256,8 +253,8 @@ class PreviewAuthFlowTest {
             assertEquals(null, h.shell.library.value.account)
             assertTrue(h.shell.library.value.saved.isEmpty())
 
-            h.shell.openLogin(); h.shell.beginLogin(); runCurrent()
-            h.identity.returnFromBrowser(approve = true); runCurrent()
+            h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
+            h.identity.completeLogin(approve = true); runCurrent()
             assertEquals(PreviewAccount.Minh.actor, h.shell.library.value.account)
             assertTrue(h.shell.library.value.saved.none { it.saved }, "the second sample listener has no saved works")
             assertTrue(h.shell.library.value.continueListening.isEmpty())

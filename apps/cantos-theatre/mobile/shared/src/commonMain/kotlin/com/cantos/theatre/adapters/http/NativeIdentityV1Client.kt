@@ -26,8 +26,8 @@ import kotlinx.serialization.json.put
 import kotlin.coroutines.resume
 
 /**
- * First-party Identity v1 only. Production hosts still compose NativeIdentityClient until
- * their account coordinator and durable credential migration are activated together.
+ * First-party Identity v1 only. Native hosts pair this transport with the protocol-bound
+ * secure journal and the existing account coordinator.
  * No provider discovery/fallback, mailbox completion/polling, or transparent mutation retry.
  */
 class NativeIdentityV1Client(

@@ -77,7 +77,7 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
             liveRegion = LiveRegionMode.Polite
             if (failure != null) error(status)
         }, color = if (failure == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
-        if (phase == RegistrationPhase.Waiting || failure == RegistrationFailure.InvalidAction || failure == RegistrationFailure.StartUnknownOutcome) {
+        if (!state.firstParty && (phase == RegistrationPhase.Waiting || failure == RegistrationFailure.InvalidAction || failure == RegistrationFailure.StartUnknownOutcome)) {
             var link by remember { mutableStateOf("") }
             TextField(copy.text(AuthText.RegisterLink), link, { link = it.take(8192) },
                 modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal,
