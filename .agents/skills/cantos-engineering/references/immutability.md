@@ -58,7 +58,7 @@ recorded reason, and the facts they point at stay immutable.
 - No `Cell`, `RefCell`, `Mutex` or `Arc<Mutex<_>>` inside domain values. Shared mutable state
   belongs to the shell (connection pools, caches) and is never visible to the core.
 - `Clone` is cheap enough for small values; for large immutable collections consider `Arc<[T]>`
-  or a persistent structure only after measurement.
+  or a persistent structure only after measurement (see below).
 - `&mut self` methods are acceptable for encapsulated builders and local algorithms whose
   intermediate states are never observed.
 
@@ -78,6 +78,40 @@ impl ScriptDraft {
 }
 ```
 
+### Control state versus bulk data
+
+Separate the small **control state** that decides admissibility (phase, generation or request
+identity, security version, session deadline, replay/receipt status, outbox control) from
+**bulk data** (Library projection, catalog pages, editor document, journal payload). Control
+state SHOULD be a small closed value: checked newtypes, enums, checked arithmetic and fixed-size
+representations where the production contract allows them. This keeps the decision easy to
+test exhaustively and to [model-check](mutation-and-formal.md#selecting-a-control-kernel).
+
+Do not shrink a production identifier (UUID, session or security ID) into a small, collision-prone
+type to make a harness or test fast; abstract it in the proof and state the mapping instead.
+
+### Structural sharing is a conditional choice
+
+Avoid cloning a large aggregate merely to read one field: borrow it, project it, or move
+ownership. When an immutable snapshot must outlive its owner, choose by workload:
+
+| Option | Fits | Watch |
+|---|---|---|
+| borrowed projection (`&T`, `.with(…)`) | a read that ends before the owner changes | lifetime; no borrow across `.await` |
+| ownership transfer (`self -> Self`) | one owner, linear updates | the rejection path must return the original |
+| indexed entities (`BTreeMap<Id, T>`, `Vec` + index) | many reads by ID, row-level updates | index consistency on every transition |
+| `Arc<T>` / `Arc<[T]>` snapshots | many readers of one immutable payload | an `Arc` clone copies the handle, but `Arc::make_mut` on shared data still copies the payload |
+| persistent collections (`im`-style) | frequent small updates to large shared collections | new dependency, wasm size, `Send`/`Sync`, serialization; requires a recorded decision |
+
+- None of these is mandatory for every state. An O(1) handle clone does not make the
+  transition, the update or `PartialEq` O(1).
+- Weigh `Send`/`Sync`, the wasm target, serialization, retained memory and dependency cost, and
+  measure before adopting a persistent structure.
+- Do not use shared interior mutability (`Rc<RefCell<_>>`, `Arc<Mutex<_>>`) to bypass an
+  immutable boundary.
+- Do not keep credential material or a previous account's data alive in a retained snapshot
+  for reuse; purge it on logout/account switch.
+
 ## Value semantics in Kotlin
 
 Apply [FP-02/04 and TYPE-03/04](../../cantos-cmp-mobile/references/kotlin-conventions.md), the
@@ -89,7 +123,8 @@ nor deep immutability; keep one definition of the Kotlin technique.
 
 Leptos signals and Compose state hold *values*. Replace the value; do not mutate an object inside
 a signal behind the framework's back. Keep exactly one writable owner per fact and derive the
-rest (`can_publish`, `is_empty`) as pure projections.
+rest (`can_publish`, `is_empty`) as pure projections. Leptos read/write and notification rules
+live in the Web owner's [reactive publication](../../cantos-leptos-web/references/web-architecture.md#reactive-state-ownership-and-publication).
 
 ## Testing immutability
 

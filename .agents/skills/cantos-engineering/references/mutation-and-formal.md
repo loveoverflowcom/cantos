@@ -79,6 +79,41 @@ does not make an unsupported SDK, database or native callback verifiable. Keep t
 the kernel and name their assumptions at the boundary under
 [ERR-04](typed-errors-and-composition.md#err-04--exceptions-and-panics-stay-at-the-outer-edge).
 
+### Selecting a control kernel
+
+Kani fits the small **control** decision, not the bulk data around it
+([control state versus bulk data](immutability.md#control-state-versus-bulk-data)). Good shapes
+take phases, generations/request identities, security versions, deadlines, admissibility and
+replay/receipt/outbox control facts as bounded inputs and return a closed outcome. A Library
+projection, catalog, editor document or journal payload is not symbolic state by default.
+
+When a proof abstracts production data (an opaque ID as a small symbolic index, a payload as
+its digest), record the mapping to the production type, what the abstraction omits and why the
+proposition survives it. A proof over a hand-written re-model is evidence about the model, not
+about the implementation; call the production symbol or label the result as model evidence.
+
+For a change to a critical authentication, session or sync kernel, name the proof obligation
+before choosing evidence. Typical propositions:
+
+| Obligation | Example production owner at `d02b2dc8` |
+|---|---|
+| a stale, future/unissued or mismatched request/session identity is never applied | Theatre `AccountState`/`RequestFence`, `live/request.rs` probe generations |
+| generation and security-version arithmetic never wraps; exhaustion fails closed per contract | `cantos-identity` `SecurityVersion` (registered `identity-security-version`) |
+| an old login completion cannot revive an invalidated account or session | Theatre `AccountViewState::finish_session`; Server identity-auth admission |
+| a mailbox proof is never consumed with the wrong binding, after expiry or without explicit confirmation | `cantos-identity` mailbox proof (registered `identity-mailbox-proof`) |
+| replay/idempotency distinguishes an identical request from a conflicting one | Server bearer `rotate` (`used` ⇒ revoke family), receipt matching |
+| logout/account switch leaves no prior private projection admissible; late callbacks cannot write into the next account | Theatre `begin_logout`/`clear_private` and fenced completions |
+| outbox ownership, operation identity and receipt matching are preserved | Theatre `LibrarySyncState` pending mutations |
+
+Listing a row is not selecting a harness: only the registered kernels above are in the xtask
+registry, and none of the Theatre rows has an executed proof. A proof that the kernel *requests*
+a purge does not show that the shell removed the `LibraryProjection` or that the reactive view
+stopped rendering it; that needs a test linking kernel → aggregate → reactive publication
+([Web regressions](../../cantos-leptos-web/references/web-testing.md#reactive-publication-regressions)).
+Kani never replaces real-file durability, transactions, RPC, cryptographic verification or
+browser/native integration evidence. Updating these rules is a docs change; it does not call
+for a Kani campaign to accept the Markdown.
+
 ### Harness obligations
 
 Every selected harness must record:

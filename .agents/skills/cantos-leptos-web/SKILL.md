@@ -103,6 +103,7 @@ Keep existing gallery fixtures and controlled state; source/string-render tests 
 |---|---|---|---|
 | Studio and Theatre are separate surfaces and permission contexts with their own route roots, contexts and ports | a listener route reaches a private draft, preview or Studio port | Theatre routes mount with only `TheatreContext`; backend authorization tests | [`web-architecture.md`](references/web-architecture.md#1-two-surfaces-two-permission-contexts) |
 | Components render and dispatch; ports come from context; adapters own URLs, DTOs and error classification | transport and provider details leak into markup and cannot be tested without a network | component test runs on an in-memory port | [`web-architecture.md`](references/web-architecture.md#2-layering-inside-a-surface) |
+| Readers get read-only handles or projections; aggregates are read by borrow; an unchanged or refused transition does not notify; dynamic rows use keyed `<For>` by domain ID and read their entity reactively | whole-aggregate clones per label, notification loops, stale or remounted rows losing focus/IME, old account rows after logout | notification/rerun counters, DOM identity and focus tests | [`web-architecture.md`](references/web-architecture.md#reactive-state-ownership-and-publication), [keyed rows](references/web-architecture.md#dynamic-lists-and-keyed-rows) |
 | Durable rules live in pure core crates; the browser renders server gates (approval, publish, intake scope) and never decides them | drifted copies of gates; UI-only permission checks | review; same validator crate on both sides | [`web-architecture.md`](references/web-architecture.md#3-which-decisions-the-browser-may-make) |
 | No credential, private object access or signed URL in client code, build-time config, routes, storage or logs | secrets shipped in the bundle; private media made shareable | review; proposed bundle grep | [`web-architecture.md`](references/web-architecture.md#5-secrets-and-private-media-never-reach-browser-code) |
 | Every remote state is explicit, failure is never empty, a stale response never wins, every mutation states its duplicate-submit behavior | "No episodes" on a 500; an old response replacing a new one; duplicate intake or save | out-of-order component test; per-state tests | [`leptos-async.md`](references/leptos-async.md) |
@@ -117,7 +118,9 @@ How the foundation lands in the browser:
 
 - **Decoupling.** Web depends on pure core crates and the shared `cantos-contracts` DTOs, never on
   backend application or infrastructure crates, provider SDKs or Narrative Forge types.
-- **Immutability.** Reducers take state by value and return new state; a save snapshot is an
+- **Immutability.** Transitions never mutate borrowed input and keep rejection, no-op and
+  effects distinct ([transition semantics](../cantos-engineering/references/functional-core.md#transition-semantics));
+  a by-value reducer returns the original state on rejection; a save snapshot is an
   immutable value; accepted revisions, approvals and release manifests arrive read-only and are
   never patched client-side.
 - **Functional core.** Editor, playback, retry, poll-schedule and merge decisions are pure and
