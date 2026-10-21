@@ -345,3 +345,356 @@ async fn all_surfaces_retain_their_own_non_browser_error_and_no_store_contract()
         .contains_key(header::ACCESS_CONTROL_ALLOW_ORIGIN));
     error(response, StatusCode::SERVICE_UNAVAILABLE, "unavailable").await;
 }
+
+const ADMIN_ORIGIN: &str = "https://admin.cantos.example";
+
+/// The same canonical assembly used by the production executable. One shared application
+/// handle; the unreachable DB/absent issuers only support negative controls, never login.
+fn combined(admin: Option<&str>) -> Router {
+    let config = local_config("postgresql://unused@127.0.0.1:9/unused").unwrap();
+    let state = AppState {
+        store: Store::new(config).unwrap().without_development_sessions(),
+        web_origin: STUDIO_ORIGIN.into(),
+    };
+    let origins =
+        cantos_server::platform::host::SurfaceOrigins::new(STUDIO_ORIGIN, THEATRE_ORIGIN, admin)
+            .unwrap();
+    cantos_server::adapters::inbound::http::server_router(state, &origins, None, None)
+}
+
+#[tokio::test]
+async fn combined_routes_select_only_their_configured_origin_and_credential_purpose() {
+    let app = combined(Some(ADMIN_ORIGIN));
+    for (path, origin, purpose) in [
+        ("/api/v1/studio/auth/bearer/session", STUDIO_ORIGIN, "s"),
+        ("/api/v1/theatre/auth/bearer/session", THEATRE_ORIGIN, "t"),
+        ("/api/v1/admin/capabilities", ADMIN_ORIGIN, "admin"),
+        ("/api/v1/production/catalog", STUDIO_ORIGIN, "s"),
+    ] {
+        for sent_origin in [
+            STUDIO_ORIGIN,
+            THEATRE_ORIGIN,
+            ADMIN_ORIGIN,
+            "https://preview.cantos.example",
+            "https://attacker.invalid",
+            "null",
+            "https://studio.cantos.example.attacker.invalid",
+        ] {
+            for sent_purpose in ["s", "t", "n"] {
+                let admitted = sent_origin == origin;
+                let (status, code) = if !admitted {
+                    (StatusCode::FORBIDDEN, "forbidden")
+                } else if purpose == "admin" || purpose == sent_purpose {
+                    // Absent verifier/disabled Admin, not successful authentication.
+                    (StatusCode::SERVICE_UNAVAILABLE, "unavailable")
+                } else {
+                    (StatusCode::UNAUTHORIZED, "unauthenticated")
+                };
+                let response = call(
+                    &app,
+                    request(
+                        Method::GET,
+                        path,
+                        &[
+                            ("origin", sent_origin.into()),
+                            ("authorization", bearer(sent_purpose)),
+                        ],
+                    ),
+                )
+                .await;
+                cors_origin(response.headers(), admitted.then_some(origin));
+                error(response, status, code).await;
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn combined_preflight_runs_before_auth_and_keeps_surface_methods_and_headers() {
+    let app = combined(Some(ADMIN_ORIGIN));
+    for (path, origin, own, sibling) in [
+        (
+            "/api/v1/studio/works",
+            STUDIO_ORIGIN,
+            "x-cantos-studio-session",
+            "x-cantos-theatre-session",
+        ),
+        (
+            "/api/v1/production/catalog",
+            STUDIO_ORIGIN,
+            "x-cantos-studio-session",
+            "x-cantos-theatre-session",
+        ),
+        (
+            "/api/v1/theatre/library/saved",
+            THEATRE_ORIGIN,
+            "x-cantos-theatre-session",
+            "x-cantos-studio-session",
+        ),
+        (
+            "/api/v1/admin/capabilities",
+            ADMIN_ORIGIN,
+            "authorization",
+            "x-cantos-studio-session",
+        ),
+    ] {
+        for method in ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH"] {
+            for name in [own, sibling, "authorization, content-type", "range"] {
+                let admin = origin == ADMIN_ORIGIN;
+                let admitted = method != "PATCH"
+                    && name != sibling
+                    && (!admin || !matches!(method, "PUT" | "DELETE") && name != "range");
+                let response = call(
+                    &app,
+                    request(
+                        Method::OPTIONS,
+                        path,
+                        &[
+                            ("origin", origin.into()),
+                            ("access-control-request-method", method.into()),
+                            ("access-control-request-headers", name.into()),
+                        ],
+                    ),
+                )
+                .await;
+                cors_origin(response.headers(), admitted.then_some(origin));
+                if admitted {
+                    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+                    assert_eq!(
+                        response.headers()[header::ACCESS_CONTROL_ALLOW_METHODS],
+                        method
+                    );
+                    assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+                    assert!(!response.headers()[header::ACCESS_CONTROL_ALLOW_HEADERS]
+                        .to_str()
+                        .unwrap()
+                        .contains(sibling));
+                } else {
+                    error(response, StatusCode::FORBIDDEN, "forbidden").await;
+                }
+            }
+        }
+        for headers in [
+            vec![("origin", origin.into()), ("origin", origin.into())],
+            vec![
+                ("origin", origin.into()),
+                ("access-control-request-method", "POST".into()),
+            ],
+        ] {
+            let mut headers = headers;
+            headers.push(("access-control-request-method", "GET".into()));
+            error(
+                call(&app, request(Method::OPTIONS, path, &headers)).await,
+                StatusCode::FORBIDDEN,
+                "forbidden",
+            )
+            .await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn combined_credentials_and_forwarding_headers_cannot_cross_a_route_boundary() {
+    let app = combined(Some(ADMIN_ORIGIN));
+    for (path, origin, purpose) in [
+        ("/api/v1/studio/auth/bearer/session", STUDIO_ORIGIN, "s"),
+        ("/api/v1/theatre/auth/bearer/session", THEATRE_ORIGIN, "t"),
+    ] {
+        for credentials in [
+            vec![
+                ("authorization", bearer(purpose)),
+                ("authorization", bearer(purpose)),
+            ],
+            vec![
+                ("authorization", bearer(purpose)),
+                ("cookie", "cantos_session=fixture".into()),
+            ],
+            vec![(
+                "cookie",
+                "cantos_session=fixture; cantos_session=fixture".into(),
+            )],
+            vec![
+                ("cookie", "cantos_session=fixture".into()),
+                ("cookie", "cantos_session=fixture".into()),
+            ],
+        ] {
+            let mut headers = vec![("origin", origin.into())];
+            headers.extend(credentials);
+            error(
+                call(&app, request(Method::GET, path, &headers)).await,
+                StatusCode::UNAUTHORIZED,
+                "unauthenticated",
+            )
+            .await;
+        }
+    }
+    for path in [
+        "/api/v1/studio/session",
+        "/api/v1/theatre/session",
+        "/api/v1/admin/capabilities",
+        "/api/v1/production/catalog",
+    ] {
+        for method in [Method::GET, Method::POST, Method::OPTIONS] {
+            error(
+                call(
+                    &app,
+                    request(
+                        method,
+                        path,
+                        &[
+                            ("origin", "https://preview.cantos.example".into()),
+                            ("host", "studio.cantos.example".into()),
+                            ("forwarded", "host=studio.cantos.example;proto=https".into()),
+                            ("x-forwarded-host", "cantos.example".into()),
+                            ("x-forwarded-proto", "https".into()),
+                            ("access-control-request-method", "POST".into()),
+                        ],
+                    ),
+                )
+                .await,
+                StatusCode::FORBIDDEN,
+                "forbidden",
+            )
+            .await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn combined_public_native_and_protected_routes_keep_their_contracts() {
+    let app = combined(None);
+    // Public configuration is a real successful handler without authentication or DB I/O.
+    for origin in [None, Some(THEATRE_ORIGIN)] {
+        let headers = origin
+            .map(|o| vec![("origin", o.into())])
+            .unwrap_or_default();
+        let response = call(
+            &app,
+            request(Method::GET, "/api/v1/theatre/auth/configuration", &headers),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    }
+    for path in ["/api/v1/studio/works", "/api/v1/production/catalog"] {
+        error(
+            call(&app, request(Method::GET, path, &[])).await,
+            StatusCode::UNAUTHORIZED,
+            "unauthenticated",
+        )
+        .await;
+    }
+    let response = call(
+        &app,
+        request(Method::GET, "/api/v1/theatre/library/continue", &[]),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    assert_eq!(
+        serde_json::from_slice::<Value>(&response.into_body().collect().await.unwrap().to_bytes())
+            .unwrap(),
+        json!({"code":"unauthenticated", "retryable":false})
+    );
+    // Native cookie-free Bearer has no synthetic Origin requirement.
+    error(
+        call(
+            &app,
+            request(
+                Method::GET,
+                "/api/v1/theatre/native/auth/bearer/session",
+                &[("authorization", bearer("n"))],
+            ),
+        )
+        .await,
+        StatusCode::SERVICE_UNAVAILABLE,
+        "unavailable",
+    )
+    .await;
+    // Admin browser admission is independently opt-in; Studio cannot enable it.
+    error(
+        call(
+            &app,
+            request(
+                Method::GET,
+                "/api/v1/admin/capabilities",
+                &[("origin", STUDIO_ORIGIN.into())],
+            ),
+        )
+        .await,
+        StatusCode::FORBIDDEN,
+        "forbidden",
+    )
+    .await;
+    error(
+        call(
+            &app,
+            request(Method::GET, "/api/v1/admin/capabilities", &[]),
+        )
+        .await,
+        StatusCode::SERVICE_UNAVAILABLE,
+        "unavailable",
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn combined_slow_request_body_expires_with_each_surfaces_error_and_cache_policy() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    let app = combined(None);
+    for (path, origin, expected) in [
+        (
+            "/api/v1/studio/auth/bearer/flows",
+            STUDIO_ORIGIN,
+            json!({"code":"unavailable","current_revision":null,"issues":[]}),
+        ),
+        (
+            "/api/v1/theatre/auth/bearer/flows",
+            THEATRE_ORIGIN,
+            json!({"code":"unavailable","retryable":true}),
+        ),
+    ] {
+        let polled = Arc::new(AtomicBool::new(false));
+        let observed = Arc::clone(&polled);
+        // A slow caller's body reaches the real production JSON extractor; no handler,
+        // verifier or deadline is replaced. The production boundary must stop the read.
+        let body = Body::from_stream(futures_util::stream::poll_fn(move |_| {
+            observed.store(true, Ordering::SeqCst);
+            std::task::Poll::Pending::<Option<Result<axum::body::Bytes, std::io::Error>>>
+        }));
+        let started = std::time::Instant::now();
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(20),
+            app.clone().oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(path)
+                    .header(header::ORIGIN, origin)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(body)
+                    .unwrap(),
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(
+            polled.load(Ordering::SeqCst),
+            "the actual handler must poll the slow body"
+        );
+        assert!(started.elapsed() >= std::time::Duration::from_secs(14));
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        cors_origin(response.headers(), Some(origin));
+        assert_eq!(
+            serde_json::from_slice::<Value>(
+                &response.into_body().collect().await.unwrap().to_bytes()
+            )
+            .unwrap(),
+            expected
+        );
+    }
+}

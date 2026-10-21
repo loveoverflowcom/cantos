@@ -22,6 +22,9 @@ pub(super) fn routes() -> Router<AppState> {
         .layer(DefaultBodyLimit::max(1024))
 }
 fn bearer(headers: &HeaderMap) -> Option<&str> {
+    if headers.contains_key(header::COOKIE) {
+        return None;
+    }
     let mut values = headers.get_all(header::AUTHORIZATION).iter();
     let value = values.next()?.to_str().ok()?;
     if values.next().is_some() {

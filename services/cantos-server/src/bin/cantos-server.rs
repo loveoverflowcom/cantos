@@ -1,5 +1,5 @@
 use cantos_server::{
-    adapters::inbound::http::{api_router, router, router_with_public_media, AppState},
+    adapters::inbound::http::{server_router, AppState},
     application::Store,
     platform::host::{host_settings, HostMode},
     platform::postgres::{local_config, verify_schema},
@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         let identity = cantos_server::platform::theatre_identity::TheatreIdentity::with_api_origin(
             &issuer,
-            &web_origin,
+            host.origins().theatre(),
             secret,
             trust,
             api_origin.as_deref(),
@@ -131,7 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if let Some(registration) = cantos_server::platform::theatre_registration::config::from_lookup(
         store.clone(),
-        &web_origin,
+        host.origins().theatre(),
         |name| env::var(name).ok(),
     )
     .map_err(|_| "invalid or incomplete Theatre registration configuration")?
@@ -149,37 +149,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cantos_server::contexts::media::public_media::from_lookup(|name| env::var(name).ok())
             .map_err(|error| error.message())?;
     let state = AppState { store, web_origin };
-    let app = match public_media {
-        Some(runtime) => {
-            let publication =
-                cantos_server::contexts::media::PublicationService::new(state.store.clone())
-                    .with_origin_publication(runtime.storage);
-            router_with_public_media(state, publication, runtime.playback)
-        }
-        None => match host.web_dist() {
-            Some(dist) => router(state, dist),
-            None => api_router(state),
-        },
-    };
-    let app = match env::var("CANTOS_BROWSER_API_SURFACE") {
-        Ok(surface) => {
-            let surface = match surface.as_str() {
-                "studio" => cantos_contracts::web_api::WebSurface::Studio,
-                "theatre" => cantos_contracts::web_api::WebSurface::Theatre,
-                _ => return Err("CANTOS_BROWSER_API_SURFACE must be studio or theatre".into()),
-            };
-            cantos_server::adapters::inbound::http::with_browser_cors(
-                app,
-                host.web_origin(),
-                surface,
-            )?
-        }
-        Err(env::VarError::NotPresent) => app,
-        Err(_) => return Err("invalid CANTOS_BROWSER_API_SURFACE".into()),
-    };
+    let public_media = public_media.map(|runtime| {
+        let publication =
+            cantos_server::contexts::media::PublicationService::new(state.store.clone())
+                .with_origin_publication(runtime.storage);
+        (publication, runtime.playback)
+    });
+    let app = server_router(state, host.origins(), host.web_dist(), public_media);
     let listener = tokio::net::TcpListener::bind(address).await?;
     match host.mode() {
-        HostMode::Development => eprintln!("Cantos Studio development host: http://{address}"),
+        HostMode::Development => eprintln!("Cantos Server development host: http://{address}"),
         HostMode::Production => eprintln!("Cantos API production host listening on {address}"),
     }
     axum::serve(

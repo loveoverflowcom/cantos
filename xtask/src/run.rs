@@ -161,10 +161,16 @@ fn api_service(
                 .env("CANTOS_BIND_ADDRESS", api_addr().to_string()),
         )
     };
-    let command = match web_origin {
-        Some(origin) => command.env("CANTOS_WEB_ORIGIN", origin),
-        None => command,
-    };
+    let command = command
+        .unset("CANTOS_WEB_ORIGIN")
+        .unset("CANTOS_BROWSER_API_SURFACE")
+        .env(
+            "CANTOS_STUDIO_WEB_ORIGIN",
+            web_origin
+                .map(str::to_owned)
+                .unwrap_or_else(|| App::Studio.web_origin()),
+        )
+        .env("CANTOS_THEATRE_WEB_ORIGIN", App::Theatre.web_origin());
     let service = Service {
         name: API_SERVER_BIN.into(),
         command,
@@ -331,8 +337,7 @@ fn run_web(
     {
         return Err(Refusal::Usage(format!(
             "run {} --web requires --web-origin {origin}, matching its Trunk server; \
-             use run cantos-server --web-origin ORIGIN with app {} --web for a separate profile",
-            app.cli_name(),
+             omit --web-origin to use the default per-surface origins",
             app.cli_name()
         )));
     }
@@ -340,7 +345,7 @@ fn run_web(
         workspace,
         profile,
         options.test_cluster,
-        Some(&origin),
+        None,
         app == App::Theatre || inherited_theatre_context(),
     )?;
     let mut frontend = trunk_service(workspace, app, profile);
@@ -393,7 +398,7 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
     Ok(LaunchPlan {
         requirements: vec![Requirement::TheatreApi {
             addr: api_addr(),
-            hint: "start `cargo xtask run cantos-server --web-origin http://127.0.0.1:8082` \
+            hint: "start `cargo xtask run cantos-server` \
                    with a migrated app-role DATABASE_URL, or use \
                    `cargo xtask run cantos-theatre --web [--test-cluster]`; \
                    explicit ?mode=mock or ?mode=membership-preview remain offline previews"
@@ -663,10 +668,54 @@ mod tests {
         let api = &plan.services[0];
         assert_eq!(
             api.command.display(workspace.root()),
-            "CANTOS_ENV=development CANTOS_BIND_ADDRESS=127.0.0.1:8080 target/debug/cantos-server"
+            "env -u CANTOS_WEB_ORIGIN -u CANTOS_BROWSER_API_SURFACE CANTOS_ENV=development CANTOS_BIND_ADDRESS=127.0.0.1:8080 CANTOS_STUDIO_WEB_ORIGIN=http://127.0.0.1:8081 CANTOS_THEATRE_WEB_ORIGIN=http://127.0.0.1:8082 target/debug/cantos-server"
         );
         assert_eq!(api.readiness, Readiness::Tcp);
         assert_eq!(plan.open, None);
+    }
+
+    #[test]
+    fn every_run_owns_one_server_with_both_web_policies_and_apps_attach_without_a_server() {
+        for target in [
+            RunTarget::CantosServer,
+            RunTarget::CantosStudio,
+            RunTarget::CantosTheatre,
+        ] {
+            let options = if target == RunTarget::CantosServer {
+                LaunchOptions::default()
+            } else {
+                web(LaunchOptions::default())
+            };
+            let plan = plan_run(&workspace(), target, &options).unwrap();
+            let servers: Vec<_> = plan
+                .services
+                .iter()
+                .filter(|service| service.name == API_SERVER_BIN)
+                .collect();
+            assert_eq!(servers.len(), 1);
+            let server = servers[0];
+            assert_eq!(server.addr, loopback(8080));
+            assert_eq!(
+                env_of(server, "CANTOS_STUDIO_WEB_ORIGIN"),
+                Some(App::Studio.web_origin())
+            );
+            assert_eq!(
+                env_of(server, "CANTOS_THEATRE_WEB_ORIGIN"),
+                Some(App::Theatre.web_origin())
+            );
+            assert!(server
+                .command
+                .env_remove
+                .iter()
+                .any(|name| name == "CANTOS_BROWSER_API_SURFACE"));
+        }
+        for target in [AppTarget::CantosStudio, AppTarget::CantosTheatre] {
+            let plan = plan_app(&workspace(), target, &web(LaunchOptions::default())).unwrap();
+            assert!(plan
+                .services
+                .iter()
+                .all(|service| service.name != API_SERVER_BIN));
+        }
     }
 
     #[test]
@@ -681,7 +730,7 @@ mod tests {
         assert!(matches!(&plan.requirements[..], [Requirement::File { .. }]));
         assert_eq!(
             plan.services[0].command.display(workspace.root()),
-            "CANTOS_WEB_ORIGIN=http://127.0.0.1:8081 python3 scripts/serve_studio.py"
+            "env -u CANTOS_WEB_ORIGIN -u CANTOS_BROWSER_API_SURFACE CANTOS_STUDIO_WEB_ORIGIN=http://127.0.0.1:8081 CANTOS_THEATRE_WEB_ORIGIN=http://127.0.0.1:8082 python3 scripts/serve_studio.py"
         );
         let release = LaunchOptions {
             release: true,
@@ -795,7 +844,7 @@ mod tests {
             panic!("expected two services");
         };
         assert_eq!(
-            env_of(api, "CANTOS_WEB_ORIGIN").as_deref(),
+            env_of(api, "CANTOS_STUDIO_WEB_ORIGIN").as_deref(),
             Some("http://127.0.0.1:8081")
         );
         assert!(api
@@ -850,7 +899,7 @@ mod tests {
             }]
         ));
         assert_eq!(
-            env_of(&plan.services[0], "CANTOS_WEB_ORIGIN").as_deref(),
+            env_of(&plan.services[0], "CANTOS_THEATRE_WEB_ORIGIN").as_deref(),
             Some("http://127.0.0.1:8082")
         );
         assert_eq!(plan.prepare.len(), 1);
@@ -926,7 +975,15 @@ mod tests {
             });
             let plan = plan_run(&workspace(), target, &options).unwrap();
             assert_eq!(
-                env_of(&plan.services[0], "CANTOS_WEB_ORIGIN").as_deref(),
+                env_of(
+                    &plan.services[0],
+                    if matches!(target, RunTarget::CantosStudio) {
+                        "CANTOS_STUDIO_WEB_ORIGIN"
+                    } else {
+                        "CANTOS_THEATRE_WEB_ORIGIN"
+                    }
+                )
+                .as_deref(),
                 Some(origin)
             );
             let wrong = web(LaunchOptions {

@@ -106,7 +106,7 @@ pub enum Task {
         /// Serve the API against the disposable cluster kept by `verify postgres --keep`.
         #[arg(long)]
         test_cluster: bool,
-        /// API loopback origin; Web profiles require their Trunk origin (Studio 8081, Theatre 8082).
+        /// Standalone Server Studio origin; Web profiles require their own Trunk origin.
         #[arg(long, value_name = "ORIGIN")]
         web_origin: Option<String>,
     },

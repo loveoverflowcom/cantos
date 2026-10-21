@@ -30,7 +30,7 @@ The offline contract verifier is separate from publish, native qualification and
 | Goal | Start here |
 | --- | --- |
 | Product scope and invariants | [Brief](product/brief.md), [business rules](product/business-rules.md), [production pipeline](product/production-pipeline.md) |
-| Runtime boundaries and repository ownership | [Overview](architecture/overview.md), [API contexts](architecture/api-contexts.md), [layout and platform matrix](architecture/repository-layout.md), [services](../services/README.md), [infra assets](../infra/README.md) |
+| Runtime boundaries and repository ownership | [Overview](architecture/overview.md), [API contexts](architecture/api-contexts.md), [single-listener Server composition](architecture/server-http-composition.md), [layout and platform matrix](architecture/repository-layout.md), [services](../services/README.md), [infra assets](../infra/README.md) |
 | PostgreSQL fresh schema and controlled cutover | [API guide](../services/cantos-server/README.md#current-schema-and-explicit-cutover), [cutover runbook](deployment/postgres-schema-cutover.md) |
 | Catalog, content, briefs and private audio | [Contract index](../packages/contracts/README.md), [API service guide](../services/cantos-server/README.md), [live client matrix](work-plan/live-client-api-matrix.md) |
 | Private storage and owner artwork | [Object storage](architecture/object-storage.md), [artwork contract](../packages/contracts/artwork-v1.md); public cover remains gated by [ADR 0033](decisions/0033-release-pinned-public-cover.md) |
