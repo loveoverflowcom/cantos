@@ -181,16 +181,19 @@ edits; they are integrity evidence, not filesystem isolation. Always inspect the
 actual selected proof output; tool probes, parser mocks and ordinary tests are
 not model-checking evidence.
 
-Two existing `cfg(kani)` Theatre sources remain **unregistered and NOT_RUN**:
-[`live/request.rs`](../../../../apps/cantos-theatre/web/src/live/request.rs)
+The two former unregistered `cfg(kani)` Theatre harnesses in
+[`live/request.rs`](../../../../apps/cantos-theatre/web/src/live/request.rs),
 `completion_requires_current_pending_generation` and
-`cancellation_never_wraps_or_accepts_previous_completion`. They call production
-ProbeState methods over u64 generations/representative phases, unwind 2 and no
-assumptions/stubs, but lack explicit cover goals. Their historical
-[unrun record](../../../../docs/evidence/live-client-integration.md#kani-boundary)
-is retained. Private fields, source presence and ordinary tests establish no
-Theatre formal claim. Any future campaign must justify reachability and execute
-its exact model; do not add speculative UI/rendering/native/backend proof lanes.
+`cancellation_never_wraps_or_accepts_previous_completion`, are **retired under #363**:
+`ProbeState` has no runtime consumer; `classify` is reached only by the uncalled browser probe
+and ordinary tests. The live `Mode::from_query`, production probe types/methods, ordinary tests
+and shared Kotlin fixtures remain. The historical
+[NOT_RUN record](../../../../docs/evidence/live-client-integration.md#kani-boundary) is retained;
+the [current inventory](../../../../docs/assurance/kani.md#theatre-web-k1-inventory-and-feasibility-363)
+records actual callers, reach and the unsupported/unrun feasibility boundary. Private fields,
+source presence and ordinary tests establish no Theatre formal claim. Any future campaign must
+justify production reach and execute its exact model through the existing registry; do not add
+speculative UI/rendering/native/backend proof lanes.
 
 For any new target, record its concrete gap/production reach, exact verifier /
 compiler / solver / target compatibility and configuration before adopting it.
