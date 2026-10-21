@@ -22,7 +22,10 @@ service that exposes the schema. A future network mode must use mTLS and is not 
 
 There is no Studio, provisioning, recovery, change-password or operator method: none is declared,
 so none can be called. `PURPOSE_STUDIO` exists only so a request can name it and be refused
-(`UNIMPLEMENTED`); Studio is never downgraded to password-only.
+(`UNIMPLEMENTED`) in this build. The
+[owner's v1 amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
+selects Studio password, but implementation is pending. This documentation changes no proto,
+RPC admission or authentication code; consumer/schema compatibility needs its own implementation PR.
 
 ### One-command setup (decision)
 

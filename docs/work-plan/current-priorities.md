@@ -46,6 +46,10 @@ For native Server work (#333), preserve the [one-listener route composition](../
 as the prerequisite for 333.2–333.8 schema/adapters. The persistence flip remains 333.9; provider
 acceptance and the legacy VPS configuration/activation migration remain separate gates.
 
+Auth/FE integration may proceed in parallel on the current Server DB under the
+[v1 owner amendment](../architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration).
+The final native persistence/auth acceptance boundary remains separate from transitional PostgreSQL E2E.
+
 ## Recommended next boundaries
 
 | Order | Issue owner | One next outcome | Dependency / review input |

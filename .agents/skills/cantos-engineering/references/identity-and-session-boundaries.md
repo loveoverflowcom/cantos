@@ -5,6 +5,11 @@
 > changes to credentials, verification, recovery, private authentication RPC or session
 > admission. Product scope remains in that architecture and the owning contracts, not here.
 
+Start with the [v1 owner amendment](../../../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
+for selected factors, deferred work, transitional DB composition and security-state strategy.
+Then inspect the [implemented Identity/RPC boundary](../../../../services/cantos-identity/README.md)
+and actual Server/client consumers; selected Studio password and Web cookies are still pending.
+
 ## Read and model before changing authority
 
 Trace the actual frontend, public handler, private RPC, credential verifier, account/actor
@@ -47,8 +52,9 @@ permission to adopt/reset/link them. Generic outward messages and bounded attemp
 must be evaluated for enumeration, guessing and denial of service, including attacker-induced
 account lockout. Use trusted time and explicit clock-skew assumptions.
 
-Required MFA cannot disappear with a provider change. Define secure enrollment/re-enrollment,
-secret storage, replay windows, assurance and recovery codes for the chosen library/method.
+For a selected higher-assurance operation, preserve its required factor; do not infer a new MFA
+requirement for v1 from the legacy provider. When deferred factors/recovery enter scope, define
+secure enrollment/re-enrollment, secret storage, replay windows and recovery for the chosen method.
 A mailbox challenge or password match alone must not satisfy a higher-assurance operation.
 
 Sending, mailbox delivery and consumption are separate facts. Production still needs an
@@ -69,16 +75,19 @@ attempt, single-use proof or non-idempotent mutation. Receipt/operation identity
 unknown outcomes must support reconciliation without restoring a consumed capability.
 
 Do not read the other service's database or claim cross-file atomicity. Provisioning/binding
-must be idempotent and recoverable after either commit. Reset/disable/security changes commit
-a monotonic security epoch and a durable event; the session owner atomically records its inbox/
-watermark and revocation before acknowledgement. Specify deduplication, ordering, retention,
-catch-up and full-resync after lost checkpoints. A numeric field alone is not such a protocol.
+must be idempotent and recoverable after either commit. Disable/security changes commit durable
+monotonic security state. Under the owning v1 decision, direct authoritative checks may establish
+freshness without an event consumer. Define outage/unknown-state refusal and the time between
+check and admission. If an event path is used, commit its event with the state change; the session
+owner atomically records its inbox/watermark and revocation before acknowledgement. Specify
+deduplication, ordering, retention, catch-up and resync. A numeric field alone proves no protocol.
 
 State the maximum revocation lag and freshness checks at issuance, renewal, protected and
 sensitive operations. Unhealthy propagation cannot silently retain authority indefinitely.
 Do not infer instant revocation from an asynchronous stream; default admission must not weaken
 existing security without an explicit owning decision. Test disable against in-flight hashing,
-RPC and session issue, late account-switch responses, event duplication and each restart order.
+RPC and session issue, late account-switch responses, direct-check outages/staleness, event
+duplication when applicable and each restart order.
 Restoring an older database must not silently reset security epochs and revive revoked sessions.
 
 ## Evidence and Kani

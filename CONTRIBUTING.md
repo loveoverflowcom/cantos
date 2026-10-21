@@ -4,13 +4,20 @@ Cantos combines an audio-drama production Studio with a Theatre listening experi
 
 ## Branch and pull request workflow
 
-`develop` is the default and integration branch. Create focused branches from its latest revision and open pull requests back to `develop`. A `main` branch is not required for this workflow.
+Resolve `BASE_BRANCH` once: use the user's explicit base; otherwise the work item's accepted
+integration/staging base; otherwise `develop`. `BASE_REF=origin/$BASE_BRANCH` is the common
+remote ref for branching, diff/review, preflight and clean-baseline reproduction; PR creation
+uses the matching `BASE_BRANCH`. Record its fetched SHA. Never move another worktree or discard
+unrelated edits; use an isolated checkout when necessary. `develop` remains the default integration branch.
 
 ```bash
-git fetch origin
-git switch develop
-git pull --ff-only origin develop
-git switch -c feat/scene-casting
+# Example when the user/work item has not selected another base:
+BASE_BRANCH=develop
+BASE_REF="origin/$BASE_BRANCH"
+git fetch origin "$BASE_BRANCH"
+git switch -c feat/scene-casting "$BASE_REF"
+git diff "$BASE_REF"...HEAD
+gh pr create --base "$BASE_BRANCH" --head feat/scene-casting --body-file <scratch-file>
 ```
 
 Use a short, descriptive branch name such as `feat/scene-casting`, `fix/player-progress`, or `docs/production-workflow`. Keep unrelated changes in separate pull requests. For a large feature, define its dependencies and divide it into changes that each have an observable outcome.
@@ -72,10 +79,10 @@ entrypoint. From any directory in the repository:
 
 ```bash
 cargo xtask doctor
-cargo xtask preflight --changed-only
+cargo xtask preflight --changed-only --base "$BASE_REF"
 ```
 
-Preflight compares your branch, staged, unstaged and untracked files with `origin/develop`, runs
+Preflight compares your branch, staged, unstaged and untracked files with the resolved `BASE_REF`, runs
 the gates they affect and broadens to every gate when the impact is uncertain. Use Rust 1.98.1 and
 see [the command contract](xtask/README.md) for the individual `cargo xtask verify` suites
 (`repository`, `rust`, `contracts`, `web`, `postgres`, `mutation`) and `cargo xtask ci`, which

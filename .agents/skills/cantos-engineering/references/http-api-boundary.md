@@ -11,7 +11,10 @@ manuscript import, adaptation and production-input contracts in
 [`services/cantos-server/src/adapters/inbound/http`](../../../../services/cantos-server/src/adapters/inbound/http/mod.rs) (`studio`, `theatre`, `admin`), each with a
 hand-authored JSON Schema, fixtures and raw DTOs in `cantos-contracts` shared by the server and the
 Studio ([contracts README](../../../../packages/contracts/README.md)). There is no OpenAPI document,
-no generated client. The [Theatre Discovery/Playback v1 core](../../../../packages/contracts/theatre-discovery-v1.md) adds a strict public-only listener JSON boundary; actual PG/public delivery and generated-client acceptance are pending. Whether a route also carries MessagePack is owned by
+no general generated HTTP client. Theatre has discovery, scoped account/Library and opt-in
+origin delivery owners; consult the [current API guide](../../../../services/cantos-server/README.md)
+and [platform map](../../../../docs/architecture/repository-layout.md#platform-scope) for implemented
+scope and separate delivery/issuer acceptance. JSON/versioned Protobuf and legacy MessagePack routing is owned by
 [`wire-codec.md`](wire-codec.md).
 
 For database-backed GET/read/fetch, load the foundation's mandatory
@@ -20,12 +23,15 @@ non-GET handlers; the HTTP verb alone does not decide DBSP suitability or freshn
 
 ## One route group per surface
 
-The host serves three groups under `/api/v1`: `studio` (implemented), `theatre` (anonymous Discovery/Playback core, fail-closed delivery) and `admin`
-(reserved, empty, `404 not_found`). Each has its own router module in `src/adapters/inbound/http/`, its DTO module
+The [single-listener host](../../../../docs/architecture/server-http-composition.md) serves three
+groups under `/api/v1`: `studio`, `theatre` and opt-in `admin` (capability/revocation with audit,
+dedicated authority and separate live issuer acceptance). Each has its own router module in `src/adapters/inbound/http/`, its DTO module
 in `cantos-contracts`, its own authentication and authorization, and its own `Store` methods or
-adapter; shared code is middleware, error mapping, domain modules and the PostgreSQL authority.
+adapter; shared code is middleware, error mapping, domain modules and the current Server DB authority
+(PostgreSQL until the selected Turso migration is accepted).
 Rules: a handler never calls another group's handler; a session for one surface grants nothing on
-another (cookies are scoped by `Path`); a reserved group gets routes only with real behavior, never
+another (preserve purpose, roster and exact-origin/credential fences; cookie transport follows
+the [v1 amendment](../../../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)); a reserved group gets routes only with real behavior, never
 mock data; the unprefixed `/api/v1/*` Studio paths are a deprecated alias that shares Studio
 handlers and gets no new routes. Oracle: `services/cantos-server/tests/surface_routes.rs`.
 
@@ -123,7 +129,8 @@ with its callers/tests; do not move infrastructure types into domain to imitate 
   for negotiated routes. A code/shape change needs the owning contract's compatibility process.
 
 Pure mapping tests need no database. Handler tests with named fakes establish L4 wiring; real
-PostgreSQL acceptance still establishes constraints/transaction/replay semantics at L5. No
+authoritative-engine acceptance establishes constraints/transaction/replay semantics at L5
+(current PostgreSQL versus selected Turso must be named). No
 panic/try-catch business flow, generic monad framework, error mega-enum or new error dependency
 is required to apply these rules.
 
@@ -154,7 +161,7 @@ and rejects reuse of the key with different content. Test duplicate delivery exp
 |---|---|
 | authorization decision | `example-tested` table over actors × actions on the pure authorizer |
 | handler wiring and status mapping | handler test with a fake application state (`example-tested` against a double) |
-| constraint, transaction or idempotency behavior | `integration-tested` against PostgreSQL |
+| constraint, transaction or idempotency behavior | `integration-tested` against the actual authoritative engine, naming current PostgreSQL or the accepted Turso owner |
 | schema conformance | contract test over fixtures for each supported version |
 | a client decodes the response | the client's own fixture test on its platform |
 | a second representation carries the same facts | the [wire codec test matrix](wire-codec.md#3-test-matrix-for-any-codec-change) |

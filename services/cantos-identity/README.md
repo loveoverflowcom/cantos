@@ -6,6 +6,10 @@ mailbox proof, Argon2id password credentials and `AuthenticatePassword` over a p
 authenticated Unix-socket RPC. It is part of [#334](https://github.com/loveoverflowcom/cantos/issues/334)
 on `refactor/cantos-native-turso`; it is **not** the whole of #334 and it is not a Server session.
 
+The [owner's v1 amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
+supersedes the older factor/dependency target. The sections below describe actual source:
+Studio password remains **selected, implementation pending**, not enabled by this document.
+
 * Implemented and run against the real engine: signup start, explicit mailbox-confirmed setup,
   password authentication, restart, replay/unknown-outcome reconciliation, disable race, the
   RPC boundary and the executable (see [Verification](#verification) for exactly what ran).
@@ -25,10 +29,10 @@ on `refactor/cantos-native-turso`; it is **not** the whole of #334 and it is not
 | `MailboxProof` transition plans | Only explicit, currently bound, unexpired confirmation plans consumption; cancellation/consumption are terminal; replacement changes the locator after an explicit cooldown | Exact expiry/clock/storage edges, all binding changes, terminal/replacement refusals and 1,296 four-step traces on production symbols |
 
 `Purpose` has separate Theatre and Studio cases. `Assurance` is categorical, with no ordering
-or arithmetic. The Theatre password path admits `Password`; the Studio D3 path admits only
+or arithmetic. The Theatre password path admits `Password`; the current pre-amendment Studio core admits only
 `UserVerifiedPasskey`. A passkey without user verification, mailbox proof or one recovery code
-cannot complete either login path. A future additional path requires an explicit policy change;
-these labels do not implement or verify any factor.
+cannot complete either login path. The v1 amendment selects the Studio password change, but its
+implementation/tests remain pending; these labels do not implement or verify any factor.
 
 `check_completion` returns only a decision (`Result<(), CompletionDenied>`), never an
 AuthenticationFact, setup capability or session. All inputs are facts that a future owner must

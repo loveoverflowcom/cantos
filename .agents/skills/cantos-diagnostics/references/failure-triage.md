@@ -46,13 +46,14 @@ attempt is progress worth recording, even when the gate is still red.
 
 ## 3. Clean-baseline comparison
 
-Run the identical command on a detached checkout of the base, with its own target directory so
+Run the identical command on a detached checkout of the resolved `BASE_REF` from the
+[branch/PR workflow](../../../../CONTRIBUTING.md#branch-and-pull-request-workflow), with its own target directory so
 neither build invalidates the other:
 
 ```sh
 base="$SCRATCH/cantos-base"          # a scratch directory outside the checkout
-git fetch origin develop
-git worktree add --detach "$base" origin/develop
+git fetch origin "$BASE_BRANCH"
+git worktree add --detach "$base" "$BASE_REF"
 (cd "$base" && CARGO_TARGET_DIR="$base/target" cargo xtask verify rust) >"$RUN/logs/NN-baseline-verify-rust.log" 2>&1
 git worktree remove "$base"          # cleanup: only the worktree this run created
 ```

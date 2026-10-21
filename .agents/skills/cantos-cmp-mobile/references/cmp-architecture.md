@@ -119,11 +119,12 @@ see a dependency. Inside the shared module, organize by feature and capability:
   api/              generated client and DTOs — never hand-edited
 ```
 
-`api/` speaks JSON. A MessagePack representation is added only through the foundation's
-[wire codec procedure](../../cantos-engineering/references/wire-codec.md#5-extending-to-theatre-and-cmp):
-decode by response `Content-Type`, named maps, the committed goldens in `commonTest` and a JSON
-default switch. No production listener API client exists yet. Generated Kotlin test strings
-embed the reviewed mock corpus; they are neither HTTP bindings nor generated expected results.
+Production catalog/account/Library adapters already exist; consult the
+[mobile guide](../../../../apps/cantos-theatre/mobile/README.md#the-application-over-real-owners).
+JSON remains default. Versioned Protobuf follows the foundation's
+[wire codec procedure](../../cantos-engineering/references/wire-codec.md), reviewed route roots,
+independent goldens and per-target gates; MessagePack is retained legacy, not a new client choice.
+The fixture-only Kotlin corpus grants no network authority or native decoder acceptance.
 
 In that future sketch, `playback/`, `downloads/`, `progress/`, `catalog/` and `session/` are
 capabilities of the **shared application layer** from mobile.md, each retaining a pure domain core.
@@ -218,8 +219,10 @@ through another collector. It never waits for engine readiness in the reducer/ev
 
 Generation/source fencing rejects stale observations; it does not cancel already-issued external
 commands. Test rapid inputs, reset barriers, close/cancellation, delayed callbacks and repeated
-commands separately. Logout/account-switch handling remains a future boundary requiring the same
-stale-result discipline; the memory-only mock has no authenticated session.
+commands separately. Apply the existing
+[native account coordinator and secure journal](../../../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity)
+for logout/account-switch/restore, preserving stale-result fences. Preview identity doubles
+establish no issuer, secure-store or process-death acceptance.
 
 ## One media session owner
 

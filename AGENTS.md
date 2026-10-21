@@ -26,7 +26,10 @@ ordinary deploy/rollback refuses legacy epoch-1 databases. The explicit narrow
 [controlled cutover](docs/deployment/postgres-schema-cutover.md); populated-data conversion
 remains unimplemented.
 Retired SQL is auditable through its manifest and original Git history, never silently replayed.
- Preserve Cantos Studio and Cantos Theatre terminology, Rust/Axum/PostgreSQL/Leptos/CMP choices and native mobile playback. Keep docs in English unless the task requests otherwise; retain correct Vietnamese names and representative content.
+Preserve Cantos Studio and Cantos Theatre terminology, Rust/Axum/Leptos/CMP and native playback.
+PostgreSQL is the current/legacy Server authority; the selected replacement follows the
+[native Turso decision](docs/architecture/native-turso-refactor.md). Keep docs in English unless
+the task requests otherwise; retain correct Vietnamese names and representative content.
 
 ## Repository layout
 
@@ -41,8 +44,9 @@ events, mailbox-proof lifecycles and bound receipts. Proof confirmation grants n
 authority. Its opt-in `service` feature builds the `cantos-identity` executable: Theatre signup with
 a mailbox proof, Argon2id passwords and `AuthenticatePassword` over an OS-peer-authenticated private
 Unix-socket RPC ([draft contract](packages/contracts/identity-rpc-v1.md)); the result is an
-authentication fact, never a session. Studio passkeys, recovery, restore rotation, the Server
-consumer and front ends remain absent. Checked snapshots and a
+authentication fact, never a session. The [v1 owner amendment](docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
+owns factor scope and parallel integration. Studio password is selected but still refused by
+the current code; Server integration and first-party frontends remain pending. Checked snapshots and a
 passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
 #331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.
 
@@ -57,7 +61,7 @@ for scope versus implementation status.
 
 - Begin with a modular monolith; add a service, crate or generic abstraction only for a concrete consumer and reviewed need.
 - Domain rules and versioned Script IR must not depend on HTTP, UI frameworks, a specific AI provider or Narrative Forge internals.
-- Use PostgreSQL for metadata, revision history, producer submission receipts and release pointers. Store verified received media in private object storage until review/publication.
+- Preserve durable metadata, revision history, producer receipts and release pointers in the authoritative store: current Server PostgreSQL, selected Turso under the native refactor. Store verified received media in private object storage until review/publication.
 - Do not invoke AI during listener playback. Preserve immutable publication manifests and cached renditions.
 - Keep private drafts, voice assets and previews inaccessible to public delivery. Enforce permissions in the backend.
 - Mobile uses CMP with platform-native audio adapters; no WebView audio player.
@@ -76,7 +80,11 @@ are not the same as verified rights or human-listened quality.
 
 ## Working and review
 
-Branch from `develop` and target PRs to `develop`. Keep changes cohesive and avoid unrelated cleanup. Update the work queue after implementation; GitHub issues/PRs own execution status when linked, and the queue owns recommended order and rationale.
+Resolve the base once: explicit user base, else the work item's accepted integration/staging
+base, else `develop`. Fetch its latest remote HEAD; use the same `BASE_REF` for branching,
+diff/review, preflight `--base`, clean-baseline reproduction and PR creation. Follow
+[the workflow](CONTRIBUTING.md#branch-and-pull-request-workflow). Keep changes cohesive and avoid
+unrelated cleanup. Update the work queue when order/rationale changes; GitHub owns execution status.
 
 Use [templates](templates/README.md) for a concrete proposal or production record when relevant. Clearly distinguish proposed design, implemented behavior and verified behavior. Never commit secrets, real provider credentials, private manuscripts, downloaded media or generated audio to Git.
 
