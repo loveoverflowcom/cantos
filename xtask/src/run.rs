@@ -337,8 +337,7 @@ fn run_web(
     {
         return Err(Refusal::Usage(format!(
             "run {} --web requires --web-origin {origin}, matching its Trunk server; \
-             use run cantos-server --web-origin ORIGIN with app {} --web for a separate profile",
-            app.cli_name(),
+             omit --web-origin to use the default per-surface origins",
             app.cli_name()
         )));
     }
@@ -399,7 +398,7 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
     Ok(LaunchPlan {
         requirements: vec![Requirement::TheatreApi {
             addr: api_addr(),
-            hint: "start `cargo xtask run cantos-server --web-origin http://127.0.0.1:8082` \
+            hint: "start `cargo xtask run cantos-server` \
                    with a migrated app-role DATABASE_URL, or use \
                    `cargo xtask run cantos-theatre --web [--test-cluster]`; \
                    explicit ?mode=mock or ?mode=membership-preview remain offline previews"
