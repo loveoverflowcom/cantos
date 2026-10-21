@@ -117,6 +117,28 @@ pub enum Action {
     },
     /// Run release contract, packaging, DAG and mocked promotion regressions.
     SelfTest,
+    /// Offline validation of an explicitly admitted native OCI image pair and host bundle.
+    /// This never builds, contacts a registry or activates a host.
+    OciVerify {
+        #[arg(long)]
+        manifest: PathBuf,
+        #[arg(long)]
+        manifest_digest: String,
+        #[arg(long)]
+        source_sha: String,
+        #[arg(long)]
+        configuration_digest: String,
+        #[arg(long)]
+        platform: String,
+        /// Operator-reviewed producer admission; hashes alone do not establish trust.
+        #[arg(long)]
+        admission: PathBuf,
+        #[arg(long)]
+        admission_digest: String,
+        /// Same read-only plan; no SSH, registry access, subprocess build or output write.
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
@@ -131,6 +153,37 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             "-p",
             "test_release*.py",
         ]);
+    }
+    if let Action::OciVerify {
+        manifest,
+        manifest_digest,
+        source_sha,
+        configuration_digest,
+        platform,
+        admission,
+        admission_digest,
+        dry_run,
+    } = action
+    {
+        return command
+            .args([
+                "scripts/release_oci.py".into(),
+                "--manifest".into(),
+                manifest.display().to_string(),
+                "--manifest-digest".into(),
+                manifest_digest.clone(),
+                "--source-sha".into(),
+                source_sha.clone(),
+                "--configuration-digest".into(),
+                configuration_digest.clone(),
+                "--platform".into(),
+                platform.clone(),
+                "--admission".into(),
+                admission.display().to_string(),
+                "--admission-digest".into(),
+                admission_digest.clone(),
+            ])
+            .arg_if(*dry_run, "--dry-run");
     }
     let mut command = command.args(["scripts/release_pipeline.py"]);
     match action {
@@ -184,7 +237,7 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             "--transfer".into(),
             transfer.display().to_string(),
         ]),
-        Action::SelfTest => unreachable!("handled above"),
+        Action::SelfTest | Action::OciVerify { .. } => unreachable!("handled above"),
     }
 }
 
@@ -256,8 +309,52 @@ pub fn run(
 
 #[cfg(test)]
 mod tests {
+    use super::{command, Action};
     use crate::cli::Cli;
+    use crate::workspace::Workspace;
     use clap::Parser;
+
+    #[test]
+    fn native_oci_plan_has_explicit_pins_and_only_calls_the_offline_release_owner() {
+        let pins = [
+            "xtask",
+            "release",
+            "oci-verify",
+            "--manifest",
+            "manifest.json",
+            "--manifest-digest",
+            "digest",
+            "--source-sha",
+            "sha",
+            "--configuration-digest",
+            "config",
+            "--platform",
+            "linux/amd64",
+            "--admission",
+            "admission.json",
+            "--admission-digest",
+            "admission-digest",
+        ];
+        assert!(Cli::try_parse_from(pins).is_ok());
+        assert!(Cli::try_parse_from(&pins[..pins.len() - 2]).is_err());
+        let action = Action::OciVerify {
+            manifest: "manifest.json".into(),
+            manifest_digest: "digest".into(),
+            source_sha: "sha".into(),
+            configuration_digest: "config".into(),
+            platform: "linux/amd64".into(),
+            admission: "admission.json".into(),
+            admission_digest: "admission-digest".into(),
+            dry_run: true,
+        };
+        let workspace = Workspace::discover().unwrap();
+        let plan = command(&workspace, &action);
+        assert_eq!(plan.program, "python3");
+        assert_eq!(plan.args[0], "scripts/release_oci.py");
+        assert_eq!(&plan.args[1..pins.len() - 2], &pins[3..]);
+        assert_eq!(plan.args.last().unwrap(), "--dry-run");
+        assert!(plan.env.is_empty());
+    }
 
     #[test]
     fn artifact_input_requires_exact_manifest_digest_and_source_and_never_accepts_a_dist_bypass() {

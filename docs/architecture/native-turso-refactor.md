@@ -143,10 +143,16 @@ SQL JOIN, foreign key or atomic transaction across the two databases. Identity d
 protected by separate OS ownership and narrowly scoped RPC, not by shared credentials.
 Do not enable experimental multiprocess access merely to permit overlapping deployments.
 
-The serving stack must not require or start Podman, Docker, PostgreSQL, Kanidm, Firebase Auth
-Emulator, Redis, a message broker or a Feldera service. Native development targets macOS and
-Linux; production supervision uses native host tooling. Two backend processes do not mean
-that TLS ingress, media storage, browsers, build tools or the entire machine have two processes.
+Native development, offline E2E, Turso tests and Kani must not require or start Podman, Docker,
+PostgreSQL, Kanidm, Firebase Auth Emulator, Redis, a message broker or a Feldera service.
+Native development targets macOS and Linux. [#348](https://github.com/loveoverflowcom/cantos/issues/348)
+supersedes only the earlier production no-container clause: the two Rust executables are
+packaged as OCI images, distributed through GHCR registry digests and supervised by Podman
+Quadlet. Neither image contains its database, media or secrets. The
+[release contract](../deployment/native-oci-release.md) distinguishes the implemented offline
+verifier from pending publishers and native host activation. This does not accept a native
+runtime or retire legacy resources. Two backend processes do not mean that TLS ingress,
+media storage, browsers, build tools or the entire machine have two processes.
 Forge, Firebase Functions/App Distribution, Drive and approved media infrastructure are not
 removed by retiring Firebase Authentication or Kanidm.
 
@@ -260,8 +266,10 @@ cannot revive revoked sessions. A new owner cannot overlap an old owner on the s
 Turso file. Once new writes are accepted, pointing back to an old database is not a no-loss
 rollback: define quiescence, reconciliation or forward recovery and test the failure points.
 
-Within this refactor, this decision supersedes the old PostgreSQL/Kanidm/container selection
-in ADR 0001/0021/0034/0036/0041, not their unrelated domain/security obligations. #332 owns
+Within this refactor, this decision supersedes the old PostgreSQL/Kanidm selection and local/test
+container dependencies in ADR 0001/0021/0034/0036/0041, not their unrelated domain/security
+obligations. #348 restores OCI/Quadlet only as the production packaging/supervision boundary.
+#332 owns
 reconciliation of active AGENTS/layout/contract/runbook references as code changes; historical
 records remain source-bound. Coordinate #174/#191/#242/#261/#295/#299/#326 and #277–#280,
 without closing them or creating competing implementations merely because a checkpoint merged.

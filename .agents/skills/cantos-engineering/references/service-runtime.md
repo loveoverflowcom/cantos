@@ -13,13 +13,17 @@ For [epic #331](../../../../docs/architecture/native-turso-refactor.md), the sel
 two native long-lived backend processes, Server and Identity, each owning a local in-process
 Turso file. Forge is separate and not started for ordinary login/serving. No Podman/Docker,
 PostgreSQL/Kanidm, Firebase Auth Emulator, Redis, broker, Feldera or Turso server is a hidden
-prerequisite of the new local/test/production workflow. Do not start or install those tools to
-make the new acceptance green. Existing deployed resources are not thereby authorized to stop
-or delete; legacy migration work remains explicit and separately scoped.
+prerequisite of native dev/E2E/Turso/Kani. Do not start or install those tools to make native
+acceptance green. [#348](https://github.com/loveoverflowcom/cantos/issues/348) supersedes only
+the production no-container selection: GHCR digest distribution and Podman Quadlet supervise
+the two executables. Read the [OCI release boundary](../../../../docs/deployment/native-oci-release.md)
+before production work. The offline verifier is plan-only; publishers/activation remain pending.
+Existing deployed resources are not thereby authorized to stop or delete; legacy migration
+work remains explicit and separately scoped.
 
 The historical [ADR 0021](../../../../docs/decisions/0021-podman-service-runtime.md) still describes
-the old runtime. Its Podman-specific operations below apply only to an explicitly retained
-legacy task, not to selection of the new runtime. Missing prerequisites are UNSUPPORTED or
+the old runtime; #348 selects OCI/Quadlet production packaging while native test isolation stays
+independent. The legacy operations below do not accept a native rollout. Missing prerequisites are UNSUPPORTED or
 NOT_RUN as appropriate, never permission to install/bootstrap tools or weaken isolation.
 
 ## Native lifecycle
@@ -35,9 +39,10 @@ NOT_RUN as appropriate, never permission to install/bootstrap tools or weaken is
 - UDS paths need owned parent directories, restricted permissions, peer policy and safe stale
   socket handling. Network RPC needs authenticated peers/mTLS and explicit method admission.
   Do not choose authority from untrusted forwarded headers or filesystem paths.
-- Native release bundles bind source/config/architecture, executable bits, hashes and dynamic
-  dependencies. Build once, promote the verified bytes; no container image required for target
-  deployment. Linux systemd and macOS developer supervisors remain host-specific adapters.
+- Native releases bind source/config/architecture, executable bits, hashes and dynamic
+  dependencies. Build once, promote verified bytes. #348 production releases bind both registry
+  image digests and their source-bound host bundle; native developer/test supervisors remain
+  container-independent. Do not run a helper from a different source revision.
 - Run-owned test files, directories, sockets and child IDs are tracked precisely. Cancellation,
   readiness and shutdown have bounded budgets; clean up only those exact owned resources.
   Never kill all processes by name/port or prune shared files/volumes.

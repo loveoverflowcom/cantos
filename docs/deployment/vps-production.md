@@ -1,5 +1,13 @@
 # Current production topology and operations
 
+**Native OCI transition (#348):** [release contract and sequencing](native-oci-release.md)
+select GHCR digests and Podman Quadlet packaging for native Server/Identity. Only the offline
+admitted-pair verifier exists in this slice; publishers and the native deploy consumer remain
+pending. The commands below retain their legacy archive distribution and recovery semantics.
+Inventory the real host first; `UNKNOWN` blocks mutation and `LEGACY` permits only preparation/
+rehearsal until native migration, backup/restore and E2E acceptance plus live authority exist.
+Source completion never establishes a live cutover or authorizes cleanup.
+
 **Web provider transition:** #278/#280 request static Cloudflare hosting for the existing
 `cantos.cc` / `studio.cantos.cc` targets. The
 [rollout and recovery runbook](cloudflare-rollout.md) owns provider qualification, domain

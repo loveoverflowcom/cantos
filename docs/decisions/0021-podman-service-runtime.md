@@ -9,6 +9,14 @@
 
 ## Context
 
+Scoped supersession: the [native refactor](../architecture/native-turso-refactor.md) removes
+container dependencies from native development and acceptance. The owner's
+[#348 production amendment](https://github.com/loveoverflowcom/cantos/issues/348) retains
+Podman Quadlet for two native Rust executables, distributed through GHCR by registry digest.
+The [release boundary](../deployment/native-oci-release.md) separates source implementation
+from pending publish/host acceptance. The historical decision below does not authorize
+changing an existing host's rootful/rootless principal or retiring legacy data/runtime.
+
 One modular Rust/Axum backend depends on PostgreSQL. Kanidm currently has an example
 configuration but no OIDC integration. Treating `services/` as Rust packages hides infrastructure
 ownership and encourages competing run scripts. The Mac mini needs a container path that does
