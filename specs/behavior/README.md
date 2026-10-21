@@ -17,6 +17,14 @@ A **draft, model-only** producer-side capability, `cantos.production.forge-attem
 may start and what an uncertain outcome permits. It has no Rust observer; native mirror tests
 carry each named run's ID and `tests/behavior_binding.rs` keeps the lists equal.
 
+Two **draft, model-only** native Identity v1 capabilities (#334/#335,
+[ADR 0045](../../docs/decisions/0045-v1-email-password-sign-in.md)) describe mailbox-proof
+consumption, `cantos.identity.native-mailbox-proof`, and fact-to-session issue plus per-admission
+security-state rechecks, `cantos.identity.native-session-admission`. Neither has a registered
+observer. Their [inventory rows](inventory.md#draft-cantosidentitynative-mailbox-proof-334335-v1-signup)
+report two contract/implementation mismatches and a needs-decision case that no property constrains, and map
+the unchanged legacy `cantos.identity.bearer-lifecycle` scope.
+
 Two further **draft, model-only** capabilities describe proposed public media rules:
 `cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md))
 and `cantos.media.public-cover-projection` ([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)).
