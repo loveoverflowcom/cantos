@@ -48,10 +48,12 @@ and [the inventory](../../../specs/behavior/inventory.md) explain that division.
 
 ## Implementation observations
 
-The registered backend observer consumes only stable trace IDs and replay events, never
-expected states/outcomes. Decode the exact pinned ITF representation, preserve every assertion
-checkpoint without repeating effects, compare exact errors/state and retain full actual receipts.
-Read [the protocol](../../../specs/behavior/observation-protocol.md) before adding an adapter.
+The registered backend observers (private audio admission; native Identity mailbox proof and
+session admission, the latter two with a per-checkpoint `core`/`shell` origin label) consume only
+stable trace IDs and replay events plus input facts, never expected states/outcomes. Decode the
+exact pinned ITF representation, preserve every assertion checkpoint without repeating effects,
+compare exact errors/state and retain full actual receipts. Read
+[the protocol](../../../specs/behavior/observation-protocol.md) before adding an adapter.
 
 Positive expectations use original-model named runs, sampled trace and reachability witnesses.
 A mutant counterexample is deliberately wrong behavior: replay prefixes through the first
@@ -59,11 +61,15 @@ semantic mismatch and label it sensitivity-only. Parsing, illegal later continua
 failures or zero selected tests never count as a kill. Add an original-trace observation fault
 control that demonstrably exposes adapter drift, separately from model mutations.
 
-Keep model `report.json` and `conformance.json` status/provenance independent. The current
-scope is `pure-core-synthetic-shell`: Complete(false)/Abandon are harness effects; failed media
-masks the decision's raw result in the Quint oracle. No production application orchestration,
-authentication, database, actual bytes, object store, restart, public delivery or client/device
-claim follows. Preserve native constructor, foreign-binding, numeric and event-matrix tests.
+Keep model `report.json` and `conformance.json` status/provenance independent. A new observer
+joins the dispatcher's finite allowlist (`adapters()`) with a declared codec, per-control detection
+reasons and fault controls; never a general plugin engine. The current scope is
+`pure-core-synthetic-shell`. For the audio adapter Complete(false)/Abandon are harness effects and
+failed media masks the decision's raw result in the Quint oracle; for the native Identity adapters
+the store/shell rules listed in the protocol are synthetic. No production application
+orchestration, authentication, database, actual bytes, object store, restart, public delivery or
+client/device claim follows. Preserve native constructor, foreign-binding, numeric and
+event-matrix tests.
 
 ## Enforcement and exceptions
 

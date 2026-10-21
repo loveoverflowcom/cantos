@@ -537,6 +537,11 @@ def execute_capability(root, cap, versions, executables, cli, inputs, revision, 
     return bundle
 
 
+def conformance_selected(conformance, capability, cap):
+    """An explicit selection must be observed or FAIL; selecting all observes only the registered."""
+    return conformance and (capability is not None or cap.get("implementationConformance") is not None)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capability")
@@ -576,7 +581,10 @@ def main():
         require(revision_result.returncode == 0, "source revision unavailable")
         revision = revision_result.stdout.strip()
         for cap in capabilities:
-            execute_capability(ROOT, cap, versions, executables, cli, snapshot(ROOT, [cap]), revision, args.conformance)
+            # An explicit selection must have a registered observer or FAIL. Selecting every
+            # capability replays only those the catalog registers; the rest stay model-only.
+            observed = conformance_selected(args.conformance, args.capability, cap)
+            execute_capability(ROOT, cap, versions, executables, cli, snapshot(ROOT, [cap]), revision, observed)
         return 0
     except (BehaviorError, OSError, KeyError, UnicodeError) as error:
         print(f"behavior: FAIL: {error}", file=sys.stderr)

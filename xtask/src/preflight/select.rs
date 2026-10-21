@@ -293,13 +293,27 @@ fn deferred_coverage(gate: &Gate) -> Option<&'static str> {
 fn conformance_input(path: &str) -> bool {
     [
         crate::behavior::CONFORMANCE_SCRIPT,
+        crate::behavior::NATIVE_CONFORMANCE_SCRIPT,
         crate::behavior::OBSERVER,
         "scripts/test_verify_behavior_conformance.py",
+        "scripts/test_verify_behavior_conformance_native.py",
         "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
         "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
         "services/cantos-server/src/contexts/production/domain/brief.rs",
         "packages/contracts/api/src/audio_lifecycle.rs",
         "packages/contracts/api/src/audio_intake.rs",
+        crate::behavior::MAILBOX_OBSERVER,
+        crate::behavior::ADMISSION_OBSERVER,
+        // Native Identity auth: the production seams the observers call (`validate_fact` included),
+        // the checked constructors and wire types they build inputs with, and the observer's parent.
+        "services/cantos-identity/src/lib.rs",
+        "services/cantos-identity/src/domain/mailbox_proof.rs",
+        "services/cantos-identity/src/domain/ids.rs",
+        "services/cantos-identity/src/domain/security_version.rs",
+        "services/cantos-identity/src/domain/admission.rs",
+        "services/cantos-server/src/platform/identity_auth/decision.rs",
+        "packages/contracts/identity-rpc/src/lib.rs",
+        "packages/contracts/identity-rpc/src/generated.rs",
     ]
     .contains(&path)
 }
@@ -309,7 +323,8 @@ fn behavior_input(path: &str) -> bool {
         && (within(path, "specs/behavior")
             || within(path, "tools/behavior")
             || path == crate::behavior::SCRIPT
-            || path == crate::behavior::CONFORMANCE_SCRIPT)
+            || path == crate::behavior::CONFORMANCE_SCRIPT
+            || path == crate::behavior::NATIVE_CONFORMANCE_SCRIPT)
 }
 
 fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
@@ -473,9 +488,18 @@ mod tests {
     fn registered_observation_inputs_select_conformance_without_losing_native_impact() {
         for path in [
             crate::behavior::CONFORMANCE_SCRIPT,
+            crate::behavior::NATIVE_CONFORMANCE_SCRIPT,
             "scripts/test_verify_behavior_conformance.py",
+            "scripts/test_verify_behavior_conformance_native.py",
             crate::behavior::OBSERVER,
             "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
+            "services/cantos-server/src/platform/identity_auth/decision.rs",
+            crate::behavior::ADMISSION_OBSERVER,
+            "packages/contracts/identity-rpc/src/generated.rs",
+            "services/cantos-identity/src/lib.rs",
+            "services/cantos-identity/src/domain/mailbox_proof.rs",
+            "services/cantos-identity/src/domain/ids.rs",
+            crate::behavior::MAILBOX_OBSERVER,
         ] {
             let selection = pick(&[path]);
             assert!(
@@ -502,10 +526,15 @@ mod tests {
                         .any(|gate| matches!(gate, Gate::RustTests(_))),
                     "{path}"
                 );
+            }
+            if path.starts_with("services/cantos-server/") {
                 assert!(
                     selection.gates.contains(&Gate::Postgres { keep: false }),
                     "{path}"
                 );
+            }
+            if path.starts_with("services/cantos-identity/") {
+                assert!(selection.gates.contains(&Gate::Turso), "{path}");
             }
         }
         let mut expected = gate::full();
@@ -715,17 +744,27 @@ mod tests {
         ] {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
-            assert_eq!(
-                names(&selection),
-                [
-                    "repository",
+            // The mailbox observer's parent module and the checked constructors it builds
+            // inputs with are registered conformance inputs.
+            let behavior: &[&str] = if path.ends_with("/src/lib.rs")
+                || path.ends_with("/security_version.rs")
+                || path.ends_with("/admission.rs")
+            {
+                &["behavior"]
+            } else {
+                &[]
+            };
+            let expected: Vec<&str> = ["repository"]
+                .into_iter()
+                .chain(behavior.iter().copied())
+                .chain([
                     "rust-format",
                     "rust-lint (cantos-identity)",
                     "rust-tests (cantos-identity)",
                     "turso",
-                ],
-                "{path}"
-            );
+                ])
+                .collect();
+            assert_eq!(names(&selection), expected, "{path}");
         }
     }
 
@@ -740,17 +779,26 @@ mod tests {
         ] {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
-            assert_eq!(
-                names(&selection),
-                [
-                    "repository",
+            // `validate_fact` in lib.rs is a production seam of the session-admission observer,
+            // and the generated wire types are the facts and reads it decodes.
+            let behavior: &[&str] = if path.ends_with("identity-rpc/src/lib.rs")
+                || path.ends_with("identity-rpc/src/generated.rs")
+            {
+                &["behavior"]
+            } else {
+                &[]
+            };
+            let expected: Vec<&str> = ["repository"]
+                .into_iter()
+                .chain(behavior.iter().copied())
+                .chain([
                     "rust-format",
                     "rust-lint (cantos-identity, cantos-identity-rpc)",
                     "rust-tests (cantos-identity, cantos-identity-rpc)",
                     "turso",
-                ],
-                "{path}"
-            );
+                ])
+                .collect();
+            assert_eq!(names(&selection), expected, "{path}");
         }
         // Its prose contract is a document: repository gate only.
         let document = pick(&["packages/contracts/identity-rpc-v1.md"]);

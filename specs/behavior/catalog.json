@@ -1560,7 +1560,9 @@
           "to": "else if (fate == UnknownLost) record(applied, event, UnknownEffect)"
         }
       ],
-      "aliases": []
+      "aliases": [],
+      "observationSchema": "cantos-native-mailbox-proof-observation-v1",
+      "implementationConformance": "pure-core-observer"
     },
     {
       "id": "cantos.identity.native-session-admission",
@@ -1731,7 +1733,9 @@
           "to": "else record({ ...state, pending: NoPending, session: { ...state.session, revoked: true } }, CommitRevoke(written), Rejected(RevokeWriteFailed))"
         }
       ],
-      "aliases": []
+      "aliases": [],
+      "observationSchema": "cantos-native-session-admission-observation-v1",
+      "implementationConformance": "pure-core-observer"
     }
   ]
 }
