@@ -520,7 +520,8 @@ fn account_switch_clears_all_old_selectors_and_ignores_the_old_page_completion()
                         "listener-b".into(),
                         uuid::Uuid::from_u128(300).to_string()
                     )
-                    .unwrap())
+                    .unwrap()),
+                    || uuid::Uuid::from_u128(100).to_string()
                 ),
                 Ok(SessionCompletion::Authenticated(_))
             ));

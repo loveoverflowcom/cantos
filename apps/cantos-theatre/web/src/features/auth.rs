@@ -332,7 +332,9 @@ mod tests {
         let mut state = AccountViewState::default();
         let issued = state.begin_refresh().unwrap();
         let SessionCompletion::Cleanup(cleanup) = state
-            .finish_session(issued, Err(AccountFailure::SignedOut))
+            .finish_session(issued, Err(AccountFailure::SignedOut), || {
+                uuid::Uuid::from_u128(100).to_string()
+            })
             .unwrap()
         else {
             panic!("guest lookup requires cleanup")

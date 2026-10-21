@@ -793,7 +793,8 @@ mod tests {
                         "listener-a".into(),
                         uuid::Uuid::from_u128(10).to_string()
                     )
-                    .unwrap())
+                    .unwrap()),
+                    || uuid::Uuid::from_u128(100).to_string()
                 ),
                 Ok(SessionCompletion::Authenticated(_))
             ));

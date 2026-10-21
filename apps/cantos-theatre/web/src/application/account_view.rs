@@ -50,7 +50,7 @@ pub enum CleanupIntent {
     StaleOnly,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AccountViewState {
     account: AccountState,
     phase: SessionPhase,
@@ -149,6 +149,13 @@ impl AccountViewState {
         self.library = None;
         self.sync = None;
     }
+    /// Generation exhaustion is an intentional fail-closed transition, not an atomic refusal.
+    fn block_exhaustion(&mut self) {
+        self.clear_private();
+        self.phase = SessionPhase::Failed(AccountFailure::Unavailable);
+        self.cleanup_intent = CleanupIntent::StaleOnly;
+        self.cleanup_in_flight = false;
+    }
     pub fn begin_refresh(&mut self) -> Result<AccountGeneration, AccountError> {
         if self.account.logout_pending() {
             return Err(AccountError::LogoutPending);
@@ -156,7 +163,12 @@ impl AccountViewState {
         if self.phase == SessionPhase::Checking {
             return Err(AccountError::RequestPending);
         }
-        self.account.leave()?;
+        if let Err(error) = self.account.leave() {
+            if error == AccountError::Exhausted {
+                self.block_exhaustion();
+            }
+            return Err(error);
+        }
         self.clear_private();
         self.phase = SessionPhase::Checking;
         Ok(self.account.generation())
@@ -165,6 +177,7 @@ impl AccountViewState {
         &mut self,
         issued: AccountGeneration,
         result: Result<AccountScope, AccountFailure>,
+        new_device_id: impl FnOnce() -> String,
     ) -> Result<SessionCompletion, AccountError> {
         if issued != self.account.generation() || self.phase != SessionPhase::Checking {
             return Ok(SessionCompletion::Ignored);
@@ -172,11 +185,15 @@ impl AccountViewState {
         match result {
             Ok(scope) => {
                 let actor = scope.actor().to_owned();
-                self.account.finish_session(issued, scope)?;
+                if let Err(error) = self.account.finish_session(issued, scope) {
+                    if error == AccountError::Exhausted {
+                        self.block_exhaustion();
+                    }
+                    return Err(error);
+                }
                 self.phase = SessionPhase::SignedIn;
                 self.library = Some(LibraryProjection::default());
-                self.sync =
-                    LibrarySyncState::new(actor, super::library_sync::generate_uuid_string());
+                self.sync = LibrarySyncState::new(actor, new_device_id());
                 Ok(SessionCompletion::Authenticated(self.account.fence()?))
             }
             Err(AccountFailure::SignedOut) => {
@@ -266,15 +283,25 @@ impl AccountViewState {
         }
     }
     pub fn begin_logout(&mut self) -> Result<AccountGeneration, AccountError> {
-        if self.phase != SessionPhase::LogoutPending {
-            self.cleanup_intent = self
-                .account
+        let cleanup_intent = if self.phase != SessionPhase::LogoutPending {
+            self.account
                 .scope()
                 .map_or(CleanupIntent::StaleOnly, |scope| {
                     CleanupIntent::ExpectedSession(scope.session().to_owned())
-                });
-        }
-        let issued = self.account.begin_logout()?;
+                })
+        } else {
+            self.cleanup_intent.clone()
+        };
+        let issued = match self.account.begin_logout() {
+            Ok(issued) => issued,
+            Err(error) => {
+                if error == AccountError::Exhausted {
+                    self.block_exhaustion();
+                }
+                return Err(error);
+            }
+        };
+        self.cleanup_intent = cleanup_intent;
         self.clear_private();
         self.phase = SessionPhase::LogoutPending;
         self.cleanup_in_flight = true;
@@ -426,7 +453,10 @@ mod tests {
     fn authenticate(s: &mut AccountViewState, actor: &str, session: u128) {
         let issued = s.begin_refresh().unwrap();
         assert!(matches!(
-            s.finish_session(issued, Ok(scope(actor, session))),
+            s.finish_session(issued, Ok(scope(actor, session)), || uuid::Uuid::from_u128(
+                100
+            )
+            .to_string()),
             Ok(SessionCompletion::Authenticated(_))
         ));
     }
@@ -453,7 +483,9 @@ mod tests {
         let mut s = AccountViewState::default();
         let issued = s.begin_refresh().unwrap();
         let SessionCompletion::Cleanup(cleanup) = s
-            .finish_session(issued, Err(AccountFailure::SignedOut))
+            .finish_session(issued, Err(AccountFailure::SignedOut), || {
+                uuid::Uuid::from_u128(100).to_string()
+            })
             .unwrap()
         else {
             panic!()
@@ -495,7 +527,7 @@ mod tests {
         authenticate(&mut s, "b", 2);
         for result in [Ok(scope("a", 1)), Err(AccountFailure::SignedOut)] {
             assert_eq!(
-                s.finish_session(old, result),
+                s.finish_session(old, result, || uuid::Uuid::from_u128(100).to_string()),
                 Ok(SessionCompletion::Ignored)
             );
             assert_eq!(s.actor(), Some("b"));
@@ -525,7 +557,10 @@ mod tests {
         let mut s = AccountViewState::default();
         let issued = s.begin_refresh().unwrap();
         assert_eq!(s.begin_refresh(), Err(AccountError::RequestPending));
-        s.finish_session(issued, Ok(scope("a", 1))).unwrap();
+        s.finish_session(issued, Ok(scope("a", 1)), || {
+            uuid::Uuid::from_u128(100).to_string()
+        })
+        .unwrap();
         let old = s.begin_library(Section::Saved, false).unwrap();
         s.begin_refresh().unwrap();
         assert!(s.library().is_none());
@@ -702,5 +737,190 @@ mod tests {
             })
             .is_none());
         assert!(s.sync().unwrap().saved_work(&work_id).is_none());
+    }
+    #[test]
+    fn ordinary_lifecycle_outcomes_and_refusals_are_characterized() {
+        for failure in [
+            AccountFailure::Unavailable,
+            AccountFailure::Protocol,
+            AccountFailure::SessionChanged,
+        ] {
+            let mut state = AccountViewState::default();
+            let issued = state.begin_refresh().unwrap();
+            let before = state.clone();
+            assert_eq!(state.begin_refresh(), Err(AccountError::RequestPending));
+            assert_eq!(state, before);
+            assert_eq!(
+                state.finish_session(issued, Err(failure), || uuid::Uuid::from_u128(100)
+                    .to_string()),
+                Ok(SessionCompletion::Ignored)
+            );
+            assert_eq!(state.phase(), SessionPhase::Failed(failure));
+            assert!(state.library().is_none());
+            assert!(state.sync().is_none());
+        }
+        for failure in [
+            None,
+            Some(AccountFailure::Unavailable),
+            Some(AccountFailure::SessionChanged),
+        ] {
+            let mut state = AccountViewState::default();
+            authenticate(&mut state, "a", 1);
+            let fence = state.fence().unwrap();
+            let before = state.clone();
+            assert_eq!(
+                state.fail_fenced_command(&fence, AccountFailure::Unavailable),
+                Ok(LibraryCompletion::Ignored)
+            );
+            assert_eq!(state, before);
+            let issued = state.begin_logout().unwrap();
+            assert_eq!(state.phase(), SessionPhase::LogoutPending);
+            assert!(state.cleanup_in_flight());
+            let before = state.clone();
+            assert_eq!(state.begin_refresh(), Err(AccountError::LogoutPending));
+            assert_eq!(state, before);
+            let success = state.finish_logout(issued, failure.map_or(Ok(()), Err));
+            assert_eq!(success, failure.is_none());
+            assert_eq!(
+                state.phase(),
+                match failure {
+                    None => SessionPhase::Guest,
+                    Some(AccountFailure::SessionChanged) =>
+                        SessionPhase::Failed(AccountFailure::SessionChanged),
+                    Some(_) => SessionPhase::LogoutPending,
+                }
+            );
+            assert!(!state.cleanup_in_flight());
+        }
+    }
+
+    #[test]
+    fn exhaustion_blocks_every_invalidation_path_and_preserves_durable_journal() {
+        for action in 0..4 {
+            let mut state = AccountViewState::default();
+            authenticate(&mut state, "a", 1);
+            state.account.set_generation_for_test(u64::MAX);
+            let fence = state.fence().unwrap();
+            let request = state.begin_library(Section::Saved, false).unwrap();
+            let work = uuid::Uuid::from_u128(99).to_string();
+            state.with_sync_mut(|sync, _| {
+                sync.request_saved(&work, true, uuid::Uuid::from_u128(500).to_string(), None)
+            });
+            let journal = state.sync().unwrap().to_journal();
+            match action {
+                0 => assert_eq!(state.begin_refresh(), Err(AccountError::Exhausted)),
+                1 => assert_eq!(state.begin_logout(), Err(AccountError::Exhausted)),
+                2 => assert_eq!(
+                    state.fail_fenced_command(&fence, AccountFailure::SignedOut),
+                    Err(AccountError::Exhausted)
+                ),
+                3 => assert_eq!(
+                    state.finish_page(&request, Err(AccountFailure::SignedOut)),
+                    Err(AccountError::Exhausted)
+                ),
+                _ => unreachable!(),
+            }
+            assert_eq!(
+                state.phase(),
+                SessionPhase::Failed(AccountFailure::Unavailable)
+            );
+            assert_eq!(state.generation(), fence_generation_max());
+            assert_eq!(state.actor(), None);
+            assert_eq!(state.fence(), None);
+            assert!(!state.accepts(&fence));
+            assert_eq!(state.library(), None);
+            assert_eq!(state.sync(), None);
+            assert!(!state.cleanup_in_flight());
+            assert_eq!(state.cleanup_intent(), &CleanupIntent::StaleOnly);
+            let blocked = state.clone();
+            assert_eq!(
+                state.finish_page(&request, Ok(page())),
+                Ok(LibraryCompletion::Ignored)
+            );
+            assert_eq!(
+                state.fail_fenced_command(&fence, AccountFailure::SignedOut),
+                Ok(LibraryCompletion::Ignored)
+            );
+            assert!(!state.finish_logout(state.generation(), Ok(())));
+            assert_eq!(state, blocked);
+            assert!(journal.clone().restore_for_actor("b").is_none());
+            let mut reloaded = AccountViewState::default();
+            authenticate(&mut reloaded, "a", 2);
+            assert!(reloaded.restore_sync_journal(&reloaded.fence().unwrap(), journal.clone()));
+            let mut expected = journal;
+            for pending in &mut expected.pending {
+                pending.recovery = super::super::library_sync::RecoveryMode::ReadReceiptFirst;
+            }
+            assert_eq!(reloaded.sync().unwrap().to_journal(), expected);
+        }
+    }
+
+    fn fence_generation_max() -> AccountGeneration {
+        let mut state = AccountState::default();
+        state.set_generation_for_test(u64::MAX);
+        state.generation()
+    }
+    #[test]
+    fn session_device_ids_are_injected_only_for_admitted_success() {
+        for device in [100, 101] {
+            let mut state = AccountViewState::default();
+            let issued = state.begin_refresh().unwrap();
+            let id = uuid::Uuid::from_u128(device).to_string();
+            let completion = state
+                .finish_session(issued, Ok(scope("a", 1)), || id.clone())
+                .unwrap();
+            assert_eq!(
+                completion,
+                SessionCompletion::Authenticated(state.fence().unwrap())
+            );
+            assert_eq!(state.sync().unwrap().device_id(), id);
+            let before = state.clone();
+            assert_eq!(
+                state.finish_session(issued, Ok(scope("b", 2)), || panic!(
+                    "stale completion must not mint"
+                )),
+                Ok(SessionCompletion::Ignored)
+            );
+            assert_eq!(state, before);
+        }
+    }
+
+    #[test]
+    fn last_generation_is_usable_once_but_exhausted_retry_and_session_lookup_stay_closed() {
+        let mut state = AccountViewState::default();
+        authenticate(&mut state, "a", 1);
+        state.account.set_generation_for_test(u64::MAX - 1);
+        let issued = state.begin_logout().unwrap();
+        assert_eq!(issued, fence_generation_max());
+        assert_eq!(state.begin_logout(), Err(AccountError::Exhausted));
+        let before = state.clone();
+        assert!(!state.finish_logout(issued, Ok(())));
+        assert_eq!(state, before);
+        assert_eq!(
+            state.phase(),
+            SessionPhase::Failed(AccountFailure::Unavailable)
+        );
+
+        for result in [Ok(scope("a", 1)), Err(AccountFailure::SignedOut)] {
+            let mut state = AccountViewState::default();
+            state.account.set_generation_for_test(u64::MAX - 1);
+            let issued = state.begin_refresh().unwrap();
+            assert_eq!(
+                state.finish_session(issued, result, || panic!("exhausted lookup must not mint")),
+                Err(AccountError::Exhausted)
+            );
+            assert_eq!(
+                state.phase(),
+                SessionPhase::Failed(AccountFailure::Unavailable)
+            );
+            assert!(state.library().is_none());
+            assert!(state.sync().is_none());
+            let before = state.clone();
+            assert_eq!(
+                state.finish_session(issued, Ok(scope("b", 2)), || panic!("late completion")),
+                Ok(SessionCompletion::Ignored)
+            );
+            assert_eq!(state, before);
+        }
     }
 }

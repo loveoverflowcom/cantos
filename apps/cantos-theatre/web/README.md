@@ -222,7 +222,7 @@ declarations do not establish browser or native acceptance.
 | `src/core/listening/` | Separate saved-work/bookmark, progress, simulated history and queue facts/rules |
 | `src/application/player_session.rs` | Commit pure transitions, then interpret effects through `MediaPort`; derived status/view `Memo`s and playback observation callbacks |
 | `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
-| `src/application/account.rs`, `account_view.rs` | Pure session generation, logout acknowledgement, immutable intent ownership, private read projection and fenced sync state lifecycle |
+| `src/application/account.rs`, `account_view.rs` | Deterministic session generation with shell-injected device IDs, fail-closed exhaustion, logout acknowledgement, private read projection and fenced sync state lifecycle |
 | `src/application/library.rs`, `library_sync.rs` | Pure presented Library projection, epoch-checked history paging, Save/progress/history write outbox, receipt reconciliation, account-scoped recovery journal and exact-release resume admission |
 | `src/application/auth_navigation.rs` | Closed internal auth return destinations and checked request epochs; routes never establish a session or registration receipt |
 | `src/application/public_discovery.rs` | Pure Work-list walk: normalized `DiscoveryQuery` (q/kind/language), ticket-fenced requests, opaque cursor bound to its query, bounded follow-up of empty pages, same-cursor retry, `invalid_cursor` → fresh walk (never merged), one-time row identity |
@@ -613,3 +613,19 @@ Durable journal access and parsing failures are visible, do not overwrite unread
 mutation sends until persistence/reconciliation succeeds. The storage action reuses the existing
 receipt/session owners and never retries a mutation generically. Source/host tests and local API
 checks do not establish browser or native acceptance; use the PR's deferred acceptance checklist.
+
+
+### Account transition boundary
+
+Session completion receives its device-ID generator from the shell. Refused duplicate/stale
+requests preserve the whole state. Security invalidation at `u64::MAX` intentionally clears
+private scope, Library and sync memory, cancels cleanup and enters `Failed(Unavailable)` without
+wrapping or issuing another generation; reload is required before fresh admission. This boundary
+is effectively unreachable in an ordinary page lifetime and is not a production incident claim.
+The durable actor-scoped journal is untouched and restores the same operation ID/payload with
+receipt-first recovery after reload. The shell commits this fail-closed transition even when the
+owner returns `Exhausted`.
+
+`generate_uuid_string` remains a shell utility: the browser first tries `crypto.randomUUID`,
+then falls through to the existing process-local counter if no valid UUID was returned. This
+change does not evaluate browser exception/fallback reachability or change that utility.

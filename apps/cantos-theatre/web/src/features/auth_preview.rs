@@ -41,7 +41,11 @@ fn finish_fixture(
     issued: AccountGeneration,
     actor: PreviewActor,
 ) -> Result<bool, AccountError> {
-    match current.finish_session(issued, Ok(actor.scope()?))? {
+    match current.finish_session(
+        issued,
+        Ok(actor.scope()?),
+        crate::application::library_sync::generate_uuid_string,
+    )? {
         SessionCompletion::Authenticated(_) => {
             use crate::application::library::{LibraryPage, Section};
             use cantos_contracts::listener_library::{

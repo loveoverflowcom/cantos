@@ -160,18 +160,17 @@ pub fn refresh(state: RwSignal<AccountViewState>) {
 }
 
 fn refresh_with_budget(state: RwSignal<AccountViewState>, session_change_budget: u8) {
-    let current = state.get_untracked();
-    if matches!(
-        current.phase(),
-        SessionPhase::Checking | SessionPhase::LogoutPending
-    ) {
-        return;
-    }
-    let mut current = current;
-    let Ok(issued) = current.begin_refresh() else {
+    let Some(Ok(issued)) = state.try_update(|current| {
+        if matches!(
+            current.phase(),
+            SessionPhase::Checking | SessionPhase::LogoutPending
+        ) {
+            return Err(crate::application::account::AccountError::RequestPending);
+        }
+        current.begin_refresh()
+    }) else {
         return;
     };
-    state.set(current);
     leptos::task::spawn_local(async move {
         let result = super::account::session().await;
         finish_lookup(state, issued, result, session_change_budget).await;
@@ -189,7 +188,7 @@ async fn finish_lookup(
     let mut actor = None;
     if state
         .try_update(|current| {
-            completion = Some(current.finish_session(issued, result));
+            completion = Some(current.finish_session(issued, result, generate_uuid_string));
             cleanup_intent = current.cleanup_intent().clone();
             actor = current.actor().map(str::to_owned);
         })
@@ -1158,16 +1157,15 @@ pub fn resume_exact_release(
 }
 
 pub fn logout(state: RwSignal<AccountViewState>) {
-    let current = state.get_untracked();
-    if current.cleanup_in_flight() {
-        return;
-    }
-    let mut current = current;
-    let Ok(issued) = current.begin_logout() else {
+    let Some(Some((issued, intent))) = state.try_update(|current| {
+        if current.cleanup_in_flight() {
+            return None;
+        }
+        let issued = current.begin_logout().ok()?;
+        Some((issued, current.cleanup_intent().clone()))
+    }) else {
         return;
     };
-    let intent = current.cleanup_intent().clone();
-    state.set(current);
     let expected = match &intent {
         CleanupIntent::ExpectedSession(session) => Some(session.as_str()),
         CleanupIntent::StaleOnly => None,
@@ -1192,11 +1190,9 @@ pub fn login(
             return;
         }
     };
-    let mut current = state.get_untracked();
-    let Ok(issued) = current.begin_refresh() else {
+    let Some(Ok(issued)) = state.try_update(AccountViewState::begin_refresh) else {
         return;
     };
-    state.set(current);
     leptos::task::spawn_local(async move {
         let result = match login.run().await {
             Ok(()) => super::account::session().await,
@@ -1221,16 +1217,14 @@ pub fn cancel_login() {
 }
 
 fn credentials_lost(state: RwSignal<AccountViewState>) {
-    let Some(mut current) = state.try_get_untracked() else {
+    let Some(Some(issued)) = state.try_update(|current| {
+        if current.phase() != SessionPhase::SignedIn {
+            return None;
+        }
+        current.begin_logout().ok()
+    }) else {
         return;
     };
-    if current.phase() != SessionPhase::SignedIn {
-        return;
-    }
-    let Ok(issued) = current.begin_logout() else {
-        return;
-    };
-    state.set(current);
     leptos::task::spawn_local(async move {
         let result = match crate::api_endpoint::auth() {
             Ok(client) => client

@@ -350,6 +350,7 @@ mod tests {
                     Err(AccountFailure::Diagnostic(
                         crate::application::errors::ErrorKind::Network,
                     )),
+                    || uuid::Uuid::from_u128(100).to_string(),
                 )
                 .unwrap();
             assert_eq!(
@@ -437,7 +438,9 @@ mod tests {
             let issued = state.write().begin_refresh().unwrap();
             let crate::application::account_view::SessionCompletion::Cleanup(cleanup) = state
                 .write()
-                .finish_session(issued, Err(AccountFailure::SignedOut))
+                .finish_session(issued, Err(AccountFailure::SignedOut), || {
+                    uuid::Uuid::from_u128(100).to_string()
+                })
                 .unwrap()
             else {
                 panic!("401 requires cleanup")
@@ -474,6 +477,7 @@ mod tests {
                         uuid::Uuid::from_u128(1).to_string(),
                     )
                     .unwrap()),
+                    || uuid::Uuid::from_u128(100).to_string(),
                 )
                 .unwrap();
             let state = RwSignal::new(current);

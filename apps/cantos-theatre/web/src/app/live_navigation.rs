@@ -406,7 +406,9 @@ mod tests {
             assert_eq!(observe.get(), SessionPhase::Checking);
             state
                 .write()
-                .finish_session(issued, Err(AccountFailure::Protocol))
+                .finish_session(issued, Err(AccountFailure::Protocol), || {
+                    uuid::Uuid::from_u128(100).to_string()
+                })
                 .unwrap();
             assert_eq!(
                 observe.get(),
@@ -490,7 +492,9 @@ mod tests {
         let mut current = state.write();
         let lookup = current.begin_refresh().unwrap();
         let SessionCompletion::Cleanup(cleanup) = current
-            .finish_session(lookup, Err(AccountFailure::SignedOut))
+            .finish_session(lookup, Err(AccountFailure::SignedOut), || {
+                uuid::Uuid::from_u128(100).to_string()
+            })
             .unwrap()
         else {
             panic!("a missing callback session must require cookie cleanup")
@@ -606,7 +610,10 @@ mod tests {
             )
             .unwrap();
             assert_eq!(
-                state.write().finish_session(old_lookup, Ok(scope.clone())),
+                state
+                    .write()
+                    .finish_session(old_lookup, Ok(scope.clone()), || uuid::Uuid::from_u128(100)
+                        .to_string()),
                 Ok(SessionCompletion::Ignored)
             );
             nav.observe_session(state.get_untracked().phase());
@@ -615,7 +622,10 @@ mod tests {
 
             let current_lookup = state.write().begin_refresh().unwrap();
             assert!(matches!(
-                state.write().finish_session(current_lookup, Ok(scope)),
+                state
+                    .write()
+                    .finish_session(current_lookup, Ok(scope), || uuid::Uuid::from_u128(100)
+                        .to_string()),
                 Ok(SessionCompletion::Authenticated(_))
             ));
             nav.observe_session(state.get_untracked().phase());
@@ -651,7 +661,9 @@ mod tests {
             )
             .unwrap();
             assert!(matches!(
-                state.write().finish_session(lookup, Ok(scope)),
+                state
+                    .write()
+                    .finish_session(lookup, Ok(scope), || uuid::Uuid::from_u128(100).to_string()),
                 Ok(SessionCompletion::Authenticated(_))
             ));
             nav.observe_session(state.get_untracked().phase());
