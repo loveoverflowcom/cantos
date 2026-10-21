@@ -1,7 +1,11 @@
 //! Identity-owned file-backed security state. This is internal storage, not a credential
 //! verifier, public provisioning API, AuthenticationFact or authorization boundary.
 
+pub mod proofs;
 mod rows;
+pub use proofs::{
+    ProofCommandId, ProofMaterial, ProofReceipt, ProofReceiptAction, ProofSecret, ProofStoreError,
+};
 
 use std::{fmt, path::PathBuf, sync::Arc};
 
@@ -21,11 +25,18 @@ use crate::domain::{
 
 use rows::{decode_epoch, decode_event, decode_receipt, decode_subject, integer, positive};
 
-const MIGRATIONS: [Migration; 1] = [Migration {
-    version: 1,
-    name: "identity_security_state",
-    sql: include_str!("schema.sql"),
-}];
+const MIGRATIONS: [Migration; 2] = [
+    Migration {
+        version: 1,
+        name: "identity_security_state",
+        sql: include_str!("schema.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "identity_mailbox_proofs",
+        sql: include_str!("proofs.sql"),
+    },
+];
 const RECEIPT_QUERY: &str = "SELECT operation_id,subject_id,kind,expected_version,committed_version,event_seq FROM operation_receipts WHERE operation_id=?1";
 const SUBJECT_QUERY: &str =
     "SELECT subject_id,security_version,state FROM identity_subjects WHERE subject_id=?1";
@@ -427,7 +438,7 @@ async fn initialize_instance(
         InstanceEpoch::from_bytes(bytes).map_err(|_| IdentityStoreError::EntropyUnavailable)?;
     let tx = database.begin_write().await?;
     let result = async {
-        let mut rows = tx.query("SELECT EXISTS(SELECT 1 FROM identity_subjects) OR EXISTS(SELECT 1 FROM security_events) OR EXISTS(SELECT 1 FROM operation_receipts)", ()).await?;
+        let mut rows = tx.query("SELECT EXISTS(SELECT 1 FROM identity_subjects) OR EXISTS(SELECT 1 FROM security_events) OR EXISTS(SELECT 1 FROM operation_receipts) OR EXISTS(SELECT 1 FROM mailbox_proof_issues) OR EXISTS(SELECT 1 FROM mailbox_proof_workflows) OR EXISTS(SELECT 1 FROM mailbox_proof_receipts)", ()).await?;
         let occupied = integer(&rows.next().await?.ok_or(IdentityStoreError::CorruptRecord)?, 0)?;
         if occupied != 0 { return Err(IdentityStoreError::CorruptRecord); }
         drop(rows);
@@ -445,3 +456,6 @@ mod file_tests;
 
 #[cfg(test)]
 mod row_tests;
+
+#[cfg(test)]
+mod proof_file_tests;

@@ -3,7 +3,8 @@
 This service contains the default dependency-free decision core and an opt-in `persistence`
 shell for [#334](https://github.com/loveoverflowcom/cantos/issues/334), on
 `refactor/cantos-native-turso`. The shell consumes the shared embedded Turso owner for real
-file-backed security state. There is no executable, listener, credential verifier, authenticated
+file-backed security state and mailbox-proof lifecycles. There is no executable, listener,
+password/passkey verifier, authenticated
 RPC or production composition. This partial schema does not complete 334.1 or native authentication.
 
 ## Implemented boundary
@@ -24,7 +25,8 @@ these labels do not implement or verify any factor.
 `check_completion` returns only a decision (`Result<(), CompletionDenied>`), never an
 AuthenticationFact, setup capability or session. All inputs are facts that a future owner must
 establish. Internal refusal reasons must become generic denial at the RPC/public boundary.
-No password, token, email or credential is accepted, stored, serialized or logged by this crate.
+The default core accepts no password, secret token, email or credential. The optional shell
+below accepts bounded proof secrets and persists only their digests; it logs no secret.
 
 ## Mailbox-proof decision boundary
 
@@ -59,8 +61,8 @@ replacement keeps the binding, starts at the supplied `now`, has a strictly late
 requires a different locator. Old-locator completion/cancellation/replacement is refused.
 TTL, rate/send/account/IP budgets and retention remain explicit future owner policy.
 
-The persistence owner must enforce fresh secret/digest generation and lifetime locator
-uniqueness, validate stored terminal rows (never hydrate everything with `issue`), and compare
+The persistence owner enforces fresh secret/digest generation and lifetime locator
+uniqueness, validates stored terminal rows (never hydrating everything with `issue`), and compares
 the entire expected snapshot under the shared #332 transaction guard. Replacing that record,
 consuming the real proof and recording its operation receipt must be atomic with the effect
 they authorize. Two copies of a plan are **not** two admissible commits. Reconcile lost/unknown
@@ -88,8 +90,8 @@ After #332, the Identity owner must:
   this stateless check cannot provide consume-once, a freshness lease or race-free session issue;
 - preserve Server ActorId/bindings/permissions; no email auto-link or credential export.
 
-Email/password/secret-proof checked types, actual mailbox verification/signup/recovery, Argon2id, Studio passkey
-ceremonies and one-use recovery codes, credential/proof schema, mail-port relocation, private
+Email/password checked inputs, immutable mailbox workflow binding, signup/recovery, Argon2id,
+Studio passkey ceremonies and one-use recovery codes, credential schema, mail-port relocation, private
 gRPC/UDS authentication, footprint and end-to-end acceptance remain later #334 slices.
 Actor/session/HTTP/frontend integration belongs to #335. No server core or mail implementation
 is copied or moved before its replacement is ready.
@@ -132,11 +134,39 @@ instance metadata, since this startup step has no subject-operation receipt. Con
 immutable guards, bounded event pages, integer exhaustion,
 wrong-epoch/foreign-owner refusal and reopen have real pinned-engine tests.
 
-This slice does not persist mailbox proofs/credentials, implement general recovery/re-enable/
+The mailbox-proof extension below persists challenge state, but no credentials. This shell
+does not implement general recovery/re-enable/
 delete policy, rotate an epoch on restore, provide authenticated RPC, consume events in Server
 or establish revocation propagation/login. A copied old file cannot identify its own restore;
 the explicit restore rotation and Server resync remain #334/#335/#336 acceptance, as do crash,
 true ENOSPC, browser/device, footprint and actual D1 Kani proof evidence.
+
+## File-backed mailbox proofs
+
+The [internal mailbox storage contract](../../packages/contracts/identity-mailbox-store-v1.md)
+adds migration 2 to the same epoch-1 registry and shared owner. It retains migration 1 unchanged.
+Its immutable issue history preserves locator/digest uniqueness; a workflow stores its complete
+original binding/current proof, and a separate command namespace binds immutable receipts.
+Checked hydration retains Pending, Consumed and Cancelled states and refuses malformed rows.
+
+`ProofMaterial::generate` creates an OS-random locator and 32-byte secret. The secret is
+non-cloneable, redacted and zeroized on drop, with explicit exposure for a future mail adapter.
+The file stores only a domain-separated digest. Issue/replace accept retained material so
+unknown-outcome reconciliation never silently generates a different secret. No durable mail
+outbox, delivery or secret recovery is supplied; a crash can lose undispatched secret material.
+
+The owner checks current locator/digest, explicit action, trusted transaction time, original
+epoch and recovery subject/version before a new transition. Existing pure plans feed one
+conditional update plus receipt transaction. Exact retries return historical receipts, with
+all payload fields bound; they grant no current verified status, setup capability or session.
+Proof confirmation is a storage primitive, not a production signup journey. A future setup
+command must compose consumption and its authorized effect in the same transaction using the
+transaction-local primitive; it cannot grant from a separately committed row/receipt.
+
+The existing feature-enabled Turso gate includes real-file proof tests. The default pure core
+and Kani feature selection are unchanged. Immutable email binding, signup/setup, qualified
+password/passkey credentials, rate/send/account/IP budgets, RPC and full A-starts-for-B
+acceptance remain separate work. No live account, mail, legacy DB or runtime is changed.
 
 ## Verification
 

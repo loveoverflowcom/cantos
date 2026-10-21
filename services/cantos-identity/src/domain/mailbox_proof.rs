@@ -197,6 +197,18 @@ impl MailboxProof {
         issued_at: ProofTime,
         expires_at: ProofTime,
     ) -> Result<Self, ProofDenied> {
+        Self::restore(id, binding, issued_at, expires_at, ProofState::Pending)
+    }
+
+    /// Checked owner-only hydration preserves terminal state instead of reopening Pending.
+    /// Shape validation supplies no proof possession, caller authority or setup capability.
+    pub(crate) fn restore(
+        id: ProofId,
+        binding: ProofBinding,
+        issued_at: ProofTime,
+        expires_at: ProofTime,
+        state: ProofState,
+    ) -> Result<Self, ProofDenied> {
         if expires_at <= issued_at {
             return Err(ProofDenied::InvalidWindow);
         }
@@ -205,7 +217,7 @@ impl MailboxProof {
             binding,
             issued_at,
             expires_at,
-            state: ProofState::Pending,
+            state,
         })
     }
 

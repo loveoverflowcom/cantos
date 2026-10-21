@@ -43,6 +43,58 @@ fn pending() -> MailboxProof {
 }
 
 #[test]
+fn restored_terminal_states_keep_the_exact_binding_and_never_reopen_pending() {
+    let original = pending();
+    for state in [
+        ProofState::Pending,
+        ProofState::Consumed,
+        ProofState::Cancelled,
+    ] {
+        let restored = MailboxProof::restore(
+            original.id(),
+            original.binding(),
+            original.issued_at(),
+            original.expires_at(),
+            state,
+        )
+        .unwrap();
+        assert_eq!(restored.id(), original.id());
+        assert_eq!(restored.binding(), original.binding());
+        assert_eq!(restored.issued_at(), original.issued_at());
+        assert_eq!(restored.expires_at(), original.expires_at());
+        assert_eq!(restored.state(), state);
+        for (issued, expires) in [(10, 10), (20, 10)] {
+            assert_eq!(
+                MailboxProof::restore(
+                    original.id(),
+                    original.binding(),
+                    time(issued),
+                    time(expires),
+                    state
+                ),
+                Err(ProofDenied::InvalidWindow),
+            );
+        }
+        let expected = match state {
+            ProofState::Pending => Ok(ProofState::Consumed),
+            ProofState::Consumed => Err(ProofDenied::Consumed),
+            ProofState::Cancelled => Err(ProofDenied::Cancelled),
+        };
+        assert_eq!(
+            restored
+                .plan_confirmation(
+                    restored.id(),
+                    restored.binding(),
+                    ProofAction::ExplicitConfirmation,
+                    time(15)
+                )
+                .map(|plan| plan.next().state()),
+            expected
+        );
+    }
+}
+
+#[test]
 fn the_plan_exposes_exact_typed_storage_facts_without_an_authority_value() {
     let proof = pending();
     assert_eq!(proof.id(), id(1));
