@@ -54,12 +54,13 @@ pub(super) fn bounded_filesystem_io<T: Send + 'static>(
 pub(crate) struct FilesystemStorage {
     #[cfg(unix)]
     inner: std::sync::Arc<unix::ObjectDirectories>,
+    lanes: Arc<Semaphore>,
 }
 
 impl PrivateStorage for FilesystemStorage {
     fn put_if_absent(&self, payload: VerifiedPayload) -> StorageFuture<()> {
         let storage = self.clone();
-        bounded_filesystem_io(IO_LANES.clone(), move || {
+        bounded_filesystem_io(storage.lanes.clone(), move || {
             let stored = match &payload {
                 VerifiedPayload::Audio(audio) => storage.persist_audio(audio),
                 VerifiedPayload::Image(image) => storage.persist_image(image),
@@ -74,7 +75,7 @@ impl PrivateStorage for FilesystemStorage {
 
     fn verify(&self, key: ObjectKey, integrity: ObjectIntegrity) -> StorageFuture<()> {
         let storage = self.clone();
-        bounded_filesystem_io(IO_LANES.clone(), move || {
+        bounded_filesystem_io(storage.lanes.clone(), move || {
             storage.verified_file(&key, &integrity).map(|_| ())
         })
     }
@@ -103,7 +104,7 @@ impl PrivateStorage for FilesystemStorage {
             if range.total_byte_length() != integrity.byte_length() {
                 return Err(StorageError::LengthMismatch);
             }
-            let file = bounded_filesystem_io(IO_LANES.clone(), move || {
+            let file = bounded_filesystem_io(storage.lanes.clone(), move || {
                 // Hash, metadata checks and named-inode verification retain this exact handle.
                 // Never verify-close-reopen: the name could select a different inode afterward.
                 let mut file = storage.verified_file(&key, &integrity)?;
@@ -157,15 +158,27 @@ impl FilesystemStorage {
     /// The explicit absolute root must be owned by the current Unix user and mode 0700.
     /// Only the final root directory may be created; existing permissions are never widened.
     pub(crate) fn new(root: &Path) -> Result<Self, StoreError> {
+        Self::with_lanes(root, IO_LANES.clone())
+    }
+
+    /// Independent test lanes exercise the actual fail-fast bound without competing with
+    /// unrelated parallel tests for the process-wide production lanes.
+    #[cfg(test)]
+    pub(crate) fn with_test_lanes(root: &Path, lanes: Arc<Semaphore>) -> Result<Self, StoreError> {
+        Self::with_lanes(root, lanes)
+    }
+
+    fn with_lanes(root: &Path, lanes: Arc<Semaphore>) -> Result<Self, StoreError> {
         #[cfg(unix)]
         {
             Ok(Self {
                 inner: std::sync::Arc::new(unix::ObjectDirectories::new(root)?),
+                lanes,
             })
         }
         #[cfg(not(unix))]
         {
-            let _ = root;
+            let _ = (root, lanes);
             Err(StoreError::Unavailable)
         }
     }
@@ -693,8 +706,18 @@ pub(super) mod unix {
             format!("{:x}", Sha256::digest(bytes))
         }
 
+        /// The adapter under test with its own production-sized lanes, so parallel tests never
+        /// observe each other's permits as `Unavailable`.
+        fn isolated_storage(scratch: &Scratch) -> super::super::FilesystemStorage {
+            super::super::FilesystemStorage::with_test_lanes(
+                &scratch.0,
+                Arc::new(tokio::sync::Semaphore::new(4)),
+            )
+            .unwrap()
+        }
+
         fn async_storage(scratch: &Scratch, bytes: &[u8]) -> super::super::FilesystemStorage {
-            let storage = super::super::FilesystemStorage::new(&scratch.0).unwrap();
+            let storage = isolated_storage(scratch);
             storage
                 .inner
                 .persist_bytes(bytes, &digest(bytes), bytes.len() as u64)
@@ -716,7 +739,7 @@ pub(super) mod unix {
 
         #[tokio::test]
         async fn inspected_images_survive_conditional_replay_restart_and_exact_private_reads() {
-            use super::super::{FilesystemStorage, ObjectIntegrity, ObjectKey, PrivateStorage};
+            use super::super::{ObjectIntegrity, ObjectKey, PrivateStorage};
             use crate::contexts::media::{
                 domain::{image::ImageMime, object_storage::ByteRange},
                 image_intake::ImageAdmission,
@@ -724,7 +747,7 @@ pub(super) mod unix {
             };
 
             let scratch = Scratch::new();
-            let storage = FilesystemStorage::new(&scratch.0).unwrap();
+            let storage = isolated_storage(&scratch);
             for (bytes, mime) in [
                 (
                     include_bytes!("image_intake/fixtures/python-rgb-2x3.png").as_slice(),
@@ -750,7 +773,7 @@ pub(super) mod unix {
                 }
                 let key = ObjectKey::for_bytes(bytes);
                 let integrity = ObjectIntegrity::for_bytes(bytes).unwrap();
-                let restarted = FilesystemStorage::new(&scratch.0).unwrap();
+                let restarted = isolated_storage(&scratch);
                 restarted
                     .verify(key.clone(), integrity.clone())
                     .await
@@ -784,7 +807,7 @@ pub(super) mod unix {
 
         #[tokio::test]
         async fn replay_of_an_inspected_image_rejects_corruption_without_overwriting_it() {
-            use super::super::{FilesystemStorage, PrivateStorage};
+            use super::super::PrivateStorage;
             use crate::contexts::media::{
                 domain::image::ImageMime, image_intake::ImageAdmission,
                 storage::port::VerifiedPayload,
@@ -792,7 +815,7 @@ pub(super) mod unix {
 
             let bytes = include_bytes!("image_intake/fixtures/python-rgb-2x3.png").as_slice();
             let scratch = Scratch::new();
-            let storage = FilesystemStorage::new(&scratch.0).unwrap();
+            let storage = isolated_storage(&scratch);
             let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
                 tokio::sync::Semaphore::new(1),
             ))
