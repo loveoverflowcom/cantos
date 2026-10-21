@@ -117,8 +117,8 @@ pub enum Action {
     },
     /// Run release contract, packaging, DAG and mocked promotion regressions.
     SelfTest,
-    /// Offline validation of an explicitly admitted native OCI image pair and host bundle.
-    /// This never builds, contacts a registry or activates a host.
+    /// Verify an admitted native OCI pair offline; optionally read its exact GHCR metadata.
+    /// This never builds, publishes, pulls image layers or activates a host.
     OciVerify {
         #[arg(long)]
         manifest: PathBuf,
@@ -138,6 +138,12 @@ pub enum Action {
         /// Same read-only plan; no SSH, registry access, subprocess build or output write.
         #[arg(long)]
         dry_run: bool,
+        /// Explicit read-only GHCR manifest/config observation; dry-run stays offline.
+        #[arg(long)]
+        registry_readback: bool,
+        /// Private, existing GHCR authfile; no implicit login or credential helper.
+        #[arg(long, requires = "registry_readback")]
+        authfile: Option<PathBuf>,
     },
 }
 
@@ -163,9 +169,11 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         admission,
         admission_digest,
         dry_run,
+        registry_readback,
+        authfile,
     } = action
     {
-        return command
+        let command = command
             .args([
                 "scripts/release_oci.py".into(),
                 "--manifest".into(),
@@ -183,7 +191,13 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
                 "--admission-digest".into(),
                 admission_digest.clone(),
             ])
-            .arg_if(*dry_run, "--dry-run");
+            .arg_if(*dry_run, "--dry-run")
+            .arg_if(*registry_readback, "--registry-readback");
+        return if let Some(path) = authfile {
+            command.args(["--authfile".into(), path.display().to_string()])
+        } else {
+            command
+        };
     }
     let mut command = command.args(["scripts/release_pipeline.py"]);
     match action {
@@ -337,7 +351,15 @@ mod tests {
         ];
         assert!(Cli::try_parse_from(pins).is_ok());
         assert!(Cli::try_parse_from(&pins[..pins.len() - 2]).is_err());
-        let action = Action::OciVerify {
+        assert!(Cli::try_parse_from(pins.into_iter().chain(["--authfile", "auth.json"])).is_err());
+        assert!(Cli::try_parse_from(pins.into_iter().chain([
+            "--registry-readback",
+            "--authfile",
+            "auth.json",
+            "--dry-run"
+        ]))
+        .is_ok());
+        let mut action = Action::OciVerify {
             manifest: "manifest.json".into(),
             manifest_digest: "digest".into(),
             source_sha: "sha".into(),
@@ -346,6 +368,8 @@ mod tests {
             admission: "admission.json".into(),
             admission_digest: "admission-digest".into(),
             dry_run: true,
+            registry_readback: false,
+            authfile: None,
         };
         let workspace = Workspace::discover().unwrap();
         let plan = command(&workspace, &action);
@@ -354,6 +378,25 @@ mod tests {
         assert_eq!(&plan.args[1..pins.len() - 2], &pins[3..]);
         assert_eq!(plan.args.last().unwrap(), "--dry-run");
         assert!(plan.env.is_empty());
+        if let Action::OciVerify {
+            registry_readback,
+            authfile,
+            ..
+        } = &mut action
+        {
+            *registry_readback = true;
+            *authfile = Some("auth.json".into());
+        }
+        let plan = command(&workspace, &action);
+        assert_eq!(
+            &plan.args[plan.args.len() - 4..],
+            &[
+                "--dry-run",
+                "--registry-readback",
+                "--authfile",
+                "auth.json"
+            ]
+        );
     }
 
     #[test]
