@@ -43,6 +43,19 @@ Application shells deliberately open/commit PostgreSQL transactions and call con
 `contexts/<context>/postgres` functions with authorization and locks in the same transaction.
 This refactor introduces no generic Repository/UnitOfWork or global outbound adapter tree.
 
+The checker places persistence by owner, not by engine. SQL naming a known table (in Rust
+strings, `.sql` files or text a file includes, DDL references included) belongs in the owning
+context's adapter module, `contexts/<context>/postgres` today or `contexts/<context>/turso` for
+the #333 port, or in platform code for platform tables. The operator seed's exact
+(file, verb, table) inserts are the only platform access to context tables, and only the
+migration registry includes the whole schema. A backend name elsewhere (`application/turso/`, a
+top-level `turso/`) is not an adapter. Each adapter opens only its own backend, other context
+code reaches Turso only through its adapter, HTTP opens no driver, no SQL attaches another
+database, and generated Identity RPC types stay in `platform/identity_auth`. The Identity crate
+and workspace manifests have matching checks. These are static checks of explicit paths and
+literal SQL: macros, dynamic SQL, `#[path]` mounts and re-exports remain review obligations, and
+process/file isolation, one-owner locking and cross-database reads still need runtime tests.
+
 ## Session policy and credential boundary
 
 `platform/bearer/core.rs` owns immutable, checked `SessionPolicy` values and pure lifetime/

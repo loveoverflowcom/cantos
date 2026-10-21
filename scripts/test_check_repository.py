@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for skill structure and API/Theatre architecture checks in check_repository.py.
+"""Tests for skill structure and Server/Identity/Theatre/manifest checks in check_repository.py.
 
 Run from the repository root:
 
@@ -249,6 +249,12 @@ class ApiArchitectureTest(unittest.TestCase):
         errors = self.errors(path, content)
         self.assertTrue(any(reason in error for error in errors), errors)
 
+    def assertRejectedAt(self, path, content, reason):
+        """Reject at this file, so a violation left by an earlier case cannot satisfy it."""
+        errors = self.errors(path, content)
+        prefix = f"{checks.API_SOURCE / path}:"
+        self.assertTrue(any(error.startswith(prefix) and reason in error for error in errors), errors)
+
     def test_guard_cannot_pass_vacuously_when_its_source_tree_is_absent_or_moved(self):
         """Negative control: a rename that leaves API_SOURCE dangling must fail, not pass."""
         reason = "no Rust sources to check"
@@ -448,7 +454,7 @@ const QUERY: &str = "SELECT id FROM audio_upload_intents JOIN audio_intake_recei
                             "SQL table audio_intake_receipts belongs to media")
         self.assertRejected("contexts/media/application.rs",
                             'let sql = "INSERT INTO audio_upload_intents VALUES ($1)";',
-                            "SQL table access belongs in the PostgreSQL adapter")
+                            "SQL table access belongs in its owner's persistence adapter")
 
     def test_new_context_requires_explicit_dependency_policy(self):
         self.assertRejected("contexts/publishing/mod.rs", "mod domain;",
@@ -497,7 +503,7 @@ const QUERY: &str = "SELECT id FROM catalog_works";
             with self.subTest(path=path):
                 self.assertRejected(path,
                                     'const QUERY: &str = "UPDATE catalog_works SET head_revision=$1";',
-                                    "SQL table access belongs in the PostgreSQL adapter")
+                                    "SQL table access belongs in its owner's persistence adapter")
 
     def test_context_adapter_and_use_case_modules_remain_private(self):
         self.assertRejected("contexts/production/mod.rs", "pub(crate) mod postgres;",
@@ -718,7 +724,7 @@ const QUERY: &str = r#"SELECT document_bytes FROM public.production_snapshots WH
     def test_application_cannot_bypass_sql_adapter_even_for_its_own_table(self):
         self.assertRejected("contexts/production/application/freeze.rs",
                             'let sql = "UPDATE production_snapshots SET id=$1";',
-                            "SQL table access belongs in the PostgreSQL adapter")
+                            "SQL table access belongs in its owner's persistence adapter")
 
     def test_platform_cannot_depend_on_business_contexts(self):
         self.assertRejected("platform/postgres/mod.rs", """
@@ -749,6 +755,519 @@ mod tests { use super::canonical_uuid; }
 const DOC: &str = r##"A \"quote\" and reqwest::get are examples"##;
 fn f<'a>(value: &'a str) { let quote = '\"'; let letter = 'a'; }
 """), [])
+
+    # Persistence adapters: the rule names a context-owned backend module, not PostgreSQL.
+
+    def test_postgres_and_turso_context_adapters_own_their_tables(self):
+        """Positive: the legacy adapter and a Turso adapter of the same owner reuse the shared store."""
+        for path, content in (
+            ("contexts/catalog/postgres.rs", """
+use crate::platform::postgres::Tx;
+const QUERY: &str = "SELECT id FROM catalog_works";
+"""),
+            ("contexts/catalog/turso.rs", """
+use cantos_store_turso::{OwnedDatabase, registry::Intent};
+const QUERY: &str = "SELECT id FROM main.catalog_works";
+"""),
+            ("contexts/catalog/turso/works.rs", r'''
+use cantos_store_turso::OwnedDatabase;
+use crate::contexts::catalog::domain::Work;
+const INSERT: &str = r#"INSERT INTO "catalog_works" (id) VALUES (?1)"#;
+'''),
+            ("contexts/catalog/turso/schema.sql",
+             "CREATE TABLE IF NOT EXISTS catalog_works (id TEXT PRIMARY KEY);\n"
+             "-- Ingestion still owns source_records; this adapter never reads FROM source_records.\n"),
+            ("contexts/catalog/mod.rs", """
+mod postgres;
+mod turso;
+pub use turso::CatalogRows;
+fn open() { turso::open(); postgres::load(); }
+"""),
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.errors(path, content), [])
+
+    def test_backend_name_outside_a_context_adapter_does_not_admit_sql(self):
+        """Negative: a directory or file named turso/postgres elsewhere is not an adapter."""
+        for path in (
+            "contexts/catalog/application/turso/works.rs",
+            "contexts/catalog/application/turso.sql",
+            "contexts/catalog/domain/turso.rs",
+            "contexts/catalog/domain/postgres.rs",
+            "adapters/inbound/http/turso/catalog.rs",
+            "adapters/turso.rs",
+            "turso/catalog.rs",
+            "application.rs",
+            "bin/turso.rs",
+        ):
+            with self.subTest(path=path):
+                content = ("UPDATE catalog_works SET title = ?1;\n" if path.endswith(".sql")
+                           else 'const Q: &str = "SELECT id FROM catalog_works";\n')
+                self.assertRejectedAt(path, content,
+                                      "SQL table access belongs in its owner's persistence adapter")
+        self.assertRejectedAt("contexts/turso/catalog.rs", "fn f() {}",
+                              "new context needs an explicit dependency policy")
+
+    def test_quoted_and_schema_qualified_tables_cannot_hide_ownership(self):
+        for path, content, reason in (
+            ("contexts/catalog/application.rs", r'const Q: &str = "SELECT * FROM \"catalog_works\"";',
+             "SQL table access belongs in its owner's persistence adapter"),
+            ("contexts/catalog/application/rows.rs", 'const Q: &str = "UPDATE `catalog_works` SET x = 1";',
+             "SQL table access belongs in its owner's persistence adapter"),
+            ("contexts/catalog/turso.rs",
+             'const Q: &str = r#"CREATE TABLE IF NOT EXISTS main.listener_state (id TEXT)"#;',
+             "SQL table listener_state belongs to listening"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+
+    def test_turso_adapter_keeps_table_ownership_and_path_specific_legacy_links(self):
+        for path, content, reason in (
+            ("contexts/catalog/turso.rs", 'const Q: &str = "SELECT id FROM source_records";',
+             "SQL table source_records belongs to ingestion"),
+            ("contexts/catalog/turso/actors.rs", 'const Q: &str = "SELECT id FROM actors";',
+             "SQL table actors belongs to platform"),
+            # The PostgreSQL legacy link is exact; porting it needs its own reviewed exception.
+            ("contexts/ingestion/turso.rs", 'const Q: &str = "SELECT id FROM revision_evidence";',
+             "SQL table revision_evidence belongs to editorial"),
+            ("contexts/catalog/turso/schema.sql",
+             "CREATE TABLE IF NOT EXISTS main.audio_intake_receipts (id TEXT);\n",
+             "SQL table audio_intake_receipts belongs to media"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+
+    def test_context_code_reaches_turso_only_through_its_adapter(self):
+        for path, content, reason in (
+            ("contexts/catalog/application.rs", "use cantos_store_turso::OwnedDatabase;",
+             "only through its persistence adapter"),
+            ("contexts/catalog/application/works.rs", "use turso as engine; fn f() { engine::Builder::new_local(p); }",
+             "only through its persistence adapter"),
+            # A leading `::` names the engine crate even beside the context's own `mod turso;`.
+            ("contexts/catalog/mod.rs", "mod turso;\nfn f() { ::turso::Builder::new_local(p); }",
+             "only through its persistence adapter"),
+            ("contexts/media/application.rs", "use crate::contexts::catalog::turso::CatalogRows;",
+             "owning context's entrypoint"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+                (self.root / checks.API_SOURCE / path).unlink()
+        self.assertRejected("contexts/catalog/mod.rs", "pub(crate) mod turso;", "turso must remain private")
+
+    def test_each_adapter_module_opens_only_its_own_backend(self):
+        for path, content, reason in (
+            ("contexts/catalog/turso.rs", "use tokio_postgres::Row;",
+             "the turso persistence adapter must not open the postgres backend"),
+            ("contexts/catalog/turso/rows.rs", "use crate::platform::postgres::Tx;",
+             "the turso persistence adapter must not open the postgres backend"),
+            ("contexts/catalog/postgres.rs", "use cantos_store_turso::OwnedDatabase;",
+             "the postgres persistence adapter must not open the turso backend"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+
+    def test_pure_domain_rejects_turso_store_and_rpc_types(self):
+        for path in ("contexts/listening/domain/progress.rs", "platform/identity/domain.rs"):
+            for dependency, reason in (
+                ("turso::Connection", "pure domain must not depend on I/O"),
+                ("cantos_store_turso::OwnedDatabase", "pure domain must not depend on I/O"),
+                ("libsql::Connection", "pure domain must not depend on I/O"),
+                ("cantos_identity_rpc::ValidatedFact", "pure domain must not depend on generated RPC DTOs"),
+                ("tonic::Status", "pure domain must not depend on generated RPC DTOs"),
+                ("prost::Message", "pure domain must not depend on generated RPC DTOs"),
+            ):
+                with self.subTest(path=path, dependency=dependency):
+                    self.assertRejectedAt(path, f"use {dependency};", reason)
+
+    def test_rpc_types_stay_in_the_platform_identity_adapter(self):
+        self.assertEqual(self.errors("platform/identity_auth/client.rs", """
+use cantos_identity_rpc::{identity_client::IdentityClient, Purpose};
+use tonic::{transport::Channel, Status};
+"""), [])
+        for path, dependency in (
+            ("adapters/inbound/http/identity_auth.rs", "cantos_identity_rpc::AuthenticationFact"),
+            ("contexts/listening/application.rs", "cantos_identity_rpc::ValidatedFact"),
+            ("application.rs", "tonic::transport::Channel"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, f"use {dependency};",
+                                      "generated Identity RPC DTOs and their runtime stay in the platform Identity adapter")
+
+    def test_server_never_imports_the_identity_service_crate(self):
+        for path in ("platform/identity_auth/client.rs", "adapters/inbound/http/identity_auth.rs",
+                     "contexts/listening/application.rs", "bin/cantos-server.rs"):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, "use cantos_identity::application::Identity;",
+                                      "never the cantos-identity service crate")
+
+    def test_http_cannot_open_turso_or_its_plumbing(self):
+        for dependency, reason in (
+            ("cantos_store_turso::OwnedDatabase", "HTTP must not call a database or external provider"),
+            ("turso::Connection", "HTTP must not call a database or external provider"),
+            ("crate::platform::turso::Store", "only the legacy Store and StoreError facade"),
+            ("crate::platform::postgres::Tx", "only the legacy Store and StoreError facade"),
+        ):
+            with self.subTest(dependency=dependency):
+                self.assertRejectedAt("adapters/inbound/http/studio/catalog.rs", f"use {dependency};", reason)
+
+    def test_platform_sql_keeps_context_tables_except_the_reviewed_operator_seed(self):
+        self.assertEqual(self.errors("platform/operator.rs", """
+fn seed() { tx.execute("INSERT INTO script_evidence(owner_id,kind,id) VALUES($1,$2,$3)", &[]); }
+fn grant() { tx.execute("INSERT INTO actors(id) VALUES($1)", &[]); }
+"""), [])
+        self.assertEqual(self.errors("platform/bearer/credential.sql",
+                                     "SELECT token_hash FROM bearer_tokens WHERE family = $1;\n"), [])
+        for path, content, reason in (
+            ("platform/operator.rs", 'fn read() { tx.query("SELECT id FROM script_evidence", &[]); }',
+             "SQL table script_evidence belongs to editorial"),
+            ("platform/identity_auth/turso.rs", 'const Q: &str = "SELECT id FROM listener_state";',
+             "SQL table listener_state belongs to listening"),
+            ("platform/bearer/credential.sql", "UPDATE catalog_works SET title = $1;\n",
+             "SQL table catalog_works belongs to catalog"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+
+    def test_server_sql_cannot_name_identity_database_tables(self):
+        schema = self.root / checks.IDENTITY_SOURCE / checks.IDENTITY_PERSISTENCE / "schema.sql"
+        schema.parent.mkdir(parents=True)
+        schema.write_text("CREATE TABLE identity_subjects (id BLOB PRIMARY KEY);\n", encoding="utf-8")
+        for path, content in (
+            ("platform/identity_auth/postgres.rs", 'const Q: &str = "SELECT id FROM identity_subjects";'),
+            # An attached alias qualifies the name; the guard still sees the Identity table.
+            ("contexts/listening/turso.rs", 'const Q: &str = "SELECT id FROM ident.identity_subjects";'),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content,
+                                      "SQL table identity_subjects belongs to the Identity database")
+        self.assertRejectedAt("contexts/listening/turso/open.rs",
+                              """const A: &str = "ATTACH DATABASE 'identity.db' AS ident";""",
+                              "SQL must not ATTACH another database")
+
+    def test_qualified_bracketed_and_escaped_names_cannot_hide_tables(self):
+        for index, content in enumerate((
+            r'const Q: &str = r#"SELECT * FROM "main"."catalog_works""#;',
+            'const Q: &str = "SELECT * FROM temp.catalog_works";',
+            'const Q: &str = "SELECT * FROM [catalog_works]";',
+            'const Q: &str = "SELECT id FROM \\\n    catalog_works";',
+            r'const Q: &str = "SELECT id FROM\ncatalog_works";',
+        )):
+            with self.subTest(content=content):
+                self.assertRejectedAt(f"contexts/catalog/application/q{index}.rs", content,
+                                      "SQL table access belongs in its owner's persistence adapter")
+
+    def test_ddl_references_and_index_or_trigger_targets_keep_table_ownership(self):
+        self.assertEqual(self.errors("contexts/listening/turso.rs", "mod schema;"), [])
+        for index, statement in enumerate((
+            "CREATE TABLE listener_saved (work TEXT REFERENCES catalog_works(id));",
+            "CREATE INDEX listener_work ON catalog_works(id);",
+            "CREATE TRIGGER t AFTER UPDATE ON main.catalog_works BEGIN SELECT 1; END;",
+        )):
+            with self.subTest(statement=statement):
+                self.assertRejectedAt(f"contexts/listening/turso/schema{index}.sql", statement + "\n",
+                                      "SQL table catalog_works belongs to catalog")
+
+    def test_included_sql_is_judged_as_the_including_file(self):
+        sql = self.root / checks.API_SOURCE / "contexts/catalog/turso/q.sql"
+        sql.parent.mkdir(parents=True)
+        sql.write_text("UPDATE catalog_works SET title = ?1;\n", encoding="utf-8")
+        text = self.root / checks.API_SOURCE / "contexts/catalog/application/q.txt"
+        text.parent.mkdir(parents=True)
+        text.write_text("SELECT id FROM catalog_works", encoding="utf-8")
+        for path, content, reason in (
+            ("contexts/catalog/application.rs", 'const Q: &str = include_str!("turso/q.sql");',
+             "SQL table access belongs in its owner's persistence adapter"),
+            ("contexts/catalog/application/load.rs", 'const Q: &str = include_str!("q.txt");',
+             "SQL table access belongs in its owner's persistence adapter"),
+            ("contexts/listening/turso.rs", 'const Q: &[u8] = include_bytes!("../catalog/turso/q.sql");',
+             "SQL table catalog_works belongs to catalog"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+
+    def test_only_the_schema_registry_includes_the_whole_postgres_schema(self):
+        schema = self.root / "services/cantos-server/schema/0001_current.sql"
+        schema.parent.mkdir(parents=True)
+        schema.write_text("CREATE TABLE public.scripts (id text);\n", encoding="utf-8")
+        include = 'const BASELINE: &str = include_str!("../../../schema/0001_current.sql");'
+        self.assertEqual(self.errors(checks.SCHEMA_REGISTRY.as_posix(), include), [])
+        self.assertRejectedAt("platform/bearer/postgres.rs",
+                              'const BASELINE: &str = include_str!("../../../schema/0001_current.sql");',
+                              "SQL table scripts belongs to editorial")
+
+    def test_registration_tables_are_platform_owned(self):
+        self.assertRejectedAt("contexts/catalog/postgres.rs",
+                              'const Q: &str = "SELECT id FROM theatre_registrations";',
+                              "SQL table theatre_registrations belongs to platform")
+
+    def test_turso_adapter_cannot_call_its_contexts_postgres_adapter(self):
+        self.assertRejectedAt("contexts/catalog/turso.rs", "fn f() { super::postgres::load(); }",
+                              "the turso persistence adapter must not open the postgres backend")
+
+    def test_declared_module_resolution_follows_inline_scope_and_extern_crates(self):
+        for path, content, reason in (
+            ("contexts/catalog/mod.rs", "mod turso;\nmod inner { fn f() { turso::Builder::new_local(p); } }",
+             "only through its persistence adapter"),
+            ("contexts/catalog/application.rs", "extern crate turso as t;\nfn f() { t::Builder::new_local(p); }",
+             "only through its persistence adapter"),
+            ("platform/identity_auth/client.rs", "extern crate cantos_identity as idsvc;\nfn f() { idsvc::run(); }",
+             "never the cantos-identity service crate"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+                (self.root / checks.API_SOURCE / path).unlink()
+        self.assertEqual(self.errors("contexts/catalog/mod.rs",
+                                     "mod inner { mod turso; fn f() { turso::open(); } }"), [])
+
+    def test_rpc_types_stay_in_the_identity_adapter_not_any_platform_module(self):
+        self.assertRejectedAt("platform/bearer/mod.rs", "use cantos_identity_rpc::ValidatedFact;",
+                              "generated Identity RPC DTOs and their runtime stay in the platform Identity adapter")
+
+
+class IdentityArchitectureTest(unittest.TestCase):
+    """Production `check_identity_architecture` over a minimal valid Identity crate."""
+
+    VALID = {
+        "lib.rs": "pub mod application;\npub mod domain;\npub mod persistence;\npub mod rpc;\n",
+        "domain/mod.rs": "pub mod email;\nuse std::fmt;\n",
+        "domain/email.rs": "use zeroize::Zeroizing;\nuse super::ids::SubjectId;\n",
+        "persistence/schema.sql": "CREATE TABLE identity_subjects (id BLOB PRIMARY KEY);\n",
+        "persistence/mod.rs": """
+use cantos_store_turso::{registry::Intent, OwnedDatabase};
+const SCHEMA: &str = include_str!("schema.sql");
+const READ: &str = "SELECT id FROM identity_subjects WHERE id = ?1";
+""",
+        "rpc.rs": "use cantos_identity_rpc::{identity_server::Identity, Purpose};\nuse tonic::{Request, Status};\n",
+        "server.rs": "use cantos_identity_rpc::identity_server::IdentityServer;\nuse cantos_store_turso::clock::SystemClock;\n",
+        "application.rs": "use cantos_store_turso::clock::Clock;\nuse crate::domain::email::EmailAddress;\n",
+    }
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        for path, content in self.VALID.items():
+            self.write(path, content)
+
+    def write(self, path, content):
+        file = self.root / checks.IDENTITY_SOURCE / path
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(content, encoding="utf-8")
+
+    def assertRejectedAt(self, path, content, reason):
+        """Write one violation, assert it at this file and restore the valid fixture."""
+        self.write(path, content)
+        errors = checks.check_identity_architecture(self.root)
+        prefix = f"{checks.IDENTITY_SOURCE / path}:"
+        self.assertTrue(any(error.startswith(prefix) and reason in error for error in errors), errors)
+        if path in self.VALID:
+            self.write(path, self.VALID[path])
+        else:
+            (self.root / checks.IDENTITY_SOURCE / path).unlink()
+
+    def test_valid_identity_crate_reuses_the_shared_store_at_its_adapters(self):
+        self.assertEqual(checks.identity_tables(self.root), {"identity_subjects"})
+        self.assertEqual(checks.check_identity_architecture(self.root), [])
+
+    def test_repository_identity_crate_passes_at_its_literal_path(self):
+        self.assertEqual(checks.IDENTITY_SOURCE, Path("services/cantos-identity/src"))
+        self.assertTrue({"identity_subjects", "password_credentials"} <= checks.identity_tables(checks.ROOT))
+        self.assertEqual(checks.check_identity_architecture(checks.ROOT), [])
+
+    def test_guard_cannot_pass_vacuously(self):
+        empty = Path(self.directory.name) / "empty"
+        self.assertTrue(any("no Rust sources to check" in error
+                            for error in checks.check_identity_architecture(empty)))
+        shutil.rmtree(self.root / checks.IDENTITY_SOURCE / "domain")
+        self.assertTrue(any("no domain module" in error
+                            for error in checks.check_identity_architecture(self.root)))
+        self.write("domain/mod.rs", "use std::fmt;\n")
+        (self.root / checks.IDENTITY_SOURCE / "persistence/schema.sql").unlink()
+        # Tables created only by test fixtures do not define the Identity database.
+        self.write("persistence/file_tests.rs", 'const T: &str = "CREATE TABLE identity_subjects (id BLOB)";\n')
+        self.assertTrue(any("defines no tables" in error
+                            for error in checks.check_identity_architecture(self.root)))
+
+    def test_domain_rejects_store_engine_rpc_and_outer_modules(self):
+        for content, reason in (
+            ("use cantos_store_turso::OwnedDatabase;", "pure domain must not depend on I/O"),
+            ("use turso::Connection;", "pure domain must not depend on I/O"),
+            ("use tokio::fs;", "pure domain must not depend on I/O"),
+            ("use cantos_identity_rpc::ValidatedFact;", "pure domain must not depend on generated RPC DTOs"),
+            ("use tonic::Status;", "pure domain must not depend on generated RPC DTOs"),
+            ("use crate::persistence::SecurityStore;", "Identity domain must not depend on its adapters"),
+            ("use super::application::Identity;", "Identity domain must not depend on its adapters"),
+        ):
+            with self.subTest(content=content):
+                self.assertRejectedAt("domain/mod.rs", content, reason)
+
+    def test_rpc_types_stay_in_the_rpc_adapter_and_composition(self):
+        for path in ("application.rs", "persistence/mod.rs", "policy.rs"):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, "use cantos_identity_rpc::ValidatedFact;",
+                                      "stay in Identity's RPC adapter and process composition")
+
+    def test_identity_sql_stays_in_its_adapter_and_its_own_database(self):
+        for path, content, reason in (
+            ("application.rs", 'const Q: &str = "SELECT id FROM identity_subjects";',
+             "SQL table access and DDL belong in Identity's persistence adapter"),
+            ("persistence/mod.rs", 'const Q: &str = "SELECT id FROM actors";',
+             "SQL table actors belongs to the Server database"),
+            ("persistence/rows.sql", "UPDATE listener_state SET position = 1;\n",
+             "SQL table listener_state belongs to the Server database"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+
+    def test_identity_ddl_and_attach_stay_in_its_adapter_and_database(self):
+        self.assertRejectedAt("migrations.sql", "CREATE TABLE refresh_tokens (id BLOB);\n",
+                              "SQL table access and DDL belong in Identity's persistence adapter")
+        self.assertRejectedAt("persistence/attach.rs", """const A: &str = "ATTACH 'server.db' AS server";""",
+                              "SQL must not ATTACH another database")
+
+    def test_identity_never_depends_on_the_server(self):
+        self.assertRejectedAt("application.rs", "use cantos_server::platform::identity_auth::IdentityAuth;",
+                              "Identity must not depend on the Server")
+
+
+class ManifestBoundaryTest(unittest.TestCase):
+    """Production `check_manifest_boundaries` over a minimal workspace."""
+
+    MEMBERS = {
+        "services/cantos-server": """[package]
+name = "cantos-server"
+[dependencies]
+cantos-identity-rpc = { path = "../../packages/contracts/identity-rpc" }
+[dev-dependencies]
+cantos-identity = { path = "../cantos-identity", features = ["service"] }
+cantos-store-turso = { path = "../../packages/store-turso" }
+""",
+        "services/cantos-identity": """[package]
+name = "cantos-identity"
+[dependencies]
+cantos-identity-rpc = { path = "../../packages/contracts/identity-rpc", optional = true }
+cantos-store-turso = { path = "../../packages/store-turso", optional = true }
+""",
+        "packages/store-turso": """[package]
+name = "cantos-store-turso"
+[dependencies]
+turso = { version = "=0.8.3", default-features = false }
+[dev-dependencies]
+cantos-store-turso = { path = ".", features = ["testing"] }
+""",
+        "packages/contracts/identity-rpc": '[package]\nname = "cantos-identity-rpc"\n',
+        "apps/cantos-theatre/web": """[package]
+name = "cantos-theatre-web"
+[dependencies]
+cantos-identity-rpc = { path = "../../../packages/contracts/identity-rpc" }
+""",
+    }
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        for member, manifest in self.MEMBERS.items():
+            self.write(member, manifest)
+        members = ", ".join(f'"{member}"' for member in self.MEMBERS)
+        (self.root / "Cargo.toml").write_text(f"[workspace]\nmembers = [{members}]\n", encoding="utf-8")
+
+    def write(self, member, manifest):
+        file = self.root / member / "Cargo.toml"
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(manifest, encoding="utf-8")
+
+    def assertRejected(self, member, manifest, reason):
+        self.write(member, manifest)
+        errors = checks.check_manifest_boundaries(self.root)
+        prefix = f"{Path(member) / 'Cargo.toml'}:"
+        self.assertTrue(any(error.startswith(prefix) and reason in error for error in errors), errors)
+        self.write(member, self.MEMBERS[member])
+
+    def test_valid_workspace_admits_test_only_service_and_store_owner_engine(self):
+        self.assertEqual(checks.check_manifest_boundaries(self.root), [])
+
+    def test_repository_manifests_pass(self):
+        self.assertEqual(checks.check_manifest_boundaries(checks.ROOT), [])
+
+    def test_guard_cannot_pass_vacuously(self):
+        (self.root / "Cargo.toml").write_text('[workspace]\nmembers = ["services/cantos-server"]\n',
+                                              encoding="utf-8")
+        self.assertTrue(any("would pass vacuously" in error
+                            for error in checks.check_manifest_boundaries(self.root)))
+        (self.root / "Cargo.toml").write_text('[workspace]\nmembers = ["packages/moved"]\n',
+                                              encoding="utf-8")
+        self.assertTrue(any("cannot read the workspace member manifest" in error
+                            for error in checks.check_manifest_boundaries(self.root)))
+        (self.root / "Cargo.toml").unlink()
+        self.assertTrue(any("cannot read the workspace manifest" in error
+                            for error in checks.check_manifest_boundaries(self.root)))
+
+    def test_server_runtime_cannot_depend_on_the_identity_service(self):
+        for section in ("dependencies", "target.'cfg(unix)'.dependencies", "build-dependencies"):
+            with self.subTest(section=section):
+                self.assertRejected("services/cantos-server", f"""[package]
+name = "cantos-server"
+[{section}]
+identity = {{ package = "cantos-identity", path = "../cantos-identity" }}
+""", "implementation crates are test-only dev-dependencies")
+
+    def test_packages_and_apps_cannot_depend_on_service_or_app_code(self):
+        self.assertRejected("packages/contracts/identity-rpc", """[package]
+name = "cantos-identity-rpc"
+[dependencies]
+cantos-identity = { path = "../../../services/cantos-identity" }
+""", "shared packages must not depend on a service or app")
+        for target in ("../../../services/cantos-server", "../../cantos-studio/web"):
+            with self.subTest(target=target):
+                self.assertRejected("apps/cantos-theatre/web", f"""[package]
+name = "cantos-theatre-web"
+[dependencies]
+other = {{ path = "{target}" }}
+""", "apps reach services over HTTP")
+
+    def test_guarded_crates_cannot_be_renamed_out_of_the_source_checks(self):
+        self.assertRejected("services/cantos-server", """[package]
+name = "cantos-server"
+[dev-dependencies]
+idsvc = { package = "cantos-identity", path = "../cantos-identity" }
+""", "renaming cantos-identity hides it from the source guards")
+        self.assertRejected("services/cantos-identity", """[package]
+name = "cantos-identity"
+[dependencies]
+store = { package = "cantos-store-turso", path = "../../packages/store-turso" }
+""", "renaming cantos-store-turso hides it from the source guards")
+
+    def test_inherited_workspace_dependencies_are_resolved(self):
+        members = ", ".join(f'"{member}"' for member in self.MEMBERS)
+        (self.root / "Cargo.toml").write_text(f"""[workspace]
+members = [{members}]
+[workspace.dependencies]
+cantos-server = {{ path = "services/cantos-server" }}
+cantos-identity = {{ path = "services/cantos-identity" }}
+db = {{ package = "turso", version = "=0.8.3" }}
+""", encoding="utf-8")
+        self.assertEqual(checks.check_manifest_boundaries(self.root), [])
+        for member, dependency, reason in (
+            ("packages/contracts/identity-rpc", "cantos-server = { workspace = true }",
+             "shared packages must not depend on a service or app"),
+            ("services/cantos-server", "cantos-identity = { workspace = true }",
+             "implementation crates are test-only dev-dependencies"),
+            ("services/cantos-identity", "db = { workspace = true }",
+             "depend on the shared cantos-store-turso owner, not the engine"),
+        ):
+            with self.subTest(member=member):
+                name = self.MEMBERS[member].split("\n", 2)[1]
+                self.assertRejected(member, f"[package]\n{name}\n[dependencies]\n{dependency}\n", reason)
+
+    def test_only_the_shared_store_owner_depends_on_the_turso_engine(self):
+        for dependency in ('turso = "=0.8.3"', 'engine = { package = "libsql", version = "1" }'):
+            with self.subTest(dependency=dependency):
+                self.assertRejected("services/cantos-identity", f"""[package]
+name = "cantos-identity"
+[dependencies]
+{dependency}
+""", "depend on the shared cantos-store-turso owner, not the engine")
 
 
 class TheatreArchitectureTest(unittest.TestCase):
