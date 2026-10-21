@@ -145,6 +145,23 @@ pub enum Action {
         #[arg(long, requires = "registry_readback")]
         authfile: Option<PathBuf>,
     },
+    /// Build the native Server/Identity image pair from one clean commit; with `--publish`, push
+    /// it to GHCR and write an unadmitted candidate. Never activates a host or marks it eligible.
+    OciBuild {
+        /// Exactly `linux/amd64` or `linux/arm64`, and equal to this host: no emulation.
+        #[arg(long)]
+        platform: String,
+        #[arg(long, value_parser = ["local", "github-actions"])]
+        producer: String,
+        /// Bounded nonsecret identifier; required for, and only for, the local producer.
+        #[arg(long, required_if_eq("producer", "local"))]
+        build_id: Option<String>,
+        /// Push to GHCR. Requires the private authfile; there is no implicit login.
+        #[arg(long, requires = "authfile")]
+        publish: bool,
+        #[arg(long, requires = "publish")]
+        authfile: Option<PathBuf>,
+    },
 }
 
 fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
@@ -199,6 +216,30 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             command
         };
     }
+    if let Action::OciBuild {
+        platform,
+        producer,
+        build_id,
+        publish,
+        authfile,
+    } = action
+    {
+        let mut command = command.args([
+            "scripts/release_oci_build.py",
+            "--platform",
+            platform,
+            "--producer",
+            producer,
+        ]);
+        if let Some(id) = build_id {
+            command = command.args(["--build-id", id]);
+        }
+        command = command.arg_if(*publish, "--publish");
+        return match authfile {
+            Some(path) => command.args(["--authfile".into(), path.display().to_string()]),
+            None => command,
+        };
+    }
     let mut command = command.args(["scripts/release_pipeline.py"]);
     match action {
         Action::Prepare {
@@ -251,7 +292,9 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             "--transfer".into(),
             transfer.display().to_string(),
         ]),
-        Action::SelfTest | Action::OciVerify { .. } => unreachable!("handled above"),
+        Action::SelfTest | Action::OciVerify { .. } | Action::OciBuild { .. } => {
+            unreachable!("handled above")
+        }
     }
 }
 
@@ -397,6 +440,58 @@ mod tests {
                 "auth.json"
             ]
         );
+    }
+
+    #[test]
+    fn native_oci_build_requires_identity_and_never_publishes_without_a_private_authfile() {
+        let base = [
+            "xtask",
+            "release",
+            "oci-build",
+            "--platform",
+            "linux/amd64",
+            "--producer",
+            "local",
+        ];
+        assert!(Cli::try_parse_from(base).is_err(), "local needs a build id");
+        let local = || base.into_iter().chain(["--build-id", "operator-1"]);
+        assert!(Cli::try_parse_from(local()).is_ok());
+        assert!(Cli::try_parse_from(local().chain(["--publish"])).is_err());
+        assert!(Cli::try_parse_from(local().chain(["--authfile", "a.json"])).is_err());
+        assert!(Cli::try_parse_from(local().chain(["--publish", "--authfile", "a.json"])).is_ok());
+        assert!(Cli::try_parse_from([
+            "xtask",
+            "release",
+            "oci-build",
+            "--platform",
+            "linux/amd64",
+            "--producer",
+            "other"
+        ])
+        .is_err());
+        let action = Action::OciBuild {
+            platform: "linux/amd64".into(),
+            producer: "github-actions".into(),
+            build_id: None,
+            publish: true,
+            authfile: Some("a.json".into()),
+        };
+        let plan = command(&Workspace::discover().unwrap(), &action);
+        assert_eq!(plan.program, "python3");
+        assert_eq!(plan.args[0], "scripts/release_oci_build.py");
+        assert_eq!(
+            &plan.args[1..],
+            &[
+                "--platform",
+                "linux/amd64",
+                "--producer",
+                "github-actions",
+                "--publish",
+                "--authfile",
+                "a.json"
+            ]
+        );
+        assert!(plan.env.is_empty());
     }
 
     #[test]

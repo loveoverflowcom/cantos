@@ -263,7 +263,8 @@ container-independent. Target `refactor/cantos-native-turso`. The implemented
 its Python tests run in release self-test/repository and its CLI tests in the Rust gate.
 Explicit `--registry-readback` adds scoped GHCR manifest/config observation; dry-run remains
 offline, with no authfile access, and neither mode establishes native/image-pair acceptance.
-Local/Actions producers and native activation remain pending; existing `deploy vps` is the
+The local/Actions producer (`release oci-build`, unadmitted candidate only) exists but has not
+published; native activation remains pending; existing `deploy vps` is the
 legacy archive lane. Preserve current runtime/principal, PG/Kanidm/ingress and recovery until
 real native acceptance and separately authorized cutover. Missing inventory is `UNKNOWN`,
 never permission to bootstrap. Build/publish, inventory, bootstrap, activate, restore and

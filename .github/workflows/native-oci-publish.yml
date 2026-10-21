@@ -1,0 +1,59 @@
+name: Native OCI publish
+
+# Manual producer for the native Server/Identity image pair (#348). It builds the checked-out
+# commit, pushes both images to GHCR and records an UNADMITTED candidate: every qualification gate
+# is NOT_RUN, so `cargo xtask release oci-verify` refuses it until real gate records and an
+# operator admission exist. It never deploys, activates a host or changes package visibility.
+# The same release owner (`scripts/release_oci_build.py`) serves the local producer.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-oci-publish-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest # linux/amd64, the VPS platform; a different platform needs its own review
+    # Only the publish job holds package write access.
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 90
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select pinned Rust toolchain for xtask
+        run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin
+      - name: Log in to GHCR with a job-scoped authfile
+        env:
+          GITHUB_TOKEN_VALUE: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          umask 077
+          # The token goes through stdin to a private file; it is never on a command line or in a log.
+          printf '%s' "$GITHUB_TOKEN_VALUE" | podman login ghcr.io --username "$ACTOR" --password-stdin \
+            --authfile "$RUNNER_TEMP/ghcr-auth.json"
+      - name: Build, publish and read back the pair
+        run: |
+          cargo xtask release oci-build --platform linux/amd64 --producer github-actions \
+            --publish --authfile "$RUNNER_TEMP/ghcr-auth.json" | tee "$RUNNER_TEMP/oci-build-result.json"
+      - name: Remove the authfile
+        if: always()
+        run: rm -f "$RUNNER_TEMP/ghcr-auth.json"
+      - name: Keep the unadmitted candidate records
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-oci-candidate-${{ github.sha }}
+          path: |
+            artifacts/release-build/oci/
+            ${{ runner.temp }}/oci-build-result.json
+          if-no-files-found: error
+          retention-days: 14
