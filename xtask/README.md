@@ -886,7 +886,7 @@ primitive's synthetic tests are not a Kani execution of its harness. It becomes 
 0.68.0 bundle and its retained output is inspected. It adds no new tool, dependency or CI job:
 the same pinned bundle, primitive and opt-in gate serve all three packages.
 
-The three Identity kernels have [their own ledger](../docs/assurance/kani.md#native-identity-kernels-registered-not-yet-run): `identity-security-version` and `identity-completion` passed on a D1 run; `identity-mailbox-proof` awaits a D1 run of the fixed output parser.
+The three Identity kernels have [their own ledger](../docs/assurance/kani.md#native-identity-kernels-registered-not-yet-run): all three passed on the D1 run recorded there.
 Under #331 D1 their evidence requires an actual pinned Ubuntu x86_64 `workflow_dispatch`
 run URL/SHA and complete assertion/unwinding/cover results. Normal macOS unit tests and
 synthetic verifier-adapter output do not establish `bounded-model-checked`.

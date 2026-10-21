@@ -137,3 +137,16 @@ and the locked Quint tool, Kani 0.68.0 through `cargo kani setup`, and allows un
 namespaces on the runner, then calls the campaign with `--kani` and uploads the report. The
 Kani bundle that `cargo kani setup` downloads is not hash-checked beyond the registry's version
 and compiler sentinels; that remains a tool-provenance limit of the D1 run.
+
+Recorded D1 run: [actions run 39666812245](https://github.com/loveoverflowcom/cantos/actions/runs/39666812245),
+job `native-auth-qualification` on `ubuntu-24.04` x86_64 at
+`281964af7ab2b376cbd13831b5944db0face01ae` (clean tree), with Node 24.19.0, npm 11.9.0, Quint
+0.33.0, Rust 1.98.1 and Kani 0.68.0. Its report artifact
+(`native-auth-qualification-281964af…`, SHA-256 `7009680aad26a47ba69a71153cb14c1ec12c284b184050ade6da84609be0b918`)
+shows every layer `PASS`: `MODEL`, `PURE_CONFORMANCE`, `IDENTITY_PROCESS_RPC` (2),
+`ACTOR_TURSO` (4), `SERVER_SESSION_CANDIDATE` (6), `ISOLATION` (12 runs in
+`linux-network-namespace`), `KANI` (3 kernels) and therefore `FULL_CANDIDATE`.
+`FULL_SERVER_HTTP`, `BROWSER` and `DEVICE` are `NOT_RUN`. The preceding run 39663624462 on
+`c22487a5` passed every layer except `identity-mailbox-proof`, which failed in the Kani output
+parser ([ledger](kani.md#native-identity-kernels-registered-not-yet-run)). This record is for
+that revision only; later changes to any selected input need a new run.
