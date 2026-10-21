@@ -90,6 +90,41 @@ filter or callback delivery). Missing or invalid identity configuration keeps Si
 host has no mock fallback, and catalog availability depends on the separate API-origin input. The API origin defaults to the owner-selected production API; the identity issuer remains
 explicitly configured. No OS network/TLS setting is relaxed.
 
+### Identity v1 lifecycle integration (host activation pending)
+
+The same `NativeAccountController` also accepts
+`(scope, NativeIdentityV1Configuration, NativeIdentityV1Api, journal, barrier, now)` and an explicit
+`login(RegistrationEmail, password)` intent. The password is call-local and never journaled.
+The checked complete pair is written/read back before `GET /native/identity/session` admission;
+only an exact actor/family/deadline/authentication-time match publishes `verifiedSession` and
+`SignedIn`. `NativeAccountState.Failed.identityFailure` preserves generic v1 failures and bounded
+`Retry-After` seconds for the next UI integration. No password or consuming refresh is retried.
+Current Android/iOS roots still select the provider constructor above; v1 host/UI activation is
+separate and must compose the client and journal with the **same** checked configuration.
+
+`SecureNativeCredentialJournal(store, NativeIdentityV1Configuration)` writes version 2 with exact
+`api_origin` and `protocol: identity-v1`, and refuses mixed credentials. Version 1 provider envelopes
+are accepted only as canonical, structurally checked records at that exact origin, for **local
+retirement and relogin**; provider credentials/flows never reach a v1 endpoint. Retirement does not
+establish server revocation. Unbound legacy hex is likewise local-only. Foreign, ambiguous,
+unknown-version and corrupt bytes stay quarantined; a pending denial barrier cannot be cleared by
+inventing an empty record. Keystore/Keychain remain the production secure storage owners.
+
+Restore always checks the API or uses one safe refresh within the original deadlines. A failed
+nonconsuming session check during an outage hides authority and retains the complete candidate
+for a later explicit restore; it does not revoke solely because of `429`/`503`. A refresh failure
+has different semantics: keep/revoke the known family, require login, and never replay a possibly
+spent refresh. `Refreshing` and Active-plus-pending-barrier are cleanup-only after restart;
+`Cleared` can finish interrupted barrier deletion locally. A login response lost without a pair
+has an unknown remote effect; there is no invented family or claimed revocation. A late known
+pair is cleaned with its own family credentials and cannot replace the current journal/UI.
+
+The existing authorized Library transport and process runtime retain same-family player/data
+continuity. Logout or a new admission immediately fences private effects; account A's rows and
+operation receipts are never reassigned to B. These claims are exercised with deterministic
+controller/secure-journal tests and real disposable SQLite Library tests; they are not native
+device/process-death, real-server authentication, Quint conformance or Kani evidence.
+
 ### Native identity build inputs and operator diagnostics
 
 For Android, set the nonsecret environment variables `CANTOS_API_ORIGIN` and

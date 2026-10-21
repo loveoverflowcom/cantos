@@ -17,6 +17,8 @@ sealed interface NativeCredentialRecord {
     class Legacy(val accessToken: String) : NativeCredentialRecord {
         override fun toString(): String = "NativeCredentialRecord.Legacy([redacted])"
     }
+    /** Canonical provider journal identified for local retirement only, never v1 revocation. */
+    data object RetiredProvider : NativeCredentialRecord
     /** Revocation completed; a crash before clearing the logout barrier can finish locally. */
     data object Cleared : NativeCredentialRecord
 }

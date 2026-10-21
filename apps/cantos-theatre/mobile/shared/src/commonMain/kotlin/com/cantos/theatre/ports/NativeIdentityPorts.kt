@@ -5,7 +5,7 @@ import com.cantos.theatre.domain.identity.NativeGrant
 enum class NativeApiFailure { Unavailable, Unauthorized, Denied, Protocol, UnknownOutcome, SessionChanged }
 sealed interface NativeApiResult<out T> {
     class Accepted<T>(val value: T) : NativeApiResult<T>
-    data class Refused(val reason: NativeApiFailure) : NativeApiResult<Nothing>
+    data class Refused(val reason: NativeApiFailure, val identityFailure: IdentityV1Failure? = null) : NativeApiResult<Nothing>
 }
 class NativeFlow(val id: String, val authorizationUrl: String) {
     override fun toString(): String = "NativeFlow([redacted])"

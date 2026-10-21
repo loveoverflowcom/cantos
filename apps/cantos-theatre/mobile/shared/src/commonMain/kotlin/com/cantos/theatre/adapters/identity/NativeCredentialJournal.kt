@@ -3,6 +3,9 @@ package com.cantos.theatre.adapters.identity
 import com.cantos.theatre.domain.identity.LoginSecret
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeGrant
+import com.cantos.theatre.domain.identity.NativeCredentialProtocol
+import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
+import com.cantos.theatre.domain.identity.IdentityV1Validation
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.CredentialRead
 import com.cantos.theatre.ports.CredentialStore
@@ -19,26 +22,44 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 /** The journal is one authenticated OS value, never preferences, SQL or a second token file. */
-class SecureNativeCredentialJournal(
+class SecureNativeCredentialJournal private constructor(
     private val store: CredentialStore,
     private val apiOrigin: String,
     private val issuer: String,
+    private val identityV1: Boolean,
 ) : NativeCredentialJournal {
-    private val validBinding = NativeClientConfiguration.create(apiOrigin, issuer) != null
+    constructor(store: CredentialStore, apiOrigin: String, issuer: String) : this(store, apiOrigin, issuer, false)
+    constructor(store: CredentialStore, configuration: NativeIdentityV1Configuration) :
+        this(store, configuration.apiOrigin, "identity-v1", true)
+
+    private val validBinding = identityV1 || NativeClientConfiguration.create(apiOrigin, issuer) != null
 
     override fun read(): NativeJournalRead {
         if (!validBinding) return NativeJournalRead.Failed(CredentialFailure.Corrupt)
         return when (val result = store.read()) {
             CredentialRead.Missing -> NativeJournalRead.Missing
             is CredentialRead.Failed -> NativeJournalRead.Failed(result.reason)
-            is CredentialRead.Found -> decodeRecord(result.value, apiOrigin, issuer)?.let(NativeJournalRead::Found)
+            is CredentialRead.Found -> decodeBoundRecord(result.value)?.let(NativeJournalRead::Found)
                 ?: NativeJournalRead.Failed(CredentialFailure.Corrupt)
         }
     }
 
+    private fun decodeBoundRecord(raw: String): NativeCredentialRecord? {
+        if (!identityV1) return decodeRecord(raw, apiOrigin, issuer)
+        decodeRecord(raw, apiOrigin, issuer, true)?.let { return it }
+        if (legacyToken.matches(raw)) return NativeCredentialRecord.Legacy(raw)
+        // Only our exact canonical v1 envelope at this exact origin can be retired. Unknown,
+        // corrupt and foreign records remain quarantined, including behind a pending barrier.
+        if (raw.encodeToByteArray().size !in 1..32_768) return null
+        val old = parseRecord(raw) ?: return null
+        val oldIssuer = string(old, "issuer") ?: return null
+        if (NativeClientConfiguration.create(apiOrigin, oldIssuer) == null) return null
+        return decodeRecord(raw, apiOrigin, oldIssuer)?.let { NativeCredentialRecord.RetiredProvider }
+    }
+
     override fun write(record: NativeCredentialRecord): CredentialFailure? {
         if (!validBinding) return CredentialFailure.Corrupt
-        val encoded = encodeRecord(record, apiOrigin, issuer) ?: return CredentialFailure.Corrupt
+        val encoded = encodeRecord(record, apiOrigin, issuer, identityV1) ?: return CredentialFailure.Corrupt
         store.write(encoded)?.let { return it }
         return when (val result = store.read()) {
             CredentialRead.Missing -> CredentialFailure.Unavailable
@@ -63,23 +84,31 @@ private val envelopeFields = setOf("version", "api_origin", "issuer", "kind")
 private val grantFields = setOf("access_token", "refresh_token", "actor_id", "session_id", "expires_at",
     "refresh_expires_at", "absolute_expires_at", "authenticated_at")
 
-private fun encodeRecord(record: NativeCredentialRecord, apiOrigin: String, issuer: String): String? {
+private fun encodeRecord(record: NativeCredentialRecord, apiOrigin: String, issuer: String, identityV1: Boolean = false): String? {
+    val pair = when (record) {
+        is NativeCredentialRecord.Active -> record.grant
+        is NativeCredentialRecord.Refreshing -> record.grant
+        else -> null
+    }
+    if (pair != null && pair.protocol != if (identityV1) NativeCredentialProtocol.IdentityV1 else NativeCredentialProtocol.ProviderBearerV1) return null
+    if (record == NativeCredentialRecord.RetiredProvider || (identityV1 && record is NativeCredentialRecord.Flow)) return null
     when (record) {
         is NativeCredentialRecord.Flow -> if (!journalUuid.matches(record.flow) ||
             LoginSecret.parse(record.state) == null || LoginSecret.parse(record.verifier) == null) return null
         is NativeCredentialRecord.Legacy -> if (!legacyToken.matches(record.accessToken)) return null
-        is NativeCredentialRecord.Active, is NativeCredentialRecord.Refreshing, NativeCredentialRecord.Cleared -> Unit
+        is NativeCredentialRecord.Active, is NativeCredentialRecord.Refreshing, NativeCredentialRecord.Cleared, NativeCredentialRecord.RetiredProvider -> Unit
     }
     val encoded = buildJsonObject {
-        put("version", 1)
+        put("version", if (identityV1) 2 else 1)
         put("api_origin", apiOrigin)
-        put("issuer", issuer)
+        put(if (identityV1) "protocol" else "issuer", issuer)
         put("kind", when (record) {
             is NativeCredentialRecord.Active -> "active"
             is NativeCredentialRecord.Refreshing -> "refreshing"
             is NativeCredentialRecord.Flow -> "flow"
             is NativeCredentialRecord.Legacy -> "legacy"
             NativeCredentialRecord.Cleared -> "cleared"
+            NativeCredentialRecord.RetiredProvider -> "retired"
         })
         when (record) {
             is NativeCredentialRecord.Active -> grant(record.grant)
@@ -90,7 +119,7 @@ private fun encodeRecord(record: NativeCredentialRecord, apiOrigin: String, issu
                 put("code_verifier", record.verifier)
             }
             is NativeCredentialRecord.Legacy -> put("access_token", record.accessToken)
-            NativeCredentialRecord.Cleared -> Unit
+            NativeCredentialRecord.Cleared, NativeCredentialRecord.RetiredProvider -> Unit
         }
     }.toString()
     return encoded.takeIf { it.encodeToByteArray().size <= 32_768 }
@@ -108,19 +137,29 @@ private fun kotlinx.serialization.json.JsonObjectBuilder.grant(value: NativeGran
     if (authenticatedAt == null) put("authenticated_at", JsonNull) else put("authenticated_at", authenticatedAt)
 }
 
-private fun decodeRecord(raw: String, apiOrigin: String, issuer: String): NativeCredentialRecord? {
+private fun decodeRecord(raw: String, apiOrigin: String, issuer: String, identityV1: Boolean = false): NativeCredentialRecord? {
     if (legacyToken.matches(raw)) return NativeCredentialRecord.Legacy(raw)
     if (raw.encodeToByteArray().size !in 1..32_768) return null
-    val value = try { Json.parseToJsonElement(raw) as? JsonObject }
-        catch (_: SerializationException) { null }
-        catch (_: IllegalArgumentException) { null } ?: return null
-    if (number(value, "version") != 1L || string(value, "api_origin") != apiOrigin || string(value, "issuer") != issuer) return null
+    val value = parseRecord(raw) ?: return null
+    val binding = if (identityV1) "protocol" else "issuer"
+    val fields = if (identityV1) envelopeFields - "issuer" + "protocol" else envelopeFields
+    if (number(value, "version") != (if (identityV1) 2L else 1L) || string(value, "api_origin") != apiOrigin || string(value, binding) != issuer) return null
     val record = when (string(value, "kind")) {
         "active", "refreshing" -> {
-            if (value.keys != envelopeFields + grantFields) return null
+            if (value.keys != fields + grantFields) return null
             val authenticated = value["authenticated_at"]
             if (authenticated != JsonNull && number(value, "authenticated_at") == null) return null
-            val grant = NativeGrant.restore(
+            val access = string(value, "access_token") ?: return null
+            val refresh = string(value, "refresh_token") ?: return null
+            val grant = if (identityV1) {
+                when (val checked = NativeGrant.restoreIdentityV1(access, refresh,
+                    string(value, "actor_id") ?: return null, string(value, "session_id") ?: return null,
+                    number(value, "expires_at") ?: return null, number(value, "refresh_expires_at") ?: return null,
+                    number(value, "absolute_expires_at") ?: return null, number(value, "authenticated_at") ?: return null)) {
+                    is IdentityV1Validation.Accepted -> checked.value
+                    is IdentityV1Validation.Refused -> return null
+                }
+            } else NativeGrant.restore(
                 string(value, "access_token") ?: return null,
                 string(value, "refresh_token") ?: return null,
                 string(value, "actor_id") ?: return null,
@@ -134,23 +173,23 @@ private fun decodeRecord(raw: String, apiOrigin: String, issuer: String): Native
             else NativeCredentialRecord.Refreshing(grant)
         }
         "flow" -> {
-            if (value.keys != envelopeFields + setOf("flow_id", "state", "code_verifier")) return null
+            if (value.keys != fields + setOf("flow_id", "state", "code_verifier")) return null
             NativeCredentialRecord.Flow(string(value, "flow_id") ?: return null,
                 string(value, "state") ?: return null, string(value, "code_verifier") ?: return null)
         }
         "legacy" -> {
-            if (value.keys != envelopeFields + "access_token") return null
+            if (value.keys != fields + "access_token") return null
             NativeCredentialRecord.Legacy(string(value, "access_token") ?: return null)
         }
         "cleared" -> {
-            if (value.keys != envelopeFields) return null
+            if (value.keys != fields) return null
             NativeCredentialRecord.Cleared
         }
         else -> return null
     }
     // We only write this canonical representation. Equality also rejects duplicate fields,
     // ambiguous number encodings and trailing/reordered data before restoring an identity.
-    return record.takeIf { encodeRecord(it, apiOrigin, issuer) == raw }
+    return record.takeIf { encodeRecord(it, apiOrigin, issuer, identityV1) == raw }
 }
 
 private fun string(value: JsonObject, key: String): String? =
@@ -158,3 +197,7 @@ private fun string(value: JsonObject, key: String): String? =
 
 private fun number(value: JsonObject, key: String): Long? =
     (value[key] as? JsonPrimitive)?.takeUnless { it.isString }?.longOrNull
+
+private fun parseRecord(raw: String): JsonObject? = try { Json.parseToJsonElement(raw) as? JsonObject }
+    catch (_: SerializationException) { null }
+    catch (_: IllegalArgumentException) { null }

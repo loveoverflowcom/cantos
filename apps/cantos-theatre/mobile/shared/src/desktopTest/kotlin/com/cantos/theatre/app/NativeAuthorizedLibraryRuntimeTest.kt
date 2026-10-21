@@ -19,6 +19,15 @@ import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.domain.identity.LoginSecret
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeGrant
+import com.cantos.theatre.domain.identity.IdentityV1Validation
+import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
+import com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult
+import com.cantos.theatre.domain.identity.RegistrationEmail
+import com.cantos.theatre.domain.identity.RegistrationResult
+import com.cantos.theatre.ports.NativeIdentityV1Api
+import com.cantos.theatre.ports.IdentityV1Result
+import com.cantos.theatre.ports.IdentityV1Failure
+import com.cantos.theatre.ports.IdentitySignupAccepted
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackEvent
@@ -56,6 +65,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -77,18 +89,23 @@ class NativeAuthorizedLibraryRuntimeTest {
         override fun close() = Unit
     }
 
-    private class Fixture(scope: CoroutineScope) {
+    private class Fixture(scope: CoroutineScope, val identityV1: Boolean = false) {
         val actor = "actor-a"
         val family = "00000000-0000-4000-8000-000000000001"
         private val configuration = requireNotNull(NativeClientConfiguration.create("https://api.invalid",
             "https://identity.invalid/oauth2/openid/cantos-theatre-native"))
-        val initialToken = "ca1_n_" + "a".repeat(64)
-        private var grant = requireNotNull(NativeGrant.create(initialToken, "cr1_" + "a".repeat(64),
-            actor, family, 220, 700, 1000, 100, now = 100))
+        private fun pair(letter: Char, now: Long, previous: NativeGrant? = null): NativeGrant =
+            if (identityV1) assertIs<IdentityV1Validation.Accepted<NativeGrant>>(NativeGrant.identityV1(
+                "ci1_n_" + letter.toString().repeat(64), "ci1_r_" + letter.toString().repeat(64),
+                actor, family, now + 120, minOf(now + 600, 1000), 1000, 100, now, previous)).value
+            else requireNotNull(NativeGrant.create("ca1_n_" + letter.toString().repeat(64), "cr1_" + letter.toString().repeat(64),
+                actor, family, now + 120, minOf(now + 600, 1000), 1000, 100, now, previous))
+        private var grant = pair('a', 100)
+        val initialToken = grant.accessToken
         var now = 100L
         var sessionChecks = 0
         var rotations = 0
-        val account = NativeAccountController(scope, configuration, object : NativeIdentityApi {
+        private val providerApi = object : NativeIdentityApi {
             override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> =
                 NativeApiResult.Refused(NativeApiFailure.Unavailable)
             override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeGrant> =
@@ -97,8 +114,7 @@ class NativeAuthorizedLibraryRuntimeTest {
                 assertEquals(grant.refreshToken, refreshToken)
                 assertEquals(family, session)
                 rotations += 1
-                grant = requireNotNull(NativeGrant.create("ca1_n_" + "b".repeat(64), "cr1_" + "b".repeat(64),
-                    actor, family, now + 120, minOf(now + 600, 1000), 1000, 100, now, previous = grant))
+                grant = pair('b', now, grant)
                 return NativeApiResult.Accepted(grant)
             }
             override suspend fun session(credential: String): NativeApiResult<NativeSession> {
@@ -110,23 +126,47 @@ class NativeAuthorizedLibraryRuntimeTest {
             override suspend fun cancel(flow: String, state: String, verifier: String) = NativeApiResult.Accepted(Unit)
             override suspend fun revoke(credential: String) = NativeApiResult.Accepted(Unit)
             override suspend fun saved(credential: String, session: String) = NativeApiResult.Accepted(0)
-        }, object : IdentityCrypto {
+        }
+        private val crypto = object : IdentityCrypto {
             override fun secret(): LoginSecret? = null
             override fun challenge(verifier: LoginSecret): String? = null
-        }, object : SystemBrowser {
+        }
+        private val browser = object : SystemBrowser {
             override fun open(url: String) = false
             override fun cancel() = Unit
-        }, object : NativeCredentialJournal {
+        }
+        private val journal = object : NativeCredentialJournal {
             private var record: NativeCredentialRecord? = NativeCredentialRecord.Active(grant)
             override fun read(): NativeJournalRead = record?.let(NativeJournalRead::Found) ?: NativeJournalRead.Missing
             override fun write(record: NativeCredentialRecord): CredentialFailure? { this.record = record; return null }
             override fun clear(): CredentialFailure? { record = null; return null }
-        }, object : LogoutBarrier {
+        }
+        private val barrier = object : LogoutBarrier {
             private var pending = false
             override fun read() = if (pending) LogoutBarrierRead.Pending else LogoutBarrierRead.Clear
             override fun mark(): CredentialFailure? { pending = true; return null }
             override fun clear(): CredentialFailure? { pending = false; return null }
-        }) { now }
+        }
+        private val firstParty = object : NativeIdentityV1Api {
+            override suspend fun signup(email: RegistrationEmail): IdentityV1Result<IdentitySignupAccepted> = error("Not part of Library lifecycle")
+            override suspend fun login(email: RegistrationEmail, password: String): IdentityV1Result<NativeGrant> = IdentityV1Result.Accepted(grant)
+            override suspend fun refresh(previous: NativeGrant): IdentityV1Result<NativeGrant> =
+                IdentityV1Result.Accepted(assertIs<NativeApiResult.Accepted<NativeGrant>>(providerApi.refresh(previous.refreshToken, previous.view.session)).value)
+            override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> =
+                IdentityV1Result.Accepted(assertIs<NativeApiResult.Accepted<NativeSession>>(providerApi.session(previous.accessToken)).value)
+            override suspend fun revokeFamily(previous: NativeGrant): IdentityV1Result<Unit> = IdentityV1Result.Accepted(Unit)
+            override suspend fun revoke(previous: NativeGrant): IdentityV1Result<Unit> = error("Use exact family cleanup")
+        }
+        val account = if (identityV1) NativeAccountController(scope,
+            assertIs<NativeIdentityV1ConfigurationResult.Available>(NativeIdentityV1Configuration.resolve(configuration.apiOrigin)).configuration,
+            firstParty, journal, barrier) { now }
+        else NativeAccountController(scope, configuration, providerApi, crypto, browser, journal, barrier) { now }
+        fun loginB() {
+            grant = assertIs<IdentityV1Validation.Accepted<NativeGrant>>(NativeGrant.identityV1(
+                "ci1_n_" + "c".repeat(64), "ci1_r_" + "d".repeat(64), "actor-b",
+                "00000000-0000-4000-8000-000000000002", now + 120, minOf(now + 600, 1000), 1000, 100, now)).value
+            account.login(assertIs<RegistrationResult.Accepted<RegistrationEmail>>(RegistrationEmail.parse("b@example.test")).value, "synthetic-password")
+        }
         class Pending(val request: NativeHttpRequest, val response: NativeHttpResponse,
                       private val completion: (NativeHttpResponse) -> Unit) {
             fun complete() = completion(response)
@@ -168,7 +208,7 @@ class NativeAuthorizedLibraryRuntimeTest {
                     }
                     else -> error("Unexpected fixture route")
                 }
-                val response = NativeHttpResponse(200, "application/json", body, null, family)
+                val response = NativeHttpResponse(200, "application/json", body, null, grant.view.session)
                 when {
                     holdNextContinue && request.method == "GET" && route.startsWith("/library/continue?") -> {
                         holdNextContinue = false
@@ -207,12 +247,17 @@ class NativeAuthorizedLibraryRuntimeTest {
         fun acknowledgeStarted() = decoder.started(PlaybackEvent.EngineStarted(
             requireNotNull(runtime.listening.playback.state.value.identity)))
         fun intents() = store.transaction(actor) { intents() }
+        fun bIntents() = store.transaction("actor-b") { intents() }
         fun close() { runtime.close(); folder.deleteRecursively() }
     }
 
     @Test
-    fun slowLibraryReadAcrossRotationCannotQuarantineTheReplacementOrResetThePlayingEngine() = runTest {
-        val f = Fixture(backgroundScope)
+    fun slowLibraryReadAcrossRotationCannotQuarantineTheReplacementOrResetThePlayingEngine() = slowRead(false)
+
+    @Test fun identityV1RotationPreservesPlayingEngineAndDiscardsOldLeaseResponse() = slowRead(true)
+
+    private fun slowRead(identityV1: Boolean) = runTest {
+        val f = Fixture(backgroundScope, identityV1)
         try {
             runCurrent()
             f.runtime.listening.restore(f.audio, 10_000); runCurrent()
@@ -240,8 +285,12 @@ class NativeAuthorizedLibraryRuntimeTest {
     }
 
     @Test
-    fun lateCommittedMutationAcrossRotationReconcilesTheSameOperationReceiptWithoutReplayingIt() = runTest {
-        val f = Fixture(backgroundScope)
+    fun lateCommittedMutationAcrossRotationReconcilesTheSameOperationReceiptWithoutReplayingIt() = lateReceipt(false)
+
+    @Test fun identityV1RotationReconcilesCommittedReceiptWithoutReplayingMutation() = lateReceipt(true)
+
+    private fun lateReceipt(identityV1: Boolean) = runTest {
+        val f = Fixture(backgroundScope, identityV1)
         try {
             runCurrent()
             f.runtime.listening.restore(f.audio, 10_000); runCurrent()
@@ -273,4 +322,29 @@ class NativeAuthorizedLibraryRuntimeTest {
             assertEquals(PlaybackStatus.Playing, f.runtime.listening.playback.state.value.status)
         } finally { f.close() }
     }
+    @Test fun identityV1AccountSwitchFencesLateLibraryReadReceiptAndDispatchWithoutReassigningData() = runTest {
+        val f = Fixture(backgroundScope, true)
+        try {
+            runCurrent()
+            f.holdNextContinue = true; f.library.refresh(); runCurrent()
+            val oldRead = assertNotNull(f.heldRead)
+            f.holdNextSaved = true; f.library.setSaved(f.audio.workId, true); runCurrent()
+            val oldMutation = assertNotNull(f.heldMutation)
+            val frozen = f.intents().single { it.path.startsWith("/library/saved/") }
+            assertTrue(frozen.sent)
+            f.account.logout()
+            assertNull(f.account.verifiedSession.value)
+            runCurrent(); f.loginB(); runCurrent()
+            assertEquals("actor-b", f.library.state.value.account)
+            val before = f.requests.size
+            oldRead.complete(); oldMutation.complete(); runCurrent()
+            f.library.drain(); runCurrent()
+            assertEquals("actor-b", f.library.state.value.account)
+            assertEquals(frozen.body, f.intents().single { it.operation == frozen.operation }.body)
+            assertTrue(f.bIntents().none { it.operation == frozen.operation })
+            assertFalse(f.requests.drop(before).any { it.url.endsWith("/operations/${frozen.operation}") || it.body == frozen.body })
+            assertEquals(1, f.requests.count { it.method == "PUT" && it.body == frozen.body })
+        } finally { f.close() }
+    }
+
 }
