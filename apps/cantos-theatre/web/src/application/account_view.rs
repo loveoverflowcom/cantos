@@ -1,4 +1,5 @@
 //! Mounted listener account lifecycle; private projections are owned by one verified session.
+mod publication;
 use super::account::{AccountError, AccountGeneration, AccountScope, AccountState, RequestFence};
 pub use super::library::LibraryProjection;
 use super::library::{LibraryPage, PagePhase, PageRequest, Section};
@@ -445,6 +446,26 @@ impl AccountViewState {
         self.with_completion(&fence, apply)
     }
 
+    fn with_playback_intent<T>(
+        &mut self,
+        apply: impl FnOnce(&mut LibrarySyncState) -> (bool, T),
+    ) -> (bool, SyncResult<T>) {
+        let Some(fence) = self.fence() else {
+            return (false, Err(IntentRefusal::SignedOut));
+        };
+        if self.journal_restore_blocked {
+            return (false, Err(IntentRefusal::RestoreBlocked));
+        }
+        let Some(sync) = self.sync.as_mut() else {
+            return (false, Err(IntentRefusal::NoSync));
+        };
+        let (mut published, value) = apply(sync);
+        if let Some(library) = self.library.as_mut() {
+            published |= sync.sync_projection(library);
+        }
+        (published, Ok(Admitted { fence, value }))
+    }
+
     // Completions may reconcile already admitted operations while restore is blocked. They
     // never mint a new user intent under that condition; this preserves receipt recovery.
     fn with_completion<T>(
@@ -746,11 +767,34 @@ impl AccountViewState {
         mint_session: impl FnOnce() -> String,
         mint_operation: impl FnOnce() -> String,
     ) -> SyncResult<Option<PendingMutation>> {
-        self.with_intent(|sync, _| {
+        self.observe_playback_publication(
+            observation,
+            presentation,
+            now_ms,
+            mint_session,
+            mint_operation,
+        )
+        .1
+    }
+
+    pub(super) fn observe_playback_publication(
+        &mut self,
+        observation: PlaybackObservation,
+        presentation: Option<AudioPresentation>,
+        now_ms: i64,
+        mint_session: impl FnOnce() -> String,
+        mint_operation: impl FnOnce() -> String,
+    ) -> (bool, SyncResult<Option<PendingMutation>>) {
+        self.with_playback_intent(|sync| {
+            let before = super::library_sync::publication::PlaybackPublication::new(
+                sync,
+                observation,
+                presentation.as_ref(),
+            );
             if let Some(presentation) = presentation {
                 sync.remember_audio_presentation(presentation);
             }
-            match observation {
+            let value = (|| match observation {
                 PlaybackObservation::SessionReset => {
                     sync.reset_engine_session();
                     None
@@ -789,7 +833,9 @@ impl AccountViewState {
                         mint_operation,
                     )
                 }
-            }
+            })();
+            let after = before.after(sync);
+            (before != after, value)
         })
     }
 }

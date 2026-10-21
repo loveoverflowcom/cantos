@@ -9,6 +9,9 @@ use std::{
     },
 };
 
+#[path = "publication_tests.rs"]
+mod publication_tests;
+
 fn id(value: u128) -> String {
     uuid::Uuid::from_u128(value).to_string()
 }
@@ -23,6 +26,29 @@ fn account() -> AccountViewState {
         )
         .unwrap();
     state
+}
+
+#[test]
+fn admitted_noop_does_not_notify_the_production_writer_subscriber() {
+    Owner::new().with(|| {
+        let state = RwSignal::new(account());
+        let calls = Arc::new(AtomicUsize::new(0));
+        let counted = calls.clone();
+        let subscriber = ArcMemo::new(move |_| {
+            counted.fetch_add(1, Ordering::SeqCst);
+            state.with(|s| s.phase())
+        });
+        subscriber.get();
+        let before = state.with_untracked(Clone::clone);
+        AccountWriter::new(state)
+            .cancel_clear_history()
+            .into_value()
+            .unwrap()
+            .unwrap();
+        subscriber.get();
+        assert_eq!(state.with_untracked(Clone::clone), before);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    });
 }
 
 #[test]
@@ -45,6 +71,7 @@ fn production_writer_orders_mint_persist_send_and_releases_guards_before_effects
                 },
                 None,
             )
+            .into_value()
             .unwrap()
             .unwrap()
         else {
@@ -67,7 +94,9 @@ fn production_writer_orders_mint_persist_send_and_releases_guards_before_effects
             |fence, pending| {
                 trace.borrow_mut().push("send");
                 assert!(state.with_untracked(|s| s.accepts(&fence)));
-                let _ = writer.record_unknown_outcome(&fence, &pending.operation_id);
+                let _ = writer
+                    .record_unknown_outcome(&fence, &pending.operation_id)
+                    .into_value();
                 pending.operation_id
             },
         );
@@ -90,6 +119,7 @@ fn failed_persistence_never_sends_or_loses_the_original_pending_operation() {
                 value: Some(pending),
             } = writer
                 .request_saved(&id(99), true, None, || id(500), None)
+                .into_value()
                 .unwrap()
                 .unwrap()
             else {
@@ -113,6 +143,7 @@ fn failed_persistence_never_sends_or_loses_the_original_pending_operation() {
             });
             let retried = writer
                 .retry_saved(&id(99), || panic!("must not mint on unknown outcome"), None)
+                .into_value()
                 .unwrap()
                 .unwrap()
                 .value
@@ -135,13 +166,14 @@ fn stale_or_replaced_dispatch_cannot_persist_or_send_and_storage_reentry_is_read
                 value: Some(pending),
             } = writer
                 .request_saved(&id(99), true, None, || id(500), None)
+                .into_value()
                 .unwrap()
                 .unwrap()
             else {
                 panic!()
             };
             if !switch_during_storage {
-                writer.begin_logout().unwrap();
+                writer.begin_logout().into_value().flatten().unwrap();
             }
             assert_eq!(
                 writer.dispatch_after_persist(
@@ -152,7 +184,7 @@ fn stale_or_replaced_dispatch_cannot_persist_or_send_and_storage_reentry_is_read
                             switch_during_storage,
                             "old dispatch must not persist B's journal"
                         );
-                        writer.begin_logout().unwrap();
+                        writer.begin_logout().into_value().flatten().unwrap();
                         Ok(())
                     },
                     |_, _| panic!("old dispatch must not send")
@@ -178,28 +210,33 @@ fn production_sync_writer_refusals_do_not_publish() {
         });
         assert_eq!(observed.get(), SessionPhase::SignedIn);
         let old = state.with_untracked(AccountViewState::fence).unwrap();
-        let issued = writer.begin_logout().unwrap().0;
+        let issued = writer.begin_logout().into_value().flatten().unwrap().0;
         assert_eq!(observed.get(), SessionPhase::LogoutPending);
         let before_runs = runs.load(Ordering::SeqCst);
         for _ in 0..3 {
             assert_eq!(
-                writer.request_saved(
-                    &id(99),
-                    true,
-                    None,
-                    || panic!("refused intent must not mint"),
-                    None
-                ),
+                writer
+                    .request_saved(
+                        &id(99),
+                        true,
+                        None,
+                        || panic!("refused intent must not mint"),
+                        None
+                    )
+                    .into_value(),
                 Some(Err(IntentRefusal::SignedOut))
             );
             assert_eq!(
-                writer.record_unknown_outcome(&old, &id(500)),
+                writer.record_unknown_outcome(&old, &id(500)).into_value(),
                 Some(Err(IntentRefusal::StaleFence))
             );
             observed.get();
         }
         assert_eq!(runs.load(Ordering::SeqCst), before_runs);
-        assert_eq!(writer.finish_logout(issued, Ok(())), Some(true));
+        assert_eq!(
+            writer.finish_logout(issued, Ok(())).into_value(),
+            Some(true)
+        );
     });
 }
 
@@ -210,7 +247,10 @@ fn writer_publishes_fail_closed_exhaustion_instead_of_discarding_a_candidate() {
         initial.set_generation_for_test(u64::MAX);
         let state = RwSignal::new(initial);
         let writer = AccountWriter::new(state);
-        assert_eq!(writer.begin_refresh(), Some(Err(AccountError::Exhausted)));
+        assert_eq!(
+            writer.begin_refresh().into_value(),
+            Some(Err(AccountError::Exhausted))
+        );
         state.with_untracked(|s| {
             assert_eq!(s.phase(), SessionPhase::Failed(AccountFailure::Unavailable));
             assert!(s.library().is_none());
@@ -227,23 +267,27 @@ fn unread_journal_is_never_overwritten_and_blocks_new_intents_but_not_recovery_f
         let writer = AccountWriter::new(state);
         let admitted = writer
             .request_saved(&id(99), true, None, || id(500), None)
+            .into_value()
             .unwrap()
             .unwrap();
         writer.record_journal_restore(&admitted.fence, Err(JournalStorageFault::Corrupt));
         assert!(!writer.persist_journal(|_| panic!("must preserve unread durable bytes")));
         assert_eq!(
-            writer.request_saved(
-                &id(99),
-                false,
-                None,
-                || panic!("blocked intent must not mint"),
-                None
-            ),
+            writer
+                .request_saved(
+                    &id(99),
+                    false,
+                    None,
+                    || panic!("blocked intent must not mint"),
+                    None
+                )
+                .into_value(),
             Some(Err(IntentRefusal::RestoreBlocked))
         );
         assert!(
             writer
                 .record_unknown_outcome(&admitted.fence, &id(500))
+                .into_value()
                 .unwrap()
                 .unwrap()
                 .value

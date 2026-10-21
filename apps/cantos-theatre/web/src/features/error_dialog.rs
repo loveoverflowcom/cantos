@@ -1,6 +1,9 @@
 //! Web composition of the shared Dialog/Button APIs; runtime qualification is pending. One shell-owned error window.
 use crate::{
-    application::errors::{ErrorAction, ErrorCenter, ErrorNotice},
+    application::{
+        error_writer::update_errors,
+        errors::{ErrorAction, ErrorCenter, ErrorNotice},
+    },
     messages::{self, Key, Locale},
 };
 use cantos_ui::{Button, ButtonVariant, Dialog};
@@ -15,7 +18,7 @@ pub(crate) fn ErrorWindow(
     let browser_failure = RwSignal::new(false);
     let active = Memo::new(move |_| center.with(ErrorCenter::active));
     view! {
-        {move || active.get().map(|notice| view! { <NoticeDialog notice center locale on_action on_failure=Callback::new(move |_| { browser_failure.set(true); center.update(ErrorCenter::dismiss); })/> })}
+        {move || active.get().map(|notice| view! { <NoticeDialog notice center locale on_action on_failure=Callback::new(move |_| { browser_failure.set(true); update_errors(center, ErrorCenter::dismiss); })/> })}
         <Show when=move || browser_failure.get()>
             <p role="alert">{move || messages::text(Key::ErrorProtocol, locale.get())}</p>
         </Show>
@@ -46,7 +49,7 @@ fn NoticeDialog(
                     description=messages::text(messages::error_key(notice.key.kind), language)
                     close_label=messages::text(Key::CloseError, language)
                     open=Signal::derive(move || center.with(|s| s.active() == Some(notice)))
-                    on_close_request=Callback::new(move |_| center.update(ErrorCenter::dismiss))
+                    on_close_request=Callback::new(move |_| { update_errors(center, ErrorCenter::dismiss); })
                     on_error=Callback::new(move |_| on_failure.run(()))
                     actions=ViewFn::from(move || view! {
                         <Show when=move || primary != ErrorAction::Close>

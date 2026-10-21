@@ -18,20 +18,37 @@ use cantos_contracts::listener_library::{
 };
 use leptos::prelude::*;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Published {
+    No,
+    Yes,
+}
+
+/// Disposal is distinct from a completed transition with no publication or no effect.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Write<R> {
+    Disposed,
+    Done { value: R, published: Published },
+}
+impl<R> Write<R> {
+    pub fn into_value(self) -> Option<R> {
+        match self {
+            Self::Disposed => None,
+            Self::Done { value, .. } => Some(value),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct AccountWriter {
     state: RwSignal<AccountViewState>,
 }
 
-// Delegation keeps signal mutation out of wasm-only code. The pure owner admits each
-// capability; refused capabilities do not publish. Admitted no-op suppression is S3's scope.
+// The owner supplies comparison facts; neither admission nor an old bool/Option means change.
 macro_rules! capability {
     ($name:ident($($arg:ident: $ty:ty),* $(,)?) -> $out:ty) => {
-        pub fn $name(self, $($arg: $ty),*) -> Option<SyncResult<$out>> {
-            self.state.try_maybe_update(|state| {
-                let result = state.$name($($arg),*);
-                (result.is_ok(), result)
-            })
+        pub fn $name(self, $($arg: $ty),*) -> Write<SyncResult<$out>> {
+            self.write(AccountViewState::publication_snapshot, |state| state.$name($($arg),*))
         }
     };
 }
@@ -39,6 +56,34 @@ macro_rules! capability {
 impl AccountWriter {
     pub fn new(state: RwSignal<AccountViewState>) -> Self {
         Self { state }
+    }
+
+    fn write<R, Facts: PartialEq>(
+        self,
+        observe: impl Fn(&AccountViewState) -> Facts,
+        apply: impl FnOnce(&mut AccountViewState) -> R,
+    ) -> Write<R> {
+        self.write_decided(|state| {
+            let before = observe(state);
+            let value = apply(state);
+            (before != observe(state), value)
+        })
+    }
+
+    fn write_decided<R>(self, apply: impl FnOnce(&mut AccountViewState) -> (bool, R)) -> Write<R> {
+        match self.state.try_maybe_update(|state| {
+            let (changed, value) = apply(state);
+            let published = if changed {
+                Published::Yes
+            } else {
+                Published::No
+            };
+            (changed, (value, published))
+        }) {
+            None => Write::Disposed,
+            Some((value, published)) => Write::Done { value, published },
+        }
+        // try_maybe_update releases the guard before any caller interprets value/effects.
     }
 
     capability!(request_saved(work: &str, desired: bool, presentation: Option<WorkPresentation>, mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Option<PendingMutation>);
@@ -64,92 +109,122 @@ impl AccountWriter {
     capability!(apply_receipt(fence: &RequestFence, operation: &str, receipt: Receipt, via_lookup: bool, mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Result<AppliedReceipt, CommandError>);
     capability!(record_unknown_outcome(fence: &RequestFence, operation: &str) -> bool);
     capability!(record_command_error(fence: &RequestFence, operation: &str, error: CommandError, rotate_device: impl FnOnce() -> String) -> bool);
-    capability!(observe_playback(observation: PlaybackObservation, presentation: Option<AudioPresentation>, now_ms: i64, mint_session: impl FnOnce() -> String, mint_operation: impl FnOnce() -> String) -> Option<PendingMutation>);
+    pub fn observe_playback(
+        self,
+        observation: PlaybackObservation,
+        presentation: Option<AudioPresentation>,
+        now_ms: i64,
+        mint_session: impl FnOnce() -> String,
+        mint_operation: impl FnOnce() -> String,
+    ) -> Write<SyncResult<Option<PendingMutation>>> {
+        self.write_decided(|state| {
+            state.observe_playback_publication(
+                observation,
+                presentation,
+                now_ms,
+                mint_session,
+                mint_operation,
+            )
+        })
+    }
 
-    pub fn begin_refresh(self) -> Option<Result<AccountGeneration, AccountError>> {
-        self.state.try_update(AccountViewState::begin_refresh)
+    pub fn begin_refresh(self) -> Write<Result<AccountGeneration, AccountError>> {
+        self.write(
+            AccountViewState::control_publication,
+            AccountViewState::begin_refresh,
+        )
     }
-    pub fn begin_logout(self) -> Option<(AccountGeneration, CleanupIntent)> {
-        self.state
-            .try_update(|state| {
-                if state.cleanup_in_flight() {
-                    return None;
-                }
-                let issued = state.begin_logout().ok()?;
-                Some((issued, state.cleanup_intent().clone()))
-            })
-            .flatten()
+    pub fn begin_logout(self) -> Write<Option<(AccountGeneration, CleanupIntent)>> {
+        self.write(AccountViewState::control_publication, |state| {
+            if state.cleanup_in_flight() {
+                return None;
+            }
+            let issued = state.begin_logout().ok()?;
+            Some((issued, state.cleanup_intent().clone()))
+        })
     }
-    pub fn credentials_lost(self) -> Option<AccountGeneration> {
-        self.state
-            .try_update(|state| {
-                if state.phase() != SessionPhase::SignedIn {
-                    return None;
-                }
-                state.begin_logout().ok()
-            })
-            .flatten()
+    pub fn credentials_lost(self) -> Write<Option<AccountGeneration>> {
+        self.write(AccountViewState::control_publication, |state| {
+            if state.phase() != SessionPhase::SignedIn {
+                return None;
+            }
+            state.begin_logout().ok()
+        })
     }
     pub fn finish_session(
         self,
         issued: AccountGeneration,
         result: Result<AccountScope, AccountFailure>,
         mint: impl FnOnce() -> String,
-    ) -> Option<Result<SessionCompletion, AccountError>> {
-        self.state
-            .try_update(|state| state.finish_session(issued, result, mint))
+    ) -> Write<Result<SessionCompletion, AccountError>> {
+        self.write(AccountViewState::control_publication, |state| {
+            state.finish_session(issued, result, mint)
+        })
     }
     pub fn finish_logout(
         self,
         issued: AccountGeneration,
         result: Result<(), AccountFailure>,
-    ) -> Option<bool> {
-        self.state
-            .try_update(|state| state.finish_logout(issued, result))
+    ) -> Write<bool> {
+        self.write(AccountViewState::control_publication, |state| {
+            state.finish_logout(issued, result)
+        })
     }
     pub fn fail_fenced_command(
         self,
         fence: &RequestFence,
         failure: AccountFailure,
-    ) -> Option<Result<LibraryCompletion, AccountError>> {
-        self.state
-            .try_update(|state| state.fail_fenced_command(fence, failure))
+    ) -> Write<Result<LibraryCompletion, AccountError>> {
+        self.write(AccountViewState::control_publication, |state| {
+            state.fail_fenced_command(fence, failure)
+        })
     }
-    pub fn begin_library(self, section: Section, restart: bool) -> Option<LibraryRequest> {
-        self.state
-            .try_update(|state| state.begin_library(section, restart))
-            .flatten()
+    pub fn begin_library(self, section: Section, restart: bool) -> Write<Option<LibraryRequest>> {
+        self.write(AccountViewState::publication_snapshot, |state| {
+            state.begin_library(section, restart)
+        })
     }
     pub fn finish_page(
         self,
         request: &LibraryRequest,
         result: Result<LibraryPage, AccountFailure>,
         mint: impl FnOnce() -> String,
-    ) -> Option<Result<(LibraryCompletion, Option<PendingMutation>), AccountError>> {
-        self.state
-            .try_update(|state| state.finish_page_with_followup(request, result, mint))
+    ) -> Write<Result<(LibraryCompletion, Option<PendingMutation>), AccountError>> {
+        self.write(AccountViewState::publication_snapshot, |state| {
+            state.finish_page_with_followup(request, result, mint)
+        })
     }
-    pub fn navigation_failed(self, failure: AccountFailure) {
-        let _ = self
-            .state
-            .try_update(|state| state.navigation_failed(failure));
+    pub fn navigation_failed(self, failure: AccountFailure) -> Write<()> {
+        self.write(AccountViewState::control_publication, |state| {
+            state.navigation_failed(failure)
+        })
     }
     pub fn restore_sync_journal(
         self,
         fence: &RequestFence,
         journal: AccountSyncJournal,
-    ) -> Option<bool> {
-        self.state
-            .try_update(|state| state.restore_sync_journal(fence, journal))
+    ) -> Write<bool> {
+        self.write(AccountViewState::publication_snapshot, |state| {
+            state.restore_sync_journal(fence, journal)
+        })
     }
     pub fn record_journal_restore(
         self,
         fence: &RequestFence,
         result: Result<(), JournalStorageFault>,
-    ) {
-        let _ = self
-            .state
-            .try_update(|state| state.record_journal_restore(fence, result));
+    ) -> Write<()> {
+        self.write(AccountViewState::control_publication, |state| {
+            state.record_journal_restore(fence, result)
+        })
+    }
+    pub fn record_storage(
+        self,
+        fence: &RequestFence,
+        result: Result<(), JournalStorageFault>,
+    ) -> Write<()> {
+        self.write(AccountViewState::control_publication, |state| {
+            state.record_storage(fence, result)
+        })
     }
 
     /// Snapshot only the journal, drop the read guard, then call storage. No account clone.
@@ -166,9 +241,7 @@ impl AccountWriter {
             return false;
         };
         let result = persist(&journal);
-        let _ = self
-            .state
-            .try_update(|state| state.record_storage(&fence, result));
+        let _ = self.record_storage(&fence, result);
         result.is_ok()
     }
 
