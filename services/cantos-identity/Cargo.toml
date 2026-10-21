@@ -8,11 +8,14 @@ description = "Pure security-state kernels for the Cantos native Identity bounda
 
 [features]
 # Opt-in service-owned persistence; the default/Kani core has no database dependency.
-persistence = ["dep:cantos-store-turso", "dep:getrandom"]
+persistence = ["dep:cantos-store-turso", "dep:getrandom", "dep:sha2", "dep:subtle", "dep:zeroize"]
 
 [dependencies]
 cantos-store-turso = { path = "../../packages/store-turso", optional = true }
 getrandom = { version = "=0.3.4", optional = true }
+sha2 = { version = "=0.10.9", optional = true }
+subtle = { version = "=2.6.1", default-features = false, optional = true }
+zeroize = { version = "=1.9.1", default-features = false, optional = true }
 
 [dev-dependencies]
 cantos-store-turso = { path = "../../packages/store-turso", features = ["testing"] }

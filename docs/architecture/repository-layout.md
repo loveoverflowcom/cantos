@@ -233,7 +233,7 @@ The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds 
 | Member | Package | Build target |
 | --- | --- | --- |
 | `services/cantos-server` | `cantos-server` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
-| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events and bound receipts; no executable, credential verifier, RPC or production composition |
+| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events, mailbox-proof lifecycles and bound receipts; no executable, password/passkey verifier, RPC or production composition |
 | `services/cantos-forge-functions` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |

@@ -974,7 +974,10 @@ version = "0.1.0"
 dependencies = [
  "cantos-store-turso",
  "getrandom 0.3.4",
+ "sha2 0.10.9",
+ "subtle",
  "tokio",
+ "zeroize",
 ]
 
 [[package]]

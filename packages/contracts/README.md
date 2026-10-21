@@ -6,6 +6,10 @@ The [internal Identity security store v1](identity-security-store-v1.md) records
 service-owned file schema, epoch/CAS/event/receipt behavior and real-file fixtures. It supplies
 no credential, public API/RPC or authentication-fact contract.
 
+The [internal Identity mailbox store v1](identity-mailbox-store-v1.md) adds challenge issuance,
+secret-digest verification, consume/cancel/replace and bound receipts in the same file. It is
+not a signup/setup, mail-delivery or authentication contract.
+
 > Current [ADR 0018](../../docs/decisions/0018-external-audio-production.md):
 > [external-audio-handoff-v1](external-audio-handoff-v1.md) is a **proposed**, not implemented,
 > API contract with its [Production Brief v1](production-brief-v1.md) subset implemented. Durable TTS/receipt/speech-reuse contracts below document historical experiments;

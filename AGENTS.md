@@ -37,7 +37,8 @@ Retired SQL is auditable through its manifest and original Git history, never si
 `services/cantos-identity` contains the default dependency-free
 [security-state and mailbox-proof decision library](services/cantos-identity/README.md) and an opt-in
 `persistence` shell using the shared Turso owner for instance/subject security state, disable
-events and operation receipts. It has no executable, credential verifier, transport or production
+events, mailbox-proof lifecycles and bound receipts. Proof confirmation grants no setup or login
+authority. It has no executable, password/passkey verifier, transport or production
 composition. Checked snapshots and a
 passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
 #331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.

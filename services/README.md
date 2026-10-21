@@ -25,7 +25,8 @@ The API never synthesizes audio or calls Gemini.
 and mailbox-proof decision core remains dependency-free; the optional
 [`persistence` feature](cantos-identity/README.md#file-backed-security-state) uses the shared
 Turso `OwnedDatabase` for the Identity-owned epoch, subjects/security versions, Active→Disabled
-changes, ordered events and immutable bound receipts. It has no executable, listener, credential
+changes, ordered events, mailbox-proof lifecycles and immutable bound receipts. Proof-secret
+verification grants no setup/login authority. It has no executable, listener, password/passkey
 verifier, authenticated RPC or production composition. It remains absent from the process
 inventory until a runnable composition exists; stored state does not establish login authority
 or restore acceptance.
