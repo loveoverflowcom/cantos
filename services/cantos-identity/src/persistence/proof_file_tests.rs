@@ -718,6 +718,66 @@ async fn expired_pending_can_replace_and_cannot_reuse_any_issued_material() {
     assert_eq!(current(&store, bound).await, replaced.proof);
     assert_eq!(store.mailbox_receipt(command(3)).await.unwrap(), None);
     assert_eq!(counts(&store).await, (2, 1, 2));
+
+    // Isolate digest uniqueness from the proof_id primary key. The positive control
+    // uses the identical fresh locator/workflow/window and changes only the digest.
+    let fresh = ProofMaterial::generate().unwrap();
+    let reader = store.database.reader().await.unwrap();
+    let mut rows = reader
+        .query(
+            "SELECT secret_digest FROM mailbox_proof_issues WHERE proof_id=?1",
+            [first.id().to_bytes().to_vec()],
+        )
+        .await
+        .unwrap();
+    let Value::Blob(old_digest) = rows.next().await.unwrap().unwrap().get_value(0).unwrap() else {
+        panic!("expected a stored digest")
+    };
+    assert_eq!(old_digest.len(), 32);
+    assert!(rows.next().await.unwrap().is_none());
+    drop(rows);
+    let mut rows = reader
+        .query(
+            "SELECT count(*) FROM mailbox_proof_issues WHERE proof_id=?1",
+            [fresh.id().to_bytes().to_vec()],
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        rows.next().await.unwrap().unwrap().get_value(0).unwrap(),
+        Value::Integer(0)
+    );
+    drop(rows);
+    drop(reader);
+    let insert = "INSERT INTO mailbox_proof_issues(proof_id,workflow_id,secret_digest,issued_at,expires_at) VALUES(?1,?2,?3,?4,?5)";
+    let values = |digest: Vec<u8>| {
+        cantos_store_turso::params_from_iter([
+            Value::Blob(fresh.id().to_bytes().to_vec()),
+            Value::Blob(bound.operation().to_bytes().to_vec()),
+            Value::Blob(digest),
+            Value::Integer((NOW + 20) as i64),
+            Value::Integer((NOW + 200) as i64),
+        ])
+    };
+    let tx = store.database.begin_write().await.unwrap();
+    assert_eq!(
+        tx.execute(insert, values(old_digest.clone())).await,
+        Err(StoreFault::Constraint {
+            kind: ConstraintKind::Unique,
+            target: Some("mailbox_proof_issues.secret_digest".to_owned()),
+        })
+    );
+    tx.rollback().await.unwrap();
+    assert_eq!(counts(&store).await, (2, 1, 2));
+
+    let fresh_digest = vec![0xA5; 32];
+    assert_ne!(fresh_digest, old_digest);
+    let tx = store.database.begin_write().await.unwrap();
+    assert_eq!(tx.execute(insert, values(fresh_digest)).await.unwrap(), 1);
+    tx.commit().await.unwrap();
+    assert_eq!(counts(&store).await, (3, 1, 2));
+    assert_eq!(current(&store, bound).await, replaced.proof);
+    assert_eq!(store.mailbox_receipt(command(3)).await.unwrap(), None);
 }
 
 #[tokio::test]
