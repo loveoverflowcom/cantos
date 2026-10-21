@@ -23,8 +23,9 @@ producer has run. No production release can be made from this verifier alone. Le
 `deploy vps` still has its existing archive-transfer behavior; it is not the native OCI lane.
 Do not pass the new manifest to that legacy executor.
 
-The current Identity crate has no executable/credential verifier/authenticated RPC; Server
-still serves from PostgreSQL. Keep legacy runtime, principal, PG/Kanidm, ingress, media and
+The `cantos-identity` executable (`migrate`/`serve`, private authenticated Unix-socket RPC) exists
+behind the crate's `service` feature; Server still serves from PostgreSQL, so there is no
+two-service native acceptance. Keep legacy runtime, principal, PG/Kanidm, ingress, media and
 recovery resources until #332–#336 provide actual accepted native journeys and recovery.
 Source review or an offline plan cannot classify a real host as `NEW`, `LEGACY` or `NATIVE_READY`.
 An inaccessible host or missing inventory is `UNKNOWN` and blocks live mutation.
@@ -103,10 +104,44 @@ independently revalidate registry bytes/metadata, inventory freshness, runtime p
 disk/inodes, source-bound assets, admission, locks/generation and native migration/security
 recovery before any mutation. Do not trust this plan as an activation token.
 
+## Producers: `release oci-build`
+
+`cargo xtask release oci-build --platform linux/amd64|linux/arm64 --producer local --build-id ID`
+(or `--producer github-actions`) is the one producer owner ([`scripts/release_oci_build.py`](../../scripts/release_oci_build.py)),
+shared by the local operator and the opt-in [`native-oci-publish`](../../.github/workflows/native-oci-publish.yml)
+workflow (`workflow_dispatch` only; it never runs on push/PR and never deploys).
+
+| Stage | Guard |
+| --- | --- |
+| Preflight | Linux host that natively matches `--platform` (no emulation, no VPS build), full HEAD SHA, clean tracked **and** untracked tree |
+| Build | `git archive` of that commit; [`infra/oci/*/Containerfile`](../../infra/oci) with digest-pinned bases; `--format oci`; revision and configuration identity as required build arguments |
+| Local image check | Before any push: platform, source/revision/configuration/binary labels, numeric non-root `User`, exact entrypoint with no `Cmd`, no credential-named environment |
+| Publish | Only with `--publish --authfile PATH` (private, current-user-owned, no helper, never implicit). One `podman push --digestfile` per image to a `sha-<commit>` tag; **a failed push is never retried** because the registry may have changed: reconcile first |
+| Readback | The registry digest from the digestfile becomes `ghcr.io/loveoverflowcom/SERVICE@sha256:…`; the existing manifest/config readback must pass, so the config digest is the OCI config, never the image ID of another format |
+| Candidate | `manifest.json`, `runtime.tar` (committed host assets with Git modes, deterministic) and `evidence.json` plus `gate-records/*.json`, written once under `artifacts/release-build/oci/SHA/CONFIG/ATTEMPT/` and re-verified against `release_oci` |
+
+Without `--publish` the command builds and checks locally, prints `BUILD_ONLY` and writes nothing.
+The **candidate is never eligible**: all four gates (`native-isolation`, `native-e2e`,
+`migration-restore`, `image-pair`) are recorded `NOT_RUN`, so `release oci-verify` refuses it with
+"producer gate did not PASS" until real gate records replace them and an operator admits the
+producer. Nothing a producer writes is an admission, and labels or a pushed tag prove no provenance.
+
+`infra/oci/compatibility.json` holds the declared RPC, Server schema, Identity schema and
+security-state identifiers; the Turso version is read from the locked `Cargo.lock`. They are
+declarations of this commit, not tested rollback authority. The Server image keeps
+`cantos-migrate` while it still owns a PostgreSQL schema. Server runs as UID/GID 10001 and Identity
+as 10002 so a bind-mounted database directory belongs to exactly one service; mounts, sockets and
+Quadlet units are PR B.
+
+Evidence: unit regressions run on real Git/tar data with a named command double for Podman
+(`mock-integration-tested`). A real local build of both images was run once and matched the
+readback contract; **no GHCR push, Actions run or image-pair fixture has been executed**.
+
 ## Dependency-correct next slices
 
-1. Finish PR A's mandatory local and opt-in Actions producers using the existing release owner.
-   First qualify both native executables and health/migration tools, isolated fixture commands,
+1. PR A's local and opt-in Actions producers now exist (above) but have not published. Still open:
+   live GHCR publish/readback, exact-image layer and pair fixtures, and
+   qualify both native executables and health/migration tools, isolated fixture commands,
    platform builder, pinned base images and clean source context. Use GHCR namespace authority,
    minimum token scopes, stdin authentication and private authfiles; never provision secrets or
    change package visibility implicitly. Publish once, obtain registry digests, pull/read back

@@ -1,0 +1,36 @@
+# Native OCI image for the `cantos-server` executable (#348). Built from a `git archive` of one
+# commit, never on the VPS. Base images are pinned by digest; an upgrade is a reviewed edit.
+# The image holds no database, media, credential or environment file: the host supplies them.
+# Required build arguments carry the identity that `release oci-verify --registry-readback`
+# checks, so a build without them fails instead of publishing an unlabelled image.
+
+FROM docker.io/library/rust:1.98.1-slim-trixie@sha256:fce83543909cd5409924a61ce296bdf5bab0fca37f004c0f6c8ef6f4a37bbc59 AS build
+ENV RUSTUP_TOOLCHAIN=1.98.1 CARGO_TERM_COLOR=never
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,id=cantos-oci-cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cantos-oci-server-target,target=/src/target \
+    cargo build --locked --release -p cantos-server --bin cantos-server --bin cantos-migrate \
+ && install -d /out \
+ && install -m 0755 target/release/cantos-server target/release/cantos-migrate /out/
+
+FROM docker.io/library/debian:trixie-slim@sha256:918311b7b6c4c6f68b232ba516584925f6c78ad82b6fd534b98979df6438e483
+# No curl or shell tooling: the health probe is a binary the release provides, not a package here.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10001 cantos-server \
+ && useradd --system --uid 10001 --gid cantos-server --home-dir /nonexistent --shell /usr/sbin/nologin cantos-server
+# cantos-migrate stays until the Server owns an embedded Turso database (#336).
+COPY --from=build /out/cantos-server /out/cantos-migrate /usr/local/bin/
+ARG CANTOS_REVISION
+ARG CANTOS_CONFIGURATION
+LABEL org.opencontainers.image.title="cantos-server" \
+      org.opencontainers.image.source="https://github.com/loveoverflowcom/cantos" \
+      org.opencontainers.image.revision="${CANTOS_REVISION}" \
+      io.cantos.release.configuration="${CANTOS_CONFIGURATION}" \
+      io.cantos.binary="cantos-server"
+ENV CANTOS_ENV=production RUST_BACKTRACE=0
+USER 10001:10001
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/cantos-server"]

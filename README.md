@@ -19,8 +19,8 @@ prebuilt exact Rust test through `cargo xtask verify native-isolation`; its envi
 do not establish the pending two-binary native runtime or authentication acceptance.
 The [native OCI release contract](docs/deployment/native-oci-release.md) adds offline verification
 of an admitted GHCR image pair and source-bound host bundle through `cargo xtask release oci-verify`.
-It produces `PLAN_ONLY`; local/Actions publishing and native VPS activation remain separate
-#348 follow-ups. Production packaging uses OCI/Quadlet under that decision; native dev/E2E/Kani
+It produces `PLAN_ONLY`; `release oci-build` and a manual Actions workflow can build/publish an
+unadmitted candidate pair, and native VPS activation remains a separate #348 follow-up. Production packaging uses OCI/Quadlet under that decision; native dev/E2E/Kani
 retain their container-independent boundary.
 Its explicit `--registry-readback` option verifies GHCR manifest/config bytes after admission;
 dry-run stays offline and an observation never makes a release eligible.

@@ -8,6 +8,7 @@ validation, build/capture, provider invocation and attributable receipts.
 | Location | Owns | Explicit operation |
 | --- | --- | --- |
 | [`vps/`](vps/README.md) | Production VPS runtime: API image, Podman Quadlet units, PostgreSQL roles/grants, Kanidm template, host script | `cargo xtask deploy vps cantos-server --host USER@HOST [--bootstrap\|--rollback\|--status]` |
+| [`oci/`](oci) | Native OCI image definitions for `cantos-server` and `cantos-identity` plus declared compatibility identifiers | `cargo xtask release oci-build --platform P --producer local --build-id ID [--publish --authfile PATH]` ([contract](../docs/deployment/native-oci-release.md#producers-release-oci-build)); never deploys |
 | [`edge/`](edge/README.md) | Caddy ingress/TLS/routing policy (run as the `cantos-edge` Quadlet unit) and a DuckDNS updater example | installed by `cantos-vps`; never an implicit deploy side effect |
 | [`firebase/hosting/`](firebase/hosting/README.md) | Static Hosting policy and placeholder project/site mapping | `cargo xtask deploy firebase <app> --web --project ID --channel CHANNEL` |
 | [`cloudflare/`](cloudflare/README.md) | Cloudflare Pages Direct Upload policy (`<app>/_headers`, `404.html`), private-mapping example and the pinned Wrangler lockfile | `cargo xtask deploy cloudflare <app> --web --account ID --project NAME --branch BRANCH --environment production\|preview --artifact DIR` ([runbook](../docs/deployment/cloudflare-pages.md), [rollout](../docs/deployment/cloudflare-rollout.md)); offline `cargo xtask hosting-report` never publishes |

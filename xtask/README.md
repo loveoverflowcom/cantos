@@ -245,7 +245,14 @@ manifest/admission/evidence schemas, limits, trust boundary and deferred produce
 The Python regressions are included by `release self-test` and the repository gate; CLI
 regressions are included by the Rust gate. No gate publishes or activates an image.
 
-These are preparatory PR A slices of #348; local and Actions publishing, real registry and
+`cargo xtask release oci-build --platform P --producer local --build-id ID | --producer github-actions
+[--publish --authfile PATH]` builds the Server/Identity pair from one clean commit on a natively matching
+host and, only with `--publish`, pushes it to GHCR and writes an **unadmitted** candidate (all gates
+`NOT_RUN`; `oci-verify` refuses it). No gate or CI job calls it; the opt-in
+[`native-oci-publish`](../.github/workflows/native-oci-publish.yml) workflow is manual only. See the
+[producer contract](../docs/deployment/native-oci-release.md#producers-release-oci-build).
+
+These are preparatory PR A slices of #348; a real registry publish and
 exact-image fixture acceptance remain required before PR B's native VPS activation. The existing `deploy vps`
 executor still belongs to the legacy archive lane; it does not consume this contract.
 
