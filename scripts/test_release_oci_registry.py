@@ -279,6 +279,9 @@ class RegistryReadbackTests(unittest.TestCase):
             path.write_bytes(raw({"auths": {"ghcr.io": {"auth": auth}}}))
             path.chmod(0o600)
             self.assertEqual(registry.load_authfile(path), "Basic " + auth)
+            bot_auth = base64.b64encode(b"fixture-actions[bot]:fixture-private-token").decode()
+            path.write_bytes(raw({"auths": {"ghcr.io": {"auth": bot_auth}}}))
+            self.assertEqual(registry.load_authfile(path), "Basic " + bot_auth)
             path.chmod(0o644)
             with self.assertRaisesRegex(registry.ReadbackError, "^AUTHFILE_PERMISSIONS$"):
                 registry.load_authfile(path)

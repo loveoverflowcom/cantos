@@ -142,7 +142,7 @@ def load_authfile(path):
         require(isinstance(auth, str) and len(auth) <= 32768, "AUTHFILE_GHCR_ENTRY")
         decoded = base64.b64decode(auth, validate=True).decode("ascii")
         username, separator, password = decoded.partition(":")
-        require(separator and re.fullmatch(r"[A-Za-z0-9-]{1,100}", username) and password and
+        require(separator and 0 < len(username) <= 100 and all(32 < ord(c) < 127 for c in username) and password and
                 all(32 < ord(c) < 127 for c in password), "AUTHFILE_CREDENTIAL")
         return "Basic " + auth
     except (ValueError, OSError, UnicodeError, AttributeError):
