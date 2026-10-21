@@ -116,7 +116,7 @@ fn run_work_request(state: RwSignal<WorkDetailState>, request: WorkRequest, focu
                     if let Some(target) =
                         state.try_with_untracked(crate::features::public_work::page_focus_target)
                     {
-                        platform::focus_by_id(target);
+                        platform::focus_after_unit_page(target);
                     }
                 }
                 step = next;

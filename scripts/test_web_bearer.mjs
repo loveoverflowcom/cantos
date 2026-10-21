@@ -22,8 +22,9 @@ const source=()=>{
 const before=source();
 const origins={studio:'http://localhost:18081',theatre:'http://localhost:18082'};
 const apiOrigin='http://127.0.0.1:18080',issuerOrigin='http://127.0.0.1:18083';
-const state={flows:new Map(),families:new Map(),tokens:new Map(),refreshes:0,revokes:0,cancels:0,exchanges:0,requests:[],imports:new Map(),images:new Map(),artwork:null,imagePuts:0,cookieProbes:[],holdRefresh:null,dropRefresh:false,holdLibrary:null,failRevoke:false,shortAccess:false,denied:false,configuration:null,configurationStatus:200,failSavedPage:false};
+const state={flows:new Map(),families:new Map(),tokens:new Map(),refreshes:0,revokes:0,cancels:0,exchanges:0,requests:[],imports:new Map(),images:new Map(),artwork:null,imagePuts:0,cookieProbes:[],holdRefresh:null,dropRefresh:false,holdLibrary:null,failRevoke:false,shortAccess:false,denied:false,configuration:null,configurationStatus:200,failSavedPage:false,publicUnits:null,holdUnits:null,holdSavedMutation:null,savedMutationAccepted:false};
 const secret=()=>randomBytes(32).toString('hex');
+const domEvidence=[];
 const workId='00000000-0000-4000-8000-000000000077';
 const actorA='00000000-0000-4000-8000-000000000001',actorB='00000000-0000-4000-8000-000000000099';
 const json=(res,status,body,extra={})=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store',...extra});res.end(JSON.stringify(body));};
@@ -47,6 +48,18 @@ const api=http.createServer(async(req,res)=>{try{
  state.requests.push({surface,path:url.pathname,method:req.method,authorization:!!req.headers.authorization,cookie:false});
  const prefix=`/api/v1/${surface}/auth/bearer`,suffix=url.pathname.slice(prefix.length);
  if(url.pathname===`/api/v1/${surface}/auth/configuration`)return json(res,surface==='studio'?200:state.configurationStatus,surface==='studio'?{mode:'oidc'}:(state.configuration||{login:'oidc',registration:{status:'unavailable',reason:'registration_unconfigured'}}));
+ if(surface==='theatre'&&state.publicUnits){
+  if(url.pathname===`/api/v1/theatre/works/${workId}`){
+   const work=JSON.parse(readFileSync(join(root,'packages/contracts/fixtures/theatre/discovery/v1/presented_works.json'))).items[0];work.work_id=workId;return json(res,200,work);
+  }
+  if(url.pathname===`/api/v1/theatre/works/${workId}/units`){
+   assert.equal(req.method,'GET');assert(!req.headers.authorization);
+   if(url.searchParams.has('cursor'))return json(res,400,{code:'invalid_cursor',retryable:false});
+   if(state.holdUnits)await state.holdUnits;
+   return json(res,200,{work_id:workId,...state.publicUnits});
+  }
+  if(/^\/api\/v1\/theatre\/publications\//.test(url.pathname))return json(res,404,{code:'not_found',retryable:false});
+ }
  if(surface==='theatre'&&url.pathname===`/api/v1/${surface}/works`)return json(res,200,{items:[],next_cursor:null});
  if(url.pathname.startsWith(prefix)&&req.method==='POST'){
   assert(!req.headers.authorization,'protocol request mixed credentials');const b=await body(req);
@@ -112,6 +125,12 @@ const api=http.createServer(async(req,res)=>{try{
  if(suffix==='/session'&&url.pathname.startsWith(prefix)){
   const view=family.view;return json(res,200,{actor_id:family.actor,session_id:family.id,expires_at:view.expires_at,absolute_expires_at:view.absolute_expires_at,authenticated_at:view.authenticated_at});
  }
+ if(url.pathname===`/api/v1/theatre/library/saved/${workId}`&&req.method==='PUT'){
+  const write=await body(req);assert.equal(write.saved,false);assert.equal(req.headers['x-cantos-theatre-session'],family.id);
+  if(state.holdSavedMutation)await state.holdSavedMutation;
+  if(state.savedMutationAccepted)return json(res,200,{operation_id:write.operation.operation_id,outcome:'accepted',resolution:null,state:{resource:'saved',current:{work_id:workId,saved:false,revision:write.base_revision+1,listener_order:2,accepted_at_ms:2000}}});
+  return json(res,409,{code:'revision_exhausted',retryable:false});
+ }
  if(url.pathname.includes('/library/')){
   assert.equal(req.method,'GET');assert.equal(url.searchParams.get('presentation'),'1');assert.equal(url.searchParams.get('limit'),'20');assert.equal(req.headers['x-cantos-theatre-session'],family.id);
   const section=url.pathname.split('/').at(-1),cursor={continue:'aa'.repeat(32),saved:'bb'.repeat(32),history:'cc'.repeat(32)}[section];assert(cursor);
@@ -122,6 +141,14 @@ const api=http.createServer(async(req,res)=>{try{
   const row=fixture.items[0],audio=section==='continue'?row.progress.audio:section==='history'?row.audio:null;
   const id=more?'00000000-0000-4000-8000-000000000088':workId;
   if(audio)audio.work_id=id;if(row.progress)row.progress.audio.work_id=id;if(row.saved)row.saved.work_id=id;
+  // Distinct Works cannot share one exact publication/audio identity. History can report a
+  // newer release/order for the same Work: production sync then reorders retained Continue keys.
+  if(more&&audio){
+   const identity={...audio,unit_id:'00000000-0000-4000-8000-000000000082',publication_id:section==='history'?'00000000-0000-4000-8000-000000000085':'00000000-0000-4000-8000-000000000083',rendition_id:section==='history'?'00000000-0000-4000-8000-000000000086':'00000000-0000-4000-8000-000000000084'};
+   Object.assign(audio,identity);if(row.progress)Object.assign(row.progress.audio,identity);
+   if(row.presentation){row.presentation.unit_id=identity.unit_id;row.presentation.work.publication_id=identity.publication_id;}
+   if(section==='history')row.progress.listener_order=2;
+  }
   const metadata=section==='saved'?row.presentation:row.presentation.work;
   metadata.work_id=id;metadata.title=`${family.actor===actorA?'A':'B'} · ${more?'Trang sau':'Ánh đèn cuối sân khấu — Lời hẹn dài hơn một chuyến tàu xuyên qua miền ký ức'}`;
   if(more&&section==='continue'){row.presentation=null;row.resume='release_replaced';}
@@ -156,7 +183,7 @@ function send(method,params={},sessionId){const id=++seq;return new Promise((res
 async function attach(targetId){const {sessionId}=await send('Target.attachToTarget',{targetId,flatten:true});await send('Runtime.enable',{},sessionId);await send('Page.enable',{},sessionId);await send('Network.enable',{},sessionId);return sessionId;}
 async function evaluate(s,expression){const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},s);if(r.exceptionDetails)throw new Error('page evaluation failed');return r.result?.value;}
 const visible=(s,selector)=>evaluate(s,`(()=>{const e=document.querySelector(${JSON.stringify(selector)});return !!(e&&e.getBoundingClientRect().height&&!e.closest('[hidden],[inert]'));})()`);
-async function click(s,selector){await until(async()=>await visible(s,selector)&&await evaluate(s,`(()=>{const e=document.querySelector(${JSON.stringify(selector)});return !e.disabled&&e.getAttribute('aria-disabled')!=='true';})()`),`enabled ${selector}`);const p=await evaluate(s,`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);for(const type of ['mousePressed','mouseReleased'])await send('Input.dispatchMouseEvent',{type,...p,button:'left',clickCount:1},s);}
+async function click(s,selector){await until(async()=>await visible(s,selector)&&await evaluate(s,`(()=>{const e=document.querySelector(${JSON.stringify(selector)});return !e.disabled&&e.getAttribute('aria-disabled')!=='true';})()`),`enabled ${selector}`);await evaluate(s,`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center',behavior:'instant'})`);await evaluate(s,'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');const p=await until(async()=>{await evaluate(s,`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center',behavior:'instant'})`);await evaluate(s,'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');return evaluate(s,`(()=>{const e=document.querySelector(${JSON.stringify(selector)});const r=e.getBoundingClientRect();const x=r.x+r.width/2,y=r.y+r.height/2;return e.contains(document.elementFromPoint(x,y))?{x,y}:null;})()`);},`hit target ${selector}`).catch(async error=>{console.error(await evaluate(s,`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {selector:${JSON.stringify(selector)},rect:r.toJSON(),hit:hit?.outerHTML.slice(0,300),viewport:[innerWidth,innerHeight]};})()`));throw error;});for(const type of ['mousePressed','mouseReleased'])await send('Input.dispatchMouseEvent',{type,...p,button:'left',clickCount:1},s);}
 async function page(url){const {targetId}=await send('Target.createTarget',{url});return {id:targetId,s:await attach(targetId)};}
 async function popupFor(main,button){if(button==='#theatre-account-login'){await click(main.s,button);button='#theatre-auth-login';}const prior=new Set((await send('Target.getTargets')).targetInfos.map(t=>t.targetId));await click(main.s,button);const target=await until(async()=> (await send('Target.getTargets')).targetInfos.find(t=>t.type==='page'&&!prior.has(t.targetId)&&t.url.startsWith(issuerOrigin)),'issuer popup');return {id:target.targetId,s:await attach(target.targetId)};}
 async function login(main,button,actor='a'){const popup=await popupFor(main,button);await click(popup.s,`#mock-${actor}`);return popup;}
@@ -174,6 +201,7 @@ try{
  const version=await send('Browser.getVersion');browserVersion=version;
  state.configuration={login:'unconfigured',registration:{status:'email_verification'}};
  const theatre=await page(`${origins.theatre}/#login?from=account`);
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false},theatre.s);
  const enabled=selector=>evaluate(theatre.s,`(()=>{const e=document.querySelector(${JSON.stringify(selector)});return !!e&&!e.disabled;})()`);
  await until(()=>evaluate(theatre.s,"document.querySelector('#theatre-auth-login')?.disabled&&document.body.innerText.includes('chưa được cấu hình')"),'login unconfigured');
  assert(await enabled('#theatre-auth-register'));assert.equal(state.flows.size,0);
@@ -182,6 +210,60 @@ try{
  state.configurationStatus=200;state.configuration=null;await click(theatre.s,'#theatre-auth-configuration-retry');
  await until(()=>enabled('#theatre-auth-login'),'configured login');assert(!await enabled('#theatre-auth-register'));
  passed('independent-login-registration-readiness-and-configuration-retry');
+ // #359: actual production Work rows, restarted cursor walks and event-time Listen.
+ const baseUnit=JSON.parse(readFileSync(join(root,'packages/contracts/fixtures/theatre/discovery/v1/presented_units.json'))).items[0];
+ const unitA={...baseUnit,title:'A · Một tiếng chuông'},unitB={...baseUnit,unit_id:'20000000-0000-4000-8000-000000000003',publication_id:'80000000-0000-4000-8000-000000000009',title:'B · Dòng giữ nguyên',ordinal:2,position:1};
+ state.publicUnits={items:[unitA,unitB],next_cursor:'unit_cursor'};
+ const publicWork=await page(`${origins.theatre}/#work/${workId}`);
+ const unitSelector=id=>`[data-unit-id="${id}"]`,listenSelector=id=>`#theatre-public-unit-listen-${id}`;
+ await until(()=>visible(publicWork.s,listenSelector(unitB.unit_id)),'public units');
+ await evaluate(publicWork.s,`window.rowA=document.querySelector(${JSON.stringify(unitSelector(unitA.unit_id))});window.rowB=document.querySelector(${JSON.stringify(unitSelector(unitB.unit_id))});window.listenA=window.rowA.querySelector('button');window.headingA=window.rowA.querySelector('h3');window.rowBTitle=window.rowB.querySelector('h3').firstChild;window.range=document.createRange();window.range.selectNodeContents(window.rowBTitle);getSelection().removeAllRanges();getSelection().addRange(window.range);window.domChanges=[];window.domObserver=new MutationObserver(records=>window.domChanges.push(...records));window.domObserver.observe(document.querySelector('.theatre-public-unit-list'),{subtree:true,childList:true,attributes:true,characterData:true});`);
+ const changed={...unitA,title:'A · Tên mới dưới cùng ID',description:'Mô tả mới dưới cùng ID',duration_ms:91000,ordinal:7};
+ state.publicUnits={items:[changed,unitB],next_cursor:'unit_cursor'};
+ await click(publicWork.s,'#theatre-public-units-more');
+ await until(()=>evaluate(publicWork.s,`document.querySelector(${JSON.stringify(unitSelector(unitA.unit_id))}).querySelector('h3').textContent===${JSON.stringify(changed.title)}`),'same-ID title refresh');
+ assert(await evaluate(publicWork.s,`window.rowA===document.querySelector(${JSON.stringify(unitSelector(unitA.unit_id))})&&window.rowB===document.querySelector(${JSON.stringify(unitSelector(unitB.unit_id))})&&window.listenA===window.rowA.querySelector('button')&&window.headingA===window.rowA.querySelector('h3')`),'same unit keeps row, heading and Listen button');
+ assert.equal(await evaluate(publicWork.s,"window.rowA.querySelector('[data-ordinal]').getAttribute('data-ordinal')"),'7');
+ assert(await evaluate(publicWork.s,"window.rowA.textContent.includes('1:31')&&window.rowA.textContent.includes('Mô tả mới')"));
+ assert.equal(await evaluate(publicWork.s,'getSelection().toString()'),unitB.title);
+ domEvidence.push({scenario:'public-same-id-fields',...await evaluate(publicWork.s,`(()=>{const records=window.domChanges.splice(0);return {records:records.length,characterData:records.filter(r=>r.type==='characterData').length,attributes:records.filter(r=>r.type==='attributes').length,childList:records.filter(r=>r.type==='childList').length,addedRows:records.flatMap(r=>[...r.addedNodes]).filter(n=>n.matches?.('li')).length,removedRows:records.flatMap(r=>[...r.removedNodes]).filter(n=>n.matches?.('li')).length};})()`)});
+ passed('public-unit-reactive-fields-stable-nodes-and-sibling-selection');
+ const publicReplacement={...changed,publication_id:'80000000-0000-4000-8000-000000000019'};
+ let releaseUnits;state.holdUnits=new Promise(resolve=>{releaseUnits=resolve;});state.publicUnits={items:[publicReplacement,unitB],next_cursor:'unit_cursor'};
+ await click(publicWork.s,'#theatre-public-units-more');
+ await until(()=>evaluate(publicWork.s,"document.querySelector('.theatre-public-units').getAttribute('aria-busy')==='true'"),'held replacement walk');
+ await evaluate(publicWork.s,'window.headingA.focus()');
+ for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',{type,key:'Tab',code:'Tab',windowsVirtualKeyCode:9},publicWork.s);
+ assert.equal(await evaluate(publicWork.s,'document.activeElement.id'),listenSelector(unitA.unit_id).slice(1));
+ state.holdUnits=null;releaseUnits();
+ await until(()=>evaluate(publicWork.s,"document.querySelector('.theatre-public-units').getAttribute('aria-busy')!=='true'"),'replacement settled');
+ assert(await evaluate(publicWork.s,`window.listenA===document.querySelector(${JSON.stringify(listenSelector(unitA.unit_id))})`));
+ await click(publicWork.s,listenSelector(unitA.unit_id));
+ await until(()=>state.requests.some(r=>r.path===`/api/v1/theatre/publications/${publicReplacement.publication_id}`),'Listen requests new publication');
+ assert(!state.requests.some(r=>r.path===`/api/v1/theatre/publications/${unitA.publication_id}`));
+ passed('public-unit-replacement-keeps-button-and-listen-uses-current-publication');
+ // Settle the not-found feedback, then remove Listen while it has keyboard focus.
+ await until(()=>evaluate(publicWork.s,"window.rowA.dataset.listen==='failed'"),'synthetic not-found listen');
+ state.holdUnits=new Promise(resolve=>{releaseUnits=resolve;});state.publicUnits={items:[unitB],next_cursor:null};
+ await click(publicWork.s,'#theatre-public-units-more');
+ await until(()=>evaluate(publicWork.s,"document.querySelector('.theatre-public-units').getAttribute('aria-busy')==='true'"),'held availability walk');
+ await evaluate(publicWork.s,'window.headingA.focus()');
+ for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',{type,key:'Tab',code:'Tab',windowsVirtualKeyCode:9},publicWork.s);
+ assert.equal(await evaluate(publicWork.s,'document.activeElement.id'),listenSelector(unitA.unit_id).slice(1));
+ state.holdUnits=null;releaseUnits();
+ await until(()=>evaluate(publicWork.s,"window.rowA.dataset.unavailable==='true'"),'unit unavailable');
+ await until(()=>evaluate(publicWork.s,'document.activeElement===window.headingA'),'unavailable Listen transfers focus to same heading');
+ assert(await evaluate(publicWork.s,`window.rowA===document.querySelector(${JSON.stringify(unitSelector(unitA.unit_id))})&&window.rowB===document.querySelector(${JSON.stringify(unitSelector(unitB.unit_id))})&&!window.rowA.querySelector('button')`));
+ assert(await evaluate(publicWork.s,'!window.listenA.isConnected'));
+ passed('public-unavailable-focused-listen-moves-to-retained-heading');
+ for(const [width,height,theme] of [[1440,1000,'dark'],[390,844,'light']]){
+  await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<500},publicWork.s);
+  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]},publicWork.s);
+  await evaluate(publicWork.s,'document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))');
+  const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true},publicWork.s);
+  await writeFile(join(run,`theatre-public-unavailable-${width}-${theme}-vi.png`),Buffer.from(shot.data,'base64'));
+ }
+ await send('Target.closeTarget',{targetId:publicWork.id});state.publicUnits=null;
  await send('Network.setCookieControls',{enableThirdPartyCookieRestriction:true,disableThirdPartyCookieMetadata:true,disableThirdPartyCookieHeuristics:true},theatre.s);
  const cookie=await send('Network.setCookie',{name:'synthetic_third_party',value:'fixture',url:apiOrigin,secure:true,sameSite:'None'},theatre.s);assert(cookie.success);
  const cookieControl=await page(apiOrigin+'/_test/cookie-control');await until(()=>evaluate(cookieControl.s,'document.body.innerText.includes("true")'),'first-party cookie positive control');
@@ -197,16 +279,73 @@ try{
  await until(()=>visible(theatre.s,'#theatre-library-history-more'),'three independent presented lists');
  assert.equal(await evaluate(theatre.s,`document.querySelectorAll('a[href="#work/${workId}"]').length`),3);
  assert.equal(await evaluate(theatre.s,"document.querySelectorAll('audio').length"),0);
+ await evaluate(theatre.s,`window.libraryNode=document.querySelector('[aria-labelledby=theatre-library-continue-heading] li');window.libraryButton=window.libraryNode.querySelector('button');window.libraryStatus=document.querySelector('#theatre-library-continue-status');window.savedBeforeInsert=document.querySelector('[aria-labelledby=theatre-library-saved-heading] li');`);
  state.failSavedPage=true;await click(theatre.s,'#theatre-library-saved-more');
  await until(()=>visible(theatre.s,'#theatre-library-saved-retry'),'Saved page error retains first page');
+ assert(await evaluate(theatre.s,`window.libraryNode===document.querySelector('[aria-labelledby=theatre-library-continue-heading] li')&&window.libraryButton===window.libraryNode.querySelector('button')&&window.libraryStatus===document.querySelector('#theatre-library-continue-status')`),'Library row, control and status identity survive sibling section notifications');
+ passed('library-unrelated-section-keeps-row-button-and-status-nodes');
  assert(await visible(theatre.s,'#theatre-library-history-more'));assert(await visible(theatre.s,'#theatre-library-continue-more'));
+ // Hold the real continuation response while an existing sibling has focus/selection.
+ // Completion deliberately focuses the section status; preserve that existing policy.
+ let releaseSavedInsert;state.holdLibrary=new Promise(resolve=>{releaseSavedInsert=resolve;});
  state.failSavedPage=false;await click(theatre.s,'#theatre-library-saved-retry');
+ await until(()=>evaluate(theatre.s,"document.querySelector('[aria-labelledby=theatre-library-saved-heading] ul').getAttribute('aria-busy')==='true'"),'held Saved insertion');
+ const selectedLibraryTitle=await evaluate(theatre.s,`(()=>{window.libraryButton.focus();const title=window.libraryNode.querySelector('h3 a');const range=document.createRange();range.selectNodeContents(title);getSelection().removeAllRanges();getSelection().addRange(range);return getSelection().toString();})()`);
+ assert(selectedLibraryTitle.length>0);assert(await evaluate(theatre.s,'document.activeElement===window.libraryButton'));
+ state.holdLibrary=null;releaseSavedInsert();
  await until(()=>evaluate(theatre.s,"document.querySelectorAll('[aria-labelledby=theatre-library-saved-heading] li').length===2"),'Saved page retry');
- await click(theatre.s,'#theatre-library-continue-more');await click(theatre.s,'#theatre-library-history-more');
+ assert(await evaluate(theatre.s,`window.savedBeforeInsert===document.querySelector('[aria-labelledby=theatre-library-saved-heading] li')`),'insert retains the existing keyed Saved row');
+ assert(await evaluate(theatre.s,`window.libraryNode===document.querySelector('[aria-labelledby=theatre-library-continue-heading] li')&&window.libraryButton===window.libraryNode.querySelector('button')`));
+ assert.equal(await evaluate(theatre.s,'getSelection().toString()'),selectedLibraryTitle,'insertion retains sibling text selection');
+ await until(()=>evaluate(theatre.s,"document.activeElement.id==='theatre-library-saved-status'"),'insertion retains the existing page-completion focus policy');
+ const savedOrder=await evaluate(theatre.s,`[...document.querySelectorAll('[aria-labelledby=theatre-library-saved-heading] li')].map(row=>row.querySelector('button').id)`);
+ assert.deepEqual(savedOrder,[`theatre-library-saved-unsave-${workId}`,'theatre-library-saved-unsave-00000000-0000-4000-8000-000000000088']);
+ await evaluate(theatre.s,`window.savedBeforeInsert.querySelector('button').focus()`);
+ for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',{type,key:'Tab',code:'Tab',windowsVirtualKeyCode:9},theatre.s);
+ assert.equal(await evaluate(theatre.s,'document.activeElement.id'),savedOrder[1],'keyboard order follows the inserted DOM row order');
+ passed('library-insert-retains-nodes-selection-section-focus-and-dom-keyboard-order');
+ await click(theatre.s,'#theatre-library-continue-more');await until(()=>evaluate(theatre.s,"document.querySelectorAll('[aria-labelledby=theatre-library-continue-heading] li').length===2"),'Continue next page settled');
+ let releaseHistoryReorder;state.holdLibrary=new Promise(resolve=>{releaseHistoryReorder=resolve;});
+ await click(theatre.s,'#theatre-library-history-more');
+ await until(()=>evaluate(theatre.s,"document.querySelector('[aria-labelledby=theatre-library-history-heading] ul').getAttribute('aria-busy')==='true'"),'held History reorder');
+ const reorderSelection=await evaluate(theatre.s,`(()=>{window.continueList=document.querySelector('[aria-labelledby=theatre-library-continue-heading] ul');window.continueB=window.continueList.querySelectorAll('li')[1];window.libraryButton.focus();const range=document.createRange();range.selectNodeContents(window.libraryNode.querySelector('h3 a'));getSelection().removeAllRanges();getSelection().addRange(range);window.reorderSamples=[];window.reorderObserver=new MutationObserver(records=>{if(records.some(r=>r.type==='childList'&&r.target===window.continueList)){window.reorderSamples.push({focus:document.activeElement===window.libraryButton,selection:getSelection().toString(),order:[...window.continueList.querySelectorAll('li')].map(row=>row.getAttribute('data-publication-id'))});}});window.reorderObserver.observe(window.continueList,{childList:true});return getSelection().toString();})()`);
+ assert(reorderSelection.length>0);assert(await evaluate(theatre.s,'document.activeElement===window.libraryButton'));
+ state.holdLibrary=null;releaseHistoryReorder();
  await until(()=>evaluate(theatre.s,"document.querySelectorAll('[aria-labelledby=theatre-library-history-heading] li').length===2"),'History next page');
+ await until(()=>evaluate(theatre.s,'window.continueList.querySelectorAll("li")[0]===window.continueB'),'newer History release reorders Continue');
+ assert(await evaluate(theatre.s,'window.continueList.querySelectorAll("li")[1]===window.libraryNode&&window.libraryNode.querySelector("button")===window.libraryButton'),'reorder retains both Work rows and the unchanged action');
+ const reorderSamples=await evaluate(theatre.s,'window.reorderSamples');assert(reorderSamples.length>0,'observe the actual DOM move');
+ domEvidence.push({scenario:'library-history-reorders-continue',samples:reorderSamples});
+ await writeFile(join(run,'reorder-observation.json'),JSON.stringify({samples:reorderSamples,final:await evaluate(theatre.s,'({focus:document.activeElement.id,selection:getSelection().toString()})')},null,2));
+ assert.equal(await evaluate(theatre.s,'getSelection().toString()'),reorderSelection);
+ assert(reorderSamples.every(sample=>sample.focus&&sample.selection===reorderSelection),'DOM move retains focused unchanged action and text selection before completion focus');
+ assert.deepEqual(reorderSamples.at(-1).order,['00000000-0000-4000-8000-000000000085','00000000-0000-4000-8000-000000000003']);
+ await until(()=>evaluate(theatre.s,"document.activeElement.id==='theatre-library-history-status'"),'History completion focus after reorder');
+ await evaluate(theatre.s,'window.continueB.querySelector("h3 a").focus()');
+ for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',{type,key:'Tab',code:'Tab',windowsVirtualKeyCode:9},theatre.s);
+ assert(await evaluate(theatre.s,'document.activeElement===window.libraryNode.querySelector("h3 a")'),'Tab follows reordered DOM reading order');
+ passed('library-reorder-retains-work-nodes-focus-selection-and-dom-keyboard-order');
  assert(await evaluate(theatre.s,"document.body.innerText.includes('bản nghe đã được thay thế')||document.body.innerText.includes('Bản nghe đã được thay thế')"));
  assert(!state.requests.some(r=>r.path.includes('/library/')&&r.method!=='GET'));
- assert(await evaluate(theatre.s,"document.activeElement.id==='theatre-library-history-status'"));
+ let releaseSaved;state.holdSavedMutation=new Promise(resolve=>{releaseSaved=resolve;});
+ await evaluate(theatre.s,`window.savedNode=document.querySelector('[aria-labelledby=theatre-library-saved-heading] li');window.savedButton=window.savedNode.querySelector('button');window.libraryObserverChanges=[];window.libraryObserver=new MutationObserver(records=>window.libraryObserverChanges.push(...records));window.libraryObserver.observe(window.libraryNode,{subtree:true,childList:true,attributes:true,characterData:true});window.libraryAllChanges=[];window.libraryAllObserver=new MutationObserver(records=>window.libraryAllChanges.push(...records));window.libraryAllObserver.observe(document.querySelector('#library'),{subtree:true,childList:true,attributes:true,characterData:true});`);
+ await click(theatre.s,`#theatre-library-saved-unsave-${workId}`);
+ await until(()=>evaluate(theatre.s,"window.savedButton.disabled&&window.savedButton.dataset.state==='loading'"),'same saved row pending');
+ await evaluate(theatre.s,'window.libraryButton.focus()');
+ state.holdSavedMutation=null;releaseSaved();
+ await until(()=>visible(theatre.s,`#theatre-library-saved-retry-${workId}`),'same saved row failure feedback');
+ assert(await evaluate(theatre.s,`window.savedNode===document.querySelector('[aria-labelledby=theatre-library-saved-heading] li')&&window.savedButton===window.savedNode.querySelector('[id^=theatre-library-saved-unsave-]')&&!window.savedButton.disabled&&document.activeElement===window.libraryButton&&window.libraryNode===window.continueList.querySelectorAll('li')[1]`),'same-ID command state refreshes without reconstructing rows or losing sibling focus');
+ domEvidence.push({scenario:'library-sibling-saved-command',allLibraryRecords:await evaluate(theatre.s,'window.libraryAllChanges.length'),records:await evaluate(theatre.s,'window.libraryObserverChanges.length')});
+ assert.equal(domEvidence.at(-1).records,0,'unaffected Continue row receives no DOM mutations');
+ passed('library-same-id-pending-failed-reactive-controls-and-sibling-focus-with-zero-dom-mutations');
+ await evaluate(theatre.s,`window.savedSibling=document.querySelectorAll('[aria-labelledby=theatre-library-saved-heading] li')[1];window.savedSiblingButton=window.savedSibling.querySelector('button');`);
+ state.savedMutationAccepted=true;await click(theatre.s,`#theatre-library-saved-retry-${workId}`);
+ await until(()=>evaluate(theatre.s,"document.querySelectorAll('[aria-labelledby=theatre-library-saved-heading] li').length===1"),'accepted unsave removes only one keyed row');
+ assert(await evaluate(theatre.s,`!window.savedNode.isConnected&&window.savedSibling===document.querySelector('[aria-labelledby=theatre-library-saved-heading] li')&&window.savedSiblingButton===window.savedSibling.querySelector('button')`));
+ passed('library-remove-keyed-row-keeps-sibling-node-and-control');
+
+
+
  for(const [width,height,theme,scale] of [[390,844,'light',100],[1440,1000,'dark',100],[390,844,'dark',200]]){
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<500},theatre.s);
   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:theme}]},theatre.s);
@@ -223,12 +362,14 @@ try{
  let releaseLibrary;state.holdLibrary=new Promise(resolve=>{releaseLibrary=resolve;});
  await click(theatre.s,'#theatre-library-saved-reload');
  await until(()=>evaluate(theatre.s,"document.querySelector('[aria-labelledby=theatre-library-saved-heading] [aria-busy=true]')!==null"),'held A library');
+ await evaluate(theatre.s,`window.accountARow=document.querySelector('[aria-labelledby=theatre-library-continue-heading] li');`);
  await click(theatre.s,'#theatre-account-entry');await click(theatre.s,'#theatre-account-logout');
  await until(()=>visible(theatre.s,'#theatre-account-login'),'A logout before delayed page');
  state.holdLibrary=null;await login(theatre,'#theatre-account-login','b');await until(()=>visible(theatre.s,'#theatre-account-logout'),'B admitted');
  await click(theatre.s,'a[href="#library"]');await until(()=>evaluate(theatre.s,"document.querySelector('#library').innerText.includes('B ·')"),'B Library');
  releaseLibrary();await sleep(100);
  assert(!await evaluate(theatre.s,"document.querySelector('#library').innerText.includes('A ·')"));
+ assert(await evaluate(theatre.s,`!window.accountARow.isConnected&&window.accountARow!==document.querySelector('[aria-labelledby=theatre-library-continue-heading] li')`),'account A rows disposed before B rows mount');
  await checkStorage(theatre);passed('delayed-account-a-page-cannot-return-after-logout-and-account-b-admission');
  await click(theatre.s,'#theatre-account-entry');
 
@@ -322,14 +463,15 @@ try{
  passed('studio-keyboard-focus-and-narrow-dark-english-css-text-200');
  assert(state.requests.every(r=>r.cookie===false));
  assert(state.requests.filter(r=>r.path.includes('/auth/bearer/')&&r.method==='POST').every(r=>!r.authorization));
+ assert.deepEqual(pageErrors,[],'production rows must not throw during updates, removal or account teardown');
  assert.deepEqual(source(),before,'source changed while browser evidence ran');
  const hashes={};for(const surface of ['studio','theatre'])hashes[surface]=createHash('sha256').update(await readFile(join(root,`apps/cantos-${surface}/web/dist/index.html`))).digest('hex');
- await writeFile(join(run,'report.json'),JSON.stringify({status:'PASS',source:before,browser:version,topology:{api:apiOrigin,web:origins,issuer:'loopback mock only'},scenarios,tests_passed:scenarios.length,third_party_cookies:'blocked by Network.setCookieControls and phaseout flag; cross-site credentialed probe omitted cookie while first-party positive control sent it',network:{requests:state.requests.length,cookies:0},bundles:hashes,realIssuer:'NOT_RUN'},null,2));
+ await writeFile(join(run,'report.json'),JSON.stringify({status:'PASS',source:before,browser:version,topology:{api:apiOrigin,web:origins,issuer:'loopback mock only'},scenarios,tests_passed:scenarios.length,third_party_cookies:'blocked by Network.setCookieControls and phaseout flag; cross-site credentialed probe omitted cookie while first-party positive control sent it',network:{requests:state.requests.length,cookies:0},bundles:hashes,domEvidence,realIssuer:'NOT_RUN'},null,2));
  console.log(`Evidence: ${run}`);
 }catch(error){
  const pages=[];
  if(ws?.readyState===1){for(const target of (await send('Target.getTargets')).targetInfos.filter(t=>t.type==='page')){try{const session=await attach(target.targetId);pages.push({url:target.url.replace(/\?.*?(?=#|$)/,''),text:await evaluate(session,'document.body.innerText')});}catch{}}}
- await writeFile(join(run,'failure.json'),JSON.stringify({status:'FAIL',source:before,browser:browserVersion,scenarios,error:String(error.message),requests:state.requests,counts:{flows:state.flows.size,exchanges:state.exchanges,refreshes:state.refreshes,cancels:state.cancels,revokes:state.revokes},pages,pageErrors},null,2));
+ await writeFile(join(run,'failure.json'),JSON.stringify({status:'FAIL',source:before,browser:browserVersion,scenarios,error:String(error.message),stack:error.stack,requests:state.requests,counts:{flows:state.flows.size,exchanges:state.exchanges,refreshes:state.refreshes,cancels:state.cancels,revokes:state.revokes},pages,pageErrors},null,2));
  console.error(`FAIL ${error.message}; evidence ${run}`);process.exitCode=1;
 }finally{
  if(ws?.readyState===1){await send('Browser.close').catch(()=>{});ws.close();}
