@@ -10,13 +10,15 @@ the earlier production no-container selection in the [native architecture](../ar
 `cargo xtask release oci-verify` is an **offline, existing-artifact contract verifier**. It reuses
 the release owner's bounded JSON, digest, regular-file, archive and verified-copy primitives.
 It checks the admitted Server/Identity pair and a private snapshot of its small host bundle.
-It never extracts or executes a helper, builds an image, logs in, contacts GHCR/SSH, writes a
+By default it never extracts or executes a helper, builds an image, logs in, contacts GHCR/SSH, writes a
 deployment receipt or changes a host. `--dry-run` performs the same offline checks and prints
 the same `PLAN_ONLY` result. Its temporary snapshot is removed on success or refusal.
+The explicit `--registry-readback` option adds read-only GHCR manifest/config observation after
+all offline guards; combined with `--dry-run` it remains entirely offline, including no authfile read.
 
-This is the first independently reviewable part of PR A, **not all of PR A**. Local and Actions
-publishers, registry readback/post-publish fixture execution and the VPS consumer are not
-implemented here. The two producer identities are supported inputs, not claims that either
+These are independently reviewable parts of PR A, **not all of PR A**. Local and Actions
+publishers, exact-image layer/pair fixture execution and the VPS consumer are not implemented
+here. The two producer identities are supported inputs, not claims that either
 producer has run. No production release can be made from this verifier alone. Legacy
 `deploy vps` still has its existing archive-transfer behavior; it is not the native OCI lane.
 Do not pass the new manifest to that legacy executor.
@@ -122,3 +124,60 @@ recovery before any mutation. Do not trust this plan as an activation token.
 GHCR permissions/visibility are independent from repository visibility; see the
 [registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 The offline verifier needs no GHCR credential and never tests registry access.
+
+## Explicit registry manifest/config readback
+
+Add `--registry-readback` to the same pinned `release oci-verify` command to read the exact
+admitted pair from GHCR. Optional `--authfile PATH` selects an existing private, current-user-owned
+Podman/Docker-format JSON file with `auths.ghcr.io.auth`. It must be a bounded regular file with
+no group/other permissions or links. No implicit auth path, environment token, login, credential
+helper, provisioning, package creation or visibility change is supported. Keep authfiles outside Git.
+
+The offline manifest/admission, source/bundle and declared qualification guards run first.
+Missing native evidence refuses before any network client or authfile opens. A `--dry-run`
+remains `PLAN_ONLY` with no network/authfile read, even when readback was requested.
+
+The adapter is reusable by the future mandatory local and Actions producers. Its current CLI
+consumer re-observes an existing admitted release; it does not create a producer manifest or
+bootstrap missing native evidence. A producer must obtain/test its actual digests before final
+admission; this observer cannot be used to create a circular claim of native qualification.
+
+Readback verifies at most 2 MiB per response, hashes the **raw registry manifest bytes**, checks
+the exact OCI single-platform manifest/config media types, the config descriptor's digest/size
+against the admitted config ID, and hashes the raw config bytes. Tag lookup, OCI indexes,
+Docker-format manifests and foreign layer URLs are refused in this v1 lane. HTTP config blobs
+may use `application/octet-stream`; their manifest descriptor must still identify OCI config.
+Missing/wrong media types, conflicting/duplicate digest headers, malformed/duplicate-key JSON, truncated and
+oversized responses cannot become a successful observation.
+The optional `Docker-Content-Digest` header never substitutes for hashing the bytes.
+
+Config must match `linux/amd64` or `linux/arm64` without an additional variant, exact
+`org.opencontainers.image.source`/`revision`, `io.cantos.release.configuration` and `io.cantos.binary`
+labels, a positive numeric UID:GID, exact `/usr/local/bin/SERVICE` entrypoint and no command
+override. The rootfs must declare one valid uncompressed `diff_id` per layer; those IDs are not
+conflated with compressed layer digests or verified without the layers. Labels and this metadata check do not prove executable contents, absence of secrets
+in layers, private DB isolation or actual health/auth/migration behavior.
+
+Authentication is a bounded [Distribution Bearer challenge](https://distribution.github.io/distribution/spec/auth/token/):
+only `https://ghcr.io/token`, service `ghcr.io`, and `repository:loveoverflowcom/SERVICE:pull`
+are admitted. Basic credentials go only to that token endpoint; Bearer tokens stay in memory
+and in their exact repository client. No push/admin scope or cross-service token reuse.
+401/403/404 and other HTTP outcomes remain distinct safe codes, with no tag/producer fallback.
+
+TLS verification remains enabled. Automatic redirects are disabled. Token/manifest redirects
+are refused; a config-blob redirect may go only to canonical HTTPS
+`pkg-containers.githubusercontent.com`, at most two hops, with **no Authorization/cookie
+forwarding**. Other origins, userinfo, ports, fragments or unsafe URL characters refuse before
+another request. Signed CDN URLs and remote bodies are never included in errors/receipts.
+GitHub documents this CDN in its [package networking reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#communication-requirements-for-github-hosted-runners).
+
+Output is a sanitized `OBSERVED` record: `registry-access` and `registry-manifest-config` may
+be `PASS`; `release_eligible` is always false. Image layers/pair fixtures, native qualification,
+activation and cleanup remain `NOT_RUN`. It writes no release or host state. An error returns
+a stable code (`HTTP_401`, `HTTP_403`, `HTTP_404`, `TLS_VERIFICATION`, `NETWORK_*`, `RESPONSE_SIZE`,
+`AUTH_*`, `REDIRECT_*`, `DIGEST_*`, `MEDIA_TYPE` or specific metadata refusal) without remote text.
+
+Parser/client regressions exercise production code with a named HTTP transport double and a
+real standard-library HTTP response reader. They are `mock-integration-tested`, not real GHCR
+integration. No real publish, private registry login, digest pull, image run or native release
+acceptance follows from these fixtures; those remain explicit producer/operator gates.

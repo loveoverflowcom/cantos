@@ -229,16 +229,34 @@ def verify(root, args):
     return plan
 
 
+def execute(root, args):
+    # Admission, source/bundle and declared qualification guards run before a
+    # network client or private authfile can be opened. Dry-run is strictly offline.
+    plan = verify(root, args)
+    if not getattr(args, "registry_readback", False) or args.dry_run:
+        return plan
+    import release_oci_registry
+    manifest = contract.read_json(args.manifest, args.manifest_digest)
+    return release_oci_registry.observe(manifest, plan, authfile=args.authfile)
+
+
 def main():
+    import release_oci_registry
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("manifest", "admission"):
         parser.add_argument("--" + name, required=True, type=Path)
     for name in ("manifest-digest", "admission-digest", "source-sha", "configuration-digest", "platform"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--registry-readback", action="store_true")
+    parser.add_argument("--authfile", type=Path)
     args = parser.parse_args()
+    if args.authfile and not args.registry_readback:
+        parser.error("--authfile requires --registry-readback")
     try:
-        plan = verify(Path(__file__).resolve().parents[1], args)
+        plan = execute(Path(__file__).resolve().parents[1], args)
+    except release_oci_registry.ReadbackError as error:
+        parser.exit(1, "native OCI registry readback refused: " + str(error) + "\n")
     except (ValueError, KeyError, TypeError, OSError, tarfile.TarError, subprocess.TimeoutExpired):
         # Do not echo arbitrary manifest content, paths, credentials or subprocess output.
         parser.exit(1, "native OCI offline verification refused; check the admitted contract and local source assets\n")
