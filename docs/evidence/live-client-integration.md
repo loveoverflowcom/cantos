@@ -76,19 +76,33 @@ fresh PostgreSQL rerun with between-suite cleanup passed, preserving the restart
 
 ## Kani boundary
 
-`RUSTUP_TOOLCHAIN=1.87.0 cargo kani --version` returned `no such command: kani`.
-Kani execution is **NOT_RUN**; no toolchain was installed and no bounded-model-checked result is claimed.
-Two `cfg(kani)` harnesses call actual `ProbeState` production methods in Theatre Web:
+Historical checkpoint: `RUSTUP_TOOLCHAIN=1.87.0 cargo kani --version` returned
+`no such command: kani`. That observation remains **NOT_RUN**, with no installed toolchain or
+bounded-model-checked result. The Rust 1.87 command prefix and local checks above describe the
+original source checkpoint, not current execution guidance; production now pins Rust 1.98.1.
+
+At that checkpoint, two unregistered `cfg(kani)` harnesses existed in `live/request.rs`:
 
 - `completion_requires_current_pending_generation`: all `u64` current/answered generations,
-  four representative phase classes, one terminal reply; no assumptions or stubs, unwind2.
+  four representative phase classes, one terminal reply; no assumptions or stubs, unwind 2.
 - `cancellation_never_wraps_or_accepts_previous_completion`: all `u64` generations, pending phase;
-  checked exhaustion and rejection of the prior completion; no assumptions/stubs, unwind2.
+  checked exhaustion and rejection of the prior completion; no assumptions/stubs, unwind 2.
 
-Ordinary tests execute the concrete guard/exhaustion cases. The proposed proof boundary covers
-pure Rust generation guards only, never Kotlin, Fetch, network, credentials, media or a full app.
-On an approved configured Kani environment, run `cargo kani -p cantos-theatre --harness <name>`;
-retain verifier version/output and rerun ordinary tests if the harness changes.
+Neither had explicit cover goals or an attributable verifier run. Under
+[#363](https://github.com/loveoverflowcom/cantos/issues/363), option A retires only these two
+harnesses and their verifier-only module: `ProbeState` has no runtime consumer, and `classify`
+is called only by the uncalled `live::browser::probe` and ordinary tests. `Mode::from_query` is
+live in `main.rs`; it is separate from the probe kernel. Production types/methods, ordinary
+guard/exhaustion tests and the shared Rust/Kotlin `probe-cases.json` fixture are retained.
+This retirement changes no user behavior and establishes no formal claim for a user path.
+
+The old recommendation to run raw `cargo kani -p cantos-theatre --harness <name>` is
+**superseded** by the [repository xtask acceptance policy](../../xtask/README.md#optional-targeted-kani-proofs).
+Repository acceptance uses `cargo xtask verify kani` with registered selectors and the existing
+compatible pinned bundle; raw verifier commands are historical provenance only. Theatre has no
+registered selector. See the [current inventory and feasibility boundary](../assurance/kani.md#theatre-web-k1-inventory-and-feasibility-363)
+for the source pin, caller/reach audit and macOS `UNSUPPORTED` / actual Theatre spike `NOT_RUN`.
+No Kotlin, Fetch, network, credential, media or full-app proof follows from ordinary tests.
 
 ## Initial runtime attempt, design and user acceptance
 

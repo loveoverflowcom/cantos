@@ -1,4 +1,91 @@
-# Bounded proofs for critical API kernels
+# Kani proof ledger
+
+## Theatre Web K1 inventory and feasibility (#363)
+
+This is a source-bound inventory and feasibility record for
+[#363](https://github.com/loveoverflowcom/cantos/issues/363), not a production proof campaign.
+Rechecked on fetched `origin/refactor/cantos-native-turso` at
+`11590218f2752c6a0f9b9ea127f75e3fd0a52807` (merged PR #371), rather than the issue's
+historical audit SHA `969d492d41937f9d91084d653976eb85c9d96563`.
+`Cargo.lock` SHA-256: `e29a00f17b9820a41dcd78a5544ad2fa8d6e43c9d90a32b0ee3d8bde9cc8ada3`.
+K1 removes only the verifier-only module described below; the inventoried production code,
+ordinary tests, fixtures and lockfile retain this source identity. Final PR evidence identifies
+the resulting commit and actual check outcomes. No Theatre target in this table has an
+attributable Kani execution; **K1 makes no `bounded-model-checked` claim**.
+
+Reach describes current source wiring: `LIVE_DEFAULT` is reachable from the default Web
+composition (browser effects still require wasm32), `PREVIEW_ONLY` requires the opt-in preview
+feature, `TEST_ONLY` has ordinary test callers only, and `UNWIRED` has no runtime entry path.
+Re-exporting a symbol or compiling it is not a runtime caller. The execution column concerns
+Kani only; it does not describe whether ordinary tests ran.
+
+| Production symbol / owner | Current caller chain | Reach | Harness | Registered | Actual Kani execution / gap |
+| --- | --- | --- | --- | --- | --- |
+| [`Mode::from_query`](../../apps/cantos-theatre/web/src/live/request.rs) | wasm32 [`main`](../../apps/cantos-theatre/web/src/main.rs) selects `LiveBoundary`; preview variants are feature-gated | LIVE_DEFAULT | None | No | NOT_RUN; mode selection is separate from the probe guards |
+| `ProbeState::{begin,cancel,finish}`, `ProbePhase` in `live/request.rs` | Only local tests/doctest and `live/mod.rs` re-export for `ProbeState`; `ProbePhase` also appears in the uncalled browser probe | UNWIRED | **Retired** `proofs::{completion_requires_current_pending_generation,cancellation_never_wraps_or_accepts_previous_completion}` | Never registered | NOT_RUN historically and now; former unwind 2, no assumptions/stubs, zero cover goals; no user-path proof |
+| `classify` in `live/request.rs` | [`live::browser::probe`](../../apps/cantos-theatre/web/src/live/browser.rs) calls it, but that probe has no caller; ordinary Rust/Kotlin fixture tests remain | UNWIRED | None (the retired harnesses exercised `ProbeState`, not `classify`) | No | NOT_RUN; correcting the audit's claim that there was no non-test caller at all |
+| [`AccountState::{leave,enter,generation,fence,accepts,finish_session,begin_logout,finish_logout,observe_session_change}` / `RequestFence`](../../apps/cantos-theatre/web/src/application/account.rs) | `AccountViewState` delegates its session, invalidation and fence decisions; `AccountWriter` and [`live/runtime.rs`](../../apps/cantos-theatre/web/src/live/runtime.rs) call that aggregate | LIVE_DEFAULT; host-compilable core | None | No | NOT_RUN; current ordinary tests include `exhausted_security_invalidations_purge_without_reissuing_a_generation` |
+| `AccountState::{enqueue,dispatch,acknowledge,project,projection}` in `application/account.rs` | Local `account::tests` only; live synchronization uses `LibrarySyncState` instead | TEST_ONLY | None | No | NOT_RUN; do not prioritize these unused control/data paths for K2 |
+| [`AccountViewState::{begin_refresh,finish_session,fail_fenced_command,begin_logout,finish_logout,begin_library,finish_page}`](../../apps/cantos-theatre/web/src/application/account_view.rs) | [`AccountWriter`](../../apps/cantos-theatre/web/src/application/account_writer.rs) delegates transitions from `live/runtime.rs` and [`view/live_shell.rs`](../../apps/cantos-theatre/web/src/view/live_shell.rs); aggregate links account, private projection and sync | LIVE_DEFAULT | None | No | NOT_RUN; BTreeMap/Vec/String aggregate needs ordinary tests linking decisions, purge and publication, not a symbolic bulk-state claim |
+| [`LibraryProjection::{begin,finish}`](../../apps/cantos-theatre/web/src/application/library.rs) | `AccountViewState::{begin_library,finish_page}` through `AccountWriter` and `live/runtime.rs::{load_library,finish_page}` | LIVE_DEFAULT | None | No | NOT_RUN; generation, cursor, consumed-cursor and presented page data remain unproved |
+| [`PublicDiscoveryState::{open,begin,finish}`](../../apps/cantos-theatre/web/src/application/public_discovery.rs) | `LiveBoundary` route/search/retry/more callbacks and `view/live_shell.rs::run_discovery` | LIVE_DEFAULT | None | No | NOT_RUN; actual discovery request admission is a K2 priority, with page/row validation outside any proposed small control proof |
+| `PublicDiscoveryState::cancel` in `application/public_discovery.rs` | Local `public_discovery::tests` only; no shell cleanup caller exists | TEST_ONLY | None | No | NOT_RUN; the public discovery state is live, but this method is not wired |
+| [`WorkDetailState::{open,leave,finish_work,finish_page}`](../../apps/cantos-theatre/web/src/application/public_work.rs) | `LiveBoundary` route callbacks and `view/live_shell.rs::run_work_request` | LIVE_DEFAULT | None | No | NOT_RUN; `finish_page` requires `PresentedUnitPage`; keep full success/data validation in ordinary tests |
+| [`ListenState::{begin,finish}`](../../apps/cantos-theatre/web/src/application/public_listen.rs) | `LiveBoundary` listen callback issues `begin`; `view/live_shell.rs::run_listen` supplies the manifest result to `finish` | LIVE_DEFAULT | None | No | NOT_RUN; manifest admission is not a small scalar proof; a future control-only candidate may cover the `Err` branch, not success delivery |
+| [`AuthIntentState::{observe_route,invalidate,begin,accepts,finish}`](../../apps/cantos-theatre/web/src/application/auth_navigation.rs) | [`LiveNavigation`](../../apps/cantos-theatre/web/src/app/live_navigation.rs) observes route changes, admits auth requests and fences returns | LIVE_DEFAULT | None | No | NOT_RUN; secondary K2 epoch/control candidate, not proof of provider/session behavior |
+| [`CatalogState::{begin,accept}`](../../apps/cantos-theatre/web/src/application/catalog.rs) | `CatalogSession::{load,accept}` via `CatalogSession::new(MockCatalog)` inside preview-gated `TheatreContext::new`; module itself is `cfg(feature = "preview")` | PREVIEW_ONLY | None | No | NOT_RUN; does not certify production discovery/catalog |
+| [`LibrarySyncState` outbox/receipt/reconciliation](../../apps/cantos-theatre/web/src/application/library_sync.rs) | `AccountViewState` sync capabilities through `AccountWriter`; `live/runtime.rs` persists and interprets effects and receipts | LIVE_DEFAULT | None | No | NOT_RUN; BTreeMap/String/serde data needs ordinary property/example/adapter tests; no bulk-state Kani proposal |
+
+### Probe decision: option A
+
+Retire only the two `cfg(kani)` harnesses and their `proofs` module in `live/request.rs`.
+The current caller audit confirms the probe guards have no production runtime consumer, so
+registering them or adding covers would spend verification effort on an unwired kernel.
+Retain `Mode`, all production probe types/methods and `classify`, ordinary transition/exhaustion
+and compile-fail tests, and
+[`client-boundary/v1/probe-cases.json`](../../packages/contracts/fixtures/client-boundary/v1/probe-cases.json),
+which is also consumed by the Kotlin fixture generator. The historical
+[NOT_RUN record](../evidence/live-client-integration.md#kani-boundary) remains explicit.
+No duplicate kernel, production behavior change or new proof is introduced; source revert is
+the rollback. This adopts the issue's recommended option A under the implementation request.
+
+### Feasibility boundary on the selected Mac
+
+| Field | Observed result or declared prerequisite |
+| --- | --- |
+| Selected host | `uname -sm`: `Darwin arm64`; `rustc -Vv` host: `aarch64-apple-darwin` |
+| Observed normal tools | `rustc 1.98.1 (48a229cea 2026-09-01)`, `cargo 1.98.1 (797e8a9bc 2026-08-05)`; these are not verifier-bundle versions |
+| Existing bundle | `KANI_HOME` is unset; default `$HOME/.kani` and its `kani-0.68.0` bundle are absent. No installer proxy/version command was invoked |
+| Required model, declared by the existing registry, **not observed here** | Ubuntu x86_64; Kani 0.68.0; bundled `rustc 1.100.0-nightly (8925ea358 2026-08-20)` / `nightly-2026-08-21-x86_64-unknown-linux-gnu`; CBMC 6.11.0; CaDiCaL; x86_64-unknown-linux-gnu / 64-bit usize; library, no default features, unwind 2, normal safety/unwinding checks |
+| Host compatibility | **UNSUPPORTED** for the fixed Linux x86_64 model; the selected execution capability is a local Mac shell, with no approved Ubuntu host/bundle for this spike |
+| Actual Theatre feasibility spike | **NOT_RUN**: both the supported host/bundle and a Theatre registration are absent; no Linux compiler attempt occurred, so there is no compiler failure to report |
+| Actual Theatre xtask invocation / selector | **None / none registered.** The accepted command surface is `cargo xtask verify kani --harness` followed by an existing registered selector; the current registry cannot select Theatre or `AccountState::accepts` |
+| Measurements | Theatre build/proof elapsed time and peak memory: **NOT_RUN / not measured**; no ordinary Cargo test result substitutes for them |
+| Temporary feasibility changes | None: no temporary harness, registry edit or extracted crate was created |
+
+The capability audit read [`xtask/src/kani.rs`](../../xtask/src/kani.rs),
+[`scripts/verify_kani.py`](../../scripts/verify_kani.py), the bundle path and local tool versions.
+`Package::{Api,Forge,Identity}`, `Kernel::ALL` (fourteen entries), the parallel Python package
+allowlist, fixed cover/unreachable expectations and `affected()` have no Theatre entry.
+The existing acceptance policy is
+[`cargo xtask verify kani`](../../xtask/README.md#optional-targeted-kani-proofs), never raw
+`cargo kani` acceptance. Ordinary registry/adapter tests validate this boundary, not any proof.
+
+The next owner must first obtain authorization for an existing supported Ubuntu x86_64 host
+and matching pinned bundle. Then a separately scoped, temporary meaningful harness calling
+the production `AccountState::accepts` needs a real typed selector and matching primitive
+registration before an exact xtask command can be recorded. Retain its source/lock/config
+identities, actual tool versions, command/output, assertion/unwinding/covers and measured costs;
+remove all temporary changes. No claim that Leptos compiles under Kani follows from the Mac
+host tests. Do not extract a leaf crate unless an actual dependency failure justifies a
+separate owner decision with a real consumer under ADR 0001.
+
+K2 registry expansion remains conditional on successful feasibility and stable production
+kernels: package/manifest, Python source hash roots, affected-path selection and registry/gate
+tests must agree. No such expansion or new CI is part of K1; #336.4 owns the separate D1 runner.
+Assignment is unassigned — required before future execution acceptance. Queue order/rationale
+is unchanged. This record closes only the inventory/retirement/documentation boundary; actual
+supported-host feasibility remains missing acceptance in the draft PR.
 
 ## Native Identity kernels registered, not yet run
 
@@ -47,7 +134,9 @@ verified evidence. Existing Theatre harnesses remain outside this campaign.
 Executed on 2026-10-13, x86_64-unknown-linux-gnu (`usize` = 64 bits), API library,
 no default features. Kani **0.68.0**, bundled compiler
 `rustc 1.100.0-nightly (8925ea358 2026-08-20)` (toolchain nightly-2026-08-21),
-CBMC **6.11.0**, SAT solver **CaDiCaL 3.0.0**. The production build still uses Rust **1.87.0**.
+CBMC **6.11.0**, SAT solver **CaDiCaL 3.0.0**. The production build at that historical checkpoint
+used Rust **1.87.0**; current production pins **1.98.1**. The primitive commands below are
+historical provenance, superseded for repository acceptance by `cargo xtask verify kani`.
 Compatibility was checked against the [official pinned release](https://github.com/model-checking/kani/releases/tag/kani-0.68.0),
 [installation guide](https://model-checking.github.io/kani/install-guide.html),
 [attributes](https://model-checking.github.io/kani/reference/attributes.html) and
