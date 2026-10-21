@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Check documents, links, fixtures, hygiene, skills and API/Theatre architecture boundaries.
+"""Check documents, links, fixtures, hygiene, skills and Server/Identity/Theatre boundaries.
 
 This does not validate application behavior, YAML schemas or audio quality.
 Skill checks cover structure only: portable frontmatter, Codex metadata, the
 README index, reachable references, Claude Code symlinks and shared-instruction bootstrap.
-Architecture checks inspect source dependencies (Rust paths, Kotlin imports) and named SQL
-tables, not runtime behavior.
-It uses only Python's standard library and Git.
+Architecture checks inspect source dependencies (Rust paths, Kotlin imports), workspace Cargo
+manifests and named SQL tables, not runtime behavior: they do not prove OS/file isolation,
+one-owner locking or the absence of cross-database reads at runtime.
+It uses only Python's standard library (3.11+ for `tomllib`) and Git.
 """
 
 import json
@@ -81,10 +82,52 @@ CONTEXT_UPSTREAM = {
     "media": {"editorial", "catalog", "production"},
     "listening": {"catalog", "media"},
 }
-DOMAIN_EXTERNAL = {
-    "axum", "deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel",
-    "reqwest", "hyper", "tokio", "tower", "tower_http", "leptos", "rand", "getrandom",
+# Database drivers by backend. PostgreSQL is the legacy authority; Turso is the #331 target,
+# reached through the shared `cantos-store-turso` owner (SQLite-family engines would compete
+# with it). Neither backend is a pure dependency.
+POSTGRES_DRIVERS = {"deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel"}
+TURSO_DRIVERS = {"turso", "turso_core", "cantos_store_turso", "libsql", "rusqlite"}
+PERSISTENCE_DRIVERS = POSTGRES_DRIVERS | TURSO_DRIVERS
+# The generated private Identity RPC contract and its transport runtime. In the Server only the
+# platform Identity adapter names them; pure domains, contexts, HTTP and composition do not.
+RPC_RUNTIME = {"cantos_identity_rpc", "tonic", "prost", "tonic_prost"}
+IDENTITY_RPC_ADAPTER = ("platform", "identity_auth")
+DOMAIN_EXTERNAL = PERSISTENCE_DRIVERS | {
+    "axum", "reqwest", "hyper", "tokio", "tower", "tower_http", "leptos", "rand", "getrandom",
 }
+# Crates the source checks recognize by name; a manifest or `extern crate` rename would hide them.
+GUARDED_CRATES = DOMAIN_EXTERNAL | RPC_RUNTIME | {"cantos_identity", "cantos_server", "cantos_contracts"}
+DOMAIN_STD_EFFECTS = {
+    ("std", "fs"), ("std", "net"), ("std", "process"), ("std", "env"),
+    ("std", "thread"), ("std", "time"), ("std", "os"),
+}
+# Context-owned persistence adapters sit directly under their context, one module per backend:
+# contexts/<owner>/<backend>.rs or contexts/<owner>/<backend>/**. A backend name anywhere else
+# in a path (application/turso/, domain/postgres.rs, an HTTP or top-level turso/ module) is not
+# an adapter, so the name alone never admits SQL.
+PERSISTENCE_BACKENDS = ("postgres", "turso")
+# Platform plumbing that owns connections/transactions per backend. HTTP keeps only the legacy
+# Store/StoreError facade from PostgreSQL and nothing from Turso.
+PERSISTENCE_PLUMBING = {("platform", backend) for backend in PERSISTENCE_BACKENDS}
+HTTP_PLUMBING_FACADE = {("platform", "postgres", "Store"), ("platform", "postgres", "StoreError")}
+# The legacy trusted operator seed writes Editorial evidence and Ingestion source rows from the
+# platform tool. These exact (file, verb, table) pairs are the only platform access to a context
+# table; every statement matching a pair is admitted.
+PLATFORM_CONTEXT_SQL = {
+    ("platform/operator.rs", "INTO", "script_evidence"),
+    ("platform/operator.rs", "INTO", "source_records"),
+}
+# Cantos Identity owns `identity.db`. Its tables are those its persistence adapter creates; the
+# Server never names them and Identity never names Server tables. Only the RPC adapter and the
+# process composition hold the generated contract and Tonic.
+IDENTITY_SOURCE = Path("services/cantos-identity/src")
+IDENTITY_PERSISTENCE = "persistence"
+IDENTITY_RPC_MODULES = {"rpc", "server"}
+# Workspace members whose manifests are checked. Only the shared store owner depends on the
+# Turso engine; a service depends on another service only for tests, never at runtime.
+WORKSPACE_MANIFEST = Path("Cargo.toml")
+TURSO_OWNER = Path("packages/store-turso")
+TURSO_ENGINE_CRATES = {"turso", "turso_core", "libsql", "rusqlite"}
 LEGACY_API_MODULES = {
     "adaptation", "audio", "clip_probe", "clip_reuse", "http", "imports", "incremental", "jobs",
     "operator", "postgres", "production", "regeneration", "revisions", "speech_fingerprint",
@@ -122,6 +165,7 @@ TABLE_OWNER = {
     "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
     "theatre_identity_flows": "platform", "theatre_identity_sessions": "platform",
     "theatre_native_flows": "platform", "theatre_native_sessions": "platform",
+    **{table: "platform" for table in ("theatre_registrations", "theatre_registration_mail_starts", "theatre_firebase_enrollments", "theatre_firebase_enrollment_receipts", "theatre_firebase_send_starts")},
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
     "media_image_intents": "media", "media_image_assets": "media",
     "media_work_artwork_changes": "media", "media_artwork_operations": "media",
@@ -129,9 +173,25 @@ TABLE_OWNER = {
 }
 RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
 USE_TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z_0-9]*|::|[{},*]")
+# Schema qualifiers (`public.`, `main.`, an attached alias), `IF [NOT] EXISTS`, `ONLY`, quoted or
+# bracketed names (escaped inside ordinary Rust strings), `USING`/`TRUNCATE` and DDL targets
+# (`REFERENCES`, `CREATE INDEX/TRIGGER ... ON`) must not hide a table from the ownership checks.
+# Comma-separated FROM lists and dynamic SQL remain review obligations.
+SQL_NAME = r"(?:\\?[\"`\[])?([a-z_][a-z_0-9]*)(?:\\?[\"`\]])?"
+SQL_QUALIFIER = r"(?:(?:\\?[\"`\[])?[a-z_][a-z_0-9]*(?:\\?[\"`\]])?\.)?"
 SQL_TABLE = re.compile(
-    r"\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+(?:public\.)?([a-z_][a-z_0-9]*)", re.IGNORECASE,
+    rf"\b(FROM|JOIN|INTO|UPDATE|TABLE|REFERENCES|USING|TRUNCATE)\s+(?:TABLE\s+)?(?:ONLY\s+)?"
+    rf"(?:IF\s+(?:NOT\s+)?EXISTS\s+)?{SQL_QUALIFIER}{SQL_NAME}",
+    re.IGNORECASE,
 )
+SQL_DDL_TARGET = re.compile(rf"\b(?:INDEX|TRIGGER)\b[^;]*?\b(ON)\s+(?:ONLY\s+)?{SQL_QUALIFIER}{SQL_NAME}", re.IGNORECASE)
+# `TABLE` preceded by one of these defines a table rather than naming one in prose.
+SQL_TABLE_DEFINITION = re.compile(r"\b(?:CREATE|ALTER|DROP)\s+(?:(?:TEMP|TEMPORARY|VIRTUAL|UNLOGGED)\s+)?\Z", re.IGNORECASE)
+# Each service owns one database file; attaching another would read across owners.
+SQL_ATTACH = re.compile(r"\bATTACH\s+(?:DATABASE\b|\\?['\"]|[?:$@])", re.IGNORECASE)
+# The PostgreSQL migration registry includes the whole schema, which creates every context's
+# tables; the native ownership inventory checks that schema instead.
+SCHEMA_REGISTRY = Path("platform/postgres/migrations.rs")
 
 
 def prose_only(content):
@@ -462,18 +522,27 @@ def use_paths(tokens, prefix=()):
     return paths
 
 
-def source_paths(code, module):
-    """Yield source offsets and dependency paths, resolving crate/self/super prefixes."""
+def source_paths(code, module, legacy=LEGACY_API_MODULES):
+    """Yield source offsets and dependency paths, resolving crate/self/super prefixes.
+
+    A bare path whose head is a module declared in the same module scope (`mod turso;`) names
+    that child module, not an extern crate of the same name; a leading `::` keeps the extern
+    crate. `extern crate X [as Y]` is a dependency on X at that line.
+    """
     uses = list(re.finditer(r"\buse\s+([^;]+);", code))
-    paths = [(match.start(), tuple(re.split(r"::\s*", match.group())))
+    paths = [(match.start(), tuple(re.split(r"::\s*", match.group())),
+              code[max(0, match.start() - 2):match.start()] == "::")
              for match in RUST_PATH.finditer(code)
              if not any(use.start() <= match.start() < use.end() for use in uses)]
     aliases = {}
     for match in uses:
+        absolute = match.group(1).lstrip().startswith("::")
         for path, alias in use_paths(USE_TOKEN.findall(match.group(1))):
-            paths.append((match.start(), path))
+            paths.append((match.start(), path, absolute))
             if alias and alias != "*":
                 aliases[alias] = path
+    for match in re.finditer(r"\bextern\s+crate\s+(?!self\b)(\w+)", code):
+        paths.append((match.start(), (match.group(1),), True))
     modules, braces = [], []
     for match in re.finditer(r"[{}]", code):
         if match.group() == "{":
@@ -483,27 +552,108 @@ def source_paths(code, module):
             start, name = braces.pop()
             if name:
                 modules.append((start, match.start(), name))
-    for offset, path in sorted(set(paths)):
+
+    def scope(offset):
+        return tuple(name for start, end, name in sorted(modules) if start < offset < end)
+
+    declared = {(scope(match.start()), match.group(1))
+                for match in re.finditer(r"\bmod\s+(\w+)\s*[;{]", code)}
+    for offset, path, absolute in sorted(set(paths)):
         if not path:
             continue
-        for _ in range(len(aliases)):
+        for _ in range(0 if absolute else len(aliases)):
             replacement = aliases.get(path[0])
             if not replacement or replacement == (path[0],) or path[0] in {"crate", "super", "self"}:
                 break
             path = replacement + path[1:]
         if path[0] == "crate":
             path = path[1:]
-            if path and path[0] in LEGACY_API_MODULES:
+            if path and path[0] in legacy:
                 path = ("<legacy>",) + path
+        elif (scope(offset), path[0]) in declared and not absolute and path[0] not in aliases:
+            path = tuple(module) + scope(offset) + path
         elif path[0] in {"self", "super"}:
-            base = list(module) + [name for start, end, name in sorted(modules)
-                                   if start < offset < end]
+            base = list(module) + list(scope(offset))
             while path and path[0] in {"self", "super"}:
                 if path[0] == "super" and base:
                     base.pop()
                 path = path[1:]
             path = tuple(base) + path
-        yield offset, path
+        if path:
+            yield offset, path
+
+
+def renamed_crates(code):
+    """Yield (offset, crate) for `extern crate X as Y` renames of a guarded crate."""
+    for match in re.finditer(r"\bextern\s+crate\s+(\w+)\s+as\s+(\w+)", code):
+        if match.group(1) in GUARDED_CRATES and match.group(2) != match.group(1):
+            yield match.start(), match.group(1)
+
+
+def without_sql_comments(text):
+    return re.sub(r"--[^\n]*", lambda match: " " * len(match.group()), text)
+
+
+def source_texts(file, content):
+    """Return the Rust code and the (offset, text, inline) texts searched for SQL tables.
+
+    Rust sources contribute their string literals and the files they `include_str!` (or
+    `include_bytes!` for `.sql`), judged as the including file at the macro's offset; `inline`
+    is False for those, whose offsets do not index `content`. A `.sql` file is also searched
+    where it sits. Paths built by macros (`concat!`, `env!`) are not resolved.
+    """
+    if file.suffix == ".sql":
+        return "", [(0, without_sql_comments(content), True)]
+    code, strings = rust_code(content)
+    texts = [(offset, text, True) for offset, text in strings]
+    literals = dict(strings)
+    for match in re.finditer(r"\binclude_(str|bytes)!\s*\(", code):
+        # The literal itself is masked in `code`; find it in the original text.
+        start = match.end() + len(content[match.end():]) - len(content[match.end():].lstrip())
+        target = literals.get(start)
+        included = file.parent / target if target else None
+        if not included or not included.is_file() or (
+            match.group(1) == "bytes" and included.suffix != ".sql"
+        ):
+            continue
+        try:
+            text = included.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        texts.append((match.start(), without_sql_comments(text) if included.suffix == ".sql" else text, False))
+    return code, texts
+
+
+def sql_tables(text):
+    """Yield (offset, verb, table, defines) per statically named table in one SQL text.
+
+    `defines` marks `CREATE/ALTER/DROP ... TABLE`, as opposed to a name used in a statement.
+    """
+    # Rust escapes and line continuations become equal-length blanks, keeping offsets.
+    text = re.sub(r"\\(?:(?=\n)|[nrt])", lambda match: " " * len(match.group()), text)
+    for pattern in (SQL_TABLE, SQL_DDL_TARGET):
+        for match in pattern.finditer(text):
+            verb = match.group(1).upper()
+            defines = verb == "TABLE" and bool(SQL_TABLE_DEFINITION.search(text, 0, match.start()))
+            yield match.start(), verb, match.group(2).lower(), defines
+
+
+def sql_line(content, offset, start, inline):
+    """Return the 1-based line of a table name, or of the include macro for included text."""
+    return content.count("\n", 0, offset + (start if inline else 0)) + 1
+
+
+def sources(directory):
+    """Return the Rust and SQL files under a source directory, in a stable order."""
+    return sorted(directory.rglob("*.rs")) + sorted(directory.rglob("*.sql"))
+
+
+def rust_module(relative):
+    """Return the module path of a source file relative to its crate's `src`."""
+    parts = relative.parts
+    if parts in {("lib.rs",), ("main.rs",)}:
+        return ()
+    return parts[:-1] + (() if relative.stem == "mod" else (relative.stem,))
 
 
 def table_owner(table):
@@ -558,10 +708,59 @@ def http_store_method_calls(code):
                 yield start + match.start()
 
 
-def dependency_error(path, owner, domain, http, listener_pg_test=False, application_glue=False):
-    """Return the boundary violated by one path, or None for an admitted dependency."""
+def persistence_adapter(parts):
+    """Return the backend whose context-owned adapter holds `parts`, else None.
+
+    `parts` is relative to API_SOURCE. Only the owning context's top-level backend module or
+    directory qualifies; this is a path rule, not evidence that the adapter is complete.
+    """
+    if len(parts) < 3 or parts[0] != "contexts" or parts[1] not in CONTEXT_UPSTREAM:
+        return None
+    name = Path(parts[2]).stem if len(parts) == 3 else parts[2]
+    return name if name in PERSISTENCE_BACKENDS else None
+
+
+def persistence_backend(path):
+    """Return the backend a dependency path opens directly (driver or platform plumbing)."""
+    if path[0] in POSTGRES_DRIVERS or path[:2] == ("platform", "postgres"):
+        return "postgres"
+    if path[0] in TURSO_DRIVERS or path[:2] == ("platform", "turso"):
+        return "turso"
+    return None
+
+
+def adapter_backend(path):
+    """Return the backend of a context adapter module a dependency path names, else None."""
+    if path[0] == "contexts" and len(path) > 2 and path[2] in PERSISTENCE_BACKENDS:
+        return path[2]
+    return None
+
+
+def pure_dependency_error(path):
+    """Return why a pure domain must not name `path`; shared by the Server and Identity checks."""
+    if path[0] in RPC_RUNTIME:
+        return "pure domain must not depend on generated RPC DTOs or their runtime; map them in the RPC adapter"
+    if path[0] in DOMAIN_EXTERNAL or path[:2] in DOMAIN_STD_EFFECTS or path[-1] in {
+        "new_v4", "new_v7", "now_v7", "thread_rng", "random",
+    }:
+        return "pure domain must not depend on I/O, a runtime, clock or randomness"
+    if path[:2] == ("std", "io") and len(path) > 2 and path[2] in {"stdin", "stdout", "stderr"}:
+        return "pure domain must not depend on console I/O"
+    return None
+
+
+def dependency_error(path, owner, domain, http, listener_pg_test=False, application_glue=False,
+                     adapter=None, rpc_adapter=False):
+    """Return the boundary violated by one path, or None for an admitted dependency.
+
+    `adapter` is the backend of the context-owned persistence adapter holding the file, if any;
+    `rpc_adapter` marks the platform Identity adapter that owns the generated RPC contract.
+    """
     if not path:
         return None
+    if path[0] == "cantos_identity":
+        return ("Server must reach Identity through the cantos_identity_rpc contract, "
+                "never the cantos-identity service crate")
     if (owner or domain or http or application_glue) and path[0] == "<legacy>":
         return "context uses a legacy crate alias; name the owning context explicitly"
     if (owner or application_glue) and path[0] in {"interfaces", "adapters"} and not (listener_pg_test and path in {
@@ -572,13 +771,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
     if domain:
         if path[0] == "application":
             return "pure domain must not depend on application glue"
-        if path[0] in DOMAIN_EXTERNAL or path[:2] in {
-            ("std", "fs"), ("std", "net"), ("std", "process"), ("std", "env"),
-            ("std", "thread"), ("std", "time"), ("std", "os"),
-        } or path[-1] in {"new_v4", "new_v7", "now_v7", "thread_rng", "random"}:
-            return "pure domain must not depend on I/O, a runtime, clock or randomness"
-        if path[:2] == ("std", "io") and len(path) > 2 and path[2] in {"stdin", "stdout", "stderr"}:
-            return "pure domain must not depend on console I/O"
+        if error := pure_dependency_error(path):
+            return error
         if path[0] == "platform" and path[:2] != ("platform", "ids") and path[:3] != ("platform", "identity", "domain"):
             return "pure domain may use only pure platform::ids or identity::domain values"
         if path[0] in {"interfaces", "adapters"}:
@@ -590,6 +784,18 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
             ("cantos_contracts", "FieldIssue"), ("cantos_contracts", "AdaptationProblem"),
         }:
             return "pure diagnostics must use safe domain facts; project wire errors at the boundary"
+    if path[0] in RPC_RUNTIME and not rpc_adapter:
+        return "generated Identity RPC DTOs and their runtime stay in the platform Identity adapter"
+    backend = persistence_backend(path)
+    # Legacy PostgreSQL transactions still cross context application code through
+    # platform::postgres; the Turso port must not repeat that by naming the engine directly.
+    if owner and not domain and adapter is None and backend == "turso":
+        return "context code must reach the shared Turso owner only through its persistence adapter"
+    # One adapter module per backend: a Turso adapter is not a second database beside PostgreSQL,
+    # nor a caller of the other backend's adapter.
+    opened = backend or adapter_backend(path)
+    if adapter and opened and opened != adapter:
+        return f"the {adapter} persistence adapter must not open the {opened} backend"
     if owner and path[:-1] in STORE_PATHS and path[-1] in HTTP_STORE_METHODS:
         return "context must not call the HTTP-owned Store facade; use internal Editorial operations"
     if path[0] == "contexts" and len(path) >= 2:
@@ -600,7 +806,7 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
         if domain and (len(path) < 3 or path[2] != "domain"):
             return "pure domain must name a context's domain directly, without an adapter or facade"
         if owner and target != owner and len(path) >= 3 and path[2] in {
-            "postgres", "application", "providers", "media", "worker",
+            *PERSISTENCE_BACKENDS, "application", "providers", "media", "worker",
         }:
             return "cross-context calls must use the owning context's entrypoint"
         # Catalog's pure wire facade admits raw DTOs and formats immutable outcomes.
@@ -670,10 +876,10 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:
         return "HTTP must not call a database or external provider directly"
-    if http and path[:2] == ("platform", "postgres") and len(path) >= 3 and path[2] not in {
-        "Store", "StoreError",
-    }:
-        return "HTTP may import only Store and StoreError from PostgreSQL plumbing"
+    if http and path[:2] in PERSISTENCE_PLUMBING and path != ("platform", "postgres") and (
+        path[:3] not in HTTP_PLUMBING_FACADE
+    ):
+        return "HTTP may import only the legacy Store and StoreError facade from persistence plumbing"
     if http and path[0] == "script_ir" and path not in HTTP_PURE_BOUNDARIES:
         return "HTTP may admit Script IR bytes but must delegate business decisions"
     if domain and not owner and path[0] == "contexts":
@@ -697,7 +903,9 @@ def check_api_architecture(root=ROOT):
         errors.add(f"{API_SOURCE}: no Rust sources to check, so the architecture guard "
                    "would pass vacuously; update API_SOURCE when the crate moves")
         return sorted(errors)
-    for file in files:
+    identity_owned = identity_tables(root)
+    private_modules = "|".join((*PERSISTENCE_BACKENDS, "application"))
+    for file in sources(root / API_SOURCE):
         relative = file.relative_to(root / API_SOURCE)
         parts = relative.parts
         owner = parts[1] if parts[0] == "contexts" and len(parts) > 2 else None
@@ -710,22 +918,30 @@ def check_api_architecture(root=ROOT):
         domain = domain or relative == Path("platform/ids.rs")
         domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/oidc/core.rs"), Path("platform/admin/domain.rs")}
         http = parts[:3] == ("adapters", "inbound", "http")
-        module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
+        platform = parts[0] == "platform" and not domain
+        adapter = persistence_adapter(parts)
+        module = rust_module(relative)
         content = file.read_text(encoding="utf-8")
-        code, strings = rust_code(content)
+        code, strings = source_texts(file, content)
         for offset, path in source_paths(code, module):
             error = dependency_error(path, owner, domain, http,
                 listener_pg_test=relative == Path("contexts/listening/postgres/tests.rs"),
-                application_glue=relative == Path("application.rs"))
+                application_glue=relative == Path("application.rs"),
+                adapter=adapter,
+                rpc_adapter=len(parts) > 1 and (parts[0], Path(parts[1]).stem) == IDENTITY_RPC_ADAPTER)
             if parts[0] == "platform" and path[0] == "contexts":
                 error = "platform must not depend on a business context"
             if error:
                 line = code.count("\n", 0, offset) + 1
                 errors.add(f"{API_SOURCE / relative}:{line}: {'::'.join(path)}: {error}")
+        for offset, crate in renamed_crates(code):
+            line = code.count("\n", 0, offset) + 1
+            errors.add(f"{API_SOURCE / relative}:{line}: extern crate {crate}: renaming it hides it "
+                       "from the source guards; use its crate name")
         if domain and re.search(r"\b(?:print|println|eprint|eprintln|dbg)\s*!", code):
             errors.add(f"{API_SOURCE / relative}: pure domain must not write to the console")
         if owner and relative == Path(f"contexts/{owner}/mod.rs"):
-            for match in re.finditer(r"\bpub(?:\s*\([^)]*\))?\s+mod\s+(postgres|application)\b", code):
+            for match in re.finditer(rf"\bpub(?:\s*\([^)]*\))?\s+mod\s+({private_modules})\b", code):
                 errors.add(f"{API_SOURCE / relative}: {match.group(1)} must remain private")
         if owner:
             for offset in http_store_method_calls(code):
@@ -736,26 +952,187 @@ def check_api_architecture(root=ROOT):
                 r"\.\s*(connection|transaction|query|query_one|query_opt|execute|batch_execute)\s*\(", code,
             ):
                 errors.add(f"{API_SOURCE / relative}: HTTP must not execute SQL or open transactions")
-        for offset, literal in strings:
-            for match in SQL_TABLE.finditer(literal):
-                table = match.group(2).lower()
+        for offset, text, inline in strings:
+            if not inline and relative == SCHEMA_REGISTRY:
+                continue
+            if attach := SQL_ATTACH.search(text):
+                errors.add(f"{API_SOURCE / relative}:{sql_line(content, offset, attach.start(), inline)}: "
+                           "SQL must not ATTACH another database; each service owns one database file")
+            for start, verb, table, _ in sql_tables(text):
                 target = table_owner(table)
+                line = sql_line(content, offset, start, inline)
                 if not target:
+                    if table in identity_owned:
+                        errors.add(f"{API_SOURCE / relative}:{line}: SQL table {table} belongs to "
+                                   "the Identity database; reach Identity only through its RPC contract")
                     continue
                 # This legacy read proves the source link and bytes together under editorial's
-                # already-held script lock. No other cross-context table access is admitted.
-                legacy_link = (relative.as_posix(), match.group(1).upper(), table) in {
+                # already-held script lock. No other cross-context table access is admitted; a
+                # Turso adapter needs its own reviewed exception.
+                legacy_link = (relative.as_posix(), verb, table) in {
                     ("contexts/ingestion/postgres.rs", "FROM", "revision_evidence"),
                     ("contexts/editorial/postgres.rs", "JOIN", "actors"),
                 }
-                in_adapter = owner and len(parts) > 2 and parts[2] in {"postgres", "postgres.rs"}
-                if http or domain or (owner and not in_adapter):
-                    line = content.count("\n", 0, offset) + 1
-                    errors.add(f"{API_SOURCE / relative}:{line}: SQL table access belongs in the PostgreSQL adapter")
-                elif owner and target != owner and not legacy_link:
-                    line = content.count("\n", 0, offset) + 1
+                if domain or not (adapter or platform):
+                    errors.add(f"{API_SOURCE / relative}:{line}: SQL table access belongs in "
+                               "its owner's persistence adapter")
+                elif platform and target != "platform" and (
+                    relative.as_posix(), verb, table,
+                ) not in PLATFORM_CONTEXT_SQL:
+                    errors.add(f"{API_SOURCE / relative}:{line}: SQL table {table} belongs to {target}")
+                elif adapter and target != owner and not legacy_link:
                     errors.add(f"{API_SOURCE / relative}:{line}: SQL table {table} belongs to {target}")
     return sorted(errors)
+
+
+def identity_tables(root):
+    """Return the tables Identity's persistence adapter defines, excluding its test fixtures."""
+    tables = set()
+    for file in sources(root / IDENTITY_SOURCE / IDENTITY_PERSISTENCE):
+        if file.stem == "tests" or file.stem.endswith("_tests"):
+            continue
+        for _, text, _ in source_texts(file, file.read_text(encoding="utf-8"))[1]:
+            tables.update(table for _, _, table, defines in sql_tables(text) if defines)
+    return tables
+
+
+def check_identity_architecture(root=ROOT):
+    """Check Identity's pure domain, RPC and persistence placement and database ownership.
+
+    Like the Server check, this reads explicit Rust paths and named SQL tables. It does not prove
+    process or file isolation, one-owner locking or that no runtime path opens another service's
+    database; those obligations belong to the native isolation and file-backed tests.
+    """
+    source = root / IDENTITY_SOURCE
+    files = sorted(source.rglob("*.rs"))
+    if not files:
+        return [f"{IDENTITY_SOURCE}: no Rust sources to check, so the Identity guard would pass "
+                "vacuously; update IDENTITY_SOURCE when the crate moves"]
+    errors = set()
+    modules = {file.relative_to(source).parts[0].removesuffix(".rs") for file in files}
+    if "domain" not in modules:
+        errors.add(f"{IDENTITY_SOURCE}: no domain module, so the purity guard would pass vacuously")
+    tables = identity_tables(root)
+    if not tables:
+        errors.add(f"{IDENTITY_SOURCE / IDENTITY_PERSISTENCE}: defines no tables, so the database "
+                   "ownership guard would pass vacuously")
+    outer = modules - {"domain", "lib", "main", "bin"}
+    for file in sources(source):
+        relative = file.relative_to(source)
+        module = Path(relative.parts[0]).stem
+        domain = module == "domain"
+        content = file.read_text(encoding="utf-8")
+        code, strings = source_texts(file, content)
+        for offset, path in source_paths(code, rust_module(relative), legacy=()):
+            if path[0] == "cantos_server":
+                error = "Identity must not depend on the Server"
+            elif domain:
+                error = pure_dependency_error(path) or (
+                    "Identity domain must not depend on its adapters or application"
+                    if path[0] in outer else None)
+            elif path[0] in RPC_RUNTIME and module not in IDENTITY_RPC_MODULES:
+                error = ("generated RPC DTOs and their runtime stay in Identity's RPC adapter "
+                         "and process composition")
+            else:
+                error = None
+            if error:
+                line = code.count("\n", 0, offset) + 1
+                errors.add(f"{IDENTITY_SOURCE / relative}:{line}: {'::'.join(path)}: {error}")
+        for offset, crate in renamed_crates(code):
+            line = code.count("\n", 0, offset) + 1
+            errors.add(f"{IDENTITY_SOURCE / relative}:{line}: extern crate {crate}: renaming it hides it "
+                       "from the source guards; use its crate name")
+        if domain and re.search(r"\b(?:print|println|eprint|eprintln|dbg)\s*!", code):
+            errors.add(f"{IDENTITY_SOURCE / relative}: pure domain must not write to the console")
+        for offset, text, inline in strings:
+            if attach := SQL_ATTACH.search(text):
+                errors.add(f"{IDENTITY_SOURCE / relative}:{sql_line(content, offset, attach.start(), inline)}: "
+                           "SQL must not ATTACH another database; each service owns one database file")
+            for start, verb, table, defines in sql_tables(text):
+                line = sql_line(content, offset, start, inline)
+                if table_owner(table):
+                    errors.add(f"{IDENTITY_SOURCE / relative}:{line}: SQL table {table} belongs "
+                               "to the Server database")
+                elif module != IDENTITY_PERSISTENCE and (table in tables or defines):
+                    errors.add(f"{IDENTITY_SOURCE / relative}:{line}: SQL table access and DDL "
+                               "belong in Identity's persistence adapter")
+    return sorted(errors)
+
+
+def manifest_dependencies(manifest, member, inherited):
+    """Yield (section, key, crate, root-relative path) per dependency, target tables included.
+
+    A `workspace = true` entry takes its crate and path from `[workspace.dependencies]`
+    (`inherited`), whose paths are relative to the workspace root.
+    """
+    kinds = ("dependencies", "dev-dependencies", "build-dependencies")
+    tables = [(kind, manifest.get(kind, {})) for kind in kinds]
+    for cfg, target in manifest.get("target", {}).items():
+        tables += [(f"target.{cfg}.{kind}", target.get(kind, {})) for kind in kinds]
+    for section, table in tables:
+        for key, spec in table.items():
+            detail = spec if isinstance(spec, dict) else {}
+            origin, base = detail, member
+            if detail.get("workspace") is True:
+                shared = inherited.get(key, {})
+                origin, base = (shared if isinstance(shared, dict) else {}), Path(".")
+            crate = detail.get("package") or origin.get("package") or key
+            path = origin.get("path")
+            yield section, key, crate, Path(os.path.normpath(base / path)) if path else None
+
+
+def crate_name(name):
+    return name.replace("-", "_")
+
+
+def check_manifest_boundaries(root=ROOT):
+    """Check workspace dependency direction from the members' Cargo manifests.
+
+    Shared packages depend on no service or app, apps reach services over HTTP, a service uses
+    another service only from tests, only the shared store owner depends on the Turso engine,
+    and no crate the source checks look for is renamed out of their sight. Path dependencies
+    (including inherited workspace ones) are resolved; the compiler enforces that undeclared
+    crates are unreachable. This is static dependency evidence, not process/database isolation.
+    """
+    try:
+        import tomllib  # Python 3.11+; on an older interpreter this check fails closed.
+        workspace = tomllib.loads((root / WORKSPACE_MANIFEST).read_text(encoding="utf-8"))
+    except (ImportError, OSError, ValueError) as error:
+        return [f"{WORKSPACE_MANIFEST}: cannot read the workspace manifest: {error}"]
+    members = [Path(member) for member in workspace.get("workspace", {}).get("members", [])]
+    inherited = workspace.get("workspace", {}).get("dependencies", {})
+    errors = []
+    if not any(member.parts[:1] == ("packages",) for member in members):
+        errors.append(f"{WORKSPACE_MANIFEST}: no packages/ members, so the dependency-direction "
+                      "guard would pass vacuously")
+    for member in members:
+        manifest_path = member / "Cargo.toml"
+        try:
+            manifest = tomllib.loads((root / manifest_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            errors.append(f"{manifest_path}: cannot read the workspace member manifest: {error}")
+            continue
+        layer = member.parts[0]
+        for section, key, crate, target in manifest_dependencies(manifest, member, inherited):
+            where = f"{manifest_path}: [{section}] {key}"
+            if crate_name(crate) in TURSO_ENGINE_CRATES and member != TURSO_OWNER:
+                errors.append(f"{where}: depend on the shared cantos-store-turso owner, not the engine")
+            if crate_name(crate) in GUARDED_CRATES and crate_name(key) != crate_name(crate):
+                errors.append(f"{where}: renaming {crate} hides it from the source guards; "
+                              "depend on it by its crate name")
+            if target is None or target == member:
+                continue
+            reached = target.parts[0]
+            if layer == "packages" and reached in {"services", "apps"}:
+                errors.append(f"{where}: shared packages must not depend on a service or app")
+            elif layer == "apps" and reached in {"services", "apps"}:
+                errors.append(f"{where}: apps reach services over HTTP and never import service "
+                              "or another app's code")
+            elif layer == "services" and (reached == "apps" or (
+                reached == "services" and not section.endswith("dev-dependencies"))):
+                errors.append(f"{where}: a service reaches another service through its contract "
+                              "package; implementation crates are test-only dev-dependencies")
+    return errors
 
 
 THEATRE_MOBILE = Path("apps/cantos-theatre/mobile")
@@ -1236,6 +1613,8 @@ def check():
 
     errors += check_skills(ROOT)
     errors += check_api_architecture(ROOT)
+    errors += check_identity_architecture(ROOT)
+    errors += check_manifest_boundaries(ROOT)
     errors += check_theatre_architecture(ROOT)
 
     from native_table_ownership import repository_failures as native_ownership_failures
@@ -1270,7 +1649,8 @@ def check():
     skills = len(skill_directories(ROOT))
     print(
         f"Repository checks passed: {checked} text files and {skills} skills; "
-        "local links, JSON syntax, skill structure, API/Theatre architecture and changed UI localization valid."
+        "local links, JSON syntax, skill structure, Server/Identity/Theatre architecture, workspace dependency direction "
+        "and changed UI localization valid."
     )
     return 0
 
