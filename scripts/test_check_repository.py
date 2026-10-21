@@ -1019,6 +1019,40 @@ fn grant() { tx.execute("INSERT INTO actors(id) VALUES($1)", &[]); }
         self.assertEqual(self.errors("contexts/catalog/mod.rs",
                                      "mod inner { mod turso; fn f() { turso::open(); } }"), [])
 
+    def test_root_extern_crate_renames_and_absolute_paths_cannot_hide_guarded_crates(self):
+        self.assertEqual(self.errors("lib.rs", "#[cfg(test)]\nextern crate self as cantos_server;\n"), [])
+        for content, crate in (("extern crate turso as store;", "turso"),
+                               ("extern crate tokio_postgres as pg;", "tokio_postgres")):
+            with self.subTest(content=content):
+                self.assertRejectedAt("lib.rs", content,
+                                      f"extern crate {crate}: renaming it hides it from the source guards")
+        self.errors("lib.rs", "")
+        self.assertRejectedAt("contexts/catalog/application.rs",
+                              "use super::turso;\nfn f() { ::turso::Builder::new_local(p); }",
+                              "only through its persistence adapter")
+
+    def test_using_truncate_and_only_forms_keep_table_ownership(self):
+        for index, statement in enumerate((
+            "DELETE FROM listener_saved USING catalog_works WHERE true",
+            "TRUNCATE catalog_works",
+            "TRUNCATE TABLE ONLY catalog_works",
+            "UPDATE ONLY catalog_works SET title = 1",
+            "CREATE INDEX listener_work ON ONLY catalog_works (id)",
+        )):
+            with self.subTest(statement=statement):
+                self.assertRejectedAt(f"contexts/listening/turso/q{index}.rs", f'const Q: &str = "{statement}";',
+                                      "SQL table catalog_works belongs to catalog")
+
+    def test_prose_partitions_inline_modules_and_single_file_rpc_adapter_are_admitted(self):
+        for path, content in (
+            ("contexts/media/application.rs", 'const M: &str = "cannot attach the artwork to this work";'),
+            ("platform/postgres/partitions.rs", 'const Q: &str = "ALTER TABLE a ATTACH PARTITION b FOR VALUES IN (1)";'),
+            ("contexts/catalog/mod.rs", "mod turso { pub fn open() {} }\nfn f() { turso::open(); }"),
+            ("platform/identity_auth.rs", "use cantos_identity_rpc::Purpose;\nuse tonic::Status;"),
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.errors(path, content), [])
+
     def test_rpc_types_stay_in_the_identity_adapter_not_any_platform_module(self):
         self.assertRejectedAt("platform/bearer/mod.rs", "use cantos_identity_rpc::ValidatedFact;",
                               "generated Identity RPC DTOs and their runtime stay in the platform Identity adapter")
@@ -1124,6 +1158,13 @@ const READ: &str = "SELECT id FROM identity_subjects WHERE id = ?1";
                               "SQL table access and DDL belong in Identity's persistence adapter")
         self.assertRejectedAt("persistence/attach.rs", """const A: &str = "ATTACH 'server.db' AS server";""",
                               "SQL must not ATTACH another database")
+
+    def test_identity_prose_and_crate_root_self_alias_are_admitted_but_renames_are_not(self):
+        self.write("rpc.rs", self.VALID["rpc.rs"] + 'const BUSY: &str = "the signup table is busy";\n')
+        self.write("lib.rs", self.VALID["lib.rs"] + "#[cfg(test)]\nextern crate self as cantos_identity;\n")
+        self.assertEqual(checks.check_identity_architecture(self.root), [])
+        self.assertRejectedAt("lib.rs", "extern crate cantos_store_turso as store;\n",
+                              "extern crate cantos_store_turso: renaming it hides it from the source guards")
 
     def test_identity_never_depends_on_the_server(self):
         self.assertRejectedAt("application.rs", "use cantos_server::platform::identity_auth::IdentityAuth;",
@@ -1237,6 +1278,13 @@ name = "cantos-identity"
 [dependencies]
 store = { package = "cantos-store-turso", path = "../../packages/store-turso" }
 """, "renaming cantos-store-turso hides it from the source guards")
+        for dependency, crate in (('rng = { package = "rand", version = "0.9" }', "rand"),
+                                  ('wire = { package = "cantos-contracts", path = "../../packages/contracts/api" }',
+                                   "cantos-contracts")):
+            with self.subTest(crate=crate):
+                self.assertRejected("services/cantos-identity",
+                                    f'[package]\nname = "cantos-identity"\n[dependencies]\n{dependency}\n',
+                                    f"renaming {crate} hides it from the source guards")
 
     def test_inherited_workspace_dependencies_are_resolved(self):
         members = ", ".join(f'"{member}"' for member in self.MEMBERS)

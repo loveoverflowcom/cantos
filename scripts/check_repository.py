@@ -95,6 +95,8 @@ IDENTITY_RPC_ADAPTER = ("platform", "identity_auth")
 DOMAIN_EXTERNAL = PERSISTENCE_DRIVERS | {
     "axum", "reqwest", "hyper", "tokio", "tower", "tower_http", "leptos", "rand", "getrandom",
 }
+# Crates the source checks recognize by name; a manifest or `extern crate` rename would hide them.
+GUARDED_CRATES = DOMAIN_EXTERNAL | RPC_RUNTIME | {"cantos_identity", "cantos_server", "cantos_contracts"}
 DOMAIN_STD_EFFECTS = {
     ("std", "fs"), ("std", "net"), ("std", "process"), ("std", "env"),
     ("std", "thread"), ("std", "time"), ("std", "os"),
@@ -171,18 +173,22 @@ TABLE_OWNER = {
 }
 RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
 USE_TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z_0-9]*|::|[{},*]")
-# Schema qualifiers (`public.`, `main.`, an attached alias), `IF [NOT] EXISTS`, quoted or
-# bracketed names (escaped inside ordinary Rust strings) and DDL targets (`REFERENCES`,
-# `CREATE INDEX/TRIGGER ... ON`) must not hide a table from the ownership checks.
+# Schema qualifiers (`public.`, `main.`, an attached alias), `IF [NOT] EXISTS`, `ONLY`, quoted or
+# bracketed names (escaped inside ordinary Rust strings), `USING`/`TRUNCATE` and DDL targets
+# (`REFERENCES`, `CREATE INDEX/TRIGGER ... ON`) must not hide a table from the ownership checks.
+# Comma-separated FROM lists and dynamic SQL remain review obligations.
 SQL_NAME = r"(?:\\?[\"`\[])?([a-z_][a-z_0-9]*)(?:\\?[\"`\]])?"
 SQL_QUALIFIER = r"(?:(?:\\?[\"`\[])?[a-z_][a-z_0-9]*(?:\\?[\"`\]])?\.)?"
 SQL_TABLE = re.compile(
-    rf"\b(FROM|JOIN|INTO|UPDATE|TABLE|REFERENCES)\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?{SQL_QUALIFIER}{SQL_NAME}",
+    rf"\b(FROM|JOIN|INTO|UPDATE|TABLE|REFERENCES|USING|TRUNCATE)\s+(?:TABLE\s+)?(?:ONLY\s+)?"
+    rf"(?:IF\s+(?:NOT\s+)?EXISTS\s+)?{SQL_QUALIFIER}{SQL_NAME}",
     re.IGNORECASE,
 )
-SQL_DDL_TARGET = re.compile(rf"\b(?:INDEX|TRIGGER)\b[^;]*?\b(ON)\s+{SQL_QUALIFIER}{SQL_NAME}", re.IGNORECASE)
+SQL_DDL_TARGET = re.compile(rf"\b(?:INDEX|TRIGGER)\b[^;]*?\b(ON)\s+(?:ONLY\s+)?{SQL_QUALIFIER}{SQL_NAME}", re.IGNORECASE)
+# `TABLE` preceded by one of these defines a table rather than naming one in prose.
+SQL_TABLE_DEFINITION = re.compile(r"\b(?:CREATE|ALTER|DROP)\s+(?:(?:TEMP|TEMPORARY|VIRTUAL|UNLOGGED)\s+)?\Z", re.IGNORECASE)
 # Each service owns one database file; attaching another would read across owners.
-SQL_ATTACH = re.compile(r"\bATTACH\s+(?:DATABASE\s+)?\S", re.IGNORECASE)
+SQL_ATTACH = re.compile(r"\bATTACH\s+(?:DATABASE\b|\\?['\"]|[?:$@])", re.IGNORECASE)
 # The PostgreSQL migration registry includes the whole schema, which creates every context's
 # tables; the native ownership inventory checks that schema instead.
 SCHEMA_REGISTRY = Path("platform/postgres/migrations.rs")
@@ -535,7 +541,7 @@ def source_paths(code, module, legacy=LEGACY_API_MODULES):
             paths.append((match.start(), path, absolute))
             if alias and alias != "*":
                 aliases[alias] = path
-    for match in re.finditer(r"\bextern\s+crate\s+(\w+)", code):
+    for match in re.finditer(r"\bextern\s+crate\s+(?!self\b)(\w+)", code):
         paths.append((match.start(), (match.group(1),), True))
     modules, braces = [], []
     for match in re.finditer(r"[{}]", code):
@@ -551,11 +557,11 @@ def source_paths(code, module, legacy=LEGACY_API_MODULES):
         return tuple(name for start, end, name in sorted(modules) if start < offset < end)
 
     declared = {(scope(match.start()), match.group(1))
-                for match in re.finditer(r"\bmod\s+(\w+)\s*;", code)}
+                for match in re.finditer(r"\bmod\s+(\w+)\s*[;{]", code)}
     for offset, path, absolute in sorted(set(paths)):
         if not path:
             continue
-        for _ in range(len(aliases)):
+        for _ in range(0 if absolute else len(aliases)):
             replacement = aliases.get(path[0])
             if not replacement or replacement == (path[0],) or path[0] in {"crate", "super", "self"}:
                 break
@@ -573,7 +579,15 @@ def source_paths(code, module, legacy=LEGACY_API_MODULES):
                     base.pop()
                 path = path[1:]
             path = tuple(base) + path
-        yield offset, path
+        if path:
+            yield offset, path
+
+
+def renamed_crates(code):
+    """Yield (offset, crate) for `extern crate X as Y` renames of a guarded crate."""
+    for match in re.finditer(r"\bextern\s+crate\s+(\w+)\s+as\s+(\w+)", code):
+        if match.group(1) in GUARDED_CRATES and match.group(2) != match.group(1):
+            yield match.start(), match.group(1)
 
 
 def without_sql_comments(text):
@@ -611,12 +625,17 @@ def source_texts(file, content):
 
 
 def sql_tables(text):
-    """Yield (offset, verb, table) for each statically named table in one SQL text."""
+    """Yield (offset, verb, table, defines) per statically named table in one SQL text.
+
+    `defines` marks `CREATE/ALTER/DROP ... TABLE`, as opposed to a name used in a statement.
+    """
     # Rust escapes and line continuations become equal-length blanks, keeping offsets.
     text = re.sub(r"\\(?:(?=\n)|[nrt])", lambda match: " " * len(match.group()), text)
     for pattern in (SQL_TABLE, SQL_DDL_TARGET):
         for match in pattern.finditer(text):
-            yield match.start(), match.group(1).upper(), match.group(2).lower()
+            verb = match.group(1).upper()
+            defines = verb == "TABLE" and bool(SQL_TABLE_DEFINITION.search(text, 0, match.start()))
+            yield match.start(), verb, match.group(2).lower(), defines
 
 
 def sql_line(content, offset, start, inline):
@@ -908,12 +927,17 @@ def check_api_architecture(root=ROOT):
             error = dependency_error(path, owner, domain, http,
                 listener_pg_test=relative == Path("contexts/listening/postgres/tests.rs"),
                 application_glue=relative == Path("application.rs"),
-                adapter=adapter, rpc_adapter=parts[:2] == IDENTITY_RPC_ADAPTER)
+                adapter=adapter,
+                rpc_adapter=len(parts) > 1 and (parts[0], Path(parts[1]).stem) == IDENTITY_RPC_ADAPTER)
             if parts[0] == "platform" and path[0] == "contexts":
                 error = "platform must not depend on a business context"
             if error:
                 line = code.count("\n", 0, offset) + 1
                 errors.add(f"{API_SOURCE / relative}:{line}: {'::'.join(path)}: {error}")
+        for offset, crate in renamed_crates(code):
+            line = code.count("\n", 0, offset) + 1
+            errors.add(f"{API_SOURCE / relative}:{line}: extern crate {crate}: renaming it hides it "
+                       "from the source guards; use its crate name")
         if domain and re.search(r"\b(?:print|println|eprint|eprintln|dbg)\s*!", code):
             errors.add(f"{API_SOURCE / relative}: pure domain must not write to the console")
         if owner and relative == Path(f"contexts/{owner}/mod.rs"):
@@ -934,7 +958,7 @@ def check_api_architecture(root=ROOT):
             if attach := SQL_ATTACH.search(text):
                 errors.add(f"{API_SOURCE / relative}:{sql_line(content, offset, attach.start(), inline)}: "
                            "SQL must not ATTACH another database; each service owns one database file")
-            for start, verb, table in sql_tables(text):
+            for start, verb, table, _ in sql_tables(text):
                 target = table_owner(table)
                 line = sql_line(content, offset, start, inline)
                 if not target:
@@ -968,7 +992,7 @@ def identity_tables(root):
         if file.stem == "tests" or file.stem.endswith("_tests"):
             continue
         for _, text, _ in source_texts(file, file.read_text(encoding="utf-8"))[1]:
-            tables.update(table for _, verb, table in sql_tables(text) if verb == "TABLE")
+            tables.update(table for _, _, table, defines in sql_tables(text) if defines)
     return tables
 
 
@@ -1014,18 +1038,22 @@ def check_identity_architecture(root=ROOT):
             if error:
                 line = code.count("\n", 0, offset) + 1
                 errors.add(f"{IDENTITY_SOURCE / relative}:{line}: {'::'.join(path)}: {error}")
+        for offset, crate in renamed_crates(code):
+            line = code.count("\n", 0, offset) + 1
+            errors.add(f"{IDENTITY_SOURCE / relative}:{line}: extern crate {crate}: renaming it hides it "
+                       "from the source guards; use its crate name")
         if domain and re.search(r"\b(?:print|println|eprint|eprintln|dbg)\s*!", code):
             errors.add(f"{IDENTITY_SOURCE / relative}: pure domain must not write to the console")
         for offset, text, inline in strings:
             if attach := SQL_ATTACH.search(text):
                 errors.add(f"{IDENTITY_SOURCE / relative}:{sql_line(content, offset, attach.start(), inline)}: "
                            "SQL must not ATTACH another database; each service owns one database file")
-            for start, verb, table in sql_tables(text):
+            for start, verb, table, defines in sql_tables(text):
                 line = sql_line(content, offset, start, inline)
                 if table_owner(table):
                     errors.add(f"{IDENTITY_SOURCE / relative}:{line}: SQL table {table} belongs "
                                "to the Server database")
-                elif module != IDENTITY_PERSISTENCE and (table in tables or verb == "TABLE"):
+                elif module != IDENTITY_PERSISTENCE and (table in tables or defines):
                     errors.add(f"{IDENTITY_SOURCE / relative}:{line}: SQL table access and DDL "
                                "belong in Identity's persistence adapter")
     return sorted(errors)
@@ -1073,7 +1101,6 @@ def check_manifest_boundaries(root=ROOT):
         return [f"{WORKSPACE_MANIFEST}: cannot read the workspace manifest: {error}"]
     members = [Path(member) for member in workspace.get("workspace", {}).get("members", [])]
     inherited = workspace.get("workspace", {}).get("dependencies", {})
-    guarded = PERSISTENCE_DRIVERS | RPC_RUNTIME | {"cantos_identity", "cantos_server"}
     errors = []
     if not any(member.parts[:1] == ("packages",) for member in members):
         errors.append(f"{WORKSPACE_MANIFEST}: no packages/ members, so the dependency-direction "
@@ -1090,7 +1117,7 @@ def check_manifest_boundaries(root=ROOT):
             where = f"{manifest_path}: [{section}] {key}"
             if crate_name(crate) in TURSO_ENGINE_CRATES and member != TURSO_OWNER:
                 errors.append(f"{where}: depend on the shared cantos-store-turso owner, not the engine")
-            if crate_name(crate) in guarded and crate_name(key) != crate_name(crate):
+            if crate_name(crate) in GUARDED_CRATES and crate_name(key) != crate_name(crate):
                 errors.append(f"{where}: renaming {crate} hides it from the source guards; "
                               "depend on it by its crate name")
             if target is None or target == member:

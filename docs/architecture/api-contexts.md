@@ -53,8 +53,9 @@ top-level `turso/`) is not an adapter. Each adapter opens only its own backend, 
 code reaches Turso only through its adapter, HTTP opens no driver, no SQL attaches another
 database, and generated Identity RPC types stay in `platform/identity_auth`. The Identity crate
 and workspace manifests have matching checks. These are static checks of explicit paths and
-literal SQL: macros, dynamic SQL, `#[path]` mounts and re-exports remain review obligations, and
-process/file isolation, one-owner locking and cross-database reads still need runtime tests.
+literal SQL: macros, dynamic SQL, comma-separated `FROM` lists, `#[path]`/`include!` mounts and
+re-exports remain review obligations, and process/file isolation, one-owner locking and
+cross-database reads still need runtime tests.
 
 ## Session policy and credential boundary
 
