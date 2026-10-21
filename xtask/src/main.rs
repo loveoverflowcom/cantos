@@ -184,23 +184,26 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             Ok(report.exit_code())
         }
         Task::Preflight {
+            profile,
             kani,
             base,
             changed_only,
             skip,
             dry_run,
-        } => preflight::run(
-            &workspace,
-            &preflight::PreflightOptions {
+        } => {
+            let options = preflight::PreflightOptions {
+                profile,
                 kani,
                 base,
                 changed_only,
                 skip: skip.into_iter().collect(),
                 dry_run,
-            },
-            &tools,
-            &mut runner,
-        ),
+            };
+            if let Err(message) = options.validate() {
+                return Ok(refuse(Refusal::Usage(message)));
+            }
+            preflight::run(&workspace, &options, &tools, &mut runner)
+        }
         Task::Ci { job, dry_run } => Ok(ci::run(&workspace, job, dry_run, &tools, &mut runner)),
         Task::Doctor => Ok(doctor::run(&tools)),
     }

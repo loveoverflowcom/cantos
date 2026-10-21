@@ -4,6 +4,10 @@
 //! known gate, or unknown. Package impact follows reverse Cargo dependencies. Shared Cargo
 //! configuration, verification tooling (`xtask/`, workflows), an empty change set and any
 //! unclassified path broaden to every gate: when impact is uncertain, verify more.
+//!
+//! The local DEV/CHECKPOINT profile ([`select_local`]) reuses the same classification and graph
+//! but plans only static repository checks, formatting, affected Rust lint/tests and WASM lint.
+//! Everything else the handoff selection would run on the same diff is listed as deferred.
 
 use std::collections::BTreeSet;
 
@@ -24,6 +28,8 @@ pub struct Selection {
     pub broadened: Option<String>,
     pub affected: BTreeSet<String>,
     pub notes: BTreeSet<String>,
+    /// Local profile only: handoff gates for the same diff that this profile does not run.
+    pub deferred: Vec<Gate>,
 }
 
 #[derive(Default)]
@@ -152,6 +158,7 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         broadened: None,
         affected,
         notes: impact.notes,
+        deferred: Vec::new(),
     }
 }
 
@@ -161,7 +168,126 @@ fn full(reason: &str) -> Selection {
         broadened: Some(reason.to_owned()),
         affected: BTreeSet::new(),
         notes: BTreeSet::new(),
+        deferred: Vec::new(),
     }
+}
+
+/// The local DEV/CHECKPOINT plan for a collected change set. Package impact keeps normal, dev
+/// and build reverse dependencies. Tooling code (`xtask/`, `scripts/`, workflows) adds the
+/// repository gate's Python regression suite; documentation under `xtask/` stays a document.
+/// Shared Cargo inputs and unclassified paths broaden to every local check, never to the
+/// handoff campaigns. An empty change set plans only the always-on checks.
+pub fn select_local(paths: &[String], graph: &PackageGraph) -> Selection {
+    let handoff = select(Some(paths), graph);
+    let mut impact = Impact::default();
+    let mut tooling = false;
+    let broadened = paths
+        .iter()
+        .find_map(|path| classify_local(path, graph, &mut impact, &mut tooling));
+
+    let mut gates: BTreeSet<Gate> = [Gate::RustFormat].into();
+    let mut affected = BTreeSet::new();
+    if broadened.is_some() {
+        gates.insert(Gate::Repository { base: None });
+        gates.insert(Gate::RustLint(Scope::Workspace));
+        gates.insert(Gate::RustTests(Scope::Workspace));
+        gates.insert(Gate::WebLint(App::ALL.into_iter().collect()));
+    } else {
+        gates.insert(if tooling {
+            Gate::Repository { base: None }
+        } else {
+            Gate::RepositoryStatic { base: None }
+        });
+        affected = graph.dependents_closure(&impact.packages);
+        if !affected.is_empty() {
+            let scope = Scope::Packages(affected.clone());
+            gates.insert(Gate::RustLint(scope.clone()));
+            gates.insert(Gate::RustTests(scope));
+        }
+        let apps: BTreeSet<App> = App::ALL
+            .into_iter()
+            .filter(|app| affected.contains(app.web_package()))
+            .collect();
+        if !apps.is_empty() {
+            gates.insert(Gate::WebLint(apps));
+        }
+    }
+
+    let deferred: Vec<Gate> = handoff
+        .gates
+        .into_iter()
+        .filter(|gate| !gates.contains(gate))
+        .collect();
+    let mut notes = impact.notes;
+    if paths.is_empty() {
+        notes.insert("no changed paths: only the always-on local checks run".into());
+    }
+    if gates
+        .iter()
+        .any(|gate| matches!(gate, Gate::RustLint(_) | Gate::RustTests(_)))
+    {
+        notes.insert("rust-lint/rust-tests check the listed packages with their default features (plus `cantos-theatre/preview` when that package is selected); no other feature lane is covered".into());
+    }
+    notes.extend(
+        deferred
+            .iter()
+            .filter_map(deferred_coverage)
+            .map(str::to_owned),
+    );
+    Selection {
+        gates: gates.into_iter().collect(),
+        broadened,
+        affected,
+        notes,
+        deferred,
+    }
+}
+
+/// Returns a broadening reason, or records the path's local impact.
+fn classify_local(
+    path: &str,
+    graph: &PackageGraph,
+    impact: &mut Impact,
+    tooling: &mut bool,
+) -> Option<String> {
+    if SHARED_RUST_INPUTS.contains(&path) || within(path, ".cargo") {
+        return Some(format!("{path} is a shared Cargo input"));
+    }
+    if within(path, "xtask") {
+        // xtask fixtures are test inputs, whatever their extension.
+        if !path.ends_with(".md") || within(path, "xtask/fixtures") {
+            *tooling = true;
+            if let Some(package) = graph.owner(path) {
+                impact.packages.insert(package.name.clone());
+            }
+        }
+        return None;
+    }
+    if within(path, ".github/workflows") {
+        // Workflows are read by xtask's CI tests and by the Python repository tests.
+        *tooling = true;
+        impact.packages.insert("xtask".to_owned());
+        return None;
+    }
+    if within(path, "scripts") {
+        *tooling = true;
+    }
+    classify(path, graph, impact);
+    impact.broaden.take()
+}
+
+/// What a deferred handoff gate leaves uncovered that the local plan could be mistaken for.
+fn deferred_coverage(gate: &Gate) -> Option<&'static str> {
+    Some(match gate {
+        Gate::Repository { .. } => "the repository Python regression suite is not run (no tooling input changed)",
+        Gate::Turso => "Turso feature lanes (cantos-identity `persistence`/`service`, cantos-store-turso `testing`) and the capability report are not checked",
+        Gate::Dbsp => "cantos-server's `dbsp-experimental` feature is not checked",
+        Gate::WebBuild(_) | Gate::UiPreview => "no Trunk build runs: Web coverage is WASM lint only",
+        Gate::CmpUiPreview | Gate::TheatreCmpPreview => {
+            "Kotlin/CMP sources are not compiled or tested by this profile"
+        }
+        _ => return None,
+    })
 }
 
 fn conformance_input(path: &str) -> bool {
@@ -332,7 +458,7 @@ fn classify_script(script: &str, impact: &mut Impact) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::preflight::graph::testing;
+    use crate::{gate::GateKind, preflight::graph::testing};
 
     fn pick(paths: &[&str]) -> Selection {
         let paths: Vec<String> = paths.iter().map(|path| (*path).to_owned()).collect();
@@ -877,6 +1003,326 @@ mod tests {
                 .notes
                 .iter()
                 .any(|note| note.contains("theatre-host android-release"))
+        );
+    }
+
+    fn local(paths: &[&str]) -> Selection {
+        let paths: Vec<String> = paths.iter().map(|path| (*path).to_owned()).collect();
+        select_local(&paths, &testing::cantos())
+    }
+
+    fn deferred(selection: &Selection) -> Vec<String> {
+        selection.deferred.iter().map(Gate::name).collect()
+    }
+
+    const LOCAL_KINDS: [GateKind; 5] = [
+        GateKind::Repository,
+        GateKind::RustFormat,
+        GateKind::RustLint,
+        GateKind::RustTests,
+        GateKind::WebLint,
+    ];
+
+    #[test]
+    fn local_documents_select_static_repository_checks_and_format_only() {
+        let selection = local(&[
+            "README.md",
+            "docs/architecture/overview.md",
+            ".agents/skills/cantos-engineering/references/verification-cadence.md",
+            "services/cantos-server/README.md",
+            "xtask/README.md",
+        ]);
+        assert_eq!(selection.broadened, None);
+        assert_eq!(names(&selection), ["repository-static", "rust-format"]);
+        // xtask/README.md broadens the handoff selection, never the local one.
+        assert!(deferred(&selection).contains(&"repository".to_owned()));
+        assert!(deferred(&selection).contains(&"postgres".to_owned()));
+        assert!(selection
+            .notes
+            .iter()
+            .any(|note| note.contains("Python regression suite is not run")));
+    }
+
+    #[test]
+    fn local_server_changes_keep_package_checks_and_defer_every_campaign() {
+        for path in [
+            "services/cantos-server/src/adapters/inbound/http/mod.rs",
+            "services/cantos-server/src/script_ir/validation.rs",
+            "services/cantos-server/src/contexts/media/audio_intake.rs",
+        ] {
+            let selection = local(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository-static",
+                    "rust-format",
+                    "rust-lint (cantos-server)",
+                    "rust-tests (cantos-server)",
+                ],
+                "{path}"
+            );
+            for campaign in ["dbsp", "wav-reference", "audio-inspection", "postgres"] {
+                assert!(
+                    deferred(&selection).contains(&campaign.to_owned()),
+                    "{path}"
+                );
+            }
+            assert!(selection
+                .notes
+                .iter()
+                .any(|note| note.contains("dbsp-experimental")));
+        }
+        assert!(deferred(&local(&[
+            "services/cantos-server/src/script_ir/validation.rs"
+        ]))
+        .contains(&"mutation".to_owned()));
+    }
+
+    #[test]
+    fn local_theatre_web_changes_add_wasm_lint_without_trunk_or_cmp() {
+        let selection = local(&["apps/cantos-theatre/web/src/lib.rs"]);
+        assert_eq!(
+            names(&selection),
+            [
+                "repository-static",
+                "rust-format",
+                "rust-lint (cantos-theatre)",
+                "rust-tests (cantos-theatre)",
+                "web-lint (cantos-theatre)",
+            ]
+        );
+        assert_eq!(
+            deferred(&selection),
+            ["repository", "web-build (cantos-theatre)"]
+        );
+        assert!(selection
+            .notes
+            .iter()
+            .any(|note| note.contains("WASM lint only")));
+    }
+
+    #[test]
+    fn local_contract_changes_reach_every_dependent_through_the_graph() {
+        let selection = local(&["packages/contracts/api/src/production.rs"]);
+        assert_eq!(
+            names(&selection),
+            [
+                "repository-static",
+                "rust-format",
+                "rust-lint (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
+                "rust-tests (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
+                "web-lint (cantos-studio, cantos-theatre)",
+            ]
+        );
+    }
+
+    #[test]
+    fn local_identity_and_turso_changes_keep_graph_consumers_and_report_feature_gaps() {
+        for (path, packages) in [
+            ("services/cantos-identity/src/lib.rs", "cantos-identity"),
+            (
+                "packages/store-turso/src/lib.rs",
+                "cantos-identity, cantos-store-turso",
+            ),
+            (
+                "packages/contracts/identity-rpc/src/lib.rs",
+                "cantos-identity, cantos-identity-rpc",
+            ),
+        ] {
+            let selection = local(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository-static".to_owned(),
+                    "rust-format".to_owned(),
+                    format!("rust-lint ({packages})"),
+                    format!("rust-tests ({packages})"),
+                ],
+                "{path}"
+            );
+            assert_eq!(deferred(&selection), ["repository", "turso"], "{path}");
+            assert!(selection
+                .notes
+                .iter()
+                .any(|note| note.contains("`persistence`/`service`")));
+            assert!(selection
+                .notes
+                .iter()
+                .any(|note| note.contains("default features")));
+        }
+    }
+
+    #[test]
+    fn local_selection_keeps_dev_dependency_consumers() {
+        // The server's Identity/Turso journeys are dev-dependencies; graph edges carry
+        // normal, dev and build dependencies alike, so the server stays a consumer.
+        let mut graph = testing::cantos();
+        graph
+            .packages
+            .iter_mut()
+            .find(|package| package.name == API_PACKAGE)
+            .unwrap()
+            .deps
+            .extend([IDENTITY_PACKAGE.to_owned(), TURSO_STORE_PACKAGE.to_owned()]);
+        let selection = select_local(&["packages/store-turso/src/lib.rs".to_owned()], &graph);
+        assert_eq!(
+            names(&selection),
+            [
+                "repository-static",
+                "rust-format",
+                "rust-lint (cantos-identity, cantos-server, cantos-store-turso)",
+                "rust-tests (cantos-identity, cantos-server, cantos-store-turso)",
+            ]
+        );
+        for campaign in ["turso", "dbsp", "postgres"] {
+            assert!(deferred(&selection).contains(&campaign.to_owned()));
+        }
+    }
+
+    #[test]
+    fn local_tooling_code_keeps_the_repository_regression_suite() {
+        for (path, rust) in [
+            ("xtask/src/gate.rs", true),
+            ("xtask/fixtures/hosting-bundles/README.md", true),
+            (".github/workflows/repository-checks.yml", true),
+            ("scripts/check_repository.py", false),
+            ("scripts/test_check_repository.py", false),
+            ("scripts/verify_behavior.py", false),
+        ] {
+            let selection = local(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            let mut expected = vec!["repository", "rust-format"];
+            if rust {
+                expected.extend(["rust-lint (xtask)", "rust-tests (xtask)"]);
+            }
+            assert_eq!(names(&selection), expected, "{path}");
+        }
+        assert!(deferred(&local(&["scripts/verify_behavior.py"])).contains(&"behavior".to_owned()));
+    }
+
+    #[test]
+    fn local_shared_or_unknown_inputs_broaden_within_the_profile_only() {
+        for path in [
+            "Cargo.lock",
+            "Cargo.toml",
+            "rust-toolchain.toml",
+            ".cargo/config.toml",
+            "Makefile",
+            "scripts/new_tool.py",
+        ] {
+            let selection = local(&[path, "apps/cantos-theatre/web/src/lib.rs"]);
+            assert!(
+                selection
+                    .broadened
+                    .as_deref()
+                    .is_some_and(|reason| reason.contains(path)),
+                "{path}: {:?}",
+                selection.broadened
+            );
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository",
+                    "rust-format",
+                    "rust-lint (workspace)",
+                    "rust-tests (workspace)",
+                    "web-lint (cantos-studio, cantos-theatre)",
+                ],
+                "{path}"
+            );
+            assert!(
+                deferred(&selection).contains(&"postgres".to_owned()),
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_truly_empty_local_diff_runs_no_workspace_rust_checks() {
+        let selection = select_local(&[], &testing::cantos());
+        assert_eq!(selection.broadened, None);
+        assert_eq!(names(&selection), ["repository-static", "rust-format"]);
+        assert!(selection.affected.is_empty());
+        assert!(selection
+            .notes
+            .iter()
+            .any(|note| note.contains("no changed paths")));
+        // Handoff still treats an empty diff as unknown impact.
+        assert_eq!(select(Some(&[]), &testing::cantos()).gates, gate::full());
+    }
+
+    #[test]
+    fn local_cmp_changes_report_their_coverage_gap_instead_of_building() {
+        let selection = local(&["packages/ui-system/cmp/src/commonMain/kotlin/PreviewCatalog.kt"]);
+        assert_eq!(names(&selection), ["repository-static", "rust-format"]);
+        assert_eq!(
+            deferred(&selection),
+            ["repository", "cmp-ui-preview", "theatre-cmp-preview"]
+        );
+        assert!(selection
+            .notes
+            .iter()
+            .any(|note| note.contains("Kotlin/CMP")));
+    }
+
+    #[test]
+    fn local_plans_never_contain_a_campaign_gate() {
+        let all = [
+            "packages/contracts/protobuf/studio_v1.proto",
+            "packages/contracts/fixtures/script-ir/0.1.0/cases.json",
+            "specs/behavior/catalog.json",
+            crate::behavior::OBSERVER,
+            "packages/ui-system/shared/tokens.json",
+            "services/cantos-forge-functions/firebase/src/boundary.mjs",
+            "apps/cantos-theatre/mobile/settings.gradle.kts",
+            "services/cantos-identity/src/persistence/mod.rs",
+            "scripts/test_postgres.py",
+            "scripts/mutate_script_ir.py",
+            "infra/firebase/hosting/firebase.json",
+        ];
+        let mut paths: Vec<&str> = all.to_vec();
+        for path in all {
+            paths.push(path);
+            let selection = local(&[path]);
+            assert!(
+                selection
+                    .gates
+                    .iter()
+                    .all(|gate| LOCAL_KINDS.contains(&gate.kind())),
+                "{path}: {:?}",
+                names(&selection)
+            );
+            for gate in &selection.deferred {
+                assert!(!selection.gates.contains(gate), "{path}");
+            }
+        }
+        let combined = local(&paths);
+        assert!(combined
+            .gates
+            .iter()
+            .all(|gate| LOCAL_KINDS.contains(&gate.kind())));
+    }
+
+    #[test]
+    fn the_handoff_selection_is_unchanged_and_has_no_deferred_gates() {
+        for paths in [
+            &["README.md"][..],
+            &["services/cantos-server/src/lib.rs"],
+            &["xtask/src/gate.rs"],
+            &[],
+        ] {
+            let selection = pick(paths);
+            assert!(selection.deferred.is_empty(), "{paths:?}");
+            assert!(!selection
+                .gates
+                .iter()
+                .any(|gate| matches!(gate, Gate::RepositoryStatic { .. })));
+        }
+        assert_eq!(
+            names(&pick(&["xtask/README.md"])),
+            names(&select(None, &testing::cantos()))
         );
     }
 

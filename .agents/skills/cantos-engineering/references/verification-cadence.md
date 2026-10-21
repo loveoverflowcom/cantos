@@ -14,8 +14,8 @@ commit, push or progress update does not by itself require another verification 
 
 | Milestone | Trigger | Run |
 | --- | --- | --- |
-| DEV | investigate a failure or change a behavior while the slice is in progress | the cheapest focused regression, syntax/static check or scoped formatter that answers the current question; do not automatically expand to module suites or preflight |
-| CHECKPOINT | a coherent rule, module or component is ready for a dependent layer or review | applicable module tests, format/lint and contract/renderer checks; reuse covered focused results and broaden only for a changed boundary, regression or unresolved risk |
+| DEV | investigate a failure or change a behavior while the slice is in progress | the cheapest focused regression, syntax/static check or scoped formatter that answers the current question; do not automatically expand to module suites or preflight; when the affected package set is the question, `cargo xtask preflight --profile local --changed-only --base "$BASE_REF"` |
+| CHECKPOINT | a coherent rule, module or component is ready for a dependent layer or review | applicable module tests, format/lint and contract/renderer checks, for example the local profile above; add the owner's renderer/integration check where the changed claim needs it; reuse covered focused results and broaden only for a changed boundary, regression or unresolved risk |
 | HANDOFF | the completed review boundary is ready for user acceptance or opening/updating its PR | `cargo xtask preflight --changed-only --base "$BASE_REF"` on the final diff, plus required evidence outside its plan; one run covers the same commit/push/PR handoff |
 | CRITICAL | an edit reaches a security, durability, publication, contract or synchronization invariant | add the owner's targeted failure/boundary evidence before accepting that claim or dependent work; combine it with the relevant checkpoint/handoff rather than creating a full-preflight loop |
 
@@ -40,6 +40,11 @@ to settle their claims; do not build an application just to obtain a baseline.
    Missing tools and partial delivery use [local handoff](local-execution.md#progressive-commit-push-and-pr);
    documents/skills alone may use its narrow [Cargo-unavailable fallback](local-execution.md#docs-only-fallback-when-xtask-cannot-start).
    Never hide a failure, call a skipped gate passed or change CI/required checks for a green exit.
+
+The [local profile](../../../../xtask/README.md#local-profile) plans static repository checks,
+format, affected Rust lint/tests and WASM lint only. Its `local checkpoint` PASS is CHECKPOINT
+evidence for those steps; it never replaces the HANDOFF preflight, database integration, Trunk,
+CMP, feature-lane, mutation, behavior or Kani evidence it lists as outside the profile.
 
 `--changed-only` includes the whole branch since its merge base, plus staged, unstaged and
 untracked inputs. It is not an incremental check since the last edit or verification run.

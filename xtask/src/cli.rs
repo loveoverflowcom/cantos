@@ -10,6 +10,7 @@ use crate::{
     config::DEFAULT_BASE,
     gate::GateKind,
     kani::Kernel,
+    preflight::PreflightProfile,
     run::{AppTarget, RunTarget},
     seed::{SeedOptions, SeedTarget},
     theatre_host::HostAction,
@@ -158,6 +159,11 @@ pub enum Task {
     },
     /// Developer safety gate before pushing; --changed-only selects gates from the Git diff.
     Preflight {
+        /// `handoff` (default) is the complete safety gate; `local` is a lighter DEV/CHECKPOINT
+        /// subset (static repository checks, format, affected Rust and WASM lint) that requires
+        /// --changed-only and never establishes a handoff.
+        #[arg(long, value_enum, default_value_t = PreflightProfile::Handoff)]
+        profile: PreflightProfile,
         /// Opt in to registered API Kani proofs, narrowed by changed paths when requested.
         #[arg(long)]
         kani: bool,
@@ -461,8 +467,18 @@ mod tests {
         );
         assert!(matches!(
             parse("preflight").unwrap(),
-            Task::Preflight { kani: false, .. }
+            Task::Preflight {
+                kani: false,
+                profile: PreflightProfile::Handoff,
+                ..
+            }
         ));
+        assert!(matches!(
+            parse("preflight --profile local --changed-only --base origin/refactor/cantos-native-turso --dry-run").unwrap(),
+            Task::Preflight { profile: PreflightProfile::Local, changed_only: true, dry_run: true, ref base, .. }
+                if base == "origin/refactor/cantos-native-turso"
+        ));
+        assert!(parse("preflight --profile quick").is_err());
     }
 
     #[test]
