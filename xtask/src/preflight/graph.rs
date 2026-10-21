@@ -164,7 +164,12 @@ pub mod testing {
                 package(
                     "cantos-identity",
                     "services/cantos-identity",
-                    &["cantos-store-turso"],
+                    &["cantos-identity-rpc", "cantos-store-turso"],
+                ),
+                package(
+                    "cantos-identity-rpc",
+                    "packages/contracts/identity-rpc",
+                    &[],
                 ),
                 package("cantos-store-turso", "packages/store-turso", &[]),
                 package(

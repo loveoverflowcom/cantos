@@ -3,8 +3,13 @@
 
 pub mod proofs;
 mod rows;
+pub mod signup;
 pub use proofs::{
     ProofCommandId, ProofMaterial, ProofReceipt, ProofReceiptAction, ProofSecret, ProofStoreError,
+};
+pub use signup::{
+    LoginFinalization, LoginRecord, PhcString, SignupCompletion, SignupCompletionRequest,
+    SignupRecord, SignupStoreError,
 };
 
 use std::{fmt, path::PathBuf, sync::Arc};
@@ -25,7 +30,7 @@ use crate::domain::{
 
 use rows::{decode_epoch, decode_event, decode_receipt, decode_subject, integer, positive};
 
-const MIGRATIONS: [Migration; 2] = [
+const MIGRATIONS: [Migration; 3] = [
     Migration {
         version: 1,
         name: "identity_security_state",
@@ -35,6 +40,11 @@ const MIGRATIONS: [Migration; 2] = [
         version: 2,
         name: "identity_mailbox_proofs",
         sql: include_str!("proofs.sql"),
+    },
+    Migration {
+        version: 3,
+        name: "identity_signup_credentials",
+        sql: include_str!("signup.sql"),
     },
 ];
 const RECEIPT_QUERY: &str = "SELECT operation_id,subject_id,kind,expected_version,committed_version,event_seq FROM operation_receipts WHERE operation_id=?1";
@@ -173,6 +183,9 @@ pub struct IdentityStore {
 }
 
 impl IdentityStore {
+    // ACCEPTANCE-PENDING(#334/#336): restore epoch rotation. A copied old file cannot identify
+    // its own restore, so a restored database keeps its epoch until the explicit rotation and the
+    // Server resync are accepted. No code here pretends that is done.
     /// Explicit migrate may initialize an empty Identity instance. Serve never creates a
     /// schema or epoch. Ordinary reopen retains the epoch; restore rotation is not supplied.
     pub async fn open(
@@ -246,31 +259,42 @@ impl IdentityStore {
             return Err(IdentityStoreError::EpochChanged);
         }
         let tx = self.database.begin_write().await?;
-        let result = async {
-            if let Some(receipt) = self
-                .replay(&tx, operation, subject, ChangeKind::Created, None)
-                .await?
-            {
-                return Ok(receipt);
-            }
-            let mut rows = tx
-                .query(SUBJECT_QUERY, [subject.to_bytes().to_vec()])
-                .await?;
-            if rows.next().await?.is_some() {
-                return Err(IdentityStoreError::SubjectExists);
-            }
-            drop(rows);
-            tx.execute(
-                "INSERT INTO identity_subjects(subject_id,security_version,state) VALUES(?1,1,1)",
-                [subject.to_bytes().to_vec()],
-            )
-            .await?;
-            let first = SecurityVersion::new(1).map_err(|_| IdentityStoreError::CorruptRecord)?;
-            self.record(&tx, operation, subject, ChangeKind::Created, None, first)
-                .await
-        }
-        .await;
+        let result = self
+            .create_subject_in_transaction(&tx, operation, subject)
+            .await;
         finish(tx, result).await
+    }
+
+    /// Composition primitive: the account creation joins the caller's transaction so a signup
+    /// can commit it together with the proof consumption and credential. `tx` must originate
+    /// from this store's database; the shared handle does not encode database identity.
+    pub(crate) async fn create_subject_in_transaction(
+        &self,
+        tx: &WriteTransaction<'_>,
+        operation: OperationId,
+        subject: SubjectId,
+    ) -> Result<OperationReceipt, IdentityStoreError> {
+        if let Some(receipt) = self
+            .replay(tx, operation, subject, ChangeKind::Created, None)
+            .await?
+        {
+            return Ok(receipt);
+        }
+        let mut rows = tx
+            .query(SUBJECT_QUERY, [subject.to_bytes().to_vec()])
+            .await?;
+        if rows.next().await?.is_some() {
+            return Err(IdentityStoreError::SubjectExists);
+        }
+        drop(rows);
+        tx.execute(
+            "INSERT INTO identity_subjects(subject_id,security_version,state) VALUES(?1,1,1)",
+            [subject.to_bytes().to_vec()],
+        )
+        .await?;
+        let first = SecurityVersion::new(1).map_err(|_| IdentityStoreError::CorruptRecord)?;
+        self.record(tx, operation, subject, ChangeKind::Created, None, first)
+            .await
     }
 
     /// Only the named Active→Disabled transition is implemented. The caller must authorize
@@ -438,7 +462,7 @@ async fn initialize_instance(
         InstanceEpoch::from_bytes(bytes).map_err(|_| IdentityStoreError::EntropyUnavailable)?;
     let tx = database.begin_write().await?;
     let result = async {
-        let mut rows = tx.query("SELECT EXISTS(SELECT 1 FROM identity_subjects) OR EXISTS(SELECT 1 FROM security_events) OR EXISTS(SELECT 1 FROM operation_receipts) OR EXISTS(SELECT 1 FROM mailbox_proof_issues) OR EXISTS(SELECT 1 FROM mailbox_proof_workflows) OR EXISTS(SELECT 1 FROM mailbox_proof_receipts)", ()).await?;
+        let mut rows = tx.query("SELECT EXISTS(SELECT 1 FROM identity_subjects) OR EXISTS(SELECT 1 FROM security_events) OR EXISTS(SELECT 1 FROM operation_receipts) OR EXISTS(SELECT 1 FROM mailbox_proof_issues) OR EXISTS(SELECT 1 FROM mailbox_proof_workflows) OR EXISTS(SELECT 1 FROM mailbox_proof_receipts) OR EXISTS(SELECT 1 FROM signup_workflows) OR EXISTS(SELECT 1 FROM identity_emails) OR EXISTS(SELECT 1 FROM password_credentials) OR EXISTS(SELECT 1 FROM signup_completions)", ()).await?;
         let occupied = integer(&rows.next().await?.ok_or(IdentityStoreError::CorruptRecord)?, 0)?;
         if occupied != 0 { return Err(IdentityStoreError::CorruptRecord); }
         drop(rows);
@@ -459,3 +483,6 @@ mod row_tests;
 
 #[cfg(test)]
 mod proof_file_tests;
+
+#[cfg(test)]
+mod signup_file_tests;

@@ -38,8 +38,11 @@ Retired SQL is auditable through its manifest and original Git history, never si
 [security-state and mailbox-proof decision library](services/cantos-identity/README.md) and an opt-in
 `persistence` shell using the shared Turso owner for instance/subject security state, disable
 events, mailbox-proof lifecycles and bound receipts. Proof confirmation grants no setup or login
-authority. It has no executable, password/passkey verifier, transport or production
-composition. Checked snapshots and a
+authority. Its opt-in `service` feature builds the `cantos-identity` executable: Theatre signup with
+a mailbox proof, Argon2id passwords and `AuthenticatePassword` over an OS-peer-authenticated private
+Unix-socket RPC ([draft contract](packages/contracts/identity-rpc-v1.md)); the result is an
+authentication fact, never a session. Studio passkeys, recovery, restore rotation, the Server
+consumer and front ends remain absent. Checked snapshots and a
 passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
 #331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.
 
@@ -209,7 +212,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
 | Identity pure security core | Existing `rust` gate includes `cantos-identity`; metadata-based preflight selects its lint/tests. Focused primitive: `cargo test --locked -p cantos-identity`. Optional `verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof` needs actual D1 Ubuntu x86_64 evidence; macOS tests are not Kani evidence. |
 | Forge worker/process boundary | `cargo xtask verify forge` (Rust producer plus Node wrapper tests; no provider or cloud calls) |
-| Embedded Turso foundation and Identity security persistence | `cargo xtask verify turso` (Identity `persistence` clippy/tests, shared-store file-backed tests and engine capability report; no server, container or cloud service). Focused primitive: `cargo test --locked -p cantos-identity --features persistence`. |
+| Embedded Turso foundation and Identity security persistence | `cargo xtask verify turso` (Identity `persistence` clippy/tests, shared-store file-backed tests and engine capability report; no server, container or cloud service). Also lints and tests the `service` feature (the executable, real Turso files, real Argon2id, a run-owned loopback SMTP sink) and `cantos-identity-rpc`. Focused primitives: `cargo test --locked -p cantos-identity --features persistence`, `cargo test --locked -p cantos-identity --features service`. |
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observer; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |
