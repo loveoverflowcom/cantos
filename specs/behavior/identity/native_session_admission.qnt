@@ -25,6 +25,7 @@ module native_session_admission {
     | NothingRequested | RevokeWriteFailed
   type NoOpKind = Admitted | AlreadyEnded
   type TransitionKind = Issued | Revoked | LoggedOut
+  // Outcomes classify the effect on the durable session; the shell-local pending request may change.
   type Outcome = NoOutcome | Rejected(Reason) | NoOp(NoOpKind) | Transition(TransitionKind) | External
   type Event = NoEvent | Assertion | Login({ purpose: Purpose, fact: Fact }) | Admit
     | CommitRevoke(bool) | Logout | SetIdentity(Identity) | SetRoster(bool)
@@ -46,8 +47,8 @@ module native_session_admission {
     state' = successor, before' = state, last' = event, outcome' = result
   }
 
-  // One login attempt with one fact. A new session replaces the slot; retirement of the previous
-  // family on a new login is native-tested, not modeled.
+  // One login attempt with one fact. A new session replaces the slot and drops any request for
+  // the previous one; retirement of the previous family on a new login is native-tested.
   action login(purpose: Purpose, fact: Fact): bool = {
     val id = state.identity
     val event = Login({ purpose: purpose, fact: fact })
@@ -85,9 +86,11 @@ module native_session_admission {
     else record(state, Admit, NoOp(Admitted))
   }
 
-  // The durable revoke write for a requested revocation; it may fail.
+  // The durable revoke write for a requested revocation; it may fail. Like the conditional
+  // `UPDATE ... AND NOT revoked`, it changes nothing for an already-ended session.
   action commitRevoke(written: bool): bool =
     if (state.pending == NoPending) record(state, CommitRevoke(written), Rejected(NothingRequested))
+    else if (state.session.revoked) record({ ...state, pending: NoPending }, CommitRevoke(written), NoOp(AlreadyEnded))
     else if (written) record({ ...state, pending: NoPending, session: { ...state.session, revoked: true } },
       CommitRevoke(written), Transition(Revoked))
     else record({ ...state, pending: NoPending }, CommitRevoke(written), Rejected(RevokeWriteFailed))
@@ -111,6 +114,7 @@ module native_session_admission {
     nondet read = Set(Answer, Unreachable, Malformed).oneOf()
     val id = state.identity
     val obs = if (state.session.exists) state.session.observed else { subject: SUBJECT, epoch: 1, version: 2 }
+    val lower = if (obs.version > 1) obs.version - 1 else 1
     val exact = { subject: SUBJECT, purpose: purpose, echoed: true, age: Fresh, epoch: id.epoch, version: id.version }
     val restored = { read: Answer, present: true, active: true, epoch: obs.epoch, version: obs.version }
     any {
@@ -118,7 +122,7 @@ module native_session_admission {
       setIdentity(restored), setIdentity({ ...restored, read: read }),
       setIdentity({ ...restored, present: false }), setIdentity({ ...restored, active: false }),
       setIdentity({ ...restored, epoch: 2 }), setIdentity({ ...restored, version: obs.version + 1 }),
-      setIdentity({ ...restored, version: obs.version - 1 })
+      setIdentity({ ...restored, version: lower })
     }
   }
   action step = {
@@ -150,7 +154,7 @@ module native_session_admission {
   // present Active subject whose epoch/version a fresh read confirms (Studio also rostered),
   // and it observes exactly that fact.
   val issueNeedsFreshBoundFact = match last {
-    | Login(e) => outcome != Transition(Issued) or (
+    | Login(e) => state.session == before.session or (outcome == Transition(Issued) and
       e.fact.echoed and e.fact.purpose == e.purpose and e.fact.age == Fresh and e.fact.subject == SUBJECT
       and matches(before.identity, { subject: e.fact.subject, epoch: e.fact.epoch, version: e.fact.version })
       and (e.purpose == Theatre or before.rostered) and state.session.exists and not(state.session.revoked)
@@ -188,6 +192,11 @@ module native_session_admission {
   val revocationSticky = (sameSession(before.session, state.session) and before.session.revoked) implies
     (state.session.revoked and outcome != NoOp(Admitted))
   // An outage or malformed answer denies without requesting or committing any revocation.
+  // The durable session changes only through a transition (issue, committed revoke, logout).
+  val sessionChangesOnlyByTransition = state.session != before.session implies match outcome {
+    | Transition(_) => true
+    | _ => false
+  }
   val outageNeverRevokes = match last {
     | Admit => before.identity.read == Answer or (state.session == before.session and state.pending == before.pending)
     | Login(_) => before.identity.read == Answer or (state.session == before.session and state.pending == before.pending)

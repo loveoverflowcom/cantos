@@ -17,9 +17,10 @@ module native_mailbox_proof {
   type State = { durable: Durable, now: int, plan: Plan, session: bool, studio: bool, admin: bool }
   type Reason = EpochChanged | OperationReused | NotExplicit | UnknownOperation | BindingChanged
     | ProofChanged | InvalidSecret | AlreadyConsumed | AlreadyCancelled | BeforeIssue | Expired
-    | NothingPlanned | StaleSnapshot | CommitRejected | ReusedLocator | Cooldown
+    | NothingPlanned | StaleSnapshot | CommitRejected | ReusedLocator | LocatorNotUnique | Cooldown
   type NoOpKind = Inspected | PlanPrepared | Replayed
   type TransitionKind = ConsumedWithAccount | CancelledProof | ReplacedProof
+  // Outcomes classify the effect on DURABLE state; the shell-local plan may still be cleared.
   // Rejected and UnknownEffect are distinct commit faults: unknown is never rollback proof.
   type Outcome = NoOutcome | Rejected(Reason) | NoOp(NoOpKind) | Transition(TransitionKind)
     | UnknownEffect | External
@@ -105,15 +106,18 @@ module native_mailbox_proof {
   }
 
   // Replacement retires the old locator: a lifetime-unique fresh locator and secret, same binding.
+  // The core refuses only the current locator; the store's lifetime uniqueness refuses any other
+  // previously issued one after the cooldown checks.
   action replace(loc: int, fresh: int): bool = {
     val current = state.durable.proof
     val event = Replace({ loc: loc, fresh: fresh })
     if (loc != current.loc) record(state, event, Rejected(ProofChanged))
     else if (current.state == Consumed) record(state, event, Rejected(AlreadyConsumed))
     else if (current.state == Cancelled) record(state, event, Rejected(AlreadyCancelled))
-    else if (state.durable.issued.contains(fresh)) record(state, event, Rejected(ReusedLocator))
+    else if (fresh == current.loc) record(state, event, Rejected(ReusedLocator))
     else if (state.now < current.issuedAt) record(state, event, Rejected(BeforeIssue))
     else if (state.now - current.issuedAt < COOLDOWN) record(state, event, Rejected(Cooldown))
+    else if (state.durable.issued.contains(fresh)) record(state, event, Rejected(LocatorNotUnique))
     else record({ ...state, durable: { ...state.durable,
       proof: { loc: fresh, state: Pending, issuedAt: state.now, expiresAt: state.now + TTL },
       issued: state.durable.issued.union(Set(fresh)) } }, event, Transition(ReplacedProof))
@@ -163,8 +167,14 @@ module native_mailbox_proof {
     | Rejected(_) => true
     | _ => false
   }
+  def mayChangeDurable(result: Outcome): bool = match result {
+    | Transition(_) => true
+    | UnknownEffect => true
+    | _ => false
+  }
 
-  // Only an explicit confirmation consumes; inspection changes nothing at all.
+  // Only an explicit confirmation consumes. The inspection half is a scope declaration (the
+  // `inspect` step records the unchanged state); the consumption half carries the evidence.
   val explicitOnly = (last == Inspect implies state == before) and
     (consumedNow implies plannedRequest((r, _) => r.explicit))
   // Consumption needs the stored operation/intent/epoch, the current locator, its own secret and
@@ -192,8 +202,16 @@ module native_mailbox_proof {
   val commitComparesSnapshot = consumedNow implies plannedRequest((_, expected) => expected == before.durable.proof)
   // At most one account per workflow; an exact replay is history, never a second effect.
   val singleAccountEffect = state.durable.accounts <= 1 and (outcome == NoOp(Replayed) implies state == before)
-  // A consumed proof and a created account grant no session, Studio or Admin authority.
+  // Scope declaration: no modeled step writes session/Studio/Admin authority. Its control checks
+  // assertion sensitivity only; it is not evidence that no implementation path issues authority.
   val noAuthority = not(state.session) and not(state.studio) and not(state.admin)
+  // Durable state changes only through a transition or an applied unknown commit; a rejected,
+  // no-op, external or lost (UnknownLost) step leaves it unchanged.
+  val onlyCommittedEffects = (state.durable != before.durable implies mayChangeDurable(outcome)) and
+    match last {
+      | Settle(fate) => fate == Commit or fate == UnknownApplied or state.durable == before.durable
+      | _ => true
+    }
 
   val consumedExplicitly = outcome == Transition(ConsumedWithAccount) and state.durable.accounts == 1
   val inspectedPending = last == Inspect and state.durable.proof.state == Pending and before.plan != NoPlan

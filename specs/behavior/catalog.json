@@ -1421,6 +1421,10 @@
         {
           "id": "cantos.identity.native-mailbox-proof.property.no-authority",
           "declaration": "noAuthority"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.only-committed-effects",
+          "declaration": "onlyCommittedEffects"
         }
       ],
       "runs": [
@@ -1548,6 +1552,12 @@
           "property": "cantos.identity.native-mailbox-proof.property.no-authority",
           "from": "receipts: d.receipts.put(plan.command, plan.request), accounts: d.accounts + 1 } }",
           "to": "receipts: d.receipts.put(plan.command, plan.request), accounts: d.accounts + 1 }, session: true }"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.only-committed-effects",
+          "property": "cantos.identity.native-mailbox-proof.property.only-committed-effects",
+          "from": "else if (fate == UnknownLost) record(cleared, event, UnknownEffect)",
+          "to": "else if (fate == UnknownLost) record(applied, event, UnknownEffect)"
         }
       ],
       "aliases": []
@@ -1563,8 +1573,7 @@
         "packages/contracts/identity-security-store-v1.md#startup-and-mutations",
         "services/cantos-server/src/platform/identity_auth/mod.rs",
         "services/cantos-server/src/platform/identity_auth/postgres.rs",
-        "services/cantos-server/tests/identity_password_facts_postgres.rs",
-        "services/cantos-identity/src/domain/admission.rs"
+        "services/cantos-server/tests/identity_password_facts_postgres.rs"
       ],
       "model": "specs/behavior/identity/native_session_admission.qnt",
       "module": "native_session_admission",
@@ -1595,6 +1604,10 @@
         {
           "id": "cantos.identity.native-session-admission.property.outage-never-revokes",
           "declaration": "outageNeverRevokes"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.property.session-changes-only-by-transition",
+          "declaration": "sessionChangesOnlyByTransition"
         }
       ],
       "runs": [
@@ -1690,8 +1703,8 @@
         {
           "id": "cantos.identity.native-session-admission.control.mismatch-requests-revoke",
           "property": "cantos.identity.native-session-admission.property.mismatch-requests-revoke",
-          "from": "else if (id.epoch != observed.epoch) request(EpochChanged)",
-          "to": "else if (id.epoch != observed.epoch) request(VersionAdvanced)"
+          "from": "else if (not(id.active)) request(Disabled)",
+          "to": "else if (not(id.active)) record(state, Admit, Rejected(Inactive))"
         },
         {
           "id": "cantos.identity.native-session-admission.control.request-is-not-commit",
@@ -1710,6 +1723,12 @@
           "property": "cantos.identity.native-session-admission.property.outage-never-revokes",
           "from": "else if (state.identity.read != Answer) record(state, Admit, Rejected(IdentityUnavailable))",
           "to": "else if (state.identity.read != Answer) request(SubjectMissing)"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.control.session-changes-only-by-transition",
+          "property": "cantos.identity.native-session-admission.property.session-changes-only-by-transition",
+          "from": "else record({ ...state, pending: NoPending }, CommitRevoke(written), Rejected(RevokeWriteFailed))",
+          "to": "else record({ ...state, pending: NoPending, session: { ...state.session, revoked: true } }, CommitRevoke(written), Rejected(RevokeWriteFailed))"
         }
       ],
       "aliases": []

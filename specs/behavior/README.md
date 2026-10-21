@@ -22,7 +22,7 @@ Two **draft, model-only** native Identity v1 capabilities (#334/#335,
 consumption, `cantos.identity.native-mailbox-proof`, and fact-to-session issue plus per-admission
 security-state rechecks, `cantos.identity.native-session-admission`. Neither has a registered
 observer. Their [inventory rows](inventory.md#draft-cantosidentitynative-mailbox-proof-334335-v1-signup)
-report a contract/implementation mismatch and needs-decision cases that no property constrains, and map
+report two contract/implementation mismatches and a needs-decision case that no property constrains, and map
 the unchanged legacy `cantos.identity.bearer-lifecycle` scope.
 
 Two further **draft, model-only** capabilities describe proposed public media rules:

@@ -43,7 +43,8 @@ module native_mailbox_proof_tests {
     .then(prepare(1, at(1))).then(check(retiredLocatorRefused and retiredLocatorRejected and state == before))
     .then(cancel(1)).then(check(outcome == Rejected(ProofChanged) and retiredLocatorRejected))
     .then(prepare(1, { ...at(2), secret: 1 })).then(check(outcome == Rejected(InvalidSecret)))
-    .then(clock(3)).then(replace(2, 1)).then(check(outcome == Rejected(ReusedLocator)))
+    .then(replace(2, 1)).then(check(outcome == Rejected(Cooldown)))
+    .then(clock(3)).then(replace(2, 1)).then(check(outcome == Rejected(LocatorNotUnique) and onlyCommittedEffects))
     .then(prepare(1, at(2))).then(settle(Commit)).then(check(consumedExplicitly and consumedWithinBoundWindow))
   run stalePlanTest = init.then(clock(2)).then(prepare(1, exact)).then(replace(1, 2)).then(settle(Commit))
     .then(check(staleCommitRefused and state.durable.proof.loc == 2 and state.durable.accounts == 0
@@ -61,9 +62,9 @@ module native_mailbox_proof_tests {
       and noAuthority))
   run lostBeforeCommitTest = init.then(prepare(1, exact)).then(settle(UnknownLost))
     .then(check(outcome == UnknownEffect and state.durable.proof.state == Pending and state.durable.accounts == 0
-      and state.durable.receipts.keys() == Set()))
+      and state.durable.receipts.keys() == Set() and onlyCommittedEffects))
     .then(prepare(1, exact)).then(check(planWithoutEffect))
     .then(settle(Reject)).then(check(outcome == Rejected(CommitRejected) and state.durable.proof.state == Pending
-      and state.durable.accounts == 0))
+      and state.durable.accounts == 0 and onlyCommittedEffects))
     .then(prepare(1, exact)).then(settle(Commit)).then(check(consumedExplicitly and singleAccountEffect))
 }
