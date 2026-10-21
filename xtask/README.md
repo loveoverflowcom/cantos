@@ -310,8 +310,8 @@ adds no required gate: the primitive tests run in `repository`, the command-plan
 | Command | Starts | Requires |
 | --- | --- | --- |
 | `run cantos-server` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
-| `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-server` |
-| `run cantos-theatre --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8082`, then `trunk serve` on 8082; checks anonymous discovery directly and through the proxy | as `run cantos-server`; a readable Theatre public catalog, including a legitimate empty page |
+| `run cantos-studio --web` | one API with both configured surface origins, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-server` |
+| `run cantos-theatre --web` | one API with both configured surface origins, then `trunk serve` on 8082; checks anonymous discovery directly and through the proxy | as `run cantos-server`; a readable Theatre public catalog, including a legitimate empty page |
 | `app cantos-theatre --web` | only `trunk serve` on 8082; warns prominently when the existing API's public catalog cannot be reached or decoded | no API for explicit offline previews (which need `TRUNK_BUILD_FEATURES=preview`, see below); live mode needs an API already listening on 8080 |
 | `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-server --web-origin http://127.0.0.1:8081` |
 
@@ -341,8 +341,18 @@ match `http://127.0.0.1:8081` for Studio or `http://127.0.0.1:8082` for Theatre;
 port or `localhost` is rejected before launch. Host identity matters for cookies and callbacks.
 Standalone `run cantos-server --web-origin URL` remains configurable within its loopback HTTP
 origin contract. `app` starts no API and takes neither `--web-origin` nor `--test-cluster`.
-The development host has one Web origin; simultaneous Studio and Theatre authentication
-against that one host is not established by these profiles.
+The development host has distinct Studio/Theatre origins. Issued-credential fixture evidence
+through the combined assembly remains separate from browser and live-provider acceptance.
+
+Every `run` target that starts an API starts **one** `cantos-server` with both local Web
+origins: Studio `http://127.0.0.1:8081`, Theatre `http://127.0.0.1:8082`. Its merged router keeps
+separate route policies and a shared PostgreSQL pool. `run cantos-server --web-origin URL`
+overrides only Studio's origin; a per-app `--web-origin` must still match its Trunk port.
+The runner sets explicit per-surface inputs and removes inherited legacy surface selectors.
+Start the Server once, then attach both frontends with `app cantos-studio --web` and
+`app cantos-theatre --web`; `app` starts no backend. A second `run` on the occupied API port
+refuses rather than reusing or stopping someone else's process. See the [composition
+contract](../docs/architecture/server-http-composition.md) for Admin and production compatibility.
 
 `--test-cluster` serves the API through `scripts/serve_studio.py` against the disposable cluster
 retained by `cargo xtask verify postgres --keep`; that script refuses any other database. xtask

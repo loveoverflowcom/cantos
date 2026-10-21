@@ -11,17 +11,38 @@ use axum::{
 };
 use cantos_contracts::ErrorCode;
 
+#[derive(Clone, Copy)]
+pub(super) enum Surface {
+    Studio,
+    Theatre,
+    Admin,
+}
+
+#[derive(Clone)]
+pub(super) struct Boundary {
+    pub state: AppState,
+    pub surface: Surface,
+}
+
 pub(super) async fn origin_and_cache(
-    State(state): State<AppState>,
+    State(boundary): State<Boundary>,
     request: Request,
     next: Next,
 ) -> Response {
+    let state = boundary.state;
     let read =
         request.method() == axum::http::Method::GET || request.method() == axum::http::Method::HEAD;
-    let valid_config = state
-        .store
-        .studio_oidc()
-        .is_none_or(|oidc| oidc.web_origin() == state.web_origin);
+    let valid_config = match boundary.surface {
+        Surface::Studio => state
+            .store
+            .studio_oidc()
+            .is_none_or(|oidc| oidc.web_origin() == state.web_origin),
+        Surface::Theatre => state
+            .store
+            .theatre_identity()
+            .is_none_or(|oidc| oidc.web_origin() == state.web_origin),
+        Surface::Admin => true,
+    };
     let valid_origin = request
         .headers()
         .get(header::ORIGIN)

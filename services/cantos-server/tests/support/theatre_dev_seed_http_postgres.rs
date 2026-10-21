@@ -3,8 +3,10 @@
 //! app connection/session, with a private write-ahead journal for safe replay; it never creates,
 //! migrates, grants, drops or resets a persistent database.
 use super::*;
+use axum::http::header;
 use cantos_contracts::theatre::{PublicationManifest, UnitPage, WorkPage, WorkSummary};
-use cantos_server::adapters::inbound::http::router_with_public_media;
+use cantos_server::adapters::inbound::http::server_router;
+const THEATRE_BROWSER_ORIGIN: &str = "http://127.0.0.1:8082";
 use cantos_server::contexts::media::{
     domain::playback_grant::GrantKey, FilesystemPublicationStorage, OriginPlayback,
     PublicMediaOrigin,
@@ -725,14 +727,24 @@ impl SeedWorld {
                 GrantKey::new(&[83; 32]).unwrap(),
                 delivery.clone(),
             );
-            h.app = router_with_public_media(
+            let origins = cantos_server::platform::host::SurfaceOrigins::new(
+                ORIGIN,
+                THEATRE_BROWSER_ORIGIN,
+                None,
+            )
+            .unwrap();
+            h.app = server_router(
                 AppState {
                     store: h.store.clone(),
                     web_origin: ORIGIN.into(),
                 },
-                cantos_server::contexts::media::PublicationService::new(h.store.clone())
-                    .with_origin_publication(delivery.clone()),
-                playback,
+                &origins,
+                None,
+                Some((
+                    cantos_server::contexts::media::PublicationService::new(h.store.clone())
+                        .with_origin_publication(delivery.clone()),
+                    playback,
+                )),
             );
         }
         let journal = if let Some(environment) = persistent {
@@ -795,7 +807,29 @@ impl SeedWorld {
                 .json(method, &format!("/api/v1/theatre{path}"), None, None)
                 .await;
         }
-        let (status, body) = theatre_call(self.h.app.clone(), method, path).await;
+        let response = self
+            .h
+            .app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(format!("/api/v1/theatre{path}"))
+                    .header(header::ORIGIN, THEATRE_BROWSER_ORIGIN)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN],
+            THEATRE_BROWSER_ORIGIN
+        );
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        let status = response.status();
+        let body =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
         Reply { status, body }
     }
     async fn media(
@@ -809,7 +843,10 @@ impl SeedWorld {
         if let Some(remote) = &self.remote {
             return remote.media(method, url, range).await;
         }
-        let mut request = Request::builder().method(method).uri(&path);
+        let mut request = Request::builder()
+            .method(method)
+            .uri(&path)
+            .header(header::ORIGIN, THEATRE_BROWSER_ORIGIN);
         if let Some(range) = range {
             request = request.header("range", range);
         }
@@ -820,6 +857,18 @@ impl SeedWorld {
             .oneshot(request.body(Body::empty()).unwrap())
             .await
             .unwrap();
+        assert_eq!(
+            response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN],
+            THEATRE_BROWSER_ORIGIN
+        );
+        assert_eq!(
+            response.headers()[header::ACCESS_CONTROL_ALLOW_CREDENTIALS],
+            "true"
+        );
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "private, no-store, no-transform"
+        );
         (
             response.status(),
             response.headers().clone(),
@@ -1397,6 +1446,76 @@ async fn theatre_development_catalog_seed() {
     let (status, _, body) = world.media("GET", &grant.url, Some("bytes=100-199")).await;
     assert_eq!(status, StatusCode::PARTIAL_CONTENT);
     assert_eq!(body, &bytes[100..200]);
+    if world.remote.is_none() {
+        // The same canonical host must preserve owner-only private transport and cache
+        // headers while serving public grants from its separate publication bytes.
+        let submission: String = world
+            .h
+            .admin
+            .query_one(
+                "SELECT submission_id FROM audio_renditions WHERE id=$1",
+                &[&novel.rendition],
+            )
+            .await
+            .unwrap()
+            .get(0);
+        let private_path = format!(
+            "/api/v1/studio/content-units/{}/audio-submissions/{submission}/renditions/{}/bytes",
+            novel.id, novel.rendition
+        );
+        let response = world
+            .h
+            .app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(&private_path)
+                    .header(header::ORIGIN, ORIGIN)
+                    .header(header::COOKIE, format!("cantos_session={}", world.token))
+                    .header(header::RANGE, "bytes=100-199")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "private, no-store, no-transform"
+        );
+        assert_eq!(
+            response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN],
+            ORIGIN
+        );
+        assert_eq!(
+            response.into_body().collect().await.unwrap().to_bytes(),
+            &bytes[100..200]
+        );
+        for (origin, cookie, status) in [
+            (ORIGIN, None, StatusCode::UNAUTHORIZED),
+            (
+                THEATRE_BROWSER_ORIGIN,
+                Some(world.token.as_str()),
+                StatusCode::FORBIDDEN,
+            ),
+        ] {
+            let mut request = Request::builder()
+                .uri(&private_path)
+                .header(header::ORIGIN, origin);
+            if let Some(cookie) = cookie {
+                request = request.header(header::COOKIE, format!("cantos_session={cookie}"));
+            }
+            let response = world
+                .h
+                .app
+                .clone()
+                .oneshot(request.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), status);
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        }
+    }
     let invalid_range = format!("bytes={}-", bytes.len());
     let (status, _, _) = world.media("GET", &grant.url, Some(&invalid_range)).await;
     assert_eq!(status, StatusCode::RANGE_NOT_SATISFIABLE);

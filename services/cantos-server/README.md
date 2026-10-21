@@ -183,7 +183,7 @@ its final root directory, immutable class marker and `objects` child; existing d
 user and mode 0700. An intake-enabled API host disables all same-process static serving,
 including nested public symlinks; `CANTOS_WEB_DIST` is unused for delivery in that mode.
 Serve Studio separately through its existing Trunk proxy and set the matching
-`CANTOS_WEB_ORIGIN` (normally `http://127.0.0.1:8081`). Keep that public host's tree and links
+`CANTOS_STUDIO_WEB_ORIGIN` (normally `http://127.0.0.1:8081`). Keep that public host's tree and links
 away from private objects. Unconfigured hosts retain existing editorial/static behavior but
 fail audio writes closed.
 
@@ -263,14 +263,17 @@ Native playback belongs to the following CMP step.
 ## Production host
 
 `CANTOS_ENV=production` ([`platform::host`](src/platform/host.rs), [ADR 0039](../../docs/decisions/0039-vps-production-runtime.md))
-requires an explicit `CANTOS_BIND_ADDRESS` and one exact HTTPS `CANTOS_WEB_ORIGIN`, serves no
+requires an explicit `CANTOS_BIND_ADDRESS` and separate exact HTTPS `CANTOS_STUDIO_WEB_ORIGIN`
+and `CANTOS_THEATRE_WEB_ORIGIN` (optional `CANTOS_ADMIN_WEB_ORIGIN`), serves no
 static files, refuses development Studio tokens and token login, `CANTOS_WEB_DIST`,
 `CANTOS_AUDIO_ROOT` and a private issuer CA, and keeps PostgreSQL local (a Unix socket in the
 deployed image). Without Studio OIDC a production host has no Studio sign-in and
 `/api/v1/studio/auth/configuration` answers 503. The deployed runtime grants for `cantos_app`
 are [`infra/vps/postgres/runtime-grants.sql`](../../infra/vps/postgres/runtime-grants.sql);
 `tests/production_grants_postgres.rs` proves they alone serve Studio and Theatre requests.
-Deployment is [`cargo xtask deploy vps`](../../docs/deployment/vps-production.md).
+The [single-process source composition](../../docs/architecture/server-http-composition.md)
+requires a future explicit configuration migration. The deployed two-process assets and live
+runtime remain unchanged; this source PR does not accept deployment or cutover.
 
 ## Rename from `cantos-api`
 
@@ -378,12 +381,17 @@ for prerequisites, isolation and the outstanding real Kanidm/browser acceptance.
 
 ## Direct Hosting browser transport
 
-Opt-in `CANTOS_BROWSER_API_SURFACE=studio|theatre` permits exactly `CANTOS_WEB_ORIGIN` on that API
-group through CORS, including bounded preflight and exposed session-fence headers. Other origins,
-surfaces and undeclared preflight methods/headers are refused. Existing CSRF, authorization and
-cookie rules still run. With the optional runtime `CANTOS_API_ORIGIN`, OIDC callbacks are pinned
-to the API host, then return only to the configured Web origin; the unset same-origin contract
-is preserved. This config adds no issuer account, roster, token or registration authority.
+The executable serves Studio/Theatre/Admin through one listener with exact per-surface CORS,
+CSRF, state and credential admission. Configure `CANTOS_STUDIO_WEB_ORIGIN`,
+`CANTOS_THEATRE_WEB_ORIGIN` and optional `CANTOS_ADMIN_WEB_ORIGIN`; Admin still requires its own
+verified capability and audit. Preflight runs before authentication and exposes only each
+surface's declared headers/methods. Studio aliases retain Studio policy. Native requests omit
+Origin under their existing cookie-free contract. The [route-policy inventory and compatibility
+rules](../../docs/architecture/server-http-composition.md) explain the startup refusal for
+`CANTOS_BROWSER_API_SURFACE` and production `CANTOS_WEB_ORIGIN`.
+With optional runtime `CANTOS_API_ORIGIN`, OIDC callbacks use the shared API destination and
+return to their own configured Web origin. No issuer account, roster, token or registration
+authority is created by origin configuration.
 
 See [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md) and the
 [current production runbook](../../docs/deployment/vps-production.md). Browser authentication

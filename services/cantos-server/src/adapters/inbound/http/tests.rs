@@ -94,7 +94,10 @@ async fn outer_middleware_preserves_private_audio_policy_for_non_audio_responses
                 }),
             )
             .layer(middleware::from_fn_with_state(
-                state.clone(),
+                super::policy::Boundary {
+                    state: state.clone(),
+                    surface: super::policy::Surface::Studio,
+                },
                 origin_and_cache,
             ));
         for method in [axum::http::Method::GET, axum::http::Method::HEAD] {
@@ -137,7 +140,10 @@ async fn outer_middleware_does_not_trust_an_upstream_cacheable_policy() {
                 }),
             )
             .layer(middleware::from_fn_with_state(
-                state.clone(),
+                super::policy::Boundary {
+                    state: state.clone(),
+                    surface: super::policy::Surface::Studio,
+                },
                 origin_and_cache,
             ));
         let response = app

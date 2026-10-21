@@ -1,4 +1,5 @@
 //! Opt-in, exact-origin browser transport for one surface. Authorization remains downstream.
+use super::{policy::Surface, AppState};
 use axum::{
     extract::{Request, State},
     http::{header, HeaderMap, HeaderValue, Method, StatusCode},
@@ -10,8 +11,9 @@ use cantos_contracts::web_api::{ApiOrigin, WebSurface};
 
 #[derive(Clone)]
 struct BrowserCors {
-    origin: HeaderValue,
-    surface: WebSurface,
+    origin: Option<HeaderValue>,
+    surface: Surface,
+    route_scoped: bool,
 }
 
 pub fn with_browser_cors(
@@ -22,15 +24,40 @@ pub fn with_browser_cors(
     ApiOrigin::parse(web_origin).map_err(|_| "invalid browser origin")?;
     let origin = HeaderValue::from_str(web_origin).map_err(|_| "invalid browser origin")?;
     Ok(app.layer(middleware::from_fn_with_state(
-        BrowserCors { origin, surface },
+        BrowserCors {
+            origin: Some(origin),
+            surface: match surface {
+                WebSurface::Studio => Surface::Studio,
+                WebSurface::Theatre => Surface::Theatre,
+            },
+            route_scoped: false,
+        },
         cors,
     )))
 }
 
-fn requested_headers(headers: &HeaderMap, surface: WebSurface) -> bool {
+/// Applied only to a matched route group, never to the merged host. Missing Admin origin
+/// disables browser admission without changing its dedicated credential verifier.
+pub(super) fn boundary(
+    app: Router<AppState>,
+    origin: Option<&str>,
+    surface: Surface,
+) -> Router<AppState> {
+    app.layer(middleware::from_fn_with_state(
+        BrowserCors {
+            origin: origin.and_then(|origin| HeaderValue::from_str(origin).ok()),
+            surface,
+            route_scoped: true,
+        },
+        cors,
+    ))
+}
+
+fn requested_headers(headers: &HeaderMap, surface: Surface) -> bool {
     let own = match surface {
-        WebSurface::Studio => ["x-cantos-studio-session", "x-cantos-studio-stale-only"],
-        WebSurface::Theatre => ["x-cantos-theatre-session", "x-cantos-theatre-stale-only"],
+        Surface::Studio => &["x-cantos-studio-session", "x-cantos-studio-stale-only"][..],
+        Surface::Theatre => &["x-cantos-theatre-session", "x-cantos-theatre-stale-only"][..],
+        Surface::Admin => &[][..],
     };
     headers
         .get_all(header::ACCESS_CONTROL_REQUEST_HEADERS)
@@ -39,17 +66,21 @@ fn requested_headers(headers: &HeaderMap, surface: WebSurface) -> bool {
             value.to_str().is_ok_and(|value| {
                 value.split(',').all(|name| {
                     let name = name.trim().to_ascii_lowercase();
-                    matches!(
-                        name.as_str(),
-                        "accept" | "content-type" | "authorization" | "range"
-                    ) || own.contains(&name.as_str())
+                    matches!(name.as_str(), "accept" | "content-type" | "authorization")
+                        || name == "range" && !matches!(surface, Surface::Admin)
+                        || own.contains(&name.as_str())
                 })
             })
         })
 }
 
-fn supported_method(value: &str) -> bool {
-    matches!(value, "GET" | "HEAD" | "POST" | "PUT" | "DELETE")
+fn supported_method(value: &str, surface: Surface) -> bool {
+    match surface {
+        Surface::Studio | Surface::Theatre => {
+            matches!(value, "GET" | "HEAD" | "POST" | "PUT" | "DELETE")
+        }
+        Surface::Admin => matches!(value, "GET" | "HEAD" | "POST"),
+    }
 }
 
 fn refusal() -> Response {
@@ -71,11 +102,16 @@ async fn cors(State(policy): State<BrowserCors>, request: Request, next: Next) -
     if !headers.contains_key(header::ORIGIN) {
         return next.run(request).await;
     }
-    let base = policy.surface.base();
+    let base = match policy.surface {
+        Surface::Studio => cantos_contracts::routes::STUDIO_BASE,
+        Surface::Theatre => cantos_contracts::routes::THEATRE_BASE,
+        Surface::Admin => "/api/v1/admin",
+    };
     let path = request.uri().path();
     if headers.get_all(header::ORIGIN).iter().count() != 1
-        || headers.get(header::ORIGIN) != Some(&policy.origin)
-        || !(path == base || path.starts_with(&format!("{base}/")))
+        || policy.origin.is_none()
+        || headers.get(header::ORIGIN) != policy.origin.as_ref()
+        || !policy.route_scoped && !(path == base || path.starts_with(&format!("{base}/")))
     {
         return refusal();
     }
@@ -88,7 +124,7 @@ async fn cors(State(policy): State<BrowserCors>, request: Request, next: Next) -
             != 1
             || !method
                 .and_then(|v| v.to_str().ok())
-                .is_some_and(supported_method)
+                .is_some_and(|method| supported_method(method, policy.surface))
             || !requested_headers(headers, policy.surface)
         {
             return refusal();
@@ -100,8 +136,9 @@ async fn cors(State(policy): State<BrowserCors>, request: Request, next: Next) -
                 .insert(header::ACCESS_CONTROL_ALLOW_METHODS, method.clone());
         }
         let allowed = match policy.surface {
-            WebSurface::Studio => "accept, content-type, authorization, range, x-cantos-studio-session, x-cantos-studio-stale-only",
-            WebSurface::Theatre => "accept, content-type, authorization, range, x-cantos-theatre-session, x-cantos-theatre-stale-only",
+            Surface::Studio => "accept, content-type, authorization, range, x-cantos-studio-session, x-cantos-studio-stale-only",
+            Surface::Theatre => "accept, content-type, authorization, range, x-cantos-theatre-session, x-cantos-theatre-stale-only",
+            Surface::Admin => "accept, content-type, authorization",
         };
         response.headers_mut().insert(
             header::ACCESS_CONTROL_ALLOW_HEADERS,
@@ -112,18 +149,21 @@ async fn cors(State(policy): State<BrowserCors>, request: Request, next: Next) -
         next.run(request).await
     };
     let headers = response.headers_mut();
-    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, policy.origin);
+    if let Some(origin) = policy.origin {
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+    }
     headers.insert(
         header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
         HeaderValue::from_static("true"),
     );
     let exposed = match policy.surface {
-        WebSurface::Studio => {
+        Surface::Studio => {
             "x-cantos-studio-session, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
         }
-        WebSurface::Theatre => {
+        Surface::Theatre => {
             "x-cantos-theatre-session, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
         }
+        Surface::Admin => "",
     };
     headers.insert(
         header::ACCESS_CONTROL_EXPOSE_HEADERS,

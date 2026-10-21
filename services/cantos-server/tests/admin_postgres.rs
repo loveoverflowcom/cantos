@@ -6,7 +6,7 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use cantos_server::{
-    adapters::inbound::http::{router, AppState},
+    adapters::inbound::http::{router, server_router, AppState},
     platform::{
         admin::{AdminConfig, AdminError, AdminService, CLIENT_ID},
         postgres::{local_config, migrate, Store},
@@ -107,17 +107,34 @@ impl Harness {
         cookie: Option<&str>,
         body: Value,
     ) -> (StatusCode, Value) {
-        let app = router(
+        let origins = cantos_server::platform::host::SurfaceOrigins::new(
+            "http://127.0.0.1:8081",
+            "http://127.0.0.1:8082",
+            Some("http://127.0.0.1:8080"),
+        )
+        .unwrap();
+        let app = server_router(
             AppState {
                 store: self.store.clone(),
-                web_origin: "http://127.0.0.1:8080".into(),
+                web_origin: origins.studio().into(),
             },
-            "no-static-fixture",
+            &origins,
+            None,
+            None,
         );
         let mut r = Request::builder()
             .method(method)
             .uri(path)
-            .header(header::ORIGIN, "http://127.0.0.1:8080")
+            .header(
+                header::ORIGIN,
+                if path.starts_with("/api/v1/studio/") {
+                    "http://127.0.0.1:8081"
+                } else if path.starts_with("/api/v1/theatre/") {
+                    "http://127.0.0.1:8082"
+                } else {
+                    "http://127.0.0.1:8080"
+                },
+            )
             .header(header::CONTENT_TYPE, "application/json");
         if let Some(t) = token {
             r = r.header(header::AUTHORIZATION, format!("Bearer {t}"));

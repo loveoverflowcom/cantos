@@ -92,12 +92,14 @@ pub struct SignupCommand {
 }
 
 impl IdentityAuth {
-    pub fn new(config: config::IdentityAuthConfig, web_origin: &str) -> Self {
+    /// `secure` is true when every Web origin served by this process is `https`: the cookie then
+    /// carries `Secure` and the `__Secure-` name.
+    pub fn new(config: config::IdentityAuthConfig, secure: bool) -> Self {
         Self {
             client: IdentityClient::lazy(config.socket, config.peer_uid),
             peer_policy: config.peer_policy,
             studio: config.studio_subjects,
-            secure: web_origin.starts_with("https://"),
+            secure,
             slots: tokio::sync::Semaphore::new(3),
         }
     }

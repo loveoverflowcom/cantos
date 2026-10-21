@@ -10,7 +10,7 @@ use cantos_server::{
     adapters::inbound::http::{
         api_router, router, router_with_listener_identity, router_with_origin_playback,
         router_with_private_artwork, router_with_public_media, router_with_publication_delivery,
-        router_with_theatre_delivery, AppState,
+        router_with_theatre_delivery, server_router, AppState,
     },
     contexts::{
         listening::auth::DenyListenerAuthentication,
@@ -61,8 +61,25 @@ fn origin_playback() -> OriginPlayback {
         Arc::new(UncalledDelivery),
     )
 }
-fn production_routers(state: AppState, dist: &str) -> [(&'static str, Router); 7] {
+fn production_routers(state: AppState, dist: &str) -> [(&'static str, Router); 8] {
     [
+        (
+            "combined public media",
+            server_router(
+                state.clone(),
+                &cantos_server::platform::host::SurfaceOrigins::new(
+                    &state.web_origin,
+                    "https://listen.example.test",
+                    None,
+                )
+                .unwrap(),
+                None,
+                Some((
+                    PublicationService::new(state.store.clone()),
+                    origin_playback(),
+                )),
+            ),
+        ),
         ("default", router(state.clone(), dist)),
         ("API only", api_router(state.clone())),
         (

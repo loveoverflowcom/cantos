@@ -7,7 +7,7 @@ runtime boundary; [manifest.toml](manifest.toml) is the versioned process invent
 
 | Service | Runtime | Current state | Owner |
 | --- | --- | --- | --- |
-| `cantos-server` | native Rust/Axum (development); Podman Quadlet image on the VPS (production) | implemented; deployed as two single-origin processes ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md), [runbook](../docs/deployment/vps-production.md)) | backend maintainers |
+| `cantos-server` | native Rust/Axum (development); Podman Quadlet image on the VPS (production) | implemented [one-listener source composition](../docs/architecture/server-http-composition.md); deployed legacy runtime still uses two single-origin processes ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md), [runbook](../docs/deployment/vps-production.md)) | backend maintainers |
 | `cantos-forge-functions` | Rust producer library/CLI/finite worker, Node process adapter | existing CLI retained, local attempt persistence; HTTP unavailable, no registered local service or live Functions acceptance | producer maintainers |
 | `postgresql` | rootless Podman OCI | local runtime configuration; backend SQL and native verification implemented | infrastructure operator |
 | `kanidm` | rootless Podman OCI (local); Quadlet on the VPS | API Studio/Theatre OIDC adapters implemented; running privately on the VPS behind the edge, live clients/accounts created only by the operator-run `cantos-vps identity` | identity operator |

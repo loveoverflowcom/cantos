@@ -1,5 +1,9 @@
 # Cantos — Vọng Đài
 
+The native-refactor source now composes Studio/Theatre/Admin in one Server listener with
+[separate route policies](docs/architecture/server-http-composition.md), still backed by
+PostgreSQL. The deployed VPS runtime and its activation/recovery gates remain separate.
+
 **Cantos is a content catalog, external-audio handoff and listening platform.** Studio manages
 novels, stories, podcasts, their chapters/episodes, audio files, rights, review and publication.
 Cantos does **not** run TTS, LLM inference, audio generation, mixing or encoding in its backend.

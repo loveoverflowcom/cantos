@@ -122,7 +122,7 @@ impl App {
                 peer_policy: PeerPolicy::DirectPeer,
                 studio_subjects: studio.to_vec(),
             },
-            origin,
+            origin.starts_with("https://"),
         );
         let store = db.store().with_identity_auth(identity);
         let router = api_router(AppState {
