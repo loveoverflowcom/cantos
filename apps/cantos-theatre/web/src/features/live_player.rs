@@ -27,7 +27,7 @@ const ICON_COMPLETED: &str = "check_circle";
 /// Optional authenticated progress synchronization controls for the active source.
 #[derive(Clone, Copy)]
 pub(crate) struct PlayerSyncControls {
-    pub account: RwSignal<AccountViewState>,
+    pub account: ReadSignal<AccountViewState>,
     pub on_mark_completed: Callback<()>,
     pub on_restart: Callback<()>,
     pub on_resolve_conflict: Callback<(String, bool)>,
@@ -835,7 +835,7 @@ mod tests {
             });
 
             let sync_controls = PlayerSyncControls {
-                account: RwSignal::new(account),
+                account: RwSignal::new(account).read_only(),
                 on_mark_completed: Callback::new(|_| {}),
                 on_restart: Callback::new(|_| {}),
                 on_resolve_conflict: Callback::new(|_| {}),

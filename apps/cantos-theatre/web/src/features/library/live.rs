@@ -482,7 +482,7 @@ fn history_clear_controls(
 
 #[component]
 fn LiveSection(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     section: Section,
     on_page: Callback<(Section, bool)>,
@@ -522,16 +522,17 @@ fn LiveSection(
 }
 #[component]
 pub(crate) fn LiveLibrary(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     on_page: Callback<(Section, bool)>,
     #[prop(optional)] actions: Option<LibraryActions>,
 ) -> impl IntoView {
+    let phase = Memo::new(move |_| state.with(AccountViewState::phase));
     view! {
         <section id="library" aria-labelledby="theatre-live-library-heading">
             <h1 id="theatre-live-library-heading">{move || messages::text(Key::Library, locale.get())}</h1>
-            <Show when=move || state.get().phase() == SessionPhase::SignedIn fallback=move || view! {
-                <p role="status">{move || messages::text(match state.get().phase() {
+            <Show when=move || phase.get() == SessionPhase::SignedIn fallback=move || view! {
+                <p role="status">{move || messages::text(match phase.get() {
                     SessionPhase::Idle | SessionPhase::Checking => Key::AccountChecking,
                     SessionPhase::Failed(failure) => crate::features::account::account_failure_key(failure),
                     SessionPhase::LogoutPending => Key::AccountLogoutRetryHelp,
@@ -577,7 +578,7 @@ mod tests {
     }
     fn render(s: AccountViewState, language: Locale) -> String {
         Owner::new().with(|| view! {
-            <LiveLibrary state=RwSignal::new(s) locale=RwSignal::new(language) on_page=Callback::new(|_| {})/>
+            <LiveLibrary state=RwSignal::new(s).read_only() locale=RwSignal::new(language) on_page=Callback::new(|_| {})/>
         }.to_html())
     }
     #[test]
@@ -676,7 +677,7 @@ mod tests {
             Owner::new().with(|| {
                 view! {
                     <LiveLibrary
-                        state=RwSignal::new(state)
+                        state=RwSignal::new(state).read_only()
                         locale=RwSignal::new(locale)
                         on_page=Callback::new(|_| {})
                         actions=dummy_actions

@@ -40,7 +40,7 @@ const NAV_ICON_DISCOVER: &str = "home";
 const NAV_ICON_LIBRARY: &str = "library_books";
 
 fn sync_admission(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
 ) -> Memo<Option<crate::application::account::RequestFence>> {
     // Point reads mutate account projections. Only a changed admission may retrigger their
     // effect; observing the whole signal would let even an unchanged read guard reschedule it.
@@ -420,7 +420,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     });
     // When signed in on a public Work or with an active player source, load point Saved/Progress
     // registers that have not yet been observed in the current session.
-    let admitted_sync = sync_admission(state);
+    let admitted_sync = sync_admission(state.read_only());
     Effect::new(move |_| {
         if preview || !network_allowed.get_untracked() {
             return;
@@ -541,7 +541,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         on_listen,
     };
     let work_sync_controls = WorkSyncControls {
-        account: state,
+        account: state.read_only(),
         on_login_to_save: Callback::new(move |()| {
             crate::live::signup::leave(signup, preview);
             nav.open_auth(AuthRoute::login(nav.origin()));
@@ -663,7 +663,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }),
     };
     let player_sync_controls = PlayerSyncControls {
-        account: state,
+        account: state.read_only(),
         on_mark_completed: Callback::new(move |()| {
             if !preview && network_allowed.get_untracked() {
                 #[cfg(target_arch = "wasm32")]
@@ -874,65 +874,69 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             return;
         }
         let route = nav.route.get();
-        let catalog = discovery.get();
-        errors.update(|center| {
-            if !matches!(route, Route::Discover | Route::Explore) {
-                center.resolve(ErrorOperation::LoadCatalog);
-            } else {
-                match catalog.phase() {
-                    PublicDiscoveryPhase::Failed(failure) => center.report(
-                        ErrorNotice::read(failure.into(), ErrorOperation::LoadCatalog),
-                        false,
-                    ),
-                    PublicDiscoveryPhase::Ready | PublicDiscoveryPhase::Incomplete => {
-                        match catalog.tail() {
-                            Tail::Failed(failure) => center.report(
-                                ErrorNotice::read(failure.into(), ErrorOperation::LoadCatalog),
-                                true,
-                            ),
-                            Tail::Loading => (),
-                            _ => center.resolve(ErrorOperation::LoadCatalog),
+        discovery.with(|catalog| {
+            errors.update(|center| {
+                if !matches!(route, Route::Discover | Route::Explore) {
+                    center.resolve(ErrorOperation::LoadCatalog);
+                } else {
+                    match catalog.phase() {
+                        PublicDiscoveryPhase::Failed(failure) => center.report(
+                            ErrorNotice::read(failure.into(), ErrorOperation::LoadCatalog),
+                            false,
+                        ),
+                        PublicDiscoveryPhase::Ready | PublicDiscoveryPhase::Incomplete => {
+                            match catalog.tail() {
+                                Tail::Failed(failure) => center.report(
+                                    ErrorNotice::read(failure.into(), ErrorOperation::LoadCatalog),
+                                    true,
+                                ),
+                                Tail::Loading => (),
+                                _ => center.resolve(ErrorOperation::LoadCatalog),
+                            }
                         }
+                        PublicDiscoveryPhase::Empty => center.resolve(ErrorOperation::LoadCatalog),
+                        _ => (),
                     }
-                    PublicDiscoveryPhase::Empty => center.resolve(ErrorOperation::LoadCatalog),
-                    _ => (),
                 }
-            }
+            })
         });
-        let work = work_detail.get();
-        errors.update(|center| match work.phase() {
-            WorkDetailPhase::Failed(failure) => center.report(
-                ErrorNotice::read((*failure).into(), ErrorOperation::LoadWork),
-                false,
-            ),
-            WorkDetailPhase::Ready { units, .. } => {
-                center.resolve(ErrorOperation::LoadWork);
-                if let crate::application::public_work::PageStatus::Failed(failure) = units.status()
-                {
-                    center.report(
-                        ErrorNotice::read((*failure).into(), ErrorOperation::LoadUnits),
-                        !units.rows().is_empty(),
-                    );
-                } else if !matches!(
-                    units.status(),
-                    crate::application::public_work::PageStatus::Loading
-                ) {
+        work_detail.with(|work| {
+            errors.update(|center| match work.phase() {
+                WorkDetailPhase::Failed(failure) => center.report(
+                    ErrorNotice::read((*failure).into(), ErrorOperation::LoadWork),
+                    false,
+                ),
+                WorkDetailPhase::Ready { units, .. } => {
+                    center.resolve(ErrorOperation::LoadWork);
+                    if let crate::application::public_work::PageStatus::Failed(failure) =
+                        units.status()
+                    {
+                        center.report(
+                            ErrorNotice::read((*failure).into(), ErrorOperation::LoadUnits),
+                            !units.rows().is_empty(),
+                        );
+                    } else if !matches!(
+                        units.status(),
+                        crate::application::public_work::PageStatus::Loading
+                    ) {
+                        center.resolve(ErrorOperation::LoadUnits);
+                    }
+                }
+                WorkDetailPhase::NotFound | WorkDetailPhase::Idle => {
+                    center.resolve(ErrorOperation::LoadWork);
                     center.resolve(ErrorOperation::LoadUnits);
                 }
-            }
-            WorkDetailPhase::NotFound | WorkDetailPhase::Idle => {
-                center.resolve(ErrorOperation::LoadWork);
-                center.resolve(ErrorOperation::LoadUnits);
-            }
-            _ => (),
+                _ => (),
+            })
         });
     });
+    let account_observation = Memo::new(move |_| state.with(|s| (s.generation(), s.phase())));
     let observed_account_generation =
         StoredValue::new(state.with_untracked(AccountViewState::generation));
     Effect::new(move |_| {
-        let current = state.get();
-        if observed_account_generation.get_value() != current.generation() {
-            observed_account_generation.set_value(current.generation());
+        let (generation, phase) = account_observation.get();
+        if observed_account_generation.get_value() != generation {
+            observed_account_generation.set_value(generation);
             errors.update(|c| {
                 c.resolve(ErrorOperation::SignIn);
                 c.resolve(ErrorOperation::UpdateLibrary);
@@ -947,7 +951,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             errors.update(|c| c.resolve(ErrorOperation::SignIn));
             return;
         }
-        errors.update(|c| match current.phase() {
+        errors.update(|c| match phase {
             SessionPhase::Failed(crate::application::account_view::AccountFailure::Diagnostic(
                 kind,
             )) => c.report(ErrorNotice::read(kind, ErrorOperation::SignIn), true),
@@ -1013,7 +1017,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                             {move || if !configuration_valid {
                                 view! { <LiveRecovery locale heading=Key::ErrorDialogTitle help=Key::ErrorConfiguration/> }.into_any()
                             } else { match nav.route.get() {
-                                Route::Auth(auth) => view! { <AuthPage state registration signup locale route=auth preview_icons=preview
+                                Route::Auth(auth) => view! { <AuthPage state=state.read_only() registration signup locale route=auth preview_icons=preview
                                     on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
                                     on_register on_login=Callback::new(move |()| { crate::live::signup::leave(signup, preview); if network_allowed.get_untracked() { nav.login(state, registration.get_untracked()); } })
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
@@ -1021,17 +1025,17 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     on_signup_submit on_signup_verify on_signup_new on_signup_login on_signup_setup on_signup_cancel=Callback::new(move |()| {
                                         crate::live::signup::cancel_explicit(signup, preview); nav.open_auth(AuthRoute::login(auth.origin));
                                     })/> }.into_any(),
-                                Route::Account => view! { <LiveAccount state locale theme registration on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } }) on_login on_register on_logout on_refresh on_membership/> }.into_any(),
+                                Route::Account => view! { <LiveAccount state=state.read_only() locale theme registration on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } }) on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {
-                                    <LiveLibrary state locale actions=library_actions on_page=Callback::new(move |(section, restart)| {
+                                    <LiveLibrary state=state.read_only() locale actions=library_actions on_page=Callback::new(move |(section, restart)| {
                                         if preview || !network_allowed.get_untracked() { return; }
                                         #[cfg(target_arch = "wasm32")]
                                         crate::live::runtime::load_library(state, section, restart, 1, true);
                                         #[cfg(not(target_arch = "wasm32"))]
                                         let _ = (section, restart);
                                     })/>
-                                    <LibraryAccountEntry state locale on_account=Callback::new(move |_|nav.open_account())/>
+                                    <LibraryAccountEntry state=state.read_only() locale on_account=Callback::new(move |_|nav.open_account())/>
                                 }.into_any(),
                                 Route::Membership(member) => view! {
                                     <section class="theatre-membership-information" aria-labelledby="theatre-membership-heading">
@@ -1090,11 +1094,12 @@ fn LiveRecovery(locale: RwSignal<Locale>, heading: Key, help: Key) -> impl IntoV
 #[component]
 fn LibraryAccountEntry(
     #[prop(optional)] on_account: Option<Callback<()>>,
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
 ) -> impl IntoView {
+    let phase = Memo::new(move |_| state.with(AccountViewState::phase));
     view! {
-        <Show when=move || state.get().phase() != SessionPhase::SignedIn>
+        <Show when=move || phase.get() != SessionPhase::SignedIn>
             <a id="theatre-library-account" class="theatre-action theatre-action-tonal" href="#account" on:click=move |event|{if let Some(callback)=on_account{event.prevent_default();callback.run(());}}>
                 {move || crate::features::auth_copy::text(crate::features::auth_copy::CopyKey::OpenAccount, locale.get())}
             </a>
@@ -1149,7 +1154,7 @@ mod tests {
         Owner::new().with(|| {
             let state = RwSignal::new(AccountViewState::default());
             signed_in(state, PreviewActor::A).unwrap();
-            let admission = sync_admission(state);
+            let admission = sync_admission(state.read_only());
             let runs = Arc::new(AtomicUsize::new(0));
             let observed_runs = runs.clone();
             let read_effect = Memo::new(move |_| {
@@ -1187,7 +1192,8 @@ mod tests {
                 (Locale::English, "Open Account"),
             ] {
                 let locale = RwSignal::new(language);
-                let html = view! { <LibraryAccountEntry state locale/> }.to_html();
+                let html =
+                    view! { <LibraryAccountEntry state=state.read_only() locale/> }.to_html();
                 assert!(html.contains("href=\"#account\""));
                 assert!(html.contains(copy));
                 for absent in ["<button", "#login", "Đăng nhập", "Sign in"] {
@@ -1196,7 +1202,7 @@ mod tests {
             }
             signed_in(state, PreviewActor::A).unwrap();
             let locale = RwSignal::new(Locale::English);
-            let html = view! { <LibraryAccountEntry state locale/> }.to_html();
+            let html = view! { <LibraryAccountEntry state=state.read_only() locale/> }.to_html();
             assert!(!html.contains("theatre-library-account"));
         });
     }

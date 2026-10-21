@@ -1182,7 +1182,7 @@ pub fn login(
     state: RwSignal<AccountViewState>,
     configuration: crate::application::registration::RegistrationState,
 ) {
-    if !state.get_untracked().can_login(configuration) {
+    if !state.with_untracked(|s| s.can_login(configuration)) {
         return;
     }
     let login = match super::account::reserve_login() {
@@ -1287,7 +1287,7 @@ pub fn mount(
             {
                 return;
             }
-            if state.get_untracked().phase() == SessionPhase::SignedIn {
+            if state.with_untracked(AccountViewState::phase) == SessionPhase::SignedIn {
                 refresh(state);
             }
         }) as Box<dyn FnMut()>);
