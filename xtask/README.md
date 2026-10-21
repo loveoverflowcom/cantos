@@ -72,6 +72,7 @@ cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|sub
 cargo xtask verify native-isolation --test-binary /absolute/prebuilt-rust-test --test fully::qualified::name [--timeout-seconds 60] [--dry-run]
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
+cargo xtask preflight --profile local --changed-only [--base REF] [--skip GATE]... [--dry-run] # DEV/CHECKPOINT subset
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
 cargo xtask doctor
 cargo xtask services list|validate|status
@@ -773,6 +774,38 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 `NOT_RUN`, never `PASS`. Use it, for example, for `postgres` on a machine without PostgreSQL, and
 state it in the pull request.
 
+#### Local profile
+
+```sh
+cargo xtask preflight --profile local --changed-only --base "$BASE_REF" [--dry-run]
+```
+
+The default profile is `handoff`: everything above, unchanged. `--profile local` is a lighter
+DEV/CHECKPOINT loop over the same change collection, base and reverse Cargo graph (normal, dev and
+build dependencies). It requires `--changed-only`, rejects `--kani`, and plans only:
+
+- `repository-static`: service manifest validation, `check_repository.py --base` and both
+  whitespace checks, without the Python unit-test discovery. Code under `xtask/` (fixtures
+  included), `scripts/` or `.github/workflows/` selects the full `repository` gate instead, and
+  `xtask`'s own lint/tests for xtask or workflow inputs. Markdown under `xtask/` outside
+  `xtask/fixtures` is a document here.
+- `rust-format`, then `rust-lint`/`rust-tests` for the affected packages with the existing
+  commands, and `web-lint` for an affected Web package. Packages keep their default features
+  (plus `cantos-theatre/preview` when selected); no other feature lane is claimed.
+- Shared Cargo inputs (`Cargo.toml`, `Cargo.lock`, `.cargo/`, toolchain/format/lint files) and
+  unclassified paths broaden to every *local* check (full `repository`, workspace lint/tests and
+  both Web clients' WASM lint) with the reason printed. A collected, truly empty diff runs only
+  `repository-static` and `rust-format`. A missing base is still an error.
+
+It never dispatches Trunk or preview builds, CMP/Gradle, `postgres`, `turso`, `dbsp`,
+`wav-reference`, `audio-inspection`, `script-ir-reference`, `protobuf-reference`,
+`forge-functions`, `mutation`, behavior or Kani, so only the selected steps' tools are required.
+The plan lists the gates the handoff selection would add for the same diff as *outside the local
+profile*: they are neither `PASS` nor `NOT_RUN` rows, and notes name the uncovered feature lanes
+and Kotlin/CMP sources. The summary is titled `local checkpoint`, and every result states that full
+handoff, database integration, platform runtime and formal verification are not established by
+this profile. Use the default profile on the final diff at handoff.
+
 ### Executable behavior models
 
 `cargo xtask verify behavior` selects executable entries in [the stable catalog](../specs/behavior/catalog.json);
@@ -979,7 +1012,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `ui_preview.rs` | package-local Leptos/CMP preview plans and supervised execution |
 | `run.rs`, `process.rs`, `probe.rs` | launch plans, supervised process groups, port ownership and readiness |
 | `seed.rs` | explicit `seed theatre [--reset]` plan; `scripts/seed_theatre.py` owns cluster ownership checks, the seed test run and the record |
-| `preflight/` | Git change collection, the Cargo package graph and pure selection |
+| `preflight/` | Git change collection, the Cargo package graph and pure handoff/local selection |
 | `theatre_auth.rs` | pure plans and redacted outcomes for explicit isolated enrollment lanes; invokes the owned Python fixture primitive, outside ordinary gates |
 | `doctor.rs` | read-only environment report |
 | `services/` | typed process inventory/config validation, explicit local Podman lifecycle, bounded command boundary |

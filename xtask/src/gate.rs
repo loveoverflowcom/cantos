@@ -97,6 +97,11 @@ pub enum Gate {
     Repository {
         base: Option<String>,
     },
+    /// The repository gate's structural checks without its Python regression suite; selected
+    /// only by the local preflight profile when no tooling input changed.
+    RepositoryStatic {
+        base: Option<String>,
+    },
     Behavior {
         capability: Option<String>,
         setup: bool,
@@ -162,7 +167,7 @@ pub const API_CONTRACT_TESTS: [&str; 13] = [
 impl Gate {
     pub fn kind(&self) -> GateKind {
         match self {
-            Gate::Repository { .. } => GateKind::Repository,
+            Gate::Repository { .. } | Gate::RepositoryStatic { .. } => GateKind::Repository,
             Gate::Behavior { .. } => GateKind::Behavior,
             Gate::RustFormat => GateKind::RustFormat,
             Gate::ScriptIrReference => GateKind::ScriptIrReference,
@@ -204,6 +209,7 @@ impl Gate {
             }
             Gate::WebBuild(app) => format!("{kind} ({})", app.cli_name()),
             Gate::Kani(kernel) => format!("kani ({})", kernel.name()),
+            Gate::RepositoryStatic { .. } => "repository-static".into(),
             Gate::TheatreFirebasePostgres { .. } => "postgres (theatre-firebase)".into(),
             Gate::SchemaPostgres { .. } => "postgres (schema)".into(),
             _ => kind,
@@ -212,7 +218,9 @@ impl Gate {
 
     pub fn tools(&self) -> Vec<Tool> {
         match self {
-            Gate::Repository { .. } => vec![Tool::Cargo, Tool::Python3, Tool::Git],
+            Gate::Repository { .. } | Gate::RepositoryStatic { .. } => {
+                vec![Tool::Cargo, Tool::Python3, Tool::Git]
+            }
             Gate::Behavior {
                 setup, conformance, ..
             } => {
@@ -269,24 +277,29 @@ impl Gate {
         let python = |args: &[&str]| CommandSpec::new("python3", root).args(args.iter().copied());
         let cargo = |args: &[&str]| CommandSpec::new("cargo", root).args(args.iter().copied());
         match self {
-            Gate::Repository { base } => vec![
-                cargo(&[
-                    "run", "--quiet", "--locked", "-p", "xtask", "--", "services", "validate",
-                ]),
-                python(&["scripts/check_repository.py"])
-                    .args(base.iter().flat_map(|base| ["--base", base.as_str()])),
-                python(&[
-                    "-m",
-                    "unittest",
-                    "discover",
-                    "-s",
-                    "scripts",
-                    "-p",
-                    "test_*.py",
-                ]),
-                CommandSpec::new("git", root).args(["diff", "--check"]),
-                CommandSpec::new("git", root).args(["diff", "--cached", "--check"]),
-            ],
+            Gate::Repository { base } | Gate::RepositoryStatic { base } => {
+                let mut commands = vec![
+                    cargo(&[
+                        "run", "--quiet", "--locked", "-p", "xtask", "--", "services", "validate",
+                    ]),
+                    python(&["scripts/check_repository.py"])
+                        .args(base.iter().flat_map(|base| ["--base", base.as_str()])),
+                ];
+                if matches!(self, Gate::Repository { .. }) {
+                    commands.push(python(&[
+                        "-m",
+                        "unittest",
+                        "discover",
+                        "-s",
+                        "scripts",
+                        "-p",
+                        "test_*.py",
+                    ]));
+                }
+                commands.push(CommandSpec::new("git", root).args(["diff", "--check"]));
+                commands.push(CommandSpec::new("git", root).args(["diff", "--cached", "--check"]));
+                commands
+            }
             Gate::Behavior {
                 capability,
                 setup,
@@ -662,6 +675,25 @@ mod tests {
                 "git diff --cached --check",
             ]
         );
+        let repository_static = Gate::RepositoryStatic {
+            base: Some("origin/main".into()),
+        };
+        assert_eq!(
+            lines(&repository_static),
+            [
+                "cargo run --quiet --locked -p xtask -- services validate",
+                "python3 scripts/check_repository.py --base origin/main",
+                "git diff --check",
+                "git diff --cached --check",
+            ]
+        );
+        assert_eq!(repository_static.name(), "repository-static");
+        assert_eq!(repository_static.kind(), GateKind::Repository);
+        assert_eq!(
+            repository_static.tools(),
+            (Gate::Repository { base: None }).tools()
+        );
+        assert!(!full().contains(&repository_static));
         assert_eq!(lines(&Gate::RustFormat), ["cargo fmt --all -- --check"]);
         assert_eq!(
             lines(&Gate::RustLint(Scope::Workspace)),

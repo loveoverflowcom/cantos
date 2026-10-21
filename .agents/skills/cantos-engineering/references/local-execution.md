@@ -57,6 +57,7 @@ cargo xtask doctor                     # which tools, gates and surfaces exist h
 cargo xtask verify repository          # documents, links, JSON, skills, Python tests, whitespace
 cargo xtask preflight --changed-only --base "$BASE_REF"   # uncertain impact runs all
 cargo xtask preflight --changed-only --base "$BASE_REF" --dry-run   # plan only
+cargo xtask preflight --profile local --changed-only --base "$BASE_REF"   # DEV/CHECKPOINT subset, never a handoff
 ```
 
 `verify repository` validates documents, links, JSON syntax, text hygiene and skill structure; it
