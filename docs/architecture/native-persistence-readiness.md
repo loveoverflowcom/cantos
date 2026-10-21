@@ -21,8 +21,9 @@ require review; a newly added table does not inherit permission to migrate from 
 | `replace-registry` | `cantos_schema`, `cantos_migrations` | Keep the PostgreSQL epoch/checksums as legacy recognition evidence. Each native owner uses the shared foundation's own checked registry; never replay the PG registry as a Turso migration. |
 
 None of these source tables moves wholesale to `identity.db`. Identity subjects, credentials,
-email/proof/recovery/passkey state, security events and `instance_epoch` need the new #334
-schema and its own migration registry. Server retains ActorId and exact subject bindings;
+email/proof/security state and `instance_epoch` use the #334-owned schema/registry;
+deferred factors/recovery follow the [v1 amendment](native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration).
+Server retains ActorId and exact subject bindings;
 an email match grants neither identity binding nor Studio/Admin/resource authority.
 
 The manifest supplements the existing context-level SQL dependency guard in
@@ -57,11 +58,11 @@ Inspect these owners before attempting the native connection:
 
 1. Reuse the shared [`cantos-store-turso`](../../packages/store-turso/README.md)
    owner/migration/transaction API supplied by [#341](https://github.com/loveoverflowcom/cantos/pull/341)
-   on the integration branch. Its Identity security-state consumer is implemented; Server and
-   Identity runtime composition below are still missing. Do not copy it or create a competing owner. Engine tests alone do not
+   on the integration branch. Identity's persistence/service consumer exists; Server's Turso
+   runtime composition is still missing. Do not copy it or create a competing owner. Engine tests alone do not
    establish a service consumer.
-2. Complete #332's draft `cantos.identity.v1` RPC contract, compatible Tonic/Prost and credential
-   library qualification. A generated DTO is not a sealed authentication fact.
+2. Read #332's implemented draft [RPC contract](../../packages/contracts/identity-rpc-v1.md),
+   Tonic/Prost and credential qualification. A generated DTO is not a sealed authentication fact.
 3. #333 owns single-Server composition, the complete `server.db` schema/invariant mapping,
    context adapters and one atomic runtime flip. The existing
    [`IdentityRegistry`](../../services/cantos-server/src/platform/identity/ports.rs) and
@@ -69,10 +70,14 @@ Inspect these owners before attempting the native connection:
    an eligible actor/binding adapter seam **inside that owner**, not a reason to open a second
    partial `server.db`. Its real tests must cover exact-key replay, no losing actor, inactive
    targets, immutable binding, concurrent writes, reopen and unknown-commit reconciliation.
-4. #334 supplies the real Identity DB/credential lifecycle, `AuthenticationFact`, security events,
-   `instance_epoch`, executable and authenticated UDS RPC (#334.7). #335 can then verify bound
-   responses, reuse SessionPolicy, persist fresh sessions/bindings/checkpoints and restore
-   first-party app journeys. Timeout/cancel remains an unknown effect until receipts reconcile it.
+4. #334's service feature supplies password credentials (Theatre, and Studio under ADR 0045),
+   `AuthenticationFact`, `instance_epoch`, executable and authenticated UDS RPC. Under the v1
+   amendment, #335's backend slice integrates that client against authoritative Server PostgreSQL
+   ([Identity auth v1](../../packages/contracts/identity-auth-v1.md)) while #333 ports persistence;
+   first-party frontends follow. Reuse SessionPolicy and current transactional session/binding
+   owners; direct security-state checks need no mandatory event consumer.
+   Timeout/cancel remains an unknown effect until receipts reconcile it. Transitional PostgreSQL
+   evidence is separate from final native acceptance; no disconnected partial `server.db`.
 5. #336 accepts two production binaries against two run-owned file-backed databases, real
    transaction/reopen/fault and revocation/restore tests, authenticated RPC, browser/device
    journeys and actual D1 Kani runner evidence. Model/fake and file-backed evidence remain separate.

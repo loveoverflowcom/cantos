@@ -33,19 +33,21 @@ report findings, coverage and residual risk
 
 | Input | Pin as |
 |---|---|
-| PR | base branch (`develop`), head SHA and merge-base; say which diff you read |
+| PR | actual resolved PR base branch/ref/SHA, head SHA and merge-base; say which diff you read |
 | BASE/HEAD refs | both resolved to SHAs |
 | patch file | patch-local spans plus whatever base context you could read |
 | local changes | staged, unstaged and untracked sets plus a fingerprint of that state |
 
 ```sh
 gh pr view <n> --json baseRefName,headRefName,headRefOid,baseRefOid
-git merge-base origin/develop <head-sha>
+git merge-base "$BASE_REF" <head-sha>
 git --no-pager diff --no-ext-diff --no-textconv <base-sha>...<head-sha>
 ```
 
 Three-dot (the branch's own contribution) and two-dot (endpoint to endpoint) answer different
-questions; state which. Cover adds, deletes, renames, mode and symlink changes, manifests and
+questions; state which. Resolve the same base as branch/preflight/PR using
+[CONTRIBUTING](../../../../CONTRIBUTING.md#branch-and-pull-request-workflow), never infer `develop`
+when the user or accepted work item selected another base. Cover adds, deletes, renames, mode and symlink changes, manifests and
 lockfiles, generated files with their generator, and binary entries. Anything unread is a
 coverage gap, never silence. Do not `checkout`, `reset`, `stash` or `apply` into the user's tree;
 `--no-ext-diff --no-textconv` keeps repository configuration from running commands.

@@ -42,6 +42,9 @@ Do not rewrite historical results or duplicate the protocol tables here.
 10. Retain legacy server MessagePack until consumer inventory, owner-approved zero-use period,
     published retirement notice and executed JSON rollback are evidenced. Add no new legacy client.
 
+<a id="3-test-matrix-for-any-codec-change"></a>
+<a id="5-extending-to-theatre-and-cmp"></a>
+
 ## Required test/review matrix
 
 | Claim | Cheapest evidence | Additional acceptance |

@@ -12,7 +12,7 @@ with one owner process/file per service. Do not substitute libSQL remote, Turso 
 or redb. Media bytes remain in approved private/object storage. Other tasks must follow their
 actual implemented storage/decision rather than assuming this refactor has already landed.
 
-The historical `services/cantos-server/src/platform/postgres/migrations.rs` owns the PostgreSQL
+The current `services/cantos-server/src/platform/postgres/migrations.rs` owns the PostgreSQL
 epoch/checksum policy. Inspect its current location after the service rename. Do not rewrite
 applied SQL/checksums, silently adopt an existing file/database or reset data to obtain a pass.
 External upload recovery belongs to the [production owner](../../cantos-production-pipeline/references/durable-jobs.md);
@@ -76,7 +76,9 @@ Across databases, use explicit idempotent transitions and durable outbox/inbox/c
 an equivalent verified recovery protocol. Document the observable intermediate states, event
 ordering, acknowledgement, retention and recovery. Do not claim atomic distributed commit or
 exactly-once delivery from two successful local transactions. Security propagation additionally
-follows [identity/session boundaries](identity-and-session-boundaries.md).
+follows [identity/session boundaries](identity-and-session-boundaries.md) and the owning v1
+amendment's direct-state-check option; do not require an event consumer merely because two
+databases exist. Transitional integration uses the current authoritative Server owner.
 
 ## Optimistic concurrency
 

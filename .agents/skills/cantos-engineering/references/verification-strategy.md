@@ -3,8 +3,8 @@
 > **Scope.** Turn a Cantos invariant into reproducible evidence: the verification ledger,
 > independent oracles, edge-case partitions, the escalation ladder and honest reporting. Use
 > before writing tests for any behavior change, when an edge space is unclear, or when a test
-> suite passes but nobody trusts it. The vocabulary and report format live in the foundation
-> [`SKILL.md`](../SKILL.md) and are not repeated here.
+> suite passes but nobody trusts it. The canonical vocabulary is [below](#evidence-vocabulary);
+> the report format stays in the foundation [`SKILL.md`](../SKILL.md#9-completion-report).
 
 ## Route by claim
 
@@ -36,7 +36,7 @@ replace the evidence vocabulary or add a runner.
 | L2 — Domain, Types & Error Handling | model immutable facts with newtypes, closed enums or Kotlin sealed types, fallible constructors and exhaustive matching; make invalid states unrepresentable where practical. Pure functions return `Result` or a typed success/rejection outcome; test propagation of exact errors, invariant-preserving transitions and complete unchanged state on rejection ([types](types-as-proofs.md), [functional core](functional-core.md), [typed errors](typed-errors-and-composition.md)). |
 | L3 — Unit & Property Verification | write core unit tests before DB/API wiring: ordinary Rust `#[test]`, Kotlin `commonTest` where applicable, and plain Rust decisions outside Leptos. Use exact table-driven/regression assertions and property/state-machine tests where the input space warrants them; run focused tests, format, lint and applicable static checks. Pure domain tests need no database, network, container, emulator or async runtime. Discover configured commands; report missing format/lint tooling honestly. |
 | L4 — Application & I/O Adapters | after L1–L3 pass, implement use cases, narrow ports and adapters. Exercise production orchestration with deterministic fakes, including typed error mapping, ordered effect execution and rejection behavior. Distinguish an isolated fake test from production modules exercised together; name every double. Adapter-only type mapping with no domain rule may start here if that exception is recorded. |
-| L5 — DB, API & Integration | run real PostgreSQL migrations/constraints/transactions/concurrency checks, HTTP request/response/DTO/authorization/error contracts, storage/network/platform integration, scoped E2E and runtime acceptance. A handler tested with a fake store is L4 evidence for that contract, never proof of real database/service semantics. Required L5 checks stay required when unavailable. |
+| L5 — DB, API & Integration | run real authoritative-engine migrations/constraints/transactions/concurrency checks (current PostgreSQL or accepted Turso), HTTP request/response/DTO/authorization/error contracts, storage/network/platform integration, scoped E2E and runtime acceptance. A handler tested with a fake store is L4 evidence for that contract, never proof of real database/service semantics. Required L5 checks stay required when unavailable. |
 
 Keep independent runnable core tests even when the shell cannot start. Formatting, linting and
 static checks apply to the touched toolchain; a missing mobile tool or emulator does not erase
@@ -189,3 +189,49 @@ The work plan requires labeling them separately
 ([work plan § Shared completion evidence](../../../../docs/work-plan/README.md#shared-completion-evidence)).
 A scripted fake TTS provider proves orchestration, not synthesis. A local file proves mixing
 code ran, not CDN delivery. A desktop render proves layout code ran, not native playback.
+
+## Evidence vocabulary
+
+This is the canonical vocabulary for every Cantos report:
+
+```text
+documented                a document or comment says so
+type-enforced             the type system rejects the alternative
+statically-checked        a lint, exhaustive match or architecture check enforces it
+example-tested            specific inputs are asserted
+property-tested           a law holds over generated inputs
+differentially-tested     an independent oracle or golden fixture agrees
+fault-injected            a crash, timeout or duplicate was injected at a named point
+mock-integration-tested   production modules exercised together with named mocked external dependencies
+mutation-tested           the assertions kill inserted defects
+bounded-model-checked     a proposition holds over a stated symbolic domain and bound
+fuzz-tested               a coverage-guided fuzzer ran a named target under resource bounds with no crash,
+                          hang or blow-up (robustness only; says nothing about correct output)
+integration-tested        crossed a real database, object store or service boundary
+provider-live-tested      called a real TTS or adaptation provider under a cost limit
+audio-measured            loudness/peak/duration measured by a named tool and profile
+audio-listened            a named reviewer listened to the named render
+compiled                  it builds — the weakest claim there is
+DOM-tested                structure or text asserted from a live DOM
+semantics-tested          assertions on a rendered Compose semantics tree; name the renderer
+interaction-tested        a real flow was driven by input events
+accessibility-checked     semantics + keyboard + focus (never screen-reader proof)
+screen-reader-walked      a named TalkBack/VoiceOver/NVDA walkthrough actually happened
+screenshot-captured       image files exist
+screenshot-inspected      someone opened the rendered pixels and judged them
+cross-viewport-inspected  inspected at each listed viewport
+cross-theme-inspected     inspected in light and dark
+device-tested             ran on a named Android/iOS device, emulator or simulator
+production-observed       observed in production, not proven
+```
+
+A fake provider alone is `example-tested`; a production flow across modules with external doubles
+is `mock-integration-tested`. Neither is `provider-live-tested`; an in-memory repository double is
+never real-database integration evidence. An actual memory-only database test does not establish
+file durability/recovery. A desktop or JVM host render is never `device-tested`.
+A document check never proves that an app builds. Agent-authored JSON or assertions are not
+verifier output; report only what a tool actually printed.
+
+Performance claims reuse this vocabulary with comparable baseline/delta, sample distribution,
+source/build/fixture/tool/host provenance and named cache conditions; report unrun measurements.
+Numbers add no evidence level. For Web, use [performance and caching](../../cantos-leptos-web/references/performance-and-caching.md).

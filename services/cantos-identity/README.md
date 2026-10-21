@@ -6,6 +6,11 @@ mailbox proof, Argon2id password credentials and `AuthenticatePassword` over a p
 authenticated Unix-socket RPC. It is part of [#334](https://github.com/loveoverflowcom/cantos/issues/334)
 on `refactor/cantos-native-turso`; it is **not** the whole of #334 and it is not a Server session.
 
+The [owner's v1 amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
+and [ADR 0045](../../docs/decisions/0045-v1-email-password-sign-in.md) supersede the older
+factor/dependency target. The sections below describe actual source, including the Studio
+password path that ADR 0045 enabled.
+
 * Implemented and run against the real engine: signup start, explicit mailbox-confirmed setup,
   password authentication, restart, replay/unknown-outcome reconciliation, disable race, the
   RPC boundary and the executable (see [Verification](#verification) for exactly what ran).
