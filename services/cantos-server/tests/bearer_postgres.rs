@@ -9,7 +9,7 @@ use cantos_contracts::bearer::{
     CancelRequest, ExchangeRequest, Flow, FlowRequest, RefreshRequest, TokenPair,
 };
 use cantos_server::{
-    adapters::inbound::http::{router, AppState},
+    adapters::inbound::http::{router, server_router, AppState},
     platform::{
         bearer::client::Client,
         postgres::{local_config, migrate, Store},
@@ -109,6 +109,35 @@ impl Harness {
             }
         )
     }
+    fn browser_origin(&self) -> &str {
+        match self.client {
+            Client::Studio => self.store.studio_oidc().unwrap().web_origin(),
+            Client::TheatreWeb => self.store.theatre_identity().unwrap().web_origin(),
+            Client::TheatreNative => ORIGIN,
+        }
+    }
+    fn combined_router(&self) -> axum::Router {
+        let studio = self.store.studio_oidc().map_or(ORIGIN, |o| o.web_origin());
+        let theatre = self
+            .store
+            .theatre_identity()
+            .map_or("http://127.0.0.1:8083", |o| o.web_origin());
+        let origins = cantos_server::platform::host::SurfaceOrigins::new(
+            studio,
+            theatre,
+            Some("http://127.0.0.1:8084"),
+        )
+        .unwrap();
+        server_router(
+            AppState {
+                store: self.store.clone(),
+                web_origin: studio.into(),
+            },
+            &origins,
+            None,
+            None,
+        )
+    }
     async fn request(
         &self,
         method: &str,
@@ -123,13 +152,7 @@ impl Harness {
         if let Some(token) = token {
             req = req.header(header::AUTHORIZATION, format!("Bearer {token}"));
         }
-        let app = router(
-            AppState {
-                store: self.store.clone(),
-                web_origin: ORIGIN.into(),
-            },
-            "/nonexistent",
-        );
+        let app = self.combined_router();
         let response = app
             .oneshot(
                 req.body(Body::from(serde_json::to_vec(&body).unwrap()))
@@ -209,7 +232,10 @@ impl Harness {
                 .await;
             assert_eq!(status, StatusCode::SEE_OTHER);
             let returned = url::Url::parse(headers[header::LOCATION].to_str().unwrap()).unwrap();
-            assert_eq!(returned.origin().ascii_serialization(), ORIGIN);
+            assert_eq!(
+                returned.origin().ascii_serialization(),
+                self.browser_origin()
+            );
             let pairs: std::collections::HashMap<_, _> =
                 returned.query_pairs().into_owned().collect();
             assert_eq!(pairs["state"], request.state);
@@ -1368,5 +1394,551 @@ async fn unadmitted_development_profile_is_refused_without_fallback_or_flow_and_
             .await;
         assert!(status.is_client_error(), "{status}");
         assert!(stored_redirects(&h).await.is_empty());
+    }
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres: issued fixture credentials, not live provider acceptance"]
+async fn combined_one_pool_admits_issued_credentials_only_on_their_own_surface() {
+    let mut h = Harness::new(Client::Studio).await;
+    let studio = h.login("alice").await;
+    let theatre_provider = mock::MockProvider::start_for(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        Client::TheatreWeb.name(),
+    )
+    .await;
+    h.store = h.store.clone().with_theatre_identity(
+        TheatreIdentity::new(
+            &theatre_provider.issuer(),
+            "http://127.0.0.1:8083",
+            "fixture".into(),
+        )
+        .unwrap(),
+    );
+    let studio_provider = std::mem::replace(&mut h.provider, theatre_provider);
+    h.client = Client::TheatreWeb;
+    // Existing exchange helper checks the callback against ORIGIN. Issue with the same
+    // verified fixture flow while asserting this composition's distinct callback below.
+    let (flow, mut exchange) = h.flow().await;
+    let (state, code) = h.provider.issue(&flow.authorization_url, "alice", None);
+    let (status, headers, _) = h
+        .request(
+            "GET",
+            &format!("/api/v1/theatre/auth/bearer/callback?state={state}&code={code}"),
+            serde_json::Value::Null,
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    let returned = url::Url::parse(headers[header::LOCATION].to_str().unwrap()).unwrap();
+    assert_eq!(
+        returned.origin().ascii_serialization(),
+        "http://127.0.0.1:8083"
+    );
+    exchange.code = returned
+        .query_pairs()
+        .find(|(name, _)| name == "code")
+        .unwrap()
+        .1
+        .into_owned();
+    let (status, _, value) = h
+        .request(
+            "POST",
+            &format!("{}/flows/{}/exchange", h.root(), flow.flow_id),
+            serde_json::to_value(exchange).unwrap(),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{value}");
+    let theatre: TokenPair = serde_json::from_value(value).unwrap();
+
+    let studio_oidc = h.store.studio_oidc().unwrap();
+    let start = studio_oidc.begin(&h.store, None).await.unwrap();
+    let browser = start
+        .cookie
+        .split(';')
+        .next()
+        .unwrap()
+        .split_once('=')
+        .unwrap()
+        .1;
+    let (state, code) = studio_provider.issue(&start.url, "alice", None);
+    let studio_cookie = studio_oidc
+        .callback(&h.store, &state, browser, &code)
+        .await
+        .unwrap()
+        .cookie;
+    let theatre_oidc = h.store.theatre_identity().unwrap();
+    let start = theatre_oidc.begin(&h.store, None).await.unwrap();
+    let browser = start
+        .cookie
+        .split(';')
+        .next()
+        .unwrap()
+        .split_once('=')
+        .unwrap()
+        .1;
+    let (state, code) = h.provider.issue(&start.url, "alice", None);
+    let theatre_cookie = theatre_oidc
+        .callback(&h.store, &state, browser, &code)
+        .await
+        .unwrap()
+        .cookie;
+    let admin_provider = mock::MockProvider::start_for(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        cantos_server::platform::admin::CLIENT_ID,
+    )
+    .await;
+    h.admin.batch_execute("GRANT EXECUTE ON FUNCTION admin_identity_facts(text,text,text),admin_append_audit(uuid,text,text,text,text,uuid),admin_operation(text,uuid),admin_revoke_access(text,uuid,text,uuid) TO cantos_app").await.unwrap();
+    h.admin.execute("INSERT INTO actor_external_identities(issuer,subject,actor_id) SELECT $1,subject,actor_id FROM actor_external_identities WHERE issuer=$2 AND subject='alice'",
+        &[&admin_provider.issuer(), &studio_provider.issuer()]).await.unwrap();
+    h.store = h.store.clone().with_admin(
+        cantos_server::platform::admin::AdminService::new(
+            cantos_server::platform::admin::AdminConfig::new(
+                &admin_provider.issuer(),
+                "fixture".into(),
+            )
+            .unwrap(),
+        )
+        .unwrap(),
+    );
+    let admin_token = admin_provider.resource("alice", &["cantos_identity_operators"], None);
+    let app = h.combined_router();
+    for (path, origin, own, other) in [
+        (
+            "/api/v1/studio/auth/bearer/session",
+            ORIGIN,
+            &studio.access_token,
+            &theatre.access_token,
+        ),
+        (
+            "/api/v1/theatre/auth/bearer/session",
+            "http://127.0.0.1:8083",
+            &theatre.access_token,
+            &studio.access_token,
+        ),
+    ] {
+        for (sent_origin, token, status) in [
+            (origin, own, StatusCode::OK),
+            (origin, other, StatusCode::UNAUTHORIZED),
+            ("http://127.0.0.1:8084", own, StatusCode::FORBIDDEN),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(path)
+                        .header(header::ORIGIN, sent_origin)
+                        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), status, "{path} {sent_origin}");
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        }
+        let mixed = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header(header::ORIGIN, origin)
+                    .header(header::AUTHORIZATION, format!("Bearer {own}"))
+                    .header(header::COOKIE, "cantos_session=fixture")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(mixed.status(), StatusCode::UNAUTHORIZED);
+    }
+    for (path, origin, cookie, sibling_cookie) in [
+        (
+            "/api/v1/studio/session",
+            ORIGIN,
+            &studio_cookie,
+            &theatre_cookie,
+        ),
+        (
+            "/api/v1/theatre/session",
+            "http://127.0.0.1:8083",
+            &theatre_cookie,
+            &studio_cookie,
+        ),
+    ] {
+        let own = cookie.split(';').next().unwrap();
+        for (sent_cookie, status) in [
+            (own.to_owned(), StatusCode::OK),
+            (
+                sibling_cookie.split(';').next().unwrap().to_owned(),
+                StatusCode::UNAUTHORIZED,
+            ),
+            (format!("{own}; {own}"), StatusCode::UNAUTHORIZED),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(path)
+                        .header(header::ORIGIN, origin)
+                        .header(header::COOKIE, sent_cookie)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), status, "{path}");
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        }
+    }
+    // A configured, successful Admin verifier never infers Admin purpose from either Web session.
+    let admitted = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/admin/capabilities")
+                .header(header::ORIGIN, "http://127.0.0.1:8084")
+                .header(header::AUTHORIZATION, format!("Bearer {admin_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admitted.status(), StatusCode::OK);
+    for token in [&studio.access_token, &theatre.access_token] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/admin/capabilities")
+                    .header(header::ORIGIN, "http://127.0.0.1:8084")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+    for ambiguous in [
+        Request::builder()
+            .header(header::AUTHORIZATION, format!("Bearer {admin_token}"))
+            .header(header::AUTHORIZATION, format!("Bearer {admin_token}")),
+        Request::builder()
+            .header(header::AUTHORIZATION, format!("Bearer {admin_token}"))
+            .header(header::COOKIE, studio_cookie.split(';').next().unwrap()),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                ambiguous
+                    .uri("/api/v1/admin/capabilities")
+                    .header(header::ORIGIN, "http://127.0.0.1:8084")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+    let outcomes: Vec<String> = h
+        .admin
+        .query("SELECT outcome FROM admin_audit ORDER BY occurred_at", &[])
+        .await
+        .unwrap()
+        .iter()
+        .map(|row| row.get(0))
+        .collect();
+    assert_eq!(
+        outcomes,
+        ["allowed", "denied", "denied", "denied", "denied"]
+    );
+}
+
+#[cfg(unix)]
+mod process_composition {
+    use super::*;
+    use std::{
+        process::{Child, Command, Stdio},
+        time::{Duration, Instant},
+    };
+    const STUDIO: &str = "https://studio.cantos.example";
+    const THEATRE: &str = "https://cantos.example";
+    const ADMIN: &str = "https://admin.cantos.example";
+
+    struct OwnedServer(Child);
+    impl Drop for OwnedServer {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+    impl OwnedServer {
+        async fn stop(&mut self) {
+            // SAFETY: this is the exact unreaped child created below; never a name lookup.
+            assert_eq!(unsafe { libc::kill(self.0.id() as i32, libc::SIGTERM) }, 0);
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                if let Some(status) = self.0.try_wait().unwrap() {
+                    assert!(status.success(), "Server drain failed: {status}");
+                    return;
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "Server did not drain within 10 seconds"
+                );
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        }
+    }
+
+    fn owned_server_pids() -> Vec<u32> {
+        let observed = Command::new("ps")
+            .args(["-axo", "pid=,ppid=,comm="])
+            .output()
+            .unwrap();
+        assert!(observed.status.success());
+        String::from_utf8(observed.stdout)
+            .unwrap()
+            .lines()
+            .filter_map(|line| {
+                let mut fields = line.split_whitespace();
+                let pid = fields.next()?.parse().ok()?;
+                let parent: u32 = fields.next()?.parse().ok()?;
+                let executable = fields.next()?;
+                (parent == std::process::id() && executable == env!("CARGO_BIN_EXE_cantos-server"))
+                    .then_some(pid)
+            })
+            .collect()
+    }
+
+    async fn start(h: &Harness, port: u16, client: &reqwest::Client) -> OwnedServer {
+        let config = local_config(&env::var("CANTOS_TEST_CLUSTER_URL").unwrap()).unwrap();
+        let database: String = h
+            .admin
+            .query_one("SELECT current_database()", &[])
+            .await
+            .unwrap()
+            .get(0);
+        let evidence =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/revision-evidence");
+        std::fs::create_dir_all(&evidence).unwrap();
+        let log = std::fs::File::create(
+            evidence.join(format!("surface-process-{}.log", uuid::Uuid::new_v4())),
+        )
+        .unwrap();
+        let mut child = OwnedServer(
+            Command::new(env!("CARGO_BIN_EXE_cantos-server"))
+                .env_clear()
+                .env(
+                    "DATABASE_URL",
+                    format!(
+                        "postgresql://cantos_app@127.0.0.1:{}/{database}",
+                        config.get_ports()[0]
+                    ),
+                )
+                .env("CANTOS_ENV", "production")
+                .env("CANTOS_BIND_ADDRESS", format!("127.0.0.1:{port}"))
+                .env("CANTOS_STUDIO_WEB_ORIGIN", STUDIO)
+                .env("CANTOS_THEATRE_WEB_ORIGIN", THEATRE)
+                .env("CANTOS_ADMIN_WEB_ORIGIN", ADMIN)
+                .env("CANTOS_STUDIO_OIDC_ISSUER", h.provider.issuer())
+                .env("CANTOS_STUDIO_OIDC_SECRET", "fixture")
+                .env("CANTOS_STUDIO_ADMIN_SUBJECTS", "[\"alice\",\"bob\"]")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(log)
+                .spawn()
+                .unwrap(),
+        );
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            assert!(
+                child.0.try_wait().unwrap().is_none(),
+                "Server exited before readiness"
+            );
+            if client
+                .get(format!(
+                    "http://127.0.0.1:{port}/api/v1/theatre/auth/configuration"
+                ))
+                .send()
+                .await
+                .is_ok_and(|r| r.status() == StatusCode::OK)
+            {
+                break;
+            }
+            assert!(Instant::now() < deadline, "Server readiness timeout");
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        assert_eq!(owned_server_pids(), vec![child.0.id()]);
+        child
+    }
+
+    async fn json(
+        client: &reqwest::Client,
+        port: u16,
+        method: reqwest::Method,
+        path: &str,
+        token: Option<&str>,
+        body: Option<&serde_json::Value>,
+        status: StatusCode,
+    ) -> serde_json::Value {
+        let mut request = client
+            .request(method, format!("http://127.0.0.1:{port}{path}"))
+            .header(
+                header::ORIGIN,
+                if path.starts_with("/api/v1/theatre/") {
+                    THEATRE
+                } else if path.starts_with("/api/v1/admin/") {
+                    ADMIN
+                } else {
+                    STUDIO
+                },
+            );
+        if let Some(token) = token {
+            request = request.bearer_auth(token);
+        }
+        if let Some(body) = body {
+            request = request
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(serde_json::to_vec(body).unwrap());
+        }
+        let response = request.send().await.unwrap();
+        assert_eq!(response.status(), status, "{path}");
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(
+            response.headers()[header::ACCESS_CONTROL_ALLOW_CREDENTIALS],
+            "true"
+        );
+        serde_json::from_slice(&response.bytes().await.unwrap()).unwrap()
+    }
+
+    #[tokio::test]
+    #[ignore = "cargo xtask verify postgres: actual production executable + one owned child + signed fixture"]
+    async fn one_executable_one_listener_preserves_committed_data_across_bounded_restart() {
+        let mut h = Harness::new(Client::Studio).await;
+        h.store = h.store.clone().with_studio_oidc(
+            StudioOidc::new(
+                OidcConfig::new(&h.provider.issuer(), STUDIO, "fixture".into()).unwrap(),
+            )
+            .unwrap()
+            .with_admin_subjects(vec!["alice".into(), "bob".into()])
+            .unwrap(),
+        );
+        let pair = h.login("alice").await;
+        let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = reservation.local_addr().unwrap().port();
+        drop(reservation);
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(3))
+            .build()
+            .unwrap();
+        let mut server = start(&h, port, &client).await;
+        let first_pid = server.0.id();
+        let id = uuid::Uuid::new_v4().to_string();
+        let work = serde_json::json!({"operation_id": uuid::Uuid::new_v4().to_string(), "id": id, "kind":"novel",
+            "details":{"title":"Một máy chủ, ba bề mặt", "synopsis":"Dữ liệu đã commit", "language":"vi-VN", "visibility":"private", "rights_refs":[]}});
+        let created = json(
+            &client,
+            port,
+            reqwest::Method::POST,
+            "/api/v1/studio/works",
+            Some(&pair.access_token),
+            Some(&work),
+            StatusCode::CREATED,
+        )
+        .await;
+        let path = format!("/api/v1/studio/works/{id}");
+        let before = json(
+            &client,
+            port,
+            reqwest::Method::GET,
+            &path,
+            Some(&pair.access_token),
+            None,
+            StatusCode::OK,
+        )
+        .await;
+        json(
+            &client,
+            port,
+            reqwest::Method::GET,
+            "/api/v1/theatre/works?limit=20",
+            None,
+            None,
+            StatusCode::OK,
+        )
+        .await;
+        json(
+            &client,
+            port,
+            reqwest::Method::GET,
+            "/api/v1/theatre/library/continue",
+            Some(&pair.access_token),
+            None,
+            StatusCode::UNAUTHORIZED,
+        )
+        .await;
+        json(
+            &client,
+            port,
+            reqwest::Method::GET,
+            "/api/v1/admin/capabilities",
+            Some(&pair.access_token),
+            None,
+            StatusCode::SERVICE_UNAVAILABLE,
+        )
+        .await;
+        server.stop().await;
+        assert!(owned_server_pids().is_empty());
+        drop(server);
+        let mut server = start(&h, port, &client).await;
+        assert_ne!(server.0.id(), first_pid);
+        assert_eq!(
+            json(
+                &client,
+                port,
+                reqwest::Method::GET,
+                &path,
+                Some(&pair.access_token),
+                None,
+                StatusCode::OK
+            )
+            .await,
+            before
+        );
+        assert_eq!(
+            json(
+                &client,
+                port,
+                reqwest::Method::POST,
+                "/api/v1/studio/works",
+                Some(&pair.access_token),
+                Some(&work),
+                StatusCode::CREATED
+            )
+            .await,
+            created
+        );
+        let rows: i64 = h
+            .admin
+            .query_one(
+                "SELECT count(*) FROM catalog_works WHERE id::text=$1",
+                &[&id],
+            )
+            .await
+            .unwrap()
+            .get(0);
+        assert_eq!(rows, 1);
+        server.stop().await;
+        assert!(owned_server_pids().is_empty());
     }
 }

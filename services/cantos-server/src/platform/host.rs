@@ -2,11 +2,43 @@
 //!
 //! `development` keeps the historical local contract (loopback bind, derived HTTP origin,
 //! development Studio tokens, optional static Studio files). `production` is the deployed
-//! contract: an explicit bind inside the private container network, one explicit HTTPS Web
-//! origin, no static serving, no development Studio credential and no development-only
+//! contract: an explicit bind, separate exact HTTPS origins for each Web surface,
+//! no static serving, no development Studio credential and no development-only
 //! storage, trust or mail fixtures. PostgreSQL stays local (loopback or a Unix socket) in both
 //! modes; see [`crate::platform::postgres::local_config`].
 use std::net::SocketAddr;
+
+/// Trusted browser origins, kept separate even when two development apps share an origin.
+/// Admin browser transport is disabled unless explicitly configured; it grants no capability.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SurfaceOrigins {
+    studio: String,
+    theatre: String,
+    admin: Option<String>,
+}
+
+impl SurfaceOrigins {
+    pub fn new(studio: &str, theatre: &str, admin: Option<&str>) -> Result<Self, HostConfigError> {
+        for origin in [Some(studio), Some(theatre), admin].into_iter().flatten() {
+            cantos_contracts::web_api::ApiOrigin::parse(origin)
+                .map_err(|_| HostConfigError::InvalidSurfaceOrigin)?;
+        }
+        Ok(Self {
+            studio: studio.into(),
+            theatre: theatre.into(),
+            admin: admin.map(str::to_owned),
+        })
+    }
+    pub fn studio(&self) -> &str {
+        &self.studio
+    }
+    pub fn theatre(&self) -> &str {
+        &self.theatre
+    }
+    pub fn admin(&self) -> Option<&str> {
+        self.admin.as_deref()
+    }
+}
 
 /// The closed set of host modes. Anything else in `CANTOS_ENV` refuses to start.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -20,8 +52,8 @@ pub enum HostMode {
 pub struct HostSettings {
     mode: HostMode,
     bind: SocketAddr,
-    web_origin: String,
     web_dist: Option<String>,
+    origins: SurfaceOrigins,
 }
 
 impl HostSettings {
@@ -32,7 +64,10 @@ impl HostSettings {
         self.bind
     }
     pub fn web_origin(&self) -> &str {
-        &self.web_origin
+        self.origins.studio()
+    }
+    pub fn origins(&self) -> &SurfaceOrigins {
+        &self.origins
     }
     /// Static Studio files for the development host; production never serves files.
     pub fn web_dist(&self) -> Option<&str> {
@@ -51,23 +86,27 @@ pub enum HostConfigError {
     InvalidBind,
     DevelopmentBindNotLoopback,
     ProductionBindRequired,
-    ProductionOriginRequired,
     ProductionOriginNotHttps,
     ProductionStaticFiles,
     ProductionDevelopmentAudioRoot,
     ProductionPrivateIssuerTrust,
+    SurfaceOriginsRequired,
+    InvalidSurfaceOrigin,
+    LegacySurfaceConfiguration,
 }
 
 impl HostConfigError {
     pub fn message(self) -> &'static str {
         match self {
+            Self::SurfaceOriginsRequired => "production requires CANTOS_STUDIO_WEB_ORIGIN and CANTOS_THEATRE_WEB_ORIGIN",
+            Self::InvalidSurfaceOrigin => "each surface requires an exact browser origin (HTTPS, or development loopback HTTP)",
+            Self::LegacySurfaceConfiguration => "unset CANTOS_BROWSER_API_SURFACE; production CANTOS_WEB_ORIGIN is replaced by per-surface origins",
             Self::UnknownMode => "CANTOS_ENV must be exactly development or production",
             Self::InvalidBind => "CANTOS_BIND_ADDRESS must be an IP:port socket address",
             Self::DevelopmentBindNotLoopback => "development host must bind loopback",
             Self::ProductionBindRequired => "production requires an explicit CANTOS_BIND_ADDRESS",
-            Self::ProductionOriginRequired => "production requires an explicit CANTOS_WEB_ORIGIN",
             Self::ProductionOriginNotHttps => {
-                "production CANTOS_WEB_ORIGIN must be an exact https origin without path"
+                "production surface origins must be exact https origins without paths"
             }
             Self::ProductionStaticFiles => {
                 "production serves no static files; unset CANTOS_WEB_DIST"
@@ -93,6 +132,11 @@ pub fn host_settings(
         Some("production") => HostMode::Production,
         _ => return Err(HostConfigError::UnknownMode),
     };
+    if lookup("CANTOS_BROWSER_API_SURFACE").is_some()
+        || mode == HostMode::Production && lookup("CANTOS_WEB_ORIGIN").is_some()
+    {
+        return Err(HostConfigError::LegacySurfaceConfiguration);
+    }
     match mode {
         HostMode::Development => {
             let bind: SocketAddr = lookup("CANTOS_BIND_ADDRESS")
@@ -102,10 +146,16 @@ pub fn host_settings(
             if !bind.ip().is_loopback() {
                 return Err(HostConfigError::DevelopmentBindNotLoopback);
             }
+            let default = lookup("CANTOS_WEB_ORIGIN").unwrap_or_else(|| format!("http://{bind}"));
+            let origins = SurfaceOrigins::new(
+                &lookup("CANTOS_STUDIO_WEB_ORIGIN").unwrap_or_else(|| default.clone()),
+                &lookup("CANTOS_THEATRE_WEB_ORIGIN").unwrap_or(default),
+                lookup("CANTOS_ADMIN_WEB_ORIGIN").as_deref(),
+            )?;
             Ok(HostSettings {
                 mode,
                 bind,
-                web_origin: lookup("CANTOS_WEB_ORIGIN").unwrap_or_else(|| format!("http://{bind}")),
+                origins,
                 web_dist: Some(
                     lookup("CANTOS_WEB_DIST").unwrap_or_else(|| DEVELOPMENT_DIST.into()),
                 ),
@@ -119,11 +169,23 @@ pub fn host_settings(
             if bind.port() == 0 {
                 return Err(HostConfigError::InvalidBind);
             }
-            let origin =
-                lookup("CANTOS_WEB_ORIGIN").ok_or(HostConfigError::ProductionOriginRequired)?;
-            if !exact_https_origin(&origin) {
+            let studio = lookup("CANTOS_STUDIO_WEB_ORIGIN")
+                .ok_or(HostConfigError::SurfaceOriginsRequired)?;
+            let theatre = lookup("CANTOS_THEATRE_WEB_ORIGIN")
+                .ok_or(HostConfigError::SurfaceOriginsRequired)?;
+            let admin = lookup("CANTOS_ADMIN_WEB_ORIGIN");
+            if ![
+                Some(studio.as_str()),
+                Some(theatre.as_str()),
+                admin.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+            .all(exact_https_origin)
+            {
                 return Err(HostConfigError::ProductionOriginNotHttps);
             }
+            let origins = SurfaceOrigins::new(&studio, &theatre, admin.as_deref())?;
             if lookup("CANTOS_WEB_DIST").is_some() {
                 return Err(HostConfigError::ProductionStaticFiles);
             }
@@ -136,7 +198,7 @@ pub fn host_settings(
             Ok(HostSettings {
                 mode,
                 bind,
-                web_origin: origin,
+                origins,
                 web_dist: None,
             })
         }
@@ -167,10 +229,14 @@ mod tests {
         host_settings(|name| map.get(name).cloned())
     }
 
-    const PRODUCTION: [(&str, &str); 3] = [
+    const PRODUCTION: [(&str, &str); 4] = [
         ("CANTOS_ENV", "production"),
         ("CANTOS_BIND_ADDRESS", "0.0.0.0:8080"),
-        ("CANTOS_WEB_ORIGIN", "https://studio.cantoss.duckdns.org"),
+        (
+            "CANTOS_STUDIO_WEB_ORIGIN",
+            "https://studio.cantoss.duckdns.org",
+        ),
+        ("CANTOS_THEATRE_WEB_ORIGIN", "https://cantoss.duckdns.org"),
     ];
 
     fn production_with(extra: (&str, &str)) -> Result<HostSettings, HostConfigError> {
@@ -222,7 +288,7 @@ mod tests {
         );
         assert_eq!(
             settings(&PRODUCTION[..2]),
-            Err(HostConfigError::ProductionOriginRequired)
+            Err(HostConfigError::SurfaceOriginsRequired)
         );
         assert_eq!(
             production_with(("CANTOS_BIND_ADDRESS", "0.0.0.0:0")),
@@ -248,12 +314,16 @@ mod tests {
             "studio.cantoss.duckdns.org",
         ] {
             assert_eq!(
-                production_with(("CANTOS_WEB_ORIGIN", origin)),
+                production_with(("CANTOS_STUDIO_WEB_ORIGIN", origin)),
                 Err(HostConfigError::ProductionOriginNotHttps),
                 "{origin}"
             );
         }
-        assert!(production_with(("CANTOS_WEB_ORIGIN", "https://cantoss.duckdns.org:8443")).is_ok());
+        assert!(production_with((
+            "CANTOS_STUDIO_WEB_ORIGIN",
+            "https://cantoss.duckdns.org:8443"
+        ))
+        .is_ok());
     }
 
     #[test]
@@ -269,6 +339,58 @@ mod tests {
         assert_eq!(
             production_with(("CANTOS_THEATRE_OIDC_CA_FILE", "/etc/cantos/ca.pem")),
             Err(HostConfigError::ProductionPrivateIssuerTrust)
+        );
+    }
+
+    #[test]
+    fn surface_configuration_is_exact_separate_and_admin_is_opt_in() {
+        let host = settings(&PRODUCTION).unwrap();
+        assert_eq!(
+            host.origins().studio(),
+            "https://studio.cantoss.duckdns.org"
+        );
+        assert_eq!(host.origins().theatre(), "https://cantoss.duckdns.org");
+        assert_eq!(host.origins().admin(), None);
+        assert_eq!(
+            production_with(("CANTOS_ADMIN_WEB_ORIGIN", "https://admin.example.org"))
+                .unwrap()
+                .origins()
+                .admin(),
+            Some("https://admin.example.org")
+        );
+        for name in [
+            "CANTOS_STUDIO_WEB_ORIGIN",
+            "CANTOS_THEATRE_WEB_ORIGIN",
+            "CANTOS_ADMIN_WEB_ORIGIN",
+        ] {
+            for value in [
+                "*",
+                "null",
+                "https://example.org/",
+                "https://EXAMPLE.org",
+                "http://example.org",
+                "https://user@example.org",
+                "https://example.org:443",
+            ] {
+                assert_eq!(
+                    production_with((name, value)),
+                    Err(HostConfigError::ProductionOriginNotHttps),
+                    "{name} {value}"
+                );
+            }
+        }
+        for name in ["CANTOS_BROWSER_API_SURFACE", "CANTOS_WEB_ORIGIN"] {
+            assert_eq!(
+                production_with((name, "studio")),
+                Err(HostConfigError::LegacySurfaceConfiguration)
+            );
+        }
+        assert_eq!(
+            settings(&[
+                ("CANTOS_ENV", "development"),
+                ("CANTOS_THEATRE_WEB_ORIGIN", "null")
+            ]),
+            Err(HostConfigError::InvalidSurfaceOrigin)
         );
     }
 }

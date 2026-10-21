@@ -344,6 +344,16 @@ origin contract. `app` starts no API and takes neither `--web-origin` nor `--tes
 The development host has one Web origin; simultaneous Studio and Theatre authentication
 against that one host is not established by these profiles.
 
+Every `run` target that starts an API starts **one** `cantos-server` with both local Web
+origins: Studio `http://127.0.0.1:8081`, Theatre `http://127.0.0.1:8082`. Its merged router keeps
+separate route policies and a shared PostgreSQL pool. `run cantos-server --web-origin URL`
+overrides only Studio's origin; a per-app `--web-origin` must still match its Trunk port.
+The runner sets explicit per-surface inputs and removes inherited legacy surface selectors.
+Start the Server once, then attach both frontends with `app cantos-studio --web` and
+`app cantos-theatre --web`; `app` starts no backend. A second `run` on the occupied API port
+refuses rather than reusing or stopping someone else's process. See the [composition
+contract](../docs/architecture/server-http-composition.md) for Admin and production compatibility.
+
 `--test-cluster` serves the API through `scripts/serve_studio.py` against the disposable cluster
 retained by `cargo xtask verify postgres --keep`; that script refuses any other database. xtask
 never reads, prints or invents a database URL. It sets `CANTOS_ENV=development` and the loopback

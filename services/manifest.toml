@@ -7,9 +7,9 @@ implementation = "implemented"
 owner = "Cantos backend maintainers"
 required_dependencies = ["postgresql"]
 optional_dependencies = ["kanidm", "object-storage"]
-development = "Native cargo xtask run; explicit migrated DATABASE_URL or retained test cluster"
-production = "CANTOS_ENV=production image on the VPS (infra/vps, ADR 0039); two single-origin processes"
-environment = ["DATABASE_URL", "CANTOS_ENV", "CANTOS_BIND", "CANTOS_AUDIO_ROOT", "CANTOS_STORAGE_CONFIG"]
+development = "One native cargo xtask run Server for Studio/Theatre/Admin; explicit migrated DATABASE_URL or retained test cluster"
+production = "Source: one listener with per-surface origins; deployed VPS still has two origin-pinned legacy processes (infra/vps, ADR 0039); cutover pending #336"
+environment = ["DATABASE_URL", "CANTOS_ENV", "CANTOS_BIND_ADDRESS", "CANTOS_STUDIO_WEB_ORIGIN", "CANTOS_THEATRE_WEB_ORIGIN", "CANTOS_ADMIN_WEB_ORIGIN", "CANTOS_AUDIO_ROOT", "CANTOS_STORAGE_CONFIG"]
 ports = [8080]
 health = "Native run checks TCP readiness; no identity or publication readiness implied"
 persistence = "PostgreSQL metadata; explicit private development audio root"

@@ -78,9 +78,15 @@ PostgreSQL persistence. Reconciled policy tests and the pre-composition controls
 accept any of those missing integration layers. Keep the old provider until its real replacement
 is available; public first-party forms and Studio passkeys retain the settled D4/D3 decisions.
 
+The [single-process source composition](server-http-composition.md) now uses the canonical inbound
+assembly, one PostgreSQL pool and a listener with route-local origins/state/policies. Its
+configuration migration and deployed legacy runtime are separate. Reuse it in persistence
+slices rather than constructing another router.
+
 The [pre-composition regressions](../../services/cantos-server/tests/surface_policy_baseline.rs)
-exercise the current production API router and origin-pinned browser wrapper. They add no
-multi-origin configuration or new host composition. Prefix-shaped sentinels are deliberately
+retain controls on the origin-pinned browser wrapper and add the executable
+combined-router matrix. The separate PostgreSQL fixture lane covers issued credentials and
+the actual executable restart; results belong to its exact-source PR evidence. Prefix-shaped sentinels are deliberately
 unissued; an own-purpose sentinel reaches an unavailable verifier as a routing/parsing control,
 while a wrong-purpose or ambiguous credential is refused before that verifier. That control
 is not successful authentication or auth E2E evidence. No database, issuer, test session,

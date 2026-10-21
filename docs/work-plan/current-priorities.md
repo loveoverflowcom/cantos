@@ -42,6 +42,10 @@ before proposing supersession; do not allocate/rename Firebase sites in parallel
 the reviewed recovery window, then retire Hosting-only paths after operator acceptance without
 touching Firebase Auth/Functions/App Distribution/storage or identity/runtime owners.
 
+For native Server work (#333), preserve the [one-listener route composition](../architecture/server-http-composition.md)
+as the prerequisite for 333.2–333.8 schema/adapters. The persistence flip remains 333.9; provider
+acceptance and the legacy VPS configuration/activation migration remain separate gates.
+
 ## Recommended next boundaries
 
 | Order | Issue owner | One next outcome | Dependency / review input |

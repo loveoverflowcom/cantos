@@ -29,6 +29,7 @@ struct Assembly<'a> {
     state: AppState,
     dist: Option<&'a str>,
     services: HttpServices,
+    origins: Option<&'a crate::platform::host::SurfaceOrigins>,
 }
 
 impl<'a> Assembly<'a> {
@@ -59,6 +60,7 @@ impl<'a> Assembly<'a> {
             state,
             dist,
             services,
+            origins: None,
         }
     }
 
@@ -68,7 +70,7 @@ impl<'a> Assembly<'a> {
         let dist = self.dist.filter(|_| {
             !self.state.store.audio_storage_is_enabled() && self.services.artwork.is_none()
         });
-        mount_routes(self.state, dist, self.services)
+        mount_routes(self.state, dist, self.services, self.origins)
     }
 }
 
@@ -142,5 +144,23 @@ pub fn router_with_private_artwork(state: AppState, dist: &str, artwork: Artwork
     let mut assembly = Assembly::new(state, Some(dist), None);
     assembly.services.artwork = Some(artwork);
     assembly.services.authenticator = Arc::new(DenyListenerAuthentication);
+    assembly.build()
+}
+
+/// Canonical executable composition: one application pool, one listener, route-local policies.
+/// Public-media capabilities use the same assembly and cannot be selected by a request.
+pub fn server_router(
+    state: AppState,
+    origins: &crate::platform::host::SurfaceOrigins,
+    dist: Option<&str>,
+    public_media: Option<(PublicationService, OriginPlayback)>,
+) -> Router {
+    let mut assembly = Assembly::new(state, dist, None);
+    assembly.origins = Some(origins);
+    if let Some((publication, playback)) = public_media {
+        assembly.services.publication = publication;
+        assembly.services.listener = assembly.services.listener.with_origin_playback(playback);
+        assembly.dist = None;
+    }
     assembly.build()
 }
