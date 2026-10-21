@@ -156,8 +156,8 @@ runtime, database or provider. Kotlin uses the same method;
 `reducePlayback` is the current pure-core example. Do not force this on thin CRUD or an adapter
 that only maps types. Logging is a shell effect too: the core returns typed outcomes and the
 shell emits [structured events](references/structured-observability.md) from them.
-
-→ [`functional-core.md`](references/functional-core.md)
+Purity follows responsibility, not folders; local `mut` is not impurity; transitions keep rejection, no-op and effects distinct; consumers emit typed intents, never open mutable callbacks.
+→ [`functional-core.md`](references/functional-core.md) ([transitions](references/functional-core.md#transition-semantics), [shell order](references/functional-core.md#the-imperative-shell-executes-in-a-fixed-order))
 
 ## 5. Every behavior change gets the cheapest deterministic regression evidence
 

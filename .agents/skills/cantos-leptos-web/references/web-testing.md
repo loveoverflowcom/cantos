@@ -119,6 +119,31 @@ async fn slow_older_episode_response_does_not_replace_newer_selection() {
 Assert only after the stale future has completed *and* the scheduler has flushed; asserting
 earlier passes vacuously. Remove the guard once locally and confirm the test fails.
 
+## Reactive publication regressions
+
+Use these when a change touches [reactive publication](web-architecture.md#reactive-state-ownership-and-publication)
+or [keyed rows](web-architecture.md#dynamic-lists-and-keyed-rows). Count notifications or reruns
+with a test-only `Effect`/memo counter or a recording fake port; count DOM identity by holding a
+node reference across the update. Each regression names its expected count, not "fewer".
+
+| Regression | Oracle |
+|---|---|
+| a stale response changes no state and notifies no aggregate subscriber | subscriber counter unchanged; full state equal before/after |
+| a no-op transition causes no refetch and no notification loop | fake port call count and subscriber counter stay at their prior values |
+| progress of row A does not change or rerun the account heading | heading counter unchanged; heading node identical |
+| replacing A's content keeps list membership when order is unchanged | membership memo/counter unchanged; `children` not called again |
+| A's row shows the update although its ID is unchanged | row text equals the new projection |
+| sibling row B keeps its DOM identity when A changes | node reference for B is the same element |
+| insert/reorder keeps focus and Vietnamese IME composition | focused element and composition state survive (`DOM-tested`; a real IME walkthrough is separate) |
+| removing a row while a selector is pending does not panic | the row's lookup returns `None`; no panic or console error |
+| logout/account switch purges private views and blocks late completions | after switch, no prior-account row text; a late fenced completion leaves state and counters unchanged |
+| a domain effect runs once per transition/protocol step, not per reactive rerun | effect/port counter equals the number of transitions |
+
+Native string-render tests can check projection text and some counts; they are not live DOM,
+focus, IME or browser CPU evidence. Report `DOM-tested`/`interaction-tested` only for a live DOM
+or driven browser, and make no performance claim from a changed source pattern alone; use
+[performance and caching](performance-and-caching.md#comparable-performance-evidence).
+
 ## 4. Real-browser checks
 
 Choose the driver in an ADR (candidates: Playwright, `wasm-bindgen-test` with WebDriver for

@@ -23,6 +23,28 @@ Keep Cantos vocabulary exact: *Studio*, *Theatre*, *Work*, *Adaptation*, *Episod
 *Scene*, *Dialogue*, *cue*, *production run*, *attempt*, *artifact*, *release*, *manifest*.
 Do not invent synonyms ("chapter", "line item", "build") for the same concept.
 
+### Role suffixes name the responsibility
+
+A suffix tells the reader what kind of owner a type is. Choose it from the actual
+responsibility; do not rename merely to match a suffix.
+
+| Suffix | Responsibility | Avoid using it for |
+|---|---|---|
+| `*View`, `*Page`, a component name | presentation/rendering | a session, sync or lifecycle machine |
+| `*Kernel`, `*Decision` | pure control logic over facts | code that awaits or calls a port |
+| `*Machine` | the owner of a state-transition contract | a passive record |
+| `*State` | a state value | the coordinator that executes effects |
+| `*Coordinator`, `*Controller` | effect orchestration in the shell | a pure decision |
+| `*UiProjection`, `*ViewModel` | immutable presentation data | anything holding signals or ports |
+
+This is no repository-wide ban on the word "View": database views, read views, framework types
+and an established `ViewModel` keep their meaning. Example proposal (not performed): Theatre
+`application/account_view.rs` and `AccountViewState` own the account session lifecycle, private
+projection admission and sync coordination, not rendering. A future scoped change could rename
+them to `account_machine.rs` with `AccountSessionState` or `AccountMachineState`, updating every
+import and the [Theatre Web README](../../../../apps/cantos-theatre/web/README.md) module table
+in the same change. Until that happens, docs keep citing the existing paths.
+
 ## Function shape
 
 - One level of abstraction per function. A function that validates, decides and writes is three
