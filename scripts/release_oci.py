@@ -162,7 +162,7 @@ def verify_bundle(root, path, manifest):
     source_sha = manifest["source_sha"]
     with tempfile.TemporaryDirectory(prefix="cantos-oci-verify-", dir=Path(tempfile.gettempdir()).resolve()) as temporary:
         snapshot = Path(temporary) / "runtime.tar"
-        contract.copy_verified(path, snapshot, expected)
+        contract.copy_verified(path, snapshot, expected, limit=MAX_BUNDLE_BYTES)
         with tarfile.open(snapshot, "r:") as archive:
             entries = contract.archive_members(archive)
             contract.require(len(entries) == len(records) and {e.name for e in entries} == set(records),

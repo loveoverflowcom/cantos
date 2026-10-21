@@ -184,13 +184,13 @@ def archive_members(archive, *, web=False, runtime=False, image=False):
     return entries
 
 
-def copy_verified(source, destination, expected):
-    regular(source)
+def copy_verified(source, destination, expected, *, limit=MAX_BYTES):
+    regular(source, limit)
     with source.open("rb") as stream, destination.open("xb") as target:
         total = 0
         while chunk := stream.read(1024 * 1024):
             total += len(chunk)
-            require(total <= MAX_BYTES, "artifact changed or exceeds release limit")
+            require(total <= min(limit, expected["bytes"]), "artifact changed or exceeds release limit")
             target.write(chunk)
     require(file_record(destination, destination.parent) == expected, "artifact changed before staging")
 

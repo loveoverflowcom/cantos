@@ -258,6 +258,23 @@ class OciContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "source SHA mismatch"):
                     oci.verify(source, args)
 
+    def test_oversized_or_grown_bundle_is_bounded_before_snapshot_writes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source, args, manifest, _ = fixture(Path(temporary))
+            bundle = args.manifest.parent / "runtime.tar"
+            with bundle.open("r+b") as stream:
+                stream.truncate(oci.MAX_BUNDLE_BYTES + 1)
+            with self.assertRaisesRegex(ValueError, "bounded nonempty regular file"):
+                oci.verify_bundle(source, bundle, manifest)
+            # A source may grow after metadata was read. The shared copier must stop
+            # before writing beyond the admitted length, even inside its general cap.
+            bundle.write_bytes(b"x" * (1024 * 1024 + 1))
+            destination = Path(temporary) / "snapshot.tar"
+            expected = {"path": "snapshot.tar", "bytes": 1, "sha256": "a" * 64}
+            with self.assertRaisesRegex(ValueError, "changed or exceeds release limit"):
+                contract.copy_verified(bundle, destination, expected, limit=oci.MAX_BUNDLE_BYTES)
+            self.assertEqual(destination.stat().st_size, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
