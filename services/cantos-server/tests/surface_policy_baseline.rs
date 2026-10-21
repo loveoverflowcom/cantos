@@ -637,3 +637,64 @@ async fn combined_public_native_and_protected_routes_keep_their_contracts() {
     )
     .await;
 }
+
+#[tokio::test]
+async fn combined_slow_request_body_expires_with_each_surfaces_error_and_cache_policy() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    let app = combined(None);
+    for (path, origin, expected) in [
+        (
+            "/api/v1/studio/auth/bearer/flows",
+            STUDIO_ORIGIN,
+            json!({"code":"unavailable","current_revision":null,"issues":[]}),
+        ),
+        (
+            "/api/v1/theatre/auth/bearer/flows",
+            THEATRE_ORIGIN,
+            json!({"code":"unavailable","retryable":true}),
+        ),
+    ] {
+        let polled = Arc::new(AtomicBool::new(false));
+        let observed = Arc::clone(&polled);
+        // A slow caller's body reaches the real production JSON extractor; no handler,
+        // verifier or deadline is replaced. The production boundary must stop the read.
+        let body = Body::from_stream(futures_util::stream::poll_fn(move |_| {
+            observed.store(true, Ordering::SeqCst);
+            std::task::Poll::Pending::<Option<Result<axum::body::Bytes, std::io::Error>>>
+        }));
+        let started = std::time::Instant::now();
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(20),
+            app.clone().oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(path)
+                    .header(header::ORIGIN, origin)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(body)
+                    .unwrap(),
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(
+            polled.load(Ordering::SeqCst),
+            "the actual handler must poll the slow body"
+        );
+        assert!(started.elapsed() >= std::time::Duration::from_secs(14));
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        cors_origin(response.headers(), Some(origin));
+        assert_eq!(
+            serde_json::from_slice::<Value>(
+                &response.into_body().collect().await.unwrap().to_bytes()
+            )
+            .unwrap(),
+            expected
+        );
+    }
+}

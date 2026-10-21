@@ -1713,8 +1713,10 @@ mod process_composition {
                 let pid = fields.next()?.parse().ok()?;
                 let parent: u32 = fields.next()?.parse().ok()?;
                 let executable = fields.next()?;
-                (parent == std::process::id() && executable == env!("CARGO_BIN_EXE_cantos-server"))
-                    .then_some(pid)
+                (parent == std::process::id()
+                    && std::path::Path::new(executable).file_name()
+                        == Some(std::ffi::OsStr::new("cantos-server")))
+                .then_some(pid)
             })
             .collect()
     }

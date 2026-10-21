@@ -14,10 +14,10 @@ reads and deprecated aliases. Native requests omit Origin and retain existing ad
 
 | Route group | Surface / browser origin | Credential purpose and owner | CSRF / admission | Error / cache |
 | --- | --- | --- | --- | --- |
-| `/api/v1/studio/*` | Studio / `CANTOS_STUDIO_WEB_ORIGIN` | `studio::admission`, Studio OIDC cookie or checked `ca1_s_` Bearer | Exact Studio Origin for cookie mutations; existing cookie-free Bearer exceptions, fences, recent-auth and transaction rechecks | API `code/current_revision/issues`; no-store except transport-owned private no-cache bytes |
+| `/api/v1/studio/*` | Studio / `CANTOS_STUDIO_WEB_ORIGIN` | `studio::admission`, Studio OIDC cookie or checked `ca1_s_` Bearer | Exact Studio Origin for cookie mutations; existing cookie-free Bearer exceptions, fences, recent-auth and transaction rechecks | API `code/current_revision/issues`; no-store except transport-owned private no-store/no-transform bytes |
 | `/api/v1/{scripts,validation,imports,adaptations,production,session}` and their existing subpaths | Deprecated Studio aliases / same Studio origin | Same supported Studio handlers and admission; no aliases added for newer Catalog/intake routes | Same Studio boundary; existing deprecation/cookie-path handling | Existing API errors, deprecation headers; no-store |
 | `/api/v1/theatre/{works,search,publications}/*`, `/works`, `/search` | Theatre / `CANTOS_THEATRE_WEB_ORIGIN` | `theatre`: anonymous discovery and public-release lookup; playback POST remains narrowly anonymous | Exact Origin when present; only existing playback-authorization POST exemption | Theatre public `code/retryable`; no-store |
-| `/api/v1/theatre/media/{grant}` | Theatre / same Theatre origin | `theatre` + audio transport: scoped, expiring grant and current-release/retraction checks | Grant never grants account/private Studio authority | Existing Theatre/audio errors and transport-owned cache policy |
+| `/api/v1/theatre/media/{grant}` | Theatre / same Theatre origin | `theatre` + audio transport: scoped, expiring grant and current-release/retraction checks | Grant never grants account/private Studio authority | Existing Theatre/audio errors; transport-owned private no-store/no-transform policy |
 | `/api/v1/theatre/{library,progress,operations}/*` | Theatre / same Theatre origin | `theatre_auth::bff_identity`, listener authenticator and Library: distinct Web cookie, `ca1_t_` or native `ca1_n_` admission | Existing bearer/native exceptions, session fence, account/resource and transaction rechecks; never public | Library `code/retryable`, existing auth errors; no-store |
 | Studio/Theatre `/auth/*`, `/session`, `/auth/bearer/*`; Theatre `/native/auth/*` | Matched surface / its own configured origin | Existing flow, callback, cookie/Bearer, enrollment and native-purpose handlers | Exact Origin if present; cookie CSRF, duplicate/mixed credential refusal, existing callback/state/PKCE and no-Origin native rules | Existing auth DTO/status, redirects and cookies; no-store |
 | `/api/v1/admin/*` | Admin / optional `CANTOS_ADMIN_WEB_ORIGIN` | Dedicated `AdminService` verified resource JWT, role/revocation check and immutable audit; never Studio/Theatre session | Browser disabled without its own origin. Existing mutation Origin requirement retained; duplicate Authorization and any Cookie refused | API `code/current_revision/issues`; no-store; absent verifier stays unavailable |
@@ -71,6 +71,10 @@ live Kanidm acceptance. The process regression in `bearer_postgres` starts the a
 executable in production mode, checks exactly one owned Server child, uses one listener for
 all surfaces, writes through an issued fixture credential, gracefully stops/restarts and checks
 committed data and exact operation replay. It belongs to the existing PostgreSQL gate.
+The existing Theatre media seed now uses the same canonical combined assembly with distinct
+browser origins and checks actual promoted public bytes, private owner Range reads, their exact
+cache/CORS headers and cross-origin/anonymous refusals. The combined-router slow-body regression
+reaches the production JSON extractor and its unmodified 15-second surface deadline.
 
 Browser/device journeys, real provider acceptance, Kani, Turso serving, native no-infrastructure
 acceptance, footprint and VPS cutover are separate gates. Test results and exact source SHAs
