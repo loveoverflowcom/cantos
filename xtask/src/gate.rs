@@ -13,8 +13,9 @@ use crate::{
     command::CommandSpec,
     config::{
         App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, IDENTITY_PACKAGE,
-        IDENTITY_PERSISTENCE_FEATURE, THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE,
-        TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET,
+        IDENTITY_PERSISTENCE_FEATURE, IDENTITY_RPC_PACKAGE, IDENTITY_SERVICE_FEATURE,
+        THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE,
+        TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET,
     },
     kani::{self, Kernel},
     pipeline::Step,
@@ -373,6 +374,40 @@ impl Gate {
                     IDENTITY_PERSISTENCE_FEATURE,
                     "--locked",
                 ]),
+                // The service feature adds credentials, mail, private RPC and the executable. Its
+                // integration tests spawn that executable against real Turso files and a
+                // run-owned loopback SMTP sink; no external service is started.
+                cargo(&[
+                    "clippy",
+                    "-p",
+                    IDENTITY_PACKAGE,
+                    "--features",
+                    IDENTITY_SERVICE_FEATURE,
+                    "--all-targets",
+                    "--locked",
+                    "--",
+                    "-D",
+                    "warnings",
+                ]),
+                cargo(&[
+                    "test",
+                    "-p",
+                    IDENTITY_PACKAGE,
+                    "--features",
+                    IDENTITY_SERVICE_FEATURE,
+                    "--locked",
+                ]),
+                cargo(&[
+                    "clippy",
+                    "-p",
+                    IDENTITY_RPC_PACKAGE,
+                    "--all-targets",
+                    "--locked",
+                    "--",
+                    "-D",
+                    "warnings",
+                ]),
+                cargo(&["test", "-p", IDENTITY_RPC_PACKAGE, "--locked"]),
                 cargo(&[
                     "clippy",
                     "-p",
@@ -666,6 +701,10 @@ mod tests {
             [
                 "cargo clippy -p cantos-identity --features persistence --all-targets --locked -- -D warnings",
                 "cargo test -p cantos-identity --features persistence --locked",
+                "cargo clippy -p cantos-identity --features service --all-targets --locked -- -D warnings",
+                "cargo test -p cantos-identity --features service --locked",
+                "cargo clippy -p cantos-identity-rpc --all-targets --locked -- -D warnings",
+                "cargo test -p cantos-identity-rpc --locked",
                 "cargo clippy -p cantos-store-turso --features testing --all-targets --locked -- -D warnings",
                 "cargo test -p cantos-store-turso --features testing --locked",
                 "cargo run --locked -p cantos-store-turso --features testing --bin cantos-turso-capability -- report",

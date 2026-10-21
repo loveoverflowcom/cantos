@@ -4,22 +4,48 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.98.1"
 publish = false
-description = "Pure security-state kernels for the Cantos native Identity boundary"
+description = "Cantos native Identity: security-state kernels, credentials and the private RPC executable"
 
 [features]
 # Opt-in service-owned persistence; the default/Kani core has no database dependency.
 persistence = ["dep:cantos-store-turso", "dep:getrandom", "dep:sha2", "dep:subtle", "dep:zeroize"]
+# Credentials, mail, private RPC and the `cantos-identity` executable. Never part of the default
+# pure core, so Kani and `cargo test -p cantos-identity` keep their dependency-free build.
+service = [
+    "persistence",
+    "dep:argon2",
+    "dep:cantos-identity-rpc",
+    "dep:lettre",
+    "dep:tokio",
+    "dep:tokio-stream",
+    "dep:tonic",
+]
 
 [dependencies]
+argon2 = { version = "=0.5.3", default-features = false, features = ["alloc", "password-hash"], optional = true }
+cantos-identity-rpc = { path = "../../packages/contracts/identity-rpc", optional = true }
 cantos-store-turso = { path = "../../packages/store-turso", optional = true }
 getrandom = { version = "=0.3.4", optional = true }
+lettre = { version = "=0.11.23", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls", "ring", "webpki-roots"], optional = true }
 sha2 = { version = "=0.10.9", optional = true }
 subtle = { version = "=2.6.1", default-features = false, optional = true }
-zeroize = { version = "=1.9.1", default-features = false, optional = true }
+tokio = { version = "=1.47.1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"], optional = true }
+tokio-stream = { version = "=0.1.19", default-features = false, features = ["net"], optional = true }
+tonic = { version = "=0.14.5", default-features = false, features = ["transport", "codegen", "router"], optional = true }
+zeroize = { version = "=1.9.1", default-features = false, features = ["alloc"], optional = true }
 
 [dev-dependencies]
 cantos-store-turso = { path = "../../packages/store-turso", features = ["testing"] }
-tokio = { version = "=1.47.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
+prost = { version = "=0.14.4", default-features = false, features = ["derive", "std"] }
+tonic-prost = { version = "=0.14.5", default-features = false }
+tokio = { version = "=1.47.1", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tower = { version = "=0.5.2", default-features = false, features = ["util"] }
+
+[[bin]]
+name = "cantos-identity"
+path = "src/bin/cantos-identity.rs"
+required-features = ["service"]
 
 [lints.rust]
 # Kani injects its crate only for cfg(kani); normal builds have no verifier dependency.

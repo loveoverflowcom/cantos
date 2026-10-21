@@ -198,6 +198,14 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
             setup: false,
             conformance: false,
         });
+    } else if within(path, "packages/contracts/identity-rpc") {
+        // The Identity RPC contract is its own Cargo member and shares no file with the
+        // Studio/Theatre contracts crate, so it selects only itself and its dependents.
+        if !is_doc {
+            if let Some(package) = graph.owner(path) {
+                impact.packages.insert(package.name.clone());
+            }
+        }
     } else if within(path, CONTRACTS) {
         // Fixtures (Markdown manuscripts included) and schemas are read by Rust tests.
         if is_doc && !within(path, "packages/contracts/fixtures") {
@@ -593,6 +601,34 @@ mod tests {
                 "{path}"
             );
         }
+    }
+
+    #[test]
+    fn identity_rpc_contract_inputs_select_it_and_identity_with_the_turso_gate() {
+        for path in [
+            "packages/contracts/identity-rpc/src/lib.rs",
+            "packages/contracts/identity-rpc/src/generated.rs",
+            "packages/contracts/identity-rpc/Cargo.toml",
+            "packages/contracts/identity-rpc/tests/wire.rs",
+            "packages/contracts/identity-rpc/identity_v1.proto",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository",
+                    "rust-format",
+                    "rust-lint (cantos-identity, cantos-identity-rpc)",
+                    "rust-tests (cantos-identity, cantos-identity-rpc)",
+                    "turso",
+                ],
+                "{path}"
+            );
+        }
+        // Its prose contract is a document: repository gate only.
+        let document = pick(&["packages/contracts/identity-rpc-v1.md"]);
+        assert_eq!(names(&document), ["repository", "rust-format"]);
     }
 
     #[test]

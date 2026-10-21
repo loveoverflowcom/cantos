@@ -219,6 +219,29 @@ impl IdentityStore {
             .transpose()
     }
 
+    /// Whether `secret` is the secret behind this exact locator of this workflow. A read-only
+    /// pre-check that lets a caller refuse a wrong proof BEFORE spending KDF work; it consumes
+    /// nothing and the authoritative comparison is repeated inside the completing transaction.
+    pub async fn proof_secret_matches(
+        &self,
+        workflow: OperationId,
+        id: ProofId,
+        secret: &ProofSecret,
+    ) -> Result<bool, ProofStoreError> {
+        let reader = self.database.reader().await?;
+        let mut rows = reader
+            .query(
+                "SELECT secret_digest FROM mailbox_proof_issues WHERE proof_id=?1 AND workflow_id=?2",
+                [id.to_bytes().to_vec(), workflow.to_bytes().to_vec()],
+            )
+            .await?;
+        let Some(row) = rows.next().await? else {
+            return Ok(false);
+        };
+        let stored: [u8; 32] = bytes(&row, 0)?;
+        Ok(bool::from(stored.ct_eq(&secret.digest())))
+    }
+
     pub async fn mailbox_receipt(
         &self,
         command: ProofCommandId,
@@ -241,6 +264,24 @@ impl IdentityStore {
         expires: ProofTime,
     ) -> Result<ProofReceipt, ProofStoreError> {
         self.check_proof_epoch(binding)?;
+        let tx = self.database.begin_write().await?;
+        let result = self
+            .issue_mailbox_proof_in_transaction(&tx, command, binding, material, expires)
+            .await;
+        finish(tx, result).await
+    }
+
+    /// Composition primitive for a workflow that must commit extra immutable binding rows with
+    /// its first proof. `tx` must originate from this store's database.
+    pub(crate) async fn issue_mailbox_proof_in_transaction(
+        &self,
+        tx: &WriteTransaction<'_>,
+        command: ProofCommandId,
+        binding: ProofBinding,
+        material: &ProofMaterial,
+        expires: ProofTime,
+    ) -> Result<ProofReceipt, ProofStoreError> {
+        self.check_proof_epoch(binding)?;
         let digest = material.secret.digest();
         let request = fingerprint(
             ProofReceiptAction::Issued,
@@ -252,19 +293,29 @@ impl IdentityStore {
             0,
             0,
         );
-        let tx = self.database.begin_write().await?;
-        let result = async {
-            if let Some(receipt) = replay(&tx, command, request).await? { return Ok(receipt); }
-            check_recovery(&tx, binding).await?;
-            if current(&tx, binding.operation()).await?.is_some() { return Err(ProofStoreError::Exists); }
-            let proof = MailboxProof::issue(material.id, binding, now(&tx)?, expires)?;
-            insert_issue(&tx, proof, digest).await?;
-            let mut values = binding_values(binding);
-            values.push(Value::Blob(material.id.to_bytes().to_vec()));
-            tx.execute("INSERT INTO mailbox_proof_workflows(workflow_id,instance_epoch,intent,recovery_subject,recovery_version,purpose,current_proof_id,state) VALUES(?1,?2,?3,?4,?5,?6,?7,1)", params_from_iter(values)).await?;
-            record(&tx, command, ProofReceiptAction::Issued, request, proof).await
-        }.await;
-        finish(tx, result).await
+        if let Some(receipt) = replay(tx, command, request).await? {
+            return Ok(receipt);
+        }
+        check_recovery(tx, binding).await?;
+        if current(tx, binding.operation()).await?.is_some() {
+            return Err(ProofStoreError::Exists);
+        }
+        let proof = MailboxProof::issue(material.id, binding, now(tx)?, expires)?;
+        insert_issue(tx, proof, digest).await?;
+        let mut values = binding_values(binding);
+        values.push(Value::Blob(material.id.to_bytes().to_vec()));
+        tx.execute("INSERT INTO mailbox_proof_workflows(workflow_id,instance_epoch,intent,recovery_subject,recovery_version,purpose,current_proof_id,state) VALUES(?1,?2,?3,?4,?5,?6,?7,1)", params_from_iter(values)).await?;
+        record(tx, command, ProofReceiptAction::Issued, request, proof).await
+    }
+
+    /// Current binding of a workflow, read inside the caller's transaction. The binding is
+    /// authoritative stored state, never a decoded request.
+    pub(crate) async fn workflow_binding_in_transaction(
+        &self,
+        tx: &WriteTransaction<'_>,
+        workflow: OperationId,
+    ) -> Result<Option<MailboxProof>, ProofStoreError> {
+        Ok(current(tx, workflow).await?.map(|stored| stored.proof))
     }
 
     /// Commits challenge consumption only. It must never be used as a setup/login permit.

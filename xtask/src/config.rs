@@ -30,6 +30,9 @@ pub const FORGE_PACKAGE: &str = "cantos-forge";
 pub const TURSO_STORE_PACKAGE: &str = "cantos-store-turso";
 pub const IDENTITY_PACKAGE: &str = "cantos-identity";
 pub const IDENTITY_PERSISTENCE_FEATURE: &str = "persistence";
+/// Credentials, mail, private RPC and the `cantos-identity` executable (never in the pure core).
+pub const IDENTITY_SERVICE_FEATURE: &str = "service";
+pub const IDENTITY_RPC_PACKAGE: &str = "cantos-identity-rpc";
 /// Feature that exposes only run-owned temp directories and a deterministic clock; never a runtime build.
 pub const TURSO_TESTING_FEATURE: &str = "testing";
 pub const TURSO_CAPABILITY_BIN: &str = "cantos-turso-capability";
