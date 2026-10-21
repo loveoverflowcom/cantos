@@ -46,7 +46,7 @@ Inspect these owners before attempting the native connection:
 
 | Boundary | Implemented source | Consequence for the next slice |
 | --- | --- | --- |
-| Shared embedded store | [`cantos-store-turso`](../../packages/store-turso/README.md) supplies `OwnedDatabase`, checked startup/migrations, serialized writes, typed commit outcomes and verified backup | Identity's opt-in security-state shell consumes this owner. Server does not. Reuse the owner API; engine tests alone do not establish serving/auth runtime acceptance. |
+| Shared embedded store | [`cantos-store-turso`](../../packages/store-turso/README.md) supplies `OwnedDatabase`, checked startup/migrations, serialized writes, typed commit outcomes and verified backup | Identity's opt-in security-state shell consumes this owner. Server holds an uncomposed [candidate schema](server-turso-schema.md) with the actor registry slice. Reuse the owner API; engine tests alone do not establish serving/auth runtime acceptance. |
 | Process entrypoint | [`cantos-server`](../../services/cantos-server/src/bin/cantos-server.rs) reads `DATABASE_URL`, calls PostgreSQL `verify_schema`, constructs `Store::new`, then composes the [one-listener, per-surface HTTP host](server-http-composition.md) | Selecting `CANTOS_THEATRE_NATIVE_ISSUER` still configures the existing provider adapter; it does not start or call Cantos Identity. |
 | Application storage | [`Store`](../../services/cantos-server/src/application.rs) contains `deadpool_postgres::Pool`; [`platform::postgres`](../../services/cantos-server/src/platform/postgres/mod.rs) owns connections and concrete transactions | A new file flag or disconnected actor DB would not replace this durable path. All context adapters and cross-context transaction fences must be ready before #333.9's atomic flip. |
 | HTTP/session admission | [`Studio admission`](../../services/cantos-server/src/adapters/inbound/http/studio/admission.rs), [`bearer`](../../services/cantos-server/src/platform/bearer/mod.rs) and its [`PostgreSQL adapter`](../../services/cantos-server/src/platform/bearer/postgres.rs) | Preserve provider checks, final transaction admission, purpose, roster, ActorId, expiry and resource fences until the accepted native verifier/session path replaces them. SessionPolicy reuse is not credential verification. |
@@ -58,8 +58,8 @@ Inspect these owners before attempting the native connection:
 
 1. Reuse the shared [`cantos-store-turso`](../../packages/store-turso/README.md)
    owner/migration/transaction API supplied by [#341](https://github.com/loveoverflowcom/cantos/pull/341)
-   on the integration branch. Identity's persistence/service consumer exists; Server's Turso
-   runtime composition is still missing. Do not copy it or create a competing owner. Engine tests alone do not
+   on the integration branch. Identity's persistence/service consumer exists; the Server [candidate schema](server-turso-schema.md)
+   reuses it, but Server's Turso runtime composition is still missing. Do not copy it or create a competing owner. Engine tests alone do not
    establish a service consumer.
 2. Read #332's implemented draft [RPC contract](../../packages/contracts/identity-rpc-v1.md),
    Tonic/Prost and credential qualification. A generated DTO is not a sealed authentication fact.
@@ -70,6 +70,9 @@ Inspect these owners before attempting the native connection:
    an eligible actor/binding adapter seam **inside that owner**, not a reason to open a second
    partial `server.db`. Its real tests must cover exact-key replay, no losing actor, inactive
    targets, immutable binding, concurrent writes, reopen and unknown-commit reconciliation.
+   The uncomposed [`TursoIdentityRegistry`](../../services/cantos-server/src/platform/identity/turso.rs)
+   implements that seam inside the one Server registry, with the
+   [invariant mapping](server-turso-schema.md#invariant-mapping) and those file-backed tests.
 4. #334's service feature supplies password credentials (Theatre, and Studio under ADR 0045),
    `AuthenticationFact`, `instance_epoch`, executable and authenticated UDS RPC. Under the v1
    amendment, #335's backend slice integrates that client against authoritative Server PostgreSQL

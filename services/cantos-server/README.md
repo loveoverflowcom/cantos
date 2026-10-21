@@ -115,6 +115,7 @@ src/
     policy.rs              # cross-surface Origin/deadline/cache middleware
     studio/admission.rs    # Studio credentials, fences and admission lease
   platform/                 # postgres/session/IDs/migrations/optional grouped-count core
+    turso/                  # uncomposed candidate server.db registry (#333; actor registry slice)
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
 ```
 

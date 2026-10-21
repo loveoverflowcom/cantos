@@ -202,7 +202,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 | --- | --- | --- |
 | Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-server`, `cantos-studio`, `cantos-theatre` |
 | RAM credential lifecycle and browser authorization adapter | `packages/web-auth` | Studio Web and Theatre Web; separate purposes/instances |
-| Single-owner embedded Turso foundation (owner lock, schema registry, serialized writer, backup) | `packages/store-turso` | opt-in [`cantos-identity` persistence](../../services/cantos-identity/README.md#file-backed-security-state) (#334); Server consumer remains planned (#333), no production composition |
+| Single-owner embedded Turso foundation (owner lock, schema registry, serialized writer, backup) | `packages/store-turso` | opt-in [`cantos-identity` persistence](../../services/cantos-identity/README.md#file-backed-security-state) (#334); uncomposed Server [candidate schema](server-turso-schema.md) (actor registry slice, #333), no production composition |
 | Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web live auth/account and isolated mock; development gallery |
 
 Not shared, deliberately:
