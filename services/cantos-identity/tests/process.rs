@@ -132,6 +132,20 @@ async fn mailbox_owner_signs_up_then_authenticates_again_after_a_restart() {
     assert_eq!(verified.subject.to_vec(), done.subject_id);
     assert_eq!(verified.instance_epoch.to_vec(), done.instance_epoch);
     assert_eq!(verified.security_version, 1);
+    // #335 v1: the same account also authenticates for Studio with its password. Identity keeps
+    // no Studio roster; that admission is the Server's.
+    let mut studio = login(8, OWNER, PASSWORD, "203.0.113.5");
+    studio.purpose = Purpose::Studio as i32;
+    let studio_fact = rpc
+        .authenticate_password(studio)
+        .await
+        .unwrap()
+        .into_inner()
+        .fact
+        .unwrap();
+    let studio_verified = validate_fact(&studio_fact, [8; 16], Purpose::Studio).unwrap();
+    assert_eq!(studio_verified.subject, verified.subject);
+    assert_eq!(studio_verified.purpose, Purpose::Studio);
     let state = rpc
         .get_security_state(GetSecurityStateRequest {
             subject_id: done.subject_id.clone(),
@@ -254,16 +268,10 @@ async fn the_initiator_never_receives_the_proof_and_the_owner_alone_sets_the_pas
 // ---- C: boundary refusals -----------------------------------------------------------------------
 
 #[tokio::test]
-async fn studio_unknown_methods_and_malformed_requests_are_refused_without_effect() {
+async fn unknown_methods_and_malformed_requests_are_refused_without_effect() {
     let w = world().await;
     let instance = w.env.serve().await.ok().unwrap();
     let mut rpc = client(&instance.socket).await;
-    let mut studio = login(1, OWNER, PASSWORD, "203.0.113.5");
-    studio.purpose = Purpose::Studio as i32;
-    assert_eq!(
-        rpc.authenticate_password(studio).await.unwrap_err().code(),
-        Code::Unimplemented
-    );
     let mut unspecified = login(1, OWNER, PASSWORD, "203.0.113.5");
     unspecified.purpose = Purpose::Unspecified as i32;
     assert_eq!(

@@ -137,10 +137,19 @@ fn a_fact_is_accepted_only_for_its_operation_purpose_and_assurance() {
         validate_fact(&fact(), [4; 16], Purpose::Studio),
         Err(FactRejected::WrongPurpose)
     );
+    // #335 v1: a Studio fact is accepted for the Studio purpose and only for it.
     let mut studio = fact();
     studio.purpose = Purpose::Studio as i32;
+    let accepted_studio = validate_fact(&studio, [4; 16], Purpose::Studio).unwrap();
+    assert_eq!(accepted_studio.purpose, Purpose::Studio);
     assert_eq!(
-        validate_fact(&studio, [4; 16], Purpose::Studio),
+        validate_fact(&studio, [4; 16], Purpose::Theatre),
+        Err(FactRejected::WrongPurpose)
+    );
+    let mut unspecified = fact();
+    unspecified.purpose = Purpose::Unspecified as i32;
+    assert_eq!(
+        validate_fact(&unspecified, [4; 16], Purpose::Unspecified),
         Err(FactRejected::WrongPurpose)
     );
     for assurance in [0, 2, 99] {

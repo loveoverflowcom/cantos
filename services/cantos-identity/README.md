@@ -11,7 +11,9 @@ on `refactor/cantos-native-turso`; it is **not** the whole of #334 and it is not
   RPC boundary and the executable (see [Verification](#verification) for exactly what ran).
 * Not implemented: Studio provisioning, passkey and recovery codes; credential recovery,
   change-password, second factors, disable/re-enable RPC; restore epoch rotation; the security-event
-  consumer; the Server session/ActorId binding and every front end (#335); network mode.
+  consumer; every front end (#335); network mode. The Server consumer (private client, fresh
+  security-state reads, sessions and ActorId binding on PostgreSQL) is the
+  [Identity auth v1 contract](../../packages/contracts/identity-auth-v1.md).
 * The end point is an **authentication fact** of Identity. It is neither an application session nor
   authorization of any resource. See the [RPC contract](../../packages/contracts/identity-rpc-v1.md).
 
@@ -25,9 +27,11 @@ on `refactor/cantos-native-turso`; it is **not** the whole of #334 and it is not
 | `MailboxProof` transition plans | Only explicit, currently bound, unexpired confirmation plans consumption; cancellation/consumption are terminal; replacement changes the locator after an explicit cooldown | Exact expiry/clock/storage edges, all binding changes, terminal/replacement refusals and 1,296 four-step traces on production symbols |
 
 `Purpose` has separate Theatre and Studio cases. `Assurance` is categorical, with no ordering
-or arithmetic. The Theatre password path admits `Password`; the Studio D3 path admits only
-`UserVerifiedPasskey`. A passkey without user verification, mailbox proof or one recovery code
-cannot complete either login path. A future additional path requires an explicit policy change;
+or arithmetic. The Theatre password path admits `Password`. Studio admits `Password` too (the
+[#335 v1 decision](../../packages/contracts/identity-auth-v1.md#owner-decision-recorded-here-v1-scope-amendment);
+Identity keeps no Studio roster, which is the Server's) and the deferred D3 `UserVerifiedPasskey`
+path. A passkey without user verification, mailbox proof or one recovery code cannot complete
+either login path. A future additional path requires an explicit policy change;
 these labels do not implement or verify any factor.
 
 `check_completion` returns only a decision (`Result<(), CompletionDenied>`), never an

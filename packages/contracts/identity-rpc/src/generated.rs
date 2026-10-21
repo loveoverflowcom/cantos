@@ -118,8 +118,8 @@ pub struct GetSecurityStateResponse {
 pub enum Purpose {
     Unspecified = 0,
     Theatre = 1,
-    /// Reserved for the passkey flow. This build rejects it explicitly; it is never downgraded
-    /// to password-only authentication.
+    /// Studio admission. The #335 v1 decision accepts Assurance PASSWORD for it; the Server owns
+    /// the Studio roster, and a passkey path remains a separate, deferred assurance.
     Studio = 2,
 }
 impl Purpose {
