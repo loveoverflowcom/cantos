@@ -217,7 +217,7 @@ fn status_line(units: &UnitList, work_kind: WorkKind, locale: Locale) -> String 
 
 #[derive(Clone, Copy)]
 pub(crate) struct WorkSyncControls {
-    pub account: RwSignal<AccountViewState>,
+    pub account: ReadSignal<AccountViewState>,
     pub on_login_to_save: Callback<()>,
     pub on_set_saved: Callback<(String, bool, Option<WorkPresentation>)>,
     pub on_retry_saved: Callback<String>,
@@ -1384,7 +1384,7 @@ mod tests {
                 let account = RwSignal::new(account_state);
                 let listen = controls();
                 let sync_controls = WorkSyncControls {
-                    account,
+                    account: account.read_only(),
                     on_set_saved: Callback::new(|_| {}),
                     on_retry_saved: Callback::new(|_| {}),
                     on_login_to_save: Callback::new(|_| {}),

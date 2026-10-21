@@ -1,4 +1,5 @@
 pub(crate) mod account;
+mod account_ui;
 pub(crate) mod auth;
 pub(crate) mod auth_copy;
 #[cfg(feature = "preview")]

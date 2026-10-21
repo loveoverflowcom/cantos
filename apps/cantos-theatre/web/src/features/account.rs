@@ -1,6 +1,7 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
 use super::common::*;
 use super::{
+    account_ui::{account_ui, AccountUi},
     auth::{label, AuthActions, SessionRecovery},
     auth_copy::CopyKey,
 };
@@ -103,14 +104,14 @@ pub(crate) fn account_failure_key(failure: AccountFailure) -> Key {
     }
 }
 
-fn live_status_key(state: &AccountViewState) -> Key {
-    match state.phase() {
+fn live_status_key(state: &AccountUi) -> Key {
+    match state.phase {
         SessionPhase::Idle | SessionPhase::Checking => Key::AccountChecking,
         SessionPhase::Guest => Key::LiveGuestStatus,
         SessionPhase::SignedIn => Key::SignedInListener,
         SessionPhase::Failed(failure) => account_failure_key(failure),
         SessionPhase::LogoutPending => {
-            if state.cleanup_in_flight() {
+            if state.cleanup_in_flight {
                 Key::AccountLogoutPending
             } else {
                 Key::AccountLogoutRetryHelp
@@ -119,9 +120,32 @@ fn live_status_key(state: &AccountViewState) -> Key {
     }
 }
 
+fn profile_heading(
+    ui: Memo<AccountUi>,
+    locale: RwSignal<Locale>,
+) -> impl Fn() -> &'static str + Copy {
+    move || {
+        super::auth_copy::text(
+            if ui.get().phase == SessionPhase::SignedIn {
+                CopyKey::SignedHeading
+            } else {
+                CopyKey::GuestHeading
+            },
+            locale.get(),
+        )
+    }
+}
+
+fn profile_status(
+    ui: Memo<AccountUi>,
+    locale: RwSignal<Locale>,
+) -> impl Fn() -> &'static str + Copy {
+    move || messages::text(live_status_key(&ui.get()), locale.get())
+}
+
 #[component]
 pub(crate) fn LiveAccount(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     registration: RwSignal<crate::application::registration::RegistrationState>,
     on_registration_refresh: Callback<()>,
@@ -132,6 +156,7 @@ pub(crate) fn LiveAccount(
     on_refresh: Callback<()>,
     on_membership: Callback<()>,
 ) -> impl IntoView {
+    let ui = account_ui(state);
     view! {
         <section id="account" aria-labelledby="theatre-live-account-heading">
             <header class="theatre-page-heading">
@@ -141,23 +166,22 @@ pub(crate) fn LiveAccount(
             <div class="theatre-account">
                 <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
                     <span class="theatre-avatar" data-size="large" aria-hidden="true"><PersonGlyph/></span>
-                    <h2>{move || super::auth_copy::text(
-                        if state.get().phase() == SessionPhase::SignedIn { CopyKey::SignedHeading } else { CopyKey::GuestHeading }, locale.get())}</h2>
+                    <h2>{profile_heading(ui, locale)}</h2>
                     <p id="theatre-live-account-status" role="status" aria-live="polite">
-                        {move || messages::text(live_status_key(&state.get()), locale.get())}
+                        {profile_status(ui, locale)}
                     </p>
                     <p>{move || super::auth_copy::text(
-                        if state.get().phase() == SessionPhase::SignedIn { CopyKey::SignedHelp } else { CopyKey::GuestHelp }, locale.get())}</p>
-                    <Show when=move || state.get().can_authenticate()>
+                        if ui.get().phase == SessionPhase::SignedIn { CopyKey::SignedHelp } else { CopyKey::GuestHelp }, locale.get())}</p>
+                    <Show when=move || ui.get().can_authenticate>
                         <AuthActions state registration locale scope="theatre-account" on_login on_register on_configuration_retry=on_registration_refresh/>
                     </Show>
-                    <Show when=move || state.get().phase() == SessionPhase::SignedIn>
+                    <Show when=move || ui.get().phase == SessionPhase::SignedIn>
                         <a class="theatre-action theatre-account-library-link" href="#library">{label(locale, CopyKey::OpenLibrary)}</a>
                     </Show>
                     <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
                     <Show when=move || {
-                            let current = state.get();
-                            !matches!(current.phase(), SessionPhase::Idle | SessionPhase::Checking | SessionPhase::LogoutPending | SessionPhase::Failed(_))
+                            let current = ui.get();
+                            !matches!(current.phase, SessionPhase::Idle | SessionPhase::Checking | SessionPhase::LogoutPending | SessionPhase::Failed(_))
                     }>
                         <Button id="theatre-account-refresh-current" variant=ButtonVariant::Text
                             on_press=Callback::new(move |_| on_refresh.run(()))>
@@ -199,7 +223,7 @@ pub(crate) fn LiveAccount(
                                 <li><a href="#library">{label(locale, CopyKey::OpenLibrary)}</a></li>
                                 <li><a href="#settings">{label(locale, CopyKey::SettingsHelp)}</a></li>
                             </ul>
-                            <Show when=move || state.get().phase() == SessionPhase::SignedIn>
+                            <Show when=move || ui.get().phase == SessionPhase::SignedIn>
                                 <Button id="theatre-account-logout" variant=ButtonVariant::Text
                                     on_press=Callback::new(move |_| on_logout.run(()))>
                                     {move || messages::text(Key::SignOut, locale.get())}
@@ -217,12 +241,146 @@ pub(crate) fn LiveAccount(
 mod tests {
     use super::*;
 
-    fn render_live(state: RwSignal<AccountViewState>, locale: RwSignal<Locale>) -> String {
+    fn render_live(state: ReadSignal<AccountViewState>, locale: RwSignal<Locale>) -> String {
         let theme = RwSignal::new(Theme::System);
         let noop = Callback::new(|()| {});
         view! { <LiveAccount state locale theme registration=RwSignal::new(crate::application::registration::RegistrationState::default()) on_registration_refresh=noop on_login=noop on_register=noop
         on_logout=noop on_refresh=noop on_membership=noop/> }
         .to_html()
+    }
+
+    #[test]
+    fn profile_closures_ignore_library_and_sync_notifications_but_follow_phase_and_locale() {
+        use crate::application::library::Section;
+        use crate::features::auth_preview::{signed_in, PreviewActor};
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            signed_in(state, PreviewActor::A).unwrap();
+            let locale = RwSignal::new(Locale::English);
+            let ui = account_ui(state.read_only());
+            let runs = Arc::new(AtomicUsize::new(0));
+            let count = runs.clone();
+            let heading = profile_heading(ui, locale);
+            let status = profile_status(ui, locale);
+            // These are the same production closures installed by LiveAccount. The wrapper
+            // counts their execution, not the upstream projection's recomputations.
+            let rendered = Memo::new(move |_| {
+                count.fetch_add(1, Ordering::SeqCst);
+                (heading(), status())
+            });
+            assert_eq!(rendered.get().1, "Signed-in listener");
+            let fence = state.with_untracked(AccountViewState::fence).unwrap();
+            for _ in 0..3 {
+                state.update(|s| {
+                    s.with_sync_mut(|sync, _| {
+                        sync.begin_saved_read(&uuid::Uuid::from_u128(99).to_string())
+                    });
+                });
+                assert_eq!(rendered.get().1, "Signed-in listener");
+                state.update(|s| s.record_storage(&fence, Ok(())));
+                assert_eq!(rendered.get().1, "Signed-in listener");
+            }
+            state.update(|s| {
+                s.begin_library(Section::Saved, true);
+            });
+            assert_eq!(rendered.get().1, "Signed-in listener");
+            assert_eq!(
+                runs.load(Ordering::SeqCst),
+                1,
+                "unrelated writes add zero profile runs"
+            );
+            state.update(|s| {
+                s.begin_logout().unwrap();
+            });
+            assert_eq!(
+                rendered.get().1,
+                messages::text(Key::AccountLogoutPending, Locale::English)
+            );
+            assert_eq!(
+                runs.load(Ordering::SeqCst),
+                2,
+                "a phase change adds exactly one run"
+            );
+            state.update(|s| {
+                s.finish_logout(s.generation(), Err(AccountFailure::Unavailable));
+            });
+            assert_eq!(
+                rendered.get().1,
+                messages::text(Key::AccountLogoutRetryHelp, Locale::English)
+            );
+            assert_eq!(
+                runs.load(Ordering::SeqCst),
+                3,
+                "cleanup changes within the same phase remain reactive"
+            );
+            locale.set(Locale::Vietnamese);
+            assert_eq!(
+                rendered.get().1,
+                messages::text(Key::AccountLogoutRetryHelp, Locale::Vietnamese)
+            );
+            assert_eq!(runs.load(Ordering::SeqCst), 4);
+        });
+    }
+
+    #[test]
+    fn profile_projection_tracks_guest_checking_signed_in_and_diagnostic_failure() {
+        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            let ui = account_ui(state.read_only());
+            let locale = RwSignal::new(Locale::English);
+            let status = profile_status(ui, locale);
+            guest(state).unwrap();
+            assert_eq!(ui.get().phase, SessionPhase::Guest);
+            assert!(ui.get().can_authenticate);
+            let issued = state.write().begin_refresh().unwrap();
+            assert_eq!(ui.get().phase, SessionPhase::Checking);
+            assert_eq!(
+                status(),
+                messages::text(Key::AccountChecking, Locale::English)
+            );
+            state
+                .write()
+                .finish_session(
+                    issued,
+                    Err(AccountFailure::Diagnostic(
+                        crate::application::errors::ErrorKind::Network,
+                    )),
+                )
+                .unwrap();
+            assert_eq!(
+                ui.get().phase,
+                SessionPhase::Failed(AccountFailure::Diagnostic(
+                    crate::application::errors::ErrorKind::Network
+                ))
+            );
+            assert_eq!(
+                status(),
+                messages::text(
+                    crate::messages::error_key(crate::application::errors::ErrorKind::Network),
+                    Locale::English
+                )
+            );
+            signed_in(state, PreviewActor::A).unwrap();
+            assert_eq!(ui.get().phase, SessionPhase::SignedIn);
+            assert_eq!(status(), "Signed-in listener");
+            let cleanup = state.write().begin_logout().unwrap();
+            assert!(ui.get().cleanup_in_flight);
+            assert!(!ui.get().can_retry_logout);
+            state
+                .write()
+                .finish_logout(cleanup, Err(AccountFailure::Unavailable));
+            assert!(!ui.get().cleanup_in_flight);
+            assert!(ui.get().can_retry_logout);
+            let retry = state.write().begin_logout().unwrap();
+            assert!(!ui.get().can_retry_logout);
+            state.write().finish_logout(retry, Ok(()));
+            assert_eq!(ui.get().phase, SessionPhase::Guest);
+        });
     }
 
     #[test]
@@ -284,17 +442,17 @@ mod tests {
             else {
                 panic!("401 requires cleanup")
             };
-            let pending = render_live(state, locale);
+            let pending = render_live(state.read_only(), locale);
             assert!(pending.contains("Đang đăng xuất"));
             assert!(!pending.contains("id=\"theatre-account-login\""));
             state
                 .write()
                 .finish_logout(cleanup, Err(AccountFailure::Unavailable));
-            let retry = render_live(state, locale);
+            let retry = render_live(state.read_only(), locale);
             assert!(retry.contains("Hoàn tất đăng xuất"));
             assert!(!retry.contains("id=\"theatre-account-login\""));
             state.write().finish_logout(cleanup, Ok(()));
-            let guest = render_live(state, locale);
+            let guest = render_live(state.read_only(), locale);
             assert!(guest.contains("Đăng nhập"));
             for forbidden in ["Cantos Theatre", "access_token", "session_id", "/studio"] {
                 assert!(!guest.contains(forbidden), "{forbidden}");
@@ -320,7 +478,7 @@ mod tests {
                 .unwrap();
             let state = RwSignal::new(current);
             let locale = RwSignal::new(Locale::English);
-            let html = render_live(state, locale);
+            let html = render_live(state.read_only(), locale);
             for required in [
                 "Welcome back",
                 "Signed-in listener",

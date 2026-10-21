@@ -11,6 +11,10 @@ use crate::{
 };
 use leptos::prelude::*;
 
+fn observed_session_phase(state: ReadSignal<AccountViewState>) -> Memo<SessionPhase> {
+    Memo::new(move |_| state.with(AccountViewState::phase))
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PendingAuthRequest {
     Outbound(AuthRequestFence),
@@ -149,8 +153,9 @@ impl LiveNavigation {
                 }
             }
         });
+        let phase = observed_session_phase(state.read_only());
         Effect::new(move |_| {
-            navigation.observe_session(state.get().phase());
+            navigation.observe_session(phase.get());
         });
         #[cfg(target_arch = "wasm32")]
         {
@@ -314,7 +319,7 @@ impl LiveNavigation {
         state: RwSignal<AccountViewState>,
         configuration: crate::application::registration::RegistrationState,
     ) {
-        if !state.get_untracked().can_login(configuration) {
+        if !state.with_untracked(|s| s.can_login(configuration)) {
             return;
         }
         let Route::Auth(auth) = self.route.get_untracked() else {
@@ -379,6 +384,64 @@ mod tests {
         }));
         state
     }
+    #[test]
+    fn observed_session_phase_preserves_transition_sequence_without_unrelated_notifications() {
+        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
+        use std::sync::{Arc, Mutex};
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            guest(state).unwrap();
+            let (nav, _) = returned_login();
+            let phase = observed_session_phase(state.read_only());
+            let seen = Arc::new(Mutex::new(Vec::new()));
+            let observations = seen.clone();
+            let observe = Memo::new(move |_| {
+                let phase = phase.get();
+                observations.lock().unwrap().push(phase);
+                nav.observe_session(phase);
+                phase
+            });
+            assert_eq!(observe.get(), SessionPhase::Guest);
+            let issued = state.write().begin_refresh().unwrap();
+            assert_eq!(observe.get(), SessionPhase::Checking);
+            state
+                .write()
+                .finish_session(issued, Err(AccountFailure::Protocol))
+                .unwrap();
+            assert_eq!(
+                observe.get(),
+                SessionPhase::Failed(AccountFailure::Protocol)
+            );
+            signed_in(state, PreviewActor::A).unwrap();
+            assert_eq!(observe.get(), SessionPhase::SignedIn);
+            let fence = state.with_untracked(AccountViewState::fence).unwrap();
+            for _ in 0..3 {
+                state.update(|s| s.record_storage(&fence, Ok(())));
+                assert_eq!(observe.get(), SessionPhase::SignedIn);
+            }
+            let cleanup = state.write().begin_logout().unwrap();
+            assert_eq!(observe.get(), SessionPhase::LogoutPending);
+            state
+                .write()
+                .finish_logout(cleanup, Err(AccountFailure::Unavailable));
+            assert_eq!(observe.get(), SessionPhase::LogoutPending);
+            let retry = state.write().begin_logout().unwrap();
+            state.write().finish_logout(retry, Ok(()));
+            assert_eq!(observe.get(), SessionPhase::Guest);
+            assert_eq!(
+                *seen.lock().unwrap(),
+                vec![
+                    SessionPhase::Guest,
+                    SessionPhase::Checking,
+                    SessionPhase::Failed(AccountFailure::Protocol),
+                    SessionPhase::SignedIn,
+                    SessionPhase::LogoutPending,
+                    SessionPhase::Guest
+                ]
+            );
+        });
+    }
+
     #[test]
     fn unconfirmed_or_unconfigured_login_never_reserves_an_auth_intent() {
         Owner::new().with(|| {

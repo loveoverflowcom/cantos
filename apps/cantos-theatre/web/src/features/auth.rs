@@ -1,6 +1,7 @@
 //! Theatre auth presentation; the shell owns navigation and all identity effects.
 use super::{
     account::account_failure_key,
+    account_ui::{account_ui, AccountUi},
     auth_copy::{self, CopyKey},
     signup::SignupPanel,
 };
@@ -37,13 +38,13 @@ fn back_key(route: AuthRoute) -> CopyKey {
     }
 }
 
-fn blocked_login_key(state: &AccountViewState) -> Key {
-    match state.phase() {
+fn blocked_login_key(state: &AccountUi) -> Key {
+    match state.phase {
         SessionPhase::Idle | SessionPhase::Checking => Key::AccountChecking,
         SessionPhase::Guest => Key::LiveGuestStatus,
         SessionPhase::SignedIn => Key::SignedInListener,
         SessionPhase::Failed(failure) => account_failure_key(failure),
-        SessionPhase::LogoutPending if state.cleanup_in_flight() => Key::AccountLogoutPending,
+        SessionPhase::LogoutPending if state.cleanup_in_flight => Key::AccountLogoutPending,
         SessionPhase::LogoutPending => Key::AccountLogoutRetryHelp,
     }
 }
@@ -89,10 +90,52 @@ fn action_state(enabled: bool, checking: bool, reason: &str) -> Option<ButtonSta
         }
     })
 }
+// Equal ButtonState outputs stop work even when a different upstream fact notified.
+fn auth_action_states(
+    state: ReadSignal<AccountViewState>,
+    registration: RwSignal<RegistrationState>,
+    locale: RwSignal<Locale>,
+) -> (Memo<Option<ButtonState>>, Memo<Option<ButtonState>>) {
+    let ui = account_ui(state);
+    let login = Memo::new(move |_| {
+        let current = ui.get();
+        let configuration = registration.get();
+        let reason = if current.can_authenticate {
+            auth_copy::text(login_key(configuration.login()), locale.get())
+        } else {
+            messages::text(blocked_login_key(&current), locale.get())
+        };
+        let enabled = state.with(|s| s.can_login(configuration));
+        action_state(
+            enabled,
+            matches!(
+                configuration.login(),
+                LoginPhase::Idle | LoginPhase::Checking
+            ),
+            reason,
+        )
+    });
+    let register = Memo::new(move |_| {
+        let current = ui.get();
+        let phase = registration.get().phase();
+        let reason = if current.can_authenticate {
+            auth_copy::text(registration_key(phase), locale.get())
+        } else {
+            messages::text(blocked_login_key(&current), locale.get())
+        };
+        action_state(
+            current.can_authenticate && phase == RegistrationPhase::Available,
+            matches!(phase, RegistrationPhase::Idle | RegistrationPhase::Checking),
+            reason,
+        )
+    });
+    (login, register)
+}
+
 /// Login and registration have independent server capabilities, behind the same cleanup barrier.
 #[component]
 pub(crate) fn AuthActions(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     registration: RwSignal<RegistrationState>,
     locale: RwSignal<Locale>,
     scope: &'static str,
@@ -101,37 +144,25 @@ pub(crate) fn AuthActions(
     on_configuration_retry: Callback<()>,
     #[prop(optional)] preview_icons: bool,
 ) -> impl IntoView {
+    let (login_state, register_state) = auth_action_states(state, registration, locale);
     view! {
         <div class="theatre-auth-actions">
-            {move || {
-                let current = state.get();
-                let configuration = registration.get();
-                let reason = if current.can_authenticate() {
-                    auth_copy::text(login_key(configuration.login()), locale.get())
-                } else { messages::text(blocked_login_key(&current), locale.get()) };
-                action_state(current.can_login(configuration), matches!(configuration.login(), LoginPhase::Idle | LoginPhase::Checking), reason).map(|availability| view! {
-                    <Button id=format!("{scope}-login") variant=ButtonVariant::AuthPrimary
-                        icon=if preview_icons { IconName::Login } else { IconName::ArrowForward }
-                        state=availability focus_on_press=true
-                        on_press=Callback::new(move |_| on_login.run(()))>
-                        {label(locale, CopyKey::CantosIdLogin)}
-                    </Button>
-                })
-            }}
-            {move || {
-                let current = state.get();
-                let phase = registration.get().phase();
-                let reason = if current.can_authenticate() { auth_copy::text(registration_key(phase), locale.get()) }
-                    else { messages::text(blocked_login_key(&current), locale.get()) };
-                action_state(current.can_authenticate() && phase == RegistrationPhase::Available,
-                    matches!(phase, RegistrationPhase::Idle | RegistrationPhase::Checking), reason).map(|availability| view! {
-                    <Button id=format!("{scope}-register") variant=ButtonVariant::AuthSecondary
-                        nostrip:icon=preview_icons.then_some(IconName::PersonAdd)
-                        state=availability focus_on_press=true on_press=Callback::new(move |_| on_register.run(()))>
-                        {label(locale, CopyKey::CreateAccount)}
-                    </Button>
-                })
-            }}
+            {move || login_state.get().map(|availability| view! {
+                <Button id=format!("{scope}-login") variant=ButtonVariant::AuthPrimary
+                    icon=if preview_icons { IconName::Login } else { IconName::ArrowForward }
+                    state=availability focus_on_press=true
+                    on_press=Callback::new(move |_| on_login.run(()))>
+                    {label(locale, CopyKey::CantosIdLogin)}
+                </Button>
+            })}
+            {move || register_state.get().map(|availability| view! {
+                <Button id=format!("{scope}-register") variant=ButtonVariant::AuthSecondary
+                    nostrip:icon=preview_icons.then_some(IconName::PersonAdd)
+                    state=availability focus_on_press=true
+                    on_press=Callback::new(move |_| on_register.run(()))>
+                    {label(locale, CopyKey::CreateAccount)}
+                </Button>
+            })}
             <Show when=move || matches!(registration.get().login(), LoginPhase::Failed(_)) || matches!(registration.get().phase(), RegistrationPhase::Failed(_))>
                 <Button id=format!("{scope}-configuration-retry") variant=ButtonVariant::Text
                     on_press=Callback::new(move |_| on_configuration_retry.run(()))>
@@ -144,23 +175,24 @@ pub(crate) fn AuthActions(
 
 #[component]
 pub(crate) fn SessionRecovery(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     scope: &'static str,
     on_refresh: Callback<()>,
     on_logout: Callback<()>,
     #[prop(optional)] preview_icons: bool,
 ) -> impl IntoView {
+    let ui = account_ui(state);
     view! {
         <div class="theatre-account-recovery">
-            <Show when=move || matches!(state.get().phase(), SessionPhase::Failed(_))>
+            <Show when=move || matches!(ui.get().phase, SessionPhase::Failed(_))>
                 <Button id=format!("{scope}-refresh") variant=ButtonVariant::AuthSecondary
                     nostrip:icon=preview_icons.then_some(IconName::Refresh)
                     on_press=Callback::new(move |_| on_refresh.run(()))>
                     {move || messages::text(Key::AccountRefresh, locale.get())}
                 </Button>
             </Show>
-            <Show when=move || state.get().can_retry_logout()>
+            <Show when=move || ui.get().can_retry_logout>
                 <Button id=format!("{scope}-logout-retry") variant=ButtonVariant::AuthSecondary
                     nostrip:icon=preview_icons.then_some(IconName::Refresh)
                     on_press=Callback::new(move |_| on_logout.run(()))>
@@ -173,7 +205,7 @@ pub(crate) fn SessionRecovery(
 
 #[component]
 pub(crate) fn AuthPage(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     registration: RwSignal<RegistrationState>,
     signup: RwSignal<SignupState>,
     locale: RwSignal<Locale>,
@@ -197,6 +229,7 @@ pub(crate) fn AuthPage(
     #[prop(optional)]
     preview_icons: bool,
 ) -> impl IntoView {
+    let ui = account_ui(state);
     // Success is unavailable until a provider registration receipt exists. In particular a
     // reconstructed completion URL is not a receipt and never opens Membership success actions.
     let _ = on_membership;
@@ -238,13 +271,13 @@ pub(crate) fn AuthPage(
                     <h1 id="theatre-auth-heading">{label(locale, heading)}</h1>
                     <p class="theatre-muted">{label(locale, if is_login { CopyKey::LoginHelp } else { CopyKey::RegisterHelp })}</p>
                     <p id="theatre-auth-status" role="status" aria-live="polite">
-                        {move || messages::text(blocked_login_key(&state.get()), locale.get())}
+                        {move || messages::text(blocked_login_key(&ui.get()), locale.get())}
                     </p>
                     {if is_login {
                         view! {
                             <AuthActions state registration locale scope="theatre-auth" on_login on_register on_configuration_retry=on_registration_refresh preview_icons/>
                             <p class="theatre-auth-helper theatre-muted">{label(locale, CopyKey::ProviderHelp)}</p>
-                            <Show when=move || state.get().phase() == SessionPhase::SignedIn>
+                            <Show when=move || ui.get().phase == SessionPhase::SignedIn>
                                 <p>{label(locale, CopyKey::SignedInActionHelp)}</p>
                                 <a class="theatre-text-link" href="#account">{move || messages::text(Key::Account, locale.get())}</a>
                             </Show>
@@ -353,7 +386,7 @@ mod tests {
             let registration = RwSignal::new(availability);
             let signup = RwSignal::new(enrollment);
             let noop = Callback::new(|()| {});
-            view! { <AuthPage state registration signup locale route preview_icons on_back=noop on_register=noop on_login=noop
+            view! { <AuthPage state=state.read_only() registration signup locale route preview_icons on_back=noop on_register=noop on_login=noop
             on_home=noop on_membership=noop on_refresh=noop on_logout=noop on_registration_refresh=noop
             on_signup_submit=noop on_signup_verify=noop on_signup_new=noop on_signup_cancel=noop on_signup_login=noop on_signup_setup=noop/> }
             .to_html()
@@ -739,12 +772,104 @@ mod readiness_render_tests {
         after.split('>').next().unwrap().to_owned()
     }
     #[test]
+    fn action_availability_equality_stops_button_factories_and_preserves_locale_and_errors() {
+        use crate::features::auth_preview::{signed_in, PreviewActor};
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            signed_in(state, PreviewActor::A).unwrap();
+            let registration = RwSignal::new(RegistrationState::default());
+            let locale = RwSignal::new(Locale::English);
+            let (login, register) = auth_action_states(state.read_only(), registration, locale);
+            let runs = Arc::new(AtomicUsize::new(0));
+            let count = runs.clone();
+            // AuthActions' Button factories read precisely these Memo outputs.
+            let factories = Memo::new(move |_| {
+                count.fetch_add(1, Ordering::SeqCst);
+                (login.get(), register.get())
+            });
+            assert!(matches!(
+                factories.get(),
+                (Some(ButtonState::Loading(_)), Some(ButtonState::Loading(_)))
+            ));
+            let fence = state.with_untracked(AccountViewState::fence).unwrap();
+            for _ in 0..3 {
+                state.update(|s| {
+                    s.with_sync_mut(|sync, _| {
+                        sync.begin_saved_read(&uuid::Uuid::from_u128(88).to_string())
+                    });
+                });
+                state.update(|s| s.record_storage(&fence, Ok(())));
+                factories.get();
+            }
+            assert_eq!(runs.load(Ordering::SeqCst), 1);
+            let issued = registration.write().begin().unwrap();
+            registration.write().finish(
+                issued,
+                Ok(Configuration {
+                    login: LoginMethod::Oidc,
+                    registration: Registration::EmailVerification {},
+                }),
+            );
+            assert!(matches!(
+                factories.get(),
+                (
+                    Some(ButtonState::Disabled(_)),
+                    Some(ButtonState::Disabled(_))
+                )
+            ));
+            assert_eq!(runs.load(Ordering::SeqCst), 2);
+            let cleanup = state.write().begin_logout().unwrap();
+            state.write().finish_logout(cleanup, Ok(()));
+            assert_eq!(
+                factories.get(),
+                (Some(ButtonState::Enabled), Some(ButtonState::Enabled))
+            );
+            assert_eq!(runs.load(Ordering::SeqCst), 3);
+            locale.set(Locale::Vietnamese);
+            assert_eq!(
+                factories.get(),
+                (Some(ButtonState::Enabled), Some(ButtonState::Enabled))
+            );
+            assert_eq!(
+                runs.load(Ordering::SeqCst),
+                3,
+                "enabled ButtonState is equal across locales"
+            );
+            assert_eq!(
+                label(locale, CopyKey::CreateAccount)(),
+                auth_copy::text(CopyKey::CreateAccount, Locale::Vietnamese)
+            );
+            let issued = registration.write().begin().unwrap();
+            registration
+                .write()
+                .finish(issued, Err(ConfigurationFailure::Protocol));
+            let expected = ButtonState::Disabled(
+                DisabledReason::new(auth_copy::text(CopyKey::LoginProtocol, Locale::Vietnamese))
+                    .unwrap(),
+            );
+            assert_eq!(factories.get().0, Some(expected));
+            assert_eq!(runs.load(Ordering::SeqCst), 4);
+            locale.set(Locale::English);
+            let expected = ButtonState::Disabled(
+                DisabledReason::new(auth_copy::text(CopyKey::LoginProtocol, Locale::English))
+                    .unwrap(),
+            );
+            assert_eq!(factories.get().0, Some(expected));
+            assert_eq!(runs.load(Ordering::SeqCst), 5);
+        });
+    }
+
+    #[test]
     fn login_unconfigured_registration_available_and_configuration_retry_render_independently() {
         Owner::new().with(|| {
             let mut guest = AccountViewState::default(); let cleanup = guest.begin_logout().unwrap(); guest.finish_logout(cleanup, Ok(()));
             let state = RwSignal::new(guest); let registration = RwSignal::new(RegistrationState::default());
             let locale = RwSignal::new(Locale::English); let noop = Callback::new(|()| {});
-            let render = || view! { <AuthActions state registration locale scope="readiness" on_login=noop on_register=noop on_configuration_retry=noop/> }.to_html();
+            let render = || view! { <AuthActions state=state.read_only() registration locale scope="readiness" on_login=noop on_register=noop on_configuration_retry=noop/> }.to_html();
             let issued = registration.write().begin().unwrap();
             registration.write().finish(issued, Ok(Configuration { login: LoginMethod::Unconfigured, registration: Registration::EmailVerification {} }));
             let html = render();
