@@ -60,6 +60,12 @@ EXPLAIN(ANALYZE,BUFFERS). Target: exact case/issuer results under existing 5s st
 timeouts, not a production latency SLO. Load, cold-cache, p95/p99 and runtime-role acceptance
 remain successor work before OIDC registration activation; no speedup is claimed.
 
+The uncomposed [Turso candidate](server-turso-schema.md) (`TursoIdentityRegistry`, #333.4) keeps
+this contract inside the one `server.db` registry: one `BEGIN IMMEDIATE` transaction on the
+owner's serialized writer replaces the advisory and share locks, a lost acknowledgement is
+`Unavailable` and is reconciled by replaying the exact key, and its file-backed tests and
+invariant mapping are recorded there. PostgreSQL remains the serving adapter.
+
 PUBLIC and `cantos_app` receive no registry grant. Only explicit operator DB privilege permits
 writes today. PR2 must design least-privilege credential-driven grants before activating runtime
 registration/linking. No identity HTTP route is exposed in PR1.

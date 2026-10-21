@@ -10,7 +10,8 @@ and [epic #331](https://github.com/loveoverflowcom/cantos/issues/331).
 [`cantos-identity`](../../services/cantos-identity/README.md#file-backed-security-state) uses this owner
 for its service-owned instance/subject security state, disable events and operation receipts.
 That library consumer has real file-backed tests but no executable, credential verifier or RPC.
-`cantos-server` does not consume the store yet; PostgreSQL remains its authority until #333.9.
+`cantos-server` holds an uncomposed [candidate `server.db` schema](../../docs/architecture/server-turso-schema.md)
+with only the actor registry slice; PostgreSQL remains its serving authority until #333.9.
 
 ## What it provides
 
