@@ -229,6 +229,25 @@ the [rollout runbook](../docs/deployment/cloudflare-rollout.md#standalone-read-o
 This adds no gate, CI job, provider dependency or automatic live request; the existing Rust gate
 exercises deterministic fake extraction/HTTP boundaries.
 
+### Native OCI release verification
+
+`cargo xtask release oci-verify --manifest PATH --manifest-digest SHA256 --source-sha FULL_SHA
+--configuration-digest SHA256 --platform linux/amd64|linux/arm64 --admission PATH
+--admission-digest SHA256 [--registry-readback [--authfile PATH]] [--dry-run]` validates an explicitly admitted existing image pair,
+producer evidence declarations and the checksummed/source-bound host bundle offline.
+By default it prints `PLAN_ONLY`; registry access, native qualification, activation and cleanup
+remain `NOT_RUN`. Explicit `--registry-readback` observes exact GHCR manifest/config bytes only,
+with a sanitized `OBSERVED` result and `release_eligible=false`; it never pulls layers or accepts
+a release. `--dry-run` stays offline, even with that option, including no authfile/network/SSH/build
+or persistent output. The [v1 contract](../docs/deployment/native-oci-release.md) owns the exact
+manifest/admission/evidence schemas, limits, trust boundary and deferred producers.
+The Python regressions are included by `release self-test` and the repository gate; CLI
+regressions are included by the Rust gate. No gate publishes or activates an image.
+
+These are preparatory PR A slices of #348; local and Actions publishing, real registry and
+exact-image fixture acceptance remain required before PR B's native VPS activation. The existing `deploy vps`
+executor still belongs to the legacy archive lane; it does not consume this contract.
+
 ### Optional Web release inventory
 
 ```sh

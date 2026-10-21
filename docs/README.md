@@ -23,6 +23,10 @@ acceptance from a merged PR.
 
 ## Current reading paths
 
+For #348's native production packaging, read the [OCI release contract and next slices](deployment/native-oci-release.md),
+then the [native architecture](architecture/native-turso-refactor.md) and [retained VPS runbook](deployment/vps-production.md).
+The offline contract verifier is separate from publish, native qualification and live activation.
+
 | Goal | Start here |
 | --- | --- |
 | Product scope and invariants | [Brief](product/brief.md), [business rules](product/business-rules.md), [production pipeline](product/production-pipeline.md) |

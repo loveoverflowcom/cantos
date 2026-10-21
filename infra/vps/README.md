@@ -1,5 +1,12 @@
 # VPS production runtime
 
+[#348](https://github.com/loveoverflowcom/cantos/issues/348) selects two native Rust executables
+packaged as GHCR images and supervised by Podman Quadlet. The
+[offline OCI contract](../../docs/deployment/native-oci-release.md) is the first release-owner
+slice; publishers and the native host consumer remain pending. The assets below are retained
+legacy runtime/recovery owners, not an implementation of the native target or host inventory.
+Do not activate refactor HEAD, retire PG/Kanidm or change runtime principal from source evidence.
+
 Tracked, nonsecret VPS runtime assets. [ADR 0039](../../docs/decisions/0039-vps-production-runtime.md)
 retains the runtime foundation; [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md)
 selects direct Hosting. Explicit per-surface origins/callbacks are validated by the host script;

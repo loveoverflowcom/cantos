@@ -13,6 +13,13 @@ Older TTS experiments and job migrations are historical evidence, **not current 
 The independent [native qualification guard](docs/assurance/native-isolation.md) runs one
 prebuilt exact Rust test through `cargo xtask verify native-isolation`; its environment controls
 do not establish the pending two-binary native runtime or authentication acceptance.
+The [native OCI release contract](docs/deployment/native-oci-release.md) adds offline verification
+of an admitted GHCR image pair and source-bound host bundle through `cargo xtask release oci-verify`.
+It produces `PLAN_ONLY`; local/Actions publishing and native VPS activation remain separate
+#348 follow-ups. Production packaging uses OCI/Quadlet under that decision; native dev/E2E/Kani
+retain their container-independent boundary.
+Its explicit `--registry-readback` option verifies GHCR manifest/config bytes after admission;
+dry-run stays offline and an observation never makes a release eligible.
 The [current schema and cutover policy](docs/deployment/postgres-schema-cutover.md) makes fresh
 initialization explicit and ordinary deployment refuses legacy databases. An explicit narrow
 `--cutover-epoch2` lane checks the known 28-migration empty-business source, rehearses a sibling

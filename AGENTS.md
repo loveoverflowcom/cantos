@@ -243,6 +243,20 @@ Do not report an app build, mobile test, audio quality result or end-to-end prod
 
 ## Service runtime ownership
 
+For [#348](https://github.com/loveoverflowcom/cantos/issues/348), production distribution is
+GHCR registry digests plus Podman Quadlet for the two native executables. This supersedes only
+the native refactor's production no-container clause; native dev/E2E/Turso/Kani remain
+container-independent. Target `refactor/cantos-native-turso`. The implemented
+[`release oci-verify`](docs/deployment/native-oci-release.md) is offline and plan-only;
+its Python tests run in release self-test/repository and its CLI tests in the Rust gate.
+Explicit `--registry-readback` adds scoped GHCR manifest/config observation; dry-run remains
+offline, with no authfile access, and neither mode establishes native/image-pair acceptance.
+Local/Actions producers and native activation remain pending; existing `deploy vps` is the
+legacy archive lane. Preserve current runtime/principal, PG/Kanidm/ingress and recovery until
+real native acceptance and separately authorized cutover. Missing inventory is `UNKNOWN`,
+never permission to bootstrap. Build/publish, inventory, bootstrap, activate, restore and
+cleanup are separate operational scopes.
+
 A service is a runnable process or independently managed infrastructure, not necessarily a Rust
 crate. Keep deployment/runtime assets under [infra/](infra/README.md), separate from application
 code and `xtask` orchestration; the [layout](docs/architecture/repository-layout.md) distinguishes
