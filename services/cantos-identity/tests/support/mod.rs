@@ -346,23 +346,41 @@ async fn session(stream: tokio::net::TcpStream, mode: SinkMode, inbox: Arc<Mutex
 // ---- run directory and process harness ---------------------------------------------------------
 
 use std::{
-    os::unix::fs::{DirBuilderExt, MetadataExt},
+    os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Stdio,
+    sync::OnceLock,
     time::Duration,
 };
 
 use tokio::process::{Child, Command};
 
+/// Test-only input: the absolute path of an already built `cantos-identity` executable, which is
+/// then the exact file every process here runs (the native isolation guard binds its digest).
+pub const IDENTITY_BINARY: &str = "CANTOS_TEST_IDENTITY_BINARY";
+/// Set by the native isolation guard to the run directory it owns.
+pub const NATIVE_TEST_DIRECTORY: &str = "CANTOS_NATIVE_TEST_DIRECTORY";
+
 /// A private directory with a SHORT path: Unix socket paths are limited to about 100 bytes and
-/// macOS temporary directories alone can use half of that.
+/// macOS temporary directories alone can use half of that. Under the isolation guard it lives in
+/// the guard's own run directory, otherwise in `/tmp`.
 pub struct RunDir(PathBuf);
+
+/// The longest socket path the executable accepts.
+const MAX_SOCKET_PATH: usize = 100;
 
 impl RunDir {
     pub fn new() -> Self {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let path = PathBuf::from(format!(
-            "/tmp/cid-{}-{}",
+        let root = std::env::var_os(NATIVE_TEST_DIRECTORY)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/tmp"));
+        assert!(
+            root.is_absolute(),
+            "{NATIVE_TEST_DIRECTORY} must be absolute"
+        );
+        let path = root.join(format!(
+            "cid-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
@@ -370,7 +388,15 @@ impl RunDir {
             .mode(0o700)
             .create(&path)
             .unwrap();
-        Self(path)
+        let run = Self(path);
+        // The mode is checked, not assumed: a umask can only narrow it, never widen it.
+        let mode = std::fs::metadata(&run.0).unwrap().permissions().mode();
+        assert_eq!(mode & 0o077, 0, "the run directory must be private");
+        assert!(
+            run.path("identity.sock").as_os_str().len() <= MAX_SOCKET_PATH,
+            "the run directory leaves no room for a socket path"
+        );
+        run
     }
 
     pub fn path(&self, name: &str) -> PathBuf {
@@ -392,7 +418,33 @@ impl Drop for RunDir {
     }
 }
 
-pub const BINARY: &str = env!("CARGO_BIN_EXE_cantos-identity");
+/// The executable every process here runs: exactly the supplied [`IDENTITY_BINARY`], else the
+/// one Cargo built for this test target. An isolated run must supply it, so the guard's receipt
+/// binds the child actually started; a malformed value is a failed test, never a fallback.
+pub fn binary() -> &'static Path {
+    static BINARY: OnceLock<PathBuf> = OnceLock::new();
+    BINARY.get_or_init(|| match std::env::var_os(IDENTITY_BINARY) {
+        Some(value) => {
+            let path = PathBuf::from(value);
+            let metadata = std::fs::symlink_metadata(&path).ok();
+            assert!(
+                path.is_absolute()
+                    && metadata.as_ref().is_some_and(|meta| {
+                        meta.file_type().is_file() && meta.permissions().mode() & 0o111 != 0
+                    }),
+                "{IDENTITY_BINARY} must name an absolute regular executable file"
+            );
+            path
+        }
+        None => {
+            assert!(
+                std::env::var_os(NATIVE_TEST_DIRECTORY).is_none(),
+                "an isolated run must pass the Identity executable as {IDENTITY_BINARY}"
+            );
+            PathBuf::from(env!("CARGO_BIN_EXE_cantos-identity"))
+        }
+    })
+}
 
 #[derive(Clone)]
 pub struct Env {
@@ -413,7 +465,7 @@ impl Env {
     }
 
     fn command(&self, verb: &str) -> Command {
-        let mut command = Command::new(BINARY);
+        let mut command = Command::new(binary());
         command
             .arg(verb)
             .env_clear()
@@ -539,18 +591,25 @@ impl Instance {
         format!("{}{}", self.out.lock().unwrap(), self.err.lock().unwrap())
     }
 
-    /// SIGTERM, then wait: the graceful path.
+    /// SIGTERM, then a bounded wait: the graceful path. The signal goes to this owned, not yet
+    /// reaped child only, so its PID cannot have been reused; nothing on `PATH` is needed. A child
+    /// that does not exit in time is killed and reaped before the test fails.
     pub async fn terminate(mut self) -> (std::process::ExitStatus, String) {
-        let status = Command::new("kill")
-            .args(["-TERM", &self.pid().to_string()])
-            .status()
-            .await
-            .unwrap();
-        assert!(status.success());
-        let exit = tokio::time::timeout(Duration::from_secs(30), self.child.wait())
-            .await
-            .expect("process drained and exited")
-            .unwrap();
+        let pid = libc::pid_t::try_from(self.pid()).expect("a process id fits pid_t");
+        // SAFETY: kill(2) takes no pointers; the target is our own unreaped child.
+        assert_eq!(
+            unsafe { libc::kill(pid, libc::SIGTERM) },
+            0,
+            "signal the owned child"
+        );
+        let exit = match tokio::time::timeout(Duration::from_secs(30), self.child.wait()).await {
+            Ok(exit) => exit.unwrap(),
+            Err(_) => {
+                let _ = self.child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(5), self.child.wait()).await;
+                panic!("process did not drain and exit after SIGTERM");
+            }
+        };
         tokio::time::sleep(Duration::from_millis(50)).await;
         (exit, self.logs())
     }

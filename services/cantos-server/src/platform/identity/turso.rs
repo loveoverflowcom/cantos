@@ -11,7 +11,7 @@ use cantos_store_turso::{
     params_from_iter, Row, Rows, Value, WriteTransaction,
 };
 
-use crate::platform::turso::ServerDatabase;
+use crate::platform::turso::{Acknowledgement, ServerDatabase};
 
 use super::{
     domain::{
@@ -87,40 +87,9 @@ impl TursoIdentityRegistry {
 
 /// Whether a decision wrote rows and therefore needs a COMMIT acknowledgement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Effect {
+pub(crate) enum Effect {
     ReadOnly,
     Written,
-}
-
-/// Where a COMMIT acknowledgement comes from. Production always takes the engine's answer;
-/// tests lose it after a real commit or a real rollback to model an outcome nobody observed.
-#[derive(Clone, Copy, Debug)]
-enum Acknowledgement {
-    Engine,
-    #[cfg(test)]
-    LostAfterCommit,
-    #[cfg(test)]
-    LostAfterRollback,
-}
-
-impl Acknowledgement {
-    async fn commit(self, tx: WriteTransaction<'_>) -> Result<(), CommitFault> {
-        #[cfg(test)]
-        let lost = || CommitFault::Unknown(StoreFault::Io(std::io::ErrorKind::TimedOut));
-        match self {
-            Self::Engine => tx.commit().await,
-            #[cfg(test)]
-            Self::LostAfterCommit => {
-                tx.commit().await?;
-                Err(lost())
-            }
-            #[cfg(test)]
-            Self::LostAfterRollback => {
-                tx.rollback().await.map_err(CommitFault::Rejected)?;
-                Err(lost())
-            }
-        }
-    }
 }
 
 /// The schema refuses an insert over an existing key before conflict resolution (so `REPLACE`
@@ -243,7 +212,10 @@ async fn insert_binding(
     Ok(())
 }
 
-async fn register_in(
+/// Registration inside a transaction the caller already holds, so another owner can bind and
+/// write in the same unit of work (the Identity sessions issue a session with the binding). It
+/// never begins, commits or rolls back.
+pub(crate) async fn register_in(
     tx: &WriteTransaction<'_>,
     key: &ExternalIdentityKey,
     candidate: &ActorId,

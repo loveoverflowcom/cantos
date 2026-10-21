@@ -645,7 +645,7 @@ fn production_sources_and_the_executable_name_no_capture_inbox_or_test_bypass() 
     // only in the test crate, so the binary scan cannot by itself prove absence of behavior:
     // the real evidence is that production composition (`server::compose`) builds only
     // `UnconfiguredMailer` or `SmtpMailer`, neither of which can accept a message locally.
-    let binary = std::fs::read(support::BINARY).unwrap();
+    let binary = std::fs::read(support::binary()).unwrap();
     for needle in [
         "CaptureMailer",
         "SmtpSink",

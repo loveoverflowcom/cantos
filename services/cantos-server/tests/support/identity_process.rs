@@ -1,10 +1,16 @@
 //! Test-harness-only: the real `cantos-identity` executable over its private Unix socket, a real
 //! file-backed Turso database and a run-owned SMTP sink. Nothing here is a production path and no
 //! mail leaves the machine.
+//!
+//! [`IDENTITY_BINARY`] names a prebuilt executable by absolute path; it is then the exact file
+//! every process here runs, which is what the native isolation guard binds by digest. Without it
+//! the PostgreSQL journeys build the executable once. An isolated run
+//! ([`NATIVE_TEST_DIRECTORY`]) never builds anything, and the candidate journey requires the
+//! artifact. Nothing here needs a program on `PATH`.
 #![allow(dead_code)]
 
 use std::{
-    os::unix::fs::{DirBuilderExt, MetadataExt},
+    os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Stdio,
     sync::{Arc, Mutex, OnceLock},
@@ -17,11 +23,49 @@ use tokio::{
     task::JoinHandle,
 };
 
-/// Builds the executable once per test run and returns its path. A failure to build is a failed
-/// test, never a skipped one.
+/// Test-only input: the absolute path of an already built `cantos-identity` executable.
+pub const IDENTITY_BINARY: &str = "CANTOS_TEST_IDENTITY_BINARY";
+/// Set by the native isolation guard to the run directory it owns.
+pub const NATIVE_TEST_DIRECTORY: &str = "CANTOS_NATIVE_TEST_DIRECTORY";
+
+/// The supplied artifact, checked to be an absolute regular executable file. A malformed value
+/// is a failed test, never a reason to pick another binary.
+fn supplied() -> Option<PathBuf> {
+    let value = std::env::var_os(IDENTITY_BINARY)?;
+    let path = PathBuf::from(value);
+    let metadata = std::fs::symlink_metadata(&path).ok();
+    assert!(
+        path.is_absolute()
+            && metadata.as_ref().is_some_and(|meta| {
+                meta.file_type().is_file() && meta.permissions().mode() & 0o111 != 0
+            }),
+        "{IDENTITY_BINARY} must name an absolute regular executable file"
+    );
+    Some(path)
+}
+
+/// The prebuilt executable a candidate journey must run. It is never built here.
+pub fn supplied_binary() -> &'static Path {
+    static SUPPLIED: OnceLock<PathBuf> = OnceLock::new();
+    SUPPLIED.get_or_init(|| {
+        supplied().unwrap_or_else(|| {
+            panic!("set {IDENTITY_BINARY} to the prebuilt cantos-identity executable; this journey never builds it")
+        })
+    })
+}
+
+/// The supplied executable, else (outside isolation only) one built once per test run. A failure
+/// to build is a failed test, never a skipped one.
 pub fn binary() -> &'static Path {
     static BINARY: OnceLock<PathBuf> = OnceLock::new();
     BINARY.get_or_init(|| {
+        if let Some(path) = supplied() {
+            return path;
+        }
+        assert!(
+            std::env::var_os(NATIVE_TEST_DIRECTORY).is_none(),
+            "an isolated run never builds; pass {IDENTITY_BINARY}"
+        );
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let output = std::process::Command::new(option_env!("CARGO").unwrap_or("cargo"))
             .current_dir(&root)
@@ -56,13 +100,24 @@ pub fn binary() -> &'static Path {
 // ---- run directory ---------------------------------------------------------------------------
 
 /// A private directory with a SHORT path: Unix socket paths are limited to about 100 bytes.
+/// Under the isolation guard it lives in the guard's own run directory, otherwise in `/tmp`.
 pub struct RunDir(PathBuf);
+
+/// Identity's configured socket path limit; the Server refuses a longer one as configuration.
+const MAX_SOCKET_PATH: usize = 100;
 
 impl RunDir {
     pub fn new() -> Self {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let path = PathBuf::from(format!(
-            "/tmp/cs-{}-{}",
+        let root = std::env::var_os(NATIVE_TEST_DIRECTORY)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/tmp"));
+        assert!(
+            root.is_absolute(),
+            "{NATIVE_TEST_DIRECTORY} must be absolute"
+        );
+        let path = root.join(format!(
+            "cs-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
@@ -70,7 +125,15 @@ impl RunDir {
             .mode(0o700)
             .create(&path)
             .unwrap();
-        Self(path)
+        let run = Self(path);
+        // The mode is checked, not assumed: a umask can only narrow it, never widen it.
+        let mode = std::fs::metadata(&run.0).unwrap().permissions().mode();
+        assert_eq!(mode & 0o077, 0, "the run directory must be private");
+        assert!(
+            run.path("identity.sock").as_os_str().len() <= MAX_SOCKET_PATH,
+            "the run directory leaves no room for a socket path"
+        );
+        run
     }
     pub fn path(&self, name: &str) -> PathBuf {
         self.0.join(name)
@@ -299,20 +362,35 @@ pub struct IdentityEnv {
     pub socket: PathBuf,
     pub uid: u32,
     pub smtp_port: u16,
+    binary: &'static Path,
 }
 
 impl IdentityEnv {
     pub fn new(run: &RunDir, smtp_port: u16) -> Self {
+        Self::with_binary(run, smtp_port, binary())
+    }
+
+    /// Runs exactly the prebuilt executable named by [`IDENTITY_BINARY`].
+    pub fn supplied(run: &RunDir, smtp_port: u16) -> Self {
+        Self::with_binary(run, smtp_port, supplied_binary())
+    }
+
+    fn with_binary(run: &RunDir, smtp_port: u16, binary: &'static Path) -> Self {
         Self {
             database: run.path("identity.db"),
             socket: run.path("identity.sock"),
             uid: run.uid(),
             smtp_port,
+            binary,
         }
     }
 
+    pub fn binary(&self) -> &Path {
+        self.binary
+    }
+
     fn command(&self, verb: &str) -> Command {
-        let mut command = Command::new(binary());
+        let mut command = Command::new(self.binary);
         command
             .arg(verb)
             .env_clear()
@@ -373,18 +451,27 @@ pub struct Instance {
 }
 
 impl Instance {
-    /// SIGTERM and wait: the graceful path that also removes this run's socket.
+    /// SIGTERM and a bounded wait: the graceful path that also removes this run's socket. The
+    /// signal goes to this owned, not yet reaped child only, so its PID cannot have been reused.
+    /// A child that does not exit in time is killed and reaped before the test fails.
     pub async fn terminate(mut self) {
-        let pid = self.child.id().unwrap().to_string();
-        let status = Command::new("kill")
-            .args(["-TERM", &pid])
-            .status()
-            .await
-            .unwrap();
-        assert!(status.success());
-        tokio::time::timeout(Duration::from_secs(30), self.child.wait())
-            .await
-            .expect("identity drained and exited")
-            .unwrap();
+        let pid = libc::pid_t::try_from(self.child.id().expect("the child is not yet reaped"))
+            .expect("a process id fits pid_t");
+        // SAFETY: kill(2) takes no pointers; the target is our own unreaped child.
+        assert_eq!(
+            unsafe { libc::kill(pid, libc::SIGTERM) },
+            0,
+            "signal the owned child"
+        );
+        match tokio::time::timeout(Duration::from_secs(30), self.child.wait()).await {
+            Ok(status) => {
+                status.unwrap();
+            }
+            Err(_) => {
+                let _ = self.child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(5), self.child.wait()).await;
+                panic!("identity did not drain and exit after SIGTERM");
+            }
+        }
     }
 }

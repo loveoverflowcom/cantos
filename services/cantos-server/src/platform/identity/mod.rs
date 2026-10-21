@@ -4,7 +4,7 @@ pub mod domain;
 mod ports;
 mod postgres;
 #[cfg(any(test, feature = "turso-candidate"))]
-mod turso;
+pub(crate) mod turso;
 
 pub use application::IdentityService;
 pub use ports::{IdentityRegistry, RegistryError};

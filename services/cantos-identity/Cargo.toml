@@ -41,6 +41,8 @@ serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = { version = "=1.0.145" }
 cantos-store-turso = { path = "../../packages/store-turso", features = ["testing"] }
 hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
+# Test-only: the process harness signals its own child with kill(2) instead of a PATH program.
+libc = "=0.2.190"
 prost = { version = "=0.14.4", default-features = false, features = ["derive", "std"] }
 tonic-prost = { version = "=0.14.5", default-features = false }
 tokio = { version = "=1.47.1", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }

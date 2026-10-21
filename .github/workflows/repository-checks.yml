@@ -9,6 +9,11 @@ on:
   pull_request:
     branches: [develop]
   workflow_dispatch:
+    inputs:
+      native_auth_qualification:
+        description: Also run the manual #336 native auth Linux qualification campaign (with Kani)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -97,3 +102,41 @@ jobs:
           sudo apt-get install --yes ffmpeg
       - name: Disposable-cluster migrations, persistence, restart and recovery tests
         run: cargo xtask ci --job postgres
+  native-auth-qualification:
+    # Manual only (#336): dispatch on the candidate ref with native_auth_qualification=true. It
+    # provisions pinned tools, then xtask owns every check; nothing here is a verifier.
+    if: github.event_name == 'workflow_dispatch' && inputs.native_auth_qualification
+    runs-on: ubuntu-24.04 # D1: GitHub Actions Ubuntu x86_64
+    timeout-minutes: 240
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select pinned Rust toolchain
+        run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
+      - name: Select the pinned Node for the locked Quint tool
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24.19.0'
+          package-manager-cache: false
+      - name: Select the pinned npm and install the locked Quint tool
+        run: |
+          npm install --global --ignore-scripts --no-audit --no-fund npm@11.9.0
+          cargo xtask verify behavior --setup --capability cantos.identity.native-mailbox-proof
+      - name: Install the pinned Kani 0.68.0 bundle
+        run: |
+          cargo install --locked kani-verifier --version 0.68.0
+          cargo kani setup
+      - name: Allow the isolation guard's unprivileged user and network namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Native auth Linux qualification, isolation and Kani
+        run: cargo xtask verify native-auth-qualification --kani --report "$RUNNER_TEMP/native-auth-qualification.json"
+      - name: Retain the sanitized report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-auth-qualification-${{ github.sha }}
+          path: ${{ runner.temp }}/native-auth-qualification.json
+          if-no-files-found: warn
+          retention-days: 30

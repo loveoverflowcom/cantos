@@ -1,16 +1,18 @@
 //! Candidate `server.db` for #333: the one Server schema registry over the shared
-//! `cantos-store-turso` owner. Only the actor registry slice exists, so this is not Server
-//! schema v1, and nothing composes it: PostgreSQL stays the serving authority until #333.9.
+//! `cantos-store-turso` owner. Only the actor registry and Identity session slices exist, so this
+//! is not Server schema v1, and nothing composes it: PostgreSQL stays the serving authority until
+//! #333.9.
 //!
 //! Context adapters receive a [`ServerDatabase`] and share its serialized writer and readers.
 //! SQL stays in each owner's persistence adapter; this module holds no business query.
 use std::{fmt, path::PathBuf, sync::Arc};
 
 use cantos_store_turso::{
-    clock::Clock,
-    error::OpenError,
+    clock::{Clock, ClockFault},
+    error::{CommitFault, OpenError},
     registry::{DatabaseKind, Intent, Migration, Registry, RegistryError},
-    OpenRequest, OwnedDatabase,
+    value::UnixMicros,
+    OpenRequest, OwnedDatabase, WriteTransaction,
 };
 
 /// The `server.db` schema generation. PostgreSQL's epoch 2 and its checksums are never replayed.
@@ -18,11 +20,18 @@ pub const SERVER_EPOCH: u32 = 1;
 
 /// Each reviewed slice appends a version; an applied version is never edited, so a candidate
 /// file built by an older head is refused as diverged instead of adopted.
-pub(crate) const MIGRATIONS: [Migration; 1] = [Migration {
-    version: 1,
-    name: "server_actor_registry",
-    sql: include_str!("actor_registry.sql"),
-}];
+pub(crate) const MIGRATIONS: [Migration; 2] = [
+    Migration {
+        version: 1,
+        name: "server_actor_registry",
+        sql: include_str!("actor_registry.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "server_identity_sessions",
+        sql: include_str!("identity_sessions.sql"),
+    },
+];
 
 /// The one `server.db` registry. Migration and serving compositions must share it.
 pub fn registry() -> Result<Registry, RegistryError> {
@@ -51,6 +60,7 @@ impl std::error::Error for ServerDatabaseError {}
 #[derive(Clone)]
 pub struct ServerDatabase {
     owner: Arc<OwnedDatabase>,
+    clock: Arc<dyn Clock>,
 }
 
 impl ServerDatabase {
@@ -61,16 +71,58 @@ impl ServerDatabase {
         clock: Arc<dyn Clock>,
     ) -> Result<Self, ServerDatabaseError> {
         let schema = registry().map_err(|_| ServerDatabaseError::InvalidRegistry)?;
-        let owner = OwnedDatabase::open(OpenRequest::new(path, schema, intent, clock))
+        let owner = OwnedDatabase::open(OpenRequest::new(path, schema, intent, clock.clone()))
             .await
             .map_err(ServerDatabaseError::Open)?;
         Ok(Self {
             owner: Arc::new(owner),
+            clock,
         })
     }
 
     pub(crate) fn owner(&self) -> &OwnedDatabase {
         &self.owner
+    }
+
+    /// The trusted clock the owner stamps write transactions with, for a decision taken on a
+    /// reader. A write reads `WriteTransaction::now()` instead, which follows commit order.
+    pub(crate) fn now(&self) -> Result<UnixMicros, ClockFault> {
+        self.clock.now()
+    }
+}
+
+/// Where a COMMIT acknowledgement comes from. Production always takes the engine's answer;
+/// tests lose it after a real commit or a real rollback to model an outcome nobody observed.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Acknowledgement {
+    Engine,
+    #[cfg(test)]
+    LostAfterCommit,
+    #[cfg(test)]
+    LostAfterRollback,
+}
+
+impl Acknowledgement {
+    pub(crate) async fn commit(self, tx: WriteTransaction<'_>) -> Result<(), CommitFault> {
+        #[cfg(test)]
+        let lost = || {
+            CommitFault::Unknown(cantos_store_turso::error::StoreFault::Io(
+                std::io::ErrorKind::TimedOut,
+            ))
+        };
+        match self {
+            Self::Engine => tx.commit().await,
+            #[cfg(test)]
+            Self::LostAfterCommit => {
+                tx.commit().await?;
+                Err(lost())
+            }
+            #[cfg(test)]
+            Self::LostAfterRollback => {
+                tx.rollback().await.map_err(CommitFault::Rejected)?;
+                Err(lost())
+            }
+        }
     }
 }
 

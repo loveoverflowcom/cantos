@@ -3,7 +3,9 @@
 
 A prebuilt, named Rust libtest runs with no inherited credentials or PATH tools.
 Linux uses fresh user/network/PID namespaces; macOS reports best-effort limitations.
-This guards a selected test, never establishes that it exercised production binaries.
+An optional prebuilt Identity child executable is passed by absolute path through exactly one
+test-only key and bound by digest before and after the run. This guards a selected test, never
+establishes that it exercised production binaries or how they were built.
 """
 
 import argparse
@@ -32,6 +34,9 @@ NAMESPACE = ["--user", "--map-current-user", "--net", "--keep-caps", "--pid",
 ENVIRONMENT_KEYS = frozenset({"PATH", "HOME", "TMPDIR", "TMP", "TEMP", "XDG_CONFIG_HOME",
                               "XDG_CACHE_HOME", "XDG_DATA_HOME", "LANG", "LC_ALL", "TZ",
                               "NO_COLOR", "CANTOS_NATIVE_TEST_DIRECTORY"})
+# The one optional, test-only input: the absolute path of the supplied Identity executable.
+IDENTITY_KEY = "CANTOS_TEST_IDENTITY_BINARY"
+SCHEMA_VERSION = 2
 
 
 class GuardFailure(Exception):
@@ -174,19 +179,26 @@ def captured(command, environment, directory, timeout, max_output=MAX_OUTPUT):
             signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
 
-def private_environment(directory):
+def private_environment(directory, identity=None):
     paths = {name: directory / name for name in ("path", "home", "tmp", "config", "cache", "data")}
     for path in paths.values():
         path.mkdir(mode=0o700)
-    return {"PATH": str(paths["path"]), "HOME": str(paths["home"]),
-            "TMPDIR": str(paths["tmp"]), "TMP": str(paths["tmp"]), "TEMP": str(paths["tmp"]),
-            "XDG_CONFIG_HOME": str(paths["config"]), "XDG_CACHE_HOME": str(paths["cache"]),
-            "XDG_DATA_HOME": str(paths["data"]), "LANG": "C", "LC_ALL": "C", "TZ": "UTC",
-            "NO_COLOR": "1", "CANTOS_NATIVE_TEST_DIRECTORY": str(directory)}
+    environment = {"PATH": str(paths["path"]), "HOME": str(paths["home"]),
+                   "TMPDIR": str(paths["tmp"]), "TMP": str(paths["tmp"]), "TEMP": str(paths["tmp"]),
+                   "XDG_CONFIG_HOME": str(paths["config"]), "XDG_CACHE_HOME": str(paths["cache"]),
+                   "XDG_DATA_HOME": str(paths["data"]), "LANG": "C", "LC_ALL": "C", "TZ": "UTC",
+                   "NO_COLOR": "1", "CANTOS_NATIVE_TEST_DIRECTORY": str(directory)}
+    if identity is not None:
+        environment[IDENTITY_KEY] = str(identity)
+    return environment
 
 
-def audit_environment(environment):
-    if set(environment) != ENVIRONMENT_KEYS:
+def audit_environment(environment, identity=None):
+    """Exactly the allowlist, plus the Identity key only when that exact child was supplied."""
+    expected = ENVIRONMENT_KEYS | ({IDENTITY_KEY} if identity is not None else set())
+    if set(environment) != expected:
+        raise GuardFailure("credential or unapproved environment input detected")
+    if identity is not None and environment[IDENTITY_KEY] != str(identity):
         raise GuardFailure("credential or unapproved environment input detected")
 
 
@@ -203,9 +215,9 @@ def audit_path(environment):
             raise GuardFailure("test PATH contains an unexpected executable or file")
 
 
-def negative_controls(environment, directory):
+def negative_controls(environment, directory, identity=None):
     """Introduce real faults and require the same pre-test audits to reject them."""
-    audit_environment(environment)
+    audit_environment(environment, identity)
     audit_path(environment)
     canary = Path(environment["PATH"]) / "podman"
     canary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -230,7 +242,7 @@ def negative_controls(environment, directory):
             raise GuardFailure("forbidden infrastructure executable could run")
     poisoned = dict(environment, AWS_SECRET_ACCESS_KEY="synthetic-negative-control")
     try:
-        audit_environment(poisoned)
+        audit_environment(poisoned, identity)
     except GuardFailure:
         pass
     else:
@@ -284,13 +296,25 @@ def passing_test_count(output, name):
     return 1
 
 
-def test_binary(value):
+def regular_executable(value, label):
     path = Path(value)
+    message = label + " must be an absolute regular executable file"
     if not path.is_absolute() or not path.is_file() or path.is_symlink() or not os.access(path, os.X_OK):
-        raise GuardFailure("test binary must be an absolute regular executable file")
+        raise GuardFailure(message)
     if not stat.S_ISREG(path.stat().st_mode):
-        raise GuardFailure("test binary must be an absolute regular executable file")
+        raise GuardFailure(message)
     return path
+
+
+def test_binary(value):
+    return regular_executable(value, "test binary")
+
+
+def identity_binary(value):
+    """The supplied child executable, distinct from the test executable it is run by."""
+    if value is None:
+        return None
+    return regular_executable(value, "identity binary")
 
 
 def framed_hash(digest, value):
@@ -404,20 +428,22 @@ def source_identity(directory):
 
 
 def envelope():
-    return {"schema_version": 1, "status": "FAIL", "reason": "guard did not complete",
-            "source": None, "binary_sha256": None, "tests_passed": 0,
+    return {"schema_version": SCHEMA_VERSION, "status": "FAIL", "reason": "guard did not complete",
+            "source": None, "binary_sha256": None, "identity_binary_sha256": None, "tests_passed": 0,
             "test_name": None, "timeout_seconds": None,
             "controls": {"executable": "NOT_RUN", "credential": "NOT_RUN", "network": "NOT_RUN"},
             "network_mode": "none", "limitations": [
                 "PATH removal is not an exec sandbox: absolute executable paths remain accessible",
                 "private HOME and environment removal do not sandbox filesystem reads",
                 "binary digest does not establish a source-to-build provenance chain",
+                "identity child digest proves only which file was supplied and that it stayed unchanged",
                 "guard evidence does not establish production binaries, auth E2E, database or Kani acceptance"]}
 
 
 def run_target(args, directory, result, parent_namespace=None, ip=None):
-    environment = private_environment(directory)
-    result["controls"] = negative_controls(environment, directory)
+    child = identity_binary(args.identity_binary)
+    environment = private_environment(directory, child)
+    result["controls"] = negative_controls(environment, directory, child)
     if parent_namespace is not None:
         result["network_mode"] = "linux-network-namespace"
         result["controls"]["network"] = network_controls(parent_namespace, ip, environment, directory)
@@ -426,15 +452,21 @@ def run_target(args, directory, result, parent_namespace=None, ip=None):
         result["controls"]["network"] = "UNSUPPORTED"
         result["limitations"].append("macOS does not enforce egress denial; kernel network negative control was not run")
     binary = test_binary(args.test_binary)
+    if child is not None and child.resolve() == binary.resolve():
+        raise GuardFailure("identity binary must differ from the test binary")
     before = sha256(binary)
     result["binary_sha256"] = before
+    child_before = sha256(child) if child is not None else None
+    result["identity_binary_sha256"] = child_before
     completed = captured([str(binary), "--exact", args.test, "--test-threads=1"], environment, directory, args.timeout_seconds)
     if sha256(binary) != before:
         raise GuardFailure("selected test binary changed during execution")
+    if child is not None and sha256(child) != child_before:
+        raise GuardFailure("identity binary changed during execution")
     if completed.returncode:
         raise GuardFailure("selected test exited unsuccessfully; raw output suppressed")
     result["tests_passed"] = passing_test_count(completed.stdout, args.test)
-    audit_environment(environment)
+    audit_environment(environment, child)
     audit_path(environment)
     result["status"] = "PASS" if parent_namespace is not None else "UNSUPPORTED"
     result["reason"] = ("all isolation controls and the exact selected test passed" if parent_namespace is not None
@@ -450,6 +482,7 @@ def main(argv=None):
     parser.add_argument("--test-binary", required=True)
     parser.add_argument("--test", required=True)
     parser.add_argument("--timeout-seconds", type=int, default=60, choices=range(1, 121), metavar="1..120")
+    parser.add_argument("--identity-binary")
     parser.add_argument("--isolated-directory", help=argparse.SUPPRESS)
     parser.add_argument("--parent-netns", help=argparse.SUPPRESS)
     parser.add_argument("--ip", help=argparse.SUPPRESS)
@@ -461,6 +494,7 @@ def main(argv=None):
             raise GuardFailure("selected test name must be a bounded Rust test path")
         result["test_name"] = args.test
         test_binary(args.test_binary)
+        identity_binary(args.identity_binary)
         if sys.platform not in ("linux", "darwin"):
             raise Unsupported("native isolation is implemented only for Linux and macOS")
         for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
@@ -488,6 +522,8 @@ def main(argv=None):
                                "--test-binary", args.test_binary, "--test", args.test,
                                "--timeout-seconds", str(args.timeout_seconds),
                                "--isolated-directory", str(directory), "--parent-netns", parent_namespace, "--ip", ip]
+                    if args.identity_binary is not None:
+                        command += ["--identity-binary", args.identity_binary]
                     clean = {"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C", "HOME": str(directory)}
                     # Probe permission separately: a rejected namespace is UNSUPPORTED,
                     # a failure after successful provisioning is a genuine guard FAIL.
@@ -499,7 +535,7 @@ def main(argv=None):
                         isolated = json.loads(child.stdout)
                     except (ValueError, UnicodeError):
                         raise GuardFailure("owned namespace returned an invalid guard receipt") from None
-                    if isolated.get("schema_version") != 1 or isolated.get("status") not in ("PASS", "FAIL"):
+                    if isolated.get("schema_version") != SCHEMA_VERSION or isolated.get("status") not in ("PASS", "FAIL"):
                         raise GuardFailure("owned namespace returned an invalid guard receipt")
                     if child.returncode != (0 if isolated["status"] == "PASS" else 1):
                         raise GuardFailure("owned namespace returned an inconsistent guard receipt")

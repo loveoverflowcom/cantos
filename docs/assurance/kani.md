@@ -100,6 +100,13 @@ the historical API campaigns below do not cover Identity.
 | `identity-mailbox-proof` / `ProofTime::new`, `MailboxProof::{issue,plan_confirmation,plan_cancellation,plan_replacement}` and checked bindings | Full raw `u64` clock, nonzero full-width IDs, valid versions/nonempty stored windows; constructor-domain assumptions only; no stubs; unwind 2, 16 covers | NOT_RUN: same D1 runner/output gap; written assertions/registry tests are not executed proofs |
 
 Reproducible selection: `cargo xtask verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof`.
+The D1 runner for this selection now exists: the manual `native-auth-qualification` job of
+[`repository-checks.yml`](../../.github/workflows/repository-checks.yml) installs Kani 0.68.0
+with `cargo kani setup` on GitHub Actions `ubuntu-24.04` x86_64 and runs exactly these three
+kernels through the [#336 campaign](native-isolation.md#native-auth-linux-qualification-campaign)
+`--kani` lane, outside the isolation guard and with the registry's model unchanged. The job's
+existence is not evidence: each row stays NOT_RUN until a dispatched run's URL, source SHA and
+assertion/unwinding/cover outcomes are recorded here.
 Retain the existing Kani/compiler/solver/target pins, safety and unwinding checks. Acceptance
 needs the actual #331 D1 GitHub Actions Ubuntu x86_64 `workflow_dispatch` run, exact source SHA,
 assertion/unwinding results and all cover outcomes. macOS unit/registry tests and synthetic

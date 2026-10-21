@@ -20,6 +20,7 @@ mod kani;
 mod kanidm;
 mod mobile_toolchain;
 mod native_isolation;
+mod native_qualification;
 mod pipeline;
 mod preflight;
 mod probe;
@@ -166,6 +167,9 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::Verify { suite } => {
             if let cli::VerifySuite::NativeIsolation(args) = &suite {
                 return native_isolation::execute(&workspace, args);
+            }
+            if let cli::VerifySuite::NativeAuthQualification(args) = &suite {
+                return native_qualification::execute(&workspace, args, &tools, &mut runner);
             }
             if let cli::VerifySuite::WebBearer { dry_run } = suite {
                 return web_bearer::execute(&workspace, dry_run, &tools, &mut runner);

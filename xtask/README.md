@@ -69,7 +69,8 @@ cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP re
 cargo xtask verify postgres --suite schema           # current baseline/refusal and SQL acceptance
 cargo xtask verify theatre-auth --suite firebase-emulator|firebase-web-e2e [--dry-run]
 cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger|identity-security-version|identity-completion|identity-mailbox-proof]...
-cargo xtask verify native-isolation --test-binary /absolute/prebuilt-rust-test --test fully::qualified::name [--timeout-seconds 60] [--dry-run]
+cargo xtask verify native-isolation --test-binary /absolute/prebuilt-rust-test --test fully::qualified::name [--timeout-seconds 60] [--identity-binary /absolute/prebuilt/cantos-identity] [--dry-run]
+cargo xtask verify native-auth-qualification [--kani] [--report PATH] [--dry-run] # manual #336 Linux campaign
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
 cargo xtask preflight --profile local --changed-only [--base REF] [--skip GATE]... [--dry-run] # DEV/CHECKPOINT subset
@@ -602,6 +603,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `postgres` | postgres |
 | `kani` | explicitly selected registered `kani` kernels only; opt-in |
 | `native-isolation` | explicit prebuilt exact-test isolation; separate executable/credential/network controls, never an implicit build or infrastructure start |
+| `native-auth-qualification` | manual #336 campaign: builds first, then guarded exact native auth tests, model/pure-core conformance and optional Kani; never selected by gates, preflight or ordinary CI |
 
 `verify native-isolation` accepts one absolute prebuilt Rust test executable and exact test
 name. It sanitizes the child environment, creates private run directories and exercises real
@@ -610,7 +612,28 @@ namespaces and kernel egress refusal; macOS records best-effort test results but
 `UNSUPPORTED`. `--dry-run` is a pure `NOT_RUN` plan. Its regression tests are registered with
 the existing repository/Rust CI jobs; a failure before discovery does not exercise them.
 The explicit fixture lane stays outside ordinary gates and CI.
+`--identity-binary` names a second, already built `cantos-identity` executable that the test
+starts as a child: the guard passes exactly that absolute path as the one test-only key
+`CANTOS_TEST_IDENTITY_BINARY` and binds its digest before and after the run (receipt schema 2).
 Read the [guard contract and evidence limits](../docs/assurance/native-isolation.md).
+
+`verify native-auth-qualification` is the finite #336 Linux campaign. It records the source
+revision, lockfile digest and tool identities; reads `cargo metadata` for the agreed Server
+session target (`identity_auth_candidate`, test `real_identity_actor_session_journey`, feature
+`turso-candidate`: required when present, `NOT_RUN` when absent); builds the Identity executable
+and each test executable with `--locked` and resolves them from that invocation's Cargo JSON
+(never a glob of old artifacts), retaining the Identity executable at a campaign-owned path;
+lists each allowlisted exact test once; then runs each one under `verify native-isolation`,
+checking that every receipt binds the built digests and source revision. It then runs the
+behavior model and pure-core conformance for the two native auth capabilities and, with `--kani`,
+the three registered Identity kernels. It reports `MODEL`, `PURE_CONFORMANCE`,
+`IDENTITY_PROCESS_RPC`, `ACTOR_TURSO`, `SERVER_SESSION_CANDIDATE`, `ISOLATION`, `KANI`,
+`FULL_CANDIDATE`, `FULL_SERVER_HTTP`, `BROWSER` and `DEVICE` separately and writes one sanitized
+JSON report (default `target/verification/native-auth-qualification/report.json`).
+`FULL_CANDIDATE` passes only when every required layer passed on one unchanged revision.
+The D1 run is the manual `native-auth-qualification` job of `repository-checks.yml`
+(`workflow_dispatch` with `native_auth_qualification=true`), which only provisions pinned
+tools. See the [campaign boundary](../docs/assurance/native-isolation.md#native-auth-linux-qualification-campaign).
 
 The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a
 new machine. On macOS setups affected by `/var` versus `/private/var`, prefix Python-heavy runs
@@ -630,7 +653,10 @@ runtime. This prerequisite is independent of the exact Node/npm pins for Quint.
 
 `verify turso` first lints/tests the `cantos-identity` service's opt-in `persistence` feature
 against run-owned real files, then checks the embedded foundation in `packages/store-turso` and
-prints its engine capability report. The foundation commands enable its `testing` feature
+prints its engine capability report. It also lints `cantos-server --features turso-candidate`
+with all targets, which compiles the uncomposed Server candidate and its `identity_auth_candidate`
+journey target without running the journey (that needs a prebuilt Identity executable; the
+manual campaign below runs it). The foundation commands enable its `testing` feature
 (run-owned temporary directories and a deterministic clock), then run the
 `cantos-turso-capability` binary, which exits non-zero when any of its probes differs from the
 expectation recorded beside it. Files live in a private temporary directory removed afterwards. The
@@ -1027,6 +1053,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `deploy/` | explicit static Web deployment to Firebase Hosting: `request` (pure plan), `hosting_config` (tracked policy, `.firebaserc` mapping, effective configuration), `bundle` (exact-bytes validation and manifest), `firebase` (CLI argv, site lookup, remote-outcome interpretation, redaction), `smoke` (read-only HTTPS judgement), `receipt`, `host` (files, bundle scan, Git, clock) and `flow` (stage ordering and short-circuiting) |
 | `run_files.rs`, `firebase_cli.rs` | what `distribute` and `deploy` share: private per-run directories, SHA-256, Git source identity and atomic records; the Firebase CLI version gate and output redaction |
 | `capture.rs` | bounded captured execution with a typed timeout/interruption/output-limit vocabulary, used where output must be interpreted |
+| `native_isolation.rs`, `native_qualification.rs` | the isolation primitive's plan and typed receipt validation; the #336 campaign's fixed allowlist, Cargo JSON artifact resolution, layer statuses and sanitized report |
 | `compose_preview.rs` | optional host-preview command and status mapping; the Python primitive owns capture/log/output validation |
 
 Plans are values: tests assert exact commands with a recording runner and fake tools, while

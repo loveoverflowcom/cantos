@@ -167,6 +167,49 @@ mod tests {
     }
 
     #[test]
+    fn the_manual_qualification_campaign_is_dispatch_only_and_calls_one_xtask_owner() {
+        let workspace = Workspace::discover().unwrap();
+        let workflow =
+            std::fs::read_to_string(workspace.path(".github/workflows/repository-checks.yml"))
+                .unwrap();
+        let job = workflow
+            .split_once("  native-auth-qualification:\n")
+            .expect("the manual campaign job exists")
+            .1;
+        assert!(job.contains(
+            "if: github.event_name == 'workflow_dispatch' && inputs.native_auth_qualification"
+        ));
+        assert!(job.contains("runs-on: ubuntu-24.04"));
+        assert_eq!(
+            job.matches("cargo xtask verify native-auth-qualification --kani")
+                .count(),
+            1
+        );
+        // Provisioning only: the pinned tools, never a copied verifier or a skipped gate.
+        for pin in [
+            "node-version: '24.19.0'",
+            "npm@11.9.0",
+            "kani-verifier --version 0.68.0",
+        ] {
+            assert!(job.contains(pin), "{pin}");
+        }
+        for forbidden in [
+            "--skip",
+            "cargo kani --",
+            "verify_native_isolation.py",
+            "cargo test",
+        ] {
+            assert!(!job.contains(forbidden), "{forbidden}");
+        }
+        // No ordinary CI job runs the campaign.
+        let ordinary = workflow
+            .split_once("  native-auth-qualification:\n")
+            .unwrap()
+            .0;
+        assert!(!ordinary.contains("native-auth-qualification --"));
+    }
+
+    #[test]
     fn the_workflow_calls_each_job_through_xtask() {
         let workspace = Workspace::discover().unwrap();
         let workflow =
@@ -183,8 +226,8 @@ mod tests {
             workflow
                 .matches("run: rustup show active-toolchain")
                 .count(),
-            CiJob::ALL.len(),
-            "every job must select rust-toolchain.toml"
+            CiJob::ALL.len() + 1,
+            "every job, and the manual qualification campaign, must select rust-toolchain.toml"
         );
         assert!(
             !workflow.contains("RUSTUP_TOOLCHAIN:"),
