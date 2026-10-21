@@ -3,6 +3,8 @@
 import copy
 import hashlib
 import io
+import json
+import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -91,7 +93,8 @@ class OciContractTests(unittest.TestCase):
                 def git_only(argv, **kwargs):
                     calls.append(argv)
                     self.assertEqual(argv[0], "git")
-                    self.assertIn(argv[1], ("ls-tree", "show"))
+                    self.assertEqual(argv[1:4], ["--no-lazy-fetch", "--no-optional-locks", "--no-replace-objects"])
+                    self.assertIn(argv[4], ("cat-file", "ls-tree", "show"))
                     return real(argv, **kwargs)
                 before = {p.relative_to(Path(temporary)): p.read_bytes() for p in args.manifest.parent.iterdir()}
                 with patch.object(oci.subprocess, "run", side_effect=git_only):
@@ -274,6 +277,78 @@ class OciContractTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "changed or exceeds release limit"):
                 contract.copy_verified(bundle, destination, expected, limit=oci.MAX_BUNDLE_BYTES)
             self.assertEqual(destination.stat().st_size, 0)
+
+    def test_missing_promisor_blob_refuses_without_transport_or_object_store_changes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, args, _, _ = fixture(root)
+            blob = git(source, "rev-parse", "HEAD:infra/vps/bin/cantos-vps")
+            git(source, "remote", "add", "origin", "cantos-recording::fixture")
+            git(source, "config", "remote.origin.promisor", "true")
+            git(source, "config", "remote.origin.partialclonefilter", "blob:none")
+            git(source, "config", "protocol.cantos-recording.allow", "always")
+            (source / ".git/objects" / blob[:2] / blob[2:]).unlink()
+            marker = root / "transport-attempts"
+            executable = root / "bin/git-remote-cantos-recording"
+            executable.parent.mkdir()
+            executable.write_text('#!/bin/sh\nprintf invoked >>"' + str(marker) + '"\nexit 1\n')
+            executable.chmod(0o755)
+            trace = root / "git-events.jsonl"
+            env = {"PATH": str(executable.parent) + os.pathsep + os.environ.get("PATH", ""),
+                   "GIT_NO_LAZY_FETCH": "0", "GIT_ALLOW_PROTOCOL": "cantos-recording",
+                   "GIT_TRACE2_EVENT": str(trace)}
+            def snapshot():
+                paths = [source / ".git", *(source / ".git").rglob("*")]
+                return {p.relative_to(source): (p.stat().st_mode, p.stat().st_mtime_ns,
+                                               p.read_bytes() if p.is_file() else None) for p in paths}
+            with patch.dict(os.environ, env):
+                # Independent sensitivity control: ordinary Git really tries this
+                # finite, local recording transport when the promised blob is absent.
+                control = subprocess.run(["git", "show", args.source_sha + ":infra/vps/bin/cantos-vps"],
+                                         cwd=source, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                self.assertNotEqual(control.returncode, 0)
+                self.assertTrue(marker.read_text())
+                self.assertEqual(marker.read_text().replace("invoked", ""), "")
+                marker.unlink()
+                trace.unlink()
+                before = snapshot()
+                for dry_run in (False, True):
+                    args.dry_run = dry_run
+                    with self.assertRaises(ValueError) as refusal:
+                        oci.verify(source, args)
+                self.assertFalse(marker.exists())
+                self.assertIn("locally present source objects", str(refusal.exception))
+                after = snapshot()
+                self.assertEqual(before, after)
+                events = [json.loads(line) for line in trace.read_text().splitlines()]
+                self.assertFalse([e for e in events if e.get("event") == "child_start"], events)
+
+    def test_a_tree_sha_is_not_a_source_commit_even_when_bundle_bytes_and_modes_match(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source, args, manifest, _ = fixture(Path(temporary))
+            tree = git(source, "rev-parse", "HEAD^{tree}")
+            bundle = args.manifest.parent / "runtime.tar"
+            with tarfile.open(bundle) as archive:
+                members = [(copy.copy(e), archive.extractfile(e).read()) for e in archive]
+            members[0] = (members[0][0], (tree + "\n").encode())
+            with tarfile.open(bundle, "w") as archive:
+                for entry, data in members:
+                    archive.addfile(entry, io.BytesIO(data))
+            manifest["source_sha"] = tree
+            manifest["runtime_bundle"].update(contract.file_record(bundle, bundle.parent))
+            manifest["runtime_bundle"]["entries"][0]["sha256"] = hashlib.sha256(members[0][1]).hexdigest()
+            with self.assertRaisesRegex(ValueError, "source SHA must name a commit object"):
+                oci.verify_bundle(source, bundle, manifest)
+
+    def test_git_without_no_lazy_fetch_support_is_refused_without_unguarded_fallback(self):
+        refusal = subprocess.CompletedProcess([], 129, b"", b"unknown option: --no-lazy-fetch")
+        with patch.object(oci.subprocess, "run", return_value=refusal) as run:
+            with self.assertRaisesRegex(ValueError, "Git --no-lazy-fetch support"):
+                oci.git(Path.cwd(), "cat-file", "-t", "a" * 40)
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.args[0][1], "--no-lazy-fetch")
+        self.assertEqual(run.call_args.kwargs["env"]["GIT_NO_LAZY_FETCH"], "1")
+        self.assertEqual(run.call_args.kwargs["env"]["GIT_ALLOW_PROTOCOL"], "")
 
 
 if __name__ == "__main__":

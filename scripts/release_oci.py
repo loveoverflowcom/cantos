@@ -8,6 +8,7 @@ and checksums alone are not trusted provenance or real registry/runtime evidence
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -148,9 +149,16 @@ def manifest_plan(manifest, admission, *, manifest_digest, source_sha, configura
 
 
 def git(root, *args):
-    result = subprocess.run(["git", *args], cwd=root, check=False, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, timeout=30)
-    contract.require(result.returncode == 0, "source-bound host asset unavailable in local Git objects")
+    # Object reads in a partial clone may otherwise fetch, authenticate and write
+    # packs. An unsupported global option fails before the object command: never
+    # fall back to an older Git that silently ignores an environment-only guard.
+    env = dict(os.environ, GIT_NO_LAZY_FETCH="1", GIT_OPTIONAL_LOCKS="0",
+               GIT_NO_REPLACE_OBJECTS="1", GIT_ALLOW_PROTOCOL="", GIT_TERMINAL_PROMPT="0")
+    result = subprocess.run(["git", "--no-lazy-fetch", "--no-optional-locks", "--no-replace-objects", *args],
+                            cwd=root, check=False, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=30, env=env)
+    contract.require(result.returncode == 0,
+                     "Git --no-lazy-fetch support and locally present source objects required")
     return result.stdout
 
 
@@ -160,6 +168,8 @@ def verify_bundle(root, path, manifest):
     expected = {k: bundle[k] for k in ("path", "bytes", "sha256")}
     records = {entry["path"]: entry for entry in bundle["entries"]}
     source_sha = manifest["source_sha"]
+    contract.require(git(root, "cat-file", "-t", source_sha) == b"commit\n",
+                     "source SHA must name a commit object")
     with tempfile.TemporaryDirectory(prefix="cantos-oci-verify-", dir=Path(tempfile.gettempdir()).resolve()) as temporary:
         snapshot = Path(temporary) / "runtime.tar"
         contract.copy_verified(path, snapshot, expected, limit=MAX_BUNDLE_BYTES)

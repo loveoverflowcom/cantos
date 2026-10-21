@@ -41,6 +41,12 @@ cargo xtask release oci-verify \
 These paths and pins are operator inputs, not defaults or discovered latest artifacts. The
 source commit must exist in local Git objects; no checkout or fetch occurs. The bundle's
 `REVISION`, every committed path, full file bytes and executable mode must match that commit.
+The SHA must identify a commit object, not a tree/tag/blob. All Git object reads use the
+explicit `--no-lazy-fetch` global option, disable optional locks/replacement objects and deny
+transports. Git must support that option (verified here with Git 2.49); an older unsupported
+Git refuses before object access, with no unguarded fallback. Missing promisor objects refuse
+even in dry-run rather than being fetched into the local object store. See
+[Git's offline object-read option](https://git-scm.com/docs/git#Documentation/git.txt---no-lazy-fetch).
 No host IP or credential is included. Configuration identity is an explicitly admitted digest;
 the verifier does not establish whether that configuration is correct for a host.
 
