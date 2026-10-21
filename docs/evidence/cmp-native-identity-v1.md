@@ -31,6 +31,14 @@ version-1 envelopes are classified for local retirement/relogin only; credential
 never sent to v1 and local retirement does not claim server revocation. Mixed/foreign/corrupt
 records and unresolved durable denial barriers fail closed. Whole-pair readback precedes exact
 session admission; same-family rotation preserves private Library partitions and playback.
+The final review found an inherited wall-clock rollback defect in that owner: a renewal timer
+could return the old lease without scheduling another renewal, and local authority could outlive
+its elapsed absolute ceiling. Identity v1 now keeps an application-owned monotonic time floor
+across refresh/revalidation/intents. It retains server UNIX deadlines and existing bounds, adds
+no TTL policy, and never resets the floor to a rolled-back wall clock. Process restart still
+requires API admission. Two deterministic regressions failed before the repair; terminal expiry,
+renewal and same-family rotation/revalidation are covered afterward. This is active-process
+JVM evidence; native sleep/suspend and secure-store/process-death behavior remain unaccepted.
 
 Native signup accepts email only, calls `/native/identity/signup` once and displays generic
 check-mail guidance. The [Web completion contract](../../packages/contracts/identity-auth-v1.md#email-link-and-signup)
@@ -49,7 +57,7 @@ No Kotlin formatter/linter is configured; compiler, tests and manual source revi
 
 | Layer | Observed result and scope |
 | --- | --- |
-| COMMON_TESTS | Final PASS: 532 tests, 0 failures/errors, 2 existing opt-in live skips. Includes the 16 transport and 32 lifecycle tests from the first two slices and 6 new signup/copy/redaction/projection tests. |
+| COMMON_TESTS | Final PASS: 535 tests, 0 failures/errors, 2 existing opt-in live skips. Includes the 16 transport and 32 lifecycle tests from the first two slices and 6 new signup/copy/redaction/projection tests and 3 final-review clock regressions. |
 | PREVIEW | Final PASS: 103 tests, 0 failures/errors/skips. Five new tests cover live composition, form validation/keyboard, secret clearing/visibility, VI/EN generic 401/429/503 and email-only signup; existing navigation/logout/account/Library/player scenarios now use v1 commands. Final 320dp/2× text capture was opened: password label and actions are legible; all auth controls remain reachable by scrolling. |
 | ANDROID_BUILD | PASS: final debug build/APK inspection and unsigned release audit/build/APK+AAB inspection; matching pre-shrink inputs and resolved graph. Packaging does not establish runtime acceptance. |
 | IOS_BUILD | UNSUPPORTED: installed Kotlin/Native 2.2.0 does not satisfy pinned 2.2.20; no framework/Swift link acceptance. |
@@ -60,7 +68,7 @@ No Kotlin formatter/linter is configured; compiler, tests and manual source revi
 Reproduction (from the checkout; installed Gradle 8.14.3, JDK 21, Rust 1.98.1):
 
 ```sh
-export RUSTUP_TOOLCHAIN=1.98.1 CARGO_TARGET_DIR=target/hosts CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0
+export RUSTUP_TOOLCHAIN=1.98.1 CARGO_TARGET_DIR=target/review CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0
 export PATH="/Users/manhblue/.local/share/gradle/gradle-8.14.3/bin:$PATH"
 export JAVA_HOME=/Users/manhblue/Library/Java/JavaVirtualMachines/ms-21.0.7/Contents/Home
 cargo xtask theatre-preview verify
@@ -106,6 +114,14 @@ caught direct feature-to-port failure matching and a new-file Button adoption; t
 failures through application-owned display facts and keeps the form in the existing AuthScreens
 owner. Independent review rechecked that delta. Review receipt and final
 source/test provenance are in ignored `artifacts/agent-runs/cmp-chat3/` and the local handoff.
+The fourth review re-read the full three-commit diff and used independent read-only transport,
+lifecycle and UI/host passes. Its bounded clock repair follows the existing application owner;
+no feature/port coupling, component-qualification waiver or backend scope was introduced. Final
+review commands, the failing-before/passing-after regression output and current source provenance
+are retained in `artifacts/agent-runs/cmp-chat4/` and its local handoff. The earlier broad Python
+failure classification is reused only for unchanged inputs; the affected tests and repository
+report are checked again. The GitHub workflow targets `develop`, so an empty PR check list on the
+native integration branch is not a remote CI pass.
 
 Residual risk: final repository gate remains subject to its actual report; Web completion,
 iOS compiler/linking, both device lifecycles/secure stores, accessibility and real authentication

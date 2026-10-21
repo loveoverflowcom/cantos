@@ -42,6 +42,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.TimeSource
 
 /** Production session owner AND production journal codec/readback, with deterministic OS/network ports.
  * Recreation uses the same durable port bytes; this is not a device/process-death or auth E2E proof. */
@@ -133,7 +134,8 @@ class NativeIdentityV1LifecycleTest {
         }
         override suspend fun revoke(previous: NativeGrant): IdentityV1Result<Unit> = error("Family cleanup must use the refresh credential")
     }
-    private inner class Fixture(val scope: CoroutineScope, initial: NativeCredentialRecord? = null) {
+    private inner class Fixture(val scope: CoroutineScope, initial: NativeCredentialRecord? = null,
+        val clock: TimeSource = TimeSource.Monotonic) {
         val events = mutableListOf<String>()
         val secure = SecureStore(events)
         val journal = SecureNativeCredentialJournal(secure, config())
@@ -141,7 +143,7 @@ class NativeIdentityV1LifecycleTest {
         val api = Api(events)
         var now = 100L
         init { initial?.let { assertNull(journal.write(it)) }; events.clear() }
-        fun recreate() = NativeAccountController(scope, config(), api, SecureNativeCredentialJournal(secure, config()), barrier) { now }
+        fun recreate() = NativeAccountController(scope, config(), api, SecureNativeCredentialJournal(secure, config()), barrier, clock) { now }
         val owner = recreate()
         fun login() = owner.login(email, password)
         fun stored() = assertIs<NativeJournalRead.Found>(journal.read()).record
@@ -473,6 +475,50 @@ class NativeIdentityV1LifecycleTest {
         f.now = 1001; f.owner.restore(); runCurrent()
         assertNull(f.owner.verifiedSession.value); assertEquals(0, f.api.refreshes); assertEquals(0, f.api.sessions)
         assertEquals(listOf(family), f.api.revoked.map { it.view.session }); f.owner.close()
+    }
+
+    @Test fun wall_clock_rollback_cannot_extend_absolute_authority() = runTest {
+        val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair(expires = 220, refresh = 220, absolute = 220)), testScheduler.timeSource)
+        f.owner.restore(); runCurrent()
+        val lease = assertNotNull(f.owner.verifiedSession.value)
+        f.now = 115 // The elapsed 120 seconds still end authority after a device-clock rollback.
+        advanceTimeBy(120_000); runCurrent()
+        assertFalse(f.owner.accepts(lease))
+        assertNull(f.owner.verifiedSession.value)
+        assertEquals(0, f.api.refreshes)
+        assertEquals(listOf(family), f.api.revoked.map { it.view.session })
+        f.owner.close()
+    }
+
+    @Test fun wall_clock_rollback_does_not_disable_timer_rotation() = runTest {
+        val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair()), testScheduler.timeSource)
+        // At elapsed time 205 the server's 120-second access deadline is 325.
+        f.api.refreshResult = IdentityV1Result.Accepted(pair('b', expires = 325, refresh = 800))
+        f.owner.restore(); runCurrent()
+        f.now = 200 // 105 elapsed seconds means renewal is due, despite five seconds of rollback.
+        advanceTimeBy(105_000); runCurrent()
+        assertEquals(1, f.api.refreshes)
+        assertEquals(pair('b', expires = 325, refresh = 800).accessToken,
+            assertNotNull(f.owner.verifiedSession.value).bearer)
+        f.owner.close()
+    }
+
+    @Test fun rotation_and_revalidation_preserve_elapsed_absolute_ceiling() = runTest {
+        val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair(expires = 200, refresh = 220, absolute = 220)),
+            testScheduler.timeSource)
+        f.api.refreshResult = IdentityV1Result.Accepted(pair('b', expires = 220, refresh = 220, absolute = 220))
+        f.owner.restore(); runCurrent()
+        f.now = 180; advanceTimeBy(85_000); runCurrent()
+        assertEquals(1, f.api.refreshes)
+        f.now = 190; advanceTimeBy(20_000); runCurrent()
+        f.owner.revalidate(family); runCurrent()
+        val lease = assertNotNull(f.owner.verifiedSession.value)
+        assertEquals(220L, lease.session.absoluteExpiresAt)
+        f.now = 100; advanceTimeBy(15_000); runCurrent()
+        assertFalse(f.owner.accepts(lease)); assertNull(f.owner.verifiedSession.value)
+        assertEquals(1, f.api.refreshes)
+        assertEquals(listOf(family), f.api.revoked.map { it.view.session })
+        f.owner.close()
     }
 
     @Test fun business_authorization_failure_preserves_retry_after_without_dispatch_or_mutation_replay() = runTest {

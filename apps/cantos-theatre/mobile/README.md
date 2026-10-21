@@ -58,6 +58,10 @@ actor/family/deadline/authentication-time match precedes `verifiedSession`/`Sign
 checks the API or performs one safe refresh within the original deadlines; timer and private
 requests share one flight. A nonconsuming session-check outage hides authority and retains a
 candidate for explicit restore. Refresh failure/unknown outcome is cleanup-only, never replayed.
+Identity v1 time checks use a monotonic elapsed-time floor over the supplied UNIX clock, so
+moving the device clock backwards cannot postpone renewal or extend local access/absolute
+authority. The floor survives rotation and revalidation; restart still requires API admission.
+Native suspend/time-source behavior remains a device acceptance item.
 Logout hides authority, marks the durable denial barrier, then cleans the exact known family.
 Late A results cannot change B's journal, Library, player or navigation. No auth token enters a
 media URL; public playback keeps its separate release capability. SQLDelight and playback policy

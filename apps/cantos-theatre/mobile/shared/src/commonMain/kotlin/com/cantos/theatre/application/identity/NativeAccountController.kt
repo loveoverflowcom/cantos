@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.TimeSource
 
 enum class NativeAccountFailure { Configuration, Entropy, Login, Storage, Cleanup, Expired, Api, Protocol, Exhausted }
 sealed interface NativeAccountState {
@@ -58,15 +59,37 @@ class NativeAccountController private constructor(
     private val protocol: NativeCredentialProtocol,
     private val store: NativeCredentialJournal,
     private val barrier: LogoutBarrier,
-    private val now: () -> Long,
+    private val wallNow: () -> Long,
+    timeSource: TimeSource?,
 ) {
     constructor(scope: CoroutineScope, configuration: NativeClientConfiguration, api: NativeIdentityApi,
         crypto: IdentityCrypto, browser: SystemBrowser, store: NativeCredentialJournal, barrier: LogoutBarrier,
-        now: () -> Long) : this(scope, configuration, api, NativeLoginController(crypto, browser), null, NativeCredentialProtocol.ProviderBearerV1, store, barrier, now)
+        now: () -> Long) : this(scope, configuration, api, NativeLoginController(crypto, browser), null, NativeCredentialProtocol.ProviderBearerV1, store, barrier, now, null)
 
     constructor(scope: CoroutineScope, configuration: NativeIdentityV1Configuration, api: NativeIdentityV1Api,
         store: NativeCredentialJournal, barrier: LogoutBarrier, now: () -> Long) :
-        this(scope, null, null, null, api, configuration.protocol, store, barrier, now)
+        this(scope, configuration, api, store, barrier, TimeSource.Monotonic, now)
+
+    internal constructor(scope: CoroutineScope, configuration: NativeIdentityV1Configuration, api: NativeIdentityV1Api,
+        store: NativeCredentialJournal, barrier: LogoutBarrier, timeSource: TimeSource, now: () -> Long) :
+        this(scope, null, null, null, api, configuration.protocol, store, barrier, now, timeSource)
+
+    private val clockOrigin = timeSource?.markNow()
+    private var observedElapsed = 0L
+    private var observedTime = if (clockOrigin != null) wallNow() else 0L
+
+    // Keep server UNIX deadlines, but never extend their remaining duration when the device
+    // clock moves backwards. This process-wide floor survives refresh/revalidation/new intents;
+    // a restart still requires API admission. OS suspend/time-source behavior needs device evidence.
+    private fun now(): Long {
+        val origin = clockOrigin ?: return wallNow() // Retained provider path is unchanged.
+        val elapsed = origin.elapsedNow().inWholeSeconds.coerceAtLeast(observedElapsed)
+        val delta = elapsed - observedElapsed
+        val advanced = if (observedTime > Long.MAX_VALUE - delta) Long.MAX_VALUE else observedTime + delta
+        observedTime = maxOf(wallNow(), advanced)
+        observedElapsed = elapsed
+        return observedTime
+    }
 
     private fun <T> native(result: IdentityV1Result<T>): NativeApiResult<T> = when (result) {
         is IdentityV1Result.Accepted -> NativeApiResult.Accepted(result.value)
