@@ -35,6 +35,10 @@ tonic = { version = "=0.14.5", default-features = false, features = ["transport"
 zeroize = { version = "=1.9.1", default-features = false, features = ["alloc"], optional = true }
 
 [dev-dependencies]
+# Test-only: the Quint conformance observer decodes events and encodes observations. Never a
+# release dependency; the dependency-free default core is checked by scripts/test_verify_behavior_conformance_native.py.
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = { version = "=1.0.145" }
 cantos-store-turso = { path = "../../packages/store-turso", features = ["testing"] }
 hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
 prost = { version = "=0.14.4", default-features = false, features = ["derive", "std"] }

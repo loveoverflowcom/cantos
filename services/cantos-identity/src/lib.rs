@@ -32,3 +32,8 @@ pub mod policy;
 pub mod rpc;
 #[cfg(feature = "service")]
 pub mod server;
+
+// Test-only event observer of the pure cores for the registered Quint capability. It lives
+// outside `domain` because it reads files and the environment; no release build links it.
+#[cfg(test)]
+mod quint_conformance_tests;

@@ -231,3 +231,7 @@ pub fn decide_admission(observed: &ObservedSecurity, current: &SecurityState) ->
 
 #[cfg(test)]
 mod tests;
+
+// Test-only event observer for the registered Quint capability; never part of a release build.
+#[cfg(test)]
+mod quint_conformance_tests;

@@ -28,6 +28,24 @@ secret, actual HTTP request, account eligibility, clock trust, digest, transacti
 is verified. A stale copied plan must still lose an atomic compare at the shared Turso owner.
 The harness does not establish one-winner consumption under concurrency or unknown outcomes.
 
+### Reconciliation with the native auth Quint observers (#106)
+
+`identity-mailbox-proof` reaches every mailbox symbol the
+[mailbox observer](../../specs/behavior/observation-protocol.md#native-identity-auth-observation-protocol-v1) calls
+(`ProofTime::new`, `MailboxProof::{issue, plan_confirmation, plan_cancellation, plan_replacement}`, the checked bindings
+and identifiers) and is kept unchanged. The Quint replay and that kernel are different evidence; neither implies the other.
+
+The session-admission observer's Server decisions, `decide_issue` and `decide_admission`, have **no kernel**, and none is
+added: it would not be compatible with the current lane. Both compare `Subject`/`Epoch` values that wrap `[u8; 16]`
+(as does their nonzero check), and Kani lowers byte-array equality to CBMC's `memcmp`, whose 16-iteration loop cannot be
+discharged at the lane's fixed `--unwind 2` with unwinding checks enabled. Diagnostic only (host Kani 0.67.0, a minimal
+crate with the same `[u8; 16]` newtype, not the pinned lane and not about the production crate): `memcmp.unwind.0`
+`unwinding assertion loop 0` FAILURE, `VERIFICATION:- FAILED`. Host Kani 0.67.0 cannot compile this workspace at all
+(rustc 1.93 nightly against `rust-version` 1.98.1). The Identity crate's identifiers are `u128` internally, so its
+registered kernels do not take this path. Covering the Server decisions needs a reviewed lane change (a per-kernel unwind
+bound) or `u128` identifiers in the Server decision types; neither is part of #106. `validate_fact`,
+`SecurityState::from_response` and every synthetic-shell element also have no kernel, and none is claimed.
+
 ## Recorded decision and scope
 
 Ordered assurance commit 7 selects three small production kernels after their
