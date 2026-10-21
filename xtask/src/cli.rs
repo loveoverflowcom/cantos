@@ -161,7 +161,7 @@ pub enum Task {
         /// Opt in to registered API Kani proofs, narrowed by changed paths when requested.
         #[arg(long)]
         kani: bool,
-        /// Comparison base for --changed-only.
+        /// Comparison base for --changed-only and the repository localization check.
         #[arg(long, default_value = DEFAULT_BASE, value_name = "REF")]
         base: String,
         /// Select gates affected by changes since the merge base with --base, including

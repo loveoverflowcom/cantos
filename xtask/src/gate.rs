@@ -94,7 +94,9 @@ impl Scope {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Gate {
-    Repository,
+    Repository {
+        base: Option<String>,
+    },
     Behavior {
         capability: Option<String>,
         setup: bool,
@@ -160,7 +162,7 @@ pub const API_CONTRACT_TESTS: [&str; 13] = [
 impl Gate {
     pub fn kind(&self) -> GateKind {
         match self {
-            Gate::Repository => GateKind::Repository,
+            Gate::Repository { .. } => GateKind::Repository,
             Gate::Behavior { .. } => GateKind::Behavior,
             Gate::RustFormat => GateKind::RustFormat,
             Gate::ScriptIrReference => GateKind::ScriptIrReference,
@@ -210,7 +212,7 @@ impl Gate {
 
     pub fn tools(&self) -> Vec<Tool> {
         match self {
-            Gate::Repository => vec![Tool::Cargo, Tool::Python3, Tool::Git],
+            Gate::Repository { .. } => vec![Tool::Cargo, Tool::Python3, Tool::Git],
             Gate::Behavior {
                 setup, conformance, ..
             } => {
@@ -267,11 +269,12 @@ impl Gate {
         let python = |args: &[&str]| CommandSpec::new("python3", root).args(args.iter().copied());
         let cargo = |args: &[&str]| CommandSpec::new("cargo", root).args(args.iter().copied());
         match self {
-            Gate::Repository => vec![
+            Gate::Repository { base } => vec![
                 cargo(&[
                     "run", "--quiet", "--locked", "-p", "xtask", "--", "services", "validate",
                 ]),
-                python(&["scripts/check_repository.py"]),
+                python(&["scripts/check_repository.py"])
+                    .args(base.iter().flat_map(|base| ["--base", base.as_str()])),
                 python(&[
                     "-m",
                     "unittest",
@@ -540,7 +543,7 @@ impl Gate {
 /// Every gate at its widest scope: the uncertain-impact and full-preflight selection.
 pub fn full() -> Vec<Gate> {
     vec![
-        Gate::Repository,
+        Gate::Repository { base: None },
         Gate::RustFormat,
         Gate::ScriptIrReference,
         Gate::ProtobufReference,
@@ -587,7 +590,7 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
             };
             kernels.into_iter().map(Gate::Kani).collect()
         }
-        VerifySuite::Repository => vec![Gate::Repository],
+        VerifySuite::Repository => vec![Gate::Repository { base: None }],
         VerifySuite::Rust => vec![
             Gate::RustFormat,
             Gate::RustLint(Scope::Workspace),
@@ -650,7 +653,7 @@ mod tests {
     #[test]
     fn gates_run_the_documented_repository_commands() {
         assert_eq!(
-            lines(&Gate::Repository),
+            lines(&Gate::Repository { base: None }),
             [
                 "cargo run --quiet --locked -p xtask -- services validate",
                 "python3 scripts/check_repository.py",

@@ -34,7 +34,7 @@ impl CiJob {
 
     pub fn gates(self) -> Vec<Gate> {
         match self {
-            CiJob::Repository => vec![Gate::Repository, Gate::ScriptIrReference],
+            CiJob::Repository => vec![Gate::Repository { base: None }, Gate::ScriptIrReference],
             CiJob::Rust => vec![
                 Gate::RustFormat,
                 Gate::ProtobufReference,

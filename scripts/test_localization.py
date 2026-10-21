@@ -211,6 +211,40 @@ class LocalizationRegressionTest(unittest.TestCase):
             path.write_text('view! { <button>"Retry"</button> }\n', encoding="utf-8")
             self.assertEqual(checks.changed_sources(root, "HEAD")[WEB], {1})
 
+    def test_explicit_base_uses_merge_base_and_keeps_all_working_tree_changes(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return checks.git(root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", *args)
+
+            git("init", "-q", "-b", "develop")
+            path = root / WEB
+            path.parent.mkdir(parents=True)
+            path.write_text("legacy\n", encoding="utf-8")
+            git("add", ".")
+            git("commit", "-qm", "develop")
+            git("checkout", "-qb", "integration-base")
+            path.write_text("legacy\ninherited\n", encoding="utf-8")
+            git("commit", "-qam", "integration baseline")
+            git("checkout", "-qb", "feature")
+            path.write_text("legacy\ninherited\ncommitted\n", encoding="utf-8")
+            git("commit", "-qam", "feature")
+            git("checkout", "-q", "integration-base")
+            path.write_text("target changed\ninherited\n", encoding="utf-8")
+            git("commit", "-qam", "target advances")
+            git("checkout", "-q", "feature")
+            path.write_text("legacy\ninherited\ncommitted\nstaged\n", encoding="utf-8")
+            git("add", ".")
+            path.write_text("legacy\ninherited\ncommitted\nstaged\nunstaged\n", encoding="utf-8")
+            untracked = WEB.replace("example.rs", "untracked.rs")
+            (root / untracked).write_text("new\n", encoding="utf-8")
+            with patch.object(checks, "default_base", side_effect=AssertionError("explicit base ignored")):
+                self.assertEqual(checks.changed_sources(root, "integration-base"),
+                                 {WEB: {3, 4, 5}, untracked: {1}})
+                with self.assertRaises(subprocess.CalledProcessError):
+                    checks.changed_sources(root, "missing-base")
+
     def test_named_interpolation_keys_are_not_displayed_literals(self):
         self.assertEqual(self.failures('view! { <p>{messages::format(Key::Title, locale, &[("title", title)])}</p> }'), [])
 

@@ -116,7 +116,7 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         });
     }
     let affected = graph.dependents_closure(&impact.packages);
-    let mut gates: BTreeSet<Gate> = [Gate::Repository, Gate::RustFormat].into();
+    let mut gates: BTreeSet<Gate> = [Gate::Repository { base: None }, Gate::RustFormat].into();
     gates.extend(impact.gates);
     if !affected.is_empty() {
         let scope = Scope::Packages(affected.clone());

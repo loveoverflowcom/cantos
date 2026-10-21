@@ -716,7 +716,7 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         let mut steps = crate::gate::steps(
             &[
-                crate::gate::Gate::Repository,
+                crate::gate::Gate::Repository { base: None },
                 crate::gate::Gate::Kani(Kernel::CatalogRevision),
                 crate::gate::Gate::Kani(Kernel::WavPayload),
                 crate::gate::Gate::Kani(Kernel::SubmissionWindow),

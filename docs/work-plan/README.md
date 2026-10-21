@@ -11,6 +11,10 @@ re-read its issue and current source, then update the owning contract/architectu
 A merged core is not live acceptance. Completed Catalog work (#66) is a foundation to reuse,
 not the next implementation task.
 
+For native-refactor changes targeting `refactor/cantos-native-turso`, set
+`--base origin/refactor/cantos-native-turso` in [preflight](../../xtask/README.md#preflight)
+so gate selection and changed-UI localization share that integration boundary.
+
 Numeric prefixes on work items are ordering markers, not permanent IDs; they may be renumbered.
 The retained 020–050 files describe unfinished capability acceptance, not an instruction to
 rebuild their implemented portions. Keep speculative expansion in [backlog](backlog/deferred-expansion.md).

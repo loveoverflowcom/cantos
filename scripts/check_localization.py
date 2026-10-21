@@ -521,7 +521,7 @@ def default_base(root):
 
 
 def changed_sources(root, base=None):
-    base = base or default_base(root)
+    base = default_base(root) if base is None else git(root, "merge-base", "HEAD", base).strip()
     names = set(git(root, "diff", "--name-only", "--diff-filter=ACMR", "-z", base, "--").split("\0"))
     names.update(git(root, "ls-files", "--others", "--exclude-standard", "-z").split("\0"))
     changed = {}

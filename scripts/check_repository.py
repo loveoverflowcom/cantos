@@ -10,6 +10,7 @@ one-owner locking or the absence of cross-database reads at runtime.
 It uses only Python's standard library (3.11+ for `tomllib`) and Git.
 """
 
+import argparse
 import json
 import os
 import re
@@ -1564,7 +1565,7 @@ def check_theatre_architecture(root=ROOT):
     return sorted(errors)
 
 
-def check():
+def check(base=None):
     errors = []
     for name in REQUIRED:
         if not (ROOT / name).is_file():
@@ -1624,7 +1625,7 @@ def check():
     # Full catalog parity is independent from the displayed-literal diff.
     from check_localization import repository_failures as localization_failures
     try:
-        errors += localization_failures(ROOT)
+        errors += localization_failures(ROOT, base=base)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         errors.append(f"localization: {error}")
 
@@ -1656,8 +1657,11 @@ def check():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base", metavar="REF", help="localization comparison ref (uses its merge base with HEAD)")
+    arguments = parser.parse_args()
     try:
-        sys.exit(check())
+        sys.exit(check(base=arguments.base))
     except (OSError, subprocess.CalledProcessError) as exc:
         print(f"Unable to check repository: {exc}", file=sys.stderr)
         sys.exit(1)

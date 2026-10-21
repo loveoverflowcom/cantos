@@ -733,6 +733,11 @@ reporting vocabulary, `PASS` is `passed`, `FAIL` is `failed`, `NOT_RUN` is `not-
 base of `--base` (default `origin/develop`): committed, staged, unstaged and untracked paths, with
 both ends of a rename. A missing base fails before any gate runs. `--dry-run` prints the plan.
 
+The repository gate's changed-UI localization check uses the same `--base` and merge-base
+comparison, including when preflight runs without `--changed-only`. Standalone `verify repository`
+and CI retain their automatic develop/CI-parent comparison. No comparison silently skips an
+unavailable base.
+
 Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conservative:
 
 - `repository` and `rust-format` always run.
