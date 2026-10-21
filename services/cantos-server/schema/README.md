@@ -2,7 +2,7 @@
 
 The [per-table native disposition manifest](native-table-ownership.json) and
 [ownership/runtime prerequisite map](../../../docs/architecture/native-persistence-readiness.md)
-cover the 82 SQL tables plus the two migrator metadata tables. The existing repository gate
+cover the 84 SQL tables plus the two migrator metadata tables. The existing repository gate
 checks source coverage and refuses provider-auth tables classified as business data. This is
 source inventory only; it neither ports rows nor changes this authoritative PostgreSQL runtime.
 
@@ -14,6 +14,9 @@ applied checksum and applies only the exact missing suffix, atomically. There is
 epoch-1 upgrade chain or parallel SQL bootstrap command. Runtime verification requires every version.
 `0003_listener_bookmarks.sql` is the additive version 3 (release-bound listener bookmarks, #299); no earlier
 checksum is touched, and `cantos-migrate` (without `--check`) applies exactly this suffix to a `[1,2]` database.
+`0004_identity_sessions.sql` is the additive version 4 (sessions issued from a verified `cantos-identity`
+fact, #335): provider-free server data that a provider-auth retirement must keep; see
+[Identity auth v1](../../../packages/contracts/identity-auth-v1.md#storage-invariants-and-333-hand-off).
 A binary rejects any registry longer than its own, so an expansion is never image-only reversible.
 Production applies a new additive version only through the explicit
 [registry-suffix lane](../../../docs/deployment/postgres-prefix-upgrade.md), never by hand and never

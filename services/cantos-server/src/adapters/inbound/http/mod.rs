@@ -6,6 +6,7 @@ mod bearer;
 mod cookies;
 mod cors;
 mod errors;
+mod identity_auth;
 mod policy;
 mod router;
 mod state;

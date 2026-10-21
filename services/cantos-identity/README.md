@@ -7,15 +7,18 @@ authenticated Unix-socket RPC. It is part of [#334](https://github.com/loveoverf
 on `refactor/cantos-native-turso`; it is **not** the whole of #334 and it is not a Server session.
 
 The [owner's v1 amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
-supersedes the older factor/dependency target. The sections below describe actual source:
-Studio password remains **selected, implementation pending**, not enabled by this document.
+and [ADR 0045](../../docs/decisions/0045-v1-email-password-sign-in.md) supersede the older
+factor/dependency target. The sections below describe actual source, including the Studio
+password path that ADR 0045 enabled.
 
 * Implemented and run against the real engine: signup start, explicit mailbox-confirmed setup,
   password authentication, restart, replay/unknown-outcome reconciliation, disable race, the
   RPC boundary and the executable (see [Verification](#verification) for exactly what ran).
 * Not implemented: Studio provisioning, passkey and recovery codes; credential recovery,
   change-password, second factors, disable/re-enable RPC; restore epoch rotation; the security-event
-  consumer; the Server session/ActorId binding and every front end (#335); network mode.
+  consumer; every front end (#335); network mode. The Server consumer (private client, fresh
+  security-state reads, sessions and ActorId binding on PostgreSQL) is the
+  [Identity auth v1 contract](../../packages/contracts/identity-auth-v1.md).
 * The end point is an **authentication fact** of Identity. It is neither an application session nor
   authorization of any resource. See the [RPC contract](../../packages/contracts/identity-rpc-v1.md).
 
@@ -29,10 +32,12 @@ Studio password remains **selected, implementation pending**, not enabled by thi
 | `MailboxProof` transition plans | Only explicit, currently bound, unexpired confirmation plans consumption; cancellation/consumption are terminal; replacement changes the locator after an explicit cooldown | Exact expiry/clock/storage edges, all binding changes, terminal/replacement refusals and 1,296 four-step traces on production symbols |
 
 `Purpose` has separate Theatre and Studio cases. `Assurance` is categorical, with no ordering
-or arithmetic. The Theatre password path admits `Password`; the current pre-amendment Studio core admits only
-`UserVerifiedPasskey`. A passkey without user verification, mailbox proof or one recovery code
-cannot complete either login path. The v1 amendment selects the Studio password change, but its
-implementation/tests remain pending; these labels do not implement or verify any factor.
+or arithmetic. The Theatre password path admits `Password`. Studio admits `Password` too (the
+[#335 v1 decision](../../packages/contracts/identity-auth-v1.md#owner-decision-recorded-here-v1-scope-amendment);
+Identity keeps no Studio roster, which is the Server's) and the deferred D3 `UserVerifiedPasskey`
+path. A passkey without user verification, mailbox proof or one recovery code cannot complete
+either login path. A future additional path requires an explicit policy change;
+these labels do not implement or verify any factor.
 
 `check_completion` returns only a decision (`Result<(), CompletionDenied>`), never an
 AuthenticationFact, setup capability or session. All inputs are facts that a future owner must

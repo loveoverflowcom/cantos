@@ -2,9 +2,10 @@
 
 Authority: [identity_v1.proto](identity-rpc/identity_v1.proto), package `cantos.identity.v1`.
 Rust: [`cantos-identity-rpc`](identity-rpc/src/lib.rs). This is the #332 prerequisite slice
-delivered with [#334](https://github.com/loveoverflowcom/cantos/issues/334). It is a **draft**: no
-Server consumer exists yet, so a breaking change is still allowed; once #335 consumes it, field
-numbers are frozen and removed numbers **and names** must be reserved.
+delivered with [#334](https://github.com/loveoverflowcom/cantos/issues/334). It is a **draft**. The
+Server's client ([`identity_auth`](../../services/cantos-server/src/platform/identity_auth/client.rs),
+[contract](identity-auth-v1.md)) now consumes it: field numbers are frozen and any removed number
+**and name** must be reserved.
 
 Transport is gRPC on a Unix domain socket owned by the Identity process. The caller is
 authenticated from the OS peer credential (see [Caller authorization](#caller-authorization));
@@ -17,15 +18,14 @@ service that exposes the schema. A future network mode must use mTLS and is not 
 | --- | --- | --- |
 | `StartTheatreSignup` | Record a pending signup bound to the exact mailbox and mail it a proof | `accepted` (always true for a well-formed request) and the fixed `proof_ttl_seconds`; **never** the proof, a setup capability or an account fact |
 | `CompleteTheatreSignup` | The mailbox owner presents the mailed proof, the password they chose and an explicit confirmation | `subject_id`, `instance_epoch`, `COMPLETED` or `REPLAYED` |
-| `AuthenticatePassword` | Verify email + password for `PURPOSE_THEATRE` | an `AuthenticationFact` |
+| `AuthenticatePassword` | Verify email + password for `PURPOSE_THEATRE` or `PURPOSE_STUDIO` | an `AuthenticationFact` |
 | `GetSecurityState` | Read a subject's state, security version and instance epoch | state, `security_version`, `instance_epoch` |
 
-There is no Studio, provisioning, recovery, change-password or operator method: none is declared,
-so none can be called. `PURPOSE_STUDIO` exists only so a request can name it and be refused
-(`UNIMPLEMENTED`) in this build. The
-[owner's v1 amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
-selects Studio password, but implementation is pending. This documentation changes no proto,
-RPC admission or authentication code; consumer/schema compatibility needs its own implementation PR.
+There is no provisioning, recovery, change-password or operator method: none is declared, so none
+can be called. **#335 v1 amendment** ([ADR 0045](../../docs/decisions/0045-v1-email-password-sign-in.md)): `PURPOSE_STUDIO` is accepted with `ASSURANCE_PASSWORD` for
+`AuthenticatePassword`; the fact echoes the purpose it was asked for. Identity keeps no Studio
+roster: the Server's roster decides who may enter Studio, and a Studio fact grants nothing by
+itself. A passkey remains a separate, deferred assurance.
 
 ### One-command setup (decision)
 
@@ -77,7 +77,7 @@ Messages are fixed strings; no status ever interpolates request content or an in
 | `UNAVAILABLE` | Storage unavailable, **no mail transport configured**, or KDF capacity exhausted; nothing was changed |
 | `UNKNOWN` | Commit outcome unknown: retry the identical command |
 | `ABORTED` | A `CompleteTheatreSignup` command id was reused with different content. `StartTheatreSignup` never returns it: an operation bound to another address or already concluded gets the generic answer |
-| `UNIMPLEMENTED` | A Studio purpose, or a method this build does not declare |
+| `UNIMPLEMENTED` | A method this build does not declare |
 | `NOT_FOUND` | `GetSecurityState` for an unknown subject (a Server-only call) |
 
 `StartTheatreSignup` returns the same status and body whether the address already has an account,

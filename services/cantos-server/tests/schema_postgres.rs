@@ -103,7 +103,7 @@ async fn fresh_epoch_has_only_current_tables_and_replay_preserves_authoritative_
         .await
         .unwrap();
     let before = registry(&admin).await;
-    assert_eq!(before.len(), 3);
+    assert_eq!(before.len(), 4);
     migrate(&config).await.unwrap();
     assert_eq!(registry(&admin).await, before);
     assert_eq!(
@@ -218,12 +218,12 @@ async fn foreign_epoch_and_unexpected_version_are_refused() {
     admin
         .batch_execute(
             "UPDATE cantos_schema SET epoch=2;
-        INSERT INTO cantos_migrations VALUES(4,decode(repeat('11',32),'hex'))",
+        INSERT INTO cantos_migrations VALUES(5,decode(repeat('11',32),'hex'))",
         )
         .await
         .unwrap();
     assert_eq!(migrate(&config).await, Err(SchemaError::RegistryMismatch));
-    assert_eq!(registry(&admin).await.len(), 4);
+    assert_eq!(registry(&admin).await.len(), 5);
 }
 
 #[tokio::test]
@@ -302,7 +302,7 @@ async fn failed_baseline_rolls_back_registry_and_ddl_then_allows_clean_retry() {
         .unwrap();
     migrate(&config).await.unwrap();
     verify_schema(&config).await.unwrap();
-    assert_eq!(registry(&admin).await.len(), 3);
+    assert_eq!(registry(&admin).await.len(), 4);
 }
 
 #[tokio::test]
@@ -329,6 +329,7 @@ async fn baseline_keeps_security_definers_pinned_and_public_without_execution_pr
             "bearer_register",
             "catalog_lock_actor",
             "catalog_lock_member",
+            "identity_session_register",
             "listener_lock_actor",
             "production_lock_actor",
             "production_lock_member",
@@ -433,7 +434,7 @@ async fn concurrent_bootstrap_commits_one_epoch_and_read_only_app_check_needs_no
     let (left, right) = tokio::join!(migrate(&config), migrate(&config));
     left.unwrap();
     right.unwrap();
-    assert_eq!(registry(&admin).await.len(), 3);
+    assert_eq!(registry(&admin).await.len(), 4);
     admin
         .batch_execute(
             "GRANT USAGE ON SCHEMA public TO cantos_app;
@@ -618,11 +619,17 @@ async fn listener_bookmark_expansion_is_the_exact_suffix_after_registry_one_two(
     migrate(&config).await.unwrap();
     verify_schema(&config).await.unwrap();
     let after = registry(&admin).await;
-    assert_eq!(after.len(), 3);
+    // Versions 3 (bookmarks) and 4 (Identity sessions) are both missing from a `[1,2]` database;
+    // the migrator applies the whole exact suffix and rewrites no earlier checksum.
+    assert_eq!(after.len(), 4);
     assert_eq!(after[..2], old[..], "applied checksums are never rewritten");
     assert_eq!(
         after[2].1,
         Sha256::digest(include_str!("../schema/0003_listener_bookmarks.sql").as_bytes()).to_vec()
+    );
+    assert_eq!(
+        after[3].1,
+        Sha256::digest(include_str!("../schema/0004_identity_sessions.sql").as_bytes()).to_vec()
     );
     assert_eq!(
         admin

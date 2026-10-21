@@ -101,6 +101,7 @@ pub(super) fn routes_with_artwork(
             .merge(delegation::delegate_routes())
             .route("/session", post(login).get(current_session).delete(logout))
             .merge(auth::routes())
+            .merge(super::identity_auth::studio_routes())
             .merge(super::bearer::routes(
                 crate::platform::bearer::client::Client::Studio,
             )),

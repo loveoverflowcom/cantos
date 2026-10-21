@@ -567,21 +567,24 @@ async fn every_authentication_failure_is_one_indistinguishable_denial() {
 }
 
 #[tokio::test]
-async fn studio_is_never_authenticated_with_a_password_and_bad_input_is_refused() {
+async fn studio_authenticates_with_a_password_for_its_own_purpose_and_bad_input_is_refused() {
     let h = harness().await;
     h.register(1, 100, OWNER, GOOD).await;
-    assert_eq!(
-        h.service
-            .authenticate_password(
-                operation(1),
-                Purpose::Studio,
-                OWNER,
-                GOOD,
-                ip("198.51.100.9")
-            )
-            .await,
-        Err(ServiceError::Unsupported)
-    );
+    // #335 v1: the same account authenticates for Studio with a password. The fact is bound to
+    // the Studio purpose; whether the subject may enter Studio is the Server's roster.
+    let fact = h
+        .service
+        .authenticate_password(
+            operation(1),
+            Purpose::Studio,
+            OWNER,
+            GOOD,
+            ip("198.51.100.9"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(fact.purpose, Purpose::Studio);
+    assert_eq!(fact.operation, operation(1));
     for (email, password) in [
         ("not an email", GOOD),
         (OWNER, ""),

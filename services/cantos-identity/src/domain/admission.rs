@@ -101,8 +101,9 @@ impl fmt::Display for CompletionDenied {
 
 impl std::error::Error for CompletionDenied {}
 
-/// Evaluate only fresh, active, identically bound completions. Theatre's password path and
-/// Studio's user-verified passkey path are distinct. Recovery proceeds through a separate flow.
+/// Evaluate only fresh, active, identically bound completions. Theatre admits a password. Studio
+/// admits a password (the #335 v1 decision; a Studio roster is a Server concern) or a
+/// user-verified passkey (the deferred D3 path). Recovery proceeds through a separate flow.
 /// No credential, caller, replay, persistence, freshness lease or session is verified here.
 pub fn check_completion(
     started: SecuritySnapshot,
@@ -131,9 +132,9 @@ pub fn check_completion(
     }
     match (expected.purpose, assurance) {
         (Purpose::Theatre, Assurance::Password)
+        | (Purpose::Studio, Assurance::Password)
         | (Purpose::Studio, Assurance::UserVerifiedPasskey) => Ok(()),
         (Purpose::Theatre, Assurance::UserVerifiedPasskey)
-        | (Purpose::Studio, Assurance::Password)
         | (_, Assurance::PasskeyWithoutUserVerification)
         | (_, Assurance::RecoveryCode)
         | (_, Assurance::MailboxProof) => Err(CompletionDenied::InsufficientAssurance),
@@ -231,7 +232,7 @@ mod kani_proofs {
         let same_state =
             subject == other_subject && epoch == other_epoch && version == other_version;
         let active = state == AccountState::Active && other_state == AccountState::Active;
-        let sufficient = (!studio && factor == 0) || (studio && factor == 1);
+        let sufficient = factor == 0 || (studio && factor == 1);
         assert_eq!(
             result.is_ok(),
             same_binding && same_state && active && sufficient
@@ -239,7 +240,7 @@ mod kani_proofs {
         kani::cover!(result.is_ok() && !studio, "Theatre password completion");
         kani::cover!(
             result.is_ok() && studio,
-            "Studio verified passkey completion"
+            "Studio password or verified passkey completion"
         );
         kani::cover!(
             result == Err(CompletionDenied::WrongOperation),

@@ -105,3 +105,11 @@ GRANT UPDATE (consumed, cancelled, completed, handoff_hash, subject, proof_hash,
 GRANT UPDATE (revoked, revocation_pending, idle_expires) ON bearer_families TO cantos_app;
 GRANT UPDATE (used) ON bearer_tokens TO cantos_app;
 GRANT EXECUTE ON FUNCTION bearer_register(uuid,text,text,text) TO cantos_app;
+
+-- Sessions issued from a verified cantos-identity fact (migration 0004). Secrets are stored only
+-- as digests; no DELETE or TRUNCATE. Registry binding is the one SECURITY DEFINER entry point and
+-- is fixed to the cantos-identity issuer.
+GRANT SELECT, INSERT ON identity_sessions, identity_session_tokens TO cantos_app;
+GRANT UPDATE (revoked, revoked_reason, idle_expires) ON identity_sessions TO cantos_app;
+GRANT UPDATE (used, expires_at) ON identity_session_tokens TO cantos_app;
+GRANT EXECUTE ON FUNCTION identity_session_register(text,text) TO cantos_app;

@@ -44,9 +44,10 @@ decisions with expected/successor snapshots; secret verification and atomic pers
 shell obligations. The default library introduces no binary, crypto verifier, RPC,
 authentication fact or session. The opt-in persistence shell supplies an Identity schema and
 atomic disable/version/event/receipt storage. The later opt-in `service` feature now supplies
-the Theatre signup/password executable and private authenticated UDS RPC; see the
-[service boundary](../../services/cantos-identity/README.md) and the v1 amendment below.
-Server integration remains pending. Pure decisions do not establish durable revocation,
+the signup/password executable (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md))
+and private authenticated UDS RPC; see the [service boundary](../../services/cantos-identity/README.md)
+and the v1 amendment below. The Server consumes it through [Identity auth v1](../../packages/contracts/identity-auth-v1.md)
+on PostgreSQL; first-party frontends remain pending. Pure decisions do not establish durable revocation,
 restore safety, atomic consume-once or auth E2E acceptance. Kani harness registration is not
 evidence that a model checker ran.
 
@@ -60,6 +61,9 @@ The documentation preparation changes no executable, installed runtime, database
 The owner selected this v1 scope on 21 October 2026 for #332/#334/#335/#336, coordinated with
 #295. It supersedes the earlier Studio D3/passkey requirement and blanket Server-Turso/event-
 consumer prerequisites **for v1**, without accepting unfinished implementation or closing issues.
+[ADR 0045](../decisions/0045-v1-email-password-sign-in.md) records the accepted email/password
+decision and [Identity auth v1](../../packages/contracts/identity-auth-v1.md) its backend contract;
+this section owns the parallel-integration and security-state strategy around them.
 
 | Selected v1 decision | Boundary |
 | --- | --- |
@@ -76,13 +80,13 @@ accepted; a documentation amendment does not authorize a runtime bypass.
 
 | Implementation observed in source | Verification boundary |
 | --- | --- |
-| Identity `service` implements Theatre mailbox-confirmed signup, Argon2id password authentication and `GetSecurityState` over private UDS RPC | The [service guide](../../services/cantos-identity/README.md#verification) records source-bound prior runs; this amendment runs no authentication tests. |
-| Studio password is selected, **implementation pending**: [the application](../../services/cantos-identity/src/application.rs) refuses Studio password and [the core](../../services/cantos-identity/src/domain/admission.rs) still selects `UserVerifiedPasskey` | Do not describe Studio password as implemented or weaken those checks in this docs PR. |
-| [Server serving](native-persistence-readiness.md#actual-serving-path) remains PostgreSQL; the native Identity consumer/session binding is pending | Real transitional PostgreSQL E2E may qualify that composition; it is not “without PostgreSQL” native acceptance. |
-| [Shared Web auth](../../packages/web-auth/README.md) still implements Bearer; [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has Bearer coordination/secure storage over the current provider flow | Web cookie/fetch/XHR/session-restore migration and first-party v1 journeys remain pending, with separate browser/device acceptance. |
+| Identity `service` implements Theatre mailbox-confirmed signup, Argon2id password authentication (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md)) and `GetSecurityState` over private UDS RPC | The [service guide](../../services/cantos-identity/README.md#verification) records source-bound prior runs; this amendment runs no authentication tests. |
+| Studio password is implemented in Identity: [the core](../../services/cantos-identity/src/domain/admission.rs) admits `(Studio, Password)` beside the deferred `UserVerifiedPasskey`, and the Server's roster decides Studio entry | Prior runs are recorded in [Identity auth v1](../../packages/contracts/identity-auth-v1.md#verification); this amendment runs none. Studio provisioning remains absent; a password result is never relabelled as passkey assurance. |
+| [Server serving](native-persistence-readiness.md#actual-serving-path) remains PostgreSQL; the [Identity auth v1](../../packages/contracts/identity-auth-v1.md) backend consumer issues sessions and ActorId bindings there | Real transitional PostgreSQL E2E may qualify that composition; it is not “without PostgreSQL” native acceptance. |
+| [Shared Web auth](../../packages/web-auth/README.md) still implements Bearer although the Server's v1 Web endpoints issue cookies; [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has Bearer coordination/secure storage over the current provider flow | Web cookie/fetch/XHR/session-restore migration and first-party v1 journeys remain pending, with separate browser/device acceptance. |
 
-The authenticated RPC implementation and draft contract can be consumed by #335 now; completion
-of every Server Turso adapter is not a prerequisite. Final #336 native acceptance still needs the
+The #335 backend slice consumes the authenticated RPC implementation and draft contract;
+completion of every Server Turso adapter was not a prerequisite. Final #336 native acceptance still needs the
 two production binaries, two file-backed Turso owners, real RPC/auth/revocation/restore journeys
 and separate browser/device/Kani evidence without PostgreSQL or container dependencies.
 [#348 packaging](../deployment/native-oci-release.md) selects production GHCR/Podman only; it
@@ -105,13 +109,15 @@ Application, PostgreSQL and inbound admission callers use those same owners. Thi
 the existing implementation, with unchanged TTLs and native token format, not a second session
 engine or the native issuer cutover.
 
-For [#335](https://github.com/loveoverflowcom/cantos/issues/335), consume the implemented
-Identity executable/authenticated UDS and [draft RPC contract](../../packages/contracts/identity-rpc-v1.md),
-then integrate against the current authoritative Server DB under the
-[v1 amendment](#owner-amendment-v1-authentication-and-parallel-integration).
-Reconciled policy tests and pre-composition controls cannot accept missing credential,
-session or frontend layers. Keep the old provider until its replacement is actually accepted;
-the Studio password implementation and Web cookie migration remain pending.
+For [#335](https://github.com/loveoverflowcom/cantos/issues/335), the backend slice consumes the
+implemented Identity executable/authenticated UDS and [draft RPC contract](../../packages/contracts/identity-rpc-v1.md)
+and issues sessions in the current authoritative Server PostgreSQL owner under the
+[v1 amendment](#owner-amendment-v1-authentication-and-parallel-integration) and
+[ADR 0045](../decisions/0045-v1-email-password-sign-in.md); see [Identity auth v1](../../packages/contracts/identity-auth-v1.md).
+Reconciled policy tests and pre-composition controls cannot accept missing frontend, browser/device
+or native layers. Keep the old provider until its replacement is actually accepted; public
+first-party forms retain the settled D4 decision, and the D3 passkey/recovery target is deferred,
+not removed. The Web client cookie migration and first-party frontends remain pending.
 
 The [single-process source composition](server-http-composition.md) now uses the canonical inbound
 assembly, one PostgreSQL pool and a listener with route-local origins/state/policies. Its
@@ -250,7 +256,8 @@ license and feature review; a named candidate is not a dependency pin or securit
 The mailbox holder, not an initiating browser polling status, controls credential setup.
 GET/prefetch does not activate an account. Proofs are purpose-bound, expiring and single-use;
 existing identities cannot be adopted, reset or linked by matching email. Studio remains
-provisioned/login-only; its selected v1 factor and pending implementation are recorded in the amendment.
+provisioned/login-only; its v1 password factor is recorded in ADR 0045 and the amendment, and
+provisioning remains absent.
 
 Production mail still needs an explicitly configured, approved delivery path. Tests use a
 private run-owned inbox. No new SMTP server, live mailbox, provider login or cloud resource is

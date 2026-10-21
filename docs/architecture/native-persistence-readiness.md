@@ -8,14 +8,14 @@ service schema, credential verifier or runtime switch.
 ## Per-table disposition
 
 The exhaustive [native table ownership manifest](../../services/cantos-server/schema/native-table-ownership.json)
-lists each of the 82 current SQL tables and the two metadata tables declared by the PostgreSQL
+lists each of the 84 current SQL tables and the two metadata tables declared by the PostgreSQL
 migrator. The existing repository gate checks the manifest against all current schema SQL files
 and the migrator's literal declarations. New, missing, duplicate or unrecognized table declarations
 require review; a newly added table does not inherit permission to migrate from its prefix.
 
 | Disposition | Source tables | Destination and restriction |
 | --- | --- | --- |
-| `server` | 67 tables, listed individually in the manifest | Server owns the corresponding business data in `server.db`. Preserve stable ActorId, exact external identity bindings, immutable revisions/digests, ownership, rights, receipts and listener sync semantics. A table name alone defines neither its Turso DDL nor a lossless conversion. |
+| `server` | 69 tables, listed individually in the manifest (including `identity_sessions` and `identity_session_tokens`, the provider-free [Identity auth sessions](../../packages/contracts/identity-auth-v1.md#storage-invariants-and-333-hand-off)) | Server owns the corresponding business data in `server.db`. Preserve stable ActorId, exact external identity bindings, immutable revisions/digests, ownership, rights, receipts and listener sync semantics. A table name alone defines neither its Turso DDL nor a lossless conversion. |
 | `replace-provider-auth` | 14 tables, listed individually | Do not port their provider sessions, access tokens, PKCE verifiers or enrollment state to either native DB. #334 owns fresh Identity state; #335 owns new Server sessions and resumable binding. Retain legacy source/data for authorized migration and recovery until replacement acceptance. |
 | `development-only` | `sessions` | This source table mixes `development` and `studio_oidc` rows. Only development-session behavior may exist in dev/test composition; **no existing `studio_oidc` row/token is eligible**. The manifest does not authorize copying even development rows or enable them in production. #335 supplies the new production session schema. |
 | `replace-registry` | `cantos_schema`, `cantos_migrations` | Keep the PostgreSQL epoch/checksums as legacy recognition evidence. Each native owner uses the shared foundation's own checked registry; never replay the PG registry as a Turso migration. |
@@ -52,7 +52,7 @@ Inspect these owners before attempting the native connection:
 | HTTP/session admission | [`Studio admission`](../../services/cantos-server/src/adapters/inbound/http/studio/admission.rs), [`bearer`](../../services/cantos-server/src/platform/bearer/mod.rs) and its [`PostgreSQL adapter`](../../services/cantos-server/src/platform/bearer/postgres.rs) | Preserve provider checks, final transaction admission, purpose, roster, ActorId, expiry and resource fences until the accepted native verifier/session path replaces them. SessionPolicy reuse is not credential verification. |
 | Durable business writes | Context-owned adapters under [`contexts`](../../services/cantos-server/src/contexts), e.g. editorial revision/receipt/head updates and listening state/device-sequence/receipt updates | Preserve each atomic unit, late authority recheck and unknown-outcome reconciliation; do not translate PostgreSQL locks/functions by text substitution. |
 | Current identity | [`Studio OIDC`](../../services/cantos-server/src/platform/studio_oidc), [`Theatre identity`](../../services/cantos-server/src/platform/theatre_identity), [`registration configuration`](../../services/cantos-server/src/platform/theatre_registration/config.rs), [`Admin`](../../services/cantos-server/src/platform/admin) | Kanidm/OIDC introspection, SMTP `KanidmIssuer`, PostgreSQL registration/audit/revocation and optional Firebase enrollment still have genuine consumers. |
-| Native Identity | [`cantos-identity`](../../services/cantos-identity/README.md) has a default pure core and opt-in file-backed shell | Instance/subject state, disable events, mailbox-proof lifecycles and bound receipts use the shared owner. Proof-secret verification grants no setup/login authority. With the opt-in `service` feature it also persists Argon2id credentials and verified emails and ships the `cantos-identity` executable with Theatre signup, password authentication and an OS-peer-authenticated private Unix-socket RPC. It yields authentication facts only: no Studio passkey, recovery, Server session or production composition. |
+| Native Identity | [`cantos-identity`](../../services/cantos-identity/README.md) has a default pure core and opt-in file-backed shell | Instance/subject state, disable events, mailbox-proof lifecycles and bound receipts use the shared owner. Proof-secret verification grants no setup/login authority. (#335: the Server now issues PostgreSQL sessions from a verified fact; see [Identity auth v1](../../packages/contracts/identity-auth-v1.md).) With the opt-in `service` feature it also persists Argon2id credentials and verified emails and ships the `cantos-identity` executable with Theatre signup, password authentication and an OS-peer-authenticated private Unix-socket RPC. It yields authentication facts only: no Studio passkey, recovery or production composition here; the Server session consumer is separate. |
 
 ## Ordered prerequisites for a real connection
 
@@ -70,11 +70,12 @@ Inspect these owners before attempting the native connection:
    an eligible actor/binding adapter seam **inside that owner**, not a reason to open a second
    partial `server.db`. Its real tests must cover exact-key replay, no losing actor, inactive
    targets, immutable binding, concurrent writes, reopen and unknown-commit reconciliation.
-4. #334's service feature supplies Theatre credentials, `AuthenticationFact`, `instance_epoch`,
-   executable and authenticated UDS RPC. Under the v1 amendment, #335 may now integrate that
-   client and first-party frontends against authoritative Server PostgreSQL while #333 ports
-   persistence. Reuse SessionPolicy and current transactional session/binding owners; direct
-   security-state checks need no mandatory event consumer. Studio password remains pending.
+4. #334's service feature supplies password credentials (Theatre, and Studio under ADR 0045),
+   `AuthenticationFact`, `instance_epoch`, executable and authenticated UDS RPC. Under the v1
+   amendment, #335's backend slice integrates that client against authoritative Server PostgreSQL
+   ([Identity auth v1](../../packages/contracts/identity-auth-v1.md)) while #333 ports persistence;
+   first-party frontends follow. Reuse SessionPolicy and current transactional session/binding
+   owners; direct security-state checks need no mandatory event consumer.
    Timeout/cancel remains an unknown effect until receipts reconcile it. Transitional PostgreSQL
    evidence is separate from final native acceptance; no disconnected partial `server.db`.
 5. #336 accepts two production binaries against two run-owned file-backed databases, real

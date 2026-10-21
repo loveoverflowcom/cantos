@@ -50,11 +50,8 @@ fn only_the_explicit_surface_factor_pairs_are_admitted() {
             Assurance::UserVerifiedPasskey,
             Err(CompletionDenied::InsufficientAssurance),
         ),
-        (
-            Purpose::Studio,
-            Assurance::Password,
-            Err(CompletionDenied::InsufficientAssurance),
-        ),
+        // #335 v1 decision: Studio accepts a password; it is not relabelled as a passkey.
+        (Purpose::Studio, Assurance::Password, Ok(())),
         (
             Purpose::Theatre,
             Assurance::PasskeyWithoutUserVerification,
@@ -228,7 +225,7 @@ fn refusal_precedence_is_stable_when_multiple_fences_change() {
 }
 
 #[test]
-fn the_full_finite_state_binding_and_assurance_matrix_has_only_two_success_classes() {
+fn the_full_finite_state_binding_and_assurance_matrix_has_only_three_success_classes() {
     let mut cases = 0;
     let mut admitted = 0;
     for (before_index, before) in STATES.into_iter().enumerate() {
@@ -257,7 +254,7 @@ fn the_full_finite_state_binding_and_assurance_matrix_has_only_two_success_class
                                             && (subject, epoch, version, operation)
                                                 == (1, 10, 7, 100)
                                             && purpose_index == completed_index
-                                            && [(0, 0), (1, 1)]
+                                            && [(0, 0), (1, 0), (1, 1)]
                                                 .contains(&(purpose_index, factor_index));
                                         assert_eq!(result.is_ok(), expected, "{started:?} {current:?} {purpose:?} {completed:?} {assurance:?}");
                                         cases += 1;
@@ -272,5 +269,6 @@ fn the_full_finite_state_binding_and_assurance_matrix_has_only_two_success_class
         }
     }
     assert_eq!(cases, 7_680);
-    assert_eq!(admitted, 2);
+    // Theatre password, Studio password (the #335 v1 decision) and Studio verified passkey.
+    assert_eq!(admitted, 3);
 }

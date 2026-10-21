@@ -202,6 +202,10 @@ def schema_sql_targets(include_current=False):
             ("theatre_identity_postgres", "theatre-identity-postgres-tests", ()),
             ("theatre_native_postgres", "theatre-native-postgres-tests", ()),
             ("studio_oidc_postgres", "studio-oidc-postgres-tests", ()),
+            # #335: the real cantos-identity executable and a scripted Identity; both build/run
+            # only inside this runner's owned cluster and run-owned temporary directories.
+            ("identity_password_postgres", "identity-password-postgres-tests", ()),
+            ("identity_password_facts_postgres", "identity-password-facts-postgres-tests", ()),
         ])
     return targets
 
@@ -941,6 +945,10 @@ def main():
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-server", "--test", "identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "identity-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
+        for suite, log in (("identity_password_postgres", "identity-password-postgres-tests"),
+                           ("identity_password_facts_postgres", "identity-password-facts-postgres-tests")):
+            run(["cargo", "test", "-p", "cantos-server", "--test", suite, "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / f"{log}.log")
+            reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-server", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-server", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")

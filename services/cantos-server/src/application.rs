@@ -46,6 +46,7 @@ pub struct Store {
     pub(crate) studio_oidc: Option<Arc<crate::platform::studio_oidc::StudioOidc>>,
     pub(crate) theatre_identity: Option<Arc<crate::platform::theatre_identity::TheatreIdentity>>,
     pub(crate) theatre_native: Option<Arc<crate::platform::theatre_identity::NativeIdentity>>,
+    pub(crate) identity_auth: Option<Arc<crate::platform::identity_auth::IdentityAuth>>,
     pub(crate) theatre_firebase_enrollment:
         Option<Arc<crate::platform::theatre_registration::firebase_enrollment::runtime::FirebaseEnrollmentRuntime>>,
     pub(crate) theatre_registration:

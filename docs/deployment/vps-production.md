@@ -86,7 +86,7 @@ not establish a deployed route. In particular, use the actual methods in
 [Bearer v1](../../packages/contracts/bearer-v1.md); a GET of the POST-only flow path is only a
 routing diagnostic. Do not run a consuming login/exchange/refresh merely as a presence probe.
 
-The API requires epoch 2 migrations 0001 through 0003 (Bearer, then release-bound bookmarks). `preflight_schema` invokes the
+The API requires epoch 2 migrations 0001 through 0004 (Bearer, release-bound bookmarks, then Identity-issued sessions, #335). `preflight_schema` invokes the
 strict target `--check` before backup/migration: any registry that is not the image's complete
 set (an existing 0001-only database for a two-migration image, a `[1,2]` database for an image
 carrying 0003) is refused by ordinary deployment. Do not bypass that guard, edit registry rows or

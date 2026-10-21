@@ -45,8 +45,9 @@ authority. Its opt-in `service` feature builds the `cantos-identity` executable:
 a mailbox proof, Argon2id passwords and `AuthenticatePassword` over an OS-peer-authenticated private
 Unix-socket RPC ([draft contract](packages/contracts/identity-rpc-v1.md)); the result is an
 authentication fact, never a session. The [v1 owner amendment](docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
-owns factor scope and parallel integration. Studio password is selected but still refused by
-the current code; Server integration and first-party frontends remain pending. Checked snapshots and a
+and [ADR 0045](docs/decisions/0045-v1-email-password-sign-in.md) own factor scope and parallel integration.
+Studio passkeys, recovery, restore rotation and front ends remain absent; the Server consumer
+(PostgreSQL sessions, v1 email/password) is [Identity auth v1](packages/contracts/identity-auth-v1.md). Checked snapshots and a
 passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
 #331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.
 
