@@ -656,7 +656,17 @@ async fn cmp_production_client_against_the_real_api() {
             .await
             .unwrap();
     }
-    let router = app(w.fixture.store().clone());
+    // This fixture deliberately has a trusted-host principal rather than Identity admission.
+    // Stamp at the fixture server, never by echoing the client's expected session in Kotlin.
+    let router = app(w.fixture.store().clone()).layer(axum::middleware::map_response(
+        |mut response: axum::response::Response| async move {
+            response.headers_mut().insert(
+                "x-cantos-theatre-session",
+                "00000000-0000-0000-0000-000000000001".parse().unwrap(),
+            );
+            response
+        },
+    ));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let server = tokio::spawn(async move { axum::serve(listener, router).await });

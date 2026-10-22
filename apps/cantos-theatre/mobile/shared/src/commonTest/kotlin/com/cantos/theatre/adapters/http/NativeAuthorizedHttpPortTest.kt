@@ -34,14 +34,13 @@ import kotlin.test.assertTrue
 /** Real identity/transport owners over deterministic secure journal, API and HTTP doubles. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NativeAuthorizedHttpPortTest {
-    private class Fixture(scope: CoroutineScope) {
+    private class Fixture(scope: CoroutineScope, val origin: ApiOrigin = ApiOrigin.parse("https://api.invalid")) {
         val family = "00000000-0000-4000-8000-000000000001"
         val initialBearer = v1Access('a')
         var now = 100L
         var remote = v1Grant('a', 'a', "actor-a", family, 220, 700, 1000, 100, now)
         var refreshes = 0
         var refreshGate: CompletableDeferred<Unit>? = null
-        val origin = ApiOrigin.parse("https://api.invalid")
         private val api = object : StubIdentityV1Api() {
             override suspend fun refresh(previous: NativeGrant): IdentityV1Result<NativeGrant> {
                 assertEquals(remote.refreshToken, previous.refreshToken)
@@ -84,6 +83,33 @@ class NativeAuthorizedHttpPortTest {
         }
         init { account.restore() }
         fun close() = account.close()
+    }
+
+    @Test
+    fun hostApprovedDebugLoopbackUsesTheProductionAuthorizedBoundary() = runTest {
+        for (text in listOf("http://127.0.0.1:8080", "http://localhost:8081")) {
+            val selected = selectCatalogOrigin(text, allowLoopbackHttp = true) as CatalogOriginSelection.Configured
+            val f = Fixture(backgroundScope, selected.origin)
+            try {
+                runCurrent()
+                f.http.send(f.request()) {}
+                runCurrent()
+                assertEquals(1, f.requests.size)
+                assertEquals(text + "/api/v1/theatre/library/saved?limit=20&presentation=1", f.requests.single().request.url)
+                assertEquals(f.initialBearer, f.requests.single().request.bearer)
+                assertEquals(f.family, f.requests.single().request.expectedSession)
+                val replies = mutableListOf<NativeHttpResponse>()
+                for (foreign in listOf("http://localhost:8080", "http://127.0.0.1:8082", "https://127.0.0.1:8080")) {
+                    if (foreign == text) continue
+                    f.http.send(NativeHttpRequest("GET", foreign + "/api/v1/theatre/library/saved?limit=20&presentation=1",
+                        null, f.initialBearer, f.family), replies::add)
+                }
+                runCurrent()
+                assertEquals(1, f.requests.size, "scheme, host and port must all match")
+                assertTrue(replies.all { it.failure == "protocol" })
+                assertTrue(selectCatalogOrigin(text, allowLoopbackHttp = false) is CatalogOriginSelection.Rejected)
+            } finally { f.close() }
+        }
     }
 
     @Test

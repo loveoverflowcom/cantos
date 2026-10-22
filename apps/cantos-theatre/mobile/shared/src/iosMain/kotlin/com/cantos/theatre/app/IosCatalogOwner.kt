@@ -127,6 +127,8 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
 
     private fun reloadCatalogForAccount() { catalog?.dispatch(PublicCatalogIntent.AccountChanged) }
 
+    fun foregrounded() { runtime?.foregrounded() }
+    fun networkRestored() { runtime?.networkRestored() }
     fun backgrounded() { runtime?.backgrounded() }
 
     fun close() {

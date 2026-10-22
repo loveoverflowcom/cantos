@@ -47,10 +47,13 @@ const REQUIRED_CLASSES: [&str; 9] = [
     "Lcom/cantos/theatre/adapters/playback/AndroidMediaEngine;",
     "Lcom/cantos/theatre/adapters/playback/CantosPlaybackService;",
 ];
-/// Anonymous catalog transport needs INTERNET; no account or playback capability is implied.
-const ALLOWED_PERMISSIONS: [&str; 5] = [
+/// Catalog/account/Library transport needs INTERNET. ACCESS_NETWORK_STATE is required by the
+/// process-wide `ConnectivityManager` callback that only hints the Library flusher; it grants no
+/// authority and no other capability is implied.
+const ALLOWED_PERMISSIONS: [&str; 6] = [
     "com.cantos.theatre.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
     "android.permission.INTERNET",
+    "android.permission.ACCESS_NETWORK_STATE",
     "android.permission.WAKE_LOCK",
     "android.permission.FOREGROUND_SERVICE",
     "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
@@ -851,6 +854,8 @@ mod tests {
         }
         assert_eq!(value("--allowed-permission"), ALLOWED_PERMISSIONS);
         assert!(value("--allowed-permission").contains(&"android.permission.INTERNET"));
+        assert!(value("--allowed-permission").contains(&"android.permission.ACCESS_NETWORK_STATE"));
+        assert!(!value("--allowed-permission").contains(&"android.permission.CAMERA"));
     }
 
     #[test]

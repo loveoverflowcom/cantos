@@ -58,6 +58,11 @@ class TheatreActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        ProductionProcess.current()?.runtime?.foregrounded()
+    }
+
     override fun onStop() {
         ProductionProcess.current()?.runtime?.backgrounded()
         super.onStop()

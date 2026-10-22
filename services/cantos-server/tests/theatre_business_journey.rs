@@ -999,3 +999,121 @@ async fn enroll_login(host: &Host, email: &str) -> String {
     assert_eq!(login.status, StatusCode::OK);
     login.json()["access_token"].as_str().unwrap().to_owned()
 }
+
+/// The real CMP authorization owner and HTTP boundary, not the trusted-host fixture lane.
+/// Explicit because it needs the installed Gradle/JDK toolchain; secure storage/audio remain doubles.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires installed Gradle/JDK and the real cantos-identity executable"]
+async fn cmp_authorized_library_against_real_identity_and_http() {
+    use std::{process::Stdio, time::Duration};
+
+    async fn signal(path: &Path) {
+        tokio::time::timeout(Duration::from_secs(120), async {
+            while !path.is_file() {
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("CMP control signal arrived in time");
+    }
+
+    let run = RunDir::new();
+    let sink = SmtpSink::start().await;
+    let env = IdentityEnv::new(&run, sink.port);
+    env.migrate().await;
+    let identity = env.serve().await;
+    let fixture = ServerFixture::new().await;
+    let work = world(&fixture).await;
+    let a = audio(&work, &work.units[0]);
+    let host = compose(&fixture, &env);
+    let alice = enroll(&host, &sink, OWNER, 1).await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            host.router
+                .into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+    });
+    let control = run.path("cmp-control");
+    std::fs::create_dir(&control).unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let gradle = std::env::var("CANTOS_TEST_GRADLE").unwrap_or_else(|_| "gradle".into());
+    let mut command = tokio::process::Command::new(gradle);
+    command
+        .current_dir(&root)
+        .args([
+            "--project-dir",
+            "apps/cantos-theatre/mobile",
+            "--no-daemon",
+            "-Dorg.gradle.java.installations.auto-download=false",
+            "--max-workers",
+            "2",
+            "-Pkotlin.compiler.execution.strategy=in-process",
+            "--no-configuration-cache",
+            "-i",
+            ":shared:desktopTest",
+            "--rerun",
+            "--tests",
+            "com.cantos.theatre.adapters.library.LiveAuthorizedLibraryApiTest",
+        ])
+        .env(
+            "CANTOS_AUTHORIZED_API_ORIGIN",
+            format!("http://127.0.0.1:{port}"),
+        )
+        .env("CANTOS_AUTHORIZED_CONTROL", &control)
+        .env("CANTOS_LIVE_AUDIO", serde_json::to_string(&a).unwrap())
+        .stdin(Stdio::null())
+        .kill_on_drop(true);
+    let output = command.output();
+    tokio::pin!(output);
+    let stop_requested = control.join("stop-requested");
+    tokio::select! {
+        early = &mut output => panic!("CMP exited before outage control: {early:?}"),
+        () = signal(&stop_requested) => {},
+    }
+    identity.terminate().await;
+    std::fs::write(control.join("stopped"), b"stopped").unwrap();
+    let resume_requested = control.join("resume-requested");
+    tokio::select! {
+        early = &mut output => panic!("CMP exited before recovery control: {early:?}"),
+        () = signal(&resume_requested) => {},
+    }
+    let resumed_identity = env.serve().await;
+    std::fs::write(control.join("restored"), b"restored").unwrap();
+    let output = tokio::time::timeout(Duration::from_secs(90), output)
+        .await
+        .expect("CMP completed after recovery")
+        .expect("Gradle started");
+    server.abort();
+    resumed_identity.terminate().await;
+    let log = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "{log}\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let marker = log
+        .lines()
+        .find(|line| line.contains("LIVE-AUTHORIZED-LIBRARY-OK"));
+    assert!(marker.is_some(), "the explicit CMP test was skipped: {log}");
+    println!("{}", marker.unwrap().trim());
+    assert_eq!(fixture.bookmark_rows(&alice.actor, false).await, 1);
+    assert_eq!(
+        fixture
+            .bookmark_anomalies(&alice.actor, &a.publication_id)
+            .await,
+        (0, 0)
+    );
+    assert_eq!(
+        fixture
+            .count(
+                "SELECT count(*) FROM listener_saved WHERE listener_id=?1 AND saved=1",
+                &[&alice.actor]
+            )
+            .await,
+        1
+    );
+}
