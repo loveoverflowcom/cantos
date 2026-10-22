@@ -1,12 +1,12 @@
 //! Delegation grant SQL. Rows are restored through the pure constructors; any disagreement
 //! with them is corruption, never a weaker grant. Callers hold the Catalog clock fence.
-use tokio_postgres::Row;
+use crate::platform::store::Row;
 
 use crate::contexts::catalog::domain::{
     delegation::{DelegatedAction, DelegatedActions, DelegationGrant, DelegationGrantId},
     OwnerId, WorkId,
 };
-use crate::platform::postgres::{StoreError, Tx};
+use crate::platform::store::{StoreError, Tx};
 
 pub(in crate::contexts::catalog) struct GrantRecord {
     pub grant: DelegationGrant,
@@ -16,7 +16,7 @@ pub(in crate::contexts::catalog) struct GrantRecord {
 
 const SELECT: &str = "SELECT g.id,g.work_id,g.grantor_id,g.delegate_id,g.work_read,g.content_read,g.content_write,g.issued_at,g.expires_at,g.request_digest,r.revoked_at FROM catalog_delegation_grants g LEFT JOIN catalog_delegation_revocations r ON r.grant_id=g.id";
 
-fn corrupt<T>(result: Result<T, tokio_postgres::Error>) -> Result<T, StoreError> {
+fn corrupt<T>(result: Result<T, crate::platform::store::Error>) -> Result<T, StoreError> {
     result.map_err(|_| StoreError::CorruptRevision)
 }
 
@@ -59,7 +59,7 @@ fn decode(row: &Row) -> Result<GrantRecord, StoreError> {
 async fn one(
     tx: &Tx<'_>,
     predicate: &str,
-    params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    params: &[&(dyn crate::platform::store::Param + Sync)],
 ) -> Result<Option<GrantRecord>, StoreError> {
     tx.query_opt(&format!("{SELECT} WHERE {predicate}"), params)
         .await?

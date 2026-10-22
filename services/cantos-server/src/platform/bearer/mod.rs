@@ -10,7 +10,7 @@ use crate::platform::{
         core::{pkce_challenge, AuthError},
         provider::Provider,
     },
-    postgres::Store,
+    store::Store,
 };
 use cantos_contracts::bearer::{
     CancelRequest, ExchangeRequest, Flow, FlowRequest, RefreshRequest, Session, TokenPair,

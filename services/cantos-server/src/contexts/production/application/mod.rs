@@ -10,7 +10,7 @@ use super::postgres::{self, SnapshotRow};
 use crate::contexts::editorial::{
     authorize, find_revision, permits, reviewed_by_active_owner, Access, Action,
 };
-use crate::platform::postgres::{
+use crate::platform::store::{
     authenticate, checked_number, normalized_uuid, LockMode, StoreError, Tx,
 };
 

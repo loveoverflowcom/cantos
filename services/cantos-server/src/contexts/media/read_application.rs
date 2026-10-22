@@ -5,7 +5,7 @@ use super::{
     storage::port::{StorageRead, TemporaryRead},
     storage::registry::StorageRegistry,
 };
-use crate::platform::postgres::{Store, StoreError};
+use crate::platform::store::{Store, StoreError};
 
 pub(crate) enum AudioReadScope {
     ScriptIntent {

@@ -1,9 +1,9 @@
 //! Durable Firebase enrollment fences; provider calls never run inside a transaction.
 use sha2::{Digest, Sha256};
-use tokio_postgres::Row;
+use crate::platform::store::Row;
 use uuid::Uuid;
 
-use crate::platform::postgres::Store;
+use crate::platform::store::Store;
 
 use super::{
     application::{EnrollmentFuture, PrepareOutcome, Repository},
@@ -188,7 +188,7 @@ fn unavailable(_: impl std::fmt::Debug) -> RegistrationError {
     RegistrationError::Unavailable
 }
 
-fn database(error: tokio_postgres::Error) -> RegistrationError {
+fn database(error: crate::platform::store::Error) -> RegistrationError {
     match error.code() {
         Some(code) if *code == tokio_postgres::error::SqlState::UNIQUE_VIOLATION => {
             RegistrationError::Conflict

@@ -4,7 +4,7 @@ use crate::platform::{
         config::OidcConfig,
         core::{AuthError, VerifiedIdentity},
     },
-    postgres::{token_hash, Store},
+    store::{token_hash, Store},
 };
 use cantos_contracts::theatre_identity::{NativeFlowRequest, NativeSession};
 pub(super) struct Credential {

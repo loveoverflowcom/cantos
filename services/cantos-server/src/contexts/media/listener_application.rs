@@ -16,7 +16,7 @@ use super::{
 };
 use crate::platform::{
     ids::canonical_uuid,
-    postgres::{Store, StoreError},
+    store::{Store, StoreError},
 };
 use cantos_contracts::theatre as dto;
 use std::{

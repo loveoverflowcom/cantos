@@ -8,7 +8,7 @@ use crate::platform::{
         core::{pkce_challenge, session_expiry},
         provider::Provider,
     },
-    postgres::Store,
+    store::Store,
 };
 use cantos_contracts::theatre_identity::{
     NativeExchange, NativeExchangeRequest, NativeFlow, NativeFlowRequest, NativeSession,

@@ -1,5 +1,5 @@
-//! Candidate Turso adapter of the provider-free Identity sessions over the shared `server.db`
-//! owner (#333, #335). Not composed: serving still uses the PostgreSQL adapter.
+//! Turso adapter of the provider-free Identity sessions over the shared `server.db` owner
+//! (#333, #335): the one `SessionStore` the composed Server serves from.
 //!
 //! Each mutation reads its facts and writes inside one `BEGIN IMMEDIATE` on the owner's
 //! serialized writer. That replaces PostgreSQL's family/actor `FOR UPDATE`/`FOR SHARE` locks and
@@ -23,7 +23,7 @@ use cantos_store_turso::{
 };
 
 use super::{
-    credential::{Channel, Secrets},
+    credential::{Channel, Secrets, Surface},
     decision::{Epoch, ObservedSecurity, RevokeReason, Subject},
     session::{
         channel_of, digest, token_expiry, Issued, Rotated, SessionError, SessionRecord,
@@ -37,6 +37,7 @@ use crate::platform::{
         turso::{register_in, Effect},
         RegistryError,
     },
+    store::{Store, StoreError, Tx},
     turso::{Acknowledgement, ServerDatabase},
 };
 
@@ -566,16 +567,123 @@ async fn renew_in(
 /// Admission inside a business write's own transaction: the live session and active actor at the
 /// transaction's stamp. The serialized writer orders it against every logout, revocation and
 /// deactivation, which replaces PostgreSQL's lease. It never begins, commits or rolls back.
-/// Consumer: the business-write adapters composed at #333.9; no serving path calls it yet.
-#[cfg_attr(not(test), allow(dead_code))]
+/// On a read snapshot the same check holds at that snapshot only.
 pub(crate) async fn admit_in(
-    tx: &WriteTransaction<'_>,
+    tx: &Tx<'_>,
     token: &str,
     channel: Channel,
 ) -> Result<SessionRecord, SessionError> {
-    live_in(tx, token, channel, seconds(tx.now())?)
+    let now = u64::try_from(tx.now_seconds()).map_err(corrupt)?;
+    let rows = tx
+        .raw_query(
+            &live(),
+            params_from_iter(access_params(token, channel, now)?),
+        )
+        .await
+        .map_err(|_| SessionError::Unavailable)?;
+    at_most_one(rows, record)
         .await?
         .ok_or(SessionError::Inactive)
+}
+
+/// Studio data operations authenticate inside their own business unit with this call. The family
+/// and actor are re-admitted at the unit's own stamp; a logout or deactivation either committed
+/// before the unit (and it is refused) or waits behind it on the serialized writer.
+pub(crate) async fn admit_studio(tx: &Tx<'_>, token: &str) -> Result<String, StoreError> {
+    admit_in(tx, token, Channel::Web(Surface::Studio))
+        .await
+        .map(|record| record.actor_id)
+        .map_err(|error| match error {
+            SessionError::Unavailable | SessionError::Unknown => StoreError::Unavailable,
+            _ => StoreError::Unauthenticated,
+        })
+}
+
+/// Public correlation only: knowing this UUID authenticates nobody.
+pub(crate) async fn studio_session_id(
+    store: &Store,
+    token: &str,
+) -> Result<Option<String>, StoreError> {
+    let reader = store.database().owner().reader().await.map_err(|_| StoreError::Unavailable)?;
+    let rows = reader
+        .query(
+            "SELECT s.id FROM identity_session_tokens t JOIN identity_sessions s ON s.id=t.session_id \
+             WHERE t.access_hash=?1 AND s.channel='studio-web'",
+            params_from_iter([Value::Blob(digest(token).to_vec())]),
+        )
+        .await
+        .map_err(|_| StoreError::Unavailable)?;
+    at_most_one(rows, |row| stored_session_id(row, 0))
+        .await
+        .map_err(|_| StoreError::Unavailable)
+}
+
+/// The composed store is the session port: each call opens the shared `server.db` owner.
+impl SessionStore for Store {
+    async fn bind(&self, subject: Subject) -> Result<String, SessionError> {
+        self.sessions().bind(subject).await
+    }
+
+    async fn issue(
+        &self,
+        channel: Channel,
+        observed: &ObservedSecurity,
+        authenticated_at: u64,
+        secrets: &Secrets,
+    ) -> Result<Issued, SessionError> {
+        self.sessions()
+            .issue(channel, observed, authenticated_at, secrets)
+            .await
+    }
+
+    async fn access(&self, token: &str, channel: Channel) -> Result<SessionRecord, SessionError> {
+        self.sessions().access(token, channel).await
+    }
+
+    async fn session_id_of(
+        &self,
+        token: &str,
+        channel: Channel,
+    ) -> Result<Option<String>, SessionError> {
+        self.sessions().session_id_of(token, channel).await
+    }
+
+    async fn revoke(&self, session_id: &str, reason: RevokeReason) -> Result<(), SessionError> {
+        self.sessions().revoke(session_id, reason).await
+    }
+
+    async fn logout(&self, token: &str, channel: Channel) -> Result<(), SessionError> {
+        self.sessions().logout(token, channel).await
+    }
+
+    async fn revoke_refresh(&self, refresh: &str, session_id: &str) -> Result<(), SessionError> {
+        self.sessions().revoke_refresh(refresh, session_id).await
+    }
+
+    async fn peek_refresh(
+        &self,
+        refresh: &str,
+        session_id: &str,
+    ) -> Result<SessionRecord, SessionError> {
+        self.sessions().peek_refresh(refresh, session_id).await
+    }
+
+    async fn rotate(
+        &self,
+        refresh: &str,
+        session_id: &str,
+        secrets: &Secrets,
+    ) -> Result<Rotated, SessionError> {
+        self.sessions().rotate(refresh, session_id, secrets).await
+    }
+
+    async fn renew_web(
+        &self,
+        token: &str,
+        channel: Channel,
+    ) -> Result<(SessionRecord, Lifetime), SessionError> {
+        self.sessions().renew_web(token, channel).await
+    }
 }
 
 impl SessionStore for TursoSessions {

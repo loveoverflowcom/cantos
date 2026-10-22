@@ -6,8 +6,8 @@ use crate::platform::theatre_registration::domain::Phase;
 
 /// Platform-owned lazy pool composition for mounted HTTP tests. Construction opens no
 /// database connection; these scenarios dispatch registration through the in-memory ports.
-pub(crate) fn fixture_store() -> crate::platform::postgres::Store {
-    crate::platform::postgres::Store::new(tokio_postgres::Config::new()).unwrap()
+pub(crate) fn fixture_store() -> crate::platform::store::Store {
+    crate::platform::store::Store::new(tokio_postgres::Config::new()).unwrap()
 }
 
 #[derive(Clone)]

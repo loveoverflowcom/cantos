@@ -118,6 +118,26 @@ impl OwnedDatabase {
     /// time is read after the writer is ours, so timestamps follow commit order.
     pub async fn begin_write(&self) -> Result<WriteTransaction<'_>, StoreFault> {
         let guard = self.writer.lock().await;
+        self.begin_on(guard).await
+    }
+
+    /// [`Self::begin_write`] with a bounded wait for the serialized writer. A stalled
+    /// transaction queues every writer behind it, so a request path states how long it may
+    /// wait; the timeout is [`StoreFault::Busy`] and nothing was changed.
+    pub async fn begin_write_within(
+        &self,
+        wait: Duration,
+    ) -> Result<WriteTransaction<'_>, StoreFault> {
+        let guard = tokio::time::timeout(wait, self.writer.lock())
+            .await
+            .map_err(|_| StoreFault::Busy)?;
+        self.begin_on(guard).await
+    }
+
+    async fn begin_on<'a>(
+        &'a self,
+        guard: MutexGuard<'a, Connection>,
+    ) -> Result<WriteTransaction<'a>, StoreFault> {
         recover(&guard).await?;
         let now = self.clock.now().map_err(|_| StoreFault::Clock)?;
         guard.execute("BEGIN IMMEDIATE", ()).await?;
@@ -291,6 +311,22 @@ impl ReadConnection {
             inner: self.conn.query(sql, params).await?,
             _owner: self.owner.clone(),
         })
+    }
+
+    /// Pin one snapshot for every following read until [`Self::end_snapshot`], so a multi-query
+    /// read (a page plus its count, a head plus its history) cannot observe two commits.
+    pub async fn begin_snapshot(&self) -> Result<(), StoreFault> {
+        self.conn.execute("BEGIN", ()).await?;
+        Ok(())
+    }
+
+    /// Release the pinned snapshot. Reads cannot fail to commit; a failure here is reported but
+    /// never changes data.
+    pub async fn end_snapshot(&self) -> Result<(), StoreFault> {
+        if !self.conn.is_autocommit()? {
+            self.conn.execute("ROLLBACK", ()).await?;
+        }
+        Ok(())
     }
 }
 

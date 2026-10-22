@@ -8,7 +8,7 @@ use crate::contexts::catalog::domain::{
     SourceRef, StoredContentUnit, StoredWork, UnitDetails, Visibility, Work, WorkDetails, WorkId,
     WorkKind,
 };
-use crate::platform::postgres::StoreError;
+use crate::platform::store::StoreError;
 
 const MAX_SNAPSHOT_BYTES: usize = 128 * 1024;
 

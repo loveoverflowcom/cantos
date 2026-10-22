@@ -7,8 +7,8 @@ use crate::platform::identity::{
     domain::{ActorId, ExternalIdentityKey, LinkOutcome, Registration},
     IdentityService, PostgresIdentityRegistry, RegistryError,
 };
-use crate::platform::postgres::Store;
-use crate::platform::postgres::{token_hash, StoreError};
+use crate::platform::store::Store;
+use crate::platform::store::{token_hash, StoreError};
 
 fn valid_id(id: &str) -> bool {
     (1..=64).contains(&id.len())

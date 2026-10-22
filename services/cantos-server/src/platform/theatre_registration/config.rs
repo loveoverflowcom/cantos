@@ -8,7 +8,7 @@ use super::{
     postgres::PostgresRegistrationRepository,
     runtime::{AttemptPolicy, RegistrationRuntime},
 };
-use crate::platform::postgres::Store;
+use crate::platform::store::Store;
 use std::{collections::BTreeMap, sync::Arc};
 
 const PREFIX: &str = "CANTOS_THEATRE_REGISTRATION_";

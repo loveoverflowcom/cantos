@@ -20,7 +20,7 @@ pub const SERVER_EPOCH: u32 = 1;
 
 /// Each reviewed slice appends a version; an applied version is never edited, so a candidate
 /// file built by an older head is refused as diverged instead of adopted.
-pub(crate) const MIGRATIONS: [Migration; 2] = [
+pub(crate) const MIGRATIONS: [Migration; 3] = [
     Migration {
         version: 1,
         name: "server_actor_registry",
@@ -30,6 +30,11 @@ pub(crate) const MIGRATIONS: [Migration; 2] = [
         version: 2,
         name: "server_identity_sessions",
         sql: include_str!("identity_sessions.sql"),
+    },
+    Migration {
+        version: 3,
+        name: "server_development_sessions",
+        sql: include_str!("development_sessions.sql"),
     },
 ];
 

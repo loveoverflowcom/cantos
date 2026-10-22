@@ -4,7 +4,7 @@ use std::{env, net::IpAddr, time::Duration};
 use tokio_postgres::{Client, Config, NoTls};
 
 use super::*;
-use crate::platform::postgres::{local_config, migrate};
+use crate::platform::store::{local_config, migrate};
 
 const NAMESPACE: &str = "https://identity.example.test/oauth2/openid/cantos-theatre-web-bff";
 const PROJECT: &str = "cantos-fixture";

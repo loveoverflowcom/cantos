@@ -9,7 +9,7 @@ mod tests;
 
 pub use crate::platform::oidc::config::OidcConfig;
 pub use crate::platform::oidc::core::{AuthError, CLIENT_ID};
-use crate::platform::postgres::Store;
+use crate::platform::store::Store;
 use core::{session_expiry, FLOW_SECONDS, SESSION_SECONDS};
 use provider::Provider;
 
@@ -35,8 +35,8 @@ impl BrowserInventory {
                 return Err(AuthError::State);
             }
             flows.push(BrowserFlow {
-                state_hash: crate::platform::postgres::token_hash(&state),
-                browser_hash: crate::platform::postgres::token_hash(&browser),
+                state_hash: crate::platform::store::token_hash(&state),
+                browser_hash: crate::platform::store::token_hash(&browser),
             });
         }
         Ok(Self { flows })

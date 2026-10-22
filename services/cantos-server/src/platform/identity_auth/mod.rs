@@ -9,9 +9,7 @@ pub mod client;
 pub mod config;
 pub mod credential;
 pub mod decision;
-pub(crate) mod postgres;
 pub mod session;
-#[cfg(any(test, feature = "turso-candidate"))]
 pub mod turso;
 
 pub use self::session::{SessionError, SessionRecord, SessionStore};
@@ -21,7 +19,7 @@ use self::{
     decision::{decide_admission, decide_issue, Admission, IssueRefusal, RevokeReason, Subject},
 };
 use crate::platform::{
-    bearer::core::Lifetime, postgres::Store, theatre_registration::domain::PeerPolicy,
+    bearer::core::Lifetime, store::Store, theatre_registration::domain::PeerPolicy,
 };
 use cantos_identity_rpc::Purpose;
 use sha2::{Digest, Sha256};
@@ -255,10 +253,11 @@ impl IdentityAuth {
         }
     }
 
-    /// Protected-request admission: fresh Identity read first (no lock held), then the family
-    /// and actor stay share-locked through `dispatch`, so logout or disable linearizes after
-    /// work that was already admitted. A disable committed in Identity *during* dispatch is seen
-    /// by the next admission; the bound is one request, capped by the host's 15 s deadline.
+    /// Protected-request admission: fresh Identity read first (no lock held), then the live
+    /// session at the Server's snapshot before `dispatch` runs. A business write re-admits the
+    /// session inside its own transaction, which linearizes it against logout and disable. A
+    /// disable committed in Identity *during* dispatch is seen by the next admission; the bound
+    /// is one request, capped by the host's 15 s deadline.
     pub async fn admit<F, Fut, T>(
         &self,
         store: &Store,
@@ -291,9 +290,11 @@ impl IdentityAuth {
             .await
             .map_err(|_| AuthFailure::Unavailable)?
             .map_err(|_| AuthFailure::Unavailable)?;
-        postgres::admit(store, token, channel, dispatch)
-            .await
-            .map_err(session)
+        // No lock is held across `dispatch`: the serialized writer orders a logout or
+        // deactivation against the unit of any business write, which re-admits the session
+        // itself (`turso::admit_in`). A read-only dispatch is admitted at this snapshot only.
+        let record = store.access(token, channel).await.map_err(session)?;
+        Ok(dispatch(record).await)
     }
 
     /// Nonsecret fence input for guarded logout; `None` for an unknown secret.

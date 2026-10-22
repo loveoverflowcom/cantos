@@ -10,7 +10,7 @@ use crate::platform::{
         core::{pkce_challenge, AuthError},
         provider::Exchange,
     },
-    postgres::{token_hash, Store, StoreError, Tx},
+    store::{token_hash, Store, StoreError, Tx},
 };
 use cantos_contracts::bearer::{
     ExchangeRequest, FlowRequest, RefreshRequest, Session, TokenPair, TokenType,
@@ -238,7 +238,7 @@ async fn lock_refresh(
     config: &OidcConfig,
     request: &RefreshRequest,
 ) -> Result<Row, AuthError> {
-    let parameters: &[&(dyn tokio_postgres::types::ToSql + Sync)] = &[
+    let parameters: &[&(dyn crate::platform::store::Param + Sync)] = &[
         &token_hash(&request.refresh_token),
         &request.session_id,
         &config.client_id,

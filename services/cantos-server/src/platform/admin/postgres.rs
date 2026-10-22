@@ -2,7 +2,7 @@
 use super::domain::{authorize, Action, AdminError, AdminPermit, RoleEvidence};
 use crate::platform::{
     identity::domain::ActorId,
-    postgres::{Store, Tx},
+    store::{Store, Tx},
 };
 use cantos_contracts::admin::{CapabilityResponse, RevokeAccessResponse};
 use uuid::Uuid;

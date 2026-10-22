@@ -29,7 +29,7 @@ use crate::{
             postgres::{artwork as sql, image as image_sql},
         },
     },
-    platform::postgres::{LockMode, Store, StoreError, Tx},
+    platform::store::{LockMode, Store, StoreError, Tx},
 };
 
 #[derive(Clone)]

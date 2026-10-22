@@ -2,13 +2,13 @@
 //! restored through Media constructors and every indexed fact is cross-checked on read.
 use cantos_contracts as dto;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio_postgres::{error::SqlState, Row};
+use crate::platform::store::Row;
 
 use crate::contexts::catalog::domain::{OwnerId, WorkId};
 use crate::contexts::media::domain::image::{
     sha256_valid, ImageAsset, ImageAssetId, ImageIntent, ImageIntentId, MAX_IMAGE_DOCUMENT_BYTES,
 };
-use crate::platform::postgres::{checked_number, StoreError, Tx};
+use crate::platform::store::{checked_number, StoreError, Tx};
 
 #[derive(Clone)]
 pub(in crate::contexts::media) struct StoredImageIntent {
@@ -25,7 +25,7 @@ pub(in crate::contexts::media) struct StoredImageAsset {
     pub document_bytes: Vec<u8>,
 }
 
-pub(super) fn corrupt<T>(result: Result<T, tokio_postgres::Error>) -> Result<T, StoreError> {
+pub(super) fn corrupt<T>(result: Result<T, crate::platform::store::Error>) -> Result<T, StoreError> {
     result.map_err(|_| StoreError::CorruptRevision)
 }
 pub(super) fn document_bytes<T: Serialize>(document: &T) -> Result<Vec<u8>, StoreError> {
@@ -65,8 +65,8 @@ fn number_matches(row: &Row, column: &str, value: u64) -> Result<(), StoreError>
 pub(super) fn target_valid(value: &str) -> bool {
     crate::contexts::media::domain::object_storage::StorageTargetId::parse(value).is_ok()
 }
-fn insert_error(error: tokio_postgres::Error) -> StoreError {
-    if error.code() == Some(&SqlState::UNIQUE_VIOLATION) {
+fn insert_error(error: crate::platform::store::Error) -> StoreError {
+    if error.constraint() == Some(cantos_store_turso::error::ConstraintKind::Unique) {
         StoreError::OperationReused
     } else {
         StoreError::from(error)

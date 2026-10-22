@@ -5,7 +5,7 @@ use crate::{
         AuthenticatedListener, AuthenticationError, AuthenticationFuture, ListenerAuthenticator,
         ListenerCredentials,
     },
-    platform::{identity::domain::ActorId, postgres::Store},
+    platform::{identity::domain::ActorId, store::Store},
 };
 pub struct TheatreListenerAuthenticator {
     store: Store,

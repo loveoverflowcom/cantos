@@ -24,7 +24,7 @@ use crate::contexts::catalog::{
     postgres::{self, delegation as sql},
 };
 use crate::contexts::editorial::{Access, Action};
-use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
 
 /// A grant with its current revocation state, for the owner's management views.
 #[derive(Clone, Debug, PartialEq, Eq)]

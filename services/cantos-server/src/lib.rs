@@ -28,17 +28,9 @@ pub mod revisions {
 }
 
 #[doc(hidden)]
-pub mod postgres {
-    pub use crate::platform::postgres::*;
+pub mod store {
+    pub use crate::platform::store::*;
 }
-
-// Reuse the canonical disposable Studio→Publication fixture in ignored Library unit/Router tests.
-// This test-only alias creates no production authentication shortcut or feature flag.
-#[cfg(test)]
-extern crate self as cantos_server;
-#[cfg(test)]
-#[path = "../tests/catalog_http_postgres.rs"]
-mod listener_postgres_test_fixture;
 
 #[cfg(test)]
 mod playback_transport_tests;

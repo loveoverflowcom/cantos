@@ -6,13 +6,13 @@ use cantos_contracts::{
     ProductionSnapshotSummary,
 };
 use serde::{de::DeserializeOwned, Serialize};
-use tokio_postgres::Row;
+use crate::platform::store::Row;
 
 use super::domain::{
     admit_frozen_document, validate_rights_declaration, validate_settings, MAX_RIGHTS,
 };
 use crate::contexts::editorial::export_digest;
-use crate::platform::postgres::{normalized_uuid, StoreError, Tx};
+use crate::platform::store::{normalized_uuid, StoreError, Tx};
 use crate::script_ir::read_canonical_script;
 
 const SETTINGS_COLUMNS: &str = "script_id,version,script_revision,operation_id,recorded_by,settings_bytes,to_char(recorded_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS recorded_at";

@@ -1,9 +1,9 @@
 //! Durable registration fences. No transaction contains provider or mail I/O.
 use sha2::{Digest, Sha256};
-use tokio_postgres::Row;
+use crate::platform::store::Row;
 use uuid::Uuid;
 
-use crate::platform::postgres::Store;
+use crate::platform::store::Store;
 
 use super::{
     application::{PrepareOutcome, RegistrationFuture, Repository},

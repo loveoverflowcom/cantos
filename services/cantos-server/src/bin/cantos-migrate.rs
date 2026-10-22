@@ -1,4 +1,4 @@
-use cantos_server::platform::postgres::{local_config, migrate, verify_schema, SCHEMA_EPOCH};
+use cantos_server::platform::store::{local_config, migrate, verify_schema, SCHEMA_EPOCH};
 use std::env;
 
 #[tokio::main]

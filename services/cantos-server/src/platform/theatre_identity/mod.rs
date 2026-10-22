@@ -6,7 +6,7 @@ pub use crate::platform::oidc::core::AuthError;
 use crate::platform::oidc::core::{session_expiry, FLOW_SECONDS, SESSION_SECONDS};
 use crate::platform::oidc::provider::Provider;
 pub use crate::platform::oidc::trust::IssuerTrust;
-use crate::platform::postgres::Store;
+use crate::platform::store::Store;
 
 pub struct TheatreIdentity {
     config: OidcConfig,

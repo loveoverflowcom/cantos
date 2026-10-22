@@ -10,7 +10,7 @@ use super::domain::receipt::{
 };
 use super::postgres;
 use crate::contexts::editorial::{authorize, register_evidence, Action, EvidenceKind};
-use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError};
 
 impl Store {
     /// A retry gets the exact immutable receipt, including a failed extraction.

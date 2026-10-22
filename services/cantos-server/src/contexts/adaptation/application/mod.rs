@@ -10,7 +10,7 @@ use super::domain::{
 use super::postgres;
 use crate::contexts::editorial::{document as editorial_document, load_revision, RevisionFacts};
 use crate::contexts::ingestion::imported_source;
-use crate::platform::postgres::{StoreError, Tx};
+use crate::platform::store::{StoreError, Tx};
 use crate::script_ir::read_canonical_script;
 
 mod accept;

@@ -5,7 +5,7 @@
 //! contract: an explicit bind, separate exact HTTPS origins for each Web surface,
 //! no static serving, no development Studio credential and no development-only
 //! storage, trust or mail fixtures. PostgreSQL stays local (loopback or a Unix socket) in both
-//! modes; see [`crate::platform::postgres::local_config`].
+//! modes; see [`crate::platform::store::local_config`].
 use std::net::SocketAddr;
 
 /// Trusted browser origins, kept separate even when two development apps share an origin.

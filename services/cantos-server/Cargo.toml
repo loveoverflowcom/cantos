@@ -9,9 +9,6 @@ publish = false
 # Experimental local/dev DBSP incremental read model. Off by default: production builds
 # and the default test gates keep the direct PostgreSQL path only.
 dbsp-experimental = ["dep:dbsp"]
-# Uncomposed candidate `server.db` adapters (#333). Off by default, so no serving build links the
-# Turso engine before the #333.9 flip; unit tests compile them through the dev-dependency.
-turso-candidate = ["dep:cantos-store-turso"]
 
 [dependencies]
 axum = "=0.8.4"
@@ -24,9 +21,8 @@ url = "=2.5.8"
 tokio-util = { version = "=0.7.19", features = ["io"] }
 cantos-contracts = { path = "../../packages/contracts/api" }
 cantos-identity-rpc = { path = "../../packages/contracts/identity-rpc" }
-cantos-store-turso = { path = "../../packages/store-turso", optional = true }
+cantos-store-turso = { path = "../../packages/store-turso" }
 dbsp = { version = "=0.198.0", optional = true }
-deadpool-postgres = "=0.14.2"
 futures-util = "=0.3.34"
 hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
 getrandom = "=0.3.4"
@@ -39,7 +35,6 @@ ring = "=0.17.14"
 base64 = "=0.22.1"
 unicode-normalization = "=0.1.24"
 tokio = { version = "=1.47.1", features = ["macros", "rt-multi-thread", "signal", "time", "net", "sync", "fs", "io-util"] }
-tokio-postgres = "=0.7.18"
 tonic = { version = "=0.14.5", default-features = false, features = ["transport", "codegen"] }
 tower = { version = "=0.5.2", default-features = false, features = ["util"] }
 tower-http = { version = "=0.6.6", features = ["fs"] }
@@ -54,7 +49,7 @@ libc = "=0.2.190"
 # The journeys run the real Identity executable and, to disable a subject while it is stopped,
 # its owning library. Test-only: it is never a runtime dependency of the Server.
 cantos-identity = { path = "../cantos-identity", features = ["service"] }
-# The candidate adapters' owner in unit tests, with run-owned directories and a fixed clock.
+# Run-owned directories and a fixed clock for every file-backed `server.db` test.
 cantos-store-turso = { path = "../../packages/store-turso", features = ["testing"] }
 tokio = { version = "=1.47.1", features = ["process"] }
 tokio-stream = { version = "=0.1.19", default-features = false, features = ["net"] }
@@ -66,13 +61,6 @@ proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 [[bin]]
 name = "validate-script"
 path = "src/bin/validate-script.rs"
-
-# The real Identity executable with the candidate Turso Actor Registry and sessions (#333/#335).
-# It needs a prebuilt `CANTOS_TEST_IDENTITY_BINARY` and never builds one; see the target's header.
-[[test]]
-name = "identity_auth_candidate"
-path = "tests/identity_auth_candidate.rs"
-required-features = ["turso-candidate"]
 
 [lints.rust]
 # Kani injects its crate only for cfg(kani); ordinary Rust/WASM builds retain no proof dependency.

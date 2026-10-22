@@ -5,7 +5,7 @@ use super::CatalogStoreError;
 use crate::contexts::catalog::domain::{
     content::*, ContentUnitId, OwnerId, ScriptRef, SourceRef, WorkId,
 };
-use crate::platform::postgres::StoreError;
+use crate::platform::store::StoreError;
 
 fn invalid(path: &str, rule: &str) -> CatalogStoreError {
     StoreError::InvalidRequestFields(vec![dto::FieldIssue {

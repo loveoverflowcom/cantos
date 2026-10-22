@@ -18,7 +18,7 @@ use super::postgres;
 use super::storage::registry::{RegistryStoredObject, StorageRegistry};
 use crate::contexts::catalog::domain::OwnerId;
 use crate::contexts::editorial::{authorize, find_revision, Action};
-use crate::platform::postgres::{
+use crate::platform::store::{
     authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
 };
 

@@ -9,7 +9,7 @@ use crate::contexts::catalog::{
 };
 use crate::contexts::editorial::{self, permits, Action};
 use crate::contexts::ingestion;
-use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
 
 #[path = "content_wire.rs"]
 pub mod wire;

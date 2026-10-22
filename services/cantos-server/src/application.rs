@@ -36,11 +36,14 @@ pub enum StoreError {
     AudioInspectionUnavailable(&'static str),
 }
 
-/// Concrete handle used by the owning application use cases. PostgreSQL owns its pool;
-/// Media owns its concrete private-storage registry. Neither is part of a pure domain model.
+/// Concrete handle used by the owning application use cases. The one embedded Turso `server.db`
+/// owner is shared by every context; Media owns its concrete private-storage registry. Neither
+/// is part of a pure domain model.
 #[derive(Clone)]
 pub struct Store {
-    pub(crate) pool: deadpool_postgres::Pool,
+    pub(crate) database: crate::platform::turso::ServerDatabase,
+    /// Test builds lose a COMMIT acknowledgement here; production always takes the engine's.
+    pub(crate) acknowledgement: crate::platform::turso::Acknowledgement,
     pub(crate) media_storage: Option<Arc<StorageRegistry>>,
     pub(crate) admin: Option<Arc<crate::platform::admin::AdminService>>,
     pub(crate) studio_oidc: Option<Arc<crate::platform::studio_oidc::StudioOidc>>,

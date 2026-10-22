@@ -3,7 +3,7 @@ use super::{
     config::OidcConfig,
     core::{AuthError, VerifiedIdentity, CLIENT_ID, FLOW_SECONDS},
 };
-use crate::platform::postgres::{token_hash, Store};
+use crate::platform::store::{token_hash, Store};
 
 pub(super) struct Flow {
     pub nonce: String,

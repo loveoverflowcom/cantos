@@ -6,14 +6,14 @@ use cantos_contracts::{
     AdaptationSubmissionStatus, ImportOutcome, SubmitAdaptationProposalRequest,
 };
 use sha2::{Digest, Sha256};
-use tokio_postgres::Row;
+use crate::platform::store::Row;
 
 use super::domain::{
     generation_record_id, rights_record_id, typed_digest, FrozenContext, INPUT_C1_DIGEST,
     MAX_REQUEST_BYTES, PROPOSAL_DIGEST, SUBMISSION_DIGEST,
 };
 use crate::contexts::editorial::export_digest;
-use crate::platform::postgres::{normalized_uuid, StoreError, Tx};
+use crate::platform::store::{normalized_uuid, StoreError, Tx};
 use crate::script_ir::read_canonical_script;
 
 const RUN_COLUMNS: &str = "input_version,id,owner_id,operation_id,source_id,script_id,frozen_input::text AS frozen_input,input_digest,status,to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS recorded_at,to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS updated_at";

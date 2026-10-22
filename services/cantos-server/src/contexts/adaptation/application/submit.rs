@@ -11,7 +11,7 @@ use super::super::domain::{check_submission, validate_caller_generation};
 use super::super::postgres::{self, ActorLock};
 use super::admit_output;
 use super::context::{context_in_transaction, current_base};
-use crate::platform::postgres::{authenticate, normalized_uuid, Store, StoreError};
+use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError};
 
 impl Store {
     pub async fn submit_adaptation_proposal(

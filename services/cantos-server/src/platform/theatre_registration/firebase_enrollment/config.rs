@@ -4,7 +4,7 @@ use super::{
     runtime::FirebaseEnrollmentRuntime,
 };
 use crate::platform::{
-    postgres::Store,
+    store::Store,
     theatre_registration::{
         config::{peer_policy, FIELDS as COMMON_FIELDS, TRUSTED_PROXIES},
         domain::{RegistrationError, RegistrationPolicy},
@@ -233,7 +233,7 @@ mod tests {
     use super::*;
     fn store() -> Store {
         Store::new(
-            crate::platform::postgres::local_config("postgresql://fixture@127.0.0.1:9/fixture")
+            crate::platform::store::local_config("postgresql://fixture@127.0.0.1:9/fixture")
                 .unwrap(),
         )
         .unwrap()

@@ -8,7 +8,7 @@ use super::context::context_in_transaction;
 use crate::contexts::editorial::{
     append_revision, document as editorial_document, RevisionOperation,
 };
-use crate::platform::postgres::{authenticate, checked_number, normalized_uuid, Store, StoreError};
+use crate::platform::store::{authenticate, checked_number, normalized_uuid, Store, StoreError};
 
 impl Store {
     pub async fn accept_adaptation(

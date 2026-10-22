@@ -1,11 +1,11 @@
 //! The source registry: immutable original bytes, import metadata and extraction outcomes.
 //! Every load re-checks the bytes, metadata and outcome against the stored receipt digest.
 use cantos_contracts::{ImportMetadata, ImportRequest, ImportResponse};
-use tokio_postgres::Row;
+use crate::platform::store::Row;
 
 use super::domain::extraction::MAX_SOURCE_BYTES;
 use super::domain::receipt::{original_text, receipt_digest, sha256_hex, AdmittedImport};
-use crate::platform::postgres::{StoreError, Tx};
+use crate::platform::store::{StoreError, Tx};
 
 const IMPORT_COLUMNS: &str = "id,reference,imported_by,import_operation_id,import_digest,original_bytes,original_text,sha256,import_metadata::text AS import_metadata,import_outcome::text AS import_outcome,to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS recorded_at";
 

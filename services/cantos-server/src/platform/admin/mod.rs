@@ -3,7 +3,7 @@ mod credential;
 mod domain;
 mod postgres;
 mod provider;
-use crate::platform::postgres::Store;
+use crate::platform::store::Store;
 use cantos_contracts::admin::{CapabilityResponse, RevokeAccessResponse};
 pub use domain::{Action, AdminError, Role};
 pub use provider::AdminConfig;

@@ -9,7 +9,7 @@ use crate::contexts::catalog::{
     CatalogStoreError, ProductionContent,
 };
 use crate::contexts::{editorial, ingestion};
-use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
 use cantos_contracts as dto;
 use sha2::{Digest, Sha256};
 
@@ -327,7 +327,7 @@ impl Store {
             .await
             .map_err(catalog_error)?;
         let owner = facts.work.owner_id().as_str();
-        if crate::platform::postgres::session_token_registered(&tx, &request.token).await? {
+        if crate::platform::store::session_token_registered(&tx, &request.token).await? {
             return Err(StoreError::InvalidRequestFields(vec![dto::FieldIssue {
                 path: "token".into(),
                 rule: "studio_token_reuse".into(),

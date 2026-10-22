@@ -9,7 +9,7 @@ use super::super::domain::{check_freeze, check_input_identity, prepare_inputs};
 use super::super::postgres::{self, encode};
 use super::{facts, production_actor, snapshot};
 use crate::contexts::editorial::{load_revision, Action};
-use crate::platform::postgres::{checked_number, normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::store::{checked_number, normalized_uuid, LockMode, Store, StoreError};
 
 impl Store {
     pub async fn freeze_production(

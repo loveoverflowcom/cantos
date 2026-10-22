@@ -1305,7 +1305,7 @@ mod bookmarks {
             .await
             .unwrap();
         let admin = f.listener_handles().0;
-        let code = |e: tokio_postgres::Error| e.code().map(|c| c.code().to_owned());
+        let code = |e: crate::platform::store::Error| e.code().map(|c| c.code().to_owned());
         let (live, gone) = (bm(1), bm(2));
         for (sql, id, expected) in [
             // A tombstone is final; a live value cannot change identity or position.

@@ -8,7 +8,7 @@ use super::{
     CatalogStoreError,
 };
 use crate::contexts::editorial::Action;
-use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
 
 impl Store {
     pub async fn catalog_work(&self, token: &str, id: &WorkId) -> Result<Work, CatalogStoreError> {

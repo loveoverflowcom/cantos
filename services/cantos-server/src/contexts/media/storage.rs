@@ -12,7 +12,7 @@ use std::{
 
 use tokio::sync::Semaphore;
 
-use crate::platform::postgres::StoreError;
+use crate::platform::store::StoreError;
 
 use super::audio_intake::VerifiedAudio;
 use super::domain::object_storage::{
