@@ -1143,7 +1143,7 @@
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/domain/identity/NativeGrant.kt",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/identity/NativeAccountController.kt",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/ports/NativeCredentialJournal.kt",
-        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeAccountControllerTest.kt",
+        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeIdentityV1LifecycleTest.kt",
         "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt"
       ],
       "model": "specs/behavior/identity/bearer_lifecycle.qnt",

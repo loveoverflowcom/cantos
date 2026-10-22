@@ -1415,12 +1415,12 @@ def theatre_production_modules(root):
                 canonical_ui = module == ":shared" and path == "../../../packages/ui-system/cmp/src/commonMain/kotlin"
                 containing = [(start, end, name) for start, end, name in main_blocks if start < offset < end]
                 source_set = min(containing, key=lambda span: span[1] - span[0])[2] if containing else None
-                # Reviewed production codegen routes: Library and registration schema types. Fixtures are
+                # Reviewed production codegen routes: Library and Identity v1 schema types. Fixtures are
                 # generated into a separate commonTest directory, never admitted by this exception.
                 # The literal output and compile dependency remain inspectable without Gradle.
                 generated_routes = {
                     "generated/libraryWire/commonMain/kotlin": "generateLibraryWire",
-                    "generated/registrationWire/commonMain/kotlin": "generateRegistrationWire",
+                    "generated/identityV1Wire/commonMain/kotlin": "generateIdentityV1Wire",
                 }
                 generator = generated_routes.get(path)
                 schema_wire = (

@@ -86,7 +86,7 @@ class LiveBookmarkApiTest {
         fun open() {
             current = nativeLibraryController(scope, api, desktopLibraryStore(path), { UUID.randomUUID().toString() }, nowMs = { System.currentTimeMillis() })
         }
-        fun enter() = on { library.enter(NativeSession(actor0, SESSION, Long.MAX_VALUE, null), bearer0) }
+        fun enter() = on { library.enter(NativeSession(actor0, SESSION, Long.MAX_VALUE), bearer0) }
         fun <T> on(block: () -> T): T = runBlocking { withContext(dispatcher) { block() } }
         fun close() { on { library.close() }; current = null }
         fun shutdown() { executor.shutdownNow() }

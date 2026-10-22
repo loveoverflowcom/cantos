@@ -16,36 +16,25 @@ import com.cantos.theatre.adapters.library.wire.PresentedSavedPage
 import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.adapters.library.wire.SavedWrite
 import com.cantos.theatre.application.identity.NativeAccountController
-import com.cantos.theatre.domain.identity.LoginSecret
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.application.identity.StubIdentityV1Api
+import com.cantos.theatre.application.identity.v1Grant
 import com.cantos.theatre.domain.identity.NativeGrant
-import com.cantos.theatre.domain.identity.IdentityV1Validation
-import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
-import com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult
 import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.domain.identity.RegistrationResult
-import com.cantos.theatre.ports.NativeIdentityV1Api
 import com.cantos.theatre.ports.IdentityV1Result
-import com.cantos.theatre.ports.IdentityV1Failure
-import com.cantos.theatre.ports.IdentitySignupAccepted
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.playback.PlaybackObservation
 import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.ports.CredentialFailure
-import com.cantos.theatre.ports.IdentityCrypto
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
-import com.cantos.theatre.ports.NativeApiFailure
-import com.cantos.theatre.ports.NativeApiResult
 import com.cantos.theatre.ports.NativeCredentialJournal
 import com.cantos.theatre.ports.NativeCredentialRecord
-import com.cantos.theatre.ports.NativeFlow
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
-import com.cantos.theatre.ports.NativeIdentityApi
 import com.cantos.theatre.ports.NativeJournalRead
 import com.cantos.theatre.ports.NativeRequestHandle
 import com.cantos.theatre.ports.NativeSession
@@ -54,7 +43,6 @@ import com.cantos.theatre.ports.PlaybackAccessResult
 import com.cantos.theatre.ports.PlaybackGrant
 import com.cantos.theatre.ports.PlaybackLocation
 import com.cantos.theatre.ports.StreamingMediaEngine
-import com.cantos.theatre.ports.SystemBrowser
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -89,51 +77,30 @@ class NativeAuthorizedLibraryRuntimeTest {
         override fun close() = Unit
     }
 
-    private class Fixture(scope: CoroutineScope, val identityV1: Boolean = false) {
+    private class Fixture(scope: CoroutineScope) {
         val actor = "actor-a"
         val family = "00000000-0000-4000-8000-000000000001"
-        private val configuration = requireNotNull(NativeClientConfiguration.create("https://api.invalid",
-            "https://identity.invalid/oauth2/openid/cantos-theatre-native"))
         private fun pair(letter: Char, now: Long, previous: NativeGrant? = null): NativeGrant =
-            if (identityV1) assertIs<IdentityV1Validation.Accepted<NativeGrant>>(NativeGrant.identityV1(
-                "ci1_n_" + letter.toString().repeat(64), "ci1_r_" + letter.toString().repeat(64),
-                actor, family, now + 120, minOf(now + 600, 1000), 1000, 100, now, previous)).value
-            else requireNotNull(NativeGrant.create("ca1_n_" + letter.toString().repeat(64), "cr1_" + letter.toString().repeat(64),
-                actor, family, now + 120, minOf(now + 600, 1000), 1000, 100, now, previous))
+            v1Grant(letter, letter, actor, family, now + 120, minOf(now + 600, 1000), 1000, 100, now, previous)
         private var grant = pair('a', 100)
         val initialToken = grant.accessToken
         var now = 100L
         var sessionChecks = 0
         var rotations = 0
-        private val providerApi = object : NativeIdentityApi {
-            override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> =
-                NativeApiResult.Refused(NativeApiFailure.Unavailable)
-            override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeGrant> =
-                NativeApiResult.Refused(NativeApiFailure.Unavailable)
-            override suspend fun refresh(refreshToken: String, session: String): NativeApiResult<NativeGrant> {
-                assertEquals(grant.refreshToken, refreshToken)
-                assertEquals(family, session)
+        private val identity = object : StubIdentityV1Api() {
+            override suspend fun login(email: RegistrationEmail, password: String): IdentityV1Result<NativeGrant> = IdentityV1Result.Accepted(grant)
+            override suspend fun refresh(previous: NativeGrant): IdentityV1Result<NativeGrant> {
+                assertEquals(grant.refreshToken, previous.refreshToken)
+                assertEquals(family, previous.view.session)
                 rotations += 1
                 grant = pair('b', now, grant)
-                return NativeApiResult.Accepted(grant)
+                return IdentityV1Result.Accepted(grant)
             }
-            override suspend fun session(credential: String): NativeApiResult<NativeSession> {
+            override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> {
                 sessionChecks += 1
-                assertEquals(grant.accessToken, credential)
-                return NativeApiResult.Accepted(grant.view)
+                assertEquals(grant.accessToken, previous.accessToken)
+                return IdentityV1Result.Accepted(grant.view)
             }
-            override suspend fun revokeFamily(refreshToken: String, session: String) = NativeApiResult.Accepted(Unit)
-            override suspend fun cancel(flow: String, state: String, verifier: String) = NativeApiResult.Accepted(Unit)
-            override suspend fun revoke(credential: String) = NativeApiResult.Accepted(Unit)
-            override suspend fun saved(credential: String, session: String) = NativeApiResult.Accepted(0)
-        }
-        private val crypto = object : IdentityCrypto {
-            override fun secret(): LoginSecret? = null
-            override fun challenge(verifier: LoginSecret): String? = null
-        }
-        private val browser = object : SystemBrowser {
-            override fun open(url: String) = false
-            override fun cancel() = Unit
         }
         private val journal = object : NativeCredentialJournal {
             private var record: NativeCredentialRecord? = NativeCredentialRecord.Active(grant)
@@ -147,24 +114,9 @@ class NativeAuthorizedLibraryRuntimeTest {
             override fun mark(): CredentialFailure? { pending = true; return null }
             override fun clear(): CredentialFailure? { pending = false; return null }
         }
-        private val firstParty = object : NativeIdentityV1Api {
-            override suspend fun signup(email: RegistrationEmail): IdentityV1Result<IdentitySignupAccepted> = error("Not part of Library lifecycle")
-            override suspend fun login(email: RegistrationEmail, password: String): IdentityV1Result<NativeGrant> = IdentityV1Result.Accepted(grant)
-            override suspend fun refresh(previous: NativeGrant): IdentityV1Result<NativeGrant> =
-                IdentityV1Result.Accepted(assertIs<NativeApiResult.Accepted<NativeGrant>>(providerApi.refresh(previous.refreshToken, previous.view.session)).value)
-            override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> =
-                IdentityV1Result.Accepted(assertIs<NativeApiResult.Accepted<NativeSession>>(providerApi.session(previous.accessToken)).value)
-            override suspend fun revokeFamily(previous: NativeGrant): IdentityV1Result<Unit> = IdentityV1Result.Accepted(Unit)
-            override suspend fun revoke(previous: NativeGrant): IdentityV1Result<Unit> = error("Use exact family cleanup")
-        }
-        val account = if (identityV1) NativeAccountController(scope,
-            assertIs<NativeIdentityV1ConfigurationResult.Available>(NativeIdentityV1Configuration.resolve(configuration.apiOrigin)).configuration,
-            firstParty, journal, barrier) { now }
-        else NativeAccountController(scope, configuration, providerApi, crypto, browser, journal, barrier) { now }
+        val account = NativeAccountController(scope, identity, journal, barrier) { now }
         fun loginB() {
-            grant = assertIs<IdentityV1Validation.Accepted<NativeGrant>>(NativeGrant.identityV1(
-                "ci1_n_" + "c".repeat(64), "ci1_r_" + "d".repeat(64), "actor-b",
-                "00000000-0000-4000-8000-000000000002", now + 120, minOf(now + 600, 1000), 1000, 100, now)).value
+            grant = v1Grant('c', 'd', "actor-b", "00000000-0000-4000-8000-000000000002", now + 120, minOf(now + 600, 1000), 1000, 100, now)
             account.login(assertIs<RegistrationResult.Accepted<RegistrationEmail>>(RegistrationEmail.parse("b@example.test")).value, "synthetic-password")
         }
         class Pending(val request: NativeHttpRequest, val response: NativeHttpResponse,
@@ -177,7 +129,7 @@ class NativeAuthorizedLibraryRuntimeTest {
         var heldMutation: Pending? = null
         val requests = mutableListOf<NativeHttpRequest>()
         private val receipts = mutableMapOf<String, Receipt>()
-        private val origin = ApiOrigin.parse(configuration.apiOrigin)
+        private val origin = ApiOrigin.parse("https://api.invalid")
         private val rawHttp = object : NativeHttpPort {
             override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
                 requests += request
@@ -251,13 +203,8 @@ class NativeAuthorizedLibraryRuntimeTest {
         fun close() { runtime.close(); folder.deleteRecursively() }
     }
 
-    @Test
-    fun slowLibraryReadAcrossRotationCannotQuarantineTheReplacementOrResetThePlayingEngine() = slowRead(false)
-
-    @Test fun identityV1RotationPreservesPlayingEngineAndDiscardsOldLeaseResponse() = slowRead(true)
-
-    private fun slowRead(identityV1: Boolean) = runTest {
-        val f = Fixture(backgroundScope, identityV1)
+    @Test fun rotationPreservesPlayingEngineAndDiscardsOldLeaseResponse() = runTest {
+        val f = Fixture(backgroundScope)
         try {
             runCurrent()
             f.runtime.listening.restore(f.audio, 10_000); runCurrent()
@@ -284,13 +231,8 @@ class NativeAuthorizedLibraryRuntimeTest {
         } finally { f.close() }
     }
 
-    @Test
-    fun lateCommittedMutationAcrossRotationReconcilesTheSameOperationReceiptWithoutReplayingIt() = lateReceipt(false)
-
-    @Test fun identityV1RotationReconcilesCommittedReceiptWithoutReplayingMutation() = lateReceipt(true)
-
-    private fun lateReceipt(identityV1: Boolean) = runTest {
-        val f = Fixture(backgroundScope, identityV1)
+    @Test fun rotationReconcilesCommittedReceiptWithoutReplayingMutation() = runTest {
+        val f = Fixture(backgroundScope)
         try {
             runCurrent()
             f.runtime.listening.restore(f.audio, 10_000); runCurrent()
@@ -322,8 +264,8 @@ class NativeAuthorizedLibraryRuntimeTest {
             assertEquals(PlaybackStatus.Playing, f.runtime.listening.playback.state.value.status)
         } finally { f.close() }
     }
-    @Test fun identityV1AccountSwitchFencesLateLibraryReadReceiptAndDispatchWithoutReassigningData() = runTest {
-        val f = Fixture(backgroundScope, true)
+    @Test fun accountSwitchFencesLateLibraryReadReceiptAndDispatchWithoutReassigningData() = runTest {
+        val f = Fixture(backgroundScope)
         try {
             runCurrent()
             f.holdNextContinue = true; f.library.refresh(); runCurrent()

@@ -1,27 +1,18 @@
 package com.cantos.theatre.application.identity
 
-import com.cantos.theatre.domain.identity.CallbackOutcome
-import com.cantos.theatre.domain.identity.LoginFailure
-import com.cantos.theatre.domain.identity.NativeCallback
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeGrant
-import com.cantos.theatre.domain.identity.NativeCredentialProtocol
-import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
 import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.ports.NativeIdentityV1Api
 import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.ports.IdentityV1Result
-import com.cantos.theatre.ports.IdentityCrypto
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
 import com.cantos.theatre.ports.NativeApiFailure
 import com.cantos.theatre.ports.NativeApiResult
 import com.cantos.theatre.ports.NativeCredentialJournal
 import com.cantos.theatre.ports.NativeCredentialRecord
-import com.cantos.theatre.ports.NativeIdentityApi
 import com.cantos.theatre.ports.NativeJournalRead
 import com.cantos.theatre.ports.NativeSession
-import com.cantos.theatre.ports.SystemBrowser
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -34,11 +25,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.time.TimeSource
 
-enum class NativeAccountFailure { Configuration, Entropy, Login, Storage, Cleanup, Expired, Api, Protocol, Exhausted }
+enum class NativeAccountFailure { Storage, Expired, Api, Protocol, Exhausted }
 sealed interface NativeAccountState {
     data object SignedOut : NativeAccountState
     data object Pending : NativeAccountState
-    data class SignedIn(val actor: String, val expiresAt: Long, val savedCount: Int? = null) : NativeAccountState
+    data class SignedIn(val actor: String, val expiresAt: Long) : NativeAccountState
     data class Failed(val reason: NativeAccountFailure, val identityFailure: IdentityV1Failure? = null) : NativeAccountState
     data object CleanupRequired : NativeAccountState
 }
@@ -49,41 +40,27 @@ class NativeVerifiedSession internal constructor(val session: NativeSession, val
 }
 
 /** One process/application-dispatcher owner. Secure journal precedes every consuming effect.
- * Network cancellation never proves noncommit: Flow/Refreshing records are cleanup-only on restart. */
-class NativeAccountController private constructor(
+ * Network cancellation never proves noncommit: a Refreshing record is cleanup-only on restart. */
+class NativeAccountController internal constructor(
     private val scope: CoroutineScope,
-    private val configuration: NativeClientConfiguration?,
-    private val api: NativeIdentityApi?,
-    private val login: NativeLoginController?,
-    private val identityV1: NativeIdentityV1Api?,
-    private val protocol: NativeCredentialProtocol,
+    private val api: NativeIdentityV1Api,
     private val store: NativeCredentialJournal,
     private val barrier: LogoutBarrier,
+    timeSource: TimeSource,
     private val wallNow: () -> Long,
-    timeSource: TimeSource?,
 ) {
-    constructor(scope: CoroutineScope, configuration: NativeClientConfiguration, api: NativeIdentityApi,
-        crypto: IdentityCrypto, browser: SystemBrowser, store: NativeCredentialJournal, barrier: LogoutBarrier,
-        now: () -> Long) : this(scope, configuration, api, NativeLoginController(crypto, browser), null, NativeCredentialProtocol.ProviderBearerV1, store, barrier, now, null)
+    constructor(scope: CoroutineScope, api: NativeIdentityV1Api, store: NativeCredentialJournal,
+        barrier: LogoutBarrier, now: () -> Long) : this(scope, api, store, barrier, TimeSource.Monotonic, now)
 
-    constructor(scope: CoroutineScope, configuration: NativeIdentityV1Configuration, api: NativeIdentityV1Api,
-        store: NativeCredentialJournal, barrier: LogoutBarrier, now: () -> Long) :
-        this(scope, configuration, api, store, barrier, TimeSource.Monotonic, now)
-
-    internal constructor(scope: CoroutineScope, configuration: NativeIdentityV1Configuration, api: NativeIdentityV1Api,
-        store: NativeCredentialJournal, barrier: LogoutBarrier, timeSource: TimeSource, now: () -> Long) :
-        this(scope, null, null, null, api, configuration.protocol, store, barrier, now, timeSource)
-
-    private val clockOrigin = timeSource?.markNow()
+    private val clockOrigin = timeSource.markNow()
     private var observedElapsed = 0L
-    private var observedTime = if (clockOrigin != null) wallNow() else 0L
+    private var observedTime = wallNow()
 
     // Keep server UNIX deadlines, but never extend their remaining duration when the device
     // clock moves backwards. This process-wide floor survives refresh/revalidation/new intents;
     // a restart still requires API admission. OS suspend/time-source behavior needs device evidence.
     private fun now(): Long {
-        val origin = clockOrigin ?: return wallNow() // Retained provider path is unchanged.
-        val elapsed = origin.elapsedNow().inWholeSeconds.coerceAtLeast(observedElapsed)
+        val elapsed = clockOrigin.elapsedNow().inWholeSeconds.coerceAtLeast(observedElapsed)
         val delta = elapsed - observedElapsed
         val advanced = if (observedTime > Long.MAX_VALUE - delta) Long.MAX_VALUE else observedTime + delta
         observedTime = maxOf(wallNow(), advanced)
@@ -104,21 +81,9 @@ class NativeAccountController private constructor(
         }, result.reason)
     }
 
-    private suspend fun session(value: NativeGrant): NativeApiResult<NativeSession> {
-        if (value.protocol != protocol) return NativeApiResult.Refused(NativeApiFailure.Protocol)
-        identityV1?.let { return native(it.session(value)) }
-        return api?.session(value.accessToken) ?: NativeApiResult.Refused(NativeApiFailure.Protocol)
-    }
-    private suspend fun refresh(value: NativeGrant): NativeApiResult<NativeGrant> {
-        if (value.protocol != protocol) return NativeApiResult.Refused(NativeApiFailure.Protocol)
-        identityV1?.let { return native(it.refresh(value)) }
-        return api?.refresh(value.refreshToken, value.view.session) ?: NativeApiResult.Refused(NativeApiFailure.Protocol)
-    }
-    private suspend fun revokeFamily(value: NativeGrant): NativeApiResult<Unit> {
-        if (value.protocol != protocol) return NativeApiResult.Refused(NativeApiFailure.Protocol)
-        identityV1?.let { return native(it.revokeFamily(value)) }
-        return api?.revokeFamily(value.refreshToken, value.view.session) ?: NativeApiResult.Refused(NativeApiFailure.Protocol)
-    }
+    private suspend fun session(value: NativeGrant): NativeApiResult<NativeSession> = native(api.session(value))
+    private suspend fun refresh(value: NativeGrant): NativeApiResult<NativeGrant> = native(api.refresh(value))
+    private suspend fun revokeFamily(value: NativeGrant): NativeApiResult<Unit> = native(api.revokeFamily(value))
     private val mutableState = MutableStateFlow<NativeAccountState>(NativeAccountState.SignedOut)
     val state: StateFlow<NativeAccountState> = mutableState.asStateFlow()
     private val mutableVerifiedSession = MutableStateFlow<NativeVerifiedSession?>(null)
@@ -127,12 +92,10 @@ class NativeAccountController private constructor(
     // Separate from IO generation: revalidation breaks playback continuity even if StateFlow
     // conflates the intermediate null with an immediate successful session response.
     private var admissionEpoch = 0L
-    private var savedGeneration = 0L
     private var operation: Job? = null
     private var expiry: Job? = null
     private var rotation: Job? = null
     private var flight: CompletableDeferred<NativeApiResult<NativeVerifiedSession>>? = null
-    private var pendingFlow: NativeCredentialRecord.Flow? = null
     private var grant: NativeGrant? = null
     private val acceptedAccess = mutableSetOf<String>()
     private var closed = false
@@ -159,7 +122,6 @@ class NativeAccountController private constructor(
         operation?.cancel(); operation = null
         rotation?.cancel(); rotation = null
         flight?.complete(NativeApiResult.Refused(NativeApiFailure.SessionChanged)); flight = null
-        login?.cancel(); pendingFlow = null
         return generation
     }
     private fun fail(reason: NativeAccountFailure, identityFailure: IdentityV1Failure? = null) {
@@ -197,11 +159,10 @@ class NativeAccountController private constructor(
         val result = when (record) {
             is NativeCredentialRecord.Active -> revokeFamily(record.grant)
             is NativeCredentialRecord.Refreshing -> revokeFamily(record.grant)
-            is NativeCredentialRecord.Flow -> api?.cancel(record.flow, record.state, record.verifier) ?: NativeApiResult.Refused(NativeApiFailure.Protocol)
-            // Old single-token records have no API/issuer binding. Never disclose them to a
-            // possibly changed origin; remove locally and require authorization. Their original
-            // server authority expires within the pre-migration 900-second bound.
-            is NativeCredentialRecord.Legacy, NativeCredentialRecord.RetiredProvider -> NativeApiResult.Accepted(Unit)
+            // Records of a retired protocol have no Identity v1 binding. Never disclose them to the
+            // API; remove locally and require login. Their original server authority expired
+            // within the pre-migration 900-second bound.
+            NativeCredentialRecord.Retired -> NativeApiResult.Accepted(Unit)
             NativeCredentialRecord.Cleared, null -> NativeApiResult.Accepted(Unit)
         }
         if (!current(issued)) return false
@@ -215,13 +176,12 @@ class NativeAccountController private constructor(
 
     /** Explicit single attempt: password exists only in this call and its in-flight transport. */
     fun login(email: RegistrationEmail, password: String) {
-        val endpoint = identityV1 ?: return
         val issued = advance() ?: return
         if (!mark()) return
         mutableState.value = NativeAccountState.Pending
         operation = scope.launch {
             if (!cleanup(issued) || !current(issued) || !mark()) return@launch
-            when (val result = endpoint.login(email, password)) {
+            when (val result = api.login(email, password)) {
                 is IdentityV1Result.Refused -> if (current(issued)) {
                     // No pair means no family identity to revoke. Never invent one or replay a password.
                     if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Api, result.reason)
@@ -232,7 +192,7 @@ class NativeAccountController private constructor(
                         withContext(NonCancellable) { revokeFamily(value) }
                         return@launch
                     }
-                    if (value.protocol != protocol || value.admit(now()) == null || value.expiresAt <= now()) {
+                    if (value.admit(now()) == null || value.expiresAt <= now()) {
                         retireKnown(value, issued, NativeAccountFailure.Protocol)
                         return@launch
                     }
@@ -248,7 +208,7 @@ class NativeAccountController private constructor(
         // Readback may have failed after commit; the response still identifies this exact family.
         // Keep the denial barrier even if both the secure store and network are unavailable.
         val read = store.read()
-        if (read is NativeJournalRead.Found && value.protocol == protocol) {
+        if (read is NativeJournalRead.Found) {
             // Preserve a known unadmitted family for offline cleanup when the active write failed.
             // A corrupt/foreign record is never overwritten to manufacture a recovery path.
             store.write(NativeCredentialRecord.Refreshing(value))
@@ -257,74 +217,6 @@ class NativeAccountController private constructor(
         if (!current(issued)) return
         if (result is NativeApiResult.Accepted && cleanup(issued) && current(issued)) fail(reason)
         else if (current(issued)) cleanupRequired()
-    }
-
-    fun beginLogin() {
-        val configuration = configuration ?: return
-        val api = api ?: return
-        val login = login ?: return
-        val issued = advance() ?: return
-        if (!mark()) return
-        mutableState.value = NativeAccountState.Pending
-        operation = scope.launch {
-            if (!cleanup(issued) || !current(issued)) return@launch
-            if (login.prepare(configuration.identity, now()) != null) { fail(NativeAccountFailure.Entropy); return@launch }
-            val attempt = login.preparedAttempt() ?: run { fail(NativeAccountFailure.Protocol); return@launch }
-            when (val result = api.begin(attempt.state.value, attempt.nonce.value, attempt.challenge)) {
-                is NativeApiResult.Refused -> if (current(issued)) { login.cancel(); fail(NativeAccountFailure.Api) }
-                is NativeApiResult.Accepted -> if (current(issued)) {
-                    val flow = NativeCredentialRecord.Flow(result.value.id, attempt.state.value, attempt.verifier.value)
-                    if (!mark() || store.write(flow) != null) { cleanupRequired(); return@launch }
-                    pendingFlow = flow
-                    if (login.openPrepared(result.value.authorizationUrl) != null) {
-                        if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Configuration)
-                    }
-                }
-            }
-        }
-    }
-
-    fun callback(callback: NativeCallback) {
-        val api = api ?: return
-        val login = login ?: return
-        val flow = pendingFlow ?: return
-        val issued = generation
-        when (val outcome = login.callback(callback, now())) {
-            is CallbackOutcome.Refused -> if (outcome.reason !in setOf(LoginFailure.InvalidCallback, LoginFailure.Replay)) {
-                val failedIntent = advance() ?: return
-                cleanupRequired()
-                if (mark()) operation = scope.launch {
-                    if (cleanup(failedIntent) && current(failedIntent)) fail(NativeAccountFailure.Login)
-                }
-            }
-            is CallbackOutcome.Exchange -> {
-                pendingFlow = null // One exchange. Its durable Flow remains until full pair replacement.
-                operation = scope.launch {
-                    when (val result = api.exchange(flow.flow, flow.state, outcome.request.codeForExchange(), flow.verifier)) {
-                        is NativeApiResult.Refused -> if (current(issued)) {
-                            login.cancel()
-                            if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Api)
-                        }
-                        is NativeApiResult.Accepted -> {
-                            if (!current(issued) || !login.acceptsExchange(outcome.request.generation)) {
-                                api.cancel(flow.flow, flow.state, flow.verifier)
-                                return@launch
-                            }
-                            val admitted = result.value.admit(now())
-                            if (admitted == null || admitted.view.expiresAt <= now()) {
-                                if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Protocol)
-                            } else if (!persistAndEstablish(admitted, issued) && current(issued)) {
-                                // OS persistence/readback can fail while the server already issued.
-                                // The known flow can still cancel that family without reading storage.
-                                val cleaned = cleanup(issued)
-                                if (!cleaned && current(issued)) api.cancel(flow.flow, flow.state, flow.verifier)
-                                if (cleaned && current(issued)) fail(NativeAccountFailure.Storage)
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private suspend fun admitLogin(value: NativeGrant, issued: Long) {
@@ -370,8 +262,7 @@ class NativeAccountController private constructor(
         grant = admitted
         acceptedAccess += admitted.accessToken
         mutableVerifiedSession.value = NativeVerifiedSession(admitted.view, admitted.accessToken, admissionEpoch)
-        val saved = (mutableState.value as? NativeAccountState.SignedIn)?.takeIf { it.actor == admitted.view.actor }?.savedCount
-        mutableState.value = NativeAccountState.SignedIn(admitted.view.actor, admitted.view.expiresAt, saved)
+        mutableState.value = NativeAccountState.SignedIn(admitted.view.actor, admitted.view.expiresAt)
         expiry?.cancel()
         // Active apps renew before expiry; the original absolute authority stays fixed.
         expiry = scope.launch {
@@ -400,7 +291,7 @@ class NativeAccountController private constructor(
                 if (cleanup(issued) && current(issued)) mutableState.value = NativeAccountState.SignedOut
                 return@launch
             }
-            val candidate = record.grant.takeIf { it.protocol == protocol }?.admit(now())
+            val candidate = record.grant.admit(now())
             if (candidate == null) {
                 if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Expired)
             } else if (needsRotation(candidate)) {
@@ -476,7 +367,7 @@ class NativeAccountController private constructor(
             return NativeApiResult.Refused(NativeApiFailure.SessionChanged)
         }
         if (result is NativeApiResult.Accepted) {
-            val admitted = result.value.takeIf { it.protocol == protocol }?.admit(now(), previous)
+            val admitted = result.value.admit(now(), previous)
             if (admitted != null && admitted.view.expiresAt > now() && persistAndEstablish(admitted, issued)) {
                 val lease = mutableVerifiedSession.value
                 if (lease != null) return NativeApiResult.Accepted(lease)
@@ -530,27 +421,6 @@ class NativeAccountController private constructor(
                 is NativeApiResult.Accepted -> if (current(issued) && grant === candidate) {
                     if (!matches(candidate, response.value)) logout()
                     else establish(candidate, issued)
-                }
-            }
-        }
-    }
-
-    fun refreshSaved() {
-        val api = api ?: return // Identity v1 uses the existing authorized Library owner.
-        val expected = mutableVerifiedSession.value ?: return
-        if (savedGeneration == Long.MAX_VALUE) { fail(NativeAccountFailure.Exhausted); return }
-        savedGeneration += 1
-        val requested = savedGeneration
-        scope.launch {
-            when (val result = authorization(expected.session.session)) {
-                is NativeApiResult.Refused -> Unit
-                is NativeApiResult.Accepted -> when (val saved = api.saved(result.value.bearer, result.value.session.session)) {
-                    is NativeApiResult.Refused -> if (accepts(result.value) && requested == savedGeneration &&
-                        saved.reason in setOf(NativeApiFailure.Unauthorized, NativeApiFailure.SessionChanged)) revalidate(result.value.session.session)
-                    is NativeApiResult.Accepted -> if (accepts(result.value) && requested == savedGeneration) {
-                        val signed = mutableState.value as? NativeAccountState.SignedIn
-                        if (signed != null) mutableState.value = signed.copy(savedCount = saved.value)
-                    }
                 }
             }
         }

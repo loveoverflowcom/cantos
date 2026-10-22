@@ -14,7 +14,6 @@ import com.cantos.theatre.adapters.library.wire.PresentedHistoryPage
 import com.cantos.theatre.adapters.library.wire.PresentedSavedPage
 import com.cantos.theatre.adapters.library.wire.Receipt
 import com.cantos.theatre.adapters.library.wire.SavedRecord
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.ports.LocalLibraryIntent
 import com.cantos.theatre.ports.NativeHttpPort
@@ -26,7 +25,6 @@ import kotlin.coroutines.resume
 
 /** JSON metadata only. Audio bytes use the native media engine's separate transport. */
 class NativeLibraryClient(private val apiOrigin: ApiOrigin, private val http: NativeHttpPort) : LibraryApi {
-    constructor(configuration: NativeClientConfiguration, http: NativeHttpPort) : this(ApiOrigin.parse(configuration.apiOrigin), http)
     private val uuid = Regex("[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}")
     private suspend inline fun <reified T> request(auth: LibraryAuthorization, method: String, path: String, type: String, body: String? = null): LibraryResult<T> {
         val response = withTimeoutOrNull(15_000) {

@@ -321,7 +321,6 @@ pub struct Raw {
     pub release_notes_file: Option<PathBuf>,
     pub dry_run: bool,
     pub api_origin: Option<String>,
-    pub native_issuer: Option<String>,
 }
 
 /// A fully validated request. Reaching one means the combination is supported.
@@ -334,14 +333,12 @@ pub struct Request {
     pub expected_cert: Option<CertFingerprint>,
     pub dry_run: bool,
     pub api_origin: Option<String>,
-    pub native_issuer: Option<String>,
 }
 
 /// A request that may execute: its destination is known.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LiveRequest {
     pub api_origin: Option<String>,
-    pub native_issuer: Option<String>,
     pub policy: Policy,
     pub app_id: AppId,
     pub app_id_source: AppIdSource,
@@ -362,7 +359,6 @@ impl Request {
         match &self.app_id {
             AppIdResolution::Resolved { id, source } => Ok(LiveRequest {
                 api_origin: self.api_origin.clone(),
-                native_issuer: self.native_issuer.clone(),
                 policy: self.policy,
                 app_id: id.clone(),
                 app_id_source: *source,
@@ -427,13 +423,6 @@ pub fn resolve(
         .as_deref()
         .ok_or_else(|| usage("artifacts require explicit --api-origin HTTPS_ORIGIN"))?;
     crate::theatre_host::validate_release_api_origin(origin).map_err(usage)?;
-    if let Some(issuer) = &raw.native_issuer {
-        crate::theatre_host::validate_native_issuer(
-            raw.api_origin.as_deref().unwrap_or_default(),
-            issuer,
-        )
-        .map_err(usage)?;
-    }
     let recipients = Recipients::new(&raw.groups, &raw.testers).map_err(usage)?;
 
     let app_id = match (&raw.app_id, &configuration.app_id) {
@@ -487,7 +476,6 @@ pub fn resolve(
 
     Ok(Request {
         api_origin: raw.api_origin.clone(),
-        native_issuer: raw.native_issuer.clone(),
         policy,
         app_id,
         recipients,
@@ -631,9 +619,6 @@ pub fn render_plan(request: &Request, gradle: &str, firebase: &str) -> String {
     if let Some(origin) = &request.api_origin {
         row("API origin", origin.clone());
     }
-    if let Some(issuer) = &request.native_issuer {
-        row("native issuer", issuer.clone());
-    }
     row(
         "channel",
         format!(
@@ -750,7 +735,6 @@ mod tests {
     fn raw() -> Raw {
         Raw {
             api_origin: Some("https://api.cantos.example".into()),
-            native_issuer: None,
             target: Target::CantosTheatre,
             channel: Channel::Development,
             artifact: ArtifactKind::Apk,

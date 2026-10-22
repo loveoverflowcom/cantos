@@ -5,7 +5,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class NativeIdentityV1ValuesTest {
     private val access = "ci1_n_" + "a".repeat(64)
@@ -23,23 +22,23 @@ class NativeIdentityV1ValuesTest {
         assertEquals(IdentityV1Validation.Refused(reason), value)
     }
 
-    @Test fun protocols_are_explicit_and_never_accept_each_others_credentials() {
-        val grant = assertIs<IdentityV1Validation.Accepted<NativeGrant>>(pair()).value
-        assertEquals(NativeCredentialProtocol.IdentityV1, grant.protocol)
-        assertNull(NativeGrant.create(access, refresh, "listener_a", session, 1120, 1600, 1900, 1000, 1000))
+    @Test fun only_exact_native_identity_credentials_construct_a_grant_and_retired_provider_secrets_are_refused() {
+        assertIs<IdentityV1Validation.Accepted<NativeGrant>>(pair())
         for ((a, r) in listOf(
             "ca1_n_" + "a".repeat(64) to refresh,
             access to "cr1_" + "b".repeat(64),
+            "ca1_n_" + "a".repeat(64) to "cr1_" + "b".repeat(64),
             "ci1_t_" + "a".repeat(64) to refresh,
             "ci1_s_" + "a".repeat(64) to refresh,
             refresh to access,
             access.uppercase() to refresh,
             access + "a" to refresh,
+            "a".repeat(64) to refresh,
         )) invalid(IdentityV1Invalid.Credential, pair(access = a, refresh = r))
-        val legacy = assertNotNull(NativeGrant.create("ca1_n_" + "a".repeat(64), "cr1_" + "b".repeat(64),
-            "listener_a", session, 1120, 1600, 1900, 1000, 1000))
-        assertEquals(NativeCredentialProtocol.ProviderBearerV1, legacy.protocol)
-        invalid(IdentityV1Invalid.Rotation, pair(previous = legacy))
+        assertEquals(true, NativeGrant.isIdentityV1AccessToken(access))
+        assertEquals(false, NativeGrant.isIdentityV1AccessToken(refresh))
+        assertEquals(true, NativeGrant.isIdentityV1RefreshToken(refresh))
+        assertEquals(false, NativeGrant.isIdentityV1RefreshToken("cr1_" + "b".repeat(64)))
     }
 
     @Test fun actor_session_deadline_and_authentication_boundaries_are_checked() {
@@ -90,19 +89,5 @@ class NativeIdentityV1ValuesTest {
         invalid(IdentityV1Invalid.Deadline, pair(now = 1200))
         assertEquals("NativeGrant([redacted])", restored.toString())
         assertEquals("NativeSession([redacted])", restored.view.toString())
-    }
-
-    @Test fun first_party_configuration_requires_only_an_exact_https_origin() {
-        val configured = assertIs<NativeIdentityV1ConfigurationResult.Available>(NativeIdentityV1Configuration.resolve("https://api.example:8443"))
-        assertEquals("https://api.example:8443", configured.configuration.apiOrigin)
-        assertEquals(NativeCredentialProtocol.IdentityV1, configured.configuration.protocol)
-        assertEquals(NativeIdentityAuthority.FirstPartyTheatre, configured.configuration.authority)
-        assertEquals(NativeIdentityV1ConfigurationResult.MissingApiOrigin, NativeIdentityV1Configuration.resolve(null))
-        for (origin in listOf("http://api.example", "https://api.example/", "https://api.example/path", "https://api.example?x=1",
-            "https://api.example#f", "https://u@api.example", "https://API.example", " https://api.example", "https://api.example:0",
-            "https://api.example:65536", "https://api.example:0443", "https://a..example", "https://-api.example", "https://api-.example")) {
-            assertEquals(NativeIdentityV1ConfigurationResult.InvalidApiOrigin, NativeIdentityV1Configuration.resolve(origin))
-        }
-        assertTrue(NativeIdentityV1Configuration.resolve("https://api.example") is NativeIdentityV1ConfigurationResult.Available)
     }
 }

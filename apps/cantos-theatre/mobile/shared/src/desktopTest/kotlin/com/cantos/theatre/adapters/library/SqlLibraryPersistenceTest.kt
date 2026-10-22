@@ -91,7 +91,7 @@ class SqlLibraryPersistenceTest {
             val file = folder.resolve("library.sqlite").absolutePath
             val api = Api()
             val first = nativeLibraryController(backgroundScope, api, desktopLibraryStore(file), ::id) { 100_000 }
-            first.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64))
+            first.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64))
             runCurrent()
             first.progressCheckpoint(audio, 7000, ProgressIntent.ExplicitSeek, true)
             first.savePlaybackSettings(audio, 1500)
@@ -102,7 +102,7 @@ class SqlLibraryPersistenceTest {
             api.receiptValue = Receipt(write.operation.operation_id, "accepted", null, MutationState.Progress(current))
             first.close()
             val second = nativeLibraryController(backgroundScope, api, desktopLibraryStore(file), ::id) { 100_010 }
-            second.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64))
+            second.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64))
             runCurrent()
             assertEquals(listOf(original.operation), api.receiptRequests)
             assertEquals(1, api.writes.size, "receipt prevents duplicate network write")
@@ -119,13 +119,13 @@ class SqlLibraryPersistenceTest {
             val api = Api(); val delayed = CompletableDeferred<LibraryResult<SavedPage>>()
             api.savedDeferred = delayed
             val controller = nativeLibraryController(backgroundScope, api, desktopLibraryStore(folder.resolve("db.sqlite").absolutePath), ::id) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             controller.setSaved(work, true); runCurrent()
             assertEquals(true, controller.state.value.saved.single().saved)
             controller.leave()
             assertNull(controller.state.value.account); assertTrue(controller.state.value.saved.isEmpty())
             api.savedDeferred = null
-            controller.enter(NativeSession("actor-B", session, Long.MAX_VALUE, null), "c".repeat(64)); runCurrent()
+            controller.enter(NativeSession("actor-B", session, Long.MAX_VALUE), "c".repeat(64)); runCurrent()
             delayed.complete(LibraryResult.Value(SavedPage(listOf(SavedItem(SavedRecord(work, true, 10, 10, 100))), null))); runCurrent()
             assertEquals("actor-B", controller.state.value.account)
             assertTrue(controller.state.value.saved.isEmpty())
@@ -138,7 +138,7 @@ class SqlLibraryPersistenceTest {
         try {
             val api = Api()
             val controller = nativeLibraryController(backgroundScope, api, desktopLibraryStore(folder.resolve("db.sqlite").absolutePath), ::id) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             controller.setSaved(work, true); runCurrent()
             val original = api.writes.single()
             controller.refresh(); runCurrent()
@@ -157,7 +157,7 @@ class SqlLibraryPersistenceTest {
             val api = Api().apply { mutation = { LibraryResult.Failed("stale_device_sequence", false) } }
             val store = desktopLibraryStore(folder.resolve("db.sqlite").absolutePath)
             val controller = nativeLibraryController(backgroundScope, api, store, ::id) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             controller.setSaved(work, true); runCurrent()
             val original = api.writes.single()
             controller.drain(); runCurrent()
@@ -181,7 +181,7 @@ class SqlLibraryPersistenceTest {
                 }
             }
             val controller = nativeLibraryController(backgroundScope, api, desktopLibraryStore(folder.resolve("db.sqlite").absolutePath), ::id) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             controller.progressCheckpoint(audio, 70_000, ProgressIntent.ExplicitSeek, true); runCurrent()
             val conflict = controller.state.value.conflicts.single()
             assertEquals(70_000, conflict.localPositionMs)
@@ -205,7 +205,7 @@ class SqlLibraryPersistenceTest {
             val api = Api()
             val store = desktopLibraryStore(folder.resolve("db.sqlite").absolutePath)
             val controller = nativeLibraryController(backgroundScope, api, store, ::id) { now }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             controller.progressCheckpoint(audio, 1000); runCurrent()
             repeat(29) { now += 1000; controller.progressCheckpoint(audio, now) }
             assertEquals(1, store.transaction(actor) { intents().size })
@@ -228,7 +228,7 @@ class SqlLibraryPersistenceTest {
                 mutation = { intent -> LibraryResult.Value(Receipt(intent.operation, "revision_conflict", "listener_chooses", MutationState.Progress(remote))) }
             }
             val controller = nativeLibraryController(backgroundScope, api, store, ::id) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64))
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64))
             controller.progressCheckpoint(audio, 70_000, ProgressIntent.ExplicitSeek, true)
             runCurrent()
             val sent = requireNotNull(LibraryCodec.decode<ProgressWrite>("ProgressWrite", api.writes.single().body))
@@ -244,7 +244,7 @@ class SqlLibraryPersistenceTest {
             val api = Api().apply { mutation = { intent -> LibraryResult.Value(Receipt(intent.operation, "revision_conflict", "listener_chooses", MutationState.Saved(SavedRecord(work, true, 3, 3, 1000)))) } }
             val store = desktopLibraryStore(folder.resolve("db.sqlite").absolutePath)
             val controller = nativeLibraryController(backgroundScope, api, store, ::id) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             controller.setSaved(work, false); runCurrent()
             val original = api.writes.single()
             assertEquals("listener_chooses", controller.state.value.failures[original.operation])
@@ -265,7 +265,7 @@ class SqlLibraryPersistenceTest {
         try {
             val api = Api()
             val controller = nativeLibraryController(backgroundScope, api, desktopLibraryStore(folder.resolve("db.sqlite").absolutePath), ::id) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             controller.setSaved(work, true); runCurrent()
             val original = api.writes.single()
             controller.setSaved(work, false); runCurrent()
@@ -297,7 +297,7 @@ class SqlLibraryPersistenceTest {
                 }
             }
             val controller = nativeLibraryController(backgroundScope, api, desktopLibraryStore(folder.resolve("db.sqlite").absolutePath), ::id) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64))
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64))
             repeat(25) { controller.progressCheckpoint(audio, it * 1000L, force = true) }
             runCurrent()
             assertEquals(20, api.writes.size)
@@ -324,7 +324,7 @@ class SqlLibraryPersistenceTest {
                 assertTrue(store.transaction(actor) { intents().single().sent })
                 invalidated += previous
             }) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             controller.setSaved(work, true); runCurrent()
             val original = api.writes.single()
             api.savedFailure = LibraryResult.Failed("unauthenticated", false)
@@ -336,7 +336,7 @@ class SqlLibraryPersistenceTest {
             assertEquals(original.body, persisted.body)
             assertNull(persisted.failure)
             api.savedFailure = null
-            controller.enter(NativeSession(actor, "00000000-0000-0000-0000-000000000002", Long.MAX_VALUE, null), "c".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, "00000000-0000-0000-0000-000000000002", Long.MAX_VALUE), "c".repeat(64)); runCurrent()
             assertEquals(listOf(original.operation), api.receiptRequests)
             assertEquals(original.body, api.writes.last().body)
             controller.close()
@@ -348,9 +348,9 @@ class SqlLibraryPersistenceTest {
             val api = Api().apply { savedDeferred = CompletableDeferred(); lateUnauthorizedOnCancel = true }
             val invalidated = mutableListOf<String>()
             val controller = nativeLibraryController(backgroundScope, api, desktopLibraryStore(folder.resolve("db.sqlite").absolutePath), ::id, onSessionInvalidated = { invalidated += it }) { 1000 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             api.savedDeferred = null
-            controller.enter(NativeSession("actor-B", "00000000-0000-0000-0000-000000000002", Long.MAX_VALUE, null), "c".repeat(64)); runCurrent()
+            controller.enter(NativeSession("actor-B", "00000000-0000-0000-0000-000000000002", Long.MAX_VALUE), "c".repeat(64)); runCurrent()
             assertEquals("actor-B", controller.state.value.account)
             assertTrue(invalidated.isEmpty())
             controller.close()
@@ -371,7 +371,7 @@ class SqlLibraryPersistenceTest {
                 }
             }
             val first = nativeLibraryController(backgroundScope, api, desktopLibraryStore(path), ::id) { 1000 }
-            first.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            first.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             first.progressCheckpoint(audio, 42_000, force = true); runCurrent()
             val confirmed = first.state.value.continueListening.single()
             assertEquals(42_000, confirmed.positionMs)
@@ -381,7 +381,7 @@ class SqlLibraryPersistenceTest {
             assertEquals(0, first.state.value.pending)
             first.close()
             val reopened = nativeLibraryController(backgroundScope, api, desktopLibraryStore(path), ::id) { 1001 }
-            reopened.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            reopened.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             assertEquals(confirmed, reopened.state.value.continueListening.single())
             reopened.progressCheckpoint(audio, audio.durationMs, ProgressIntent.MarkCompleted, true); runCurrent()
             assertTrue(reopened.state.value.continueListening.isEmpty())
@@ -403,7 +403,7 @@ class SqlLibraryPersistenceTest {
             }
             val store = desktopLibraryStore(folder.resolve("db.sqlite").absolutePath)
             val controller = nativeLibraryController(backgroundScope, api, store, ::id) { 1001 }
-            controller.enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)); runCurrent()
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
             assertEquals(1, controller.state.value.history.size)
             assertTrue(controller.state.value.saved.single().saved)
             assertEquals(20_000, controller.state.value.continueListening.single().positionMs)

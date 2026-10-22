@@ -10,11 +10,7 @@ class AuthCopyTest {
     @Test
     fun every_account_failure_preserves_its_specific_correction_in_both_locales() {
         val expected = mapOf(
-            NativeAccountFailure.Configuration to ("Đăng nhập chưa sẵn sàng. Vui lòng thử lại sau." to "Sign-in is not ready. Please try again later."),
-            NativeAccountFailure.Entropy to ("Không thể bắt đầu đăng nhập an toàn. Vui lòng thử lại." to "Secure sign-in could not start. Please try again."),
-            NativeAccountFailure.Login to ("Đăng nhập đã hủy hoặc hết hạn. Vui lòng thử lại." to "Sign-in was cancelled or expired. Please try again."),
             NativeAccountFailure.Storage to ("Không thể đọc phiên đã lưu trên thiết bị." to "The saved session on this device could not be read."),
-            NativeAccountFailure.Cleanup to ("Cần xóa phiên cũ trước khi đăng nhập lại." to "The previous session must be removed before you sign in again."),
             NativeAccountFailure.Expired to ("Phiên đã hết hạn. Vui lòng đăng nhập lại." to "The session expired. Please sign in again."),
             NativeAccountFailure.Api to ("Không thể xác minh phiên qua mạng. Vui lòng thử lại." to "The session could not be verified over the network. Please try again."),
             NativeAccountFailure.Protocol to ("Không thể xác minh phản hồi đăng nhập an toàn." to "The secure sign-in response could not be verified."),
@@ -24,6 +20,32 @@ class AuthCopyTest {
         expected.forEach { (reason, text) ->
             assertEquals(text.first, AuthCopy(ShellLocale.Vietnamese).failure(reason), reason.name)
             assertEquals(text.second, AuthCopy(ShellLocale.English).failure(reason), reason.name)
+        }
+    }
+
+    @Test
+    fun every_signup_failure_has_its_own_message_in_both_locales() {
+        val reasons = com.cantos.theatre.domain.identity.RegistrationFailure.entries
+        for (locale in ShellLocale.entries) {
+            val messages = reasons.map { AuthCopy(locale).registrationFailure(it) }
+            assertTrue(messages.all { it.isNotBlank() })
+            // Each refusal says something different, so the listener is never told the wrong thing.
+            assertEquals(reasons.size, messages.toSet().size, locale.name)
+        }
+        assertEquals("Bạn đã gửi quá nhiều yêu cầu. Hãy thử lại sau ít phút.",
+            AuthCopy(ShellLocale.Vietnamese).registrationFailure(com.cantos.theatre.domain.identity.RegistrationFailure.RateLimited))
+    }
+
+    @Test
+    fun retired_provider_and_browser_wording_is_gone_from_both_locales() {
+        val retired = listOf("issuer", "callback", "link", "liên kết", "browser", "trình duyệt", "provider", "Kanidm", "OIDC")
+        for (locale in ShellLocale.entries) {
+            val text = AuthText.entries.joinToString("\n") { AuthCopy(locale).text(it) }.lowercase()
+            for (word in retired) {
+                // The email-link help legitimately says the browser completes the mailed proof.
+                if (word == "trình duyệt" || word == "browser") continue
+                assertTrue(word.lowercase() !in text, "$word in ${locale.name}")
+            }
         }
     }
 

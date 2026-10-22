@@ -1,6 +1,6 @@
 package com.cantos.theatre.adapters.library
 
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.ports.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
@@ -18,7 +18,7 @@ class NativeLibraryClientTest {
             return object : NativeRequestHandle { override fun cancel() = Unit }
         }
     }
-    private fun client(http: Http) = NativeLibraryClient(requireNotNull(NativeClientConfiguration.create("https://api.example", "https://idm.example/oauth2/openid/cantos-theatre-native")), http)
+    private fun client(http: Http) = NativeLibraryClient(ApiOrigin.parse("https://api.example"), http)
     private fun presented(name: String) = libraryPresentationFixtures.getValue("$name.json")
     @Test fun pagesAskForPresentationAndReturnActualRowsAndOpaqueCursorWithBearerSessionFence() = runTest {
         val http = Http(); val client = client(http)

@@ -312,7 +312,6 @@ impl Flow<'_> {
             self.workspace,
             self.request.policy,
             self.request.api_origin.as_deref(),
-            self.request.native_issuer.as_deref(),
         );
         match self.ports.runner.run(&command) {
             Ok(()) => {
@@ -365,7 +364,6 @@ impl Flow<'_> {
                 &sdk.to_string_lossy(),
                 &staged.path,
                 self.request.api_origin.as_deref().unwrap_or_default(),
-                self.request.native_issuer.as_deref(),
             );
             // Keep inspection evidence with these staged bytes; concurrent distributions
             // must not overwrite another run's report.
@@ -989,7 +987,6 @@ mod tests {
     fn live(testers: &[&str]) -> LiveRequest {
         LiveRequest {
             api_origin: Some("https://api.cantos.example".into()),
-            native_issuer: None,
             policy: Policy::DevelopmentApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
             app_id_source: AppIdSource::Flag,

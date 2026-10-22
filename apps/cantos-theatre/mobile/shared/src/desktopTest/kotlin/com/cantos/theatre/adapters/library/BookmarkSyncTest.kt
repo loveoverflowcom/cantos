@@ -49,7 +49,7 @@ class BookmarkSyncTest {
     private fun TestScope.controller(api: LibraryApi, store: LibraryLocalPort, now: () -> Long = { 1_000 }): NativeLibraryController =
         nativeLibraryController(backgroundScope, api, store, ::id, nowMs = now)
     private fun NativeLibraryController.enterAs(actor: String, session: String = sessionA) =
-        enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64))
+        enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64))
     private fun withFolder(block: (java.io.File) -> Unit) {
         val folder = Files.createTempDirectory("cantos-bookmarks").toFile()
         try { block(folder) } finally { folder.deleteRecursively() }

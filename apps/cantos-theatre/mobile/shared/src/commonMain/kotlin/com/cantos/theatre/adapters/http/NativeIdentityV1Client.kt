@@ -4,9 +4,7 @@ import com.cantos.theatre.adapters.http.identityv1wire.Session
 import com.cantos.theatre.adapters.http.identityv1wire.SignupAccepted
 import com.cantos.theatre.adapters.http.identityv1wire.TokenPair
 import com.cantos.theatre.domain.identity.IdentityV1Validation
-import com.cantos.theatre.domain.identity.NativeCredentialProtocol
 import com.cantos.theatre.domain.identity.NativeGrant
-import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
 import com.cantos.theatre.domain.identity.NativeSession
 import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.ports.IdentitySignupAccepted
@@ -26,16 +24,17 @@ import kotlinx.serialization.json.put
 import kotlin.coroutines.resume
 
 /**
- * First-party Identity v1 only. Native hosts pair this transport with the protocol-bound
- * secure journal and the existing account coordinator.
+ * First-party Identity v1 only. Native hosts pair this transport with the origin-bound
+ * secure journal and the existing account coordinator. The [origin] is the one admitted by the
+ * host's origin owner (HTTPS; loopback HTTP only for a debug host); this client never widens it.
  * No provider discovery/fallback, mailbox completion/polling, or transparent mutation retry.
  */
 class NativeIdentityV1Client(
-    private val configuration: NativeIdentityV1Configuration,
+    private val origin: ApiOrigin,
     private val http: NativeHttpPort,
     private val now: () -> Long,
 ) : NativeIdentityV1Api {
-    private val prefix = "${configuration.apiOrigin}/api/v1/theatre/native/identity"
+    private val prefix = "$origin/api/v1/theatre/native/identity"
 
     private suspend fun request(
         method: String, path: String, body: String? = null,
@@ -120,15 +119,12 @@ class NativeIdentityV1Client(
         }
     }
 
-    private fun identityGrant(value: NativeGrant): Boolean = value.protocol == NativeCredentialProtocol.IdentityV1
-
     private fun familyBody(value: NativeGrant): String = buildJsonObject {
         put("refresh_token", value.refreshToken)
         put("session_id", value.view.session)
     }.toString()
 
     override suspend fun refresh(previous: NativeGrant): IdentityV1Result<NativeGrant> {
-        if (!identityGrant(previous)) return IdentityV1Result.Refused(IdentityV1Failure.Protocol)
         if (previous.admit(now()) == null) return IdentityV1Result.Refused(IdentityV1Failure.Unauthorized)
         return grant(request("POST", "/refresh", familyBody(previous), expectedSession = previous.view.session), previous)
     }
@@ -140,13 +136,11 @@ class NativeIdentityV1Client(
     }
 
     override suspend fun revokeFamily(previous: NativeGrant): IdentityV1Result<Unit> {
-        if (!identityGrant(previous)) return IdentityV1Result.Refused(IdentityV1Failure.Protocol)
         // Expiry does not block family cleanup; the server accepts spent/expired refresh secrets.
         return cleanup(request("POST", "/revoke", familyBody(previous), expectedSession = previous.view.session))
     }
 
     override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> {
-        if (!identityGrant(previous)) return IdentityV1Result.Refused(IdentityV1Failure.Protocol)
         if (previous.expiresAt <= now() || previous.admit(now()) == null) {
             return IdentityV1Result.Refused(IdentityV1Failure.Unauthorized)
         }
@@ -170,7 +164,6 @@ class NativeIdentityV1Client(
     }
 
     override suspend fun revoke(previous: NativeGrant): IdentityV1Result<Unit> {
-        if (!identityGrant(previous)) return IdentityV1Result.Refused(IdentityV1Failure.Protocol)
         return cleanup(request("DELETE", "/session", bearer = previous.accessToken, expectedSession = previous.view.session))
     }
 }

@@ -1712,7 +1712,7 @@ kotlin.exclude("com/cantos/ui/preview/**")
         self.assertEqual(self.errors(), [])
 
     def test_schema_codegen_routes_are_literal_common_main_kotlin_and_require_their_exact_task(self):
-        for name, task in (("libraryWire", "generateLibraryWire"), ("registrationWire", "generateRegistrationWire")):
+        for name, task in (("libraryWire", "generateLibraryWire"), ("identityV1Wire", "generateIdentityV1Wire")):
             route = f'kotlin.srcDir(layout.buildDirectory.dir("generated/{name}/commonMain/kotlin"))'
             dependency = f'tasks.configureEach {{ dependsOn({task}) }}'
             self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}\n{dependency}")

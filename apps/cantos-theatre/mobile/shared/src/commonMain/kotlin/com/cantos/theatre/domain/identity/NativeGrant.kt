@@ -1,11 +1,10 @@
 package com.cantos.theatre.domain.identity
 
-/** Noncredential session facts. The optional credential is retained for compatibility callers. */
+/** Noncredential session facts: never a bearer, refresh secret or other credential. */
 class NativeSession(
     val actor: String,
     val session: String,
     val expiresAt: Long,
-    val credential: String? = null,
     val absoluteExpiresAt: Long = expiresAt,
     val authenticatedAt: Long? = null,
 ) {
@@ -45,14 +44,13 @@ class NativeSession(
     }
 }
 
-enum class NativeCredentialProtocol { ProviderBearerV1, IdentityV1 }
 enum class IdentityV1Invalid { Credential, Actor, Session, Deadline, AuthenticatedAt, Rotation }
 sealed interface IdentityV1Validation<out T> {
     class Accepted<T>(val value: T) : IdentityV1Validation<T>
     data class Refused(val reason: IdentityV1Invalid) : IdentityV1Validation<Nothing>
 }
 
-// Existing native wire bounds, shared with the legacy admission check; these are not issuance policy.
+// Existing native wire bounds; these are not issuance policy.
 private fun nativeDeadlineBounds(expiresAt: Long, absoluteExpiresAt: Long, now: Long): Boolean =
     expiresAt - now <= 120 && absoluteExpiresAt - now <= 900
 
@@ -62,7 +60,6 @@ class NativeGrant private constructor(
     val refreshToken: String,
     val view: NativeSession,
     val refreshExpiresAt: Long,
-    val protocol: NativeCredentialProtocol,
 ) {
     val expiresAt: Long get() = view.expiresAt
     val absoluteExpiresAt: Long get() = view.absoluteExpiresAt
@@ -75,28 +72,23 @@ class NativeGrant private constructor(
         if (now < 0 || refreshExpiresAt <= now || !nativeDeadlineBounds(expiresAt, absoluteExpiresAt, now) ||
             refreshExpiresAt - now > 600 ||
             authenticatedAt?.let { it > now } == true) return null
-        if (previous != null && (protocol != previous.protocol || view.actor != previous.view.actor || view.session != previous.view.session ||
+        if (previous != null && (view.actor != previous.view.actor || view.session != previous.view.session ||
                 absoluteExpiresAt != previous.absoluteExpiresAt || authenticatedAt != previous.authenticatedAt ||
                 accessToken == previous.accessToken || refreshToken == previous.refreshToken ||
-                (protocol == NativeCredentialProtocol.IdentityV1 &&
-                    (refreshExpiresAt < previous.refreshExpiresAt || expiresAt < previous.expiresAt)))) return null
+                refreshExpiresAt < previous.refreshExpiresAt || expiresAt < previous.expiresAt)) return null
         return this
     }
 
     companion object {
-        private val access = Regex("ca1_n_[0-9a-f]{64}")
-        private val refresh = Regex("cr1_[0-9a-f]{64}")
+        private val identityAccess = Regex("ci1_n_[0-9a-f]{64}")
+        private val identityRefresh = Regex("ci1_r_[0-9a-f]{64}")
         private val sessionId = Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
 
-        /** Retained provider protocol only; callers must explicitly select the Identity v1 factories. */
-        fun isAccessToken(value: String): Boolean = access.matches(value)
-        fun isRefreshToken(value: String): Boolean = refresh.matches(value)
         fun isSessionId(value: String): Boolean = sessionId.matches(value)
+        fun isIdentityV1AccessToken(value: String): Boolean = identityAccess.matches(value)
+        fun isIdentityV1RefreshToken(value: String): Boolean = identityRefresh.matches(value)
 
-        fun isIdentityV1AccessToken(value: String): Boolean = Regex("ci1_n_[0-9a-f]{64}").matches(value)
-        fun isIdentityV1RefreshToken(value: String): Boolean = Regex("ci1_r_[0-9a-f]{64}").matches(value)
-
-        /** Explicit protocol entry; legacy factories deliberately continue to refuse ci1 credentials. */
+        /** The only admission entry: a fresh API response is checked against the current time and, on rotation, the previous pair. */
         fun identityV1(
             accessToken: String, refreshToken: String, actor: String, session: String,
             expiresAt: Long, refreshExpiresAt: Long, absoluteExpiresAt: Long,
@@ -119,7 +111,7 @@ class NativeGrant private constructor(
             else IdentityV1Validation.Accepted(grant)
         }
 
-        /** Secure-store decoding must select this protocol explicitly; expired pairs only enable cleanup/refresh. */
+        /** Secure-store decoding; an expired pair only enables cleanup/refresh and is never evidence for dispatch. */
         fun restoreIdentityV1(
             accessToken: String, refreshToken: String, actor: String, session: String,
             expiresAt: Long, refreshExpiresAt: Long, absoluteExpiresAt: Long, authenticatedAt: Long,
@@ -134,50 +126,7 @@ class NativeGrant private constructor(
             if (refreshExpiresAt < expiresAt || absoluteExpiresAt < refreshExpiresAt) {
                 return IdentityV1Validation.Refused(IdentityV1Invalid.Deadline)
             }
-            return IdentityV1Validation.Accepted(NativeGrant(
-                accessToken, refreshToken, view, refreshExpiresAt, NativeCredentialProtocol.IdentityV1,
-            ))
+            return IdentityV1Validation.Accepted(NativeGrant(accessToken, refreshToken, view, refreshExpiresAt))
         }
-
-        /** Structural restoration also accepts expired pairs so durable cleanup remains possible. */
-        fun restore(
-            accessToken: String,
-            refreshToken: String,
-            actor: String,
-            session: String,
-            expiresAt: Long,
-            refreshExpiresAt: Long,
-            absoluteExpiresAt: Long,
-            authenticatedAt: Long?,
-        ): NativeGrant? {
-            if (!isAccessToken(accessToken) || !isRefreshToken(refreshToken) ||
-                actor.isEmpty() || actor.length > 128 || actor.any { it.isISOControl() } ||
-                !isSessionId(session) || expiresAt < 0 || refreshExpiresAt < expiresAt ||
-                absoluteExpiresAt < refreshExpiresAt ||
-                authenticatedAt?.let { it < 0 || it > absoluteExpiresAt } == true) return null
-            return NativeGrant(
-                accessToken,
-                refreshToken,
-                NativeSession(actor, session, expiresAt, absoluteExpiresAt = absoluteExpiresAt, authenticatedAt = authenticatedAt),
-                refreshExpiresAt,
-                NativeCredentialProtocol.ProviderBearerV1,
-            )
-        }
-
-        fun create(
-            accessToken: String,
-            refreshToken: String,
-            actor: String,
-            session: String,
-            expiresAt: Long,
-            refreshExpiresAt: Long,
-            absoluteExpiresAt: Long,
-            authenticatedAt: Long?,
-            now: Long,
-            previous: NativeGrant? = null,
-        ): NativeGrant? = restore(
-            accessToken, refreshToken, actor, session, expiresAt, refreshExpiresAt,
-            absoluteExpiresAt, authenticatedAt,
-        )?.admit(now, previous)
     }
 }

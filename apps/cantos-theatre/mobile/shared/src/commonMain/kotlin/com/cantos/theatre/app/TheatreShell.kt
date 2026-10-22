@@ -291,14 +291,6 @@ class TheatreShell(
         return true
     }
 
-    fun beginLogin(): Boolean {
-        val owner = runtime.account ?: return false
-        if (closed || mutableNavigation.value.route != TheatreRoute.Login) return false
-        if (!owner.state.value.toAccountView().canBeginLogin) return false
-        owner.beginLogin()
-        return true
-    }
-
     /** An explicit restore of the credential this device holds, never automatic. */
     fun restoreSession(): RestoreOutcome {
         val owner = runtime.account ?: return RestoreOutcome.Refused

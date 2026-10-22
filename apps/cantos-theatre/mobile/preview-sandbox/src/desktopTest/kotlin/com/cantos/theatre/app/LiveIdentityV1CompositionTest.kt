@@ -1,8 +1,7 @@
 package com.cantos.theatre.app
 
 import com.cantos.theatre.application.identity.NativeAccountState
-import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
-import com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult
+import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.domain.identity.RegistrationPhase
 import com.cantos.theatre.domain.identity.RegistrationResult
@@ -19,7 +18,7 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class LiveIdentityV1CompositionTest {
-    @Test fun explicit_live_preview_uses_v1_signup_and_login_without_issuer_or_callback() = runTest {
+    @Test fun explicit_live_preview_uses_v1_signup_and_login_only() = runTest {
         val paths = mutableListOf<String>()
         val http = object : NativeHttpPort {
             override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
@@ -29,8 +28,7 @@ class LiveIdentityV1CompositionTest {
                 return object : NativeRequestHandle { override fun cancel() = Unit }
             }
         }
-        val configuration = (NativeIdentityV1Configuration.resolve("https://api.invalid") as NativeIdentityV1ConfigurationResult.Available).configuration
-        val owners = LiveEnrollmentOwners(backgroundScope, configuration, http) { 1_790_900_000 }
+        val owners = LiveEnrollmentOwners(backgroundScope, ApiOrigin.parse("https://api.invalid"), http) { 1_790_900_000 }
         runCurrent()
         owners.registration.editEmail("listener@example.test"); owners.registration.submit(); runCurrent()
         assertEquals(RegistrationPhase.Waiting, owners.registration.state.value.phase)

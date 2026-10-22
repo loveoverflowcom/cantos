@@ -31,7 +31,6 @@ struct CantosApp: App {
         let identityOwner = IosNativeIdentityOwner(apiOrigin: origin ?? packagedOrigin ?? "",
             platform: nativePlatform)
         identity = identityOwner
-        nativePlatform.owner = identityOwner
         let driver = AvPlayerDriver()
         media = driver
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

@@ -1,5 +1,6 @@
 package com.cantos.theatre.application.identity
 
+import com.cantos.theatre.adapters.identity.RetiredProviderRecords
 import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.http.NativeAuthorizedHttpPort
@@ -9,8 +10,6 @@ import com.cantos.theatre.ports.NativeHttpResponse
 import com.cantos.theatre.ports.NativeRequestHandle
 import com.cantos.theatre.domain.identity.IdentityV1Validation
 import com.cantos.theatre.domain.identity.NativeGrant
-import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
-import com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult
 import com.cantos.theatre.domain.identity.NativeSession
 import com.cantos.theatre.domain.identity.RegistrationResult
 import com.cantos.theatre.domain.identity.RegistrationEmail
@@ -53,8 +52,7 @@ class NativeIdentityV1LifecycleTest {
     private val otherFamily = "00000000-0000-4000-8000-000000000002"
     private val email = assertIs<RegistrationResult.Accepted<RegistrationEmail>>(RegistrationEmail.parse("reader@example.test")).value
     private val password = "synthetic-password-never-journaled"
-    private fun config(origin: String = this.origin) = assertIs<NativeIdentityV1ConfigurationResult.Available>(
-        NativeIdentityV1Configuration.resolve(origin)).configuration
+    private fun apiOrigin(origin: String = this.origin) = ApiOrigin.parse(origin)
     private fun pair(letter: Char = 'a', actor: String = "reader-a", session: String = family,
         expires: Long = 220, refresh: Long = 700, absolute: Long = 1000) =
         assertIs<IdentityV1Validation.Accepted<NativeGrant>>(NativeGrant.restoreIdentityV1(
@@ -138,12 +136,12 @@ class NativeIdentityV1LifecycleTest {
         val clock: TimeSource = TimeSource.Monotonic) {
         val events = mutableListOf<String>()
         val secure = SecureStore(events)
-        val journal = SecureNativeCredentialJournal(secure, config())
+        val journal = SecureNativeCredentialJournal(secure, apiOrigin())
         val barrier = Barrier(events)
         val api = Api(events)
         var now = 100L
         init { initial?.let { assertNull(journal.write(it)) }; events.clear() }
-        fun recreate() = NativeAccountController(scope, config(), api, SecureNativeCredentialJournal(secure, config()), barrier, clock) { now }
+        fun recreate() = NativeAccountController(scope, api, SecureNativeCredentialJournal(secure, apiOrigin()), barrier, clock) { now }
         val owner = recreate()
         fun login() = owner.login(email, password)
         fun stored() = assertIs<NativeJournalRead.Found>(journal.read()).record
@@ -329,25 +327,34 @@ class NativeIdentityV1LifecycleTest {
         f.owner.close()
     }
 
-    @Test fun legacy_provider_pair_flow_and_unbound_hex_retire_locally_without_v1_disclosure() = runTest {
-        val old = assertNotNull(NativeGrant.restore("ca1_n_" + "c".repeat(64), "cr1_" + "d".repeat(64),
-            "reader-a", family, 220, 700, 1000, 90))
-        for (record in listOf(NativeCredentialRecord.Active(old), NativeCredentialRecord.Refreshing(old),
-            NativeCredentialRecord.Flow(family, "e".repeat(64), "f".repeat(64)), NativeCredentialRecord.Legacy("a".repeat(64)))) {
+    @Test fun retired_provider_records_and_unbound_hex_retire_locally_without_v1_disclosure() = runTest {
+        for (raw in listOf(RetiredProviderRecords.active(origin), RetiredProviderRecords.refreshing(origin),
+            RetiredProviderRecords.flow(origin), RetiredProviderRecords.legacyKind(origin), RetiredProviderRecords.cleared(origin),
+            RetiredProviderRecords.activeWithoutAuthTime(origin), RetiredProviderRecords.opaqueToken())) {
             val f = Fixture(backgroundScope)
-            assertNull(SecureNativeCredentialJournal(f.secure, origin,
-                "https://idm.example/oauth2/openid/cantos-theatre-native").write(record))
+            f.secure.bytes = raw
+            assertEquals(NativeCredentialRecord.Retired, assertIs<NativeJournalRead.Found>(f.journal.read()).record)
             f.owner.restore(); runCurrent()
             assertEquals(NativeAccountState.SignedOut, f.owner.state.value); assertNull(f.secure.bytes)
             assertTrue(f.api.revoked.isEmpty()); assertEquals(0, f.api.sessions); assertEquals(0, f.api.refreshes)
+            assertEquals(0, f.api.logins)
             f.owner.close()
         }
+    }
+
+    @Test fun retired_record_blocks_nothing_and_an_explicit_login_after_it_starts_a_fresh_v1_family() = runTest {
+        val f = Fixture(backgroundScope)
+        f.secure.bytes = RetiredProviderRecords.active(origin)
+        f.login(); runCurrent()
+        assertEquals(1, f.api.logins); assertTrue(f.api.revoked.isEmpty())
+        assertEquals(pair().accessToken, assertIs<NativeCredentialRecord.Active>(f.stored()).grant.accessToken)
+        f.owner.close()
     }
 
     @Test fun journal_binding_rejects_changed_origin_protocol_ambiguous_and_mixed_credentials() = runTest {
         val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair()))
         val valid = assertNotNull(f.secure.bytes)
-        assertEquals(NativeJournalRead.Failed(CredentialFailure.Corrupt), SecureNativeCredentialJournal(f.secure, config("https://other.example")).read())
+        assertEquals(NativeJournalRead.Failed(CredentialFailure.Corrupt), SecureNativeCredentialJournal(f.secure, apiOrigin("https://other.example")).read())
         for (raw in listOf(valid.replace("identity-v1", "provider"), valid.replace("\"version\":2", "\"version\":1"),
             valid.replace("ci1_r_", "cr1_"), valid.replace("ci1_n_", "ci1_s_"), valid + " ",
             valid.replace("\"version\":2", "\"version\":2,\"version\":2"), valid.replace("\"authenticated_at\":90", "\"authenticated_at\":null"))) {
@@ -448,10 +455,7 @@ class NativeIdentityV1LifecycleTest {
 
     @Test fun provider_envelope_at_changed_origin_is_not_even_locally_retired() = runTest {
         val f = Fixture(backgroundScope)
-        val old = assertNotNull(NativeGrant.restore("ca1_n_" + "a".repeat(64), "cr1_" + "b".repeat(64),
-            "reader-a", family, 220, 700, 1000, 90))
-        assertNull(SecureNativeCredentialJournal(f.secure, "https://old.example",
-            "https://idm.example/oauth2/openid/cantos-theatre-native").write(NativeCredentialRecord.Active(old)))
+        f.secure.bytes = RetiredProviderRecords.active("https://old.example")
         val bytes = f.secure.bytes; f.barrier.pending = true; f.login(); runCurrent()
         assertEquals(bytes, f.secure.bytes); assertTrue(f.barrier.pending)
         assertEquals(NativeAccountState.CleanupRequired, f.owner.state.value)
@@ -560,4 +564,57 @@ class NativeIdentityV1LifecycleTest {
         }
     }
 
+    @Test fun restore_requires_the_exact_actor_family_and_deadline_from_the_api() = runTest {
+        for (view in listOf(pair(actor = "reader-b").view, pair(session = otherFamily).view, pair(expires = 221).view)) {
+            val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair()))
+            f.api.sessionResult = IdentityV1Result.Accepted(view)
+            f.owner.restore(); runCurrent()
+            assertNull(f.owner.verifiedSession.value)
+            assertEquals(NativeAccountState.Failed(NativeAccountFailure.Protocol), f.owner.state.value)
+            assertEquals(listOf(family), f.api.revoked.map { it.view.session })
+            f.owner.close()
+        }
+    }
+
+    @Test fun logout_hides_and_marks_synchronously_then_a_late_refresh_cannot_restore_authority() = runTest {
+        val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair()))
+        f.owner.restore(); runCurrent(); f.now = 210
+        val late = CompletableDeferred<IdentityV1Result<NativeGrant>>(); f.api.refreshGate = late
+        val request = async { f.owner.authorization(family) }; runCurrent()
+        f.owner.logout(); assertNull(f.owner.verifiedSession.value); assertTrue(f.barrier.pending)
+        runCurrent(); assertEquals(NativeAccountState.SignedOut, f.owner.state.value)
+        late.complete(IdentityV1Result.Accepted(pair('b', expires = 330, refresh = 810))); runCurrent()
+        assertIs<NativeApiResult.Refused>(request.await()); assertNull(f.owner.verifiedSession.value)
+        assertNull(f.secure.bytes); assertTrue(f.api.revoked.all { it.view.session == family }); f.owner.close()
+    }
+
+    @Test fun rejected_authority_is_quarantined_synchronously_before_deferred_reconfirmation() = runTest {
+        val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair()))
+        f.owner.restore(); runCurrent()
+        val old = assertNotNull(f.owner.verifiedSession.value)
+        val delayed = CompletableDeferred<IdentityV1Result<NativeSession>>(); f.api.sessionGate = delayed
+        f.owner.revalidate(family)
+        assertNull(f.owner.verifiedSession.value)
+        assertFalse(f.owner.accepts(old)); assertFalse(f.owner.belongsToCurrent(old.bearer, family))
+        assertIs<NativeApiResult.Refused>(f.owner.authorization(family))
+        assertEquals(NativeAccountState.Pending, f.owner.state.value)
+        runCurrent(); delayed.complete(IdentityV1Result.Accepted(pair().view)); runCurrent()
+        assertEquals("reader-a", f.owner.verifiedSession.value?.session?.actor)
+        assertTrue(f.owner.accepts(assertNotNull(f.owner.verifiedSession.value)))
+        f.owner.close()
+    }
+
+    @Test fun access_at_the_original_authority_ceiling_does_not_spin_refresh_before_expiry() = runTest {
+        val finalPair = pair(expires = 110, refresh = 110, absolute = 110)
+        val f = Fixture(backgroundScope, NativeCredentialRecord.Active(finalPair))
+        f.owner.restore(); runCurrent()
+        assertEquals(0, f.api.refreshes); assertEquals(1, f.api.sessions)
+        f.now = 109
+        assertIs<NativeApiResult.Accepted<NativeVerifiedSession>>(f.owner.authorization(family))
+        assertEquals(0, f.api.refreshes)
+        f.now = 110; advanceTimeBy(10_000); runCurrent()
+        assertNull(f.owner.verifiedSession.value); assertEquals(0, f.api.refreshes)
+        assertEquals(listOf(family), f.api.revoked.map { it.view.session })
+        f.owner.close()
+    }
 }

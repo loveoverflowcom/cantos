@@ -138,23 +138,23 @@ missing/corrupt storage, byte decoding, entropy, clocks, full-pair validation an
 remain independent native tests. Reaching intent class 3 permits cleanup but no new modeled login;
 it is a finite terminal abstraction, not acceptance of real counter exhaustion.
 
-The following stable runs map to actual [NativeAccountController tests](../../apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeAccountControllerTest.kt).
+The following stable runs map to actual [Identity v1 lifecycle tests](../../apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeIdentityV1LifecycleTest.kt).
 Mappings express shared requirements; these tests do not consume model traces or prove model
 conformance. Source presence does not report that any native test ran.
 
 | Stable run | Property / reachable witness | Independent native implementation oracle |
 | --- | --- | --- |
-| `run.native-journal-before-refresh` | `property.native-journal-before-refresh` / `witness.native-refresh-dispatched` | `failed_rotation_journal_write_stops_before_spending_refresh` |
-| `run.native-single-flight` | `property.native-single-flight` / `witness.native-joined` | `concurrent_waiters_spend_once_and_cancelled_waiter_does_not_cancel_rotation` |
-| `run.native-unknown-refresh` | `property.native-unknown-cleanup-only` / `witness.native-unknown-stopped` | `unknown_refresh_revokes_old_family_and_never_replays` |
-| `run.native-pair-write-failure` | `property.native-persist-before-admission` / `witness.native-pair-write-refused` | `failed_pair_replacement_revokes_family_and_never_adopts_new_access` |
-| `run.native-interrupted-refresh` | `property.native-restart-needs-confirmation` / `witness.native-interrupted` | `interrupted_refresh_record_is_cleanup_only_after_restart` |
-| `run.native-restore-confirmation` | `property.native-restart-needs-confirmation` / `witness.native-interrupted` plus explicit successful confirmation checkpoints | `restore_requires_exact_api_confirmation_before_private_authority`; `wrong_actor_family_or_deadline_cannot_restore_local_record` |
-| `run.native-logout-late-result` | `property.native-late-result-fenced` / `witness.native-late-ignored` | `logout_hides_and_marks_synchronously_then_late_refresh_cannot_restore`; `cancelled_restore_late_A_cannot_replace_B` |
-| `run.native-durable-cleanup` | `property.native-marker-before-barrier-clear` / `witness.native-durable-cleanup` | `cleanup_retries_exact_family_and_cleared_record_recovers_delete_failure`; `orphan_barrier_missing_or_corrupt_storage_never_starts_new_authorization` |
+| `run.native-journal-before-refresh` | `property.native-journal-before-refresh` / `witness.native-refresh-dispatched` | `refreshing_write_failure_stops_before_effect_and_replacement_failure_revokes` |
+| `run.native-single-flight` | `property.native-single-flight` / `witness.native-joined` | `timer_and_private_waiters_share_refresh_and_waiter_cancellation_does_not_spend_twice` |
+| `run.native-unknown-refresh` | `property.native-unknown-cleanup-only` / `witness.native-unknown-stopped` | `all_refresh_failures_revoke_known_family_and_never_replay_a_spent_secret` |
+| `run.native-pair-write-failure` | `property.native-persist-before-admission` / `witness.native-pair-write-refused` | `refreshing_write_failure_stops_before_effect_and_replacement_failure_revokes` |
+| `run.native-interrupted-refresh` | `property.native-restart-needs-confirmation` / `witness.native-interrupted` | `restart_at_refreshing_active_pending_and_cleared_never_replays_refresh_or_password` |
+| `run.native-restore-confirmation` | `property.native-restart-needs-confirmation` / `witness.native-interrupted` plus explicit successful confirmation checkpoints | `restore_is_api_confirmed_or_safely_refreshes_expired_access`; `restore_requires_the_exact_actor_family_and_deadline_from_the_api` |
+| `run.native-logout-late-result` | `property.native-late-result-fenced` / `witness.native-late-ignored` | `logout_hides_and_marks_synchronously_then_a_late_refresh_cannot_restore_authority`; `late_restore_session_A_cannot_admit_over_explicit_login_B` |
+| `run.native-durable-cleanup` | `property.native-marker-before-barrier-clear` / `witness.native-durable-cleanup` | `offline_logout_hides_synchronously_and_restart_retries_only_exact_family_cleanup`; `restart_after_cleared_before_barrier_clear_finishes_without_network`; `missing_corrupt_foreign_and_unavailable_barriers_cannot_be_erased_by_login` |
 
 [Native journal tests](../../apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt)
-independently exercise full-pair/Flow/Cleared records, decoding, readback, API/issuer binding and
+independently exercise full-pair/Cleared records, decoding, readback, exact API-origin and protocol binding, retired-record recognition and
 storage failure outcomes. They do not establish Android KeyStore/iOS Keychain behavior on a device.
 The catalog's seven new negative controls respectively inject dispatch without a Refreshing
 journal, duplicate flight, unknown-result retry, adoption after failed pair write, admission after

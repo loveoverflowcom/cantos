@@ -43,7 +43,6 @@ pub struct GradleRecord {
     pub release_audit: bool,
     pub optimized: bool,
     pub api_origin: Option<String>,
-    pub native_issuer: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -150,7 +149,6 @@ impl Receipt {
                 release_audit: false,
                 optimized: policy.shrinks(),
                 api_origin: request.api_origin.clone(),
-                native_issuer: request.native_issuer.clone(),
             },
             source: None,
             tools: ToolRecord::default(),
@@ -297,7 +295,6 @@ mod tests {
     fn request() -> LiveRequest {
         LiveRequest {
             api_origin: Some("https://api.cantos.example".into()),
-            native_issuer: None,
             policy: Policy::DevelopmentApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
             app_id_source: AppIdSource::Flag,

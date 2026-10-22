@@ -71,6 +71,31 @@ AAB_MANIFEST = f"""N: android=http://schemas.android.com/apk/res/android (line=6
 """
 
 
+# The browser-callback entry that Identity v1 removed: a second, BROWSABLE VIEW filter whose
+# `<data>` declares a custom scheme, on the launcher activity (aapt2 xmltree shape).
+RETIRED_CALLBACK_FILTER = f"""              E: intent-filter (line=36)
+                  E: action (line=37)
+                    A: {ANDROID}name(0x01010003)="android.intent.action.VIEW" (Raw: "android.intent.action.VIEW")
+                  E: category (line=38)
+                    A: {ANDROID}name(0x01010003)="android.intent.category.DEFAULT" (Raw: "android.intent.category.DEFAULT")
+                  E: category (line=39)
+                    A: {ANDROID}name(0x01010003)="android.intent.category.BROWSABLE" (Raw: "android.intent.category.BROWSABLE")
+                  E: data (line=40)
+                    A: {ANDROID}scheme(0x01010027)="{APP}" (Raw: "{APP}")
+"""
+PROVIDER = "          E: provider (line=38)\n"
+BROWSABLE_FINDING = f"{LAUNCHER} declares a BROWSABLE intent-filter; Identity v1 has no browser callback"
+SCHEME_FINDING = (f"{LAUNCHER} declares an intent-filter URL scheme {APP!r}; "
+                  "Identity v1 has no custom-scheme callback")
+
+
+def with_filter(manifest, text=RETIRED_CALLBACK_FILTER):
+    """The manifest plus one more launcher-activity filter; a provider (APK form) follows the filters."""
+    changed = manifest.replace(PROVIDER, text + PROVIDER) if PROVIDER in manifest else manifest + text
+    assert changed != manifest
+    return changed
+
+
 def make_dex(defined, referenced=()):
     """A minimal valid DEX whose class_defs name `defined`; `referenced` are types only."""
     descriptors = list(defined) + list(referenced)
@@ -225,7 +250,9 @@ class PolicyTest(unittest.TestCase):
                                                            "com.cantos.theatre.resources"))
 
 
-class InspectTest(unittest.TestCase):
+class InspectFixture(unittest.TestCase):
+    """Synthetic artifacts, a sandbox inventory and a recorded-manifest `dump`; no tests of its own."""
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
@@ -266,6 +293,8 @@ class InspectTest(unittest.TestCase):
         assert proto in (None, b"proto") and manifest in (b"binary", b"proto")
         return AAB_MANIFEST if proto else APK_MANIFEST
 
+
+class InspectTest(InspectFixture):
     def test_clean_split_artifacts_pass_with_a_recorded_identity(self):
         findings, report = inspector.inspect(self.args(*self.artifacts()), dump=self.dump)
         self.assertEqual(findings, [])
@@ -320,13 +349,94 @@ class InspectTest(unittest.TestCase):
             self.assertEqual(inspector.main(["--apk", str(self.root / "absent.apk"), *common[2:]]), 2)
 
 
-class NativeIdentityV1MetadataTest(unittest.TestCase):
-    def test_v1_admits_absent_issuer_and_rejects_any_retired_metadata(self):
-        self.assertEqual(inspector.native_identity_findings([], None), [])
-        self.assertEqual(inspector.native_identity_findings([], ""), [])
-        elements = [(1, "meta-data", {"name": "CantosNativeIssuer", "value": ""})]
-        self.assertEqual(inspector.native_identity_findings(elements), ["retired native issuer metadata is present in an Identity v1 host"])
-        self.assertEqual(inspector.native_identity_findings([], "https://issuer.invalid"), ["--native-issuer is retired for Identity v1; configure only the API origin"])
+class IdentitySurfaceTest(unittest.TestCase):
+    """Identity v1 is first-party JSON: the built manifest has a launcher entry and nothing a browser can open."""
+
+    @staticmethod
+    def findings(text):
+        return inspector.identity_surface_findings(inspector.parse_xmltree(text))
+
+    def test_launcher_only_manifests_pass_and_the_launcher_filter_is_really_inspected(self):
+        for text in (APK_MANIFEST, AAB_MANIFEST):
+            elements = inspector.parse_xmltree(text)
+            # Non-vacuous: the one filter exists, belongs to the launcher and is MAIN/LAUNCHER only.
+            self.assertEqual(inspector.intent_filters(elements),
+                             [(LAUNCHER, ["android.intent.category.LAUNCHER"], [])])
+            self.assertEqual(inspector.identity_surface_findings(elements), [])
+            self.assertEqual(inspector.manifest_findings(elements, APP, LAUNCHER, {DYNAMIC}), [])
+
+    def test_a_manifest_that_still_carries_the_retired_callback_filter_is_reported(self):
+        for text in (APK_MANIFEST, AAB_MANIFEST):
+            retired = with_filter(text)
+            self.assertEqual(self.findings(retired), [BROWSABLE_FINDING, SCHEME_FINDING])
+            # The launcher entry is untouched, so this control is about the callback alone.
+            self.assertEqual(inspector.manifest_findings(inspector.parse_xmltree(retired), APP, LAUNCHER, {DYNAMIC}), [])
+
+    def test_each_half_of_the_retired_entry_is_reported_on_its_own(self):
+        browsable_only = RETIRED_CALLBACK_FILTER.replace(
+            f'  E: data (line=40)\n                    A: {ANDROID}scheme(0x01010027)="{APP}" (Raw: "{APP}")\n', "")
+        scheme_only = RETIRED_CALLBACK_FILTER.replace("android.intent.category.BROWSABLE", "android.intent.category.DEFAULT")
+        self.assertNotIn("scheme", browsable_only)
+        self.assertEqual(self.findings(with_filter(APK_MANIFEST, browsable_only)), [BROWSABLE_FINDING])
+        self.assertEqual(self.findings(with_filter(APK_MANIFEST, scheme_only)), [SCHEME_FINDING])
+        # Another scheme, including the application-id form of a debug build, is just as forbidden.
+        https = RETIRED_CALLBACK_FILTER.replace(f'"{APP}" (Raw: "{APP}")', '"https" (Raw: "https")')
+        self.assertEqual(self.findings(with_filter(APK_MANIFEST, https)),
+                         [BROWSABLE_FINDING, SCHEME_FINDING.replace(repr(APP), "'https'")])
+
+    def test_a_package_visibility_query_scheme_is_not_a_receiving_filter(self):
+        queries = (f"      E: queries (line=50)\n        E: intent (line=51)\n          E: action (line=52)\n"
+                   f'            A: {ANDROID}name(0x01010003)="android.intent.action.VIEW"\n          E: data (line=53)\n'
+                   f'            A: {ANDROID}scheme(0x01010027)="https" (Raw: "https")\n')
+        self.assertEqual(self.findings(APK_MANIFEST + queries), [])
+
+    def test_retired_provider_issuer_metadata_is_reported_and_absence_passes(self):
+        issuer = (f'        E: meta-data (line=60)\n          A: {ANDROID}name(0x01010003)="CantosNativeIssuer" (Raw: "CantosNativeIssuer")\n'
+                  f'          A: {ANDROID}value(0x01010024)="" (Raw: "")\n')
+        self.assertEqual(self.findings(APK_MANIFEST), [])
+        self.assertEqual(self.findings(APK_MANIFEST + issuer),
+                         ["retired native issuer metadata is present in an Identity v1 host"])
+
+
+class IdentitySurfaceWiringTest(InspectFixture):
+    """The control is unconditional: no flag, build type or audit mode lets a callback entry through."""
+
+    def dump_retired(self, _aapt2, _path, manifest, proto):
+        return with_filter(self.dump(_aapt2, _path, manifest, proto))
+
+    def test_every_build_kind_and_flag_combination_reports_the_retired_entry(self):
+        for debug_apk in (False, True):
+            for audit in (False, True):
+                for enforce_marker in (False, True):
+                    with self.subTest(debug_apk=debug_apk, audit=audit, enforce_marker=enforce_marker):
+                        apk, aab = self.artifacts()
+                        args = self.args(apk, None if debug_apk else aab)
+                        args.debug_apk, args.audit, args.enforce_audit_marker = debug_apk, audit, enforce_marker
+                        findings, report = inspector.inspect(args, dump=self.dump_retired)
+                        self.assertIn(f"apk: {BROWSABLE_FINDING}", findings)
+                        self.assertIn(f"apk: {SCHEME_FINDING}", findings)
+                        self.assertEqual(any(f.startswith("aab: ") for f in findings), not debug_apk)
+                        self.assertNotIn("PASS: no sandbox, mock, demo or test content found", report)
+
+    def test_the_clean_launcher_only_manifest_stays_clean_in_the_same_matrix(self):
+        for debug_apk in (False, True):
+            with self.subTest(debug_apk=debug_apk):
+                apk, aab = self.artifacts()
+                args = self.args(apk, None if debug_apk else aab)
+                args.debug_apk = debug_apk
+                findings, _ = inspector.inspect(args, dump=self.dump)
+                self.assertEqual(findings, [])
+
+    def test_the_retired_command_line_flags_no_longer_exist(self):
+        base = ["--apk", "a.apk", "--aab", "a.aab", "--aapt2", "aapt2", "--application-id", APP, "--launcher", LAUNCHER,
+                "--compose-resource-package", "com.cantos.theatre.resources", "--report", str(self.root / "r.txt")]
+        for retired in (["--enforce-callback"], ["--native-issuer", "https://idm.example/oauth2/openid/cantos-theatre-native"]):
+            with self.subTest(retired=retired[0]):
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+                    inspector.main(base + retired)
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn(f"unrecognized arguments: {retired[0]}", stderr.getvalue())
 
 
 if __name__ == "__main__":

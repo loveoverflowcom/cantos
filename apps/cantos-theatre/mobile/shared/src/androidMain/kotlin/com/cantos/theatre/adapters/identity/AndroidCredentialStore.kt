@@ -1,31 +1,20 @@
 package com.cantos.theatre.adapters.identity
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
 import android.util.AtomicFile
-import android.util.Base64
-import com.cantos.theatre.domain.identity.LoginSecret
-import com.cantos.theatre.domain.identity.NativeCallback
-import com.cantos.theatre.domain.identity.NativeCallbackProfile
-import com.cantos.theatre.domain.identity.hasCanonicalNativeCallbackQuery
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.CredentialRead
 import com.cantos.theatre.ports.CredentialStore
-import com.cantos.theatre.ports.IdentityCrypto
-import com.cantos.theatre.ports.SystemBrowser
 import java.io.File
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
-import java.security.MessageDigest
 import java.security.ProviderException
-import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -110,32 +99,4 @@ class AndroidCredentialStore(context: Context) : CredentialStore {
     } catch (_: SecurityException) { CredentialFailure.Denied }
       catch (_: IOException) { CredentialFailure.Unavailable }
       catch (_: ErrnoException) { CredentialFailure.Unavailable }
-}
-
-class AndroidIdentityCrypto : IdentityCrypto {
-    override fun secret(): LoginSecret? = try { LoginSecret.parse(Base64.encodeToString(ByteArray(32).also { SecureRandom().nextBytes(it) }, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)) }
-        catch (_: java.security.ProviderException) { null }
-        catch (_: SecurityException) { null }
-    override fun challenge(verifier: LoginSecret): String? = try { Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.value.toByteArray(Charsets.US_ASCII)), Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP) }
-        catch (_: GeneralSecurityException) { null }
-        catch (_: java.security.ProviderException) { null }
-        catch (_: SecurityException) { null }
-}
-class AndroidSystemBrowser(private val context: Context) : SystemBrowser {
-    override fun open(url: String): Boolean {
-        val uri = Uri.parse(url)
-        if (uri.scheme != "https") return false
-        return try { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true }
-        catch (_: android.content.ActivityNotFoundException) { false }
-        catch (_: SecurityException) { false }
-    }
-    // ACTION_VIEW has no close API. Cancelling the protocol owner fences its eventual callback.
-    override fun cancel() = Unit
-}
-/** [expected] is this process's own profile, not any globally known scheme; others are refused. */
-fun parseAndroidCallback(uri: Uri, expected: NativeCallbackProfile): NativeCallback? {
-    if (uri.toString().length > 16384) return null
-    if (uri.fragment != null || uri.toString().substringBefore('?') != expected.redirect) return null
-    if (!hasCanonicalNativeCallbackQuery(uri.encodedQuery)) return null
-    return NativeCallback(uri.toString().substringBefore('?'), uri.getQueryParameter("state") ?: return null, uri.getQueryParameter("code") ?: "", uri.getQueryParameter("error") != null)
 }

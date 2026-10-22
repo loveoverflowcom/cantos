@@ -137,7 +137,6 @@ def build(root, target, sha, output, origin=API_ORIGIN):
     base = root / MOBILE / "androidApp/build"
     evidence = json.loads((base / "reports/release-boundary/release-evidence.json").read_text())
     if (evidence["configuration"]["api_origin"] != origin or
-            evidence["configuration"].get("native_issuer", "") != "" or
             Path(evidence["artifacts"]["optimized"]["apk"]["path"]).name != "androidApp-release-unsigned.apk"):
         raise ValueError("Android snapshot configuration differs from the requested unsigned package")
     snapshot = Path(contract.safe_name(evidence["snapshot_directory"]))
@@ -196,7 +195,7 @@ def package(root, target, *, dry_run=False, origin=None, request=None, base=None
         raise ValueError("release requires the repository Rust 1.98.1 pin")
     if target == "android":
         manifest.update(application_id="com.cantos.theatre", signing="unsigned",
-                        native_issuer=None, live_login_acceptance="NOT_RUN")
+                        live_login_acceptance="NOT_RUN")
         manifest["gradle"] = run(root, ["gradle", "--version"], capture=True)
         manifest["android_build_tools"] = "35.0.0"
     if target.endswith("-web"):

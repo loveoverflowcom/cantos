@@ -4,6 +4,7 @@ import android.content.Context
 import android.system.Os
 import android.system.OsConstants
 import android.system.ErrnoException
+import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
@@ -54,15 +55,20 @@ class AndroidLogoutBarrier(context: Context) : LogoutBarrier {
       catch (_: ErrnoException) { CredentialFailure.Unavailable }
 }
 
-/** OS TLS, no ambient cookies, no redirects; cancellation disconnects the owned connection. */
-class AndroidNativeHttp(private val scope: CoroutineScope, private val apiOrigin: String) : NativeHttpPort {
+/**
+ * OS TLS, no ambient cookies, no redirects; cancellation disconnects the owned connection. Requests
+ * are bound to the exact [origin] its owner admitted: HTTPS, or the loopback `http` development
+ * origin that only a debug host admits (the release manifest and network policy forbid cleartext).
+ */
+class AndroidNativeHttp(private val scope: CoroutineScope, private val origin: ApiOrigin) : NativeHttpPort {
     override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
         val active = AtomicReference<HttpURLConnection?>()
         val job = scope.launch(Dispatchers.IO) {
             val response = try {
                 val uri = URI(request.url)
-                val base = URI(apiOrigin)
-                if (uri.scheme != "https" || uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority ||
+                val base = URI(origin.toString())
+                val admittedScheme = uri.scheme == "https" || (!origin.isHttps && uri.scheme == "http")
+                if (!admittedScheme || uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority ||
                     uri.rawUserInfo != null || uri.fragment != null || CookieHandler.getDefault() != null ||
                     request.method !in setOf("GET", "POST", "PUT", "DELETE")) NativeHttpResponse(0, null, null, "configuration")
                 else {
