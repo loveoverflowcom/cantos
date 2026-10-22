@@ -9,13 +9,8 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn production_api_theatre_handler_is_readable_but_other_surface_stays_closed() {
-    use cantos_server::platform::postgres::{local_config, Store};
     let state = cantos_server::adapters::inbound::http::AppState {
-        store: Store::new(
-            local_config("host=127.0.0.1 port=1 user=cantos_test dbname=cantos_test").unwrap(),
-        )
-        .unwrap()
-        .without_development_sessions(),
+        store: cantos_server::test_support::detached_store().without_development_sessions(),
         web_origin: "https://cantoss-theatre.web.app".into(),
     };
     let app = with_browser_cors(

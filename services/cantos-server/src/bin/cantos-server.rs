@@ -9,9 +9,9 @@ use std::{env, net::SocketAddr};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Provider authentication (Kanidm/OIDC, legacy native client, Firebase/SMTP registration) is
     // retired: refuse its inputs instead of silently running without the path they configured.
-    if let Some(name) = retired_provider_input(
-        env::vars_os().filter_map(|(name, _)| name.into_string().ok()),
-    ) {
+    if let Some(name) =
+        retired_provider_input(env::vars_os().filter_map(|(name, _)| name.into_string().ok()))
+    {
         return Err(format!(
             "{name} configures a retired provider authentication path; unset it (Identity v1 via CANTOS_IDENTITY_* is the only session authority)"
         )
@@ -22,7 +22,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The Server owns `server.db` for the process lifetime. Serving never changes the schema:
     // a missing, foreign, diverged, newer or not-yet-migrated file is refused unchanged, and
     // `cantos-migrate` is the explicit operator action that creates or upgrades it.
-    let database = env::var_os("CANTOS_SERVER_DATABASE").ok_or("CANTOS_SERVER_DATABASE is required")?;
+    let database =
+        env::var_os("CANTOS_SERVER_DATABASE").ok_or("CANTOS_SERVER_DATABASE is required")?;
     let mut store = Store::open(database, cantos_store_turso::registry::Intent::Serve).await?;
     if !host.development_sessions() {
         store = store.without_development_sessions();

@@ -9,6 +9,7 @@ use super::super::{
     listener_cursor::Keyset,
     listener_projection::{audio_presentation, publication_manifest, work_presentation},
 };
+use crate::platform::store::Row;
 use crate::{
     contexts::catalog::{
         listener_metadata, restore_content, ListenerMetadata, ListenerMetadataRequest,
@@ -17,7 +18,6 @@ use crate::{
     platform::store::{checked_number, StoreError, Tx, RELEASE_OWNER_ACTIVE_FILTER},
 };
 use serde::{de::DeserializeOwned, Serialize};
-use crate::platform::store::Row;
 
 pub(super) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result<(), StoreError> {
     let d = release.document();

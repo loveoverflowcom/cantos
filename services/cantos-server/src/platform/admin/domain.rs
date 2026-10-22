@@ -79,12 +79,7 @@ pub struct RoleEvidence {
 }
 impl RoleEvidence {
     /// For an [`super::AdminVerifier`] only: the credential was verified and the role observed now.
-    pub fn verified(
-        key: ExternalIdentityKey,
-        role: Role,
-        observed: u64,
-        valid_until: u64,
-    ) -> Self {
+    pub fn verified(key: ExternalIdentityKey, role: Role, observed: u64, valid_until: u64) -> Self {
         Self {
             key,
             role,

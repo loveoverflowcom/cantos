@@ -891,9 +891,7 @@ pub(super) async fn admit_theatre(
     };
     let result = service
         .lease(&store, &token, channel, |record| async move {
-            if let Some(response) =
-                session_fence_refusal(request.headers(), &record.session_id)
-            {
+            if let Some(response) = session_fence_refusal(request.headers(), &record.session_id) {
                 return response;
             }
             request

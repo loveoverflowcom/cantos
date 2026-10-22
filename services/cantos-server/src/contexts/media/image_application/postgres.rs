@@ -540,7 +540,3 @@ async fn set_artwork(
         json_bytes: bytes,
     })
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/support/private_artwork_repository_postgres.rs"]
-mod postgres_tests;

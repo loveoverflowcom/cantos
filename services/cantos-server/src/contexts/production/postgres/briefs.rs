@@ -22,8 +22,8 @@ pub(in crate::contexts::production) async fn now_ms(tx: &Tx<'_>) -> Result<i64, 
         .await?
         .get(0))
 }
-use cantos_contracts as dto;
 use crate::platform::store::Row;
+use cantos_contracts as dto;
 
 fn decode(row: &Row) -> Result<ProductionBrief, StoreError> {
     let bytes: Vec<u8> = row

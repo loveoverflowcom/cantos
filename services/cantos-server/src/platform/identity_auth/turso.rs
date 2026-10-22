@@ -604,7 +604,12 @@ pub(crate) async fn studio_session_id(
     store: &Store,
     token: &str,
 ) -> Result<Option<String>, StoreError> {
-    let reader = store.database().owner().reader().await.map_err(|_| StoreError::Unavailable)?;
+    let reader = store
+        .database()
+        .owner()
+        .reader()
+        .await
+        .map_err(|_| StoreError::Unavailable)?;
     let rows = reader
         .query(
             "SELECT s.id FROM identity_session_tokens t JOIN identity_sessions s ON s.id=t.session_id \

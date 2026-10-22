@@ -27,6 +27,7 @@ use crate::platform::{
         decision::{Epoch, ObservedSecurity, RevokeReason, Subject},
         session::{digest, SessionError, SessionStore, ISSUER},
     },
+    store::Conn,
     turso::ServerDatabase,
 };
 
@@ -870,7 +871,8 @@ async fn a_business_write_admits_inside_its_unit_and_logout_linearizes_around_it
         .unwrap();
 
     // Admitted work holds the writer; a logout waits for it instead of interleaving.
-    let tx = database.owner().begin_write().await.unwrap();
+    let mut conn = Conn::new(database.clone(), Acknowledgement::Engine);
+    let tx = conn.transaction().await.unwrap();
     let admitted = admit_in(&tx, &web.access, THEATRE).await.unwrap();
     assert_eq!(admitted.session_id, issued.session_id);
     assert_eq!(
@@ -893,7 +895,8 @@ async fn a_business_write_admits_inside_its_unit_and_logout_linearizes_around_it
     logout.await.unwrap().unwrap();
 
     // A logout committed first is the fact the next unit admits against.
-    let tx = database.owner().begin_write().await.unwrap();
+    let mut conn = Conn::new(database.clone(), Acknowledgement::Engine);
+    let tx = conn.transaction().await.unwrap();
     assert_eq!(
         admit_in(&tx, &web.access, THEATRE).await.unwrap_err(),
         SessionError::Inactive
@@ -1107,8 +1110,8 @@ async fn corrupt_projections_are_refused_by_the_production_decoders() {
 mod fake;
 
 use crate::platform::{
-    identity_auth::{config::IdentityAuthConfig, AuthFailure, IdentityAuth, Login as IssuedLogin},
     identity_auth::PeerPolicy,
+    identity_auth::{config::IdentityAuthConfig, AuthFailure, IdentityAuth, Login as IssuedLogin},
 };
 use cantos_store_turso::clock::SystemClock;
 use fake::{Script, Serving};

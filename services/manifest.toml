@@ -1,63 +1,35 @@
 # Process inventory, schema 1. No credentials or host-specific paths belong here.
+# A service is a runnable native process or independently managed infrastructure. Each native
+# process owns exactly one embedded Turso file; nothing here is a database server.
 version = 1
 
 [services.cantos-server]
 runtime = "native"
 implementation = "implemented"
 owner = "Cantos backend maintainers"
-required_dependencies = ["postgresql"]
-optional_dependencies = ["kanidm", "object-storage"]
-development = "One native cargo xtask run Server for Studio/Theatre/Admin; explicit migrated DATABASE_URL or retained test cluster"
-production = "Source: one listener with per-surface origins; deployed VPS still has two origin-pinned legacy processes (infra/vps, ADR 0039); cutover pending #336"
-environment = ["DATABASE_URL", "CANTOS_ENV", "CANTOS_BIND_ADDRESS", "CANTOS_STUDIO_WEB_ORIGIN", "CANTOS_THEATRE_WEB_ORIGIN", "CANTOS_ADMIN_WEB_ORIGIN", "CANTOS_AUDIO_ROOT", "CANTOS_STORAGE_CONFIG"]
+required_dependencies = []
+optional_dependencies = ["cantos-identity", "object-storage"]
+development = "cargo xtask run owns the Server beside cantos-identity: migrate server.db explicitly, then serve 127.0.0.1:8080 for Studio and Theatre; no database server, container or provider issuer"
+production = "Native OCI image under Podman Quadlet, pinned by GHCR digest (docs/deployment/native-oci-release.md); no release has been admitted and no host activated from source"
+environment = ["CANTOS_ENV", "CANTOS_BIND_ADDRESS", "CANTOS_STUDIO_WEB_ORIGIN", "CANTOS_THEATRE_WEB_ORIGIN", "CANTOS_ADMIN_WEB_ORIGIN", "CANTOS_SERVER_DATABASE", "CANTOS_IDENTITY_SOCKET", "CANTOS_IDENTITY_PEER_UID", "CANTOS_IDENTITY_PEER_POLICY", "CANTOS_IDENTITY_TRUSTED_PROXIES", "CANTOS_IDENTITY_STUDIO_SUBJECTS", "CANTOS_AUDIO_ROOT", "CANTOS_STORAGE_CONFIG", "CANTOS_PUBLICATION_ROOT", "CANTOS_PLAYBACK_KEY_FILE", "CANTOS_PUBLIC_MEDIA_ORIGIN"]
 ports = [8080]
-health = "Native run checks TCP readiness; no identity or publication readiness implied"
-persistence = "PostgreSQL metadata; explicit private development audio root"
-lifecycle = "cargo xtask run cantos-server owns only its foreground process group"
+health = "Native run checks TCP readiness and the anonymous Theatre catalog route; no Identity session or publication readiness implied"
+persistence = "One embedded Turso file, server.db, owned exclusively by this process; cantos-migrate is the only creator or upgrader and serving refuses a missing, foreign or unmigrated file; explicit private audio storage"
+lifecycle = "cargo xtask run owns only the foreground process groups it starts; cantos-operator needs the Server stopped because the file has one owner"
 
-[services.postgresql]
-runtime = "podman"
-implementation = "configured"
-owner = "Cantos infrastructure operator"
+[services.cantos-identity]
+runtime = "native"
+implementation = "implemented"
+owner = "Cantos identity maintainers"
 required_dependencies = []
 optional_dependencies = []
-development = "Explicit rootless Podman local database; independent of native verification"
-production = "Operator-managed PostgreSQL; backups, roles, upgrades and HA require separate review"
-environment = ["CANTOS_POSTGRES_PORT", "CANTOS_POSTGRES_PASSWORD_FILE"]
-ports = [5432]
-health = "pg_isready on container loopback; readiness does not prove app-role grants"
-persistence = "Named instance-scoped volume; never deleted by lifecycle commands"
-lifecycle = "Explicit services up/down; down stops and preserves container and volume"
-[services.postgresql.container]
-kind = "postgresql"
-image = "docker.io/library/postgres:17.11-bookworm"
-data_path = "/var/lib/postgresql/data"
-port_env = "CANTOS_POSTGRES_PORT"
-container_port = 5432
-default_port = 5432
-health_command = ["pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres", "-d", "postgres"]
-
-[services.kanidm]
-runtime = "podman"
-implementation = "configured"
-owner = "Cantos identity operator"
-required_dependencies = []
-optional_dependencies = []
-development = "Opt-in evaluation only, private config/TLS supplied by operator"
-production = "Not deployed or integrated; identity decision, clients and recovery remain planned"
-environment = ["CANTOS_KANIDM_PORT", "CANTOS_KANIDM_CONFIG_DIR"]
-ports = [8443]
-health = "kanidmd scripting healthcheck with TLS verification; not Cantos OIDC integration"
-persistence = "Named instance-scoped identity volume; read-only private config/TLS mount"
-lifecycle = "Explicit services up kanidm, configtest before first server start; --all excludes it"
-[services.kanidm.container]
-kind = "kanidm"
-image = "docker.io/kanidm/server:1.10.5"
-data_path = "/data"
-port_env = "CANTOS_KANIDM_PORT"
-container_port = 8443
-default_port = 8443
-health_command = ["/sbin/kanidmd", "scripting", "healthcheck", "--verify-tls", "-c", "/config/server.toml"]
+development = "cargo xtask run starts it beside the Server with its own identity.db and a private Unix socket; no mail relay is configured unless the caller exports CANTOS_IDENTITY_SMTP_*"
+production = "Native OCI image under Podman Quadlet beside the Server; separate UID, separate database directory, private socket directory shared by group (infra/vps/quadlet); not accepted on a host"
+environment = ["CANTOS_IDENTITY_DATABASE", "CANTOS_IDENTITY_SOCKET", "CANTOS_IDENTITY_SOCKET_MODE", "CANTOS_IDENTITY_SERVER_UIDS", "CANTOS_IDENTITY_SIGNUP_LINK_BASE", "CANTOS_IDENTITY_SMTP_HOST", "CANTOS_IDENTITY_SMTP_PORT", "CANTOS_IDENTITY_SMTP_TLS", "CANTOS_IDENTITY_SMTP_FROM", "CANTOS_IDENTITY_SMTP_USERNAME", "CANTOS_IDENTITY_SMTP_PASSWORD"]
+ports = []
+health = "Native run connects to the Unix socket once; that observes a listening process, not an authentication"
+persistence = "One embedded Turso file, identity.db, owned exclusively by this process; cantos-identity migrate is explicit and serve never creates or migrates"
+lifecycle = "cargo xtask run owns only the process group it starts; the socket inode of a stopped run is replaced only by Identity itself"
 
 [services.object-storage]
 runtime = "external"
@@ -71,4 +43,4 @@ environment = []
 ports = []
 health = "Startup validates config only; HEAD/GET/Range acceptance requires authorized operator tests"
 persistence = "Externally managed media; no lifecycle or deletion command"
-lifecycle = "Operator-managed; services commands report external status as unobserved"
+lifecycle = "Operator-managed; xtask reports external services as unobserved"

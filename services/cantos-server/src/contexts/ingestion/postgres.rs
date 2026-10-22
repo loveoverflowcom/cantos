@@ -1,7 +1,7 @@
 //! The source registry: immutable original bytes, import metadata and extraction outcomes.
 //! Every load re-checks the bytes, metadata and outcome against the stored receipt digest.
-use cantos_contracts::{ImportMetadata, ImportRequest, ImportResponse};
 use crate::platform::store::Row;
+use cantos_contracts::{ImportMetadata, ImportRequest, ImportResponse};
 
 use super::domain::extraction::MAX_SOURCE_BYTES;
 use super::domain::receipt::{original_text, receipt_digest, sha256_hex, AdmittedImport};

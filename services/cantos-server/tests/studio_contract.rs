@@ -138,7 +138,7 @@ fn content_identity_literal_contracts_and_independent_digests_match_admission() 
             if case["file"] == "reject-latest-script.json" {
                 let request: AppendContentRequest = serde_json::from_value(value).unwrap();
                 let Err(cantos_server::contexts::catalog::CatalogStoreError::Storage(
-                    cantos_server::platform::postgres::StoreError::InvalidRequestFields(issues),
+                    cantos_server::platform::store::StoreError::InvalidRequestFields(issues),
                 )) = wire::admit_details(request.details)
                 else {
                     panic!("expected exact revision issue");

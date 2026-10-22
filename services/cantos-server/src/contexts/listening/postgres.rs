@@ -13,6 +13,7 @@ use super::{
         SavedOutcome, SavedRecord,
     },
 };
+use crate::platform::store::Row;
 use crate::{
     contexts::{
         catalog::{domain::WorkId, lock_listener_catalog},
@@ -27,7 +28,6 @@ use cantos_contracts::listener_library as dto;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, sync::Arc};
-use crate::platform::store::Row;
 struct PgLibrary(Store);
 impl LibraryService {
     pub fn new(store: Store) -> Self {
@@ -1033,9 +1033,6 @@ fn exact_presentation(
     }
     Ok(Some(metadata.clone()))
 }
-
-#[cfg(test)]
-mod tests;
 
 #[cfg(test)]
 mod presentation_tests {

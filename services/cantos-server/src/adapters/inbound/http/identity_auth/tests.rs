@@ -2,7 +2,7 @@ use super::*;
 
 fn state(origin: &str) -> AppState {
     AppState {
-        store: crate::application::Store::new("host=127.0.0.1 user=x".parse().unwrap()).unwrap(),
+        store: crate::test_support::detached_store(),
         web_origin: origin.to_owned(),
     }
 }

@@ -25,10 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ["link-identity", actor, issuer, subject] => {
             let key = ExternalIdentityKey::new(*issuer, *subject)?;
             let actor = ActorId::new(*actor)?;
-            println!(
-                "{:?}",
-                operator::link_identity(&store, &actor, &key).await?
-            );
+            println!("{:?}", operator::link_identity(&store, &actor, &key).await?);
             return Ok(());
         }
         _ => (),

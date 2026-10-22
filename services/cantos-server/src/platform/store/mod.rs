@@ -15,6 +15,8 @@ use crate::platform::{
 
 mod session;
 mod sql;
+#[cfg(test)]
+mod tests;
 
 pub use session::token_hash;
 pub(crate) use session::{authenticate, session_token_registered};

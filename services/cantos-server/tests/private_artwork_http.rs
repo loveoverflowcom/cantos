@@ -22,9 +22,6 @@ use cantos_server::{
             PublicationObject, PublicationObjectRef, PublicationObjects, PublicationService,
         },
     },
-    platform::{
-        postgres::{local_config, Store},
-    },
 };
 use http_body_util::BodyExt;
 use std::sync::Arc;
@@ -109,7 +106,7 @@ fn production_routers(state: AppState, dist: &str) -> [(&'static str, Router); 8
 }
 fn lazy_state() -> AppState {
     AppState {
-        store: Store::new(local_config("postgresql://cantos@127.0.0.1:9/cantos").unwrap()).unwrap(),
+        store: cantos_server::test_support::detached_store(),
         web_origin: "http://localhost:3000".into(),
     }
 }

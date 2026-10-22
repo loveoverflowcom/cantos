@@ -44,8 +44,7 @@ fn identity_cookie(headers: &HeaderMap, store: &Store) -> Result<Option<String>,
         credential::cookie_name(Surface::Studio, service.secure()),
         credential::cookie_name(Surface::Studio, !service.secure()),
     );
-    let read =
-        |name| unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated);
+    let read = |name| unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated);
     if read(other)?.is_some() {
         return Err(StoreError::Unauthenticated);
     }
@@ -54,9 +53,7 @@ fn identity_cookie(headers: &HeaderMap, store: &Store) -> Result<Option<String>,
     };
     let legacy = ["cantos_session", "__Secure-cantos_studio"]
         .iter()
-        .any(|name| {
-            unique_cookie(headers, name).map_or(true, |value| value.is_some())
-        });
+        .any(|name| unique_cookie(headers, name).map_or(true, |value| value.is_some()));
     if legacy || credential::access_channel(&token) != Some(Channel::Web(Surface::Studio)) {
         return Err(StoreError::Unauthenticated);
     }
@@ -69,8 +66,7 @@ pub(in crate::adapters::inbound::http) fn cookie_token_for_name(
 ) -> Result<String, StoreError> {
     let mut found = None;
     for name in ["cantos_session", "__Secure-cantos_studio"] {
-        let value =
-            unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated)?;
+        let value = unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated)?;
         if let Some(value) = value {
             if name != expected || found.is_some() {
                 return Err(StoreError::Unauthenticated);
@@ -192,7 +188,7 @@ mod tests {
 
     #[test]
     fn studio_never_accepts_an_authorization_header_as_a_session() {
-        let store = Store::new("host=127.0.0.1 user=x".parse().unwrap()).unwrap();
+        let store = crate::test_support::detached_store();
         for value in ["Bearer ci1_s_x", "Bearer ca1_s_x", "Bearer 00"] {
             let mut headers = HeaderMap::new();
             headers.insert(header::AUTHORIZATION, HeaderValue::from_static(value));

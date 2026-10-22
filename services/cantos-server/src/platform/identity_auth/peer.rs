@@ -116,10 +116,7 @@ impl PeerPolicy {
             return Err(PeerError::Unavailable);
         };
         for entry in line.rsplit(',') {
-            let address: IpAddr = entry
-                .trim()
-                .parse()
-                .map_err(|_| PeerError::Unavailable)?;
+            let address: IpAddr = entry.trim().parse().map_err(|_| PeerError::Unavailable)?;
             if !proxies.contains(address) {
                 return Ok(address);
             }

@@ -4,10 +4,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use cantos_contracts as dto;
-use cantos_server::{
-    adapters::inbound::http::{router, AppState},
-    platform::postgres::{local_config, Store},
-};
+use cantos_server::adapters::inbound::http::{router, AppState};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -61,10 +58,7 @@ fn strict_raw_request_fixtures_match_versioned_schema_and_reject_unknown_fields(
 async fn real_publication_routes_require_studio_auth_and_have_no_legacy_or_listener_alias() {
     let app = router(
         AppState {
-            store: Store::new(
-                local_config("host=127.0.0.1 port=1 user=unused dbname=unused").unwrap(),
-            )
-            .unwrap(),
+            store: cantos_server::test_support::detached_store(),
             web_origin: "http://127.0.0.1:8080".into(),
         },
         "unused-public-root",

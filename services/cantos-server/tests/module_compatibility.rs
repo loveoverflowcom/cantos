@@ -1,5 +1,5 @@
 //! Compatibility aliases for the retained editorial, planning and media inspection contracts.
-use cantos_server::{contexts, postgres, production, revisions};
+use cantos_server::{contexts, production, revisions, store};
 use std::convert::identity;
 
 #[test]
@@ -43,10 +43,10 @@ fn media_inspection_is_not_coupled_to_synthesis() {
 }
 
 #[test]
-fn postgres_alias_uses_the_same_store() {
-    let _: fn(postgres::Store) -> cantos_server::platform::postgres::Store = identity;
-    let _: fn(postgres::Store) -> cantos_server::application::Store = identity;
-    let _: fn(postgres::StoreError) -> cantos_server::application::StoreError = identity;
+fn store_alias_uses_the_same_store() {
+    let _: fn(store::Store) -> cantos_server::platform::store::Store = identity;
+    let _: fn(store::Store) -> cantos_server::application::Store = identity;
+    let _: fn(store::StoreError) -> cantos_server::application::StoreError = identity;
 }
 
 #[test]

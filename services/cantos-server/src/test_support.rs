@@ -129,3 +129,30 @@ impl ServerFixture {
         self.seed_development_session(actor, token, 1).await;
     }
 }
+
+static DETACHED: std::sync::Mutex<Vec<TestRun>> = std::sync::Mutex::new(Vec::new());
+
+/// A real, migrated `server.db` for synchronous tests that only need a `Store` value in router
+/// state and never reach persistence. The directory lives for the rest of the process (a test
+/// binary), so every call opens its own private file.
+pub fn detached_store() -> Store {
+    std::thread::spawn(|| {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("a runtime opens the fixture file");
+        runtime.block_on(async {
+            let run = TestRun::new("detached");
+            let database = ServerDatabase::open(
+                run.path("server.db"),
+                Intent::Migrate,
+                Arc::new(SystemClock),
+            )
+            .await
+            .expect("a fresh server.db is created");
+            DETACHED.lock().expect("fixture list").push(run);
+            Store::from_database(database)
+        })
+    })
+    .join()
+    .expect("the fixture thread finishes")
+}

@@ -18,15 +18,69 @@ use crate::platform::identity::domain::{ActorId, ExternalIdentityKey};
 
 const T0: i64 = 1_700_000_000_000_000;
 
-static FUTURE: [Migration; 3] = [
-    MIGRATIONS[0],
-    MIGRATIONS[1],
-    Migration {
-        version: 3,
+/// The shipped registry plus one slice this binary does not know: a file written by a newer binary.
+fn future() -> &'static [Migration] {
+    let next = Migration {
+        version: u32::try_from(MIGRATIONS.len()).unwrap() + 1,
         name: "server_future_slice",
         sql: "CREATE TABLE future_slice(id INTEGER PRIMARY KEY) STRICT;",
-    },
-];
+    };
+    Box::leak(
+        MIGRATIONS
+            .iter()
+            .copied()
+            .chain([next])
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+/// Every schema object the shipped migrations create, observed by replaying their DDL on a plain
+/// engine database that has no owner and no registry. The expectation therefore follows the
+/// registry instead of a hand-kept list, and a stray object still fails the comparison.
+async fn replayed_objects(run: &TestRun) -> Vec<Vec<Value>> {
+    let joined: &'static str = Box::leak(
+        MIGRATIONS
+            .iter()
+            .map(|migration| migration.sql)
+            .collect::<Vec<_>>()
+            .join("\n")
+            .into_boxed_str(),
+    );
+    let one: &'static [Migration] = Box::leak(Box::new([Migration {
+        version: 1,
+        name: "replayed_server_schema",
+        sql: joined,
+    }]));
+    let path = run.path("replay.db");
+    foreign(
+        &path,
+        Registry::new(DatabaseKind::Server, SERVER_EPOCH, one).unwrap(),
+    )
+    .await;
+    let owner = OwnedDatabase::open(OpenRequest::new(
+        &path,
+        Registry::new(DatabaseKind::Server, SERVER_EPOCH, one).unwrap(),
+        Intent::Serve,
+        clock(),
+    ))
+    .await
+    .unwrap();
+    let reader = owner.reader().await.unwrap();
+    let mut rows = reader
+        .query(
+            "SELECT type,name FROM sqlite_schema WHERE substr(name,1,7) <> 'sqlite_' \
+             AND name NOT LIKE 'cantos_schema_history%' ORDER BY type,name",
+            (),
+        )
+        .await
+        .unwrap();
+    let mut out = Vec::new();
+    while let Some(row) = rows.next().await.unwrap() {
+        out.push(vec![row.get_value(0).unwrap(), row.get_value(1).unwrap()]);
+    }
+    out
+}
 
 fn clock() -> Arc<dyn Clock> {
     FixedClock::new(T0)
@@ -105,7 +159,7 @@ async fn commit(database: &ServerDatabase, statements: &[&str]) {
 }
 
 #[tokio::test]
-async fn a_new_file_holds_only_the_registry_metadata_and_the_two_slices() {
+async fn a_new_file_holds_the_registry_metadata_and_exactly_the_migrated_schema() {
     let run = TestRun::new("server-schema-slice");
     let path = run.path("server.db");
     drop(open(&path, Intent::Migrate).await.unwrap());
@@ -122,64 +176,41 @@ async fn a_new_file_holds_only_the_registry_metadata_and_the_two_slices() {
     );
     let objects = values(
         &database,
-        "SELECT type,name FROM sqlite_schema WHERE substr(name,1,7) <> 'sqlite_' ORDER BY type,name",
+        "SELECT type,name FROM sqlite_schema WHERE substr(name,1,7) <> 'sqlite_' \
+         AND name NOT LIKE 'cantos_schema_history%' ORDER BY type,name",
     )
     .await;
-    let expected = [
-        ("index", "actor_external_identities_actor"),
-        ("index", "identity_session_tokens_session"),
-        ("index", "identity_sessions_actor"),
-        ("index", "identity_sessions_subject"),
-        ("table", "actor_external_identities"),
-        ("table", "actors"),
-        ("table", "cantos_schema_history"),
-        ("table", "identity_session_tokens"),
-        ("table", "identity_sessions"),
-        ("trigger", "actor_external_identities_no_delete"),
-        ("trigger", "actor_external_identities_no_replace"),
-        ("trigger", "actor_external_identities_no_update"),
-        ("trigger", "actors_id_immutable"),
-        ("trigger", "actors_no_delete"),
-        ("trigger", "actors_no_replace"),
-        ("trigger", "cantos_schema_history_no_delete"),
-        ("trigger", "cantos_schema_history_no_update"),
-        ("trigger", "identity_session_tokens_immutable"),
-        ("trigger", "identity_session_tokens_issue"),
-        ("trigger", "identity_session_tokens_no_delete"),
-        ("trigger", "identity_session_tokens_no_replace"),
-        ("trigger", "identity_sessions_binding_immutable"),
-        ("trigger", "identity_sessions_bound_actor"),
-        ("trigger", "identity_sessions_no_delete"),
-        ("trigger", "identity_sessions_no_replace"),
-        ("trigger", "identity_sessions_revocation_permanent"),
-    ]
-    .map(|(kind, name)| vec![text(kind), text(name)]);
-    assert_eq!(objects, expected);
-    assert_eq!(
-        values(
-            &database,
-            "SELECT version,name,checksum,applied_at FROM cantos_schema_history"
-        )
-        .await,
-        [
-            [
-                Value::Integer(1),
-                text("server_actor_registry"),
-                Value::Blob(MIGRATIONS[0].checksum().to_vec()),
-                Value::Integer(T0),
-            ],
-            [
-                Value::Integer(2),
-                text("server_identity_sessions"),
-                Value::Blob(MIGRATIONS[1].checksum().to_vec()),
+    assert_eq!(objects, replayed_objects(&run).await);
+    let history = values(
+        &database,
+        "SELECT version,name,checksum,applied_at FROM cantos_schema_history ORDER BY version",
+    )
+    .await;
+    let expected: Vec<Vec<Value>> = MIGRATIONS
+        .iter()
+        .map(|migration| {
+            vec![
+                Value::Integer(i64::from(migration.version)),
+                text(migration.name),
+                Value::Blob(migration.checksum().to_vec()),
                 Value::Integer(T0),
             ]
-        ]
+        })
+        .collect();
+    assert_eq!(history, expected);
+    assert_eq!(
+        MIGRATIONS
+            .iter()
+            .enumerate()
+            .filter(|(index, migration)| u32::try_from(*index).unwrap() + 1 != migration.version)
+            .count(),
+        0,
+        "versions are dense and ascending"
     );
 }
 
 #[tokio::test]
-async fn an_actor_registry_file_upgrades_to_the_session_slice_and_keeps_its_rows() {
+async fn an_actor_registry_file_upgrades_through_every_later_slice_and_keeps_its_rows() {
     let run = TestRun::new("server-schema-upgrade");
     let path = run.path("server.db");
     let v1 = Registry::new(DatabaseKind::Server, SERVER_EPOCH, &MIGRATIONS[..1]).unwrap();
@@ -208,7 +239,7 @@ async fn an_actor_registry_file_upgrades_to_the_session_slice_and_keeps_its_rows
         refused(&path, Intent::Serve).await,
         ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
             applied: 1,
-            latest: 2,
+            latest: u32::try_from(MIGRATIONS.len()).unwrap(),
         }))
     );
     assert_eq!(bytes(&path), before);
@@ -241,17 +272,20 @@ async fn an_actor_registry_file_upgrades_to_the_session_slice_and_keeps_its_rows
             Value::Integer(7),
         ]]
     );
-    assert_eq!(
-        values(
-            &database,
-            "SELECT version,applied_at FROM cantos_schema_history ORDER BY version"
-        )
-        .await,
-        [
-            [Value::Integer(1), Value::Integer(T0)],
-            [Value::Integer(2), Value::Integer(T0 + 5)]
-        ]
-    );
+    let applied = values(
+        &database,
+        "SELECT version,applied_at FROM cantos_schema_history ORDER BY version",
+    )
+    .await;
+    let expected: Vec<Vec<Value>> = (1..=MIGRATIONS.len())
+        .map(|version| {
+            vec![
+                Value::Integer(i64::try_from(version).unwrap()),
+                Value::Integer(if version == 1 { T0 } else { T0 + 5 }),
+            ]
+        })
+        .collect();
+    assert_eq!(applied, expected);
     assert_eq!(
         values(&database, "SELECT count(*) FROM identity_sessions").await,
         [[Value::Integer(0)]]
@@ -291,10 +325,10 @@ async fn foreign_diverged_newer_other_epoch_and_non_database_files_are_refused_u
         ),
         (
             "newer.db",
-            Registry::new(DatabaseKind::Server, SERVER_EPOCH, &FUTURE).unwrap(),
+            Registry::new(DatabaseKind::Server, SERVER_EPOCH, future()).unwrap(),
             Refusal::NewerThanBinary {
-                applied: 3,
-                known: 2,
+                applied: u32::try_from(MIGRATIONS.len()).unwrap() + 1,
+                known: u32::try_from(MIGRATIONS.len()).unwrap(),
             },
         ),
     ];
@@ -1039,5 +1073,111 @@ observed_security_version,observed_instance_epoch,absolute_expires,idle_expires,
         )
         .await,
         [[Value::Integer(1), text("disabled"), Value::Integer(700)]]
+    );
+}
+
+#[tokio::test]
+async fn development_session_rows_are_well_formed_bound_and_never_resurrect_or_disappear() {
+    let run = TestRun::new("server-schema-development-sessions");
+    let database = open(&run.path("server.db"), Intent::Migrate).await.unwrap();
+    commit(
+        &database,
+        &["INSERT INTO actors(id) VALUES('alice'),('bob')"],
+    )
+    .await;
+    let row = |hash: u8, actor: &str, id: &str| {
+        vec![
+            Value::Blob(vec![hash; 32]),
+            text(actor),
+            Value::Integer(10),
+            text(id),
+        ]
+    };
+    let insert = "INSERT INTO development_sessions(token_hash,actor_id,expires_at,session_id) VALUES(?1,?2,?3,?4)";
+    let good = "00000000-0000-4000-8000-000000000001";
+    let tx = database.owner().begin_write().await.unwrap();
+    tx.execute(insert, params_from_iter(row(1, "alice", good)))
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+
+    // Shape: digest length, actor reference, canonical id, non-negative expiry.
+    for (bad, expected) in [
+        (
+            vec![
+                Value::Blob(vec![2; 31]),
+                text("alice"),
+                Value::Integer(10),
+                text("00000000-0000-4000-8000-000000000002"),
+            ],
+            constraint(ConstraintKind::Check),
+        ),
+        (
+            row(3, "ghost", "00000000-0000-4000-8000-000000000003"),
+            constraint(ConstraintKind::ForeignKey),
+        ),
+        (
+            row(4, "alice", "00000000-0000-4000-8000-00000000000G"),
+            constraint(ConstraintKind::Check),
+        ),
+        (
+            row(5, "alice", "00000000-0000-4000-8000-0000000000AB"),
+            constraint(ConstraintKind::Check),
+        ),
+        (
+            vec![
+                Value::Blob(vec![6; 32]),
+                text("alice"),
+                Value::Integer(-1),
+                text("00000000-0000-4000-8000-000000000006"),
+            ],
+            constraint(ConstraintKind::Check),
+        ),
+    ] {
+        assert_eq!(attempt(&database, insert, bad).await, Err(expected));
+    }
+    // A token or session id is never rebound: plain, REPLACE and upsert inserts all refuse.
+    for sql in [
+        insert.to_owned(),
+        insert.replace("INSERT INTO", "INSERT OR REPLACE INTO"),
+        insert.replace("INSERT INTO", "REPLACE INTO"),
+        format!("{insert} ON CONFLICT(token_hash) DO UPDATE SET actor_id='bob'"),
+    ] {
+        assert_eq!(
+            attempt(
+                &database,
+                &sql,
+                row(1, "bob", "00000000-0000-4000-8000-0000000000aa")
+            )
+            .await,
+            Err(guard("immutable.development_sessions")),
+            "{sql}"
+        );
+    }
+    // Only revocation moves, and only forward; nothing is deleted.
+    let hash = Value::Blob(vec![1; 32]);
+    for sql in [
+        "UPDATE development_sessions SET actor_id='bob' WHERE token_hash=?1",
+        "UPDATE development_sessions SET expires_at=99 WHERE token_hash=?1",
+        "UPDATE development_sessions SET session_id='00000000-0000-4000-8000-0000000000bb' WHERE token_hash=?1",
+        "DELETE FROM development_sessions WHERE token_hash=?1",
+    ] {
+        assert_eq!(
+            attempt(&database, sql, vec![hash.clone()]).await,
+            Err(guard("immutable.development_sessions")),
+            "{sql}"
+        );
+    }
+    let revoke = "UPDATE development_sessions SET revoked=1 WHERE token_hash=?1";
+    assert_eq!(attempt(&database, revoke, vec![hash.clone()]).await, Ok(1));
+    commit(&database, &["UPDATE development_sessions SET revoked=1"]).await;
+    assert_eq!(
+        attempt(
+            &database,
+            "UPDATE development_sessions SET revoked=0 WHERE token_hash=?1",
+            vec![hash]
+        )
+        .await,
+        Err(guard("immutable.development_sessions"))
     );
 }

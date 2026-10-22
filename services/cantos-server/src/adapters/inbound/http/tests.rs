@@ -16,12 +16,7 @@ use tower::ServiceExt;
 
 fn middleware_state() -> AppState {
     AppState {
-        store: Store::new(
-            "host=127.0.0.1 port=1 user=unused dbname=unused"
-                .parse()
-                .unwrap(),
-        )
-        .unwrap(),
+        store: crate::test_support::detached_store(),
         web_origin: "http://127.0.0.1:8080".into(),
     }
 }
@@ -322,7 +317,10 @@ async fn retired_provider_authentication_routes_are_not_mounted() {
         ("POST", "/api/v1/theatre/native/auth/flows"),
         ("POST", "/api/v1/theatre/native/auth/bearer/flows"),
         ("GET", "/api/v1/theatre/native/session"),
-        ("GET", "/api/v1/theatre/native/auth/registration/configuration"),
+        (
+            "GET",
+            "/api/v1/theatre/native/auth/registration/configuration",
+        ),
     ] {
         let request = axum::http::Request::builder()
             .method(method)

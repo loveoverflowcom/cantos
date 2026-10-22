@@ -1,8 +1,8 @@
 //! Append-only effective artwork and exact operation receipts. Catalog owns the Work clock,
 //! history and authorization; this adapter owns only Media's tables and checked row admission.
+use crate::platform::store::Row;
 use cantos_contracts as dto;
 use sha2::{Digest, Sha256};
-use crate::platform::store::Row;
 
 use super::image::{corrupt, decode_document, document_bytes, matches};
 use crate::contexts::catalog::domain::{OwnerId, Revision, WorkId};
@@ -229,7 +229,3 @@ pub(in crate::contexts::media) async fn record_operation(
     })?;
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/support/private_artwork_postgres.rs"]
-pub(in crate::contexts::media) mod tests;
