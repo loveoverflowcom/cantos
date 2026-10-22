@@ -72,7 +72,7 @@ infra/                     Deployment/runtime assets; no application domain logi
 packages/
   contracts/               Script IR/Studio/production schemas, fixtures, contract docs and
     api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
-  web-auth/                Shared RAM Bearer lifecycle + browser adapter for both Web apps IMPLEMENTED
+  web-auth/                Shared Identity v1 cookie-session owner + browser adapter for both Web apps IMPLEMENTED
   store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (Identity persistence consumer; Server pending)
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
@@ -201,7 +201,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 | Shared | Where | Consumers today |
 | --- | --- | --- |
 | Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-server`, `cantos-studio`, `cantos-theatre` |
-| RAM credential lifecycle and browser authorization adapter | `packages/web-auth` | Studio Web and Theatre Web; separate purposes/instances |
+| Web session lifecycle (HttpOnly cookie, nonsecret RAM facts) and browser transport policy | `packages/web-auth` | Studio Web and Theatre Web; separate purposes/instances |
 | Single-owner embedded Turso foundation (owner lock, schema registry, serialized writer, backup) | `packages/store-turso` | opt-in [`cantos-identity` persistence](../../services/cantos-identity/README.md#file-backed-security-state) (#334); uncomposed Server [candidate schema](server-turso-schema.md) (actor registry slice, #333), no production composition |
 | Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web live auth/account and isolated mock; development gallery |
 

@@ -7,8 +7,17 @@ use std::sync::Arc;
 pub const MAX_AUDIO_BYTES: u64 = 32 * 1024 * 1024;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Credentials {
-    OwnerBearer,
+    /// The Studio owner's HttpOnly cookie session: `credentials: include` and the session fence,
+    /// never an `Authorization` header.
+    OwnerSession,
+    /// No ambient credential. The producer capability Bearer, where a route takes one, is
+    /// attached explicitly from its own `UploadCredential`.
     Omit,
+}
+impl Credentials {
+    pub fn includes_cookie(self) -> bool {
+        self == Self::OwnerSession
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientError {
@@ -22,19 +31,23 @@ pub enum ClientError {
     Http { status: u16, error: ApiError },
 }
 impl ClientError {
-    /// Producer capability expiry says nothing about the Studio owner's Bearer session.
+    /// Producer capability expiry says nothing about the Studio owner's cookie session.
     pub fn owner_session_denial(&self, command: &Command) -> Option<&ApiError> {
         match self {
             Self::Http {
                 status: 401 | 409,
                 error,
-            } if command.credentials() == Credentials::OwnerBearer
+            } if command.credentials() == Credentials::OwnerSession
                 && error.code == ErrorCode::Unauthenticated =>
             {
                 Some(error)
             }
             _ => None,
         }
+    }
+    /// A 409 `unauthenticated` names a session fence the cookie no longer holds.
+    pub fn is_session_fence_mismatch(&self) -> bool {
+        matches!(self, Self::Http { status, error } if crate::session::is_fence_mismatch(*status, error))
     }
     pub fn http(status: u16, body: &[u8]) -> Self {
         match serde_json::from_slice(body) {
@@ -230,7 +243,7 @@ pub enum Command {
         work: String,
         request: SetWorkArtworkRequest,
     },
-    /// Owner-only Work delegation (ADR 0028), on the Studio owner Bearer session.
+    /// Owner-only Work delegation (ADR 0028), on the Studio owner cookie session.
     Delegations {
         work: String,
         after: Option<String>,
@@ -423,7 +436,17 @@ impl Command {
     pub fn credentials(&self) -> Credentials {
         match self {
             Self::ProducerStatus { .. } | Self::Upload { .. } => Credentials::Omit,
-            _ => Credentials::OwnerBearer,
+            _ => Credentials::OwnerSession,
+        }
+    }
+    /// The producer capability a route carries as `Authorization: Bearer`. It is the only
+    /// Authorization any Studio command sends, and never travels with the owner cookie.
+    pub fn producer_credential(&self) -> Option<&UploadCredential> {
+        match self {
+            Self::ProducerStatus { credential, .. } | Self::Upload { credential, .. } => {
+                Some(credential)
+            }
+            _ => None,
         }
     }
     pub fn json(&self) -> Result<Option<String>, ClientError> {

@@ -154,8 +154,11 @@ the channel and the app. Build, run, verify, preflight and ci never invoke it, a
 files only. [ADR 0041](docs/decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting
 with an explicit API origin and exact per-surface CORS; installed legacy proxies are transitional.
 The [#295 owner amendment](https://github.com/loveoverflowcom/cantos/issues/295) selects
-HttpOnly/Secure Web cookies on the custom domains; that migration and browser acceptance remain
-pending. Native keeps #253 Bearer. Exact-origin CORS, CSRF and separate surface authority remain required.
+HttpOnly/Secure Web cookies on the custom domains; both Web apps now consume the
+[Identity auth v1](packages/contracts/identity-auth-v1.md) cookie endpoints through
+[`packages/web-auth`](packages/web-auth/README.md) (email/password, no OIDC popup or Bearer fallback),
+while browser and real Server/Identity acceptance remain pending. Native keeps its opaque Bearer.
+Exact-origin CORS, CSRF and separate surface authority remain required.
 Use the [current production runbook](docs/deployment/vps-production.md), not old deployment records.
 An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
 

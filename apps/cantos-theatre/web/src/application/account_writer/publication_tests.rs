@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    application::{library_sync::*, registration::RegistrationState},
+    application::library_sync::*,
     core::{
         playback::{CallbackIdentity, Source},
         public_ids::PublicWorkId,
@@ -101,7 +101,8 @@ fn reader_facts(s: &AccountViewState) -> Vec<String> {
                 s.can_authenticate(),
                 s.can_retry_logout(),
                 s.can_persist_journal(),
-                s.can_login(RegistrationState::default())
+                s.can_login(),
+                s.login_refusal()
             )
         ),
     ];
@@ -404,7 +405,7 @@ fn finite_reader_oracle_covers_every_production_writer_method_and_duplicate() {
                         13 => run!(writer.begin_library(Section::Continue, true)),
                         14 => run!(writer.finish_page(&request, Ok(page(Section::Saved)), || id(501))),
                         15 => run!(writer.finish_page(&request, Err(AccountFailure::Unavailable), || id(501))),
-                        16 => run!(writer.navigation_failed(AccountFailure::PopupBlocked)),
+                        16 => run!(writer.finish_session(generation, Err(AccountFailure::LoginRefused(crate::application::account_view::LoginRefusal::Credentials)), || id(100))),
                         17 => run!(writer.restore_sync_journal(&fence, AccountSyncJournal::new("a", id(100)).unwrap())),
                         18 => run!(writer.record_journal_restore(&fence, Err(JournalStorageFault::Corrupt))),
                         19 => run!(writer.record_journal_restore(&fence, Ok(()))),

@@ -11,12 +11,22 @@ use cantos_contracts::listener_library::{
     ProgressRecord, Receipt, ResumeStatus, SavedRecord, WorkPresentation, WriteOutcome,
 };
 
+/// 429 is the API's Identity budget: bounded Retry-After, never a dense retry. The header is read
+/// only when the API exposes it to this origin; otherwise a conservative default applies.
+pub fn rate_limited(status: u16, retry_after: Option<&str>) -> Option<AccountFailure> {
+    (status == 429)
+        .then(|| AccountFailure::RateLimited(cantos_web_auth::core::retry_after(retry_after)))
+}
+
 pub fn check_response(
     status: u16,
     content_type: Option<&str>,
     response_session: Option<&str>,
     expected_session: &str,
 ) -> Result<(), AccountFailure> {
+    if let Some(limited) = rate_limited(status, None) {
+        return Err(limited);
+    }
     match status {
         401 => return Err(AccountFailure::SignedOut),
         403 => {
@@ -213,6 +223,10 @@ fn check_session_header(
 ) -> Result<(), CommandError> {
     if status == 401 || status == 403 {
         return Err(CommandError::SignedOut);
+    }
+    // Identity budget spent before dispatch: the outcome is unknown, never a permanent refusal.
+    if status == 429 {
+        return Err(CommandError::Unavailable);
     }
     if let Some(actual) = response_session {
         if actual != expected_session {
@@ -450,7 +464,12 @@ pub const HISTORY_CLEAR_PATH: &str = "/api/v1/theatre/library/history/clear";
 
 #[cfg(target_arch = "wasm32")]
 fn map_auth_to_command_error(error: cantos_web_auth::Failure) -> CommandError {
-    match super::account::auth_error(error) {
+    command_error_of(super::failure::auth_error(error))
+}
+
+/// Session admission failures keep their identity; everything else is an unknown outcome.
+pub fn command_error_of(failure: AccountFailure) -> CommandError {
+    match failure {
         AccountFailure::SignedOut => CommandError::SignedOut,
         AccountFailure::SessionChanged => CommandError::SessionChanged,
         AccountFailure::Protocol => CommandError::Protocol,
@@ -466,7 +485,7 @@ async fn send_authenticated(
     json_body: Option<String>,
 ) -> Result<(u16, Option<String>, Option<String>, Vec<u8>), CommandError> {
     use gloo_net::http::RequestBuilder;
-    use web_sys::{AbortController, RequestCredentials};
+    use web_sys::AbortController;
 
     let credential = crate::api_endpoint::auth()
         .map_err(map_auth_to_command_error)?
@@ -481,13 +500,10 @@ async fn send_authenticated(
         "POST" => gloo_net::http::Method::POST,
         _ => gloo_net::http::Method::GET,
     };
-    let mut builder = RequestBuilder::new(&url)
-        .method(http_method)
-        .credentials(RequestCredentials::Omit)
-        .redirect(web_sys::RequestRedirect::Error)
-        .header("Authorization", &credential.header())
+    // Cookie credential plus the session fence, from the one policy owner.
+    let mut builder = credential
+        .apply(RequestBuilder::new(&url).method(http_method))
         .header("Accept", "application/json")
-        .header("X-Cantos-Theatre-Session", expected_session)
         .abort_signal(Some(&deadline.controller.signal()));
     let response = if let Some(body) = json_body {
         builder = builder.header("Content-Type", "application/json");
@@ -621,7 +637,7 @@ pub async fn send_mutation(expected_session: &str, payload: &MutationPayload) ->
 #[cfg(target_arch = "wasm32")]
 pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailure> {
     use gloo_net::http::Request;
-    use web_sys::{AbortController, RequestCredentials};
+    use web_sys::AbortController;
     let expected_session = request.session();
     let credential = crate::api_endpoint::auth()
         .map_err(super::account::auth_error)?
@@ -632,23 +648,26 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
         .map_err(|_| AccountFailure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
     let deadline = super::browser::deadline(controller)
         .map_err(|_| AccountFailure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
-    let response = Request::get(
-        &crate::api_endpoint::endpoint(&request_path(request))
-            .map_err(|_| AccountFailure::Unavailable)?,
-    )
-    .credentials(RequestCredentials::Omit)
-    .redirect(web_sys::RequestRedirect::Error)
-    .header("Authorization", &credential.header())
-    .abort_signal(Some(&deadline.controller.signal()))
-    .header("Accept", "application/json")
-    .header("X-Cantos-Theatre-Session", expected_session)
-    .send()
-    .await
-    .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
+    let response = credential
+        .apply(Request::get(
+            &crate::api_endpoint::endpoint(&request_path(request))
+                .map_err(|_| AccountFailure::Unavailable)?,
+        ))
+        .abort_signal(Some(&deadline.controller.signal()))
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
     credential
         .response(response.status())
         .map_err(super::account::auth_error)?;
     let body_status = response.status();
+    if let Some(limited) = rate_limited(
+        body_status,
+        response.headers().get("retry-after").as_deref(),
+    ) {
+        return Err(limited);
+    }
     // Even error pages must echo this exact session before their body can affect this account.
     if body_status == 400 {
         check_response(

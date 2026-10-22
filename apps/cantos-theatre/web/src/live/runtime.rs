@@ -963,39 +963,25 @@ pub fn logout(state: RwSignal<AccountViewState>) {
     leptos::task::spawn_local(cleanup(state, issued, intent, 1));
 }
 
-pub fn login(
-    state: RwSignal<AccountViewState>,
-    configuration: crate::application::registration::RegistrationState,
-) {
-    if !state.with_untracked(|s| s.can_login(configuration)) {
+/// One typed sign-in intent for the account owner. The password is moved into the request and
+/// dropped with it: it is never stored in state, a log, an error notice or browser storage.
+pub fn login(state: RwSignal<AccountViewState>, email: String, password: String) {
+    if !state.with_untracked(AccountViewState::can_login) {
         return;
     }
-    let login = match super::account::reserve_login() {
-        Ok(login) => login,
-        Err(error) => {
-            AccountWriter::new(state).navigation_failed(error);
-            return;
-        }
-    };
     let Some(Ok(issued)) = AccountWriter::new(state).begin_refresh().into_value() else {
         return;
     };
     leptos::task::spawn_local(async move {
-        let result = match login.run().await {
-            Ok(()) => super::account::session().await,
-            Err(cantos_web_auth::Failure::Cancelled | cantos_web_auth::Failure::Changed) => {
-                Err(AccountFailure::SignedOut)
-            }
-            Err(error) => Err(super::account::auth_error(error)),
-        };
+        let result = super::account::login(email, password).await;
         finish_lookup(state, issued, result, 1).await;
     });
 }
 
+/// A late sign-in answer of a cancelled attempt is revoked by the session owner, never adopted.
 pub fn cancel_login() {
     if let Ok(client) = crate::api_endpoint::auth() {
         if client.cancel_authorization().is_ok() {
-            let _ = client.invalidate();
             leptos::task::spawn_local(async move {
                 let _ = client.settled_cleanup().await;
             });

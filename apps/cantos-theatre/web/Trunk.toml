@@ -5,9 +5,8 @@ target = "index.html"
 addresses = ["127.0.0.1"]
 port = 8082
 
-# Same-origin development transport reaches only the real API; no mock fallback.
-# The OIDC login and callback routes answer with a 303 to the issuer. The browser must follow it
-# itself; a proxy that follows server-side hides the redirect and fails on the issuer's TLS.
+# Same-origin development transport reaches only the real API; no mock fallback. Identity v1
+# answers JSON and sets its own host-only HttpOnly cookie; the proxy never follows redirects.
 [[proxy]]
 backend = "http://127.0.0.1:8080/api/"
 rewrite = "/api/"

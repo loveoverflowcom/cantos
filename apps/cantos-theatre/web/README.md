@@ -14,14 +14,16 @@ A static release bundle of this app can be published to Firebase Hosting with th
 `cargo xtask deploy firebase cantos-theatre --web --project ID --channel NAME`
 ([runbook](../../../docs/deployment/firebase-hosting.md)). Hosting serves static files; clients call
 the explicit Cantos API origin. Catalog and authentication require separate API deployment and
-gateway/issuer/browser acceptance; [#295](https://github.com/loveoverflowcom/cantos/issues/295)
-selects Web cookies on the custom domains with migration pending. Current source still uses
-Bearer; static delivery establishes no playback.
+browser acceptance; [#295](https://github.com/loveoverflowcom/cantos/issues/295) selects API-issued
+HttpOnly cookies on the custom domains, and this source now consumes the
+[Identity v1 contract](../../../packages/contracts/identity-auth-v1.md) that way (no Bearer/OIDC
+fallback). That consumer has run against no backend or browser yet; static delivery establishes
+no playback.
 The preferred shorter site `cantos.web.app` is conditional on verified allocation; the technical
 module stays `cantos-theatre`. Its [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
 follows ADR 0041 direct Hosting/API addressing and exact-origin review. Cross-site authentication
-needs its own declared preview policy and gateway/issuer/browser acceptance; it does not
-inherit #295 production custom-domain cookie qualification.
+needs its own declared preview policy and browser acceptance; it does not inherit #295
+production custom-domain cookie qualification.
 
 The [performance pattern audit](../../../docs/evidence/web-performance-patterns.md) measures
 release assets with `cargo xtask web-performance cantos-theatre` and narrows mock-player/library
@@ -80,11 +82,11 @@ Login and Create account are explicit secondary routes. The two primary destinat
 The Auth–Account v2 reference's third primary Account destination is intentionally not adopted,
 as required by [#129](https://github.com/loveoverflowcom/cantos/issues/129).
 
-The live Account/Login surface reads both capabilities from `/auth/configuration`. Login requires
-an explicitly configured OIDC capability and an acknowledged session-cleanup barrier before
-reserving the trusted-click popup. Registration availability is independent; configuration
-transport/protocol failures expose a retry rather than claiming the service is unsupported.
-Bearer credentials remain document-RAM only under [the shared owner](../../../packages/web-auth/README.md).
+The live Account/Login surface offers email/password sign-in to every guest behind an
+acknowledged session-cleanup barrier; there is no provider capability to read first, so an API
+without Identity answers the attempt with a clear `404`-based message instead of a gate. The
+browser keeps the API-issued HttpOnly cookie; this app only holds nonsecret session facts
+(actor, session id, deadlines) in RAM under [the shared owner](../../../packages/web-auth/README.md).
 
 The live **Của tôi** reads Continue, Saved and History with `presentation=1`, limit20 and independent
 opaque cursors. It renders released Work/unit titles and canonical UUID Work links directly from
@@ -126,7 +128,7 @@ starts/clear and paused exact-release resume against `/api/v1/theatre`:
   untouched.
 - **Account-scoped recovery journal (`localStorage`).** Pending mutations and the per-account
   `device_id` / `next_device_sequence` counter are stored under `cantos.theatre.sync.v1.<actor_id>`.
-  The journal never stores Bearer tokens, session cookies or signed media URLs. After an
+  The journal never stores credentials, the (unreadable) session cookie or signed media URLs. After an
   unknown outcome (`503`/timeout/reload), recovery queries `GET /operations/{operation_id}`
   first, reuses the exact immutable `OperationEnvelope` if `404 NotFound`, and triggers a
   point/section reread after a recovered receipt. Sign-out or account switch clears in-memory
@@ -139,12 +141,11 @@ starts/clear and paused exact-release resume against `/api/v1/theatre`:
   `work_id / unit_id / publication_id / rendition_id / duration_ms / sha256` equality, and
   restores `PlayerSession` in `Paused(ColdRestore)` at the saved position without auto-playing.
 
-Native tests consume the shared presentation goldens. The existing explicit
-`cargo xtask verify web-bearer` lane also exercises these production Web modules with a loopback
-mock API/issuer and synthetic paged Library records; when executed, its captures are local evidence,
-not real Kanidm/PostgreSQL/signup or production acceptance. The separate
-[enrollment lane and remaining Web fixture](../../../docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
-retain their existing platform/tool requirements.
+Native tests consume the shared presentation goldens. No browser fixture drives the cookie
+sign-in, renewal, signup completion or account-switch journeys yet: they are covered only by host
+tests of the pure state machines, status projections and render compositions (see
+[Verification boundary](#identity-v1-cookie-session)). Browser, backend and end-to-end acceptance
+are `NOT_RUN`.
 
 The discovery/player/library preview below remains isolated at `?mode=mock`. Its sample
 state is never imported into the authenticated account, and its controls never call live APIs.
@@ -225,10 +226,13 @@ declarations do not establish browser or native acceptance.
 | `src/application/account.rs`, `account_view.rs` | Deterministic session generation with shell-injected device IDs, fail-closed exhaustion, logout acknowledgement, private read projection and fenced sync state lifecycle |
 | `src/application/account_writer.rs` | Host-compilable Leptos writer for typed account/sync capabilities; journal snapshot and persist-before-dispatch orchestration, without browser imports |
 | `src/application/library.rs`, `library_sync.rs` | Pure presented Library projection, epoch-checked history paging, Save/progress/history write outbox, receipt reconciliation, account-scoped recovery journal and exact-release resume admission |
-| `src/application/auth_navigation.rs` | Closed internal auth return destinations and checked request epochs; routes never establish a session or registration receipt |
+| `src/application/auth_navigation.rs` | Closed internal auth return destinations (Login/Register) and checked request epochs; routes never establish a session |
+| `src/application/signup.rs` | RAM-only mailbox-proof link (`ProofLink`, strict `#operation&proof&secret` parser, scrub predicate), chosen password, explicit confirmation, immutable retained request snapshot, same-request retry with Retry-After hold and epoch-fenced results; redacted `Debug` |
 | `src/application/public_discovery.rs` | Pure Work-list walk: normalized `DiscoveryQuery` (q/kind/language), ticket-fenced requests, opaque cursor bound to its query, bounded follow-up of empty pages, same-cursor retry, `invalid_cursor` → fresh walk (never merged), one-time row identity |
 | `src/application/public_work.rs` | Pure live Work detail and unit-walk state machine: route generation and page-request fencing, empty-continuation follow-up budget, same-cursor page retry, `invalid_cursor` restart with `unit_id` de-duplication, terminal empty list |
-| `src/live/account.rs`, `library.rs`, `runtime.rs` | Same-origin Theatre BFF/Bearer transport, bounded actual Library reads, point reads, idempotent mutations, receipt lookup recovery and mounted browser lifecycle; no mock fallback |
+| `src/live/account.rs`, `library.rs`, `runtime.rs` | Cookie-session account lookup/sign-in/logout and Library transport (`Lease::apply`: `credentials: include` plus the session fence), bounded actual Library reads, point reads, idempotent mutations, receipt lookup recovery and mounted browser lifecycle; no mock fallback |
+| `src/live/failure.rs`, `transport.rs` | Pure projection of the shared owner's failures onto account failures (401 signed out, 409 session change, 429 bounded wait, 503 unknown, 404 clear fault) and the per-request-class credential policy with source-level regression guards |
+| `src/live/signup.rs`, `src/platform/signup_browser.rs` | Anonymous `POST identity/signup` and `identity/signup/complete` (`credentials: omit`), strict bounded decoders, and the synchronous capture/scrub of the mailed fragment with its popstate/hashchange guard |
 | `src/live/discovery.rs` | Anonymous `GET /works?[q&kind&language&]limit&presentation=1[&cursor]` (encoded; cursor only form-encoded), `PresentedWorkPage` decoding and exact `ListenerError` classification; an empty page with a cursor is valid |
 | `src/live/public_work.rs` | Anonymous `GET /works/{id}?presentation=1` and `/works/{id}/units?…&presentation=1` reads; `PresentedWork*`/`PresentedUnit*` decoding, route identity, unit kind and exact `ListenerError` classification |
 | `src/core/public_track.rs` | Pure pinned identity of one public release (`PublicTrack`: Work/unit/publication/rendition IDs, manifest digest, SHA-256) admitted only from a manifest that names the requested release, plus strict grant admission (`AdmittedGrant`) and the redacted `MediaUrl` capability |
@@ -370,11 +374,9 @@ when the dependency is absent or invalid. Its final readiness message always mea
 **frontend-only**, even if that advisory probe succeeded. Open the URL with the desired
 explicit preview query to work without an API; live mode never switches itself to fixtures.
 
-The API needs an operator-supplied migrated local app-role `DATABASE_URL` (or its documented
-retained disposable test-cluster option). Theatre OIDC remains opt-in through the existing
-`CANTOS_THEATRE_OIDC_ISSUER` and separate `CANTOS_THEATRE_OIDC_SECRET`; approved client/callback,
-scope, credentials and TLS/provider acceptance are operator prerequisites, never provisioned by
-these commands. The current development host has one `CANTOS_WEB_ORIGIN`, so this recipe is a
+The API needs its operator-supplied storage and, for sign-in, the private Identity process and the
+exact Web origin of the [Identity v1 contract](../../../packages/contracts/identity-auth-v1.md);
+accounts, credentials and TLS are operator prerequisites, never provisioned by these commands. The current development host has one `CANTOS_WEB_ORIGIN`, so this recipe is a
 Theatre-origin profile. An explicit `--web-origin` on the full-stack Theatre command must be
 exactly `http://127.0.0.1:8082`; Studio similarly requires its actual `http://127.0.0.1:8081`.
 `localhost` is a different host identity and is rejected for those profiles. Standalone API
@@ -382,7 +384,7 @@ origin selection remains configurable within its loopback contract. Simultaneous
 on 8081 and Theatre on 8082 authentication is unverified. Identity failure does not hide a
 working anonymous catalog, create an account or substitute mock data.
 
-Smoke the public route at both origins without cookies or bearer credentials:
+Smoke the public route at both origins anonymously:
 
 ```sh
 curl -i -H 'Accept: application/json' 'http://127.0.0.1:8080/api/v1/theatre/works?limit=20'
@@ -396,11 +398,11 @@ To see actual works, an operator-approved published Work must already exist; sta
 manufacture one or make delivery available.
 
 If startup fails, inspect the named process and readiness route. Check that the operator's
-database is reachable, migrated and readable by the app role; repair issuer configuration only
-when identity is explicitly enabled. A port collision is actionable: stop only a process you
+database is reachable, migrated and readable by the app role; repair Identity configuration only
+when sign-in is explicitly enabled. A port collision is actionable: stop only a process you
 own, or use `app` to reuse an appropriate API. The API's 60-second and Trunk's 15-minute readiness
 budgets are bounded. Ctrl-C stops only groups started by this invocation. The commands never
-start Podman, Kanidm or S3, create credentials, or print `DATABASE_URL`/password values. Keep
+start Podman or S3, create credentials, or print `DATABASE_URL`/password values. Keep
 secret-bearing environment/configuration and retained local evidence outside Git; share only
 redacted diagnostics.
 
@@ -480,7 +482,7 @@ The shipped-bundle commands cannot take a feature from the ambient environment: 
 removes `TRUNK_BUILD_FEATURES`, `TRUNK_BUILD_ALL_FEATURES` and `TRUNK_BUILD_NO_DEFAULT_FEATURES`
 from the Trunk child (its plan shows `env -u …`), while `web-performance` and `release-build`
 refuse any inherited `TRUNK_*` override, so an ambient setting cannot ship a preview. Unknown mode values remain live; a network refusal never selects a preview. Full-stack startup verifies only the
-bounded discovery path, while browser interaction, real issuer, playback delivery and native
+bounded discovery path, while browser interaction, live Identity, playback delivery and native
 acceptance retain the owners in [#179](https://github.com/loveoverflowcom/cantos/issues/179),
 [#180](https://github.com/loveoverflowcom/cantos/issues/180),
 [#13](https://github.com/loveoverflowcom/cantos/issues/13) and
@@ -538,36 +540,69 @@ in the public list, never an identity or an author-assigned chapter number. No c
 loaded-page-length total is shown. Listening is described under [Live guest playback](#live-guest-playback);
 opening a Work plays nothing. Back returns to the opening card's focus and the search it came from.
 
-The account owner admits only the RAM credential through
-`GET /api/v1/theatre/auth/bearer/session`. Explicit Login reserves a popup before network work,
-begins the JSON Bearer flow, carries TTL/consume-once PKCE protocol state through issuer page
-navigation and exchanges its handoff only in the original opener. The callback query is scrubbed
-before product effects; exact message origin, WindowProxy and flow/intent are checked. Provider
-tokens never reach JavaScript. Access/refresh tokens never enter persistent storage or URLs.
+### Identity v1 cookie session
 
-Refresh is single-flight, rotating and bounded by original server authority. Unknown outcomes
-revoke the original family or cancel the exact flow; no spent token/code is replayed. Explicit
-logout clears local admission before the server call. Cleanup and late results cannot bind A to
-B. Reload/new tab requires controlled authorization/SSO or login; guests never auto-loop. The
-mounted shell keeps canonical return/focus context, including entry from Library; a callback or
-cached route is never session evidence. See the [shared Web owner](../../../packages/web-auth/README.md).
+The account owner trusts only the API's answer. Startup, reload, window focus and a once-a-minute
+visible timer call `GET /api/v1/theatre/identity/session` with `credentials: include`: a `200`
+admits the session, only a `401` means guest, and an empty page state never decides signed-out.
+The HttpOnly cookie is never read, stored or forwarded by script; the browser attaches `Origin`
+itself and this app never forges it. Every protected request goes through `Lease::apply`
+(ambient cookie, redirects refused, `x-cantos-theatre-session` fence); public catalog, publication
+and media requests and the two signup routes stay anonymous (`credentials: omit`), and no cookie is
+ever attached to a media URL or any URL outside the API's Theatre surface.
 
-[ADR 0034](../../../docs/decisions/0034-theatre-signup-and-provisioned-studio.md) accepts
-listener self-registration and provisioned-only Studio administrators. Web independently reads
-`GET /api/v1/theatre/auth/configuration` on mount. Registration distinguishes loading,
-`identity_unconfigured`, `provider_unsupported`, transport failure and invalid response; failed
-checks expose a bounded, duplicate-fenced retry. The strict contract currently has no supported
-registration variant: pinned Kanidm 1.10.5 has no verified public enrollment operation. This is
-an issuer capability blocker, not an undecided product policy. Cantos collects no password and
-shows no account success from a route or capability read. Auth preview explicitly fixtures
-`provider_unsupported` without network access. Membership form/receipt/plans remain with #128.
+| Request | Transport |
+| --- | --- |
+| `GET identity/session`, `POST identity/session/renew`, `POST identity/login`, `DELETE identity/session` | shared owner (`cantos-web-auth`), `credentials: include`, fence on renew/logout |
+| Library `GET`, Saved/progress `GET/PUT`, history `POST`, `GET operations/{id}` | `Lease::apply` (cookie + fence), JSON, bounded bodies, session echo checked before any private projection |
+| `POST identity/signup`, `POST identity/signup/complete` | `credentials: omit`, JSON, bounded response, no fence |
+| `GET works…`, `publications…`, media authorization | anonymous (`credentials: omit`) |
+
+**Sign-in.** The Login page is an email and password form (`username` / `current-password`
+autocomplete). Enter submits except during an IME composition. The password signal is cleared the
+moment the typed intent is built; the value moves into the single request and is never stored,
+logged, placed in an error notice or persisted. A `401` returns to the form with one generic message
+that names no factor; `400` names only the format; `403`/`404` show clear configuration faults; a
+`429` shows a bounded wait (the shared owner also refuses to send before `Retry-After` passes); a
+`503` or lost response is an unknown effect, never "signed out". The reply is confirmed by an
+authoritative read, so a browser that did not retain the cookie reports a fault.
+
+**Renewal and expiry.** A due idle deadline (≤90 s left) triggers one shared `POST …/session/renew`
+from the same lookup that runs every minute; the absolute deadline cannot be extended. Local clocks
+only decide *when to ask*: a passed deadline re-reads the session instead of concluding anything.
+**Another tab.** A `409` (or a stamped session id that differs from the one verified) means another
+tab changed the account: the session is re-read and every account/session fence applies before any
+data from the old account can appear. **Logout** closes the local intent first; the API `DELETE`
+retries until acknowledged and a delayed response never revives or re-labels a session.
+
+**Signup.** `POST identity/signup {email}` always shows the same accepted notice. The mail opens
+`<web>#operation=<32 hex>&proof=<32 hex>&secret=<64 hex>`; the page captures it once before any
+other effect, scrubs it from the address bar and history (an unreadable link is scrubbed too) and
+holds it only in RAM. Opening, prefetching or reloading the link sends nothing. The owner chooses a
+password (8–128 characters, hint only; the server decides), repeats it, ticks the explicit
+confirmation and presses **Tạo tài khoản**: only then `POST identity/signup/complete` with
+`explicit_confirmation: true`. `200` (`completed` or `replayed`) moves to Login with a RAM-only
+notice and **no session**. A `503`, `429` or lost response keeps the exact request snapshot and
+offers only "send the same request again" (no new operation, password locked, Retry-After
+respected); `401` (spent/expired link) and `403`/`404` end the attempt, `400` allows a new
+explicit password with the intact proof. Leaving the page drops everything, which cannot undo an
+account the API may already have created.
+
+**Verification boundary.** Host tests cover the proof parser and scrub predicate, explicit
+confirmation, same-request retry and fencing, the status projection, the per-class credential
+policy (including source guards against a Bearer header or a cookie on the anonymous adapters) and
+render compositions in both locales. No browser, backend or end-to-end run exists (`NOT_RUN`):
+cookie retention across the real origins, renewal timing, two-tab account switches, IME entry and
+the mail-link journey are unverified. The removed OIDC popup, PKCE callback, `ca1_`/`cr1_` handling,
+registration capability read and Firebase/idm setup flow have no fallback.
+
 The account view uses Vietnamese/English resources and distinguishes pending, guest, authenticated,
 unavailable/protocol failure and unacknowledged logout. An expired session hides private data
 immediately and requires acknowledged session revocation before another login. Cleanup is stale-only;
 explicit logout pins the observed session. A rotated token or a different account is never invalidated by a delayed old denial or cleanup.
 
 The authenticated session reads the first 20 Continue, Saved and History items through their actual
-Library endpoints, using JSON and scoped Bearer with cookies omitted. The UI shows accepted progress positions
+Library endpoints, using JSON, the cookie session and the session fence. The UI shows accepted progress positions
 and bounded page information; the Account profile uses a truthful signed-in fallback without
 exposing an actor UUID as a name, inventing totals or asserting Membership status. No Library
 mutation, pagination UI, real playback, history-start event, automatic
@@ -588,12 +623,13 @@ to either listener mode. The live account projection is not live Theatre playbac
 Build with nonsecret `CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org` through the existing
 `cargo xtask build|app|deploy` command. Unset retains the local Trunk proxy. All live HTTP,
 XHR/private reads and login navigation resolve within this app's own API group; invalid origins
-fail closed. The client never takes an identity-provider URL or provider token as configuration.
-All requests omit cookies. Protected effects use scoped Bearer and existing session fences;
-anonymous discovery and enrollment keep their separate contracts. The server needs matching exact
-Web-origin/CORS and Bearer callbacks. [ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md)
-removes the cookie/same-site prerequisite. Gateway, callback reconciliation and real issuer/
-cross-site browser acceptance remain separate from mocked client journeys. The
+fail closed. The client never takes an identity-provider URL or token as configuration.
+Protected requests send the API-issued HttpOnly cookie (`credentials: include`) and the session
+fence; anonymous discovery and signup send no cookie. The server needs the exact Web origin with
+credentialed CORS and the cookie's host-only `Path=/api/v1/theatre`
+([#295](https://github.com/loveoverflowcom/cantos/issues/295); the cookie is `SameSite=Strict`, so
+the Web and API origins must be same-site). Cross-site browser acceptance remains separate from
+host tests. The
 [current production runbook](../../../docs/deployment/vps-production.md) owns destinations;
 a successful local build is not deployed-user acceptance.
 

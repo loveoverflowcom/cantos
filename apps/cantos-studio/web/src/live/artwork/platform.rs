@@ -1,4 +1,6 @@
 //! Browser I/O only: original file bytes, transient object URLs, fenced private reads and XHR progress.
+//! Every owner request here carries the HttpOnly cookie session and the session fence, and only
+//! ever to this surface of the API origin (`credentialed_url`).
 use super::*;
 use crate::{
     live::{ClientError, Command, Reply},
@@ -8,6 +10,24 @@ use leptos::prelude::*;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{AbortController, Event, ProgressEvent, XmlHttpRequest};
+
+/// The one gate for sending the ambient cookie from this module: the configured API origin's
+/// Studio surface, never an arbitrary or foreign URL.
+fn credentialed_url(path: &str) -> Result<String, ClientError> {
+    let path = crate::api_endpoint::endpoint(path).map_err(|_| ClientError::InvalidInput)?;
+    let origin = web_sys::window()
+        .ok_or(ClientError::Transport)?
+        .location()
+        .origin()
+        .map_err(|_| ClientError::Transport)?;
+    cantos_web_auth::core::credentialed_target(
+        &path,
+        &origin,
+        crate::api_endpoint::api_origin(),
+        cantos_web_auth::Surface::Studio,
+    )
+    .map_err(|_| ClientError::InvalidInput)
+}
 
 pub fn selected(event: Event) -> Option<web_sys::File> {
     event
@@ -135,30 +155,23 @@ pub async fn upload(
         .access(Some(&fence.header()))
         .await
         .map_err(crate::live::browser::auth_error)?;
-    let path =
-        crate::api_endpoint::endpoint(&command.path()?).map_err(|_| ClientError::InvalidInput)?;
-    let origin = web_sys::window()
-        .ok_or(ClientError::Transport)?
-        .location()
-        .origin()
-        .map_err(|_| ClientError::Transport)?;
-    if cantos_web_auth::core::upload_transport(&path, &origin)
-        .map_err(crate::live::browser::auth_error)?
-        == cantos_web_auth::core::UploadTransport::FetchOmit
-    {
+    let target = credentialed_url(&command.path()?)?;
+    let Ok(xhr) = XmlHttpRequest::new() else {
+        // XHR unavailable: the fetch fallback has the same credential policy, minus progress.
         return upload_fetch(command, controller, fence, credential, progress).await;
-    }
-    let xhr = XmlHttpRequest::new().map_err(|_| ClientError::Transport)?;
-    xhr.open_with_async("PUT", &path, true)
+    };
+    xhr.open_with_async("PUT", &target, true)
         .map_err(|_| ClientError::Transport)?;
     xhr.set_timeout(60_000);
-    xhr.set_with_credentials(false);
+    // Ambient cookie for the API origin only: `target` was validated above. The browser adds
+    // Origin itself; the session id is a nonsecret fence, never a credential.
+    xhr.set_with_credentials(true);
     xhr.set_response_type(web_sys::XmlHttpRequestResponseType::Arraybuffer);
+    let (fence_name, fence_value) = credential.fence();
     for (name, value) in [
         ("Accept", "application/json"),
-        ("Authorization", &credential.header()),
         ("Content-Type", mime_name(intent.request.content_type)),
-        (crate::api::SESSION_HEADER, &fence.header()),
+        (fence_name, fence_value),
     ] {
         xhr.set_request_header(name, value)
             .map_err(|_| ClientError::Transport)?;
@@ -228,7 +241,7 @@ pub async fn upload(
     if success != JsValue::TRUE {
         return Err(ClientError::Transport);
     }
-    if guard.xhr.response_url() != path {
+    if guard.xhr.response_url() != target {
         return Err(ClientError::ReplyMismatch);
     }
     let status = guard.xhr.status().map_err(|_| ClientError::Transport)?;
@@ -261,14 +274,33 @@ pub async fn upload(
         return Err(ClientError::Protocol { status });
     }
     let response = guard.xhr.response().map_err(|_| ClientError::Transport)?;
+    let result = command.decode(status, &js_sys::Uint8Array::new(&response).to_vec());
+    settle(&credential, result)
+}
+
+/// A 409 `unauthenticated` is a session-fence mismatch (another tab changed account): drop the
+/// local session so nothing else is dispatched on it. Otherwise the lease must still be current.
+fn settle(
+    credential: &cantos_web_auth::browser::Lease,
+    result: Result<Reply, ClientError>,
+) -> Result<Reply, ClientError> {
+    if result
+        .as_ref()
+        .err()
+        .is_some_and(ClientError::is_session_fence_mismatch)
+    {
+        let _ = credential.fence_mismatch();
+        return result;
+    }
     credential
         .check()
         .map_err(crate::live::browser::auth_error)?;
-    command.decode(status, &js_sys::Uint8Array::new(&response).to_vec())
+    result
 }
 
-/// Same-origin XHR always includes ambient cookies. Fetch is the cookie-free fallback;
-/// it reports no invented upload percentage, and only acknowledges verified response bytes.
+/// Fetch fallback with the same credential policy as the XHR path (`Lease::apply`: cookie,
+/// session fence, no redirects). It reports no invented upload percentage and only acknowledges
+/// verified response bytes.
 async fn upload_fetch(
     command: &Command,
     controller: AbortController,
@@ -279,22 +311,20 @@ async fn upload_fetch(
     let Command::UploadImage { intent, bytes, .. } = command else {
         return Err(ClientError::InvalidInput);
     };
+    let target = credentialed_url(&command.path()?)?;
     let _deadline = crate::live::browser::Deadline::new(controller.clone())?;
-    let response = gloo_net::http::Request::put(
-        &crate::api_endpoint::endpoint(&command.path()?).map_err(|_| ClientError::InvalidInput)?,
-    )
-    .credentials(web_sys::RequestCredentials::Omit)
-    .redirect(web_sys::RequestRedirect::Error)
-    .header("Authorization", &credential.header())
-    .header(crate::api::SESSION_HEADER, &fence.header())
-    .header("Accept", "application/json")
-    .header("Content-Type", mime_name(intent.request.content_type))
-    .abort_signal(Some(&controller.signal()))
-    .body(js_sys::Uint8Array::from(bytes.as_slice()))
-    .map_err(|_| ClientError::Transport)?
-    .send()
-    .await
-    .map_err(|_| ClientError::Transport)?;
+    let response = credential
+        .apply(
+            gloo_net::http::Request::put(&target)
+                .header("Accept", "application/json")
+                .header("Content-Type", mime_name(intent.request.content_type))
+                .abort_signal(Some(&controller.signal())),
+        )
+        .body(js_sys::Uint8Array::from(bytes.as_slice()))
+        .map_err(|_| ClientError::Transport)?
+        .send()
+        .await
+        .map_err(|_| ClientError::Transport)?;
     credential
         .response(response.status())
         .map_err(crate::live::browser::auth_error)?;
@@ -320,10 +350,7 @@ async fn upload_fetch(
         .binary()
         .await
         .map_err(|_| ClientError::Transport)?;
-    credential
-        .check()
-        .map_err(crate::live::browser::auth_error)?;
-    let result = command.decode(status, &body);
+    let result = settle(&credential, command.decode(status, &body));
     if result.is_ok() {
         if let Some(progress) = progress {
             progress.run(Transfer {
@@ -354,20 +381,17 @@ pub async fn preview(
         .await
         .map_err(crate::live::browser::auth_error)?;
     let _deadline = crate::live::browser::Deadline::new(controller.clone())?;
-    let base = crate::api_endpoint::endpoint(&format!(
+    let base = credentialed_url(&format!(
         "{}/works/{work}/image-assets/{}",
         routes::STUDIO_BASE,
         selection.image_asset_id
-    ))
-    .map_err(|_| ClientError::InvalidInput)?;
+    ))?;
     let get = |url: &str, accept: &str| {
-        Request::get(url)
-            .credentials(web_sys::RequestCredentials::Omit)
-            .redirect(web_sys::RequestRedirect::Error)
-            .header("Authorization", &credential.header())
-            .header(crate::api::SESSION_HEADER, &fence.header())
-            .header("Accept", accept)
-            .abort_signal(Some(&controller.signal()))
+        credential.apply(
+            Request::get(url)
+                .header("Accept", accept)
+                .abort_signal(Some(&controller.signal())),
+        )
     };
     let response = get(&base, "application/json")
         .send()
@@ -388,13 +412,17 @@ pub async fn preview(
         return Err(ClientError::SessionChanged);
     }
     if !response.ok() {
-        return Err(ClientError::http(
+        let error = ClientError::http(
             status,
             &response
                 .binary()
                 .await
                 .map_err(|_| ClientError::Transport)?,
-        ));
+        );
+        if error.is_session_fence_mismatch() {
+            let _ = credential.fence_mismatch();
+        }
+        return Err(error);
     }
     if status != 200
         || !response.headers().get("content-type").is_some_and(|v| {
@@ -440,13 +468,17 @@ pub async fn preview(
         return Err(ClientError::SessionChanged);
     }
     if !response.ok() {
-        return Err(ClientError::http(
+        let error = ClientError::http(
             status,
             &response
                 .binary()
                 .await
                 .map_err(|_| ClientError::Transport)?,
-        ));
+        );
+        if error.is_session_fence_mismatch() {
+            let _ = credential.fence_mismatch();
+        }
+        return Err(error);
     }
     if status != 200 {
         return Err(ClientError::Protocol { status });

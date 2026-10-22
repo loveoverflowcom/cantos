@@ -36,6 +36,11 @@
       "reason": "Existing Studio entry typed resource owner."
     },
     {
+      "path": "apps/cantos-studio/web/src/messages/signin.rs",
+      "mode": "bilingual",
+      "reason": "Studio email/password sign-in typed resource owner; replaces the removed popup copy."
+    },
+    {
       "path": "apps/cantos-studio/web/src/messages/forge.rs",
       "mode": "bilingual",
       "reason": "Existing Studio Forge mock typed resource owner; no feature-local replacement."

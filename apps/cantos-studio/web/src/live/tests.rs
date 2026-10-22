@@ -49,7 +49,7 @@ fn only_owner_authentication_denials_invalidate_not_producer_or_permission_denia
     let (sending, ticket) = state.begin(producer).unwrap();
     let unknown = sending.finish(ticket, Err(ClientError::Transport));
     let (reconciling, ticket, owner_read) = unknown.begin_reconcile().unwrap();
-    assert_eq!(owner_read.credentials(), Credentials::OwnerBearer);
+    assert_eq!(owner_read.credentials(), Credentials::OwnerSession);
     assert_eq!(
         denied.owner_session_denial(&owner_read).unwrap().code,
         ErrorCode::Unauthenticated
@@ -172,7 +172,7 @@ fn upload_is_bounded_credential_separated_and_uses_only_derived_paths() {
     );
     assert_eq!(
         Command::Work { id: ID.into() }.credentials(),
-        Credentials::OwnerBearer
+        Credentials::OwnerSession
     );
 }
 #[test]
@@ -409,7 +409,7 @@ fn unknown_upload_is_reconciled_by_exact_owner_receipt_after_bearer_revocation()
     let unknown = pending.finish(ticket, Err(ClientError::Transport));
     assert!(unknown.can_reconcile());
     let (checking, ticket, read) = unknown.begin_reconcile().unwrap();
-    assert_eq!(read.credentials(), Credentials::OwnerBearer);
+    assert_eq!(read.credentials(), Credentials::OwnerSession);
     assert_eq!(read.method(), "GET");
     let reconciled = checking.finish(ticket, Ok(Reply::Submission(Box::new(status.clone()))));
     assert_eq!(reconciled.phase(), Phase::Ready);
@@ -677,4 +677,84 @@ fn submission_reads_reject_internally_misbound_renditions() {
             Err(ClientError::ReplyMismatch)
         );
     }
+}
+
+#[test]
+fn transport_policy_owner_requests_use_the_cookie_session_and_only_producer_routes_carry_a_bearer()
+{
+    let rendition: AudioRenditionDocument = serde_json::from_slice(include_bytes!(
+        "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/rendition-response.json"
+    ))
+    .unwrap();
+    let token = UploadCredential::new("b".repeat(64)).unwrap();
+    let producer = [
+        Command::ProducerStatus {
+            submission: ID.into(),
+            credential: token.clone(),
+        },
+        Command::Upload {
+            binding: rendition.binding,
+            sha256: rendition.verified_media.sha256,
+            submission: rendition.submission_id,
+            credential: token,
+            bytes: std::sync::Arc::new(vec![0]),
+        },
+    ];
+    let owner = [
+        Command::Works { cursor: None },
+        Command::Work { id: ID.into() },
+        Command::Units {
+            work: ID.into(),
+            cursor: None,
+        },
+        Command::ContentHead { unit: ID.into() },
+        Command::Artwork { work: ID.into() },
+        Command::Delegations {
+            work: ID.into(),
+            after: None,
+        },
+        Command::Revoke {
+            unit: ID.into(),
+            submission: ID.into(),
+        },
+        Command::RevokeDelegation {
+            work: ID.into(),
+            grant: ID.into(),
+        },
+    ];
+    for command in &owner {
+        // credentials: include + the session fence; never an Authorization header.
+        assert_eq!(command.credentials(), Credentials::OwnerSession);
+        assert!(command.credentials().includes_cookie());
+        assert!(command.producer_credential().is_none());
+    }
+    for command in &producer {
+        // credentials: omit; the producer capability is its own Bearer and never meets the cookie.
+        assert_eq!(command.credentials(), Credentials::Omit);
+        assert!(!command.credentials().includes_cookie());
+        assert!(command.producer_credential().is_some());
+    }
+}
+
+#[test]
+fn a_session_fence_mismatch_is_recognized_only_on_a_409_unauthenticated_reply() {
+    let body = |code| {
+        serde_json::to_vec(&ApiError {
+            code,
+            current_revision: None,
+            issues: vec![],
+        })
+        .unwrap()
+    };
+    assert!(ClientError::http(409, &body(ErrorCode::Unauthenticated)).is_session_fence_mismatch());
+    for (status, code) in [
+        (401, ErrorCode::Unauthenticated),
+        (409, ErrorCode::StaleRevision),
+        (409, ErrorCode::CatalogConflict),
+        (403, ErrorCode::Forbidden),
+    ] {
+        assert!(!ClientError::http(status, &body(code)).is_session_fence_mismatch());
+    }
+    assert!(!ClientError::Transport.is_session_fence_mismatch());
+    assert!(!ClientError::SessionChanged.is_session_fence_mismatch());
 }

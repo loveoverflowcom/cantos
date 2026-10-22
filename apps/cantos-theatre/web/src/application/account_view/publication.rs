@@ -15,6 +15,7 @@ pub(in crate::application) struct AccountControls {
     intent: CleanupIntent,
     storage: Option<JournalStorageFault>,
     restore_blocked: bool,
+    login_refusal: Option<LoginRefusal>,
     library: bool,
     sync: bool,
 }
@@ -46,6 +47,7 @@ impl AccountViewState {
             cleanup_intent,
             storage_fault,
             journal_restore_blocked,
+            login_refusal,
         } = self;
         AccountControls {
             phase: *phase,
@@ -56,6 +58,7 @@ impl AccountViewState {
             intent: cleanup_intent.clone(),
             storage: *storage_fault,
             restore_blocked: *journal_restore_blocked,
+            login_refusal: *login_refusal,
             library: library.is_some(),
             sync: sync.is_some(),
         }

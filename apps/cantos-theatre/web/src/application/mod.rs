@@ -14,7 +14,6 @@ pub mod ports;
 pub mod public_discovery;
 pub mod public_listen;
 pub mod public_work;
-pub mod registration;
 pub(crate) mod scrub;
 pub mod signup;
 

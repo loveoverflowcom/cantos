@@ -2,12 +2,14 @@
 #[cfg(target_arch = "wasm32")]
 pub mod browser;
 pub mod discovery;
-pub mod identity_configuration;
+pub(crate) mod failure;
 pub mod library;
 pub mod public_media;
 pub mod public_work;
 pub mod request;
 pub mod signup;
+#[cfg(test)]
+pub(crate) mod transport;
 pub use request::*;
 
 #[cfg(target_arch = "wasm32")]

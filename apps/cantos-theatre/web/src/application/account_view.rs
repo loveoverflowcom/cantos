@@ -14,15 +14,28 @@ use cantos_contracts::listener_library::{
     ResumeStatus, SavedRecord, WorkPresentation,
 };
 
+/// The API refused an email/password sign-in outright. It never names which factor failed,
+/// and the previous (guest) state is unchanged.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LoginRefusal {
+    /// 401: wrong or unknown email/password.
+    Credentials,
+    /// 400: the request shape or password policy was refused.
+    Invalid,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccountFailure {
     Diagnostic(super::errors::ErrorKind),
     SignedOut,
     SessionChanged,
     Unavailable,
+    /// 429 with a bounded Retry-After in seconds; never retried densely.
+    RateLimited(u32),
+    /// 404: Identity is not configured. There is no fallback provider or mock.
+    NotFound,
     Protocol,
-    Navigation,
-    PopupBlocked,
+    LoginRefused(LoginRefusal),
     LogoutPending,
     CursorExpired,
 }
@@ -69,6 +82,7 @@ pub struct AccountViewState {
     cleanup_intent: CleanupIntent,
     storage_fault: Option<JournalStorageFault>,
     journal_restore_blocked: bool,
+    login_refusal: Option<LoginRefusal>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,9 +146,14 @@ impl AccountViewState {
     pub fn can_authenticate(&self) -> bool {
         self.phase == SessionPhase::Guest && !self.account.logout_pending()
     }
-    pub fn can_login(&self, configuration: super::registration::RegistrationState) -> bool {
+    /// Email/password sign-in is always offered to a guest. There is no provider capability to
+    /// read first; an unconfigured API answers the attempt with a clear error instead.
+    pub fn can_login(&self) -> bool {
         self.can_authenticate()
-            && configuration.login() == super::registration::LoginPhase::Available
+    }
+    /// The last definite refusal of a sign-in attempt, until the next lookup or logout.
+    pub fn login_refusal(&self) -> Option<LoginRefusal> {
+        self.login_refusal
     }
     pub fn actor(&self) -> Option<&str> {
         self.account.scope().map(AccountScope::actor)
@@ -150,11 +169,6 @@ impl AccountViewState {
     }
     pub fn can_retry_logout(&self) -> bool {
         self.phase == SessionPhase::LogoutPending && !self.cleanup_in_flight
-    }
-    pub fn navigation_failed(&mut self, failure: AccountFailure) {
-        if self.can_authenticate() {
-            self.phase = SessionPhase::Failed(failure);
-        }
     }
     fn clear_private(&mut self) {
         self.storage_fault = None;
@@ -183,6 +197,7 @@ impl AccountViewState {
             return Err(error);
         }
         self.clear_private();
+        self.login_refusal = None;
         self.phase = SessionPhase::Checking;
         Ok(self.account.generation())
     }
@@ -211,6 +226,14 @@ impl AccountViewState {
             }
             Err(AccountFailure::SignedOut) => {
                 Ok(SessionCompletion::Cleanup(self.begin_expiry_cleanup()?))
+            }
+            Err(AccountFailure::LoginRefused(refusal)) => {
+                // A definite refusal replaced no cookie: the listener is still a guest and can
+                // try again, with nothing to clean up.
+                self.clear_private();
+                self.login_refusal = Some(refusal);
+                self.phase = SessionPhase::Guest;
+                Ok(SessionCompletion::Ignored)
             }
             Err(error) => {
                 self.clear_private();
@@ -282,6 +305,7 @@ impl AccountViewState {
         };
         self.cleanup_intent = cleanup_intent;
         self.clear_private();
+        self.login_refusal = None;
         self.phase = SessionPhase::LogoutPending;
         self.cleanup_in_flight = true;
         Ok(issued)
@@ -1359,6 +1383,9 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+#[path = "account_view/login_tests.rs"]
+mod login_tests;
 #[cfg(test)]
 #[path = "account_view/sync_tests.rs"]
 mod sync_tests;

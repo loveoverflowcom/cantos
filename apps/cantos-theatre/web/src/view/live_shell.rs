@@ -13,7 +13,6 @@ use crate::{
         public_discovery::{DiscoveryQuery, DiscoveryTicket, PublicDiscoveryState},
         public_listen::{ListenLabel, ListenOutcome, ListenState, NowPlaying},
         public_work::{Request as WorkRequest, WorkDetailPhase, WorkDetailState},
-        registration::RegistrationState,
         signup::SignupState,
     },
     core::{playback::Event as PlayerEvent, public_track::ReleaseRequest},
@@ -179,45 +178,11 @@ fn run_listen(
     let _ = (listen, player, now_playing, ticket, ListenOutcome::Failed);
 }
 
-fn refresh_registration(state: RwSignal<RegistrationState>) {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let mut issued = None;
-        state.update(|current| issued = current.begin());
-        if let Some(issued) = issued {
-            leptos::task::spawn_local(async move {
-                let result = crate::live::identity_configuration::load().await;
-                let _ = state.try_update(|current| {
-                    current.finish(issued, result);
-                });
-            });
-        }
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    let _ = state;
-}
-
-/// The diagnostic guest, identity configuration and an empty catalog of the explicit auth
-/// preview. It reads no network and exists only in a build with the `preview` feature.
+/// The diagnostic guest and an empty catalog of the explicit auth preview. It reads no network
+/// and exists only in a build with the `preview` feature.
 #[cfg(feature = "preview")]
-fn seed_preview(
-    state: RwSignal<AccountViewState>,
-    registration: RwSignal<RegistrationState>,
-    discovery: RwSignal<PublicDiscoveryState>,
-) {
+fn seed_preview(state: RwSignal<AccountViewState>, discovery: RwSignal<PublicDiscoveryState>) {
     let _ = crate::features::auth_preview::guest(state);
-    registration.update(|current| {
-        if let Some(issued) = current.begin() {
-            current.finish(
-                issued,
-                Ok(cantos_contracts::theatre_identity::Configuration {
-                    login: cantos_contracts::theatre_identity::LoginMethod::Oidc,
-                    registration:
-                        cantos_contracts::theatre_identity::Registration::EmailVerification {},
-                }),
-            );
-        }
-    });
     discovery.update(|s| {
         if let Some(issued) = s.begin(DiscoveryQuery::default()) {
             s.finish(
@@ -231,12 +196,7 @@ fn seed_preview(
     });
 }
 #[cfg(not(feature = "preview"))]
-fn seed_preview(
-    _: RwSignal<AccountViewState>,
-    _: RwSignal<RegistrationState>,
-    _: RwSignal<PublicDiscoveryState>,
-) {
-}
+fn seed_preview(_: RwSignal<AccountViewState>, _: RwSignal<PublicDiscoveryState>) {}
 
 /// Fixture controls of the explicit auth preview; a production build draws nothing.
 #[cfg(feature = "preview")]
@@ -319,7 +279,8 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     );
     let state = RwSignal::new(AccountViewState::default());
     let discovery = RwSignal::new(PublicDiscoveryState::default());
-    let registration = RwSignal::new(RegistrationState::default());
+    // RAM-only notice for the sign-in page after a finished signup. It is never a session.
+    let account_created = RwSignal::new(false);
     let work_detail = RwSignal::new(WorkDetailState::default());
     let locale = RwSignal::new(Locale::Vietnamese);
     let theme = RwSignal::new(Theme::System);
@@ -364,6 +325,10 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             if !entering_captured_link {
                 crate::live::signup::leave(signup, preview);
             }
+            if !matches!(current, Route::Auth(auth) if auth.step == crate::application::auth_navigation::AuthStep::Login)
+            {
+                account_created.set(false);
+            }
         }
     });
     #[cfg(target_arch = "wasm32")]
@@ -371,9 +336,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         crate::live::runtime::mount(state, player, now_playing);
     }
     if preview {
-        seed_preview(state, registration, discovery);
-    } else if network_allowed.get_untracked() {
-        refresh_registration(registration);
+        seed_preview(state, discovery);
     }
     // The discovery link owns the search: the walk follows it, and a state that already answers
     // this search (back from a Work) is kept with its rows and cursor.
@@ -816,11 +779,6 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         nav.logout(state);
     });
     let on_signup_submit = Callback::new(move |()| {
-        if registration.get_untracked().phase()
-            != crate::application::registration::RegistrationPhase::Available
-        {
-            return;
-        }
         if preview {
             signup.update(|current| {
                 let _ = current.begin_submit();
@@ -830,29 +788,45 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             crate::live::signup::submit(signup);
         }
     });
-    let on_signup_verify = Callback::new(move |()| {
+    // A finished signup is account history, never a session: the owner signs in next.
+    let on_signup_completed = Callback::new(move |()| {
+        crate::live::signup::leave(signup, preview);
+        account_created.set(true);
+        nav.open_auth(AuthRoute::login(nav.origin()));
+    });
+    let on_signup_confirm = Callback::new(move |()| {
         if preview {
             signup.update(|current| {
-                let _ = current.begin_verify();
+                let _ = current.begin_complete();
             });
         } else if network_allowed.get_untracked() {
             #[cfg(target_arch = "wasm32")]
-            crate::live::signup::verify(signup);
+            crate::live::signup::complete(signup, on_signup_completed);
         }
     });
-    let on_signup_setup = Callback::new(move |()| {
+    let on_signup_retry = Callback::new(move |()| {
         if preview {
             signup.update(|current| {
-                let _ = current.take_setup_url();
+                let _ = current.begin_retry(u64::MAX);
             });
         } else if network_allowed.get_untracked() {
-            crate::live::signup::open_setup(signup);
+            #[cfg(target_arch = "wasm32")]
+            crate::live::signup::retry(signup, on_signup_completed);
         }
     });
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = on_signup_completed;
     let on_signup_new = Callback::new(move |()| crate::live::signup::cancel(signup, preview));
     let on_signup_login = Callback::new(move |()| {
         crate::live::signup::leave(signup, preview);
         nav.open_auth(AuthRoute::login(nav.origin()));
+    });
+    let on_login_submit = Callback::new(move |(email, password): (String, String)| {
+        crate::live::signup::leave(signup, preview);
+        account_created.set(false);
+        if network_allowed.get_untracked() {
+            nav.login(state, email, password);
+        }
     });
     let on_membership = Callback::new(move |()| {
         auth_browser::go(
@@ -1013,15 +987,13 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                             {move || if !configuration_valid {
                                 view! { <LiveRecovery locale heading=Key::ErrorDialogTitle help=Key::ErrorConfiguration/> }.into_any()
                             } else { match nav.route.get() {
-                                Route::Auth(auth) => view! { <AuthPage state=state.read_only() registration signup locale route=auth preview_icons=preview
+                                Route::Auth(auth) => view! { <AuthPage state=state.read_only() signup locale route=auth account_created preview_icons=preview
                                     on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
-                                    on_register on_login=Callback::new(move |()| { crate::live::signup::leave(signup, preview); if network_allowed.get_untracked() { nav.login(state, registration.get_untracked()); } })
+                                    on_register on_login=on_login_submit
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
-                                    on_membership on_refresh on_logout on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } })
-                                    on_signup_submit on_signup_verify on_signup_new on_signup_login on_signup_setup on_signup_cancel=Callback::new(move |()| {
-                                        crate::live::signup::cancel_explicit(signup, preview); nav.open_auth(AuthRoute::login(auth.origin));
-                                    })/> }.into_any(),
-                                Route::Account => view! { <LiveAccount state=state.read_only() locale theme registration on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } }) on_login on_register on_logout on_refresh on_membership/> }.into_any(),
+                                    on_refresh on_logout
+                                    on_signup_submit on_signup_confirm on_signup_retry on_signup_new on_signup_login/> }.into_any(),
+                                Route::Account => view! { <LiveAccount state=state.read_only() locale theme on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {
                                     <LiveLibrary state=state.read_only() locale actions=library_actions on_page=Callback::new(move |(section, restart)| {
@@ -1132,7 +1104,6 @@ fn membership_back_key(member: MembershipReturn) -> crate::features::auth_copy::
     match member {
         MembershipReturn::Home => CopyKey::ReturnHome,
         MembershipReturn::Account => CopyKey::ReturnAccount,
-        MembershipReturn::RegistrationComplete(_) => CopyKey::ReturnRegistration,
     }
 }
 #[cfg(test)]
@@ -1247,8 +1218,8 @@ mod tests {
     }
 
     #[test]
-    fn membership_back_names_the_actual_context_and_never_claims_verified_registration() {
-        use crate::application::auth_navigation::{NavigationTarget, ReturnDestination};
+    fn membership_back_names_the_actual_internal_context() {
+        use crate::application::auth_navigation::NavigationTarget;
         use crate::features::auth_copy::text;
         for (member, target, vi, en) in [
             (
@@ -1262,12 +1233,6 @@ mod tests {
                 NavigationTarget::Account,
                 "Về Tài khoản",
                 "Back to Account",
-            ),
-            (
-                MembershipReturn::RegistrationComplete(ReturnDestination::Home),
-                NavigationTarget::Auth(AuthRoute::registration_complete(ReturnDestination::Home)),
-                "Về đăng ký tài khoản",
-                "Back to account registration",
             ),
         ] {
             assert_eq!(member.back(), target);

@@ -194,11 +194,6 @@ impl AccountWriter {
             state.finish_page_with_followup(request, result, mint)
         })
     }
-    pub fn navigation_failed(self, failure: AccountFailure) -> Write<()> {
-        self.write(AccountViewState::control_publication, |state| {
-            state.navigation_failed(failure)
-        })
-    }
     pub fn restore_sync_journal(
         self,
         fence: &RequestFence,

@@ -1,84 +1,46 @@
-//! Theatre-scoped Cantos Bearer account admission; no cookie fallback.
+//! Theatre-scoped Cantos Identity v1 account admission: an API-issued HttpOnly cookie, never a
+//! script-readable credential and no Bearer/provider fallback.
 use crate::application::account::AccountScope;
 pub use crate::application::account_view::AccountFailure as Failure;
 use crate::application::account_view::CleanupIntent;
-use cantos_contracts::bearer::Session;
-use gloo_net::http::Request;
-use web_sys::{AbortController, RequestCredentials};
-pub(crate) fn auth_error(error: cantos_web_auth::Failure) -> Failure {
-    match error {
-        cantos_web_auth::Failure::SignedOut => Failure::SignedOut,
-        cantos_web_auth::Failure::Changed | cantos_web_auth::Failure::AccountMismatch => {
-            Failure::SessionChanged
-        }
-        cantos_web_auth::Failure::Protocol => Failure::Protocol,
-        cantos_web_auth::Failure::PopupBlocked => Failure::PopupBlocked,
-        cantos_web_auth::Failure::Cancelled => Failure::Navigation,
-        cantos_web_auth::Failure::Unavailable => Failure::Unavailable,
-        cantos_web_auth::Failure::CleanupPending => Failure::SignedOut,
-    }
+
+pub(crate) use super::failure::{auth_error, login_error};
+
+fn scope(view: cantos_web_auth::core::SessionView) -> Result<AccountScope, Failure> {
+    AccountScope::from_session(view.actor, view.session).map_err(|_| Failure::Protocol)
 }
+
+/// The authoritative lookup: the API decides who this browser is. An empty page state, a reload
+/// or a cookie from another tab never decides signed-out on its own; only the API's 401 does.
+/// A due idle renewal runs here, so the existing refresh lifecycle keeps a live session alive.
 pub async fn session() -> Result<AccountScope, Failure> {
-    let credential = crate::api_endpoint::auth()
-        .map_err(auth_error)?
-        .access(None)
+    let client = crate::api_endpoint::auth().map_err(auth_error)?;
+    let Some(view) = client.read_session().await.map_err(auth_error)? else {
+        return Err(Failure::SignedOut);
+    };
+    client
+        .access(Some(&view.session))
         .await
         .map_err(auth_error)?;
-    let controller = AbortController::new()
-        .map_err(|_| Failure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
-    let deadline = super::browser::deadline(controller)
-        .map_err(|_| Failure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
-    let signal = deadline.controller.signal();
-    let response = Request::get(
-        &crate::api_endpoint::endpoint("/api/v1/theatre/auth/bearer/session").map_err(|_| {
-            Failure::Diagnostic(crate::application::errors::ErrorKind::Configuration)
-        })?,
-    )
-    .credentials(RequestCredentials::Omit)
-    .redirect(web_sys::RequestRedirect::Error)
-    .abort_signal(Some(&signal))
-    .header("Authorization", &credential.header())
-    .header("Accept", "application/json")
-    .send()
-    .await
-    .map_err(|_| Failure::Diagnostic(deadline.failure_kind()))?;
-    credential.response(response.status()).map_err(auth_error)?;
-    if response.status() == 403 {
-        return Err(Failure::Diagnostic(
-            crate::application::errors::ErrorKind::Forbidden,
-        ));
-    }
-    if response.status() != 200 {
-        return Err(Failure::Unavailable);
-    }
-    if !response.headers().get("content-type").is_some_and(|value| {
-        value
-            .split(';')
-            .next()
-            .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("application/json"))
-    }) {
-        return Err(Failure::Protocol);
-    }
-    let body = response
-        .binary()
+    scope(view)
+}
+
+/// One email/password attempt. The reply is confirmed by an authoritative read, so a browser that
+/// refuses to retain the cookie reports a fault instead of a session that cannot work.
+pub async fn login(email: String, password: String) -> Result<AccountScope, Failure> {
+    let client = crate::api_endpoint::auth().map_err(auth_error)?;
+    client
+        .login(email, password, None)
         .await
-        .map_err(|_| Failure::Diagnostic(deadline.failure_kind()))?;
-    if body.len() > 8192 {
-        return Err(Failure::Protocol);
+        .map_err(login_error)?;
+    match session().await {
+        Err(Failure::SignedOut) => Err(Failure::Diagnostic(
+            crate::application::errors::ErrorKind::Configuration,
+        )),
+        other => other,
     }
-    let view: Session = serde_json::from_slice(&body).map_err(|_| Failure::Protocol)?;
-    credential.check().map_err(auth_error)?;
-    if view.actor_id != credential.actor() || view.session_id != credential.session() {
-        return Err(Failure::SessionChanged);
-    }
-    AccountScope::from_session(view.actor_id, view.session_id).map_err(|_| Failure::Protocol)
 }
-pub fn reserve_login() -> Result<cantos_web_auth::browser::Login, Failure> {
-    crate::api_endpoint::auth()
-        .map_err(auth_error)?
-        .reserve_login(None, false)
-        .map_err(auth_error)
-}
+
 pub async fn delete_session(intent: &CleanupIntent) -> Result<(), Failure> {
     let client = crate::api_endpoint::auth().map_err(auth_error)?;
     let expected = match intent {

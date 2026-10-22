@@ -1,5 +1,5 @@
 //! Capture email proof synchronously, remove it from history, retain it only in application RAM.
-use crate::application::signup::VerificationToken;
+use crate::application::signup::ProofLink;
 
 #[cfg(any(target_arch = "wasm32", test))]
 mod navigation_guard {
@@ -94,35 +94,19 @@ pub(crate) fn location_contains_proof() -> bool {
         return window
             .location()
             .hash()
-            .is_ok_and(|hash| hash.starts_with("#register-verify"))
-            || window
-                .location()
-                .search()
-                .is_ok_and(|query| firebase_query(&query));
+            .is_ok_and(|hash| ProofLink::is_proof_fragment(&hash));
     }
     false
 }
 
+/// The address a captured (or rejected) proof link is replaced by: same document, no query,
+/// the register route. Neither history state nor this URL includes the proof or any input.
 #[cfg(any(target_arch = "wasm32", test))]
-fn firebase_query(query: &str) -> bool {
-    url::form_urlencoded::parse(query.trim_start_matches('?').as_bytes()).any(|(key, value)| {
-        matches!(
-            key.as_ref(),
-            "oobCode" | "continueUrl" | "firebaseEnrollment"
-        ) || (key == "mode"
-            && matches!(
-                value.as_ref(),
-                "verifyEmail"
-                    | "resetPassword"
-                    | "recoverEmail"
-                    | "verifyAndChangeEmail"
-                    | "signIn"
-                    | "revertSecondFactorAddition"
-            ))
-    })
+fn safe_url(path: &str) -> String {
+    format!("{path}#register?from=home")
 }
 
-pub(crate) fn capture_link() -> Result<Option<VerificationToken>, CaptureFailure> {
+pub(crate) fn capture_link() -> Result<Option<ProofLink>, CaptureFailure> {
     #[cfg(target_arch = "wasm32")]
     {
         let Some(window) = web_sys::window() else {
@@ -132,41 +116,26 @@ pub(crate) fn capture_link() -> Result<Option<VerificationToken>, CaptureFailure
             .location()
             .hash()
             .map_err(|_| CaptureFailure::HistoryUnavailable)?;
-        let search = window
-            .location()
-            .search()
-            .map_err(|_| CaptureFailure::HistoryUnavailable)?;
-        let firebase = firebase_query(&search);
-        if !hash.starts_with("#register-verify") && !firebase {
+        if !ProofLink::is_proof_fragment(&hash) {
             return Ok(None);
         }
         let path = window
             .location()
             .pathname()
             .map_err(|_| CaptureFailure::HistoryUnavailable)?;
-        let token = if firebase {
-            let origin = window
-                .location()
-                .origin()
-                .map_err(|_| CaptureFailure::HistoryUnavailable)?;
-            if hash.is_empty() && path == "/" {
-                VerificationToken::from_firebase_query(&search, &origin)
-            } else {
-                None
-            }
-        } else {
-            VerificationToken::from_fragment(&hash)
-        };
-        let safe_path = if firebase { "/" } else { path.as_str() };
-        let safe_url = format!("{safe_path}#register?from=home");
-        // This happens before navigation construction or any session/configuration/discovery IO.
-        // Neither history state nor the replacement URL includes the proof or applicant email.
+        let link = ProofLink::from_fragment(&hash);
+        // This happens before navigation construction or any session/discovery IO. The URL is
+        // scrubbed even when the link cannot be read, so no malformed proof stays in history.
         window
             .history()
             .map_err(|_| CaptureFailure::HistoryUnavailable)?
-            .replace_state_with_url(&web_sys::wasm_bindgen::JsValue::NULL, "", Some(&safe_url))
+            .replace_state_with_url(
+                &web_sys::wasm_bindgen::JsValue::NULL,
+                "",
+                Some(&safe_url(&path)),
+            )
             .map_err(|_| CaptureFailure::HistoryUnavailable)?;
-        token.map(Some).ok_or(CaptureFailure::InvalidLink)
+        link.map(Some).ok_or(CaptureFailure::InvalidLink)
     }
     #[cfg(not(target_arch = "wasm32"))]
     Ok(None)
@@ -177,12 +146,11 @@ pub(crate) fn discard_link_and_reload() -> Result<(), CaptureFailure> {
     #[cfg(target_arch = "wasm32")]
     {
         let window = web_sys::window().ok_or(CaptureFailure::HistoryUnavailable)?;
-        let safe_url = format!(
-            "{}#register?from=home",
-            window
+        let safe_url = safe_url(
+            &window
                 .location()
                 .pathname()
-                .map_err(|_| CaptureFailure::HistoryUnavailable)?
+                .map_err(|_| CaptureFailure::HistoryUnavailable)?,
         );
         window
             .history()
@@ -202,7 +170,7 @@ pub(crate) fn discard_link_and_reload() -> Result<(), CaptureFailure> {
 /// Register before LiveNavigation's listeners: an incoming same-tab email link is scrubbed
 /// before another listener reads navigation state or starts any route-driven request.
 pub(crate) fn bind_capture(
-    on_capture: leptos::prelude::Callback<Result<Option<VerificationToken>, CaptureFailure>>,
+    on_capture: leptos::prelude::Callback<Result<Option<ProofLink>, CaptureFailure>>,
     on_leave: leptos::prelude::Callback<()>,
     on_restore: leptos::prelude::Callback<()>,
 ) {
@@ -239,7 +207,9 @@ pub(crate) fn bind_capture(
                     event
                         .new_url()
                         .split_once('#')
-                        .is_some_and(|(_, fragment)| fragment.starts_with("register-verify"))
+                        .is_some_and(|(_, fragment)| {
+                            ProofLink::is_proof_fragment(&format!("#{fragment}"))
+                        })
                 });
             read(EventKind::HashChange, targeted_proof);
         });
@@ -272,59 +242,39 @@ pub(crate) fn bind_capture(
     let _ = (on_capture, on_leave, on_restore);
 }
 
-/// The application has already validated this server-supplied one-shot capability.
-/// The document's no-referrer policy also applies to this top-level navigation.
-pub(crate) fn open_setup(url: &str) -> Result<(), ()> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        web_sys::window()
-            .ok_or(())?
-            .location()
-            .assign(url)
-            .map_err(|_| ())
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let _ = url;
-        Err(())
-    }
-}
-
 #[cfg(test)]
-mod query_tests {
+mod tests {
+    use super::*;
+
     #[test]
-    fn ordinary_app_modes_are_not_firebase_action_queries() {
-        for mode in ["auth-preview", "membership-preview", "mock"] {
-            assert!(!super::firebase_query(&format!("?mode={mode}")), "{mode}");
-            assert!(
-                super::firebase_query(&format!("?mode={mode}&oobCode=synthetic-secret")),
-                "{mode}"
-            );
-        }
-        for mode in [
-            "verifyEmail",
-            "resetPassword",
-            "recoverEmail",
-            "verifyAndChangeEmail",
-            "signIn",
-            "revertSecondFactorAddition",
-        ] {
-            assert!(super::firebase_query(&format!("?mode={mode}")), "{mode}");
+    fn the_replacement_address_carries_no_proof_query_or_input() {
+        for path in ["/", "/app/"] {
+            let url = safe_url(path);
+            assert_eq!(url, format!("{path}#register?from=home"));
+            assert!(!ProofLink::is_proof_fragment("#register?from=home"));
         }
     }
 
-    use super::*;
     #[test]
-    fn malformed_action_queries_are_scrubbed_even_when_they_cannot_be_confirmed() {
-        for query in [
-            "?mode=resetPassword",
-            "?oobCode=",
-            "?continueUrl=evil",
-            "?firebaseEnrollment=op",
-            "?%6dode=verifyEmail",
+    fn ordinary_app_routes_and_modes_are_never_scrubbed_as_proof_links() {
+        for hash in [
+            "#discover",
+            "#login?from=home",
+            "#register?from=account",
+            "#membership?from=account",
+            "#library",
+            "#work/1?query=operation",
         ] {
-            assert!(firebase_query(query));
+            assert!(!ProofLink::is_proof_fragment(hash), "{hash}");
         }
-        assert!(!firebase_query("?theme=dark"));
+        // The query string never carries a proof; app modes keep their query.
+        assert_eq!(safe_url("/"), "/#register?from=home");
+    }
+
+    #[test]
+    fn capture_off_the_browser_is_inert() {
+        assert_eq!(capture_link(), Ok(None));
+        assert!(!location_contains_proof());
+        assert_eq!(discard_link_and_reload(), Ok(()));
     }
 }

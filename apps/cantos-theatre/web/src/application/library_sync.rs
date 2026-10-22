@@ -266,7 +266,7 @@ impl PendingMutation {
 }
 
 /// Non-secret account-isolated outbox journal for reload/reauth recovery.
-/// Never stores Bearer tokens, session IDs, cookies or signed media URLs.
+/// Never stores session credentials, session IDs, cookies or signed media URLs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccountSyncJournal {
     pub actor_id: String,

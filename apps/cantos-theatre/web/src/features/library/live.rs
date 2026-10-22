@@ -90,6 +90,7 @@ fn status(ui: Option<&SectionUi>, section: Section, locale: Locale) -> String {
         PagePhase::Failed(AccountFailure::Diagnostic(kind)) => crate::messages::error_key(kind),
         PagePhase::Failed(AccountFailure::CursorExpired) => Key::LiveLibraryCursorExpired,
         PagePhase::Failed(AccountFailure::Protocol) => Key::LiveLibraryInvalidPage,
+        PagePhase::Failed(AccountFailure::RateLimited(_)) => Key::AccountRateLimited,
         PagePhase::Failed(_) => Key::LiveLibraryPageError,
         PagePhase::Ready if ui.count == 0 => {
             return messages::text(empty(section), locale).to_owned()

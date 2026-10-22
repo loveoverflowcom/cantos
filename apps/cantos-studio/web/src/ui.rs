@@ -707,7 +707,7 @@ mod pane_return_tests {
         for malformed in [
             "#workspace-import?actor=b",
             "//evil.example",
-            "#auth/bearer/complete",
+            "#session/complete",
             "#unknown",
         ] {
             assert_eq!(

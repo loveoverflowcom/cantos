@@ -17,10 +17,10 @@ use crate::{
     },
     production::ProductionInputs,
     session::{SessionState, SessionTicket},
+    signin::{sign_in_failure, SignInForm},
+    signin_form::SignInPanel,
 };
-use cantos_contracts::{
-    ApiError, ErrorCode, FieldIssue, StudioAuthenticationMode, ValidateScriptRequest,
-};
+use cantos_contracts::{ApiError, ErrorCode, FieldIssue, ValidateScriptRequest};
 use cantos_ui::{
     Announcement, Button, ButtonVariant, Container, ContainerWidth, Density, FieldLabel, Logo,
     LogoTone, LogoVariant, Select, Status as UiStatus, Theme, UiRoot,
@@ -233,20 +233,8 @@ fn observe_session(
     };
     let api = api.snapshot();
     spawn_local(async move {
-        match api.authentication_configuration().await {
-            Ok(configuration) => {
-                let Some(current) = session.try_get_untracked() else {
-                    return;
-                };
-                if !current.accepts(ticket) {
-                    return;
-                }
-                let _ = session.try_set(current.configured(ticket, configuration.mode));
-                let result = api.current_session().await;
-                settle_session(state, session, ticket, result, unsaved);
-            }
-            Err(error) => settle_session(state, session, ticket, Err(error), unsaved),
-        }
+        let result = api.current_session().await;
+        settle_session(state, session, ticket, result, unsaved);
     });
 }
 
@@ -270,6 +258,10 @@ pub fn Studio() -> impl IntoView {
     let preview = RwSignal::new(ValidationPreview::default());
     let session = RwSignal::new(SessionState::default());
     let cancelling = RwSignal::new(false);
+    // Secrets live only in these forms, only until the typed intent is built.
+    let entry_form = RwSignal::new(SignInForm::default());
+    let account_form = RwSignal::new(SignInForm::default());
+    let reauth_open = RwSignal::new(false);
     let session_epoch = Signal::derive(move || session.with(SessionState::epoch));
     // Retain draft ownership in Editor; only the API-confirmed actor is shown as signed in.
     let authenticated_actor =
@@ -540,7 +532,8 @@ pub fn Studio() -> impl IntoView {
         });
     on_cleanup(move || restored.remove());
 
-    // Reload loses RAM credentials. Confirm only an API-admitted Bearer; login is explicit, never a loop.
+    // Reload keeps no RAM credential and Studio never reads the HttpOnly cookie: always ask the API
+    // who the browser is. Only an API-admitted session opens a workspace; sign-in is explicit.
     observe_session(state, session, api, unsaved);
 
     let auth_blocked = Signal::derive(move || {
@@ -565,6 +558,9 @@ pub fn Studio() -> impl IntoView {
         let Some(ticket) = begin_session(state, session) else {
             return;
         };
+        entry_form.update(SignInForm::clear);
+        account_form.update(SignInForm::clear);
+        reauth_open.set(false);
         let api = api.snapshot();
         let invalidated = api.begin_logout();
         spawn_local(async move {
@@ -575,36 +571,57 @@ pub fn Studio() -> impl IntoView {
             settle_session(state, session, ticket, result, unsaved);
         });
     });
-    let authorize = move |reauthenticate: bool| {
+    // One typed sign-in intent. A retained draft (or an explicit reauthentication) pins its owner:
+    // another account is refused and revoked by the identity client, never adopted, so the owner's
+    // private drafts are never projected to it. Nothing is replayed after a failure.
+    let sign_in = move |form: RwSignal<SignInForm>, reauthenticate: bool| {
         if auth_blocked.get_untracked() {
             return;
         }
-        // Auth popup retains every mounted workspace/draft. Pin the draft's owner before leaving.
         let expected = (unsaved.get_untracked() || reauthenticate)
             .then(|| state.with_untracked(|e| e.actor().to_owned()))
             .filter(|a| !a.is_empty());
-        let login = match api.reserve_login(expected, reauthenticate) {
-            Ok(login) => login,
-            Err(error) => {
-                if let Some(ticket) = begin_session(state, session) {
-                    settle_session(state, session, ticket, Err(error), unsaved);
-                }
-                return;
-            }
-        };
-        let Some(ticket) = begin_session(state, session) else {
+        let Some((issued, intent)) = form.try_update(|f| f.begin(expected)).flatten() else {
             return;
         };
+        let Some(ticket) = begin_session(state, session) else {
+            form.update(|f| f.abandon(issued));
+            return;
+        };
+        let api = api.snapshot();
+        let typed_email = intent.email.clone();
         spawn_local(async move {
-            let result = match login.run().await {
-                Ok(()) => api.current_session().await,
-                Err(error) => Err(crate::api::auth_error(error)),
-            };
-            settle_session(state, session, ticket, result, unsaved);
+            let result = api.sign_in(intent).await;
+            let outcome = result.as_ref().map(|_| ()).map_err(|failure| *failure);
+            let _ = form.try_update(|f| {
+                f.finish(issued, outcome);
+            });
+            match outcome {
+                Ok(()) => {
+                    // Nothing typed survives a completed sign-in, in either form.
+                    let _ = entry_form.try_update(SignInForm::clear);
+                    let _ = account_form.try_update(SignInForm::clear);
+                }
+                Err(failure) if reauthenticate => {
+                    // A failed reauthentication returns to the entry; show the reason there.
+                    let _ =
+                        entry_form.try_update(|f| f.show(&typed_email, sign_in_failure(failure)));
+                    let _ = account_form.try_update(SignInForm::clear);
+                }
+                Err(_) => {}
+            }
+            let _ = reauth_open.try_set(false);
+            settle_session(
+                state,
+                session,
+                ticket,
+                result.map(Some).map_err(crate::api::auth_error),
+                unsaved,
+            );
         });
     };
-    let oidc = Callback::new(move |_| authorize(false));
-    let reauthenticate = Callback::new(move |_| authorize(true));
+    let submit_entry = Callback::new(move |()| sign_in(entry_form, false));
+    let submit_reauthentication = Callback::new(move |()| sign_in(account_form, true));
     let cancel_check = Callback::new(move |_| {
         if !session.with_untracked(SessionState::pending) || cancelling.get_untracked() {
             return;
@@ -658,7 +675,10 @@ pub fn Studio() -> impl IntoView {
                         <summary>{move || entry_text(EntryKey::Session, english.get())}</summary>
                         <p class="identity">{move || authenticated_actor.get().unwrap_or_default()}</p>
                         <ActionButton id="account-refresh" english=english blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,english.get())}</ActionButton>
-                        <ActionButton id="account-reauthenticate" english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=reauthenticate>{move ||entry_text(EntryKey::Reauthenticate,english.get())}</ActionButton>
+                        <ActionButton id="account-reauthenticate" english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,english.get())}</ActionButton>
+                        <Show when=move || reauth_open.get()>
+                            <SignInPanel id="account" form=account_form english=english blocked=auth_blocked on_submit=submit_reauthentication reauthenticate=true/>
+                        </Show>
                         <ActionButton id="account-logout" english=english variant=ButtonVariant::Secondary blocked=auth_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
                     </details>
                 </div>
@@ -684,15 +704,12 @@ pub fn Studio() -> impl IntoView {
                     <Button id="session-cancel" variant=ButtonVariant::Text state=Signal::derive(move ||if cancelling.get(){cantos_ui::DisabledReason::new(entry_text(EntryKey::CleanupPending,english.get())).map(cantos_ui::ButtonState::Disabled).unwrap_or(cantos_ui::ButtonState::Enabled)}else{cantos_ui::ButtonState::Enabled}) on_press=cancel_check>{move ||entry_text(EntryKey::Cancel,english.get())}</Button>
                 </div>
                 <div hidden=move ||session.with(SessionState::pending) inert=move ||session.with(SessionState::pending)>
-                <Show when=move ||session.with(|s|s.mode()==Some(StudioAuthenticationMode::Oidc))>
-                    <ActionButton id="session-oidc" english=english variant=ButtonVariant::AuthPrimary reason=BlockReason::ContextReady blocked=auth_blocked on_press=oidc>{move ||entry_text(if entry_state.get()==Entry::Denied || entry_state.get()==Entry::RetainedOwner {EntryKey::OtherAccount} else {EntryKey::CantosId},english.get())}</ActionButton>
-                </Show>
-                <Show when=move ||session.with(|s|s.mode()==Some(StudioAuthenticationMode::Development))>
-                    <p role="status">{move || entry_text(EntryKey::BearerUnavailable,english.get())}</p>
+                <Show when=move ||entry_state.get()!=Entry::SignInUnavailable>
+                    <SignInPanel id="session" form=entry_form english=english blocked=auth_blocked on_submit=submit_entry/>
                 </Show>
                 <p class="help">{move || entry_text(EntryKey::MemoryHelp,english.get())}</p>
                 <div class="entry-recovery">
-                    <div hidden=move ||entry_state.get()==Entry::Login && !unsaved.get() && session.with(|s|s.mode().is_some())>
+                    <div hidden=move ||entry_state.get()==Entry::Login && !unsaved.get()>
                     <ActionButton id="session-refresh" english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=refresh>{move ||entry_text(EntryKey::Retry,english.get())}</ActionButton>
                     </div>
                     <div hidden=move ||authenticated_actor.get().is_none()>
@@ -790,17 +807,4 @@ pub fn Studio() -> impl IntoView {
         </Container>
         </UiRoot>
     }.into_any()
-}
-
-#[component]
-pub fn AuthorizationComplete() -> impl IntoView {
-    let english = RwSignal::new(false);
-    Effect::new(move |_| {
-        sync_document_language(if english.get() {
-            Locale::English
-        } else {
-            Locale::Vietnamese
-        })
-    });
-    view! {<main class="studio-main"><h1>{move ||entry_text(EntryKey::LoginTitle,english.get())}</h1><p role="status">{move ||entry_text(EntryKey::AuthorizationComplete,english.get())}</p><Button id="authorization-language" variant=ButtonVariant::Text on_press=Callback::new(move |_|english.update(|e| *e = !*e))>{move ||if english.get(){Locale::Vietnamese.autonym()}else{Locale::English.autonym()}}</Button></main>}
 }
