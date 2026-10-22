@@ -84,6 +84,8 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
                 catalog.dispatch(PublicCatalogIntent.AccountChanged)
             }
         })
+    // One registration for this process, independent of Activity/navigation recreation.
+    private val networkSignals = AndroidLibraryNetworkSignals(app, scope, runtime::networkRestored)
     /** Navigation and typed route text outlive Activity recreation, like every other owner here. */
     private val registration = createAndroidRegistration(scope, origin)
     val shell = TheatreShell(scope, catalog, runtime, preferences, registration = registration)

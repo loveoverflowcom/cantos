@@ -85,7 +85,9 @@ class NativeAuthorizedHttpPort(
     /** Exact API origin and existing Theatre business routes only; no auth-route recursion. */
     private fun isBusinessRequest(request: NativeHttpRequest): Boolean {
         val prefix = origin.probeUrl
-        if (!origin.isHttps || !request.url.startsWith("$prefix/")) return false
+        // The host admitted this exact scheme/host/port once (debug loopback included).
+        // The slash and closed route shapes below prevent authority/path-prefix escapes.
+        if (!request.url.startsWith("$prefix/")) return false
         val route = request.url.removePrefix(prefix)
         val id = "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
         return when (request.method) {

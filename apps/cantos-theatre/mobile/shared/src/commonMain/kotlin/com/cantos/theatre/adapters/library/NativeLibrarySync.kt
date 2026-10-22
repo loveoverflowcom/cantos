@@ -394,6 +394,12 @@ internal class NativeLibrarySync(
     }
     /** At most one dispatch loop; sent rows always read receipt before byte-identical replay. */
     override fun drain() {
+        // An external opportunity after exhaustion opens a fresh bounded episode. Duplicate
+        // signals during a drain share that drain; an existing backoff keeps its spent budget.
+        if (!draining && retryJob == null) retryAttempt = 0
+        drainPending()
+    }
+    private fun drainPending() {
         val owner = liveOwner() ?: return
         if (draining) return
         retryJob?.cancel(); retryJob = null
@@ -465,12 +471,12 @@ internal class NativeLibrarySync(
                 if (current(issued, owner)) {
                     draining = false
                     if (continueBatch) {
-                        retryJob = scope.launch { delay(250); retryJob = null; if (current(issued, owner)) drain() }
+                        retryJob = scope.launch { delay(250); retryJob = null; if (current(issued, owner)) drainPending() }
                         jobs += requireNotNull(retryJob)
                     } else if (retryNeeded && retryAttempt < 6) {
                         val waitMs = (2_000L shl retryAttempt) + (nowMs().coerceAtLeast(0) % 500)
                         retryAttempt += 1
-                        retryJob = scope.launch { delay(waitMs); retryJob = null; if (current(issued, owner)) drain() }
+                        retryJob = scope.launch { delay(waitMs); retryJob = null; if (current(issued, owner)) drainPending() }
                         jobs += requireNotNull(retryJob)
                     } else if (!retryNeeded) retryAttempt = 0
                 }

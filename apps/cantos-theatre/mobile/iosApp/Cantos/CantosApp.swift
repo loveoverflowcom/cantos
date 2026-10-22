@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Network
 import CantosTheatre
 
 @main @MainActor
@@ -8,7 +9,10 @@ struct CantosApp: App {
     @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup { CantosComposeView(owner: owner).ignoresSafeArea()
-            .onChange(of: scenePhase) { phase in if phase == .background { owner.backgrounded() } }
+            .onChange(of: scenePhase) { phase in
+                if phase == .active { owner.foregrounded() }
+                if phase == .background { owner.backgrounded() }
+            }
         }
     }
 }
@@ -19,6 +23,8 @@ struct CantosApp: App {
     private let identityPlatform: TheatreNativePlatform
     private let identity: IosNativeIdentityOwner
     private let media: AvPlayerDriver
+    private let networkMonitor = NWPathMonitor()
+    private var networkAvailable = false
     init() {
         // The packaged explicit override, if any. The Kotlin owner applies the production default and
         // refuses an invalid value before any request; Swift never picks an environment itself.
@@ -42,10 +48,21 @@ struct CantosApp: App {
         try? protectedDirectory.setResourceValues(resourceValues)
         native = IosCatalogOwner(apiOrigin: packagedOrigin, platform: platform, identity: identityOwner,
             identityPlatform: nativePlatform, mediaDriver: driver, applicationSupportDirectory: directory.path)
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            let available = path.status == .satisfied
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let restored = available && !self.networkAvailable
+                self.networkAvailable = available
+                if restored { self.native.networkRestored() }
+            }
+        }
+        networkMonitor.start(queue: DispatchQueue(label: "cc.cantos.library-network"))
     }
     func viewController() -> UIViewController { native.viewController() }
+    func foregrounded() { native.foregrounded() }
     func backgrounded() { native.backgrounded() }
-    deinit { native.close(); identity.close() }
+    deinit { networkMonitor.cancel(); native.close(); identity.close() }
 }
 
 private struct CantosComposeView: UIViewControllerRepresentable {

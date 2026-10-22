@@ -140,3 +140,94 @@ persistence adapter.
 | acceptance (not run) | Android/iOS device, TLS front, CDN, live provider | out of scope | CMP desktop client against the router | — | an operator environment | device runbook | #336/#348 |
 | investigation | the "existing CMP error-classification bug" named in the task brief | not identified from the task text or the code read here | none; CMP untouched | — | the reporter's repro | add a Kotlin regression where it is found | CMP owner |
 | observation | `NativeAuthorizedHttpPort` maps an identity `ServiceUnavailable` to HTTP 503 but `Transport`/`UnknownOutcome` to a status-0 refusal; not claimed to be the bug above | — | — | — | review | Kotlin test of both paths | CMP owner |
+
+
+## CMP authorized boundary and recovery follow-up
+
+This follow-up fixes the native consumer gaps on the freshly fetched integration base
+`a2777d9833e6ad877dcfbd929df40e04b84969ae` after #387. Backend business semantics, migrations,
+Web HttpOnly cookies and native opaque Bearer/session protocols are unchanged.
+
+- The production authorized port accepts the exact origin already approved by the host,
+  including Android debug loopback. The route/surface allowlist and credential lease fences
+  still run before dispatch; release and iOS do not admit cleartext.
+- The client classifies the strict, real pre-admission Library `503` envelope without a stamp as
+  retryable unavailable, with no session revalidation, player reset or account body application.
+  Local transport/unknown-outcome handling remains earlier in the decision. A real `401` or
+  explicit different stamp still fences authority. Success/receipts require an actual matching
+  header, bounded JSON and valid schema/binding; unknown statuses/envelopes fail closed.
+- Foreground and restored-network hints call the one process/account flusher. An opportunity
+  after retry exhaustion opens a new bounded episode. Duplicate in-flight callbacks share the
+  drain; persisted sent intents reconcile their original receipt before byte-identical replay.
+  Android uses a process ConnectivityManager registration; iOS retains NWPathMonitor and
+  forwards active-scene/restored-path hints to the main owner. These hints grant no authority.
+
+### Regressions and real boundary evidence
+
+Commands below run from the repository root unless `--project-dir` names the Gradle project.
+Toolchain: macOS arm64, Rust 1.98.1, Gradle 8.14.3, JDK 21.0.7, Kotlin 2.2.20/CMP 1.9.0,
+SQLDelight 2.1.0; the Server/Identity use the pinned Turso 0.8.3. Build output, raw logs and JUnit
+reports remain local under ignored `artifacts/agent-runs/cmp-live-api-recovery/` and module `build/`.
+
+| Claim | Oracle / exact focused command | Result and limits |
+| --- | --- | --- |
+| Debug loopback was refused before dispatch | `NativeAuthorizedHttpPortTest.hostApprovedDebugLoopbackUsesTheProductionAuthorizedBoundary` | Old source failed: expected one dispatch, got zero; fixed source passes, with foreign scheme/host/port and release cleartext refusals |
+| Real unstamped 503 was treated as a changed session | `NativeLibraryClientTest.contractedPreAdmission503WithoutStampIsRetryableWithoutAuthorityLoss`, runtime `preAdmissionOutageKeepsAuthorityPlayerAndDurableLibrary` | Old source failed (`session_changed`, authority became null); fixed source preserves authority, player and pending rows; malformed/wrong-stamped/success-without-stamp inputs reject |
+| Exhaustion left the next opportunity without retries | runtime `exhaustedEpisodeCanStartAnotherBoundedEpisodeWithoutChangingTheFrozenIntent`, BookmarkSync `exhausted_retries_keep_the_durable_bookmark_and_recovery_reuses_its_exact_intent` | Old scheduling failed the resumed-episode oracle; fixed virtual-time tests exercise foreground and reconnect separately, duplicate callbacks, receipt-first replay, frozen operation/body and A-to-B fencing |
+| Real Identity/Turso router journeys | `cargo test --locked -p cantos-server --test theatre_business_journey` with `CANTOS_TEST_IDENTITY_BINARY` pointing to this checkout's built executable | PASS: 2 existing journeys; the explicit Gradle lane is ignored here |
+| Library HTTP harness | `cargo test --locked -p cantos-server --lib theatre_library_http_tests` | PASS: 5, with the explicit trusted-host Gradle lane ignored |
+| Production CMP authorized path over real TCP HTTP and Identity | `cargo test --locked -p cantos-server --test theatre_business_journey cmp_authorized_library_against_real_identity_and_http -- --ignored --exact --nocapture` | PASS: 1; `LIVE-AUTHORIZED-LIBRARY-OK requests=23`; real login, actual session stamps, Identity stop → genuine 503/no stamp → restart/recovery, lost committed response recovered by receipt, final Server row/anomaly assertions |
+| Retained trusted-host fixture | `cargo test --locked -p cantos-server --lib theatre_library_http_tests::cmp_production_client_against_the_real_api -- --ignored --exact --nocapture` | PASS: 1; `LIVE-BOOKMARK-OK`, 54 requests. Synthetic trusted-host principal, explicitly not authentication acceptance. The fixture server stamps and the JDK transport reads that actual header |
+| Whole JVM application/sandbox | `cargo xtask theatre-preview verify` | PASS; production owners plus named external doubles; no native device acceptance |
+| iOS build prerequisite | `cargo xtask theatre-host ios-build --kotlin-native-home /Users/manhblue/.konan/kotlin-native-prebuilt-macos-aarch64-2.2.20` | UNSUPPORTED: the pinned compiler is absent; Swift syntax parse passes, Kotlin/Native/framework/app compile and iOS runtime NOT_RUN |
+
+The two explicit Gradle-backed Rust commands additionally require
+`CANTOS_TEST_GRADLE=/absolute/path/to/gradle-8.14.3/bin/gradle` and a compatible `JAVA_HOME`.
+Identity is built with `cargo build --locked -p cantos-identity --features service --bin cantos-identity`;
+its test SMTP sink, files and private Unix socket are run-owned. No external mail or production
+account/data is involved. Only credential storage and the audio decoder remain doubles in the
+new CMP lane; this is real HTTP/auth/storage integration, not native media acceptance.
+
+The behavior catalog's listening-progress entry remains `needs-decision` without a model;
+`identity/native_session_admission.qnt` is draft and models outage without revocation, excluding
+HTTP and client retry scheduling. Neither model nor Rust/Kani owner changes here. No formal or
+Kotlin/Native conformance claim is made.
+
+### Handoff gates and scope blocker
+
+`cargo xtask preflight --changed-only --base a2777d9833e6ad877dcfbd929df40e04b84969ae`
+was run without skips. It reports repository FAIL (31 findings, identical to the untouched base)
+and all later selected gates NOT_RUN because it stops at that failure. Independent available checks:
+Rust format and Server clippy PASS; `cargo test --locked --no-fail-fast -p cantos-server` with
+`TMPDIR=/private/tmp` and the built Identity executable passes the library (647 passed, 5 ignored)
+and every integration target except the six unchanged `surface_policy_baseline` failures,
+reproduced on the untouched base. WAV reference agrees on five fixtures; actual audio-inspection
+passes both tests. Final JVM reports select 481 shared tests (478 executed, 3 opt-in live suites
+skipped) plus 103 sandbox tests; both Library live suites were executed explicitly above. The
+public-catalog live-origin opt-in remains NOT_RUN. The first broad Server run omitted the documented
+short TMPDIR and had temporary-root validation failures; the corrected run retains only the base
+surface-policy failures.
+
+Android `cargo xtask theatre-host android-debug --api-origin http://127.0.0.1:8080` compiles the
+production debug APK (SDK/build-tools 35), but artifact inspection FAILS on the newly required
+`android.permission.ACCESS_NETWORK_STATE`. The permission is required by the real network callback;
+the existing inspector list in `xtask/src/theatre_host.rs` and strict manifest expectation in
+`scripts/test_theatre_android_host.py` are outside this task's authorized shared-file scope.
+A narrow proposed change is prepared locally; applying it is PENDING scope approval, not denied
+and not executed. No inspection rule is bypassed. With Python 3.13.5 and `TMPDIR=/private/tmp`,
+the script suite runs 1,070 tests: the base has 6 failures/8 errors/15 skipped; head has 7 failures/
+8 errors/15 skipped. The sole added failure is that same strict Android permission expectation.
+All other failure names match. Missing legacy PG inventory and host/tool assumptions remain
+outside this repair. No PG, Kanidm, Podman or other workaround was installed.
+
+The read-only `cantos-code-review` pass covers the final production/test changes and callers;
+no backend business semantics, schema, credentials, player or second sync owner is introduced.
+Acceptance remains incomplete because of the explicit Android inspection/scope blocker and
+unrun iOS/device layers. This is draft handoff evidence, not production or whole-issue acceptance.
+
+Android/iOS device lifecycle, OS connectivity, background/locked playback, secure-store and
+process-death acceptance remain NOT_RUN. Restore the installed pinned Native compiler, then run
+the iOS framework build and named simulator/device scenarios; run the compiled Android host on
+a named device/emulator through foreground and network loss/restoration. Studio Catalog/Content
+and creator-to-publication remain separate backend follow-ups, not implied by the fixture seed.
+Queue order/rationale is unchanged; this bounded repair does not close #335 or #336.

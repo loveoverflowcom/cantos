@@ -38,9 +38,10 @@ import kotlin.test.assertTrue
 
 /**
  * The production Library sync adapter, codec, SQLite store and HTTP client against a **real** running Cantos API
- * and PostgreSQL. It runs only when `CANTOS_LIVE_API_ORIGIN` names a loopback API (the Rust harness
+ * and file-backed Turso. It runs only when `CANTOS_LIVE_API_ORIGIN` names a loopback API (the Rust harness
  * `cmp_production_client_against_the_real_api` starts one and checks the database afterwards); otherwise it is
- * skipped, never passed. The identity is the API test harness's synthetic bearer, and no audio decoder is involved.
+ * skipped, never passed. This lane uses the test harness's synthetic trusted-host principal; it is
+ * NOT authentication acceptance. LiveAuthorizedLibraryApiTest owns the real Identity/session boundary.
  */
 class LiveBookmarkApiTest {
     private val origin = System.getenv("CANTOS_LIVE_API_ORIGIN")
@@ -48,23 +49,25 @@ class LiveBookmarkApiTest {
     private val bob = "synthetic-listener-bob"
 
     /** A JDK HTTP port with two faults the real network has: no connectivity, and a response lost after commit. */
-    private class LiveHttp : NativeHttpPort {
+    internal class LiveHttp : NativeHttpPort {
         @Volatile var offline = false
         @Volatile var loseMutationResponses = 0
         val sent = java.util.concurrent.CopyOnWriteArrayList<String>()
-        private val client = HttpClient.newHttpClient()
+        val replies = java.util.concurrent.CopyOnWriteArrayList<Pair<Int, String?>>()
+        private val client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build()
         override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
             if (offline) { completion(NativeHttpResponse(0, null, null, "offline")); return Handle {} }
             sent += "${request.method} ${request.url.substringAfter("/api/v1/theatre")}"
-            val builder = HttpRequest.newBuilder(URI(request.url)).header("Accept", "application/json")
-            request.bearer?.let { builder.header("Authorization", "Bearer $it") }
-            if (request.body != null) builder.header("Content-Type", "application/json").method(request.method, HttpRequest.BodyPublishers.ofString(request.body))
+            val builder = HttpRequest.newBuilder(URI(request.url))
+            request.headers.forEach { (name, value) -> builder.header(name, value) }
+            if (request.body != null) builder.method(request.method, HttpRequest.BodyPublishers.ofString(request.body))
             else builder.method(request.method, HttpRequest.BodyPublishers.noBody())
             val future = client.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofString()).whenComplete { response, error ->
+                if (response != null) replies += response.statusCode() to response.headers().firstValue("X-Cantos-Theatre-Session").orElse(null)
                 when {
                     error != null -> completion(NativeHttpResponse(0, null, null, "timeout"))
                     request.method != "GET" && loseMutationResponses > 0 -> { loseMutationResponses -= 1; completion(NativeHttpResponse(0, null, null, "timeout")) }
-                    else -> completion(NativeHttpResponse(response.statusCode(), response.headers().firstValue("content-type").orElse(null), response.body(), null, request.expectedSession))
+                    else -> completion(NativeHttpResponse(response.statusCode(), response.headers().firstValue("content-type").orElse(null), response.body(), null, response.headers().firstValue("X-Cantos-Theatre-Session").orElse(null), response.headers().firstValue("Retry-After").orElse(null)))
                 }
             }
             return Handle { future.cancel(true) }

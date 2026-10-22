@@ -44,10 +44,12 @@ import com.cantos.theatre.ports.PlaybackGrant
 import com.cantos.theatre.ports.PlaybackLocation
 import com.cantos.theatre.ports.StreamingMediaEngine
 import java.nio.file.Files
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
@@ -85,6 +87,7 @@ class NativeAuthorizedLibraryRuntimeTest {
         private var grant = pair('a', 100)
         val initialToken = grant.accessToken
         var now = 100L
+        var sessionGate: CompletableDeferred<Unit>? = null
         var sessionChecks = 0
         var rotations = 0
         private val identity = object : StubIdentityV1Api() {
@@ -98,6 +101,7 @@ class NativeAuthorizedLibraryRuntimeTest {
             }
             override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> {
                 sessionChecks += 1
+                sessionGate?.await()
                 assertEquals(grant.accessToken, previous.accessToken)
                 return IdentityV1Result.Accepted(grant.view)
             }
@@ -123,6 +127,9 @@ class NativeAuthorizedLibraryRuntimeTest {
                       private val completion: (NativeHttpResponse) -> Unit) {
             fun complete() = completion(response)
         }
+        var nextResponse: NativeHttpResponse? = null
+        var unavailable = false
+        var localTransportFailure = false
         var holdNextContinue = false
         var holdNextSaved = false
         var heldRead: Pending? = null
@@ -133,7 +140,21 @@ class NativeAuthorizedLibraryRuntimeTest {
         private val rawHttp = object : NativeHttpPort {
             override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
                 requests += request
+                nextResponse?.let {
+                    nextResponse = null
+                    completion(it)
+                    return object : NativeRequestHandle { override fun cancel() = Unit }
+                }
+                if (unavailable || localTransportFailure) {
+                    completion(if (localTransportFailure) NativeHttpResponse(0, null, null, "offline")
+                        else NativeHttpResponse(503, "application/json", """{"code":"unavailable","retryable":true}""", null))
+                    return object : NativeRequestHandle { override fun cancel() = Unit }
+                }
                 val route = request.url.removePrefix(origin.probeUrl)
+                if (request.method == "GET" && route.startsWith("/operations/") && route.substringAfterLast('/') !in receipts) {
+                    completion(NativeHttpResponse(404, "application/json", """{"code":"not_found","retryable":false}""", null, grant.view.session))
+                    return object : NativeRequestHandle { override fun cancel() = Unit }
+                }
                 val body = when {
                     request.method == "GET" && route.startsWith("/library/continue?") ->
                         LibraryCodec.json.encodeToString(PresentedContinuePage(emptyList(), null))
@@ -201,6 +222,99 @@ class NativeAuthorizedLibraryRuntimeTest {
         fun intents() = store.transaction(actor) { intents() }
         fun bIntents() = store.transaction("actor-b") { intents() }
         fun close() { runtime.close(); folder.deleteRecursively() }
+    }
+
+    @Test fun preAdmissionOutageKeepsAuthorityPlayerAndDurableLibrary() = runTest {
+        val f = Fixture(backgroundScope)
+        try {
+            runCurrent()
+            f.runtime.listening.restore(f.audio, 10_000); runCurrent()
+            f.start(); runCurrent(); f.acknowledgeStarted(); runCurrent()
+            val player = f.runtime.listening.playback.state.value
+            val authority = f.account.verifiedSession.value
+            f.sessionGate = CompletableDeferred()
+            f.unavailable = true
+            f.library.setSaved(f.audio.workId, true); f.library.refresh(); runCurrent()
+            assertEquals(authority, f.account.verifiedSession.value)
+            assertEquals(player, f.runtime.listening.playback.state.value)
+            assertEquals(f.actor, f.library.state.value.account)
+            assertEquals(1, f.library.state.value.pending)
+            assertEquals(1, f.sessionChecks, "503 is not a session revalidation")
+            assertTrue(f.library.state.value.sections.values.all { it.failure?.code == "unavailable" })
+        } finally { f.close() }
+    }
+
+    @Test fun exhaustedEpisodeCanStartAnotherBoundedEpisodeWithoutChangingTheFrozenIntent() = runTest {
+        for (recover in listOf<(NativeSessionRuntime) -> Unit>({ it.foregrounded() }, { it.networkRestored() })) {
+            val f = Fixture(backgroundScope)
+            try {
+                runCurrent()
+                f.localTransportFailure = true
+                f.library.setSaved(f.audio.workId, true); runCurrent()
+                repeat(6) { advanceTimeBy(70_000); runCurrent() }
+                val frozen = f.intents().single()
+                val exhausted = f.requests.size
+                advanceTimeBy(300_000); runCurrent()
+                assertEquals(exhausted, f.requests.size, "automatic retries stop at the budget")
+                recover(f.runtime); recover(f.runtime); recover(f.runtime); runCurrent()
+                assertEquals(exhausted + 1, f.requests.size, "callbacks coalesce while draining")
+                assertEquals(frozen.operation, f.intents().single().operation)
+                assertEquals(frozen.body, f.intents().single().body)
+                f.localTransportFailure = false
+                advanceTimeBy(3_000); runCurrent()
+                assertEquals(0, f.library.state.value.pending, "the fresh episode has its own bounded retries")
+                assertTrue(f.intents().isEmpty())
+                val writes = f.requests.filter { it.method == "PUT" }
+                assertEquals(listOf(frozen.body), writes.map { it.body }.distinct())
+                assertEquals(2, writes.size, "unknown outcome checks the original receipt before replay")
+                assertEquals(1, f.sessionChecks)
+            } finally { f.close() }
+        }
+    }
+
+    @Test fun genuine401AndExplicitWrongStampStillQuarantineAuthorityAndPlayer() = runTest {
+        for (reply in listOf(NativeHttpResponse(401, null, null, null),
+            NativeHttpResponse(200, "application/json", "{}", null, "other-session"))) {
+            val f = Fixture(backgroundScope)
+            try {
+                runCurrent()
+                f.runtime.listening.restore(f.audio, 10_000); runCurrent()
+                f.start(); runCurrent(); f.acknowledgeStarted(); runCurrent()
+                f.sessionGate = CompletableDeferred()
+                f.nextResponse = reply
+                f.library.refresh(com.cantos.theatre.domain.library.LibrarySection.Continue); runCurrent()
+                assertNull(f.account.verifiedSession.value)
+                assertNull(f.library.state.value.account)
+                assertNull(f.runtime.listening.playback.state.value.session)
+                val before = f.requests.size
+                f.runtime.foregrounded(); f.runtime.networkRestored(); runCurrent()
+                assertEquals(before, f.requests.size, "recovery hints cannot grant authority")
+            } finally { f.close() }
+        }
+    }
+
+    @Test fun recoveryCallbacksShareAnInFlightDrainAndCannotAuthorizeAfterLogout() = runTest {
+        val f = Fixture(backgroundScope)
+        try {
+            runCurrent()
+            f.holdNextSaved = true
+            f.library.setSaved(f.audio.workId, true); runCurrent()
+            val frozen = f.intents().single()
+            val held = assertNotNull(f.heldMutation)
+            val before = f.requests.size
+            repeat(3) { f.runtime.foregrounded(); f.runtime.networkRestored() }
+            runCurrent()
+            assertEquals(before, f.requests.size, "no concurrent mutation or receipt drain")
+            f.account.logout(); runCurrent(); f.loginB(); runCurrent()
+            val switched = f.requests.size
+            held.complete()
+            repeat(3) { f.runtime.foregrounded(); f.runtime.networkRestored() }
+            runCurrent()
+            assertEquals(switched, f.requests.size)
+            assertEquals("actor-b", f.library.state.value.account)
+            assertEquals(frozen.body, f.intents().single().body)
+            assertTrue(f.bIntents().isEmpty())
+        } finally { f.close() }
     }
 
     @Test fun rotationPreservesPlayingEngineAndDiscardsOldLeaseResponse() = runTest {

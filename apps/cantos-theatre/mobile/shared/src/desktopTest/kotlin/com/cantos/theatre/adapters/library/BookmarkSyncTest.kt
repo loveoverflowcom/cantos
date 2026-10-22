@@ -57,6 +57,33 @@ class BookmarkSyncTest {
     private fun java.io.File.store(name: String = "db.sqlite") = desktopLibraryStore(resolve(name).absolutePath)
     private val LibraryState.rows get() = bookmarks.map { it.id to it.sync }
 
+    @Test fun exhausted_retries_keep_the_durable_bookmark_and_recovery_reuses_its_exact_intent() = withFolder { folder ->
+        runTest {
+            val server = BookmarkServer().apply { unavailable = true }
+            val store = folder.store()
+            val library = controller(server, store)
+            try {
+                library.enterAs(actorA); runCurrent()
+                val id = assertNotNull(library.createBookmark(audio(1), 15_000)); runCurrent()
+                advanceTimeBy(150_000); runCurrent()
+                val exhausted = server.calls.size
+                val frozen = store.transaction(actorA) { intents().single() }
+                advanceTimeBy(150_000); runCurrent()
+                assertEquals(exhausted, server.calls.size)
+                assertEquals(listOf(id to BookmarkSync.Offline), library.state.value.rows)
+                library.drain(); library.drain(); runCurrent()
+                assertEquals(exhausted + 1, server.calls.size)
+                server.unavailable = false
+                advanceTimeBy(3_000); runCurrent()
+                assertEquals(listOf(id to BookmarkSync.Synced), library.state.value.rows)
+                assertEquals(0, library.state.value.pending)
+                assertEquals(setOf(frozen.operation), server.account(actorA).receipts.keys)
+                assertEquals(frozen.body, store.transaction(actorA) { record("intent_archive", frozen.operation)?.body })
+                assertEquals(1, server.live(actorA).size)
+            } finally { library.close() }
+        }
+    }
+
     @Test fun a_bookmark_is_durable_before_the_network_synced_after_it_and_survives_a_restart() = withFolder { folder ->
         runTest {
             val server = BookmarkServer().apply { presentation = { presentation(audio(1)) } }

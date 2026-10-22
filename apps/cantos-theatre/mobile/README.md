@@ -89,6 +89,40 @@ iOS keeps Keychain `AfterFirstUnlockThisDeviceOnly` + full-record readback. Both
 backup-excluded logout barrier, app IDs, signing and storage namespaces. One process owner and one
 native player survive navigation/Activity recreation.
 
+### Durable Library recovery at the API boundary
+
+`NativeAuthorizedHttpPort` borrows the process account owner's credential lease and admits only
+closed Theatre Library/progress/receipt routes at the exact host-approved scheme, host and port.
+The Android debug loopback exception passes through this same production adapter. Foreign origins,
+Studio/Admin/auth routes, malformed paths and unknown bearer/family inputs are refused before dispatch.
+Release and iOS origin selection remain HTTPS-only; the native transports refuse redirects.
+
+`LibraryResponse` classifies local transport/authority failures before inspecting HTTP payloads.
+A real pre-admission `503` with no session stamp is retryable only with the strict Library
+`{"code":"unavailable","retryable":true}` JSON envelope. It grants no account payload authority
+and does not clear the account, player or local Library. A real `401` or explicit different stamp
+still fences authority. Successful pages and receipts require the real matching response stamp,
+JSON content type, byte limit, schema and record binding; a missing stamp is never filled from the
+request expectation. Other statuses and error bodies retain their contracted, closed mappings.
+
+`NativeSessionRuntime.foregrounded()` and `networkRestored()` ask the existing account flusher to
+drain. After six automatic backoffs are exhausted, a new opportunity starts another bounded episode;
+callbacks during an active drain share it. These signals neither revalidate/login nor reset/start
+the player. Android registers one process `ConnectivityManager` callback and Activity foreground
+hook; iOS uses the retained `NWPathMonitor` and active scene hook, delivering to the main owner.
+Network availability is a hint, never proof of admission or synchronization. Frozen sent intents
+keep their operation ID and body and query the original receipt before replay; account/generation
+and credential-lease fences still reject old callbacks after logout or switching accounts.
+
+Focused tests exercise the production owners over disposable SQLite with controlled Identity/HTTP
+and decoder doubles. The explicit `cmp_authorized_library_against_real_identity_and_http` test in
+`services/cantos-server/tests/theatre_business_journey.rs` adds real Identity login/admission, TCP HTTP,
+file-backed Server storage, and an actual Identity stop/restart. Its Kotlin side uses
+`NativeAccountController → NativeAuthorizedHttpPort → JDK HTTP → NativeLibraryClient → SQLite/sync/runtime`.
+The older `cmp_production_client_against_the_real_api` trusted-host fixture is synthetic, not auth
+acceptance; it stamps at the fixture server and the JDK transport reads that actual header.
+See the [slice evidence and remaining native gates](../../../docs/architecture/server-turso/cmp-business-api.md#cmp-authorized-boundary-and-recovery-follow-up).
+
 ### Native identity build inputs and operator diagnostics
 
 Only `CantosApiOrigin` is required. Origin selection preserves the existing precedence:
@@ -260,7 +294,8 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   Opening a bookmark restores its exact release at its position through the one player owner, **paused**, or moves
   the loaded release; a replaced or unavailable release is explained and never substituted. A guest is taken to sign
   in and nothing is saved. Evidence: JVM tests, the production authorized HTTP port's route allow-list, and a loopback run of the sync adapter
-  and client over a JDK transport against the real API and PostgreSQL; no device, audio, deployed run or real identity provider.
+  and client over a JDK transport against a file-backed Server API. The separate authorized
+  journey above adds real Identity; neither is device, audio or deployed acceptance.
 - Contextual settings from the account screen: light/dark, vi/en UI and speed/timer preferences.
 
 Android system Back, visible Back/close and JVM Escape use the same pure navigation transitions.
