@@ -579,14 +579,8 @@ impl ListenerRead for PgRead {
     fn read(&self, request: ReadRequest) -> ReadFuture {
         let store = self.0.clone();
         Box::pin(async move {
-            let mut c = store.connection().await?;
-            let tx = c
-                .build_transaction()
-                .isolation_level(tokio_postgres::IsolationLevel::RepeatableRead)
-                .read_only(true)
-                .start()
-                .await
-                .map_err(|_| ListenerError::Unavailable)?;
+            let c = store.connection().await?;
+            let tx = c.read().await.map_err(|_| ListenerError::Unavailable)?;
             let now = tx
                 .query_one(
                     "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint",

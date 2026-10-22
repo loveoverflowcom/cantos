@@ -18,7 +18,8 @@ mod sql;
 
 pub use session::token_hash;
 pub(crate) use session::{authenticate, session_token_registered};
-pub(crate) use sql::{Conn, Error, FromColumn, Param, Params, Row, Tx};
+pub(crate) use sql::{Conn, Tx};
+pub use sql::{Error, FromColumn, Param, Params, Row, RowIndex};
 
 // Retained public compatibility path; the aggregate and its use-case error vocabulary belong
 // to application, while this module implements persistence plumbing only.

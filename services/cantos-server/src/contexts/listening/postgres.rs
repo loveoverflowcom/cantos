@@ -46,9 +46,7 @@ fn storage(e: StoreError) -> LibraryError {
     }
 }
 fn database(e: crate::platform::store::Error) -> LibraryError {
-    if e.code().is_some_and(|c| {
-        c.code().starts_with("23") || c.code().starts_with("42") || c.code() == "55000"
-    }) {
+    if e.is_integrity_violation() {
         LibraryError::Corrupt
     } else {
         LibraryError::Unavailable
@@ -720,14 +718,8 @@ impl LibraryRepository for PgLibrary {
     fn read(&self, listener: ListenerId, request: ReadRequest) -> ReadFuture {
         let store = self.0.clone();
         Box::pin(async move {
-            let mut connection = store.connection().await.map_err(storage)?;
-            let tx = connection
-                .build_transaction()
-                .isolation_level(IsolationLevel::RepeatableRead)
-                .read_only(true)
-                .start()
-                .await
-                .map_err(database)?;
+            let connection = store.connection().await.map_err(storage)?;
+            let tx = connection.read().await.map_err(database)?;
             active(&tx, &listener, false).await?;
             let result = match request {
                 ReadRequest::Progress(id) => {

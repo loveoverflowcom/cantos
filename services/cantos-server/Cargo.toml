@@ -9,6 +9,10 @@ publish = false
 # Experimental local/dev DBSP incremental read model. Off by default: production builds
 # and the default test gates keep the direct PostgreSQL path only.
 dbsp-experimental = ["dep:dbsp"]
+# File-backed `server.db` fixtures (`test_support`) for integration tests: run-owned temp
+# directories, fixed or system clocks and fixture SQL. Never enabled in a runtime build; the
+# self dev-dependency below turns it on for this package's own tests only.
+test-support = ["cantos-store-turso/testing"]
 
 [dependencies]
 axum = "=0.8.4"
@@ -46,6 +50,7 @@ zip = { version = "=4.6.1", default-features = false, features = ["deflate"] }
 libc = "=0.2.190"
 
 [dev-dependencies]
+cantos-server = { path = ".", features = ["test-support"] }
 # The journeys run the real Identity executable and, to disable a subject while it is stopped,
 # its owning library. Test-only: it is never a runtime dependency of the Server.
 cantos-identity = { path = "../cantos-identity", features = ["service"] }

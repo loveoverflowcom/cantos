@@ -1023,6 +1023,7 @@ dependencies = [
  "cantos-contracts",
  "cantos-identity",
  "cantos-identity-rpc",
+ "cantos-server",
  "cantos-store-turso",
  "chrono",
  "dbsp",

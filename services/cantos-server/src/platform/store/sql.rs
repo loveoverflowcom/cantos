@@ -27,7 +27,7 @@ pub(crate) const WRITER_WAIT: Duration = Duration::from_secs(5);
 
 /// The closed failure vocabulary of a statement. It never carries SQL, rows or paths.
 #[derive(Debug)]
-pub(crate) enum Error {
+pub enum Error {
     /// The engine refused or failed a statement; nothing in the statement took effect.
     Fault(StoreFault),
     /// A `COMMIT` failed. [`CommitFault::Unknown`] is not a rollback: the unit may be durable.
@@ -42,14 +42,14 @@ pub(crate) enum Error {
 
 impl Error {
     /// The stable `cantos:<code>` identifier of a guard trigger that rejected the statement.
-    pub(crate) fn guard(&self) -> Option<&str> {
+    pub fn guard(&self) -> Option<&str> {
         match self {
             Self::Fault(StoreFault::Guard(code)) => Some(code.as_str()),
             _ => None,
         }
     }
 
-    pub(crate) fn constraint(&self) -> Option<ConstraintKind> {
+    pub fn constraint(&self) -> Option<ConstraintKind> {
         match self {
             Self::Fault(StoreFault::Constraint { kind, .. }) => Some(*kind),
             Self::Commit(fault) => match fault.fault() {
@@ -60,8 +60,14 @@ impl Error {
         }
     }
 
+    /// A constraint or guard rejected the statement: stored data or the caller's value broke an
+    /// invariant, as opposed to the database being unavailable.
+    pub fn is_integrity_violation(&self) -> bool {
+        self.constraint().is_some() || self.guard().is_some()
+    }
+
     /// True when the commit may have become durable although it was not acknowledged.
-    pub(crate) fn outcome_unknown(&self) -> bool {
+    pub fn outcome_unknown(&self) -> bool {
         matches!(self, Self::Commit(CommitFault::Unknown(_)))
     }
 }
@@ -93,12 +99,12 @@ impl From<CommitFault> for Error {
 }
 
 /// A value bound to a positional `?N` parameter.
-pub(crate) trait Param {
+pub trait Param {
     fn to_value(&self) -> Value;
 }
 
 /// Parameters of one statement, in `?1`, `?2`, … order.
-pub(crate) type Params<'a> = &'a [&'a (dyn Param + Sync)];
+pub type Params<'a> = &'a [&'a (dyn Param + Sync)];
 
 impl<T: Param + ?Sized> Param for &T {
     fn to_value(&self) -> Value {
@@ -161,6 +167,18 @@ impl Param for [String] {
     }
 }
 
+impl Param for [i64] {
+    fn to_value(&self) -> Value {
+        Value::Text(serde_json::to_string(self).unwrap_or_else(|_| "[]".to_owned()))
+    }
+}
+
+impl Param for Vec<i64> {
+    fn to_value(&self) -> Value {
+        self.as_slice().to_value()
+    }
+}
+
 impl Param for Vec<String> {
     fn to_value(&self) -> Value {
         self.as_slice().to_value()
@@ -168,7 +186,7 @@ impl Param for Vec<String> {
 }
 
 /// How one column is read. A stored value of another type is [`Error::Column`].
-pub(crate) trait FromColumn: Sized {
+pub trait FromColumn: Sized {
     fn from_column(value: Value) -> Result<Self, Error>;
 }
 
@@ -231,7 +249,7 @@ impl<T: FromColumn> FromColumn for Option<T> {
 }
 
 /// A column selector: its position or its name.
-pub(crate) trait RowIndex {
+pub trait RowIndex {
     fn position(&self, row: &Row) -> Option<usize>;
 }
 
@@ -250,7 +268,7 @@ impl RowIndex for &str {
 /// One fully read result row. Cursors are drained before a statement returns, so no statement is
 /// ever left open on the writer.
 #[derive(Clone, Debug)]
-pub(crate) struct Row {
+pub struct Row {
     names: Arc<[String]>,
     values: Vec<Value>,
 }
@@ -302,7 +320,8 @@ async fn collect(mut rows: cantos_store_turso::Rows) -> Result<Vec<Row>, Error> 
 }
 
 fn bind(params: Params<'_>) -> impl cantos_store_turso::IntoParams {
-    params_from_iter(params.iter().map(|param| param.to_value()))
+    let values: Vec<Value> = params.iter().map(|param| param.to_value()).collect();
+    params_from_iter(values)
 }
 
 impl Tx<'_> {

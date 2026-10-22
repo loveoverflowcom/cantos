@@ -6,6 +6,8 @@ pub mod application;
 pub mod contexts;
 pub mod platform;
 pub mod script_ir;
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
 
 // Compatibility aliases for the retained editorial and metadata contracts.
 #[doc(hidden)]

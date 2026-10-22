@@ -2,7 +2,6 @@ use cantos_server::{
     adapters::inbound::http::{server_router, AppState},
     application::Store,
     platform::host::{host_settings, HostMode},
-    platform::postgres::{local_config, verify_schema},
     platform::studio_oidc::{OidcConfig, StudioOidc},
 };
 use std::{env, net::SocketAddr};
@@ -11,11 +10,11 @@ use std::{env, net::SocketAddr};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let host = host_settings(|name| env::var(name).ok()).map_err(|error| error.message())?;
     let address = host.bind();
-    let config =
-        local_config(&env::var("DATABASE_URL")?).map_err(|_| "invalid local PostgreSQL config")?;
-    verify_schema(&config).await?;
-    // Caller-owned generation enters through authenticated context/submission tools.
-    let mut store = Store::new(config).map_err(|_| "database pool unavailable")?;
+    // The Server owns `server.db` for the process lifetime. Serving never changes the schema:
+    // a missing, foreign, diverged, newer or not-yet-migrated file is refused unchanged, and
+    // `cantos-migrate` is the explicit operator action that creates or upgrades it.
+    let database = env::var_os("CANTOS_SERVER_DATABASE").ok_or("CANTOS_SERVER_DATABASE is required")?;
+    let mut store = Store::open(database, cantos_store_turso::registry::Intent::Serve).await?;
     if !host.development_sessions() {
         store = store.without_development_sessions();
     }
