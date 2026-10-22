@@ -1,0 +1,3 @@
+-- Server.db version 6: Admin audit, operations and access revocations.
+-- Reserved slice: filled by the context's port (see docs/architecture/server-turso/admin.md).
+-- DDL only; queries live in the owning persistence adapter.
