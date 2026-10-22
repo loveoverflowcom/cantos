@@ -26,7 +26,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0014 — UI foundation](0014-ui-system-foundation.md) | Accepted bounded foundation | Renderer/runtime admission remains separate |
 | [0015 — API surfaces](0015-api-surface-boundaries.md) | Proposed policy record; implemented naming/routes | Studio, Theatre and Admin stay separate |
 | [0016 — Speech reuse](0016-speech-fingerprint-and-clip-reuse.md) | Historical; superseded by 0018 for backend | No synthesis-job/clip-reuse runtime |
-| [0017 — DBSP job summary](0017-experimental-dbsp-job-summary.md) | Historical; superseded by 0018 for backend | Generic DBSP library remains optional; job adapter retired |
+| [0017 — DBSP job summary](0017-experimental-dbsp-job-summary.md) | Historical; superseded by 0018 for backend | Implementation/feature/gate retired; #384 defers incremental engines |
 | [0018 — External production](0018-external-audio-production.md) | Accepted | No inference/mixing/encoding in Cantos API; Forge clarification in 0022 |
 | [0019 — Content identity](0019-content-identity.md) | Accepted bounded implementation | Separate metadata/content authority and exact immutable bindings |
 | [0020 — Private audio intake](0020-studio-private-audio-intake.md) | Accepted development scope | Explicit Opus envelopes; production/listening acceptance separate |
@@ -78,4 +78,4 @@ Do not recycle old numbers or renumber unrelated accepted decisions.
 
 - [ADR0045: v1 email/password sign-in for Theatre and Studio](0045-v1-email-password-sign-in.md) — accepted #335 v1 scope; Studio passkey/recovery deferred.
 
-ADR 0041 was amended by the owner on 2026-10-18 in #253: Cantos-issued Bearer supersedes its cookie/same-site prerequisite. See [Bearer v1](../../packages/contracts/bearer-v1.md) for implemented API scope and unfinished client/live acceptance.
+ADR 0041/#253's Web Bearer direction is superseded by #295 and [Identity auth v1](../../packages/contracts/identity-auth-v1.md): Web cookie with exact-origin/CSRF; CMP/native retains Bearer. Provider-only ADRs 0016/0034/0036/0040/0044 are historical within that scope; current mailbox/password behavior follows ADR 0045. Provisioned-only Studio and no registration-issued role remain required.

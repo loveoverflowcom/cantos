@@ -298,12 +298,12 @@ schedules against their own outbox code.
 I8 as generated properties, network fault schedules and a reference client are proposed; I2 and
 I6 have example tests only.
 
-### Real PostgreSQL
+### Historical PostgreSQL oracles and native port
 
-The pure model cannot show what the database does under concurrency. The implemented sources
-are the `#[ignore]`d tests in `listening/postgres/tests.rs`, run only by
-`cargo xtask verify postgres` against a disposable cluster (`integration-tested` only when that
-gate actually ran): `duplicate_and_same_base_first_write_races_commit_one_revision_and_identical_receipts`,
+The pure model cannot show what the database does under concurrency. Retained PG assertions
+are historical porting oracles outside Cargo discovery; the old gate is retired. Native file-backed
+acceptance under #333 must preserve the following race/receipt/isolation cases, with actual
+execution evidence before claiming integration-tested: `duplicate_and_same_base_first_write_races_commit_one_revision_and_identical_receipts`,
 `clear_preserves_progress_saved_and_sessions_and_router_is_account_isolated`,
 `receipt_failure_rolls_back_progress_sequences_and_account_state_before_retry`,
 `replacement_and_withdrawal_retain_owned_progress_without_silent_substitution`,

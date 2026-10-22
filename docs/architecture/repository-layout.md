@@ -58,10 +58,9 @@ apps/
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
-  cantos-server/           Rust + Axum + PostgreSQL modular monolith (package cantos-server)  IMPLEMENTED
-  cantos-identity/         Security/proof core + file-backed state + `service` executable   Theatre signup/password (and Studio password) over private UDS RPC; NO passkey/recovery; Server sessions are the PostgreSQL consumer
-  manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
-  postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
+  cantos-server/           Rust + Axum + embedded Turso (business port incomplete) (package cantos-server)  IMPLEMENTED
+  cantos-identity/         Security/proof core + file-backed state + `service` executable   Theatre signup/password (and Studio password) over private UDS RPC; NO passkey/recovery; Server sessions consume Turso
+  manifest.toml            Typed native/external process inventory                  CONFIGURED
   kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
 infra/                     Deployment/runtime assets; no application domain logic
   vps/                     Production VPS image, Quadlet units, grants, host script         DEPLOYED
@@ -103,11 +102,10 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   Its unsigned release graph and APK/AAB are inspected for sandbox exclusion; catalog integration
   does not establish native listening, a signed release or distribution.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
-- **CONFIG ONLY** documents and validates deployment configuration, not live deployment or
-  integration acceptance. For Kanidm, the API has opt-in [Studio OIDC](studio-oidc.md) and separate
-  [Theatre OIDC](theatre-identity.md) adapters. [Local Theatre sign-in/logout](../evidence/theatre-live-auth-206.md)
-  has real issuer evidence; Firebase signup, Studio live acceptance and production activation
-  retain their own gates.
+- **CONFIG ONLY** describes tracked assets, not deployed state. The native process inventory
+  registers Server + Identity and external storage. Provider OIDC/Firebase enrollment paths
+  are retired; old issuer/mail/browser observations remain source-bound history.
+
 - **FOUNDATION** is the [Cantos Forge](../../services/cantos-forge-functions/README.md) crate governed by
   accepted [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
   a filesystem workspace and a host-assisted local workflow (`workspace init`, `artifact add`,
@@ -169,7 +167,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` (public Discovery/Playback
   core; actual delivery/identity/client acceptance pending) and `/api/v1/admin/*`
   (opt-in [Admin capability/revocation and audit](admin-authorization.md); live provider acceptance pending; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
-  Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's
+  Domain rules and the one Server Turso owner stay shared; a surface never calls another surface's
   handler. Backend no longer starts TTS workers. Current contexts are Editorial, Ingestion,
   Adaptation, reference-only Production, pure Media inspection and the internal Catalog
   API, plus immutable Production Brief export and scoped development read grants; external
@@ -188,24 +186,10 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   `services/`; this mechanical boundary does not move application or producer code, provision a
   runtime or establish deployment acceptance. Add a Functions directory only with a concrete
   consumer and reviewed runtime decision under #203.
-- **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
-  example server config. The API implements a separate opt-in [Studio OIDC verifier](studio-oidc.md);
-  the [native Identity persistence slice](../../services/cantos-identity/README.md#file-backed-security-state)
-  supplies no credential verifier or login replacement for it.
-  The [internal actor registry](identity-registry.md) now owns exact external bindings under
-  `platform/identity`, preserving existing actors and development sessions; it does not verify
-  provider claims, add OIDC login or grant Theatre/Admin authority.
+- **Identity is a native owner.** `services/cantos-identity` owns one Turso file and private
+  authenticated RPC. Removed Kanidm config/provider adapters are historical migration inputs;
+  no provider is required by native build/run/verification.
 
-## What is shared, and what is not
-
-| Shared | Where | Consumers today |
-| --- | --- | --- |
-| Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-server`, `cantos-studio`, `cantos-theatre` |
-| Web session lifecycle (HttpOnly cookie, nonsecret RAM facts) and browser transport policy | `packages/web-auth` | Studio Web and Theatre Web; separate purposes/instances |
-| Single-owner embedded Turso foundation (owner lock, schema registry, serialized writer, backup) | `packages/store-turso` | opt-in [`cantos-identity` persistence](../../services/cantos-identity/README.md#file-backed-security-state) (#334); uncomposed Server [candidate schema](server-turso-schema.md) (actor registry slice, #333), no production composition |
-| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web live auth/account and isolated mock; development gallery |
-
-Not shared, deliberately:
 
 - **Script IR rules, revisions and production instructions** remain modules of `cantos-server`
   (`script_ir` and the domain modules under `contexts/`). The Studio editor validates through
@@ -233,7 +217,7 @@ The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds 
 | Member | Package | Build target |
 | --- | --- | --- |
 | `services/cantos-server` | `cantos-server` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
-| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events, mailbox-proof lifecycles and bound receipts; opt-in `service` feature: the `cantos-identity` executable with Theatre signup, Argon2id password authentication and an OS-peer-authenticated private Unix-socket RPC ([contract](../../packages/contracts/identity-rpc-v1.md)); no Studio passkey, recovery or production composition (the Server consumer is PostgreSQL sessions, see Identity auth v1) |
+| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events, mailbox-proof lifecycles and bound receipts; opt-in `service` feature: the `cantos-identity` executable with Theatre signup, Argon2id password authentication and an OS-peer-authenticated private Unix-socket RPC ([contract](../../packages/contracts/identity-rpc-v1.md)); no Studio passkey, recovery or production composition (the Server consumer is Turso sessions, see Identity auth v1) |
 | `services/cantos-forge-functions` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |

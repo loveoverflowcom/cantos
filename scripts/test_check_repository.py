@@ -516,7 +516,7 @@ const QUERY: &str = "SELECT id FROM catalog_works";
 
     def test_http_allows_wire_admission_and_delegates_business_use_case(self):
         self.assertEqual(self.errors("adapters/inbound/http/studio/mod.rs", """
-use crate::platform::postgres::{Store, StoreError};
+use crate::platform::store::{Store, StoreError};
 use crate::contexts::editorial::domain::diagnostics::validation_issues;
 fn validate() { crate::script_ir::read_script(bytes); state.store.save(request); }
 """), [])
@@ -690,7 +690,7 @@ fn f() { state.store.connection(); client.transaction(); tx.query_one(sql, args)
                     self.assertRejected(path, source, "must not depend on an interface")
 
     def test_context_cannot_reuse_http_store_facade_through_canonical_or_compatibility_types(self):
-        for namespace in ("application", "platform::postgres"):
+        for namespace in ("application", "platform::postgres", "platform::store"):
             for method in ("load", "save", "history", "review"):
                 for call in (
                     f"fn f(store: &Handle) {{ store.{method}(request); }}",
@@ -904,8 +904,10 @@ use tonic::{transport::Channel, Status};
         for dependency, reason in (
             ("cantos_store_turso::OwnedDatabase", "HTTP must not call a database or external provider"),
             ("turso::Connection", "HTTP must not call a database or external provider"),
-            ("crate::platform::turso::Store", "only the legacy Store and StoreError facade"),
-            ("crate::platform::postgres::Tx", "only the legacy Store and StoreError facade"),
+            ("crate::platform::turso::Store", "only the reviewed Store and StoreError facade"),
+            ("crate::platform::postgres::Tx", "only the reviewed Store and StoreError facade"),
+            ("crate::platform::store::Tx", "only the reviewed Store and StoreError facade"),
+            ("crate::platform::store::Row", "only the reviewed Store and StoreError facade"),
         ):
             with self.subTest(dependency=dependency):
                 self.assertRejectedAt("adapters/inbound/http/studio/catalog.rs", f"use {dependency};", reason)

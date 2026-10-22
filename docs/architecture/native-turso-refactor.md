@@ -9,52 +9,28 @@ owns execution and acceptance; its five checkpoints are [foundation #332](https:
 [integration #335](https://github.com/loveoverflowcom/cantos/issues/335) and
 [qualification/cutover #336](https://github.com/loveoverflowcom/cantos/issues/336).
 
-This is an **owner-selected architecture direction, not implemented-runtime evidence**.
-The reviewed baseline is `develop@cccb547c08585e1266e26b2b07ead3a2c887697e`.
-At that baseline the service is still `services/cantos-api`, PostgreSQL is authoritative,
-Kanidm supplies authentication, and the VPS uses container-oriented assets with separate
-Studio and Theatre API processes. The HTTP adapter is already `adapters/inbound/http` after
-PR #329. Re-read actual source before implementation; do not restore obsolete HTTP ownership.
+The selected direction is now partially implemented: Server and Identity are native processes,
+each owning a separate Turso file. The shared store, actor/session foundation, private RPC,
+first-party Web cookie and CMP/native Bearer consumers exist. The
+[porting checkpoint](server-turso-porting.md#checkpoint-boundary) owns the remaining business
+schema/SQL gap. A successful file open/build does not establish HTTP parity or native acceptance.
 
-**Implemented by #332 (checkpoint 1/5):** the crate, directory, workspace entry, lockfile
-entry, xtask selectors, build scripts, guards and active documents now say `cantos-server`
-(`services/cantos-server`). The deployed legacy VPS runtime keeps its operational names
-(Quadlet units, container and image names, release bundle file name, Caddy snippet) until the
-operator-authorized cutover of #336; see the
-[rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api). The bounded
-implementation slices below are separate from the selected target and final runtime acceptance.
+The original baseline `develop@cccb547c08585e1266e26b2b07ead3a2c887697e` used `services/cantos-api`,
+PostgreSQL, Kanidm and two API processes. That is history, not current source or fresh deployed
+observation. Current canonical source is `services/cantos-server`; retained PG schema, checksum
+history and `legacy-pg-tests` supply porting oracles. Registered migrations remain immutable.
 
-**Implemented by the #332.4 foundation slice:** [`packages/store-turso`](../../packages/store-turso/README.md)
-supplies the single-owner lock, the checksummed schema registry with a pure startup decision, a
-serialized `BEGIN IMMEDIATE` writer with typed commit outcomes, an injected clock and a verified
-`VACUUM INTO` backup, plus [probes of the pinned engine](../evidence/turso-capability-report.md)
-(`cargo xtask verify turso`). Its foundation is `integration-tested` on Linux x86_64 (`tmpfs` and `ext4`)
-and macOS arm64. Identity now has an opt-in [security-state persistence consumer](../../services/cantos-identity/README.md#file-backed-security-state)
-with real-file tests; Server still has no consumer and no Server table has been ported.
-PostgreSQL stays authoritative for serving. A true full-disk, footprint and the Server schema mapping
-remain `NOT_RUN`. The probes corrected several planning assumptions (see the report): recursive CTEs
-work, unknown collations are refused, a broken `REGEXP` `CHECK` is silently open unless wrapped in
-`coalesce`, and `VACUUM INTO` is stale unless run on the writer after a refreshing read.
+[`packages/store-turso`](../../packages/store-turso/README.md) supplies exclusive ownership,
+checksummed registries, serialized writers, pinned readers, typed commit uncertainty and verified
+backup primitives. Its [capability report](../evidence/turso-capability-report.md) is source-bound
+engine evidence, separate from business/runtime/restore/footprint acceptance. Use `coalesce` for
+regex CHECKs; qualify the pinned engine rather than assume SQLite behavior. No second owner,
+DB daemon or cross-service file read is introduced.
 
-The [Identity security-core library](../../services/cantos-identity/README.md) supplies
-checked, distinct subject/operation/instance IDs, storage-bounded security versions and a pure
-completion recheck for active/current state, binding, surface and assurance. Its mailbox-proof
-planners add bound explicit-confirmation/expiry, terminal cancel/consume and replacement
-decisions with expected/successor snapshots; secret verification and atomic persistence remain
-shell obligations. The default library introduces no binary, crypto verifier, RPC,
-authentication fact or session. The opt-in persistence shell supplies an Identity schema and
-atomic disable/version/event/receipt storage. The later opt-in `service` feature now supplies
-the signup/password executable (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md))
-and private authenticated UDS RPC; see the [service boundary](../../services/cantos-identity/README.md)
-and the v1 amendment below. The Server consumes it through [Identity auth v1](../../packages/contracts/identity-auth-v1.md)
-on PostgreSQL; first-party frontends remain pending. Pure decisions do not establish durable revocation,
-restore safety, atomic consume-once or auth E2E acceptance. Kani harness registration is not
-evidence that a model checker ran.
-
-The integration branch is `refactor/cantos-native-turso`, with reviewable commits/checkpoints
-and a final integrated PR to `develop`. Do not merge an incompatible intermediate rename,
-schema or authentication cutover. Preserve other worktrees and reconcile concurrent work.
-The documentation preparation changes no executable, installed runtime, database or account.
+[#348](../deployment/native-oci-release.md) selects GHCR digests and Podman/Quadlet for production
+packaging only; native development/E2E/Kani remains container-independent. Candidate producer,
+offline admission, real pair execution, host activation and observed deployment are separate.
+The source checkpoint authorizes no legacy service/data retirement.
 
 ## Owner amendment: v1 authentication and parallel integration
 
@@ -69,7 +45,7 @@ this section owns the parallel-integration and security-state strategy around th
 | --- | --- |
 | Email/password with email verification, including Studio password login | Identity proves identity; Server still checks Studio roster/admission, ActorId, roles and resource permissions. Studio stays provisioned/login-only, with no public signup or email-based auto-link. |
 | Reuse the existing session engine | Preserve SessionPolicy, TTL/replay/revocation and purpose fences; do not create a separate mobile session system. Web uses HttpOnly/Secure cookies with exact-origin CORS/CSRF; CMP uses opaque Bearer with its existing coordinator and secure storage. |
-| Auth and frontends proceed alongside Server PostgreSQL → Turso migration | Identity Turso + authoritative Server PostgreSQL is a valid transitional composition. Implement binding/session transactions in the current Server owner; do not create a disconnected partial `server.db` or claim cross-DB atomicity. |
+| Auth and frontends proceed alongside Server PostgreSQL → Turso migration | This permitted the historical transitional PG slice; the later source-retirement amendment supersedes it. Current sessions use the one Server Turso owner; no dual write, partial second DB or cross-DB atomicity. |
 | Direct authoritative security-state checks are allowed | A durable event consumer is not a v1 prerequisite. Define freshness bounds and fail-closed issuance, renewal and protected/sensitive admission; recheck epoch/version/current state and reject late or stale facts. Events remain a possible later optimization, with their own recovery contract. |
 | Verify email in Web, then return to CMP | This is a valid v1 journey, with operation/purpose binding and explicit mailbox confirmation. Polling, a redirect or a client flag alone never authenticates the app. |
 
@@ -82,8 +58,8 @@ accepted; a documentation amendment does not authorize a runtime bypass.
 | --- | --- |
 | Identity `service` implements Theatre mailbox-confirmed signup, Argon2id password authentication (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md)) and `GetSecurityState` over private UDS RPC | The [service guide](../../services/cantos-identity/README.md#verification) records source-bound prior runs; this amendment runs no authentication tests. |
 | Studio password is implemented in Identity: [the core](../../services/cantos-identity/src/domain/admission.rs) admits `(Studio, Password)` beside the deferred `UserVerifiedPasskey`, and the Server's roster decides Studio entry | Prior runs are recorded in [Identity auth v1](../../packages/contracts/identity-auth-v1.md#verification); this amendment runs none. Studio provisioning remains absent; a password result is never relabelled as passkey assurance. |
-| [Server serving](native-persistence-readiness.md#actual-serving-path) remains PostgreSQL; the [Identity auth v1](../../packages/contracts/identity-auth-v1.md) backend consumer issues sessions and ActorId bindings there | Real transitional PostgreSQL E2E may qualify that composition; it is not “without PostgreSQL” native acceptance. |
-| [Shared Web auth](../../packages/web-auth/README.md) now consumes the Server's v1 Web cookie endpoints (source only; no Bearer fallback); [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has Bearer coordination/secure storage over the current provider flow | Web cookie/fetch/XHR/session-restore wiring exists in source; real first-party v1 browser journeys remain pending, with separate browser/device acceptance. |
+| [Server foundation](native-persistence-readiness.md) composes Turso sessions/ActorId bindings; business port remains incomplete | Historical transitional PG E2E never qualifies native HTTP parity. |
+| [Shared Web auth](../../packages/web-auth/README.md) now consumes the Server's v1 Web cookie endpoints (source only; no Bearer fallback); [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has first-party Identity v1 Bearer coordination/secure storage | Web cookie/fetch/XHR/session-restore wiring exists in source; real first-party v1 browser journeys remain pending, with separate browser/device acceptance. |
 
 The #335 backend slice consumes the authenticated RPC implementation and draft contract;
 completion of every Server Turso adapter was not a prerequisite. Final #336 native acceptance still needs the
@@ -99,7 +75,7 @@ integration branch `refactor/cantos-native-turso` now, without waiting for full 
 browser/device or live-host acceptance. This supersedes only the earlier condition that kept
 legacy source "while the default serving path consumes it" and "only alongside the accepted
 replacement and its real tests" (the retirement paragraph of
-[native persistence readiness](native-persistence-readiness.md#retirement-and-local-data)); it does
+[native persistence readiness](native-persistence-readiness.md#porting-and-retirement)); it does
 not lower any invariant.
 
 | Decided | Unchanged |
@@ -117,65 +93,21 @@ account or secret on a real machine stays out of reach of source retirement.
 
 ## Single-process HTTP review boundary
 
-[#333.1](https://github.com/loveoverflowcom/cantos/issues/333) first composes the existing
-Studio/Theatre/Admin HTTP surfaces in one `cantos-server`, retaining PostgreSQL. Its prerequisite
-is #332 PR-A, including the #332.0 reconciliation of the latest `develop` and
-[#330's checked SessionPolicy and credential split](https://github.com/loveoverflowcom/cantos/pull/330)
-into the renamed tree. A mechanical rename alone does not establish that reconciliation.
-Preserve the single session-policy implementation, credential prefixes/bindings,
-replay/revocation precedence and deadline semantics when resolving the renamed paths.
+The [HTTP composition owner](server-http-composition.md) describes the implemented one-listener
+Server, route-specific origins/state and native session consumers. Reuse the shared SessionPolicy,
+credential parsing, actor binding and late admission checks; no duplicate engine or global origin
+allowlist. Provider-only routes are removed; Admin fails closed without its verifier.
 
-The renamed Server now includes that reconciliation from `0611c41a` (PR #330): checked
-`SessionPolicy` and lifetime/rotation remain in `platform/bearer/core.rs`, registration mapping
-in `bearer/client.rs`, and opaque credential/protocol parsing in `bearer/credential.rs`.
-Application, PostgreSQL and inbound admission callers use those same owners. This is reuse of
-the existing implementation, with unchanged TTLs and native token format, not a second session
-engine or the native issuer cutover.
+Review exact own/sibling/foreign/null/lookalike origins, purposes, duplicate/mixed credentials,
+session fences and no-store behavior through actual HTTP production handlers. Preserve archived
+PG assertions as porting oracles, including slow-body deadline and transactional revocation races.
+Their historical PASS is not native parity. Native session/file/RPC tests qualify only their named
+scope; two-production-binary HTTP, browser/device, restore, isolation, D1 and footprint remain
+separate #333/#335/#336 acceptance. Readiness and opening the owner cannot close those gaps.
 
-For [#335](https://github.com/loveoverflowcom/cantos/issues/335), the backend slice consumes the
-implemented Identity executable/authenticated UDS and [draft RPC contract](../../packages/contracts/identity-rpc-v1.md)
-and issues sessions in the current authoritative Server PostgreSQL owner under the
-[v1 amendment](#owner-amendment-v1-authentication-and-parallel-integration) and
-[ADR 0045](../decisions/0045-v1-email-password-sign-in.md); see [Identity auth v1](../../packages/contracts/identity-auth-v1.md).
-Reconciled policy tests and pre-composition controls cannot accept missing frontend, browser/device
-or native layers. Keep the old provider until its replacement is actually accepted; public
-first-party forms retain the settled D4 decision, and the D3 passkey/recovery target is deferred,
-not removed. The Web clients consume the cookie endpoints from source; their browser acceptance remains pending.
-
-The [single-process source composition](server-http-composition.md) now uses the canonical inbound
-assembly, one PostgreSQL pool and a listener with route-local origins/state/policies. Its
-configuration migration and deployed legacy runtime are separate. Reuse it in persistence
-slices rather than constructing another router.
-
-The [pre-composition regressions](../../services/cantos-server/tests/surface_policy_baseline.rs)
-retain controls on the origin-pinned browser wrapper and add the executable
-combined-router matrix. The separate PostgreSQL fixture lane covers issued credentials and
-the actual executable restart; results belong to its exact-source PR evidence. Prefix-shaped sentinels are deliberately
-unissued; an own-purpose sentinel reaches an unavailable verifier as a routing/parsing control,
-while a wrong-purpose or ambiguous credential is refused before that verifier. That control
-is not successful authentication or auth E2E evidence. No database, issuer, test session,
-network listener or provider is started by these tests.
-
-| Preserved boundary | Pre-composition oracle | Remaining #333.1 acceptance |
-| --- | --- | --- |
-| Exact browser origin and route | Studio/Theatre host × current/sibling/Admin/legacy route × own/sibling/foreign/null/lookalike origin × all three Bearer prefixes | One process with separate configured allowlists for Studio, Theatre and Admin, without unioning them |
-| Credential purpose and ambiguity | Own-purpose unavailable control versus wrong-prefix, duplicate Authorization, Cookie-only and mixed Cookie/Bearer refusals on real Bearer session routes | Issued credentials across protected resources, accounts and all surfaces; real cookie admission, duplicate-cookie parsing, expiry, fencing, replay and revocation |
-| Preflight | Exact methods and own session headers admitted; other-surface headers, duplicate Origin/method and sibling origin refused | The same matrix through the combined route composition, including Admin policy |
-| Authority source | Spoofed Host/Forwarded/X-Forwarded headers cannot admit a sibling browser Origin | Combined-host authority comes only from trusted configuration and the matched route |
-| Error and cache policy | Exact Studio/legacy and Admin API errors, separate Theatre Library error shape, refusal/preflight `no-store`, no cookies minted | Authenticated/public/private-media success, timeout errors and transport-owned cache policy through the combined host |
-
-Do not concatenate two origin-pinned wrappers around the whole router: each would reject the
-other surface. Apply each surface's CORS/CSRF, authentication, deadline, error and cache policy
-at its own route boundary. Keep deprecated Studio aliases under Studio authority. Admin's
-dedicated verifier and audit admission cannot derive authority from Studio/Theatre sessions.
-Native cookie-free requests retain their existing purpose-specific admission; development
-credentials remain outside production composition.
-
-The runtime PR must also demonstrate one owned Server process in `cargo xtask run` without
-provisioning infrastructure. Live Quadlet/systemd changes belong to #336. Subsequent persistence
-slices 333.2–333.8 target `refactor/333-server-turso-persistence` without changing composition;
-333.9 owns the Turso flip. The origin-pinned baseline tests do not satisfy any of those runtime,
-Turso, Kani, browser/device or footprint acceptance gates.
+Current source owners are `platform/store`, `platform/turso`, `platform/identity`,
+`platform/identity_auth` and `adapters/inbound/http`. Business context SQL/schema remains unported.
+No second DB, provider fallback, weakened admission or mock success may bridge the gap.
 
 ## Selected target
 
@@ -259,7 +191,7 @@ Library/Progress/Bookmark semantics and native SQLDelight storage. Keep Script I
 bytes, accepted receipts, publication/rendition identities, hashes, rights and retraction
 semantics. Theatre is read-heavy, not write-free; Studio and listener/session mutations remain.
 
-One Server must replace the current two API processes using **route-scoped** origin, CSRF,
+One Server replaces the historical two API processes using **route-scoped** origin, CSRF,
 credential and capability policies. Do not union Studio and Theatre origins into a global
 allowlist or relax exact-origin checks. Preserve separate Admin/producer authority.
 
@@ -295,26 +227,16 @@ translate SQL or remove constraints. Keep context-owned adapters, short transact
 conditional mutations, immutable history and replay-safe receipts. File access control is a
 changed security boundary, not an equivalent replacement for PostgreSQL roles.
 
-DBSP is an optional in-process derived read model, never identity or authorization authority.
-The current sample has signed deltas but a PostgreSQL `xid8`/`xmin` freshness contract. There is
-no demonstrated Turso adapter at the reviewed baseline. Reuse appropriate computation, not
-PostgreSQL snapshot assumptions. Choose the maintenance contract by lifetime:
+The current [#384 decision](https://github.com/loveoverflowcom/cantos/issues/384) supersedes
+DBSP experimentation as a prerequisite: **Turso SQL/index first, selective measured cache later;
+incremental engines DEFER**. The incremental module, feature and gate are retired; do not infer
+an incompatibility between the technologies. The old PostgreSQL `xid8`/`xmin` feed is historical,
+not a Turso commit-order contract. Preserve its unique reasoning through [ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md).
 
-- A volatile projection inside the same owner may use after-commit coordination, explicit
-  readiness/freshness, bounded authorized SQL fallback and full rebuild after restart. Test
-  commit/rollback ordering, concurrent writes, bootstrap races, partial publication, missed
-  notifications and failure/rebuild; no result is served as current after coordination is lost.
-- A durable or out-of-process projection needs a durable committed feed, snapshot/watermark
-  alignment, whole-transaction publication, checkpoints, replay/deduplication and recovery.
-  Row IDs are not presumed commit ordering; no cross-service file access is introduced.
-
-Neither branch mandates CDC for every projection. Both require a concrete DBSP consumer,
-consistency evidence and measured benefit against the actual authoritative SQL baseline.
-
-Evaluate one concrete hot read against improved Turso SQL/index/cache baselines. Record
-`adopt | reject | defer`, including binary/RAM and write-maintenance cost. Reject/defer is
-valid; absent adoption evidence, DBSP stays out of the default release. No Feldera/broker
-process is added. No unmeasured throughput or footprint gain is claimed.
+Follow the [Turso read method](../../.agents/skills/cantos-engineering/references/turso-read-performance.md).
+Measure the actual consumer/representation on a ready native module. Keep authority, late
+admission/revocation checks, coherent reads, receipts and unknown-outcome handling. No cache,
+engine or unmeasured performance claim follows from source retirement.
 
 ## Assurance and native acceptance
 

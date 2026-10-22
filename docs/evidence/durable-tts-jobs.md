@@ -384,11 +384,11 @@ and acceptance require current transactional authority; an asynchronous derived 
 freshness/rebuild/operational cost. Direct reads represent their own PostgreSQL transaction, so
 engine lag/fallback/rebuild checks are inapplicable to this slice. Feeding mutations preserve
 atomic PostgreSQL visibility. Reopen only when a concrete measured consumer meets the existing
-[read assessment admission conditions](../../.agents/skills/cantos-engineering/references/postgresql-read-performance.md).
+[read assessment admission conditions](../../.agents/skills/cantos-engineering/references/turso-read-performance.md).
 
 Later update (#58): this summary now has an opt-in, feature-gated experimental DBSP read model
 ([ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md),
-[evidence](dbsp-job-summary.md)). This section's measurements and its conclusion for the default
+[evidence](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/evidence/dbsp-job-summary.md)). This section's measurements and its conclusion for the default
 path are unchanged; production adoption remains unadmitted.
 
 ## Completion report and residual risk

@@ -6,7 +6,7 @@
 > Studio does not dispatch TTS and the Work/ContentUnit/Audio handoff UI is not implemented yet
 > ([#66](https://github.com/loveoverflowcom/cantos/issues/66), [#8](https://github.com/loveoverflowcom/cantos/issues/8)).
 
-`cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the actual local Axum/PostgreSQL
+`cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the native Axum/Turso (business port incomplete)
 revision API. Its text-first workspace has scene/act/character navigation, native dialogue,
 narration, emotion, pronunciation and cue controls, and a source/validation/change inspector.
 Import, proposal review and accepted-revision editing keep their state mounted when switching
@@ -65,15 +65,11 @@ that helper on `PATH` as well as the Cargo cache; the Mac run used
 The [performance audit](../../../docs/evidence/web-performance-patterns.md) records measurement
 limits and deferred editor/SSR/splitting experiments. The inventory does not measure browser
 startup or change the existing private/session cache boundary.
-Serve the built files with the local Axum host, using the [isolated database runner](../../../services/cantos-server/README.md).
-The actual walkthrough used `python3 scripts/serve_studio.py` at `http://127.0.0.1:8080`; today
-`cargo xtask run cantos-server --test-cluster` starts that same primitive after
-`cargo xtask verify postgres --keep`.
-
-`Trunk.toml` also declares an optional 8081 development proxy to 8080.
-`cargo xtask run cantos-studio --web` starts the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`
-and then `trunk serve --locked`; `cargo xtask app cantos-studio --web` starts only Trunk against an
-API that is already listening. That proxy mode was not used as browser evidence.
+`cargo xtask run cantos-studio --web` starts the native Server + Identity with private files,
+explicit migrations, distinct surface origins and Trunk on 8081. `app cantos-studio --web`
+starts only Trunk against an API already listening. Retained-PG `--test-cluster`/`verify postgres`
+commands are retired; prior browser walkthroughs remain source-bound history. Business porting
+and actual browser/login acceptance are separate from build/source checks.
 
 ## Login entry and writing desk
 

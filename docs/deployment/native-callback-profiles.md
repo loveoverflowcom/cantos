@@ -1,18 +1,17 @@
-# Theatre native callback profiles (retired)
+# Native OIDC callback profiles — retired
 
-**Retired for the CMP client; kept only so existing links resolve.** The Theatre Android and iOS
-apps no longer sign in through a system browser. Native sign-in is first-party Identity v1:
-email/password JSON on the API origin ([Identity auth v1](../../packages/contracts/identity-auth-v1.md)).
-The apps declare no OIDC issuer, browser callback or URL scheme, so there is no per-build callback
-profile (`production` or `development`) to derive, register or admit for them:
+Provider-only guidance is superseded by [Identity auth v1](../../packages/contracts/identity-auth-v1.md) and [private RPC v1](../../packages/contracts/identity-rpc-v1.md).
+Source retirement removed the OIDC/Firebase enrollment handlers, provider setup and callback
+exchange. The old commands/configuration are not supported native workflows. Original source-bound
+requirements and observations are retained in [pinned history](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/native-callback-profiles.md). They are not current
+implementation or native/browser/device acceptance.
 
-- Android's manifest has only the `MAIN`/`LAUNCHER` entry (no `BROWSABLE` filter, no `<data>` scheme);
-  iOS `Info.plist` has no `CFBundleURLTypes`. `cargo xtask theatre-host` inspects the built
-  manifest and refuses one that declares either, for debug and release.
-- Do not add a provider redirect, set `CANTOS_THEATRE_NATIVE_DEVELOPMENT_CALLBACK` or run the
-  old rollout steps on behalf of a CMP build. The `--native-issuer` build option no longer exists.
+Preserve the live invariants at their current owners: exact ActorId binding without email
+matching, purpose/surface isolation, exact Origin/CSRF, explicit mailbox confirmation, replay/
+unknown-outcome reconciliation, revocation, immutable operation receipts and no registration-issued
+Studio/Admin/resource authority. Web uses cookies; CMP/native uses opaque Bearer. Password
+verification returns an Identity fact, never a Server session. Retired provider models supply
+no acceptance for that flow.
 
-The Server's legacy provider-path routes and their closed `callback_profile` admission are
-compatibility surfaces owned by [Bearer v1](../../packages/contracts/bearer-v1.md) and the Server and
-Kanidm READMEs, not by this page. When they are retired, their owner removes the remaining links
-here. The former runbook text is available in Git history for this path.
+Provider retirement authorizes no account, key, database/WAL, media or deployed-service deletion.
+Firebase Hosting, Functions and App Distribution are independent products with their own owners.

@@ -318,7 +318,7 @@ Use the existing [xtask commands](../../../xtask/README.md), Rust 1.98.1,
 ```sh
 cargo xtask doctor
 cargo xtask build cantos-theatre --web
-# DATABASE_URL must already name an operator-prepared, migrated local app-role database.
+# Native run owns private Server + Identity files; business catalog readiness remains incomplete.
 cargo xtask run cantos-theatre --web
 cargo xtask verify repository
 cargo xtask verify rust
@@ -342,81 +342,12 @@ frontend-only workflow or for explicit offline previews. The
 compatibility choice, implemented behavior and actual verification; the Draft PR claims no
 production or playback acceptance.
 
-For a disposable cluster already retained by a successful explicit
-`cargo xtask verify postgres --keep`, the full-stack alternative is:
-
-```sh
-cargo xtask run cantos-theatre --web --test-cluster
-```
-
-It selects the retained Theatre fixture (`CANTOS_TEST_CONTEXT=theatre`, `theatre_app_url`),
-which has bounded discovery read grants and no invented publication. It refuses another DB
-or a record without that field; explicitly rerun disposable verification if the record is too
-old. `run` starts no PostgreSQL service and applies no role grants or migrations.
-
-To see published Works, run `cargo xtask seed theatre` once against that retained cluster before
-`run`. It publishes synthetic novel, story and podcast Works through the real Studio flows; `run
---test-cluster` then serves that seed database and says so on its first line. The
-[seeded catalog runbook](../../../docs/deployment/theatre-seeded-catalog.md) lists the dataset,
-stable IDs, a live withdrawal, reset and troubleshooting. Hearing a unit in the browser
-additionally needs its [local TLS front end](../../../docs/deployment/theatre-seeded-catalog.md#local-tls-front-end-for-browser-playback),
-because the API admits only an HTTPS media origin.
-
-To reuse an already-running API, use separate terminals. The API terminal requires the same
-operator-prepared `DATABASE_URL` (or its retained test-cluster option):
-
-```sh
-cargo xtask run cantos-server --web-origin http://127.0.0.1:8082
-cargo xtask app cantos-theatre --web
-```
-
-`app` starts only Trunk, probes the existing public catalog and prints a prominent `WARNING`
-when the dependency is absent or invalid. Its final readiness message always means
-**frontend-only**, even if that advisory probe succeeded. Open the URL with the desired
-explicit preview query to work without an API; live mode never switches itself to fixtures.
-
-The API needs its operator-supplied storage and, for sign-in, the private Identity process and the
-exact Web origin of the [Identity v1 contract](../../../packages/contracts/identity-auth-v1.md);
-accounts, credentials and TLS are operator prerequisites, never provisioned by these commands. The current development host has one `CANTOS_WEB_ORIGIN`, so this recipe is a
-Theatre-origin profile. An explicit `--web-origin` on the full-stack Theatre command must be
-exactly `http://127.0.0.1:8082`; Studio similarly requires its actual `http://127.0.0.1:8081`.
-`localhost` is a different host identity and is rejected for those profiles. Standalone API
-origin selection remains configurable within its loopback contract. Simultaneous Studio
-on 8081 and Theatre on 8082 authentication is unverified. Identity failure does not hide a
-working anonymous catalog, create an account or substitute mock data.
-
-Smoke the public route at both origins anonymously:
-
-```sh
-curl -i -H 'Accept: application/json' 'http://127.0.0.1:8080/api/v1/theatre/works?limit=20'
-curl -i -H 'Accept: application/json' 'http://127.0.0.1:8082/api/v1/theatre/works?limit=20'
-```
-
-Expect HTTP 200 and the [WorkPage contract](../../../packages/contracts/theatre-discovery-v1.md),
-including a possible empty `items` list. A typed error keeps its status and `code`/`retryable`
-meaning; 404 is not evidence of a disconnected frontend and unavailable is not an empty catalog.
-To see actual works, an operator-approved published Work must already exist; startup does not
-manufacture one or make delivery available.
-
-If startup fails, inspect the named process and readiness route. Check that the operator's
-database is reachable, migrated and readable by the app role; repair Identity configuration only
-when sign-in is explicitly enabled. A port collision is actionable: stop only a process you
-own, or use `app` to reuse an appropriate API. The API's 60-second and Trunk's 15-minute readiness
-budgets are bounded. Ctrl-C stops only groups started by this invocation. The commands never
-start Podman or S3, create credentials, or print `DATABASE_URL`/password values. Keep
-secret-bearing environment/configuration and retained local evidence outside Git; share only
-redacted diagnostics.
-
-Tests belong to the existing Cargo workspace and `verify rust`: pure reducers, exact
-shared-vector replay, fake ports, stale callbacks, account fences, actual Library fixture decoding,
-a single mock player across routes, resources and Leptos native string-render compositions.
-`serde_json` remains at already-locked 1.0.145. No alternative test/run orchestrator is introduced.
-
-The [initial cloud execution record](../../../docs/evidence/theatre-web-mock.md) retains its
-historical tool limitations and later pre-merge run. PR 02 uses the existing local Rust 1.87.0 and
-Trunk 0.21.14 toolchains; see its [current evidence and remaining limits](../../../docs/evidence/theatre-web-pr02.md).
-The historical PR02 full contracts suite was `UNSUPPORTED` because ffmpeg/ffprobe were absent; no
-listener API, fixture corpus or media-inspection code is changed.
+Current `cargo xtask run cantos-theatre --web` owns Server + Identity with private native
+files and explicit migrations; `app` starts only Trunk against an existing API. Business schema
+porting is incomplete, so catalog readiness can fail. The old retained-PG `--test-cluster` lane
+is a retired refusal. `seed theatre` also refuses while the native `catalog_http` fixture is
+absent; no fake publication or preserved/user database substitutes for that prerequisite.
+See the [current seed boundary](../../../docs/deployment/theatre-seeded-catalog.md).
 
 ## Browser scenarios
 

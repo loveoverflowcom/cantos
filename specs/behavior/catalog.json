@@ -797,17 +797,15 @@
     },
     {
       "id": "cantos.identity.theatre-registration",
-      "lifecycle": "draft",
-      "owner": "services/cantos-server/src/platform/theatre_registration/application.rs",
+      "lifecycle": "deprecated",
+      "owner": "docs/architecture/theatre-identity.md",
       "sourceRefs": [
-        "docs/decisions/0034-theatre-signup-and-provisioned-studio.md#decision",
-        "docs/decisions/0036-firebase-enrollment-proof.md#decision",
-        "packages/contracts/theatre-identity-v1.md",
-        "services/cantos-server/schema/0001_current.sql",
-        "services/cantos-server/src/platform/theatre_registration/firebase_enrollment/application.rs",
-        "services/cantos-server/src/platform/theatre_registration/firebase_enrollment/postgres.rs"
+        "docs/architecture/theatre-identity.md",
+        "docs/decisions/0045-v1-email-password-sign-in.md#decision",
+        "packages/contracts/identity-auth-v1.md",
+        "specs/behavior/inventory.md"
       ],
-      "model": "specs/behavior/identity/theatre_registration.qnt",
+      "model": null,
       "module": "theatre_registration",
       "scenarios": "specs/behavior/identity/theatre_registration_tests.qnt",
       "scenarioModule": "theatre_registration_tests",
@@ -939,7 +937,8 @@
           "to": "val allowed = Set(Awaiting, Blocked).contains(state.phase) and proof == state.epoch and state.unexpired"
         }
       ],
-      "aliases": []
+      "aliases": [],
+      "reason": "Provider-only SMTP/Kanidm/Firebase registration was removed. Stable ID and original declarations retained for history; native mailbox signup is cantos.identity.native-mailbox-proof. See inventory retirement and pinned original model; no native acceptance is inherited."
     },
     {
       "id": "cantos.production.forge-attempt",
@@ -1139,12 +1138,15 @@
       "sourceRefs": [
         "packages/contracts/bearer-v1.md",
         "docs/decisions/0041-direct-hosting-api-boundary.md",
-        "services/cantos-server/tests/bearer_postgres.rs",
+        "services/cantos-server/src/platform/bearer/core.rs",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/domain/identity/NativeGrant.kt",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/identity/NativeAccountController.kt",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/ports/NativeCredentialJournal.kt",
         "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeIdentityV1LifecycleTest.kt",
-        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt"
+        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt",
+        "packages/contracts/identity-auth-v1.md",
+        "services/cantos-server/src/platform/identity_auth/turso.rs",
+        "services/cantos-server/src/platform/identity_auth/decision.rs"
       ],
       "model": "specs/behavior/identity/bearer_lifecycle.qnt",
       "module": "bearer_lifecycle",
@@ -1574,8 +1576,8 @@
         "packages/contracts/identity-rpc-v1.md#authentication-fact",
         "packages/contracts/identity-security-store-v1.md#startup-and-mutations",
         "services/cantos-server/src/platform/identity_auth/mod.rs",
-        "services/cantos-server/src/platform/identity_auth/postgres.rs",
-        "services/cantos-server/tests/identity_password_facts_postgres.rs"
+        "services/cantos-server/src/platform/identity_auth/turso.rs",
+        "services/cantos-server/legacy-pg-tests/tests/identity_password_facts_postgres.rs"
       ],
       "model": "specs/behavior/identity/native_session_admission.qnt",
       "module": "native_session_admission",

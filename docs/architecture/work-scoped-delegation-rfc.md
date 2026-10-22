@@ -79,7 +79,7 @@ Names identify current owning functions; family links cover associated queries a
 | [Publication](../../services/cantos-server/src/contexts/media/publication_application.rs) | Rights, approval, readiness, publish/active/withdraw with current owner and immutable receipts | `publication:stage` is a proposed label, not publish permission; retain human-only decision hypothesis |
 | [Storage port](../../services/cantos-server/src/contexts/media/storage/port.rs), [S3](../../services/cantos-server/src/contexts/media/storage/s3.rs) | Verified payload, conditional content-addressed write/readback, verified reads, optional temporary reads | No caller-selected target/key, ACL mutation, object deletion or direct-upload API |
 
-The common danger is [session `authenticate`](../../services/cantos-server/src/platform/postgres/session.rs)
+The common danger is [session `authenticate`](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/services/cantos-server/src/platform/postgres/session.rs)
 returning a plain actor string. `authenticate(delegated_token) → grantor_actor` would cause
 existing owner comparisons, owner-wide lists and receipt attribution to grant unintended power.
 An identity lookup, arbitrary signed `sub`, email or caller header cannot construct authority.

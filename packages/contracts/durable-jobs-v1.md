@@ -79,7 +79,7 @@ Enqueue, control and resolution summaries always come from their own write trans
 `dbsp-shadow` always prints the PostgreSQL result and compares it. The CLI prints the view's
 counters (never identifiers or counts) to standard error as `job-summary-view: {...}`.
 [ADR 0017](../../docs/decisions/0017-experimental-dbsp-job-summary.md) records the decision and
-[its evidence](../../docs/evidence/dbsp-job-summary.md) the verification; production use is not
+[its evidence](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/evidence/dbsp-job-summary.md) the verification; production use is not
 admitted.
 
 ## Frozen authority and identity

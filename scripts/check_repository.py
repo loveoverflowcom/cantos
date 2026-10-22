@@ -45,7 +45,8 @@ REQUIRED = (
     "apps/cantos-theatre/mobile/README.md",
     "apps/cantos-studio/web/README.md",
     "services/cantos-server/README.md",
-    "services/kanidm/README.md",
+    "services/cantos-identity/README.md",
+    "packages/store-turso/README.md",
     "packages/README.md",
     "packages/ui-system/README.md",
     ".agents/skills/README.md",
@@ -107,10 +108,13 @@ DOMAIN_STD_EFFECTS = {
 # in a path (application/turso/, domain/postgres.rs, an HTTP or top-level turso/ module) is not
 # an adapter, so the name alone never admits SQL.
 PERSISTENCE_BACKENDS = ("postgres", "turso")
-# Platform plumbing that owns connections/transactions per backend. HTTP keeps only the legacy
-# Store/StoreError facade from PostgreSQL and nothing from Turso.
-PERSISTENCE_PLUMBING = {("platform", backend) for backend in PERSISTENCE_BACKENDS}
-HTTP_PLUMBING_FACADE = {("platform", "postgres", "Store"), ("platform", "postgres", "StoreError")}
+# Platform plumbing owns connections/transactions. HTTP keeps only the reviewed Store/StoreError
+# facade (current platform::store and historical platform::postgres), never statement/row/engine types.
+PERSISTENCE_PLUMBING = {("platform", backend) for backend in (*PERSISTENCE_BACKENDS, "store")}
+HTTP_PLUMBING_FACADE = {
+    ("platform", module, name)
+    for module in ("postgres", "store") for name in ("Store", "StoreError")
+}
 # The legacy trusted operator seed writes Editorial evidence and Ingestion source rows from the
 # platform tool. These exact (file, verb, table) pairs are the only platform access to a context
 # table; every statement matching a pair is admitted.
@@ -667,7 +671,8 @@ def table_owner(table):
 
 
 HTTP_STORE_METHODS = {"load", "save", "history", "review"}
-STORE_PATHS = {("application", "Store"), ("platform", "postgres", "Store")}
+STORE_PATHS = {("application", "Store"), ("platform", "postgres", "Store"),
+               ("platform", "store", "Store")}
 
 
 def braced_body(code, opening):
@@ -880,7 +885,7 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
     if http and path[:2] in PERSISTENCE_PLUMBING and path != ("platform", "postgres") and (
         path[:3] not in HTTP_PLUMBING_FACADE
     ):
-        return "HTTP may import only the legacy Store and StoreError facade from persistence plumbing"
+        return "HTTP may import only the reviewed Store and StoreError facade from persistence plumbing"
     if http and path[0] == "script_ir" and path not in HTTP_PURE_BOUNDARIES:
         return "HTTP may admit Script IR bytes but must delegate business decisions"
     if domain and not owner and path[0] == "contexts":

@@ -101,7 +101,7 @@ latency. The review plan's miss does not establish matched-review scaling. Prima
 keys already support the bounded ranges and owner lookup. No additional covering index or
 materialized cache was justified by this small sample; large evidence fan-out remains unmeasured.
 
-DBSP decision: defer, consistent with the [existing admission decision](script-revision-dbsp-decision.md).
+DBSP decision: defer, consistent with the [existing admission decision](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/evidence/script-revision-dbsp-decision.md).
 These are scoped immutable ranges/point lookups and current access decisions, with no measured
 hot repeated aggregate. No engine or CDC adapter is introduced. PostgreSQL commits remain the
 freshness boundary; authorization changes are checked per page and retry. Pages can include

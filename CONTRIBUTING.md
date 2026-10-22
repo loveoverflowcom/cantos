@@ -1,6 +1,6 @@
 # Contributing to Cantos
 
-Cantos combines an audio-drama production Studio with a Theatre listening experience. Read the [project overview](README.md) before proposing a change. The repository starts with planning documents and templates; implementation status and supported commands must be documented as the runtime is added.
+Cantos combines an audio-drama production Studio with a Theatre listening experience. Read the [project overview](README.md) before proposing a change. The native Server/Identity foundation exists; the [business porting boundary](docs/architecture/server-turso-porting.md#checkpoint-boundary) remains incomplete. Documentation, implementation and executed acceptance are separate.
 
 ## Branch and pull request workflow
 
@@ -85,7 +85,7 @@ cargo xtask preflight --changed-only --base "$BASE_REF"
 Preflight compares your branch, staged, unstaged and untracked files with the resolved `BASE_REF`, runs
 the gates they affect and broadens to every gate when the impact is uncertain. Use Rust 1.98.1 and
 see [the command contract](xtask/README.md) for the individual `cargo xtask verify` suites
-(`repository`, `rust`, `contracts`, `web`, `postgres`, `mutation`) and `cargo xtask ci`, which
+(`repository`, `rust`, `contracts`, `web`, `turso`, `mutation`) and `cargo xtask ci`, which
 runs the same jobs as GitHub Actions. If a gate cannot run on your machine, it is reported as
 `UNSUPPORTED` and preflight fails; `--skip <gate>` records it as `NOT_RUN`. State every skipped or
 unsupported gate in the pull request. On affected macOS temporary-path setups, run with
@@ -95,12 +95,10 @@ For runtime changes, run the relevant stack-specific checks once the correspondi
 
 ## Service runtime ownership
 
-A service is a runnable process or independently managed infrastructure, not necessarily a Rust
-crate. Follow [the service inventory](services/README.md) and
-[ADR 0021](docs/decisions/0021-podman-service-runtime.md). Podman is the standard OCI runtime;
-Docker Engine/Desktop/daemon and Compose are not dependencies (`docker.io` remains an allowed
-registry). Only explicit `cargo xtask services up` starts local infrastructure. Build/test/run
-never auto-start it. Native disposable PostgreSQL verification stays independent. Never install
-Podman, initialize/start a machine or change its connection without explicit consent. Manage
-only exact Cantos-owned labeled resources; stop never deletes persistent volumes. Keep secrets,
-TLS and data outside Git, and distinguish configuration from observed runtime and integration.
+Follow the [service inventory](services/README.md) and [native decision](docs/architecture/native-turso-refactor.md).
+Server and Identity each own a local embedded Turso file and private migration lifecycle. Native
+build/test/run never starts PostgreSQL, Kanidm, Podman or an emulator. `cargo xtask run` supervises
+the two native processes; `services list|validate` checks inventory, while legacy lifecycle commands refuse.
+Production OCI/Quadlet packaging follows [#348](docs/deployment/native-oci-release.md), separate
+from native acceptance and host activation. Preserve DB/WAL/media, backups and other tasks' artifacts.
+No deploy, migration of user data or installed-service cleanup follows from a source change.

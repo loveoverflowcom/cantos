@@ -106,10 +106,9 @@ when one exists; they do not invent a parallel vocabulary. Their reducers never 
 ## Telemetry infrastructure — proposed, not implemented
 
 A collector with log, trace and metric stores (for example OpenTelemetry Collector, Loki, Tempo,
-Prometheus) would run as Podman services under [ADR 0021](../../../../docs/decisions/0021-podman-service-runtime.md):
-its own ADR, a [service inventory](../../../../services/README.md) entry, explicit
-`cargo xtask services up`, per-worktree isolation through `--instance` and no automatic start
-from build or test. Agents could then query LogQL/PromQL against their own instance. None of
+Prometheus) needs its own reviewed ADR, a [service inventory](../../../../services/README.md) consumer and
+explicit lifecycle design. Legacy `services up` is retired; do not add infrastructure to native
+build/test/acceptance or infer an implemented telemetry runner. Agents could then query LogQL/PromQL against their own instance. None of
 this exists; no report may claim `production-observed` from local logs.
 
 ## Review questions

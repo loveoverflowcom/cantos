@@ -80,7 +80,7 @@ Listening work adds two obligations: the contract changes **before** the code, a
 implementation that claims a contract runs that contract's fixtures.
 
 For database-backed catalog, manifest, progress and bookmark reads, apply the foundation's
-[read-performance workflow](../cantos-engineering/references/postgresql-read-performance.md).
+[read-performance workflow](../cantos-engineering/references/turso-read-performance.md).
 It owns the DBSP fit decision and evidence; listener visibility and authorization remain owned
 by this skill and its documents.
 
@@ -207,7 +207,7 @@ Open product decisions:    <rules encoded as needs-decision, with the owning doc
 Foundation techniques these references build on:
 [`http-api-boundary.md`](../cantos-engineering/references/http-api-boundary.md),
 [`persistence.md`](../cantos-engineering/references/persistence.md),
-[`postgresql-read-performance.md`](../cantos-engineering/references/postgresql-read-performance.md),
+[`turso-read-performance.md`](../cantos-engineering/references/turso-read-performance.md),
 [`types-as-proofs.md`](../cantos-engineering/references/types-as-proofs.md),
 [`boundary-hardening.md`](../cantos-engineering/references/boundary-hardening.md),
 [`immutability.md`](../cantos-engineering/references/immutability.md),

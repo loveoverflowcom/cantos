@@ -16,16 +16,14 @@ the same `PLAN_ONLY` result. Its temporary snapshot is removed on success or ref
 The explicit `--registry-readback` option adds read-only GHCR manifest/config observation after
 all offline guards; combined with `--dry-run` it remains entirely offline, including no authfile read.
 
-These are independently reviewable parts of PR A, **not all of PR A**. Local and Actions
-publishers, exact-image layer/pair fixture execution and the VPS consumer are not implemented
-here. The two producer identities are supported inputs, not claims that either
-producer has run. No production release can be made from this verifier alone. Legacy
-`deploy vps` still has its existing archive-transfer behavior; it is not the native OCI lane.
-Do not pass the new manifest to that legacy executor.
+These are independently reviewable parts of PR A, **not all of PR A**. Local/Actions candidate producers now exist (see [producer contract](#producers-release-oci-build));
+actual publish, exact-image pair qualification and native host activation require their own
+evidence. Producer identities are inputs, never proof that either ran. No production release can be made from this verifier alone. Legacy
+`deploy vps` is a hidden retired refusal, not an archive-transfer or native activation lane.
 
 The `cantos-identity` executable (`migrate`/`serve`, private authenticated Unix-socket RPC) exists
-behind the crate's `service` feature; Server still serves from PostgreSQL, so there is no
-two-service native acceptance. Keep legacy runtime, principal, PG/Kanidm, ingress, media and
+behind the crate's `service` feature; Server now composes embedded Turso foundation/sessions,
+with business schema/SQL incomplete. There is no full two-production-binary HTTP acceptance. Keep legacy runtime, principal, PG/Kanidm, ingress, media and
 recovery resources until #332–#336 provide actual accepted native journeys and recovery.
 Source review or an offline plan cannot classify a real host as `NEW`, `LEGACY` or `NATIVE_READY`.
 An inaccessible host or missing inventory is `UNKNOWN` and blocks live mutation.

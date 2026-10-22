@@ -111,7 +111,7 @@ delivery observations; it proves no publication-class object store, public media
 No credential, production resource, Firebase project or provider is used.
 
 The tests live in
-[`theatre_catalog_walk_http_postgres.rs`](../../services/cantos-server/tests/support/theatre_catalog_walk_http_postgres.rs),
+[`theatre_catalog_walk_http_postgres.rs`](../../services/cantos-server/legacy-pg-tests/tests/support/theatre_catalog_walk_http_postgres.rs),
 nested in the existing `catalog_http_postgres` target and run by `cargo xtask verify postgres`.
 Execution results and checked source identity belong to the follow-up PR, not the historical
 results above. Browser/device acceptance belongs to #158/#159 and remains separate.

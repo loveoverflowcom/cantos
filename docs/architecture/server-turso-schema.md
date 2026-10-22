@@ -1,22 +1,20 @@
-# Server Turso candidate schema
+# Server Turso foundation schema
 
-**Status: implemented candidate, not composed.** This is the #333 `server.db` schema built on the
-shared [`cantos-store-turso`](../../packages/store-turso/README.md) owner, one slice at a time.
-Nothing serves from it: `Store::new`, `DATABASE_URL`, `cantos-migrate` and the default
-`cantos-server` binary still use PostgreSQL until the #333.9 flip. It is not Server schema v1.
-See the [ownership map](native-persistence-readiness.md) and [issue #333](https://github.com/loveoverflowcom/cantos/issues/333).
+**Status: composed foundation, business port incomplete.** `Store`, `cantos-migrate`, operator
+and host use the one Server-owned embedded Turso file through `platform/store` and
+`platform/turso`. This is not complete business schema v1. Actor, native Identity-session and
+development-session tables exist; registered business migration slots remain incomplete.
+See the [checkpoint](server-turso-porting.md#checkpoint-boundary).
 
-The modules compile only into `cantos-server` unit tests (through the store's dev-dependency,
-so the existing `rust-tests` gate runs them) and under the opt-in `turso-candidate` feature; no
-default build links the engine. Feature unification is a known blocker for the flip:
-`dbsp-experimental` enables `chrono/rkyv-64`, whose `rkyv` impls break type inference in
-`turso_core 0.8.3`, so a build with both does not compile (#333.9/#333.10 decide it). The required
-`dbsp` gate is therefore already red on the staging base, through the store's dev-dependency.
+`turso-candidate` and `dbsp-experimental` no longer exist. Foundation/session tests run through
+ordinary Rust tests; the real Identity journey requires its prebuilt executable. Prior feature-
+unification/DBSP failures remain historical evidence, not current prerequisites. The invariant
+mapping below retains the actual foundation guarantees and its unaccepted HTTP/restore gaps.
 
 | Slice | Tables | State |
 | --- | --- | --- |
-| 333.4 actor registry (version 1) | `actors`, `actor_external_identities` | candidate adapter [`TursoIdentityRegistry`](../../services/cantos-server/src/platform/identity/turso.rs) with file-backed tests |
-| #335 provider-free sessions (version 2) | `identity_sessions`, `identity_session_tokens` | candidate adapter [`TursoSessions`](../../services/cantos-server/src/platform/identity_auth/turso.rs) behind the shared [`SessionStore`](../../services/cantos-server/src/platform/identity_auth/session.rs) port, with file-backed tests and a [real Identity journey](../../services/cantos-server/tests/identity_auth_candidate.rs) |
+| 333.4 actor registry (version 1) | `actors`, `actor_external_identities` | composed adapter [`TursoIdentityRegistry`](../../services/cantos-server/src/platform/identity/turso.rs) with file-backed tests |
+| #335 provider-free sessions (version 2) | `identity_sessions`, `identity_session_tokens` | composed adapter [`TursoSessions`](../../services/cantos-server/src/platform/identity_auth/turso.rs) behind the shared [`SessionStore`](../../services/cantos-server/src/platform/identity_auth/session.rs) port, with file-backed tests and a [real Identity journey](../../services/cantos-server/tests/identity_auth_candidate.rs) |
 | every other `server` disposition | remaining tables of the [manifest](../../services/cantos-server/schema/native-table-ownership.json) | pending |
 
 ## One registry, one owner
@@ -63,7 +61,7 @@ and the [registry contract](identity-registry.md#identity-contract). Tests live 
 ## Identity session mapping
 
 Source rules are [`0004_identity_sessions.sql`](../../services/cantos-server/schema/0004_identity_sessions.sql),
-the [PostgreSQL adapter](../../services/cantos-server/src/platform/identity_auth/postgres.rs) and
+the historical [PostgreSQL adapter](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/services/cantos-server/src/platform/identity_auth/postgres.rs) and
 [Identity auth v1](../../packages/contracts/identity-auth-v1.md). The orchestration
 (`IdentityAuth`: fact validation, roster, fresh security reads, `decide_issue`/`decide_admission`,
 `SessionPolicy` and rotation) is shared: both adapters implement the one `SessionStore` port, so
@@ -118,16 +116,16 @@ model, and application tests do not replace those database barriers.
 
 ## Not established
 
-- Runtime composition, `cantos-migrate` for Turso, startup refusal in the binary and error mapping
-  into `StoreError` (#333.2); the remaining schema and its foreign keys to `actors` (#333.3, #333.5–8).
+- The remaining business schema/adapters and foreign keys to `actors` (#333). Owner composition,
+  explicit Turso migration/startup refusal and typed StoreError mapping already exist.
 - Session admission inside real business writes: `admit_in` has no consumer until the context
-  adapters exist; Studio data operations (`admit_studio`) and the listener port still lease
-  through PostgreSQL. The read-only dispatch linearization difference must be accepted at the flip.
+  adapters are ported. Native writer/read-snapshot admission must retain the old policy assertions;
+  the read-only linearization difference requires explicit native HTTP acceptance.
 - Server HTTP, cookie and Bearer transport over the Turso sessions, and the production binary.
-- Differential parity against the PostgreSQL adapter under `cargo xtask verify postgres`; importer
+- Differential parity against the retained PostgreSQL oracle (the old gate is retired); importer
   and Tier B conversion (#336).
-- A deadline or bounded backpressure for the writer queue: it belongs in the owner API or the
-  composition, decided before #333.9 composes a serving path.
+- Quantified request/queue behavior at HTTP under contention. The shared writer already has
+  a bounded wait; that foundation mechanism does not accept business load or HTTP deadlines.
 - True disk-full, power-loss and fsync-error durability: an unknown commit is observed only through
   the engine's view after the fault and a reopen.
 - Throughput, latency and footprint (#333.11).

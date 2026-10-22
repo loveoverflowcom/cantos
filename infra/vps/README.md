@@ -46,7 +46,7 @@ new profiles are published without overwrite. Host TOML preflight uses Python 3.
 Rust retains provider validation. Browser-only validation is independent, while
 image switches/restarts check storage when the installed Studio unit enables it.
 The Theatre API has **no private media mount**. See the
-[VPS media runbook](../../docs/deployment/vps-production.md#development-private-audio-on-the-vps).
+[VPS media runbook](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#development-private-audio-on-the-vps).
 
 Invariants: PostgreSQL never listens on TCP; only `cantos-edge` publishes ports; each API process
 pins exactly one HTTPS Web origin; production refuses development Studio credentials; images are
@@ -70,7 +70,7 @@ provider readback, visible-attribute/group/roster checks and `show-basic-secret`
 precede the nonsecret `config/oidc-callbacks.env` receipt. Existing generated OIDC configuration
 needs a matching receipt before deploy/rollback. This establishes observed configuration,
 not a successful browser session or equality of provider-redacted signing-key bytes. See the
-[migration procedure and cookie/domain gate](../../docs/deployment/vps-production.md#direct-hosting--api-configuration).
+[migration procedure and cookie/domain gate](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#direct-hosting--api-configuration).
 
 For the [#253 Bearer migration](../../packages/contracts/bearer-v1.md), reconciliation derives
 two exact callbacks for each existing Web client from its validated API origin:
@@ -115,7 +115,7 @@ recovery resources need a separate retention decision; ordinary deploy does not 
 Verified release artifacts also carry this exact source bundle. The artifact-only `promote` host
 operation holds the existing operation lock across checksum/image inspection, runtime install
 and the existing backup/schema/grants/switch/health protocol. It adds no bootstrap, identity or
-epoch-conversion authority. See [artifact promotion](../../docs/deployment/vps-production.md#verified-artifact-promotion).
+epoch-conversion authority. See [artifact promotion](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#verified-artifact-promotion).
 
 The explicit same-epoch [prefix-upgrade lane](../../docs/deployment/postgres-prefix-upgrade.md)
 restores a full epoch-2 database (`[1]` or `[1,2]`) into a sibling before applying the candidate's
