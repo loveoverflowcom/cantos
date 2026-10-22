@@ -32,13 +32,19 @@ pub enum MailFault {
     Rejected,
     /// DATA was sent but the relay's final answer was lost or malformed: it may be delivered.
     Uncertain,
-    /// No mail transport is configured, so signup fails closed.
+    /// No mail transport is configured. Signup refuses before recording anything, so a send
+    /// that still reports this came from a port whose `is_configured` was wrong.
     NotConfigured,
 }
 
 pub type MailFuture<'a> = Pin<Box<dyn Future<Output = Result<(), MailFault>> + Send + 'a>>;
 
 pub trait Mailer: Send + Sync {
+    /// Whether this port can attempt a send at all. A fixed property of the deployment, not of
+    /// any recipient: signup checks it before reading or writing anything, so an absent
+    /// transport refuses every start alike and leaves no proof behind.
+    fn is_configured(&self) -> bool;
+
     fn send<'a>(&'a self, mail: &'a ProofMail) -> MailFuture<'a>;
 }
 
@@ -284,6 +290,10 @@ fn valid_host(host: &str) -> bool {
 pub struct UnconfiguredMailer;
 
 impl Mailer for UnconfiguredMailer {
+    fn is_configured(&self) -> bool {
+        false
+    }
+
     fn send<'a>(&'a self, _mail: &'a ProofMail) -> MailFuture<'a> {
         Box::pin(async { Err(MailFault::NotConfigured) })
     }
@@ -416,6 +426,10 @@ fn classify(error: &SmtpError) -> MailFault {
 }
 
 impl Mailer for SmtpMailer {
+    fn is_configured(&self) -> bool {
+        true
+    }
+
     fn send<'a>(&'a self, mail: &'a ProofMail) -> MailFuture<'a> {
         Box::pin(self.deliver(mail))
     }

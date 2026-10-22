@@ -214,6 +214,12 @@ AuthenticatePassword   ──►  read record ──► verify (bounded pool, no
   the original subject only if the supplied password verifies against the credential that
   command created; a changed password, proof or operation is refused. No receipt, poll or status
   read grants a credential, a session or an authentication fact. No fast password digest is stored.
+* **Start and resend are one decision.** Without a mail transport every start is refused before
+  any read or write. Otherwise the registered-address check, the operation's immutable email
+  binding, its current proof and the resend cooldown are read and applied inside one writer
+  transaction (`start_or_resend_signup`, deciding with the pure `domain::signup_start`), so
+  concurrent starts of one operation produce one issued or replaced proof and never a conflict.
+  Mail is dispatched only for that committed `Issued`/`Replaced` outcome.
 * **Mail is separate from consumption.** The proof is written (digest only) before mail is sent,
   outside the transaction. A definite relay refusal and an uncertain answer both leave the proof
   pending (a refused one is unreachable because nobody holds its secret) and are answered like
@@ -254,7 +260,7 @@ touching it. Configuration is entirely environment variables, each required valu
 `starttls`/`implicit` relay TLS depends on a `rustls` chain that carries open advisories on the base
 branch (see the [qualification record](../../docs/evidence/identity-rpc-dependency-qualification.md#advisory-scan));
 do not accept those modes for production until the lock-only bump lands. Without SMTP configuration the process starts, reports `"mail":"missing"` in its single readiness
-line on stdout and answers `StartTheatreSignup` with `Unavailable`: it fails closed. Stdout/stderr
+line on stdout and answers every `StartTheatreSignup` with `Unavailable` and records nothing: it fails closed. Stdout/stderr
 carry only fixed event strings. SIGTERM/SIGINT stops accepting and drains in-flight requests for at
 most ten seconds, then removes only the socket inode this run created. An existing socket path is
 replaced only when it is a socket that nobody answers on. One owner per database file is enforced by

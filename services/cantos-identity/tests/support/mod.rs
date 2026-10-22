@@ -106,6 +106,10 @@ impl CaptureMailer {
 }
 
 impl Mailer for CaptureMailer {
+    fn is_configured(&self) -> bool {
+        true
+    }
+
     fn send<'a>(&'a self, mail: &'a ProofMail) -> MailFuture<'a> {
         Box::pin(async move {
             match *self.behavior.lock().unwrap() {

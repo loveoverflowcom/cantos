@@ -74,9 +74,9 @@ Messages are fixed strings; no status ever interpolates request content or an in
 | `UNAUTHENTICATED` | `AuthenticatePassword` denial: unknown email, wrong password, disabled account, stale credential or unusable stored hash are indistinguishable |
 | `PERMISSION_DENIED` | Signup completion denial (wrong/expired/consumed/cancelled/replaced proof, unknown operation, email already registered, all indistinguishable) **or** an unauthorized caller |
 | `RESOURCE_EXHAUSTED` | A rate budget is spent; `retry-after-seconds` metadata |
-| `UNAVAILABLE` | Storage unavailable, **no mail transport configured**, or KDF capacity exhausted; nothing was changed |
+| `UNAVAILABLE` | Storage unavailable, **no mail transport configured**, or KDF capacity exhausted; nothing was changed (without a transport a `StartTheatreSignup` records nothing at all) |
 | `UNKNOWN` | Commit outcome unknown: retry the identical command |
-| `ABORTED` | A `CompleteTheatreSignup` command id was reused with different content. `StartTheatreSignup` never returns it: an operation bound to another address or already concluded gets the generic answer |
+| `ABORTED` | A `CompleteTheatreSignup` command id was reused with different content. `StartTheatreSignup` never returns it, including under concurrent starts of one operation: an operation bound to another address or already concluded gets the generic answer |
 | `UNIMPLEMENTED` | A method this build does not declare |
 | `NOT_FOUND` | `GetSecurityState` for an unknown subject (a Server-only call) |
 
@@ -84,11 +84,16 @@ Messages are fixed strings; no status ever interpolates request content or an in
 whether the operation was reused for another address or is already concluded, whether mail was
 attempted and whether the relay accepted, refused or lost it. The only differing status is
 `UNAVAILABLE` when **no** mail transport is configured, which is a deployment-wide condition and
-not a per-address signal. **Timing is not equalized:** an unregistered address costs two writes and
+not a per-address signal: it is checked before any lookup or write, so a registered and an
+unregistered address, a fresh and a reused operation all get that same refusal and nothing durable
+is recorded (no workflow, proof or receipt). **Timing is not equalized:** an unregistered address costs two writes and
 an SMTP exchange that a registered one does not, so a timing observer can still tell them apart;
 the per-address and per-client budgets bound how often it can be asked. A relay-refused message
 leaves its proof pending but unreachable (nobody holds the secret); the same operation may be
-re-started after the 60 s cooldown, which replaces the proof.
+re-started after the 60 s cooldown, which replaces the proof. The registered-address check, the
+operation's immutable email binding, its current proof and the cooldown are decided together in one
+store transaction, so concurrent starts of one operation yield one issued (or replaced) proof and
+one message, never a conflict; mail is sent only after that transaction commits.
 
 ## Limits
 

@@ -439,6 +439,35 @@ impl IdentityStore {
         cooldown: u32,
     ) -> Result<ProofReceipt, ProofStoreError> {
         self.check_proof_epoch(binding)?;
+        let tx = self.database.begin_write().await?;
+        let result = self
+            .replace_mailbox_proof_in_transaction(
+                &tx,
+                command,
+                binding,
+                expected_id,
+                material,
+                expires,
+                cooldown,
+            )
+            .await;
+        finish(tx, result).await
+    }
+
+    /// Composition primitive for an owner that decided the replacement from state it read in
+    /// this same transaction. `tx` must originate from this store's database.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn replace_mailbox_proof_in_transaction(
+        &self,
+        tx: &WriteTransaction<'_>,
+        command: ProofCommandId,
+        binding: ProofBinding,
+        expected_id: ProofId,
+        material: &ProofMaterial,
+        expires: ProofTime,
+        cooldown: u32,
+    ) -> Result<ProofReceipt, ProofStoreError> {
+        self.check_proof_epoch(binding)?;
         let digest = material.secret.digest();
         let request = fingerprint(
             ProofReceiptAction::Replaced,
@@ -450,34 +479,34 @@ impl IdentityStore {
             cooldown,
             0,
         );
-        let tx = self.database.begin_write().await?;
-        let result = async {
-            if let Some(receipt) = replay(&tx, command, request).await? {
-                return Ok(receipt);
-            }
-            check_recovery(&tx, binding).await?;
-            let stored = required_current(&tx, binding, expected_id).await?;
-            let plan = stored.proof.plan_replacement(
-                expected_id,
-                binding,
-                material.id,
-                now(&tx)?,
-                expires,
-                cooldown,
-            )?;
-            insert_issue(&tx, plan.next(), digest).await?;
-            apply(&tx, &stored, plan).await?;
-            record(
-                &tx,
-                command,
-                ProofReceiptAction::Replaced,
-                request,
-                plan.next(),
-            )
-            .await
+        if let Some(receipt) = replay(tx, command, request).await? {
+            return Ok(receipt);
         }
-        .await;
-        finish(tx, result).await
+        check_recovery(tx, binding).await?;
+        let stored = required_current(tx, binding, expected_id).await?;
+        let plan = stored.proof.plan_replacement(
+            expected_id,
+            binding,
+            material.id,
+            now(tx)?,
+            expires,
+            cooldown,
+        )?;
+        insert_issue(tx, plan.next(), digest).await?;
+        apply(tx, &stored, plan).await?;
+        record(
+            tx,
+            command,
+            ProofReceiptAction::Replaced,
+            request,
+            plan.next(),
+        )
+        .await
+    }
+
+    /// Current time as the writer sees it, in the unit proofs use.
+    pub(crate) fn proof_now(tx: &WriteTransaction<'_>) -> Result<ProofTime, ProofStoreError> {
+        now(tx)
     }
 
     fn check_proof_epoch(&self, binding: ProofBinding) -> Result<(), ProofStoreError> {

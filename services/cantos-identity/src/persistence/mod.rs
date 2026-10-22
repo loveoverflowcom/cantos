@@ -9,7 +9,7 @@ pub use proofs::{
 };
 pub use signup::{
     LoginFinalization, LoginRecord, PhcString, SignupCompletion, SignupCompletionRequest,
-    SignupRecord, SignupStoreError,
+    SignupRecord, SignupStart, SignupStoreError,
 };
 
 use std::{fmt, path::PathBuf, sync::Arc};

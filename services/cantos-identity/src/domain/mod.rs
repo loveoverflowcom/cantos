@@ -7,3 +7,4 @@ pub mod mailbox_proof;
 #[cfg(feature = "service")]
 pub mod password;
 pub mod security_version;
+pub mod signup_start;
