@@ -14,6 +14,7 @@ mod process;
 pub mod public_media;
 pub mod storage;
 mod structure;
+mod turso;
 
 mod lifecycle_application;
 mod read_application;
@@ -55,6 +56,11 @@ pub use listener_delivery::{
 };
 pub use listener_media::AuthorizedMedia;
 
-pub(crate) use postgres::listener::{
+pub(crate) use turso::listener::{
     library_presentations, library_public_work, library_publications, library_work_presentations,
+    unit_millis,
 };
+
+/// The production discovery indexer, for fixtures that publish through domain values.
+#[cfg(any(test, feature = "test-support"))]
+pub(crate) use turso::listener::index_release;

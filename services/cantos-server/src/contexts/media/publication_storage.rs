@@ -82,6 +82,19 @@ impl FilesystemPublicationStorage {
         .await
     }
 
+    /// Test support: place content-addressed *transport* bytes in this publication root, with no
+    /// Ogg/Opus inspection. It proves delivery behavior (identity, Range, validators) over exact
+    /// bytes and never media admission; a runtime build does not compile it.
+    #[cfg(all(unix, any(test, feature = "test-support")))]
+    pub fn place_transport_bytes(&self, bytes: &[u8]) -> Result<(), StorageError> {
+        use sha2::Digest;
+        let sha256 = format!("{:x}", sha2::Sha256::digest(bytes));
+        self.inner
+            .inject_test_bytes(bytes, &sha256)
+            .map(|_| ())
+            .map_err(storage_error)
+    }
+
     #[cfg(unix)]
     fn verified_file(&self, sha256: &str, length: u64) -> Result<std::fs::File, StorageError> {
         self.inner.verified_file(sha256, sha256, length, None)

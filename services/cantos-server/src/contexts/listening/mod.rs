@@ -7,6 +7,9 @@ mod application;
 mod cursor;
 pub use application::{LibraryError, LibraryService};
 
-mod postgres;
+mod turso;
 
 mod theatre_identity;
+
+#[cfg(test)]
+mod turso_tests;

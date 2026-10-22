@@ -1,4 +1,6 @@
-//! Authorized PostgreSQL listener reads. One bounded joined query, no per-item SQL/N+1.
+//! Authorized Turso listener reads. One bounded joined query, no per-item SQL/N+1. Every read
+//! decides current eligibility at one trusted instant over one pinned snapshot; times here are
+//! the domain's Unix milliseconds, converted once from the transaction's microsecond stamp.
 use super::super::{
     domain::{
         lifecycle::{AudioRendition, AudioSubmission, ReleaseCandidate},
@@ -19,7 +21,7 @@ use crate::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-pub(super) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result<(), StoreError> {
+pub(crate) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result<(), StoreError> {
     let d = release.document();
     let m = &d.manifest;
     let requests = [ListenerMetadataRequest {
@@ -50,19 +52,22 @@ pub(super) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result
         return Ok(());
     }
     // First committed index writer wins. The anchor never moves on replacement or withdrawal.
+    // A pre-checked insert instead of `ON CONFLICT DO NOTHING`: the index tables refuse an
+    // insert over an existing key before conflict resolution (see `REPLACE`), so the check
+    // is explicit and the first committed index writer still wins.
     tx.execute(
-        "INSERT INTO audio_listener_works VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
+        "INSERT INTO audio_listener_works SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_works WHERE work_id=?1)",
         &[&m.work_id, &d.id, &d.published_at],
     )
     .await?;
     let position = i32::try_from(u.position()).map_err(|_| StoreError::CorruptRevision)?;
     tx.execute(
-        "INSERT INTO audio_listener_units VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
+        "INSERT INTO audio_listener_units SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_units WHERE unit_id=?1)",
         &[&m.unit_id, &m.work_id, &position],
     )
     .await?;
     let text = normalize_search(&format!("{} {}", w.details().title, w.details().synopsis));
-    tx.execute("INSERT INTO audio_listener_releases VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",&[&d.id,&m.work_id,&m.unit_id,&d.published_at,&w.kind().as_str(),&m.language.to_ascii_lowercase(),&text,&m.distribution_clearance.digest,&m.publication_approval.digest,&m.distribution_clearance.recorded_at,&m.distribution_clearance.request.valid_until,&checked_number(m.work_metadata_revision)?,&checked_number(m.unit_metadata_revision)?,&m.binding.content_revision_id]).await?;
+    tx.execute("INSERT INTO audio_listener_releases VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",&[&d.id,&m.work_id,&m.unit_id,&d.published_at,&w.kind().as_str(),&m.language.to_ascii_lowercase(),&text,&m.distribution_clearance.digest,&m.publication_approval.digest,&m.distribution_clearance.recorded_at,&m.distribution_clearance.request.valid_until,&checked_number(m.work_metadata_revision)?,&checked_number(m.unit_metadata_revision)?,&m.binding.content_revision_id]).await?;
     Ok(())
 }
 fn bytes(row: &Row, key: &str) -> Result<Vec<u8>, StoreError> {
@@ -116,7 +121,7 @@ fn decode(
     let c = admit(ReleaseCandidate::restore(raw(row, "candidate", 32768)?, &r))?;
     let content = admit(restore_content(metadata.content))?;
     let release = admit(AudioRelease::restore(
-        raw(row, "release", 262144)?,
+        raw(row, "release_doc", 262144)?,
         &c,
         &r,
         &content,
@@ -272,28 +277,48 @@ fn decode(
         presentation: None,
     }))
 }
+/// The eligible relation. `?1` is the read's instant in milliseconds. PostgreSQL's `JOIN LATERAL`
+/// (the latest clearance/approval of the candidate) is the row whose `sequence` is the candidate's
+/// maximum, which `UNIQUE (candidate_id, sequence)` makes a single row.
 const FROM: &str = r#"FROM audio_listener_releases x
 JOIN audio_listener_works anchor ON anchor.work_id=x.work_id
 JOIN audio_listener_units ordering ON ordering.unit_id=x.unit_id AND ordering.work_id=x.work_id
 JOIN audio_publication_pointers pointer ON pointer.unit_id=x.unit_id AND pointer.active_release_id=x.release_id
-JOIN audio_releases release ON release.id=x.release_id AND release.unit_id=x.unit_id AND release.owner_id=pointer.owner_id
-JOIN audio_release_candidates candidate ON candidate.id=release.candidate_id AND candidate.owner_id=release.owner_id
-JOIN audio_renditions rendition ON rendition.id=release.rendition_id AND rendition.id=candidate.rendition_id
-JOIN audio_submissions submission ON submission.id=rendition.submission_id AND submission.owner_id=release.owner_id AND submission.unit_id=x.unit_id
-JOIN LATERAL (SELECT * FROM audio_distribution_clearances WHERE candidate_id=candidate.id AND owner_id=release.owner_id ORDER BY sequence DESC LIMIT 1) clearance ON clearance.digest=x.rights_digest
-JOIN LATERAL (SELECT * FROM audio_publication_approvals WHERE candidate_id=candidate.id AND owner_id=release.owner_id ORDER BY sequence DESC LIMIT 1) approval ON approval.digest=x.approval_digest
+JOIN audio_releases rel ON rel.id=x.release_id AND rel.unit_id=x.unit_id AND rel.owner_id=pointer.owner_id
+JOIN audio_release_candidates candidate ON candidate.id=rel.candidate_id AND candidate.owner_id=rel.owner_id
+JOIN audio_renditions rendition ON rendition.id=rel.rendition_id AND rendition.id=candidate.rendition_id
+JOIN audio_submissions submission ON submission.id=rendition.submission_id AND submission.owner_id=rel.owner_id AND submission.unit_id=x.unit_id
+JOIN audio_distribution_clearances clearance ON clearance.candidate_id=candidate.id AND clearance.owner_id=rel.owner_id AND clearance.digest=x.rights_digest
+  AND clearance.sequence=(SELECT max(c2.sequence) FROM audio_distribution_clearances c2 WHERE c2.candidate_id=candidate.id AND c2.owner_id=rel.owner_id)
+JOIN audio_publication_approvals approval ON approval.candidate_id=candidate.id AND approval.owner_id=rel.owner_id AND approval.digest=x.approval_digest
+  AND approval.sequence=(SELECT max(a2.sequence) FROM audio_publication_approvals a2 WHERE a2.candidate_id=candidate.id AND a2.owner_id=rel.owner_id)
 WHERE {current_filter} AND {actor_filter}
-AND x.rights_start<=$1 AND $1<x.rights_end AND x.published_at<=$1
-AND NOT EXISTS(SELECT 1 FROM audio_release_withdrawals WHERE release_id=release.id)
-AND NOT EXISTS(SELECT 1 FROM audio_submission_revocations WHERE submission_id=submission.id)
+AND x.rights_start<=?1 AND ?1<x.rights_end AND x.published_at<=?1
+AND NOT EXISTS(SELECT 1 FROM audio_release_withdrawals w WHERE w.release_id=rel.id)
+AND NOT EXISTS(SELECT 1 FROM audio_submission_revocations v WHERE v.submission_id=submission.id)
 "#;
-const COLUMNS:&str="x.*,release.owner_id,anchor.first_published_at,ordering.first_position,release.snapshot AS release,submission.snapshot AS submission,rendition.snapshot AS rendition,candidate.snapshot AS candidate,clearance.snapshot AS clearance,approval.snapshot AS approval,
-release.id AS release_row_id,release.unit_id AS release_row_unit,release.owner_id AS release_row_owner,release.candidate_id AS release_row_candidate,release.rendition_id AS release_row_rendition,release.manifest_digest AS release_row_manifest,release.digest AS release_row_digest,
+const COLUMNS:&str="x.*,rel.owner_id,anchor.first_published_at,ordering.first_position,rel.snapshot AS release_doc,submission.snapshot AS submission,rendition.snapshot AS rendition,candidate.snapshot AS candidate,clearance.snapshot AS clearance,approval.snapshot AS approval,
+rel.id AS release_row_id,rel.unit_id AS release_row_unit,rel.owner_id AS release_row_owner,rel.candidate_id AS release_row_candidate,rel.rendition_id AS release_row_rendition,rel.manifest_digest AS release_row_manifest,rel.digest AS release_row_digest,
 submission.id AS submission_row_id,submission.owner_id AS submission_row_owner,submission.unit_id AS submission_row_unit,submission.brief_id AS submission_row_brief,submission.brief_digest AS submission_row_brief_digest,submission.operation_id AS submission_row_operation,submission.digest AS submission_row_digest,
 rendition.id AS rendition_row_id,rendition.submission_id AS rendition_row_submission,rendition.object_key AS rendition_row_object,rendition.digest AS rendition_row_digest,
 candidate.id AS candidate_row_id,candidate.rendition_id AS candidate_row_rendition,candidate.owner_id AS candidate_row_owner,candidate.operation_id AS candidate_row_operation,candidate.digest AS candidate_row_digest,
 clearance.id AS clearance_row_id,clearance.candidate_id AS clearance_row_candidate,clearance.owner_id AS clearance_row_owner,clearance.operation_id AS clearance_row_operation,clearance.sequence AS clearance_row_sequence,clearance.digest AS clearance_row_digest,
 approval.id AS approval_row_id,approval.candidate_id AS approval_row_candidate,approval.owner_id AS approval_row_owner,approval.operation_id AS approval_row_operation,approval.sequence AS approval_row_sequence,approval.digest AS approval_row_digest";
+
+fn relation() -> String {
+    FROM.replace("{current_filter}", LISTENER_CURRENT_FILTER)
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER)
+}
+
+/// The domain's Unix milliseconds of a trusted microsecond stamp.
+fn millis(micros: i64) -> i64 {
+    micros.div_euclid(1000)
+}
+
+/// Keeps the first row of each Work in the release order of Work detail: latest publication,
+/// then the smallest release id (PostgreSQL `DISTINCT ON`).
+const REPRESENTATIVE: &str =
+    "row_number() OVER (PARTITION BY x.work_id ORDER BY x.published_at DESC,x.release_id ASC) AS pick";
 async fn batch(
     tx: &Tx<'_>,
     rows: Vec<Row>,
@@ -359,17 +384,8 @@ async fn presented_batch(
 ) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
     let mut stats = std::collections::BTreeMap::new();
     for row in rows.iter().take(limit) {
-        let release: String = row
-            .try_get("release_id")
-            .map_err(|_| ListenerError::Corrupt)?;
-        let count = row
-            .try_get("unit_count")
-            .map_err(|_| ListenerError::Corrupt)?;
-        let ordinal = row.try_get("ordinal").map_err(|_| ListenerError::Corrupt)?;
-        if stats
-            .insert(release, PresentationStats::new(count, ordinal)?)
-            .is_some()
-        {
+        let (release, value) = stats_row(row)?;
+        if stats.insert(release, value).is_some() {
             return Err(ListenerError::Corrupt);
         }
     }
@@ -387,10 +403,18 @@ async fn presented_batch(
 /// Rank/count the eligible relation before representative selection, cursor or page limit.
 /// The opt-in queries alone pay for these window aggregates.
 fn presented_relation() -> String {
-    let from = FROM
-        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
-    format!("SELECT {COLUMNS},count(*) OVER (PARTITION BY x.work_id) AS unit_count,row_number() OVER (PARTITION BY x.work_id ORDER BY ordering.first_position,x.unit_id COLLATE \"C\") AS ordinal {from}")
+    format!("SELECT {COLUMNS},count(*) OVER (PARTITION BY x.work_id) AS unit_count,row_number() OVER (PARTITION BY x.work_id ORDER BY ordering.first_position,x.unit_id) AS ordinal {}", relation())
+}
+
+fn stats_row(row: &Row) -> Result<(String, PresentationStats), ListenerError> {
+    let release: String = row
+        .try_get("release_id")
+        .map_err(|_| ListenerError::Corrupt)?;
+    let count = row
+        .try_get("unit_count")
+        .map_err(|_| ListenerError::Corrupt)?;
+    let ordinal = row.try_get("ordinal").map_err(|_| ListenerError::Corrupt)?;
+    Ok((release, PresentationStats::new(count, ordinal)?))
 }
 
 pub(in crate::contexts::media) async fn presented_works(
@@ -413,24 +437,15 @@ pub(in crate::contexts::media) async fn presented_works(
         .map(|r| r.publication.release().document().id.clone())
         .collect();
     let relation = presented_relation();
-    let sql = format!("WITH eligible AS ({relation} AND x.work_id=ANY($2)) SELECT release_id,unit_count,ordinal FROM eligible WHERE release_id=ANY($3)");
+    let sql = format!("WITH eligible AS ({relation} AND x.work_id IN (SELECT value FROM json_each(?2))) SELECT release_id,unit_count,ordinal FROM eligible WHERE release_id IN (SELECT value FROM json_each(?3))");
     let rows = tx
         .query(&sql, &[&now, &works, &releases])
         .await
         .map_err(|_| ListenerError::Unavailable)?;
     let mut stats = std::collections::BTreeMap::new();
     for row in rows {
-        let release: String = row
-            .try_get("release_id")
-            .map_err(|_| ListenerError::Corrupt)?;
-        let count = row
-            .try_get("unit_count")
-            .map_err(|_| ListenerError::Corrupt)?;
-        let ordinal = row.try_get("ordinal").map_err(|_| ListenerError::Corrupt)?;
-        if stats
-            .insert(release, PresentationStats::new(count, ordinal)?)
-            .is_some()
-        {
+        let (release, value) = stats_row(&row)?;
+        if stats.insert(release, value).is_some() {
             return Err(ListenerError::Corrupt);
         }
     }
@@ -450,7 +465,7 @@ pub(in crate::contexts::media) async fn presented_work(
     now: i64,
 ) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
     let relation = presented_relation();
-    let sql = format!("WITH eligible AS ({relation} AND x.work_id=$2) SELECT * FROM eligible ORDER BY published_at DESC,release_id COLLATE \"C\" ASC LIMIT 1");
+    let sql = format!("WITH eligible AS ({relation} AND x.work_id=?2) SELECT * FROM eligible ORDER BY published_at DESC,release_id ASC LIMIT 1");
     let rows = tx
         .query(&sql, &[&now, &work])
         .await
@@ -465,23 +480,32 @@ pub(in crate::contexts::media) async fn presented_units(
     limit: usize,
     now: i64,
 ) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
-    let (position, id) = match after {
-        None => (None, None),
-        Some(Keyset::Units {
-            work: w,
-            position,
-            id,
-        }) if w == work => (Some(i64::from(*position)), Some(id.as_str())),
-        Some(_) => return Err(ListenerError::InvalidCursor),
-    };
+    let (position, id) = unit_after(after, work)?;
     let relation = presented_relation();
-    let sql = format!("WITH eligible AS ({relation} AND x.work_id=$2) SELECT * FROM eligible WHERE ($3::bigint IS NULL OR (first_position,unit_id COLLATE \"C\")>($3,$4::text COLLATE \"C\")) ORDER BY first_position,unit_id COLLATE \"C\" LIMIT $5");
+    let sql = format!("WITH eligible AS ({relation} AND x.work_id=?2) SELECT * FROM eligible WHERE (?3 IS NULL OR first_position>?3 OR (first_position=?3 AND unit_id>?4)) ORDER BY first_position,unit_id LIMIT ?5");
     let rows = tx
         .query(&sql, &[&now, &work, &position, &id, &((limit + 1) as i64)])
         .await
         .map_err(|_| ListenerError::Unavailable)?;
     presented_batch(tx, rows, limit, false, now).await
 }
+
+/// The unit keyset of a cursor, bound to the Work it was issued for.
+fn unit_after<'a>(
+    after: Option<&'a Keyset>,
+    work: &str,
+) -> Result<(Option<i64>, Option<&'a str>), ListenerError> {
+    match after {
+        None => Ok((None, None)),
+        Some(Keyset::Units {
+            work: w,
+            position,
+            id,
+        }) if w == work => Ok((Some(i64::from(*position)), Some(id.as_str()))),
+        Some(_) => Err(ListenerError::InvalidCursor),
+    }
+}
+
 pub(in crate::contexts::media) async fn works(
     tx: &Tx<'_>,
     q: &DiscoveryQuery,
@@ -493,10 +517,8 @@ pub(in crate::contexts::media) async fn works(
         Some(Keyset::Works { time, id }) => (Some(*time), Some(id.as_str())),
         Some(Keyset::Units { .. }) => return Err(ListenerError::InvalidCursor),
     };
-    let from = FROM
-        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
-    let sql=format!("SELECT * FROM (SELECT DISTINCT ON (x.work_id COLLATE \"C\") {COLUMNS} {from} AND ($2::bigint IS NULL OR anchor.first_published_at<$2 OR (anchor.first_published_at=$2 AND x.work_id COLLATE \"C\">$3::text COLLATE \"C\")) ORDER BY x.work_id COLLATE \"C\",x.published_at DESC,x.release_id COLLATE \"C\" ASC) selected WHERE ($4::text IS NULL OR kind=$4) AND ($5::text IS NULL OR language=$5) AND position($6 in search_text)>0 ORDER BY first_published_at DESC,work_id COLLATE \"C\" ASC LIMIT $7");
+    let from = relation();
+    let sql=format!("SELECT * FROM (SELECT {COLUMNS},{REPRESENTATIVE} {from} AND (?2 IS NULL OR anchor.first_published_at<?2 OR (anchor.first_published_at=?2 AND x.work_id>?3))) selected WHERE pick=1 AND (?4 IS NULL OR kind=?4) AND (?5 IS NULL OR language=?5) AND (?6='' OR instr(search_text,?6)>0) ORDER BY first_published_at DESC,work_id ASC LIMIT ?7");
     let limit = (q.limit() + 1) as i64;
     let rows = tx
         .query(
@@ -520,10 +542,8 @@ pub(in crate::contexts::media) async fn work(
     id: &str,
     now: i64,
 ) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
-    let from = FROM
-        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
-    let sql=format!("SELECT {COLUMNS} {from} AND x.work_id=$2 ORDER BY x.published_at DESC,x.release_id COLLATE \"C\" ASC LIMIT 1");
+    let from = relation();
+    let sql=format!("SELECT {COLUMNS} {from} AND x.work_id=?2 ORDER BY x.published_at DESC,x.release_id ASC LIMIT 1");
     let rows = tx
         .query(&sql, &[&now, &id])
         .await
@@ -537,19 +557,9 @@ pub(in crate::contexts::media) async fn units(
     limit: usize,
     now: i64,
 ) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
-    let (position, id) = match after {
-        None => (None, None),
-        Some(Keyset::Units {
-            work: w,
-            position,
-            id,
-        }) if w == work => (Some(i64::from(*position)), Some(id.as_str())),
-        Some(_) => return Err(ListenerError::InvalidCursor),
-    };
-    let from = FROM
-        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
-    let sql=format!("SELECT {COLUMNS} {from} AND x.work_id=$2 AND ($3::bigint IS NULL OR (ordering.first_position,x.unit_id COLLATE \"C\")>($3,$4::text COLLATE \"C\")) ORDER BY ordering.first_position,x.unit_id COLLATE \"C\" LIMIT $5");
+    let (position, id) = unit_after(after, work)?;
+    let from = relation();
+    let sql=format!("SELECT {COLUMNS} {from} AND x.work_id=?2 AND (?3 IS NULL OR ordering.first_position>?3 OR (ordering.first_position=?3 AND x.unit_id>?4)) ORDER BY ordering.first_position,x.unit_id LIMIT ?5");
     let rows = tx
         .query(&sql, &[&now, &work, &position, &id, &((limit + 1) as i64)])
         .await
@@ -561,10 +571,8 @@ pub(in crate::contexts::media) async fn publication(
     id: &str,
     now: i64,
 ) -> Result<Option<ReadItem>, ListenerError> {
-    let from = FROM
-        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
-    let sql = format!("SELECT {COLUMNS} {from} AND x.release_id=$2");
+    let from = relation();
+    let sql = format!("SELECT {COLUMNS} {from} AND x.release_id=?2");
     let rows = tx
         .query(&sql, &[&now, &id])
         .await
@@ -574,21 +582,16 @@ pub(in crate::contexts::media) async fn publication(
 
 use super::super::listener_application::{ListenerRead, ReadFuture, ReadRequest, ReadSnapshot};
 use crate::platform::store::Store;
-pub(in crate::contexts::media) struct PgRead(pub Store);
-impl ListenerRead for PgRead {
+pub(in crate::contexts::media) struct TursoRead(pub Store);
+impl ListenerRead for TursoRead {
     fn read(&self, request: ReadRequest) -> ReadFuture {
         let store = self.0.clone();
         Box::pin(async move {
+            // One pinned reader: every statement below sees the same committed state and the
+            // read never waits for the writer. No file or object I/O happens inside it.
             let c = store.connection().await?;
             let tx = c.read().await.map_err(|_| ListenerError::Unavailable)?;
-            let now = tx
-                .query_one(
-                    "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint",
-                    &[],
-                )
-                .await
-                .map_err(|_| ListenerError::Unavailable)?
-                .get(0);
+            let now = millis(tx.now_micros());
             let (mut items, next_key) = match request {
                 ReadRequest::Work { work: id } => work(&tx, &id, now).await?,
                 ReadRequest::Works { query, after } => {
@@ -609,14 +612,16 @@ impl ListenerRead for PgRead {
                     None,
                 ),
             };
-            let now: i64 = tx
-                .query_one(
-                    "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint",
-                    &[],
-                )
-                .await
-                .map_err(|_| ListenerError::Unavailable)?
-                .get(0);
+            // The trusted clock again, after the reads: an access window that closed while the
+            // page was assembled removes its item instead of granting from a stale instant.
+            let now = millis(
+                store
+                    .database()
+                    .now()
+                    .map_err(|_| ListenerError::Unavailable)?
+                    .get(),
+            )
+            .max(now);
             items.retain(|r| r.publication.valid_at(now));
             tx.commit().await.map_err(|_| ListenerError::Unavailable)?;
             Ok(ReadSnapshot {
@@ -630,6 +635,7 @@ impl ListenerRead for PgRead {
 
 /// Narrow Media-owned current-public batch for the Library adapter. It returns public manifests,
 /// never private storage or the immutable Studio audit envelope. No per-item SQL round trips.
+/// `now` is the caller's unit instant in milliseconds.
 pub(crate) async fn library_publications(
     tx: &Tx<'_>,
     units: &[String],
@@ -673,25 +679,14 @@ async fn library_current_items(
     if units.len() > 50 {
         return Err(ListenerError::InvalidRequest);
     }
-    let from = FROM
-        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
-    let sql = format!("SELECT {COLUMNS} {from} AND x.unit_id=ANY($2)");
+    let from = relation();
+    let sql = format!("SELECT {COLUMNS} {from} AND x.unit_id IN (SELECT value FROM json_each(?2))");
     let rows = tx
         .query(&sql, &[&now, &units])
         .await
         .map_err(|_| ListenerError::Unavailable)?;
     let mut items = batch(tx, rows, 50, false, now).await?.0;
-    let fresh: i64 = tx
-        .query_one(
-            "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint",
-            &[],
-        )
-        .await
-        .map_err(|_| ListenerError::Unavailable)?
-        .try_get(0)
-        .map_err(|_| ListenerError::Corrupt)?;
-    items.retain(|r| r.publication.valid_at(fresh));
+    items.retain(|r| r.publication.valid_at(now));
     Ok(items)
 }
 
@@ -704,25 +699,14 @@ pub(crate) async fn library_work_presentations(
     if works.len() > 50 {
         return Err(ListenerError::InvalidRequest);
     }
-    let from = FROM
-        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
-    let sql = format!("SELECT DISTINCT ON (x.work_id COLLATE \"C\") {COLUMNS} {from} AND x.work_id=ANY($2) ORDER BY x.work_id COLLATE \"C\",x.published_at DESC,x.release_id COLLATE \"C\" ASC");
+    let from = relation();
+    let sql = format!("SELECT * FROM (SELECT {COLUMNS},{REPRESENTATIVE} {from} AND x.work_id IN (SELECT value FROM json_each(?2))) selected WHERE pick=1 ORDER BY work_id");
     let rows = tx
         .query(&sql, &[&now, &works])
         .await
         .map_err(|_| ListenerError::Unavailable)?;
     let mut items = batch(tx, rows, 50, true, now).await?.0;
-    let fresh: i64 = tx
-        .query_one(
-            "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint",
-            &[],
-        )
-        .await
-        .map_err(|_| ListenerError::Unavailable)?
-        .try_get(0)
-        .map_err(|_| ListenerError::Corrupt)?;
-    items.retain(|r| r.publication.valid_at(fresh));
+    items.retain(|r| r.publication.valid_at(now));
     Ok(items
         .into_iter()
         .map(|r| work_presentation(&r.publication))
@@ -734,6 +718,11 @@ pub(crate) async fn library_public_work(
     now: i64,
 ) -> Result<bool, ListenerError> {
     Ok(!work(tx, work_id, now).await?.0.is_empty())
+}
+
+/// The domain's Unix milliseconds of a transaction's trusted microsecond stamp.
+pub(crate) fn unit_millis(tx: &Tx<'_>) -> i64 {
+    millis(tx.now_micros())
 }
 
 #[cfg(test)]

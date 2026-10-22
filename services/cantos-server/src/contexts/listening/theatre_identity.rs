@@ -1,8 +1,8 @@
 //! Actual Library seam adapter. A registry row or raw actor is never sufficient authority.
 use crate::{
     contexts::listening::auth::{
-        AuthenticatedListener, AuthenticationError, AuthenticationFuture, ListenerAuthenticator,
-        ListenerCredentials,
+        AuthenticatedListener, AuthenticationError, AuthenticationFuture, ListenerAdmission,
+        ListenerAuthenticator, ListenerCredentials,
     },
     platform::{identity::domain::ActorId, store::Store},
 };
@@ -41,7 +41,12 @@ impl ListenerAuthenticator for PasswordListenerAuthenticator {
                 })?;
             let actor =
                 ActorId::new(record.actor_id).map_err(|_| AuthenticationError::Unavailable)?;
-            Ok(AuthenticatedListener::from_verified_actor(actor))
+            // The session the Server just admitted travels with the principal so the Library
+            // can re-admit it inside the business transaction that writes.
+            Ok(AuthenticatedListener::from_admitted_session(
+                actor,
+                ListenerAdmission::new(token, channel, record.session_id),
+            ))
         })
     }
 }

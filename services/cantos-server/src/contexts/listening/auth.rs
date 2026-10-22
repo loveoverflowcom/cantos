@@ -1,6 +1,6 @@
 //! Listener-specific authentication seam. Registry mapping never authenticates a request.
 use super::domain::ListenerId;
-use crate::platform::identity::domain::ActorId;
+use crate::platform::{identity::domain::ActorId, identity_auth::credential::Channel};
 use std::{fmt, future::Future, pin::Pin};
 /// Bearer-only input, redacted in diagnostics. Cookies never enter this port.
 pub struct ListenerCredentials(String);
@@ -20,6 +20,44 @@ impl fmt::Debug for ListenerCredentials {
         f.write_str("ListenerCredentials([redacted])")
     }
 }
+/// What the Server itself established about the session behind a sealed principal. It is created
+/// only by the Identity-backed authenticator, never from a request body or header, and it lets
+/// the Library re-admit that exact session inside the business transaction that writes (a logout
+/// or revocation either committed before the write, which is then refused, or waits behind it).
+/// The access secret is held only to repeat that lookup and is redacted from diagnostics.
+#[derive(Clone)]
+pub(crate) struct ListenerAdmission {
+    token: String,
+    channel: Channel,
+    session_id: String,
+}
+impl ListenerAdmission {
+    pub(crate) fn new(token: &str, channel: Channel, session_id: String) -> Self {
+        Self {
+            token: token.to_owned(),
+            channel,
+            session_id,
+        }
+    }
+    pub(crate) fn token(&self) -> &str {
+        &self.token
+    }
+    pub(crate) fn channel(&self) -> Channel {
+        self.channel
+    }
+    pub(crate) fn session_id(&self) -> &str {
+        &self.session_id
+    }
+}
+impl fmt::Debug for ListenerAdmission {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ListenerAdmission")
+            .field("channel", &self.channel)
+            .field("session_id", &self.session_id)
+            .field("token", &"[redacted]")
+            .finish()
+    }
+}
 /// Sealed account scope. Parsing actor IDs or receiving a Studio cookie cannot construct it.
 /// ```compile_fail,E0624
 /// use cantos_server::{contexts::listening::auth::AuthenticatedListener, platform::identity::domain::ActorId};
@@ -30,16 +68,34 @@ impl fmt::Debug for ListenerCredentials {
 /// let forged = serde_json::from_str::<AuthenticatedListener>("{\"actor_id\":\"alice\"}");
 /// ```
 #[derive(Clone, Debug)]
-pub struct AuthenticatedListener(ListenerId);
+pub struct AuthenticatedListener {
+    listener: ListenerId,
+    admission: Option<ListenerAdmission>,
+}
 impl AuthenticatedListener {
     // Trusted issuer adapter seam, deliberately inaccessible to callers. The default adapter
-    // cannot mint a principal. The identity successor must earn all issuer/session checks first.
+    // cannot mint a principal. A principal without an admission was vouched for by a trusted host
+    // override and is checked against the active actor only.
     #[allow(dead_code)]
     pub(crate) fn from_verified_actor(actor: ActorId) -> Self {
-        Self(ListenerId::from_actor(actor))
+        Self {
+            listener: ListenerId::from_actor(actor),
+            admission: None,
+        }
+    }
+    /// The principal earned by a live Identity session; the Library re-admits `admission` in the
+    /// transaction of every write.
+    pub(crate) fn from_admitted_session(actor: ActorId, admission: ListenerAdmission) -> Self {
+        Self {
+            listener: ListenerId::from_actor(actor),
+            admission: Some(admission),
+        }
     }
     pub fn listener(&self) -> &ListenerId {
-        &self.0
+        &self.listener
+    }
+    pub(super) fn admission(&self) -> Option<&ListenerAdmission> {
+        self.admission.as_ref()
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

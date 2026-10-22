@@ -379,7 +379,7 @@ pub(super) mod unix {
         }
 
         // Kept private: tests exercise storage semantics without forging media-admission proof.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         pub(crate) fn inject_test_bytes(
             &self,
             bytes: &[u8],

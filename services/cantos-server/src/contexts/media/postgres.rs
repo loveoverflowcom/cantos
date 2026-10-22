@@ -225,7 +225,5 @@ pub(super) mod lifecycle;
 
 pub(super) mod publication;
 
-pub(in crate::contexts::media) mod listener;
-
 pub(in crate::contexts::media) mod artwork;
 pub(in crate::contexts::media) mod image;

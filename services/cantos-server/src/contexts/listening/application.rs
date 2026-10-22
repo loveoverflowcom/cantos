@@ -1,6 +1,6 @@
 //! Listener use cases and typed persistence boundary. Domain decisions execute under adapter locks.
 use super::{
-    auth::AuthenticatedListener,
+    auth::{AuthenticatedListener, ListenerAdmission},
     cursor::{CursorVault, PageAnchor},
     domain::{
         self, BookmarkCandidate, BookmarkCreateOutcome, BookmarkDeleteOutcome, BookmarkDeletion,
@@ -122,9 +122,24 @@ pub(super) type ReadFuture =
     Pin<Box<dyn Future<Output = Result<ReadResult, LibraryError>> + Send + 'static>>;
 pub(super) type WriteFuture =
     Pin<Box<dyn Future<Output = Result<dto::Receipt, LibraryError>> + Send + 'static>>;
+/// The sealed account scope handed to the persistence adapter: the account, and (when the Server
+/// admitted an Identity session for it) the admission the adapter re-checks inside its unit.
+#[derive(Clone, Debug)]
+pub(super) struct Access {
+    pub listener: ListenerId,
+    pub admission: Option<ListenerAdmission>,
+}
+impl From<&AuthenticatedListener> for Access {
+    fn from(principal: &AuthenticatedListener) -> Self {
+        Self {
+            listener: principal.listener().clone(),
+            admission: principal.admission().cloned(),
+        }
+    }
+}
 pub(super) trait LibraryRepository: Send + Sync {
-    fn read(&self, listener: ListenerId, request: ReadRequest) -> ReadFuture;
-    fn mutate(&self, listener: ListenerId, mutation: Mutation) -> WriteFuture;
+    fn read(&self, access: Access, request: ReadRequest) -> ReadFuture;
+    fn mutate(&self, access: Access, mutation: Mutation) -> WriteFuture;
 }
 #[derive(Clone)]
 pub struct LibraryService {
@@ -150,10 +165,7 @@ impl LibraryService {
         let id = domain::PublicationId::parse(publication)?;
         match self
             .repository
-            .read(
-                principal.listener().clone(),
-                ReadRequest::Progress(id.as_str().into()),
-            )
+            .read(principal.into(), ReadRequest::Progress(id.as_str().into()))
             .await?
         {
             ReadResult::Progress(r) => Ok(r.map(|v| v.raw().clone())),
@@ -168,7 +180,7 @@ impl LibraryService {
         let work = WorkId::parse(work).map_err(|_| LibraryError::InvalidRequest)?;
         match self
             .repository
-            .read(principal.listener().clone(), ReadRequest::Saved(work))
+            .read(principal.into(), ReadRequest::Saved(work))
             .await?
         {
             ReadResult::Saved(r) => Ok(r.raw().clone()),
@@ -183,10 +195,7 @@ impl LibraryService {
         let id = OperationId::parse(operation)?;
         match self
             .repository
-            .read(
-                principal.listener().clone(),
-                ReadRequest::Receipt(id.clone()),
-            )
+            .read(principal.into(), ReadRequest::Receipt(id.clone()))
             .await?
         {
             ReadResult::Receipt(r) if r.operation_id == id.as_str() => Ok(r),
@@ -207,7 +216,7 @@ impl LibraryService {
         let receipt = self
             .repository
             .mutate(
-                principal.listener().clone(),
+                principal.into(),
                 Mutation {
                     command,
                     fingerprint,
@@ -348,7 +357,7 @@ impl LibraryService {
         let ReadResult::Page(snapshot) = self
             .repository
             .read(
-                principal.listener().clone(),
+                principal.into(),
                 ReadRequest::Page {
                     kind,
                     limit: usize::from(limit),

@@ -233,7 +233,7 @@ pub(in crate::contexts::media) async fn insert_release(
     let d = release.document();
     let m = &d.manifest;
     tx.execute("INSERT INTO audio_releases(id,unit_id,owner_id,candidate_id,rendition_id,snapshot,manifest_digest,digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",&[&d.id,&m.unit_id,&d.published_by,&m.candidate_id,&m.rendition_id,&encode(d)?,&m.digest,&d.digest]).await?;
-    super::listener::index_release(tx, release).await?;
+    super::super::turso::listener::index_release(tx, release).await?;
     Ok(())
 }
 pub(in crate::contexts::media) async fn set_pointer(
