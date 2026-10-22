@@ -28,7 +28,8 @@ class TheatreIosProductionHostTest(unittest.TestCase):
             self.assertEqual(plist["CantosApiOrigin"], "$(CANTOS_API_ORIGIN)")
             self.assertNotIn("CantosNativeIssuer", plist)
             self.assertEqual(plist["UIBackgroundModes"], ["audio"])
-            self.assertEqual(plist["CFBundleURLTypes"][0]["CFBundleURLSchemes"], ["com.cantos.theatre"])
+            # No browser callback: the application registers no URL scheme at all.
+            self.assertNotIn("CFBundleURLTypes", plist)
         self.assertIn("TheatreIdentity.swift in Sources", project)
         self.assertNotIn("CANTOS_NATIVE_ISSUER", project)
         self.assertEqual(project.count('SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) CANTOS_PRODUCTION"'), 2)

@@ -1088,7 +1088,7 @@ cargo xtask distribute firebase cantos-theatre --channel production \
 Dry-run is pure planning: no subprocess/network/write. Real execution needs an explicit App ID,
 recipients and pinned certificate. Production uses only operator-supplied `CANTOS_RELEASE_*`
 signing inputs and the same release/audit primitives as `theatre-host`; debug cannot substitute
-for release. Exact AGP output metadata, staged manifest/version/config/callback/signature,
+for release. Exact AGP output metadata, staged manifest/version/config/signature (no browser callback or URL scheme),
 audit-marker refusal and APK/mapping binding precede the one remote write. Intent receipts
 record staged hashes; unknown remote outcomes require console reconciliation before replay.
 
@@ -1442,8 +1442,13 @@ then inspects the actual debug APK (expecting application ID
 installed-tool signature/version facts (`apksigner verify --print-certs -v`, `aapt2 dump badging`)
 with `-Pcantos.apiOrigin=ORIGIN`. It accepts `https://` or `http://127.0.0.1|localhost:<port>`
 (for `adb reverse`) and refuses anything else with exit 2 before Gradle. The debug manifest overlay
-adds only a cleartext policy limited to those loopback hosts. The APK composes the production catalog, native player and account/Library owners. The retained legacy `--native-issuer` option has no role in Identity v1 host activation. Native JSON
-transport requires HTTPS; loopback HTTP is a catalog-only local diagnostic. Installing it on a
+adds only a cleartext policy limited to those loopback hosts. The APK composes the production catalog, native player and account/Library owners.
+The one origin owner (`selectCatalogOrigin`) admits that origin once; the public catalog and the
+first-party Identity v1 JSON transport (email/password) both use it, so a debug host's loopback HTTP
+origin also carries Identity v1. Release builds and iOS stay HTTPS-only and the release
+manifest/network policy forbid cleartext. `--api-origin` is the only app configuration input: no
+build declares a browser callback, URL scheme or provider issuer, and the inspector rejects a built
+manifest (debug or release, audit or optimized) that carries one. Installing it on a
 device is the developer's own `adb install`.
 
 `theatre-host ios-build --kotlin-native-home PATH` checks the installed Kotlin/Native 2.2.20

@@ -36,11 +36,16 @@ class TheatreIosIdentityConfigurationTest(unittest.TestCase):
         # The build consumes Info.plist through INFOPLIST_FILE, never Copy Bundle Resources.
         self.assertNotIn("Info.plist in Resources", project)
 
-    def test_custom_plist_references_only_the_api_authority(self):
-        with (MOBILE / "iosApp/Cantos/Info.plist").open("rb") as source:
+    def test_custom_plist_references_only_the_api_authority_and_declares_no_url_scheme(self):
+        path = MOBILE / "iosApp/Cantos/Info.plist"
+        with path.open("rb") as source:
             plist = plistlib.load(source)
         self.assertEqual(plist["CantosApiOrigin"], "$(CANTOS_API_ORIGIN)")
+        self.assertEqual(plist["UIBackgroundModes"], ["audio"])
         self.assertNotIn("CantosNativeIssuer", plist)
+        # Identity v1 is first-party JSON on the API origin: no URL scheme may route into the app.
+        self.assertNotIn("CFBundleURLTypes", plist)
+        self.assertNotIn("CFBundleURLSchemes", path.read_text())
 
     def test_shared_scheme_builds_the_production_target_for_debug_and_release(self):
         scheme = ET.parse(PROJECT.parent / "xcshareddata/xcschemes/Cantos.xcscheme").getroot()
@@ -56,12 +61,34 @@ class TheatreIosIdentityConfigurationTest(unittest.TestCase):
         self.assertNotIn("CantosNativeIssuer", swift)
         self.assertEqual(swift.count('IosNativeIdentityOwner(apiOrigin: origin ?? packagedOrigin ?? "",'), 1)
         owner = (MOBILE / "shared/src/iosMain/kotlin/com/cantos/theatre/app/IosNativeOwner.kt").read_text()
-        self.assertIn("NativeIdentityV1Configuration.resolve(apiOrigin)", owner)
-        self.assertIn("NativeIdentityV1Client(it, platform, now)", owner)
+        # One origin owner, HTTPS only on iOS; the Identity v1 client is built over that admitted origin.
+        self.assertIn("selectPackagedApiOrigin(apiOrigin, allowLoopbackHttp = false)", owner)
+        self.assertRegex(owner, r"NativeIdentityV1Client\(\s*\w+\s*,\s*platform\s*,\s*now\s*\)")
         self.assertIn("SecureNativeCredentialJournal(object : CredentialStore", owner)
-        self.assertNotIn("NativeClientConfiguration.resolve", owner)
-        self.assertNotIn("NativeRegistrationHttp", owner)
-        self.assertIn("fun browserCancelled() = Unit", owner)
+        self.assertNotRegex(owner, r"\bfun\s+(callback|browserCancelled)\b")
+        for retired in ("NativeIdentityV1Configuration", "NativeClientConfiguration", "NativeRegistrationHttp",
+                        "availability", "CantosNativeIssuer"):
+            self.assertNotIn(retired, owner)
+
+    def test_no_ios_origin_selection_admits_loopback_http(self):
+        sources = sorted((MOBILE / "shared/src/iosMain").rglob("*.kt"))
+        calls = [arguments for source in sources
+                 for arguments in re.findall(r"\bselect(?:PackagedApi|Catalog)Origin\(([^()]*)\)", source.read_text())]
+        # The catalog owner and the identity owner both select; neither may opt in to cleartext.
+        self.assertGreaterEqual(len(calls), 2)
+        for arguments in calls:
+            self.assertRegex(arguments, r"allowLoopbackHttp\s*=\s*false\b", arguments)
+
+    def test_swift_has_no_browser_session_pkce_or_url_scheme_handling(self):
+        sources = sorted((MOBILE / "iosApp/Cantos").glob("*.swift"))
+        self.assertIn("TheatreIdentity.swift", [source.name for source in sources])
+        for source in sources:
+            text = source.read_text()
+            with self.subTest(source=source.name):
+                self.assertNotRegex(text, r"import\s+(AuthenticationServices|CryptoKit|SafariServices)\b")
+                for retired in ("ASWebAuthenticationSession", "SFSafariViewController", "onOpenURL",
+                                "callbackURLScheme", "code_challenge", "CantosNativeIssuer"):
+                    self.assertNotIn(retired, text)
 
 
 if __name__ == "__main__":

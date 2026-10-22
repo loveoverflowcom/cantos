@@ -693,7 +693,7 @@ mod tests {
         assert!(matches!(
             parse("theatre-host android-debug --api-origin http://127.0.0.1:8080").unwrap(),
             Task::TheatreHost {
-                action: HostAction::AndroidDebug { api_origin, native_issuer: None }
+                action: HostAction::AndroidDebug { api_origin }
             } if api_origin == "http://127.0.0.1:8080"
         ));
         assert!(matches!(
@@ -708,6 +708,9 @@ mod tests {
             "theatre-host android-release --install",
             "theatre-host android-debug",
             "theatre-host android-debug --api-origin http://127.0.0.1:8080 --install",
+            // The retired provider issuer option is gone, not refused by a stub.
+            "theatre-host android-release --native-issuer https://idm.example/oauth2/openid/cantos-theatre-native",
+            "theatre-host android-debug --api-origin http://127.0.0.1:8080 --native-issuer https://idm.example/oauth2/openid/cantos-theatre-native",
             "theatre-host ios-release",
         ] {
             assert!(parse(line).is_err(), "{line}");
@@ -791,6 +794,7 @@ mod tests {
             "distribute firebase cantos-theatre --channel demo --groups g --no-build",
             "distribute firebase cantos-theatre --channel demo --groups g --apk-path x.apk",
             "distribute firebase cantos-theatre --channel demo --groups g --retry 3",
+            "distribute firebase cantos-theatre --channel development --groups g --native-issuer https://idm.example/oauth2/openid/cantos-theatre-native",
             "distribute gcs cantos-theatre --channel demo --groups g",
         ] {
             assert!(parse(line).is_err(), "{line}");

@@ -68,22 +68,18 @@ pub enum HostAction {
         /// production default `https://api.cantos.cc` (#298).
         #[arg(long, value_name = "ORIGIN")]
         api_origin: Option<String>,
-        #[arg(long, value_name = "ISSUER")]
-        native_issuer: Option<String>,
         /// Use only the explicitly supplied operator release key; audit remains unsigned.
         #[arg(long)]
         operator_signing: bool,
     },
-    /// Build the production host's debug APK, whose live public catalog reads one development
-    /// API origin. Nothing is installed; cleartext is limited to debug loopback.
+    /// Build the production host's debug APK, whose live public catalog and Identity v1 JSON
+    /// transport read one development API origin. Nothing is installed; cleartext is limited to
+    /// debug loopback.
     AndroidDebug {
         /// `http://127.0.0.1:<port>` or `http://localhost:<port>` (for `adb reverse`), or an
         /// `https://` origin; no path, query, credentials or other cleartext host.
         #[arg(long, value_name = "ORIGIN")]
         api_origin: String,
-        /// Optional exact HTTPS public issuer. No privileged provider API is called by the app.
-        #[arg(long, value_name = "ISSUER")]
-        native_issuer: Option<String>,
     },
     /// Link the shared-only iOS simulator frameworks with installed Kotlin/Native and Xcode.
     IosBuild {
@@ -119,21 +115,6 @@ pub fn prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static s
     Ok(())
 }
 
-pub fn validate_native_issuer(api_origin: &str, issuer: &str) -> Result<(), String> {
-    validate_release_api_origin(api_origin)?;
-    validate_issuer(issuer)
-}
-
-fn validate_issuer(issuer: &str) -> Result<(), String> {
-    let base = issuer
-        .strip_suffix("/oauth2/openid/cantos-theatre-native")
-        .filter(|_| issuer.len() <= 2048)
-        .ok_or_else(|| {
-            "--native-issuer needs the exact cantos-theatre-native issuer path".to_owned()
-        })?;
-    validate_release_api_origin(base)
-}
-
 /// Builds only the production host's release outputs. Its `preBuild` also enforces the
 /// resolved release-classpath boundary; sandbox inventory is read from source without compiling it.
 pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> CommandSpec {
@@ -142,13 +123,10 @@ pub fn gradle_release_command(workspace: &Workspace, origin: Option<&str>) -> Co
         "-Pandroid.builder.sdkDownload=false",
     ]);
     // The absence marker overrides ambient Gradle/environment configuration without erasing empty overrides.
-    command = command.args([
-        format!(
-            "-Pcantos.apiOrigin={}",
-            origin.unwrap_or("__CANTOS_DEFAULT_API_ORIGIN__")
-        ),
-        "-Pcantos.nativeIssuer=".to_owned(),
-    ]);
+    command = command.args([format!(
+        "-Pcantos.apiOrigin={}",
+        origin.unwrap_or("__CANTOS_DEFAULT_API_ORIGIN__")
+    )]);
     command.args([
         "-Pcantos.releaseAudit=false",
         "-Pcantos.releaseSigning=false",
@@ -211,38 +189,20 @@ pub fn release_evidence_command(workspace: &Workspace) -> CommandSpec {
     ])
 }
 
-fn release_evidence_with_inputs(
-    workspace: &Workspace,
-    origin: Option<&str>,
-    issuer: Option<&str>,
-) -> CommandSpec {
+fn release_evidence_with_inputs(workspace: &Workspace, origin: Option<&str>) -> CommandSpec {
     release_evidence_command(workspace).args([
         "--api-origin",
         origin.unwrap_or("__CANTOS_DEFAULT_API_ORIGIN__"),
-        "--native-issuer",
-        issuer.unwrap_or_default(),
     ])
 }
 
-fn release_configuration(
-    mut command: CommandSpec,
-    issuer: Option<&str>,
-    signing: bool,
-) -> CommandSpec {
-    command.args.retain(|arg| {
-        !arg.starts_with("-Pcantos.nativeIssuer=") && !arg.starts_with("-Pcantos.releaseSigning=")
-    });
-    command.args.extend([
-        format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
-        format!("-Pcantos.releaseSigning={signing}"),
-    ]);
+fn release_configuration(mut command: CommandSpec, signing: bool) -> CommandSpec {
     command
-}
-fn inspection_issuer(mut command: CommandSpec, issuer: Option<&str>) -> CommandSpec {
-    command.args.extend([
-        "--native-issuer".to_owned(),
-        issuer.unwrap_or_default().to_owned(),
-    ]);
+        .args
+        .retain(|arg| !arg.starts_with("-Pcantos.releaseSigning="));
+    command
+        .args
+        .push(format!("-Pcantos.releaseSigning={signing}"));
     command
 }
 fn release_snapshot_command(workspace: &Workspace) -> CommandSpec {
@@ -258,7 +218,6 @@ fn boundary_probe_command(workspace: &Workspace, variant: &str, probe: &str) -> 
         "-Pcantos.releaseAudit=false",
         "-Pcantos.releaseSigning=false",
         "-Pcantos.apiOrigin=__CANTOS_DEFAULT_API_ORIGIN__",
-        "-Pcantos.nativeIssuer=",
     ]);
     let mut command = CommandSpec::new("python3", workspace.root()).args([
         "scripts/android_boundary_probe.py",
@@ -318,21 +277,11 @@ pub fn validate_api_origin(origin: &str) -> Result<(), String> {
 }
 
 /// Builds only the production host's debug APK with the given origin; never installs it.
-#[cfg(test)]
 pub fn gradle_debug_command(workspace: &Workspace, origin: &str) -> CommandSpec {
-    gradle_debug_identity_command(workspace, origin, None)
-}
-
-pub fn gradle_debug_identity_command(
-    workspace: &Workspace,
-    origin: &str,
-    issuer: Option<&str>,
-) -> CommandSpec {
     mobile_toolchain::gradle_command(workspace).args([
         "-Pcantos.android=true".to_owned(),
         "-Pandroid.builder.sdkDownload=false".to_owned(),
         format!("-Pcantos.apiOrigin={origin}"),
-        format!("-Pcantos.nativeIssuer={}", issuer.unwrap_or_default()),
         "-Pcantos.releaseAudit=false".to_owned(),
         "-Pcantos.releaseSigning=false".to_owned(),
         ":androidApp:assembleDebug".to_owned(),
@@ -383,10 +332,7 @@ pub fn inspection_command(workspace: &Workspace, sdk: &str, origin: Option<&str>
         "--allowed-component".to_owned(),
         "com.cantos.theatre.adapters.playback.CantosPlaybackService".to_owned(),
     ]);
-    args.extend([
-        "--enforce-audit-marker".to_owned(),
-        "--enforce-callback".to_owned(),
-    ]);
+    args.push("--enforce-audit-marker".to_owned());
     args.extend([
         "--api-origin".to_owned(),
         origin.unwrap_or("__CANTOS_DEFAULT_API_ORIGIN__").to_owned(),
@@ -401,7 +347,6 @@ pub fn debug_inspection_command(
     sdk: &str,
     apk: &Path,
     origin: &str,
-    issuer: Option<&str>,
 ) -> CommandSpec {
     let mut command = inspection_command(workspace, sdk, Some(origin));
     let mut args = Vec::new();
@@ -437,11 +382,7 @@ pub fn debug_inspection_command(
             _ => args.push(arg),
         }
     }
-    args.extend([
-        "--debug-apk".to_owned(),
-        "--native-issuer".to_owned(),
-        issuer.unwrap_or_default().to_owned(),
-    ]);
+    args.push("--debug-apk".to_owned());
     command.args = args;
     command
 }
@@ -451,9 +392,8 @@ pub fn staged_release_inspection_command(
     sdk: &str,
     apk: &Path,
     origin: &str,
-    issuer: Option<&str>,
 ) -> CommandSpec {
-    let mut command = debug_inspection_command(workspace, sdk, apk, origin, issuer);
+    let mut command = debug_inspection_command(workspace, sdk, apk, origin);
     command.args.retain(|arg| arg != "--debug-apk");
     command.args.push("--apk-only".to_owned());
     let index = command
@@ -537,19 +477,10 @@ pub fn execute(
 
         HostAction::AndroidRelease {
             api_origin,
-            native_issuer,
             operator_signing,
         } => {
             if let Some(origin) = &api_origin {
                 if let Err(message) = validate_release_api_origin(origin) {
-                    eprintln!("xtask: error: {message}");
-                    return Ok(ExitCode::from(2));
-                }
-            }
-            if let Some(issuer) = &native_issuer {
-                // The optional origin was validated above; absence selects the native default.
-                // Validate the explicit issuer without inventing one or erasing that absence.
-                if let Err(message) = validate_issuer(issuer) {
                     eprintln!("xtask: error: {message}");
                     return Ok(ExitCode::from(2));
                 }
@@ -569,13 +500,9 @@ pub fn execute(
                         release_snapshot_command(workspace),
                         release_configuration(
                             gradle_audit_command(workspace, api_origin.as_deref()),
-                            native_issuer.as_deref(),
                             false,
                         ),
-                        inspection_issuer(
-                            audit_inspection_command(workspace, sdk, api_origin.as_deref()),
-                            native_issuer.as_deref(),
-                        ),
+                        audit_inspection_command(workspace, sdk, api_origin.as_deref()),
                     ],
                 ),
                 Step::new(
@@ -583,7 +510,6 @@ pub fn execute(
                     &tools(),
                     vec![release_configuration(
                         gradle_release_command(workspace, api_origin.as_deref()),
-                        native_issuer.as_deref(),
                         operator_signing,
                     )],
                 ),
@@ -591,15 +517,8 @@ pub fn execute(
                     "Theatre production Android release inspection",
                     &[Tool::Python3],
                     vec![
-                        inspection_issuer(
-                            inspection_command(workspace, sdk, api_origin.as_deref()),
-                            native_issuer.as_deref(),
-                        ),
-                        release_evidence_with_inputs(
-                            workspace,
-                            api_origin.as_deref(),
-                            native_issuer.as_deref(),
-                        ),
+                        inspection_command(workspace, sdk, api_origin.as_deref()),
+                        release_evidence_with_inputs(workspace, api_origin.as_deref()),
                     ],
                 ),
             ];
@@ -607,19 +526,10 @@ pub fn execute(
             report.print();
             Ok(report.exit_code())
         }
-        HostAction::AndroidDebug {
-            api_origin,
-            native_issuer,
-        } => {
+        HostAction::AndroidDebug { api_origin } => {
             if let Err(message) = validate_api_origin(&api_origin) {
                 eprintln!("xtask: error: {message}");
                 return Ok(ExitCode::from(2));
-            }
-            if let Some(issuer) = &native_issuer {
-                if let Err(message) = validate_native_issuer(&api_origin, issuer) {
-                    eprintln!("xtask: error: {message}");
-                    return Ok(ExitCode::from(2));
-                }
             }
             let sdk = mobile_toolchain::android_sdk_from_environment();
             if let Err(reason) = prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref()) {
@@ -637,23 +547,13 @@ pub fn execute(
                 Step::new(
                     "Theatre production Android debug build",
                     &tools(),
-                    vec![gradle_debug_identity_command(
-                        workspace,
-                        &api_origin,
-                        native_issuer.as_deref(),
-                    )],
+                    vec![gradle_debug_command(workspace, &api_origin)],
                 ),
                 Step::new(
                     "Theatre production Android debug inspection",
                     &[Tool::Python3],
                     vec![
-                        debug_inspection_command(
-                            workspace,
-                            sdk_text,
-                            &debug_apk,
-                            &api_origin,
-                            native_issuer.as_deref(),
-                        ),
+                        debug_inspection_command(workspace, sdk_text, &debug_apk, &api_origin),
                         CommandSpec::new(apksigner.to_string_lossy(), workspace.root()).args([
                             "verify".to_owned(),
                             "--print-certs".to_owned(),
@@ -772,7 +672,6 @@ mod tests {
             "-Pcantos.android=true".to_owned(),
             "-Pandroid.builder.sdkDownload=false".to_owned(),
             "-Pcantos.apiOrigin=__CANTOS_DEFAULT_API_ORIGIN__".to_owned(),
-            "-Pcantos.nativeIssuer=".to_owned(),
             "-Pcantos.releaseAudit=false".to_owned(),
             "-Pcantos.releaseSigning=false".to_owned(),
             ":androidApp:assertReleaseDependencyBoundary".to_owned(),
@@ -825,7 +724,6 @@ mod tests {
             "-Pcantos.android=true".to_owned(),
             "-Pandroid.builder.sdkDownload=false".to_owned(),
             "-Pcantos.apiOrigin=http://127.0.0.1:8080".to_owned(),
-            "-Pcantos.nativeIssuer=".to_owned(),
             "-Pcantos.releaseAudit=false".to_owned(),
             "-Pcantos.releaseSigning=false".to_owned(),
             ":androidApp:assembleDebug".to_owned(),
@@ -956,6 +854,46 @@ mod tests {
     }
 
     #[test]
+    fn no_command_carries_provider_identity_or_browser_callback_inputs() {
+        // The API origin is the only app configuration: Identity v1 is first-party JSON on it,
+        // so no build, evidence or inspection command may name an issuer or a callback.
+        let workspace = workspace();
+        let origin = "https://api.cantos.example";
+        let apk = Path::new("/tmp/app.apk");
+        let commands = [
+            gradle_release_command(&workspace, Some(origin)),
+            release_configuration(gradle_audit_command(&workspace, Some(origin)), false),
+            release_configuration(gradle_release_command(&workspace, None), true),
+            gradle_debug_command(&workspace, "http://127.0.0.1:8080"),
+            release_evidence_with_inputs(&workspace, Some(origin)),
+            inspection_command(&workspace, "/sdk", Some(origin)),
+            audit_inspection_command(&workspace, "/sdk", Some(origin)),
+            debug_inspection_command(&workspace, "/sdk", apk, "http://127.0.0.1:8080"),
+            staged_release_inspection_command(&workspace, "/sdk", apk, origin),
+            boundary_probe_command(&workspace, "release", "sandbox"),
+        ];
+        for command in commands {
+            for arg in &command.args {
+                let lowered = arg.to_ascii_lowercase();
+                assert!(
+                    !lowered.contains("issuer") && !lowered.contains("callback"),
+                    "{arg}"
+                );
+            }
+        }
+        // Signing stays a single explicit switch per release build.
+        let signed = release_configuration(gradle_release_command(&workspace, None), true);
+        assert_eq!(
+            signed
+                .args
+                .iter()
+                .filter(|arg| arg.starts_with("-Pcantos.releaseSigning="))
+                .collect::<Vec<_>>(),
+            ["-Pcantos.releaseSigning=true"]
+        );
+    }
+
+    #[test]
     fn missing_host_or_sdk_is_unsupported_and_runs_nothing() {
         let dir = std::env::temp_dir().join(format!("xtask-theatre-host-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -1035,7 +973,6 @@ mod tests {
             "/sdk",
             Path::new("/tmp/app-debug.apk"),
             "http://127.0.0.1:8080",
-            None,
         );
         let at = command
             .args

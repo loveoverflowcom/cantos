@@ -319,7 +319,6 @@ mod tests {
     fn live() -> LiveRequest {
         LiveRequest {
             api_origin: Some("https://api.cantos.example".into()),
-            native_issuer: None,
             policy: Policy::DevelopmentApk,
             app_id: AppId::parse("1:000000000000:android:0123456789abcdef").unwrap(),
             app_id_source: AppIdSource::Flag,
