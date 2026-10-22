@@ -9,15 +9,15 @@ use super::super::{
     listener_cursor::Keyset,
     listener_projection::{audio_presentation, publication_manifest, work_presentation},
 };
+use crate::platform::store::Row;
 use crate::{
     contexts::catalog::{
         listener_metadata, restore_content, ListenerMetadata, ListenerMetadataRequest,
         LISTENER_CURRENT_FILTER,
     },
-    platform::postgres::{checked_number, StoreError, Tx, RELEASE_OWNER_ACTIVE_FILTER},
+    platform::store::{checked_number, StoreError, Tx, RELEASE_OWNER_ACTIVE_FILTER},
 };
 use serde::{de::DeserializeOwned, Serialize};
-use tokio_postgres::Row;
 
 pub(super) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result<(), StoreError> {
     let d = release.document();
@@ -337,7 +337,7 @@ async fn batch(
         .map(|m| (m.release.clone(), m))
         .collect();
     let owners: Vec<String> = rows.iter().map(|r| r.get("owner_id")).collect();
-    let active = crate::platform::postgres::active_actors(tx, &owners).await?;
+    let active = crate::platform::store::active_actors(tx, &owners).await?;
     let mut items = Vec::new();
     for r in rows {
         let m = metadata
@@ -573,20 +573,14 @@ pub(in crate::contexts::media) async fn publication(
 }
 
 use super::super::listener_application::{ListenerRead, ReadFuture, ReadRequest, ReadSnapshot};
-use crate::platform::postgres::Store;
+use crate::platform::store::Store;
 pub(in crate::contexts::media) struct PgRead(pub Store);
 impl ListenerRead for PgRead {
     fn read(&self, request: ReadRequest) -> ReadFuture {
         let store = self.0.clone();
         Box::pin(async move {
-            let mut c = store.connection().await?;
-            let tx = c
-                .build_transaction()
-                .isolation_level(tokio_postgres::IsolationLevel::RepeatableRead)
-                .read_only(true)
-                .start()
-                .await
-                .map_err(|_| ListenerError::Unavailable)?;
+            let c = store.connection().await?;
+            let tx = c.read().await.map_err(|_| ListenerError::Unavailable)?;
             let now = tx
                 .query_one(
                     "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint",

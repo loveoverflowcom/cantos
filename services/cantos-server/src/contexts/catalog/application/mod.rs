@@ -10,7 +10,7 @@ use super::domain::{
 use super::postgres;
 use crate::contexts::editorial::{self, permits, Access, Action};
 use crate::contexts::ingestion;
-use crate::platform::postgres::{authenticate, LockMode, StoreError, Tx};
+use crate::platform::store::{authenticate, LockMode, StoreError, Tx};
 
 pub(super) const MAX_UNITS: usize = 1000;
 

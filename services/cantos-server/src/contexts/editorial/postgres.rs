@@ -1,12 +1,12 @@
 //! Editorial tables: scripts and members, immutable revisions with their evidence links,
 //! evidence records and editorial reviews. Every load re-checks stored integrity.
 use super::{ReviewFacts, RevisionFacts};
-use tokio_postgres::Row;
+use crate::platform::store::Row;
 use uuid::Uuid;
 
 use super::domain::revisions::AcceptedRevision;
 use super::domain::{export_digest, EvidenceKind};
-use crate::platform::postgres::{LockMode, StoreError, Tx};
+use crate::platform::store::{LockMode, StoreError, Tx};
 use crate::script_ir::{read_canonical_script, WRITE_VERSION};
 
 const REVISION_COLUMNS: &str = "script_id, revision, expected_revision, accepted_by, canonical_export, content_digest, export_digest, to_char(accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS accepted_at";

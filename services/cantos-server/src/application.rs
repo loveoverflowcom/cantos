@@ -36,22 +36,18 @@ pub enum StoreError {
     AudioInspectionUnavailable(&'static str),
 }
 
-/// Concrete handle used by the owning application use cases. PostgreSQL owns its pool;
-/// Media owns its concrete private-storage registry. Neither is part of a pure domain model.
+/// Concrete handle used by the owning application use cases. The one embedded Turso `server.db`
+/// owner is shared by every context; Media owns its concrete private-storage registry. Neither
+/// is part of a pure domain model.
 #[derive(Clone)]
 pub struct Store {
-    pub(crate) pool: deadpool_postgres::Pool,
+    pub(crate) database: crate::platform::turso::ServerDatabase,
+    /// Test builds lose a COMMIT acknowledgement here; production always takes the engine's.
+    pub(crate) acknowledgement: crate::platform::turso::Acknowledgement,
     pub(crate) media_storage: Option<Arc<StorageRegistry>>,
     pub(crate) admin: Option<Arc<crate::platform::admin::AdminService>>,
-    pub(crate) studio_oidc: Option<Arc<crate::platform::studio_oidc::StudioOidc>>,
-    pub(crate) theatre_identity: Option<Arc<crate::platform::theatre_identity::TheatreIdentity>>,
-    pub(crate) theatre_native: Option<Arc<crate::platform::theatre_identity::NativeIdentity>>,
     pub(crate) identity_auth: Option<Arc<crate::platform::identity_auth::IdentityAuth>>,
-    pub(crate) theatre_firebase_enrollment:
-        Option<Arc<crate::platform::theatre_registration::firebase_enrollment::runtime::FirebaseEnrollmentRuntime>>,
-    pub(crate) theatre_registration:
-        Option<Arc<crate::platform::theatre_registration::runtime::RegistrationRuntime>>,
     /// Development Studio session tokens (`auth_kind = development`). A production host clears
-    /// it, so without Studio OIDC the Studio surface has no credential at all.
+    /// it, so without Identity v1 the Studio surface has no credential at all.
     pub(crate) development_sessions: bool,
 }

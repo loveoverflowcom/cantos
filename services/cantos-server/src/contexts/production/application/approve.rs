@@ -7,7 +7,7 @@ use super::super::domain::{check_approval, require_current_approval};
 use super::super::postgres::{self, encode};
 use super::{facts, production_actor, snapshot};
 use crate::contexts::editorial::Action;
-use crate::platform::postgres::{normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::store::{normalized_uuid, LockMode, Store, StoreError};
 
 impl Store {
     pub async fn approve_production(

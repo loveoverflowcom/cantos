@@ -7,7 +7,7 @@ use super::domain::{
     ReviewDecision, SaveDecision,
 };
 use super::postgres;
-use crate::platform::postgres::{
+use crate::platform::store::{
     authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
 };
 use crate::script_ir::{read_script, ScriptContent};

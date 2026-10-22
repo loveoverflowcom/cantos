@@ -4,10 +4,10 @@ use super::super::domain::object_storage::{
     ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageTargetId,
 };
 use super::super::storage::registry::RegistryStoredObject;
-use crate::platform::postgres::{StoreError, Tx};
+use crate::platform::store::Row;
+use crate::platform::store::{StoreError, Tx};
 use cantos_contracts as dto;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio_postgres::Row;
 
 fn corrupt<T>(result: Result<T, AudioError>) -> Result<T, StoreError> {
     result.map_err(|_| StoreError::CorruptRevision)

@@ -875,3 +875,60 @@ async fn a_backup_destination_in_a_shared_directory_is_refused_before_any_copy()
     );
     assert!(!shared.join("copy.db").exists());
 }
+
+#[tokio::test]
+async fn a_writer_wait_is_bounded_and_the_queue_recovers_when_the_holder_finishes() {
+    let run = TestRun::new("bounded-writer");
+    let db = create(&run, Registry::new(DatabaseKind::Server, 1, &ONE).unwrap()).await;
+    let held = db.begin_write().await.unwrap();
+    let started = Instant::now();
+    let refused = db.begin_write_within(Duration::from_millis(80)).await;
+    assert!(matches!(refused, Err(StoreFault::Busy)));
+    assert!(started.elapsed() >= Duration::from_millis(80));
+    held.rollback().await.unwrap();
+    let tx = db
+        .begin_write_within(Duration::from_millis(80))
+        .await
+        .expect("the writer is free again");
+    tx.execute("INSERT INTO items(label) VALUES ('after')", ())
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(integer(&db, "SELECT count(*) FROM items").await, 1);
+}
+
+async fn count_items(reader: &cantos_store_turso::ReadConnection) -> i64 {
+    let mut rows = reader
+        .query("SELECT count(*) FROM items", ())
+        .await
+        .unwrap();
+    let row = rows.next().await.unwrap().unwrap();
+    let Value::Integer(n) = row.get_value(0).unwrap() else {
+        panic!("not an integer")
+    };
+    while rows.next().await.unwrap().is_some() {}
+    n
+}
+
+#[tokio::test]
+async fn a_pinned_read_snapshot_ignores_commits_made_after_it_began() {
+    let run = TestRun::new("read-snapshot");
+    let db = create(&run, Registry::new(DatabaseKind::Server, 1, &ONE).unwrap()).await;
+    let reader = db.reader().await.unwrap();
+    reader.begin_snapshot().await.unwrap();
+    assert_eq!(count_items(&reader).await, 0);
+    let tx = db.begin_write().await.unwrap();
+    tx.execute("INSERT INTO items(label) VALUES ('later')", ())
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(count_items(&reader).await, 0, "the snapshot is pinned");
+    reader.end_snapshot().await.unwrap();
+    assert_eq!(count_items(&reader).await, 1, "a new read sees the commit");
+    // Ending twice is harmless, and a reader still cannot write.
+    reader.end_snapshot().await.unwrap();
+    assert!(reader
+        .query("INSERT INTO items(label) VALUES ('x')", ())
+        .await
+        .is_err());
+}

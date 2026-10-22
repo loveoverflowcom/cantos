@@ -1,8 +1,8 @@
 //! Append-only effective artwork and exact operation receipts. Catalog owns the Work clock,
 //! history and authorization; this adapter owns only Media's tables and checked row admission.
+use crate::platform::store::Row;
 use cantos_contracts as dto;
 use sha2::{Digest, Sha256};
-use tokio_postgres::{error::SqlState, Row};
 
 use super::image::{corrupt, decode_document, document_bytes, matches};
 use crate::contexts::catalog::domain::{OwnerId, Revision, WorkId};
@@ -10,7 +10,7 @@ use crate::contexts::media::domain::{
     artwork::{restore_artwork_response, ArtworkChange, ArtworkChangeDocument},
     image::{sha256_valid, ImageIntent, ImageOperationId, MAX_IMAGE_DOCUMENT_BYTES},
 };
-use crate::platform::postgres::{checked_number, StoreError, Tx};
+use crate::platform::store::{checked_number, StoreError, Tx};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(in crate::contexts::media) enum ArtworkOperationKind {
@@ -150,7 +150,7 @@ pub(in crate::contexts::media) async fn insert_change(
           &selection.map(|s|s.image_asset_id().as_str()),&selection.map(|s|s.image_asset_digest()),
           &selection.map(|s|s.alt_text()),&d.recorded_by,&value.recorded_at_ms(),&bytes,&d.digest],
     ).await.map_err(|error| {
-        if error.code()==Some(&SqlState::UNIQUE_VIOLATION) {StoreError::OperationReused}
+        if error.constraint()==Some(cantos_store_turso::error::ConstraintKind::Unique) {StoreError::OperationReused}
         else {StoreError::from(error)}
     })?;
     Ok(bytes)
@@ -224,12 +224,8 @@ pub(in crate::contexts::media) async fn record_operation(
         "INSERT INTO media_artwork_operations(owner_id,operation_id,work_id,kind,fingerprint,response_bytes,response_checksum) VALUES($1,$2,$3,$4,$5,$6,$7)",
         &[&owner.as_str(),&operation.as_str(),&work.as_str(),&kind.as_str(),&fingerprint,&response_bytes,&checksum(response_bytes)],
     ).await.map_err(|error| {
-        if error.code()==Some(&SqlState::UNIQUE_VIOLATION) {StoreError::OperationReused}
+        if error.constraint()==Some(cantos_store_turso::error::ConstraintKind::Unique) {StoreError::OperationReused}
         else {StoreError::from(error)}
     })?;
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/support/private_artwork_postgres.rs"]
-pub(in crate::contexts::media) mod tests;

@@ -17,8 +17,8 @@ mod firebase_cli;
 mod gate;
 mod hosting_report;
 mod kani;
-mod kanidm;
 mod mobile_toolchain;
+mod native_dev;
 mod native_isolation;
 mod native_qualification;
 mod pipeline;
@@ -28,11 +28,11 @@ mod process;
 mod release;
 mod release_build;
 mod report;
+mod retired;
 mod run;
 mod run_files;
 mod seed;
 mod services;
-mod theatre_auth;
 mod theatre_host;
 mod theatre_preview;
 mod theatre_size;
@@ -70,6 +70,10 @@ fn main() -> ExitCode {
 }
 
 fn dispatch(task: Task) -> Result<ExitCode> {
+    // A retired command refuses before anything else: no workspace read, tool probe or process.
+    if let Some(retirement) = task.retirement() {
+        return Ok(refuse(retirement.refusal()));
+    }
     let workspace = Workspace::discover()?;
     let tools = SystemTools::new(workspace.root());
     let mut runner = SystemRunner::new(workspace.root());
@@ -80,7 +84,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::HostingSmoke(args) => deploy::inspect::run(&workspace, &args, &tools),
         Task::Deploy(args) => deploy::execute(&workspace, &args, &tools, &mut runner),
         Task::Distribute(args) => distribute::execute(&workspace, &args, &tools, &mut runner),
-        Task::Kanidm(args) => kanidm::run(&workspace, &args, &mut runner),
+        Task::Kanidm(_) => unreachable!("retired commands are refused before dispatch"),
         Task::Services(args) => services::run(&workspace, &args),
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),
         Task::VisualCompare(args) => visual_compare::run(&workspace, &args),
@@ -90,23 +94,17 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             target,
             surface,
             release,
-            dbsp_experimental,
+            dbsp_experimental: _,
         } => {
             let profile = Profile::from_release(release);
-            let plan = build::plan(
-                &workspace,
-                target,
-                surface.surface(),
-                profile,
-                dbsp_experimental,
-            );
+            let plan = build::plan(&workspace, target, surface.surface(), profile);
             let steps = match plan {
                 Ok(steps) => steps,
                 Err(refusal) => return Ok(refuse(refusal)),
             };
             let mut report = pipeline::execute("build", &steps, &tools, &mut runner);
             if target == build::BuildTarget::All {
-                report.note("built, not run: cantos-forge. Not built: production mobile listening (theatre-preview builds only the JVM Desktop Preview over mock ports) and services/kanidm (configuration only)");
+                report.note("built, not run: cantos-server, cantos-identity and cantos-forge. Not built: production mobile listening (theatre-preview builds only the JVM Desktop Preview over mock ports)");
             }
             report.print();
             Ok(report.exit_code())
@@ -116,14 +114,13 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             surface,
             release,
             open,
-            test_cluster,
+            test_cluster: _,
             web_origin,
         } => {
             let options = LaunchOptions {
                 surface: surface.surface(),
                 release,
                 open,
-                test_cluster,
                 web_origin,
             };
             match run::plan_run(&workspace, target, &options) {
@@ -169,9 +166,6 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             }
             if let cli::VerifySuite::NativeAuthQualification(args) = &suite {
                 return native_qualification::execute(&workspace, args, &tools, &mut runner);
-            }
-            if let cli::VerifySuite::TheatreAuth { suite, dry_run } = suite {
-                return theatre_auth::execute(&workspace, suite, dry_run);
             }
             let mut steps = gate::steps(&gate::verify_suite(&suite), &workspace);
             if matches!(suite, cli::VerifySuite::Kani { .. }) {

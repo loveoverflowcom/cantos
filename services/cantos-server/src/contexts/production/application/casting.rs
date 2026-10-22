@@ -15,7 +15,7 @@ use super::{facts, production_actor};
 use crate::contexts::editorial::{
     ensure_evidence, load_revision, rights_cited_by_script, Action, EvidenceKind,
 };
-use crate::platform::postgres::{checked_number, normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::store::{checked_number, normalized_uuid, LockMode, Store, StoreError};
 
 impl Store {
     pub async fn production_state(

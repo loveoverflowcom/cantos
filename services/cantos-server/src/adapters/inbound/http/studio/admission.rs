@@ -1,6 +1,6 @@
 //! Studio credential selection, request fences and admission-lease lifetime.
 use super::super::{
-    bearer,
+    cookies::unique_cookie,
     errors::{error_response, failure},
     AppState,
 };
@@ -17,22 +17,18 @@ pub(in crate::adapters::inbound::http) fn cookie_token(
     headers: &HeaderMap,
     store: &Store,
 ) -> Result<String, StoreError> {
+    // Studio has no Bearer credential: an Authorization header is never a Studio session.
     if headers.contains_key(header::AUTHORIZATION) {
-        return bearer::access(headers)
-            .map(str::to_owned)
-            .map_err(|_| StoreError::Unauthenticated);
+        return Err(StoreError::Unauthenticated);
     }
     // An Identity-issued cookie is its own credential kind: found first, and never together
-    // with a provider-bound Studio cookie.
+    // with a development-token cookie.
     if let Some(token) = identity_cookie(headers, store)? {
         return Ok(token);
     }
-    let name = store
-        .studio_oidc()
-        .map_or("cantos_session", |oidc| oidc.session_name());
-    let token = cookie_token_for_name(headers, name)?;
-    // Provider-bound and Identity-issued secrets each have their own cookie; neither may ride
-    // the legacy name, where the `__Secure-`/host-only guarantees of their own cookie are absent.
+    let token = cookie_token_for_name(headers, "cantos_session")?;
+    // Identity-issued secrets (and the retired provider family) have their own cookie; neither may
+    // ride the development-token name, where the `__Secure-`/host-only guarantees are absent.
     if token.starts_with("ca1_") || token.starts_with("ci1_") {
         return Err(StoreError::Unauthenticated);
     }
@@ -48,8 +44,7 @@ fn identity_cookie(headers: &HeaderMap, store: &Store) -> Result<Option<String>,
         credential::cookie_name(Surface::Studio, service.secure()),
         credential::cookie_name(Surface::Studio, !service.secure()),
     );
-    let read =
-        |name| super::auth::unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated);
+    let read = |name| unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated);
     if read(other)?.is_some() {
         return Err(StoreError::Unauthenticated);
     }
@@ -58,9 +53,7 @@ fn identity_cookie(headers: &HeaderMap, store: &Store) -> Result<Option<String>,
     };
     let legacy = ["cantos_session", "__Secure-cantos_studio"]
         .iter()
-        .any(|name| {
-            super::auth::unique_cookie(headers, name).map_or(true, |value| value.is_some())
-        });
+        .any(|name| unique_cookie(headers, name).map_or(true, |value| value.is_some()));
     if legacy || credential::access_channel(&token) != Some(Channel::Web(Surface::Studio)) {
         return Err(StoreError::Unauthenticated);
     }
@@ -73,8 +66,7 @@ pub(in crate::adapters::inbound::http) fn cookie_token_for_name(
 ) -> Result<String, StoreError> {
     let mut found = None;
     for name in ["cantos_session", "__Secure-cantos_studio"] {
-        let value =
-            super::auth::unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated)?;
+        let value = unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated)?;
         if let Some(value) = value {
             if name != expected || found.is_some() {
                 return Err(StoreError::Unauthenticated);
@@ -90,9 +82,6 @@ pub(in crate::adapters::inbound::http) async fn authenticated(
     request: Request,
     next: Next,
 ) -> Response {
-    if request.headers().contains_key(header::AUTHORIZATION) {
-        return bearer_studio(state, request, next).await;
-    }
     let token = match cookie_token(request.headers(), &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
@@ -132,55 +121,6 @@ pub(in crate::adapters::inbound::http) fn studio_query_fence_matches(
     }
 }
 
-async fn bearer_studio(state: AppState, request: Request, next: Next) -> Response {
-    if !bearer::browser_origin_allowed(request.headers(), &state.web_origin) {
-        return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
-    }
-    let token = match bearer::access(request.headers()) {
-        Ok(v) => v.to_owned(),
-        Err(e) => return bearer::error(e),
-    };
-    if crate::platform::bearer::credential::access_client(&token)
-        != Some(crate::platform::bearer::client::Client::Studio)
-    {
-        return bearer::error(crate::platform::studio_oidc::AuthError::InvalidToken);
-    }
-    let Some(service) = state
-        .store
-        .bearer(crate::platform::bearer::client::Client::Studio)
-    else {
-        return bearer::error(crate::platform::studio_oidc::AuthError::Configuration);
-    };
-    if let Err(e) = service.authenticate(&state.store, &token).await {
-        return bearer::error(e);
-    }
-    match service
-        .with_admission(&state.store, &token, |session| async move {
-            if !studio_query_fence_matches(request.uri(), Some(&session.session_id))
-                || !studio_fence_matches(request.headers(), Some(&session.session_id))
-            {
-                return studio_fenced_response(
-                    failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
-                    Some(&session.session_id),
-                );
-            }
-            if bearer::sensitive(request.method(), request.uri().path())
-                && !bearer::recent(&session)
-            {
-                return studio_fenced_response(
-                    failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN),
-                    Some(&session.session_id),
-                );
-            }
-            studio_fenced_response(next.run(request).await, Some(&session.session_id))
-        })
-        .await
-    {
-        Ok(v) => v,
-        Err(e) => bearer::error(e),
-    }
-}
-
 pub(in crate::adapters::inbound::http) const STUDIO_SESSION_HEADER: &str =
     "x-cantos-studio-session";
 
@@ -209,4 +149,53 @@ pub(in crate::adapters::inbound::http) fn studio_fenced_response(
         response.headers_mut().insert(STUDIO_SESSION_HEADER, id);
     }
     response
+}
+
+// Session parser tests execute the production parser, including multiple Cookie headers.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duplicate_cookie_headers_and_mixed_session_names_are_rejected() {
+        let mut headers = HeaderMap::new();
+        headers.append(header::COOKIE, HeaderValue::from_static("cantos_session=a"));
+        headers.append(header::COOKIE, HeaderValue::from_static("cantos_session=b"));
+        assert!(matches!(
+            cookie_token_for_name(&headers, "cantos_session"),
+            Err(StoreError::Unauthenticated)
+        ));
+        assert!(unique_cookie(&headers, "cantos_session").is_err());
+        headers.clear();
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("cantos_session=attacker"),
+        );
+        assert!(matches!(
+            cookie_token_for_name(&headers, "__Secure-cantos_studio"),
+            Err(StoreError::Unauthenticated)
+        ));
+        headers.clear();
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("cantos_session=a; __Secure-cantos_studio=b"),
+        );
+        assert!(matches!(
+            cookie_token_for_name(&headers, "cantos_session"),
+            Err(StoreError::Unauthenticated)
+        ));
+    }
+
+    #[test]
+    fn studio_never_accepts_an_authorization_header_as_a_session() {
+        let store = crate::test_support::detached_store();
+        for value in ["Bearer ci1_s_x", "Bearer ca1_s_x", "Bearer 00"] {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::AUTHORIZATION, HeaderValue::from_static(value));
+            assert!(matches!(
+                cookie_token(&headers, &store),
+                Err(StoreError::Unauthenticated)
+            ));
+        }
+    }
 }

@@ -1,7 +1,7 @@
 //! Production Brief SQL adapter; no cross-context table reads.
 use super::super::application::briefs::restore;
 use super::super::domain::brief::{ProducerScope, ProductionBrief, MAX_BRIEF_BYTES};
-use crate::platform::postgres::{StoreError, Tx};
+use crate::platform::store::{StoreError, Tx};
 
 pub(in crate::contexts::production) async fn brief_id_owner(
     tx: &Tx<'_>,
@@ -22,8 +22,8 @@ pub(in crate::contexts::production) async fn now_ms(tx: &Tx<'_>) -> Result<i64, 
         .await?
         .get(0))
 }
+use crate::platform::store::Row;
 use cantos_contracts as dto;
-use tokio_postgres::Row;
 
 fn decode(row: &Row) -> Result<ProductionBrief, StoreError> {
     let bytes: Vec<u8> = row
@@ -146,7 +146,7 @@ const GRANT_SELECT:&str="SELECT g.*,b.snapshot FROM production_producer_grants g
 async fn grant_query(
     tx: &Tx<'_>,
     predicate: &str,
-    value: &(dyn tokio_postgres::types::ToSql + Sync),
+    value: &(dyn crate::platform::store::Param + Sync),
 ) -> Result<Option<GrantRow>, StoreError> {
     let query = format!("{GRANT_SELECT} WHERE {predicate}=$1");
     let Some(row) = tx.query_opt(&query, &[value]).await? else {
@@ -186,9 +186,9 @@ async fn grant_query(
 }
 pub(in crate::contexts::production) async fn by_token(
     tx: &Tx<'_>,
-    hash: &Vec<u8>,
+    hash: &[u8],
 ) -> Result<Option<GrantRow>, StoreError> {
-    grant_query(tx, "g.token_hash", hash).await
+    grant_query(tx, "g.token_hash", &hash).await
 }
 pub(in crate::contexts::production) async fn by_id(
     tx: &Tx<'_>,

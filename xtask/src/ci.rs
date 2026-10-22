@@ -1,5 +1,5 @@
 //! `cargo xtask ci`: the repository CI contract. GitHub Actions provisions toolchains and
-//! PostgreSQL, then calls `cargo xtask ci --job <job>`; locally, `cargo xtask ci` runs every
+//! trusted media tools only (no database or other service), then calls `cargo xtask ci --job <job>`; locally, `cargo xtask ci` runs every
 //! job in order. CI never accepts `--skip`: a missing tool is UNSUPPORTED and fails the run.
 
 use std::process::ExitCode;
@@ -7,11 +7,11 @@ use std::process::ExitCode;
 use clap::ValueEnum;
 
 use crate::{
-    command::{CommandSpec, Runner},
+    command::Runner,
     config::App,
     gate::{self, Gate, Scope},
     pipeline::{self, Step},
-    tools::{Tool, ToolProbe},
+    tools::ToolProbe,
     workspace::Workspace,
 };
 
@@ -19,18 +19,16 @@ use crate::{
 pub enum CiJob {
     /// Documents, links, skills, Python tests and the independent Script IR oracle.
     Repository,
-    /// Formatting, clippy and tests for the whole Cargo workspace, the API with its experimental
-    /// DBSP feature, offline Forge wrapper tests, the embedded Turso store foundation, the WAV oracle
-    /// and read-only Opus inspection.
+    /// Formatting, clippy and tests for the whole Cargo workspace (the Server's file-backed
+    /// database tests included), offline Forge wrapper tests, the embedded Turso store
+    /// foundation, the WAV oracle and read-only Opus inspection. No database service exists.
     Rust,
     /// WASM clippy and Trunk builds of both Web clients and the UI gallery.
     Web,
-    /// PostgreSQL integration tests in a new disposable cluster.
-    Postgres,
 }
 
 impl CiJob {
-    pub const ALL: [CiJob; 4] = [CiJob::Repository, CiJob::Rust, CiJob::Web, CiJob::Postgres];
+    pub const ALL: [CiJob; 3] = [CiJob::Repository, CiJob::Rust, CiJob::Web];
 
     pub fn gates(self) -> Vec<Gate> {
         match self {
@@ -42,7 +40,6 @@ impl CiJob {
                 Gate::RustTests(Scope::Workspace),
                 Gate::ForgeFunctions,
                 Gate::Turso,
-                Gate::Dbsp,
                 Gate::WavReference,
                 Gate::AudioInspection,
             ],
@@ -52,26 +49,12 @@ impl CiJob {
                 Gate::WebBuild(App::Theatre),
                 Gate::UiPreview,
             ],
-            CiJob::Postgres => vec![Gate::Postgres { keep: false }],
         }
-    }
-
-    /// The PostgreSQL runner builds and tests with `cargo --offline`, so dependencies are
-    /// fetched first; the other jobs let Cargo fetch on demand.
-    fn needs_fetch(self) -> bool {
-        self == CiJob::Postgres
     }
 }
 
 pub fn steps(workspace: &Workspace, jobs: &[CiJob]) -> Vec<Step> {
     let mut steps = Vec::new();
-    if jobs.iter().any(|job| job.needs_fetch()) {
-        steps.push(Step::new(
-            "fetch locked dependencies",
-            &[Tool::Cargo],
-            vec![CommandSpec::new("cargo", workspace.root()).args(["fetch", "--locked"])],
-        ));
-    }
     for job in jobs {
         steps.extend(gate::steps(&job.gates(), workspace));
     }
@@ -127,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn only_the_postgres_job_prefetches() {
+    fn no_job_provisions_or_selects_a_database_and_none_prefetches() {
         let workspace = Workspace::discover().unwrap();
         let names = |jobs: &[CiJob]| -> Vec<String> {
             steps(&workspace, jobs)
@@ -136,13 +119,18 @@ mod tests {
                 .collect()
         };
         assert_eq!(
-            names(&[CiJob::Postgres]),
-            ["fetch locked dependencies", "postgres"]
-        );
-        assert_eq!(
             names(&[CiJob::Repository]),
             ["repository", "script-ir-reference"]
         );
+        let every = names(&CiJob::ALL);
+        assert!(every.iter().all(|name| !name.contains("postgres")
+            && !name.contains("dbsp")
+            && !name.contains("fetch")));
+        let jobs: Vec<_> = CiJob::ALL
+            .iter()
+            .map(|job| job.to_possible_value().unwrap().get_name().to_owned())
+            .collect();
+        assert_eq!(jobs, ["repository", "rust", "web"]);
     }
 
     #[test]
@@ -150,14 +138,12 @@ mod tests {
         assert!(CiJob::Rust.gates().contains(&Gate::AudioInspection));
         assert!(!CiJob::Repository.gates().contains(&Gate::AudioInspection));
         assert!(!CiJob::Web.gates().contains(&Gate::AudioInspection));
-        assert!(!CiJob::Postgres.gates().contains(&Gate::AudioInspection));
     }
 
     #[test]
     fn rust_ci_runs_offline_forge_wrapper_tests_with_node_22_provisioned() {
         assert!(CiJob::Rust.gates().contains(&Gate::ForgeFunctions));
         assert!(!CiJob::Web.gates().contains(&Gate::ForgeFunctions));
-        assert!(!CiJob::Postgres.gates().contains(&Gate::ForgeFunctions));
         let workspace = Workspace::discover().unwrap();
         let workflow =
             std::fs::read_to_string(workspace.path(".github/workflows/repository-checks.yml"))

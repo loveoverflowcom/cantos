@@ -6,10 +6,7 @@ use axum::{
     Router,
 };
 use cantos_contracts::routes::{ADMIN_BASE, API_BASE, STUDIO_BASE, THEATRE_BASE};
-use cantos_server::{
-    adapters::inbound::http::{router, AppState},
-    platform::postgres::{local_config, Store},
-};
+use cantos_server::adapters::inbound::http::{router, AppState};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -18,9 +15,8 @@ const ORIGIN: &str = "http://127.0.0.1:8080";
 const SCRIPT: &str = "ad04abb5-bba0-4240-b211-3ed2aa179999";
 
 fn app() -> Router {
-    let config = local_config("postgresql://cantos_app@127.0.0.1:9/cantos").unwrap();
     let state = AppState {
-        store: Store::new(config).unwrap(),
+        store: cantos_server::test_support::detached_store(),
         web_origin: ORIGIN.into(),
     };
     router(state, "apps/cantos-studio/web/dist")

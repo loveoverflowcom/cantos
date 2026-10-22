@@ -401,7 +401,7 @@ pub fn render_plan(
     }
     row(
         "serves",
-        "static Leptos HTML/CSS/JS/WASM only; the API, PostgreSQL, Kanidm and storage stay outside Hosting".to_owned(),
+        "static Leptos HTML/CSS/JS/WASM only; the Server, Identity and storage stay outside Hosting".to_owned(),
     );
     text.push_str("  stages\n");
     for (index, stage) in Stage::ALL.iter().enumerate() {

@@ -17,7 +17,7 @@ use crate::contexts::{
         domain::brief::{fingerprint, ProductionBrief},
     },
 };
-use crate::platform::postgres::{
+use crate::platform::store::{
     authenticate, normalized_uuid, session_token_registered, LockMode, Store, StoreError, Tx,
 };
 use cantos_contracts as dto;

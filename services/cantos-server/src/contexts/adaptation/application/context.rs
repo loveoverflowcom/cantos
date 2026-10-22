@@ -18,7 +18,7 @@ use crate::contexts::editorial::{
     Action, EvidenceKind, RevisionFacts,
 };
 use crate::contexts::ingestion::imported_source;
-use crate::platform::postgres::{
+use crate::platform::store::{
     authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
 };
 

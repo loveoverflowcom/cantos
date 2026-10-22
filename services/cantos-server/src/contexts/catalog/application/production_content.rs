@@ -8,7 +8,7 @@ use crate::contexts::catalog::{
     postgres,
 };
 use crate::contexts::editorial::{Access, Action};
-use crate::platform::postgres::{LockMode, StoreError, Tx};
+use crate::platform::store::{LockMode, StoreError, Tx};
 
 pub(crate) struct ProductionContent {
     pub work: Work,

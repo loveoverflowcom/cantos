@@ -6,7 +6,7 @@ use crate::contexts::catalog::{
     domain::{OwnerId, Revision, Work, WorkId},
     postgres,
 };
-use crate::platform::postgres::{authenticate, LockMode, StoreError, Tx};
+use crate::platform::store::{authenticate, LockMode, StoreError, Tx};
 
 pub(crate) struct OwnerWork {
     pub work: Work,

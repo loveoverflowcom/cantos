@@ -14,7 +14,7 @@ use crate::{
     },
     gate::Gate,
     pipeline::{self, Step},
-    probe::Readiness,
+    probe::{Endpoint, Readiness},
     process::{Supervisor, Wait},
     report::{Report, Status},
     run::{self, LaunchPlan, Service},
@@ -171,6 +171,7 @@ pub fn leptos_launch_plan(workspace: &Workspace, open: bool) -> LaunchPlan {
     let addr = loopback(UI_PREVIEW_PORT);
     LaunchPlan {
         requirements: Vec::new(),
+        composition: None,
         prepare: Vec::new(),
         services: vec![Service {
             name: "Leptos UI-system preview (trunk serve)".into(),
@@ -181,7 +182,7 @@ pub fn leptos_launch_plan(workspace: &Workspace, open: bool) -> LaunchPlan {
                 &UI_PREVIEW_PORT.to_string(),
             ]),
             tools: Gate::UiPreview.tools(),
-            addr,
+            endpoint: Endpoint::Tcp(addr),
             readiness: Readiness::Http {
                 path: "/",
                 marker: UI_PREVIEW_MARKER,
@@ -443,7 +444,7 @@ mod tests {
         assert!(plan.prepare.is_empty());
         assert_eq!(plan.services.len(), 1);
         let service = &plan.services[0];
-        assert_eq!(service.addr, loopback(8083));
+        assert_eq!(service.endpoint, Endpoint::Tcp(loopback(8083)));
         assert_eq!(
             service.readiness,
             Readiness::Http {

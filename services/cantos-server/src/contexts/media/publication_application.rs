@@ -22,7 +22,7 @@ use crate::{
         editorial,
         production::domain::brief::fingerprint,
     },
-    platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx},
+    platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx},
 };
 use cantos_contracts as dto;
 use std::sync::{Arc, LazyLock};
@@ -40,8 +40,8 @@ pub enum PublicationStoreError {
     },
     Dependency(PublicationDependencyError),
 }
-impl From<tokio_postgres::Error> for PublicationStoreError {
-    fn from(error: tokio_postgres::Error) -> Self {
+impl From<crate::platform::store::Error> for PublicationStoreError {
+    fn from(error: crate::platform::store::Error) -> Self {
         Self::Storage(StoreError::from(error))
     }
 }

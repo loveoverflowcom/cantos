@@ -1,15 +1,15 @@
 //! Immutable upload intents and acceptance receipts. PostgreSQL owns their binding and status;
 //! verified private object bytes remain outside the database.
+use crate::platform::store::Row;
 use cantos_contracts::{AudioIntentResponse, AudioReceiptResponse};
 use sha2::{Digest, Sha256};
-use tokio_postgres::{error::SqlState, Row};
 
 use super::audio_intake::DeliveryProfile;
 use super::domain::object_storage::{
     ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageTargetId,
 };
 use super::storage::registry::RegistryStoredObject;
-use crate::platform::postgres::{normalized_uuid, StoreError, Tx};
+use crate::platform::store::{normalized_uuid, StoreError, Tx};
 
 const INTENT_COLUMNS: &str = "id,script_id,script_revision,content_digest,profile_id,operation_id,created_by,to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at";
 
@@ -91,7 +91,7 @@ pub(super) async fn insert_intent(
     id: &str,
 ) -> Result<AudioIntentResponse, StoreError> {
     let script = binding.script_id;
-    let revision = crate::platform::postgres::checked_number(binding.revision)?;
+    let revision = crate::platform::store::checked_number(binding.revision)?;
     let digest = binding.content_digest;
     let profile = binding.profile_id;
     let query = format!("INSERT INTO audio_upload_intents(id,script_id,script_revision,content_digest,profile_id,operation_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING {INTENT_COLUMNS}");
@@ -104,7 +104,7 @@ pub(super) async fn insert_intent(
         )
         .await
         .map_err(|error| {
-            if error.code() == Some(&SqlState::UNIQUE_VIOLATION) {
+            if error.constraint() == Some(cantos_store_turso::error::ConstraintKind::Unique) {
                 StoreError::OperationReused
             } else {
                 StoreError::from(error)

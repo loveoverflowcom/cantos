@@ -28,9 +28,6 @@ pub enum Tool {
     Python3,
     Node,
     Git,
-    Initdb,
-    PgCtl,
-    Psql,
     Ffmpeg,
     Ffprobe,
     AndroidCli,
@@ -40,7 +37,7 @@ pub enum Tool {
 }
 
 impl Tool {
-    pub const ALL: [Tool; 22] = [
+    pub const ALL: [Tool; 19] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
@@ -54,9 +51,6 @@ impl Tool {
         Tool::Python3,
         Tool::Node,
         Tool::Git,
-        Tool::Initdb,
-        Tool::PgCtl,
-        Tool::Psql,
         Tool::Ffmpeg,
         Tool::Ffprobe,
         Tool::AndroidCli,
@@ -80,9 +74,6 @@ impl Tool {
             Tool::Python3 => "python3",
             Tool::Node => "Node 22+ (Forge wrapper tests)",
             Tool::Git => "git",
-            Tool::Initdb => "initdb",
-            Tool::PgCtl => "pg_ctl",
-            Tool::Psql => "psql",
             Tool::Ffmpeg => "ffmpeg",
             Tool::Ffprobe => "ffprobe",
             Tool::AndroidCli => "android",
@@ -123,9 +114,6 @@ impl Tool {
                 "put trusted installed ffmpeg and ffprobe executables on PATH; xtask never installs them"
             }
             Tool::AndroidCli => "install the official Android CLI; Compose preview needs Android Studio Quail 2+ with the selected Android project open",
-            Tool::Initdb | Tool::PgCtl | Tool::Psql => {
-                "put the PostgreSQL 17 server binaries directory on PATH"
-            }
         }
     }
 
@@ -144,9 +132,6 @@ impl Tool {
             Tool::Python3 => Some(("python3", &["--version"])),
             Tool::Node => Some(("node", &["--version"])),
             Tool::Git => Some(("git", &["--version"])),
-            Tool::Initdb => Some(("initdb", &["--version"])),
-            Tool::PgCtl => Some(("pg_ctl", &["--version"])),
-            Tool::Psql => Some(("psql", &["--version"])),
             Tool::Ffmpeg => Some(("ffmpeg", &["-version"])),
             Tool::Ffprobe => Some(("ffprobe", &["-version"])),
             Tool::AndroidCli => Some(("android", &["--version"])),
@@ -539,10 +524,10 @@ mod tests {
 
     #[test]
     fn missing_lists_only_unavailable_tools() {
-        let probe = testing::FakeTools::without(&[Tool::Trunk, Tool::Psql]);
+        let probe = testing::FakeTools::without(&[Tool::Trunk, Tool::Node]);
         assert_eq!(
-            probe.missing(&[Tool::Cargo, Tool::Trunk, Tool::Psql]),
-            vec![Tool::Trunk, Tool::Psql]
+            probe.missing(&[Tool::Cargo, Tool::Trunk, Tool::Node]),
+            vec![Tool::Trunk, Tool::Node]
         );
     }
 

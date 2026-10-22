@@ -1,9 +1,9 @@
 //! Catalog SQL adapter. Application use cases own transactions and authorization; this module
 //! only locks and persists their admitted values, rechecking snapshot integrity on every read.
-use tokio_postgres::Row;
+use crate::platform::store::Row;
 
 use super::domain::{ContentUnit, Revision, Work};
-use crate::platform::postgres::{checked_number, LockMode, StoreError, Tx};
+use crate::platform::store::{checked_number, LockMode, StoreError, Tx};
 
 #[path = "storage.rs"]
 mod storage;
@@ -16,7 +16,7 @@ const WORK_COLUMNS: &str =
 const UNIT_COLUMNS: &str = "u.id,u.work_id,u.work_kind,u.kind,u.position,u.lifecycle,u.head_revision,r.revision,r.snapshot,r.snapshot_digest";
 const MAX_OPERATION_BYTES: usize = 4 * 1024 * 1024;
 
-fn corrupt<T>(result: Result<T, tokio_postgres::Error>) -> Result<T, StoreError> {
+fn corrupt<T>(result: Result<T, crate::platform::store::Error>) -> Result<T, StoreError> {
     result.map_err(|_| StoreError::CorruptRevision)
 }
 

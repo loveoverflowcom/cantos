@@ -1,0 +1,3 @@
+-- Server.db version 4: Scripts, revisions, members, evidence, reviews and source records (editorial + ingestion).
+-- Reserved slice: filled by the context's port (see docs/architecture/server-turso/editorial.md).
+-- DDL only; queries live in the owning persistence adapter.

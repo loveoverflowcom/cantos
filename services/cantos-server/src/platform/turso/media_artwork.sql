@@ -1,0 +1,3 @@
+-- Server.db version 9: Private artwork: image intents, assets, work artwork changes and operations.
+-- Reserved slice: filled by the context's port (see docs/architecture/server-turso/media_artwork.md).
+-- DDL only; queries live in the owning persistence adapter.

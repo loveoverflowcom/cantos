@@ -23,7 +23,7 @@ use crate::{
         domain::{Lifecycle, Revision, Work, WorkId},
         CatalogStoreError,
     },
-    platform::postgres::{Store, StoreError},
+    platform::store::{Store, StoreError},
 };
 
 mod objects;

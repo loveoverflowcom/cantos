@@ -1,7 +1,7 @@
 //! The command-line contract. Keep it small: every command maps to an implemented capability,
 //! and anything without infrastructure is refused as UNSUPPORTED rather than simulated.
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 
 use crate::{
     build::{BuildTarget, Surface},
@@ -11,6 +11,7 @@ use crate::{
     gate::GateKind,
     kani::Kernel,
     preflight::PreflightProfile,
+    retired::{Retired, Retirement},
     run::{AppTarget, RunTarget},
     seed::{SeedOptions, SeedTarget},
     theatre_host::HostAction,
@@ -68,9 +69,10 @@ pub enum Task {
     /// Explicit remote tester distribution (Firebase App Distribution, selected Theatre QA APK). A remote
     /// write; never invoked by build, run, verify, preflight or ci.
     Distribute(crate::distribute::DistributeArgs),
-    /// Studio Kanidm operator plan or read-only OIDC metadata check; no automatic bootstrap.
-    Kanidm(crate::kanidm::KanidmArgs),
-    /// Explicit Podman local infrastructure lifecycle; never used by build/test/run.
+    /// Retired with Kanidm; refuses before any effect.
+    #[command(hide = true)]
+    Kanidm(Retired),
+    /// Native process inventory: list or validate it. Starts nothing.
     Services(crate::services::ServicesArgs),
     /// Capture a Compose @Preview PNG and semantics with Android Studio, without an emulator.
     ComposePreview(ComposePreviewArgs),
@@ -80,7 +82,7 @@ pub enum Task {
     WebPerformance(crate::web_performance::WebPerformanceArgs),
     /// Measure one explicit Theatre APK's size groups and deltas offline; no upload or install.
     TheatreSize(crate::theatre_size::TheatreSizeArgs),
-    /// Build a target with Cargo (API, Forge) or Trunk (Web); dev profile unless --release.
+    /// Build a target with Cargo (Server + Identity, Forge) or Trunk (Web); dev profile unless --release.
     Build {
         #[arg(value_enum)]
         target: BuildTarget,
@@ -89,11 +91,11 @@ pub enum Task {
         /// Optimized local artifact (cargo/trunk --release); not a production image.
         #[arg(long)]
         release: bool,
-        /// cantos-server only: compile the opt-in experimental DBSP incremental core.
-        #[arg(long)]
+        /// Retired with the DBSP feature; refuses before any effect.
+        #[arg(long, hide = true)]
         dbsp_experimental: bool,
     },
-    /// Start API + Web for Studio/Theatre, or the API alone; supervise until Ctrl-C.
+    /// Start the native Server + Identity (and Web for Studio/Theatre); supervise until Ctrl-C.
     Run {
         #[arg(value_enum)]
         target: RunTarget,
@@ -104,14 +106,14 @@ pub enum Task {
         /// Open the Web client in a browser once it is ready.
         #[arg(long)]
         open: bool,
-        /// Serve the API against the disposable cluster kept by `verify postgres --keep`.
-        #[arg(long)]
+        /// Retired with the disposable PostgreSQL cluster; refuses before any effect.
+        #[arg(long, hide = true)]
         test_cluster: bool,
         /// Standalone Server Studio origin; Web profiles require their own Trunk origin.
         #[arg(long, value_name = "ORIGIN")]
         web_origin: Option<String>,
     },
-    /// Explicit synthetic development data, only in the cluster kept by `verify postgres --keep`.
+    /// Explicit synthetic development data in the native development composition's own files.
     /// Never a gate, preflight selection or CI job.
     Seed {
         #[arg(value_enum)]
@@ -199,14 +201,9 @@ pub enum VerifySuite {
     NativeIsolation(crate::native_isolation::NativeIsolationArgs),
     /// Manual #336 Linux campaign: build first, then run the native auth layers under the guard.
     NativeAuthQualification(crate::native_qualification::QualificationArgs),
-    /// Explicit local Theatre registration acceptance; never selected by preflight or CI.
-    TheatreAuth {
-        #[arg(long, value_enum)]
-        suite: crate::theatre_auth::Suite,
-        /// Print a pure plan without probing tools or creating resources.
-        #[arg(long)]
-        dry_run: bool,
-    },
+    /// Retired with provider authentication; refuses before any effect.
+    #[command(hide = true)]
+    TheatreAuth(Retired),
     /// Locked Quint model checks, optionally replayed against the registered pure core.
     Behavior {
         /// Select one stable executable capability from specs/behavior/catalog.json.
@@ -239,25 +236,40 @@ pub enum VerifySuite {
     Contracts,
     /// Bounded Script IR validator/encoder mutations on a disposable copy (offline Cargo).
     Mutation,
-    /// clippy and every cantos-server test with the experimental DBSP incremental core compiled in.
-    Dbsp,
-    /// PostgreSQL integration and restart tests in a new disposable cluster.
-    Postgres {
-        /// Retain the cluster for `run cantos-server --test-cluster`; the stop command is printed.
-        #[arg(long)]
-        keep: bool,
-        /// Explicit narrow acceptance; omission runs the complete PostgreSQL gate.
-        #[arg(long, value_enum)]
-        suite: Option<PostgresScope>,
-    },
+    /// Retired with the DBSP feature; refuses before any effect.
+    #[command(hide = true)]
+    Dbsp(Retired),
+    /// Retired with PostgreSQL; refuses before any effect.
+    #[command(hide = true)]
+    Postgres(Retired),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum PostgresScope {
-    /// Firebase enrollment SQL and existing SMTP registration migration compatibility only.
-    TheatreFirebase,
-    /// Current baseline, least-privilege, editorial/catalog and identity SQL without media tools.
-    Schema,
+impl Task {
+    /// The retired command this invocation names, if any. Checked before anything else runs.
+    pub fn retirement(&self) -> Option<Retirement> {
+        match self {
+            Task::Kanidm(_) => Some(Retirement::Kanidm),
+            Task::Services(args) if args.is_retired() => Some(Retirement::ServicesLifecycle),
+            Task::Deploy(args) if args.is_vps() => Some(Retirement::DeployVps),
+            Task::ReleaseBuild(args) if args.is_legacy_api() => Some(Retirement::LegacyApiRelease),
+            Task::Release(args) if args.names_legacy_api() => Some(Retirement::LegacyApiRelease),
+            Task::Build {
+                dbsp_experimental: true,
+                ..
+            } => Some(Retirement::BuildDbsp),
+            Task::Run {
+                test_cluster: true, ..
+            } => Some(Retirement::RunTestCluster),
+            Task::Seed { options, .. } if options.is_retired() => Some(Retirement::SeedEnvironment),
+            Task::Verify { suite } => match suite {
+                VerifySuite::Postgres(_) => Some(Retirement::VerifyPostgres),
+                VerifySuite::Dbsp(_) => Some(Retirement::VerifyDbsp),
+                VerifySuite::TheatreAuth(_) => Some(Retirement::VerifyTheatreAuth),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -294,33 +306,6 @@ mod tests {
     }
 
     #[test]
-    fn theatre_auth_requires_an_explicit_lane_and_has_a_pure_plan_option() {
-        for (name, expected) in [
-            (
-                "firebase-emulator",
-                crate::theatre_auth::Suite::FirebaseEmulator,
-            ),
-            (
-                "firebase-web-e2e",
-                crate::theatre_auth::Suite::FirebaseWebE2e,
-            ),
-        ] {
-            assert!(matches!(
-                parse(&format!("verify theatre-auth --suite {name} --dry-run")).unwrap(),
-                Task::Verify { suite: VerifySuite::TheatreAuth { suite, dry_run: true } }
-                if suite == expected
-            ));
-        }
-        for line in [
-            "verify theatre-auth",
-            "verify theatre-auth --suite all",
-            "verify theatre-auth --setup",
-        ] {
-            assert!(parse(line).is_err(), "{line}");
-        }
-    }
-
-    #[test]
     fn seed_names_one_target_and_reset_is_explicit() {
         assert!(matches!(
             parse("seed theatre").unwrap(),
@@ -336,63 +321,108 @@ mod tests {
                 ..
             }
         ));
-        for invalid in [
-            "seed",
-            "seed studio",
+        for invalid in ["seed", "seed studio", "seed theatre --unknown"] {
+            assert!(parse(invalid).is_err(), "{invalid}");
+        }
+        // The retired persistent lane still parses, hidden, so that it can refuse with its reason.
+        for retired in [
             "seed theatre --database-url x",
             "seed theatre --studio-cookie-name arbitrary",
-            "seed theatre --studio-cookie-name cantos_session;evil=x",
+            "seed theatre --environment catalog-local --database-url-env DB --studio-token-env T",
         ] {
-            assert!(parse(invalid).is_err(), "{invalid}");
+            let outcome = parse(retired);
+            match outcome {
+                Ok(task) => assert_eq!(
+                    task.retirement(),
+                    Some(Retirement::SeedEnvironment),
+                    "{retired}"
+                ),
+                // An option that never existed is a plain usage error, not a retirement.
+                Err(_) => assert!(retired.contains("--database-url x"), "{retired}"),
+            }
         }
     }
 
     #[test]
-    fn postgres_keeps_full_default_and_requires_an_explicit_supported_narrow_suite() {
-        assert!(matches!(
-            parse("verify postgres").unwrap(),
-            Task::Verify {
-                suite: VerifySuite::Postgres {
-                    keep: false,
-                    suite: None,
-                }
-            }
-        ));
-        assert!(matches!(
-            parse("verify postgres --suite theatre-firebase").unwrap(),
-            Task::Verify {
-                suite: VerifySuite::Postgres {
-                    keep: false,
-                    suite: Some(PostgresScope::TheatreFirebase),
-                }
-            }
-        ));
-        assert!(matches!(
-            parse("verify postgres --suite schema").unwrap(),
-            Task::Verify {
-                suite: VerifySuite::Postgres {
-                    keep: false,
-                    suite: Some(PostgresScope::Schema),
-                }
-            }
-        ));
-        for scope in ["schema", "theatre-firebase"] {
-            assert!(matches!(
-                parse(&format!("verify postgres --suite {scope} --keep")).unwrap(),
-                Task::Verify {
-                    suite: VerifySuite::Postgres {
-                        keep: true,
-                        suite: Some(_)
-                    }
-                }
-            ));
+    fn every_retired_command_parses_with_any_arguments_and_names_its_retirement() {
+        let cases = [
+            ("kanidm plan --studio-admin x", Retirement::Kanidm),
+            ("kanidm", Retirement::Kanidm),
+            ("services up postgresql", Retirement::ServicesLifecycle),
+            (
+                "services --instance t down --all",
+                Retirement::ServicesLifecycle,
+            ),
+            ("services logs kanidm", Retirement::ServicesLifecycle),
+            ("services status", Retirement::ServicesLifecycle),
+            ("verify postgres", Retirement::VerifyPostgres),
+            (
+                "verify postgres --suite schema --keep",
+                Retirement::VerifyPostgres,
+            ),
+            ("verify dbsp", Retirement::VerifyDbsp),
+            (
+                "verify theatre-auth --suite firebase-emulator --dry-run",
+                Retirement::VerifyTheatreAuth,
+            ),
+            (
+                "deploy vps cantos-server --host root@h --status",
+                Retirement::DeployVps,
+            ),
+            (
+                "deploy vps cantos-server --host root@h --bootstrap --dry-run",
+                Retirement::DeployVps,
+            ),
+            (
+                "build cantos-server --dbsp-experimental",
+                Retirement::BuildDbsp,
+            ),
+            (
+                "run cantos-server --test-cluster",
+                Retirement::RunTestCluster,
+            ),
+            (
+                "run cantos-theatre --web --test-cluster",
+                Retirement::RunTestCluster,
+            ),
+        ];
+        for (line, expected) in cases {
+            let task = parse(line).unwrap_or_else(|error| panic!("{line}: {error}"));
+            assert_eq!(task.retirement(), Some(expected), "{line}");
         }
+    }
+
+    #[test]
+    fn live_commands_are_not_retired_and_the_inventory_commands_remain() {
         for line in [
-            "verify postgres --suite legacy-dbsp",
-            "verify postgres --suite audio",
-            "verify postgres --suite all",
+            "services list",
+            "services validate",
+            "verify turso",
+            "verify rust",
+            "build cantos-server",
+            "run cantos-server",
+            "seed theatre",
+            "deploy firebase cantos-theatre --web --project p --channel live --dry-run",
+            "doctor",
         ] {
-            assert!(parse(line).is_err(), "{line}");
+            assert_eq!(parse(line).unwrap().retirement(), None, "{line}");
+        }
+    }
+
+    #[test]
+    fn retired_commands_are_hidden_from_help() {
+        let mut command = Cli::command();
+        let help = command.render_long_help().to_string();
+        assert!(
+            !help.contains("kanidm") && !help.contains("Kanidm"),
+            "{help}"
+        );
+        for hidden in ["verify", "services", "deploy"] {
+            let sub = command.find_subcommand_mut(hidden).unwrap();
+            let text = sub.render_long_help().to_string();
+            for retired in ["postgres", "dbsp", "theatre-auth", "vps", "logs", "down"] {
+                assert!(!text.contains(retired), "{hidden}: {retired}\n{text}");
+            }
         }
     }
 
@@ -497,10 +527,10 @@ mod tests {
             }
         ));
         assert!(matches!(
-            parse("build cantos-server --dbsp-experimental").unwrap(),
+            parse("build cantos-identity --release").unwrap(),
             Task::Build {
-                target: BuildTarget::CantosServer,
-                dbsp_experimental: true,
+                target: BuildTarget::CantosIdentity,
+                release: true,
                 ..
             }
         ));
@@ -527,10 +557,10 @@ mod tests {
             }
         ));
         assert!(matches!(
-            parse("run cantos-server --test-cluster").unwrap(),
+            parse("run cantos-server").unwrap(),
             Task::Run {
                 target: RunTarget::CantosServer,
-                test_cluster: true,
+                test_cluster: false,
                 ..
             }
         ));
@@ -564,14 +594,6 @@ mod tests {
             ("verify web", VerifySuite::Web),
             ("verify contracts", VerifySuite::Contracts),
             ("verify mutation", VerifySuite::Mutation),
-            ("verify dbsp", VerifySuite::Dbsp),
-            (
-                "verify postgres --keep",
-                VerifySuite::Postgres {
-                    keep: true,
-                    suite: None,
-                },
-            ),
         ] {
             assert!(
                 matches!(parse(line).unwrap(), Task::Verify { suite: parsed } if parsed == suite)
@@ -582,9 +604,9 @@ mod tests {
             Task::Preflight { changed_only: false, ref base, .. } if base == "origin/develop"
         ));
         assert!(matches!(
-            parse("preflight --changed-only --base HEAD~1 --skip postgres --skip web-build").unwrap(),
+            parse("preflight --changed-only --base HEAD~1 --skip turso --skip web-build").unwrap(),
             Task::Preflight { changed_only: true, ref skip, .. }
-                if skip == &[GateKind::Postgres, GateKind::WebBuild]
+                if skip == &[GateKind::Turso, GateKind::WebBuild]
         ));
         assert!(matches!(
             parse("ci").unwrap(),
@@ -594,12 +616,20 @@ mod tests {
             }
         ));
         assert!(matches!(
-            parse("ci --job postgres --dry-run").unwrap(),
+            parse("ci --job rust --dry-run").unwrap(),
             Task::Ci {
-                job: Some(CiJob::Postgres),
+                job: Some(CiJob::Rust),
                 dry_run: true
             }
         ));
+        // The retired jobs and gates are unknown values, not silently accepted.
+        for line in [
+            "ci --job postgres",
+            "preflight --skip postgres",
+            "preflight --skip dbsp",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
         assert!(matches!(parse("doctor").unwrap(), Task::Doctor));
     }
 

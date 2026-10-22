@@ -1,8 +1,8 @@
 //! Opaque credential syntax for sessions issued from a verified Identity fact. A tag routes a
 //! value to its verifier; it never establishes authority (the session row does).
 //!
-//! The `ci1_` family is distinct from the provider-bound `ca1_`/`cr1_` credentials, so a legacy
-//! verifier can never be handed an Identity secret nor the reverse.
+//! The `ci1_` family is distinct from the retired provider-bound `ca1_`/`cr1_` credentials, which
+//! no verifier accepts any more.
 use crate::platform::bearer::client::Client;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,8 +149,6 @@ mod tests {
             let value = format!("{prefix}{}", "a".repeat(64));
             assert_eq!(access_channel(&value), Some(channel));
             assert!(is_identity_credential(&value));
-            assert!(!crate::platform::bearer::credential::secret(&value));
-            assert!(crate::platform::bearer::credential::access_client(&value).is_none());
         }
         let refresh = format!("ci1_r_{}", "b".repeat(64));
         assert!(is_refresh(&refresh));

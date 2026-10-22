@@ -6,7 +6,7 @@ use std::sync::Arc;
 use super::{router::routes as mount_routes, AppState};
 use crate::contexts::{
     listening::{
-        auth::{DenyListenerAuthentication, ListenerAuthenticator, TheatreListenerAuthenticator},
+        auth::{DenyListenerAuthentication, ListenerAuthenticator},
         LibraryService,
     },
     media::{
@@ -21,8 +21,6 @@ pub(super) struct HttpServices {
     pub library: LibraryService,
     pub authenticator: Arc<dyn ListenerAuthenticator>,
     pub artwork: Option<ArtworkService>,
-    pub theatre_web: bool,
-    pub theatre_native: bool,
 }
 
 struct Assembly<'a> {
@@ -39,12 +37,10 @@ impl<'a> Assembly<'a> {
         publication: Option<PublicationService>,
     ) -> Self {
         let store = &state.store;
-        let theatre_web = store.theatre_identity().is_some();
-        let authenticator: Arc<dyn ListenerAuthenticator> = if theatre_web {
-            Arc::new(TheatreListenerAuthenticator::new(store.clone()))
-        } else {
-            Arc::new(DenyListenerAuthentication)
-        };
+        // Identity v1 sessions are admitted by the Theatre route middleware before a handler runs.
+        // The port below only serves a trusted host override; by default nothing else mints a
+        // listener principal.
+        let authenticator: Arc<dyn ListenerAuthenticator> = Arc::new(DenyListenerAuthentication);
         let services = HttpServices {
             publication: publication.unwrap_or_else(|| PublicationService::new(store.clone())),
             listener: ListenerService::new(store.clone()),
@@ -53,8 +49,6 @@ impl<'a> Assembly<'a> {
             artwork: store
                 .audio_storage_is_enabled()
                 .then(|| ArtworkService::new(store.clone())),
-            theatre_web,
-            theatre_native: store.theatre_native().is_some(),
         };
         Self {
             state,
@@ -138,8 +132,8 @@ pub fn router_with_listener_identity(
     assembly.build()
 }
 
-/// Preserve this explicit private-artwork seam's denied listener identity, even when the
-/// store has Theatre identity configured. Ordinary hosts select identity from their store.
+/// Preserve this explicit private-artwork seam's denied listener identity. Ordinary hosts admit
+/// Identity v1 sessions in the Theatre route middleware.
 pub fn router_with_private_artwork(state: AppState, dist: &str, artwork: ArtworkService) -> Router {
     let mut assembly = Assembly::new(state, Some(dist), None);
     assembly.services.artwork = Some(artwork);

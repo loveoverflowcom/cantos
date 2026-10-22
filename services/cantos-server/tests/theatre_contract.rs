@@ -3,18 +3,14 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use cantos_server::{
-    adapters::inbound::http::{router, AppState},
-    platform::postgres::{local_config, Store},
-};
+use cantos_server::adapters::inbound::http::{router, AppState};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;
 fn app() -> axum::Router {
     router(
         AppState {
-            store: Store::new(local_config("postgresql://unused@127.0.0.1:9/unused").unwrap())
-                .unwrap(),
+            store: cantos_server::test_support::detached_store(),
             web_origin: "http://127.0.0.1:8080".into(),
         },
         "unused-public-root",

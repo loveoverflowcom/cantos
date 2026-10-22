@@ -157,7 +157,7 @@ mod tests {
         for secret in ["", "ci1_t_0123", "ci1_r_ffff", "tiếng Việt"] {
             assert_eq!(
                 digest(secret).to_vec(),
-                crate::platform::postgres::token_hash(secret)
+                crate::platform::store::token_hash(secret)
             );
         }
         assert_ne!(digest("a"), digest("b"));

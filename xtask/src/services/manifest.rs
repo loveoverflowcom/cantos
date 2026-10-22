@@ -1,5 +1,6 @@
 //! A bounded process inventory, not a deployment language. Deserialization is followed by
-//! semantic validation before any value can reach lifecycle effects.
+//! semantic validation. The inventory describes runnable native processes and independently
+//! managed external infrastructure; no container-managed development service remains.
 use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{ensure, Context, Result};
@@ -9,7 +10,6 @@ use serde::Deserialize;
 #[serde(rename_all = "lowercase")]
 pub enum Runtime {
     Native,
-    Podman,
     External,
 }
 
@@ -19,25 +19,6 @@ pub enum Implementation {
     Implemented,
     Configured,
     Planned,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum Kind {
-    Postgresql,
-    Kanidm,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Container {
-    pub kind: Kind,
-    pub image: String,
-    pub data_path: String,
-    pub port_env: String,
-    pub container_port: u16,
-    pub default_port: u16,
-    pub health_command: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -55,7 +36,6 @@ pub struct Service {
     pub health: String,
     pub persistence: String,
     pub lifecycle: String,
-    pub container: Option<Container>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,14 +57,13 @@ impl Manifest {
             "unsupported service manifest version"
         );
         let expected = [
+            ("cantos-identity", Runtime::Native),
             ("cantos-server", Runtime::Native),
-            ("kanidm", Runtime::Podman),
             ("object-storage", Runtime::External),
-            ("postgresql", Runtime::Podman),
         ];
         ensure!(
             manifest.services.len() == expected.len(),
-            "inventory must contain the four reviewed services"
+            "inventory must contain the three reviewed services"
         );
         for (name, runtime) in expected {
             let service = manifest.service(name)?;
@@ -125,29 +104,31 @@ impl Manifest {
                 service
                     .environment
                     .iter()
-                    .all(|key| key.starts_with("CANTOS_") || key == "DATABASE_URL"),
-                "{name}: undeclared environment namespace"
+                    .all(|key| key.starts_with("CANTOS_")),
+                "{name}: undeclared environment namespace (a database URL is not a Cantos input)"
             );
-            match (&service.container, runtime) {
-                (None, Runtime::Native | Runtime::External) => {}
-                (Some(container), Runtime::Podman) => container.validate(name, service)?,
-                _ => anyhow::bail!("{name}: container configuration must match runtime"),
-            }
         }
         for name in manifest.services.keys() {
             manifest.visit(name, &mut Vec::new())?;
         }
+        // Each native process owns exactly one embedded file; neither needs another process to
+        // start. The Server reaches Identity only through its explicit private socket.
+        let server = manifest.service("cantos-server")?;
         ensure!(
-            manifest.service("cantos-server")?.required_dependencies == ["postgresql"],
-            "cantos-server must require PostgreSQL only"
+            server.required_dependencies.is_empty()
+                && server
+                    .optional_dependencies
+                    .iter()
+                    .map(String::as_str)
+                    .eq(["cantos-identity", "object-storage"]),
+            "cantos-server has no required dependency; Identity and object storage are optional"
         );
+        let identity = manifest.service("cantos-identity")?;
         ensure!(
-            manifest
-                .service("postgresql")?
-                .required_dependencies
-                .is_empty()
-                && manifest.service("kanidm")?.required_dependencies.is_empty(),
-            "local containers have no required dependencies"
+            identity.required_dependencies.is_empty()
+                && identity.optional_dependencies.is_empty()
+                && identity.ports.is_empty(),
+            "cantos-identity depends on nothing and listens on no TCP port"
         );
         Ok(manifest)
     }
@@ -169,96 +150,6 @@ impl Manifest {
         self.services
             .get(name)
             .with_context(|| format!("unknown service {name}; use services list"))
-    }
-}
-
-impl Container {
-    fn validate(&self, name: &str, service: &Service) -> Result<()> {
-        let (expected_name, registry, data, env, port, health): (_, _, _, _, _, &[&str]) =
-            match self.kind {
-                Kind::Postgresql => (
-                    "postgresql",
-                    "docker.io/library/postgres:",
-                    "/var/lib/postgresql/data",
-                    "CANTOS_POSTGRES_PORT",
-                    5432,
-                    &[
-                        "pg_isready",
-                        "-h",
-                        "127.0.0.1",
-                        "-p",
-                        "5432",
-                        "-U",
-                        "postgres",
-                        "-d",
-                        "postgres",
-                    ],
-                ),
-                Kind::Kanidm => (
-                    "kanidm",
-                    "docker.io/kanidm/server:",
-                    "/data",
-                    "CANTOS_KANIDM_PORT",
-                    8443,
-                    &[
-                        "/sbin/kanidmd",
-                        "scripting",
-                        "healthcheck",
-                        "--verify-tls",
-                        "-c",
-                        "/config/server.toml",
-                    ],
-                ),
-            };
-        ensure!(name == expected_name, "{name}: container kind mismatch");
-        let tag = self
-            .image
-            .strip_prefix(registry)
-            .context("only the reviewed official registry/image is permitted")?;
-        let version = tag.split('-').next().unwrap_or_default();
-        let numbers: Vec<_> = version.split('.').collect();
-        ensure!(
-            numbers.len() == 3 - usize::from(self.kind == Kind::Postgresql)
-                && numbers
-                    .iter()
-                    .all(|n| !n.is_empty() && n.bytes().all(|c| c.is_ascii_digit())),
-            "{name}: image needs an explicit patch version"
-        );
-        ensure!(
-            tag.bytes()
-                .all(|c| c.is_ascii_alphanumeric() || b".-".contains(&c)),
-            "{name}: invalid image tag"
-        );
-        if self.kind == Kind::Postgresql {
-            ensure!(
-                tag.starts_with("17.") && tag == format!("{version}-bookworm"),
-                "PostgreSQL requires reviewed major 17/bookworm"
-            );
-        } else {
-            ensure!(
-                tag == "1.10.5",
-                "Kanidm config/health contract is pinned to 1.10.5"
-            );
-        }
-        ensure!(
-            self.data_path == data
-                && self.port_env == env
-                && self.container_port == port
-                && self.default_port >= 1024,
-            "{name}: invalid mount or port contract"
-        );
-        ensure!(
-            self.health_command
-                .iter()
-                .map(String::as_str)
-                .eq(health.iter().copied()),
-            "{name}: health argv differs from reviewed probe"
-        );
-        ensure!(
-            service.environment.iter().any(|key| key == env) && service.ports == [port],
-            "{name}: inventory ports/environment mismatch"
-        );
-        Ok(())
     }
 }
 

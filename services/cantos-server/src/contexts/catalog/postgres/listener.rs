@@ -1,6 +1,6 @@
 //! Catalog-owned batched snapshot admission for Media's concrete public listener consumer.
 use super::super::domain::{ContentUnit, Work};
-use crate::platform::postgres::{StoreError, Tx};
+use crate::platform::store::{StoreError, Tx};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 #[derive(Clone, Serialize)]
@@ -107,6 +107,6 @@ pub(crate) const LISTENER_CURRENT_FILTER: &str =
 /// Share the existing Catalog/Media write fence when admitting a new listener-owned identity.
 /// This is not Studio authorization; it prevents concurrent metadata/rights/pointer replacement.
 pub(crate) async fn lock_listener_catalog(tx: &Tx<'_>) -> Result<(), StoreError> {
-    super::lock_clock(tx, crate::platform::postgres::LockMode::Share).await?;
+    super::lock_clock(tx, crate::platform::store::LockMode::Share).await?;
     Ok(())
 }

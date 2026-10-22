@@ -12,7 +12,6 @@ use cantos_contracts::{
 };
 use cantos_server::{
     adapters::inbound::http::{router, AppState},
-    platform::postgres::{local_config, Store},
     script_ir::{read_canonical_script, read_script},
 };
 use http_body_util::BodyExt;
@@ -28,10 +27,8 @@ const GOLDENS: &str =
     include_str!("../../../packages/contracts/fixtures/studio/v1/msgpack-goldens.json");
 
 fn app() -> Router {
-    // The pool is lazy and port 9 is never dialled: every request here is refused first.
-    let config = local_config("postgresql://cantos_app@127.0.0.1:9/cantos").unwrap();
     let state = AppState {
-        store: Store::new(config).unwrap(),
+        store: cantos_server::test_support::detached_store(),
         web_origin: ORIGIN.into(),
     };
     router(state, "apps/cantos-studio/web/dist")

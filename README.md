@@ -1,8 +1,14 @@
 # Cantos — Vọng Đài
 
-The native-refactor source now composes Studio/Theatre/Admin in one Server listener with
-[separate route policies](docs/architecture/server-http-composition.md), still backed by
-PostgreSQL. The deployed VPS runtime and its activation/recovery gates remain separate.
+This branch is an **incomplete native migration checkpoint**, intended for Draft review only.
+The Server now opens embedded Turso `server.db`; Identity owns `identity.db`. Actor, Identity
+session and development-session tables exist. Business context SQL remains PostgreSQL-shaped
+and its Turso schema is absent; those routes are not accepted as functional. Provider auth has
+been removed and Admin fails closed. Legacy SQL, scripts and operating documentation still
+remain as migration inputs; source retirement is partial. See the
+[porting boundary](docs/architecture/server-turso-porting.md#checkpoint-boundary) and
+[source-retirement amendment](docs/architecture/native-turso-refactor.md#owner-amendment-source-retirement-on-the-integration-branch).
+Do not deploy this checkpoint to an existing host or database.
 
 **Cantos is a content catalog, external-audio handoff and listening platform.** Studio manages
 novels, stories, podcasts, their chapters/episodes, audio files, rights, review and publication.

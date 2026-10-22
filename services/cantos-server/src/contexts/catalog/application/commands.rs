@@ -8,7 +8,7 @@ use super::{
     CatalogOutcome, CatalogStoreError, MemberRole, MAX_UNITS,
 };
 use crate::contexts::editorial::{Access, Action};
-use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
 
 impl Store {
     pub async fn catalog_execute(

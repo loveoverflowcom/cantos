@@ -1,7 +1,6 @@
 //! Cross-surface Origin admission, deadline and response cache/security policy.
 use super::{
-    audio_transport, bearer, errors::failure, identity_auth, studio, theatre, theatre_library,
-    theatre_native_auth, theatre_registration, AppState,
+    audio_transport, errors::failure, identity_auth, studio, theatre, theatre_library, AppState,
 };
 use axum::{
     extract::{Request, State},
@@ -18,31 +17,13 @@ pub(super) enum Surface {
     Admin,
 }
 
-#[derive(Clone)]
-pub(super) struct Boundary {
-    pub state: AppState,
-    pub surface: Surface,
-}
-
 pub(super) async fn origin_and_cache(
-    State(boundary): State<Boundary>,
+    State(state): State<AppState>,
     request: Request,
     next: Next,
 ) -> Response {
-    let state = boundary.state;
     let read =
         request.method() == axum::http::Method::GET || request.method() == axum::http::Method::HEAD;
-    let valid_config = match boundary.surface {
-        Surface::Studio => state
-            .store
-            .studio_oidc()
-            .is_none_or(|oidc| oidc.web_origin() == state.web_origin),
-        Surface::Theatre => state
-            .store
-            .theatre_identity()
-            .is_none_or(|oidc| oidc.web_origin() == state.web_origin),
-        Surface::Admin => true,
-    };
     let valid_origin = request
         .headers()
         .get(header::ORIGIN)
@@ -55,24 +36,14 @@ pub(super) async fn origin_and_cache(
     let theatre_request = original_path.starts_with("/api/v1/theatre/");
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
     let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
-    let native_mutation = theatre_native_auth::native_mutation(request.method(), original_path)
-        || theatre_registration::native_mutation(request.method(), original_path)
-        || identity_auth::native_mutation(request.method(), original_path);
-    let scoped_bearer = bearer::mutation(
-        request.method(),
-        original_path,
-        request.headers(),
-        &state.web_origin,
-    );
+    let native_mutation = identity_auth::native_mutation(request.method(), original_path);
     let delegated_mutation = studio::delegation::bearer_mutation(request.method(), original_path);
-    let mut response = if !valid_config
-        || (!read
-            && !valid_origin
-            && !anonymous_playback
-            && !bearer_mutation
-            && !native_mutation
-            && !delegated_mutation
-            && !scoped_bearer)
+    let mut response = if !read
+        && !valid_origin
+        && !anonymous_playback
+        && !bearer_mutation
+        && !native_mutation
+        && !delegated_mutation
     {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {

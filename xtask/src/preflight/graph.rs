@@ -159,7 +159,11 @@ pub mod testing {
                 package(
                     "cantos-server",
                     "services/cantos-server",
-                    &["cantos-contracts"],
+                    &[
+                        "cantos-contracts",
+                        "cantos-identity-rpc",
+                        "cantos-store-turso",
+                    ],
                 ),
                 package(
                     "cantos-identity",

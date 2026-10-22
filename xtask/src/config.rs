@@ -25,6 +25,11 @@ pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 pub const DEFAULT_BASE: &str = "origin/develop";
 
 pub const API_PACKAGE: &str = "cantos-server";
+/// The Server's offline binaries: the explicit schema owner and the operator commands. Each
+/// opens `server.db` as its single owner, so neither runs while the Server is up.
+pub const SERVER_MIGRATE_BIN: &str = "cantos-migrate";
+pub const SERVER_OPERATOR_BIN: &str = "cantos-operator";
+pub const IDENTITY_BIN: &str = "cantos-identity";
 /// The producer-side Forge CLI. xtask builds it; it never runs it inside build/test/preflight.
 pub const FORGE_PACKAGE: &str = "cantos-forge";
 pub const TURSO_STORE_PACKAGE: &str = "cantos-store-turso";
@@ -36,10 +41,6 @@ pub const IDENTITY_RPC_PACKAGE: &str = "cantos-identity-rpc";
 /// Feature that exposes only run-owned temp directories and a deterministic clock; never a runtime build.
 pub const TURSO_TESTING_FEATURE: &str = "testing";
 pub const TURSO_CAPABILITY_BIN: &str = "cantos-turso-capability";
-/// The opt-in experimental DBSP incremental core of the API; off in every other gate and build.
-pub const DBSP_FEATURE: &str = "dbsp-experimental";
-/// The uncomposed Server Turso candidate adapters (#333); the Turso gate lints that build.
-pub const SERVER_TURSO_CANDIDATE_FEATURE: &str = "turso-candidate";
 pub const UI_PACKAGE: &str = "cantos-ui";
 /// Theatre Web's package and its opt-in development-preview feature (`?mode=mock` and siblings).
 /// Production, release and deploy builds never enable it; tests, lint and `TRUNK_BUILD_FEATURES`
@@ -48,10 +49,6 @@ pub const THEATRE_WEB_PACKAGE: &str = "cantos-theatre";
 pub const THEATRE_PREVIEW_FEATURE: &str = "cantos-theatre/preview";
 pub const API_SERVER_BIN: &str = "cantos-server";
 pub const API_PORT: u16 = 8080;
-/// Written by `scripts/test_postgres.py --keep`; read by `scripts/serve_studio.py`.
-pub const TEST_CLUSTER_RECORD: &str = "target/revision-evidence/run.json";
-/// Ownership only, emitted by an explicit retained full/narrow run; never full-suite acceptance.
-pub const RETAINED_CLUSTER_RECORD: &str = "target/revision-evidence/retained-cluster.json";
 
 pub fn loopback(port: u16) -> SocketAddr {
     SocketAddr::from((Ipv4Addr::LOCALHOST, port))

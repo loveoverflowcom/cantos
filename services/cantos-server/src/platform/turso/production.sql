@@ -1,0 +1,3 @@
+-- Server.db version 8: Production briefs, heads, producer grants, settings, snapshots, approvals and rights claims.
+-- Reserved slice: filled by the context's port (see docs/architecture/server-turso/production.md).
+-- DDL only; queries live in the owning persistence adapter.

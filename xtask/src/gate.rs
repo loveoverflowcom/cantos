@@ -9,13 +9,13 @@ use clap::ValueEnum;
 use crate::{
     behavior,
     build::{self, Profile},
-    cli::{PostgresScope, VerifySuite},
+    cli::VerifySuite,
     command::CommandSpec,
     config::{
-        App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, IDENTITY_PACKAGE,
-        IDENTITY_PERSISTENCE_FEATURE, IDENTITY_RPC_PACKAGE, IDENTITY_SERVICE_FEATURE,
-        SERVER_TURSO_CANDIDATE_FEATURE, THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE,
-        TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET,
+        App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_PACKAGE, IDENTITY_PERSISTENCE_FEATURE,
+        IDENTITY_RPC_PACKAGE, IDENTITY_SERVICE_FEATURE, THEATRE_PREVIEW_FEATURE,
+        THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE,
+        UI_PACKAGE, WASM_TARGET,
     },
     kani::{self, Kernel},
     pipeline::Step,
@@ -37,7 +37,6 @@ pub enum GateKind {
     RustTests,
     ForgeFunctions,
     Turso,
-    Dbsp,
     ContractTests,
     WavReference,
     AudioInspection,
@@ -49,7 +48,6 @@ pub enum GateKind {
     #[value(alias = "theatre-cmp-demo")]
     TheatreCmpPreview,
     Mutation,
-    Postgres,
     Kani,
 }
 
@@ -117,9 +115,6 @@ pub enum Gate {
     /// The embedded Turso store foundation: lint, file-backed tests on the pinned engine and the
     /// capability report. No server, container or cloud service is started.
     Turso,
-    /// The API built with its experimental DBSP incremental core: lint and every non-ignored test,
-    /// so the feature's added dependency features cannot silently change existing behavior.
-    Dbsp,
     ContractTests,
     WavReference,
     /// Actual owned Opus fixtures through the bounded read-only ffmpeg/ffprobe adapter.
@@ -130,24 +125,12 @@ pub enum Gate {
     CmpUiPreview,
     TheatreCmpPreview,
     Mutation,
-    Postgres {
-        keep: bool,
-    },
-    /// Narrow SQL acceptance only; never replaces the complete PostgreSQL gate.
-    TheatreFirebasePostgres {
-        keep: bool,
-    },
-    /// Current baseline, least-privilege and selected current-owner SQL without media tools;
-    /// never replaces the complete PostgreSQL gate.
-    SchemaPostgres {
-        keep: bool,
-    },
     Kani(Kernel),
 }
 
 /// Integration test targets of `cantos-server` for metadata, wire, Script IR and read-only media
-/// admission. Tool-backed ignored tests belong to `Gate::AudioInspection`; database tests
-/// belong to `Gate::Postgres`.
+/// admission. Tool-backed ignored tests belong to `Gate::AudioInspection`; the Server's
+/// file-backed database tests are ordinary tests of the workspace gate.
 pub const API_CONTRACT_TESTS: [&str; 13] = [
     "script_ir",
     "studio_contract",
@@ -176,7 +159,6 @@ impl Gate {
             Gate::RustTests(_) => GateKind::RustTests,
             Gate::ForgeFunctions => GateKind::ForgeFunctions,
             Gate::Turso => GateKind::Turso,
-            Gate::Dbsp => GateKind::Dbsp,
             Gate::ContractTests => GateKind::ContractTests,
             Gate::WavReference => GateKind::WavReference,
             Gate::AudioInspection => GateKind::AudioInspection,
@@ -186,9 +168,6 @@ impl Gate {
             Gate::CmpUiPreview => GateKind::CmpUiPreview,
             Gate::TheatreCmpPreview => GateKind::TheatreCmpPreview,
             Gate::Mutation => GateKind::Mutation,
-            Gate::Postgres { .. }
-            | Gate::TheatreFirebasePostgres { .. }
-            | Gate::SchemaPostgres { .. } => GateKind::Postgres,
             Gate::Kani(_) => GateKind::Kani,
         }
     }
@@ -210,8 +189,6 @@ impl Gate {
             Gate::WebBuild(app) => format!("{kind} ({})", app.cli_name()),
             Gate::Kani(kernel) => format!("kani ({})", kernel.name()),
             Gate::RepositoryStatic { .. } => "repository-static".into(),
-            Gate::TheatreFirebasePostgres { .. } => "postgres (theatre-firebase)".into(),
-            Gate::SchemaPostgres { .. } => "postgres (schema)".into(),
             _ => kind,
         }
     }
@@ -242,7 +219,7 @@ impl Gate {
             Gate::Kani(_) => vec![Tool::Cargo, Tool::Python3, Tool::Git, Tool::Kani],
             Gate::ScriptIrReference => vec![Tool::Python3],
             Gate::ProtobufReference => vec![Tool::Cargo, Tool::Python3, Tool::Clippy],
-            Gate::RustLint(_) | Gate::Dbsp | Gate::Turso => vec![Tool::Cargo, Tool::Clippy],
+            Gate::RustLint(_) | Gate::Turso => vec![Tool::Cargo, Tool::Clippy],
             Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
             Gate::ForgeFunctions => vec![Tool::Cargo, Tool::Node],
             Gate::WavReference | Gate::Mutation => vec![Tool::Cargo, Tool::Python3],
@@ -253,22 +230,6 @@ impl Gate {
             }
             Gate::CmpUiPreview => ui_preview::cmp_tools(),
             Gate::TheatreCmpPreview => theatre_preview::tools(),
-            Gate::Postgres { .. } => vec![
-                Tool::Cargo,
-                Tool::Python3,
-                Tool::Initdb,
-                Tool::PgCtl,
-                Tool::Psql,
-                Tool::Ffmpeg,
-                Tool::Ffprobe,
-            ],
-            Gate::TheatreFirebasePostgres { .. } | Gate::SchemaPostgres { .. } => vec![
-                Tool::Cargo,
-                Tool::Python3,
-                Tool::Initdb,
-                Tool::PgCtl,
-                Tool::Psql,
-            ],
         }
     }
 
@@ -444,21 +405,6 @@ impl Gate {
                     TURSO_TESTING_FEATURE,
                     "--locked",
                 ]),
-                // The Server candidate's feature-only build and its `identity_auth_candidate`
-                // target compile here; its unit tests already run in the Rust gate, and the
-                // journey needs a prebuilt Identity executable (the #336 campaign runs it).
-                cargo(&[
-                    "clippy",
-                    "-p",
-                    API_PACKAGE,
-                    "--features",
-                    SERVER_TURSO_CANDIDATE_FEATURE,
-                    "--all-targets",
-                    "--locked",
-                    "--",
-                    "-D",
-                    "warnings",
-                ]),
                 cargo(&[
                     "run",
                     "--locked",
@@ -470,23 +416,6 @@ impl Gate {
                     TURSO_CAPABILITY_BIN,
                     "--",
                     "report",
-                ]),
-            ],
-            Gate::Dbsp => vec![
-                cargo(&["clippy", "-p", API_PACKAGE, "--features", DBSP_FEATURE]).args([
-                    "--all-targets",
-                    "--locked",
-                    "--",
-                    "-D",
-                    "warnings",
-                ]),
-                cargo(&[
-                    "test",
-                    "-p",
-                    API_PACKAGE,
-                    "--features",
-                    DBSP_FEATURE,
-                    "--locked",
                 ]),
             ],
             Gate::ContractTests => vec![
@@ -547,19 +476,6 @@ impl Gate {
                 vec![theatre_preview::desktop_command(workspace, "desktopTest")]
             }
             Gate::Mutation => vec![python(&["scripts/mutate_script_ir.py"])],
-            Gate::Postgres { keep } => {
-                vec![python(&["scripts/test_postgres.py"]).arg_if(*keep, "--keep")]
-            }
-            Gate::TheatreFirebasePostgres { keep } => {
-                vec![
-                    python(&["scripts/test_postgres.py", "--suite", "theatre-firebase"])
-                        .arg_if(*keep, "--keep"),
-                ]
-            }
-            Gate::SchemaPostgres { keep } => {
-                vec![python(&["scripts/test_postgres.py", "--suite", "schema"])
-                    .arg_if(*keep, "--keep")]
-            }
         }
     }
 
@@ -579,7 +495,6 @@ pub fn full() -> Vec<Gate> {
         Gate::RustTests(Scope::Workspace),
         Gate::ForgeFunctions,
         Gate::Turso,
-        Gate::Dbsp,
         Gate::WavReference,
         Gate::AudioInspection,
         Gate::WebLint(App::ALL.into_iter().collect()),
@@ -589,7 +504,6 @@ pub fn full() -> Vec<Gate> {
         Gate::CmpUiPreview,
         Gate::TheatreCmpPreview,
         Gate::Mutation,
-        Gate::Postgres { keep: false },
     ]
 }
 
@@ -598,7 +512,9 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
     match suite {
         // Explicit local fixtures have their own bounded executor. They are deliberately
         // absent from the ordinary gate catalog and cannot become a preflight dependency.
-        VerifySuite::TheatreAuth { .. }
+        VerifySuite::Postgres(_)
+        | VerifySuite::Dbsp(_)
+        | VerifySuite::TheatreAuth(_)
         | VerifySuite::NativeIsolation(_)
         | VerifySuite::NativeAuthQualification(_) => Vec::new(),
         VerifySuite::Behavior {
@@ -647,14 +563,6 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
             Gate::AudioInspection,
         ],
         VerifySuite::Mutation => vec![Gate::Mutation],
-        VerifySuite::Dbsp => vec![Gate::Dbsp],
-        VerifySuite::Postgres { keep, suite } => match suite {
-            None => vec![Gate::Postgres { keep: *keep }],
-            Some(PostgresScope::TheatreFirebase) => {
-                vec![Gate::TheatreFirebasePostgres { keep: *keep }]
-            }
-            Some(PostgresScope::Schema) => vec![Gate::SchemaPostgres { keep: *keep }],
-        },
     }
 }
 
@@ -729,18 +637,6 @@ mod tests {
             lines(&Gate::UiPreview),
             ["(in packages/ui-system/leptos) NO_COLOR=true trunk build preview.html --locked --dist ../../../target/ui-foundation-preview"]
         );
-        assert_eq!(
-            lines(&Gate::Postgres { keep: true }),
-            ["python3 scripts/test_postgres.py --keep"]
-        );
-        assert_eq!(
-            lines(&Gate::Dbsp),
-            [
-                "cargo clippy -p cantos-server --features dbsp-experimental --all-targets --locked -- -D warnings",
-                "cargo test -p cantos-server --features dbsp-experimental --locked",
-            ]
-        );
-        assert_eq!(verify_suite(&VerifySuite::Dbsp), [Gate::Dbsp]);
     }
 
     #[test]
@@ -757,7 +653,6 @@ mod tests {
                 "cargo test -p cantos-identity-rpc --locked",
                 "cargo clippy -p cantos-store-turso --features testing --all-targets --locked -- -D warnings",
                 "cargo test -p cantos-store-turso --features testing --locked",
-                "cargo clippy -p cantos-server --features turso-candidate --all-targets --locked -- -D warnings",
                 "cargo run --locked -p cantos-store-turso --features testing --bin cantos-turso-capability -- report",
             ]
         );
@@ -963,90 +858,49 @@ mod tests {
     }
 
     #[test]
-    fn postgres_audio_intake_checks_declare_the_same_media_tools_up_front() {
-        let tools = Gate::Postgres { keep: false }.tools();
-        assert!(tools.contains(&Tool::Ffmpeg));
-        assert!(tools.contains(&Tool::Ffprobe));
+    fn retired_database_dbsp_and_provider_suites_select_no_gate() {
+        use crate::retired::Retired;
+        for suite in [
+            VerifySuite::Postgres(Retired::default()),
+            VerifySuite::Dbsp(Retired::default()),
+            VerifySuite::TheatreAuth(Retired::default()),
+        ] {
+            assert!(verify_suite(&suite).is_empty(), "{suite:?}");
+        }
     }
 
     #[test]
-    fn narrow_registration_sql_has_its_own_name_prerequisites_and_plan() {
-        use crate::{
-            command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
-        };
-        let gate = Gate::TheatreFirebasePostgres { keep: false };
-        assert_eq!(gate.name(), "postgres (theatre-firebase)");
-        assert_eq!(gate.kind(), GateKind::Postgres);
-        assert_eq!(
-            gate.tools(),
-            [
-                Tool::Cargo,
-                Tool::Python3,
-                Tool::Initdb,
-                Tool::PgCtl,
-                Tool::Psql
-            ]
-        );
-        assert_eq!(
-            lines(&gate),
-            ["python3 scripts/test_postgres.py --suite theatre-firebase"]
-        );
-        assert_eq!(
-            verify_suite(&VerifySuite::Postgres {
-                keep: false,
-                suite: Some(PostgresScope::TheatreFirebase),
-            }),
-            [Gate::TheatreFirebasePostgres { keep: false }]
-        );
-        assert!(!full().contains(&gate));
-        let mut runner = RecordingRunner::default();
-        let report = pipeline::execute(
-            "verify",
-            &[gate.step(&workspace())],
-            &FakeTools::without(&[Tool::Ffmpeg, Tool::Ffprobe]),
-            &mut runner,
-        );
-        assert_eq!(report.outcomes.len(), 1);
-        assert_eq!(report.outcomes[0].name, "postgres (theatre-firebase)");
-        assert_eq!(report.outcomes[0].status, Status::Pass);
-        assert_eq!(runner.commands.len(), 1);
-    }
-
-    #[test]
-    fn schema_sql_has_its_own_scope_without_media_prerequisites() {
-        use crate::{
-            command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
-        };
-        let gate = Gate::SchemaPostgres { keep: false };
-        assert_eq!(gate.name(), "postgres (schema)");
-        assert_eq!(gate.kind(), GateKind::Postgres);
-        assert_eq!(
-            gate.tools(),
-            (Gate::TheatreFirebasePostgres { keep: false }).tools()
-        );
-        assert_eq!(
-            lines(&gate),
-            ["python3 scripts/test_postgres.py --suite schema"]
-        );
-        assert_eq!(
-            verify_suite(&VerifySuite::Postgres {
-                keep: false,
-                suite: Some(PostgresScope::Schema),
-            }),
-            [Gate::SchemaPostgres { keep: false }]
-        );
-        assert!(!full().contains(&gate));
-        let mut runner = RecordingRunner::default();
-        let report = pipeline::execute(
-            "verify",
-            &[gate.step(&workspace())],
-            &FakeTools::without(&[Tool::Ffmpeg, Tool::Ffprobe]),
-            &mut runner,
-        );
-        assert_eq!(report.outcomes.len(), 1);
-        assert_eq!(report.outcomes[0].name, "postgres (schema)");
-        assert_eq!(report.outcomes[0].status, Status::Pass);
-        assert_eq!(runner.commands.len(), 1);
+    fn no_gate_provisions_a_database_server_or_a_retired_feature() {
+        let workspace = workspace();
+        let kinds: Vec<_> = GateKind::value_variants()
+            .iter()
+            .filter_map(|kind| kind.to_possible_value())
+            .map(|value| value.get_name().to_owned())
+            .collect();
+        for retired in ["postgres", "dbsp"] {
+            assert!(!kinds.iter().any(|name| name == retired), "{retired}");
+        }
+        for gate in full().into_iter().chain([Gate::ContractTests]) {
+            for tool in gate.tools() {
+                let label = tool.label();
+                assert!(
+                    !["initdb", "pg_ctl", "psql", "podman", "docker"].contains(&label),
+                    "{gate:?} needs {label}"
+                );
+            }
+            for command in gate.commands(&workspace) {
+                let line = command.display(workspace.root());
+                for retired in [
+                    "postgres",
+                    "dbsp-experimental",
+                    "turso-candidate",
+                    "DATABASE_URL",
+                    "--ignored --exact",
+                ] {
+                    assert!(!line.contains(retired), "{gate:?}: {line}");
+                }
+            }
+        }
     }
 
     #[test]
@@ -1165,12 +1019,7 @@ mod tests {
     #[test]
     fn every_referenced_script_and_test_target_exists() {
         let workspace = workspace();
-        for gate in full().into_iter().chain([
-            Gate::ContractTests,
-            Gate::Postgres { keep: true },
-            Gate::TheatreFirebasePostgres { keep: false },
-            Gate::SchemaPostgres { keep: false },
-        ]) {
+        for gate in full().into_iter().chain([Gate::ContractTests]) {
             for command in gate.commands(&workspace) {
                 for arg in command
                     .args
@@ -1208,27 +1057,5 @@ mod tests {
         assert!(contracts.contains(&Gate::ScriptIrReference));
         assert!(contracts.contains(&Gate::WavReference));
         assert!(contracts.contains(&Gate::AudioInspection));
-        assert_eq!(
-            verify_suite(&VerifySuite::Postgres {
-                keep: false,
-                suite: None,
-            }),
-            [Gate::Postgres { keep: false }]
-        );
-    }
-    #[test]
-    fn narrow_keep_retains_only_explicit_ownership_without_selecting_full_gate() {
-        for scope in [PostgresScope::Schema, PostgresScope::TheatreFirebase] {
-            let gates = verify_suite(&VerifySuite::Postgres {
-                keep: true,
-                suite: Some(scope),
-            });
-            assert_eq!(gates.len(), 1);
-            let commands = lines(&gates[0]);
-            assert_eq!(commands.len(), 1);
-            assert!(commands[0].contains("--suite"));
-            assert!(commands[0].ends_with("--keep"));
-            assert!(!matches!(gates[0], Gate::Postgres { .. }));
-        }
     }
 }

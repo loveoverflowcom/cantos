@@ -17,6 +17,8 @@ pub struct CommandSpec {
     pub env: Vec<(String, String)>,
     /// Inherited variables the child must not see.
     pub env_remove: Vec<String>,
+    /// Keys of `env` whose values are credentials: shown as `<redacted>` in every rendering.
+    pub secret_keys: Vec<String>,
 }
 
 impl CommandSpec {
@@ -27,6 +29,7 @@ impl CommandSpec {
             cwd: cwd.into(),
             env: Vec::new(),
             env_remove: Vec::new(),
+            secret_keys: Vec::new(),
         }
     }
 
@@ -49,6 +52,14 @@ impl CommandSpec {
 
     pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.env.push((key.into(), value.into()));
+        self
+    }
+
+    /// A variable carrying a credential: passed to the child like `env`, but never rendered.
+    pub fn env_secret(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        let key = key.into();
+        self.secret_keys.push(key.clone());
+        self.env.push((key, value.into()));
         self
     }
 
@@ -76,7 +87,11 @@ impl CommandSpec {
             parts.extend(self.env_remove.iter().map(|key| format!("-u {key}")));
         }
         for (key, value) in &self.env {
-            parts.push(format!("{key}={}", quote(value)));
+            if self.secret_keys.contains(key) {
+                parts.push(format!("{key}=<redacted>"));
+            } else {
+                parts.push(format!("{key}={}", quote(value)));
+            }
         }
         let program = Path::new(&self.program)
             .strip_prefix(root)
@@ -189,6 +204,20 @@ mod tests {
         assert_eq!(python.display(root), r"python3 -p 'test_*.py' 'it'\''s'");
         let binary = CommandSpec::new("/repo/target/debug/cantos-server", "/repo");
         assert_eq!(binary.display(root), "target/debug/cantos-server");
+    }
+
+    #[test]
+    fn secret_environment_reaches_the_child_but_is_never_rendered() {
+        let spec = CommandSpec::new("cargo", "/repo")
+            .env("PLAIN", "visible")
+            .env_secret("TOKEN", "do-not-print");
+        let shown = spec.display(Path::new("/repo"));
+        assert_eq!(shown, "PLAIN=visible TOKEN=<redacted> cargo");
+        assert!(!format!("{shown} {:?}", spec.secret_keys).contains("do-not-print"));
+        assert!(spec
+            .env
+            .iter()
+            .any(|(key, value)| key == "TOKEN" && value == "do-not-print"));
     }
 
     #[test]

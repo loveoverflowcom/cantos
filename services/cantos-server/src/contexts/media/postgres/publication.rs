@@ -3,12 +3,12 @@ use super::super::domain::{
     lifecycle::{AudioRendition, ReleaseCandidate},
     publication::{AudioRelease, DistributionClearance, PublicationApproval},
 };
+use crate::platform::store::Row;
 use crate::{
     contexts::catalog::domain::content::ContentRevision,
-    platform::postgres::{checked_number, StoreError, Tx},
+    platform::store::{checked_number, StoreError, Tx},
 };
 use serde::{de::DeserializeOwned, Serialize};
-use tokio_postgres::Row;
 fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, StoreError> {
     serde_json::to_vec(value).map_err(|_| StoreError::CorruptRevision)
 }

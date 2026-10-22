@@ -1,0 +1,3 @@
+-- Server.db version 11: Listener state, progress, saved, history, bookmarks, device sequences and operations.
+-- Reserved slice: filled by the context's port (see docs/architecture/server-turso/listening.md).
+-- DDL only; queries live in the owning persistence adapter.

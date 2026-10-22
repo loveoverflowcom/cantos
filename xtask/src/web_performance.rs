@@ -66,7 +66,7 @@ fn plan(workspace: &Workspace, args: &WebPerformanceArgs, output: &std::path::Pa
     if let Some(baseline) = &args.baseline {
         inventory = inventory.args(["--baseline".to_owned(), baseline.display().to_string()]);
     }
-    let mut release = build::step(workspace, Unit::Web(app), Profile::Release, false);
+    let mut release = build::step(workspace, Unit::Web(app), Profile::Release);
     // Command-owned fresh output prevents an inherited/configured dist from making a
     // successful build inventory an older bundle. Target/config remain the app's own.
     release.commands[0] = build::release_bundle(workspace, app, &output.join("dist"));
@@ -144,8 +144,7 @@ mod tests {
             let steps = plan(&workspace, &args, args.output.as_ref().unwrap());
             assert_eq!(steps.len(), 3);
             assert_eq!(steps[0].commands[0].args[1], "prepare");
-            let ordinary =
-                build::step(&workspace, Unit::Web(target.app()), Profile::Release, false);
+            let ordinary = build::step(&workspace, Unit::Web(target.app()), Profile::Release);
             assert!(steps[1].commands[0]
                 .args
                 .starts_with(&ordinary.commands[0].args));

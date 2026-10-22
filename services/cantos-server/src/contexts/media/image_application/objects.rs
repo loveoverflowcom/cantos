@@ -13,7 +13,7 @@ use crate::contexts::media::{
     postgres::image::StoredImageAsset,
     storage::registry::StorageRegistry,
 };
-use crate::platform::postgres::StoreError;
+use crate::platform::store::StoreError;
 
 pub(super) struct SharedImageObjects {
     registry: Option<Arc<StorageRegistry>>,

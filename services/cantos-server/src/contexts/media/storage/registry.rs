@@ -14,7 +14,7 @@ use super::{
     port::{PrivateStorage, VerifiedPayload},
     FilesystemStorage,
 };
-use crate::platform::postgres::StoreError;
+use crate::platform::store::StoreError;
 use std::{
     collections::BTreeMap,
     path::Path,

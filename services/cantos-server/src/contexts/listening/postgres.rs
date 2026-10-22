@@ -13,6 +13,7 @@ use super::{
         SavedOutcome, SavedRecord,
     },
 };
+use crate::platform::store::Row;
 use crate::{
     contexts::{
         catalog::{domain::WorkId, lock_listener_catalog},
@@ -21,13 +22,12 @@ use crate::{
             library_work_presentations, ListenerError,
         },
     },
-    platform::postgres::{Store, StoreError, Tx},
+    platform::store::{Store, StoreError, Tx},
 };
 use cantos_contracts::listener_library as dto;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, sync::Arc};
-use tokio_postgres::{IsolationLevel, Row};
 struct PgLibrary(Store);
 impl LibraryService {
     pub fn new(store: Store) -> Self {
@@ -45,10 +45,8 @@ fn storage(e: StoreError) -> LibraryError {
         _ => LibraryError::Unavailable,
     }
 }
-fn database(e: tokio_postgres::Error) -> LibraryError {
-    if e.code().is_some_and(|c| {
-        c.code().starts_with("23") || c.code().starts_with("42") || c.code() == "55000"
-    }) {
+fn database(e: crate::platform::store::Error) -> LibraryError {
+    if e.is_integrity_violation() {
         LibraryError::Corrupt
     } else {
         LibraryError::Unavailable
@@ -71,7 +69,7 @@ fn number(n: u64) -> Result<i64, LibraryError> {
 fn unsigned(n: i64) -> Result<u64, LibraryError> {
     u64::try_from(n).map_err(|_| LibraryError::Corrupt)
 }
-fn col<T: tokio_postgres::types::FromSqlOwned>(r: &Row, key: &str) -> Result<T, LibraryError> {
+fn col<T: crate::platform::store::FromColumn>(r: &Row, key: &str) -> Result<T, LibraryError> {
     r.try_get(key).map_err(|_| LibraryError::Corrupt)
 }
 fn encode<T: Serialize>(v: &T) -> Result<(Vec<u8>, Vec<u8>), LibraryError> {
@@ -393,7 +391,7 @@ async fn apply_progress(
         dto::Completion::InProgress => "in_progress",
         dto::Completion::Completed => "completed",
     };
-    let fields: [&(dyn tokio_postgres::types::ToSql + Sync); 14] = [
+    let fields: [&(dyn crate::platform::store::Param + Sync); 14] = [
         &listener.as_str(),
         &v.audio.publication_id,
         &v.audio.work_id,
@@ -422,7 +420,7 @@ async fn apply_progress(
             .iter()
             .copied()
             .chain(std::iter::once(
-                &expected_base as &(dyn tokio_postgres::types::ToSql + Sync),
+                &expected_base as &(dyn crate::platform::store::Param + Sync),
             ))
             .collect::<Vec<_>>();
         tx.execute("UPDATE listener_progress SET position_ms=$8,completion=$9,revision=$10,listener_order=$11,accepted_at=$12,snapshot=$13,snapshot_digest=$14 WHERE listener_id=$1 AND publication_id=$2 AND work_id=$3 AND unit_id=$4 AND rendition_id=$5 AND sha256=$6 AND duration_ms=$7 AND revision=$15",&params).await.map_err(database)?
@@ -720,14 +718,8 @@ impl LibraryRepository for PgLibrary {
     fn read(&self, listener: ListenerId, request: ReadRequest) -> ReadFuture {
         let store = self.0.clone();
         Box::pin(async move {
-            let mut connection = store.connection().await.map_err(storage)?;
-            let tx = connection
-                .build_transaction()
-                .isolation_level(IsolationLevel::RepeatableRead)
-                .read_only(true)
-                .start()
-                .await
-                .map_err(database)?;
+            let connection = store.connection().await.map_err(storage)?;
+            let tx = connection.read().await.map_err(database)?;
             active(&tx, &listener, false).await?;
             let result = match request {
                 ReadRequest::Progress(id) => {
@@ -1041,9 +1033,6 @@ fn exact_presentation(
     }
     Ok(Some(metadata.clone()))
 }
-
-#[cfg(test)]
-mod tests;
 
 #[cfg(test)]
 mod presentation_tests {

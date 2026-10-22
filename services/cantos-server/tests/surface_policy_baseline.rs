@@ -8,11 +8,7 @@ use axum::{
     Router,
 };
 use cantos_contracts::web_api::WebSurface;
-use cantos_server::{
-    adapters::inbound::http::{api_router, with_browser_cors, AppState},
-    application::Store,
-    platform::postgres::local_config,
-};
+use cantos_server::adapters::inbound::http::{api_router, with_browser_cors, AppState};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -22,9 +18,8 @@ const THEATRE_ORIGIN: &str = "https://cantos.example";
 const SECRET: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 fn api(origin: &str) -> Router {
-    let config = local_config("postgresql://unused@127.0.0.1:9/unused").unwrap();
     api_router(AppState {
-        store: Store::new(config).unwrap().without_development_sessions(),
+        store: cantos_server::test_support::detached_store().without_development_sessions(),
         web_origin: origin.into(),
     })
 }
@@ -351,9 +346,8 @@ const ADMIN_ORIGIN: &str = "https://admin.cantos.example";
 /// The same canonical assembly used by the production executable. One shared application
 /// handle; the unreachable DB/absent issuers only support negative controls, never login.
 fn combined(admin: Option<&str>) -> Router {
-    let config = local_config("postgresql://unused@127.0.0.1:9/unused").unwrap();
     let state = AppState {
-        store: Store::new(config).unwrap().without_development_sessions(),
+        store: cantos_server::test_support::detached_store().without_development_sessions(),
         web_origin: STUDIO_ORIGIN.into(),
     };
     let origins =

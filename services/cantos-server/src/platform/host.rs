@@ -5,7 +5,7 @@
 //! contract: an explicit bind, separate exact HTTPS origins for each Web surface,
 //! no static serving, no development Studio credential and no development-only
 //! storage, trust or mail fixtures. PostgreSQL stays local (loopback or a Unix socket) in both
-//! modes; see [`crate::platform::postgres::local_config`].
+//! modes; see [`crate::platform::store::local_config`].
 use std::net::SocketAddr;
 
 /// Trusted browser origins, kept separate even when two development apps share an origin.
@@ -89,7 +89,6 @@ pub enum HostConfigError {
     ProductionOriginNotHttps,
     ProductionStaticFiles,
     ProductionDevelopmentAudioRoot,
-    ProductionPrivateIssuerTrust,
     SurfaceOriginsRequired,
     InvalidSurfaceOrigin,
     LegacySurfaceConfiguration,
@@ -114,11 +113,38 @@ impl HostConfigError {
             Self::ProductionDevelopmentAudioRoot => {
                 "production refuses the development CANTOS_AUDIO_ROOT; use CANTOS_STORAGE_CONFIG"
             }
-            Self::ProductionPrivateIssuerTrust => {
-                "production uses public issuer trust only; unset CANTOS_THEATRE_OIDC_CA_FILE"
-            }
         }
     }
+}
+
+/// Inputs of the retired provider-based authentication paths (Kanidm/OIDC, the legacy native
+/// public client, Firebase/SMTP registration). They configure nothing any more; a host that still
+/// receives one refuses to start rather than letting an operator believe the path is active.
+/// Identity v1 (`CANTOS_IDENTITY_*`) is the only session authority.
+const RETIRED_PROVIDER_INPUTS: &[&str] = &[
+    "CANTOS_STUDIO_OIDC_ISSUER",
+    "CANTOS_STUDIO_OIDC_SECRET",
+    "CANTOS_STUDIO_ADMIN_SUBJECTS",
+    "CANTOS_THEATRE_OIDC_ISSUER",
+    "CANTOS_THEATRE_OIDC_SECRET",
+    "CANTOS_THEATRE_OIDC_CA_FILE",
+    "CANTOS_THEATRE_NATIVE_ISSUER",
+    "CANTOS_THEATRE_NATIVE_DEVELOPMENT_CALLBACK",
+    "CANTOS_ADMIN_OIDC_ISSUER",
+    "CANTOS_ADMIN_OIDC_SECRET",
+];
+const RETIRED_PROVIDER_PREFIXES: &[&str] = &["CANTOS_THEATRE_REGISTRATION_"];
+
+/// The first name among `names` that configured a retired provider path, if any.
+pub fn retired_provider_input<S: AsRef<str>>(names: impl IntoIterator<Item = S>) -> Option<String> {
+    names.into_iter().find_map(|name| {
+        let name = name.as_ref();
+        (RETIRED_PROVIDER_INPUTS.contains(&name)
+            || RETIRED_PROVIDER_PREFIXES
+                .iter()
+                .any(|prefix| name.starts_with(prefix)))
+        .then(|| name.to_owned())
+    })
 }
 
 const DEVELOPMENT_BIND: &str = "127.0.0.1:8080";
@@ -191,9 +217,6 @@ pub fn host_settings(
             }
             if lookup("CANTOS_AUDIO_ROOT").is_some() {
                 return Err(HostConfigError::ProductionDevelopmentAudioRoot);
-            }
-            if lookup("CANTOS_THEATRE_OIDC_CA_FILE").is_some() {
-                return Err(HostConfigError::ProductionPrivateIssuerTrust);
             }
             Ok(HostSettings {
                 mode,
@@ -336,10 +359,6 @@ mod tests {
             production_with(("CANTOS_AUDIO_ROOT", "/var/lib/cantos/audio")),
             Err(HostConfigError::ProductionDevelopmentAudioRoot)
         );
-        assert_eq!(
-            production_with(("CANTOS_THEATRE_OIDC_CA_FILE", "/etc/cantos/ca.pem")),
-            Err(HostConfigError::ProductionPrivateIssuerTrust)
-        );
     }
 
     #[test]
@@ -391,6 +410,34 @@ mod tests {
                 ("CANTOS_THEATRE_WEB_ORIGIN", "null")
             ]),
             Err(HostConfigError::InvalidSurfaceOrigin)
+        );
+    }
+
+    #[test]
+    fn a_retired_provider_input_is_named_and_identity_inputs_are_not() {
+        for name in [
+            "CANTOS_STUDIO_OIDC_ISSUER",
+            "CANTOS_STUDIO_ADMIN_SUBJECTS",
+            "CANTOS_THEATRE_OIDC_CA_FILE",
+            "CANTOS_THEATRE_NATIVE_ISSUER",
+            "CANTOS_ADMIN_OIDC_SECRET",
+            "CANTOS_THEATRE_REGISTRATION_SMTP_HOST",
+            "CANTOS_THEATRE_REGISTRATION_ENABLED",
+        ] {
+            assert_eq!(
+                retired_provider_input(["PATH", name, "CANTOS_ENV"]),
+                Some(name.to_owned())
+            );
+        }
+        assert_eq!(
+            retired_provider_input([
+                "CANTOS_ENV",
+                "CANTOS_IDENTITY_SOCKET",
+                "CANTOS_IDENTITY_STUDIO_SUBJECTS",
+                "CANTOS_THEATRE_WEB_ORIGIN",
+                "CANTOS_STUDIO_WEB_ORIGIN",
+            ]),
+            None
         );
     }
 }
