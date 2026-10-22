@@ -1,7 +1,7 @@
 //! Route mounting/layers consume already assembled capabilities; no service construction.
 use super::{
-    admin, assembly::HttpServices, bearer, cors, errors::failure, identity_auth, policy, studio,
-    theatre, theatre_auth, theatre_library, theatre_native_auth, AppState,
+    admin, assembly::HttpServices, cors, errors::failure, identity_auth, policy, studio, theatre,
+    theatre_library, AppState,
 };
 use axum::{extract::DefaultBodyLimit, http::StatusCode, middleware, response::Response, Router};
 use cantos_contracts::{routes, ErrorCode};
@@ -19,8 +19,6 @@ pub(super) fn routes(
         library,
         authenticator,
         artwork,
-        theatre_web,
-        theatre_native,
     } = services;
     // Cloning the application handle shares the one pool and every configured capability.
     // Only the route's trusted browser origin changes; handlers cannot choose another surface.
@@ -45,10 +43,7 @@ pub(super) fn routes(
     };
     let scope = |app: Router<AppState>, state: AppState, surface| {
         let app = app.layer(middleware::from_fn_with_state(
-            policy::Boundary {
-                state: state.clone(),
-                surface,
-            },
+            state.clone(),
             policy::origin_and_cache,
         ));
         let app = if origins.is_some() {
@@ -74,19 +69,11 @@ pub(super) fn routes(
     );
     let theatre = scope(
         theatre::routes()
-            .merge(theatre_auth::routes(theatre_web))
-            .merge(theatre_native_auth::routes(theatre_native))
-            .merge(bearer::routes(
-                crate::platform::bearer::client::Client::TheatreWeb,
-            ))
-            .merge(bearer::routes(
-                crate::platform::bearer::client::Client::TheatreNative,
-            ))
             .merge(identity_auth::theatre_routes())
             .merge(theatre_library::routes())
             .layer(middleware::from_fn_with_state(
                 theatre_state.clone(),
-                theatre_auth::bff_identity,
+                identity_auth::bff_identity,
             )),
         theatre_state,
         policy::Surface::Theatre,

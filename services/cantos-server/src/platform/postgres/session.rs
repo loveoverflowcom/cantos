@@ -3,13 +3,15 @@
 use sha2::{Digest, Sha256};
 
 use super::{Store, StoreError, Tx};
-use crate::platform::{identity::domain::ActorId, studio_oidc::AuthError};
+use crate::platform::identity::domain::ActorId;
 
 pub fn token_hash(token: &str) -> Vec<u8> {
     Sha256::digest(token.as_bytes()).to_vec()
 }
 
 pub(crate) async fn session_token_registered(tx: &Tx<'_>, token: &str) -> Result<bool, StoreError> {
+    // `ca1_` belonged to the retired provider-bound family; the namespace stays reserved so a
+    // producer/capability token can never be minted in a retired credential's shape.
     if token.starts_with("ca1_") || token.starts_with("ci1_") {
         return Ok(true);
     }
@@ -27,24 +29,14 @@ pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, Sto
     if token.starts_with("ci1_") {
         return crate::platform::identity_auth::postgres::admit_studio(tx, token).await;
     }
-    if token.starts_with("ca1_") {
-        return crate::platform::bearer::postgres::admit_studio(tx, token).await;
-    }
     if token.len() != 64 || !token.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(StoreError::Unauthenticated);
     }
-    let row = tx.query_opt("SELECT a.id,coalesce(to_jsonb(s)->>'auth_kind','development') FROM sessions s JOIN actors a ON a.id=s.actor_id WHERE s.token_hash=$1 AND NOT s.revoked AND s.expires_at>clock_timestamp() AND a.active FOR SHARE OF s", &[&token_hash(token)]).await?;
+    // Only development tokens live in `sessions`; a row of any other `auth_kind` (the retired
+    // Studio OIDC sessions) is never admitted.
+    let row = tx.query_opt("SELECT a.id FROM sessions s JOIN actors a ON a.id=s.actor_id WHERE s.token_hash=$1 AND coalesce(to_jsonb(s)->>'auth_kind','development')='development' AND NOT s.revoked AND s.expires_at>clock_timestamp() AND a.active FOR SHARE OF s", &[&token_hash(token)]).await?;
     let row = row.ok_or(StoreError::Unauthenticated)?;
     let actor: String = row.get(0);
-    if row.get::<_, String>(1) == "studio_oidc" {
-        let active: Option<bool> = tx
-            .query_one("SELECT production_lock_actor($1)", &[&actor])
-            .await?
-            .get(0);
-        if active != Some(true) || tx.query_opt("SELECT token_hash FROM sessions WHERE token_hash=$1 AND NOT revoked AND expires_at>clock_timestamp()",&[&token_hash(token)]).await?.is_none() {
-            return Err(StoreError::Unauthenticated);
-        }
-    }
     ActorId::new(actor)
         .map(String::from)
         .map_err(|_| StoreError::CorruptRevision)
@@ -65,9 +57,6 @@ impl Store {
             return crate::platform::identity_auth::postgres::studio_session_id(self, token).await;
         }
         let client = self.connection().await?;
-        if token.starts_with("ca1_") {
-            return client.query_opt("SELECT f.id::text FROM bearer_tokens t JOIN bearer_families f ON f.id=t.family_id WHERE t.access_hash=$1 AND f.client_id='cantos-studio-web-bff'",&[&token_hash(token)]).await.map(|row|row.map(|r|r.get(0))).map_err(Into::into);
-        }
         let row = client
             .query_opt(
                 "SELECT to_jsonb(s)->>'session_id' FROM sessions s WHERE token_hash=$1",
@@ -94,54 +83,11 @@ impl Store {
                     _ => StoreError::Unauthenticated,
                 });
         }
-        if token.starts_with("ca1_") {
-            let service = self
-                .bearer(crate::platform::bearer::client::Client::Studio)
-                .ok_or(StoreError::Unauthenticated)?;
-            return service
-                .authenticate(self, token)
-                .await
-                .map(|view| view.actor_id)
-                .map_err(|error| match error {
-                    AuthError::Unavailable | AuthError::ProviderUnavailable => {
-                        StoreError::Unavailable
-                    }
-                    _ => StoreError::Unauthenticated,
-                });
-        }
-        if let Some(oidc) = self.studio_oidc() {
-            oidc.authenticate(self, token)
-                .await
-                .map_err(|error| match error {
-                    AuthError::ProviderUnavailable | AuthError::Unavailable => {
-                        StoreError::Unavailable
-                    }
-                    AuthError::Configuration
-                    | AuthError::InvalidMetadata
-                    | AuthError::InvalidToken
-                    | AuthError::Algorithm
-                    | AuthError::UnknownKey
-                    | AuthError::InvalidKey
-                    | AuthError::Signature
-                    | AuthError::Issuer
-                    | AuthError::Audience
-                    | AuthError::Expired
-                    | AuthError::NotYetValid
-                    | AuthError::Nonce
-                    | AuthError::Subject
-                    | AuthError::State
-                    | AuthError::Replay
-                    | AuthError::Inactive => StoreError::Unauthenticated,
-                })?;
-        }
-        if self.studio_oidc().is_none() && !self.development_sessions {
+        if !self.development_sessions {
             return Err(StoreError::Unauthenticated);
         }
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
-        if self.studio_oidc().is_none() && tx.query_opt("SELECT token_hash FROM sessions s WHERE token_hash=$1 AND coalesce(to_jsonb(s)->>'auth_kind','development')='development'",&[&token_hash(token)]).await?.is_none() {
-            return Err(StoreError::Unauthenticated);
-        }
         let actor = authenticate(&tx, token).await?;
         tx.commit().await?;
         Ok(actor)

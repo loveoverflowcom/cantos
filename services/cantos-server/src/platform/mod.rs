@@ -6,11 +6,7 @@ pub mod identity;
 pub mod identity_auth;
 pub mod ids;
 pub mod incremental;
-pub(crate) mod oidc;
 pub mod operator;
 pub mod postgres;
-pub mod studio_oidc;
-pub mod theatre_identity;
-pub mod theatre_registration;
 #[cfg(any(test, feature = "turso-candidate"))]
 pub mod turso;

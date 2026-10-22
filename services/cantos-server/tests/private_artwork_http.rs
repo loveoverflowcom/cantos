@@ -24,7 +24,6 @@ use cantos_server::{
     },
     platform::{
         postgres::{local_config, Store},
-        studio_oidc::{OidcConfig, StudioOidc},
     },
 };
 use http_body_util::BodyExt;
@@ -324,38 +323,21 @@ async fn shared_private_storage_mounts_artwork_in_every_production_constructor()
 
 #[tokio::test]
 async fn artwork_transport_fences_and_cookie_names_never_replace_current_studio_authentication() {
-    for secure_oidc in [false, true] {
+    // Only the development-token cookie name exists; the retired provider cookie name is never
+    // an alternative spelling, on an http or an https Studio origin.
+    for https_origin in [false, true] {
         let mut state = lazy_state();
-        if secure_oidc {
+        if https_origin {
             state.web_origin = "https://studio.example".into();
-            state.store = state.store.with_studio_oidc(
-                StudioOidc::new(
-                    OidcConfig::new(
-                        "https://identity.example/oauth2/openid/cantos-studio-web-bff",
-                        &state.web_origin,
-                        "synthetic-test-secret".into(),
-                    )
-                    .unwrap(),
-                )
-                .unwrap(),
-            );
         }
         let app = router_with_private_artwork(
             state.clone(),
             "/nonexistent-cantos-artwork-dist",
             ArtworkService::new(state.store.clone()),
         );
-        let expected_name = if secure_oidc {
-            "__Secure-cantos_studio"
-        } else {
-            "cantos_session"
-        };
-        let other_name = if secure_oidc {
-            "cantos_session"
-        } else {
-            "__Secure-cantos_studio"
-        };
-        // These failures occur before SQL or provider I/O. Accepted cookie extraction and
+        let expected_name = "cantos_session";
+        let other_name = "__Secure-cantos_studio";
+        // These failures occur before SQL or identity I/O. Accepted cookie extraction and
         // authenticated stale/duplicate fence 409s remain real-session acceptance cases.
         for (method, suffix) in artwork_routes() {
             for query in [

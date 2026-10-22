@@ -1,8 +1,11 @@
-//! Trusted registration-to-policy/admission mapping, outside the lifetime and credential cores.
+//! Trusted registration-to-policy mapping, outside the lifetime core.
 use super::core::SessionPolicy;
-use crate::platform::oidc::config::{
-    STUDIO_CLIENT_ID, THEATRE_NATIVE_CLIENT_ID, THEATRE_WEB_CLIENT_ID,
-};
+
+// Stable registration names of the three session purposes (Identity v1 tags its audit and
+// policy lookups with them); they name no external provider client.
+const STUDIO_CLIENT_ID: &str = "cantos-studio-web-bff";
+const THEATRE_WEB_CLIENT_ID: &str = "cantos-theatre-web-bff";
+const THEATRE_NATIVE_CLIENT_ID: &str = "cantos-theatre-native";
 
 // Checked at compile time; invalid server constants cannot fall back to another policy.
 const STUDIO_POLICY: SessionPolicy = match SessionPolicy::new(120, 300, 600) {
@@ -101,41 +104,6 @@ mod tests {
             ),
         ] {
             assert_eq!(issue(client.policy(), 100, 2000, 2000), Ok(expected));
-        }
-    }
-
-    #[test]
-    fn every_mismatched_registration_is_refused_before_provider_construction() {
-        use crate::platform::{
-            bearer::BearerIdentity,
-            oidc::{config::OidcConfig, core::AuthError},
-        };
-        for client in [Client::Studio, Client::TheatreWeb, Client::TheatreNative] {
-            for other in [Client::Studio, Client::TheatreWeb, Client::TheatreNative] {
-                if client == other {
-                    continue;
-                }
-                let config = match other {
-                    Client::Studio => OidcConfig::new(
-                        "https://id.example/oauth2/openid/cantos-studio-web-bff",
-                        "https://studio.example",
-                        "secret".into(),
-                    ),
-                    Client::TheatreWeb => OidcConfig::theatre_web(
-                        "https://id.example/oauth2/openid/cantos-theatre-web-bff",
-                        "https://theatre.example",
-                        "secret".into(),
-                    ),
-                    Client::TheatreNative => OidcConfig::theatre_native(
-                        "https://id.example/oauth2/openid/cantos-theatre-native",
-                    ),
-                }
-                .unwrap();
-                assert!(matches!(
-                    BearerIdentity::new(config, client),
-                    Err(AuthError::Configuration)
-                ));
-            }
         }
     }
 }

@@ -728,7 +728,8 @@ async fn logout_native(State(state): State<AppState>, headers: HeaderMap) -> Res
 
 /// What a Theatre account request presents, decided from headers alone.
 pub(super) enum TheatreCredential {
-    /// Nothing from this family: the provider-bound verifiers keep their own routing.
+    /// Nothing from this family. The request continues to the Library's listener port, which
+    /// admits nothing by default (a trusted host override may supply its own verifier).
     Absent,
     /// Mixed, duplicate, wrong-surface or wrong-kind: refused, never retried against another kind.
     Refused,
@@ -754,7 +755,7 @@ pub(super) fn theatre_credential(state: &AppState, headers: &HeaderMap) -> Theat
         .and_then(|value| value.strip_prefix("Bearer "))
         .filter(|value| value.starts_with("ci1_"));
     match (bearer, mine, wrong_spelling) {
-        // A provider-bound Authorization is the legacy verifiers' business.
+        // Any other Authorization is not an Identity credential; the listener port decides.
         (None, None, None) => TheatreCredential::Absent,
         (Some(token), None, None) => {
             if headers.get_all(header::AUTHORIZATION).iter().count() == 1
@@ -780,11 +781,59 @@ pub(super) fn theatre_credential(state: &AppState, headers: &HeaderMap) -> Theat
     }
 }
 
-/// The provider-bound Web session cookie; its coexistence with ours is an ambiguous request.
+/// The retired provider-bound Web session cookie; a browser still holding one beside ours is an
+/// ambiguous request and is refused, never retried against another credential kind.
 fn legacy_theatre_cookie(headers: &HeaderMap) -> bool {
     ["cantos_theatre", "__Secure-cantos_theatre"]
         .iter()
         .any(|name| unique_cookie(headers, name).map_or(true, |value| value.is_some()))
+}
+
+/// Theatre account routes (`/library/*`, `/progress/*`, `/operations/*`) admit only an Identity v1
+/// session: a mixed, duplicate, wrong-surface or wrong-kind credential is refused here and never
+/// retried against another verifier. A request without an Identity credential continues to the
+/// Library's listener port, which is [`DenyListenerAuthentication`](crate::contexts::listening::auth::DenyListenerAuthentication)
+/// unless a trusted host supplied its own.
+pub(super) async fn bff_identity(
+    State(state): State<AppState>,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let path = request.uri().path();
+    let account = path.starts_with("/library/")
+        || path.starts_with("/progress/")
+        || path.starts_with("/operations/");
+    if !account {
+        return next.run(request).await;
+    }
+    match theatre_credential(&state, request.headers()) {
+        TheatreCredential::Absent => next.run(request).await,
+        TheatreCredential::Refused => {
+            super::theatre_library::error(crate::contexts::listening::LibraryError::Unauthenticated)
+        }
+        TheatreCredential::Present(channel, token) => {
+            admit_theatre(state, request, next, channel, token).await
+        }
+    }
+}
+
+/// The client declares which nonsecret session owns its intent. The header grants no authority;
+/// it rejects a cookie/bearer account switch after dispatch, before any resource mutation.
+pub(super) fn session_fence_refusal(headers: &HeaderMap, actual: &str) -> Option<Response> {
+    let mut values = headers.get_all(THEATRE_FENCE).iter();
+    let value = values.next()?;
+    if values.next().is_some() || value.to_str().ok() != Some(actual) {
+        Some(stamp_session(
+            failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+            actual,
+        ))
+    } else {
+        None
+    }
+}
+
+fn stamp_session(response: Response, session: &str) -> Response {
+    stamped(response, Surface::Theatre, session)
 }
 
 /// Runs `next` as the account's listener while the session family and actor stay locked.
@@ -819,7 +868,7 @@ pub(super) async fn admit_theatre(
             .and_then(|v| v.to_str().ok())
             != Some(state.web_origin.as_str())
     {
-        // Same rule as the provider-bound Bearer: a supplied Origin must be this surface's.
+        // A supplied Origin must be this surface's, as for every Theatre mutation.
         return super::theatre_library::error(LibraryError::Unauthenticated);
     }
     let store = state.store.clone();
@@ -843,7 +892,7 @@ pub(super) async fn admit_theatre(
     let result = service
         .lease(&store, &token, channel, |record| async move {
             if let Some(response) =
-                super::theatre_auth::session_fence_refusal(request.headers(), &record.session_id)
+                session_fence_refusal(request.headers(), &record.session_id)
             {
                 return response;
             }
@@ -854,7 +903,7 @@ pub(super) async fn admit_theatre(
                     session_id: record.session_id.clone(),
                 });
             request.extensions_mut().insert(principal);
-            super::theatre_auth::stamp_session(next.run(request).await, &record.session_id)
+            stamp_session(next.run(request).await, &record.session_id)
         })
         .await;
     match result {

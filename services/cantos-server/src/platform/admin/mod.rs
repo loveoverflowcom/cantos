@@ -1,24 +1,35 @@
-//! Independent Admin capability: verify → current role observation → local policy → atomic audit.
-mod credential;
+//! Independent Admin capability: verify -> current role observation -> local policy -> atomic audit.
+//!
+//! Verification is a port ([`AdminVerifier`]) with **no composed implementation**: the former
+//! Kanidm/OIDC introspection adapter is retired and no native Admin credential exists yet. With
+//! no verifier in the [`Store`], every Admin route answers the route group's unavailable error.
+//! An Identity v1 password session, a Studio or a Theatre credential is never Admin authority.
 mod domain;
 mod postgres;
-mod provider;
 use crate::platform::postgres::Store;
 use cantos_contracts::admin::{CapabilityResponse, RevokeAccessResponse};
-pub use domain::{Action, AdminError, Role};
-pub use provider::AdminConfig;
-use provider::AdminProvider;
+pub use domain::{map_groups, Action, AdminError, Role, RoleEvidence};
+use std::{future::Future, pin::Pin, sync::Arc};
 use uuid::Uuid;
 
 pub const CLIENT_ID: &str = "cantos-admin-api";
+
+pub type VerifyFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<RoleEvidence, AdminError>> + Send + 'a>>;
+
+/// Turns one presented Admin credential into current, request-local [`RoleEvidence`], or refuses.
+/// Implementations must bind the credential to the dedicated Admin purpose and observe the
+/// role at verification time; they never mint evidence from a Studio/Theatre/Identity session.
+pub trait AdminVerifier: Send + Sync {
+    fn verify<'a>(&'a self, token: &'a str) -> VerifyFuture<'a>;
+}
+
 pub struct AdminService {
-    provider: AdminProvider,
+    verifier: Arc<dyn AdminVerifier>,
 }
 impl AdminService {
-    pub fn new(config: AdminConfig) -> Result<Self, AdminError> {
-        Ok(Self {
-            provider: AdminProvider::new(config)?,
-        })
+    pub fn new(verifier: Arc<dyn AdminVerifier>) -> Self {
+        Self { verifier }
     }
     pub async fn capabilities(
         &self,
@@ -77,7 +88,7 @@ impl AdminService {
         correlation: Uuid,
     ) -> Result<domain::RoleEvidence, AdminError> {
         let result = match token {
-            Some(t) => self.provider.authenticate(t).await,
+            Some(t) => self.verifier.verify(t).await,
             None => Err(AdminError::Credential),
         };
         match result {
@@ -106,13 +117,5 @@ impl Store {
         self.admin.as_deref()
     }
 }
-pub(super) fn now() -> Result<u64, AdminError> {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|n| n.as_secs())
-        .map_err(|_| AdminError::Unavailable)
-}
-#[cfg(test)]
-mod credential_tests;
 #[cfg(test)]
 mod tests;

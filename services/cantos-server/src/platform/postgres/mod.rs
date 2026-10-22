@@ -87,12 +87,7 @@ impl Store {
             pool,
             admin: None,
             media_storage: None,
-            studio_oidc: None,
-            theatre_identity: None,
-            theatre_native: None,
             identity_auth: None,
-            theatre_registration: None,
-            theatre_firebase_enrollment: None,
             development_sessions: true,
         })
     }

@@ -94,10 +94,7 @@ async fn outer_middleware_preserves_private_audio_policy_for_non_audio_responses
                 }),
             )
             .layer(middleware::from_fn_with_state(
-                super::policy::Boundary {
-                    state: state.clone(),
-                    surface: super::policy::Surface::Studio,
-                },
+                state.clone(),
                 origin_and_cache,
             ));
         for method in [axum::http::Method::GET, axum::http::Method::HEAD] {
@@ -140,10 +137,7 @@ async fn outer_middleware_does_not_trust_an_upstream_cacheable_policy() {
                 }),
             )
             .layer(middleware::from_fn_with_state(
-                super::policy::Boundary {
-                    state: state.clone(),
-                    surface: super::policy::Surface::Studio,
-                },
+                state.clone(),
                 origin_and_cache,
             ));
         let response = app
@@ -271,11 +265,6 @@ async fn production_host_offers_no_development_studio_credential() {
     // Every refusal precedes PostgreSQL: the unreachable pool proves no session lookup ran.
     let store = middleware_state().store.without_development_sessions();
     let app = api_router(production_state(store));
-    let get = |uri: &str| axum::http::Request::get(uri).body(Body::empty()).unwrap();
-
-    let (status, body) = send(&app, get("/api/v1/studio/auth/configuration")).await;
-    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-    assert!(body.contains("unavailable"), "{body}");
 
     let login = axum::http::Request::post("/api/v1/studio/session")
         .header(header::ORIGIN, "https://studio.cantos.example")
@@ -307,15 +296,45 @@ async fn production_host_offers_no_development_studio_credential() {
     );
 }
 
+/// Every route of the retired provider authentication (Kanidm/OIDC login and callback, the
+/// provider-bound Bearer family, the legacy native public client, Firebase/SMTP registration and
+/// the provider session views) is gone: a router that never configured any of them answers the
+/// surface's `not_found`, never an `unavailable`/`unauthenticated` that implies a mounted path.
 #[tokio::test]
-async fn development_host_keeps_reporting_the_token_mode() {
-    let app = router(middleware_state(), "unused-dist");
-    let request = axum::http::Request::get("/api/v1/studio/auth/configuration")
-        .body(Body::empty())
-        .unwrap();
-    let (status, body) = send(&app, request).await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("development"), "{body}");
+async fn retired_provider_authentication_routes_are_not_mounted() {
+    let app = api_router(production_state(middleware_state().store));
+    let origin = "https://studio.cantos.example";
+    for (method, path) in [
+        ("GET", "/api/v1/studio/auth/configuration"),
+        ("GET", "/api/v1/studio/auth/login"),
+        ("GET", "/api/v1/studio/auth/callback?state=s&code=c"),
+        ("POST", "/api/v1/studio/auth/bearer/flows"),
+        ("POST", "/api/v1/studio/auth/bearer/refresh"),
+        ("GET", "/api/v1/studio/auth/bearer/session"),
+        ("GET", "/api/v1/theatre/auth/configuration"),
+        ("GET", "/api/v1/theatre/auth/login"),
+        ("GET", "/api/v1/theatre/auth/callback?state=s&code=c"),
+        ("GET", "/api/v1/theatre/session"),
+        ("DELETE", "/api/v1/theatre/session"),
+        ("POST", "/api/v1/theatre/auth/bearer/flows"),
+        ("GET", "/api/v1/theatre/auth/registration/configuration"),
+        ("POST", "/api/v1/theatre/auth/registration/start"),
+        ("POST", "/api/v1/theatre/native/auth/flows"),
+        ("POST", "/api/v1/theatre/native/auth/bearer/flows"),
+        ("GET", "/api/v1/theatre/native/session"),
+        ("GET", "/api/v1/theatre/native/auth/registration/configuration"),
+    ] {
+        let request = axum::http::Request::builder()
+            .method(method)
+            .uri(path)
+            .header(header::ORIGIN, origin)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from("{}"))
+            .unwrap();
+        let (status, body) = send(&app, request).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {path}: {body}");
+        assert!(body.contains("not_found"), "{method} {path}: {body}");
+    }
 }
 
 #[tokio::test]

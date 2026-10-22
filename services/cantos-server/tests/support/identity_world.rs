@@ -14,7 +14,7 @@ use cantos_server::{
     platform::{
         identity_auth::{config::IdentityAuthConfig, decision::Subject, IdentityAuth},
         postgres::{local_config, migrate, Store},
-        theatre_registration::domain::PeerPolicy,
+        identity_auth::PeerPolicy,
     },
 };
 use http_body_util::BodyExt;
