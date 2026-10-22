@@ -2,7 +2,7 @@
 
 Initial inventory: prompt 2, local development persistence slice based on
 `ea8e1d98a31301b0d63dfa75d8e56450397b581d`. Inventory follows the
-[PostgreSQL read-performance skill](../../.agents/skills/cantos-engineering/references/postgresql-read-performance.md).
+[PostgreSQL read-performance skill](../../.agents/skills/cantos-engineering/references/turso-read-performance.md).
 The table records implemented semantics. Prompt 3 adds the
 [bounded measurement protocol](script-revision-benchmark-protocol.md) and
 [completed measurements/DBSP decision](script-revision-performance.md); measured evidence is
@@ -13,7 +13,7 @@ kept separately from the prompt-2 historical NOT_RUN record below.
 All query owners are [postgres.rs](../../services/cantos-server/src/contexts/editorial/postgres.rs); the
 [HTTP routes](../../services/cantos-server/src/adapters/inbound/http/router.rs), [migration](https://github.com/loveoverflowcom/cantos/blob/3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a/services/cantos-api/migrations/0001_script_revisions.sql),
 [wire contract](../../packages/contracts/studio-v1.md) and
-[real PostgreSQL suite](../../services/cantos-server/tests/revisions_postgres.rs) are immediate consumers.
+[real PostgreSQL suite](../../services/cantos-server/legacy-pg-tests/tests/revisions_postgres.rs) are immediate consumers.
 
 | Read / consumers | Query, parameters and permission scope | Cardinality / index / order | Feeding writes / time | Consistency and cost uncertainty |
 | --- | --- | --- | --- | --- |

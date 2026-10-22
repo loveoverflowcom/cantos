@@ -3,8 +3,8 @@
 > **Scope.** Design and verify durable ownership, transactions, constraints, optimistic
 > concurrency, immutable history, migrations and real-database tests. The owner-selected
 > [native Turso target](../../../../docs/architecture/native-turso-refactor.md) governs epic
-> #331. Current PostgreSQL source remains a migration baseline until its replacement is
-> implemented and accepted; this method update is not runtime evidence.
+> #331. The Server composes a Turso owner; business SQL/schema porting remains incomplete.
+> Retained PostgreSQL source is a migration oracle, never native acceptance.
 
 Read the owning context, current adapter, schema registry and contract before changing storage.
 For #331, the selected engine is local in-process Turso through the pinned Rust `turso` crate,
@@ -12,13 +12,14 @@ with one owner process/file per service. Do not substitute libSQL remote, Turso 
 or redb. Media bytes remain in approved private/object storage. Other tasks must follow their
 actual implemented storage/decision rather than assuming this refactor has already landed.
 
-The current `services/cantos-server/src/platform/postgres/migrations.rs` owns the PostgreSQL
-epoch/checksum policy. Inspect its current location after the service rename. Do not rewrite
-applied SQL/checksums, silently adopt an existing file/database or reset data to obtain a pass.
+The Server registry is `services/cantos-server/src/platform/turso/mod.rs`; Identity has its own
+registry. Retained `services/cantos-server/schema` SQL and `legacy-pg-tests` are historical porting
+inputs. The removed PG migrator is not a current owner. Do not rewrite registered SQL/checksums,
+silently adopt an existing file/database or reset data to obtain a pass.
 External upload recovery belongs to the [production owner](../../cantos-production-pipeline/references/durable-jobs.md);
 backend synthesis/provider jobs remain retired under ADR 0018.
 
-For reads or writes feeding a read model, load [read performance and DBSP](postgresql-read-performance.md).
+For reads or writes feeding a read model, load [Turso read performance](turso-read-performance.md).
 That reference owns baseline/optimization/evaluation evidence, not transactional correctness.
 
 ## The database is the second barrier, not the first

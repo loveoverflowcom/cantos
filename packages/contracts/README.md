@@ -1,11 +1,12 @@
 # Contracts
 
-[Cantos Bearer v1](bearer-v1.md) owns the #253 scoped opaque access/refresh API foundation and staged Web/CMP migration.
-
-[Identity auth v1](identity-auth-v1.md) owns the #335 email/password sign-in API (Web HttpOnly
-cookie, native Bearer, Studio roster, freshness and revocation numbers) built on the private
-[Identity RPC](identity-rpc-v1.md). It supersedes none of the provider-bound routes above, which
-remain until their separately accepted retirement.
+[Identity auth v1](identity-auth-v1.md) owns current email/password sign-in, Web HttpOnly
+cookies, CMP/native Bearer, exact freshness/revocation and Studio roster. Its private transport is
+[Identity RPC](identity-rpc-v1.md). [Bearer lifecycle](bearer-v1.md) preserves shared SessionPolicy,
+rotation/replay and native journal invariants; provider flow/callback/exchange routes are retired.
+The Server composes embedded Turso foundation/sessions; business SQL/schema porting and full
+HTTP/browser/device/restore acceptance remain incomplete. Old PG evidence below is historical,
+not today's native acceptance or a runnable PG/provider workflow.
 
 The [internal Identity security store v1](identity-security-store-v1.md) records the partial
 service-owned file schema, epoch/CAS/event/receipt behavior and real-file fixtures. It supplies
@@ -30,7 +31,7 @@ This directory owns versioned interchange descriptions and representative fixtur
 [Rust reader and semantic validator](../../services/cantos-server/src/script_ir/mod.rs), and
 [Vietnamese fixtures](fixtures/script-ir/0.1.0). This implements the contract part of
 [#1](https://github.com/loveoverflowcom/cantos/issues/1). The [Studio v1 contract](studio-v1.md)
-now serves the Axum/PostgreSQL store and Leptos consumer through shared raw Rust DTOs,
+serves the Axum store and Leptos consumer (native business port incomplete) through shared raw Rust DTOs,
 JSON Schema and serialized fixtures. API surfaces are separate URL spaces
 (`/api/v1/studio`, reserved `/api/v1/theatre` and `/api/v1/admin`, named in `api/src/routes.rs`);
 the crate root holds the Studio DTOs plus shared error types and `theatre`/`admin` hold future
@@ -309,16 +310,10 @@ records deferred browser/SQL/Native acceptance, measured costs and JSON rollback
 
 ## Theatre Identity
 
-[Theatre Identity v1](theatre-identity-v1.md) keeps Web cookie and native opaque bearer purposes
-separate. Native public-client flow/exchange/session DTOs share the strict
-[native schema](schemas/theatre-native-identity-v1.schema.json) and [nonsecret session fixture](fixtures/theatre-identity/v1/native-session.json).
-The public Web [configuration schema](schemas/theatre-auth-configuration-v1.schema.json)
-separately reports login configuration and registration readiness. Accepted Theatre self-registration
-remains unavailable with the current pinned Kanidm adapter; OIDC login is not registration capability.
-The provider bearer never reaches either client. Session UUID headers reject late account
-intents and correlate private responses; they are fences, never authentication evidence.
-Combined Theatre verification is pending; the Android host activation exception and actual
-Web/device/provider/secure-store acceptance remain separate from these implemented contracts.
+[Theatre provider identity v1](theatre-identity-v1.md) is retired history. Current mailbox proof,
+password and sessions follow [Identity v1](identity-auth-v1.md). Actor/purpose/origin isolation,
+explicit confirmation, replay/revocation and immutable receipts remain required; no retired
+provider model supplies native acceptance. Web/device/secure-storage journeys remain separate.
 
 The [Theatre client error presentation v1](client-error-presentation-v1.md) owns default origin,
 client taxonomy, modal lifetime and safe recovery semantics shared by Web/CMP.

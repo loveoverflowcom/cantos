@@ -36,7 +36,7 @@ Under recommended A, derive ownership only from current authenticated Listener a
 Treat entered name/email as unverified contact, never proof of identity or account ownership.
 The current [session contract](../../packages/contracts/theatre-identity-v1.md) supplies no
 name/email profile. Do not expand provider scopes or infer shared Web/native ownership from
-matching email: [explicit cross-client identity linking](../architecture/theatre-identity.md#decisions-and-critique-of-the-original-proposal)
+matching email: [explicit cross-client identity linking](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/architecture/theatre-identity.md#decisions-and-critique-of-the-original-proposal)
 remains separate. No interest submission or account signup grants media or paid access.
 
 ### Alternatives

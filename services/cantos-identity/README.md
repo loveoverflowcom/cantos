@@ -16,8 +16,9 @@ password path that ADR 0045 enabled.
   RPC boundary and the executable (see [Verification](#verification) for exactly what ran).
 * Not implemented: Studio provisioning, passkey and recovery codes; credential recovery,
   change-password, second factors, disable/re-enable RPC; restore epoch rotation; the security-event
-  consumer; every front end (#335); network mode. The Server consumer (private client, fresh
-  security-state reads, sessions and ActorId binding on PostgreSQL) is the
+  consumer; network mode. First-party Web/CMP consumers exist, with browser/device acceptance
+  separate. The Server consumer (private client, fresh security-state reads, sessions and ActorId
+  binding on Turso) is the
   [Identity auth v1 contract](../../packages/contracts/identity-auth-v1.md).
 * The end point is an **authentication fact** of Identity. It is neither an application session nor
   authorization of any resource. See the [RPC contract](../../packages/contracts/identity-rpc-v1.md).

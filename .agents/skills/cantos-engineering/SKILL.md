@@ -4,7 +4,7 @@ description: >-
   Engineering foundation for Cantos (Rust, Axum, Leptos, Compose Multiplatform).
   Invariant-first workflow, decoupled module boundaries, immutable values and revisions, types
   as proof barriers, functional core with imperative shell, clean readable syntax,
-  layered verification and progressive delivery, persistence and conditional DBSP evaluation,
+  layered verification and progressive delivery, persistence and measured Turso read optimization,
   native Turso/identity refactoring with legacy PostgreSQL boundaries, structured runtime events,
   one evidence vocabulary and a mandatory residual-risk report. Use for any domain, backend,
   persistence, contract, test, refactoring or verification change.
@@ -19,8 +19,9 @@ Every Cantos skill composes its order, vocabulary and report without redefining 
 
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product/architecture doc,
   work item and touched code. Product rules live in [`docs/`](../../../docs/README.md); link, never duplicate them.
-- **Repository reality.** Script IR, Axum/PostgreSQL editorial/catalog/content/brief and private
-  audio lifecycle slices, and Leptos Studio exist at the native-refactor baseline. Read the current
+- **Repository reality.** Script IR, editorial/catalog/content/brief and private audio cores,
+  native Server/Identity foundation and Leptos Studio exist. Business SQL/schema porting is
+  incomplete; opening embedded Turso is not business HTTP acceptance. Read the current
   [platform implementation map](../../../docs/architecture/repository-layout.md#platform-scope)
   and actual source for Theatre Web/CMP owners and their separate runtime acceptance; a preview never supplies it.
   API TTS/workers were removed under [ADR 0018](../../../docs/decisions/0018-external-audio-production.md).
@@ -43,7 +44,7 @@ Every Cantos skill composes its order, vocabulary and report without redefining 
 For #331 read the owning [architecture](../../../docs/architecture/native-turso-refactor.md),
 then [persistence](references/persistence.md), [service runtime](references/service-runtime.md),
 [identity/session boundaries](references/identity-and-session-boundaries.md) and
-[read performance/DBSP](references/postgresql-read-performance.md) as each boundary is touched.
+[Turso read performance](references/turso-read-performance.md) as each boundary is touched.
 Read only the boundary being changed. The [v1 owner amendment](../../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
 owns factor scope, transitional integration and security-state choices. These references qualify
 the pinned engine, file ownership, private RPC, revocation and measurable resource claims.
@@ -78,14 +79,12 @@ defer infrastructure acceptance and report exact evidence and residual risk.
 ### Database-backed GET, read and fetch work
 
 Before changing a database-backed read/query or a write feeding a read model, load
-[database read performance and DBSP evaluation](references/postgresql-read-performance.md).
-It owns inventory, actual authoritative-engine baseline, simpler optimization comparison, DBSP fit,
+[Turso SQL/index/cache measurement](references/turso-read-performance.md).
+It owns inventory, actual authoritative-engine baseline, SQL/index comparison, selective cache,
 differential/failure checks, benchmark record and acceptance. Turso is the selected #331 target;
-PostgreSQL remains an explicit legacy baseline until migration acceptance. Adopt incremental views
-only when measured benefit and semantics justify them; prioritize hot paths.
-Mutations need a separate overhead/consistency decision. The generic optional DBSP library remains;
-its [old job-summary adapter](../../../docs/decisions/0017-experimental-dbsp-job-summary.md)
-is historical/retired, not a current production-adoption candidate.
+PostgreSQL remains an explicit legacy baseline until migration acceptance. Incremental engines remain DEFER under #384; prioritize measured hot paths.
+Mutations retain atomicity and admission/revocation rechecks. DBSP code/feature/gate are retired;
+[ADR 0017](../../../docs/decisions/0017-experimental-dbsp-job-summary.md) preserves historical reasoning.
 
 ## 1. Name the invariant before writing code
 
@@ -265,7 +264,7 @@ A report must state actionable residual risk.
 | Turso/legacy PostgreSQL transactions, file ownership, constraints, concurrency, migrations and real database tests | [`persistence.md`](references/persistence.md) |
 | native processes, UDS/files, supervisors, no-container acceptance or explicit legacy runtime operations | [`service-runtime.md`](references/service-runtime.md) |
 | v1 authentication, mailbox proof, deferred factors/recovery, private RPC, session/revocation boundaries | [`identity-and-session-boundaries.md`](references/identity-and-session-boundaries.md) |
-| database-backed GET/read/fetch, hot queries, indexes, DBSP incremental views, committed feeds, read-model invalidation or performance acceptance | [`postgresql-read-performance.md`](references/postgresql-read-performance.md) |
+| database-backed GET/read/fetch, hot queries, indexes, selective cache, read-model invalidation or performance acceptance | [`turso-read-performance.md`](references/turso-read-performance.md) |
 | Axum handlers, DTOs, error mapping, authorization and client contracts | [`http-api-boundary.md`](references/http-api-boundary.md) |
 | JSON/versioned Protobuf or legacy MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, wire goldens, codec benchmarks, extending the codec to Theatre or CMP | [`wire-codec.md`](references/wire-codec.md) |
 | naming, function shape, errors, comments, Rust/Kotlin/Leptos style | [`clean-code.md`](references/clean-code.md) |

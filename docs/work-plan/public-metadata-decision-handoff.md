@@ -152,7 +152,7 @@ and season rows need their own applicable decisions only when their slices are s
    cross-page snapshot; document insertion/removal/replacement behavior honestly.
 5. **Bounded PostgreSQL work:** apply selected-representative filters before limit, avoid
    duplicate Works for multi-genre joins, and retain batched metadata admission. Follow the
-   [read-performance owner](../../.agents/skills/cantos-engineering/references/postgresql-read-performance.md)
+   [read-performance owner](../../.agents/skills/cantos-engineering/references/turso-read-performance.md)
    before choosing indexes, scanning JSON, DBSP or another endpoint. Measure eligible and
    ineligible high-cardinality data, query/label length and selection count. No unbounded LIKE,
    per-item metadata/grant lookup or full-catalog facet count without a measured accepted bound.

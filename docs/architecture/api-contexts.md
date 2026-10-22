@@ -190,7 +190,7 @@ handlers or invent implemented route claims from proposal documents. Shared DTOs
 conditional revisions and durable operation receipts; Media continues to own public eligibility,
 publication and playback delivery. Its [v1 contract](../../packages/contracts/listener-library-v1.md)
 and [consumer handoff](../work-plan/listener-library-progress-handoff.md) define separate bearer
-identity with default-deny composition and PostgreSQL authority. The separate
+identity with default-deny composition and Server-owned Turso authority (business port incomplete). The separate
 [Platform identity registry](identity-registry.md) binds external identities but supplies no
 listener credential verification or authority from a Studio session.
 Catalog/Media exports provide owned transaction fences and bounded eligibility batches; Listening
@@ -198,7 +198,7 @@ never reads their private tables directly. HTTP can compose the service/auth por
 syntax and map typed errors, but cannot mint principals or run domain reconciliation.
 
 The architecture checker names this context/dependency direction and admits only the two host
-composition imports in its test-only PostgreSQL regression module. That module reuses the canonical
+composition imports in its historical PostgreSQL regression module. The retained oracle reuses the canonical
 publication fixture to test sealed synthetic principals without a production mock-auth feature.
 This narrow test seam does not admit interface calls from production Listening adapters.
 
@@ -230,6 +230,6 @@ aliases temporarily. Deleted provider/`tts`/`worker` legacy library reexports in
 have no replacement: callers should integrate the external-audio API, not vendor SDKs.
 
 Use `cargo xtask verify repository`, `verify rust`, `verify contracts`,
-`verify postgres` and `preflight --changed-only`. Tests of old TTS dispatch are removed
+`verify turso` and final-diff `preflight --changed-only --base "$BASE_SHA"`. Tests of old TTS dispatch are removed
 with the retired runtime; write new tests for upload replay, ownership, byte integrity,
 stale-brief decisions and publication instead.

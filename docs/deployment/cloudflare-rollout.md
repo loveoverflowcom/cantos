@@ -50,7 +50,7 @@ evidence in any shared report, and record observation time and operator/source f
 | Cloudflare | Actual account/zone/project IDs, Direct Upload versus Git integration, selected provider, production branch, custom-domain associations, current and retained successful production deployment IDs, returned deployment URLs, effective token permissions, limits and installed/pinned tools. Do not infer availability, project names or `pages.dev` URLs. |
 | Firebase | Actual project/site IDs, exact current releases/version IDs and custom-domain bindings, retained release bytes/config, recovery access and retention. `cantos-a348b` / `cantoss-theatre` / `cantoss-studio` are prior source references to recheck, not an account discovery result. |
 | DNS/TLS | Current authoritative zone and registrar (not assumed Spaceship), delegation/TTL, DNSSEC/DS, CAA, certificate state, all A/AAAA/CNAME/MX/TXT/verification records and any API/mail/identity ingress. A nameserver move is not a registrar transfer. Review the complete snapshot before editing any record. |
-| VPS | Installed image digest/revision, CPU/OS, schema epoch and migration registry, origin/callback/gateway settings, health and retained backup/image/host-bundle/config recovery evidence. Use the [read-only status lane](vps-production.md#read-only-inventory) only for the explicitly named host; do not run a login/exchange/refresh as a route probe. |
+| VPS | Installed image digest/revision, CPU/OS, schema epoch and migration registry, origin/callback/gateway settings, health and retained backup/image/host-bundle/config recovery evidence. Use the [read-only status lane](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#read-only-inventory) only for the explicitly named host; do not run a login/exchange/refresh as a route probe. |
 
 Do not export secret values, bearer/refresh credentials, mailbox action codes, personal emails,
 signed URLs or private content. A sanitized evidence file may list nonsecret remote IDs and
@@ -90,7 +90,7 @@ processing as successful rollout. A zero-job pipeline or missing terminal receip
    separately requested, require #277's same-source image/host bundle, architecture/schema
    checks, backup/grants/health and recovery protocol; the VPS does not compile. Schema prefix
    refusal is a real blocker, not permission to migrate/restore by hand. The existing
-   [configuration-only reload lane](vps-production.md#selected-custom-domains) requires its own
+   [configuration-only reload lane](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#selected-custom-domains) requires its own
    named-host permission; origin correction never implies bootstrap, SQL or identity changes.
 6. **Rehearse recovery, then cut over one surface.** Qualify the three recovery boundaries
    below with pinned IDs/hashes and operator access. Review TLS/static/API readiness before

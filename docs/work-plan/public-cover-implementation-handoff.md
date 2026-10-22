@@ -63,7 +63,7 @@ hazard but supplies no accepted Theatre Protobuf field numbers or cover DTO.
    must not suppress an otherwise eligible title or playable release.
 4. Add the reviewed disclosure persistence and bounded read path, with additive migrations
    only where needed. Before changing reads, follow the
-   [PostgreSQL read workflow](../../.agents/skills/cantos-engineering/references/postgresql-read-performance.md):
+   [PostgreSQL read workflow](../../.agents/skills/cantos-engineering/references/turso-read-performance.md):
    inventory list/search/detail, retain representative-first filtering and opaque keysets,
    compare query counts/plans and avoid per-item artwork queries. No measured need for DBSP
    or another storage service is established here.

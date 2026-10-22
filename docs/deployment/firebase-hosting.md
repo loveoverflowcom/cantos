@@ -343,7 +343,7 @@ working operator mapping and Caddy upstreams until the following gates pass.
    login, catalog or playback on a raw Firebase URL.
 4. For the selected direct-Hosting topology, separately review the new exact Web origins,
    per-surface API CORS, fixed Web return origins and API-host OIDC callbacks through the
-   [production configuration procedure](vps-production.md#direct-hosting--api-configuration).
+   [production configuration procedure](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#direct-hosting--api-configuration).
    Supply the required HTTPS `CANTOS_API_ORIGIN` during each app's build/deploy. Preserve
    host-only Strict session cookies and existing CSRF checks. A shorter `web.app` URL still
    requires a separately declared preview auth policy and gateway/browser acceptance before authenticated use; a static

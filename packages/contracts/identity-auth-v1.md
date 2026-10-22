@@ -1,13 +1,13 @@
 # Identity auth v1 — email/password sessions (#335 backend slice)
 
-Status: **implemented in the Server on PostgreSQL**, verified against the real `cantos-identity`
-executable and a disposable PostgreSQL schema (see [Verification](#verification)). No frontend,
-browser, device, live-SMTP or production acceptance exists. Rust DTOs:
-[`cantos_contracts::identity_auth`](api/src/identity_auth.rs) plus the existing
-[`bearer::{Session, TokenPair, RefreshRequest}`](api/src/bearer.rs); JSON Schema:
-[identity-auth-v1.schema.json](schemas/identity-auth-v1.schema.json). Parent:
-[#334](https://github.com/loveoverflowcom/cantos/issues/334)/[#335](https://github.com/loveoverflowcom/cantos/issues/335),
-coordinated with #333 (Turso Server) and #295 (Web cookies).
+Status: **implemented native session foundation over Server-owned Turso**. The Server reaches
+Identity through authenticated private RPC and consumes fresh facts. Web cookie and CMP/native
+Bearer consumers exist. Production two-binary HTTP, browser/device, live SMTP and deployed
+acceptance remain separate; business porting is incomplete. Previous PostgreSQL journey results
+in [Verification](#verification) are historical, not native HTTP acceptance.
+Rust DTOs: [`identity_auth`](api/src/identity_auth.rs), [`bearer`](api/src/bearer.rs);
+JSON Schema: [identity-auth-v1.schema.json](schemas/identity-auth-v1.schema.json).
+Parents #334/#335, Server port #333 and Web cookies #295.
 
 ## Owner decision recorded here (v1 scope amendment)
 
@@ -15,7 +15,7 @@ coordinated with #333 (Turso Server) and #295 (Web cookies).
 | --- | --- |
 | Email + password with mailbox verification | The only sign-in method in v1, for Theatre **and** Studio. |
 | Studio uses a password, with a Server roster | `Purpose::Studio` + `Assurance::Password` is accepted by Identity. The Server separately requires the exact Identity subject to be on the Studio roster. Login never grants Studio, Admin, producer or membership authority. |
-| Deferred, **not done** | Passkey/WebAuthn, MFA and recovery codes (D3), credential recovery, change-password, phone, Google login, Studio operator provisioning, security-event consumer, retirement of the provider (Kanidm/Firebase) endpoints, the `cargo xtask run` two-process lane, browser/CMP/device acceptance, Kani on the D1 runner. The checklist items of #335 that these cover stay open. |
+| Deferred, **not done** | Passkey/WebAuthn, MFA and recovery codes (D3), credential recovery, change-password, phone, Google login, Studio operator provisioning, security-event consumer, browser/CMP/device acceptance and Kani on the D1 runner. Provider endpoints are removed and the native two-process run lane exists; neither establishes full acceptance. The checklist items of #335 that these cover stay open. |
 | No new session engine | Lifetimes, rotation and replay are the existing [`SessionPolicy` and rotation core](../../services/cantos-server/src/platform/bearer/core.rs); TTLs and the opaque-secret model are unchanged. |
 
 ## Who owns what
@@ -204,7 +204,7 @@ configured Web origin.
 
 ## Storage invariants and #333 hand-off
 
-Migration [`0004_identity_sessions.sql`](../../services/cantos-server/schema/0004_identity_sessions.sql)
+Historical migration [`0004_identity_sessions.sql`](../../services/cantos-server/schema/0004_identity_sessions.sql)
 (additive; registry `[1,2,3]` → `[1,2,3,4]`, prefix lane required in production) adds
 `identity_sessions`, `identity_session_tokens` and `identity_session_register()`. They are **server
 business data**, classified `server` in the
@@ -220,9 +220,9 @@ business data**, classified `server` in the
 4. Only digests of secrets are stored; no secret appears in any log or reply except at issue.
 5. Actor binding is idempotent per exact subject, serialized with the operator registry lock;
    email is never an identity key.
-6. Conformance for #333 is the PostgreSQL suites `identity_password_postgres`,
+6. Historical porting oracles for #333 are the archived PostgreSQL suites `identity_password_postgres`,
    `identity_password_facts_postgres` and `schema_postgres`; a Turso port must keep each assertion.
-7. The uncomposed Turso candidate ([mapping](../../docs/architecture/server-turso-schema.md#identity-session-mapping))
+7. The composed Turso foundation ([mapping](../../docs/architecture/server-turso-schema.md#identity-session-mapping))
    implements the same `SessionStore` port behind the unchanged orchestration and keeps invariants
    1–5 in its schema and file-backed tests, adding a bound-actor guard, live-session token issue
    and no-delete/no-replace guards. It does **not** yet keep every assertion of those suites:
@@ -233,12 +233,15 @@ business data**, classified `server` in the
      for every security change and an unknown subject, no resurrection, a change between fact and
      issue cutting nothing, concurrent first logins binding one actor, renewal racing logout, a
      slow Identity failing closed without revoking;
-   - still PostgreSQL-only: every HTTP assertion (status projection, cookies, Origin/CSRF, the
+   - retained PostgreSQL HTTP oracles awaiting native acceptance: every HTTP assertion (status projection, cookies, Origin/CSRF, the
      409 session fence, the admission lease under dispatch), operator-bound actor reuse, the
      Studio cookie name and legacy logout cases, a subject disabled in the real Identity file, and
      the runtime-role privilege test (Turso has no roles; its schema guards are tested instead).
 
 ## Verification
+
+The following records the original PostgreSQL slice; it is historical executed evidence, not
+today's Turso HTTP acceptance. See the foundation mapping and each PR for its exact source.
 
 See the PR description for the exact commands and the NOT_RUN list. In short: pure decisions,
 credential syntax, DTOs and gates are unit/example-tested; the journeys are

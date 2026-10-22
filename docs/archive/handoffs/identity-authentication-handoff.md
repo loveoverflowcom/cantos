@@ -73,7 +73,7 @@ Studio adds migration0025 after0020 for independently reviewed issuance and brow
 PR2 implements [Studio OIDC](../../architecture/studio-oidc.md), with exact client
 `cantos-studio-web-bff`, current-only login/callback routes, private verifier witness, durable
 consume-before-exchange and hashed PostgreSQL sessions. It does not enable a production host.
-[Evidence](../../evidence/studio-oidc.md) and [operator policy](../../../services/kanidm/README.md) distinguish
+[Evidence](../../evidence/studio-oidc.md) and [operator policy](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/services/kanidm/README.md) distinguish
 mocked HTTP/actual crypto and PostgreSQL from NOT_RUN live Kanidm/browser/TLS gates. New migration
 is **0020_studio_oidc.sql**; Library/Progress retains0019. Discovery PR93 @
 `b07ab14e5ec52ebc711ea272dfa2bcb61c09fdfd` owns0017 and is not inherited by this branch.

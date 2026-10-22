@@ -329,7 +329,7 @@ state.
 [fault-injection-testing](../../cantos-production-pipeline/references/fault-injection-testing.md).
 
 For database-backed read/query/index changes, DBSP/CDC or dependent writes, load the foundation's
-[read-performance acceptance checklist](../../cantos-engineering/references/postgresql-read-performance.md#review-and-acceptance).
+[read-performance acceptance checklist](../../cantos-engineering/references/turso-read-performance.md#review-and-acceptance).
 Check actual query/test paths, oracle alignment and benchmark provenance; a skill edit alone
 supplies no database correctness or performance evidence.
 

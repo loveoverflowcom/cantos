@@ -56,12 +56,12 @@ side in the same change when it is in scope.
 
 Cantos implements Script IR, authenticated revisions, Studio and Theatre Web/CMP owners;
 inspect [the API guide](../../services/cantos-server/README.md),
-[contracts](../../packages/contracts/README.md) and code. PostgreSQL is the current Server
-authority; the selected replacement and v1 auth scope live in the
+[contracts](../../packages/contracts/README.md) and code. Server and Identity compose separate embedded Turso owners; business porting remains incomplete.
+The current decision and v1 auth scope live in the
 [native architecture amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration).
 The layout is `apps/cantos-theatre/{web,mobile}` (Theatre) and
 `apps/cantos-studio/web` (Studio), the authoritative modular backend in `services/cantos-server`,
-current Forge code in `services/cantos-forge-functions`, Kanidm configuration in `services/kanidm` and shared
+current Forge code in `services/cantos-forge-functions`, native Identity in `services/cantos-identity` and shared
 `packages/`. Deployment/runtime assets live under [`infra/`](../../infra/README.md); `xtask/`
 owns command orchestration, not those assets. The #212 split adds no runtime; #203 relocates the existing Forge crate without changing its
 `cantos-forge` package/CLI identity. Functions hosting and live-provider acceptance are separate. Read the
@@ -104,7 +104,7 @@ Passing it proves skill hygiene only.
 | when to run checks, checkpoint/handoff scope, repeated preflight or evidence reuse | [`cantos-engineering`](cantos-engineering/SKILL.md), then [verification cadence](cantos-engineering/references/verification-cadence.md) |
 | typed functional errors, refinement-preserving composition, cancellation, retry and boundary translation | [`cantos-engineering`](cantos-engineering/SKILL.md), then [typed errors and composition](cantos-engineering/references/typed-errors-and-composition.md); add the CMP/Web application reference only for that platform |
 | Kani for a selected high-risk pure Rust kernel, assumptions, bounds, cover and actual verification evidence | foundation [mutation/formal reference](cantos-engineering/references/mutation-and-formal.md#bounded-model-checking); no backend-wide or Kotlin UI mandate |
-| database-backed GET/read/fetch performance, DBSP evaluation, or writes feeding read models | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [read-performance workflow](cantos-engineering/references/postgresql-read-performance.md); add the domain owner |
+| database-backed GET/read/fetch performance, SQL/index/cache measurement, or writes feeding read models | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [read-performance workflow](cantos-engineering/references/turso-read-performance.md); add the domain owner |
 | JSON/versioned Protobuf or legacy MessagePack, negotiation, client codec switches or benchmarks | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [wire codec reference](cantos-engineering/references/wire-codec.md); add the renderer skill for client code |
 | v1 auth scope, Identity/Server integration, direct security-state checks or deferred factors | foundation [identity/session method](cantos-engineering/references/identity-and-session-boundaries.md), starting with the linked owning amendment; inspect actual source before claiming implementation |
 | Web auth transport, cookie/CSRF, fetch/XHR and restore | [`cantos-leptos-web`](cantos-leptos-web/SKILL.md), then [Web auth migration](cantos-leptos-web/references/web-architecture.md#web-authentication-migration) |

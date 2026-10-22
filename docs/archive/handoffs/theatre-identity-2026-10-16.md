@@ -50,7 +50,7 @@ acceptance is missing; do not close #174/#191 from fixture/build results. Accoun
 membership, provider/credential-format changes and dedicated Admin roles remain outside this
 policy decision.
 
-The [operator runbook](../../../services/kanidm/README.md#theatre-registration-activation-runbook--approval-required-before-execution)
+The [operator runbook](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/services/kanidm/README.md#theatre-registration-activation-runbook--approval-required-before-execution)
 records the review sequence, secret-delivery boundary and real-inbox/session acceptance. No
 live resource is provisioned by these docs. A positively accepted SMTP transaction is separate
 from actual delivery, credential completion and server-confirmed authentication; native device

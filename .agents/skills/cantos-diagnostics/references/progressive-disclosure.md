@@ -99,9 +99,9 @@ cargo test -p cantos-server --lib contexts::catalog::storage::tests::work_restor
 cargo test -p cantos-server --test brief_domain prose_and_recording_require_no_script_cast_or_provider -- --exact
 ```
 
-PostgreSQL-backed targets (`*_postgres`) are `#[ignore]`d and need the disposable cluster the
-`postgres` gate creates; rerun them through `cargo xtask verify postgres`, not against an
-inherited database.
+Retained `legacy-pg-tests` are historical porting oracles outside Cargo discovery. The old
+`postgres` gate refuses. Run only implemented native/file-backed targets; report an unported
+assertion as a #333/#335 gap, never substitute an inherited DB or a mock success.
 
 A focused primitive run probes a step that xtask already owns; it is not a new entrypoint, and
 the gate's final status still comes from xtask. Zero selected tests (`running 0 tests`) is a
@@ -126,7 +126,7 @@ Raise detail for the suspect scope, per command, and capture to the run record:
 |---|---|
 | panic location and call chain | `RUST_BACKTRACE=1` (or `full`) on the one test command |
 | test output or ordering | `-- --exact --nocapture --test-threads=1` on the one test |
-| database state after a PostgreSQL gate failure | `cargo xtask verify postgres --keep`, read that cluster's `postgres.log`, then stop the cluster with the command the runner prints |
+| state after a native file-backed test failure | Retain the exact run-owned fixture/log and inspect its owner receipt; never open a live file through a second owner or delete DB/WAL/media |
 | Gradle task failure | rerun that task's primitive with `--stacktrace`, or `--info` for configuration |
 | a branch, effect order or timing inside the shell | [marked temporary instrumentation](failure-triage.md#5-temporary-instrumentation) on the suspect path only |
 | module-scoped log levels | **proposed** once `tracing` is adopted: `RUST_LOG=warn,cantos_server::contexts::media=debug` with JSON output; not available today |

@@ -21,7 +21,7 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 | Identity | [Studio OIDC](studio-oidc.md), [Theatre activation](theatre-auth-activation.md), [Theatre identity](theatre-identity.md), [Firebase runtime](firebase-enrollment-runtime.md), [Theatre live sign-in](theatre-live-auth-206.md); live mail/provider/device gates stay explicit |
 | CMP registration preview | [#296 shared enrollment](issue296-cmp-enrollment.md); JVM protocol fixtures and native build evidence remain separate from the isolated complete signup journey and device acceptance |
 | Behavior | [Quint foundation](quint-behavior-foundation.md), [pure-core observations](quint-code-conformance.md); draft model PASS is not accepted behavior or DB/API/client conformance |
-| Optional incremental platform | [DBSP review](dbsp-platform-review.md); current grouped-count core and forward-only legacy capture retirement, with future-consumer and production gates kept separate |
+| Historical incremental platform | [DBSP review](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/evidence/dbsp-platform-review.md); retired grouped-count/capture experiment, retained by pinned history for provenance; #384 defers incremental engines and current read work follows SQL/index first |
 | Embedded Turso engine | [Capability report](turso-capability-report.md); probes of the pinned engine on named hosts and filesystems, recorded hazards with their mitigations, dependency review and what remains `NOT_RUN` (macOS, true `ENOSPC`, footprint). Not a schema or a durability claim |
 | Develop consistency | [Eight-commit review](develop-eight-commit-review-20261016.md); pinned merge-aware scope, receipt-wait expiry repair and independently reported local gates |
 | Theatre Web keyed rows | [#359 membership/content separation](theatre-keyed-rows-359.md); scoped host, browser identity/focus and separate reactive/DOM counters, with browser reorder and performance acceptance explicit |
@@ -35,7 +35,7 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 [ADR 0018](../decisions/0018-external-audio-production.md) supersedes backend TTS/provider/job
 execution. Retained [eSpeak](tts-receipt-inspection.md), [provider prerequisites](tts-provider-prerequisites.md),
 [Google adapter](google-tts-adapter.md), [neural research](local-neural-tts-research.md),
-[neural samples](local-neural-tts.md) and [DBSP job summary](dbsp-job-summary.md) describe
+[neural samples](local-neural-tts.md) and [DBSP job summary](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/evidence/dbsp-job-summary.md) describe
 the original experiments. They do not authorize restoring a worker or claim a live provider.
 Forge's producer-side work is independently scoped by #203.
 

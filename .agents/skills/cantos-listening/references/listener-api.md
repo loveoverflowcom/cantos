@@ -56,7 +56,7 @@ signature, so it stays cacheable and loggable.
 ## Read performance
 
 For the database-backed reads in the resource map, use the foundation's
-[PostgreSQL/DBSP workflow](../../cantos-engineering/references/postgresql-read-performance.md).
+[Turso read workflow](../../cantos-engineering/references/turso-read-performance.md).
 Keep the visibility matrix, cursor law, no-production-work test and backend access checks below
 as acceptance oracles for every serving path, including fallback.
 
@@ -400,10 +400,10 @@ A code comment saying "this never triggers TTS" is `documented`; only the test i
    (`cargo test -p cantos-server --lib contexts::listening`, plus the `--doc` compile-fail barriers).
 2. Fixtures decoded and re-encoded by Rust wire types (`cargo xtask verify contracts`); Kotlin
    and regenerate-and-diff are proposed.
-3. Handler tests against real PostgreSQL: visibility matrix, denials, exact code and status,
-   duplicate replay, key reuse, pagination law. The Library's real-database tests are
-   `#[ignore]`d in `listening/postgres/tests.rs` and run only in `cargo xtask verify postgres`;
-   default-deny Router tests run in `tests/listener_library_contract.rs`.
+3. Native file-backed/handler acceptance must retain: visibility matrix, denials, exact code and status,
+   duplicate replay, key reuse, pagination law. The PG Library oracles are
+   retained outside Cargo discovery; port them deliberately under #333/#335. The old PG gate
+   is retired; source names or prior PASS do not establish native HTTP acceptance.
 4. Response conformance: actual handler output validated against the schema.
 5. The no-production-work test.
 6. Real storage/CDN delivery for playback authorization, range requests and expiry, per the

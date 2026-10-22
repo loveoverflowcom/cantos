@@ -1,6 +1,6 @@
 # ADR 0045: v1 email/password sign-in for Theatre and Studio
 
-- Status: Accepted as the #335 v1 scope (recorded from the project owner's task brief of 2026-10-21); implementation is the backend slice only
+- Status: Accepted as the #335 v1 scope (recorded from the project owner's task brief of 2026-10-21); native backend/session foundation and Web/CMP consumers exist; full HTTP/browser/device acceptance remains separate
 - Date: 2026-10-21
 - Decision owner: Cantos owner
 - Related issues: #331, #334, #335, #333, #295
@@ -20,12 +20,13 @@ as email/password with mailbox verification, to ship a working sign-in before th
    it at login and at every admission. Login never grants Studio, Admin, producer or membership
    authority; each keeps its own existing check.
 3. Deferred, not done: passkey/MFA, recovery codes, credential recovery and change-password, phone,
-   Google, Studio operator provisioning, the security-event consumer, provider-endpoint retirement.
+   Google, Studio operator provisioning, the security-event consumer. Provider endpoints have since been removed under the source-retirement amendment.
    Their checklist items in #335 stay open.
 4. No second session engine: the existing `SessionPolicy`, rotation/replay and token hashing are
    reused. Web receives an HttpOnly cookie; native an opaque Bearer.
-5. Until the Server moves to Turso (#333) the sessions live in PostgreSQL in provider-free tables
-   that a provider-auth retirement must keep.
+5. Provider-free native sessions must survive provider retirement. The initial PostgreSQL
+   transition is historical; current composition uses the one Server-owned Turso file. Business
+   porting and full HTTP acceptance remain incomplete under #333.
 
 ## Consequences
 
