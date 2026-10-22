@@ -197,18 +197,49 @@ impl Lifecycle {
         }
     }
     /// A renewal is the same cookie value with a later idle deadline; in-flight requests of the
-    /// same session stay valid, so renewing never changes the ticket.
-    pub fn renew(&mut self, issued: Ticket, view: SessionView) -> Result<(), Failure> {
+    /// same session stay valid, so renewing never changes the ticket. The reply is validated
+    /// against the snapshot the renewal was **dispatched** with (an authoritative read may have
+    /// confirmed a later idle deadline meanwhile), then merged into the current family keeping
+    /// the largest idle deadline the API has confirmed.
+    pub fn renew(
+        &mut self,
+        issued: Ticket,
+        dispatched: &SessionView,
+        view: SessionView,
+    ) -> Result<(), Failure> {
         if !self.accepts(issued) {
             return Err(Failure::Changed);
         }
+        if !view.renewal_of(dispatched) {
+            return Err(Failure::Protocol);
+        }
         match self.session.as_mut() {
-            Some(old) if view.renewal_of(old) => {
-                old.idle = view.idle;
+            Some(current) if current.same_family(&view) => {
+                current.idle = current.idle.max(view.idle);
                 Ok(())
             }
-            _ => Err(Failure::Protocol),
+            _ => Err(Failure::Changed),
         }
+    }
+}
+
+/// 429 gate: seconds before another request of this surface may leave the document. A later,
+/// shorter answer never shortens a hold the API already asked for.
+#[derive(Default)]
+pub struct RateGate {
+    until: u64,
+}
+impl RateGate {
+    pub fn arm(&mut self, now: u64, seconds: u32) {
+        self.until = self.until.max(now.saturating_add(u64::from(seconds)));
+    }
+    pub fn check(&self, now: u64) -> Result<(), Failure> {
+        if self.until > now {
+            return Err(Failure::RateLimited(
+                (self.until - now).min(u64::from(u32::MAX)) as u32,
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -468,6 +499,7 @@ mod tests {
         let mut state = Lifecycle::default();
         let issued = state.ticket();
         state.observe(issued, view("a", S1, 600), None).unwrap();
+        let dispatched = view("a", S1, 600);
         for bad in [
             view("a", S2, 700),
             view("b", S1, 700),
@@ -475,17 +507,95 @@ mod tests {
             SessionView::admit(wire("a", S1, 700, 901, Some(10))).unwrap(),
             SessionView::admit(wire("a", S1, 700, 900, Some(11))).unwrap(),
         ] {
-            assert_eq!(state.renew(issued, bad), Err(Failure::Protocol));
+            assert_eq!(
+                state.renew(issued, &dispatched, bad),
+                Err(Failure::Protocol)
+            );
         }
-        state.renew(issued, view("a", S1, 700)).unwrap();
+        state
+            .renew(issued, &dispatched, view("a", S1, 700))
+            .unwrap();
         assert!(state.accepts(issued));
         assert_eq!(state.session().unwrap().idle, 700);
         state.invalidate().unwrap();
         assert_eq!(
-            state.renew(issued, view("a", S1, 800)),
+            state.renew(issued, &dispatched, view("a", S1, 800)),
             Err(Failure::Changed)
         );
         assert!(state.session().is_none());
+    }
+
+    #[test]
+    fn a_renewal_reply_older_than_a_confirmed_read_keeps_the_larger_idle_and_the_session() {
+        let mut state = Lifecycle::default();
+        let issued = state.ticket();
+        state.observe(issued, view("a", S1, 600), None).unwrap();
+        // Dispatched at idle 600; an authoritative read then confirms 800.
+        let dispatched = state.session().cloned().unwrap();
+        state.observe(issued, view("a", S1, 800), None).unwrap();
+        assert_eq!(state.session().unwrap().idle, 800);
+        // The older renewal answers 700: valid against its dispatch snapshot, never a regression.
+        state
+            .renew(issued, &dispatched, view("a", S1, 700))
+            .unwrap();
+        assert_eq!(state.session().unwrap().idle, 800);
+        assert!(state.accepts(issued));
+        // 500 is still below what this renewal was dispatched with.
+        assert_eq!(
+            state.renew(issued, &dispatched, view("a", S1, 500)),
+            Err(Failure::Protocol)
+        );
+        assert_eq!(state.session().unwrap().idle, 800);
+        // A reply capped above the absolute deadline is refused even when idle only grows.
+        assert_eq!(
+            state.renew(
+                issued,
+                &dispatched,
+                SessionView {
+                    idle: 901,
+                    ..view("a", S1, 700)
+                }
+            ),
+            Err(Failure::Protocol)
+        );
+    }
+
+    #[test]
+    fn a_renewal_of_another_family_or_intent_is_never_published() {
+        let mut state = Lifecycle::default();
+        let issued = state.ticket();
+        state.observe(issued, view("a", S1, 600), None).unwrap();
+        let dispatched = state.session().cloned().unwrap();
+        // Another tab switched the session: the intent moved on, the old reply cannot publish.
+        state.observe(issued, view("a", S2, 600), None).unwrap();
+        assert_eq!(
+            state.renew(issued, &dispatched, view("a", S1, 700)),
+            Err(Failure::Changed)
+        );
+        assert_eq!(state.session().unwrap().session, S2);
+        assert_eq!(state.session().unwrap().idle, 600);
+        // A reply of a foreign family for the current intent is a protocol fault, not published.
+        let current = state.ticket();
+        let dispatched = state.session().cloned().unwrap();
+        assert_eq!(
+            state.renew(current, &dispatched, view("b", S1, 700)),
+            Err(Failure::Protocol)
+        );
+        assert_eq!(state.session().unwrap().idle, 600);
+    }
+
+    #[test]
+    fn the_rate_gate_holds_until_the_deadline_and_is_never_shortened() {
+        let mut gate = RateGate::default();
+        assert_eq!(gate.check(0), Ok(()));
+        gate.arm(100, 30);
+        assert_eq!(gate.check(100), Err(Failure::RateLimited(30)));
+        assert_eq!(gate.check(129), Err(Failure::RateLimited(1)));
+        assert_eq!(gate.check(130), Ok(()));
+        gate.arm(110, 5);
+        assert_eq!(gate.check(115), Err(Failure::RateLimited(15)));
+        gate.arm(120, 60);
+        assert_eq!(gate.check(121), Err(Failure::RateLimited(59)));
     }
 
     #[test]

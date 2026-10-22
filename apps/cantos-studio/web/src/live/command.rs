@@ -27,8 +27,19 @@ pub enum ClientError {
     ReceiptNotEstablished,
     ReplyMismatch,
     Transport,
-    Protocol { status: u16 },
-    Http { status: u16, error: ApiError },
+    /// The shared session owner holds this surface after a 429 (bounded `Retry-After` seconds, or
+    /// its conservative default). Nothing is dispatched before the hold ends. For a write the
+    /// outcome stays unknown: it is reconciled by its operation, never replayed blindly.
+    RateLimited {
+        seconds: u32,
+    },
+    Protocol {
+        status: u16,
+    },
+    Http {
+        status: u16,
+        error: ApiError,
+    },
 }
 impl ClientError {
     /// Producer capability expiry says nothing about the Studio owner's cookie session.
@@ -49,6 +60,33 @@ impl ClientError {
     pub fn is_session_fence_mismatch(&self) -> bool {
         matches!(self, Self::Http { status, error } if crate::session::is_fence_mismatch(*status, error))
     }
+    /// Identity failures as a command outcome. A request that never left (or whose session
+    /// moved) is `Transport`/`SessionChanged`, both unknown outcomes for a write; only a real
+    /// 401/403 carries an API error, and a 429 hold keeps its bounded wait. Nothing here retries.
+    pub fn from_identity(error: cantos_web_auth::Failure) -> Self {
+        use cantos_web_auth::Failure;
+        match error {
+            Failure::SignedOut | Failure::InvalidCredentials => Self::Http {
+                status: 401,
+                error: crate::session::failure_error(error),
+            },
+            // A wrong Origin or a roster/permission refusal: forbidden, never an expired session.
+            Failure::Forbidden => Self::Http {
+                status: 403,
+                error: crate::session::failure_error(error),
+            },
+            Failure::Changed | Failure::AccountMismatch => Self::SessionChanged,
+            // Held by the shared owner: nothing was dispatched, or the API refused before
+            // acting. A write stays an unknown outcome for receipt reconciliation and is never
+            // replayed here.
+            Failure::RateLimited(seconds) => Self::RateLimited { seconds },
+            Failure::NotFound
+            | Failure::Invalid
+            | Failure::Unavailable
+            | Failure::Protocol
+            | Failure::CleanupPending => Self::Transport,
+        }
+    }
     pub fn http(status: u16, body: &[u8]) -> Self {
         match serde_json::from_slice(body) {
             Ok(error) => Self::Http { status, error },
@@ -62,6 +100,7 @@ impl ClientError {
             | Self::ReceiptNotEstablished
             | Self::ReplyMismatch
             | Self::Transport
+            | Self::RateLimited { .. }
             | Self::Protocol { .. } => true,
             Self::Http { status, .. } => *status >= 500,
             Self::InvalidInput => false,

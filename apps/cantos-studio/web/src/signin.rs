@@ -14,7 +14,8 @@ pub enum SignInFailure {
     Incomplete,
     InvalidInput,
     InvalidCredentials,
-    /// 403 at login: the password verified but the account is not on the Studio roster.
+    /// 403 at login: a wrong Origin or a roster denial; the response cannot tell which, so
+    /// this never claims the password was right.
     NotPermitted,
     /// 404: Identity is not configured, or Studio has no roster. No fallback exists.
     NotAvailable,

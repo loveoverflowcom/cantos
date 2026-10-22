@@ -118,12 +118,31 @@ fn now_ms() -> u64 {
     web_sys::js_sys::Date::now() as u64
 }
 
+/// Re-render the panel when the 429 hold ends, so the disabled start button re-enables itself.
+#[cfg(target_arch = "wasm32")]
+fn release_after(
+    state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
+    seconds: u32,
+) {
+    use leptos::prelude::*;
+    use web_sys::wasm_bindgen::{closure::Closure, JsCast};
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let release = Closure::once_into_js(move || {
+        let _ = state.try_update(|_| ());
+    });
+    let millis = seconds.saturating_mul(1000).min(i32::MAX as u32) as i32;
+    let _ = window
+        .set_timeout_with_callback_and_timeout_and_arguments_0(release.unchecked_ref(), millis);
+}
+
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn submit(state: leptos::prelude::RwSignal<crate::application::signup::SignupState>) {
     use cantos_contracts::identity_auth::SignupStart;
     use leptos::prelude::*;
 
-    let Some((issued, email)) = state.write().begin_submit() else {
+    let Some((issued, email)) = state.write().begin_submit(now_ms()) else {
         return;
     };
     leptos::task::spawn_local(async move {
@@ -136,9 +155,17 @@ pub(crate) fn submit(state: leptos::prelude::RwSignal<crate::application::signup
             },
             Err(_) => Err(SignupFailure::Protocol),
         };
+        let now = now_ms();
+        let held = match result {
+            Err(SignupFailure::RateLimited(seconds)) => Some(seconds),
+            _ => None,
+        };
         let _ = state.try_update(|current| {
-            current.finish_submit(issued, result);
+            current.finish_submit(issued, result, now);
         });
+        if let Some(seconds) = held {
+            release_after(state, seconds);
+        }
     });
 }
 

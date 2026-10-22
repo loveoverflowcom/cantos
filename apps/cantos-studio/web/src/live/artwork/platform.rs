@@ -246,7 +246,15 @@ pub async fn upload(
     }
     let status = guard.xhr.status().map_err(|_| ClientError::Transport)?;
     credential
-        .response(status)
+        .response(
+            status,
+            guard
+                .xhr
+                .get_response_header("Retry-After")
+                .ok()
+                .flatten()
+                .as_deref(),
+        )
         .map_err(crate::live::browser::auth_error)?;
     if (200..300).contains(&status)
         && !fence.accepts(
@@ -326,7 +334,10 @@ async fn upload_fetch(
         .await
         .map_err(|_| ClientError::Transport)?;
     credential
-        .response(response.status())
+        .response(
+            response.status(),
+            response.headers().get("retry-after").as_deref(),
+        )
         .map_err(crate::live::browser::auth_error)?;
     let status = response.status();
     if response.ok()
@@ -399,7 +410,7 @@ pub async fn preview(
         .map_err(|_| ClientError::Transport)?;
     let status = response.status();
     credential
-        .response(status)
+        .response(status, response.headers().get("retry-after").as_deref())
         .map_err(crate::live::browser::auth_error)?;
     if response.ok()
         && !fence.accepts(
@@ -455,7 +466,7 @@ pub async fn preview(
     .map_err(|_| ClientError::Transport)?;
     let status = response.status();
     credential
-        .response(status)
+        .response(status, response.headers().get("retry-after").as_deref())
         .map_err(crate::live::browser::auth_error)?;
     if response.ok()
         && !fence.accepts(

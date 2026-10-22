@@ -98,7 +98,12 @@ pub async fn execute(
     .map_err(|_| ClientError::Transport)?;
     let response = request.send().await.map_err(|_| ClientError::Transport)?;
     if let Some(credential) = &credential {
-        credential.response(response.status()).map_err(auth_error)?;
+        credential
+            .response(
+                response.status(),
+                response.headers().get("retry-after").as_deref(),
+            )
+            .map_err(auth_error)?;
     }
     if response.ok()
         && expected_fence.is_some_and(|fence| {
@@ -185,26 +190,7 @@ pub fn upload_token() -> Result<String, ClientError> {
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 
-/// Identity failures as a command outcome. A request that never left (or whose session moved)
-/// is `Transport`/`SessionChanged`, both unknown outcomes for a write; only a real 401/403
-/// carries an API error. Nothing here retries.
+/// Identity failures as a command outcome (see `ClientError::from_identity`).
 pub(crate) fn auth_error(error: cantos_web_auth::Failure) -> ClientError {
-    use cantos_web_auth::Failure;
-    match error {
-        Failure::SignedOut | Failure::InvalidCredentials => ClientError::Http {
-            status: 401,
-            error: crate::api::auth_error(error),
-        },
-        Failure::Forbidden => ClientError::Http {
-            status: 403,
-            error: crate::api::auth_error(error),
-        },
-        Failure::Changed | Failure::AccountMismatch => ClientError::SessionChanged,
-        Failure::NotFound
-        | Failure::Invalid
-        | Failure::RateLimited(_)
-        | Failure::Unavailable
-        | Failure::Protocol
-        | Failure::CleanupPending => ClientError::Transport,
-    }
+    ClientError::from_identity(error)
 }

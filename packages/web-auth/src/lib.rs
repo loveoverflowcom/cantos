@@ -5,7 +5,11 @@
 pub mod browser;
 pub mod core;
 #[cfg(any(target_arch = "wasm32", test))]
+pub mod owner;
+#[cfg(any(target_arch = "wasm32", test))]
 mod refresh;
+#[cfg(any(target_arch = "wasm32", test))]
+mod serial;
 pub use cantos_contracts::web_api::WebSurface as Surface;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

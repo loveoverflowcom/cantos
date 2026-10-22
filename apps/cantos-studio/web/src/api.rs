@@ -179,6 +179,21 @@ impl StudioHttp {
 pub use crate::session::is_session_changed;
 use crate::session::{session_changed, unauthenticated};
 
+/// `Retry-After` as the browser lets this origin read it. Cross-origin it is only visible when
+/// the API exposes it; an absent header makes the shared owner hold for its conservative default.
+fn retry_after(response: &Response) -> Option<String> {
+    response.headers().get("retry-after")
+}
+
+/// Seconds the shared owner still holds this surface after a 429, for a view that shows a wait.
+/// Nothing is dispatched before it ends: `credential()` refuses first.
+pub fn rate_wait() -> Option<u32> {
+    match crate::api_endpoint::auth().ok()?.gate() {
+        Err(cantos_web_auth::Failure::RateLimited(seconds)) => Some(seconds),
+        _ => None,
+    }
+}
+
 fn check_echo(response: &Response, fence: Option<SessionFence>) -> Result<(), ApiError> {
     if response.ok()
         && fence
@@ -224,7 +239,11 @@ async fn execute<T: DeserializeOwned>(
     credential: cantos_web_auth::browser::Lease,
 ) -> Result<T, ApiError> {
     let response = request.send().await.map_err(|_| unavailable())?;
-    api.notify_denial(credential.response(response.status()).map_err(auth_error))?;
+    api.notify_denial(
+        credential
+            .response(response.status(), retry_after(&response).as_deref())
+            .map_err(auth_error),
+    )?;
     let result = match check_echo(&response, Some(fence)) {
         Ok(()) => decode(response).await,
         Err(error) => {
@@ -290,7 +309,11 @@ async fn negotiate<T: DeserializeOwned + ProtobufDto>(
     credential: cantos_web_auth::browser::Lease,
 ) -> Result<T, ApiError> {
     let response = request.send().await.map_err(|_| unavailable())?;
-    api.notify_denial(credential.response(response.status()).map_err(auth_error))?;
+    api.notify_denial(
+        credential
+            .response(response.status(), retry_after(&response).as_deref())
+            .map_err(auth_error),
+    )?;
     if let Err(error) = check_echo(&response, Some(fence)) {
         api.invalidate_projection(&error);
         return Err(error);
@@ -537,7 +560,9 @@ impl StudioHttp {
             .send()
             .await
             .map_err(|_| unavailable())?;
-        credential.response(response.status()).map_err(auth_error)?;
+        credential
+            .response(response.status(), retry_after(&response).as_deref())
+            .map_err(auth_error)?;
         check_echo(&response, Some(fence))?;
         if !response.ok() {
             let status = response.status();

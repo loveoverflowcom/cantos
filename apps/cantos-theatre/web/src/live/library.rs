@@ -11,11 +11,19 @@ use cantos_contracts::listener_library::{
     ProgressRecord, Receipt, ResumeStatus, SavedRecord, WorkPresentation, WriteOutcome,
 };
 
-/// 429 is the API's Identity budget: bounded Retry-After, never a dense retry. The header is read
-/// only when the API exposes it to this origin; otherwise a conservative default applies.
+/// 429 is the API's Identity budget: bounded Retry-After, never a dense retry. In production
+/// `Lease::response` reads the header (when the API exposes it to this origin; otherwise a
+/// conservative default applies), arms the surface-wide gate and answers before any decoder runs,
+/// so the decoders below only ever see a 429 when called directly: they keep the default.
 pub fn rate_limited(status: u16, retry_after: Option<&str>) -> Option<AccountFailure> {
     (status == 429)
         .then(|| AccountFailure::RateLimited(cantos_web_auth::core::retry_after(retry_after)))
+}
+
+/// The API echoes the session it admitted. A different echo (any status) means another tab
+/// changed the cookie: the owner must drop its local session and re-read before more requests.
+pub fn session_fence_mismatch(response_session: Option<&str>, expected_session: &str) -> bool {
+    response_session.is_some_and(|actual| actual != expected_session)
 }
 
 pub fn check_response(
@@ -28,6 +36,7 @@ pub fn check_response(
         return Err(limited);
     }
     match status {
+        // Only a 401 is a lost session. 403 is a refusal (wrong Origin, no permission).
         401 => return Err(AccountFailure::SignedOut),
         403 => {
             return Err(AccountFailure::Diagnostic(
@@ -205,6 +214,9 @@ pub fn decode_page(section: Section, body: &[u8]) -> Result<LibraryPage, Account
 pub enum WriteHttpOutcome {
     Receipt(Box<Receipt>),
     UnknownOutcome,
+    /// The gate or a 429 held the request. Whether the write was applied is still unknown, so the
+    /// operation keeps its id and recovers receipt-first; nothing is resent before the deadline.
+    RateLimited(u32),
     Error(CommandError),
 }
 
@@ -213,6 +225,7 @@ pub enum OperationLookupOutcome {
     Found(Box<Receipt>),
     NotFound,
     UnknownOutcome,
+    RateLimited(u32),
     Error(CommandError),
 }
 
@@ -221,12 +234,19 @@ fn check_session_header(
     response_session: Option<&str>,
     expected_session: &str,
 ) -> Result<(), CommandError> {
-    if status == 401 || status == 403 {
+    // 401 is the only lost session; 403 is a refusal that must not run expiry cleanup.
+    if status == 401 {
         return Err(CommandError::SignedOut);
     }
-    // Identity budget spent before dispatch: the outcome is unknown, never a permanent refusal.
+    if status == 403 {
+        return Err(CommandError::Forbidden);
+    }
+    // Identity budget spent before dispatch. `Lease::response` normally answers first, with the
+    // header; reaching a decoder means the conservative default applies.
     if status == 429 {
-        return Err(CommandError::Unavailable);
+        return Err(CommandError::RateLimited(
+            cantos_web_auth::core::retry_after(None),
+        ));
     }
     if let Some(actual) = response_session {
         if actual != expected_session {
@@ -354,6 +374,7 @@ pub fn decode_write_response(
     if let Err(err) = check_session_header(status, response_session, expected_session) {
         return match err {
             CommandError::Unavailable => WriteHttpOutcome::UnknownOutcome,
+            CommandError::RateLimited(seconds) => WriteHttpOutcome::RateLimited(seconds),
             other => WriteHttpOutcome::Error(other),
         };
     }
@@ -401,6 +422,7 @@ pub fn decode_operation_lookup(
     if let Err(err) = check_session_header(status, response_session, expected_session) {
         return match err {
             CommandError::Unavailable => OperationLookupOutcome::UnknownOutcome,
+            CommandError::RateLimited(seconds) => OperationLookupOutcome::RateLimited(seconds),
             other => OperationLookupOutcome::Error(other),
         };
     }
@@ -473,6 +495,10 @@ pub fn command_error_of(failure: AccountFailure) -> CommandError {
         AccountFailure::SignedOut => CommandError::SignedOut,
         AccountFailure::SessionChanged => CommandError::SessionChanged,
         AccountFailure::Protocol => CommandError::Protocol,
+        AccountFailure::RateLimited(seconds) => CommandError::RateLimited(seconds),
+        AccountFailure::Diagnostic(crate::application::errors::ErrorKind::Forbidden) => {
+            CommandError::Forbidden
+        }
         _ => CommandError::Unavailable,
     }
 }
@@ -519,12 +545,18 @@ async fn send_authenticated(
             .await
             .map_err(|_| CommandError::Unavailable)?
     };
-    credential
-        .response(response.status())
-        .map_err(map_auth_to_command_error)?;
     let status = response.status();
+    // The shared owner reads Retry-After once for every protected answer: a 429 arms the gate for
+    // the whole surface, and a stale lease or a real 401 is judged before any body is read.
+    credential
+        .response(status, response.headers().get("retry-after").as_deref())
+        .map_err(map_auth_to_command_error)?;
     let content_type = response.headers().get("content-type");
     let response_session = response.headers().get("X-Cantos-Theatre-Session");
+    if session_fence_mismatch(response_session.as_deref(), expected_session) {
+        // Another tab changed the account: drop the local session so the owner re-reads.
+        return Err(map_auth_to_command_error(credential.fence_mismatch()));
+    }
     let bytes = response
         .binary()
         .await
@@ -587,6 +619,7 @@ pub async fn load_operation_receipt(
             &body,
         ),
         Err(CommandError::Unavailable) => OperationLookupOutcome::UnknownOutcome,
+        Err(CommandError::RateLimited(seconds)) => OperationLookupOutcome::RateLimited(seconds),
         Err(err) => OperationLookupOutcome::Error(err),
     }
 }
@@ -630,6 +663,8 @@ pub async fn send_mutation(expected_session: &str, payload: &MutationPayload) ->
             &body,
         ),
         Err(CommandError::Unavailable) => WriteHttpOutcome::UnknownOutcome,
+        // Held before dispatch or answered 429: never a definite failure that drops the operation.
+        Err(CommandError::RateLimited(seconds)) => WriteHttpOutcome::RateLimited(seconds),
         Err(err) => WriteHttpOutcome::Error(err),
     }
 }
@@ -658,15 +693,21 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
         .send()
         .await
         .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
-    credential
-        .response(response.status())
-        .map_err(super::account::auth_error)?;
     let body_status = response.status();
-    if let Some(limited) = rate_limited(
-        body_status,
-        response.headers().get("retry-after").as_deref(),
+    credential
+        .response(
+            body_status,
+            response.headers().get("retry-after").as_deref(),
+        )
+        .map_err(super::account::auth_error)?;
+    if session_fence_mismatch(
+        response
+            .headers()
+            .get("X-Cantos-Theatre-Session")
+            .as_deref(),
+        expected_session,
     ) {
-        return Err(limited);
+        return Err(super::account::auth_error(credential.fence_mismatch()));
     }
     // Even error pages must echo this exact session before their body can affect this account.
     if body_status == 400 {
@@ -755,6 +796,100 @@ mod tests {
                 "session-a"
             ),
             Ok(())
+        );
+    }
+
+    #[test]
+    fn only_a_401_is_a_lost_session_for_point_reads_writes_and_receipts() {
+        let op = uuid::Uuid::from_u128(100).to_string();
+        let work = uuid::Uuid::from_u128(10).to_string();
+        let json = Some("application/json");
+        let body = br#"{"code":"forbidden","retryable":false}"#;
+        // 401: signed out, on every protected decoder.
+        assert_eq!(
+            decode_saved_point(401, json, None, "session-a", &work, body),
+            Err(CommandError::SignedOut)
+        );
+        assert_eq!(
+            decode_progress_point(401, json, None, "session-a", &work, body),
+            Err(CommandError::SignedOut)
+        );
+        assert_eq!(
+            decode_write_response(401, json, None, "session-a", &op, body),
+            WriteHttpOutcome::Error(CommandError::SignedOut)
+        );
+        assert_eq!(
+            decode_operation_lookup(401, json, None, "session-a", &op, body),
+            OperationLookupOutcome::Error(CommandError::SignedOut)
+        );
+        // 403: a refusal that must never run the lost-session cleanup, and (for a write) a
+        // definite refusal, not an unknown outcome.
+        assert_eq!(
+            decode_saved_point(403, json, None, "session-a", &work, body),
+            Err(CommandError::Forbidden)
+        );
+        assert_eq!(
+            decode_progress_point(403, json, None, "session-a", &work, body),
+            Err(CommandError::Forbidden)
+        );
+        assert_eq!(
+            decode_write_response(403, json, None, "session-a", &op, body),
+            WriteHttpOutcome::Error(CommandError::Forbidden)
+        );
+        assert_eq!(
+            decode_operation_lookup(403, json, None, "session-a", &op, body),
+            OperationLookupOutcome::Error(CommandError::Forbidden)
+        );
+        for error in [CommandError::Forbidden, CommandError::RateLimited(7)] {
+            assert_eq!(error.to_account_failure(), None, "{error:?}");
+        }
+    }
+
+    #[test]
+    fn a_write_or_lookup_held_by_a_429_keeps_its_operation_and_is_never_a_refusal() {
+        let op = uuid::Uuid::from_u128(100).to_string();
+        let json = Some("application/json");
+        // Decoders only see a 429 when called directly: the conservative default applies.
+        assert_eq!(
+            decode_write_response(429, json, None, "session-a", &op, b"{}"),
+            WriteHttpOutcome::RateLimited(30)
+        );
+        assert_eq!(
+            decode_operation_lookup(429, json, None, "session-a", &op, b"{}"),
+            OperationLookupOutcome::RateLimited(30)
+        );
+        // The owner's typed answer (gate or Retry-After) keeps its seconds through the mapping.
+        assert_eq!(
+            command_error_of(AccountFailure::RateLimited(12)),
+            CommandError::RateLimited(12)
+        );
+        assert_eq!(
+            command_error_of(AccountFailure::Diagnostic(
+                crate::application::errors::ErrorKind::Forbidden
+            )),
+            CommandError::Forbidden
+        );
+        assert_eq!(
+            command_error_of(AccountFailure::Unavailable),
+            CommandError::Unavailable
+        );
+    }
+
+    #[test]
+    fn another_sessions_echo_is_a_fence_mismatch_for_any_status() {
+        assert!(session_fence_mismatch(Some("session-b"), "session-a"));
+        assert!(!session_fence_mismatch(Some("session-a"), "session-a"));
+        assert!(!session_fence_mismatch(None, "session-a"));
+        // Reads: the same echo rule decides SessionChanged before any body is read.
+        assert_eq!(
+            check_response(429, Some("application/json"), None, "session-a"),
+            Err(AccountFailure::RateLimited(30))
+        );
+        assert_eq!(
+            check_response(403, Some("application/json"), None, "session-a"),
+            Err(AccountFailure::Diagnostic(
+                crate::application::errors::ErrorKind::Forbidden
+            ))
         );
     }
 

@@ -119,9 +119,10 @@ authentication timestamp. Independent Rust/API implementation mappings:
 | `run.expiry` | `expiry_disable_wrong_binding_provider_outage_and_recent_auth_fail_closed` |
 
 Web is no longer a consumer of the Bearer refresh-family lifecycle: it holds an HttpOnly cookie
-session that renews in place. `cantos-web-auth` core/refresh tests cover the Web session's exact
-use/renew/re-read edges, unknown renewal, single-flight and late-waiter/logout/account-switch
-fences. The retired `verify web-bearer` mock-browser fixture existed only for the removed popup
+session that renews in place. `cantos-web-auth` core/owner/refresh tests cover the Web session's
+exact use/renew/re-read edges, renewal against its dispatch snapshot, unknown renewal,
+single-flight, cancelled-login dispatch, the 429 hold and late-waiter/logout/account-switch fences
+through the production owner and a scripted port. The retired `verify web-bearer` mock-browser fixture existed only for the removed popup
 flow. These are client implementation evidence, not model trace conformance, a Web cookie model
 or real Identity/Server proof.
 
