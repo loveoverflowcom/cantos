@@ -258,8 +258,9 @@ impl Editor {
         }
     }
 
-    /// The browser leaves for the identity provider. The check stops guarding unload, while an
-    /// unresolved save keeps its retry identity and the draft keeps its own guard.
+    /// The person cancels the session check (the shell fences the pending login/read). The check
+    /// stops guarding unload, while an unresolved save keeps its retry identity and the draft
+    /// keeps its own guard.
     pub fn release_session_check(&self) -> Self {
         if !matches!(self.phase, Phase::CheckingSession(_)) {
             return self.clone();
@@ -1241,7 +1242,7 @@ mod tests {
             assert_eq!(checking.rebase(), checking);
             assert_eq!(checking.pending(), before.pending());
             assert_eq!(checking.draft(), before.draft());
-            // Leaving for the identity provider releases the check, never the save identity.
+            // Cancelling the session check releases it, never the save identity.
             let released = checking.release_session_check();
             assert!(!released.busy());
             assert_eq!(released.pending(), before.pending());

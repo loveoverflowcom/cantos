@@ -15,7 +15,7 @@ uuid = { version = "=1.18.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-net = { version = "=0.6.0", features = ["http"] }
-web-sys = { version = "=0.3.77", features = ["Window", "Performance", "AbortController", "AbortSignal", "Event", "EventTarget", "RequestCredentials", "RequestRedirect"] }
+web-sys = { version = "=0.3.77", features = ["Window", "Performance", "AbortController", "AbortSignal", "Event", "EventTarget", "RequestCredentials", "RequestRedirect", "BroadcastChannel", "MessageEvent", "Navigator"] }
 wasm-bindgen = "=0.2.100"
 wasm-bindgen-futures = "=0.4.50"
 js-sys = "=0.3.77"

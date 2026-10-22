@@ -485,6 +485,7 @@ fn every_client_failure_has_one_completion_and_never_an_empty_success() {
         (ClientError::ReceiptNotEstablished, Phase::Ambiguous),
         (ClientError::ReplyMismatch, Phase::Ambiguous),
         (ClientError::Transport, Phase::Ambiguous),
+        (ClientError::RateLimited { seconds: 30 }, Phase::Ambiguous),
         (ClientError::Protocol { status: 200 }, Phase::Ambiguous),
         (
             ClientError::http(
@@ -757,4 +758,41 @@ fn a_session_fence_mismatch_is_recognized_only_on_a_409_unauthenticated_reply() 
     }
     assert!(!ClientError::Transport.is_session_fence_mismatch());
     assert!(!ClientError::SessionChanged.is_session_fence_mismatch());
+}
+
+#[test]
+fn identity_failures_project_onto_commands_without_signing_out_by_accident() {
+    use cantos_web_auth::Failure;
+    let code = |error: ClientError| match error {
+        ClientError::Http { status, error } => Some((status, error.code)),
+        _ => None,
+    };
+    // 401 is signed out; 403 stays forbidden and is never turned into an expired session.
+    assert_eq!(
+        code(ClientError::from_identity(Failure::SignedOut)),
+        Some((401, ErrorCode::Unauthenticated))
+    );
+    assert_eq!(
+        code(ClientError::from_identity(Failure::Forbidden)),
+        Some((403, ErrorCode::Forbidden))
+    );
+    // A 429 hold keeps its wait, is an unknown outcome for a write and never reads as signed out.
+    let held = ClientError::from_identity(Failure::RateLimited(42));
+    assert_eq!(held, ClientError::RateLimited { seconds: 42 });
+    assert!(held.ambiguous());
+    assert!(!held.is_session_fence_mismatch());
+    for unknown in [
+        Failure::Unavailable,
+        Failure::Protocol,
+        Failure::CleanupPending,
+        Failure::NotFound,
+    ] {
+        assert_eq!(ClientError::from_identity(unknown), ClientError::Transport);
+    }
+    for moved in [Failure::Changed, Failure::AccountMismatch] {
+        assert_eq!(
+            ClientError::from_identity(moved),
+            ClientError::SessionChanged
+        );
+    }
 }

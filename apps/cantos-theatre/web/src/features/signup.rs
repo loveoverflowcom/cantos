@@ -47,6 +47,28 @@ pub(crate) fn phase_key(phase: SignupPhase) -> CopyKey {
     }
 }
 
+/// Wall clock for the 429 hold shown by the panel. Host builds have no clock and never hold.
+fn clock_ms() -> u64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::js_sys::Date::now() as u64
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        0
+    }
+}
+
+/// The wait copy outranks the phase while a 429 holds new starts: editing the email moves the
+/// phase back to `Editing`, but the hold (and its reason) stays.
+fn status_key(state: &SignupState, now_ms: u64) -> CopyKey {
+    if state.submit_wait_seconds(now_ms).is_some() {
+        CopyKey::SignupRequestRateLimited
+    } else {
+        phase_key(state.phase())
+    }
+}
+
 /// Completion is history, never a session: the next step is signing in (normally the shell
 /// has already moved there; this is the fallback if that navigation did not happen).
 fn show_login(state: &SignupState) -> bool {
@@ -265,7 +287,7 @@ pub(crate) fn SignupPanel(
     view! {
         <div class="theatre-signup" node_ref=panel>
             <p id="theatre-signup-status" tabindex="-1" role="status" aria-live="polite" aria-atomic="true">
-                {move || auth_copy::text(phase_key(state.get().phase()), locale.get())}
+                {move || auth_copy::text(status_key(&state.get(), clock_ms()), locale.get())}
             </p>
             <Show when=email_form_visible>
                 <form class="theatre-auth-actions" on:submit=move |event| { event.prevent_default(); on_submit.run(()); }>
@@ -279,6 +301,9 @@ pub(crate) fn SignupPanel(
                     {move || {
                         let availability = if request_pending() {
                             DisabledReason::new(auth_copy::text(CopyKey::SignupSubmitting, locale.get())).ok().map(ButtonState::Loading)
+                        } else if state.get().submit_wait_seconds(clock_ms()).is_some() {
+                            // Not `disabled`: the control stays focusable and says why.
+                            DisabledReason::new(auth_copy::text(CopyKey::SignupRequestRateLimited, locale.get())).ok().map(ButtonState::Disabled)
                         } else { Some(ButtonState::Enabled) };
                         availability.map(|availability| view! {
                             <Button id="theatre-signup-submit" variant=ButtonVariant::AuthPrimary state=availability
@@ -381,7 +406,7 @@ pub(crate) fn SignupPreviewControls(
                     if let Some(link) = fixture_link() { current.capture(link); }
                 }))>{label(locale, CopyKey::SignupFixtureLink)}</Button>
                 <Button id="theatre-signup-fixture-accepted" variant=ButtonVariant::Text on_press=Callback::new(move |_| state.update(|current| {
-                    if let Some(issued) = current.pending_request() { current.finish_submit(issued, Ok(())); }
+                    if let Some(issued) = current.pending_request() { current.finish_submit(issued, Ok(()), 0); }
                 }))>{label(locale, CopyKey::SignupFixtureAccepted)}</Button>
                 <Button id="theatre-signup-fixture-completed" variant=ButtonVariant::Text on_press=Callback::new(move |_| state.update(|current| {
                     if let Some(issued) = current.pending_request() { current.finish_complete(issued, Ok(SignupStatus::Completed), 0); }
@@ -391,12 +416,12 @@ pub(crate) fn SignupPreviewControls(
                 }))>{label(locale, CopyKey::SignupFixtureRefused)}</Button>
                 <Button id="theatre-signup-fixture-unknown" variant=ButtonVariant::Text on_press=Callback::new(move |_| state.update(|current| {
                     if let Some(issued) = current.pending_request() {
-                        if current.phase() == SignupPhase::Submitting { current.finish_submit(issued, Err(SignupFailure::UnknownOutcome)); }
+                        if current.phase() == SignupPhase::Submitting { current.finish_submit(issued, Err(SignupFailure::UnknownOutcome), 0); }
                         else { current.finish_complete(issued, Err(CompletionFailure::UnknownOutcome), 0); }
                     }
                 }))>{label(locale, CopyKey::SignupFixtureUnknown)}</Button>
                 <Button id="theatre-signup-fixture-invalid" variant=ButtonVariant::Text on_press=Callback::new(move |_| state.update(|current| {
-                    if let Some(issued) = current.pending_request() { current.finish_submit(issued, Err(SignupFailure::InvalidEmail)); }
+                    if let Some(issued) = current.pending_request() { current.finish_submit(issued, Err(SignupFailure::InvalidEmail), 0); }
                 }))>{label(locale, CopyKey::SignupFixtureInvalid)}</Button>
             </div>
         </section>
@@ -467,9 +492,9 @@ mod tests {
     fn every_signup_phase_has_one_next_action_and_focus_target() {
         let mut submitting = SignupState::default();
         submitting.set_email("listener@example.invalid".to_owned());
-        let (issued, _) = submitting.begin_submit().unwrap();
+        let (issued, _) = submitting.begin_submit(0).unwrap();
         let mut accepted = submitting.clone();
-        assert!(accepted.finish_submit(issued, Ok(())));
+        assert!(accepted.finish_submit(issued, Ok(()), 0));
         let (done, done_issued) = completing();
         let mut retry = done.clone();
         assert!(retry.finish_complete(done_issued, Err(CompletionFailure::UnknownOutcome), 0));
@@ -495,7 +520,7 @@ mod tests {
             SignupFailure::Protocol,
         ] {
             let mut failed = submitting.clone();
-            assert!(failed.finish_submit(issued, Err(failure)));
+            assert!(failed.finish_submit(issued, Err(failure), 0));
             cases.push((failed, Some("submit"), "theatre-signup-email"));
         }
         for failure in [
@@ -683,8 +708,8 @@ mod tests {
     fn email_start_is_generic_and_never_claims_account_state_or_session() {
         let mut state = SignupState::default();
         state.set_email("listener@example.invalid".to_owned());
-        let (issued, _) = state.begin_submit().unwrap();
-        assert!(state.finish_submit(issued, Ok(())));
+        let (issued, _) = state.begin_submit(0).unwrap();
+        assert!(state.finish_submit(issued, Ok(()), 0));
         for language in [Locale::Vietnamese, Locale::English] {
             let html = render(state.clone(), language);
             assert!(html.contains(auth_copy::text(CopyKey::SignupEmailAccepted, language)));

@@ -1,5 +1,7 @@
 //! Studio email/password sign-in resources. vi-VN and en are exhaustive. No message names the
-//! failing factor of a login: the API never says, and the UI does not guess.
+//! failing factor of a login: the API never says, and the UI does not guess. A 403 is an
+//! Origin refusal or a roster denial and the response cannot tell which, so its message never
+//! claims that the password was right.
 use crate::signin::SignInFailure;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,8 +65,8 @@ pub fn text(key: Key, english: bool) -> &'static str {
         (Key::InvalidInput, true) => "The email or password is not in a valid format. Check it and try again.",
         (Key::InvalidCredentials, false) => "Không đăng nhập được. Kiểm tra email và mật khẩu rồi thử lại.",
         (Key::InvalidCredentials, true) => "Could not sign in. Check your email and password and try again.",
-        (Key::NotPermitted, false) => "Mật khẩu đúng nhưng tài khoản này chưa được phép vào Cantos Studio. Hãy liên hệ quản trị viên hoặc dùng tài khoản khác.",
-        (Key::NotPermitted, true) => "Your password is correct, but this account is not allowed into Cantos Studio. Contact an administrator or use another account.",
+        (Key::NotPermitted, false) => "Yêu cầu đăng nhập bị từ chối: tài khoản này không được phép vào Cantos Studio. Hãy liên hệ quản trị viên, dùng tài khoản khác hoặc mở Studio từ địa chỉ chính thức.",
+        (Key::NotPermitted, true) => "The sign-in request was refused: this account may not access Cantos Studio. Contact an administrator, use another account, or open Studio from its official address.",
         (Key::NotAvailable, false) => "Đăng nhập Studio chưa khả dụng trên máy chủ này và không có cách đăng nhập thay thế. Hãy liên hệ quản trị viên.",
         (Key::NotAvailable, true) => "Studio sign-in is not available on this server and there is no alternative sign-in. Contact an administrator.",
         (Key::RateLimited, false) => "Quá nhiều lần thử. Hãy chờ {seconds} giây rồi thử lại.",
@@ -140,25 +142,31 @@ mod tests {
     }
 
     #[test]
-    fn the_roster_denial_is_the_only_message_that_says_the_password_was_right() {
+    fn no_message_claims_the_password_was_right_or_names_the_failing_factor() {
         for failure in [
+            SignInFailure::Incomplete,
             SignInFailure::InvalidCredentials,
             SignInFailure::InvalidInput,
+            SignInFailure::NotPermitted,
             SignInFailure::Unavailable,
             SignInFailure::NotAvailable,
+            SignInFailure::AccountMismatch,
+            SignInFailure::SessionNotStored,
         ] {
             for english in [false, true] {
                 let message = failure_text(failure, english).to_lowercase();
+                // A 403 cannot prove the credential was verified (it may be an Origin refusal).
                 assert!(!message.contains("mật khẩu đúng"), "{failure:?}");
                 assert!(!message.contains("password is correct"), "{failure:?}");
-                // Never names which of password or account failed.
+                assert!(!message.contains("password is right"), "{failure:?}");
                 assert!(!message.contains("không tồn tại"), "{failure:?}");
                 assert!(!message.contains("wrong password"), "{failure:?}");
                 assert!(!message.contains("no such account"), "{failure:?}");
             }
         }
-        assert!(failure_text(SignInFailure::NotPermitted, false).contains("Mật khẩu đúng"));
-        assert!(failure_text(SignInFailure::NotPermitted, true).contains("password is correct"));
+        // The 403 message says the request was refused and the account may not enter Studio.
+        assert!(failure_text(SignInFailure::NotPermitted, true).contains("may not access"));
+        assert!(failure_text(SignInFailure::NotPermitted, false).contains("không được phép"));
     }
 
     #[test]

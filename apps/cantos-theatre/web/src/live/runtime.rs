@@ -155,7 +155,16 @@ pub fn refresh(state: RwSignal<AccountViewState>) {
     refresh_with_budget(state, 1);
 }
 
+/// The shared owner's 429 hold: a session read inside it would only fail and blank a valid
+/// account, so refresh triggers wait for the deadline the API asked for.
+fn rate_held() -> bool {
+    crate::api_endpoint::auth().is_ok_and(|client| client.gate().is_err())
+}
+
 fn refresh_with_budget(state: RwSignal<AccountViewState>, session_change_budget: u8) {
+    if rate_held() {
+        return;
+    }
     if state
         .try_with_untracked(|current| {
             matches!(
@@ -554,7 +563,10 @@ async fn execute_persisted_mutation(
                 persist_sync_journal(state);
                 return;
             }
-            super::library::OperationLookupOutcome::UnknownOutcome => {
+            super::library::OperationLookupOutcome::UnknownOutcome
+            | super::library::OperationLookupOutcome::RateLimited(_) => {
+                // Held or unreadable: nothing is resent now, and the operation keeps its id and
+                // recovers receipt-first once the owner admits requests again.
                 let _ = AccountWriter::new(state)
                     .record_unknown_outcome(&fence, &pending.operation_id)
                     .into_value();
@@ -593,7 +605,8 @@ async fn execute_persisted_mutation(
                 .into_value();
             persist_sync_journal(state);
         }
-        super::library::WriteHttpOutcome::UnknownOutcome => {
+        super::library::WriteHttpOutcome::UnknownOutcome
+        | super::library::WriteHttpOutcome::RateLimited(_) => {
             let _ = AccountWriter::new(state)
                 .record_unknown_outcome(&fence, &pending.operation_id)
                 .into_value();
@@ -1011,23 +1024,46 @@ fn credentials_lost(state: RwSignal<AccountViewState>) {
     });
 }
 
+/// `network_allowed` is the shell's live gate, read at every trigger: the shell may block the
+/// network after mounting (an unscrubbed proof stays in the URL), and a mounted listener or timer
+/// must not act on the value it saw at mount time.
 pub fn mount(
     state: RwSignal<AccountViewState>,
     player: PlayerSession,
     now_playing: RwSignal<Option<NowPlaying>>,
+    network_allowed: Signal<bool>,
 ) {
+    use super::mounted::{decide, Action, Trigger};
     use leptos::leptos_dom::helpers::window_event_listener_untyped;
 
+    let act = move |trigger: Trigger| {
+        decide(
+            trigger,
+            network_allowed.try_get_untracked().unwrap_or(false),
+            rate_held(),
+        )
+    };
     let credential_loss = window_event_listener_untyped(
         cantos_web_auth::browser::invalidation_event(cantos_web_auth::Surface::Theatre),
-        move |_| credentials_lost(state),
+        move |_| {
+            if act(Trigger::CredentialLoss) == Action::CredentialsLost {
+                credentials_lost(state)
+            }
+        },
     );
-    let focus = window_event_listener_untyped("focus", move |_| refresh(state));
+    let focus = window_event_listener_untyped("focus", move |_| {
+        if act(Trigger::Focus) == Action::Refresh {
+            refresh(state)
+        }
+    });
     let visibility = window_event_listener_untyped("visibilitychange", move |_| {
         let hidden = web_sys::window()
             .and_then(|w| w.document())
             .is_some_and(|doc| doc.hidden());
-        if hidden {
+        if act(Trigger::Visibility {
+            page_hidden: hidden,
+        }) == Action::FlushCheckpoint
+        {
             if let (Some(source), Some(position_ms)) = (
                 player.source.try_get_untracked().flatten(),
                 player.position_ms.try_get_untracked().flatten(),
@@ -1047,13 +1083,15 @@ pub fn mount(
     if let Some(window) = web_sys::window() {
         let observed_window = window.clone();
         let callback = Closure::wrap(Box::new(move || {
-            if observed_window
+            let page_hidden = observed_window
                 .document()
-                .is_some_and(|document| document.hidden())
+                .is_some_and(|document| document.hidden());
+            let signed_in = state.with_untracked(AccountViewState::phase) == SessionPhase::SignedIn;
+            if act(Trigger::Interval {
+                page_hidden,
+                signed_in,
+            }) == Action::Refresh
             {
-                return;
-            }
-            if state.with_untracked(AccountViewState::phase) == SessionPhase::SignedIn {
                 refresh(state);
             }
         }) as Box<dyn FnMut()>);

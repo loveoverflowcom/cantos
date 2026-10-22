@@ -163,6 +163,10 @@ pub struct SignupState {
     exhausted: bool,
     /// Earliest instant (ms) the retained request may be sent again after a 429.
     hold_until_ms: u64,
+    /// Earliest instant (ms) a new signup start may leave after a 429. Unlike every other field
+    /// it survives `clear`: leaving the page, editing the email or starting over must not
+    /// bypass the wait the API asked for.
+    submit_hold_until_ms: u64,
 }
 
 impl fmt::Debug for SignupState {
@@ -301,8 +305,15 @@ impl SignupState {
         self.phase = SignupPhase::CaptureFailed;
     }
 
-    pub fn begin_submit(&mut self) -> Option<(u64, String)> {
-        if !self.can_edit() {
+    /// Whole seconds (rounded up) until a signup start may be sent again, if a 429 holds it.
+    pub fn submit_wait_seconds(&self, now_ms: u64) -> Option<u32> {
+        let remaining = self.submit_hold_until_ms.checked_sub(now_ms)?;
+        (remaining > 0).then(|| remaining.div_ceil(1000).min(u64::from(u32::MAX)) as u32)
+    }
+
+    /// Refused inside a 429 hold, whatever the email, key or button that asked.
+    pub fn begin_submit(&mut self, now_ms: u64) -> Option<(u64, String)> {
+        if !self.can_edit() || self.submit_wait_seconds(now_ms).is_some() {
             return None;
         }
         if self.email.trim().is_empty() {
@@ -314,7 +325,17 @@ impl SignupState {
         Some((issued, self.email.trim().to_owned()))
     }
 
-    pub fn finish_submit(&mut self, issued: u64, result: Result<(), SignupFailure>) -> bool {
+    pub fn finish_submit(
+        &mut self,
+        issued: u64,
+        result: Result<(), SignupFailure>,
+        now_ms: u64,
+    ) -> bool {
+        // A 429 is a fact about the API, so it holds even when the page was left meanwhile.
+        if let Err(SignupFailure::RateLimited(seconds)) = result {
+            let until = now_ms.saturating_add(u64::from(seconds) * 1000);
+            self.submit_hold_until_ms = self.submit_hold_until_ms.max(until);
+        }
         if self.epoch != issued || self.phase != SignupPhase::Submitting || self.exhausted {
             return false;
         }
@@ -701,20 +722,20 @@ mod tests {
     #[test]
     fn duplicate_submit_is_blocked_and_accepted_is_only_a_generic_receipt() {
         let mut state = SignupState::default();
-        assert_eq!(state.begin_submit(), None);
+        assert_eq!(state.begin_submit(0), None);
         assert_eq!(
             state.phase(),
             SignupPhase::SubmitFailed(SignupFailure::InvalidEmail)
         );
         state.set_email(" listener@example.invalid ".to_owned());
-        let (issued, email) = state.begin_submit().unwrap();
+        let (issued, email) = state.begin_submit(0).unwrap();
         assert_eq!(email, "listener@example.invalid");
-        assert_eq!(state.begin_submit(), None);
-        assert!(state.finish_submit(issued, Ok(())));
+        assert_eq!(state.begin_submit(0), None);
+        assert!(state.finish_submit(issued, Ok(()), 0));
         assert_eq!(state.phase(), SignupPhase::EmailAccepted);
         assert_eq!(state.email(), "");
         assert_eq!(state.begin_complete(), None);
-        assert!(!state.finish_submit(issued, Err(SignupFailure::Unavailable)));
+        assert!(!state.finish_submit(issued, Err(SignupFailure::Unavailable), 0));
     }
 
     #[test]
@@ -722,9 +743,9 @@ mod tests {
         for result in [Ok(()), Err(SignupFailure::UnknownOutcome)] {
             let mut state = SignupState::default();
             state.set_email("listener@example.invalid".to_owned());
-            let (issued, _) = state.begin_submit().unwrap();
+            let (issued, _) = state.begin_submit(0).unwrap();
             state.clear();
-            assert!(!state.finish_submit(issued, result));
+            assert!(!state.finish_submit(issued, result, 0));
             assert_eq!(state.phase(), SignupPhase::Editing);
             assert_eq!(state.email(), "");
         }
@@ -737,5 +758,66 @@ mod tests {
         assert_eq!(state.phase(), SignupPhase::CaptureFailed);
         assert_eq!(state.begin_complete(), None);
         assert_eq!(state.retained_request(), None);
+    }
+
+    #[test]
+    fn a_429_holds_every_new_start_until_its_deadline_whatever_asks() {
+        let mut state = SignupState::default();
+        state.set_email("listener@example.invalid".to_owned());
+        let (issued, _) = state.begin_submit(10_000).unwrap();
+        assert!(state.finish_submit(issued, Err(SignupFailure::RateLimited(30)), 10_000));
+        assert_eq!(
+            state.phase(),
+            SignupPhase::SubmitFailed(SignupFailure::RateLimited(30))
+        );
+        assert_eq!(state.submit_wait_seconds(10_000), Some(30));
+        assert_eq!(state.submit_wait_seconds(39_001), Some(1));
+        // The same email again (button or Enter) is refused at the command boundary.
+        assert_eq!(state.begin_submit(20_000), None);
+        // Another email does not reset the wait ...
+        state.set_email("another@example.invalid".to_owned());
+        assert_eq!(state.phase(), SignupPhase::Editing);
+        assert_eq!(state.begin_submit(39_999), None);
+        assert_eq!(state.submit_wait_seconds(39_999), Some(1));
+        // ... leaving the page and starting over does not either ...
+        state.clear();
+        state.set_email("third@example.invalid".to_owned());
+        assert_eq!(state.begin_submit(30_000), None);
+        // ... only the deadline does.
+        assert_eq!(state.submit_wait_seconds(40_000), None);
+        assert!(state.begin_submit(40_000).is_some());
+    }
+
+    #[test]
+    fn a_late_429_of_a_page_that_was_left_still_holds_and_a_shorter_one_never_shortens() {
+        let mut state = SignupState::default();
+        state.set_email("listener@example.invalid".to_owned());
+        let (issued, _) = state.begin_submit(0).unwrap();
+        state.clear();
+        assert!(!state.finish_submit(issued, Err(SignupFailure::RateLimited(60)), 1_000));
+        assert_eq!(state.submit_wait_seconds(1_000), Some(60));
+        state.set_email("listener@example.invalid".to_owned());
+        assert_eq!(state.begin_submit(30_000), None);
+        let (issued, _) = state.begin_submit(61_000).unwrap();
+        assert!(state.finish_submit(issued, Err(SignupFailure::RateLimited(1)), 61_000));
+        assert_eq!(state.submit_wait_seconds(61_000), Some(1));
+        // Other failures never arm a wait.
+        state.set_email("listener@example.invalid".to_owned());
+        let (issued, _) = state.begin_submit(70_000).unwrap();
+        assert!(state.finish_submit(issued, Err(SignupFailure::Unavailable), 70_000));
+        assert_eq!(state.submit_wait_seconds(70_000), None);
+    }
+
+    #[test]
+    fn a_completion_retry_is_the_identical_serialized_request_of_the_first_attempt() {
+        let mut state = ready();
+        let (first, body) = state.begin_complete().unwrap();
+        assert!(state.finish_complete(first, Err(CompletionFailure::RateLimited(5)), 1_000));
+        // A cooling retry builds nothing and a new password cannot replace the snapshot.
+        assert_eq!(state.begin_retry(5_999), None);
+        state.set_password("silently different".into());
+        assert_eq!(state.begin_complete(), None);
+        let (_, retried) = state.begin_retry(6_000).unwrap();
+        assert_eq!(retried, body);
     }
 }

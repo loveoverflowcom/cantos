@@ -16,7 +16,7 @@ use crate::{
         Locale,
     },
     production::ProductionInputs,
-    session::{SessionState, SessionTicket},
+    session::{admits, AuthIntent, SessionState, SessionTicket},
     signin::{sign_in_failure, SignInForm},
     signin_form::SignInPanel,
 };
@@ -551,8 +551,11 @@ pub fn Studio() -> impl IntoView {
             observe_session(state, session, api, unsaved);
         }
     });
+    // Logout never waits for a save, upload, import or request: it closes local authority now.
+    let logout_blocked =
+        Signal::derive(move || !session.with(|session| admits(AuthIntent::Logout, session, false)));
     let logout = Callback::new(move |_| {
-        if auth_blocked.get_untracked() || authenticated_actor.get_untracked().is_none() {
+        if !session.with_untracked(|session| admits(AuthIntent::Logout, session, false)) {
             return;
         }
         let Some(ticket) = begin_session(state, session) else {
@@ -562,7 +565,12 @@ pub fn Studio() -> impl IntoView {
         account_form.update(SignInForm::clear);
         reauth_open.set(false);
         let api = api.snapshot();
+        // Synchronously, before the first await: the owner fences every lease (so a late reply of
+        // this account is an unknown outcome, never an acknowledgement), and the page-wide fence
+        // is withdrawn so nothing new is dispatched and a late denial of A cannot touch B.
+        // Unsaved drafts and unresolved operations stay with the editor and each panel's owner.
         let invalidated = api.begin_logout();
+        StudioHttp::accept_fence(None, session.get_untracked().epoch());
         spawn_local(async move {
             let result = match invalidated {
                 Ok(()) => api.logout().await.map(|()| None),
@@ -679,7 +687,7 @@ pub fn Studio() -> impl IntoView {
                         <Show when=move || reauth_open.get()>
                             <SignInPanel id="account" form=account_form english=english blocked=auth_blocked on_submit=submit_reauthentication reauthenticate=true/>
                         </Show>
-                        <ActionButton id="account-logout" english=english variant=ButtonVariant::Secondary blocked=auth_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
+                        <ActionButton id="account-logout" english=english variant=ButtonVariant::Secondary blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
                     </details>
                 </div>
             </header>

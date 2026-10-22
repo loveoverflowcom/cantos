@@ -4,6 +4,8 @@ pub mod browser;
 pub mod discovery;
 pub(crate) mod failure;
 pub mod library;
+#[cfg(any(target_arch = "wasm32", test))]
+pub(crate) mod mounted;
 pub mod public_media;
 pub mod public_work;
 pub mod request;

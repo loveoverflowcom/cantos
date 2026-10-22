@@ -333,7 +333,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     });
     #[cfg(target_arch = "wasm32")]
     if !preview && network_allowed.get_untracked() {
-        crate::live::runtime::mount(state, player, now_playing);
+        crate::live::runtime::mount(state, player, now_playing, network_allowed);
     }
     if preview {
         seed_preview(state, discovery);
@@ -781,7 +781,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let on_signup_submit = Callback::new(move |()| {
         if preview {
             signup.update(|current| {
-                let _ = current.begin_submit();
+                let _ = current.begin_submit(0);
             });
         } else if network_allowed.get_untracked() {
             #[cfg(target_arch = "wasm32")]

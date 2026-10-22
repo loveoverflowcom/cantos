@@ -227,10 +227,11 @@ declarations do not establish browser or native acceptance.
 | `src/application/account_writer.rs` | Host-compilable Leptos writer for typed account/sync capabilities; journal snapshot and persist-before-dispatch orchestration, without browser imports |
 | `src/application/library.rs`, `library_sync.rs` | Pure presented Library projection, epoch-checked history paging, Save/progress/history write outbox, receipt reconciliation, account-scoped recovery journal and exact-release resume admission |
 | `src/application/auth_navigation.rs` | Closed internal auth return destinations (Login/Register) and checked request epochs; routes never establish a session |
-| `src/application/signup.rs` | RAM-only mailbox-proof link (`ProofLink`, strict `#operation&proof&secret` parser, scrub predicate), chosen password, explicit confirmation, immutable retained request snapshot, same-request retry with Retry-After hold and epoch-fenced results; redacted `Debug` |
+| `src/application/signup.rs` | RAM-only mailbox-proof link (`ProofLink`, strict `#operation&proof&secret` parser, scrub predicate), chosen password, explicit confirmation, immutable retained request snapshot, same-request retry with Retry-After hold, a signup-start 429 hold that survives `clear`, and epoch-fenced results; redacted `Debug` |
 | `src/application/public_discovery.rs` | Pure Work-list walk: normalized `DiscoveryQuery` (q/kind/language), ticket-fenced requests, opaque cursor bound to its query, bounded follow-up of empty pages, same-cursor retry, `invalid_cursor` → fresh walk (never merged), one-time row identity |
 | `src/application/public_work.rs` | Pure live Work detail and unit-walk state machine: route generation and page-request fencing, empty-continuation follow-up budget, same-cursor page retry, `invalid_cursor` restart with `unit_id` de-duplication, terminal empty list |
 | `src/live/account.rs`, `library.rs`, `runtime.rs` | Cookie-session account lookup/sign-in/logout and Library transport (`Lease::apply`: `credentials: include` plus the session fence), bounded actual Library reads, point reads, idempotent mutations, receipt lookup recovery and mounted browser lifecycle; no mock fallback |
+| `src/live/mounted.rs` | Pure decision for the mounted listeners/timer given the live network gate and the owner's 429 hold |
 | `src/live/failure.rs`, `transport.rs` | Pure projection of the shared owner's failures onto account failures (401 signed out, 409 session change, 429 bounded wait, 503 unknown, 404 clear fault) and the per-request-class credential policy with source-level regression guards |
 | `src/live/signup.rs`, `src/platform/signup_browser.rs` | Anonymous `POST identity/signup` and `identity/signup/complete` (`credentials: omit`), strict bounded decoders, and the synchronous capture/scrub of the mailed fragment with its popstate/hashchange guard |
 | `src/live/discovery.rs` | Anonymous `GET /works?[q&kind&language&]limit&presentation=1[&cursor]` (encoded; cursor only form-encoded), `PresentedWorkPage` decoding and exact `ListenerError` classification; an empty page with a cursor is valid |
@@ -567,6 +568,22 @@ that names no factor; `400` names only the format; `403`/`404` show clear config
 `503` or lost response is an unknown effect, never "signed out". The reply is confirmed by an
 authoritative read, so a browser that did not retain the cookie reports a fault.
 
+**Rate limits and refusals.** The shared owner reads `Retry-After` for **every** protected answer
+(`Lease::response`: point reads, writes, receipt lookups and Library pages) and holds the whole
+Theatre surface of this document until it passes: a request is not dispatched inside the hold, even
+with a still-valid session, and the 60 s timer, window focus and manual refresh wait instead of
+blanking a valid account with a failed session read. The hold survives a view refresh, a manual retry
+and a durable-journal replay (they all re-enter through the owner). A write held by a `429` keeps its
+operation id and recovers receipt-first; it is never resent early, never dropped as a failure and
+never given a new id. Only a real `401` is a lost session: a `403` is a refusal (wrong Origin,
+no permission) that runs no expiry cleanup, a `409` or a differing session echo drops the local
+session so it is re-read (a business `409` keeps its own receipt/error meaning), and a `404` is a
+configuration fault. **Dependency:** the Server's CORS layer
+(`services/cantos-server/src/adapters/inbound/http/cors.rs`) does not expose `Retry-After` at this
+base, so a cross-origin read cannot see the header and falls back to 30 s. That is a conservative
+wait, not an acceptance of the exact time the Server asked for; exposing the header is the API
+owner's change.
+
 **Renewal and expiry.** A due idle deadline (≤90 s left) triggers one shared `POST …/session/renew`
 from the same lookup that runs every minute; the absolute deadline cannot be extended. Local clocks
 only decide *when to ask*: a passed deadline re-reads the session instead of concluding anything.
@@ -575,7 +592,9 @@ tab changed the account: the session is re-read and every account/session fence 
 data from the old account can appear. **Logout** closes the local intent first; the API `DELETE`
 retries until acknowledged and a delayed response never revives or re-labels a session.
 
-**Signup.** `POST identity/signup {email}` always shows the same accepted notice. The mail opens
+**Signup.** A `429` on `POST identity/signup {email}` also holds *new* starts until the wait passes
+(the button stays focusable with the reason; pressing Enter, editing the email or leaving and
+reopening the page cannot bypass it, and a late `429` still arms it). `POST identity/signup {email}` always shows the same accepted notice. The mail opens
 `<web>#operation=<32 hex>&proof=<32 hex>&secret=<64 hex>`; the page captures it once before any
 other effect, scrubs it from the address bar and history (an unreadable link is scrubbed too) and
 holds it only in RAM. Opening, prefetching or reloading the link sends nothing. The owner chooses a
@@ -587,6 +606,13 @@ offers only "send the same request again" (no new operation, password locked, Re
 respected); `401` (spent/expired link) and `403`/`404` end the attempt, `400` allows a new
 explicit password with the intact proof. Leaving the page drops everything, which cannot undo an
 account the API may already have created.
+
+**Mounted listeners.** The window-focus, visibility, 60 s timer and credential-loss handlers are
+mounted once but consult the shell's *live* network gate on every trigger (`live::mounted::decide`):
+if a same-tab email link later fails its history scrub, none of them issues a session read, cleanup
+or checkpoint write while the proof is still in the URL. (They are mounted only when the network was
+allowed at mount time; a shell that starts blocked does not mount them until reload, which is the
+existing behaviour.)
 
 **Verification boundary.** Host tests cover the proof parser and scrub predicate, explicit
 confirmation, same-request retry and fencing, the status projection, the per-class credential

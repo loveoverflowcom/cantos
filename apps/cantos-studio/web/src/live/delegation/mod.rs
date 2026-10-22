@@ -432,6 +432,7 @@ pub fn problems(error: &ClientError) -> Vec<Problem> {
             ClientError::Cancelled
             | ClientError::SessionChanged
             | ClientError::ReceiptNotEstablished
+            | ClientError::RateLimited { .. }
             | ClientError::Transport => Problem::Interrupted,
             ClientError::Http { .. } => Problem::Unavailable,
         }];

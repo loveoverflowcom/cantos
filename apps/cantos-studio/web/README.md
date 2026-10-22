@@ -89,9 +89,9 @@ access-request, invitation or Membership flow.
 | --- | --- |
 | 200 session | confirmed by an authoritative `GET identity/session`; only then the writing desk |
 | 401 at login | one generic "could not sign in" message; never names the password or the account |
-| 403 at login | "your password is correct, but this account is not allowed into Cantos Studio" (Server roster); the Denied entry. Login and email never grant Studio authority |
+| 403 at login | "the request was refused: this account may not access Cantos Studio"; the Denied entry. A 403 is a wrong `Origin` **or** a roster denial and the response cannot tell which, so no copy claims the password was right. Login and email never grant Studio authority |
 | 404 | "Studio sign-in is not available on this server"; no fallback sign-in, form hidden |
-| 429 | the bounded `Retry-After` seconds; the identity client refuses another request until then |
+| 429 | the bounded `Retry-After` seconds; the identity client refuses every request of this surface (login, renew, reads, writes, downloads, uploads) until then, even with a still-valid session |
 | 503, network, timeout | unknown effect, shown as unavailable with Retry; never as signed out; drafts kept |
 | 400 | invalid input message |
 | refused account (retained-draft owner mismatch) | message that the new session was revoked; the other account is never adopted |
@@ -102,8 +102,14 @@ request authority. No summary endpoint, portfolio total, QC count or demo record
 Import, new Work, current Work, audio and script-editor actions open the existing mounted
 workspaces. Returning to the desk preserves authoring text and request snapshots; pane return
 retains native caret/selection/scroll without copying manuscript text into navigation state.
-In-flight requests block authentication changes; ambiguous writes retain their owner while
-allowing explicit reauthentication and same-operation reconciliation, including delegation.
+In-flight requests block sign-in, refresh and reauthentication, but **never logout**: logout
+(`session::admits`) closes local authority synchronously, before its first await. The session
+owner fences every lease (a late reply of the account being left is an unknown outcome, never an
+acknowledgement), the page-wide fence is withdrawn so nothing new is dispatched and a late denial
+cannot touch the next account, each panel aborts its request best effort (an abort is not proof
+that a write did not commit), and the private workspace is hidden. Unsaved drafts and unresolved
+operations are kept for their owner; ambiguous writes allow explicit reauthentication as the same
+owner and same-operation reconciliation, including delegation.
 
 The [scoped evidence](../../../docs/evidence/studio-login-dashboard.md) separates native/SSR,
 WASM and synthetic-HTTP browser observations from live identity-provider acceptance. The
@@ -130,6 +136,7 @@ blindly replayed.
 | Owner JSON/Protobuf reads and writes, delegations, catalog/content/briefs/audio metadata | `credentials: include` + session fence; per-route codec negotiation unchanged |
 | Original download, private artwork preview | same, then SHA-256/identity checks before an ephemeral Blob |
 | Artwork upload | XHR with `withCredentials=true` + fence (progress for same- and cross-origin); fetch fallback with the same policy and no invented percentage. The target must be this surface of the configured API origin |
+| 429 on any owner request | `Lease::response(status, Retry-After)` arms the shared hold; commands surface `ClientError::RateLimited { seconds }` (an unknown outcome for a write, reconciled by its operation and never replayed before the hold ends); the `ApiError`-returning paths keep `Unavailable` (shared contract) and expose the wait through `api::rate_wait()` |
 | Producer status/upload (work capability) | its own `Authorization: Bearer`, `credentials: omit`, no cookie, no fence |
 | Public/anonymous | `credentials: omit` |
 
@@ -451,3 +458,10 @@ CORS with credentials, CSRF/Origin enforcement and cookie scope (`SameSite=Stric
 owns the topology; previews need their own declared topology. Native Bearer is unchanged.
 The [current production runbook](../../../docs/deployment/vps-production.md) owns destinations;
 a successful local build or mocked browser run is not deployed-user acceptance.
+
+**Retry-After and cross-origin reads.** The wait comes from the `Retry-After` header, which a
+cross-origin page can read only when the API exposes it (`Access-Control-Expose-Headers`). At this
+base `services/cantos-server/src/adapters/inbound/http/cors.rs` does not, so the header reads as
+absent and the owner holds for its conservative 30 s default instead of the Server's value (API
+owner follow-up; same-origin proxies are unaffected). Cross-tab cookie ordering and logout-while-busy
+have host tests only: no browser, Web Locks or real Server/Identity acceptance exists.

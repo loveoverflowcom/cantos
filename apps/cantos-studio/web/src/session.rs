@@ -68,8 +68,10 @@ fn coded(code: ErrorCode) -> ApiError {
 }
 
 /// The Studio projection of an identity failure. Unknown effects stay `Unavailable` (never
-/// "signed out"); a 403 keeps its own code so the entry can say the account lacks Studio
-/// access; a missing sign-in capability (404) is explicit and has no fallback.
+/// "signed out"); a 403 keeps its own code so the entry can say this account may not access
+/// Studio (it is never read as a verified password: an Origin refusal is also a 403); a missing
+/// sign-in capability (404) is explicit and has no fallback. A 429 hold stays `Unavailable` here
+/// because `ApiError` is a shared contract: its wait is read from the owner (`api::rate_wait`).
 pub fn failure_error(failure: Failure) -> ApiError {
     match failure {
         Failure::SignedOut | Failure::InvalidCredentials => unauthenticated(),
@@ -105,6 +107,29 @@ pub fn unconfirmed_response() -> ApiError {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionTicket(u64);
+
+/// An authentication action the shell may start.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuthIntent {
+    SignIn,
+    Refresh,
+    Reauthenticate,
+    Logout,
+}
+
+/// Whether `intent` may start now. Sign-in, refresh and reauthentication wait for a settled
+/// session and for in-flight work (`busy`), so they never race a save, upload or import.
+/// Logout never waits for work: closing local authority is a synchronous fence, the draft and
+/// every unresolved operation stay with their owner, and a late reply cannot reopen the session.
+/// It only needs an account to leave.
+pub fn admits(intent: AuthIntent, session: &SessionState, busy: bool) -> bool {
+    match intent {
+        AuthIntent::Logout => !session.pending() && session.actor().is_some(),
+        AuthIntent::SignIn | AuthIntent::Refresh | AuthIntent::Reauthenticate => {
+            !session.pending() && !busy
+        }
+    }
+}
 
 /// Browser presentation is fenced independently from retained authoring draft ownership.
 /// Only an actual current-session response establishes a displayed actor.
@@ -253,7 +278,7 @@ mod tests {
             // 503 or a lost renewal: unknown, so never presented as a signed-out login.
             (Failure::Unavailable, Entry::Unavailable),
             (Failure::RateLimited(5), Entry::Unavailable),
-            // A verified password without a Studio roster seat.
+            // A 403: wrong Origin or a roster denial; the response cannot tell which.
             (Failure::Forbidden, Entry::Denied),
             // The API has no Studio sign-in at all; there is no fallback.
             (Failure::NotFound, Entry::SignInUnavailable),
@@ -320,6 +345,83 @@ mod tests {
         ] {
             assert!(!is_fence_mismatch(status, &error(code)), "{status}");
         }
+    }
+
+    #[test]
+    fn logout_is_admitted_while_work_is_busy_but_sign_in_refresh_and_reauthentication_wait() {
+        let (checking, ticket) = SessionState::default().begin().unwrap();
+        let signed_in = checking.settled(ticket, Some("alice".into()));
+        for intent in [
+            AuthIntent::SignIn,
+            AuthIntent::Refresh,
+            AuthIntent::Reauthenticate,
+        ] {
+            assert!(admits(intent, &signed_in, false), "{intent:?}");
+            assert!(
+                !admits(intent, &signed_in, true),
+                "{intent:?} must wait for work"
+            );
+        }
+        assert!(admits(AuthIntent::Logout, &signed_in, true));
+        assert!(admits(AuthIntent::Logout, &signed_in, false));
+        // Nothing is admitted while a session check is pending, and there is nobody to log out
+        // before an account is confirmed.
+        let (pending, _) = signed_in.begin().unwrap();
+        let guest = SessionState::default();
+        for intent in [AuthIntent::Logout, AuthIntent::SignIn, AuthIntent::Refresh] {
+            assert!(!admits(intent, &pending, false), "{intent:?}");
+        }
+        assert!(!admits(AuthIntent::Logout, &guest, false));
+    }
+
+    #[test]
+    fn logout_during_a_save_hides_the_workspace_keeps_the_draft_and_fences_the_late_reply() {
+        let editor = crate::editor::Editor::default()
+            .signed_in("alice".into())
+            .select_script("script".into())
+            .edit("private A draft".into());
+        let (saving, intent) = editor.start_save("operation".into()).unwrap();
+        let (checking, ticket) = SessionState::default().begin().unwrap();
+        let alice = checking.settled(ticket, Some("alice".into()));
+        assert!(admits(AuthIntent::Logout, &alice, saving.busy()));
+        // Logout closes the shell's authority at once, while the save is still in flight.
+        let (logging_out, logout_ticket) = alice.begin().unwrap();
+        let held = saving.checking_session();
+        assert!(
+            !logging_out.projects_owner("alice"),
+            "the private workspace is hidden"
+        );
+        assert_eq!(
+            held.pending(),
+            Some(&intent),
+            "the unresolved save keeps its identity"
+        );
+        // The save answers late: the owner reports an unknown outcome, never a success.
+        let unknown = held.save_failed(&intent, &unconfirmed_response());
+        assert_eq!(unknown.draft(), "private A draft");
+        assert_eq!(unknown.pending(), Some(&intent));
+        // The logout settles with nobody signed in; draft and pending save survive for A.
+        let signed_out = logging_out.settled(logout_ticket, None);
+        let after = unknown.session_failed(&unauthenticated());
+        assert!(!signed_out.projects_owner("alice"));
+        assert_eq!(after.draft(), "private A draft");
+        assert_eq!(after.pending(), Some(&intent));
+        assert!(after.awaits_reconciliation());
+        // Account B signs in: A's draft is neither editable nor projected, and A's late
+        // acknowledgement of the same operation changes nothing.
+        let for_b = after.signed_in("bob".into());
+        assert!(!for_b.can_edit());
+        assert_eq!(for_b.draft(), "private A draft");
+        let late = cantos_contracts::RevisionResponse {
+            script_id: "script".into(),
+            revision: 1,
+            accepted_by: "alice".into(),
+            accepted_at: "2026-10-10T00:00:00.000000Z".into(),
+            content_digest: "content".into(),
+            export_digest: "export".into(),
+            script_json: "canonical".into(),
+        };
+        assert_eq!(for_b.saved(&intent, late), for_b);
     }
 
     #[test]

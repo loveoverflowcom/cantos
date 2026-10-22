@@ -376,6 +376,10 @@ impl AccountSyncJournal {
 pub enum CommandError {
     SignedOut,
     SessionChanged,
+    /// 403: a refusal (wrong Origin, no permission). Never a lost session.
+    Forbidden,
+    /// 429 with its bounded wait; the shared owner holds every protected request until then.
+    RateLimited(u32),
     StaleDeviceSequence,
     IdempotencyKeyReused,
     RevisionExhausted,

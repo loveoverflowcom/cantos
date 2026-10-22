@@ -80,6 +80,7 @@ pub enum Key {
     UnknownKind,
     ErrorInvalidInput,
     ErrorInterrupted,
+    ErrorRateLimited,
     ErrorUnexpectedReply,
     ErrorSignIn,
     ErrorForbidden,
@@ -108,6 +109,7 @@ pub fn text(key: Key, en: bool) -> &'static str {
         (Key::UnknownKind, false) => "Loại chưa xác định", (Key::UnknownKind, true) => "Unknown type",
         (Key::ErrorInvalidInput, false) => "Kiểm tra các trường bắt buộc, ID cụ thể và giới hạn tệp.", (Key::ErrorInvalidInput, true) => "Check required fields, exact IDs and file bounds.",
         (Key::ErrorInterrupted, false) => "Kết nối bị gián đoạn hoặc hết thời gian.", (Key::ErrorInterrupted, true) => "Connection interrupted or timed out.",
+        (Key::ErrorRateLimited, false) => "Quá nhiều yêu cầu. Hãy đợi một lúc rồi thử lại; thao tác trước chưa được coi là thất bại và không được gửi lại tự động.", (Key::ErrorRateLimited, true) => "Too many requests. Wait a while, then try again; the previous action is not treated as failed and is never resent automatically.",
         (Key::ErrorUnexpectedReply, false) => "Phản hồi không hợp lệ; chưa có xác nhận.", (Key::ErrorUnexpectedReply, true) => "Unexpected response; no acknowledgement.",
         (Key::ErrorSignIn, false) => "Đăng nhập lại.", (Key::ErrorSignIn, true) => "Sign in again.",
         (Key::ErrorForbidden, false) => "Quyền hoặc nguồn yêu cầu bị từ chối.", (Key::ErrorForbidden, true) => "Permission or request origin refused.",
@@ -241,6 +243,7 @@ pub fn error_key(error: &super::ClientError) -> Key {
         | ClientError::SessionChanged
         | ClientError::ReceiptNotEstablished
         | ClientError::Transport => Key::ErrorInterrupted,
+        ClientError::RateLimited { .. } => Key::ErrorRateLimited,
         ClientError::ReplyMismatch | ClientError::Protocol { .. } => Key::ErrorUnexpectedReply,
         ClientError::Http { status, .. } => match status {
             401 => Key::ErrorSignIn,
@@ -343,6 +346,7 @@ mod tests {
             Key::UnknownKind,
             Key::ErrorInvalidInput,
             Key::ErrorInterrupted,
+            Key::ErrorRateLimited,
             Key::ErrorUnexpectedReply,
             Key::ErrorSignIn,
             Key::ErrorForbidden,
@@ -367,6 +371,10 @@ mod tests {
             (ClientError::SessionChanged, Key::ErrorInterrupted),
             (ClientError::ReceiptNotEstablished, Key::ErrorInterrupted),
             (ClientError::Transport, Key::ErrorInterrupted),
+            (
+                ClientError::RateLimited { seconds: 30 },
+                Key::ErrorRateLimited,
+            ),
             (ClientError::ReplyMismatch, Key::ErrorUnexpectedReply),
             (
                 ClientError::Protocol { status: 502 },
