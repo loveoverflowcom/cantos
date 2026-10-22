@@ -707,6 +707,9 @@ mod tests {
             probe_endpoint(&endpoint, &Readiness::TheatreCatalog),
             Probe::Unexpected(_)
         ));
+        // Drain the probe connection before closing: on macOS an unaccepted backlog can
+        // keep the socket connectable briefly after the listening handle is dropped.
+        drop(listener.accept().unwrap());
         drop(listener);
         // The inode survives the listener, but nothing answers on it any more.
         assert!(path.exists());

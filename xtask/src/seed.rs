@@ -635,13 +635,15 @@ mod tests {
     /// A throwaway workspace that holds a seeder target file, so planning succeeds.
     fn fixture(with_seeder: bool) -> (Root, Workspace) {
         // Short, so the Identity socket path stays within `sun_path` whatever TMPDIR is.
+        static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let root = std::path::PathBuf::from("/tmp").join(format!(
-            "xs-{}-{}",
+            "xs-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .subsec_nanos()
+                .as_nanos(),
+            SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         std::fs::create_dir_all(root.join("services/cantos-server/tests")).unwrap();
         std::fs::create_dir_all(root.join("t")).unwrap();
