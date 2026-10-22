@@ -9,41 +9,58 @@ import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/** Process-owned OS hints, serialized on the same main scope as the account/flusher. */
+/**
+ * Process-owned OS hints, serialized on the same main scope as the account/flusher. The decision
+ * of when connectivity returned is [NetworkRecoveryTracker]; this adapter only translates
+ * platform callbacks into its neutral facts. It adds no authority and no second flusher.
+ */
 internal class AndroidLibraryNetworkSignals(
     context: Context,
     private val scope: CoroutineScope,
     private val restored: () -> Unit,
 ) {
     private val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    private val available = mutableSetOf<Network>()
+    private val tracker = NetworkRecoveryTracker(networkReportingForSdk(Build.VERSION.SDK_INT))
     private var closed = false
     private val callback = object : ConnectivityManager.NetworkCallback() {
-        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-            val usable = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            scope.launch {
-                if (closed) return@launch
-                val wasAvailable = available.isNotEmpty()
-                if (usable) available.add(network) else available.remove(network)
-                if (!wasAvailable && available.isNotEmpty()) restored()
+        // Before API 26 a new network is not guaranteed a capabilities callback; read it once
+        // here. The read may be stale, which only mis-times a hint: a later callback corrects it.
+        override fun onAvailable(network: Network) {
+            if (networkCapabilitiesNeedProbe(Build.VERSION.SDK_INT)) {
+                report(network, manager.getNetworkCapabilities(network))
             }
         }
+
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) =
+            report(network, capabilities)
+
         override fun onLost(network: Network) {
-            scope.launch { if (!closed) available.remove(network) }
+            val id = network.networkHandle
+            scope.launch { if (!closed) tracker.lost(id) }
         }
     }
 
+    private fun report(network: Network, capabilities: NetworkCapabilities?) {
+        val id = network.networkHandle
+        val usable = capabilities != null &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        scope.launch { if (!closed && tracker.capabilities(id, usable)) restored() }
+    }
+
     init {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) manager.registerDefaultNetworkCallback(callback)
-        else manager.registerNetworkCallback(NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), callback)
+        if (networkReportingForSdk(Build.VERSION.SDK_INT) == NetworkReporting.CurrentDefault) {
+            manager.registerDefaultNetworkCallback(callback)
+        } else {
+            manager.registerNetworkCallback(NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), callback)
+        }
     }
 
     fun close() {
         if (closed) return
         closed = true
         manager.unregisterNetworkCallback(callback)
-        available.clear()
+        tracker.close()
     }
 }

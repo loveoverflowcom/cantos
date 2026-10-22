@@ -23,7 +23,8 @@ class TheatreAndroidHostTest(unittest.TestCase):
 
     def test_manifest_declares_only_native_playback_and_identity_capabilities(self):
         self.assertEqual({p.get(ANDROID + "name") for p in self.manifest.findall("uses-permission")},
-                         {"android.permission.INTERNET", "android.permission.WAKE_LOCK", "android.permission.FOREGROUND_SERVICE",
+                         {"android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE",
+                          "android.permission.WAKE_LOCK", "android.permission.FOREGROUND_SERVICE",
                           "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"})
         self.assertEqual(self.manifest.findall("permission"), [])
         application = self.manifest.find("application")

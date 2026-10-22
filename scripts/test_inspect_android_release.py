@@ -206,6 +206,27 @@ class PolicyTest(unittest.TestCase):
         with self.assertRaises(inspector.InspectionError):
             inspector.parse_xmltree("ERROR: no manifest")
 
+    def test_manifest_admits_only_the_exact_network_state_delta_and_rejects_other_permissions(self):
+        network_state = "android.permission.ACCESS_NETWORK_STATE"
+        allowed = {DYNAMIC, network_state}
+
+        def findings(text, allow):
+            return inspector.manifest_findings(inspector.parse_xmltree(text), APP, LAUNCHER, allow)
+
+        declaration = '      E: {tag} (line=19)\n        A: {a}name(0x01010003)="{name}" (Raw: "{name}")\n'
+        dynamic = declaration.format(tag="uses-permission", a=ANDROID, name=DYNAMIC)
+        with_network = APK_MANIFEST.replace(
+            dynamic, dynamic + declaration.format(tag="uses-permission", a=ANDROID, name=network_state), 1)
+        self.assertNotEqual(with_network, APK_MANIFEST)
+        self.assertEqual(findings(with_network, allowed), [])
+        # The policy is an exact set: the same manifest is refused when the delta is not allowed.
+        self.assertTrue(any(network_state in item for item in findings(with_network, {DYNAMIC})))
+        # An unrelated permission stays rejected in both declaration forms, with the delta allowed.
+        for tag in ("uses-permission", "uses-permission-sdk-23"):
+            camera = with_network.replace(
+                dynamic, dynamic + declaration.format(tag=tag, a=ANDROID, name="android.permission.CAMERA"), 1)
+            self.assertEqual(findings(camera, allowed), ["requests unexpected permission android.permission.CAMERA"], tag)
+
     def test_manifest_rejects_debug_permissions_extra_launchers_and_demo_names(self):
         def findings(text, application_id=APP):
             return inspector.manifest_findings(inspector.parse_xmltree(text), application_id, LAUNCHER, {DYNAMIC})

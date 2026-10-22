@@ -108,8 +108,11 @@ request expectation. Other statuses and error bodies retain their contracted, cl
 `NativeSessionRuntime.foregrounded()` and `networkRestored()` ask the existing account flusher to
 drain. After six automatic backoffs are exhausted, a new opportunity starts another bounded episode;
 callbacks during an active drain share it. These signals neither revalidate/login nor reset/start
-the player. Android registers one process `ConnectivityManager` callback and Activity foreground
-hook; iOS uses the retained `NWPathMonitor` and active scene hook, delivering to the main owner.
+the player. Android registers one process `ConnectivityManager` callback (requires
+`android.permission.ACCESS_NETWORK_STATE`) and Activity foreground hook. The callback follows the
+current default network from API 24, where a new default replaces the old one without a guaranteed
+loss for it; API 23 follows all networks. `NetworkRecoveryTracker` decides, once per outage, when a
+usable network returns; iOS uses the retained `NWPathMonitor` and active scene hook, delivering to the main owner.
 Network availability is a hint, never proof of admission or synchronization. Frozen sent intents
 keep their operation ID and body and query the original receipt before replay; account/generation
 and credential-lease fences still reject old callbacks after logout or switching accounts.

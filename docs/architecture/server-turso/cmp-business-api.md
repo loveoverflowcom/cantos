@@ -159,8 +159,13 @@ Web HttpOnly cookies and native opaque Bearer/session protocols are unchanged.
 - Foreground and restored-network hints call the one process/account flusher. An opportunity
   after retry exhaustion opens a new bounded episode. Duplicate in-flight callbacks share the
   drain; persisted sent intents reconcile their original receipt before byte-identical replay.
-  Android uses a process ConnectivityManager registration; iOS retains NWPathMonitor and
-  forwards active-scene/restored-path hints to the main owner. These hints grant no authority.
+  Android uses one process ConnectivityManager registration whose decision is the neutral
+  `NetworkRecoveryTracker`: from API 24 a current-default registration where a new default replaces
+  the old one (the platform stops reporting the replaced network and may never report it lost), and
+  on API 23 an all-networks registration. Before API 26 the adapter reads capabilities when a
+  network becomes available, as the platform does not guarantee a capabilities callback then.
+  iOS retains NWPathMonitor and forwards active-scene/restored-path hints to the main owner.
+  These hints grant no authority.
 
 ### Regressions and real boundary evidence
 
@@ -178,6 +183,7 @@ reports remain local under ignored `artifacts/agent-runs/cmp-live-api-recovery/`
 | Library HTTP harness | `cargo test --locked -p cantos-server --lib theatre_library_http_tests` | PASS: 5, with the explicit trusted-host Gradle lane ignored |
 | Production CMP authorized path over real TCP HTTP and Identity | `cargo test --locked -p cantos-server --test theatre_business_journey cmp_authorized_library_against_real_identity_and_http -- --ignored --exact --nocapture` | PASS: 1; `LIVE-AUTHORIZED-LIBRARY-OK requests=23`; real login, actual session stamps, Identity stop → genuine 503/no stamp → restart/recovery, lost committed response recovered by receipt, final Server row/anomaly assertions |
 | Retained trusted-host fixture | `cargo test --locked -p cantos-server --lib theatre_library_http_tests::cmp_production_client_against_the_real_api -- --ignored --exact --nocapture` | PASS: 1; `LIVE-BOOKMARK-OK`, 54 requests. Synthetic trusted-host principal, explicitly not authentication acceptance. The fixture server stamps and the JDK transport reads that actual header |
+| A replaced default network was kept as proof of connectivity | `NetworkRecoveryTrackerTest.replacedDefaultNetworkIsNotKeptAsProofOfConnectivity` (default A usable → default B usable without a loss for A → B lost → C usable emits one opportunity) | The prior set-based tracking is the all-networks case in `allNetworksRegistrationWouldHaveKeptTheReplacedNetwork`, which does not emit for C; the current-default tracking does. Also duplicate, stale-loss, unvalidated-default and closed-owner cases. JVM logic only: OS callback delivery is not exercised |
 | Whole JVM application/sandbox | `cargo xtask theatre-preview verify` | PASS; production owners plus named external doubles; no native device acceptance |
 | iOS build prerequisite | `cargo xtask theatre-host ios-build --kotlin-native-home /Users/manhblue/.konan/kotlin-native-prebuilt-macos-aarch64-2.2.20` | UNSUPPORTED: the pinned compiler is absent; Swift syntax parse passes, Kotlin/Native/framework/app compile and iOS runtime NOT_RUN |
 
@@ -185,8 +191,13 @@ The two explicit Gradle-backed Rust commands additionally require
 `CANTOS_TEST_GRADLE=/absolute/path/to/gradle-8.14.3/bin/gradle` and a compatible `JAVA_HOME`.
 Identity is built with `cargo build --locked -p cantos-identity --features service --bin cantos-identity`;
 its test SMTP sink, files and private Unix socket are run-owned. No external mail or production
-account/data is involved. Only credential storage and the audio decoder remain doubles in the
-new CMP lane; this is real HTTP/auth/storage integration, not native media acceptance.
+account/data is involved. In the new CMP lane the production account controller, authorized
+adapter and Library client run over real TCP, the real Identity executable, the Server database and
+the desktop SQLite store. The test uses a JDK test transport, replaces the credential journal/
+logout barrier, `PlaybackAccessPort` and the audio decoder, and calls `foregrounded()` and
+`networkRestored()` directly. This is real HTTP/auth/storage integration, not native media or OS
+connectivity-callback acceptance. The request count printed by the test is an observation, not an
+invariant.
 
 The behavior catalog's listening-progress entry remains `needs-decision` without a model;
 `identity/native_session_admission.qnt` is draft and models outage without revocation, excluding
@@ -196,29 +207,27 @@ Kotlin/Native conformance claim is made.
 ### Handoff gates and scope blocker
 
 `cargo xtask preflight --changed-only --base a2777d9833e6ad877dcfbd929df40e04b84969ae`
-was run without skips. It reports repository FAIL (31 findings, identical to the untouched base)
-and all later selected gates NOT_RUN because it stops at that failure. Independent available checks:
-Rust format and Server clippy PASS; `cargo test --locked --no-fail-fast -p cantos-server` with
-`TMPDIR=/private/tmp` and the built Identity executable passes the library (647 passed, 5 ignored)
-and every integration target except the six unchanged `surface_policy_baseline` failures,
-reproduced on the untouched base. WAV reference agrees on five fixtures; actual audio-inspection
-passes both tests. Final JVM reports select 481 shared tests (478 executed, 3 opt-in live suites
-skipped) plus 103 sandbox tests; both Library live suites were executed explicitly above. The
-public-catalog live-origin opt-in remains NOT_RUN. The first broad Server run omitted the documented
-short TMPDIR and had temporary-root validation failures; the corrected run retains only the base
-surface-policy failures.
+was run without skips on the final diff. It reports repository FAIL and every later selected gate
+NOT_RUN because it stops at that failure. The 31 repository findings were re-run on a clean checkout
+of that base and are the same set (only the checkout path in one message differs). Independent
+checks run on this diff: `cargo fmt --all -- --check`, `cargo clippy --locked -p xtask
+--all-targets -D warnings` and `cargo test --locked -p xtask theatre_host::tests` (12) PASS; the
+Android script tests PASS; `cargo xtask theatre-preview verify` PASS selects 490 shared tests
+(487 executed, 3 opt-in live suites skipped) plus 103 sandbox tests. Server, WAV and audio-inspection
+results from the earlier head (Server library 647 passed/5 ignored, the six unchanged
+`surface_policy_baseline` failures reproduced on the base, WAV five fixtures, audio inspection two
+tests) were not rerun for this change, which touches no Server or audio code. Both Library live
+suites were executed explicitly on the earlier head and were not rerun here. The public-catalog
+live-origin opt-in remains NOT_RUN.
 
 Android `cargo xtask theatre-host android-debug --api-origin http://127.0.0.1:8080` compiles the
-production debug APK (SDK/build-tools 35), but artifact inspection FAILS on the newly required
-`android.permission.ACCESS_NETWORK_STATE`. The permission is required by the real network callback;
-the existing inspector list in `xtask/src/theatre_host.rs` and strict manifest expectation in
-`scripts/test_theatre_android_host.py` are outside this task's authorized shared-file scope.
-A narrow proposed change is prepared locally; applying it is PENDING scope approval, not denied
-and not executed. No inspection rule is bypassed. With Python 3.13.5 and `TMPDIR=/private/tmp`,
-the script suite runs 1,070 tests: the base has 6 failures/8 errors/15 skipped; head has 7 failures/
-8 errors/15 skipped. The sole added failure is that same strict Android permission expectation.
-All other failure names match. Missing legacy PG inventory and host/tool assumptions remain
-outside this repair. No PG, Kanidm, Podman or other workaround was installed.
+production debug APK (SDK/build-tools 35) and its artifact inspection passes. The only permission
+delta is `android.permission.ACCESS_NETWORK_STATE`, required by the process `ConnectivityManager`
+registration; it is added to the exact inspector allowlist in `xtask/src/theatre_host.rs` and the
+exact manifest expectation in `scripts/test_theatre_android_host.py`. A negative control in
+`scripts/test_inspect_android_release.py` shows the delta is accepted only when allowed and that
+`CAMERA` stays rejected in both `uses-permission` and `uses-permission-sdk-23`. No inspection rule
+is bypassed. Script-suite and handoff counts are recorded in the PR for the final diff, not here.
 
 The read-only `cantos-code-review` pass covers the final production/test changes and callers;
 no backend business semantics, schema, credentials, player or second sync owner is introduced.
