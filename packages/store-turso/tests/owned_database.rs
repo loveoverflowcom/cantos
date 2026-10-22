@@ -898,7 +898,10 @@ async fn a_writer_wait_is_bounded_and_the_queue_recovers_when_the_holder_finishe
 }
 
 async fn count_items(reader: &cantos_store_turso::ReadConnection) -> i64 {
-    let mut rows = reader.query("SELECT count(*) FROM items", ()).await.unwrap();
+    let mut rows = reader
+        .query("SELECT count(*) FROM items", ())
+        .await
+        .unwrap();
     let row = rows.next().await.unwrap().unwrap();
     let Value::Integer(n) = row.get_value(0).unwrap() else {
         panic!("not an integer")

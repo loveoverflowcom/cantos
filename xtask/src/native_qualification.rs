@@ -48,10 +48,11 @@ pub struct QualificationArgs {
     pub dry_run: bool,
 }
 
-/// The agreed Server session interface: a Cargo integration target, its exact test and feature.
+/// The agreed Server session interface: a Cargo integration target and its exact test. The
+/// Server compiles its Turso adapters by default and its tests enable `test-support` through a
+/// self dev-dependency, so nothing is selected by a feature here.
 pub const SESSION_TARGET: &str = "identity_auth_candidate";
 pub const SESSION_TEST: &str = "real_identity_actor_session_journey";
-pub const SESSION_FEATURE: &str = "turso-candidate";
 
 const SERVER: &str = "cantos-server";
 const IDENTITY: &str = "cantos-identity";
@@ -145,7 +146,8 @@ enum Unit {
 struct Selected {
     layer: Layer,
     package: &'static str,
-    feature: &'static str,
+    /// A Cargo feature to enable, only where the package needs one (Identity's `service`).
+    feature: Option<&'static str>,
     unit: Unit,
     test: &'static str,
     /// Starts the real Identity executable, which the guard then binds by digest.
@@ -158,7 +160,7 @@ const fn actor(test: &'static str) -> Selected {
     Selected {
         layer: Layer::ActorTurso,
         package: SERVER,
-        feature: SESSION_FEATURE,
+        feature: None,
         unit: Unit::Lib,
         test,
         child: false,
@@ -170,7 +172,7 @@ const fn session(test: &'static str) -> Selected {
     Selected {
         layer: Layer::ServerSessionCandidate,
         package: SERVER,
-        feature: SESSION_FEATURE,
+        feature: None,
         unit: Unit::Lib,
         test,
         child: false,
@@ -182,7 +184,7 @@ const fn identity(test: &'static str) -> Selected {
     Selected {
         layer: Layer::IdentityProcessRpc,
         package: IDENTITY,
-        feature: IDENTITY_FEATURE,
+        feature: Some(IDENTITY_FEATURE),
         unit: Unit::Test("process"),
         test,
         child: true,
@@ -202,7 +204,7 @@ const SELECTED: [Selected; 12] = [
     Selected {
         layer: Layer::ServerSessionCandidate,
         package: SERVER,
-        feature: SESSION_FEATURE,
+        feature: None,
         unit: Unit::Test(SESSION_TARGET),
         test: SESSION_TEST,
         child: true,
@@ -334,12 +336,13 @@ fn session_target(metadata: &Value) -> Result<Presence> {
         [] => Ok(Presence::Absent),
         [target]
             if target["kind"] == json!(["test"])
-                && target["required-features"] == json!([SESSION_FEATURE]) =>
+                && (target["required-features"].is_null()
+                    || target["required-features"] == json!([])) =>
         {
             Ok(Presence::Present)
         }
         _ => {
-            bail!("{SESSION_TARGET} exists but is not one test target requiring {SESSION_FEATURE}")
+            bail!("{SESSION_TARGET} exists but is not one test target without required features")
         }
     }
 }
@@ -464,8 +467,16 @@ fn cargo(workspace: &Workspace, args: &[&str]) -> CommandSpec {
 
 /// One Cargo invocation per compiled test executable group, so a broken session target never
 /// hides the Actor Registry layer.
-fn build_command(workspace: &Workspace, package: &str, feature: &str, unit: Unit) -> CommandSpec {
-    let mut args = vec!["test", "--locked", "-p", package, "--features", feature];
+fn build_command(
+    workspace: &Workspace,
+    package: &str,
+    feature: Option<&str>,
+    unit: Unit,
+) -> CommandSpec {
+    let mut args = vec!["test", "--locked", "-p", package];
+    if let Some(feature) = feature {
+        args.extend(["--features", feature]);
+    }
     match unit {
         Unit::Lib => args.push("--lib"),
         Unit::Test(name) => args.extend(["--test", name]),
@@ -491,7 +502,7 @@ fn identity_build(workspace: &Workspace) -> CommandSpec {
     )
 }
 
-fn groups() -> Vec<(&'static str, &'static str, Unit)> {
+fn groups() -> Vec<(&'static str, Option<&'static str>, Unit)> {
     let mut groups: Vec<_> = SELECTED
         .iter()
         .map(|selected| (selected.package, selected.feature, selected.unit))
@@ -817,7 +828,7 @@ fn run(campaign: &mut Campaign<'_>, kani: bool) -> Result<(Layers, Value)> {
         "status": if identity_binary.is_ok() { "PASS" } else { "FAIL" },
         "artifacts": identity_binary.as_ref().map(|(digest, _)| vec![json!({"role": "identity-executable", "sha256": digest})]).unwrap_or_default(),
     }));
-    let mut executables: BTreeMap<(&str, &str, Unit), Built> = BTreeMap::new();
+    let mut executables: BTreeMap<(&str, Option<&str>, Unit), Built> = BTreeMap::new();
     for (package, feature, unit) in groups() {
         if matches!(unit, Unit::Test(SESSION_TARGET))
             && presence.as_ref().ok() != Some(&Presence::Present)
@@ -911,26 +922,25 @@ fn run(campaign: &mut Campaign<'_>, kani: bool) -> Result<(Layers, Value)> {
             .iter()
             .filter(|run| run.selected.layer == layer)
             .collect();
-        let entry = if layer == Layer::ServerSessionCandidate
-            && matches!(presence, Ok(Presence::Absent))
-        {
-            (
-                Status::NotRun,
-                format!("prerequisite absent: no {SESSION_TARGET} target with {SESSION_FEATURE}"),
-            )
-        } else {
-            let status = aggregate(members.iter().map(|run| run.status));
-            let problems: Vec<String> = members
-                .iter()
-                .filter(|run| run.status != Status::Pass)
-                .map(|run| format!("{}: {}", run.selected.test, run.detail))
-                .collect();
-            let mut detail = format!("{} exact test(s)", members.len());
-            if !problems.is_empty() {
-                detail = format!("{detail}; {}", problems.join("; "));
-            }
-            (status, detail)
-        };
+        let entry =
+            if layer == Layer::ServerSessionCandidate && matches!(presence, Ok(Presence::Absent)) {
+                (
+                    Status::NotRun,
+                    format!("prerequisite absent: no {SESSION_TARGET} test target"),
+                )
+            } else {
+                let status = aggregate(members.iter().map(|run| run.status));
+                let problems: Vec<String> = members
+                    .iter()
+                    .filter(|run| run.status != Status::Pass)
+                    .map(|run| format!("{}: {}", run.selected.test, run.detail))
+                    .collect();
+                let mut detail = format!("{} exact test(s)", members.len());
+                if !problems.is_empty() {
+                    detail = format!("{detail}; {}", problems.join("; "));
+                }
+                (status, detail)
+            };
         layers.insert(layer, entry);
     }
     let guards: Vec<Status> = runs
@@ -1110,15 +1120,20 @@ mod tests {
             session_target(&metadata(json!([lib]))).unwrap(),
             Presence::Absent
         );
-        let target = json!({"name": SESSION_TARGET, "kind": ["test"], "required-features": [SESSION_FEATURE]});
+        let target = json!({"name": SESSION_TARGET, "kind": ["test"], "required-features": []});
         assert_eq!(
             session_target(&metadata(json!([lib, target]))).unwrap(),
             Presence::Present
         );
+        let unset = json!({"name": SESSION_TARGET, "kind": ["test"], "required-features": null});
+        assert_eq!(
+            session_target(&metadata(json!([lib, unset]))).unwrap(),
+            Presence::Present
+        );
         for broken in [
-            json!({"name": SESSION_TARGET, "kind": ["test"], "required-features": null}),
-            json!({"name": SESSION_TARGET, "kind": ["bin"], "required-features": [SESSION_FEATURE]}),
-            json!({"name": SESSION_TARGET, "kind": ["test"], "required-features": [SESSION_FEATURE, "dbsp-experimental"]}),
+            // A target that needs a feature is a broken interface: nothing may select one here.
+            json!({"name": SESSION_TARGET, "kind": ["test"], "required-features": ["turso-candidate"]}),
+            json!({"name": SESSION_TARGET, "kind": ["bin"], "required-features": []}),
         ] {
             assert!(
                 session_target(&metadata(json!([lib, broken]))).is_err(),
@@ -1232,24 +1247,27 @@ mod tests {
     #[test]
     fn the_server_owner_declares_the_agreed_session_target() {
         let workspace = Workspace::discover().unwrap();
+        // Cargo discovers `tests/*.rs`; a feature gate or an explicit entry would be a drift.
+        assert!(workspace
+            .path("services/cantos-server/tests/identity_auth_candidate.rs")
+            .is_file());
         let manifest: toml::Table =
             std::fs::read_to_string(workspace.path("services/cantos-server/Cargo.toml"))
                 .unwrap()
                 .parse()
                 .unwrap();
-        let targets = manifest["test"].as_array().unwrap();
-        let session: Vec<_> = targets
-            .iter()
-            .filter(|target| target["name"].as_str() == Some(SESSION_TARGET))
-            .collect();
-        assert_eq!(session.len(), 1);
-        assert_eq!(
-            session[0]["required-features"],
-            toml::Value::Array(vec![toml::Value::String(SESSION_FEATURE.into())])
+        assert!(
+            manifest.get("test").is_none_or(|targets| targets
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|target| target.get("required-features").is_none())),
+            "no Server test target may require a feature"
         );
-        assert_eq!(
-            session[0]["path"].as_str(),
-            Some("tests/identity_auth_candidate.rs")
+        let features = manifest["features"].as_table().unwrap();
+        assert!(
+            !features.contains_key("turso-candidate")
+                && !features.contains_key("dbsp-experimental")
         );
     }
 

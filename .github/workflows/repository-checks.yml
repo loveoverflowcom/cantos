@@ -1,7 +1,9 @@
 name: Repository checks
 
-# Each job only provisions its environment (toolchain, Trunk, PostgreSQL and media tools) and then
-# runs one job of the shared `cargo xtask ci` contract; xtask owns what is verified.
+# Each job only provisions its environment (toolchain, Trunk and media tools) and then runs one
+# job of the shared `cargo xtask ci` contract; xtask owns what is verified. No job provisions a
+# database or another service: the Server and Identity persist in embedded files owned by the
+# test process itself.
 
 on:
   push:
@@ -72,36 +74,6 @@ jobs:
         run: cargo install trunk --version 0.21.14 --locked
       - name: WASM lint and Trunk builds of Studio and Theatre Web
         run: cargo xtask ci --job web
-  postgres:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        postgres: [17, 18]
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Select pinned Rust toolchain
-        run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
-      - name: Install supported PostgreSQL server binaries
-        env:
-          POSTGRES_MAJOR: ${{ matrix.postgres }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-common
-          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install --yes "postgresql-${POSTGRES_MAJOR}"
-          echo "/usr/lib/postgresql/${POSTGRES_MAJOR}/bin" >> "$GITHUB_PATH"
-          "/usr/lib/postgresql/${POSTGRES_MAJOR}/bin/postgres" --version
-      - name: Install read-only inspection and owned-fixture test tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes ffmpeg
-      - name: Disposable-cluster migrations, persistence, restart and recovery tests
-        run: cargo xtask ci --job postgres
   native-auth-qualification:
     # Manual only (#336): dispatch on the candidate ref with native_auth_qualification=true. It
     # provisions pinned tools, then xtask owns every check; nothing here is a verifier.

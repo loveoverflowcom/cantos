@@ -47,9 +47,6 @@ libc = "=0.2.190"
 
 [dev-dependencies]
 cantos-server = { path = ".", features = ["test-support"] }
-# The journeys run the real Identity executable and, to disable a subject while it is stopped,
-# its owning library. Test-only: it is never a runtime dependency of the Server.
-cantos-identity = { path = "../cantos-identity", features = ["service"] }
 # Run-owned directories and a fixed clock for every file-backed `server.db` test.
 cantos-store-turso = { path = "../../packages/store-turso", features = ["testing"] }
 tokio = { version = "=1.47.1", features = ["process"] }

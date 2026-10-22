@@ -10,7 +10,10 @@ use clap::ValueEnum;
 
 use crate::{
     command::CommandSpec,
-    config::{App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, THEATRE_MOBILE_DIR},
+    config::{
+        App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_BIN, IDENTITY_PACKAGE, IDENTITY_SERVICE_FEATURE,
+        THEATRE_MOBILE_DIR,
+    },
     pipeline::Step,
     tools::Tool,
     workspace::Workspace,
@@ -18,8 +21,12 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum BuildTarget {
-    /// The Axum/PostgreSQL backend and its CLIs (`services/cantos-server`).
+    /// The Axum backend (`cantos-server`) and its offline `cantos-migrate`/`cantos-operator` CLIs
+    /// (`services/cantos-server`); it owns one embedded Turso file, `server.db`.
     CantosServer,
+    /// The native Identity executable with its `service` feature (`services/cantos-identity`);
+    /// it owns one embedded Turso file, `identity.db`.
+    CantosIdentity,
     /// Cantos Forge, the producer-side CLI (`services/cantos-forge-functions`); runs outside the API.
     CantosForge,
     /// Cantos Studio, the creator product (`apps/cantos-studio`).
@@ -27,7 +34,7 @@ pub enum BuildTarget {
     /// Cantos Theatre, the listener product (`apps/cantos-theatre`).
     #[value(alias = "cantos")]
     CantosTheatre,
-    /// The API, the Forge CLI and every implemented Web client.
+    /// The Server, Identity, the Forge CLI and every implemented Web client.
     All,
 }
 
@@ -72,6 +79,7 @@ impl Profile {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unit {
     Api,
+    Identity,
     Forge,
     Web(App),
 }
@@ -87,7 +95,10 @@ pub fn app_of(target: BuildTarget) -> Option<App> {
     match target {
         BuildTarget::CantosStudio => Some(App::Studio),
         BuildTarget::CantosTheatre => Some(App::Theatre),
-        BuildTarget::CantosServer | BuildTarget::CantosForge | BuildTarget::All => None,
+        BuildTarget::CantosServer
+        | BuildTarget::CantosIdentity
+        | BuildTarget::CantosForge
+        | BuildTarget::All => None,
     }
 }
 
@@ -118,15 +129,17 @@ pub fn resolve(target: BuildTarget, surface: Option<Surface>) -> Result<Vec<Unit
     match (target, app_of(target)) {
         (_, Some(app)) => app_surface(app, surface).map(|()| vec![Unit::Web(app)]),
         (BuildTarget::CantosServer, None) if surface.is_none() => Ok(vec![Unit::Api]),
+        (BuildTarget::CantosIdentity, None) if surface.is_none() => Ok(vec![Unit::Identity]),
         (BuildTarget::CantosForge, None) if surface.is_none() => Ok(vec![Unit::Forge]),
         (BuildTarget::All, None) if surface.is_none() => Ok(vec![
             Unit::Api,
+            Unit::Identity,
             Unit::Forge,
             Unit::Web(App::Studio),
             Unit::Web(App::Theatre),
         ]),
         _ => Err(Refusal::Usage(
-            "--web/--mobile select an app surface; cantos-server, cantos-forge and all take no surface flag".into(),
+            "--web/--mobile select an app surface; cantos-server, cantos-identity, cantos-forge and all take no surface flag".into(),
         )),
     }
 }
@@ -188,6 +201,23 @@ pub fn api_binaries(workspace: &Workspace, profile: Profile, bin: Option<&str>) 
     command.arg_if(profile == Profile::Release, "--release")
 }
 
+/// `cargo build --locked -p cantos-identity --features service --bin cantos-identity`. The
+/// executable needs the `service` feature; the default pure core has no binary and no database.
+pub fn identity_binary(workspace: &Workspace, profile: Profile) -> CommandSpec {
+    CommandSpec::new("cargo", workspace.root())
+        .args([
+            "build",
+            "--locked",
+            "-p",
+            IDENTITY_PACKAGE,
+            "--features",
+            IDENTITY_SERVICE_FEATURE,
+            "--bin",
+            IDENTITY_BIN,
+        ])
+        .arg_if(profile == Profile::Release, "--release")
+}
+
 /// `cargo build --locked -p cantos-forge --bins [--release]`. Building never runs Forge.
 pub fn forge_binary(workspace: &Workspace, profile: Profile) -> CommandSpec {
     CommandSpec::new("cargo", workspace.root())
@@ -195,16 +225,17 @@ pub fn forge_binary(workspace: &Workspace, profile: Profile) -> CommandSpec {
         .arg_if(profile == Profile::Release, "--release")
 }
 
-pub fn step(workspace: &Workspace, unit: Unit, profile: Profile, dbsp: bool) -> Step {
+pub fn step(workspace: &Workspace, unit: Unit, profile: Profile) -> Step {
     match unit {
         Unit::Api => Step::new(
             format!("build {API_PACKAGE} ({})", profile.label()),
             &[Tool::Cargo],
-            vec![api_binaries(workspace, profile, None).args(
-                dbsp.then_some(["--features", DBSP_FEATURE])
-                    .into_iter()
-                    .flatten(),
-            )],
+            vec![api_binaries(workspace, profile, None)],
+        ),
+        Unit::Identity => Step::new(
+            format!("build {IDENTITY_PACKAGE} ({})", profile.label()),
+            &[Tool::Cargo],
+            vec![identity_binary(workspace, profile)],
         ),
         Unit::Forge => Step::new(
             format!("build {FORGE_PACKAGE} ({})", profile.label()),
@@ -219,22 +250,15 @@ pub fn step(workspace: &Workspace, unit: Unit, profile: Profile, dbsp: bool) -> 
     }
 }
 
-/// `dbsp` compiles the API's opt-in experimental DBSP incremental core; only `cantos-server` takes it.
 pub fn plan(
     workspace: &Workspace,
     target: BuildTarget,
     surface: Option<Surface>,
     profile: Profile,
-    dbsp: bool,
 ) -> Result<Vec<Step>, Refusal> {
-    if dbsp && target != BuildTarget::CantosServer {
-        return Err(Refusal::Usage(
-            "--dbsp-experimental applies only to cantos-server".into(),
-        ));
-    }
     Ok(resolve(target, surface)?
         .into_iter()
-        .map(|unit| step(workspace, unit, profile, dbsp))
+        .map(|unit| step(workspace, unit, profile))
         .collect())
 }
 
@@ -244,7 +268,7 @@ mod tests {
 
     fn lines(target: BuildTarget, surface: Option<Surface>, profile: Profile) -> Vec<String> {
         let workspace = Workspace::discover().unwrap();
-        plan(&workspace, target, surface, profile, false)
+        plan(&workspace, target, surface, profile)
             .unwrap()
             .iter()
             .flat_map(|step| step.commands.iter())
@@ -265,31 +289,19 @@ mod tests {
     }
 
     #[test]
-    fn only_the_api_opts_into_the_experimental_dbsp_feature() {
-        let workspace = Workspace::discover().unwrap();
-        let commands: Vec<_> = plan(
-            &workspace,
-            BuildTarget::CantosServer,
-            None,
-            Profile::Dev,
-            true,
-        )
-        .unwrap()
-        .iter()
-        .flat_map(|step| step.commands.iter())
-        .map(|command| command.display(workspace.root()))
-        .collect();
+    fn identity_builds_its_executable_with_the_service_feature_and_takes_no_surface() {
         assert_eq!(
-            commands,
-            ["cargo build --locked -p cantos-server --bins --features dbsp-experimental"]
+            lines(BuildTarget::CantosIdentity, None, Profile::Dev),
+            ["cargo build --locked -p cantos-identity --features service --bin cantos-identity"]
         );
-        for (target, surface) in [
-            (BuildTarget::All, None),
-            (BuildTarget::CantosStudio, Some(Surface::Web)),
-        ] {
+        assert_eq!(
+            lines(BuildTarget::CantosIdentity, None, Profile::Release),
+            ["cargo build --locked -p cantos-identity --features service --bin cantos-identity --release"]
+        );
+        for surface in [Surface::Web, Surface::Mobile] {
             assert!(matches!(
-                plan(&workspace, target, surface, Profile::Dev, true),
-                Err(Refusal::Usage(message)) if message.contains("cantos-server")
+                resolve(BuildTarget::CantosIdentity, Some(surface)),
+                Err(Refusal::Usage(message)) if message.contains("cantos-identity")
             ));
         }
     }
@@ -310,11 +322,6 @@ mod tests {
                 Err(Refusal::Usage(message)) if message.contains("cantos-forge")
             ));
         }
-        let workspace = Workspace::discover().unwrap();
-        assert!(matches!(
-            plan(&workspace, BuildTarget::CantosForge, None, Profile::Dev, true),
-            Err(Refusal::Usage(message)) if message.contains("only to cantos-server")
-        ));
     }
 
     #[test]
@@ -339,7 +346,7 @@ mod tests {
         let dist = std::path::PathBuf::from("/tmp/run with space/dist");
         for app in App::ALL {
             let command = release_bundle(&workspace, app, &dist);
-            let ordinary = step(&workspace, Unit::Web(app), Profile::Release, false);
+            let ordinary = step(&workspace, Unit::Web(app), Profile::Release);
             assert!(command.args.starts_with(&ordinary.commands[0].args));
             assert_eq!(command.cwd, ordinary.commands[0].cwd);
             assert_eq!(command.env, ordinary.commands[0].env);
@@ -377,11 +384,12 @@ mod tests {
     }
 
     #[test]
-    fn all_builds_the_api_forge_and_both_web_clients_but_no_mobile() {
+    fn all_builds_server_identity_forge_and_both_web_clients_but_no_mobile() {
         assert_eq!(
             resolve(BuildTarget::All, None).unwrap(),
             [
                 Unit::Api,
+                Unit::Identity,
                 Unit::Forge,
                 Unit::Web(App::Studio),
                 Unit::Web(App::Theatre)

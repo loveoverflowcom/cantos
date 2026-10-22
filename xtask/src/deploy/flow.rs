@@ -2450,7 +2450,19 @@ mod tests {
             let mut rig = Rig::preview(app);
             let report = rig.run(&request_of(app, "review-hosting"));
             assert!(report.succeeded(), "{}", report.render());
-            let line = format!("{:?}{:?}", rig.runner.commands, rig.capture.calls);
+            let line = rig
+                .runner
+                .commands
+                .iter()
+                .chain(&rig.capture.calls)
+                .map(|command| {
+                    format!("{} {:?}", command.program, command.args).replace(
+                        Workspace::discover().unwrap().root().to_str().unwrap(),
+                        "<workspace>",
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
             for forbidden in [
                 other,
                 "gradle",

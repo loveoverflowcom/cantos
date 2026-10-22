@@ -450,10 +450,6 @@ impl Conn {
         row
     }
 
-    pub(crate) async fn query_one(&self, sql: &str, params: Params<'_>) -> Result<Row, Error> {
-        self.query_opt(sql, params).await?.ok_or(Error::Cardinality)
-    }
-
     /// One auto-committed write statement.
     pub(crate) async fn execute(&mut self, sql: &str, params: Params<'_>) -> Result<u64, Error> {
         let tx = self.transaction().await?;

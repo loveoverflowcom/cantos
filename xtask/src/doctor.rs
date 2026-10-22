@@ -80,9 +80,17 @@ pub fn run(tools: &SystemTools) -> ExitCode {
         format!("production native listening is unavailable; {THEATRE_MOBILE_DIR} has a JVM-only Desktop Preview (theatre-preview) over mock ports"),
     );
     report.record(
-        "services/kanidm",
-        Status::NotRun,
-        "configuration only; xtask neither builds nor starts an identity provider",
+        "native composition (cantos-server + cantos-identity)",
+        if cfg!(unix) {
+            Status::Pass
+        } else {
+            Status::Unsupported
+        },
+        if cfg!(unix) {
+            "run/seed own two native processes over private Turso files and a Unix socket; no database server, container or identity provider is needed"
+        } else {
+            "Identity's private RPC is a Unix socket; run/seed need a Unix host"
+        },
     );
     print!("{}", report.render_table());
 

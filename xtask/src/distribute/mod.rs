@@ -549,10 +549,11 @@ mod tests {
         for target in [
             crate::build::BuildTarget::All,
             crate::build::BuildTarget::CantosServer,
+            crate::build::BuildTarget::CantosIdentity,
             crate::build::BuildTarget::CantosForge,
         ] {
             if let Ok(steps) =
-                crate::build::plan(&workspace, target, None, crate::build::Profile::Dev, false)
+                crate::build::plan(&workspace, target, None, crate::build::Profile::Dev)
             {
                 commands.extend(steps.into_iter().flat_map(|step| step.commands));
             }

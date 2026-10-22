@@ -1,5 +1,15 @@
 # Cantos API — Editorial and External Audio Authority
 
+> **Incomplete native checkpoint.** `Store`, `cantos-migrate`, `cantos-operator` and the host now
+> use `CANTOS_SERVER_DATABASE` (a local Turso file), never `DATABASE_URL`. Only actors,
+> Identity sessions and development sessions have schema. Business adapters still contain
+> PostgreSQL SQL and will fail against the missing tables; their former integration tests are
+> retained outside Cargo discovery in `legacy-pg-tests/`. The capability descriptions and PG
+> operating instructions below describe the pre-port baseline, not working native acceptance.
+> Provider authentication is removed; native Identity v1 is the remaining auth owner, and
+> Admin has no verifier and denies admission. Follow the [checkpoint boundary](../../docs/architecture/server-turso-porting.md#checkpoint-boundary)
+> before using any command. This checkpoint is not deployable.
+
 The [#253 Bearer foundation](../../packages/contracts/bearer-v1.md) implements scoped opaque access/refresh, durable rotation/revoke and two-leg Web exchange. [#295](https://github.com/loveoverflowcom/cantos/issues/295) selects Web cookies on the custom domains with migration pending; native retains Bearer. Existing cookie handlers require review before reuse; live issuer/gateway/browser/device acceptance remains separate.
 
 The [session-policy boundary](../../docs/architecture/api-contexts.md#session-policy-and-credential-boundary)

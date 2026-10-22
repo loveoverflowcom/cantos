@@ -8,8 +8,10 @@
 //! If xtask itself is killed with SIGKILL its children survive; the next run then finds their
 //! ports taken and refuses to start rather than stopping them.
 
+#[cfg(test)]
+use std::net::SocketAddr;
+
 use std::{
-    net::SocketAddr,
     process::{Child, ExitStatus},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -23,7 +25,7 @@ use anyhow::{bail, Context, Result};
 
 use crate::{
     command::CommandSpec,
-    probe::{self, Probe, Readiness},
+    probe::{self, Endpoint, Probe, Readiness},
 };
 
 const POLL: Duration = Duration::from_millis(200);
@@ -97,14 +99,26 @@ impl Supervisor {
         Ok(())
     }
 
-    /// Polls the most recently spawned process until `readiness` holds at `addr`.
-    /// Returns `Ok(false)` if interrupted first; fails if the process exits or times out.
+    /// [`Self::await_endpoint`] for a loopback TCP address.
+    #[cfg(test)]
     pub fn await_ready(
         &mut self,
         addr: SocketAddr,
         readiness: &Readiness,
         timeout: Duration,
     ) -> Result<bool> {
+        self.await_endpoint(&Endpoint::Tcp(addr), readiness, timeout)
+    }
+
+    /// Polls the most recently spawned process until `readiness` holds at `endpoint`.
+    /// Returns `Ok(false)` if interrupted first; fails if the process exits or times out.
+    pub fn await_endpoint(
+        &mut self,
+        endpoint: &Endpoint,
+        readiness: &Readiness,
+        timeout: Duration,
+    ) -> Result<bool> {
+        let addr = endpoint;
         let deadline = Instant::now() + timeout;
         let mut backoff = POLL;
         loop {
@@ -127,7 +141,7 @@ impl Supervisor {
                 .name;
             // The port was free when the child started, so an unexpected answer is most likely
             // the child itself still building; keep waiting and report it on timeout.
-            let last = match probe::probe(addr, readiness) {
+            let last = match probe::probe_endpoint(endpoint, readiness) {
                 Probe::Ready => return Ok(true),
                 other => other,
             };
@@ -498,5 +512,44 @@ mod tests {
             .unwrap());
         supervisor.shutdown();
         assert!(probe::port_is_free(addr));
+    }
+
+    #[test]
+    fn a_unix_socket_endpoint_becomes_ready_once_the_child_listens_and_never_for_a_crash() {
+        let dir = std::env::temp_dir().join(format!("xtask-uds-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("i.sock");
+        let endpoint = Endpoint::Unix(path.clone());
+        let mut supervisor = supervisor();
+        supervisor
+            .spawn(
+                "uds listener",
+                &CommandSpec::new("python3", std::env::temp_dir()).args([
+                    "-c",
+                    &format!(
+                        "import socket,time\ns=socket.socket(socket.AF_UNIX)\ns.bind('{}')\ns.listen()\ntime.sleep(60)",
+                        path.display()
+                    ),
+                ]),
+            )
+            .unwrap();
+        assert!(supervisor
+            .await_endpoint(&endpoint, &Readiness::Tcp, Duration::from_secs(20))
+            .unwrap());
+        supervisor.shutdown();
+        let mut crash = self::supervisor();
+        crash.spawn("crash", &shell("exit 1")).unwrap();
+        let error = crash
+            .await_endpoint(
+                &Endpoint::Unix(dir.join("none.sock")),
+                &Readiness::Tcp,
+                Duration::from_secs(10),
+            )
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("before becoming ready"),
+            "{error}"
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

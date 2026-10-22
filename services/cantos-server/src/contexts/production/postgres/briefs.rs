@@ -186,9 +186,9 @@ async fn grant_query(
 }
 pub(in crate::contexts::production) async fn by_token(
     tx: &Tx<'_>,
-    hash: &Vec<u8>,
+    hash: &[u8],
 ) -> Result<Option<GrantRow>, StoreError> {
-    grant_query(tx, "g.token_hash", hash).await
+    grant_query(tx, "g.token_hash", &hash).await
 }
 pub(in crate::contexts::production) async fn by_id(
     tx: &Tx<'_>,

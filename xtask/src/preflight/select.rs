@@ -140,12 +140,10 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         gates.insert(Gate::WebLint(apps));
     }
     if affected.contains(API_PACKAGE) {
-        // The API's binaries, migrations and HTTP host are all exercised by these, and its
-        // experimental DBSP feature must keep compiling and passing the same tests.
-        gates.insert(Gate::Dbsp);
+        // The Server's binaries and HTTP host are exercised by the workspace gates (its database
+        // tests are ordinary file-backed tests); these two need the real media tools.
         gates.insert(Gate::WavReference);
         gates.insert(Gate::AudioInspection);
-        gates.insert(Gate::Postgres { keep: false });
     }
     if affected.contains(TURSO_STORE_PACKAGE) || affected.contains(IDENTITY_PACKAGE) {
         gates.insert(Gate::Turso);
@@ -281,7 +279,6 @@ fn deferred_coverage(gate: &Gate) -> Option<&'static str> {
     Some(match gate {
         Gate::Repository { .. } => "the repository Python regression suite is not run (no tooling input changed)",
         Gate::Turso => "Turso feature lanes (cantos-identity `persistence`/`service`, cantos-store-turso `testing`) and the capability report are not checked",
-        Gate::Dbsp => "cantos-server's `dbsp-experimental` feature is not checked",
         Gate::WebBuild(_) | Gate::UiPreview => "no Trunk build runs: Web coverage is WASM lint only",
         Gate::CmpUiPreview | Gate::TheatreCmpPreview => {
             "Kotlin/CMP sources are not compiled or tested by this profile"
@@ -403,11 +400,11 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         }
     } else if within(path, "infra/edge") {
         impact.notes.insert("edge configuration is statically checked by repository; no Podman, DNS or Caddy process is started".into());
-    } else if within(path, "services/kanidm")
-        || within(path, "services/postgresql")
-        || path == "services/manifest.toml"
-    {
-        impact.notes.insert("service inventory/examples are statically validated by repository; no runtime is started".into());
+    } else if path == "services/manifest.toml" {
+        impact.notes.insert(
+            "the service inventory is statically validated by repository; no process is started"
+                .into(),
+        );
     } else if within(path, crate::config::THEATRE_MOBILE_DIR) {
         if !is_doc {
             impact.gates.insert(Gate::TheatreCmpPreview);
@@ -453,17 +450,13 @@ fn classify_script(script: &str, impact: &mut Impact) {
         "reference_wav_inspection.py" => {
             impact.gates.insert(Gate::WavReference);
         }
-        "test_postgres.py" | "production_oracle.py" | "cantos_adaptation_tool.py" => {
-            impact.gates.insert(Gate::Postgres { keep: false });
-        }
         // Tested by the repository gate's Python unit tests (or untested helpers).
         "check_repository.py"
+        | "cantos_adaptation_tool.py"
         | "render_compose_preview.py"
         | "prepare_story_workspace.py"
-        | "benchmark_revision_reads.py"
         | "verify_native_isolation.py"
         | "serve_studio.py"
-        | "seed_theatre.py"
         | "apk_size.py" => {}
         _ if script.starts_with("test_") && script.ends_with(".py") => {}
         _ => impact.broaden = Some(format!("scripts/{script} has no known impact")),
@@ -528,10 +521,7 @@ mod tests {
                 );
             }
             if path.starts_with("services/cantos-server/") {
-                assert!(
-                    selection.gates.contains(&Gate::Postgres { keep: false }),
-                    "{path}"
-                );
+                assert!(selection.gates.contains(&Gate::WavReference), "{path}");
             }
             if path.starts_with("services/cantos-identity/") {
                 assert!(selection.gates.contains(&Gate::Turso), "{path}");
@@ -645,13 +635,11 @@ mod tests {
                 "rust-format",
                 "rust-lint (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
                 "rust-tests (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
-                "dbsp",
                 "wav-reference",
                 "audio-inspection",
                 "web-lint (cantos-studio, cantos-theatre)",
                 "web-build (cantos-studio)",
                 "web-build (cantos-theatre)",
-                "postgres",
             ]
         );
     }
@@ -709,10 +697,8 @@ mod tests {
                 "rust-format",
                 "rust-lint (cantos-server)",
                 "rust-tests (cantos-server)",
-                "dbsp",
                 "wav-reference",
                 "audio-inspection",
-                "postgres",
             ]
         );
     }
@@ -793,9 +779,11 @@ mod tests {
                 .chain(behavior.iter().copied())
                 .chain([
                     "rust-format",
-                    "rust-lint (cantos-identity, cantos-identity-rpc)",
-                    "rust-tests (cantos-identity, cantos-identity-rpc)",
+                    "rust-lint (cantos-identity, cantos-identity-rpc, cantos-server)",
+                    "rust-tests (cantos-identity, cantos-identity-rpc, cantos-server)",
                     "turso",
+                    "wav-reference",
+                    "audio-inspection",
                 ])
                 .collect();
             assert_eq!(names(&selection), expected, "{path}");
@@ -820,9 +808,11 @@ mod tests {
                 [
                     "repository",
                     "rust-format",
-                    "rust-lint (cantos-identity, cantos-store-turso)",
-                    "rust-tests (cantos-identity, cantos-store-turso)",
+                    "rust-lint (cantos-identity, cantos-server, cantos-store-turso)",
+                    "rust-tests (cantos-identity, cantos-server, cantos-store-turso)",
                     "turso",
+                    "wav-reference",
+                    "audio-inspection",
                 ],
                 "{path}"
             );
@@ -912,9 +902,15 @@ mod tests {
 
     #[test]
     fn primitive_scripts_select_the_gate_that_exercises_them() {
+        // The adaptation primitive is exercised by its own repository-gate unit tests.
+        assert_eq!(
+            names(&pick(&["scripts/cantos_adaptation_tool.py"])),
+            ["repository", "rust-format"]
+        );
+        // Retained Python test primitives run in the repository gate.
         assert_eq!(
             names(&pick(&["scripts/test_postgres.py"])),
-            ["repository", "rust-format", "postgres"]
+            ["repository", "rust-format"]
         );
         assert_eq!(
             names(&pick(&["scripts/reference_wav_inspection.py"])),
@@ -927,10 +923,6 @@ mod tests {
             ])),
             ["repository", "rust-format"]
         );
-        // Its offline unit tests run in repository; the seed test itself is a cantos-server test.
-        let seed = pick(&["scripts/seed_theatre.py", "scripts/test_seed_theatre.py"]);
-        assert_eq!(seed.broadened, None);
-        assert_eq!(names(&seed), ["repository", "rust-format"]);
         let isolation = pick(&[
             "scripts/verify_native_isolation.py",
             "scripts/test_verify_native_isolation.py",
@@ -967,11 +959,18 @@ mod tests {
     #[test]
     fn configuration_only_and_reserved_locations_are_noted_not_built() {
         let selection = pick(&[
-            "services/kanidm/server.toml.example",
+            "services/manifest.toml",
             "apps/cantos-theatre/mobile/README.md",
         ]);
         assert_eq!(names(&selection), ["repository", "rust-format"]);
         assert_eq!(selection.notes.len(), 1);
+        // The deleted container service trees are unknown locations now, not configuration.
+        assert!(pick(&["services/postgresql/env.example"])
+            .broadened
+            .is_some());
+        assert!(pick(&["services/kanidm/server.toml.example"])
+            .broadened
+            .is_some());
     }
 
     #[test]
@@ -1084,7 +1083,6 @@ mod tests {
         assert_eq!(names(&selection), ["repository-static", "rust-format"]);
         // xtask/README.md broadens the handoff selection, never the local one.
         assert!(deferred(&selection).contains(&"repository".to_owned()));
-        assert!(deferred(&selection).contains(&"postgres".to_owned()));
         assert!(selection
             .notes
             .iter()
@@ -1110,16 +1108,18 @@ mod tests {
                 ],
                 "{path}"
             );
-            for campaign in ["dbsp", "wav-reference", "audio-inspection", "postgres"] {
+            for campaign in ["wav-reference", "audio-inspection"] {
                 assert!(
                     deferred(&selection).contains(&campaign.to_owned()),
                     "{path}"
                 );
             }
-            assert!(selection
-                .notes
-                .iter()
-                .any(|note| note.contains("dbsp-experimental")));
+            for retired in ["dbsp", "postgres"] {
+                assert!(
+                    !deferred(&selection).contains(&retired.to_owned()),
+                    "{path}: {retired}"
+                );
+            }
         }
         assert!(deferred(&local(&[
             "services/cantos-server/src/script_ir/validation.rs"
@@ -1171,11 +1171,11 @@ mod tests {
             ("services/cantos-identity/src/lib.rs", "cantos-identity"),
             (
                 "packages/store-turso/src/lib.rs",
-                "cantos-identity, cantos-store-turso",
+                "cantos-identity, cantos-server, cantos-store-turso",
             ),
             (
                 "packages/contracts/identity-rpc/src/lib.rs",
-                "cantos-identity, cantos-identity-rpc",
+                "cantos-identity, cantos-identity-rpc, cantos-server",
             ),
         ] {
             let selection = local(&[path]);
@@ -1190,7 +1190,15 @@ mod tests {
                 ],
                 "{path}"
             );
-            assert_eq!(deferred(&selection), ["repository", "turso"], "{path}");
+            let mut expected = vec!["repository"];
+            if path != "packages/store-turso/src/lib.rs" {
+                expected.push("behavior");
+            }
+            expected.push("turso");
+            if packages.contains("cantos-server") {
+                expected.extend(["wav-reference", "audio-inspection"]);
+            }
+            assert_eq!(deferred(&selection), expected, "{path}");
             assert!(selection
                 .notes
                 .iter()
@@ -1224,9 +1232,7 @@ mod tests {
                 "rust-tests (cantos-identity, cantos-server, cantos-store-turso)",
             ]
         );
-        for campaign in ["turso", "dbsp", "postgres"] {
-            assert!(deferred(&selection).contains(&campaign.to_owned()));
-        }
+        assert!(deferred(&selection).contains(&"turso".to_owned()));
     }
 
     #[test]
@@ -1281,7 +1287,7 @@ mod tests {
                 "{path}"
             );
             assert!(
-                deferred(&selection).contains(&"postgres".to_owned()),
+                deferred(&selection).contains(&"wav-reference".to_owned()),
                 "{path}"
             );
         }
@@ -1326,7 +1332,7 @@ mod tests {
             "services/cantos-forge-functions/firebase/src/boundary.mjs",
             "apps/cantos-theatre/mobile/settings.gradle.kts",
             "services/cantos-identity/src/persistence/mod.rs",
-            "scripts/test_postgres.py",
+            "scripts/cantos_adaptation_tool.py",
             "scripts/mutate_script_ir.py",
             "infra/firebase/hosting/firebase.json",
         ];

@@ -241,7 +241,7 @@ mod tests {
     }
 
     /// Every tool a local plan never needs: integration, runtime, platform and formal tooling.
-    const CAMPAIGN_TOOLS: [Tool; 14] = [
+    const CAMPAIGN_TOOLS: [Tool; 11] = [
         Tool::Trunk,
         Tool::Gradle,
         Tool::Java,
@@ -249,9 +249,6 @@ mod tests {
         Tool::CmpAndroidGradleProject,
         Tool::TheatrePreviewGradleProject,
         Tool::Node,
-        Tool::Initdb,
-        Tool::PgCtl,
-        Tool::Psql,
         Tool::Ffmpeg,
         Tool::Ffprobe,
         Tool::Kani,

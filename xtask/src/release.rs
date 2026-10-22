@@ -76,6 +76,19 @@ pub struct ReleaseArgs {
     pub action: Action,
 }
 
+impl ReleaseArgs {
+    /// The `api` component was the legacy VPS archive (image tarball + `infra/vps` bundle).
+    pub fn names_legacy_api(&self) -> bool {
+        matches!(
+            &self.action,
+            Action::Prepare { component, .. }
+                | Action::Intent { component, .. }
+                | Action::Promote { component, .. }
+            if component == "api"
+        )
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Action {
     /// Resolve once, verify and build selected components without production credentials.
@@ -315,15 +328,6 @@ pub fn run(
             "-p",
             "test_circleci_cloudflare.py",
         ]));
-        commands.push(CommandSpec::new("python3", workspace.root()).args([
-            "-m",
-            "unittest",
-            "discover",
-            "-s",
-            "scripts",
-            "-p",
-            "test_vps_*.py",
-        ]));
         commands.push(
             CommandSpec::new("cargo", workspace.root()).args(["fmt", "--all", "--", "--check"]),
         );
@@ -499,10 +503,13 @@ mod tests {
         let base = [
             "xtask",
             "deploy",
-            "vps",
-            "cantos-server",
-            "--host",
-            "root@h",
+            "firebase",
+            "cantos-theatre",
+            "--web",
+            "--project",
+            "p",
+            "--channel",
+            "live",
         ];
         for suffix in [
             vec!["--release-manifest", "manifest.json"],
@@ -521,5 +528,39 @@ mod tests {
             "--local-artifact",
         ];
         assert!(Cli::try_parse_from(base.into_iter().chain(suffix)).is_ok());
+    }
+
+    #[test]
+    fn the_legacy_api_component_is_refused_and_web_components_are_not() {
+        use crate::retired::Retirement;
+        for verb in ["prepare", "intent", "promote"] {
+            let mut line = vec![
+                "xtask",
+                "release",
+                verb,
+                "--transfer",
+                "t",
+                "--component",
+                "api",
+            ];
+            if verb == "prepare" {
+                line.extend(["--api-origin", "https://api.example.org"]);
+            }
+            let cli = Cli::try_parse_from(&line).unwrap();
+            assert_eq!(
+                cli.command.retirement(),
+                Some(Retirement::LegacyApiRelease),
+                "{verb}"
+            );
+            let web: Vec<_> = line
+                .iter()
+                .map(|part| if *part == "api" { "theatre-web" } else { part })
+                .collect();
+            let cli = Cli::try_parse_from(&web).unwrap();
+            assert_eq!(cli.command.retirement(), None, "{verb} theatre-web");
+        }
+        let checkout =
+            Cli::try_parse_from(["xtask", "release", "checkout", "--transfer", "t"]).unwrap();
+        assert_eq!(checkout.command.retirement(), None);
     }
 }

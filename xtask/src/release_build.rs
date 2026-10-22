@@ -13,6 +13,8 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum ReleaseTarget {
+    /// Retired with the legacy VPS archive lane; refuses before any effect.
+    #[value(hide = true)]
     Api,
     TheatreWeb,
     StudioWeb,
@@ -27,6 +29,12 @@ impl ReleaseTarget {
             Self::StudioWeb => "studio-web",
             Self::Android => "android",
         }
+    }
+}
+
+impl ReleaseBuildArgs {
+    pub fn is_legacy_api(&self) -> bool {
+        matches!(self.target, Some(ReleaseTarget::Api))
     }
 }
 
@@ -146,7 +154,7 @@ mod tests {
     #[test]
     fn release_lane_requires_an_explicit_target_and_has_no_deployment_arguments() {
         assert!(Cli::try_parse_from(["xtask", "release-build"]).is_err());
-        for target in ["api", "theatre-web", "studio-web", "android"] {
+        for target in ["theatre-web", "studio-web", "android"] {
             let cli = Cli::try_parse_from(["xtask", "release-build", target, "--dry-run"]).unwrap();
             let Task::ReleaseBuild(args) = cli.command else {
                 panic!("wrong task")
@@ -157,6 +165,26 @@ mod tests {
             );
         }
         assert!(Cli::try_parse_from(["xtask", "release-build", "android", "--self-test"]).is_err());
-        assert!(Cli::try_parse_from(["xtask", "release-build", "api", "--host", "vps"]).is_err());
+        assert!(
+            Cli::try_parse_from(["xtask", "release-build", "android", "--host", "vps"]).is_err()
+        );
+    }
+
+    #[test]
+    fn the_legacy_api_archive_target_parses_only_to_be_refused() {
+        use crate::retired::Retirement;
+        let cli = Cli::try_parse_from(["xtask", "release-build", "api", "--dry-run"]).unwrap();
+        assert_eq!(cli.command.retirement(), Some(Retirement::LegacyApiRelease));
+        for target in ["theatre-web", "studio-web", "android"] {
+            let cli = Cli::try_parse_from(["xtask", "release-build", target]).unwrap();
+            assert_eq!(cli.command.retirement(), None, "{target}");
+        }
+        let help = <Cli as clap::CommandFactory>::command()
+            .find_subcommand_mut("release-build")
+            .unwrap()
+            .render_long_help()
+            .to_string();
+        assert!(!help.contains("android, api"), "{help}");
+        assert!(help.contains("theatre-web, studio-web, android"), "{help}");
     }
 }

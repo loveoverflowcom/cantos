@@ -4,6 +4,9 @@ Read the [product brief](product/brief.md), [architecture overview](architecture
 and the relevant owning contract before implementing. The [current queue](work-plan/README.md)
 contains next steps; GitHub issues and PRs own live execution status.
 
+The current working branch is an [incomplete native checkpoint](architecture/server-turso-porting.md#checkpoint-boundary).
+Its boundary takes precedence over legacy operating instructions while the context port is unfinished.
+
 ## Authority and lifecycle
 
 | Material | How to use it |

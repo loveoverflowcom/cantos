@@ -6,6 +6,35 @@ Goal of the whole migration: `cantos-server` serves every use case from ONE embe
 immutability as the PostgreSQL implementation. PostgreSQL is being deleted; there is no fallback,
 no dual write, no compatibility shim at the end.
 
+## Checkpoint boundary
+
+This is an implementation guide for an incomplete Draft checkpoint, not a completed Server
+port or acceptance record. `Store` and all binaries use the embedded owner. Actual DDL covers
+actors, native Identity sessions and development sessions only; registered context slices
+4–11 currently contain comments, not business tables. Existing context adapters still execute
+PostgreSQL-specific queries through the statement facade. Successful compilation or an empty
+migration does not make those operations work.
+
+- Source retirement is partial: provider auth and PG drivers are removed from the Server build,
+  while PostgreSQL schema, business queries, legacy test oracles, scripts and operating assets
+  remain. Retain them as migration inputs until the replacement is reviewed.
+- Buildability is measured independently by Rust lint/tests. File-backed foundation/session
+  tests do not replace the suites moved into `legacy-pg-tests/`; none of those archived tests
+  run through Cargo discovery.
+- `cargo xtask run` plans explicit migrations, Identity startup and one Server. Its orchestration
+  tests use recording runners; they do not establish a two-process authentication journey.
+  `cargo xtask seed theatre` refuses before effects while the `catalog_http` seeder is absent.
+- `verify postgres`, `verify dbsp`, `verify theatre-auth`, Kanidm/service lifecycle, legacy VPS
+  deploy and legacy API release commands refuse with exit 2. Web/Android release tools remain.
+- Native business/API parity, real signup/login/revocation and restore acceptance belong to
+  #333/#335/#336; OCI activation and live cutover belong to #348 with separate operator authority.
+  No deployment, provider call, data conversion or production resource change is part of this PR.
+
+The invariant is unchanged ownership and immutable receipts while swapping storage; the current
+foundation tests cover checked rows, transaction rollback, writer ordering, snapshots, session
+admission and unknown commit outcomes. Each context port must add its own real-file evidence.
+No queue ordering change is needed: context porting remains the next dependency.
+
 ## 0. The pieces that already exist (do not rebuild them)
 
 | Piece | Where | Notes |

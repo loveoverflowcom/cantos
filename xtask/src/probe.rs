@@ -3,6 +3,7 @@
 use std::{
     io::{self, BufRead, BufReader, Read, Write},
     net::{SocketAddr, TcpListener, TcpStream},
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
@@ -12,9 +13,26 @@ const MAX_RESPONSE: usize = 4 * 1024 * 1024;
 const MAX_HEAD: usize = 32 * 1024;
 const THEATRE_CATALOG_PATH: &str = "/api/v1/theatre/works?limit=20";
 
+/// Where a supervised process is observed: a loopback TCP address, or a private Unix socket
+/// (Identity's RPC endpoint has no TCP port).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Endpoint {
+    Tcp(SocketAddr),
+    Unix(PathBuf),
+}
+
+impl std::fmt::Display for Endpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Endpoint::Tcp(addr) => write!(f, "{addr}"),
+            Endpoint::Unix(path) => write!(f, "{}", path.display()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Readiness {
-    /// The process accepts TCP connections.
+    /// The process accepts connections (TCP, or a Unix socket for an [`Endpoint::Unix`]).
     Tcp,
     /// `GET path` answers 200 with a body containing `marker`.
     Http {
@@ -43,6 +61,36 @@ pub fn port_is_free(addr: SocketAddr) -> bool {
 
 pub fn accepts_connections(addr: SocketAddr) -> bool {
     TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT).is_ok()
+}
+
+/// True when something accepts a connection on this Unix socket. A connect and an immediate
+/// close: no byte is sent, so the peer sees an empty connection and nothing is authenticated.
+pub fn accepts_unix(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        std::os::unix::net::UnixStream::connect(path).is_ok()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        false
+    }
+}
+
+pub fn probe_endpoint(endpoint: &Endpoint, readiness: &Readiness) -> Probe {
+    match (endpoint, readiness) {
+        (Endpoint::Tcp(addr), readiness) => probe(*addr, readiness),
+        (Endpoint::Unix(path), Readiness::Tcp) => {
+            if accepts_unix(path) {
+                Probe::Ready
+            } else {
+                Probe::Unavailable
+            }
+        }
+        (Endpoint::Unix(_), other) => {
+            Probe::Unexpected(format!("{other:?} readiness needs a TCP endpoint"))
+        }
+    }
 }
 
 pub fn probe(addr: SocketAddr, readiness: &Readiness) -> Probe {
@@ -640,6 +688,33 @@ mod tests {
             reader.read(&mut [0; 1]).unwrap_err().kind(),
             io::ErrorKind::TimedOut
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_unix_endpoint_is_ready_only_while_something_accepts_on_the_socket() {
+        let dir = std::env::temp_dir().join(format!("xtask-probe-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("s.sock");
+        let endpoint = Endpoint::Unix(path.clone());
+        assert_eq!(
+            probe_endpoint(&endpoint, &Readiness::Tcp),
+            Probe::Unavailable
+        );
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        assert_eq!(probe_endpoint(&endpoint, &Readiness::Tcp), Probe::Ready);
+        assert!(matches!(
+            probe_endpoint(&endpoint, &Readiness::TheatreCatalog),
+            Probe::Unexpected(_)
+        ));
+        drop(listener);
+        // The inode survives the listener, but nothing answers on it any more.
+        assert!(path.exists());
+        assert_eq!(
+            probe_endpoint(&endpoint, &Readiness::Tcp),
+            Probe::Unavailable
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

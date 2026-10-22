@@ -1,7 +1,7 @@
 //! Candidate `server.db` for #333: the one Server schema registry over the shared
 //! `cantos-store-turso` owner. Only the actor registry and Identity session slices exist, so this
-//! is not Server schema v1, and nothing composes it: PostgreSQL stays the serving authority until
-//! #333.9.
+//! is not complete Server schema v1. The host now composes this owner, but business context
+//! tables and queries remain unported; successful opening does not accept those routes.
 //!
 //! Context adapters receive a [`ServerDatabase`] and share its serialized writer and readers.
 //! SQL stays in each owner's persistence adapter; this module holds no business query.
