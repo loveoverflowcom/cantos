@@ -20,6 +20,29 @@ pub(crate) struct ListenerMetadata {
     pub current_unit: ContentUnit,
     pub content: cantos_contracts::ContentRevisionResponse,
 }
+/// One bounded join over the requested releases' pinned revisions, their current heads and their
+/// content revision; the request batch is a JSON array read by `json_each`, never spliced.
+const METADATA: &str = "SELECT json_extract(b.value,'$.release') AS release_id,\
+ json_extract(b.value,'$.work') AS requested_work,\
+ json_extract(b.value,'$.unit') AS requested_unit,\
+ json_extract(b.value,'$.work_revision') AS work_revision,\
+ json_extract(b.value,'$.unit_revision') AS unit_revision,\
+ json_extract(b.value,'$.content') AS requested_content,\
+ w.owner_id,w.kind,w.head_revision AS current_work_revision,u.head_revision AS current_unit_revision,\
+ cr.revision_digest AS content_digest,\
+ wr.snapshot AS work,wr.snapshot_digest AS work_digest,\
+ ur.snapshot AS unit,ur.snapshot_digest AS unit_digest,\
+ cw.snapshot AS current_work,cw.snapshot_digest AS current_work_digest,\
+ cu.snapshot AS current_unit,cu.snapshot_digest AS current_unit_digest,\
+ cr.snapshot AS content \
+ FROM json_each(?1) b \
+ JOIN catalog_works w ON w.id=json_extract(b.value,'$.work') \
+ JOIN catalog_units u ON u.id=json_extract(b.value,'$.unit') AND u.work_id=w.id \
+ JOIN catalog_work_revisions wr ON wr.work_id=w.id AND wr.revision=json_extract(b.value,'$.work_revision') \
+ JOIN catalog_unit_revisions ur ON ur.unit_id=u.id AND ur.revision=json_extract(b.value,'$.unit_revision') \
+ JOIN catalog_work_revisions cw ON cw.work_id=w.id AND cw.revision=w.head_revision \
+ JOIN catalog_unit_revisions cu ON cu.unit_id=u.id AND cu.revision=u.head_revision \
+ JOIN catalog_content_revisions cr ON cr.id=json_extract(b.value,'$.content') AND cr.unit_id=u.id";
 pub(crate) async fn listener_metadata(
     tx: &Tx<'_>,
     requests: &[ListenerMetadataRequest],
@@ -28,7 +51,7 @@ pub(crate) async fn listener_metadata(
         return Err(StoreError::InvalidRequest);
     }
     let bytes = serde_json::to_string(requests).map_err(|_| StoreError::CorruptRevision)?;
-    let rows=tx.query("SELECT b.release,b.work AS requested_work,b.unit AS requested_unit,b.work_revision,b.unit_revision,b.content AS requested_content,w.owner_id,w.kind,w.head_revision AS current_work_revision,u.head_revision AS current_unit_revision,cr.revision_digest AS content_digest,wr.snapshot AS work,wr.snapshot_digest AS work_digest,ur.snapshot AS unit,ur.snapshot_digest AS unit_digest,cw.snapshot AS current_work,cw.snapshot_digest AS current_work_digest,cu.snapshot AS current_unit,cu.snapshot_digest AS current_unit_digest,cr.snapshot AS content FROM jsonb_to_recordset($1::text::jsonb) AS b(release text,work text,unit text,work_revision bigint,unit_revision bigint,content text) JOIN catalog_works w ON w.id=b.work JOIN catalog_units u ON u.id=b.unit AND u.work_id=w.id JOIN catalog_work_revisions wr ON wr.work_id=w.id AND wr.revision=b.work_revision JOIN catalog_unit_revisions ur ON ur.unit_id=u.id AND ur.revision=b.unit_revision JOIN catalog_work_revisions cw ON cw.work_id=w.id AND cw.revision=w.head_revision JOIN catalog_unit_revisions cu ON cu.unit_id=u.id AND cu.revision=u.head_revision JOIN catalog_content_revisions cr ON cr.id=b.content AND cr.unit_id=u.id",&[&bytes]).await?;
+    let rows = tx.query(METADATA, &[&bytes]).await?;
     rows.iter()
         .map(|r| {
             let checked = |key: &str, digest: &str| -> Result<Vec<u8>, StoreError> {
@@ -40,11 +63,14 @@ pub(crate) async fn listener_metadata(
                 }
                 Ok(bytes)
             };
-            let work = super::decode_work(&checked("work", "work_digest")?)?;
-            let unit = super::decode_unit(&checked("unit", "unit_digest")?, work.kind())?;
-            let current_work =
-                super::decode_work(&checked("current_work", "current_work_digest")?)?;
-            let current_unit = super::decode_unit(
+            let work = super::super::storage::decode_work(&checked("work", "work_digest")?)?;
+            let unit =
+                super::super::storage::decode_unit(&checked("unit", "unit_digest")?, work.kind())?;
+            let current_work = super::super::storage::decode_work(&checked(
+                "current_work",
+                "current_work_digest",
+            )?)?;
+            let current_unit = super::super::storage::decode_unit(
                 &checked("current_unit", "current_unit_digest")?,
                 work.kind(),
             )?;
@@ -88,7 +114,7 @@ pub(crate) async fn listener_metadata(
             }
             Ok(ListenerMetadata {
                 release: r
-                    .try_get("release")
+                    .try_get("release_id")
                     .map_err(|_| StoreError::CorruptRevision)?,
                 work,
                 unit,
@@ -100,13 +126,11 @@ pub(crate) async fn listener_metadata(
         .collect()
 }
 
-/// SQL-owned current-public metadata prefilter; never sufficient publication authority.
-pub(crate) const LISTENER_CURRENT_FILTER: &str =
-    "catalog_listener_discoverable(x.work_id,x.unit_id)";
-
-/// Share the existing Catalog/Media write fence when admitting a new listener-owned identity.
-/// This is not Studio authorization; it prevents concurrent metadata/rights/pointer replacement.
-pub(crate) async fn lock_listener_catalog(tx: &Tx<'_>) -> Result<(), StoreError> {
-    super::lock_clock(tx, crate::platform::store::LockMode::Share).await?;
-    Ok(())
-}
+/// SQL-owned current-public metadata prefilter over the listener index alias `x`. It replaces
+/// PostgreSQL's `catalog_listener_discoverable` function: neither archived, and the Work's
+/// current head revision names `public` visibility. Never sufficient publication authority.
+pub(crate) const LISTENER_CURRENT_FILTER: &str = "EXISTS(SELECT 1 FROM catalog_works d_w \
+JOIN catalog_units d_u ON d_u.work_id=d_w.id AND d_u.id=x.unit_id \
+JOIN catalog_work_revisions d_r ON d_r.work_id=d_w.id AND d_r.revision=d_w.head_revision \
+WHERE d_w.id=x.work_id AND d_w.lifecycle<>'archived' AND d_u.lifecycle<>'archived' \
+AND json_extract(CAST(d_r.snapshot AS TEXT),'$.details.visibility')='public')";

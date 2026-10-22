@@ -930,6 +930,49 @@ fn grant() { tx.execute("INSERT INTO actors(id) VALUES($1)", &[]); }
             with self.subTest(path=path):
                 self.assertRejectedAt(path, content, reason)
 
+    def test_turso_schema_registry_ddl_declares_cross_context_tables_and_nothing_else_does(self):
+        """The one-database DDL carries cross-context foreign keys; queries keep their owners."""
+        ddl = (
+            "CREATE TABLE listener_saved (work TEXT REFERENCES catalog_works(id)) STRICT;\n"
+            "CREATE TRIGGER t BEFORE INSERT ON listener_saved\n"
+            "WHEN EXISTS (SELECT 1 FROM catalog_works) BEGIN SELECT 1; END;\n"
+        )
+        self.errors("lib.rs", "")  # the guard needs a Rust file to walk
+        self.assertEqual(self.errors("platform/turso/listener_library.sql", ddl), [])
+        # The registry includes each version's DDL, which is judged as the registry; any other file
+        # that includes the same DDL is judged as itself.
+        ddl_file = self.root / checks.API_SOURCE / "platform/turso/listener_library.sql"
+        include = 'const DDL: &str = include_str!("turso/listener_library.sql");'
+        self.assertEqual(self.errors("platform/turso/mod.rs", 'const DDL: &str = include_str!("listener_library.sql");'), [])
+        self.assertRejectedAt("platform/other.rs",
+                              'const DDL: &str = include_str!("turso/listener_library.sql");',
+                              "SQL table catalog_works belongs to catalog")
+        del include, ddl_file
+        for path, content, reason in (
+            # The exemption is the registry's direct children only, and only for DDL files.
+            ("platform/turso/nested/listener_library.sql", ddl, "SQL table catalog_works belongs to catalog"),
+            ("platform/turso/mod.rs", 'const Q: &str = "SELECT id FROM catalog_works";',
+             "SQL table catalog_works belongs to catalog"),
+            ("platform/other/listener_library.sql", ddl, "SQL table catalog_works belongs to catalog"),
+            # A context adapter's own DDL still may not reach another context's table.
+            ("contexts/listening/turso/schema.sql", ddl, "SQL table catalog_works belongs to catalog"),
+            ("platform/turso/attach.sql", "ATTACH DATABASE 'identity.db' AS ident;\n",
+             "SQL must not ATTACH another database"),
+        ):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, content, reason)
+
+    def test_fixture_modules_may_seed_across_contexts_but_only_at_their_own_path(self):
+        seed = 'const Q: &str = "INSERT INTO catalog_works(id) VALUES(?1)";\n'
+        for path in ("test_support.rs", "test_support/world.rs", "test_support/nested/more.rs"):
+            with self.subTest(path=path):
+                self.assertEqual(self.errors(path, seed), [])
+        for path in ("contexts/catalog/application/test_support.rs", "adapters/test_support.rs",
+                     "support/test_support/world.rs", "test_support_extra.rs"):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, seed,
+                                      "SQL table access belongs in its owner's persistence adapter")
+
     def test_server_sql_cannot_name_identity_database_tables(self):
         schema = self.root / checks.IDENTITY_SOURCE / checks.IDENTITY_PERSISTENCE / "schema.sql"
         schema.parent.mkdir(parents=True)

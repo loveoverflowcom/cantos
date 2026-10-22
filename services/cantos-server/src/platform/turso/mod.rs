@@ -20,7 +20,7 @@ pub const SERVER_EPOCH: u32 = 1;
 
 /// Each reviewed slice appends a version; an applied version is never edited, so a candidate
 /// file built by an older head is refused as diverged instead of adopted.
-pub(crate) const MIGRATIONS: [Migration; 11] = [
+pub(crate) const MIGRATIONS: [Migration; 15] = [
     Migration {
         version: 1,
         name: "server_actor_registry",
@@ -75,6 +75,29 @@ pub(crate) const MIGRATIONS: [Migration; 11] = [
         version: 11,
         name: "server_listening",
         sql: include_str!("listening.sql"),
+    },
+    // Versions 4-11 are reserved placeholders whose bytes are already registered and never
+    // change. The CMP business API slice (#333) appends its dependency closure after them, in
+    // foreign-key order, instead of editing those versions.
+    Migration {
+        version: 12,
+        name: "server_catalog_publication_read",
+        sql: include_str!("catalog_publication_read.sql"),
+    },
+    Migration {
+        version: 13,
+        name: "server_production_briefs",
+        sql: include_str!("production_briefs.sql"),
+    },
+    Migration {
+        version: 14,
+        name: "server_audio_release_chain",
+        sql: include_str!("audio_release_chain.sql"),
+    },
+    Migration {
+        version: 15,
+        name: "server_listener_library",
+        sql: include_str!("listener_library.sql"),
     },
 ];
 

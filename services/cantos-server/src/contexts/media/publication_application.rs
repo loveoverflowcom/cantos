@@ -383,6 +383,8 @@ async fn commit(
         return Err(StoreError::CorruptRevision.into());
     }
     sql::insert_release(tx, release).await?;
+    // The discovery index is written in the same unit as the release row and the pointer.
+    super::turso::listener::index_release(tx, release).await?;
     sql::set_pointer(
         tx,
         permit.unit.as_str(),

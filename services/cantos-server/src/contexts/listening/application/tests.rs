@@ -32,7 +32,8 @@ struct World {
 #[derive(Clone, Default)]
 struct MemoryRepository(Arc<Mutex<World>>);
 impl LibraryRepository for MemoryRepository {
-    fn mutate(&self, listener: ListenerId, request: Mutation) -> WriteFuture {
+    fn mutate(&self, access: Access, request: Mutation) -> WriteFuture {
+        let listener = access.listener;
         let world = self.0.clone();
         Box::pin(async move {
             let mut w = world.lock().unwrap();
@@ -153,7 +154,8 @@ impl LibraryRepository for MemoryRepository {
             Ok(receipt)
         })
     }
-    fn read(&self, listener: ListenerId, request: ReadRequest) -> ReadFuture {
+    fn read(&self, access: Access, request: ReadRequest) -> ReadFuture {
+        let listener = access.listener;
         let world = self.0.clone();
         Box::pin(async move {
             let w = world.lock().unwrap();

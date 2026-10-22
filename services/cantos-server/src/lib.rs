@@ -36,3 +36,5 @@ pub mod store {
 
 #[cfg(test)]
 mod playback_transport_tests;
+#[cfg(test)]
+mod theatre_library_http_tests;

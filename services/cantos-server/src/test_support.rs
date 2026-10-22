@@ -22,6 +22,10 @@ use crate::{
     },
 };
 
+pub mod library;
+mod world;
+pub use world::{Chain, Corruption, SeededUnit, SeededWork, Stage, UnitSeed, WorkSeed};
+
 pub struct ServerFixture {
     run: TestRun,
     clock: Arc<dyn Clock>,
@@ -46,6 +50,11 @@ impl ServerFixture {
         }
     }
 
+    /// The fixture clock's reading in microseconds since the Unix epoch.
+    pub fn clock_reading(&self) -> Option<i64> {
+        self.clock.now().ok().map(|at| at.get())
+    }
+
     pub fn store(&self) -> &Store {
         self.store.as_ref().expect("the fixture is open")
     }
@@ -53,6 +62,17 @@ impl ServerFixture {
     /// The directory that holds `server.db` and any private media root a test needs.
     pub fn dir(&self) -> &std::path::Path {
         self.run.dir()
+    }
+
+    /// The `server.db` path of this fixture, for a test that serves it from another process.
+    pub fn database_path(&self) -> std::path::PathBuf {
+        self.run.path("server.db")
+    }
+
+    /// Release the file so another process (the `cantos-server` binary) may own it. A test then
+    /// reads through [`Self::restart`], which serves the file again.
+    pub fn close(&mut self) {
+        self.store = None;
     }
 
     /// Close the file and serve it again, as a restart does. Every clone of the previous store
@@ -85,6 +105,31 @@ impl ServerFixture {
         }
     }
 
+    /// Like [`Self::exec`] but keeps the statement's own failure, so a barrier test can assert
+    /// the exact guard code or constraint kind that refused it. A refused unit is rolled back.
+    pub async fn try_exec(
+        &self,
+        sql: &str,
+        params: Params<'_>,
+    ) -> Result<u64, crate::platform::store::Error> {
+        let mut conn = self
+            .store()
+            .connection()
+            .await
+            .map_err(|_| crate::platform::store::Error::Cardinality)?;
+        let tx = conn.transaction().await?;
+        match tx.execute(sql, params).await {
+            Ok(changed) => {
+                tx.commit().await?;
+                Ok(changed)
+            }
+            Err(error) => {
+                let _ = tx.rollback().await;
+                Err(error)
+            }
+        }
+    }
+
     pub async fn rows(&self, sql: &str, params: Params<'_>) -> Result<Vec<Row>, StoreError> {
         let conn = self.store().connection().await?;
         let tx = conn.read().await?;
@@ -100,9 +145,14 @@ impl ServerFixture {
 
     pub async fn seed_actors(&self, ids: &[&str]) {
         for id in ids {
-            self.exec("INSERT OR IGNORE INTO actors(id) VALUES(?1)", &[id])
-                .await
-                .expect("the actor is seeded");
+            // A pre-checked insert: `actors` refuses an insert over an existing id even under
+            // `OR IGNORE`, because that conflict clause runs after the guard.
+            self.exec(
+                "INSERT INTO actors(id) SELECT ?1 WHERE NOT EXISTS (SELECT 1 FROM actors WHERE id=?1)",
+                &[id],
+            )
+            .await
+            .expect("the actor is seeded");
         }
     }
 

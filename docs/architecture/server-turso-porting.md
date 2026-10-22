@@ -10,10 +10,12 @@ no dual write, no compatibility shim at the end.
 
 This is an implementation guide for an incomplete Draft checkpoint, not a completed Server
 port or acceptance record. `Store` and all binaries use the embedded owner. Actual DDL covers
-actors, native Identity sessions and development sessions only; registered context slices
-4–11 currently contain comments, not business tables. Existing context adapters still execute
-PostgreSQL-specific queries through the statement facade. Successful compilation or an empty
-migration does not make those operations work.
+actors, native Identity sessions, development sessions and the
+[CMP business API closure](server-turso/cmp-business-api.md) (appended versions 12–15: catalog
+revisions, production briefs, the external-audio release chain with its listener index, and the
+Listener Library); registered context slices 4–11 still contain comments, not business tables.
+Context adapters outside that closure still execute PostgreSQL-specific queries through the
+statement facade. Successful compilation or an empty migration does not make those operations work.
 
 - Source retirement is partial: provider auth and PG drivers are removed from the Server build,
   while PostgreSQL schema, business queries, legacy test oracles, scripts and operating assets

@@ -14,7 +14,7 @@ without changing the DTO, schema, routes, SQL or deployment composition. Sources
 [Theatre DTOs](../../packages/contracts/api/src/theatre.rs), [routes](../../services/cantos-server/src/adapters/inbound/http/theatre.rs),
 [application](../../services/cantos-server/src/contexts/media/listener_application.rs),
 [projection](../../services/cantos-server/src/contexts/media/listener_projection.rs),
-[PostgreSQL reader](../../services/cantos-server/src/contexts/media/postgres/listener.rs),
+[Turso reader](../../services/cantos-server/src/contexts/media/turso/listener.rs),
 [cursor vault](../../services/cantos-server/src/contexts/media/listener_cursor.rs) and the
 [Discovery v1 contract](../../packages/contracts/theatre-discovery-v1.md). Nothing below is a
 provider, device or browser observation.

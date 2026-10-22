@@ -5,9 +5,8 @@ use crate::platform::store::Row;
 use super::domain::{ContentUnit, Revision, Work};
 use crate::platform::store::{checked_number, LockMode, StoreError, Tx};
 
-#[path = "storage.rs"]
-mod storage;
-pub(super) use storage::{decode_unit, decode_work, digest};
+use super::storage;
+pub(super) use super::storage::{decode_unit, decode_work, digest};
 pub(super) mod content;
 pub(super) mod delegation;
 
@@ -381,10 +380,3 @@ pub(super) async fn set_member(
     }
     Ok(())
 }
-
-mod listener;
-pub(crate) use listener::{
-    listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_CURRENT_FILTER,
-};
-
-pub(crate) use listener::lock_listener_catalog;

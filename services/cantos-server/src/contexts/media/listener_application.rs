@@ -12,7 +12,7 @@ use super::{
         presented_unit_summary, presented_work_summary, publication_manifest, unit_summary,
         work_summary,
     },
-    postgres::listener::{PgRead, ReadItem},
+    turso::listener::{ReadItem, TursoRead},
 };
 use crate::platform::{
     ids::canonical_uuid,
@@ -163,7 +163,7 @@ impl ListenerService {
 }
 impl ListenerService {
     pub fn new(store: Store) -> Self {
-        Self::from_parts(Arc::new(PgRead(store)), Arc::new(UnavailablePlayback))
+        Self::from_parts(Arc::new(TursoRead(store)), Arc::new(UnavailablePlayback))
     }
     fn from_parts(read: Arc<dyn ListenerRead>, delivery: Arc<dyn PlaybackDelivery>) -> Self {
         Self {
@@ -801,7 +801,7 @@ pub(super) mod tests {
             Box::pin(async move {
                 let mut row = item();
                 row.position = 9;
-                row.presentation = Some(super::super::postgres::listener::PresentationStats {
+                row.presentation = Some(super::super::turso::listener::PresentationStats {
                     unit_count: 3,
                     ordinal: 2,
                 });

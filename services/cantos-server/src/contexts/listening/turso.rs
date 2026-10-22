@@ -1,8 +1,16 @@
-//! PostgreSQL is the sole durable Library authority. No demo state or provider calls.
+//! Turso (`server.db`) is the sole durable Library authority. No demo state or provider calls.
+//!
+//! Every write is one `BEGIN IMMEDIATE` unit on the serialized writer. In that unit the Server
+//! re-admits the Identity session the principal was earned from, decides from facts read in the
+//! unit, and writes the effect, its device sequence, the account order and the operation receipt
+//! together: PostgreSQL's row locks, `listener_lock_actor` and the catalog fence are replaced by
+//! that ordering. A lost COMMIT acknowledgement is not a rollback; the client's retry of the same
+//! operation id reads the receipt if the unit became durable. Times are the domain's Unix
+//! milliseconds from the transaction's trusted stamp.
 use super::{
     application::{
         bookmark_create_receipt, bookmark_delete_receipt, history_receipt, progress_receipt,
-        saved_receipt, Command, LibraryError, LibraryRepository, LibraryService, Mutation,
+        saved_receipt, Access, Command, LibraryError, LibraryRepository, LibraryService, Mutation,
         PageData, PageKind, PageSnapshot, ReadFuture, ReadRequest, ReadResult, WriteFuture,
     },
     cursor::{CursorVault, PageAnchor},
@@ -16,23 +24,26 @@ use super::{
 use crate::platform::store::Row;
 use crate::{
     contexts::{
-        catalog::{domain::WorkId, lock_listener_catalog},
+        catalog::domain::WorkId,
         media::{
             library_presentations, library_public_work, library_publications,
             library_work_presentations, ListenerError,
         },
     },
-    platform::store::{Store, StoreError, Tx},
+    platform::{
+        identity_auth::session::SessionError,
+        store::{active_actors, Store, StoreError, Tx},
+    },
 };
 use cantos_contracts::listener_library as dto;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, sync::Arc};
-struct PgLibrary(Store);
+struct TursoLibrary(Store);
 impl LibraryService {
     pub fn new(store: Store) -> Self {
         Self {
-            repository: Arc::new(PgLibrary(store)),
+            repository: Arc::new(TursoLibrary(store)),
             cursors: Arc::new(CursorVault::default()),
             presented_cursors: Arc::new(CursorVault::default()),
         }
@@ -184,7 +195,7 @@ async fn current_bookmark(
     id: &str,
 ) -> Result<Option<BookmarkRecord>, LibraryError> {
     tx.query_opt(
-        "SELECT * FROM listener_bookmarks WHERE listener_id=$1 AND bookmark_id=$2",
+        "SELECT * FROM listener_bookmarks WHERE listener_id=?1 AND bookmark_id=?2",
         &[&listener.as_str(), &id],
     )
     .await
@@ -199,7 +210,7 @@ async fn current_progress(
     id: &str,
 ) -> Result<Option<ProgressRecord>, LibraryError> {
     tx.query_opt(
-        "SELECT * FROM listener_progress WHERE listener_id=$1 AND publication_id=$2",
+        "SELECT * FROM listener_progress WHERE listener_id=?1 AND publication_id=?2",
         &[&listener.as_str(), &id],
     )
     .await
@@ -215,7 +226,7 @@ async fn current_saved(
 ) -> Result<SavedRecord, LibraryError> {
     Ok(tx
         .query_opt(
-            "SELECT * FROM listener_saved WHERE listener_id=$1 AND work_id=$2",
+            "SELECT * FROM listener_saved WHERE listener_id=?1 AND work_id=?2",
             &[&listener.as_str(), &work.as_str()],
         )
         .await
@@ -225,32 +236,41 @@ async fn current_saved(
         .transpose()?
         .unwrap_or(SavedRecord::empty(work)))
 }
-async fn active(tx: &Tx<'_>, listener: &ListenerId, lock: bool) -> Result<(), LibraryError> {
-    let query = if lock {
-        "SELECT listener_lock_actor($1) AS active"
-    } else {
-        "SELECT listener_actor_active($1) AS active"
-    };
-    let active: Option<bool> = col(
-        &tx.query_one(query, &[&listener.as_str()])
+/// Admission inside the unit that reads or writes. A principal earned from an Identity session
+/// re-admits exactly that session at the unit's own stamp (live session, active actor, unexpired),
+/// so a logout, revocation or deactivation either committed before this unit (and it is refused
+/// with no effect) or waits behind it on the serialized writer. The re-admitted actor and session
+/// must be the ones the principal was issued for; a principal vouched for by a trusted host
+/// override has no session and is checked against the active actor only.
+async fn admit(tx: &Tx<'_>, access: &Access) -> Result<(), LibraryError> {
+    let listener = &access.listener;
+    let Some(admission) = &access.admission else {
+        let active = active_actors(tx, &[listener.as_str().to_owned()])
             .await
-            .map_err(database)?,
-        "active",
-    )?;
-    if active != Some(true) {
+            .map_err(storage)?;
+        return if active.contains(listener.as_str()) {
+            Ok(())
+        } else {
+            Err(LibraryError::Unauthenticated)
+        };
+    };
+    let record =
+        crate::platform::identity_auth::turso::admit_in(tx, admission.token(), admission.channel())
+            .await
+            .map_err(|e| match e {
+                SessionError::Unavailable | SessionError::Unknown => LibraryError::Unavailable,
+                SessionError::Inactive | SessionError::Expired | SessionError::Replay => {
+                    LibraryError::Unauthenticated
+                }
+            })?;
+    if record.actor_id != listener.as_str() || record.session_id != admission.session_id() {
         return Err(LibraryError::Unauthenticated);
     }
     Ok(())
 }
-async fn clock(tx: &Tx<'_>) -> Result<i64, LibraryError> {
-    let r = tx
-        .query_one(
-            "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS now",
-            &[],
-        )
-        .await
-        .map_err(database)?;
-    let now = col::<i64>(&r, "now")?;
+/// The unit's trusted instant in the domain's Unix milliseconds.
+fn clock(tx: &Tx<'_>) -> Result<i64, LibraryError> {
+    let now = crate::contexts::media::unit_millis(tx);
     if now < 0 {
         Err(LibraryError::Corrupt)
     } else {
@@ -260,15 +280,12 @@ async fn clock(tx: &Tx<'_>) -> Result<i64, LibraryError> {
 async fn account(
     tx: &Tx<'_>,
     listener: &ListenerId,
-    lock: bool,
 ) -> Result<(Revision, HistoryState), LibraryError> {
-    let query = if lock {
-        "SELECT * FROM listener_state WHERE listener_id=$1 FOR UPDATE"
-    } else {
-        "SELECT * FROM listener_state WHERE listener_id=$1"
-    };
     let Some(r) = tx
-        .query_opt(query, &[&listener.as_str()])
+        .query_opt(
+            "SELECT * FROM listener_state WHERE listener_id=?1",
+            &[&listener.as_str()],
+        )
         .await
         .map_err(database)?
     else {
@@ -302,10 +319,8 @@ fn audio(
 async fn require_audio(
     tx: &Tx<'_>,
     identity: &AudioIdentity,
-    _now: i64,
+    now: i64,
 ) -> Result<(), LibraryError> {
-    lock_listener_catalog(tx).await.map_err(storage)?;
-    let now = clock(tx).await?;
     let current = library_publications(tx, &[identity.unit().as_str().into()], now)
         .await
         .map_err(media)?;
@@ -325,7 +340,7 @@ async fn prior(
     operation: &str,
 ) -> Result<Option<(Vec<u8>, dto::Receipt)>, LibraryError> {
     tx.query_opt(
-        "SELECT * FROM listener_operations WHERE listener_id=$1 AND operation_id=$2",
+        "SELECT * FROM listener_operations WHERE listener_id=?1 AND operation_id=?2",
         &[&listener.as_str(), &operation],
     )
     .await
@@ -409,7 +424,7 @@ async fn apply_progress(
     ];
     let count = if base == 0 {
         tx.execute(
-            "INSERT INTO listener_progress VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
+            "INSERT INTO listener_progress VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
             &fields,
         )
         .await
@@ -423,7 +438,7 @@ async fn apply_progress(
                 &expected_base as &(dyn crate::platform::store::Param + Sync),
             ))
             .collect::<Vec<_>>();
-        tx.execute("UPDATE listener_progress SET position_ms=$8,completion=$9,revision=$10,listener_order=$11,accepted_at=$12,snapshot=$13,snapshot_digest=$14 WHERE listener_id=$1 AND publication_id=$2 AND work_id=$3 AND unit_id=$4 AND rendition_id=$5 AND sha256=$6 AND duration_ms=$7 AND revision=$15",&params).await.map_err(database)?
+        tx.execute("UPDATE listener_progress SET position_ms=?8,completion=?9,revision=?10,listener_order=?11,accepted_at=?12,snapshot=?13,snapshot_digest=?14 WHERE listener_id=?1 AND publication_id=?2 AND work_id=?3 AND unit_id=?4 AND rendition_id=?5 AND sha256=?6 AND duration_ms=?7 AND revision=?15",&params).await.map_err(database)?
     };
     if count != 1 {
         return Err(LibraryError::Corrupt);
@@ -441,7 +456,7 @@ async fn apply_bookmark(
     let count = if existing {
         // Only the final tombstone is ever written over an accepted value (see the table guard).
         tx.execute(
-            "UPDATE listener_bookmarks SET deleted=$3,listener_order=$4,accepted_at=$5,snapshot=$6,snapshot_digest=$7 WHERE listener_id=$1 AND bookmark_id=$2 AND NOT deleted",
+            "UPDATE listener_bookmarks SET deleted=?3,listener_order=?4,accepted_at=?5,snapshot=?6,snapshot_digest=?7 WHERE listener_id=?1 AND bookmark_id=?2 AND deleted=0",
             &[
                 &listener.as_str(),
                 &v.bookmark_id,
@@ -456,7 +471,7 @@ async fn apply_bookmark(
         .map_err(database)?
     } else {
         tx.execute(
-            "INSERT INTO listener_bookmarks VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
+            "INSERT INTO listener_bookmarks VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
             &[
                 &listener.as_str(),
                 &v.bookmark_id,
@@ -490,28 +505,66 @@ async fn apply_saved(
 ) -> Result<(), LibraryError> {
     let v = v.raw();
     let (b, d) = encode(v)?;
-    let count=tx.execute("INSERT INTO listener_saved VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(listener_id,work_id) DO UPDATE SET saved=EXCLUDED.saved,revision=EXCLUDED.revision,listener_order=EXCLUDED.listener_order,accepted_at=EXCLUDED.accepted_at,snapshot=EXCLUDED.snapshot,snapshot_digest=EXCLUDED.snapshot_digest WHERE listener_saved.revision=$9",&[&listener.as_str(),&v.work_id,&v.saved,&number(v.revision)?,&number(v.listener_order)?,&v.accepted_at_ms,&b,&d,&number(base)?]).await.map_err(database)?;
+    // An explicit insert or conditional update, never an upsert: the table refuses an insert over
+    // an existing key, and the update proves the revision it replaces.
+    let count = if base == 0 {
+        tx.execute(
+            "INSERT INTO listener_saved VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+            &[
+                &listener.as_str(),
+                &v.work_id,
+                &v.saved,
+                &number(v.revision)?,
+                &number(v.listener_order)?,
+                &v.accepted_at_ms,
+                &b,
+                &d,
+            ],
+        )
+        .await
+        .map_err(database)?
+    } else {
+        tx.execute(
+            "UPDATE listener_saved SET saved=?3,revision=?4,listener_order=?5,accepted_at=?6,snapshot=?7,snapshot_digest=?8 WHERE listener_id=?1 AND work_id=?2 AND revision=?9",
+            &[
+                &listener.as_str(),
+                &v.work_id,
+                &v.saved,
+                &number(v.revision)?,
+                &number(v.listener_order)?,
+                &v.accepted_at_ms,
+                &b,
+                &d,
+                &number(base)?,
+            ],
+        )
+        .await
+        .map_err(database)?
+    };
     if count != 1 {
         return Err(LibraryError::Corrupt);
     }
     Ok(())
 }
-impl LibraryRepository for PgLibrary {
-    fn mutate(&self, listener: ListenerId, request: Mutation) -> WriteFuture {
+impl LibraryRepository for TursoLibrary {
+    fn mutate(&self, access: Access, request: Mutation) -> WriteFuture {
         let store = self.0.clone();
         Box::pin(async move {
+            let listener = access.listener.clone();
             let mut connection = store.connection().await.map_err(storage)?;
             let tx = connection.transaction().await.map_err(database)?;
-            active(&tx, &listener, true).await?;
-            // The account row is an existing authority lock, not a parallel progress store.
-            // It serializes first writes and duplicate operation claims before any decision.
+            // Re-admit the session inside this unit before anything is decided or written.
+            admit(&tx, &access).await?;
+            // The account row is the order authority of the account, not a parallel progress
+            // store. Created once, by a pre-checked insert (the table refuses an insert over an
+            // existing key, so there is no conflict clause to lean on).
             tx.execute(
-                "INSERT INTO listener_state(listener_id) VALUES($1) ON CONFLICT DO NOTHING",
+                "INSERT INTO listener_state(listener_id) SELECT ?1 WHERE NOT EXISTS (SELECT 1 FROM listener_state WHERE listener_id=?1)",
                 &[&listener.as_str()],
             )
             .await
             .map_err(database)?;
-            let (order, h) = account(&tx, &listener, true).await?;
+            let (order, h) = account(&tx, &listener).await?;
             let intent = request.command.intent();
             if let Some((digest, receipt)) =
                 prior(&tx, &listener, intent.operation().as_str()).await?
@@ -523,7 +576,7 @@ impl LibraryRepository for PgLibrary {
                 return Ok(receipt);
             }
             let key = request.command.sequence_key();
-            let previous=tx.query_opt("SELECT sequence FROM listener_device_sequences WHERE listener_id=$1 AND device_id=$2 AND resource_key=$3",&[&listener.as_str(),&intent.device().as_str(),&key]).await.map_err(database)?;
+            let previous=tx.query_opt("SELECT sequence FROM listener_device_sequences WHERE listener_id=?1 AND device_id=?2 AND resource_key=?3",&[&listener.as_str(),&intent.device().as_str(),&key]).await.map_err(database)?;
             if previous
                 .as_ref()
                 .map(|r| col::<i64>(r, "sequence"))
@@ -533,7 +586,7 @@ impl LibraryRepository for PgLibrary {
                 return Err(LibraryError::StaleSequence);
             }
             let next = order.next()?;
-            let now = clock(&tx).await?;
+            let now = clock(&tx)?;
             let mut admitted_audio = None;
             let mut admitted_work = None;
             let (receipt, changed, history) = match &request.command {
@@ -562,15 +615,12 @@ impl LibraryRepository for PgLibrary {
                 Command::Saved(c) => {
                     let current = current_saved(&tx, &listener, c.work()).await?;
                     if c.desired() && current.raw().revision == 0 {
-                        lock_listener_catalog(&tx).await.map_err(storage)?;
-                        if !library_public_work(&tx, c.work().as_str(), clock(&tx).await?)
+                        if !library_public_work(&tx, c.work().as_str(), now)
                             .await
                             .map_err(media)?
                         {
                             return Err(LibraryError::NotFound);
                         }
-                    }
-                    if c.desired() && current.raw().revision == 0 {
                         admitted_work = Some(c.work().clone());
                     }
                     let out = reconcile_saved(&current, c, now, next)?;
@@ -619,7 +669,7 @@ impl LibraryRepository for PgLibrary {
                     (receipt, changed, h)
                 }
                 Command::Start(c) => {
-                    let seen=tx.query_opt("SELECT audio_snapshot FROM listener_playback_sessions WHERE listener_id=$1 AND device_id=$2 AND engine_session_id=$3",&[&listener.as_str(),&intent.device().as_str(),&c.session().as_str()]).await.map_err(database)?;
+                    let seen=tx.query_opt("SELECT audio_snapshot FROM listener_playback_sessions WHERE listener_id=?1 AND device_id=?2 AND engine_session_id=?3",&[&listener.as_str(),&intent.device().as_str(),&c.session().as_str()]).await.map_err(database)?;
                     let (b, d) = encode(&c.audio().raw())?;
                     if seen
                         .as_ref()
@@ -634,7 +684,7 @@ impl LibraryRepository for PgLibrary {
                         require_audio(&tx, c.audio(), now).await?;
                         admitted_audio = Some(c.audio().clone());
                         tx.execute(
-                            "INSERT INTO listener_playback_sessions VALUES($1,$2,$3,$4)",
+                            "INSERT INTO listener_playback_sessions VALUES(?1,?2,?3,?4)",
                             &[
                                 &listener.as_str(),
                                 &intent.device().as_str(),
@@ -645,7 +695,7 @@ impl LibraryRepository for PgLibrary {
                         .await
                         .map_err(database)?;
                         let raw = c.audio().raw();
-                        tx.execute("INSERT INTO listener_history VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(listener_id,work_id) DO UPDATE SET publication_id=EXCLUDED.publication_id,unit_id=EXCLUDED.unit_id,listener_order=EXCLUDED.listener_order,started_at=EXCLUDED.started_at,snapshot=EXCLUDED.snapshot,snapshot_digest=EXCLUDED.snapshot_digest",&[&listener.as_str(),&raw.work_id,&raw.publication_id,&raw.unit_id,&number(next.value())?,&now,&b,&d]).await.map_err(database)?;
+                        tx.execute("INSERT INTO listener_history VALUES(?1,?2,?3,?4,?5,?6,?7,?8) ON CONFLICT(listener_id,work_id) DO UPDATE SET publication_id=EXCLUDED.publication_id,unit_id=EXCLUDED.unit_id,listener_order=EXCLUDED.listener_order,started_at=EXCLUDED.started_at,snapshot=EXCLUDED.snapshot,snapshot_digest=EXCLUDED.snapshot_digest",&[&listener.as_str(),&raw.work_id,&raw.publication_id,&raw.unit_id,&number(next.value())?,&now,&b,&d]).await.map_err(database)?;
                         next_h
                     } else {
                         h
@@ -660,7 +710,7 @@ impl LibraryRepository for PgLibrary {
                     let out = h.clear(c)?;
                     let history = if let HistoryOutcome::Accepted(next_h) = out {
                         tx.execute(
-                            "DELETE FROM listener_history WHERE listener_id=$1",
+                            "DELETE FROM listener_history WHERE listener_id=?1",
                             &[&listener.as_str()],
                         )
                         .await
@@ -678,16 +728,16 @@ impl LibraryRepository for PgLibrary {
             };
             if changed {
                 let hs = history.raw();
-                let count=tx.execute("UPDATE listener_state SET revision=$2,history_revision=$3,history_epoch=$4 WHERE listener_id=$1 AND revision=$5",&[&listener.as_str(),&number(next.value())?,&number(hs.revision)?,&number(hs.epoch)?,&number(order.value())?]).await.map_err(database)?;
+                let count=tx.execute("UPDATE listener_state SET revision=?2,history_revision=?3,history_epoch=?4 WHERE listener_id=?1 AND revision=?5",&[&listener.as_str(),&number(next.value())?,&number(hs.revision)?,&number(hs.epoch)?,&number(order.value())?]).await.map_err(database)?;
                 if count != 1 {
                     return Err(LibraryError::Corrupt);
                 }
             }
-            tx.execute("INSERT INTO listener_device_sequences VALUES($1,$2,$3,$4) ON CONFLICT(listener_id,device_id,resource_key) DO UPDATE SET sequence=EXCLUDED.sequence WHERE listener_device_sequences.sequence<EXCLUDED.sequence",&[&listener.as_str(),&intent.device().as_str(),&key,&number(intent.sequence())?]).await.map_err(database)?;
+            tx.execute("INSERT INTO listener_device_sequences VALUES(?1,?2,?3,?4) ON CONFLICT(listener_id,device_id,resource_key) DO UPDATE SET sequence=EXCLUDED.sequence WHERE listener_device_sequences.sequence<EXCLUDED.sequence",&[&listener.as_str(),&intent.device().as_str(),&key,&number(intent.sequence())?]).await.map_err(database)?;
             validate_receipt(&receipt)?;
             let (b, d) = encode(&receipt)?;
             tx.execute(
-                "INSERT INTO listener_operations VALUES($1,$2,$3,$4,$5)",
+                "INSERT INTO listener_operations VALUES(?1,?2,?3,?4,?5)",
                 &[
                     &listener.as_str(),
                     &intent.operation().as_str(),
@@ -698,13 +748,15 @@ impl LibraryRepository for PgLibrary {
             )
             .await
             .map_err(database)?;
-            // Time passes even while Catalog/Media mutations are fenced. Re-admit new identities
-            // with fresh database time after all effects and immediately before the atomic commit.
+            // The unit holds the writer from its stamp to its commit and reads and writes nothing
+            // that can change under it, so the identities admitted above are still current here.
+            // Re-checking them against the finished effects keeps the original order of proof:
+            // admission is decided after every effect and immediately before the atomic commit.
             if let Some(a) = admitted_audio {
-                require_audio(&tx, &a, clock(&tx).await?).await?;
+                require_audio(&tx, &a, now).await?;
             }
             if let Some(w) = admitted_work {
-                if !library_public_work(&tx, w.as_str(), clock(&tx).await?)
+                if !library_public_work(&tx, w.as_str(), now)
                     .await
                     .map_err(media)?
                 {
@@ -715,12 +767,14 @@ impl LibraryRepository for PgLibrary {
             Ok(receipt)
         })
     }
-    fn read(&self, listener: ListenerId, request: ReadRequest) -> ReadFuture {
+    fn read(&self, access: Access, request: ReadRequest) -> ReadFuture {
         let store = self.0.clone();
         Box::pin(async move {
+            let listener = access.listener.clone();
             let connection = store.connection().await.map_err(storage)?;
             let tx = connection.read().await.map_err(database)?;
-            active(&tx, &listener, false).await?;
+            // A read is admitted at its own pinned snapshot only; a write re-admits in its unit.
+            admit(&tx, &access).await?;
             let result = match request {
                 ReadRequest::Progress(id) => {
                     ReadResult::Progress(current_progress(&tx, &listener, &id).await?)
@@ -756,7 +810,7 @@ async fn page(
     anchor: Option<PageAnchor>,
     presentation: bool,
 ) -> Result<PageSnapshot, LibraryError> {
-    let (order, history) = account(tx, listener, false).await?;
+    let (order, history) = account(tx, listener).await?;
     if anchor
         .as_ref()
         .is_some_and(|a| a.history_epoch != history.raw().epoch && kind == PageKind::History)
@@ -768,10 +822,10 @@ async fn page(
     let after_work = anchor.as_ref().map(|a| a.after_work.as_str());
     let count = (limit + 1) as i64;
     let query=match kind{
-        PageKind::Continue=>"SELECT * FROM (SELECT DISTINCT ON (work_id COLLATE \"C\") * FROM listener_progress WHERE listener_id=$1 ORDER BY work_id COLLATE \"C\",listener_order DESC,publication_id COLLATE \"C\") latest WHERE completion='in_progress' AND listener_order<=$2 AND ($3::bigint IS NULL OR listener_order<$3 OR (listener_order=$3 AND work_id COLLATE \"C\">$4::text COLLATE \"C\")) ORDER BY listener_order DESC,work_id COLLATE \"C\" LIMIT $5",
-        PageKind::Saved=>"SELECT * FROM listener_saved WHERE listener_id=$1 AND saved AND listener_order<=$2 AND ($3::bigint IS NULL OR listener_order<$3 OR (listener_order=$3 AND work_id COLLATE \"C\">$4::text COLLATE \"C\")) ORDER BY listener_order DESC,work_id COLLATE \"C\" LIMIT $5",
-        PageKind::Bookmarks=>"SELECT * FROM listener_bookmarks WHERE listener_id=$1 AND NOT deleted AND listener_order<=$2 AND ($3::bigint IS NULL OR listener_order<$3 OR (listener_order=$3 AND bookmark_id COLLATE \"C\">$4::text COLLATE \"C\")) ORDER BY listener_order DESC,bookmark_id COLLATE \"C\" LIMIT $5",
-        PageKind::History=>"SELECT * FROM listener_history WHERE listener_id=$1 AND listener_order<=$2 AND ($3::bigint IS NULL OR listener_order<$3 OR (listener_order=$3 AND work_id COLLATE \"C\">$4::text COLLATE \"C\")) ORDER BY listener_order DESC,work_id COLLATE \"C\" LIMIT $5",
+        PageKind::Continue=>"SELECT * FROM (SELECT *,row_number() OVER (PARTITION BY work_id ORDER BY listener_order DESC,publication_id) AS pick FROM listener_progress WHERE listener_id=?1) latest WHERE pick=1 AND completion='in_progress' AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5",
+        PageKind::Saved=>"SELECT * FROM listener_saved WHERE listener_id=?1 AND saved=1 AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5",
+        PageKind::Bookmarks=>"SELECT * FROM listener_bookmarks WHERE listener_id=?1 AND deleted=0 AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND bookmark_id>?4)) ORDER BY listener_order DESC,bookmark_id LIMIT ?5",
+        PageKind::History=>"SELECT * FROM listener_history WHERE listener_id=?1 AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5",
     };
     let mut rows = tx
         .query(
@@ -817,7 +871,7 @@ async fn page(
                     .iter()
                     .map(|r| r.raw().work_id.clone())
                     .collect::<Vec<_>>();
-                library_work_presentations(tx, &works, clock(tx).await?)
+                library_work_presentations(tx, &works, clock(tx)?)
                     .await
                     .map_err(media)?
                     .into_iter()
@@ -938,7 +992,7 @@ async fn page(
                 .iter()
                 .map(|a| a.publication().as_str().to_owned())
                 .collect::<Vec<_>>();
-            let progress_rows=tx.query("SELECT * FROM listener_progress WHERE listener_id=$1 AND publication_id=ANY($2)",&[&listener.as_str(),&pubs]).await.map_err(database)?;
+            let progress_rows=tx.query("SELECT * FROM listener_progress WHERE listener_id=?1 AND publication_id IN (SELECT value FROM json_each(?2))",&[&listener.as_str(),&pubs]).await.map_err(database)?;
             let progress = progress_rows
                 .iter()
                 .map(|r| {
@@ -989,14 +1043,14 @@ async fn current_audio(
         .map(|a| a.unit().as_str().to_owned())
         .collect::<Vec<_>>();
     let (manifests, metadata) = if presentation {
-        library_presentations(tx, &units, clock(tx).await?)
+        library_presentations(tx, &units, clock(tx)?)
             .await
             .map_err(media)?
             .into_iter()
             .unzip::<_, _, Vec<_>, Vec<_>>()
     } else {
         (
-            library_publications(tx, &units, clock(tx).await?)
+            library_publications(tx, &units, clock(tx)?)
                 .await
                 .map_err(media)?,
             Vec::new(),
@@ -1099,3 +1153,6 @@ mod presentation_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

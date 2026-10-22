@@ -114,9 +114,10 @@ pub(crate) async fn active_actors(
 }
 
 /// Discovery visibility requires the release owner's (creator's) actor to be active. It checks
-/// any `actors.id`, and here it is applied to the owner, never to the listener.
+/// any `actors.id`, and here it is applied to the owner (alias `rel`, the release row), never to
+/// the listener.
 pub(crate) const RELEASE_OWNER_ACTIVE_FILTER: &str =
-    "EXISTS(SELECT 1 FROM actors owner_actor WHERE owner_actor.id=release.owner_id AND owner_actor.active=1)";
+    "EXISTS(SELECT 1 FROM actors owner_actor WHERE owner_actor.id=rel.owner_id AND owner_actor.active=1)";
 
 /// Row locks taken by PostgreSQL-era SQL. The serialized writer orders every unit now, so a
 /// context's port removes its `FOR {SHARE|UPDATE}` clauses and this type with them.
