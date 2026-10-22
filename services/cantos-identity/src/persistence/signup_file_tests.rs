@@ -11,13 +11,14 @@ use cantos_store_turso::{OpenRequest, OwnedDatabase, Value};
 
 use super::{
     IdentityStore, LoginFinalization, PhcString, ProofCommandId, ProofMaterial, ProofStoreError,
-    SignupCompletion, SignupCompletionRequest, SignupStoreError,
+    SignupCompletion, SignupCompletionRequest, SignupStart, SignupStoreError,
 };
 use crate::domain::admission::{AccountState, CompletionDenied, Purpose, RequestBinding};
 use crate::domain::email::EmailAddress;
 use crate::domain::ids::{InstanceEpoch, OperationId, SubjectId};
 use crate::domain::mailbox_proof::{ProofDenied, ProofState, ProofTime};
 use crate::domain::security_version::SecurityVersion;
+use crate::domain::signup_start::StartSkip;
 
 const NOW: u64 = 1_700_000_000;
 const PHC: &str = "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g";
@@ -864,4 +865,181 @@ async fn a_version_two_file_upgrades_to_signup_storage_keeping_its_data() {
     assert!(store.subject(subject(1)).await.unwrap().is_some());
     begin(&store, 1, 100, "owner@example.com").await;
     assert_eq!(counts(&store).await, [1, 0, 0, 0, 0, 1, 1]);
+}
+
+// ---- start / resend ------------------------------------------------------------------------
+
+async fn start(
+    store: &IdentityStore,
+    op: u128,
+    cmd: u128,
+    mailbox: &str,
+) -> Result<(SignupStart, ProofMaterial), SignupStoreError> {
+    let material = ProofMaterial::generate().unwrap();
+    store
+        .start_or_resend_signup(
+            command(cmd),
+            operation(op),
+            &email(mailbox),
+            &material,
+            900,
+            60,
+        )
+        .await
+        .map(|started| (started, material))
+}
+
+#[tokio::test]
+async fn a_start_issues_once_skips_inside_the_cooldown_and_replaces_exactly_at_it() {
+    let (run, clock) = fixture();
+    let store = create(&run, clock.clone()).await;
+    let (first, first_material) = start(&store, 1, 100, "owner@example.com").await.unwrap();
+    assert!(matches!(first, SignupStart::Issued(_)));
+    assert_eq!(counts(&store).await, [0, 0, 0, 0, 0, 1, 1]);
+    for offset in [0, 1, 59] {
+        set_time(&clock, NOW + offset);
+        let (skipped, _) = start(
+            &store,
+            1,
+            200 + u128::from(offset as u32),
+            "owner@example.com",
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            skipped,
+            SignupStart::Skipped(StartSkip::Cooling),
+            "{offset}"
+        );
+    }
+    assert_eq!(counts(&store).await, [0, 0, 0, 0, 0, 1, 1]);
+    set_time(&clock, NOW + 60);
+    let (second, second_material) = start(&store, 1, 300, "owner@example.com").await.unwrap();
+    let SignupStart::Replaced(receipt) = second else {
+        panic!("a cooled pending proof is replaced, got {second:?}")
+    };
+    assert_eq!(receipt.proof.id(), second_material.id());
+    assert_eq!(receipt.proof.issued_at().seconds(), NOW + 60);
+    assert_eq!(receipt.proof.expires_at().seconds(), NOW + 60 + 900);
+    // One current proof: the retired locator is dead and the replacement completes.
+    assert!(denied(
+        &complete(&store, 400, 1, &first_material, 10)
+            .await
+            .unwrap_err()
+    ));
+    assert!(complete(&store, 401, 1, &second_material, 11).await.is_ok());
+}
+
+#[tokio::test]
+async fn a_skipped_start_writes_nothing_and_binding_is_never_rewritten() {
+    let (run, clock) = fixture();
+    let store = create(&run, clock.clone()).await;
+    start(&store, 1, 100, "owner@example.com").await.unwrap();
+    // Another address on the same operation, even after the cooldown.
+    set_time(&clock, NOW + 600);
+    let before = counts(&store).await;
+    let (other, _) = start(&store, 1, 101, "other@example.com").await.unwrap();
+    assert_eq!(other, SignupStart::Skipped(StartSkip::OperationBound));
+    assert_eq!(counts(&store).await, before);
+    let record = store.signup(operation(1)).await.unwrap().unwrap();
+    assert_eq!(record.email.as_str(), "owner@example.com");
+    // A registered address on a fresh operation.
+    let material = begin(&store, 2, 102, "taken@example.com").await;
+    complete(&store, 103, 2, &material, 20).await.unwrap();
+    let before = counts(&store).await;
+    let (registered, _) = start(&store, 3, 104, "taken@example.com").await.unwrap();
+    assert_eq!(registered, SignupStart::Skipped(StartSkip::EmailRegistered));
+    assert_eq!(counts(&store).await, before);
+    assert!(store.signup(operation(3)).await.unwrap().is_none());
+    // A concluded operation.
+    let (concluded, _) = start(&store, 2, 105, "taken@example.com").await.unwrap();
+    assert_eq!(concluded, SignupStart::Skipped(StartSkip::EmailRegistered));
+    let (concluded, _) = start(&store, 2, 106, "again@example.com").await.unwrap();
+    assert_eq!(concluded, SignupStart::Skipped(StartSkip::OperationBound));
+    assert_eq!(counts(&store).await, before);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn many_concurrent_starts_of_one_operation_have_exactly_one_issuer_and_no_error() {
+    let (run, clock) = fixture();
+    let store = Arc::new(create(&run, clock.clone()).await);
+    let attempts: Vec<_> = (0..8_u128)
+        .map(|n| {
+            let store = Arc::clone(&store);
+            tokio::spawn(async move { start(&store, 1, 100 + n, "owner@example.com").await })
+        })
+        .collect();
+    let mut issued = 0;
+    for attempt in attempts {
+        match attempt
+            .await
+            .unwrap()
+            .expect("a start never errors from a race")
+            .0
+        {
+            SignupStart::Issued(_) => issued += 1,
+            SignupStart::Skipped(StartSkip::Cooling) => {}
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+    assert_eq!(issued, 1);
+    assert_eq!(counts(&store).await, [0, 0, 0, 0, 0, 1, 1]);
+    // After the cooldown the same race has exactly one replacer.
+    set_time(&clock, NOW + 61);
+    let attempts: Vec<_> = (0..8_u128)
+        .map(|n| {
+            let store = Arc::clone(&store);
+            tokio::spawn(async move { start(&store, 1, 200 + n, "owner@example.com").await })
+        })
+        .collect();
+    let mut replaced = 0;
+    for attempt in attempts {
+        match attempt
+            .await
+            .unwrap()
+            .expect("a resend never errors from a race")
+            .0
+        {
+            SignupStart::Replaced(_) => replaced += 1,
+            SignupStart::Skipped(StartSkip::Cooling) => {}
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+    assert_eq!(replaced, 1);
+    assert_eq!(counts(&store).await, [0, 0, 0, 0, 0, 2, 2]);
+}
+
+#[tokio::test]
+async fn an_operation_owned_by_a_recovery_workflow_is_skipped_not_conflicted() {
+    use crate::domain::mailbox_proof::{ProofBinding, ProofIntent};
+    let (run, clock) = fixture();
+    let store = create(&run, clock).await;
+    let account = begin(&store, 1, 100, "owner@example.com").await;
+    let subject_id = complete(&store, 101, 1, &account, 30).await.unwrap();
+    let SignupCompletion::Completed { subject: owner, .. } = subject_id else {
+        panic!("completes")
+    };
+    let current = store.subject(owner).await.unwrap().unwrap();
+    let binding = ProofBinding::new(
+        operation(9),
+        store.epoch(),
+        ProofIntent::CredentialRecovery {
+            subject: owner,
+            version: current.version,
+            purpose: Purpose::Theatre,
+        },
+    );
+    store
+        .issue_mailbox_proof(
+            command(102),
+            binding,
+            &ProofMaterial::generate().unwrap(),
+            time(NOW + 900),
+        )
+        .await
+        .unwrap();
+    let before = counts(&store).await;
+    let (skipped, _) = start(&store, 9, 103, "new@example.com").await.unwrap();
+    assert_eq!(skipped, SignupStart::Skipped(StartSkip::OperationBound));
+    assert_eq!(counts(&store).await, before);
 }

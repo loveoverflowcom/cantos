@@ -29,6 +29,7 @@ use crate::domain::{
         ProofTime,
     },
     security_version::SecurityVersion,
+    signup_start::{decide_start, StartDecision, StartFacts, StartSkip, StoredOperation},
 };
 
 const MIN_PHC_BYTES: usize = 32;
@@ -134,6 +135,15 @@ pub struct SignupRecord {
     pub operation: OperationId,
     pub email: EmailAddress,
     pub proof: MailboxProof,
+}
+
+/// The committed outcome of a start. Only `Issued` and `Replaced` changed storage, and only
+/// they entitle the caller to mail `material`'s secret.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SignupStart {
+    Issued(ProofReceipt),
+    Replaced(ProofReceipt),
+    Skipped(StartSkip),
 }
 
 /// Everything one completion needs. The password was hashed outside any transaction.
@@ -260,6 +270,21 @@ fn email_at(row: &Row, index: usize) -> Result<EmailAddress, SignupStoreError> {
     Ok(parsed)
 }
 
+async fn workflow_email(
+    tx: &WriteTransaction<'_>,
+    operation: OperationId,
+) -> Result<Option<EmailAddress>, SignupStoreError> {
+    let mut rows = tx
+        .query(WORKFLOW_EMAIL, [operation.to_bytes().to_vec()])
+        .await?;
+    let bound = rows
+        .next()
+        .await?
+        .map(|row| email_at(&row, 0))
+        .transpose()?;
+    Ok(bound)
+}
+
 async fn finish<T>(
     tx: WriteTransaction<'_>,
     result: Result<T, SignupStoreError>,
@@ -325,36 +350,139 @@ impl IdentityStore {
         material: &ProofMaterial,
         expires: ProofTime,
     ) -> Result<ProofReceipt, SignupStoreError> {
-        let binding = ProofBinding::new(operation, self.epoch, ProofIntent::TheatreSignup);
         let tx = self.database.begin_write().await?;
-        let result = async {
-            let receipt = self
-                .issue_mailbox_proof_in_transaction(&tx, command, binding, material, expires)
-                .await?;
-            let mut rows = tx
-                .query(WORKFLOW_EMAIL, [operation.to_bytes().to_vec()])
-                .await?;
-            let bound = rows.next().await?.map(|row| email_at(&row, 0)).transpose()?;
-            drop(rows);
-            match bound {
-                Some(bound) if bound == *email => {}
-                Some(_) => return Err(SignupStoreError::BindingChanged),
-                None => {
-                    tx.execute(
-                        "INSERT INTO signup_workflows(workflow_id,email,requested_at) VALUES(?1,?2,?3)",
-                        params_from_iter([
-                            Value::Blob(operation.to_bytes().to_vec()),
-                            Value::Text(email.as_str().to_owned()),
-                            Value::Integer(tx.now().get() / 1_000_000),
-                        ]),
-                    )
-                    .await?;
-                }
-            }
-            Ok(receipt)
-        }
-        .await;
+        let result = self
+            .begin_signup_in(&tx, command, operation, email, material, expires)
+            .await;
         finish(tx, result).await
+    }
+
+    async fn begin_signup_in(
+        &self,
+        tx: &WriteTransaction<'_>,
+        command: ProofCommandId,
+        operation: OperationId,
+        email: &EmailAddress,
+        material: &ProofMaterial,
+        expires: ProofTime,
+    ) -> Result<ProofReceipt, SignupStoreError> {
+        let binding = ProofBinding::new(operation, self.epoch, ProofIntent::TheatreSignup);
+        let receipt = self
+            .issue_mailbox_proof_in_transaction(tx, command, binding, material, expires)
+            .await?;
+        match workflow_email(tx, operation).await? {
+            Some(bound) if bound == *email => {}
+            Some(_) => return Err(SignupStoreError::BindingChanged),
+            None => {
+                tx.execute(
+                    "INSERT INTO signup_workflows(workflow_id,email,requested_at) VALUES(?1,?2,?3)",
+                    params_from_iter([
+                        Value::Blob(operation.to_bytes().to_vec()),
+                        Value::Text(email.as_str().to_owned()),
+                        Value::Integer(tx.now().get() / 1_000_000),
+                    ]),
+                )
+                .await?;
+            }
+        }
+        Ok(receipt)
+    }
+
+    /// The whole Start/resend decision in ONE writer transaction: the registered-address check,
+    /// the operation's immutable binding, its current proof and the resend cooldown are read
+    /// where they are applied, so concurrent starts are serialized into one winner and never
+    /// observe each other as a conflict. `Issued`/`Replaced` carry the only secret that may be
+    /// mailed; `Skipped` wrote nothing. The caller mails AFTER this returns, outside the
+    /// transaction. Expiry is derived from the writer's clock.
+    pub async fn start_or_resend_signup(
+        &self,
+        command: ProofCommandId,
+        operation: OperationId,
+        email: &EmailAddress,
+        material: &ProofMaterial,
+        proof_ttl_seconds: u64,
+        cooldown_seconds: u32,
+    ) -> Result<SignupStart, SignupStoreError> {
+        let tx = self.database.begin_write().await?;
+        let decided = self
+            .decide_and_apply_start(
+                &tx,
+                command,
+                operation,
+                email,
+                material,
+                proof_ttl_seconds,
+                cooldown_seconds,
+            )
+            .await;
+        match decided {
+            Ok(start @ SignupStart::Skipped(_)) => {
+                tx.rollback().await?;
+                Ok(start)
+            }
+            other => finish(tx, other).await,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn decide_and_apply_start(
+        &self,
+        tx: &WriteTransaction<'_>,
+        command: ProofCommandId,
+        operation: OperationId,
+        email: &EmailAddress,
+        material: &ProofMaterial,
+        proof_ttl_seconds: u64,
+        cooldown_seconds: u32,
+    ) -> Result<SignupStart, SignupStoreError> {
+        let mut rows = tx.query(EMAIL_SUBJECT, [email.as_str().to_owned()]).await?;
+        let requested_registered = rows.next().await?.is_some();
+        drop(rows);
+        let bound = workflow_email(tx, operation).await?;
+        let proof = self.workflow_binding_in_transaction(tx, operation).await?;
+        let stored = match (bound, proof) {
+            (None, None) => StoredOperation::Unused,
+            (Some(email), Some(proof)) => StoredOperation::Signup { email, proof },
+            // A workflow with another intent owns the id.
+            (None, Some(proof)) if proof.binding().intent() != ProofIntent::TheatreSignup => {
+                StoredOperation::Foreign
+            }
+            // A signup binding and its proof are written together; one without the other, or a
+            // signup proof without its binding, was not written by this code.
+            _ => return Err(SignupStoreError::CorruptRecord),
+        };
+        let now = Self::proof_now(tx)?;
+        let decision = decide_start(&StartFacts {
+            requested: email,
+            requested_registered,
+            stored: &stored,
+            now_seconds: now.seconds(),
+            cooldown_seconds,
+        });
+        let expires = ProofTime::new(now.seconds().saturating_add(proof_ttl_seconds))
+            .map_err(|_| SignupStoreError::CorruptRecord)?;
+        match decision {
+            StartDecision::Skip(reason) => Ok(SignupStart::Skipped(reason)),
+            StartDecision::Issue => self
+                .begin_signup_in(tx, command, operation, email, material, expires)
+                .await
+                .map(SignupStart::Issued),
+            StartDecision::Replace { expected } => {
+                let binding = ProofBinding::new(operation, self.epoch, ProofIntent::TheatreSignup);
+                self.replace_mailbox_proof_in_transaction(
+                    tx,
+                    command,
+                    binding,
+                    expected,
+                    material,
+                    expires,
+                    cooldown_seconds,
+                )
+                .await
+                .map(SignupStart::Replaced)
+                .map_err(Into::into)
+            }
+        }
     }
 
     /// A historical completion for `command`, with the stored hash a replaying caller must

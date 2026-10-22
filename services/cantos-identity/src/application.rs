@@ -16,7 +16,7 @@ use crate::{
         admission::{AccountState, Assurance, Purpose, RequestBinding},
         email::EmailAddress,
         ids::{InstanceEpoch, OperationId, SubjectId},
-        mailbox_proof::{ProofId, ProofState, ProofTime},
+        mailbox_proof::{ProofId, ProofState},
         password::PasswordInput,
         security_version::SecurityVersion,
     },
@@ -26,7 +26,7 @@ use crate::{
     persistence::{
         IdentityStore, IdentityStoreError, LoginFinalization, PhcString, ProofCommandId,
         ProofMaterial, ProofSecret, ProofStoreError, SignupCompletion, SignupCompletionRequest,
-        SignupStoreError,
+        SignupStart, SignupStoreError,
     },
     policy,
 };
@@ -40,8 +40,9 @@ pub struct ClientAddress(pub IpAddr);
 /// RPC answer to a start is identical whatever happened here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dispatch {
-    /// No message was attempted: the address already has an account, or the operation was
-    /// repeated inside its resend cooldown.
+    /// No message was attempted and nothing was stored: the address already has an account, the
+    /// operation is bound to another address or already concluded, or it was repeated inside
+    /// its resend cooldown.
     NotAttempted,
     /// The relay accepted the message. This is not mailbox delivery.
     TransportAccepted,
@@ -103,8 +104,9 @@ pub enum ServiceError {
     Denied,
     /// KDF capacity is exhausted. Retry later; nothing was changed.
     Busy,
-    /// Storage or mail transport could not serve the request. Nothing was committed, except
-    /// that a mail that definitely failed leaves its proof cancelled.
+    /// Storage or the mail transport could not serve the request. A start with no transport
+    /// configured records nothing; a relay that refuses or loses a message does not make a
+    /// start fail, it leaves the committed proof pending.
     Unavailable,
     /// A commit's outcome is unknown. Retry the IDENTICAL command to reconcile it.
     OutcomeUnknown,
@@ -213,9 +215,16 @@ impl IdentityService {
 
     // ---- signup -------------------------------------------------------------------------
 
-    /// Records a pending signup bound to `email` and mails the proof there. The caller learns
-    /// only that the request was well formed: not whether the address already has an account,
-    /// and never the proof.
+    /// Records a pending signup bound to `email` and mails the proof there, or re-mails a
+    /// still-pending operation after the resend cooldown. The caller learns only that the
+    /// request was well formed: not whether the address already has an account, whether the
+    /// operation was already bound or concluded, and never the proof.
+    ///
+    /// Without a mail transport EVERY start is refused alike, before any lookup or write, so
+    /// the outage is a deployment fact and not a per-address signal, and no proof is recorded
+    /// that nobody could receive. Otherwise the registered-address, binding, current-proof and
+    /// cooldown decision is one store transaction; mail is sent only after it commits, only
+    /// when it issued or replaced a proof, and never inside it.
     pub async fn start_theatre_signup(
         &self,
         operation: OperationId,
@@ -223,6 +232,9 @@ impl IdentityService {
         client: ClientAddress,
     ) -> Result<SignupStarted, ServiceError> {
         let email = EmailAddress::parse(email).map_err(|_| ServiceError::InvalidRequest)?;
+        if !self.mailer.is_configured() {
+            return Err(ServiceError::Unavailable);
+        }
         let now = self.now_seconds()?;
         let limits = &self.settings.limits;
         Self::throttle(
@@ -235,62 +247,28 @@ impl IdentityService {
                 .signup_email
                 .admit(self.keys.text("signup-email", email.as_str()), now),
         )?;
-        if self
-            .store
-            .email_registered(&email)
-            .await
-            .map_err(|_| ServiceError::Unavailable)?
-        {
-            return Ok(SignupStarted {
-                dispatch: Dispatch::NotAttempted,
-            });
-        }
-        let existing = self
-            .store
-            .signup(operation)
-            .await
-            .map_err(|_| ServiceError::Unavailable)?;
         let command = new_command()?;
         let material = ProofMaterial::generate().map_err(|_| ServiceError::Unavailable)?;
-        let expires = ProofTime::new(now + policy::PROOF_TTL_SECONDS)
-            .map_err(|_| ServiceError::Unavailable)?;
-        let proof = match existing {
-            None => {
-                self.store
-                    .begin_signup(command, operation, &email, &material, expires)
-                    .await
-                    .map_err(map_signup_store)?;
-                material.id()
-            }
-            Some(record) => {
-                // An operation bound to another address, or already concluded, is answered like
-                // every other start: a distinguishable answer would reveal which addresses have
-                // accounts (the registered path above also returns "accepted, nothing sent").
-                if record.email != email || record.proof.state() != ProofState::Pending {
-                    return Ok(SignupStarted {
-                        dispatch: Dispatch::NotAttempted,
-                    });
-                }
-                let cooled = now
-                    >= record.proof.issued_at().seconds()
-                        + u64::from(policy::RESEND_COOLDOWN_SECONDS);
-                if !cooled {
-                    return Ok(SignupStarted {
-                        dispatch: Dispatch::NotAttempted,
-                    });
-                }
-                self.store
-                    .replace_mailbox_proof(
-                        command,
-                        record.proof.binding(),
-                        record.proof.id(),
-                        &material,
-                        expires,
-                        policy::RESEND_COOLDOWN_SECONDS,
-                    )
-                    .await
-                    .map_err(map_proof_store)?;
-                material.id()
+        let started = self
+            .store
+            .start_or_resend_signup(
+                command,
+                operation,
+                &email,
+                &material,
+                policy::PROOF_TTL_SECONDS,
+                policy::RESEND_COOLDOWN_SECONDS,
+            )
+            .await
+            .map_err(map_start_store)?;
+        let proof = match started {
+            SignupStart::Issued(receipt) | SignupStart::Replaced(receipt) => receipt.proof.id(),
+            // Answered like every other start: a distinguishable answer would reveal which
+            // addresses have accounts or which operations are bound to whom.
+            SignupStart::Skipped(_) => {
+                return Ok(SignupStarted {
+                    dispatch: Dispatch::NotAttempted,
+                })
             }
         };
         let link = self.settings.link.link(operation, proof, material.secret());
@@ -298,8 +276,9 @@ impl IdentityService {
         let dispatch = match self.mailer.send(&mail).await {
             Ok(()) => Dispatch::TransportAccepted,
             Err(MailFault::Uncertain) => Dispatch::TransportUncertain,
-            // A transport that is not configured at all is a global outage, not a per-recipient
-            // signal, so it alone is reported.
+            // `is_configured` held when this start began, so a port reporting this now broke
+            // its contract. The proof is already committed and nobody holds its secret, like a
+            // refusal; the outage is global, so it alone is reported.
             Err(MailFault::NotConfigured) => return Err(ServiceError::Unavailable),
             Err(MailFault::Rejected) => {
                 events::emit("mail_refused", "the relay refused a proof message");
@@ -577,19 +556,15 @@ fn is_unknown(fault: &cantos_store_turso::error::CommitFault) -> bool {
     matches!(fault, cantos_store_turso::error::CommitFault::Unknown(_))
 }
 
-fn map_proof_store(error: ProofStoreError) -> ServiceError {
-    match error {
-        ProofStoreError::Commit(ref fault) if is_unknown(fault) => ServiceError::OutcomeUnknown,
-        ProofStoreError::OperationReused | ProofStoreError::Exists => ServiceError::Conflict,
-        _ => ServiceError::Unavailable,
-    }
-}
-
-fn map_signup_store(error: SignupStoreError) -> ServiceError {
+/// A start never conflicts with another start: its decision is made where it is applied, so
+/// anything but an unknown commit is a storage fault (or an inconsistent record), not a
+/// contract answer.
+fn map_start_store(error: SignupStoreError) -> ServiceError {
     match error {
         SignupStoreError::Commit(ref fault) if is_unknown(fault) => ServiceError::OutcomeUnknown,
-        SignupStoreError::BindingChanged => ServiceError::Conflict,
-        SignupStoreError::Proof(inner) => map_proof_store(inner),
+        SignupStoreError::Proof(ProofStoreError::Commit(ref fault)) if is_unknown(fault) => {
+            ServiceError::OutcomeUnknown
+        }
         _ => ServiceError::Unavailable,
     }
 }
@@ -616,5 +591,35 @@ fn map_completion(error: SignupStoreError) -> ServiceError {
         | SignupStoreError::WorkflowMissing
         | SignupStoreError::NotSignup => ServiceError::Denied,
         _ => ServiceError::Unavailable,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use cantos_store_turso::error::{CommitFault, StoreFault};
+
+    use super::*;
+
+    #[test]
+    fn a_start_is_never_a_conflict_and_never_hides_an_unknown_commit() {
+        let unknown = || CommitFault::Unknown(StoreFault::Busy);
+        assert_eq!(
+            map_start_store(SignupStoreError::Commit(unknown())),
+            ServiceError::OutcomeUnknown
+        );
+        assert_eq!(
+            map_start_store(SignupStoreError::Proof(ProofStoreError::Commit(unknown()))),
+            ServiceError::OutcomeUnknown
+        );
+        for refusal in [
+            SignupStoreError::BindingChanged,
+            SignupStoreError::Proof(ProofStoreError::Exists),
+            SignupStoreError::Proof(ProofStoreError::OperationReused),
+            SignupStoreError::Proof(ProofStoreError::Conflict),
+            SignupStoreError::CorruptRecord,
+            SignupStoreError::Commit(CommitFault::Rejected(StoreFault::Busy)),
+        ] {
+            assert_eq!(map_start_store(refusal), ServiceError::Unavailable);
+        }
     }
 }

@@ -17,7 +17,7 @@ use cantos_identity::{
         ids::OperationId,
         mailbox_proof::{ProofId, ProofState},
     },
-    mail::SignupLinkBase,
+    mail::{Mailer, SignupLinkBase, UnconfiguredMailer},
     persistence::{IdentityStore, ProofCommandId},
 };
 use cantos_store_turso::{
@@ -56,11 +56,20 @@ fn build(
     mail: &Arc<CaptureMailer>,
     kdf: KdfPool,
 ) -> Arc<IdentityService> {
+    build_with(store, clock, mail.clone(), kdf)
+}
+
+fn build_with(
+    store: &Arc<IdentityStore>,
+    clock: &Arc<FixedClock>,
+    mailer: Arc<dyn Mailer>,
+    kdf: KdfPool,
+) -> Arc<IdentityService> {
     Arc::new(
         IdentityService::new(
             Arc::clone(store),
             clock.clone(),
-            mail.clone(),
+            mailer,
             Settings {
                 link: SignupLinkBase::parse("https://theatre.example/signup").unwrap(),
                 kdf,
@@ -818,4 +827,161 @@ async fn files_hold_no_plaintext_password_after_many_operations() {
     for bytes in h.all_file_bytes() {
         assert!(!contains(&bytes, b"plaintext must not persist"));
     }
+}
+
+// ---- Start / resend contract ----------------------------------------------------------------
+
+/// Starts `operation`/`email` once from each of `clients` at the same time.
+async fn start_together(
+    h: &Harness,
+    op: u128,
+    attempts: &[(&str, &str)],
+) -> Vec<Result<Dispatch, ServiceError>> {
+    let tasks: Vec<_> = attempts
+        .iter()
+        .map(|(email, client)| {
+            let service = Arc::clone(&h.service);
+            let (email, client) = ((*email).to_owned(), ip(client));
+            tokio::spawn(async move {
+                service
+                    .start_theatre_signup(operation(op), &email, client)
+                    .await
+                    .map(|started| started.dispatch)
+            })
+        })
+        .collect();
+    let mut results = Vec::new();
+    for task in tasks {
+        results.push(task.await.unwrap());
+    }
+    results
+}
+
+fn accepted(results: &[Result<Dispatch, ServiceError>]) -> usize {
+    results
+        .iter()
+        .filter(|result| matches!(result, Ok(Dispatch::TransportAccepted)))
+        .count()
+}
+
+#[tokio::test]
+async fn without_mail_configuration_every_start_is_one_refusal_and_records_nothing() {
+    let h = harness().await;
+    h.register(1, 100, OWNER, GOOD).await;
+    h.start(2, "pending@example.com").await.unwrap();
+    let pending = h.store.signup(operation(2)).await.unwrap().unwrap();
+    let mails = h.mail.count();
+    // Past the resend cooldown, so a configured service WOULD replace the pending proof.
+    set_time(&h.clock, NOW + 61);
+    let bare = build_with(&h.store, &h.clock, Arc::new(UnconfiguredMailer), pool());
+    let attempts = [
+        (3, OWNER),                 // registered address, fresh operation
+        (4, "new@example.com"),     // unregistered address, fresh operation
+        (2, "pending@example.com"), // reused operation, cooled, same address
+        (2, "other@example.com"),   // reused operation bound to another address
+        (1, OWNER),                 // concluded operation
+        (1, "new@example.com"),     // concluded operation, another address
+    ];
+    for (op, email) in attempts {
+        let result = bare
+            .start_theatre_signup(operation(op), email, ip("198.51.100.1"))
+            .await;
+        assert_eq!(
+            result.map(|s| s.dispatch),
+            Err(ServiceError::Unavailable),
+            "{op} {email}"
+        );
+    }
+    // Nothing durable: no workflow for the fresh operations and the pending proof is untouched.
+    assert!(h.store.signup(operation(3)).await.unwrap().is_none());
+    assert!(h.store.signup(operation(4)).await.unwrap().is_none());
+    assert_eq!(
+        h.store.signup(operation(2)).await.unwrap().unwrap(),
+        pending
+    );
+    assert_eq!(h.mail.count(), mails);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_starts_of_one_operation_and_address_issue_one_proof_and_one_mail() {
+    let h = harness().await;
+    let results = start_together(
+        &h,
+        1,
+        &[
+            (OWNER, "198.51.100.1"),
+            (OWNER, "198.51.100.2"),
+            (OWNER, "198.51.100.3"),
+        ],
+    )
+    .await;
+    assert!(results.iter().all(Result::is_ok), "{results:?}");
+    assert_eq!(accepted(&results), 1, "{results:?}");
+    assert_eq!(h.mail.count(), 1);
+    let (_, link) = h.mail.last();
+    let record = h.store.signup(operation(1)).await.unwrap().unwrap();
+    assert_eq!(record.proof.id().to_bytes(), link.proof);
+    // The mailed proof is the one current proof and it completes.
+    h.complete(100, &link, GOOD).await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_resends_after_the_cooldown_replace_the_proof_exactly_once() {
+    let h = harness().await;
+    h.start(1, OWNER).await.unwrap();
+    let (_, first) = h.mail.last();
+    set_time(&h.clock, NOW + 61);
+    let results =
+        start_together(&h, 1, &[(OWNER, "198.51.100.11"), (OWNER, "198.51.100.12")]).await;
+    assert!(results.iter().all(Result::is_ok), "{results:?}");
+    assert_eq!(accepted(&results), 1, "{results:?}");
+    assert_eq!(h.mail.count(), 2);
+    let (_, second) = h.mail.last();
+    assert_ne!(first.proof, second.proof);
+    // The retired proof is dead; the replacement is the single current proof.
+    assert_eq!(
+        h.complete(100, &first, GOOD).await,
+        Err(ServiceError::Denied)
+    );
+    h.complete(101, &second, GOOD).await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_starts_of_one_operation_for_two_addresses_keep_the_first_binding() {
+    let h = harness().await;
+    let results = start_together(
+        &h,
+        1,
+        &[
+            ("first@example.com", "198.51.100.21"),
+            ("second@example.com", "198.51.100.22"),
+        ],
+    )
+    .await;
+    assert!(results.iter().all(Result::is_ok), "{results:?}");
+    assert_eq!(accepted(&results), 1, "{results:?}");
+    assert_eq!(h.mail.count(), 1);
+    let (recipient, link) = h.mail.last();
+    let record = h.store.signup(operation(1)).await.unwrap().unwrap();
+    assert_eq!(record.email.as_str(), recipient);
+    // The loser's address stays unbound and unmailed, now and after the cooldown.
+    let loser = if recipient == "first@example.com" {
+        "second@example.com"
+    } else {
+        "first@example.com"
+    };
+    set_time(&h.clock, NOW + 61);
+    assert_eq!(h.start(1, loser).await, Ok(Dispatch::NotAttempted));
+    assert_eq!(h.mail.recipients(), vec![recipient.clone()]);
+    assert_eq!(
+        h.store
+            .signup(operation(1))
+            .await
+            .unwrap()
+            .unwrap()
+            .email
+            .as_str(),
+        recipient
+    );
+    h.complete(100, &link, GOOD).await.unwrap();
 }

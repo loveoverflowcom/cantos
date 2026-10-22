@@ -413,6 +413,47 @@ async fn without_mail_configuration_signup_fails_closed_and_readiness_says_so() 
     instance.crash().await;
 }
 
+#[tokio::test]
+async fn concurrent_starts_over_rpc_are_all_accepted_and_the_mailbox_gets_one_message() {
+    let w = world().await;
+    let instance = w.env.serve().await.ok().unwrap();
+    // The Server mints a fresh operation per start today, so an identical pair is a replay or a
+    // racing retry, not a browser double-submit: it must still never surface as ABORTED.
+    let tasks: Vec<_> = (0..3)
+        .map(|_| {
+            let socket = instance.socket.clone();
+            tokio::spawn(async move {
+                client(&socket)
+                    .await
+                    .start_theatre_signup(start(1, OWNER))
+                    .await
+                    .map(|response| response.into_inner().accepted)
+            })
+        })
+        .collect();
+    for task in tasks {
+        assert_eq!(
+            task.await.unwrap().map_err(|status| status.code()),
+            Ok(true)
+        );
+    }
+    let messages = w.sink.wait_for(1).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(messages.len(), 1);
+    assert_eq!(w.sink.messages().len(), 1);
+    // The same operation bound to another address is the same generic answer, with no mail.
+    let mut rpc = client(&instance.socket).await;
+    let other = rpc
+        .start_theatre_signup(start(1, "other@example.com"))
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(other.accepted);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(w.sink.messages().len(), 1);
+    instance.crash().await;
+}
+
 // ---- D: ownership, schema and sockets -------------------------------------------------------------
 
 #[tokio::test]
