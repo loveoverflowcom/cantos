@@ -9,6 +9,8 @@ pub mod inspector;
 pub mod messages;
 pub mod production;
 pub mod session;
+pub mod signin;
+pub mod signin_form;
 pub mod ui;
 pub mod wire;
 

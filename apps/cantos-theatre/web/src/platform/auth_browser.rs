@@ -1,7 +1,5 @@
-//! Browser-only history and nonsecret return context. No credential is persisted here.
-#[cfg(target_arch = "wasm32")]
-use crate::application::auth_navigation::ProviderReturn;
-use crate::{app::routes::Route, application::auth_navigation::AuthRoute};
+//! Browser-only history and nonsecret return context. No credential or session is persisted here.
+use crate::app::routes::Route;
 use leptos::prelude::*;
 
 #[derive(Clone, Default)]
@@ -123,33 +121,6 @@ pub(crate) fn back(route: RwSignal<Route>, destination: Route) {
     go(route, destination, true);
 }
 
-pub(crate) fn clear_provider_return() {
-    #[cfg(target_arch = "wasm32")]
-    if let Some(storage) = web_sys::window().and_then(|w| w.session_storage().ok().flatten()) {
-        let _ = storage.remove_item("cantos.auth-return.v1");
-        let _ = storage.remove_item("cantos.auth-focus.v1");
-    }
-}
-
-/// Consume once. Only a canonical closed route written by this shell survives reload.
-pub(crate) fn take_provider_return(callback: &str) -> Option<AuthRoute> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let storage = web_sys::window()?.session_storage().ok()??;
-        let value = storage.get_item("cantos.auth-return.v1").ok()??;
-        let context = ProviderReturn::parse(&value)?;
-        // An abandoned flow must not consume a newer flow's return intent.
-        context.response(callback)?;
-        storage.remove_item("cantos.auth-return.v1").ok()?;
-        Some(context.route())
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let _ = callback;
-        None
-    }
-}
-
 pub(crate) fn hash() -> String {
     #[cfg(target_arch = "wasm32")]
     {
@@ -159,32 +130,4 @@ pub(crate) fn hash() -> String {
     }
     #[cfg(not(target_arch = "wasm32"))]
     String::new()
-}
-
-pub(crate) fn take_return_snapshot() -> Option<(Route, ReturnSnapshot)> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let storage = web_sys::window()?.session_storage().ok()??;
-        let data = storage.get_item("cantos.auth-focus.v1").ok()??;
-        storage.remove_item("cantos.auth-focus.v1").ok()?;
-        let values: (String, f64, String) = serde_json::from_str(&data).ok()?;
-        let route = Route::from_hash(&values.0);
-        if route.hash() != values.0
-            || !values.1.is_finite()
-            || values.1 < 0.0
-            || values.1 > 10_000_000.0
-            || values.2.len() > 96
-        {
-            return None;
-        }
-        Some((
-            route,
-            ReturnSnapshot {
-                scroll_y: values.1,
-                focus_id: values.2,
-            },
-        ))
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    None
 }

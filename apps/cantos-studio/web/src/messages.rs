@@ -8,6 +8,7 @@ pub mod entry;
 #[cfg(debug_assertions)]
 pub mod forge;
 pub mod production;
+pub mod signin;
 pub mod workspace;
 
 /// Interface locale owned by the Studio root. Namespaces that still take `english: bool` read it

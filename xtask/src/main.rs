@@ -39,7 +39,6 @@ mod theatre_size;
 mod tools;
 mod ui_preview;
 mod visual_compare;
-mod web_bearer;
 mod web_performance;
 mod workspace;
 
@@ -170,9 +169,6 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             }
             if let cli::VerifySuite::NativeAuthQualification(args) = &suite {
                 return native_qualification::execute(&workspace, args, &tools, &mut runner);
-            }
-            if let cli::VerifySuite::WebBearer { dry_run } = suite {
-                return web_bearer::execute(&workspace, dry_run, &tools, &mut runner);
             }
             if let cli::VerifySuite::TheatreAuth { suite, dry_run } = suite {
                 return theatre_auth::execute(&workspace, suite, dry_run);

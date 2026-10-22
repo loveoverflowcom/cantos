@@ -1,155 +1,128 @@
-//! RAM-only email proof and request fencing. No state here authenticates a listener.
-use cantos_contracts::theatre_registration::VerificationStatus;
+//! RAM-only mailbox proof, chosen password and request fencing for Identity v1 signup. No state
+//! here authenticates a listener: completion creates an account and never a session.
+use cantos_contracts::identity_auth::{SignupComplete, SignupStatus};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct VerificationToken(VerificationDispatch);
+pub const MIN_PASSWORD_CHARS: usize = 8;
+pub const MAX_PASSWORD_CHARS: usize = 128;
+pub const MAX_PASSWORD_BYTES: usize = 512;
 
-#[derive(Clone, PartialEq, Eq)]
-pub(crate) enum VerificationDispatch {
-    Email(String),
-    Firebase {
-        operation_id: String,
-        oob_code: String,
-    },
+fn lower_hex(value: &str, length: usize) -> bool {
+    value.len() == length
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-impl VerificationToken {
+/// The mailed capability `#operation=<32 hex>&proof=<32 hex>&secret=<64 hex>`. It lives only in
+/// the page's RAM: never in a URL after capture, a log, storage or a derived Debug string.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ProofLink {
+    operation_id: String,
+    proof_id: String,
+    secret: String,
+}
+
+impl ProofLink {
+    /// Exactly the three keys, once each, in the contract's order, with lowercase hex of the
+    /// exact lengths. Nothing is percent-decoded, trimmed or normalized.
     pub fn from_fragment(fragment: &str) -> Option<Self> {
-        let value = fragment.strip_prefix("#register-verify?token=")?;
-        (value.len() == 64
-            && value
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)))
-        .then(|| Self(VerificationDispatch::Email(value.to_owned())))
+        let value = fragment.strip_prefix('#')?;
+        let mut parts = value.split('&');
+        let operation = parts.next()?.strip_prefix("operation=")?;
+        let proof = parts.next()?.strip_prefix("proof=")?;
+        let secret = parts.next()?.strip_prefix("secret=")?;
+        (parts.next().is_none()
+            && lower_hex(operation, 32)
+            && lower_hex(proof, 32)
+            && lower_hex(secret, 64))
+        .then(|| Self {
+            operation_id: operation.to_owned(),
+            proof_id: proof.to_owned(),
+            secret: secret.to_owned(),
+        })
     }
 
-    /// The query is untrusted. Only the fixed same-origin continuation identifies an operation;
-    /// neither an API key in the link nor a caller-supplied email is authority.
-    pub fn from_firebase_query(query: &str, origin: &str) -> Option<Self> {
-        if query.len() > 8192 {
-            return None;
-        }
-        let mut mode = None;
-        let mut code = None;
-        let mut continuation = None;
-        let mut api_key = None;
-        let mut language = None;
-        for (key, value) in url::form_urlencoded::parse(query.strip_prefix('?')?.as_bytes()) {
-            let slot = match key.as_ref() {
-                "mode" => &mut mode,
-                "oobCode" => &mut code,
-                "continueUrl" => &mut continuation,
-                "apiKey" => &mut api_key,
-                "lang" => &mut language,
-                _ => return None,
-            };
-            if slot.replace(value.into_owned()).is_some() {
-                return None;
-            }
-        }
-        if mode.as_deref() != Some("verifyEmail") {
-            return None;
-        }
-        let oob_code = code?;
-        if oob_code.is_empty()
-            || oob_code.len() > 2048
-            || !oob_code.bytes().all(|b| b.is_ascii_graphic())
-        {
-            return None;
-        }
-        let raw_continuation = continuation?;
-        let target = url::Url::parse(&raw_continuation).ok()?;
-        if target.as_str() != raw_continuation
-            || target.origin().ascii_serialization() != origin
-            || target.path() != "/"
-            || !target.username().is_empty()
-            || target.password().is_some()
-            || target.fragment().is_some()
-        {
-            return None;
-        }
-        let pairs: Vec<_> = target.query_pairs().collect();
-        let [(key, operation)] = pairs.as_slice() else {
-            return None;
-        };
-        if key != "firebaseEnrollment" {
-            return None;
-        }
-        let parsed = uuid::Uuid::parse_str(operation).ok()?;
-        if parsed.is_nil() || parsed.hyphenated().to_string() != operation.as_ref() {
-            return None;
-        }
-        Some(Self(VerificationDispatch::Firebase {
-            operation_id: operation.to_string(),
-            oob_code,
-        }))
-    }
-
-    pub fn is_firebase(&self) -> bool {
-        matches!(self.0, VerificationDispatch::Firebase { .. })
-    }
-
-    #[cfg(any(target_arch = "wasm32", test))]
-    pub(crate) fn into_dispatch(self) -> VerificationDispatch {
-        self.0
-    }
-}
-
-impl fmt::Debug for VerificationToken {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("VerificationToken([redacted])")
-    }
-}
-
-#[derive(Clone, PartialEq, Eq)]
-pub struct SetupLink {
-    login: String,
-    url: String,
-}
-
-impl SetupLink {
-    pub fn new(login: String, raw_url: String) -> Option<Self> {
-        let parsed = url::Url::parse(&raw_url).ok()?;
-        if login.is_empty()
-            || login.len() > 256
-            || login.chars().any(char::is_control)
-            || raw_url.len() > 4096
-            || raw_url.chars().any(char::is_control)
-            || parsed.as_str() != raw_url
-            || parsed.scheme() != "https"
-            || parsed.host_str().is_none()
-            || !parsed.username().is_empty()
-            || parsed.password().is_some()
-            || parsed.fragment().is_some()
-        {
-            return None;
-        }
-        Some(Self {
-            login,
-            url: raw_url,
+    /// Any fragment that names a proof field is treated as proof-bearing, valid or not: it is
+    /// scrubbed from the address bar and history before anything else happens.
+    pub fn is_proof_fragment(fragment: &str) -> bool {
+        fragment.strip_prefix('#').is_some_and(|value| {
+            value.split('&').any(|part| {
+                let key = part.split_once('=').map_or(part, |(key, _)| key);
+                ["operation", "proof", "secret"]
+                    .into_iter()
+                    .any(|name| key.eq_ignore_ascii_case(name))
+            })
         })
     }
 }
 
-impl fmt::Debug for SetupLink {
+impl fmt::Debug for ProofLink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("SetupLink([redacted])")
+        f.write_str("ProofLink([redacted])")
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum FirebaseVerification {
-    SetupReady(SetupLink),
-    Unavailable,
+/// Client hint only; the server's password policy stays authoritative (400 on refusal).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PasswordIssue {
+    TooShort,
+    TooLong,
+    Mismatch,
+}
+
+fn password_issue(password: &str, repeat: &str) -> Option<PasswordIssue> {
+    let scalars = password.chars().count();
+    if scalars < MIN_PASSWORD_CHARS {
+        Some(PasswordIssue::TooShort)
+    } else if scalars > MAX_PASSWORD_CHARS || password.len() > MAX_PASSWORD_BYTES {
+        Some(PasswordIssue::TooLong)
+    } else if password != repeat {
+        Some(PasswordIssue::Mismatch)
+    } else {
+        None
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SignupFailure {
     InvalidEmail,
     Unavailable,
+    RateLimited(u32),
+    /// 403/404: the account service is not open to this site (Identity is not configured).
+    NotConfigured,
     UnknownOutcome,
     Protocol,
+}
+
+/// Definite refusals (`Invalid`, `Refused`, `NotConfigured`, `Forbidden`) had no effect.
+/// `Unavailable`, `RateLimited` and `UnknownOutcome` may have committed: only the identical
+/// request is ever repeated.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CompletionFailure {
+    /// 400: the password or request shape was refused. Nothing happened; the proof is intact.
+    Invalid,
+    /// 401: the link/proof is expired, spent, or does not match the replayed request.
+    Refused,
+    /// 403: the browser origin is not admitted.
+    Forbidden,
+    /// 404: Identity is not configured.
+    NotConfigured,
+    /// 429 with a bounded Retry-After.
+    RateLimited(u32),
+    /// 503: the effect is unknown.
+    Unavailable,
+    /// Network loss, deadline or an unreadable answer: the effect is unknown.
+    UnknownOutcome,
+}
+
+impl CompletionFailure {
+    fn retains_request(self) -> bool {
+        matches!(
+            self,
+            Self::RateLimited(_) | Self::Unavailable | Self::UnknownOutcome
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -157,27 +130,39 @@ pub enum SignupPhase {
     #[default]
     Editing,
     Submitting,
+    /// A generic receipt: identical for every address, it never says whether an account exists.
     EmailAccepted,
     SubmitFailed(SignupFailure),
+    /// A proof was captured. Opening the link alone never reaches the API.
     AwaitingConfirmation,
-    Verifying,
-    SetupLinkSent,
-    SetupReady,
-    SetupOpened,
-    LinkUnavailable,
-    VerificationFailed(SignupFailure),
+    Completing,
+    /// The identical request is retained and may be sent again, never a new one.
+    CompleteRetry(CompletionFailure),
+    /// The API refused the request outright; `Invalid` keeps the proof for a new password.
+    CompleteRefused(CompletionFailure),
+    /// An account exists (or already existed from this exact request). There is no session.
+    Completed(SignupStatus),
     CaptureFailed,
 }
+
+/// The exact serialized request. It is the only place the secret and password live once the
+/// user confirmed, and is dropped on success or a definite refusal.
+#[derive(Clone, PartialEq, Eq)]
+struct Snapshot(String);
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct SignupState {
     epoch: u64,
     email: String,
-    token: Option<VerificationToken>,
-    setup: Option<SetupLink>,
-    firebase: bool,
+    proof: Option<ProofLink>,
+    password: String,
+    repeat: String,
+    confirmed: bool,
+    snapshot: Option<Snapshot>,
     phase: SignupPhase,
     exhausted: bool,
+    /// Earliest instant (ms) the retained request may be sent again after a 429.
+    hold_until_ms: u64,
 }
 
 impl fmt::Debug for SignupState {
@@ -199,10 +184,27 @@ impl SignupState {
         &self.email
     }
 
+    /// Controlled-input mirrors. They exist only while the owner is typing a password.
+    pub fn password(&self) -> &str {
+        &self.password
+    }
+
+    pub fn repeat(&self) -> &str {
+        &self.repeat
+    }
+
+    pub fn confirmed(&self) -> bool {
+        self.confirmed
+    }
+
     /// Nonsecret request identity for explicitly isolated diagnostic fixture completion.
     #[cfg(feature = "preview")]
     pub(crate) fn pending_request(&self) -> Option<u64> {
-        matches!(self.phase, SignupPhase::Submitting | SignupPhase::Verifying).then_some(self.epoch)
+        matches!(
+            self.phase,
+            SignupPhase::Submitting | SignupPhase::Completing
+        )
+        .then_some(self.epoch)
     }
 
     pub fn can_edit(&self) -> bool {
@@ -213,11 +215,46 @@ impl SignupState {
             )
     }
 
+    fn can_edit_password(&self) -> bool {
+        !self.exhausted && self.phase == SignupPhase::AwaitingConfirmation && self.proof.is_some()
+    }
+
     pub fn set_email(&mut self, email: String) {
         if self.can_edit() {
             self.email = email;
             self.phase = SignupPhase::Editing;
         }
+    }
+
+    pub fn set_password(&mut self, password: String) {
+        if self.can_edit_password() {
+            self.password = password;
+            self.confirmed = false;
+        }
+    }
+
+    pub fn set_repeat(&mut self, repeat: String) {
+        if self.can_edit_password() {
+            self.repeat = repeat;
+            self.confirmed = false;
+        }
+    }
+
+    /// The owner's explicit affirmation that this mailbox creates this account with this password.
+    pub fn set_confirmed(&mut self, confirmed: bool) {
+        if self.can_edit_password() {
+            self.confirmed = confirmed;
+        }
+    }
+
+    pub fn password_issue(&self) -> Option<PasswordIssue> {
+        password_issue(&self.password, &self.repeat)
+    }
+
+    /// Completion needs a captured proof, a policy-shaped matching password and the explicit
+    /// confirmation, together.
+    pub fn can_confirm(&self) -> bool {
+        self.can_edit_password() && self.confirmed && self.password_issue().is_none()
     }
 
     fn advance(&mut self) -> Option<u64> {
@@ -233,23 +270,28 @@ impl SignupState {
         }
     }
 
-    /// Every close clears secrets and invalidates both late successes and late failures.
-    /// A cancellation cannot undo provisioning which the server already started.
-    pub fn clear(&mut self) -> Option<VerificationToken> {
-        let token = self.token.take();
+    fn wipe(&mut self) {
         self.email.clear();
-        self.setup = None;
-        self.firebase = false;
-        let _ = self.advance();
-        self.phase = SignupPhase::Editing;
-        token
+        self.proof = None;
+        self.password.clear();
+        self.repeat.clear();
+        self.confirmed = false;
+        self.snapshot = None;
+        self.hold_until_ms = 0;
     }
 
-    pub fn capture(&mut self, token: VerificationToken) {
+    /// Every close clears secrets and invalidates both late successes and late failures. A
+    /// close cannot undo an account the API may already have created.
+    pub fn clear(&mut self) {
+        self.wipe();
+        let _ = self.advance();
+        self.phase = SignupPhase::Editing;
+    }
+
+    pub fn capture(&mut self, link: ProofLink) {
         self.clear();
         if !self.exhausted {
-            self.firebase = token.is_firebase();
-            self.token = Some(token);
+            self.proof = Some(link);
             self.phase = SignupPhase::AwaitingConfirmation;
         }
     }
@@ -257,54 +299,6 @@ impl SignupState {
     pub fn capture_failed(&mut self) {
         self.clear();
         self.phase = SignupPhase::CaptureFailed;
-    }
-
-    pub fn is_firebase(&self) -> bool {
-        self.firebase
-    }
-
-    pub fn setup_login(&self) -> Option<&str> {
-        self.setup.as_ref().map(|setup| setup.login.as_str())
-    }
-
-    /// Remove the capability before navigating: a second click, Back or a late completion
-    /// cannot recover it. Failure to reach the issuer needs reconciliation, not blind replay.
-    pub fn take_setup_url(&mut self) -> Option<String> {
-        if self.phase != SignupPhase::SetupReady {
-            return None;
-        }
-        let setup = self.setup.take()?;
-        self.phase = SignupPhase::SetupOpened;
-        Some(setup.url)
-    }
-
-    pub fn setup_navigation_failed(&mut self) {
-        if self.phase == SignupPhase::SetupOpened {
-            self.phase = SignupPhase::VerificationFailed(SignupFailure::UnknownOutcome);
-        }
-    }
-
-    pub fn finish_firebase(
-        &mut self,
-        issued: u64,
-        result: Result<FirebaseVerification, SignupFailure>,
-    ) -> bool {
-        if self.epoch != issued
-            || self.phase != SignupPhase::Verifying
-            || self.exhausted
-            || !self.firebase
-        {
-            return false;
-        }
-        self.phase = match result {
-            Ok(FirebaseVerification::SetupReady(setup)) => {
-                self.setup = Some(setup);
-                SignupPhase::SetupReady
-            }
-            Ok(FirebaseVerification::Unavailable) => SignupPhase::LinkUnavailable,
-            Err(error) => SignupPhase::VerificationFailed(error),
-        };
-        true
     }
 
     pub fn begin_submit(&mut self) -> Option<(u64, String)> {
@@ -334,36 +328,90 @@ impl SignupState {
         true
     }
 
-    /// A proof is dispatched only by an explicit confirmation intent, once per captured link.
-    /// Take it before IO so an ambiguous response cannot expose a blind retry control.
-    pub fn begin_verify(&mut self) -> Option<(u64, VerificationToken)> {
-        if self.phase != SignupPhase::AwaitingConfirmation || self.exhausted {
+    /// Only the mailbox owner's explicit confirmation builds the request. The serialized body is
+    /// retained as the immutable snapshot; the editable copies of the password are cleared
+    /// here, before any I/O.
+    pub fn begin_complete(&mut self) -> Option<(u64, String)> {
+        if !self.can_confirm() {
             return None;
         }
+        let link = self.proof.as_ref()?;
+        let body = serde_json::to_string(&SignupComplete {
+            operation_id: link.operation_id.clone(),
+            proof_id: link.proof_id.clone(),
+            proof_secret: link.secret.clone(),
+            password: self.password.clone(),
+            explicit_confirmation: true,
+        })
+        .ok()?;
         let issued = self.advance()?;
-        let token = self.token.take()?;
-        self.phase = SignupPhase::Verifying;
-        Some((issued, token))
+        self.password.clear();
+        self.repeat.clear();
+        self.confirmed = false;
+        self.snapshot = Some(Snapshot(body.clone()));
+        self.phase = SignupPhase::Completing;
+        Some((issued, body))
     }
 
-    pub fn finish_verify(
+    /// Repeat the identical retained request after an unknown outcome. Never a new operation,
+    /// and never before a 429's Retry-After has passed.
+    pub fn begin_retry(&mut self, now_ms: u64) -> Option<(u64, String)> {
+        if !matches!(self.phase, SignupPhase::CompleteRetry(_)) || now_ms < self.hold_until_ms {
+            return None;
+        }
+        let body = self.snapshot.as_ref()?.0.clone();
+        let issued = self.advance()?;
+        self.phase = SignupPhase::Completing;
+        Some((issued, body))
+    }
+
+    pub fn finish_complete(
         &mut self,
         issued: u64,
-        result: Result<VerificationStatus, SignupFailure>,
+        result: Result<SignupStatus, CompletionFailure>,
+        now_ms: u64,
     ) -> bool {
-        if self.epoch != issued
-            || self.phase != SignupPhase::Verifying
-            || self.exhausted
-            || self.firebase
+        if self.epoch != issued || self.phase != SignupPhase::Completing || self.exhausted {
+            return false;
+        }
+        match result {
+            Ok(status) => {
+                self.wipe();
+                self.phase = SignupPhase::Completed(status);
+            }
+            Err(failure) if failure.retains_request() => {
+                if let CompletionFailure::RateLimited(seconds) = failure {
+                    self.hold_until_ms = now_ms.saturating_add(u64::from(seconds) * 1000);
+                }
+                self.phase = SignupPhase::CompleteRetry(failure);
+            }
+            Err(CompletionFailure::Invalid) => {
+                // Nothing happened: the proof is intact and the owner may choose another password.
+                self.snapshot = None;
+                self.phase = SignupPhase::CompleteRefused(CompletionFailure::Invalid);
+            }
+            Err(failure) => {
+                self.wipe();
+                self.phase = SignupPhase::CompleteRefused(failure);
+            }
+        }
+        true
+    }
+
+    /// After a 400 the same proof accepts a fresh, explicit attempt with a new password.
+    pub fn edit_after_refusal(&mut self) -> bool {
+        if self.phase != SignupPhase::CompleteRefused(CompletionFailure::Invalid)
+            || self.proof.is_none()
         {
             return false;
         }
-        self.phase = match result {
-            Ok(VerificationStatus::SetupLinkSent) => SignupPhase::SetupLinkSent,
-            Ok(VerificationStatus::Unavailable) => SignupPhase::LinkUnavailable,
-            Err(error) => SignupPhase::VerificationFailed(error),
-        };
+        self.phase = SignupPhase::AwaitingConfirmation;
         true
+    }
+
+    #[cfg(test)]
+    pub(crate) fn retained_request(&self) -> Option<&str> {
+        self.snapshot.as_ref().map(|snapshot| snapshot.0.as_str())
     }
 }
 
@@ -371,146 +419,287 @@ impl SignupState {
 mod tests {
     use super::*;
 
-    fn firebase_proof() -> VerificationToken {
-        VerificationToken::from_firebase_query(
-            "?mode=verifyEmail&oobCode=fixture-secret&apiKey=untrusted-key&continueUrl=https%3A%2F%2Fcantos.example.invalid%2F%3FfirebaseEnrollment%3D00000000-0000-4000-8000-000000000001",
-            "https://cantos.example.invalid",
-        ).unwrap()
-    }
+    const OP: &str = "0123456789abcdef0123456789abcdef";
+    const PROOF: &str = "fedcba9876543210fedcba9876543210";
 
-    fn setup() -> SetupLink {
-        SetupLink::new(
-            "listener_fixture".to_owned(),
-            "https://idm.example.invalid/ui/reset?token=private-fixture".to_owned(),
-        )
-        .unwrap()
+    fn secret() -> String {
+        "ab".repeat(32)
     }
-
-    #[test]
-    fn firebase_parser_requires_exact_action_mode_operation_and_same_origin_continuation() {
-        let valid = "?mode=verifyEmail&oobCode=fixture-secret&apiKey=untrusted-key&continueUrl=https%3A%2F%2Fcantos.example.invalid%2F%3FfirebaseEnrollment%3D00000000-0000-4000-8000-000000000001";
-        assert!(firebase_proof().is_firebase());
-        assert_eq!(
-            format!("{:?}", firebase_proof()),
-            "VerificationToken([redacted])"
-        );
-        for invalid in [
-            valid.replace("verifyEmail","resetPassword"),
-            format!("{valid}&oobCode=second"),
-            format!("{valid}&email=attacker%40example.invalid"),
-            valid.replace("fixture-secret", ""),
-            valid.replace("fixture-secret", "%0aopaque"),
-            valid.replace("cantos.example.invalid", "attacker.invalid"),
-            valid.replace("%2F%3FfirebaseEnrollment", "%2Fevil%3FfirebaseEnrollment"),
-            valid.replace("firebaseEnrollment", "operation"),
-            valid.replace("00000000-0000-4000-8000-000000000001", "00000000-0000-0000-0000-000000000000"),
-            format!("{valid}%26firebaseEnrollment%3D00000000-0000-4000-8000-000000000002"),
-            format!("{valid}%23ignored"),
-            "?mode=verifyEmail&oobCode=fixture".to_owned(),
-            "?mode=verifyEmail&oobCode=fixture&continueUrl=https%3A%2F%2Fuser%40cantos.example.invalid%2F%3FfirebaseEnrollment%3D00000000-0000-4000-8000-000000000001".to_owned(),
-            format!("{valid}&lang={}","a".repeat(8192)),
-        ] { assert_eq!(VerificationToken::from_firebase_query(&invalid,"https://cantos.example.invalid"),None,"invalid action admitted"); }
+    fn fragment() -> String {
+        format!("#operation={OP}&proof={PROOF}&secret={}", secret())
     }
-
-    #[test]
-    fn firebase_proof_and_setup_are_taken_once_and_never_confer_a_session() {
+    fn link() -> ProofLink {
+        ProofLink::from_fragment(&fragment()).unwrap()
+    }
+    fn awaiting() -> SignupState {
         let mut state = SignupState::default();
-        state.capture(firebase_proof());
+        state.capture(link());
+        state
+    }
+    fn ready() -> SignupState {
+        let mut state = awaiting();
+        state.set_password("correct horse battery".into());
+        state.set_repeat("correct horse battery".into());
+        state.set_confirmed(true);
+        state
+    }
+
+    #[test]
+    fn proof_parser_requires_exactly_three_lowercase_hex_fields_in_contract_order() {
+        assert!(ProofLink::from_fragment(&fragment()).is_some());
+        assert_eq!(format!("{:?}", link()), "ProofLink([redacted])");
+        let valid = fragment();
+        let invalid = [
+            String::new(),
+            "#".to_owned(),
+            format!("operation={OP}&proof={PROOF}&secret={}", secret()),
+            format!("{valid}&secret={}", secret()),
+            format!("{valid}&from=studio"),
+            format!("{valid}&"),
+            format!("#proof={PROOF}&operation={OP}&secret={}", secret()),
+            format!("#operation={OP}&proof={PROOF}"),
+            format!("#operation={OP}&secret={}&proof={PROOF}", secret()),
+            valid.replace(OP, &OP.to_uppercase()),
+            valid.replace(OP, &OP[..31]),
+            valid.replace(PROOF, &format!("{PROOF}0")),
+            valid.replace(&secret(), &"ab".repeat(31)),
+            valid.replace(&secret(), &format!("{}%", "ab".repeat(31))),
+            valid.replace(&secret(), &format!("{}zz", "ab".repeat(31))),
+            valid.replace("operation=", "operation=%30"),
+            valid.replace("#operation", "#register-verify?token"),
+            format!("#login?from=home&{}", &valid[1..]),
+        ];
+        for fragment in invalid {
+            assert!(ProofLink::from_fragment(&fragment).is_none(), "{fragment}");
+        }
+    }
+
+    #[test]
+    fn any_fragment_naming_a_proof_field_is_scrubbed_even_when_invalid() {
+        assert!(ProofLink::is_proof_fragment(&fragment()));
+        for scrubbed in [
+            "#operation=",
+            "#operation",
+            "#proof=zz",
+            "#secret=00",
+            "#x=1&secret=00",
+            "#OPERATION=abc",
+            "#login?from=home&proof=1",
+        ] {
+            assert!(ProofLink::is_proof_fragment(scrubbed), "{scrubbed}");
+        }
+        for ordinary in [
+            "",
+            "#",
+            "#login",
+            "#login?from=home",
+            "#register?from=account",
+            "#discover",
+            "#membership?from=home",
+            "#library",
+            "#work/1?query=operation",
+        ] {
+            assert!(!ProofLink::is_proof_fragment(ordinary), "{ordinary}");
+        }
+    }
+
+    #[test]
+    fn opening_a_link_never_builds_a_request_until_the_owner_confirms_a_valid_password() {
+        let mut state = awaiting();
         assert_eq!(state.phase(), SignupPhase::AwaitingConfirmation);
-        assert_eq!(state.take_setup_url(), None);
-        let (issued, _) = state.begin_verify().unwrap();
-        assert_eq!(state.begin_verify(), None);
-        assert!(!state.finish_verify(issued, Ok(VerificationStatus::SetupLinkSent)));
-        assert!(state.finish_firebase(issued, Ok(FirebaseVerification::SetupReady(setup()))));
-        assert_eq!(state.phase(), SignupPhase::SetupReady);
-        assert_eq!(state.setup_login(), Some("listener_fixture"));
-        assert!(!format!("{state:?}").contains("private-fixture"));
+        // Capture/prefetch/polling are not intents: nothing can complete.
+        assert_eq!(state.begin_complete(), None);
+        assert_eq!(state.begin_retry(u64::MAX), None);
+        state.set_password("correct horse battery".into());
+        state.set_repeat("correct horse battery".into());
+        // A typed password without the explicit confirmation is still not a request.
+        assert!(!state.can_confirm());
+        assert_eq!(state.begin_complete(), None);
+        state.set_confirmed(true);
+        assert!(state.can_confirm());
+        // Any edit withdraws the confirmation.
+        state.set_repeat("correct horse batter".into());
+        assert!(!state.confirmed() && !state.can_confirm());
+        assert_eq!(state.password_issue(), Some(PasswordIssue::Mismatch));
+        state.set_repeat("correct horse battery".into());
+        assert_eq!(state.begin_complete(), None);
+    }
+
+    #[test]
+    fn password_hints_follow_the_documented_policy_without_trimming() {
+        let mut state = awaiting();
+        for (password, issue) in [
+            ("", Some(PasswordIssue::TooShort)),
+            ("1234567", Some(PasswordIssue::TooShort)),
+            ("12345678", None),
+            // Scalars, not bytes: eight Vietnamese letters are valid, trailing space counts.
+            ("Việt Nam", None),
+            ("        ", None),
+        ] {
+            state.set_password(password.into());
+            state.set_repeat(password.into());
+            assert_eq!(state.password_issue(), issue, "{password:?}");
+        }
+        state.set_password("a".repeat(129));
+        state.set_repeat("a".repeat(129));
+        assert_eq!(state.password_issue(), Some(PasswordIssue::TooLong));
+        // The limit is in scalars: 128 four-byte emoji are exactly 512 bytes and valid.
+        state.set_password("😀".repeat(128));
+        state.set_repeat("😀".repeat(128));
+        assert_eq!(state.password_issue(), None);
+    }
+
+    #[test]
+    fn the_request_is_the_exact_contract_body_and_inputs_are_cleared_before_io() {
+        let mut state = ready();
+        let (issued, body) = state.begin_complete().unwrap();
         assert_eq!(
-            state.take_setup_url(),
-            Some("https://idm.example.invalid/ui/reset?token=private-fixture".to_owned())
+            serde_json::from_str::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({
+                "operation_id": OP,
+                "proof_id": PROOF,
+                "proof_secret": secret(),
+                "password": "correct horse battery",
+                "explicit_confirmation": true,
+            })
         );
-        assert_eq!(state.phase(), SignupPhase::SetupOpened);
-        assert_eq!(state.setup_login(), None);
-        assert_eq!(state.take_setup_url(), None);
-        assert!(!state.finish_firebase(issued, Ok(FirebaseVerification::SetupReady(setup()))));
-        state.setup_navigation_failed();
+        assert_eq!(state.phase(), SignupPhase::Completing);
+        assert_eq!(state.password(), "");
+        assert_eq!(state.repeat(), "");
+        assert!(!state.confirmed());
+        assert_eq!(state.retained_request(), Some(body.as_str()));
+        // A second press during flight cannot create another request or edit the password.
+        state.set_password("another password".into());
+        assert_eq!(state.password(), "");
+        assert_eq!(state.begin_complete(), None);
+        assert!(state.finish_complete(issued, Ok(SignupStatus::Completed), 0));
+    }
+
+    #[test]
+    fn lost_or_unavailable_responses_retry_the_identical_request_only() {
+        for failure in [
+            CompletionFailure::Unavailable,
+            CompletionFailure::UnknownOutcome,
+            CompletionFailure::RateLimited(0),
+        ] {
+            let mut state = ready();
+            let (first, body) = state.begin_complete().unwrap();
+            assert!(state.finish_complete(first, Err(failure), 1_000));
+            assert_eq!(state.phase(), SignupPhase::CompleteRetry(failure));
+            // The password cannot be edited, and no new operation can be built.
+            state.set_password("silently different".into());
+            assert_eq!(state.password(), "");
+            assert_eq!(state.begin_complete(), None);
+            let (second, retried) = state.begin_retry(1_000).unwrap();
+            assert_ne!(first, second);
+            assert_eq!(retried, body, "the identical serialized request");
+            // A late answer of the first attempt cannot settle the second.
+            assert!(!state.finish_complete(first, Ok(SignupStatus::Completed), 0));
+            assert_eq!(state.phase(), SignupPhase::Completing);
+            assert_eq!(state.begin_retry(1_000), None);
+            assert!(state.finish_complete(second, Ok(SignupStatus::Replayed), 0));
+            assert_eq!(
+                state.phase(),
+                SignupPhase::Completed(SignupStatus::Replayed)
+            );
+            assert_eq!(state.retained_request(), None);
+        }
+    }
+
+    #[test]
+    fn retry_after_is_honoured_without_dense_retries() {
+        let mut state = ready();
+        let (issued, _) = state.begin_complete().unwrap();
+        state.finish_complete(issued, Err(CompletionFailure::RateLimited(30)), 10_000);
+        assert_eq!(state.begin_retry(39_999), None);
         assert_eq!(
             state.phase(),
-            SignupPhase::VerificationFailed(SignupFailure::UnknownOutcome)
+            SignupPhase::CompleteRetry(CompletionFailure::RateLimited(30))
         );
-        assert_eq!(state.begin_verify(), None);
+        assert!(state.begin_retry(40_000).is_some());
     }
 
     #[test]
-    fn firebase_cancel_history_and_unknown_outcomes_fence_all_late_secrets_without_retry() {
-        for result in [
-            Ok(FirebaseVerification::SetupReady(setup())),
-            Ok(FirebaseVerification::Unavailable),
-            Err(SignupFailure::UnknownOutcome),
-        ] {
-            let mut state = SignupState::default();
-            state.capture(firebase_proof());
-            let (old, _) = state.begin_verify().unwrap();
-            assert_eq!(state.clear(), None); // raw action was already taken before IO
-            state.capture(firebase_proof());
-            assert!(!state.finish_firebase(old, result));
-            assert_eq!(state.phase(), SignupPhase::AwaitingConfirmation);
-            let (current, _) = state.begin_verify().unwrap();
-            assert!(state.finish_firebase(current, Err(SignupFailure::UnknownOutcome)));
-            assert_eq!(state.begin_verify(), None);
-            assert_eq!(state.take_setup_url(), None);
+    fn success_never_confers_a_session_and_drops_every_secret() {
+        for status in [SignupStatus::Completed, SignupStatus::Replayed] {
+            let mut state = ready();
+            let (issued, _) = state.begin_complete().unwrap();
+            assert!(state.finish_complete(issued, Ok(status), 0));
+            assert_eq!(state.phase(), SignupPhase::Completed(status));
+            assert_eq!(state.retained_request(), None);
+            assert_eq!(state.begin_complete(), None);
+            assert_eq!(state.begin_retry(u64::MAX), None);
+            assert!(!state.finish_complete(issued, Err(CompletionFailure::Refused), 0));
         }
-        let mut state = SignupState::default();
-        state.capture(firebase_proof());
-        let (issued, _) = state.begin_verify().unwrap();
-        state.finish_firebase(issued, Ok(FirebaseVerification::SetupReady(setup())));
+    }
+
+    #[test]
+    fn definite_refusals_drop_the_request_and_only_a_400_keeps_the_proof() {
+        for failure in [
+            CompletionFailure::Refused,
+            CompletionFailure::Forbidden,
+            CompletionFailure::NotConfigured,
+        ] {
+            let mut state = ready();
+            let (issued, _) = state.begin_complete().unwrap();
+            assert!(state.finish_complete(issued, Err(failure), 0));
+            assert_eq!(state.phase(), SignupPhase::CompleteRefused(failure));
+            assert_eq!(state.retained_request(), None);
+            assert!(!state.edit_after_refusal());
+            assert_eq!(state.begin_retry(u64::MAX), None);
+        }
+        let mut state = ready();
+        let (issued, body) = state.begin_complete().unwrap();
+        assert!(state.finish_complete(issued, Err(CompletionFailure::Invalid), 0));
+        assert_eq!(
+            state.phase(),
+            SignupPhase::CompleteRefused(CompletionFailure::Invalid)
+        );
+        assert_eq!(state.retained_request(), None);
+        assert!(state.edit_after_refusal());
+        state.set_password("a different password".into());
+        state.set_repeat("a different password".into());
+        state.set_confirmed(true);
+        let (_, next) = state.begin_complete().unwrap();
+        assert_ne!(next, body);
+        assert!(next.contains(&secret()), "the intact proof is reused");
+    }
+
+    #[test]
+    fn leave_and_new_links_fence_late_results_and_forget_everything() {
+        let mut state = ready();
+        let (old, _) = state.begin_complete().unwrap();
         state.clear();
-        assert_eq!(state.setup_login(), None);
-        assert_eq!(state.take_setup_url(), None);
+        assert_eq!(state.phase(), SignupPhase::Editing);
+        assert_eq!(state.retained_request(), None);
+        state.capture(link());
+        assert!(!state.finish_complete(old, Ok(SignupStatus::Completed), 0));
+        assert_eq!(state.phase(), SignupPhase::AwaitingConfirmation);
+        assert_eq!(state.begin_retry(u64::MAX), None);
+        let mut state = ready();
+        state.clear();
+        assert_eq!(
+            (state.password(), state.repeat(), state.confirmed()),
+            ("", "", false)
+        );
+        assert_eq!(state.begin_complete(), None);
     }
 
     #[test]
-    fn setup_capability_refuses_unsafe_navigation_and_debug_is_redacted() {
-        assert_eq!(format!("{:?}", setup()), "SetupLink([redacted])");
-        for raw in [
-            "http://idm.example.invalid/ui/reset",
-            "javascript:alert(1)",
-            "https://user@idm.example.invalid/ui/reset",
-            "https://idm.example.invalid/ui/reset#secret",
-            "https://idm.example.invalid/\nui/reset",
-        ] {
-            assert_eq!(SetupLink::new("fixture".to_owned(), raw.to_owned()), None);
-        }
-    }
-
-    fn proof() -> VerificationToken {
-        VerificationToken::from_fragment(&format!("#register-verify?token={}", "a1".repeat(32)))
-            .unwrap()
-    }
-
-    #[test]
-    fn email_links_are_exact_and_secrets_never_enter_debug_output() {
-        let valid = format!("#register-verify?token={}", "a1".repeat(32));
-        for invalid in [
-            "#register-verify?token=".to_owned(),
-            format!("{valid}&from=studio"),
-            format!("{valid}&token={}", "a1".repeat(32)),
-            valid.replace("a1", "A1"),
-            valid.replace("token=", "token=%"),
-            valid.replace("#register-verify", "#login"),
-        ] {
-            assert_eq!(VerificationToken::from_fragment(&invalid), None);
-        }
+    fn debug_output_never_contains_proof_password_or_email() {
         let mut state = SignupState::default();
         state.set_email("private@example.invalid".to_owned());
         assert!(!format!("{state:?}").contains("private@example.invalid"));
-        state.capture(proof());
-        assert_eq!(format!("{:?}", proof()), "VerificationToken([redacted])");
-        assert!(!format!("{state:?}").contains(&"a1".repeat(32)));
+        let mut state = ready();
+        let (_, body) = state.begin_complete().unwrap();
+        let debug = format!("{state:?}");
+        for hidden in [OP, PROOF, &secret(), "correct horse battery", &body] {
+            assert!(!debug.contains(hidden), "{hidden}");
+        }
     }
 
     #[test]
-    fn duplicate_submit_is_blocked_and_accepted_is_only_an_email_request_receipt() {
+    fn duplicate_submit_is_blocked_and_accepted_is_only_a_generic_receipt() {
         let mut state = SignupState::default();
         assert_eq!(state.begin_submit(), None);
         assert_eq!(
@@ -524,12 +713,12 @@ mod tests {
         assert!(state.finish_submit(issued, Ok(())));
         assert_eq!(state.phase(), SignupPhase::EmailAccepted);
         assert_eq!(state.email(), "");
-        assert_eq!(state.begin_verify(), None);
+        assert_eq!(state.begin_complete(), None);
         assert!(!state.finish_submit(issued, Err(SignupFailure::Unavailable)));
     }
 
     #[test]
-    fn navigation_logout_and_cancel_clear_email_and_fence_late_results() {
+    fn navigation_and_cancel_clear_email_and_fence_late_submit_results() {
         for result in [Ok(()), Err(SignupFailure::UnknownOutcome)] {
             let mut state = SignupState::default();
             state.set_email("listener@example.invalid".to_owned());
@@ -539,46 +728,14 @@ mod tests {
             assert_eq!(state.phase(), SignupPhase::Editing);
             assert_eq!(state.email(), "");
         }
-        let mut state = SignupState::default();
-        state.capture(proof());
-        assert_eq!(state.clear(), Some(proof()));
-        assert_eq!(state.clear(), None);
-        assert_eq!(state.begin_verify(), None);
     }
 
     #[test]
-    fn scanners_never_verify_and_unknown_outcomes_never_offer_blind_retry() {
-        let mut state = SignupState::default();
-        state.capture(proof());
-        assert_eq!(state.phase(), SignupPhase::AwaitingConfirmation);
-        let (issued, _) = state.begin_verify().unwrap();
-        assert_eq!(state.begin_verify(), None);
-        assert!(state.finish_verify(issued, Err(SignupFailure::UnknownOutcome)));
-        assert_eq!(
-            state.phase(),
-            SignupPhase::VerificationFailed(SignupFailure::UnknownOutcome)
-        );
-        assert_eq!(state.begin_verify(), None);
-        assert_eq!(state.clear(), None);
-    }
-
-    #[test]
-    fn stale_verify_cannot_override_cancel_or_a_new_link_and_all_receipts_stay_non_session() {
-        for result in [
-            Ok(VerificationStatus::SetupLinkSent),
-            Ok(VerificationStatus::Unavailable),
-            Err(SignupFailure::Protocol),
-        ] {
-            let mut state = SignupState::default();
-            state.capture(proof());
-            let (old, _) = state.begin_verify().unwrap();
-            state.clear();
-            state.capture(proof());
-            assert!(!state.finish_verify(old, result));
-            assert_eq!(state.phase(), SignupPhase::AwaitingConfirmation);
-            let (current, _) = state.begin_verify().unwrap();
-            assert!(state.finish_verify(current, result));
-            assert_eq!(state.begin_verify(), None);
-        }
+    fn an_unreadable_link_is_a_capture_failure_that_holds_no_secret() {
+        let mut state = ready();
+        state.capture_failed();
+        assert_eq!(state.phase(), SignupPhase::CaptureFailed);
+        assert_eq!(state.begin_complete(), None);
+        assert_eq!(state.retained_request(), None);
     }
 }

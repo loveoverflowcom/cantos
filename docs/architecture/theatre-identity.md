@@ -1,11 +1,12 @@
 # Theatre identity and account isolation
 
 > **#295 Web-cookie amendment (2026-10-19):** the owner selects API-issued HttpOnly/Secure
-> cookies for Theatre and Studio Web on the custom domains; migration and browser acceptance
-> remain pending. [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
-> owns the selected policy. Current Web source still uses [Bearer v1](../../packages/contracts/bearer-v1.md);
-> cookie-only descriptions below record retained server compatibility, which needs review before
-> reuse. Native retains #253 Bearer, secure storage and its independent acceptance obligations.
+> cookies for Theatre and Studio Web on the custom domains; browser acceptance remains pending.
+> [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+> owns the selected policy. Current Web source consumes the [Identity auth v1](../../packages/contracts/identity-auth-v1.md)
+> cookie endpoints (email/password; no OIDC popup, Firebase email action or Bearer fallback), so the
+> provider flow below is **historical**. Native retains #253 Bearer, secure storage and its
+> independent acceptance obligations.
 
 Implemented PR3 boundary for #12/#35; issue #34 has no accepted guest-import policy.
 Public Discovery/Playback stays guest where its existing policy permits. Persistent Saved,
@@ -220,9 +221,9 @@ grants, credentials, TLS, network, container or production activation is provisi
 ## Retained Web BFF and CMP lifecycle
 
 The Web BFF client details in this section record the #129 checkpoint and retained server
-compatibility. Current Web uses the [shared Bearer owner](../../packages/web-auth/README.md) and
+compatibility. Current Web uses the [shared cookie-session owner](../../packages/web-auth/README.md) and
 [Library mutation/recovery implementation](../../apps/cantos-theatre/web/README.md#scope-and-honest-behavior);
-#295 cookie migration remains pending. Historical BFF evidence is not acceptance of that migration.
+browser acceptance of the #295 cookie path remains pending. Historical BFF evidence is not that acceptance.
 
 The #129 Web shell mounted its same-origin BFF account owner in the default application shell. Anonymous
 Home reads published work summaries independently with credentials omitted; session lookup,

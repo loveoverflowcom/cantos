@@ -1,5 +1,5 @@
 //! Small, immutable presentation facts; the mounted account remains the only state owner.
-use crate::application::account_view::{AccountViewState, SessionPhase};
+use crate::application::account_view::{AccountViewState, LoginRefusal, SessionPhase};
 use leptos::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -8,6 +8,7 @@ pub(crate) struct AccountUi {
     pub can_authenticate: bool,
     pub can_retry_logout: bool,
     pub cleanup_in_flight: bool,
+    pub login_refusal: Option<LoginRefusal>,
 }
 
 impl AccountUi {
@@ -17,6 +18,7 @@ impl AccountUi {
             can_authenticate: state.can_authenticate(),
             can_retry_logout: state.can_retry_logout(),
             cleanup_in_flight: state.cleanup_in_flight(),
+            login_refusal: state.login_refusal(),
         }
     }
 }

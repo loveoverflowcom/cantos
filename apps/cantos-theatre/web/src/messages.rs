@@ -213,7 +213,7 @@ resources! {
     #[cfg(feature = "preview")]
     AuthPreviewHeading => ("Auth preview · Chỉ dữ liệu mẫu", "Auth preview · Fixtures only"),
     #[cfg(feature = "preview")]
-    AuthPreviewNotice => ("Công cụ kiểm tra riêng: không gọi mạng, Cantos ID, timer hoặc mật khẩu. A/B là tài khoản mẫu; không chứng nhận đăng nhập hoặc đăng ký thực.", "Isolated diagnostics: no network, Cantos ID, timers or passwords. A/B are fixture accounts; this does not verify real sign-in or registration."),
+    AuthPreviewNotice => ("Công cụ kiểm tra riêng: không gọi mạng, timer hoặc thông tin đăng nhập thật. A/B là tài khoản mẫu; không chứng nhận đăng nhập hoặc đăng ký thực.", "Isolated diagnostics: no network, timers or real credentials. A/B are fixture accounts; this does not verify real sign-in or registration."),
     #[cfg(feature = "preview")]
     AuthPreviewGuest => ("Mẫu khách · cleanup đã xác nhận", "Guest fixture · cleanup acknowledged"),
     #[cfg(feature = "preview")]
@@ -562,8 +562,8 @@ resources! {
     AccountLogoutRetry => ("Hoàn tất đăng xuất", "Finish signing out"),
     AccountUnavailable => ("Chưa kiểm tra được phiên nghe. Hãy thử cập nhật lại.", "Your listener session could not be checked. Try refreshing again."),
     AccountProtocol => ("Phản hồi phiên nghe không hợp lệ. Dữ liệu riêng được giữ ẩn.", "The listener response was invalid. Private data stays hidden."),
-    AccountPopupBlocked => ("Trình duyệt đã chặn cửa sổ đăng nhập. Cho phép cửa sổ bật lên cho Cantos, rồi cập nhật phiên để thử lại.", "Your browser blocked the sign-in window. Allow popups for Cantos, then refresh the session to retry."),
-    AccountNavigation => ("Chưa mở được trang đăng nhập. Hãy cập nhật phiên rồi thử lại.", "The sign-in page could not be opened. Refresh the session and try again."),
+    AccountRateLimited => ("Có quá nhiều yêu cầu cùng lúc. Hãy đợi một lúc rồi cập nhật phiên.", "Too many requests. Wait a while, then refresh the session."),
+    AccountNotFound => ("Dịch vụ tài khoản chưa được cấu hình cho trang này. Bạn vẫn có thể khám phá nội dung công khai.", "The account service is not configured for this site. You can still explore public stories."),
     AccountSessionChanged => ("Phiên nghe đã thay đổi ở cửa sổ khác. Hãy cập nhật để xem dữ liệu của tài khoản hiện tại.", "The listener session changed in another window. Refresh to view the current account's data."),
     #[cfg(feature = "preview")]
     LiveNotice => ("Tài khoản và dữ liệu người nghe được đọc từ Cantos. Đăng nhập không tự phát âm thanh hoặc chuyển dữ liệu minh họa vào tài khoản.", "Listener accounts and data are read from Cantos. Signing in does not start audio or import sample data."),

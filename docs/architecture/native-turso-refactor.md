@@ -83,7 +83,7 @@ accepted; a documentation amendment does not authorize a runtime bypass.
 | Identity `service` implements Theatre mailbox-confirmed signup, Argon2id password authentication (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md)) and `GetSecurityState` over private UDS RPC | The [service guide](../../services/cantos-identity/README.md#verification) records source-bound prior runs; this amendment runs no authentication tests. |
 | Studio password is implemented in Identity: [the core](../../services/cantos-identity/src/domain/admission.rs) admits `(Studio, Password)` beside the deferred `UserVerifiedPasskey`, and the Server's roster decides Studio entry | Prior runs are recorded in [Identity auth v1](../../packages/contracts/identity-auth-v1.md#verification); this amendment runs none. Studio provisioning remains absent; a password result is never relabelled as passkey assurance. |
 | [Server serving](native-persistence-readiness.md#actual-serving-path) remains PostgreSQL; the [Identity auth v1](../../packages/contracts/identity-auth-v1.md) backend consumer issues sessions and ActorId bindings there | Real transitional PostgreSQL E2E may qualify that composition; it is not “without PostgreSQL” native acceptance. |
-| [Shared Web auth](../../packages/web-auth/README.md) still implements Bearer although the Server's v1 Web endpoints issue cookies; [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has Bearer coordination/secure storage over the current provider flow | Web cookie/fetch/XHR/session-restore migration and first-party v1 journeys remain pending, with separate browser/device acceptance. |
+| [Shared Web auth](../../packages/web-auth/README.md) now consumes the Server's v1 Web cookie endpoints (source only; no Bearer fallback); [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has Bearer coordination/secure storage over the current provider flow | Web cookie/fetch/XHR/session-restore wiring exists in source; real first-party v1 browser journeys remain pending, with separate browser/device acceptance. |
 
 The #335 backend slice consumes the authenticated RPC implementation and draft contract;
 completion of every Server Turso adapter was not a prerequisite. Final #336 native acceptance still needs the
@@ -117,7 +117,7 @@ and issues sessions in the current authoritative Server PostgreSQL owner under t
 Reconciled policy tests and pre-composition controls cannot accept missing frontend, browser/device
 or native layers. Keep the old provider until its replacement is actually accepted; public
 first-party forms retain the settled D4 decision, and the D3 passkey/recovery target is deferred,
-not removed. The Web client cookie migration and first-party frontends remain pending.
+not removed. The Web clients consume the cookie endpoints from source; their browser acceptance remains pending.
 
 The [single-process source composition](server-http-composition.md) now uses the canonical inbound
 assembly, one PostgreSQL pool and a listener with route-local origins/state/policies. Its

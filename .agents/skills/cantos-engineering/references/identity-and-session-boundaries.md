@@ -10,7 +10,8 @@ for selected factors, deferred work, transitional DB composition and security-st
 Then inspect the [implemented Identity/RPC boundary](../../../../services/cantos-identity/README.md)
 the Server consumer in [Identity auth v1](../../../../packages/contracts/identity-auth-v1.md)
 (PostgreSQL sessions; Studio password under [ADR 0045](../../../../docs/decisions/0045-v1-email-password-sign-in.md))
-and actual client consumers; the Web client cookie migration and first-party frontends are pending.
+and actual client consumers; the Web clients consume the cookie endpoints from source and CMP the
+native Bearer endpoints, while browser/device acceptance and Studio operator provisioning are pending.
 
 ## Read and model before changing authority
 

@@ -272,7 +272,7 @@ mod tests {
             }
             .to_html();
             assert!(html.contains("Auth preview · Fixtures only"));
-            assert!(html.contains("no network, Cantos ID, timers or passwords"));
+            assert!(html.contains("no network, timers or real credentials"));
             assert!(html.contains("theatre-preview-delay-complete"));
             for absent in [
                 "<input",

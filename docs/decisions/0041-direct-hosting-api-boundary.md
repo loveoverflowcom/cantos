@@ -1,8 +1,9 @@
 # ADR 0041: Direct Firebase Hosting and the Cantos API browser boundary
 
 - Status: accepted owner direction; API addressing/CORS/callback support implemented in this slice;
-  Bearer API and Web/CMP consumers implemented; #295 selects Web cookies with migration pending;
-  minimal identity gateway source implemented; production acceptance remains pending
+  Bearer API implemented; #295 Web cookies consumed by both Web apps from source (Identity auth v1,
+  browser/E2E acceptance pending); native Bearer retained; minimal identity gateway source
+  implemented; production acceptance remains pending
 - Date: 2026-10-17; Bearer amendment 2026-10-18 (#253); Web-cookie amendment 2026-10-19 (#295)
 - Decision owner: Cantos product owner (production-audit request and API-mediated Web clarification)
 - Related: [0034](0034-theatre-signup-and-provisioned-studio.md),
@@ -32,11 +33,11 @@ an explicit, nonsecret build input `CANTOS_API_ORIGIN`; absence preserves the lo
 An invalid origin or cross-surface path fails closed. The implementation reuses locked `url`
 2.5.8 to refuse silently normalized origins, userinfo, paths, queries and fragments. Fetch/XHR and
 login navigation go to Cantos API, never to a client-configured identity provider. Current
-implemented Web and native consumers use [Bearer v1](../../packages/contracts/bearer-v1.md),
-with cookies omitted and account/session fences retained. The owner-selected Web target is now
-HttpOnly/Secure cookies under #295 below; its coordinated API/client migration is pending. Native
-retains Bearer. Provider artifacts stay in the API; mixed credentials remain refused by existing
-Bearer routes. Existing cookie handlers require review before reuse, not just credentials Include.
+implemented native consumer uses [Bearer v1](../../packages/contracts/bearer-v1.md); the Web apps
+no longer do. Both Web apps send `credentials: include` with the session fence to the
+[Identity auth v1](../../packages/contracts/identity-auth-v1.md) cookie endpoints
+(#295, [web-auth](../../packages/web-auth/README.md)); browser and real API acceptance are pending.
+Provider artifacts stay in the API; mixed credentials remain refused by the server.
 
 Each API process may opt into `CANTOS_BROWSER_API_SURFACE=theatre|studio`, with its one exact
 `CANTOS_WEB_ORIGIN` as the CORS allowlist. Preflight accepts only the declared surface, methods and
@@ -58,9 +59,10 @@ its distinct public OIDC client and exact system-browser redirect.
 On 2026-10-19 the [owner selected #295](https://github.com/loveoverflowcom/cantos/issues/295):
 Theatre Web at `https://cantos.cc` and Studio Web at `https://studio.cantos.cc` use API-issued
 HttpOnly/Secure cookies with `https://api.cantos.cc`. This supersedes only #253's mandatory
-RAM-only Web Bearer direction. The API/client migration, cookie policy and browser acceptance
-are pending; this decision does not report deployed cookies or undo existing session authority,
-refresh/revocation and account fences. CMP/native retains Bearer and secure storage.
+RAM-only Web Bearer direction. The API cookie policy is [Identity auth v1](../../packages/contracts/identity-auth-v1.md)
+and the Web client migration is implemented in source; browser acceptance is pending. This decision
+does not report deployed cookies or undo existing session authority, revocation and account
+fences. CMP/native retains Bearer and secure storage.
 
 The migration must define narrow cookie scope, SameSite, path and expiry, preferring host-only
 API cookies where suitable; it does not authorize `Domain=.cantos.cc`. Include credentials only
@@ -72,8 +74,8 @@ No live DNS, issuer, credentials or database operation is authorized by this doc
 
 ### Implemented Bearer transport and reload policy (#253; Web target superseded)
 
-The following records the implemented pre-#295 Web behavior and retained native contract.
-It is not the target Web cookie/reload policy.
+The following records the **retired** pre-#295 Web behavior (removed from both Web apps) and the
+retained native contract. It is not the current Web cookie/reload policy.
 
 The owner selected Cantos-issued opaque Bearer for Theatre Web/CMP and Studio Web on 2026-10-18.
 For that Bearer implementation, a same-site custom domain or third-party session cookie is not

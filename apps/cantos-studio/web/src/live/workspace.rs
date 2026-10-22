@@ -104,7 +104,7 @@ impl Dispatch {
                     .try_update(|s| *s = s.finish(ticket, reply.clone()));
                 // Receipt reconciliation executes an owner GET even when the retained intent
                 // is a producer Upload. Classify the executed request, not that original intent.
-                if command.credentials() == Credentials::OwnerBearer
+                if command.credentials() == Credentials::OwnerSession
                     && reply == Err(ClientError::SessionChanged)
                 {
                     api.invalidate_projection(&crate::session::unconfirmed_response());

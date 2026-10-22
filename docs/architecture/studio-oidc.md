@@ -1,11 +1,12 @@
 # Studio OIDC credential and session boundary
 
 > **#295 Web-cookie amendment (2026-10-19):** the owner selects API-issued HttpOnly/Secure
-> cookies for Theatre and Studio Web on the custom domains; migration and browser acceptance
-> remain pending. [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
-> owns the selected policy. Current Web source still uses [Bearer v1](../../packages/contracts/bearer-v1.md);
-> cookie-only descriptions below record retained server compatibility, which needs review before
-> reuse. Native retains #253 Bearer, secure storage and its independent acceptance obligations.
+> cookies for Theatre and Studio Web on the custom domains; browser acceptance remains pending.
+> [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+> owns the selected policy. Current Web source consumes the [Identity auth v1](../../packages/contracts/identity-auth-v1.md)
+> cookie endpoints (email/password; no OIDC popup, Firebase email action or Bearer fallback), so the
+> provider flow below is **historical**. Native retains #253 Bearer, secure storage and its
+> independent acceptance obligations.
 
 Implemented as an opt-in integration, with signed mocked-provider and local PostgreSQL evidence
 recorded [separately](../evidence/studio-oidc.md). `cantos-server` now has a validated

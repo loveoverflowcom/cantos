@@ -97,8 +97,10 @@ pub(crate) fn account_failure_key(failure: AccountFailure) -> Key {
         AccountFailure::SessionChanged => Key::AccountSessionChanged,
         AccountFailure::Unavailable => Key::AccountUnavailable,
         AccountFailure::Protocol => Key::AccountProtocol,
-        AccountFailure::Navigation => Key::AccountNavigation,
-        AccountFailure::PopupBlocked => Key::AccountPopupBlocked,
+        AccountFailure::RateLimited(_) => Key::AccountRateLimited,
+        AccountFailure::NotFound => Key::AccountNotFound,
+        // A refusal returns to the guest form, which owns the message beside its fields.
+        AccountFailure::LoginRefused(_) => Key::LiveGuestStatus,
         AccountFailure::LogoutPending => Key::AccountLogoutRetryHelp,
         AccountFailure::CursorExpired => Key::LiveLibraryCursorExpired,
     }
@@ -147,8 +149,6 @@ fn profile_status(
 pub(crate) fn LiveAccount(
     state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
-    registration: RwSignal<crate::application::registration::RegistrationState>,
-    on_registration_refresh: Callback<()>,
     theme: RwSignal<Theme>,
     on_login: Callback<()>,
     on_register: Callback<()>,
@@ -173,7 +173,7 @@ pub(crate) fn LiveAccount(
                     <p>{move || super::auth_copy::text(
                         if ui.get().phase == SessionPhase::SignedIn { CopyKey::SignedHelp } else { CopyKey::GuestHelp }, locale.get())}</p>
                     <Show when=move || ui.get().can_authenticate>
-                        <AuthActions state registration locale scope="theatre-account" on_login on_register on_configuration_retry=on_registration_refresh/>
+                        <AuthActions state locale scope="theatre-account" on_login on_register/>
                     </Show>
                     <Show when=move || ui.get().phase == SessionPhase::SignedIn>
                         <a class="theatre-action theatre-account-library-link" href="#library">{label(locale, CopyKey::OpenLibrary)}</a>
@@ -244,7 +244,7 @@ mod tests {
     fn render_live(state: ReadSignal<AccountViewState>, locale: RwSignal<Locale>) -> String {
         let theme = RwSignal::new(Theme::System);
         let noop = Callback::new(|()| {});
-        view! { <LiveAccount state locale theme registration=RwSignal::new(crate::application::registration::RegistrationState::default()) on_registration_refresh=noop on_login=noop on_register=noop
+        view! { <LiveAccount state locale theme on_login=noop on_register=noop
         on_logout=noop on_refresh=noop on_membership=noop/> }
         .to_html()
     }

@@ -22,18 +22,18 @@ work item creates it.
 
 The [v1 amendment](../../../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
 owns selected login factors and Web/native transport; the
-[shared Web auth owner](../../../../packages/web-auth/README.md) describes current **Bearer**
-implementation. The Server's [Identity auth v1](../../../../packages/contracts/identity-auth-v1.md)
-endpoints already issue HttpOnly Web session cookies; the Web client migration, its consumers and
-browser acceptance remain pending.
+[shared Web auth owner](../../../../packages/web-auth/README.md) implements the **cookie** client
+(email/password, HttpOnly cookie, session fence, idle renewal). The Server's
+[Identity auth v1](../../../../packages/contracts/identity-auth-v1.md) endpoints issue the cookies;
+browser and real Server/Identity acceptance remain pending.
 
-For that migration, trace session issuance/restore/revoke and every fetch, XHR, private-byte and
+When changing it, trace session issuance/restore/revoke and every fetch, XHR, private-byte and
 resource adapter. Review credential inclusion, HttpOnly/Secure cookie scope, exact-origin
 CORS/CSRF, expiry and server-confirmed reload restore together. Preserve one owner per surface,
 account/family/intent fences and unknown-write reconciliation; never add a cookie/Bearer fallback
 or authenticate from local storage. Exercise missing/stale/ambiguous cookies, cross-surface/origin
-refusals, late account-switch responses and actual browser restore. Legacy source behavior is a
-migration input, not proof that the selected cookie path exists.
+refusals, late account-switch responses and actual browser restore. Source tests are not proof
+that the real cookie path works in a browser.
 
 ## 1. Two surfaces, two permission contexts
 

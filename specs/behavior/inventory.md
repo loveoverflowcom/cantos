@@ -118,10 +118,12 @@ authentication timestamp. Independent Rust/API implementation mappings:
 | `run.logout` | `all_surfaces_issue_rotate_revoke_with_exact_scope_and_stable_session`; `cancelled_or_lost_exchange_cannot_restore_and_does_not_cancel_another_account` |
 | `run.expiry` | `expiry_disable_wrong_binding_provider_outage_and_recent_auth_fail_closed` |
 
-Web-specific independent oracles: `cantos-web-auth` core/refresh tests cover exact expiry,
-unknown refresh, single-flight and late-waiter/logout/account fences; the explicit `verify
-web-bearer` fixture drives actual Web modules against mocked API/issuer HTTP. These are client
-implementation evidence, not model trace conformance or real issuer/SQL proof.
+Web is no longer a consumer of the Bearer refresh-family lifecycle: it holds an HttpOnly cookie
+session that renews in place. `cantos-web-auth` core/refresh tests cover the Web session's exact
+use/renew/re-read edges, unknown renewal, single-flight and late-waiter/logout/account-switch
+fences. The retired `verify web-bearer` mock-browser fixture existed only for the removed popup
+flow. These are client implementation evidence, not model trace conformance, a Web cookie model
+or real Identity/Server proof.
 
 The same capability also has a finite native shell projection: Active/Refreshing/Cleared journal
 classes, two actor aliases, intent classes 0–3 and at most two modeled dispatches across the
