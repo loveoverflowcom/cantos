@@ -1,6 +1,7 @@
-//! The candidate `server.db` schema on the real pinned engine and run-owned files: the slice it
-//! creates, the files it refuses without adopting them, and the database-level barrier behind
-//! the actor registry's domain constructors. No constraint is weakened to build a fixture.
+//! The candidate `server.db` schema on the real pinned engine and run-owned files: the slices it
+//! creates, the upgrade from the actor registry slice, the files it refuses without adopting them,
+//! and the database-level barriers behind the actor registry's domain constructors and the Identity
+//! sessions. No constraint is weakened to build a fixture.
 use std::{collections::BTreeSet, path::Path, sync::Arc};
 
 use cantos_store_turso::{
@@ -17,10 +18,11 @@ use crate::platform::identity::domain::{ActorId, ExternalIdentityKey};
 
 const T0: i64 = 1_700_000_000_000_000;
 
-static FUTURE: [Migration; 2] = [
+static FUTURE: [Migration; 3] = [
     MIGRATIONS[0],
+    MIGRATIONS[1],
     Migration {
-        version: 2,
+        version: 3,
         name: "server_future_slice",
         sql: "CREATE TABLE future_slice(id INTEGER PRIMARY KEY) STRICT;",
     },
@@ -103,7 +105,7 @@ async fn commit(database: &ServerDatabase, statements: &[&str]) {
 }
 
 #[tokio::test]
-async fn a_new_file_holds_only_the_registry_metadata_and_the_actor_registry_slice() {
+async fn a_new_file_holds_only_the_registry_metadata_and_the_two_slices() {
     let run = TestRun::new("server-schema-slice");
     let path = run.path("server.db");
     drop(open(&path, Intent::Migrate).await.unwrap());
@@ -125,9 +127,14 @@ async fn a_new_file_holds_only_the_registry_metadata_and_the_actor_registry_slic
     .await;
     let expected = [
         ("index", "actor_external_identities_actor"),
+        ("index", "identity_session_tokens_session"),
+        ("index", "identity_sessions_actor"),
+        ("index", "identity_sessions_subject"),
         ("table", "actor_external_identities"),
         ("table", "actors"),
         ("table", "cantos_schema_history"),
+        ("table", "identity_session_tokens"),
+        ("table", "identity_sessions"),
         ("trigger", "actor_external_identities_no_delete"),
         ("trigger", "actor_external_identities_no_replace"),
         ("trigger", "actor_external_identities_no_update"),
@@ -136,6 +143,15 @@ async fn a_new_file_holds_only_the_registry_metadata_and_the_actor_registry_slic
         ("trigger", "actors_no_replace"),
         ("trigger", "cantos_schema_history_no_delete"),
         ("trigger", "cantos_schema_history_no_update"),
+        ("trigger", "identity_session_tokens_immutable"),
+        ("trigger", "identity_session_tokens_issue"),
+        ("trigger", "identity_session_tokens_no_delete"),
+        ("trigger", "identity_session_tokens_no_replace"),
+        ("trigger", "identity_sessions_binding_immutable"),
+        ("trigger", "identity_sessions_bound_actor"),
+        ("trigger", "identity_sessions_no_delete"),
+        ("trigger", "identity_sessions_no_replace"),
+        ("trigger", "identity_sessions_revocation_permanent"),
     ]
     .map(|(kind, name)| vec![text(kind), text(name)]);
     assert_eq!(objects, expected);
@@ -145,12 +161,100 @@ async fn a_new_file_holds_only_the_registry_metadata_and_the_actor_registry_slic
             "SELECT version,name,checksum,applied_at FROM cantos_schema_history"
         )
         .await,
+        [
+            [
+                Value::Integer(1),
+                text("server_actor_registry"),
+                Value::Blob(MIGRATIONS[0].checksum().to_vec()),
+                Value::Integer(T0),
+            ],
+            [
+                Value::Integer(2),
+                text("server_identity_sessions"),
+                Value::Blob(MIGRATIONS[1].checksum().to_vec()),
+                Value::Integer(T0),
+            ]
+        ]
+    );
+}
+
+#[tokio::test]
+async fn an_actor_registry_file_upgrades_to_the_session_slice_and_keeps_its_rows() {
+    let run = TestRun::new("server-schema-upgrade");
+    let path = run.path("server.db");
+    let v1 = Registry::new(DatabaseKind::Server, SERVER_EPOCH, &MIGRATIONS[..1]).unwrap();
+    let old = OwnedDatabase::open(OpenRequest::new(&path, v1, Intent::Migrate, clock()))
+        .await
+        .unwrap();
+    let tx = old.begin_write().await.unwrap();
+    tx.execute(
+        "INSERT INTO actors(id,active) VALUES('alice',1),('bob',0)",
+        (),
+    )
+    .await
+    .unwrap();
+    tx.execute(
+        "INSERT INTO actor_external_identities(issuer,subject,actor_id,linked_at) \
+         VALUES('cantos-identity','0123456789abcdef0123456789abcdef','alice',7)",
+        (),
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    drop(old);
+    let before = bytes(&path);
+    // Serving never upgrades: the older file is refused unchanged until an explicit migration.
+    assert_eq!(
+        refused(&path, Intent::Serve).await,
+        ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
+            applied: 1,
+            latest: 2,
+        }))
+    );
+    assert_eq!(bytes(&path), before);
+    let later = FixedClock::new(T0 + 5);
+    drop(
+        ServerDatabase::open(&path, Intent::Migrate, later.clone())
+            .await
+            .unwrap(),
+    );
+    let database = ServerDatabase::open(&path, Intent::Serve, later)
+        .await
+        .unwrap();
+    assert_eq!(
+        values(&database, "SELECT id,active FROM actors ORDER BY id").await,
+        [
+            [text("alice"), Value::Integer(1)],
+            [text("bob"), Value::Integer(0)]
+        ]
+    );
+    assert_eq!(
+        values(
+            &database,
+            "SELECT issuer,subject,actor_id,linked_at FROM actor_external_identities"
+        )
+        .await,
         [[
-            Value::Integer(1),
-            text("server_actor_registry"),
-            Value::Blob(MIGRATIONS[0].checksum().to_vec()),
-            Value::Integer(T0),
+            text("cantos-identity"),
+            text("0123456789abcdef0123456789abcdef"),
+            text("alice"),
+            Value::Integer(7),
         ]]
+    );
+    assert_eq!(
+        values(
+            &database,
+            "SELECT version,applied_at FROM cantos_schema_history ORDER BY version"
+        )
+        .await,
+        [
+            [Value::Integer(1), Value::Integer(T0)],
+            [Value::Integer(2), Value::Integer(T0 + 5)]
+        ]
+    );
+    assert_eq!(
+        values(&database, "SELECT count(*) FROM identity_sessions").await,
+        [[Value::Integer(0)]]
     );
 }
 
@@ -189,8 +293,8 @@ async fn foreign_diverged_newer_other_epoch_and_non_database_files_are_refused_u
             "newer.db",
             Registry::new(DatabaseKind::Server, SERVER_EPOCH, &FUTURE).unwrap(),
             Refusal::NewerThanBinary {
-                applied: 2,
-                known: 1,
+                applied: 3,
+                known: 2,
             },
         ),
     ];
@@ -496,5 +600,444 @@ async fn bindings_are_exact_byte_keys_reference_an_actor_and_never_change() {
         )
         .await,
         before
+    );
+}
+
+const SUBJECT: &str = "0123456789abcdef0123456789abcdef";
+const S1: &str = "0a000000-0000-4000-8000-00000000000b";
+const S2: &str = "00000000-0000-4000-8000-000000000002";
+const S3: &str = "00000000-0000-4000-8000-000000000003";
+const SESSION_INSERT: &str = "INSERT INTO identity_sessions(id,actor_id,channel,issuer,subject,\
+assurance,authenticated_at,observed_security_version,observed_instance_epoch,absolute_expires,\
+idle_expires,revoked,revoked_reason) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)";
+const TOKEN_INSERT: &str = "INSERT INTO identity_session_tokens(access_hash,refresh_hash,\
+session_id,expires_at,used) VALUES(?1,?2,?3,?4,?5)";
+
+fn epoch() -> Value {
+    Value::Blob(vec![0xe0; 16])
+}
+
+/// A valid session row for `SESSION_INSERT`, bound to `alice` through `SUBJECT`.
+fn session(id: &str, channel: &str) -> Vec<Value> {
+    vec![
+        text(id),
+        text("alice"),
+        text(channel),
+        text("cantos-identity"),
+        text(SUBJECT),
+        text("password"),
+        Value::Integer(10),
+        Value::Integer(1),
+        epoch(),
+        Value::Integer(900),
+        Value::Integer(600),
+        Value::Integer(0),
+        Value::Null,
+    ]
+}
+
+fn with(mut row: Vec<Value>, index: usize, value: Value) -> Vec<Value> {
+    row[index] = value;
+    row
+}
+
+/// Actors and exact bindings every session fixture needs, including bindings whose subjects the
+/// session CHECK refuses, so each CHECK is reached past the bound-actor guard.
+async fn session_fixture(database: &ServerDatabase) {
+    let mut statements = vec![
+        "INSERT INTO actors(id) VALUES('alice')".to_owned(),
+        "INSERT INTO actors(id) VALUES('bob')".to_owned(),
+        format!(
+            "INSERT INTO actor_external_identities(issuer,subject,actor_id,linked_at) VALUES('other','{SUBJECT}','alice',0)"
+        ),
+    ];
+    for subject in [
+        SUBJECT.to_owned(),
+        SUBJECT.to_uppercase(),
+        "0".repeat(32),
+        SUBJECT[..31].to_owned(),
+    ] {
+        statements.push(format!(
+            "INSERT INTO actor_external_identities(issuer,subject,actor_id,linked_at) VALUES('cantos-identity','{subject}','alice',0)"
+        ));
+    }
+    let statements: Vec<&str> = statements.iter().map(String::as_str).collect();
+    commit(database, &statements).await;
+}
+
+async fn sessions_and_tokens(database: &ServerDatabase) -> (Vec<Vec<Value>>, Vec<Vec<Value>>) {
+    (
+        values(database, "SELECT * FROM identity_sessions ORDER BY id").await,
+        values(
+            database,
+            "SELECT * FROM identity_session_tokens ORDER BY access_hash",
+        )
+        .await,
+    )
+}
+
+#[tokio::test]
+async fn identity_session_rows_admit_only_bound_well_formed_values() {
+    let run = TestRun::new("server-schema-session-values");
+    let database = open(&run.path("server.db"), Intent::Migrate).await.unwrap();
+    session_fixture(&database).await;
+    let check = constraint(ConstraintKind::Check);
+    let cases = [
+        (
+            with(session(S1, "theatre-web"), 0, text(&S1.to_uppercase())),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 0, text("not-a-uuid")),
+            check.clone(),
+        ),
+        (session(S1, "studio-native"), check.clone()),
+        (
+            with(session(S1, "theatre-web"), 3, text("other")),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 4, text(&SUBJECT.to_uppercase())),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 4, text(&"0".repeat(32))),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 4, text(&SUBJECT[..31])),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 5, text("passkey")),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 6, Value::Integer(0)),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 7, Value::Integer(0)),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 8, Value::Blob(vec![0xe0; 15])),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 8, Value::Blob(vec![0; 16])),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 9, Value::Integer(-1)),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 10, Value::Integer(901)),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 11, Value::Integer(1)),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 12, text("logout")),
+            check.clone(),
+        ),
+        (
+            with(
+                with(session(S1, "theatre-web"), 11, Value::Integer(1)),
+                12,
+                text("expired"),
+            ),
+            check.clone(),
+        ),
+        (
+            with(session(S1, "theatre-web"), 11, Value::Integer(2)),
+            check.clone(),
+        ),
+        // The session's actor must be the one its exact issuer/subject is bound to.
+        (
+            with(session(S1, "theatre-web"), 1, text("bob")),
+            guard("identity_sessions.binding"),
+        ),
+        (
+            with(session(S1, "theatre-web"), 4, text(&"f".repeat(32))),
+            guard("identity_sessions.binding"),
+        ),
+        (
+            with(session(S1, "theatre-web"), 1, text("missing")),
+            guard("identity_sessions.binding"),
+        ),
+    ];
+    for (row, fault) in cases {
+        assert_eq!(
+            attempt(&database, SESSION_INSERT, row.clone()).await,
+            Err(fault),
+            "{row:?}"
+        );
+    }
+    // STRICT refuses another storage class for the epoch digest and a lossy deadline.
+    for row in [
+        with(session(S1, "theatre-web"), 8, text(&"e0".repeat(16))),
+        with(session(S1, "theatre-web"), 9, Value::Real(900.5)),
+        with(session(S1, "theatre-web"), 9, text("nine hundred")),
+    ] {
+        assert!(
+            attempt(&database, SESSION_INSERT, row.clone())
+                .await
+                .is_err(),
+            "{row:?}"
+        );
+    }
+    let tx = database.owner().begin_write().await.unwrap();
+    for (id, channel) in [
+        (S1, "theatre-web"),
+        (S2, "theatre-native"),
+        (S3, "studio-web"),
+    ] {
+        tx.execute(SESSION_INSERT, params_from_iter(session(id, channel)))
+            .await
+            .unwrap();
+    }
+    tx.execute(
+        "UPDATE identity_sessions SET revoked=1,revoked_reason='logout' WHERE id=?1",
+        [S3],
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+
+    let hash = |byte: u8| Value::Blob(vec![byte; 32]);
+    let token = |access: u8, refresh: Option<u8>, session: &str| {
+        vec![
+            hash(access),
+            refresh.map_or(Value::Null, hash),
+            text(session),
+            Value::Integer(600),
+            Value::Integer(0),
+        ]
+    };
+    let issue = guard("identity_session_tokens.issue");
+    for (row, fault) in [
+        (
+            with(token(1, None, S1), 0, Value::Blob(vec![1; 31])),
+            check.clone(),
+        ),
+        (
+            with(token(2, Some(3), S2), 1, Value::Blob(vec![3; 33])),
+            check.clone(),
+        ),
+        (
+            with(token(1, None, S1), 3, Value::Integer(-1)),
+            check.clone(),
+        ),
+        // A new secret starts unspent, matches its session's channel shape and needs a live one.
+        (
+            with(token(1, None, S1), 4, Value::Integer(1)),
+            issue.clone(),
+        ),
+        (token(1, Some(3), S1), issue.clone()),
+        (token(2, None, S2), issue.clone()),
+        (token(4, None, S3), issue.clone()),
+        (
+            token(5, None, "00000000-0000-4000-8000-000000000009"),
+            issue.clone(),
+        ),
+    ] {
+        assert_eq!(
+            attempt(&database, TOKEN_INSERT, row.clone()).await,
+            Err(fault),
+            "{row:?}"
+        );
+    }
+    assert!(attempt(
+        &database,
+        TOKEN_INSERT,
+        with(token(1, None, S1), 0, text("digest"))
+    )
+    .await
+    .is_err());
+    let tx = database.owner().begin_write().await.unwrap();
+    for row in [token(1, None, S1), token(2, Some(3), S2)] {
+        tx.execute(TOKEN_INSERT, params_from_iter(row))
+            .await
+            .unwrap();
+    }
+    tx.commit().await.unwrap();
+    // A Web cookie cannot be marked spent: only a refresh secret is ever consumed.
+    assert_eq!(
+        attempt(
+            &database,
+            "UPDATE identity_session_tokens SET used=1 WHERE session_id=?1",
+            vec![text(S1)]
+        )
+        .await,
+        Err(check)
+    );
+    let (sessions, tokens) = sessions_and_tokens(&database).await;
+    assert_eq!((sessions.len(), tokens.len()), (3, 2));
+}
+
+#[tokio::test]
+async fn identity_session_rows_never_move_resurrect_shrink_or_disappear() {
+    let run = TestRun::new("server-schema-session-guards");
+    let database = open(&run.path("server.db"), Intent::Migrate).await.unwrap();
+    session_fixture(&database).await;
+    let tx = database.owner().begin_write().await.unwrap();
+    for (id, channel) in [
+        (S1, "theatre-web"),
+        (S2, "theatre-native"),
+        (S3, "studio-web"),
+    ] {
+        tx.execute(SESSION_INSERT, params_from_iter(session(id, channel)))
+            .await
+            .unwrap();
+    }
+    tx.execute(
+        TOKEN_INSERT,
+        params_from_iter([
+            Value::Blob(vec![1; 32]),
+            Value::Null,
+            text(S1),
+            Value::Integer(600),
+            Value::Integer(0),
+        ]),
+    )
+    .await
+    .unwrap();
+    tx.execute(
+        TOKEN_INSERT,
+        params_from_iter([
+            Value::Blob(vec![2; 32]),
+            Value::Blob(vec![3; 32]),
+            text(S2),
+            Value::Integer(120),
+            Value::Integer(0),
+        ]),
+    )
+    .await
+    .unwrap();
+    tx.execute(
+        "UPDATE identity_sessions SET revoked=1,revoked_reason='replay' WHERE id=?1",
+        [S3],
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    let before = sessions_and_tokens(&database).await;
+
+    let sessions = guard("immutable.identity_sessions");
+    let revocation = guard("immutable.identity_sessions.revocation");
+    let tokens = guard("immutable.identity_session_tokens");
+    let duplicate = |id: &str| {
+        let row = session(id, "theatre-web");
+        format!(
+            "('{id}','alice','theatre-web','cantos-identity','{SUBJECT}','password',10,1,x'{}',900,600,0,NULL)",
+            "e0".repeat(16)
+        )
+        .replace("{row:?}", &format!("{row:?}"))
+    };
+    let columns = "id,actor_id,channel,issuer,subject,assurance,authenticated_at,\
+observed_security_version,observed_instance_epoch,absolute_expires,idle_expires,revoked,revoked_reason";
+    let replays = [
+        format!("INSERT INTO identity_sessions({columns}) VALUES {}", duplicate(S1)),
+        format!("INSERT OR REPLACE INTO identity_sessions({columns}) VALUES {}", duplicate(S3)),
+        format!("REPLACE INTO identity_sessions({columns}) VALUES {}", duplicate(S3)),
+        format!(
+            "INSERT INTO identity_sessions({columns}) VALUES {} ON CONFLICT(id) DO UPDATE SET revoked=0,revoked_reason=NULL",
+            duplicate(S3)
+        ),
+        format!("INSERT INTO identity_sessions({columns}) VALUES {} ON CONFLICT(id) DO NOTHING", duplicate(S1)),
+    ];
+    for sql in &replays {
+        assert_eq!(
+            attempt(&database, sql, Vec::new()).await,
+            Err(sessions.clone()),
+            "{sql}"
+        );
+    }
+    for (sql, fault) in [
+        (format!("UPDATE identity_sessions SET actor_id='bob' WHERE id='{S1}'"), sessions.clone()),
+        (format!("UPDATE identity_sessions SET channel='studio-web' WHERE id='{S1}'"), sessions.clone()),
+        (format!("UPDATE identity_sessions SET authenticated_at=11 WHERE id='{S1}'"), sessions.clone()),
+        (format!("UPDATE identity_sessions SET observed_security_version=2 WHERE id='{S1}'"), sessions.clone()),
+        (
+            format!("UPDATE identity_sessions SET observed_instance_epoch=x'{}' WHERE id='{S1}'", "e1".repeat(16)),
+            sessions.clone(),
+        ),
+        (format!("UPDATE identity_sessions SET absolute_expires=901 WHERE id='{S1}'"), sessions.clone()),
+        (format!("UPDATE identity_sessions SET idle_expires=599 WHERE id='{S1}'"), sessions.clone()),
+        (format!("UPDATE identity_sessions SET id='{}' WHERE id='{S1}'", "00000000-0000-4000-8000-000000000007"), sessions.clone()),
+        (format!("UPDATE identity_sessions SET revoked=0,revoked_reason=NULL WHERE id='{S3}'"), revocation.clone()),
+        (format!("UPDATE identity_sessions SET revoked_reason='logout' WHERE id='{S3}'"), revocation.clone()),
+        (format!("UPDATE identity_sessions SET idle_expires=700 WHERE id='{S3}'"), revocation.clone()),
+        (format!("DELETE FROM identity_sessions WHERE id='{S3}'"), sessions.clone()),
+        ("DELETE FROM identity_sessions".to_owned(), sessions.clone()),
+        (
+            format!("INSERT INTO identity_session_tokens(access_hash,refresh_hash,session_id,expires_at) VALUES(x'{}',NULL,'{S1}',600)", "01".repeat(32)),
+            tokens.clone(),
+        ),
+        (
+            format!("INSERT INTO identity_session_tokens(access_hash,refresh_hash,session_id,expires_at) VALUES(x'{}',x'{}','{S2}',120)", "09".repeat(32), "03".repeat(32)),
+            tokens.clone(),
+        ),
+        (
+            format!("INSERT OR REPLACE INTO identity_session_tokens(access_hash,refresh_hash,session_id,expires_at) VALUES(x'{}',x'{}','{S2}',120)", "09".repeat(32), "03".repeat(32)),
+            tokens.clone(),
+        ),
+        (
+            format!("REPLACE INTO identity_session_tokens(access_hash,refresh_hash,session_id,expires_at) VALUES(x'{}',NULL,'{S1}',900)", "01".repeat(32)),
+            tokens.clone(),
+        ),
+        (format!("UPDATE identity_session_tokens SET session_id='{S3}' WHERE session_id='{S1}'"), tokens.clone()),
+        (format!("UPDATE identity_session_tokens SET access_hash=x'{}' WHERE session_id='{S1}'", "08".repeat(32)), tokens.clone()),
+        (format!("UPDATE identity_session_tokens SET refresh_hash=x'{}' WHERE session_id='{S2}'", "08".repeat(32)), tokens.clone()),
+        (format!("UPDATE identity_session_tokens SET expires_at=599 WHERE session_id='{S1}'"), tokens.clone()),
+        ("DELETE FROM identity_session_tokens".to_owned(), tokens.clone()),
+    ] {
+        assert_eq!(attempt(&database, &sql, Vec::new()).await, Err(fault), "{sql}");
+    }
+    assert_eq!(sessions_and_tokens(&database).await, before);
+
+    // The allowed moves: extend an idle deadline or a cookie expiry, spend a refresh secret,
+    // revoke once. Spending and revocation are then permanent.
+    commit(
+        &database,
+        &[
+            &format!("UPDATE identity_sessions SET idle_expires=700 WHERE id='{S1}'"),
+            &format!("UPDATE identity_session_tokens SET expires_at=700 WHERE session_id='{S1}'"),
+            &format!("UPDATE identity_session_tokens SET used=1 WHERE session_id='{S2}'"),
+            &format!(
+                "UPDATE identity_sessions SET revoked=1,revoked_reason='disabled' WHERE id='{S1}'"
+            ),
+        ],
+    )
+    .await;
+    for (sql, fault) in [
+        (
+            format!("UPDATE identity_session_tokens SET used=0 WHERE session_id='{S2}'"),
+            tokens,
+        ),
+        (
+            format!("UPDATE identity_sessions SET revoked=0,revoked_reason=NULL WHERE id='{S1}'"),
+            revocation,
+        ),
+    ] {
+        assert_eq!(
+            attempt(&database, &sql, Vec::new()).await,
+            Err(fault),
+            "{sql}"
+        );
+    }
+    assert_eq!(
+        values(
+            &database,
+            &format!(
+                "SELECT revoked,revoked_reason,idle_expires FROM identity_sessions WHERE id='{S1}'"
+            )
+        )
+        .await,
+        [[Value::Integer(1), text("disabled"), Value::Integer(700)]]
     );
 }

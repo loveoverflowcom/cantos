@@ -3,23 +3,15 @@
 use super::{
     credential::{Channel, Secrets, Surface},
     decision::{Epoch, ObservedSecurity, RevokeReason, Subject},
+    session::{
+        channel_of, token_expiry, Issued, Rotated, SessionError, SessionRecord, SessionStore,
+    },
 };
 use crate::platform::{
     bearer::core::{self, Lifetime, Rotation},
     postgres::{token_hash, Store, StoreError, Tx},
 };
 use tokio_postgres::{Row, Transaction};
-
-/// Closed storage outcome. Mapped to the generic wire failures at the HTTP boundary.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SessionError {
-    /// Unknown, revoked, spent, wrong-channel or inactive-actor credential.
-    Inactive,
-    Expired,
-    /// A spent refresh secret was presented: the whole family is now revoked.
-    Replay,
-    Unavailable,
-}
 
 impl From<StoreError> for SessionError {
     fn from(_: StoreError) -> Self {
@@ -47,29 +39,6 @@ fn seconds(row: &Row, name: &str) -> Result<u64, SessionError> {
     u64::try_from(row.get::<_, i64>(name)).map_err(unavailable)
 }
 
-fn channel_of(stored: &str) -> Result<Channel, SessionError> {
-    match stored {
-        "theatre-web" => Ok(Channel::Web(Surface::Theatre)),
-        "studio-web" => Ok(Channel::Web(Surface::Studio)),
-        "theatre-native" => Ok(Channel::Native),
-        _ => Err(SessionError::Unavailable),
-    }
-}
-
-/// A live session as stored. Secret material never appears here.
-#[derive(Clone, Debug)]
-pub struct SessionRecord {
-    pub session_id: String,
-    pub actor_id: String,
-    pub channel: Channel,
-    pub observed: ObservedSecurity,
-    pub authenticated_at: u64,
-    pub absolute_expires: u64,
-    pub idle_expires: u64,
-    /// Expiry of the presented access/cookie secret.
-    pub token_expires: u64,
-}
-
 fn record(row: &Row) -> Result<SessionRecord, SessionError> {
     let subject =
         Subject::from_hex(&row.get::<_, String>("subject")).ok_or(SessionError::Unavailable)?;
@@ -78,7 +47,7 @@ fn record(row: &Row) -> Result<SessionRecord, SessionError> {
     Ok(SessionRecord {
         session_id: row.get("id"),
         actor_id: row.get("actor_id"),
-        channel: channel_of(&row.get::<_, String>("channel"))?,
+        channel: channel_of(&row.get::<_, String>("channel")).ok_or(SessionError::Unavailable)?,
         observed: ObservedSecurity {
             subject,
             epoch,
@@ -97,12 +66,6 @@ FROM identity_session_tokens t JOIN identity_sessions s ON s.id=t.session_id JOI
 WHERE t.access_hash=$1 AND s.channel=$2 AND NOT s.revoked AND NOT t.used AND a.active \
 AND t.expires_at>extract(epoch FROM clock_timestamp()) AND s.idle_expires>extract(epoch FROM clock_timestamp()) \
 AND s.absolute_expires>extract(epoch FROM clock_timestamp())";
-
-pub struct Issued {
-    pub actor_id: String,
-    pub session_id: String,
-    pub lifetime: Lifetime,
-}
 
 /// Binds the exact Identity subject to its ActorId (idempotent, never by email) and writes the
 /// session in one transaction. `observed` is what a fresh `GetSecurityState` confirmed.
@@ -160,15 +123,6 @@ pub(super) async fn issue(
         session_id: id,
         lifetime,
     })
-}
-
-/// Web: the cookie lives until the idle deadline (renewal extends it). Native: the access
-/// secret lives for the access window and the refresh secret carries the idle deadline.
-fn token_expiry(channel: Channel, lifetime: Lifetime) -> u64 {
-    match channel {
-        Channel::Web(_) => lifetime.idle,
-        Channel::Native => lifetime.access,
-    }
 }
 
 async fn insert_token(
@@ -440,12 +394,6 @@ pub(super) async fn peek_refresh(
     record(&row)
 }
 
-pub struct Rotated {
-    pub actor_id: String,
-    pub lifetime: Lifetime,
-    pub authenticated_at: u64,
-}
-
 /// Second leg: spend the refresh secret exactly once and issue the next pair in one
 /// transaction. The family's absolute deadline, ActorId and authentication time never move.
 pub(super) async fn rotate(
@@ -562,4 +510,69 @@ pub(super) async fn renew_web(
         },
         lifetime,
     ))
+}
+
+impl SessionStore for Store {
+    async fn bind(&self, subject: Subject) -> Result<String, SessionError> {
+        bind(self, subject).await
+    }
+
+    async fn issue(
+        &self,
+        channel: Channel,
+        observed: &ObservedSecurity,
+        authenticated_at: u64,
+        secrets: &Secrets,
+    ) -> Result<Issued, SessionError> {
+        issue(self, channel, observed, authenticated_at, secrets).await
+    }
+
+    async fn access(&self, token: &str, channel: Channel) -> Result<SessionRecord, SessionError> {
+        access(self, token, channel).await
+    }
+
+    async fn session_id_of(
+        &self,
+        token: &str,
+        channel: Channel,
+    ) -> Result<Option<String>, SessionError> {
+        session_id_of(self, token, channel).await
+    }
+
+    async fn revoke(&self, session_id: &str, reason: RevokeReason) -> Result<(), SessionError> {
+        revoke(self, session_id, reason).await
+    }
+
+    async fn logout(&self, token: &str, channel: Channel) -> Result<(), SessionError> {
+        logout(self, token, channel).await
+    }
+
+    async fn revoke_refresh(&self, refresh: &str, session_id: &str) -> Result<(), SessionError> {
+        revoke_refresh(self, refresh, session_id).await
+    }
+
+    async fn peek_refresh(
+        &self,
+        refresh: &str,
+        session_id: &str,
+    ) -> Result<SessionRecord, SessionError> {
+        peek_refresh(self, refresh, session_id).await
+    }
+
+    async fn rotate(
+        &self,
+        refresh: &str,
+        session_id: &str,
+        secrets: &Secrets,
+    ) -> Result<Rotated, SessionError> {
+        rotate(self, refresh, session_id, secrets).await
+    }
+
+    async fn renew_web(
+        &self,
+        token: &str,
+        channel: Channel,
+    ) -> Result<(SessionRecord, Lifetime), SessionError> {
+        renew_web(self, token, channel).await
+    }
 }

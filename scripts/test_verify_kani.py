@@ -104,6 +104,36 @@ class ValidateOutputTest(unittest.TestCase):
         self.assertEqual(result["checks"], 3)
         self.assertEqual(set(result["unreachable"]), set())
 
+    def test_a_quoted_description_wrapped_across_lines_is_one_property(self):
+        # Kani 0.68.0 prints the stringified expression of a rustfmt-wrapped `assert_eq!`
+        # across two lines inside one quoted description (seen on identity-mailbox-proof).
+        wrapped = VALID_OUTPUT.replace(
+            '"fixture property"',
+            '"assertion failed: consumed.plan_confirmation(proof_id, binding,\n'
+            'ProofAction::ExplicitConfirmation, now) == Err(ProofDenied::Consumed)"',
+            1,
+        )
+        self.assertNotEqual(wrapped, VALID_OUTPUT)
+        result = self.validate(wrapped)
+        self.assertEqual(result["checks"], 3)
+        self.assertEqual(result["covers"], 2)
+
+    def test_a_wrapped_description_cannot_absorb_a_missing_field_or_block(self):
+        unterminated = VALID_OUTPUT.replace('"fixture property"', '"open\nquote', 1)
+        hidden_status = VALID_OUTPUT.replace(
+            '"fixture property"', '"wrapped\n\t - Status: FAILURE\n"', 1
+        )
+        without_location = VALID_OUTPUT.replace(
+            '"fixture property"\n\t - Location: services/cantos-server/src/contexts/catalog/'
+            "domain/revision.rs:100:9 in function " + HARNESS + "\n",
+            '"wrapped\n',
+            1,
+        )
+        for text in (unterminated, hidden_status, without_location):
+            with self.subTest(text=text[:120]):
+                self.assertNotEqual(text, VALID_OUTPUT)
+                self.assert_rejected(text)
+
     def test_success_markers_without_check_blocks_are_rejected(self):
         self.assert_rejected(f"Checking harness {HARNESS}...\n" + SUMMARY)
 

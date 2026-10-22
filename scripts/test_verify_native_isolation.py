@@ -1,5 +1,6 @@
 """Deterministic guard regressions, without infrastructure, credentials or production binaries."""
 
+import argparse
 import contextlib
 import io
 import json
@@ -91,6 +92,101 @@ class EnvironmentTests(PrivateFixture):
         path.write_text("unexpected file", encoding="utf-8")
         with self.assertRaisesRegex(guard.GuardFailure, "unexpected executable or file"):
             guard.audit_path(environment)
+
+
+@unittest.skipUnless(sys.platform in ("darwin", "linux"), "requires POSIX group supervision")
+class IdentityChildTests(PrivateFixture):
+    """The optional Identity child is one exact, digest-bound input; it never widens anything."""
+
+    def run_direct(self, binary, child):
+        directory = self.directory / "run"
+        directory.mkdir(mode=0o700)
+        result = guard.envelope()
+        args = argparse.Namespace(test_binary=str(binary), test=TEST, timeout_seconds=10,
+                                  identity_binary=None if child is None else str(child))
+        guard.run_target(args, directory, result)
+        return result
+
+    def libtest(self, name, expected_child, body=""):
+        return self.executable(name, "import os, sys\nfrom pathlib import Path\n"
+                               "assert sys.argv[1:] == ['--exact', " + repr(TEST) + ", '--test-threads=1']\n"
+                               "assert os.environ.get(" + repr(guard.IDENTITY_KEY) + ") == "
+                               + repr(expected_child) + "\n" + body
+                               + "sys.stdout.buffer.write(" + repr(PASS) + ")\n")
+
+    def test_the_supplied_child_is_the_only_added_key_and_is_bound_by_digest(self):
+        child = self.executable("identity", "pass\n")
+        binary = self.libtest("libtest", str(child))
+        result = self.run_direct(binary, child)
+        self.assertEqual(result["tests_passed"], 1)
+        self.assertEqual(result["binary_sha256"], guard.sha256(binary))
+        self.assertEqual(result["identity_binary_sha256"], guard.sha256(child))
+        self.assertNotEqual(result["identity_binary_sha256"], result["binary_sha256"])
+        self.assertEqual(result["controls"]["credential"], "PASS")
+
+    def test_without_a_child_the_key_never_reaches_the_test(self):
+        binary = self.libtest("libtest", None)
+        result = self.run_direct(binary, None)
+        self.assertEqual(result["tests_passed"], 1)
+        self.assertIsNone(result["identity_binary_sha256"])
+
+    def test_a_test_that_did_not_receive_the_bound_child_fails(self):
+        child = self.executable("identity", "pass\n")
+        other = self.executable("other-identity", "pass\n")
+        binary = self.libtest("libtest", str(other))
+        with self.assertRaisesRegex(guard.GuardFailure, "exited unsuccessfully"):
+            self.run_direct(binary, child)
+
+    def test_a_child_changed_during_the_run_never_retains_success(self):
+        child = self.executable("identity", "pass\n")
+        binary = self.libtest("libtest", str(child),
+                              "Path(os.environ[" + repr(guard.IDENTITY_KEY) + "]).write_text('changed')\n")
+        with self.assertRaisesRegex(guard.GuardFailure, "identity binary changed during execution"):
+            self.run_direct(binary, child)
+
+    def test_zero_selected_and_failing_tests_propagate_with_a_child(self):
+        child = self.executable("identity", "pass\n")
+        empty = self.executable("empty", "import sys\nsys.stdout.buffer.write("
+                                + repr(PASS.replace(b"1 passed", b"0 passed")) + ")\n")
+        with self.assertRaisesRegex(guard.GuardFailure, "one passing test"):
+            self.run_direct(empty, child)
+        failing = self.executable("failing", "import sys\nsys.exit(101)\n")
+        shutil.rmtree(self.directory / "run")
+        with self.assertRaisesRegex(guard.GuardFailure, "exited unsuccessfully"):
+            self.run_direct(failing, child)
+
+    def test_the_test_binary_cannot_double_as_the_child(self):
+        binary = self.libtest("libtest", None)
+        with self.assertRaisesRegex(guard.GuardFailure, "must differ"):
+            self.run_direct(binary, binary)
+
+    def test_malformed_children_are_refused_before_anything_runs(self):
+        plain = self.directory / "plain"
+        plain.write_text("no executable", encoding="utf-8")
+        real = self.executable("real", "pass\n")
+        alias = self.directory / "alias"
+        alias.symlink_to(real)
+        for path in ("relative", self.directory, plain, alias, self.directory / "missing"):
+            with self.subTest(path=str(path)):
+                with self.assertRaisesRegex(guard.GuardFailure, "identity binary must be an absolute"):
+                    guard.identity_binary(str(path))
+        self.assertIsNone(guard.identity_binary(None))
+
+    def test_the_environment_audit_requires_exactly_the_supplied_child(self):
+        child = self.executable("identity", "pass\n")
+        directory = self.directory / "env"
+        directory.mkdir(mode=0o700)
+        environment = guard.private_environment(directory, child)
+        self.assertEqual(set(environment), guard.ENVIRONMENT_KEYS | {guard.IDENTITY_KEY})
+        self.assertEqual(environment[guard.IDENTITY_KEY], str(child))
+        guard.audit_environment(environment, child)
+        self.assertEqual(guard.negative_controls(environment, directory, child)["credential"], "PASS")
+        for candidate, expected in ((environment, None),
+                                    (dict(environment, **{guard.IDENTITY_KEY: "/elsewhere"}), child),
+                                    ({k: v for k, v in environment.items() if k != guard.IDENTITY_KEY}, child)):
+            with self.subTest(keys=sorted(candidate)):
+                with self.assertRaisesRegex(guard.GuardFailure, "credential or unapproved"):
+                    guard.audit_environment(candidate, expected)
 
 
 class ParsingTests(unittest.TestCase):
@@ -423,6 +519,20 @@ class MainTests(PrivateFixture):
                 self.assertEqual(result["status"], "FAIL")
                 self.assertEqual(result["reason"], "test binary must be an absolute regular executable file")
                 self.assertNotIn(str(self.directory), json.dumps(result))
+
+    def test_a_malformed_identity_child_fails_the_whole_invocation(self):
+        real = self.executable("real", "pass\n")
+        plain = self.directory / "plain"
+        plain.write_text("no executable", encoding="utf-8")
+        for path in ("relative", plain):
+            with self.subTest(path=str(path)):
+                code, result = self.invoke(["--test-binary", str(real), "--test", TEST,
+                                            "--identity-binary", str(path)])
+                self.assertEqual(code, 1)
+                self.assertEqual(result["status"], "FAIL")
+                self.assertEqual(result["schema_version"], guard.SCHEMA_VERSION)
+                self.assertIsNone(result["identity_binary_sha256"])
+                self.assertEqual(result["reason"], "identity binary must be an absolute regular executable file")
 
     @unittest.skipUnless(sys.platform == "darwin", "macOS best-effort path")
     def test_macos_runs_controls_and_exact_test_but_never_reports_full_pass(self):

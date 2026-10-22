@@ -10,12 +10,15 @@ pub mod config;
 pub mod credential;
 pub mod decision;
 pub(crate) mod postgres;
+pub mod session;
+#[cfg(any(test, feature = "turso-candidate"))]
+pub mod turso;
 
+pub use self::session::{SessionError, SessionRecord, SessionStore};
 use self::{
     client::{IdentityClient, RpcFault},
     credential::{Channel, Secrets, Surface},
     decision::{decide_admission, decide_issue, Admission, IssueRefusal, RevokeReason, Subject},
-    postgres::{SessionError, SessionRecord},
 };
 use crate::platform::{
     bearer::core::Lifetime, postgres::Store, theatre_registration::domain::PeerPolicy,
@@ -61,7 +64,8 @@ fn session(error: SessionError) -> AuthFailure {
         SessionError::Inactive | SessionError::Expired | SessionError::Replay => {
             AuthFailure::Unauthenticated
         }
-        SessionError::Unavailable => AuthFailure::Unavailable,
+        // An unknown commit is never success; the person retries, which an adapter reconciles.
+        SessionError::Unavailable | SessionError::Unknown => AuthFailure::Unavailable,
     }
 }
 
@@ -132,9 +136,9 @@ impl IdentityAuth {
     /// response is the identical command (Identity then answers `REPLAYED`), while a different
     /// proof or password is refused. Binding the subject to its ActorId is idempotent and runs
     /// on replay too, so a half-finished completion resumes instead of stranding the account.
-    pub async fn complete_signup(
+    pub async fn complete_signup<S: SessionStore>(
         &self,
-        store: &Store,
+        store: &S,
         command: SignupCommand,
         client: IpAddr,
     ) -> Result<bool, AuthFailure> {
@@ -150,15 +154,15 @@ impl IdentityAuth {
             )
             .await
             .map_err(rpc)?;
-        postgres::bind(store, done.subject).await.map_err(session)?;
+        store.bind(done.subject).await.map_err(session)?;
         Ok(done.replayed)
     }
 
     /// One attempt, never retried. Success needs: a verified fact bound to this operation and
     /// purpose, the Studio roster for Studio, then a *fresh* security state that still matches.
-    pub async fn login(
+    pub async fn login<S: SessionStore>(
         &self,
-        store: &Store,
+        store: &S,
         channel: Channel,
         email: &str,
         password: &str,
@@ -190,7 +194,8 @@ impl IdentityAuth {
         let authenticated_at = u64::try_from(fact.authenticated_at_unix_micros / 1_000_000)
             .map_err(|_| AuthFailure::Unavailable)?;
         let secrets = Secrets::new(channel).ok_or(AuthFailure::Unavailable)?;
-        let issued = postgres::issue(store, channel, &observed, authenticated_at, &secrets)
+        let issued = store
+            .issue(channel, &observed, authenticated_at, &secrets)
             .await
             .map_err(session)?;
         Ok(Login {
@@ -205,23 +210,25 @@ impl IdentityAuth {
     /// Live session plus a **fresh** Identity read. Any change in subject, account state,
     /// instance epoch or security version revokes the whole family durably; Identity being
     /// unreachable fails closed *without* revoking (an outage is not a security change).
-    pub async fn authenticate(
+    pub async fn authenticate<S: SessionStore>(
         &self,
-        store: &Store,
+        store: &S,
         token: &str,
         channel: Channel,
     ) -> Result<SessionRecord, AuthFailure> {
         if credential::access_channel(token) != Some(channel) {
             return Err(AuthFailure::Unauthenticated);
         }
-        let record = postgres::access(store, token, channel)
-            .await
-            .map_err(session)?;
+        let record = store.access(token, channel).await.map_err(session)?;
         self.confirm(store, &record).await?;
         Ok(record)
     }
 
-    async fn confirm(&self, store: &Store, record: &SessionRecord) -> Result<(), AuthFailure> {
+    async fn confirm<S: SessionStore>(
+        &self,
+        store: &S,
+        record: &SessionRecord,
+    ) -> Result<(), AuthFailure> {
         if record.channel.surface() == Surface::Studio
             && !self.studio.contains(&record.observed.subject)
         {
@@ -231,8 +238,9 @@ impl IdentityAuth {
             Ok(current) => current,
             // An unknown subject is a security fact (a restored older file), not an outage.
             Err(RpcFault::NotFound) => {
-                let _ =
-                    postgres::revoke(store, &record.session_id, RevokeReason::SubjectMissing).await;
+                let _ = store
+                    .revoke(&record.session_id, RevokeReason::SubjectMissing)
+                    .await;
                 return Err(AuthFailure::Unauthenticated);
             }
             Err(fault) => return Err(rpc(fault)),
@@ -241,7 +249,7 @@ impl IdentityAuth {
             Admission::Admit => Ok(()),
             Admission::Revoke(reason) => {
                 // Best effort: the refusal below does not depend on this write succeeding.
-                let _ = postgres::revoke(store, &record.session_id, reason).await;
+                let _ = store.revoke(&record.session_id, reason).await;
                 Err(AuthFailure::Unauthenticated)
             }
         }
@@ -289,65 +297,61 @@ impl IdentityAuth {
     }
 
     /// Nonsecret fence input for guarded logout; `None` for an unknown secret.
-    pub async fn session_id_of(
+    pub async fn session_id_of<S: SessionStore>(
         &self,
-        store: &Store,
+        store: &S,
         token: &str,
         channel: Channel,
     ) -> Result<Option<String>, AuthFailure> {
         if credential::access_channel(token) != Some(channel) {
             return Ok(None);
         }
-        postgres::session_id_of(store, token, channel)
-            .await
-            .map_err(session)
+        store.session_id_of(token, channel).await.map_err(session)
     }
 
     /// Local, durable and independent of Identity being online.
-    pub async fn logout(
+    pub async fn logout<S: SessionStore>(
         &self,
-        store: &Store,
+        store: &S,
         token: &str,
         channel: Channel,
     ) -> Result<(), AuthFailure> {
         if credential::access_channel(token) != Some(channel) {
             return Err(AuthFailure::Unauthenticated);
         }
-        postgres::logout(store, token, channel)
-            .await
-            .map_err(session)
+        store.logout(token, channel).await.map_err(session)
     }
 
     /// Extends the idle deadline of a Web cookie session (never past its absolute deadline).
-    pub async fn renew_web(
+    pub async fn renew_web<S: SessionStore>(
         &self,
-        store: &Store,
+        store: &S,
         token: &str,
         channel: Channel,
     ) -> Result<(SessionRecord, Lifetime), AuthFailure> {
         self.authenticate(store, token, channel).await?;
-        postgres::renew_web(store, token, channel)
-            .await
-            .map_err(session)
+        store.renew_web(token, channel).await.map_err(session)
     }
 
     /// Native renewal. A spent secret revokes the family before Identity is consulted; the
     /// subject's state is then re-read (outside any transaction) before the next pair is cut.
-    pub async fn refresh_native(
+    pub async fn refresh_native<S: SessionStore>(
         &self,
-        store: &Store,
+        store: &S,
         refresh: &str,
         session_id: &str,
     ) -> Result<(String, u64, Lifetime, Secrets), AuthFailure> {
         if !credential::is_refresh(refresh) || uuid::Uuid::parse_str(session_id).is_err() {
             return Err(AuthFailure::Unauthenticated);
         }
-        let peek = postgres::peek_refresh(store, refresh, session_id)
+        let peek = store
+            .peek_refresh(refresh, session_id)
             .await
             .map_err(session)?;
         self.confirm(store, &peek).await?;
         let secrets = Secrets::new(Channel::Native).ok_or(AuthFailure::Unavailable)?;
-        let rotated = postgres::rotate(store, refresh, session_id, &secrets)
+        let rotated = store
+            .rotate(refresh, session_id, &secrets)
             .await
             .map_err(session)?;
         Ok((
@@ -358,16 +362,17 @@ impl IdentityAuth {
         ))
     }
 
-    pub async fn revoke_refresh(
+    pub async fn revoke_refresh<S: SessionStore>(
         &self,
-        store: &Store,
+        store: &S,
         refresh: &str,
         session_id: &str,
     ) -> Result<(), AuthFailure> {
         if !credential::is_refresh(refresh) || uuid::Uuid::parse_str(session_id).is_err() {
             return Err(AuthFailure::Unauthenticated);
         }
-        postgres::revoke_refresh(store, refresh, session_id)
+        store
+            .revoke_refresh(refresh, session_id)
             .await
             .map_err(session)
     }
@@ -461,6 +466,7 @@ mod tests {
             (SessionError::Expired, AuthFailure::Unauthenticated),
             (SessionError::Replay, AuthFailure::Unauthenticated),
             (SessionError::Unavailable, AuthFailure::Unavailable),
+            (SessionError::Unknown, AuthFailure::Unavailable),
         ] {
             assert_eq!(session(error), expected);
         }

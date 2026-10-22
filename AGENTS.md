@@ -208,6 +208,16 @@ executable and supported Linux network negative controls. It never builds or pro
 macOS reports network isolation and overall acceptance as `UNSUPPORTED`. Its regression tests
 belong to existing repository/Rust gates. Read the [guard boundary](docs/assurance/native-isolation.md)
 before using a receipt: it is not two-binary native E2E, authentication or Kani evidence.
+`--identity-binary PATH` binds a prebuilt `cantos-identity` child by digest and passes only that
+path as `CANTOS_TEST_IDENTITY_BINARY`.
+
+The explicit `cargo xtask verify native-auth-qualification [--kani] [--report PATH]` is the
+manual #336 Linux campaign ([boundary](docs/assurance/native-isolation.md#native-auth-linux-qualification-campaign)):
+builds first, then guarded exact native auth tests, the native auth models with pure-core
+conformance and, with `--kani`, the Identity kernels, each layer reported separately. Gates,
+preflight and ordinary CI never select it; its D1 run is the dispatch-only job of
+`repository-checks.yml`. The candidate journey alone needs a prebuilt
+`CANTOS_TEST_IDENTITY_BINARY` and never builds the executable.
 
 The table maps affected scope to checks at the applicable milestone, not a sequence to run
 after every edit. Preflight already includes repository/format and selected suites; do not
@@ -221,7 +231,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
 | Identity pure security core | Existing `rust` gate includes `cantos-identity`; metadata-based preflight selects its lint/tests. Focused primitive: `cargo test --locked -p cantos-identity`. Optional `verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof` needs actual D1 Ubuntu x86_64 evidence; macOS tests are not Kani evidence. |
 | Forge worker/process boundary | `cargo xtask verify forge` (Rust producer plus Node wrapper tests; no provider or cloud calls) |
-| Embedded Turso foundation and Identity security persistence | `cargo xtask verify turso` (Identity `persistence` clippy/tests, shared-store file-backed tests and engine capability report; no server, container or cloud service). Also lints and tests the `service` feature (the executable, real Turso files, real Argon2id, a run-owned loopback SMTP sink) and `cantos-identity-rpc`. Focused primitives: `cargo test --locked -p cantos-identity --features persistence`, `cargo test --locked -p cantos-identity --features service`. |
+| Embedded Turso foundation and Identity security persistence | `cargo xtask verify turso` (Identity `persistence` clippy/tests, shared-store file-backed tests and engine capability report; no server, container or cloud service). Also lints and tests the `service` feature (the executable, real Turso files, real Argon2id, a run-owned loopback SMTP sink) and `cantos-identity-rpc`, and lints `cantos-server --features turso-candidate` (the candidate journey target compiles; it runs only with a prebuilt Identity executable). Focused primitives: `cargo test --locked -p cantos-identity --features persistence`, `cargo test --locked -p cantos-identity --features service`. |
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observers: private audio admission and the native Identity mailbox-proof and session-admission capabilities, with a disclosed synthetic shell; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |

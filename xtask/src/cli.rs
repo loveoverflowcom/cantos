@@ -197,6 +197,8 @@ pub enum Task {
 pub enum VerifySuite {
     /// Isolate exactly one prebuilt native Rust test; no build, infrastructure or installation.
     NativeIsolation(crate::native_isolation::NativeIsolationArgs),
+    /// Manual #336 Linux campaign: build first, then run the native auth layers under the guard.
+    NativeAuthQualification(crate::native_qualification::QualificationArgs),
     /// Explicit local Theatre registration acceptance; never selected by preflight or CI.
     TheatreAuth {
         #[arg(long, value_enum)]

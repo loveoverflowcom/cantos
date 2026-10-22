@@ -222,6 +222,21 @@ business data**, classified `server` in the
    email is never an identity key.
 6. Conformance for #333 is the PostgreSQL suites `identity_password_postgres`,
    `identity_password_facts_postgres` and `schema_postgres`; a Turso port must keep each assertion.
+7. The uncomposed Turso candidate ([mapping](../../docs/architecture/server-turso-schema.md#identity-session-mapping))
+   implements the same `SessionStore` port behind the unchanged orchestration and keeps invariants
+   1–5 in its schema and file-backed tests, adding a bound-actor guard, live-session token issue
+   and no-delete/no-replace guards. It does **not** yet keep every assertion of those suites:
+   - real executable (journey): signup, completion replay, login, fresh security read, exact
+     binding, Web renewal, native rotation and replay, the Studio roster, logout, refresh
+     cleanup, an outage without revocation, reopen;
+   - scripted Identity (mock-integration, adapter unit tests): durable revocation with its reason
+     for every security change and an unknown subject, no resurrection, a change between fact and
+     issue cutting nothing, concurrent first logins binding one actor, renewal racing logout, a
+     slow Identity failing closed without revoking;
+   - still PostgreSQL-only: every HTTP assertion (status projection, cookies, Origin/CSRF, the
+     409 session fence, the admission lease under dispatch), operator-bound actor reuse, the
+     Studio cookie name and legacy logout cases, a subject disabled in the real Identity file, and
+     the runtime-role privilege test (Turso has no roles; its schema guards are tested instead).
 
 ## Verification
 

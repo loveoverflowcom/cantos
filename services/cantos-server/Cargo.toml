@@ -67,6 +67,13 @@ proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 name = "validate-script"
 path = "src/bin/validate-script.rs"
 
+# The real Identity executable with the candidate Turso Actor Registry and sessions (#333/#335).
+# It needs a prebuilt `CANTOS_TEST_IDENTITY_BINARY` and never builds one; see the target's header.
+[[test]]
+name = "identity_auth_candidate"
+path = "tests/identity_auth_candidate.rs"
+required-features = ["turso-candidate"]
+
 [lints.rust]
 # Kani injects its crate only for cfg(kani); ordinary Rust/WASM builds retain no proof dependency.
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

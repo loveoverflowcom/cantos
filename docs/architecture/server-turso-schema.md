@@ -15,7 +15,8 @@ default build links the engine. Feature unification is a known blocker for the f
 
 | Slice | Tables | State |
 | --- | --- | --- |
-| 333.4 actor registry | `actors`, `actor_external_identities` | candidate adapter [`TursoIdentityRegistry`](../../services/cantos-server/src/platform/identity/turso.rs) with file-backed tests |
+| 333.4 actor registry (version 1) | `actors`, `actor_external_identities` | candidate adapter [`TursoIdentityRegistry`](../../services/cantos-server/src/platform/identity/turso.rs) with file-backed tests |
+| #335 provider-free sessions (version 2) | `identity_sessions`, `identity_session_tokens` | candidate adapter [`TursoSessions`](../../services/cantos-server/src/platform/identity_auth/turso.rs) behind the shared [`SessionStore`](../../services/cantos-server/src/platform/identity_auth/session.rs) port, with file-backed tests and a [real Identity journey](../../services/cantos-server/tests/identity_auth_candidate.rs) |
 | every other `server` disposition | remaining tables of the [manifest](../../services/cantos-server/schema/native-table-ownership.json) | pending |
 
 ## One registry, one owner
@@ -59,6 +60,51 @@ and the [registry contract](identity-registry.md#identity-contract). Tests live 
 | uncommitted writes are invisible to other sessions | separate `query_only` reader connections | `a_held_writer_orders_competing_requests_and_readers_never_see_uncommitted_bindings` |
 | checksummed registry, read-only serving startup, one writer process | the Server registry above and the owner's sidecar lock | `a_new_file_holds_only_the_registry_metadata_and_the_actor_registry_slice`, `foreign_diverged_newer_other_epoch_and_non_database_files_are_refused_unchanged`, `a_second_owner_is_refused_while_the_file_is_open` |
 
+## Identity session mapping
+
+Source rules are [`0004_identity_sessions.sql`](../../services/cantos-server/schema/0004_identity_sessions.sql),
+the [PostgreSQL adapter](../../services/cantos-server/src/platform/identity_auth/postgres.rs) and
+[Identity auth v1](../../packages/contracts/identity-auth-v1.md). The orchestration
+(`IdentityAuth`: fact validation, roster, fresh security reads, `decide_issue`/`decide_admission`,
+`SessionPolicy` and rotation) is shared: both adapters implement the one `SessionStore` port, so
+no decision is copied. Schema tests live in [`platform/turso/tests.rs`](../../services/cantos-server/src/platform/turso/tests.rs),
+adapter tests in [`identity_auth/turso/tests.rs`](../../services/cantos-server/src/platform/identity_auth/turso/tests.rs);
+deadlines are Unix **seconds** (the `SessionPolicy` unit), taken from the trusted clock by a
+checked `div_euclid` of its microseconds.
+
+| Source rule | Turso mechanism | Test |
+| --- | --- | --- |
+| `id uuid`; the shell parses a client's session id with `Uuid::parse_str` and PostgreSQL compared the cast | canonical lowercase hyphenated `TEXT` with a fail-closed `REGEXP` CHECK; the adapter canonicalizes every spelling both parsers admit (case, braces, no hyphens) before comparing, and names no family for `urn:uuid:` (PostgreSQL's cast refused it with `503`; Turso answers as an unknown credential); `revoke` of an unparsable id is a no-op where PostgreSQL errored, and only stored canonical ids reach it; the decoder refuses a non-canonical row | `identity_session_rows_admit_only_bound_well_formed_values`, `wrong_subject_actor_or_channel_and_an_inactive_actor_never_admit`, `corrupt_projections_are_refused_by_the_production_decoders` |
+| channel, issuer, subject `^[0-9a-f]{32}$`, assurance, `authenticated_at > 0`, version `> 0`, 16-byte epoch, `idle <= absolute`, `revoked = (reason IS NOT NULL)`, the reason set | the same CHECKs on STRICT columns, plus **added** nonzero subject and epoch (the decoders already refused zero) | `identity_session_rows_admit_only_bound_well_formed_values` (each CHECK reached past the binding guard) |
+| `FOREIGN KEY (issuer, subject)` to the registry and `actor_id` to `actors` | both foreign keys, plus an **added** `identity_sessions_bound_actor` guard: the session's actor is exactly the one its issuer/subject is bound to (`cantos:identity_sessions.binding`) | `identity_session_rows_admit_only_bound_well_formed_values` |
+| `identity_session_register` (advisory lock, `FOR SHARE` actor, inactive → no session) | the Actor Registry's own transaction-aware [`register_in`](../../services/cantos-server/src/platform/identity/turso.rs) inside the session's `BEGIN IMMEDIATE`, so binding, session and first secret commit or roll back together; `ActorInactive` → `Inactive` | `binding_and_issue_are_one_unit_and_any_failed_write_rolls_both_back`, `wrong_subject_actor_or_channel_and_an_inactive_actor_never_admit` |
+| only SHA-256 digests; Web has no refresh digest; `NOT used OR refresh_hash IS NOT NULL` | 32-byte `BLOB` CHECKs and the same CHECK; an **added** `identity_session_tokens_issue` guard: a new secret is unspent and belongs to a live session of its own channel shape | `stored_rows_hold_only_digests_of_the_secrets`, `identity_session_rows_admit_only_bound_well_formed_values` |
+| `identity_session_guard`: revocation permanent, binding/time/snapshot/absolute immutable, idle never decreases, consumption permanent, token binding immutable | row-level `BEFORE UPDATE` guards with the same predicates, plus **added** no-delete guards and a non-decreasing token expiry; `BEFORE INSERT … WHEN EXISTS` refuses an insert over an existing id, access digest or refresh digest, because `REPLACE` deletes without firing delete triggers | `identity_session_rows_never_move_resurrect_shrink_or_disappear` (UPDATE, DELETE, upsert, `INSERT OR REPLACE`, `REPLACE INTO`), `every_deadline_is_exclusive_and_no_renewal_moves_the_absolute_one` (a clock read that went back cannot shorten idle) |
+| `FOR UPDATE`/`FOR SHARE` of the family and actor on renew, peek and rotate | facts, `core::rotate` and writes inside one `BEGIN IMMEDIATE`; guarded `UPDATE`s must change exactly one row | `concurrent_refreshes_spend_once_and_the_loser_revokes_the_family`, `issue_access_renewal_rotation_and_logout_follow_the_port_contract_on_a_real_file` |
+| single-use refresh; spent-secret replay revokes the family | `used` flag spent in the rotation unit; replay at peek or rotate commits `revoked_reason='replay'` before answering | `issue_access_renewal_rotation_and_logout_follow_the_port_contract_on_a_real_file`, `revocation_is_idempotent_keeps_its_first_reason_and_survives_reopen` |
+| `clock_timestamp()` in SQL; post-lock clock recheck | the transaction's trusted stamp, taken after the writer is held; nothing waits inside a unit, so the recheck has no counterpart; reads use one clock reading | `every_deadline_is_exclusive_and_no_renewal_moves_the_absolute_one` |
+| PostgreSQL's admission lease (`admit`: family/actor share-locked through `dispatch`) | **not** translated into a writer held across a callback. `admit_in` re-admits inside a business write's own transaction, which the serialized writer orders against logout and deactivation; a read-only dispatch is admitted at its reader snapshot only | `a_business_write_admits_inside_its_unit_and_logout_linearizes_around_it` |
+| commit failures map to `Unavailable` | `CommitFault::Rejected` → `Unavailable`; `Unknown` → the **added** `SessionError::Unknown` (HTTP `503`), never retried: a lost rotation acknowledgement may have spent the secret, and the client's retry is a replay | `a_lost_acknowledgement_is_unknown_and_reconciles_without_a_retry` |
+| a rejected statement leaves no partial effect | every unit rolls back on any failed step; a failed revoke write is reported and leaves the session unrevoked | `binding_and_issue_are_one_unit_and_any_failed_write_rolls_both_back` |
+| invalid stored rows are never served | checked decoders through `ActorId`, `channel_of`, `Subject`, `Epoch` and nonnegative storage integers; a second row is corrupt | `corrupt_projections_are_refused_by_the_production_decoders` |
+| version 1 files | the registry appends version 2; `Serve` refuses a version-1 file as `PendingMigrations` without changing it, and `Migrate` upgrades it in place keeping its rows | `an_actor_registry_file_upgrades_to_the_session_slice_and_keeps_its_rows` |
+
+The [journey](../../services/cantos-server/tests/identity_auth_candidate.rs) composes the real
+`cantos-identity` executable (its own `identity.db`, authenticated UDS, run-owned loopback SMTP)
+with the production `IdentityAuth` and these adapters on a real `server.db`: signup by the mailed
+link, explicit completion and its replay, password login, a fresh security read, the exact
+binding, Web renewal, native rotation and replay, the Studio roster, logout, refresh cleanup, an
+Identity outage that fails closed without revoking, and reopen. The same orchestration over the
+facts suite's scripted Identity (mock-integration, in the adapter tests) covers durable
+revocation with its reason for every security change, a change between fact and issue,
+concurrent first logins, renewal racing logout and a slow Identity. The journey needs a prebuilt
+`CANTOS_TEST_IDENTITY_BINARY` and runs under the [isolation guard](../assurance/native-isolation.md#native-auth-linux-qualification-campaign).
+It is not HTTP, cookie transport or production Server binary evidence.
+
+The [inventory mismatches](../../specs/behavior/inventory.md) are unchanged by this slice: a
+reply naming another subject is still a protocol failure without revocation, a failed revoke
+write is redone only while Identity still differs, and roster removal/re-add is undecided.
+
 ## Trust shift
 
 PostgreSQL granted no registry privilege to `PUBLIC` or `cantos_app`; only explicit operator
@@ -74,6 +120,10 @@ model, and application tests do not replace those database barriers.
 
 - Runtime composition, `cantos-migrate` for Turso, startup refusal in the binary and error mapping
   into `StoreError` (#333.2); the remaining schema and its foreign keys to `actors` (#333.3, #333.5–8).
+- Session admission inside real business writes: `admit_in` has no consumer until the context
+  adapters exist; Studio data operations (`admit_studio`) and the listener port still lease
+  through PostgreSQL. The read-only dispatch linearization difference must be accepted at the flip.
+- Server HTTP, cookie and Bearer transport over the Turso sessions, and the production binary.
 - Differential parity against the PostgreSQL adapter under `cargo xtask verify postgres`; importer
   and Tier B conversion (#336).
 - A deadline or bounded backpressure for the writer queue: it belongs in the owner API or the

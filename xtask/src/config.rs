@@ -38,6 +38,8 @@ pub const TURSO_TESTING_FEATURE: &str = "testing";
 pub const TURSO_CAPABILITY_BIN: &str = "cantos-turso-capability";
 /// The opt-in experimental DBSP incremental core of the API; off in every other gate and build.
 pub const DBSP_FEATURE: &str = "dbsp-experimental";
+/// The uncomposed Server Turso candidate adapters (#333); the Turso gate lints that build.
+pub const SERVER_TURSO_CANDIDATE_FEATURE: &str = "turso-candidate";
 pub const UI_PACKAGE: &str = "cantos-ui";
 /// Theatre Web's package and its opt-in development-preview feature (`?mode=mock` and siblings).
 /// Production, release and deploy builds never enable it; tests, lint and `TRUNK_BUILD_FEATURES`

@@ -14,8 +14,8 @@ use crate::{
     config::{
         App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, IDENTITY_PACKAGE,
         IDENTITY_PERSISTENCE_FEATURE, IDENTITY_RPC_PACKAGE, IDENTITY_SERVICE_FEATURE,
-        THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE,
-        TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET,
+        SERVER_TURSO_CANDIDATE_FEATURE, THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE,
+        TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET,
     },
     kani::{self, Kernel},
     pipeline::Step,
@@ -444,6 +444,21 @@ impl Gate {
                     TURSO_TESTING_FEATURE,
                     "--locked",
                 ]),
+                // The Server candidate's feature-only build and its `identity_auth_candidate`
+                // target compile here; its unit tests already run in the Rust gate, and the
+                // journey needs a prebuilt Identity executable (the #336 campaign runs it).
+                cargo(&[
+                    "clippy",
+                    "-p",
+                    API_PACKAGE,
+                    "--features",
+                    SERVER_TURSO_CANDIDATE_FEATURE,
+                    "--all-targets",
+                    "--locked",
+                    "--",
+                    "-D",
+                    "warnings",
+                ]),
                 cargo(&[
                     "run",
                     "--locked",
@@ -585,7 +600,8 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
         // absent from the ordinary gate catalog and cannot become a preflight dependency.
         VerifySuite::TheatreAuth { .. }
         | VerifySuite::WebBearer { .. }
-        | VerifySuite::NativeIsolation(_) => Vec::new(),
+        | VerifySuite::NativeIsolation(_)
+        | VerifySuite::NativeAuthQualification(_) => Vec::new(),
         VerifySuite::Behavior {
             capability,
             setup,
@@ -742,6 +758,7 @@ mod tests {
                 "cargo test -p cantos-identity-rpc --locked",
                 "cargo clippy -p cantos-store-turso --features testing --all-targets --locked -- -D warnings",
                 "cargo test -p cantos-store-turso --features testing --locked",
+                "cargo clippy -p cantos-server --features turso-candidate --all-targets --locked -- -D warnings",
                 "cargo run --locked -p cantos-store-turso --features testing --bin cantos-turso-capability -- report",
             ]
         );

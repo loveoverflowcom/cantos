@@ -95,11 +95,18 @@ the historical API campaigns below do not cover Identity.
 
 | Selector / production reach | Model and covers | Actual evidence |
 | --- | --- | --- |
-| `identity-security-version` / `SecurityVersion::{new,get,successor}` | Full raw `u64`, wider arithmetic oracle, no assumptions/stubs; unwind 2, 6 covers | NOT_RUN: no pinned Ubuntu x86_64 D1 workflow run URL/SHA or verifier output |
-| `identity-completion` / `check_completion`, checked ID/version constructors | Nonzero full-width IDs, valid storage versions, all account states/purposes/assurances; constructor-domain assumptions only, no stubs; unwind 2, 10 covers | NOT_RUN: same D1 runner/output gap |
-| `identity-mailbox-proof` / `ProofTime::new`, `MailboxProof::{issue,plan_confirmation,plan_cancellation,plan_replacement}` and checked bindings | Full raw `u64` clock, nonzero full-width IDs, valid versions/nonempty stored windows; constructor-domain assumptions only; no stubs; unwind 2, 16 covers | NOT_RUN: same D1 runner/output gap; written assertions/registry tests are not executed proofs |
+| `identity-security-version` / `SecurityVersion::{new,get,successor}` | Full raw `u64`, wider arithmetic oracle, no assumptions/stubs; unwind 2, 6 covers | **PASS / bounded-model-checked on D1**: [run 39663624462](https://github.com/loveoverflowcom/cantos/actions/runs/39663624462) on `c22487a502c6587fe49415cda74c7d12239d9804` and again [run 39666812245](https://github.com/loveoverflowcom/cantos/actions/runs/39666812245) on `281964af7ab2b376cbd13831b5944db0face01ae`, both `ubuntu-24.04` x86_64 with the pinned Kani 0.68.0 bundle; 1 exact harness, 99 checks with 0 failed, 6/6 covers satisfied, lock unchanged |
+| `identity-completion` / `check_completion`, checked ID/version constructors | Nonzero full-width IDs, valid storage versions, all account states/purposes/assurances; constructor-domain assumptions only, no stubs; unwind 2, 10 covers | **PASS / bounded-model-checked on D1**: the same two runs and sources; 154 checks with 0 failed, 10/10 covers satisfied, lock unchanged |
+| `identity-mailbox-proof` / `ProofTime::new`, `MailboxProof::{issue,plan_confirmation,plan_cancellation,plan_replacement}` and checked bindings | Full raw `u64` clock, nonzero full-width IDs, valid versions/nonempty stored windows; constructor-domain assumptions only; no stubs; unwind 2, 16 covers | **PASS / bounded-model-checked on D1** in [run 39666812245](https://github.com/loveoverflowcom/cantos/actions/runs/39666812245) on `281964af7ab2b376cbd13831b5944db0face01ae`: 1 exact harness, 386 checks with 0 failed, 16/16 covers satisfied, lock unchanged. The earlier run 39663624462 on `c22487a5` was **FAIL** in the evidence parser, not a counterexample: the primitive refused the output with `missing or malformed property blocks`, because 9 descriptions wrap across two lines where rustfmt wrapped a long `assert_eq!` expression. A local rerun on the same bundle retained the raw output, in which the verifier itself reported `0 of 386 failed` and `16 of 16 cover properties satisfied`. The parser now accepts one quoted description that wraps, and still refuses a wrapped value that would absorb a field or block. Neither the model nor its bounds changed |
 
 Reproducible selection: `cargo xtask verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof`.
+The D1 runner for this selection now exists: the manual `native-auth-qualification` job of
+[`repository-checks.yml`](../../.github/workflows/repository-checks.yml) installs Kani 0.68.0
+with `cargo kani setup` on GitHub Actions `ubuntu-24.04` x86_64 and runs exactly these three
+kernels through the [#336 campaign](native-isolation.md#native-auth-linux-qualification-campaign)
+`--kani` lane, outside the isolation guard and with the registry's model unchanged. The job's
+existence is not evidence: each row stays NOT_RUN until a dispatched run's URL, source SHA and
+assertion/unwinding/cover outcomes are recorded here.
 Retain the existing Kani/compiler/solver/target pins, safety and unwinding checks. Acceptance
 needs the actual #331 D1 GitHub Actions Ubuntu x86_64 `workflow_dispatch` run, exact source SHA,
 assertion/unwinding results and all cover outcomes. macOS unit/registry tests and synthetic

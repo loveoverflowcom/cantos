@@ -245,9 +245,13 @@ def validate_output(text, harness, cover_count, allowed_unreachable):
     selected = re.findall(r"^Checking harness (.+)\.\.\.$", text, re.MULTILINE)
     if selected != [harness]: raise KaniError("expected exactly one matching executed harness")
     headers = re.findall(r"^Check [^\n]*$", text, re.MULTILINE)
+    # Kani quotes each description; a quoted one may wrap where rustfmt wrapped a long asserted
+    # expression. A continuation line can never start another field or check header, so a
+    # wrapped description cannot absorb a missing Location or a following block.
     blocks = list(re.finditer(
         r"^Check ([1-9][0-9]*): ([^\n]+)\n[ \t]+- Status: ([A-Z]+)\n"
-        r"[ \t]+- Description: ([^\n]+)\n[ \t]+- Location: ([^\n]+)(?=\n|$)", text, re.MULTILINE))
+        r"[ \t]+- Description: (\"[^\n]*(?:\n(?![ \t]+- |Check [0-9]+: )[^\n]*)*\"|[^\n\"][^\n]*)\n"
+        r"[ \t]+- Location: ([^\n]+)(?=\n|$)", text, re.MULTILINE))
     if not blocks or len(blocks) != len(headers): raise KaniError("missing or malformed property blocks")
     for field in ("Status", "Description", "Location"):
         if len(re.findall(r"^[ \t]+- " + field + r":", text, re.MULTILINE)) != len(blocks):
