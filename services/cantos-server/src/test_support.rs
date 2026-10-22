@@ -24,7 +24,7 @@ use crate::{
 
 pub mod library;
 mod world;
-pub use world::{Chain, SeededUnit, SeededWork, Stage, UnitSeed, WorkSeed};
+pub use world::{Chain, Corruption, SeededUnit, SeededWork, Stage, UnitSeed, WorkSeed};
 
 pub struct ServerFixture {
     run: TestRun,

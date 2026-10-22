@@ -32,7 +32,7 @@ use crate::{
     },
     platform::{
         identity_auth::session::SessionError,
-        store::{Store, StoreError, Tx},
+        store::{active_actors, Store, StoreError, Tx},
     },
 };
 use cantos_contracts::listener_library as dto;
@@ -245,16 +245,10 @@ async fn current_saved(
 async fn admit(tx: &Tx<'_>, access: &Access) -> Result<(), LibraryError> {
     let listener = &access.listener;
     let Some(admission) = &access.admission else {
-        let active: Option<bool> = tx
-            .query_opt(
-                "SELECT active FROM actors WHERE id=?1",
-                &[&listener.as_str()],
-            )
+        let active = active_actors(tx, &[listener.as_str().to_owned()])
             .await
-            .map_err(database)?
-            .map(|r| col(&r, "active"))
-            .transpose()?;
-        return if active == Some(true) {
+            .map_err(storage)?;
+        return if active.contains(listener.as_str()) {
             Ok(())
         } else {
             Err(LibraryError::Unauthenticated)
@@ -1159,3 +1153,6 @@ mod presentation_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

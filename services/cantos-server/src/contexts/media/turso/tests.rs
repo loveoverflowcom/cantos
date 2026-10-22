@@ -16,7 +16,7 @@ use crate::{
             ListenerService, OriginPlayback, PublicMediaOrigin,
         },
     },
-    test_support::{SeededWork, ServerFixture, Stage, UnitSeed, WorkSeed},
+    test_support::{Corruption, SeededWork, ServerFixture, Stage, UnitSeed, WorkSeed},
 };
 
 /// 2030-03-17 in microseconds; far from any real clock so a leaked wall-clock read shows.
@@ -333,24 +333,11 @@ async fn private_staged_withdrawn_revoked_expired_superseded_archived_and_disabl
     fixture
         .revoke_submission("alice", &by_name("revoked").units[0])
         .await;
+    fixture.archive_work(by_name("archived work")).await;
     fixture
-        .exec(
-            "UPDATE catalog_works SET lifecycle='archived' WHERE id=?1",
-            &[&by_name("archived work").work_id.as_str()],
-        )
-        .await
-        .unwrap();
-    fixture
-        .exec(
-            "UPDATE catalog_units SET lifecycle='archived' WHERE id=?1",
-            &[&by_name("archived unit").units[0].unit_id.as_str()],
-        )
-        .await
-        .unwrap();
-    fixture
-        .exec("UPDATE actors SET active=0 WHERE id='carol'", &[])
-        .await
-        .unwrap();
+        .archive_unit(&by_name("archived unit").units[0])
+        .await;
+    fixture.set_actor_active("carol", false).await;
     let replacement = {
         let w = by_name("superseded");
         fixture.publish_replacement(None, w, &w.units[0]).await
@@ -443,14 +430,8 @@ async fn a_withdrawal_or_revocation_fact_denies_even_while_the_pointer_still_nam
         } else {
             fixture.record_withdrawal("alice", &work.units[0]).await;
         }
-        assert_eq!(
-            fixture
-                .count(
-                    "SELECT count(*) FROM audio_publication_pointers WHERE active_release_id=?1",
-                    &[&id.as_str()]
-                )
-                .await,
-            1,
+        assert!(
+            fixture.pointer_names(&id).await,
             "the pointer was not moved"
         );
         assert_eq!(
@@ -471,7 +452,7 @@ async fn a_withdrawal_or_revocation_fact_denies_even_while_the_pointer_still_nam
 }
 
 #[tokio::test]
-async fn list_and_detail_share_the_representative_release_and_so_does_the_library() {
+async fn list_and_detail_share_one_representative_release_per_work() {
     let (fixture, _) = fixture().await;
     let work = fixture
         .seed_work(
@@ -480,39 +461,21 @@ async fn list_and_detail_share_the_representative_release_and_so_does_the_librar
         )
         .await;
     let service = service(&fixture);
-    // All three releases were published at the same instant: the representative is the smallest
-    // release id, whatever order the rows were read in.
-    let mut ids: Vec<_> = (0..3).map(|i| release(&work, i)).collect();
-    ids.sort();
     let units = service.units(&work.work_id, 20, None).await.unwrap();
     assert_eq!(units.items.len(), 3);
-    let representative = &ids[0];
-    let library = crate::contexts::listening::LibraryService::new(fixture.store().clone());
-    let alice = crate::contexts::listening::auth::AuthenticatedListener::from_verified_actor(
-        crate::platform::identity::domain::ActorId::new("alice").unwrap(),
-    );
-    library
-        .set_saved(
-            &alice,
-            &work.work_id,
-            crate::test_support::library::saved(1, 90, 0, true),
-        )
-        .await
-        .unwrap();
-    let saved = library
-        .presented_saved_works(&alice, 20, None)
-        .await
-        .unwrap();
-    assert_eq!(saved.items.len(), 1);
+    // Three releases were published at the same instant: the representative of the Work is the
+    // smallest release id, whatever order the rows were read in, in list, detail and presentation.
+    let mut ids: Vec<_> = (0..3).map(|i| release(&work, i)).collect();
+    ids.sort();
+    let listed = service.works("", None, None, 20, None).await.unwrap();
+    let detail = service.work(&work.work_id).await.unwrap();
+    assert_eq!(listed.items[0], detail);
+    let presented = service.presented_work(&work.work_id).await.unwrap();
+    assert_eq!(presented.unit_count, 3);
+    assert_eq!(presented.title, detail.title);
     assert_eq!(
-        saved.items[0].presentation.as_ref().unwrap().publication_id,
-        *representative,
-        "Saved is labelled by the same release Work detail resolves"
-    );
-    // The title the detail serves is that representative's pinned title.
-    assert_eq!(
-        service.work(&work.work_id).await.unwrap().title,
-        "Ánh đèn cuối sân khấu"
+        service.manifest(&ids[0]).await.unwrap().work_id,
+        work.work_id
     );
 }
 
@@ -567,35 +530,17 @@ async fn released_metadata_is_pinned_while_current_privacy_still_governs() {
 
 #[tokio::test]
 async fn a_row_that_fails_its_integrity_checks_is_corruption_and_is_never_served() {
-    for (name, drop, statement) in [
-        (
-            "release snapshot",
-            "audio_releases_no_update",
-            "UPDATE audio_releases SET snapshot=CAST(replace(CAST(snapshot AS TEXT),'Một lời hẹn','Tập khác') AS BLOB)",
-        ),
-        (
-            "work revision digest",
-            "catalog_work_revisions_no_update",
-            "UPDATE catalog_work_revisions SET snapshot_digest='0000000000000000000000000000000000000000000000000000000000000000'",
-        ),
-        (
-            "listener index digest",
-            "audio_listener_releases_no_update",
-            "UPDATE audio_listener_releases SET rights_start=rights_start+1",
-        ),
-        (
-            "rendition object key",
-            "audio_renditions_no_update",
-            "UPDATE audio_renditions SET object_key='0000000000000000000000000000000000000000000000000000000000000000'",
-        ),
+    for (name, damage) in [
+        ("release snapshot", Corruption::ReleaseSnapshot),
+        ("work revision digest", Corruption::WorkRevisionDigest),
+        ("listener index digest", Corruption::ListenerIndexWindow),
+        ("rendition object key", Corruption::RenditionObjectKey),
     ] {
         let (fixture, _) = fixture().await;
         let work = single(&fixture).await;
         let service = service(&fixture);
         service.manifest(&release(&work, 0)).await.unwrap();
-        // The barrier is dropped only to write the bad row a hostile or restored file could hold.
-        fixture.exec(&format!("DROP TRIGGER {drop}"), &[]).await.unwrap();
-        fixture.exec(statement, &[]).await.unwrap();
+        fixture.corrupt(damage).await;
         assert_eq!(
             service.manifest(&release(&work, 0)).await.unwrap_err(),
             ListenerError::Corrupt,

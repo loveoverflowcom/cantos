@@ -3,6 +3,7 @@ pub mod domain;
 
 mod application;
 mod postgres;
+mod storage;
 mod turso;
 
 pub use application::content;
@@ -29,7 +30,7 @@ pub(crate) use turso::{
 pub(crate) fn decode_work_snapshot(
     bytes: &[u8],
 ) -> Result<domain::Work, crate::platform::store::StoreError> {
-    postgres::decode_work(bytes)
+    storage::decode_work(bytes)
 }
 
 #[cfg(any(test, feature = "test-support"))]
@@ -37,5 +38,5 @@ pub(crate) fn decode_unit_snapshot(
     bytes: &[u8],
     parent: domain::WorkKind,
 ) -> Result<domain::ContentUnit, crate::platform::store::StoreError> {
-    postgres::decode_unit(bytes, parent)
+    storage::decode_unit(bytes, parent)
 }

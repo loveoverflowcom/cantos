@@ -89,7 +89,7 @@ pub(super) fn work_kind(value: &str) -> Result<WorkKind, StoreError> {
     admit(WorkKind::parse(value))
 }
 
-pub(in super::super) fn digest(bytes: &[u8]) -> String {
+pub(super) fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
@@ -99,7 +99,7 @@ pub(super) fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, StoreError> {
     Ok(bytes)
 }
 
-pub(in super::super) fn decode_work(bytes: &[u8]) -> Result<Work, StoreError> {
+pub(super) fn decode_work(bytes: &[u8]) -> Result<Work, StoreError> {
     bounded(bytes)?;
     let raw: RawWork = serde_json::from_slice(bytes).map_err(|_| StoreError::CorruptRevision)?;
     let id = admit(WorkId::parse(&raw.id))?;
@@ -124,10 +124,7 @@ pub(in super::super) fn decode_work(bytes: &[u8]) -> Result<Work, StoreError> {
     }))
 }
 
-pub(in super::super) fn decode_unit(
-    bytes: &[u8],
-    parent_kind: WorkKind,
-) -> Result<ContentUnit, StoreError> {
+pub(super) fn decode_unit(bytes: &[u8], parent_kind: WorkKind) -> Result<ContentUnit, StoreError> {
     bounded(bytes)?;
     let raw: RawUnit = serde_json::from_slice(bytes).map_err(|_| StoreError::CorruptRevision)?;
     let id = admit(ContentUnitId::parse(&raw.id))?;

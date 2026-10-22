@@ -10,6 +10,3 @@ pub use application::{LibraryError, LibraryService};
 mod turso;
 
 mod theatre_identity;
-
-#[cfg(test)]
-mod turso_tests;

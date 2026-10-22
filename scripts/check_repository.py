@@ -193,6 +193,14 @@ SQL_ATTACH = re.compile(r"\bATTACH\s+(?:DATABASE\b|\\?['\"]|[?:$@])", re.IGNOREC
 # The PostgreSQL migration registry includes the whole schema, which creates every context's
 # tables; the native ownership inventory checks that schema instead.
 SCHEMA_REGISTRY = Path("platform/postgres/migrations.rs")
+# The Turso schema registry registers one DDL file per version straight under this directory.
+# `server.db` is one database, so its DDL declares the tables of several contexts and the foreign
+# keys between them, as the PostgreSQL schema did; queries over those tables still belong to
+# their owner's persistence adapter and are checked there. DDL may not ATTACH another database.
+TURSO_SCHEMA_DDL = Path("platform/turso")
+# Fixture modules compiled only for tests (`cfg(test)` or the `test-support` feature): they seed
+# rows across contexts to build a world and are never reachable from a runtime build.
+TEST_FIXTURES = Path("test_support")
 
 
 def prose_only(content):
@@ -926,7 +934,10 @@ def check_api_architecture(root=ROOT):
         code, strings = source_texts(file, content)
         for offset, path in source_paths(code, module):
             error = dependency_error(path, owner, domain, http,
-                listener_pg_test=relative == Path("contexts/listening/postgres/tests.rs"),
+                listener_pg_test=relative in {
+                    Path("contexts/listening/postgres/tests.rs"),
+                    Path("contexts/listening/turso/tests.rs"),
+                },
                 application_glue=relative == Path("application.rs"),
                 adapter=adapter,
                 rpc_adapter=len(parts) > 1 and (parts[0], Path(parts[1]).stem) == IDENTITY_RPC_ADAPTER)
@@ -954,11 +965,15 @@ def check_api_architecture(root=ROOT):
             ):
                 errors.add(f"{API_SOURCE / relative}: HTTP must not execute SQL or open transactions")
         for offset, text, inline in strings:
-            if not inline and relative == SCHEMA_REGISTRY:
+            if not inline and relative in {SCHEMA_REGISTRY, TURSO_SCHEMA_DDL / "mod.rs"}:
                 continue
             if attach := SQL_ATTACH.search(text):
                 errors.add(f"{API_SOURCE / relative}:{sql_line(content, offset, attach.start(), inline)}: "
                            "SQL must not ATTACH another database; each service owns one database file")
+            if (relative.suffix == ".sql" and relative.parent == TURSO_SCHEMA_DDL) or (
+                relative == TEST_FIXTURES.with_suffix(".rs") or parts[0] == TEST_FIXTURES.name
+            ):
+                continue
             for start, verb, table, _ in sql_tables(text):
                 target = table_owner(table)
                 line = sql_line(content, offset, start, inline)

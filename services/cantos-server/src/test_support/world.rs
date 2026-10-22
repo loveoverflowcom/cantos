@@ -48,6 +48,15 @@ use crate::{
 /// owner's clearance must name the same references.
 const RIGHTS: &str = "synthetic-rights";
 
+/// A stored row damaged the way a restored or hand-edited file could be.
+#[derive(Clone, Copy, Debug)]
+pub enum Corruption {
+    ReleaseSnapshot,
+    WorkRevisionDigest,
+    ListenerIndexWindow,
+    RenditionObjectKey,
+}
+
 /// Whether a seeded unit's chain ends in an active release.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
@@ -414,6 +423,131 @@ impl ServerFixture {
         .await
         .expect("the head advances");
         tx.commit().await.expect("the edit commits");
+    }
+
+    /// Archive the Work row (the Studio lifecycle flag the discovery filter reads).
+    pub async fn archive_work(&self, work: &SeededWork) {
+        self.exec(
+            "UPDATE catalog_works SET lifecycle='archived' WHERE id=?1",
+            &[&work.work_id.as_str()],
+        )
+        .await
+        .expect("the work is archived");
+    }
+
+    /// Archive one Unit row.
+    pub async fn archive_unit(&self, unit: &SeededUnit) {
+        self.exec(
+            "UPDATE catalog_units SET lifecycle='archived' WHERE id=?1",
+            &[&unit.unit_id.as_str()],
+        )
+        .await
+        .expect("the unit is archived");
+    }
+
+    /// Activate or deactivate an actor (a listener account or a release owner).
+    pub async fn set_actor_active(&self, actor: &str, active: bool) {
+        self.exec(
+            "UPDATE actors SET active=?2 WHERE id=?1",
+            &[&actor, &active],
+        )
+        .await
+        .expect("the actor flag changes");
+    }
+
+    /// The Identity subject an actor is bound to.
+    pub async fn subject_of(&self, actor: &str) -> String {
+        self.rows(
+            "SELECT subject FROM actor_external_identities WHERE actor_id=?1",
+            &[&actor],
+        )
+        .await
+        .expect("the binding is read")[0]
+            .get(0)
+    }
+
+    /// Whether the pointer of a unit currently names `release`.
+    pub async fn pointer_names(&self, release: &str) -> bool {
+        self.count(
+            "SELECT count(*) FROM audio_publication_pointers WHERE active_release_id=?1",
+            &[&release],
+        )
+        .await
+            == 1
+    }
+
+    /// Rows of one Library table owned by `who`. The table is one of the Library's own.
+    pub async fn listener_rows(&self, table: &str, who: &str) -> i64 {
+        const OWN: [&str; 8] = [
+            "listener_state",
+            "listener_progress",
+            "listener_saved",
+            "listener_history",
+            "listener_bookmarks",
+            "listener_operations",
+            "listener_device_sequences",
+            "listener_playback_sessions",
+        ];
+        assert!(OWN.contains(&table), "{table} is not a Library table");
+        self.count(
+            &format!("SELECT count(*) FROM {table} WHERE listener_id=?1"),
+            &[&who],
+        )
+        .await
+    }
+
+    /// A count of live (`deleted = 0`) or tombstoned bookmarks of `who`.
+    pub async fn bookmark_rows(&self, who: &str, deleted: bool) -> i64 {
+        self.count(
+            "SELECT count(*) FROM listener_bookmarks WHERE listener_id=?1 AND deleted=?2",
+            &[&who, &deleted],
+        )
+        .await
+    }
+
+    /// Live bookmarks of `who` that share one release position, and those that name a release
+    /// other than `publication`.
+    pub async fn bookmark_anomalies(&self, who: &str, publication: &str) -> (i64, i64) {
+        let duplicates = self
+            .count(
+                "SELECT count(*) FROM (SELECT publication_id,position_ms FROM listener_bookmarks WHERE listener_id=?1 AND deleted=0 GROUP BY 1,2 HAVING count(*)>1) d",
+                &[&who],
+            )
+            .await;
+        let foreign = self
+            .count(
+                "SELECT count(*) FROM listener_bookmarks WHERE listener_id=?1 AND publication_id<>?2",
+                &[&who, &publication],
+            )
+            .await;
+        (duplicates, foreign)
+    }
+
+    /// Write the bad row a hostile or restored file could hold: the barrier that would refuse it is
+    /// dropped first, as only someone with file access can. Reads must refuse the result.
+    pub async fn corrupt(&self, what: Corruption) {
+        let (trigger, statement) = match what {
+            Corruption::ReleaseSnapshot => (
+                "audio_releases_no_update",
+                "UPDATE audio_releases SET snapshot=CAST(replace(CAST(snapshot AS TEXT),'Một lời hẹn','Tập khác') AS BLOB)",
+            ),
+            Corruption::WorkRevisionDigest => (
+                "catalog_work_revisions_no_update",
+                "UPDATE catalog_work_revisions SET snapshot_digest='0000000000000000000000000000000000000000000000000000000000000000'",
+            ),
+            Corruption::ListenerIndexWindow => (
+                "audio_listener_releases_no_update",
+                "UPDATE audio_listener_releases SET rights_start=rights_start+1",
+            ),
+            Corruption::RenditionObjectKey => (
+                "audio_renditions_no_update",
+                "UPDATE audio_renditions SET object_key='0000000000000000000000000000000000000000000000000000000000000000'",
+            ),
+        };
+        self.exec(&format!("DROP TRIGGER {trigger}"), &[])
+            .await
+            .expect("the barrier is dropped");
+        self.exec(statement, &[]).await.expect("the row is damaged");
     }
 
     /// The fixture clock's reading in microseconds.

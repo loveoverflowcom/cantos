@@ -5,9 +5,8 @@ use crate::platform::store::Row;
 use super::domain::{ContentUnit, Revision, Work};
 use crate::platform::store::{checked_number, LockMode, StoreError, Tx};
 
-#[path = "storage.rs"]
-mod storage;
-pub(super) use storage::{decode_unit, decode_work, digest};
+use super::storage;
+pub(super) use super::storage::{decode_unit, decode_work, digest};
 pub(super) mod content;
 pub(super) mod delegation;
 

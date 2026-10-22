@@ -1,9 +1,84 @@
 //! Library request builders for tests: the exact wire values a Theatre client sends, derived from
 //! a seeded publication. Pure constructors; no persistence and no authority.
+use std::sync::Arc;
+
 use cantos_contracts::listener_library as dto;
+use cantos_store_turso::testing::FixedClock;
 use uuid::Uuid;
 
-use super::{Chain, SeededUnit, SeededWork};
+use super::{Chain, SeededUnit, SeededWork, ServerFixture, WorkSeed};
+use crate::{
+    contexts::listening::{auth::AuthenticatedListener, LibraryService},
+    platform::identity::domain::ActorId,
+};
+
+/// 2030-03-17 in microseconds: far from any real clock, so a leaked wall-clock read shows.
+pub const T0: i64 = 1_900_000_000_000_000;
+
+/// The sealed principal a trusted host would vouch for (no Identity session behind it).
+pub fn principal(actor: &str) -> AuthenticatedListener {
+    AuthenticatedListener::from_verified_actor(ActorId::new(actor).expect("a valid actor"))
+}
+
+/// One published unit on a fixed clock, with two listener accounts, `alice` and `bob`.
+pub struct LibraryWorld {
+    pub fixture: ServerFixture,
+    pub clock: Arc<FixedClock>,
+    pub work: SeededWork,
+    pub audio: dto::AudioIdentity,
+}
+
+impl LibraryWorld {
+    pub async fn new() -> Self {
+        let clock = FixedClock::new(T0);
+        let fixture = ServerFixture::with_clock(clock.clone()).await;
+        let work = fixture
+            .seed_work(
+                None,
+                &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Tập có âm thanh riêng tư"]),
+            )
+            .await;
+        fixture.seed_actors(&["alice", "bob"]).await;
+        let audio = audio(&work, &work.units[0]);
+        Self {
+            fixture,
+            clock,
+            work,
+            audio,
+        }
+    }
+    pub fn service(&self) -> LibraryService {
+        LibraryService::new(self.fixture.store().clone())
+    }
+    /// Rows of one Library table owned by `who`.
+    pub async fn count(&self, table: &str, who: &str) -> i64 {
+        self.fixture.listener_rows(table, who).await
+    }
+}
+
+/// Progress, Saved and one history start for `who` on `a`.
+pub async fn remember_audio(
+    service: &LibraryService,
+    who: &AuthenticatedListener,
+    a: &dto::AudioIdentity,
+) {
+    service
+        .put_progress(
+            who,
+            &a.publication_id,
+            progress(a, 1, 90, 0, 100, dto::ProgressKind::Checkpoint),
+        )
+        .await
+        .expect("progress is accepted");
+    service
+        .set_saved(who, &a.work_id, saved(1, 90, 0, true))
+        .await
+        .expect("saved is accepted");
+    service
+        .playback_started(who, history_start(a, 1, 90, 99, 0))
+        .await
+        .expect("the start is accepted");
+}
 
 /// A canonical id for tests that need a stable device or session.
 pub fn uid(value: u64) -> String {

@@ -63,14 +63,14 @@ pub(crate) async fn listener_metadata(
                 }
                 Ok(bytes)
             };
-            let work = super::super::postgres::decode_work(&checked("work", "work_digest")?)?;
+            let work = super::super::storage::decode_work(&checked("work", "work_digest")?)?;
             let unit =
-                super::super::postgres::decode_unit(&checked("unit", "unit_digest")?, work.kind())?;
-            let current_work = super::super::postgres::decode_work(&checked(
+                super::super::storage::decode_unit(&checked("unit", "unit_digest")?, work.kind())?;
+            let current_work = super::super::storage::decode_work(&checked(
                 "current_work",
                 "current_work_digest",
             )?)?;
-            let current_unit = super::super::postgres::decode_unit(
+            let current_unit = super::super::storage::decode_unit(
                 &checked("current_unit", "current_unit_digest")?,
                 work.kind(),
             )?;
