@@ -55,8 +55,12 @@ thread_local! {
 }
 /// One owner per surface and document. Reconfiguration cannot redirect a credentialed request.
 pub fn client(surface: Surface, origin: Option<&str>) -> Result<Client, Failure> {
-    api_url(origin, surface, &format!("{}/identity/session", surface.base()))
-        .map_err(|_| Failure::Protocol)?;
+    api_url(
+        origin,
+        surface,
+        &format!("{}/identity/session", surface.base()),
+    )
+    .map_err(|_| Failure::Protocol)?;
     let get = |slot: &RefCell<Option<Client>>| {
         let mut slot = slot.borrow_mut();
         if let Some(client) = slot.as_ref() {
@@ -165,7 +169,9 @@ impl Client {
         let now = self.now();
         let until = self.0.hold_until.get();
         if until > now {
-            return Err(Failure::RateLimited((until - now).min(u32::MAX as u64) as u32));
+            return Err(Failure::RateLimited(
+                (until - now).min(u32::MAX as u64) as u32
+            ));
         }
         Ok(())
     }
@@ -256,16 +262,15 @@ impl Client {
         let issued = self.0.lifecycle.borrow().ticket();
         self.gate()?;
         let deadline = Deadline::new()?;
-        let response = self.send(Method::Get, "/session", None, None, &deadline).await?;
+        let response = self
+            .send(Method::Get, "/session", None, None, &deadline)
+            .await?;
         self.ticket_current(issued)?;
         match response.status() {
             200 => {
                 let view = read_view(response).await?;
                 self.ticket_current(issued)?;
-                self.0
-                    .lifecycle
-                    .borrow_mut()
-                    .observe(issued, view, None)?;
+                self.0.lifecycle.borrow_mut().observe(issued, view, None)?;
                 Ok(self.session())
             }
             401 => {
@@ -337,11 +342,11 @@ impl Client {
             }
         };
         let session = view.session.clone();
-        let observed = self.0.lifecycle.borrow_mut().observe(
-            issued,
-            view,
-            expected_actor.as_deref(),
-        );
+        let observed =
+            self.0
+                .lifecycle
+                .borrow_mut()
+                .observe(issued, view, expected_actor.as_deref());
         match observed {
             Ok(_) => {
                 self.0.renew.detach();
@@ -380,9 +385,10 @@ impl Client {
                     .cloned()
                     .ok_or(Failure::SignedOut)?;
                 let client = self.clone();
-                let future = self.0.renew.acquire(|| {
-                    async move { client.renew(issued, session).await }.boxed_local()
-                });
+                let future = self
+                    .0
+                    .renew
+                    .acquire(|| async move { client.renew(issued, session).await }.boxed_local());
                 let result = future.clone().await;
                 self.0.renew.finish(&future);
                 result?;
@@ -525,7 +531,10 @@ impl Client {
                     });
                 }
             }
-            self.0.cleanup.borrow_mut().retain(|queued| queued != &session);
+            self.0
+                .cleanup
+                .borrow_mut()
+                .retain(|queued| queued != &session);
         }
     }
 

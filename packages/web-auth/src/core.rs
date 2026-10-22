@@ -317,12 +317,27 @@ mod tests {
             wire("a\n", S1, 600, 900, Some(10)),
             wire(&"a".repeat(129), S1, 600, 900, Some(10)),
             wire("a", "not-a-uuid", 600, 900, Some(10)),
-            wire("a", "00000000-0000-0000-0000-000000000000", 600, 900, Some(10)),
-            wire("a", "00000000-0000-4000-8000-00000000000A", 600, 900, Some(10)),
+            wire(
+                "a",
+                "00000000-0000-0000-0000-000000000000",
+                600,
+                900,
+                Some(10),
+            ),
+            wire(
+                "a",
+                "00000000-0000-4000-8000-00000000000A",
+                600,
+                900,
+                Some(10),
+            ),
         ] {
             assert_eq!(SessionView::admit(bad).unwrap_err(), Failure::Protocol);
         }
-        assert_eq!(format!("{:?}", view("a", S1, 600)), "SessionView([redacted])");
+        assert_eq!(
+            format!("{:?}", view("a", S1, 600)),
+            "SessionView([redacted])"
+        );
     }
 
     #[test]
@@ -353,8 +368,14 @@ mod tests {
         assert_eq!(action(599, false, false, false), Ok(AccessAction::Renew));
         assert_eq!(action(510, false, false, true), Ok(AccessAction::JoinRenew));
         // Idle or absolute passed locally: ask the API, never conclude signed-out from a clock.
-        assert_eq!(action(600, false, false, false), Ok(AccessAction::Reconcile));
-        assert_eq!(action(900, false, false, false), Ok(AccessAction::Reconcile));
+        assert_eq!(
+            action(600, false, false, false),
+            Ok(AccessAction::Reconcile)
+        );
+        assert_eq!(
+            action(900, false, false, false),
+            Ok(AccessAction::Reconcile)
+        );
         for authorizing in [false, true] {
             for renewing in [false, true] {
                 assert_eq!(
@@ -470,7 +491,9 @@ mod tests {
     #[test]
     fn stale_logout_cannot_cancel_a_new_login_or_close_account_b() {
         let mut state = Lifecycle::default();
-        state.observe(state.ticket(), view("b", S2, 600), None).unwrap();
+        state
+            .observe(state.ticket(), view("b", S2, 600), None)
+            .unwrap();
         assert!(!state.permits_logout(None, false));
         assert!(!state.permits_logout(Some(S1), false));
         assert!(state.permits_logout(Some(S2), false));
@@ -503,7 +526,12 @@ mod tests {
         assert_eq!(retry_after(Some(" 12 ")), 12);
         assert_eq!(retry_after(Some("0")), 1);
         assert_eq!(retry_after(Some("999999")), 3600);
-        for unreadable in [None, Some(""), Some("-1"), Some("Wed, 21 Oct 2026 07:28:00 GMT")] {
+        for unreadable in [
+            None,
+            Some(""),
+            Some("-1"),
+            Some("Wed, 21 Oct 2026 07:28:00 GMT"),
+        ] {
             assert_eq!(retry_after(unreadable), 30);
         }
     }
@@ -548,7 +576,12 @@ mod tests {
             );
         }
         assert_eq!(
-            credentialed_target("https://studio.example/api/v1/theatre/x", page, None, studio),
+            credentialed_target(
+                "https://studio.example/api/v1/theatre/x",
+                page,
+                None,
+                studio
+            ),
             Err(Failure::Protocol)
         );
         assert_eq!(
