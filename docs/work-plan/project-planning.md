@@ -48,7 +48,9 @@ than adding another dependency/status table per session.
 
 ## Working convention
 
-Branch from and target `develop`. Read the relevant source and decision before specifying a
+Resolve the base through the [branch workflow](../../CONTRIBUTING.md#branch-and-pull-request-workflow):
+explicit user base, else the work item's accepted integration/staging base, else `develop`;
+branch from and target that same base. Read the relevant source and decision before specifying a
 route, schema or tool. Link `Part of #...` for partial delivery; close an issue only for its
 actual completed scope. A proposal or merged core does not satisfy the phase exit above.
 

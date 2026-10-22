@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Prompt"
+  short_description: "Author self-contained Cantos prompts for any coding agent"
+  default_prompt: "Use $cantos-prompt to read the current Cantos repository and my request, then write a CANTOS_PROMPT_INPUT_V1 prompt with a pinned base and SHA, one reviewable outcome, blocker branches and scoped verification; split, review or resume when I ask, and edit nothing."

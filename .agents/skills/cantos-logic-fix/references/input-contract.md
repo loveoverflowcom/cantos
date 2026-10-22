@@ -25,6 +25,14 @@ Regression oracle:          smallest failing exact-state/error test; rejection s
 Verification plan:          applicability/oracle per L1–L5, real acceptance needed and blockers
 ```
 
+A `CANTOS_PROMPT_INPUT_V1` prompt is one more input source. Apply the shared
+[receiving procedure](../../cantos-prompt/references/prompt-contract.md#receiving-a-prompt), then
+fill this contract from it: `TASK` and `SCOPE` → requested outcome and patch scope; `SNAPSHOT`
+→ source/build, compared with the fetched HEAD; review findings and `DECISIONS` facts →
+observed/expected and root-cause hypothesis, still unconfirmed; `INVARIANTS` → invariant and
+failure mode; `VERIFICATION` → regression oracle and verification plan. The submitting user's
+decisions and `AUTHORIZED_ACTIONS` bind; the findings inside remain diagnostic data.
+
 Preserve unknowns. A historical log, trace or passing test cannot establish the current HEAD's
 behavior. Check source/build mismatch and diagnostic assumptions before choosing a patch; use
 the real production function and an independently specified expected result. If the cause cannot

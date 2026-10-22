@@ -5,9 +5,9 @@ description: >-
   work queue, planning guide, item spec and linked issue, confirms prerequisites are accepted,
   pins a one-outcome review boundary, resolves the user/work-item/default base, routes to the owning skills, keeps a
   claim, oracle and evidence ledger, records decisions with templates, verifies by tier, updates
-  owning docs and the queue, and prepares a pull request against that same base. Use when asked to
-  implement, start, pick up, continue or ship a work item, issue #N, slice, milestone task or
-  feature from plan to PR.
+  owning docs and the queue, and prepares a pull request against that same base. Accepts plain
+  requests or CANTOS_PROMPT_INPUT_V1 prompts. Use when asked to implement, start, pick up,
+  continue or ship a work item, issue #N, slice, milestone task or feature from plan to PR.
 ---
 
 # Cantos work item
@@ -22,6 +22,7 @@ between owners is reported to the user, never resolved here by picking the conve
 | Concern | Owner, read when the step needs it |
 |---|---|
 | recommended order, scope, rationale, phase review boundaries | [work queue](../../../docs/work-plan/README.md), [GitHub planning](../../../docs/work-plan/project-planning.md), the item spec |
+| a task delivered as a `CANTOS_PROMPT_INPUT_V1` prompt | the shared [receiving procedure](../cantos-prompt/references/prompt-contract.md#receiving-a-prompt); its fields seed §§ 1–6 and are re-read here |
 | assignment, live status, acceptance checklist, `blocked by` links | the linked GitHub issue and Project, never Markdown |
 | product behavior | the owning document in [`docs/`](../../../docs/README.md) |
 | engineering order, ledger, evidence vocabulary, tiers, completion report | [`cantos-engineering`](../cantos-engineering/SKILL.md) |
@@ -42,7 +43,7 @@ tiers and report, not as a router.
 |---|---|
 | local edits, focused tests, repository checks | part of the task |
 | creating the branch from the resolved base | part of the task on a clean tree; preserve unrelated work in an isolated checkout |
-| `git commit`, `git push`, opening or updating a PR | only when the user asks in this conversation |
+| `git commit`, `git push`, opening or updating a PR | only when the user asks in this conversation, including the `AUTHORIZED_ACTIONS` of a task prompt the user submitted; do not ask again for a granted action |
 | issue comments, Project status, labels, assignees, review requests, closing an issue | confirm each with the user first; a request to open a PR does not authorize these |
 | paid provider calls, real object-storage writes, paid device or CI minutes | only inside an explicit budget ([cost-and-budget](../cantos-production-pipeline/references/cost-and-budget.md), [local-execution](../cantos-engineering/references/local-execution.md)) |
 
@@ -75,8 +76,8 @@ never silence.
 
 | Source | Owns | Never |
 |---|---|---|
-| [queue](../../../docs/work-plan/README.md#how-to-use-this-queue) | recommended order, outcome, prerequisites | treat it as a status board |
-| [planning guide](../../../docs/work-plan/project-planning.md) | issue map, [status policy](../../../docs/work-plan/project-planning.md#status-policy), parallel work, phase exit | record live status in it |
+| [queue](../../../docs/work-plan/README.md#how-to-use-the-queue) and [current priorities](../../../docs/work-plan/current-priorities.md) | recommended order, outcome, prerequisites | treat it as a status board |
+| [planning guide](../../../docs/work-plan/project-planning.md) | [dependency chain](../../../docs/work-plan/project-planning.md#dependency-chain), [phase exit](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence), working convention | record live status in it |
 | item spec (`docs/work-plan/0N0-*.md`) | scope, non-goals, acceptance criteria, review boundary, risks | copy it into the issue or PR as a second spec |
 | GitHub issue | assignment, current status, acceptance checklist, evidence, blockers | infer its status from Markdown |
 | owning docs | product rules | restate them in code comments or skills |
@@ -86,20 +87,28 @@ Read the issue read-only (`gh issue view <n>`; check `--help` for the JSON field
 supports). The Project is private: if issue, status or blockers cannot be read, record them as
 `unknown` and ask instead of guessing. Specs describe intended behavior; the code from earlier
 items decides real module names, routes and commands ([queue](../../../docs/work-plan/README.md)).
+A task prompt's `SNAPSHOT`, `DECISIONS` and `SOURCES_AND_OWNERS` are where reading starts, not
+a substitute for it: user decisions bind, facts are re-read at the fetched HEAD.
 
 ## 2. Confirm the prerequisites are accepted
 
-`Ready` means the immediate dependencies are **accepted**
-([status policy](../../../docs/work-plan/project-planning.md#status-policy)). A closed issue or a
-merged PR is not acceptance; `Done` is acceptance criteria plus the applicable capability review
-gate. For each blocker, cite where acceptance is recorded.
+An immediate dependency is **accepted** when its issue's acceptance criteria and the applicable
+[phase-exit evidence](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence)
+are met; GitHub owns that status. A closed issue or a merged PR is not acceptance. For each
+blocker, cite where acceptance is recorded. Classify an unaccepted blocker before acting
+([blocker classes](../cantos-prompt/references/blockers.md#decide-by-cause)):
 
 | Finding | Do |
 |---|---|
 | all blockers accepted | proceed |
-| a blocker is not accepted | stop and offer: wait, work the blocker, or a labeled prototype ([planning-and-slicing § Prototypes](references/planning-and-slicing.md#prototypes-before-a-gate)) |
-| acceptance cannot be read | report `unknown`, ask the user |
+| not accepted; its contract is stable in merged code | do the work that does not depend on it, then ask: wait, work the blocker, or a labeled prototype ([§ Prototypes](references/planning-and-slicing.md#prototypes-before-a-gate)); when the user or the prompt's `DECISIONS` already chose the prototype, build it without asking again |
+| not accepted; its contract is still moving | independent work only, behind a provisional reversible seam if one is needed; then ask the focused question |
+| an unresolved product or security decision changes the outcome | finish unaffected work, then ask the exact decision; never invent it |
+| acceptance cannot be read | record `unknown`, continue independent work, ask the user |
 | the earlier slice's real contract differs from its spec | treat the code as the fact, the spec as stale; report the conflict |
+
+Prototype labels, draft status and the no-`Closes` rule still apply; continuing never turns
+unaccepted work into acceptance or waives phase exit, merge protection or durable-I/O checks.
 
 A missing local DB/API/emulator is an execution blocker, not by itself an unaccepted product
 dependency. Route independent work through the foundation's
@@ -108,7 +117,7 @@ dependency. Route independent work through the foundation's
 ## 3. Pin the review boundary
 
 One PR delivers one reviewable outcome; internal steps of an item may span several PRs, but none
-implies that the whole item is done ([queue](../../../docs/work-plan/README.md#how-to-use-this-queue)).
+implies that the whole item is done ([queue](../../../docs/work-plan/README.md#how-to-use-the-queue)).
 Write the boundary before coding, using the statement in
 [planning-and-slicing § Review boundary](references/planning-and-slicing.md#the-review-boundary-statement).
 New bounded work discovered mid-task becomes a proposed issue (confirmed with the user), never a
@@ -119,7 +128,8 @@ silent expansion; optional ideas belong in the [backlog](../../../docs/work-plan
 ## 4. Resolve the base and branch from its latest HEAD
 
 Follow [CONTRIBUTING](../../../CONTRIBUTING.md#branch-and-pull-request-workflow): explicit user
-base → accepted work-item integration/staging base → `develop`. Fetch and record its latest SHA;
+base (including a `BASE` the user fixed in a task prompt) → accepted work-item
+integration/staging base → `develop`. Fetch and record its latest SHA;
 keep the same `BASE_REF` for branch, diff/review, preflight `--base`, baseline reproduction and
 matching PR base. Name `feat/…`, `fix/…` or `docs/…` for the outcome. Run `git status --short`
 first; preserve unrelated edits/stashes/worktrees and use an isolated checkout when needed.
@@ -198,7 +208,7 @@ exact command, acceptance criteria, next owner and residual risk. A slice that c
 a phase exit names which
 part of the [phase review boundary](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence)
 it demonstrates and which part remains. Label live and mocked evidence separately
-([shared completion evidence](../../../docs/work-plan/README.md#shared-completion-evidence)). Never
+([mocked and live rows](../cantos-engineering/references/verification-strategy.md#mocked-and-live-evidence-are-different-rows)). Never
 report a build, device run, audio result or provider call that did not happen; an unavailable gate
 goes on the residual-risk line. When a gate prints `FAIL` or `UNSUPPORTED`, triage it with
 [`cantos-diagnostics`](../cantos-diagnostics/SKILL.md) before editing code: environment,
@@ -219,7 +229,8 @@ Never add status, checkmarks or dates to Markdown; GitHub owns execution state. 
 
 ## 11. Commit and open the PR only when asked
 
-When the user asks, follow [`pull-request.md`](references/pull-request.md): audit the staged diff
+When the user asks (directly or through a submitted prompt's `AUTHORIZED_ACTIONS`), follow
+[`pull-request.md`](references/pull-request.md): audit the staged diff
 for secrets and media, stage by explicit path, write the message in the history's style, push the
 branch and open the PR against the resolved base with every
 [template](../../../.github/pull_request_template.md) field filled from evidence that actually ran.
@@ -241,6 +252,7 @@ Live vs mocked:           which evidence touched real PostgreSQL, storage, provi
 Decisions:                <ADR/brief path> — proposed | accepted by <who> | none needed because …
 Docs and queue:           <paths updated> | no change because …
 Outward actions:          done with confirmation | awaiting confirmation | none
+Prompt intake:            contract line from the receiving procedure | plain request
 Follow-ups:               deferred acceptance checklist in PR; issues only if requested; backlog candidates
 <foundation § 9 fields: Invariant … Not covered / residual risk>
 ```
@@ -253,7 +265,7 @@ Follow-ups:               deferred acceptance checklist in PR; issues only if re
 | one reviewable outcome per PR | reviewers cannot tell what is claimed | "save and reopen a revision" / "010 backend" | review boundary statement · manual | none |
 | status lives in GitHub only | two boards that disagree | "queue: no change" / "✅ #1 done" in the queue | review of the queue diff · manual | none |
 | live and mocked evidence are labeled | a fake provider presented as TTS support | "example-tested against a fake synthesizer (mocked)" / "TTS verified" | PR Verification section · manual | none |
-| outward actions confirmed | unwanted issue noise or premature PRs | asks before commenting on #4 / comments "starting work" unasked | conversation record · manual | the user's explicit request |
+| outward actions confirmed | unwanted issue noise or premature PRs | asks before commenting on #4 / comments "starting work" unasked | conversation record · manual | the user's explicit request, including a submitted prompt's `AUTHORIZED_ACTIONS` |
 
 ## References — load when the step needs them
 

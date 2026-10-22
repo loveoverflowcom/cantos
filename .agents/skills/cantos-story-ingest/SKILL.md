@@ -29,9 +29,10 @@ captured or verified. Resolve the story from supplied metadata and the existing 
    story, source and chapter range. A chapter URL, pagination number and chapter number are
    different facts. If no range can be inferred, inspect the index while requesting the missing
    scope; do not start an entire-book crawl by default.
-2. Use computer use to open the supplied page, inspect visible title/author and observed links,
-   and resolve the work identity and `raw/` destination. Use the connected Drive plugin for Drive
-   operations when available; follow its own skill and discover current schemas.
+2. Use the session's browser or computer-use capability to open the supplied page, inspect
+   visible title/author and observed links, and resolve the work identity and `raw/` destination.
+   Use the session's Drive connector (a Codex plugin, an MCP server or an authorized CLI) for Drive
+   operations when available; follow its own instructions and discover current schemas.
 3. Reuse an existing exact story mapping. For a new story, use
    [prepare_story_workspace.py](../../../scripts/prepare_story_workspace.py) after resolving its
    canonical work URL. New content belongs outside Git; the helper only initializes local folders.

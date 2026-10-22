@@ -103,6 +103,10 @@ Record before the first action; an unknown value is written `unknown`, never gue
 | viewport | `320×720 CSS px`, `360×800 dp @ 2.75x`, `390×844 pt` |
 | theme, locale, font scale, input | light/dark; `vi-VN`/`en`; 100 %/200 % zoom or OS font size; pointer, keyboard, touch, screen reader |
 
+A `CANTOS_PROMPT_INPUT_V1` prompt can supply these fields through the
+[receiving procedure](../cantos-prompt/references/prompt-contract.md#receiving-a-prompt); values
+it does not establish stay `unknown`, and the inspection stays report-only whatever actions it lists.
+
 ## 2. Choose the mode
 
 | Mode | Does | Never |
