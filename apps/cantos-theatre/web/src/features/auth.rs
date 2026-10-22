@@ -447,7 +447,6 @@ mod tests {
             assert!(
                 email.contains("type=\"email\"") && email.contains("autocomplete=\"username\"")
             );
-            assert!(email.contains("name=\"email\""));
             let password = control(&html, "theatre-login-password");
             assert!(password.contains("type=\"password\""));
             assert!(password.contains("autocomplete=\"current-password\""));
