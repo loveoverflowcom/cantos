@@ -1,4 +1,4 @@
-//! Pure Admin policy. Provider authentication must precede construction of RoleEvidence.
+//! Pure Admin policy. A verifier's authentication must precede construction of RoleEvidence.
 use crate::platform::identity::domain::{ActorId, ExternalIdentityKey};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,7 +78,8 @@ pub struct RoleEvidence {
     valid_until: u64,
 }
 impl RoleEvidence {
-    pub(super) fn verified(
+    /// For an [`super::AdminVerifier`] only: the credential was verified and the role observed now.
+    pub fn verified(
         key: ExternalIdentityKey,
         role: Role,
         observed: u64,
@@ -125,7 +126,7 @@ impl AdminPermit {
     }
 }
 
-pub(super) fn map_groups(groups: &[String]) -> Result<Role, AdminError> {
+pub fn map_groups(groups: &[String]) -> Result<Role, AdminError> {
     if groups.is_empty() {
         return Err(AdminError::MissingRole);
     }

@@ -1,11 +1,19 @@
-//! Which address owns an anonymous registration attempt's quota.
+//! Which address owns an anonymous signup/login attempt's quota.
 //!
 //! Pure decision over plain facts: the socket peer and the raw `X-Forwarded-For` lines. The
 //! header is believed only when the socket peer is an explicitly configured proxy, so a client
 //! that reaches the API directly cannot choose its own quota identity, and users behind the
 //! edge are not merged into the proxy's address.
-use super::RegistrationError;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+/// Closed failure vocabulary of the peer policy; it carries no address or header text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PeerError {
+    /// The operator-supplied proxy list is malformed.
+    Configuration,
+    /// A trusted proxy did not supply exactly one usable client address.
+    Unavailable,
+}
 
 /// One configured proxy network. The prefix is validated; host bits are masked at parse time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -66,13 +74,13 @@ pub struct TrustedProxies(Vec<Cidr>);
 
 impl TrustedProxies {
     /// Comma-separated `address/prefix` list. No hostnames, no `/0`, at most 16 entries.
-    pub fn parse(value: &str) -> Result<Self, RegistrationError> {
+    pub fn parse(value: &str) -> Result<Self, PeerError> {
         let networks = value
             .split(',')
             .map(|part| Cidr::parse(part.trim()))
             .collect::<Option<Vec<_>>>()
             .filter(|networks| (1..=16).contains(&networks.len()))
-            .ok_or(RegistrationError::Configuration)?;
+            .ok_or(PeerError::Configuration)?;
         Ok(Self(networks))
     }
 
@@ -97,7 +105,7 @@ impl PeerPolicy {
     /// A trusted proxy without a usable header fails closed instead of pooling every user under
     /// the proxy address. Entries are read right to left and trusted hops are skipped, so only an
     /// address a trusted hop appended can be selected, never one the client wrote on the left.
-    pub fn client_ip(&self, peer: IpAddr, forwarded: &[&str]) -> Result<IpAddr, RegistrationError> {
+    pub fn client_ip(&self, peer: IpAddr, forwarded: &[&str]) -> Result<IpAddr, PeerError> {
         let Self::TrustedProxy(proxies) = self else {
             return Ok(peer);
         };
@@ -105,18 +113,18 @@ impl PeerPolicy {
             return Ok(peer);
         }
         let [line] = forwarded else {
-            return Err(RegistrationError::Unavailable);
+            return Err(PeerError::Unavailable);
         };
         for entry in line.rsplit(',') {
             let address: IpAddr = entry
                 .trim()
                 .parse()
-                .map_err(|_| RegistrationError::Unavailable)?;
+                .map_err(|_| PeerError::Unavailable)?;
             if !proxies.contains(address) {
                 return Ok(address);
             }
         }
-        Err(RegistrationError::Unavailable)
+        Err(PeerError::Unavailable)
     }
 }
 
@@ -199,7 +207,7 @@ mod tests {
         ] {
             assert_eq!(
                 policy.client_ip(ip("10.89.0.4"), &forwarded),
-                Err(RegistrationError::Unavailable),
+                Err(PeerError::Unavailable),
                 "{forwarded:?}"
             );
         }
@@ -221,7 +229,7 @@ mod tests {
         ] {
             assert_eq!(
                 TrustedProxies::parse(invalid),
-                Err(RegistrationError::Configuration),
+                Err(PeerError::Configuration),
                 "{invalid:?}"
             );
         }

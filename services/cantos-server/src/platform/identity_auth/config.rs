@@ -2,7 +2,7 @@
 //! is no default socket, peer uid or proxy policy, and an orphan input never half-enables a
 //! feature.
 use super::decision::Subject;
-use crate::platform::theatre_registration::domain::{PeerPolicy, TrustedProxies};
+use super::peer::{PeerPolicy, TrustedProxies};
 use std::path::PathBuf;
 
 pub const SOCKET: &str = "CANTOS_IDENTITY_SOCKET";

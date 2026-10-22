@@ -1,13 +1,22 @@
 use cantos_server::{
     adapters::inbound::http::{server_router, AppState},
     application::Store,
-    platform::host::{host_settings, HostMode},
-    platform::studio_oidc::{OidcConfig, StudioOidc},
+    platform::host::{host_settings, retired_provider_input, HostMode},
 };
 use std::{env, net::SocketAddr};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Provider authentication (Kanidm/OIDC, legacy native client, Firebase/SMTP registration) is
+    // retired: refuse its inputs instead of silently running without the path they configured.
+    if let Some(name) = retired_provider_input(
+        env::vars_os().filter_map(|(name, _)| name.into_string().ok()),
+    ) {
+        return Err(format!(
+            "{name} configures a retired provider authentication path; unset it (Identity v1 via CANTOS_IDENTITY_* is the only session authority)"
+        )
+        .into());
+    }
     let host = host_settings(|name| env::var(name).ok()).map_err(|error| error.message())?;
     let address = host.bind();
     // The Server owns `server.db` for the process lifetime. Serving never changes the schema:
@@ -34,116 +43,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Private audio intake enabled: API-only host; serve Studio separately through its Trunk proxy");
     }
     let web_origin = host.web_origin().to_owned();
-    let api_origin = match env::var("CANTOS_API_ORIGIN") {
-        Ok(value) => {
-            cantos_contracts::web_api::ApiOrigin::parse(&value)
-                .map_err(|_| "invalid CANTOS_API_ORIGIN")?;
-            if host.mode() == HostMode::Production && !value.starts_with("https://") {
-                return Err("production CANTOS_API_ORIGIN must be HTTPS".into());
-            }
-            Some(value)
-        }
-        Err(env::VarError::NotPresent) => None,
-        Err(_) => return Err("invalid CANTOS_API_ORIGIN".into()),
-    };
-    if let Ok(issuer) = env::var("CANTOS_STUDIO_OIDC_ISSUER") {
-        let secret = env::var("CANTOS_STUDIO_OIDC_SECRET")
-            .map_err(|_| "OIDC requires an operator-supplied client secret")?;
-        let config = OidcConfig::new(&issuer, &web_origin, secret)
-            .map_err(|_| "invalid Studio OIDC config")?;
-        let config = match api_origin.as_deref() {
-            Some(origin) => config
-                .with_api_callback_origin(origin)
-                .map_err(|_| "invalid Studio API callback origin")?,
-            None => config,
-        };
-        let subjects = env::var("CANTOS_STUDIO_ADMIN_SUBJECTS")
-            .map_err(|_| "Studio requires its operator-provisioned administrator subjects")?;
-        let subjects = serde_json::from_str::<Vec<String>>(&subjects)
-            .map_err(|_| "Studio administrator subjects must be a JSON array")?;
-        let oidc = StudioOidc::new(config)
-            .map_err(|_| "OIDC client unavailable")?
-            .with_admin_subjects(subjects)
-            .map_err(|_| "Studio requires one or two distinct valid administrator subjects")?;
-        store = store.with_studio_oidc(oidc);
-    } else if env::var_os("CANTOS_STUDIO_OIDC_SECRET").is_some()
-        || env::var_os("CANTOS_STUDIO_ADMIN_SUBJECTS").is_some()
-    {
-        return Err("Studio secret/administrator subjects require explicit issuer".into());
-    }
-    if let Ok(issuer) = env::var("CANTOS_THEATRE_OIDC_ISSUER") {
-        let secret = env::var("CANTOS_THEATRE_OIDC_SECRET")
-            .map_err(|_| "Theatre OIDC requires its separate operator-supplied client secret")?;
-        // Optional private authority for a private HTTPS issuer; it replaces the public roots for
-        // the Theatre issuer's OIDC and onboarding clients only. Never a system trust change.
-        let trust = match env::var_os("CANTOS_THEATRE_OIDC_CA_FILE") {
-            Some(path) => Some(
-                cantos_server::platform::theatre_identity::IssuerTrust::read_file(
-                    std::path::Path::new(&path),
-                )
-                .map_err(|_| "invalid Theatre OIDC private CA bundle")?,
-            ),
-            None => None,
-        };
-        let identity = cantos_server::platform::theatre_identity::TheatreIdentity::with_api_origin(
-            &issuer,
-            host.origins().theatre(),
-            secret,
-            trust,
-            api_origin.as_deref(),
-        )
-        .map_err(|_| "invalid Theatre OIDC configuration")?;
-        store = store.with_theatre_identity(identity);
-    } else if env::var_os("CANTOS_THEATRE_OIDC_SECRET").is_some()
-        || env::var_os("CANTOS_THEATRE_OIDC_CA_FILE").is_some()
-    {
-        return Err("Theatre secret or private CA requires explicit issuer".into());
-    }
-    if let Ok(issuer) = env::var("CANTOS_THEATRE_NATIVE_ISSUER") {
-        let development_callback =
-            match env::var("CANTOS_THEATRE_NATIVE_DEVELOPMENT_CALLBACK").as_deref() {
-                Err(env::VarError::NotPresent) => false,
-                Ok("admit") => true,
-                _ => {
-                    return Err(
-                        "CANTOS_THEATRE_NATIVE_DEVELOPMENT_CALLBACK must be exactly `admit`".into(),
-                    )
-                }
-            };
-        let native = cantos_server::platform::theatre_identity::NativeIdentity::with_callbacks(
-            &issuer,
-            development_callback,
-        )
-        .map_err(|_| "invalid separate native public-client identity configuration")?;
-        store = store.with_theatre_native(native);
-    }
-    if let Ok(issuer) = env::var("CANTOS_ADMIN_OIDC_ISSUER") {
-        let secret = env::var("CANTOS_ADMIN_OIDC_SECRET")
-            .map_err(|_| "Admin requires its dedicated introspection secret")?;
-        let config = cantos_server::platform::admin::AdminConfig::new(&issuer, secret)
-            .map_err(|_| "invalid Admin configuration")?;
-        let admin = cantos_server::platform::admin::AdminService::new(config)
-            .map_err(|_| "invalid Admin client")?;
-        store = store.with_admin(admin);
-    } else if env::var_os("CANTOS_ADMIN_OIDC_SECRET").is_some() {
-        return Err("Admin secret requires explicit issuer".into());
-    }
-    if let Some(registration) = cantos_server::platform::theatre_registration::config::from_lookup(
-        store.clone(),
-        host.origins().theatre(),
-        |name| env::var(name).ok(),
-    )
-    .map_err(|_| "invalid or incomplete Theatre registration configuration")?
-    {
-        store = match registration {
-            cantos_server::platform::theatre_registration::config::RegistrationMode::Smtp(
-                runtime,
-            ) => store.with_theatre_registration(runtime),
-            cantos_server::platform::theatre_registration::config::RegistrationMode::Firebase(
-                runtime,
-            ) => store.with_theatre_firebase_enrollment(runtime),
-        };
-    }
     // Email/password sessions from a verified cantos-identity fact. Optional and explicit: with no
     // socket configured, none of the Identity routes or credentials exist.
     if let Some(config) =

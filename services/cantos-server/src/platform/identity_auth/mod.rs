@@ -9,18 +9,18 @@ pub mod client;
 pub mod config;
 pub mod credential;
 pub mod decision;
+pub mod peer;
 pub mod session;
 pub mod turso;
 
+pub use self::peer::{PeerError, PeerPolicy, TrustedProxies};
 pub use self::session::{SessionError, SessionRecord, SessionStore};
 use self::{
     client::{IdentityClient, RpcFault},
     credential::{Channel, Secrets, Surface},
     decision::{decide_admission, decide_issue, Admission, IssueRefusal, RevokeReason, Subject},
 };
-use crate::platform::{
-    bearer::core::Lifetime, store::Store, theatre_registration::domain::PeerPolicy,
-};
+use crate::platform::{bearer::core::Lifetime, store::Store};
 use cantos_identity_rpc::Purpose;
 use sha2::{Digest, Sha256};
 use std::{net::IpAddr, sync::Arc, time::Duration};

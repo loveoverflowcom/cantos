@@ -2,7 +2,6 @@
 mod admin;
 mod assembly;
 pub(crate) mod audio_transport;
-mod bearer;
 mod cookies;
 mod cors;
 mod errors;
@@ -12,10 +11,7 @@ mod router;
 mod state;
 mod studio;
 mod theatre;
-mod theatre_auth;
 mod theatre_library;
-mod theatre_native_auth;
-mod theatre_registration;
 mod wire;
 
 pub use assembly::{

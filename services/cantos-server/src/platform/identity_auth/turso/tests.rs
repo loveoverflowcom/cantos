@@ -1108,7 +1108,7 @@ mod fake;
 
 use crate::platform::{
     identity_auth::{config::IdentityAuthConfig, AuthFailure, IdentityAuth, Login as IssuedLogin},
-    theatre_registration::domain::PeerPolicy,
+    identity_auth::PeerPolicy,
 };
 use cantos_store_turso::clock::SystemClock;
 use fake::{Script, Serving};

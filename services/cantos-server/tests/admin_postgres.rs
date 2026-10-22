@@ -1,6 +1,7 @@
-//! Actual Admin HTTP/crypto/PG tests; provider is a named signed loopback mock, never Kanidm-live.
-#[path = "support/oidc_provider.rs"]
-mod mock;
+//! Actual Admin HTTP/PG tests. No Admin verifier is composed in production: the former
+//! Kanidm/OIDC adapter is retired. These tests plug a synthetic in-process [`AdminVerifier`]
+//! through the public port, so Admin policy, audit, revocation and PostgreSQL atomicity stay
+//! covered while credential verification itself has no implementation to test.
 use axum::{
     body::Body,
     http::{header, Request, StatusCode},
@@ -8,7 +9,10 @@ use axum::{
 use cantos_server::{
     adapters::inbound::http::{router, server_router, AppState},
     platform::{
-        admin::{AdminConfig, AdminError, AdminService, CLIENT_ID},
+        admin::{
+            map_groups, AdminError, AdminService, AdminVerifier, RoleEvidence, VerifyFuture,
+        },
+        identity::domain::ExternalIdentityKey,
         postgres::{local_config, migrate, Store},
     },
 };
@@ -16,7 +20,10 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::{
     env,
-    sync::atomic::Ordering,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
     time::{SystemTime, UNIX_EPOCH},
 };
 use tokio_postgres::{Client, Config, NoTls};
@@ -28,10 +35,88 @@ async fn connect(config: &Config) -> Client {
     });
     c
 }
+const ISSUER: &str = "https://admin-fixture.example/oauth2/openid/cantos-admin-api";
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+/// Synthetic verifier. A credential is `fixture|subject|group,group[|exp]`; the "current" role
+/// observation is whatever groups were last issued or set, like a provider's live group state.
+struct Fixture {
+    groups: Mutex<Vec<String>>,
+    active: AtomicBool,
+    unavailable: AtomicBool,
+    calls: AtomicUsize,
+}
+impl Fixture {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            groups: Mutex::new(vec!["cantos_identity_operators".into()]),
+            active: AtomicBool::new(true),
+            unavailable: AtomicBool::new(false),
+            calls: AtomicUsize::new(0),
+        })
+    }
+    fn issuer(&self) -> String {
+        ISSUER.into()
+    }
+    fn resource(&self, subject: &str, groups: &[&str], exp: Option<u64>) -> String {
+        self.set_admin_groups(groups);
+        let mut token = format!("fixture|{subject}|{}", groups.join(","));
+        if let Some(exp) = exp {
+            token.push_str(&format!("|{exp}"));
+        }
+        token
+    }
+    fn set_admin_groups(&self, groups: &[&str]) {
+        *self.groups.lock().unwrap() = groups.iter().map(|g| (*g).to_owned()).collect();
+    }
+}
+impl AdminVerifier for Fixture {
+    fn verify<'a>(&'a self, token: &'a str) -> VerifyFuture<'a> {
+        Box::pin(async move {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            let parts: Vec<&str> = token.split('|').collect();
+            if parts.len() < 3 || parts[0] != "fixture" {
+                return Err(AdminError::Credential);
+            }
+            if self.unavailable.load(Ordering::SeqCst) {
+                return Err(AdminError::ProviderUnavailable);
+            }
+            let signed: Vec<String> = parts[2]
+                .split(',')
+                .filter(|g| !g.is_empty())
+                .map(str::to_owned)
+                .collect();
+            let signed = map_groups(&signed)?;
+            if !self.active.load(Ordering::SeqCst) {
+                return Err(AdminError::Credential);
+            }
+            let current = map_groups(&self.groups.lock().unwrap())?;
+            if current != signed {
+                return Err(AdminError::StaleRole);
+            }
+            let now = unix_now();
+            let exp = parts
+                .get(3)
+                .map_or(Some(now + 200), |v| v.parse::<u64>().ok())
+                .ok_or(AdminError::Credential)?;
+            if now >= exp {
+                return Err(AdminError::Credential);
+            }
+            let key = ExternalIdentityKey::new(ISSUER, parts[1]).map_err(|_| AdminError::Credential)?;
+            Ok(RoleEvidence::verified(key, current, now, exp.min(now + 5)))
+        })
+    }
+}
+
 struct Harness {
     db: Client,
     store: Store,
-    provider: mock::MockProvider,
+    provider: Arc<Fixture>,
     config: Config,
 }
 impl Harness {
@@ -53,14 +138,7 @@ impl Harness {
         migrate(&config).await.unwrap();
         let db = connect(&config).await;
         db.batch_execute("GRANT EXECUTE ON FUNCTION admin_identity_facts(text,text,text),admin_append_audit(uuid,text,text,text,text,uuid),admin_operation(text,uuid),admin_revoke_access(text,uuid,text,uuid) TO cantos_app;").await.unwrap();
-        let provider = mock::MockProvider::start_for(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            CLIENT_ID,
-        )
-        .await;
+        let provider = Fixture::new();
         db.execute(
             "INSERT INTO actors(id) VALUES('minh'),('other'),('third')",
             &[],
@@ -77,9 +155,7 @@ impl Harness {
         }
         let mut runtime = config.clone();
         runtime.user("cantos_app");
-        let service =
-            AdminService::new(AdminConfig::new(&provider.issuer(), "fixture".into()).unwrap())
-                .unwrap();
+        let service = AdminService::new(provider.clone());
         let store = Store::new(runtime).unwrap().with_admin(service);
         Self {
             db,
@@ -157,7 +233,7 @@ fn revoke_path(actor: &str) -> String {
     format!("/api/v1/admin/actors/{actor}/revoke-access")
 }
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn admin_capability_is_existing_registry_actor_with_explicit_source_and_audited_role() {
     let h = Harness::new().await;
     let token = h.token("minh");
@@ -218,7 +294,7 @@ async fn admin_capability_is_existing_registry_actor_with_explicit_source_and_au
     assert_eq!(h.count("sessions").await, 0);
 }
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn valid_admin_resource_credential_never_authorizes_private_studio_rendition_reads() {
     let h = Harness::new().await;
     // Allow Studio's real empty-session lookup. A missing test-role SQL privilege (503)
@@ -257,7 +333,7 @@ async fn valid_admin_resource_credential_never_authorizes_private_studio_renditi
     ] {
         assert_eq!(initial[field], 0, "fixture unexpectedly has {field}");
     }
-    let introspections_before = h.provider.data.introspection_calls.load(Ordering::SeqCst);
+    let verifications_before = h.provider.calls.load(Ordering::SeqCst);
     let app = router(
         AppState {
             store: h.store.clone(),
@@ -334,9 +410,9 @@ async fn valid_admin_resource_credential_never_authorizes_private_studio_renditi
         "private reads changed authority or media state"
     );
     assert_eq!(
-        h.provider.data.introspection_calls.load(Ordering::SeqCst),
-        introspections_before,
-        "Studio reads must not admit through the Admin provider verifier"
+        h.provider.calls.load(Ordering::SeqCst),
+        verifications_before,
+        "Studio reads must not admit through the Admin verifier"
     );
     let (status, capability) = h.request("GET", CAP, Some(&token), None, json!({})).await;
     assert_eq!(status, StatusCode::OK);
@@ -346,7 +422,7 @@ async fn valid_admin_resource_credential_never_authorizes_private_studio_renditi
 }
 
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn credentials_roles_disable_revocation_and_other_surfaces_fail_closed_with_audit() {
     let h = Harness::new().await;
     for cookie in [
@@ -362,17 +438,6 @@ async fn credentials_roles_disable_revocation_and_other_surfaces_fail_closed_wit
     for opaque in ["producer-scoped-grant", "theatre-session", "studio-session"] {
         assert_eq!(
             h.request("GET", CAP, Some(opaque), None, json!({})).await.0,
-            StatusCode::UNAUTHORIZED
-        );
-    }
-    for field in ["aud", "iss", "client_id"] {
-        let bad = h.provider.resource(
-            "minh",
-            &["cantos_identity_operators"],
-            Some((field, json!("wrong"))),
-        );
-        assert_eq!(
-            h.request("GET", CAP, Some(&bad), None, json!({})).await.0,
             StatusCode::UNAUTHORIZED
         );
     }
@@ -411,12 +476,12 @@ async fn credentials_roles_disable_revocation_and_other_surfaces_fail_closed_wit
         StatusCode::FORBIDDEN
     );
     h.provider.set_admin_groups(&["cantos_identity_operators"]);
-    h.provider.data.active.store(false, Ordering::SeqCst);
+    h.provider.active.store(false, Ordering::SeqCst);
     assert_eq!(
         h.request("GET", CAP, Some(&token), None, json!({})).await.0,
         StatusCode::UNAUTHORIZED
     );
-    h.provider.data.active.store(true, Ordering::SeqCst);
+    h.provider.active.store(true, Ordering::SeqCst);
     h.db.execute("UPDATE actors SET active=false WHERE id='minh'", &[])
         .await
         .unwrap();
@@ -452,7 +517,7 @@ async fn credentials_roles_disable_revocation_and_other_surfaces_fail_closed_wit
     );
 }
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn revocation_and_audit_are_atomic_replayable_and_append_only_under_runtime_role() {
     let h = Harness::new().await;
     let token = h.token("minh");
@@ -571,7 +636,7 @@ async fn revocation_and_audit_are_atomic_replayable_and_append_only_under_runtim
     }
 }
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn required_audit_failure_and_effect_failure_never_commit_partial_success() {
     let h = Harness::new().await;
     let token = h.token("minh");
@@ -613,7 +678,7 @@ async fn required_audit_failure_and_effect_failure_never_commit_partial_success(
     assert_eq!(h.count("admin_audit").await, 1);
 }
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn concurrent_duplicate_delivery_recovers_one_receipt_after_application_restart() {
     let h = Harness::new().await;
     let token = h.token("minh");
@@ -628,10 +693,9 @@ async fn concurrent_duplicate_delivery_recovers_one_receipt_after_application_re
     assert_eq!(h.count("admin_audit").await, 2);
     let mut config = h.config.clone();
     config.user("cantos_app");
-    let restarted = Store::new(config).unwrap().with_admin(
-        AdminService::new(AdminConfig::new(&h.provider.issuer(), "fixture".into()).unwrap())
-            .unwrap(),
-    );
+    let restarted = Store::new(config)
+        .unwrap()
+        .with_admin(AdminService::new(h.provider.clone()));
     let receipt = restarted
         .admin()
         .unwrap()
@@ -643,7 +707,7 @@ async fn concurrent_duplicate_delivery_recovers_one_receipt_after_application_re
     assert_eq!(h.count("admin_audit").await, 3);
 }
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn local_admin_revocation_committed_while_waiting_for_lock_is_rechecked() {
     let mut h = Harness::new().await;
     let token = h.token("minh");
@@ -673,7 +737,7 @@ async fn local_admin_revocation_committed_while_waiting_for_lock_is_rechecked() 
 }
 
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn actor_disable_committed_while_waiting_for_lock_is_rechecked_and_audited() {
     let mut h = Harness::new().await;
     let token = h.token("minh");
@@ -739,7 +803,7 @@ async fn actor_disable_committed_while_waiting_for_lock_is_rechecked_and_audited
 }
 
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn receipt_read_failure_after_verified_admission_is_audited_without_an_effect() {
     let h = Harness::new().await;
     let token = h.token("minh");
@@ -770,7 +834,7 @@ async fn receipt_read_failure_after_verified_admission_is_audited_without_an_eff
 }
 
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn proof_expiring_during_required_audit_wait_rolls_back_effect_and_records_denial() {
     let mut h = Harness::new().await;
     let time: i64 =
@@ -782,11 +846,9 @@ async fn proof_expiring_during_required_audit_wait_rolls_back_effect_and_records
         .unwrap()
         .get(0);
     let expires = time + 2;
-    let token = h.provider.resource(
-        "minh",
-        &["cantos_identity_operators"],
-        Some(("exp", json!(expires))),
-    );
+    let token = h
+        .provider
+        .resource("minh", &["cantos_identity_operators"], Some(expires as u64));
     let observer = connect(&h.config).await;
     let tx = h.db.transaction().await.unwrap();
     tx.batch_execute("LOCK TABLE admin_audit IN ACCESS EXCLUSIVE MODE")
@@ -859,7 +921,7 @@ async fn bounded_admin_point_lookup_baseline_uses_current_runtime_role_and_prima
 }
 
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
 async fn final_clock_read_failure_rolls_back_success_and_audits_unavailable_with_known_actor() {
     let h = Harness::new().await;
     let token = h.token("minh");
@@ -962,16 +1024,9 @@ async fn admin_recovery_after_database_restart() {
             .get::<_, i64>(0),
         1
     );
-    let provider = mock::MockProvider::start_for(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
-        CLIENT_ID,
-    )
-    .await;
-    // Test-operator explicit binding to the same synthetic actor; no credential or provider
-    // process is persisted across the gate's restart, and no auto-link is added to production.
+    let provider = Fixture::new();
+    // Test-operator explicit binding to the same synthetic actor; no credential or verifier
+    // is persisted across the gate's restart, and no auto-link is added to production.
     db.execute(
         "INSERT INTO actor_external_identities(issuer,subject,actor_id) VALUES($1,'minh','minh')",
         &[&provider.issuer()],
@@ -979,9 +1034,9 @@ async fn admin_recovery_after_database_restart() {
     .await
     .unwrap();
     config.user("cantos_app");
-    let store = Store::new(config).unwrap().with_admin(
-        AdminService::new(AdminConfig::new(&provider.issuer(), "fixture".into()).unwrap()).unwrap(),
-    );
+    let store = Store::new(config)
+        .unwrap()
+        .with_admin(AdminService::new(provider.clone()));
     let token = provider.resource("minh", &["cantos_identity_operators"], None);
     let receipt = store
         .admin()
@@ -1016,27 +1071,25 @@ async fn admin_recovery_after_database_restart() {
 }
 
 #[tokio::test]
-#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
-async fn jwks_and_current_introspection_outages_fail_closed_with_unavailable_audit() {
-    let mut h = Harness::new().await;
+#[ignore = "xtask disposable PostgreSQL, synthetic verifier"]
+async fn verifier_outage_fails_closed_with_unavailable_audit() {
+    let h = Harness::new().await;
     let token = h.token("minh");
-    h.provider.data.bad_jwks.store(true, Ordering::SeqCst);
+    h.provider.unavailable.store(true, Ordering::SeqCst);
     assert_eq!(
         h.request("GET", CAP, Some(&token), None, json!({})).await.0,
         StatusCode::SERVICE_UNAVAILABLE
     );
-    h.provider.data.bad_jwks.store(false, Ordering::SeqCst);
-    h.provider
-        .data
-        .introspection_fail
-        .store(true, Ordering::SeqCst);
-    // A fresh service avoids waiting for the intentional failed-metadata retry limiter.
-    h.store = h.store.clone().with_admin(
-        AdminService::new(AdminConfig::new(&h.provider.issuer(), "fixture".into()).unwrap())
-            .unwrap(),
-    );
     assert_eq!(
-        h.request("GET", CAP, Some(&token), None, json!({})).await.0,
+        h.request(
+            "POST",
+            &revoke_path("other"),
+            Some(&token),
+            None,
+            json!({"operation_id":uuid::Uuid::new_v4().to_string()})
+        )
+        .await
+        .0,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(h.count("admin_operations").await, 0);
