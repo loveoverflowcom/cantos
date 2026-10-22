@@ -58,8 +58,9 @@ async fn public_routes_use_theatre_errors_and_do_not_reuse_studio_cookies() {
 }
 #[tokio::test]
 async fn unavailable_database_never_returns_mock_catalog_or_a_signed_url() {
-    let r = app()
-        .oneshot(
+    use cantos_server::test_support::ServerFixture;
+    let list = |app: axum::Router| async move {
+        app.oneshot(
             Request::builder()
                 .uri("/api/v1/theatre/works")
                 .header("cookie", "cantos_session=ignored")
@@ -67,12 +68,53 @@ async fn unavailable_database_never_returns_mock_catalog_or_a_signed_url() {
                 .unwrap(),
         )
         .await
+        .unwrap()
+    };
+    let fixture = ServerFixture::new().await;
+    let app = || {
+        router(
+            AppState {
+                store: fixture.store().clone(),
+                web_origin: "http://127.0.0.1:8080".into(),
+            },
+            "unused-public-root",
+        )
+    };
+    // A healthy, empty `server.db` is an honest empty catalog, never sample data.
+    let r = list(app()).await;
+    assert_eq!(r.status(), StatusCode::OK);
+    let v: Value =
+        serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(v, json!({"items":[],"next_cursor":null}));
+    schema("WorkPage", &v);
+    // A database that cannot answer is a typed, retryable unavailability: no empty-success
+    // fallback, no mock catalog, no signed URL.
+    fixture
+        .exec("DROP TABLE audio_listener_releases", &[])
+        .await
         .unwrap();
+    let r = list(app()).await;
     assert_eq!(r.status(), StatusCode::SERVICE_UNAVAILABLE);
     let v: Value =
         serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(v, json!({"code":"unavailable","retryable":true}));
     schema("ListenerError", &v);
+    let r = app()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/theatre/publications/00000000-0000-4000-8000-000000000001/playback-authorizations")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = r.into_body().collect().await.unwrap().to_bytes();
+    assert!(
+        !String::from_utf8_lossy(&body).contains("https://"),
+        "no signed URL"
+    );
 }
 #[tokio::test]
 async fn playback_rejects_raw_authority_and_has_no_studio_or_legacy_alias() {

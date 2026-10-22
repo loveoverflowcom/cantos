@@ -334,6 +334,18 @@ impl ServerFixture {
 
     /// Withdraw the active release of `unit`: the withdrawal fact, then the pointer moves to NULL.
     pub async fn withdraw_release(&self, owner: &str, unit: &SeededUnit) {
+        self.record_withdrawal(owner, unit).await;
+        self.exec(
+            "UPDATE audio_publication_pointers SET active_release_id=NULL,version=version+1 WHERE unit_id=?1",
+            &[&unit.unit_id.as_str()],
+        )
+        .await
+        .expect("the pointer withdraws");
+    }
+
+    /// Only the withdrawal fact, leaving the pointer on the release: the inconsistent state a
+    /// restored or hand-edited file could hold, which must still deny.
+    pub async fn record_withdrawal(&self, owner: &str, unit: &SeededUnit) {
         let release = unit
             .chain
             .release_id
@@ -346,12 +358,6 @@ impl ServerFixture {
         )
         .await
         .expect("the withdrawal is recorded");
-        self.exec(
-            "UPDATE audio_publication_pointers SET active_release_id=NULL,version=version+1 WHERE unit_id=?1",
-            &[&unit.unit_id.as_str()],
-        )
-        .await
-        .expect("the pointer withdraws");
     }
 
     /// Revoke the producer capability behind the unit's submission.

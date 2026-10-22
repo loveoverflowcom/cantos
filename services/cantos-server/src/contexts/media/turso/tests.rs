@@ -431,6 +431,92 @@ async fn private_staged_withdrawn_revoked_expired_superseded_archived_and_disabl
 }
 
 #[tokio::test]
+async fn a_withdrawal_or_revocation_fact_denies_even_while_the_pointer_still_names_the_release() {
+    for revoke in [false, true] {
+        let (fixture, _) = fixture().await;
+        let work = single(&fixture).await;
+        let service = service(&fixture);
+        let id = release(&work, 0);
+        service.manifest(&id).await.unwrap();
+        if revoke {
+            fixture.revoke_submission("alice", &work.units[0]).await;
+        } else {
+            fixture.record_withdrawal("alice", &work.units[0]).await;
+        }
+        assert_eq!(
+            fixture
+                .count(
+                    "SELECT count(*) FROM audio_publication_pointers WHERE active_release_id=?1",
+                    &[&id.as_str()]
+                )
+                .await,
+            1,
+            "the pointer was not moved"
+        );
+        assert_eq!(
+            service.manifest(&id).await.unwrap_err(),
+            ListenerError::NotFound
+        );
+        assert!(service
+            .works("", None, None, 20, None)
+            .await
+            .unwrap()
+            .items
+            .is_empty());
+        assert_eq!(
+            service.authorize_playback(&id).await.unwrap_err(),
+            ListenerError::NotFound
+        );
+    }
+}
+
+#[tokio::test]
+async fn list_and_detail_share_the_representative_release_and_so_does_the_library() {
+    let (fixture, _) = fixture().await;
+    let work = fixture
+        .seed_work(
+            None,
+            &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một", "Hai", "Ba"]),
+        )
+        .await;
+    let service = service(&fixture);
+    // All three releases were published at the same instant: the representative is the smallest
+    // release id, whatever order the rows were read in.
+    let mut ids: Vec<_> = (0..3).map(|i| release(&work, i)).collect();
+    ids.sort();
+    let units = service.units(&work.work_id, 20, None).await.unwrap();
+    assert_eq!(units.items.len(), 3);
+    let representative = &ids[0];
+    let library = crate::contexts::listening::LibraryService::new(fixture.store().clone());
+    let alice = crate::contexts::listening::auth::AuthenticatedListener::from_verified_actor(
+        crate::platform::identity::domain::ActorId::new("alice").unwrap(),
+    );
+    library
+        .set_saved(
+            &alice,
+            &work.work_id,
+            crate::test_support::library::saved(1, 90, 0, true),
+        )
+        .await
+        .unwrap();
+    let saved = library
+        .presented_saved_works(&alice, 20, None)
+        .await
+        .unwrap();
+    assert_eq!(saved.items.len(), 1);
+    assert_eq!(
+        saved.items[0].presentation.as_ref().unwrap().publication_id,
+        *representative,
+        "Saved is labelled by the same release Work detail resolves"
+    );
+    // The title the detail serves is that representative's pinned title.
+    assert_eq!(
+        service.work(&work.work_id).await.unwrap().title,
+        "Ánh đèn cuối sân khấu"
+    );
+}
+
+#[tokio::test]
 async fn released_metadata_is_pinned_while_current_privacy_still_governs() {
     let (fixture, _) = fixture().await;
     let work = single(&fixture).await;
