@@ -21,7 +21,7 @@ pub use contexts::media::domain::wav_inspection;
 #[doc(hidden)]
 pub use contexts::production;
 #[doc(hidden)]
-pub use platform::{incremental, operator};
+pub use platform::operator;
 
 #[doc(hidden)]
 pub mod revisions {

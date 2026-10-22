@@ -92,6 +92,29 @@ and separate browser/device/Kani evidence without PostgreSQL or container depend
 [#348 packaging](../deployment/native-oci-release.md) selects production GHCR/Podman only; it
 does not make native development or tests container-dependent.
 
+## Owner amendment: source retirement on the integration branch
+
+On 22 October 2026 the owner decided that PostgreSQL and Kanidm leave the **source** of the
+integration branch `refactor/cantos-native-turso` now, without waiting for full end-to-end, Kani,
+browser/device or live-host acceptance. This supersedes only the earlier condition that kept
+legacy source "while the default serving path consumes it" and "only alongside the accepted
+replacement and its real tests" (the retirement paragraph of
+[native persistence readiness](native-persistence-readiness.md#retirement-and-local-data)); it does
+not lower any invariant.
+
+| Decided | Unchanged |
+| --- | --- |
+| `cantos-server` serves every use case from its one embedded Turso `server.db`; `cantos-identity` owns `identity.db`. PostgreSQL, Kanidm, Firebase Authentication enrollment and every provider session/token path are removed from implementation, composition, tooling and active operating configuration in this repository. Retired SQL and tooling are recoverable only through Git history and source-bound evidence, never as a compiled or default dependency. | Rust Turso embedded at the pinned version (no SQLite/libSQL remote/Turso Cloud); Identity v1 email/password with mailbox verification; HttpOnly/Secure Web cookies and opaque Bearer for native; `SessionPolicy`, rotation/replay, session fences and revocation; ActorId, immutable subject bindings, Studio roster and resource authorization; immutable revisions, hashes and receipts; production packaging through GHCR images and Podman/Quadlet. |
+| A partially integrated or not-yet-accepted intermediate state may be delivered as a Draft PR if every gap is stated precisely. | No fallback to PostgreSQL, Kanidm or Firebase Authentication, no runtime mock and no claim that a missing backend task succeeded. Admin has no native credential verifier yet and fails closed. |
+
+Four conclusions stay separate in every handoff: **source retirement** (legacy source and tooling are
+gone), **buildability** (the workspace compiles and the selected checks run), **integration
+acceptance** (two production binaries on two files, real RPC/auth/revocation/restore journeys) and
+**production readiness** (live host, data migration, cutover). This amendment grants none of the
+last two and authorizes no deployment, publication, data conversion, deletion of a database, volume,
+backup or media on any host, nor any change to an installed service. A database file, WAL, backup,
+account or secret on a real machine stays out of reach of source retirement.
+
 ## Single-process HTTP review boundary
 
 [#333.1](https://github.com/loveoverflowcom/cantos/issues/333) first composes the existing
