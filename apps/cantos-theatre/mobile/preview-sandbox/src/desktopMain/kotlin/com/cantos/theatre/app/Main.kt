@@ -26,8 +26,6 @@ import com.cantos.theatre.app.PreviewSession
 import com.cantos.theatre.app.PreviewTheatreApp
 import com.cantos.theatre.adapters.preview.previewLibraryStore
 import com.cantos.theatre.app.seed
-import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
-import com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult
 
 // Explicit live mode uses the same production app/controllers over real HTTP. The default
 // diagnostic recipes remain offline; neither host supplies native/device acceptance.
@@ -42,9 +40,6 @@ fun main() = application {
             hostOrigin(com.cantos.theatre.adapters.http.selectCatalogOrigin(apiOrigin ?: "", allowLoopbackHttp = true))
         }
     }
-    val identity = remember(liveOrigin) {
-        (liveOrigin as? HostOrigin.Ready)?.let { NativeIdentityV1Configuration.resolve(it.origin.toString()) }
-    }
     // Diagnostic desktop opt-in only; Android/iOS hosts never receive a Membership fixture.
     val membership = remember {
         if (System.getenv("CANTOS_MEMBERSHIP_PREVIEW_FIXTURE") == "1") MembershipState.fixture()
@@ -57,11 +52,7 @@ fun main() = application {
     ) {
         if (requestedLive) {
             when (val selected = liveOrigin) {
-                is HostOrigin.Ready -> {
-                    val available = identity as? NativeIdentityV1ConfigurationResult.Available
-                    if (available != null) LiveEnrollmentPreview(available.configuration)
-                    else LivePublicCatalogPreview(selected.origin, identity)
-                }
+                is HostOrigin.Ready -> LiveEnrollmentPreview(selected.origin)
                 is HostOrigin.Refused -> com.cantos.theatre.features.launch.presentation.CantosListeningUnavailable(com.cantos.ui.UiPreferences(), fault = selected.fault)
                 null -> Unit
             }

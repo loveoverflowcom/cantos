@@ -25,7 +25,7 @@ sealed interface IdentityV1Result<out T> {
 /** Receipt is only a generic initiation acknowledgment, never mailbox or session evidence. */
 class IdentitySignupAccepted internal constructor(val proofTtlSeconds: Long)
 
-/** Separate from NativeIdentityApi's retained provider flow; composition chooses one protocol. */
+/** The first-party Identity v1 HTTP boundary: explicit email/password, rotation and revocation only. */
 interface NativeIdentityV1Api {
     suspend fun signup(email: RegistrationEmail): IdentityV1Result<IdentitySignupAccepted>
     suspend fun login(email: RegistrationEmail, password: String): IdentityV1Result<NativeGrant>

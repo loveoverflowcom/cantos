@@ -28,15 +28,14 @@ import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.StubIdentityV1Api
+import com.cantos.theatre.application.identity.v1Grant
 import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.domain.catalog.CatalogCursor
 import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples
 import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.PublicWorkId
-import com.cantos.theatre.domain.identity.LoginSecret
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
-import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackIntent
@@ -80,9 +79,7 @@ class TheatreShellLibraryTest {
 
     private class Fixture(scope: CoroutineScope, private val resume: ResumeStatus) {
         val actor = "actor-a"
-        private val bearer = "ca1_n_" + "a".repeat(64)
-        private val grant = requireNotNull(NativeGrant.create(bearer, "cr1_" + "c".repeat(64), actor,
-            "00000000-0000-4000-8000-000000000001", 121, 601, 901, 1, now = 1))
+        private val grant = v1Grant('a', 'c', actor, "00000000-0000-4000-8000-000000000001", 121, 601, 901, authenticatedAt = 1, now = 1)
         private var sequence = 10
         private fun uuid() = "90000000-0000-4000-8000-${sequence++.toString().padStart(12, '0')}"
         private val folder = Files.createTempDirectory("cantos-shell-library").toFile()
@@ -118,25 +115,7 @@ class TheatreShellLibraryTest {
             override suspend fun receipt(auth: LibraryAuthorization, operation: String): LibraryResult<Receipt> = LibraryResult.Failed("not_found", false)
         }
 
-        private val account = NativeAccountController(scope,
-            requireNotNull(NativeClientConfiguration.create("https://api.invalid", "https://identity.invalid/oauth2/openid/cantos-theatre-native")),
-            object : NativeIdentityApi {
-                override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
-                override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeGrant> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
-                override suspend fun refresh(refreshToken: String, session: String): NativeApiResult<NativeGrant> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
-                override suspend fun revokeFamily(refreshToken: String, session: String) = NativeApiResult.Accepted(Unit)
-                override suspend fun cancel(flow: String, state: String, verifier: String) = NativeApiResult.Accepted(Unit)
-                override suspend fun session(credential: String): NativeApiResult<NativeSession> =
-                    NativeApiResult.Accepted(grant.view)
-                override suspend fun revoke(credential: String) = NativeApiResult.Accepted(Unit)
-                override suspend fun saved(credential: String, session: String): NativeApiResult<Int> = error("unused")
-            }, object : IdentityCrypto {
-                override fun secret(): LoginSecret? = null
-                override fun challenge(verifier: LoginSecret): String? = null
-            }, object : SystemBrowser {
-                override fun open(url: String) = false
-                override fun cancel() = Unit
-            }, object : NativeCredentialJournal {
+        private val account = NativeAccountController(scope, StubIdentityV1Api(), object : NativeCredentialJournal {
                 private var record: NativeCredentialRecord? = NativeCredentialRecord.Active(grant)
                 override fun read(): NativeJournalRead = record?.let(NativeJournalRead::Found) ?: NativeJournalRead.Missing
                 override fun write(record: NativeCredentialRecord): CredentialFailure? { this.record = record; return null }

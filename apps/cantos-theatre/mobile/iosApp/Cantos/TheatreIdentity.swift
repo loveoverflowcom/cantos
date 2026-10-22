@@ -1,13 +1,6 @@
 import Foundation
 import Security
-import CryptoKit
-import AuthenticationServices
-import UIKit
-#if CANTOS_PRODUCTION
 import CantosTheatre
-#else
-import CantosTheatreDemo
-#endif
 import Darwin
 
 enum TheatreCredentialError: Error { case unavailable, denied, corrupt }
@@ -147,44 +140,13 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
 }
 
 /// Swift boundary is injected into one shared CMP owner; foreign errors become closed outcomes.
+/// Identity v1 is explicit email/password over this HTTPS transport: there is no browser,
+/// callback or URL-scheme authority, and Keychain holds the only credential copy.
 @MainActor final class TheatreNativePlatform: NSObject, IosIdentityPlatform {
-    #if CANTOS_PRODUCTION
-    weak var owner: IosNativeIdentityOwner?
-    #else
-    weak var owner: IosNativeOwner?
-    #endif
     private let apiOrigin: String
     private let credentials = TheatreCredentialStore()
     private lazy var barrier = try? TheatreLogoutBarrier()
-    private var browser: TheatreSystemBrowser?
     init(apiOrigin: String) { self.apiOrigin = apiOrigin; super.init() }
-    func secureSecret() -> String? { try? TheatreIdentityCrypto.secret() }
-    func s256(verifier: String) -> String? { TheatreIdentityCrypto.challenge(verifier) }
-    func openBrowser(url: String) -> Bool {
-        #if CANTOS_PRODUCTION
-        // Identity v1 accepts only explicit CMP email/password; legacy callbacks are inert.
-        return false
-        #else
-        guard let target = URL(string: url), let anchor = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene }).flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) else { return false }
-        let next = TheatreSystemBrowser(anchor: anchor); browser = next
-        return next.open(target) { [weak self] callback in
-            guard let self else { return }
-            guard let callback else { self.owner?.browserCancelled(); return }
-            guard let parsed = TheatreNativeCallback.parse(callback) else { return }
-            self.owner?.callback(state: parsed.state, code: parsed.code, hasError: parsed.hasError)
-        }
-        #endif
-    }
-    func cancelBrowser() { browser?.cancel(); browser = nil }
-    func openSetup(url: String, completion: @escaping (KotlinBoolean) -> KotlinUnit) {
-        guard let target = URL(string: url), target.scheme == "https" else {
-            _ = completion(KotlinBoolean(bool: false)); return
-        }
-        UIApplication.shared.open(target, options: [:]) { opened in
-            _ = completion(KotlinBoolean(bool: opened))
-        }
-    }
     private func failure(_ error: Error) -> String {
         switch error {
         case TheatreCredentialError.denied: return "denied"
@@ -203,63 +165,5 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
     func clearLogoutBarrier() -> String? { guard let barrier else { return "unavailable" }; do { try barrier.clear(); return nil } catch { return failure(error) } }
     func send(request: NativeHttpRequest, completion: @escaping (NativeHttpResponse) -> KotlinUnit) -> NativeRequestHandle {
         TheatreHttpCall(request: request, apiOrigin: apiOrigin, completion: completion)
-    }
-}
-
-enum TheatreIdentityCrypto {
-    static func secret() throws -> String {
-        var bytes = [UInt8](repeating: 0, count: 32)
-        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { throw TheatreCredentialError.unavailable }
-        return base64url(Data(bytes))
-    }
-    static func challenge(_ verifier: String) -> String { base64url(Data(SHA256.hash(data: Data(verifier.utf8)))) }
-    private static func base64url(_ value: Data) -> String { value.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "") }
-}
-
-/// System authentication browser, retained by one owner. Cancel invalidates late callbacks.
-@MainActor final class TheatreSystemBrowser: NSObject, ASWebAuthenticationPresentationContextProviding {
-    private var session: ASWebAuthenticationSession?
-    private var generation: UInt64 = 0
-    private var exhausted = false
-    private let anchor: ASPresentationAnchor
-    init(anchor: ASPresentationAnchor) { self.anchor = anchor }
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor { anchor }
-    func cancel() {
-        if generation == UInt64.max { exhausted = true } else { generation += 1 }
-        session?.cancel(); session = nil
-    }
-    func open(_ url: URL, completion: @escaping (URL?) -> Void) -> Bool {
-        cancel()
-        guard url.scheme == "https", !exhausted, generation != UInt64.max else { return false }
-        let issued = generation
-        let next = ASWebAuthenticationSession(url: url, callbackURLScheme: "com.cantos.theatre") { [weak self] callback, _ in
-            Task { @MainActor in
-                guard let self, self.generation == issued else { return }
-                self.session = nil
-                completion(callback)
-            }
-        }
-        next.presentationContextProvider = self
-        session = next
-        if !next.start() { session = nil; return false }
-        return true
-    }
-}
-
-struct TheatreNativeCallback {
-    let state: String
-    let code: String
-    let hasError: Bool
-    static func parse(_ url: URL) -> Self? {
-        guard url.absoluteString.count <= 16384 else { return nil }
-        guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false), parts.fragment == nil,
-              url.absoluteString.components(separatedBy: "?").first == "com.cantos.theatre:/oauth2/callback" else { return nil }
-        var pairs: [String: String] = [:]
-        for item in parts.queryItems ?? [] {
-            guard ["state", "code", "error", "error_description"].contains(item.name), pairs[item.name] == nil, let value = item.value else { return nil }
-            pairs[item.name] = value
-        }
-        guard let state = pairs["state"] else { return nil }
-        return Self(state: state, code: pairs["code"] ?? "", hasError: pairs["error"] != nil)
     }
 }

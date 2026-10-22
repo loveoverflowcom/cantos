@@ -1,10 +1,7 @@
 package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.domain.identity.IdentityV1Validation
-import com.cantos.theatre.domain.identity.NativeCredentialProtocol
 import com.cantos.theatre.domain.identity.NativeGrant
-import com.cantos.theatre.domain.identity.NativeIdentityV1Configuration
-import com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult
 import com.cantos.theatre.domain.identity.NativeSession
 import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.domain.identity.RegistrationResult
@@ -28,13 +25,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NativeIdentityV1ClientTest {
     private val origin = "https://api.example:8443"
-    private val config = assertIs<NativeIdentityV1ConfigurationResult.Available>(NativeIdentityV1Configuration.resolve(origin)).configuration
+    private val apiOrigin = ApiOrigin.parse(origin)
     private val email = assertIs<RegistrationResult.Accepted<RegistrationEmail>>(RegistrationEmail.parse("listener@example.org")).value
     private val access = "ci1_n_" + "a".repeat(64)
     private val refresh = "ci1_r_" + "b".repeat(64)
@@ -57,7 +53,7 @@ class NativeIdentityV1ClientTest {
         }
     }
     private fun response(body: String = pair, status: Int = 200) = NativeHttpResponse(status, "application/json", body, null)
-    private fun client(http: RecordingHttp) = NativeIdentityV1Client(config, http) { 1000L }
+    private fun client(http: RecordingHttp, at: ApiOrigin = apiOrigin) = NativeIdentityV1Client(at, http) { 1000L }
     private fun grant() = assertIs<IdentityV1Validation.Accepted<NativeGrant>>(NativeGrant.identityV1(
         access, refresh, "listener_a", session, 1120, 1600, 1900, 1000, 1000,
     )).value
@@ -103,7 +99,6 @@ class NativeIdentityV1ClientTest {
         val http = RecordingHttp().apply { response = response() }
         val password = "  quote\"slash\\\n秘密  "
         val result = assertIs<IdentityV1Result.Accepted<NativeGrant>>(client(http).login(email, password)).value
-        assertEquals(NativeCredentialProtocol.IdentityV1, result.protocol)
         assertEquals(access, result.accessToken)
         assertEquals(refresh, result.refreshToken)
         assertEquals(1000L, result.authenticatedAt)
@@ -155,14 +150,24 @@ class NativeIdentityV1ClientTest {
             http.response = response(body)
             assertEquals(unknown, client(http).login(email, "password"))
         }
-        val legacy = assertNotNull(NativeGrant.create("ca1_n_" + "a".repeat(64), "cr1_" + "b".repeat(64),
-            "listener_a", session, 1120, 1600, 1900, 1000, 1000))
-        val count = http.requests.size
-        assertEquals(protocol, client(http).refresh(legacy))
-        assertEquals(protocol, client(http).revokeFamily(legacy))
-        assertEquals(protocol, client(http).session(legacy))
-        assertEquals(protocol, client(http).revoke(legacy))
-        assertEquals(count, http.requests.size)
+        // A retired-provider pair cannot even be constructed, so no API call can carry one.
+        assertFalse(NativeGrant.isIdentityV1AccessToken("ca1_n_" + "a".repeat(64)))
+        assertFalse(NativeGrant.isIdentityV1RefreshToken("cr1_" + "b".repeat(64)))
+        assertEquals(IdentityV1Validation.Refused(com.cantos.theatre.domain.identity.IdentityV1Invalid.Credential),
+            NativeGrant.restoreIdentityV1("ca1_n_" + "a".repeat(64), "cr1_" + "b".repeat(64), "listener_a", session, 1120, 1600, 1900, 1000))
+    }
+
+    @Test fun requests_bind_to_the_admitted_origin_including_the_debug_loopback_exception() = runTest {
+        for (admitted in listOf("https://api.example", "http://127.0.0.1:8080", "http://localhost:8443")) {
+            val http = RecordingHttp().apply { response = response() }
+            assertIs<IdentityV1Result.Accepted<NativeGrant>>(client(http, ApiOrigin.parse(admitted)).login(email, "password"))
+            assertEquals("$admitted/api/v1/theatre/native/identity/login", http.requests.single().url)
+        }
+        // The origin owner (not this client) is what refuses cleartext to any other host.
+        assertEquals(CatalogOriginSelection.Rejected(ApiOriginRefusal.CleartextHostNotAllowed),
+            selectCatalogOrigin("http://api.example", allowLoopbackHttp = true))
+        assertEquals(CatalogOriginSelection.Rejected(ApiOriginRefusal.NotHttps),
+            selectCatalogOrigin("http://127.0.0.1:8080", allowLoopbackHttp = false))
     }
 
     @Test fun strict_shape_rejects_duplicates_escaped_keys_types_and_deadlines() = runTest {

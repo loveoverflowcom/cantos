@@ -106,20 +106,19 @@ class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: A
 /** Real v1 transport by default; injectable HTTP/clock are external test ports, never a fallback. */
 class LiveEnrollmentOwners(
     scope: CoroutineScope,
-    private val config: com.cantos.theatre.domain.identity.NativeIdentityV1Configuration,
-    http: NativeHttpPort = PreviewNativeHttp(scope, ApiOrigin.parse(config.apiOrigin)),
+    private val origin: ApiOrigin,
+    http: NativeHttpPort = PreviewNativeHttp(scope, origin),
     now: () -> Long = { System.currentTimeMillis() / 1000 },
 ) {
-    private val origin = ApiOrigin.parse(config.apiOrigin)
     private var credential: String? = null
     private var logoutPending = false
-    private val api = com.cantos.theatre.adapters.http.NativeIdentityV1Client(config, http, now)
-    val account = NativeAccountController(scope, config, api,
+    private val api = com.cantos.theatre.adapters.http.NativeIdentityV1Client(origin, http, now)
+    val account = NativeAccountController(scope, api,
         SecureNativeCredentialJournal(object : CredentialStore {
             override fun read(): CredentialRead = credential?.let(CredentialRead::Found) ?: CredentialRead.Missing
             override fun write(value: String): CredentialFailure? { credential = value; return null }
             override fun clear(): CredentialFailure? { credential = null; return null }
-        }, config), object : LogoutBarrier {
+        }, origin), object : LogoutBarrier {
             override fun read() = if (logoutPending) LogoutBarrierRead.Pending else LogoutBarrierRead.Clear
             override fun mark(): CredentialFailure? { logoutPending = true; return null }
             override fun clear(): CredentialFailure? { logoutPending = false; return null }
@@ -148,30 +147,11 @@ private class UnavailableDesktopAudio : StreamingMediaEngine {
 }
 
 @Composable
-fun LiveEnrollmentPreview(config: com.cantos.theatre.domain.identity.NativeIdentityV1Configuration) {
+fun LiveEnrollmentPreview(origin: ApiOrigin) {
     val scope = rememberCoroutineScope()
-    val owners = remember(config) { LiveEnrollmentOwners(scope, config) }
+    val owners = remember(origin) { LiveEnrollmentOwners(scope, origin) }
     DisposableEffect(owners) { onDispose { owners.close() } }
     CantosTheme(UiPreferences()) {
-        CantosTheatreApp(owners.shell, identityV1Availability = com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult.Available(config))
+        CantosTheatreApp(owners.shell)
     }
-}
-
-/** Public real-API preview does not depend on valid identity configuration. No fallback ports. */
-private class LivePublicCatalogOwners(scope: CoroutineScope, origin: ApiOrigin) {
-    private val http = PreviewNativeHttp(scope, origin)
-    private val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport()))
-        .also { it.dispatch(com.cantos.theatre.application.catalog.PublicCatalogIntent.Start) }
-    private val runtime = NativeSessionRuntime(scope, { UnavailableDesktopAudio() }, PlaybackAccessHttp(origin, http) { System.currentTimeMillis() },
-        null, null, { UUID.randomUUID().toString() }, { System.currentTimeMillis() })
-    val shell = TheatreShell(scope, catalog, runtime, PreferencesController())
-    fun close() { shell.close(); runtime.close(); catalog.close() }
-}
-
-@Composable
-fun LivePublicCatalogPreview(origin: ApiOrigin, identity: com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult?) {
-    val scope = rememberCoroutineScope()
-    val owners = remember(origin) { LivePublicCatalogOwners(scope, origin) }
-    DisposableEffect(owners) { onDispose { owners.close() } }
-    CantosTheatreApp(owners.shell, identityV1Availability = identity)
 }

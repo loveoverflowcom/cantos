@@ -16,7 +16,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class IdentityV1RegistrationTest {
@@ -34,34 +33,71 @@ class IdentityV1RegistrationTest {
         override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> = error("signup cannot poll")
         override suspend fun revoke(previous: NativeGrant): IdentityV1Result<Unit> = error("signup has no session")
     }
+    private fun editing(scope: kotlinx.coroutines.CoroutineScope, api: MockApi) = RegistrationController(scope, api).also {
+        it.enter(); it.editEmail("a@example.test")
+    }
+
     @Test fun email_only_signup_validates_and_dispatches_once_without_polling_or_completion() = runTest {
         val api = MockApi(); val owner = RegistrationController(this, api)
         owner.enter(); assertEquals(RegistrationPhase.Editing, owner.state.value.phase)
-        assertTrue(owner.state.value.firstParty)
         owner.editEmail("invalid"); owner.submit(); runCurrent()
         assertEquals(0, api.starts)
         assertEquals(RegistrationPhase.Failed(RegistrationFailure.InvalidEmail), owner.state.value.phase)
         owner.editEmail("a@example.test"); owner.submit(); owner.submit(); runCurrent()
         assertEquals(1, api.starts); assertEquals(RegistrationPhase.Waiting, owner.state.value.phase)
-        owner.importAction("https://untrusted.invalid/#secret=private"); owner.confirm(); owner.openSetup(); runCurrent()
-        assertEquals(RegistrationPhase.Waiting, owner.state.value.phase)
+        owner.submit(); owner.enter(); runCurrent()
+        assertEquals(1, api.starts); assertEquals(RegistrationPhase.Waiting, owner.state.value.phase)
         owner.close()
     }
+
     @Test fun back_fences_late_signup_and_unknown_effect_requires_explicit_new_attempt() = runTest {
         val api = MockApi(); val held = CompletableDeferred<IdentityV1Result<IdentitySignupAccepted>>(); api.held = held
-        val owner = RegistrationController(this, api); owner.enter(); owner.editEmail("a@example.test")
+        val owner = editing(this, api)
         owner.submit(); runCurrent(); owner.leave()
         held.complete(IdentityV1Result.Accepted(IdentitySignupAccepted(900))); runCurrent()
         assertEquals(RegistrationPhase.Failed(RegistrationFailure.StartUnknownOutcome), owner.state.value.phase)
-        assertTrue(owner.state.value.firstParty)
+        assertEquals("a@example.test", owner.state.value.email)
         owner.enter(); owner.submit(); runCurrent(); assertEquals(1, api.starts)
         owner.restart(); assertEquals(RegistrationPhase.Editing, owner.state.value.phase)
         owner.close()
     }
-    @Test fun unavailable_signup_never_claims_delivery_or_automatically_replays() = runTest {
-        val api = MockApi().also { it.result = IdentityV1Result.Refused(IdentityV1Failure.ServiceUnavailable) }
-        val owner = RegistrationController(this, api); owner.enter(); owner.editEmail("a@example.test"); owner.submit(); runCurrent()
-        assertEquals(RegistrationPhase.Failed(RegistrationFailure.StartUnknownOutcome), owner.state.value.phase)
-        owner.submit(); owner.enter(); runCurrent(); assertEquals(1, api.starts); owner.close()
+
+    @Test fun refusals_follow_the_contract_and_never_replay_the_signup_automatically() = runTest {
+        val expected = listOf(
+            IdentityV1Failure.NotConfigured to RegistrationFailure.Disabled,
+            IdentityV1Failure.Protocol to RegistrationFailure.Protocol,
+            IdentityV1Failure.Unauthorized to RegistrationFailure.Denied,
+            IdentityV1Failure.Denied to RegistrationFailure.Denied,
+            // 429 is refused before any effect; the others leave the mail effect unknown.
+            IdentityV1Failure.RateLimited(30) to RegistrationFailure.RateLimited,
+            IdentityV1Failure.ServiceUnavailable to RegistrationFailure.StartUnknownOutcome,
+            IdentityV1Failure.Transport to RegistrationFailure.StartUnknownOutcome,
+            IdentityV1Failure.UnknownOutcome to RegistrationFailure.StartUnknownOutcome,
+            IdentityV1Failure.SessionChanged to RegistrationFailure.StartUnknownOutcome,
+        )
+        for ((failure, reason) in expected) {
+            val api = MockApi().also { it.result = IdentityV1Result.Refused(failure) }
+            val owner = editing(this, api); owner.submit(); runCurrent()
+            assertEquals(RegistrationPhase.Failed(reason), owner.state.value.phase, failure.toString())
+            owner.submit(); owner.enter(); runCurrent(); assertEquals(1, api.starts)
+            owner.close()
+        }
+    }
+
+    @Test fun cancel_stops_waiting_without_a_request_and_restart_is_the_only_way_to_a_new_attempt() = runTest {
+        val api = MockApi(); val owner = editing(this, api)
+        owner.submit(); runCurrent(); assertEquals(RegistrationPhase.Waiting, owner.state.value.phase)
+        owner.cancel(); assertEquals(RegistrationPhase.Cancelled, owner.state.value.phase)
+        owner.submit(); runCurrent(); assertEquals(1, api.starts)
+        owner.restart(); owner.submit(); runCurrent(); assertEquals(2, api.starts)
+        owner.close()
+    }
+
+    @Test fun reset_and_close_forget_the_typed_email() = runTest {
+        val api = MockApi(); val owner = editing(this, api)
+        owner.reset(); assertEquals("", owner.state.value.email); assertEquals(RegistrationPhase.Idle, owner.state.value.phase)
+        owner.enter(); owner.editEmail("b@example.test"); owner.close()
+        assertEquals("", owner.state.value.email)
+        owner.enter(); owner.submit(); runCurrent(); assertEquals(0, api.starts)
     }
 }

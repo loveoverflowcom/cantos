@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import com.cantos.theatre.application.errors.ErrorEvent
 import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.application.identity.toAccountView
-import com.cantos.theatre.application.identity.diagnostic
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.domain.library.LibraryState
 import com.cantos.theatre.domain.membership.MembershipEvent
@@ -70,8 +69,6 @@ fun CantosTheatreApp(
     cache: CatalogCachePort? = null,
     density: Density = Density.Comfortable,
     motionPreference: MotionPreference = MotionPreference.Reduced,
-    identityAvailability: com.cantos.theatre.domain.identity.NativeIdentityAvailability? = null,
-    identityV1Availability: com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult? = null,
 ) {
     val navigation by shell.navigation.collectAsState()
     val catalog by shell.catalog.state.collectAsState()
@@ -94,8 +91,7 @@ fun CantosTheatreApp(
         projectTheatreShell(TheatreShellInputs(navigation, catalog, known, playback, selection, requested,
             failure != null, library, theme, locale, ui.query, ui.libraryTab, ui.timer))
     }
-    val identityFault = identityV1Availability?.diagnostic() ?: identityAvailability?.diagnostic()
-    val accountView = if (accountState == null && identityFault != null) AccountView.ConfigurationUnavailable(identityFault) else accountState.toAccountView()
+    val accountView = accountState.toAccountView()
     // A private draft must not outlive the account that made it; a guest draft survives sign-in.
     val signedIn = accountView == AccountView.SignedIn
     var wasSignedIn by remember(shell) { mutableStateOf(signedIn) }
@@ -112,7 +108,6 @@ fun CantosTheatreApp(
     val onAuth: (AuthIntent) -> Unit = { intent ->
         when (intent) {
             is AuthIntent.Login -> shell.login(intent.email, intent.password)
-            AuthIntent.BeginLogin -> shell.beginLogin()
             AuthIntent.CancelLogin -> shell.cancelLogin()
             AuthIntent.RestoreSession -> nothingSaved = shell.restoreSession() == RestoreOutcome.NothingSaved
             AuthIntent.RetryCleanup, AuthIntent.Logout -> shell.logout()
@@ -153,11 +148,8 @@ fun CantosTheatreApp(
                     registration = registration, onRegistration = { intent ->
                         shell.registration?.let { owner -> when (intent) {
                             is RegistrationIntent.Email -> owner.editEmail(intent.value)
-                            is RegistrationIntent.Import -> owner.importAction(intent.link)
                             RegistrationIntent.Submit -> owner.submit()
-                            RegistrationIntent.Confirm -> owner.confirm()
                             RegistrationIntent.Cancel -> owner.cancel()
-                            RegistrationIntent.OpenSetup -> owner.openSetup()
                             RegistrationIntent.Restart -> owner.restart()
                         } }
                     })

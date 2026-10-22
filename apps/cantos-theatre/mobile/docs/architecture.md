@@ -62,7 +62,7 @@ recorded separately from the historical ledger below.
 | `presentation/model` | neutral immutable `ShellState`, `ShellEvent`, `ShellCatalogView` and keyed `ShellCopy` vi/en text (`CopyKey`, `clockTime`) | pure shared leaf consumed by shell, auth and Membership; synthetic defaults, IDs and fixture mappings stay in the sandbox |
 | `features/shell/presentation` | supplied read-only projection/catalog metadata | emits intents; no fixture/reducer/port/I/O imports; `CantosPresentation.kt` is the root and shared helpers, with `PlayerSection.kt`, `LibrarySection.kt` and `SettingsSection.kt` as same-package, state-free section files. Account/auth content arrives as slots; `RouteRestoration.kt` keeps per-entry scroll and restores focus after Back from auth; artwork is injected with a neutral fallback |
 | `features/auth/presentation` | `AccountView` (an `application/identity` projection), route and theme from `ShellState` | stateless Login, Register-unavailable and guest/signed-in Account over the #127 variants; emits `AuthIntent` only, with no controller, port or provider; listener copy in `AuthCopy.kt` |
-| `application/identity` | `NativeAccountController` (one owner, unchanged) and the pure `AccountView` projection | `AppContainer` observes it, never closes it, and gates `openLogin/beginLogin/restoreSession/back/logout` over the pure `Login`/`Register` navigation suffix |
+| `application/identity` | `NativeAccountController` (one owner, unchanged) and the pure `AccountView` projection | `AppContainer` observes it, never closes it, and gates `openLogin/login/restoreSession/back/logout` over the pure `Login`/`Register` navigation suffix |
 
 The sandbox root derives `ShellState` through `projectDemoState` for rendering; it does not own a writable aggregate mirroring the
 controllers. Query, timer selection, confirmation and scroll remain screen-local. The legacy
@@ -116,7 +116,7 @@ preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/
     PreviewFixtures.kt                synthetic Discovery values under canonical UUIDs (PreviewWorkIds/EpisodeIds)
     PreviewCatalogPort.kt             PublicCatalogPort: pages, search, Ready/Loading/Empty/Error
     PreviewPlayback.kt                PlaybackAccessPort + StreamingMediaEngine decoder stand-in
-    PreviewIdentity.kt                NativeIdentityApi/crypto/browser/journal/barrier -> real NativeAccountController
+    PreviewIdentity.kt                NativeIdentityV1Api/journal/barrier -> real NativeAccountController
     PreviewLibraryApi.kt              LibraryApi: in-memory remote with idempotent receipts
     PreviewLocalePreferenceStore.kt   LocalePreferenceStore
   app/

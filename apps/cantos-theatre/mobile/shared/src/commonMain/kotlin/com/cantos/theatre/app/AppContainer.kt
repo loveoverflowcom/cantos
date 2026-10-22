@@ -107,7 +107,7 @@ class AppContainer(
         if (!closed) mutableNavigation.update { reduceNavigation(it, event) }
     }
 
-    /** Back closes the open auth intent first: a pending login is cancelled, so its callback is fenced. */
+    /** Back closes the open auth intent first: a pending login is cancelled, so its late response is fenced. */
     fun back() {
         if (closed) return
         if (navigation.value.route.isAuth) cancelLogin()
@@ -141,14 +141,6 @@ class AppContainer(
         return true
     }
 
-    fun beginLogin(): Boolean {
-        val owner = account ?: return false
-        if (closed || navigation.value.route != TheatreRoute.Login) return false
-        if (!owner.state.value.toAccountView().canBeginLogin) return false
-        owner.beginLogin()
-        return true
-    }
-
     /**
      * An explicit restore of the credential this device still holds; never automatic. The owner
      * settles a missing credential synchronously, so a [NativeAccountState.SignedOut] right after
@@ -163,7 +155,7 @@ class AppContainer(
         return if (owner.state.value == NativeAccountState.SignedOut) RestoreOutcome.NothingSaved else RestoreOutcome.Requested
     }
 
-    /** Abandons a pending attempt and stays on the entry; the browser is not reopened. */
+    /** Abandons a pending attempt and stays on the entry; the password is never replayed. */
     fun cancelLogin() {
         val owner = account ?: return
         if (!closed && owner.state.value == NativeAccountState.Pending) owner.cancelLogin()

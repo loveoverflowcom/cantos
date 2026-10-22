@@ -32,8 +32,7 @@ class PreviewIdentity(
     private val nowSeconds: () -> Long,
     signedInAs: PreviewAccount? = null,
 ) {
-    val configuration = (com.cantos.theatre.domain.identity.NativeIdentityV1Configuration.resolve("https://api.invalid") as
-        com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult.Available).configuration
+    private val origin = com.cantos.theatre.adapters.http.ApiOrigin.parse("https://api.invalid")
     var nextAccount: PreviewAccount = signedInAs?.let { other -> PreviewAccount.entries.first { it !== other } } ?: PreviewAccount.Linh
     var mode = PreviewLoginMode.Approve
     var loginFailure: com.cantos.theatre.ports.IdentityV1Failure? = null
@@ -65,7 +64,7 @@ class PreviewIdentity(
     }
     val api = object : com.cantos.theatre.ports.NativeIdentityV1Api {
         override suspend fun signup(email: com.cantos.theatre.domain.identity.RegistrationEmail): com.cantos.theatre.ports.IdentityV1Result<com.cantos.theatre.ports.IdentitySignupAccepted> =
-            com.cantos.theatre.adapters.http.NativeIdentityV1Client(configuration, object : com.cantos.theatre.ports.NativeHttpPort {
+            com.cantos.theatre.adapters.http.NativeIdentityV1Client(origin, object : com.cantos.theatre.ports.NativeHttpPort {
                 override fun send(request: com.cantos.theatre.ports.NativeHttpRequest, completion: (com.cantos.theatre.ports.NativeHttpResponse) -> Unit): com.cantos.theatre.ports.NativeRequestHandle {
                     completion(com.cantos.theatre.ports.NativeHttpResponse(202, "application/json", """{"accepted":true,"proof_ttl_seconds":900}""", null))
                     return object : com.cantos.theatre.ports.NativeRequestHandle { override fun cancel() = Unit }
@@ -97,7 +96,7 @@ class PreviewIdentity(
         }
         override suspend fun revoke(previous: NativeGrant) = revokeFamily(previous)
     }
-    val account = NativeAccountController(scope, configuration, api, journal, barrier, nowSeconds)
+    val account = NativeAccountController(scope, api, journal, barrier, nowSeconds)
     fun completeLogin(approve: Boolean) { pending?.complete(approve); pending = null }
     fun persistSession(account: PreviewAccount = PreviewAccount.Linh) { journal.write(NativeCredentialRecord.Active(issue(account, null))) }
     private fun issue(account: PreviewAccount, previous: NativeGrant?): NativeGrant {

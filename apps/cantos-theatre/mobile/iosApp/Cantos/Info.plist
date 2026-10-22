@@ -3,8 +3,4 @@
 <plist version="1.0"><dict>
     <key>CantosApiOrigin</key><string>$(CANTOS_API_ORIGIN)</string>
     <key>UIBackgroundModes</key><array><string>audio</string></array>
-    <key>CFBundleURLTypes</key><array><dict>
-        <key>CFBundleURLName</key><string>com.cantos.theatre.oauth2</string>
-        <key>CFBundleURLSchemes</key><array><string>com.cantos.theatre</string></array>
-    </dict></array>
 </dict></plist>

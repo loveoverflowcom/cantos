@@ -1,65 +1,49 @@
 package com.cantos.theatre.application.identity
 
-import com.cantos.theatre.domain.identity.RegistrationAction
 import com.cantos.theatre.domain.identity.RegistrationCommand
 import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.domain.identity.RegistrationFailure
 import com.cantos.theatre.domain.identity.RegistrationPhase
+import com.cantos.theatre.domain.identity.RegistrationResult
 import com.cantos.theatre.domain.identity.RegistrationState
 import com.cantos.theatre.domain.identity.allows
 import com.cantos.theatre.domain.identity.suspendRegistration
-import com.cantos.theatre.ports.RegistrationBrowser
-import com.cantos.theatre.ports.RegistrationCapability
-import com.cantos.theatre.ports.RegistrationPort
-import com.cantos.theatre.domain.identity.RegistrationResult
+import com.cantos.theatre.ports.IdentityV1Failure
+import com.cantos.theatre.ports.IdentityV1Result
+import com.cantos.theatre.ports.NativeIdentityV1Api
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** Route-scoped RAM state; confined to the host dispatcher. No credentials or account authority. */
-class RegistrationController private constructor(
+/**
+ * Route-scoped RAM state for the email-only signup initiation; confined to the host dispatcher.
+ * It holds no credential, proof or account authority: the mailbox proof and the password are
+ * completed on Web, and the listener then signs in explicitly.
+ */
+class RegistrationController(
     private val scope: CoroutineScope,
-    private val api: RegistrationPort?,
-    private val browser: RegistrationBrowser?,
-    private val nativeApi: com.cantos.theatre.ports.NativeIdentityV1Api?,
+    private val api: NativeIdentityV1Api,
 ) {
-    constructor(scope: CoroutineScope, api: RegistrationPort, browser: RegistrationBrowser) : this(scope, api, browser, null)
-    constructor(scope: CoroutineScope, api: com.cantos.theatre.ports.NativeIdentityV1Api) : this(scope, null, null, api)
-    private fun initial() = RegistrationState(firstParty = nativeApi != null)
-    private val mutableState = MutableStateFlow(initial())
+    private val mutableState = MutableStateFlow(RegistrationState())
     val state = mutableState.asStateFlow()
-    private var actionOrigin: String? = null
     private var request: Job? = null
     private var epoch = 0L
     private var closed = false
 
-    private fun phase(next: RegistrationPhase) { mutableState.value = RegistrationState(state.value.email, next, nativeApi != null) }
+    private fun phase(next: RegistrationPhase) { mutableState.value = RegistrationState(state.value.email, next) }
     private fun failed(reason: RegistrationFailure) = phase(RegistrationPhase.Failed(reason))
 
     fun enter() {
         if (closed || state.value.phase != RegistrationPhase.Idle) return
-        if (nativeApi != null) { phase(RegistrationPhase.Editing); return }
-        phase(RegistrationPhase.Checking)
-        val captured = epoch
-        request = scope.launch {
-            val result = api?.configuration() ?: return@launch
-            if (closed || captured != epoch) return@launch
-            when (result) {
-                is RegistrationResult.Accepted -> when (val capability = result.value) {
-                    is RegistrationCapability.Available -> { actionOrigin = capability.actionOrigin; phase(RegistrationPhase.Editing) }
-                    RegistrationCapability.Disabled -> failed(RegistrationFailure.Disabled)
-                }
-                is RegistrationResult.Refused -> failed(result.reason)
-            }
-        }
+        phase(RegistrationPhase.Editing)
     }
 
     fun editEmail(value: String) {
         if (closed || state.value.phase != RegistrationPhase.Editing &&
             state.value.phase != RegistrationPhase.Failed(RegistrationFailure.InvalidEmail)) return
-        mutableState.value = RegistrationState(value.take(254), RegistrationPhase.Editing, nativeApi != null)
+        mutableState.value = RegistrationState(value.take(254), RegistrationPhase.Editing)
     }
 
     fun submit() {
@@ -71,97 +55,32 @@ class RegistrationController private constructor(
         phase(RegistrationPhase.Submitting)
         val captured = epoch
         request = scope.launch {
-            val result = if (nativeApi != null) when (val started = nativeApi.signup(email)) {
-                is com.cantos.theatre.ports.IdentityV1Result.Accepted -> RegistrationResult.Accepted(Unit)
-                is com.cantos.theatre.ports.IdentityV1Result.Refused -> RegistrationResult.Refused(when (started.reason) {
-                    com.cantos.theatre.ports.IdentityV1Failure.NotConfigured -> RegistrationFailure.Disabled
-                    com.cantos.theatre.ports.IdentityV1Failure.Protocol -> RegistrationFailure.Protocol
-                    com.cantos.theatre.ports.IdentityV1Failure.Unauthorized, com.cantos.theatre.ports.IdentityV1Failure.Denied -> RegistrationFailure.Denied
-                    com.cantos.theatre.ports.IdentityV1Failure.SessionChanged,
-                    is com.cantos.theatre.ports.IdentityV1Failure.RateLimited,
-                    com.cantos.theatre.ports.IdentityV1Failure.ServiceUnavailable,
-                    com.cantos.theatre.ports.IdentityV1Failure.Transport,
-                    com.cantos.theatre.ports.IdentityV1Failure.UnknownOutcome -> RegistrationFailure.StartUnknownOutcome
-                })
-            } else api?.start(email) ?: return@launch
+            val result = api.signup(email)
             if (closed || captured != epoch) return@launch
             when (result) {
-                is RegistrationResult.Accepted -> phase(RegistrationPhase.Waiting)
-                is RegistrationResult.Refused -> failed(if (result.reason == RegistrationFailure.UnknownOutcome)
-                    RegistrationFailure.StartUnknownOutcome else result.reason)
+                is IdentityV1Result.Accepted -> phase(RegistrationPhase.Waiting)
+                is IdentityV1Result.Refused -> failed(result.reason.toRegistrationFailure())
             }
         }
     }
 
-    fun importAction(link: String) {
-        if (closed || nativeApi != null || state.value.phase !in listOf(RegistrationPhase.Waiting,
-                RegistrationPhase.Failed(RegistrationFailure.InvalidAction),
-                RegistrationPhase.Failed(RegistrationFailure.StartUnknownOutcome))) return
-        val origin = actionOrigin ?: return
-        when (val checked = RegistrationAction.parse(link, origin)) {
-            is RegistrationResult.Accepted -> phase(RegistrationPhase.Confirmable(checked.value))
-            is RegistrationResult.Refused -> failed(checked.reason)
-        }
-    }
-
-    fun confirm() {
-        if (closed || !state.value.allows(RegistrationCommand.Confirm)) return
-        val pending = state.value.phase as? RegistrationPhase.Confirmable ?: return
-        phase(RegistrationPhase.Verifying(pending.action))
-        val captured = epoch
-        request = scope.launch {
-            val result = api?.confirm(pending.action) ?: return@launch
-            if (closed || captured != epoch) return@launch
-            when (result) {
-                is RegistrationResult.Accepted -> phase(RegistrationPhase.SetupReady(result.value))
-                is RegistrationResult.Refused -> failed(result.reason)
-            }
-        }
-    }
-
+    /** Stops waiting here; a mail already sent cannot be recalled and its link stays Web-owned. */
     fun cancel() {
         if (closed) return
-        val pending = state.value.phase as? RegistrationPhase.Confirmable
         val previous = state.value.phase
         leave()
-        if (pending == null) {
-            if (previous != RegistrationPhase.Submitting && previous !is RegistrationPhase.Verifying &&
-                previous != RegistrationPhase.Cancelling && previous !is RegistrationPhase.SetupReady) phase(RegistrationPhase.Cancelled)
-            return
-        }
-        phase(RegistrationPhase.Cancelling)
-        val captured = epoch
-        request = scope.launch {
-            val result = api?.cancel(pending.action) ?: return@launch
-            if (closed || captured != epoch) return@launch
-            when (result) {
-                is RegistrationResult.Accepted -> phase(RegistrationPhase.Cancelled)
-                is RegistrationResult.Refused -> failed(result.reason)
-            }
-        }
+        if (previous != RegistrationPhase.Submitting) phase(RegistrationPhase.Cancelled)
     }
 
-    fun openSetup() {
-        if (closed || !state.value.allows(RegistrationCommand.OpenSetup)) return
-        val ready = state.value.phase as? RegistrationPhase.SetupReady ?: return
-        // Consume before platform I/O. A failed/lost open cannot make the secret replayable.
-        phase(RegistrationPhase.CredentialSetup)
-        val captured = epoch
-        browser?.openSetup(ready.setup.url) { opened ->
-            scope.launch { if (!closed && captured == epoch && !opened) failed(RegistrationFailure.Browser) }
-        }
-    }
-
-    /** Explicit new attempt; never an automatic resend or replay of a consumed action. */
+    /** Explicit new attempt; never an automatic resend or replay of an acknowledged initiation. */
     fun restart() {
-        if (closed || state.value.phase == RegistrationPhase.Checking || state.value.phase == RegistrationPhase.Submitting ||
-            state.value.phase is RegistrationPhase.Verifying || state.value.phase == RegistrationPhase.Cancelling) return
+        if (closed || state.value.phase == RegistrationPhase.Submitting) return
         leave()
         phase(RegistrationPhase.Idle)
         enter()
     }
 
-    /** Cleanup forgets capabilities only. It cannot revoke an already dispatched provider effect. */
+    /** Cleanup forgets the pending request only. It cannot revoke an already dispatched initiation. */
     fun leave() {
         if (closed) return
         epoch += 1
@@ -170,7 +89,17 @@ class RegistrationController private constructor(
         mutableState.value = suspendRegistration(state.value)
     }
 
-    fun close() { leave(); closed = true; mutableState.value = initial(); actionOrigin = null }
+    fun close() { leave(); closed = true; mutableState.value = RegistrationState() }
 
-    fun reset() { if (!closed) { leave(); mutableState.value = initial(); actionOrigin = null } }
+    fun reset() { if (!closed) { leave(); mutableState.value = RegistrationState() } }
+}
+
+private fun IdentityV1Failure.toRegistrationFailure(): RegistrationFailure = when (this) {
+    IdentityV1Failure.NotConfigured -> RegistrationFailure.Disabled
+    IdentityV1Failure.Protocol -> RegistrationFailure.Protocol
+    IdentityV1Failure.Unauthorized, IdentityV1Failure.Denied -> RegistrationFailure.Denied
+    is IdentityV1Failure.RateLimited -> RegistrationFailure.RateLimited
+    // A 409 fence cannot occur for an anonymous signup; treat it, 503, timeouts and loss as unknown.
+    IdentityV1Failure.SessionChanged, IdentityV1Failure.ServiceUnavailable,
+    IdentityV1Failure.Transport, IdentityV1Failure.UnknownOutcome -> RegistrationFailure.StartUnknownOutcome
 }
