@@ -223,7 +223,6 @@
             buildSettings = {
                 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
                 CANTOS_API_ORIGIN = "__CANTOS_DEFAULT_API_ORIGIN__";
-                CANTOS_NATIVE_ISSUER = "";
                 SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) CANTOS_PRODUCTION";
                 CANTOS_FRAMEWORK_BUILD_TYPE = debug;
                 CODE_SIGN_STYLE = Automatic;
@@ -253,7 +252,6 @@
             buildSettings = {
                 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
                 CANTOS_API_ORIGIN = "__CANTOS_DEFAULT_API_ORIGIN__";
-                CANTOS_NATIVE_ISSUER = "";
                 SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) CANTOS_PRODUCTION";
                 CANTOS_FRAMEWORK_BUILD_TYPE = release;
                 CODE_SIGN_STYLE = Automatic;

@@ -1,5 +1,35 @@
 package com.cantos.theatre.domain.identity
 
+enum class NativeIdentityAuthority { FirstPartyTheatre }
+
+sealed interface NativeIdentityV1ConfigurationResult {
+    class Available(val configuration: NativeIdentityV1Configuration) : NativeIdentityV1ConfigurationResult
+    data object MissingApiOrigin : NativeIdentityV1ConfigurationResult
+    data object InvalidApiOrigin : NativeIdentityV1ConfigurationResult
+}
+
+/** First-party HTTP authority has no OIDC issuer, browser callback or provider fallback. */
+class NativeIdentityV1Configuration private constructor(val apiOrigin: String) {
+    val protocol: NativeCredentialProtocol get() = NativeCredentialProtocol.IdentityV1
+    val authority: NativeIdentityAuthority get() = NativeIdentityAuthority.FirstPartyTheatre
+
+    companion object {
+        fun resolve(apiOrigin: String?): NativeIdentityV1ConfigurationResult {
+            if (apiOrigin.isNullOrEmpty()) return NativeIdentityV1ConfigurationResult.MissingApiOrigin
+            val match = Regex("https://([a-z0-9.-]+)(?::([1-9][0-9]{0,4}))?").matchEntire(apiOrigin)
+                ?: return NativeIdentityV1ConfigurationResult.InvalidApiOrigin
+            val host = match.groupValues[1]
+            val port = match.groupValues[2]
+            if (host.length > 253 || host.split('.').any { label ->
+                    label.isEmpty() || label.length > 63 || label.startsWith('-') || label.endsWith('-')
+                } || (port.isNotEmpty() && port.toInt() > 65535)) {
+                return NativeIdentityV1ConfigurationResult.InvalidApiOrigin
+            }
+            return NativeIdentityV1ConfigurationResult.Available(NativeIdentityV1Configuration(apiOrigin))
+        }
+    }
+}
+
 enum class NativeConfigurationField { ApiOrigin, Issuer, Callback }
 enum class NativeConfigurationFields { ApiOrigin, Issuer, Both }
 

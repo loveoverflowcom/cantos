@@ -1352,8 +1352,8 @@ cross-site `web.app`/DuckDNS authentication with Strict session cookies.
 
 The Desktop Preview command surface (#287); starts no API, database, identity provider or audio
 adapter. Its default recipes are offline. The explicit [live enrollment mode](../apps/cantos-theatre/mobile/README.md#live-enrollment-integration-296)
-uses real HTTP with `CANTOS_THEATRE_PREVIEW_API_ORIGIN` and
-`CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER`; it provisions no dependency and has no mock fallback.
+uses real Identity v1 HTTP with explicit `CANTOS_THEATRE_PREVIEW_API_ORIGIN`; it requires
+HTTPS for auth, provisions no dependency and has no mock fallback.
 `theatre-demo` is its historical name and runs the same commands.
 
 ```sh
@@ -1409,13 +1409,13 @@ inspection and mapping hashes go into `reports/release-boundary/release-evidence
 marker bytes are rejected by distribution. See the [owning runbook](../apps/cantos-theatre/mobile/docs/firebase-distribution.md)
 for comparison metrics, operator signing and remaining acceptance. No third build type is added.
 
-`theatre-host android-debug --api-origin ORIGIN [--native-issuer ISSUER]` builds `:androidApp:assembleDebug`
+`theatre-host android-debug --api-origin ORIGIN` builds `:androidApp:assembleDebug`
 then inspects the actual debug APK (expecting application ID
 `com.cantos.theatre.dev`) and prints
 installed-tool signature/version facts (`apksigner verify --print-certs -v`, `aapt2 dump badging`)
 with `-Pcantos.apiOrigin=ORIGIN`. It accepts `https://` or `http://127.0.0.1|localhost:<port>`
 (for `adb reverse`) and refuses anything else with exit 2 before Gradle. The debug manifest overlay
-adds only a cleartext policy limited to those loopback hosts. The APK composes the production catalog, native player and account/Library owners. Native JSON
+adds only a cleartext policy limited to those loopback hosts. The APK composes the production catalog, native player and account/Library owners. The retained legacy `--native-issuer` option has no role in Identity v1 host activation. Native JSON
 transport requires HTTPS; loopback HTTP is a catalog-only local diagnostic. Installing it on a
 device is the developer's own `adb install`.
 

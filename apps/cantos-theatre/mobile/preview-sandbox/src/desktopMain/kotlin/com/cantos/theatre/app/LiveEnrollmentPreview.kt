@@ -1,7 +1,5 @@
 package com.cantos.theatre.app
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -9,21 +7,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.http.JvmCatalogTransport
-import com.cantos.theatre.adapters.http.NativeIdentityClient
-import com.cantos.theatre.adapters.http.NativeRegistrationHttp
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
 import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
-import com.cantos.theatre.adapters.identity.DesktopIdentityCrypto
-import com.cantos.theatre.app.workbench.LiveEnrollmentTools
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.UiPreferences
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.preferences.PreferencesController
-import com.cantos.theatre.domain.identity.NativeCallback
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.playback.PlaybackFailure
@@ -38,16 +30,12 @@ import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
 import com.cantos.theatre.ports.NativeRequestHandle
 import com.cantos.theatre.ports.PlaybackLocation
-import com.cantos.theatre.ports.RegistrationBrowser
 import com.cantos.theatre.ports.StreamingMediaEngine
-import com.cantos.theatre.ports.SystemBrowser
-import java.awt.Desktop
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.CookieHandler
 import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URLDecoder
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
@@ -102,7 +90,7 @@ class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: A
                         output.toByteArray()
                     } ?: byteArrayOf()
                     NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null,
-                        connection.getHeaderField("X-Cantos-Theatre-Session"))
+                        connection.getHeaderField("X-Cantos-Theatre-Session"), connection.getHeaderField("Retry-After"))
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
               catch (_: IOException) { NativeHttpResponse(0, null, null, "transport") }
@@ -115,60 +103,33 @@ class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: A
     }
 }
 
-private fun openPreviewBrowser(url: String): Boolean = try {
-    if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) false
-    else { Desktop.getDesktop().browse(URI(url)); true }
-} catch (_: IOException) { false }
-  catch (_: SecurityException) { false }
-  catch (_: IllegalArgumentException) { false }
-  catch (_: UnsupportedOperationException) { false }
-
-/** Real account/HTTP controllers with explicitly transient desktop credential storage. No success stub. */
-class LiveEnrollmentOwners(scope: CoroutineScope, private val config: NativeClientConfiguration) {
+/** Real v1 transport by default; injectable HTTP/clock are external test ports, never a fallback. */
+class LiveEnrollmentOwners(
+    scope: CoroutineScope,
+    private val config: com.cantos.theatre.domain.identity.NativeIdentityV1Configuration,
+    http: NativeHttpPort = PreviewNativeHttp(scope, ApiOrigin.parse(config.apiOrigin)),
+    now: () -> Long = { System.currentTimeMillis() / 1000 },
+) {
     private val origin = ApiOrigin.parse(config.apiOrigin)
-    private val http = PreviewNativeHttp(scope, origin)
     private var credential: String? = null
     private var logoutPending = false
-    private val now = { System.currentTimeMillis() / 1000 }
-    val account = NativeAccountController(scope, config, NativeIdentityClient(config, http, now),
-        DesktopIdentityCrypto(), object : SystemBrowser {
-            override fun open(url: String): Boolean = openPreviewBrowser(url)
-            override fun cancel() = Unit
-        }, SecureNativeCredentialJournal(object : CredentialStore {
+    private val api = com.cantos.theatre.adapters.http.NativeIdentityV1Client(config, http, now)
+    val account = NativeAccountController(scope, config, api,
+        SecureNativeCredentialJournal(object : CredentialStore {
             override fun read(): CredentialRead = credential?.let(CredentialRead::Found) ?: CredentialRead.Missing
             override fun write(value: String): CredentialFailure? { credential = value; return null }
             override fun clear(): CredentialFailure? { credential = null; return null }
-        }, config.apiOrigin, config.identity.issuer), object : LogoutBarrier {
+        }, config), object : LogoutBarrier {
             override fun read() = if (logoutPending) LogoutBarrierRead.Pending else LogoutBarrierRead.Clear
             override fun mark(): CredentialFailure? { logoutPending = true; return null }
             override fun clear(): CredentialFailure? { logoutPending = false; return null }
         }, now)
-    val registration = RegistrationController(scope, NativeRegistrationHttp(origin,
-        config.identity.issuer.substringBefore("/oauth2/openid/"), http), object : RegistrationBrowser {
-        override fun openSetup(url: String, completion: (Boolean) -> Unit) = completion(openPreviewBrowser(url))
-    })
+    val registration = RegistrationController(scope, api)
     private val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport()))
-    private val runtime = NativeSessionRuntime(scope, { UnavailableDesktopAudio() }, PlaybackAccessHttp(origin, http) { System.currentTimeMillis() },
-        account, null, { UUID.randomUUID().toString() }, { System.currentTimeMillis() })
+    private val runtime = NativeSessionRuntime(scope, { UnavailableDesktopAudio() }, PlaybackAccessHttp(origin, http) { now() * 1000 },
+        account, null, { UUID.randomUUID().toString() }, { now() * 1000 })
     val shell = TheatreShell(scope, catalog, runtime, PreferencesController(), registration = registration)
         .also { it.openRegister() }
-
-    /** Diagnostic manual return only; URI must match the configured closed native callback. */
-    fun callback(raw: String): Boolean {
-        val uri = try { URI(raw) } catch (_: java.net.URISyntaxException) { return false }
-        if (raw.substringBefore('?') != config.identity.redirect || uri.rawFragment != null || raw.length > 16_384) return false
-        val fields = mutableMapOf<String, String>()
-        for (part in (uri.rawQuery ?: return false).split('&')) {
-            val name = part.substringBefore('=')
-            if ('=' !in part || name !in setOf("state", "code", "error", "error_description") || name in fields) return false
-            val value = try { URLDecoder.decode(part.substringAfter('='), Charsets.UTF_8) } catch (_: IllegalArgumentException) { return false }
-            fields[name] = value
-        }
-        val state = fields["state"] ?: return false
-        account.callback(NativeCallback(config.identity.redirect, state, fields["code"] ?: "", fields["error"] != null))
-        return true
-    }
-
     fun close() { shell.close(); registration.close(); runtime.close(); catalog.close(); credential = null }
 }
 
@@ -187,15 +148,12 @@ private class UnavailableDesktopAudio : StreamingMediaEngine {
 }
 
 @Composable
-fun LiveEnrollmentPreview(config: NativeClientConfiguration) {
+fun LiveEnrollmentPreview(config: com.cantos.theatre.domain.identity.NativeIdentityV1Configuration) {
     val scope = rememberCoroutineScope()
     val owners = remember(config) { LiveEnrollmentOwners(scope, config) }
     DisposableEffect(owners) { onDispose { owners.close() } }
     CantosTheme(UiPreferences()) {
-        Column(Modifier.fillMaxSize()) {
-            LiveEnrollmentTools(owners::callback)
-            CantosTheatreApp(owners.shell, Modifier.weight(1f), identityAvailability = com.cantos.theatre.domain.identity.NativeIdentityAvailability.Available(config))
-        }
+        CantosTheatreApp(owners.shell, identityV1Availability = com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult.Available(config))
     }
 }
 
@@ -211,9 +169,9 @@ private class LivePublicCatalogOwners(scope: CoroutineScope, origin: ApiOrigin) 
 }
 
 @Composable
-fun LivePublicCatalogPreview(origin: ApiOrigin, identity: com.cantos.theatre.domain.identity.NativeIdentityAvailability?) {
+fun LivePublicCatalogPreview(origin: ApiOrigin, identity: com.cantos.theatre.domain.identity.NativeIdentityV1ConfigurationResult?) {
     val scope = rememberCoroutineScope()
     val owners = remember(origin) { LivePublicCatalogOwners(scope, origin) }
     DisposableEffect(owners) { onDispose { owners.close() } }
-    CantosTheatreApp(owners.shell, identityAvailability = identity)
+    CantosTheatreApp(owners.shell, identityV1Availability = identity)
 }

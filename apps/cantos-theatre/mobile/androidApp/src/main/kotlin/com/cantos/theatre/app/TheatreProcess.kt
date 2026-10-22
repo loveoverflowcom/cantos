@@ -60,8 +60,8 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
     val cache = store?.let { AccountCatalogCache(it) { accountScope } }
     val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport(), cache), { cache?.invalidate() })
         .also { it.dispatch(PublicCatalogIntent.Start) }
-    val identityAvailability = com.cantos.theatre.domain.identity.NativeClientConfiguration.resolveForApplication(origin.toString(), app.nativeMetadata("CantosNativeIssuer"), app.packageName)
-    private val account = createAndroidNativeAccount(scope, app, origin.toString(), app.nativeMetadata("CantosNativeIssuer"))
+    val identityAvailability = com.cantos.theatre.domain.identity.NativeIdentityV1Configuration.resolve(origin.toString())
+    private val account = createAndroidNativeAccount(scope, app, origin.toString())
     private val authorizedHttp = account?.let { NativeAuthorizedHttpPort(scope, origin, it, http) } ?: http
     private val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), it,
         { UUID.randomUUID().toString() }, onSessionInvalidated = { expected -> account?.revalidate(expected) },
@@ -86,7 +86,7 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
             }
         })
     /** Navigation and typed route text outlive Activity recreation, like every other owner here. */
-    private val registration = createAndroidRegistration(scope, app, origin.toString(), app.nativeMetadata("CantosNativeIssuer"))
+    private val registration = createAndroidRegistration(scope, origin.toString())
     val shell = TheatreShell(scope, catalog, runtime, preferences, registration = registration)
 }
 

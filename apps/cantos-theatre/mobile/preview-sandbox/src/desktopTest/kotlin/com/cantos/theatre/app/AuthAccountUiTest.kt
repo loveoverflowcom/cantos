@@ -15,6 +15,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
@@ -44,7 +45,7 @@ class AuthAccountUiTest {
         lateinit var owners: PreviewOwners
         setContent {
             Box(Modifier.requiredSize(width.dp, height.dp)) {
-                // The provider is held so each test decides when, and whether, the browser returns.
+                // The login response is held so each test decides when, and whether, it arrives.
                 PreviewTestRoot(textScale = textScale, onOwners = { it.identity.mode = PreviewLoginMode.Hold; owners = it })
             }
         }
@@ -57,23 +58,30 @@ class AuthAccountUiTest {
         waitForIdle()
     }
 
+    private fun ComposeUiTest.submitLogin() {
+        onNodeWithTag("login-email").performScrollTo().performTextReplacement("listener@example.test")
+        onNodeWithTag("login-password").performScrollTo().performTextReplacement("preview-only")
+        onNodeWithTag("login-primary").performScrollTo().performClick()
+    }
+
     @Test
     fun login_is_a_focused_task_with_vertical_actions_and_back_restores_the_account_entry() = run { h ->
         openLoginFromAccount()
         onNodeWithTag("back").assertIsDisplayed().assertContentDescriptionEquals("Về Tài khoản")
+        onNodeWithTag("login-create").performScrollTo().assertIsDisplayed()
+        // Compare both controls in the same scrolled coordinate frame.
         val primary = onNodeWithTag("login-primary").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val create = onNodeWithTag("login-create").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val create = onNodeWithTag("login-create").fetchSemanticsNode().boundsInRoot
         assertTrue(primary.bottom <= create.top)
         assertEquals(primary.width, create.width)
-        // No tab bar or mini-player can cover Back or an action; no credential field or legal consent exists.
+        // Auth owns the form; tab navigation and mini-player never cover its controls.
         onNodeWithTag("nav-discovery").assertDoesNotExist()
         onNodeWithTag("mini-player").assertDoesNotExist()
-        onAllNodes(hasSetTextAction()).assertCountEquals(0)
+        onAllNodes(hasSetTextAction()).assertCountEquals(2)
         onNodeWithText("Điều khoản", substring = true).assertDoesNotExist()
         onNodeWithText("Quyền riêng tư", substring = true).assertDoesNotExist()
-        // Opening Login starts nothing: only the listener's explicit action contacts the provider.
-        assertEquals(0, h.identity.begins)
-        assertEquals(0, h.identity.browserOpens)
+        // Opening Login starts nothing: only the listener's explicit action sends credentials.
+        assertEquals(0, h.identity.loginRequests)
 
         onNodeWithTag("back").performClick()
         waitForIdle()
@@ -95,55 +103,55 @@ class AuthAccountUiTest {
         // Nothing here is an invented name, total, conflict or Membership entitlement.
         onNodeWithText("Minh An", substring = true).assertDoesNotExist()
         onNodeWithText("12:48 / 18:25", substring = true).assertDoesNotExist()
-        assertEquals(0, h.identity.begins)
+        assertEquals(0, h.identity.loginRequests)
     }
 
     @Test
     fun pending_login_blocks_a_second_request_and_cancel_returns_to_the_entry_without_reopening() = run { h ->
         openLoginFromAccount()
-        onNodeWithTag("login-primary").performClick()
+        submitLogin()
         waitForIdle()
-        assertEquals(1, h.identity.browserOpens)
-        onNodeWithTag("login-primary").assertIsNotEnabled()
+        assertEquals(1, h.identity.loginRequests)
+        onNodeWithTag("login-primary").performScrollTo().assertIsNotEnabled()
         onNodeWithTag("login-create").assertDoesNotExist()
         onNodeWithText("Đang xác minh phiên đăng nhập…").assertExists()
 
-        onNodeWithTag("auth-cancel").performClick()
+        onNodeWithTag("auth-cancel").performScrollTo().performClick()
         waitForIdle()
-        onNodeWithTag("login-primary").assertIsEnabled()
+        onNodeWithTag("login-primary").performScrollTo().assertIsEnabled()
         assertEquals(NativeAccountState.SignedOut, h.account.state.value)
-        assertEquals(1, h.identity.browserOpens)
+        assertEquals(1, h.identity.loginRequests)
     }
 
     @Test
-    fun provider_cancellation_stays_on_login_and_waits_for_another_explicit_attempt() = run { h ->
+    fun credential_refusal_stays_on_login_and_waits_for_another_explicit_attempt() = run { h ->
         openLoginFromAccount()
-        onNodeWithTag("login-primary").performClick()
+        submitLogin()
         waitForIdle()
-        h.identity.returnFromBrowser(approve = false)
+        h.identity.completeLogin(approve = false)
         waitForIdle()
-        onNodeWithText("Đăng nhập đã hủy hoặc hết hạn. Vui lòng thử lại.").assertExists()
-        onNodeWithTag("login-primary").assertIsEnabled()
-        assertEquals(1, h.identity.browserOpens)
-        assertEquals(0, h.identity.exchanges)
+        onNodeWithText("Không thể đăng nhập bằng thông tin này.").assertExists()
+        onNodeWithTag("login-primary").performScrollTo().assertIsEnabled()
+        assertEquals(1, h.identity.loginRequests)
+        assertEquals(0, h.identity.admissions)
 
-        onNodeWithTag("login-primary").performClick()
+        submitLogin()
         waitForIdle()
-        assertEquals(2, h.identity.browserOpens)
+        assertEquals(2, h.identity.loginRequests)
     }
 
     @Test
-    fun back_during_a_pending_login_fences_a_late_provider_return() = run { h ->
+    fun back_during_a_pending_login_fences_a_late_login_response() = run { h ->
         openLoginFromAccount()
-        onNodeWithTag("login-primary").performClick()
+        submitLogin()
         waitForIdle()
         onNodeWithTag("back").performClick()
         waitForIdle()
         onNodeWithTag("sign-in").assertExists()
 
-        h.identity.returnFromBrowser(approve = true)
+        h.identity.completeLogin(approve = true)
         waitForIdle()
-        assertEquals(0, h.identity.exchanges)
+        assertEquals(0, h.identity.admissions)
         assertEquals(NativeAccountState.SignedOut, h.account.state.value)
         onNodeWithTag("sign-in").assertIsEnabled()
         onNodeWithTag("open-library").assertDoesNotExist()
@@ -152,9 +160,9 @@ class AuthAccountUiTest {
     @Test
     fun a_confirmed_session_returns_to_account_and_shows_only_what_the_owner_may_project() = run { h ->
         openLoginFromAccount()
-        onNodeWithTag("login-primary").performClick()
+        submitLogin()
         waitForIdle()
-        h.identity.returnFromBrowser(approve = true)
+        h.identity.completeLogin(approve = true)
         waitForIdle()
         onNodeWithTag("sign-in").assertDoesNotExist()
         onNodeWithTag("open-library").performScrollTo().assertIsDisplayed()
@@ -163,16 +171,16 @@ class AuthAccountUiTest {
         // No actor, session or credential, and no invented name, total or conflict.
         onAllNodes(hasText(PreviewAccount.Linh.actor, substring = true)).assertCountEquals(0)
         onAllNodes(hasText(PreviewAccount.Linh.session, substring = true)).assertCountEquals(0)
-        onAllNodes(hasText("ca1_n_", substring = true)).assertCountEquals(0)
+        onAllNodes(hasText("ci1_n_", substring = true)).assertCountEquals(0)
         onNodeWithText("Minh An", substring = true).assertDoesNotExist()
     }
 
     @Test
     fun logout_hides_the_account_first_and_keeps_login_blocked_until_cleanup_succeeds() = run { h ->
         openLoginFromAccount()
-        onNodeWithTag("login-primary").performClick()
+        submitLogin()
         waitForIdle()
-        h.identity.returnFromBrowser(approve = true)
+        h.identity.completeLogin(approve = true)
         waitForIdle()
 
         h.identity.clearFails = true
@@ -190,24 +198,23 @@ class AuthAccountUiTest {
     }
 
     @Test
-    fun registration_is_an_honest_unavailable_step_between_login_and_its_origin() = run { h ->
+    fun registration_collects_only_email_and_returns_through_login_to_its_origin() = run { h ->
         openLoginFromAccount()
         onNodeWithTag("login-create").performClick()
         waitForIdle()
         onNodeWithTag("back").assertContentDescriptionEquals("Về Đăng nhập")
-        onNodeWithTag("register-unavailable").assertIsDisplayed()
-        onNodeWithText("Đăng ký chưa sẵn sàng", substring = true).assertExists()
-        onAllNodes(hasSetTextAction()).assertCountEquals(0)
+        onNodeWithTag("register-email").performScrollTo().assertIsDisplayed()
+        onNodeWithTag("login-password").assertDoesNotExist()
+        onAllNodes(hasSetTextAction()).assertCountEquals(1)
         onNodeWithText("Đăng ký hoàn tất", substring = true).assertDoesNotExist()
 
         onNodeWithTag("back").performClick()
         waitForIdle()
-        onNodeWithTag("login-primary").assertIsDisplayed()
+        onNodeWithTag("login-primary").performScrollTo().assertIsDisplayed()
         onNodeWithTag("back").performClick()
         waitForIdle()
         onNodeWithTag("sign-in").assertIsFocused()
-        assertEquals(0, h.identity.begins)
-        assertEquals(0, h.identity.browserOpens)
+        assertEquals(0, h.identity.loginRequests)
     }
 
     @Test

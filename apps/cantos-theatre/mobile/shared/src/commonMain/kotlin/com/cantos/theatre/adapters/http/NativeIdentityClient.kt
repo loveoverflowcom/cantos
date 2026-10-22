@@ -25,7 +25,7 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlin.coroutines.resume
 
-/** JSON-only Bearer v1 boundary; never retries a consumed exchange, rotation or mutation. */
+/** Retained provider Bearer v1 only; first-party Identity v1 uses NativeIdentityV1Client explicitly. */
 class NativeIdentityClient(
     private val configuration: NativeClientConfiguration,
     private val http: NativeHttpPort,

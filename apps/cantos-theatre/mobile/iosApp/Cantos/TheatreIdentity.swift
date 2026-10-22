@@ -105,7 +105,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
               url.scheme == "https", url.host == origin.host, url.port == origin.port,
               url.user == nil, url.password == nil, url.fragment == nil,
               ["GET", "POST", "PUT", "DELETE"].contains(request.method) else {
-            _ = completion(NativeHttpResponse(status: 0, contentType: nil, body: nil, failure: "configuration", actualSession: nil)); return
+            _ = completion(NativeHttpResponse(status: 0, contentType: nil, body: nil, failure: "configuration", actualSession: nil, retryAfter: nil)); return
         }
         let config = URLSessionConfiguration.ephemeral
         config.httpCookieStorage = nil; config.httpShouldSetCookies = false; config.urlCache = nil
@@ -115,12 +115,9 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
         session = ownedSession
         var nativeRequest = URLRequest(url: url)
         nativeRequest.httpMethod = request.method
-        nativeRequest.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let bearer = request.bearer { nativeRequest.setValue("Bearer " + bearer, forHTTPHeaderField: "Authorization") }
-        if let expected = request.expectedSession { nativeRequest.setValue(expected, forHTTPHeaderField: "X-Cantos-Theatre-Session") }
+        for (name, value) in request.headers { nativeRequest.setValue(value, forHTTPHeaderField: name) }
         if let body = request.body {
             nativeRequest.httpBody = Data(body.utf8)
-            nativeRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         task = ownedSession.dataTask(with: nativeRequest); task?.resume()
     }
@@ -144,7 +141,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
         guard !wasCancelled else { return }
         let body = String(data: bytes, encoding: .utf8)
         let failure = protocolFailure || body == nil ? "protocol" : (error == nil ? nil : "transport")
-        let result = NativeHttpResponse(status: Int32(response?.statusCode ?? 0), contentType: response?.value(forHTTPHeaderField: "Content-Type"), body: body, failure: failure, actualSession: response?.value(forHTTPHeaderField: "X-Cantos-Theatre-Session"))
+        let result = NativeHttpResponse(status: Int32(response?.statusCode ?? 0), contentType: response?.value(forHTTPHeaderField: "Content-Type"), body: body, failure: failure, actualSession: response?.value(forHTTPHeaderField: "X-Cantos-Theatre-Session"), retryAfter: response?.value(forHTTPHeaderField: "Retry-After"))
         DispatchQueue.main.async { _ = self.completion(result) }
     }
 }
@@ -164,6 +161,10 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
     func secureSecret() -> String? { try? TheatreIdentityCrypto.secret() }
     func s256(verifier: String) -> String? { TheatreIdentityCrypto.challenge(verifier) }
     func openBrowser(url: String) -> Bool {
+        #if CANTOS_PRODUCTION
+        // Identity v1 accepts only explicit CMP email/password; legacy callbacks are inert.
+        return false
+        #else
         guard let target = URL(string: url), let anchor = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene }).flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) else { return false }
         let next = TheatreSystemBrowser(anchor: anchor); browser = next
@@ -173,6 +174,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
             guard let parsed = TheatreNativeCallback.parse(callback) else { return }
             self.owner?.callback(state: parsed.state, code: parsed.code, hasError: parsed.hasError)
         }
+        #endif
     }
     func cancelBrowser() { browser?.cancel(); browser = nil }
     func openSetup(url: String, completion: @escaping (KotlinBoolean) -> KotlinUnit) {

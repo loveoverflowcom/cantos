@@ -16,7 +16,6 @@
         android:theme="@style/Theme.Cantos">
         <meta-data android:name="CantosReleaseAudit" android:value="${cantosReleaseAudit}" />
         <meta-data android:name="CantosApiOrigin" android:value="${cantosApiOrigin}" />
-        <meta-data android:name="CantosNativeIssuer" android:value="${cantosNativeIssuer}" />
         <service
             android:name="com.cantos.theatre.adapters.playback.CantosPlaybackService"
             android:exported="false"

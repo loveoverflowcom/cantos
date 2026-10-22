@@ -32,7 +32,7 @@ class TheatreAndroidHostTest(unittest.TestCase):
         self.assertIsNone(application.get(ANDROID + "debuggable"))
         self.assertEqual(application.get(ANDROID + "usesCleartextTraffic"), "false")
         self.assertEqual({m.get(ANDROID + "name"):m.get(ANDROID + "value") for m in application.findall("meta-data")},
-                         {"CantosApiOrigin":"${cantosApiOrigin}", "CantosNativeIssuer":"${cantosNativeIssuer}", "CantosReleaseAudit":"${cantosReleaseAudit}"})
+                         {"CantosApiOrigin":"${cantosApiOrigin}", "CantosReleaseAudit":"${cantosReleaseAudit}"})
         services = application.findall("service")
         self.assertEqual(len(services), 1)
         self.assertEqual(services[0].get(ANDROID + "name"), "com.cantos.theatre.adapters.playback.CantosPlaybackService")
@@ -106,7 +106,6 @@ class TheatreAndroidHostTest(unittest.TestCase):
         gradle = (HOST / "build.gradle.kts").read_text()
         for placeholder, property_name, environment_name in [
             ("cantosApiOrigin", "cantos.apiOrigin", "CANTOS_API_ORIGIN"),
-            ("cantosNativeIssuer", "cantos.nativeIssuer", "CANTOS_NATIVE_ISSUER"),
         ]:
             self.assertRegex(
                 gradle,
@@ -115,6 +114,18 @@ class TheatreAndroidHostTest(unittest.TestCase):
                 rf'\.orElse\(providers\.environmentVariable\("{environment_name}"\)\)\s*'
                 rf'\.orElse\("{"__CANTOS_DEFAULT_API_ORIGIN__" if placeholder == "cantosApiOrigin" else ""}"\)\.get\(\)',
             )
+
+    def test_first_party_composition_has_no_issuer_or_browser_requirement(self):
+        process = (HOST / "src/main/kotlin/com/cantos/theatre/app/TheatreProcess.kt").read_text()
+        native = (HOST.parent / "shared/src/androidMain/kotlin/com/cantos/theatre/adapters/identity/AndroidNativeAccount.kt").read_text()
+        self.assertIn("NativeIdentityV1Configuration.resolve(origin.toString())", process)
+        self.assertIn("NativeIdentityV1Client", native)
+        self.assertIn("SecureNativeCredentialJournal(AndroidCredentialStore(context), configuration)", native)
+        for text in [process, native]:
+            self.assertNotIn("CantosNativeIssuer", text)
+            self.assertNotIn("NativeClientConfiguration.resolve", text)
+            self.assertNotIn("AndroidSystemBrowser", text)
+        self.assertNotIn("cantos.nativeIssuer", (HOST / "build.gradle.kts").read_text())
 
     def test_callback_profile_comes_from_the_final_application_id(self):
         activity = (HOST / "src/main/kotlin/com/cantos/theatre/app/TheatreActivity.kt").read_text()

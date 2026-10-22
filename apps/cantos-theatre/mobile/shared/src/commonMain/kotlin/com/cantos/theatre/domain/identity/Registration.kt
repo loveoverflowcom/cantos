@@ -117,7 +117,7 @@ sealed interface RegistrationPhase {
     data class Failed(val reason: RegistrationFailure) : RegistrationPhase
 }
 
-class RegistrationState(val email: String = "", val phase: RegistrationPhase = RegistrationPhase.Idle) {
+class RegistrationState(val email: String = "", val phase: RegistrationPhase = RegistrationPhase.Idle, val firstParty: Boolean = false) {
     override fun toString(): String = "RegistrationState([redacted])"
 }
 
@@ -130,7 +130,7 @@ fun suspendRegistration(state: RegistrationState): RegistrationState = Registrat
     RegistrationPhase.Checking -> RegistrationPhase.Idle
     RegistrationPhase.Idle, RegistrationPhase.Editing, RegistrationPhase.Waiting, RegistrationPhase.CredentialSetup,
     RegistrationPhase.Cancelled, is RegistrationPhase.Failed -> state.phase
-})
+}, state.firstParty)
 
 enum class RegistrationCommand { Submit, Confirm, Cancel, OpenSetup }
 

@@ -1,6 +1,7 @@
 package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.ports.NativeApiFailure
 import com.cantos.theatre.ports.NativeApiResult
 import com.cantos.theatre.ports.NativeHttpPort
@@ -46,7 +47,15 @@ class NativeAuthorizedHttpPort(
                         NativeApiFailure.SessionChanged -> "session_changed"
                         NativeApiFailure.Unavailable, NativeApiFailure.UnknownOutcome -> "unavailable"
                     }
-                    completion(refused(failure))
+                    val identityFailure = result.identityFailure
+                    completion(when (identityFailure) {
+                        is IdentityV1Failure.RateLimited -> NativeHttpResponse(429, null, null, failure,
+                            retryAfter = identityFailure.retryAfterSeconds?.toString())
+                        IdentityV1Failure.ServiceUnavailable -> NativeHttpResponse(503, null, null, failure)
+                        null, IdentityV1Failure.Unauthorized, IdentityV1Failure.NotConfigured,
+                        IdentityV1Failure.SessionChanged, IdentityV1Failure.Denied, IdentityV1Failure.Protocol,
+                        IdentityV1Failure.Transport, IdentityV1Failure.UnknownOutcome -> refused(failure)
+                    })
                     return@launch
                 }
             }

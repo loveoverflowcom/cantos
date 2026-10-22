@@ -56,6 +56,7 @@ class NativeAccountControllerTest {
                 is NativeCredentialRecord.Flow -> "flow"
                 is NativeCredentialRecord.Legacy -> "legacy"
                 NativeCredentialRecord.Cleared -> "cleared"
+                NativeCredentialRecord.RetiredProvider -> "retired"
             }
             events += "write:$kind"
             if (failKind == kind) return CredentialFailure.Unavailable

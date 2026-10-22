@@ -48,7 +48,7 @@ class TheatreActivity : ComponentActivity() {
                         onThemeChanged = ::updateSystemBars,
                         backHandler = { enabled, onBack -> BackHandler(enabled = enabled, onBack = onBack) },
                         cache = owner.cache,
-                        identityAvailability = owner.identityAvailability,
+                        identityV1Availability = owner.identityAvailability,
                     )
                 }
             }

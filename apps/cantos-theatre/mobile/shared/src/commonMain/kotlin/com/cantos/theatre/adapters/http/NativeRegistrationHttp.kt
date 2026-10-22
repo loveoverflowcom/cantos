@@ -28,7 +28,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.coroutines.resume
 
-/** Same adapter on every host. No Origin, cookie, bearer, redirects or consuming retries. */
+/** Retained provider enrollment only. Identity v1 signup is separate, with Web-owned completion. */
 class NativeRegistrationHttp(
     private val apiOrigin: ApiOrigin,
     private val issuerOrigin: String,

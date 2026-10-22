@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
@@ -196,7 +197,9 @@ class PreviewShellFlowTest {
         waitUntil(timeoutMillis = 5_000) { owners.account.state.value == NativeAccountState.SignedOut }
         assertEquals(null, owners.shell.library.value.account)
         onNodeWithTag("sign-in").performScrollTo().assertIsEnabled().performClick()
-        onNodeWithTag("login-primary").performClick()
+        onNodeWithTag("login-email").performScrollTo().performTextInput("listener@example.test")
+        onNodeWithTag("login-password").performScrollTo().performTextInput("preview-only")
+        onNodeWithTag("login-primary").performScrollTo().performClick()
         waitUntil(timeoutMillis = 5_000) { owners.account.state.value is NativeAccountState.SignedIn }
         assertEquals("00000000-0000-4000-8000-0000000000a2", owners.shell.library.value.account)
         assertTrue(owners.projection().savedWorks.isEmpty())

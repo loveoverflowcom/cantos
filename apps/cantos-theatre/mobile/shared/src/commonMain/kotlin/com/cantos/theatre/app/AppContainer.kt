@@ -134,6 +134,13 @@ class AppContainer(
     }
 
     /** One attempt, only from the open Login route, and never while another is pending or cleanup is owed. */
+    fun login(email: com.cantos.theatre.domain.identity.RegistrationEmail, password: String): Boolean {
+        val owner = account ?: return false
+        if (closed || navigation.value.route != TheatreRoute.Login || !owner.state.value.toAccountView().canBeginLogin) return false
+        owner.login(email, password)
+        return true
+    }
+
     fun beginLogin(): Boolean {
         val owner = account ?: return false
         if (closed || navigation.value.route != TheatreRoute.Login) return false

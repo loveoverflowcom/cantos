@@ -2,8 +2,9 @@
 import json
 import pathlib
 import sys
+import subprocess
 
-schema_path, output_path, corpus_path, fixture_path = map(pathlib.Path, sys.argv[1:])
+schema_path, output_path, corpus_path, fixture_path = map(pathlib.Path, sys.argv[1:5])
 schema_text = schema_path.read_text()
 schema = json.loads(schema_text)
 
@@ -70,3 +71,13 @@ corpus_path.write_text(
     'package com.cantos.theatre.adapters.http\n'
     'internal const val registrationFixtureJson: String = ' + quoted(fixture_path.read_text()) + '\n'
 )
+
+# Reuse the admitted production codegen route; the protocols retain separate schemas/packages.
+# The standalone four-argument enrollment generator remains compatible with its existing callers.
+if len(sys.argv) == 7:
+    subprocess.run([
+        sys.executable, str(pathlib.Path(__file__).with_name('generate_identity_v1_wire.py')),
+        sys.argv[5], sys.argv[6],
+    ], check=True)
+else:
+    assert len(sys.argv) == 5
