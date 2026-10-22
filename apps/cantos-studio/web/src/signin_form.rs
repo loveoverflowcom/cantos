@@ -53,12 +53,12 @@ pub fn SignInPanel(
             <TextField id=email_id label=Signal::derive(move || text(Key::Email, english.get()).to_owned())
                 value=Signal::derive(move || form.with(|form| form.email().to_owned()))
                 on_input=Callback::new(move |value: String| form.update(|form| form.set_email(value)))
-                kind=TextFieldKind::Email state=field_state name="email" required=true
+                kind=TextFieldKind::Email state=field_state required=true
                 autocomplete="username"/>
             <TextField id=password_id label=Signal::derive(move || text(Key::Password, english.get()).to_owned())
                 value=Signal::derive(move || form.with(|form| form.password().to_owned()))
                 on_input=Callback::new(move |value: String| form.update(|form| form.set_password(value)))
-                kind=TextFieldKind::Password state=field_state name="password" required=true
+                kind=TextFieldKind::Password state=field_state required=true
                 autocomplete="current-password"/>
             <FormSubmit id=submit_id english=english
                 blocked=Signal::derive(move || blocked.get() || submitting.get())>

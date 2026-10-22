@@ -204,13 +204,13 @@ fn LoginForm(
             <TextField id="theatre-login-email" kind=TextFieldKind::Email variant=TextFieldVariant::AuthTonal
                 label=Signal::derive(move || auth_copy::text(CopyKey::LoginEmail, locale.get()).to_owned())
                 value=email
-                autocomplete="username" name="email" required=true
+                autocomplete="username" required=true
                 state=field_state
                 on_input=Callback::new(move |value| email.set(value))/>
             <TextField id="theatre-login-password" kind=TextFieldKind::Password variant=TextFieldVariant::AuthTonal
                 label=Signal::derive(move || auth_copy::text(CopyKey::LoginPassword, locale.get()).to_owned())
                 value=password
-                autocomplete="current-password" name="password" required=true
+                autocomplete="current-password" required=true
                 state=field_state
                 on_input=Callback::new(move |value| password.set(value))/>
             {move || availability.get().map(|availability| view! {

@@ -301,7 +301,7 @@ pub(crate) fn SignupPanel(
                     <TextField id="theatre-signup-password" kind=TextFieldKind::Password variant=TextFieldVariant::AuthTonal
                         label=secret.password_label
                         value=secret.password
-                        autocomplete="new-password" name="new-password" required=true
+                        autocomplete="new-password" required=true
                         state=secret.field_state
                         help=secret.password_help
                         error=secret.password_error
@@ -309,7 +309,7 @@ pub(crate) fn SignupPanel(
                     <TextField id="theatre-signup-repeat" kind=TextFieldKind::Password variant=TextFieldVariant::AuthTonal
                         label=secret.repeat_label
                         value=secret.repeat
-                        autocomplete="new-password" name="new-password-repeat" required=true
+                        autocomplete="new-password" required=true
                         state=secret.field_state
                         error=secret.repeat_error
                         on_input=Callback::new(move |value| state.update(|current| current.set_repeat(value)))/>
