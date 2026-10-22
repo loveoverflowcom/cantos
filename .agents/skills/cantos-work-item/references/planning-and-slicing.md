@@ -28,15 +28,18 @@ When the two disagree, report the difference with both sources quoted and ask wh
 ## Check prerequisites before starting
 
 1. List the issue's immediate blockers from its native `blocked by` links and from the
-   [ordered issue table](../../../../docs/work-plan/project-planning.md#ordered-implementation-issues).
-   A disagreement between them is reported, not resolved by preference.
+   [dependency chain](../../../../docs/work-plan/project-planning.md#dependency-chain) and
+   [current priorities](../../../../docs/work-plan/current-priorities.md). A disagreement between
+   them is reported, not resolved by preference.
 2. For each blocker find recorded acceptance: Project status `Done`, or a complete acceptance
-   checklist with linked evidence and, where it applies, the phase review gate. "Merged" and
-   "closed" are not acceptance.
+   checklist with linked evidence and, where it applies, the
+   [phase-exit evidence](../../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence).
+   "Merged" and "closed" are not acceptance.
 3. Read the blocker's merged code for the contracts you will consume — real types, routes,
    migrations and fixtures. That code, not the earlier spec, is what this slice builds on.
-4. [Parallel work](../../../../docs/work-plan/project-planning.md#sequence-and-parallel-work) (after
-   #7, #12 or #14) never waives acceptance of the immediate blocker.
+4. Parallel work, including tasks split across several prompts or work chats, never waives
+   acceptance of the immediate blocker. Each split task edits only its assigned paths and hands
+   its commits to the named integration owner ([split ownership](../../cantos-prompt/references/split.md)).
 
 ## Slicing rules
 
@@ -81,8 +84,9 @@ for the item, usually assembled after its last PR; no single slice claims it.
 This section concerns an **unaccepted product dependency**, not a missing local execution
 environment for independent work; the latter follows the foundation's local handoff policy.
 
-[Contract-fixture experiments before a gate must be labeled as prototypes](../../../../docs/work-plan/project-planning.md#sequence-and-parallel-work).
-A prototype is allowed only when the user chooses it over waiting, and then:
+Contract-fixture experiments before a gate are labeled as prototypes. A prototype is allowed
+only when the user chooses it over waiting (in conversation or in a submitted prompt's
+`DECISIONS`), and then:
 
 | Must | Because |
 |---|---|
@@ -136,7 +140,7 @@ the residual-risk line, not out of the report.
 |---|---|---|
 | this PR completes an item's last issue | make the next task obvious | the "Start with" line of the [queue](../../../../docs/work-plan/README.md) |
 | a correctness dependency was discovered | add it as a dependency with the reason | the dependent spec's Dependencies; the issue's `blocked by` (confirm) |
-| an issue was split or added (with confirmation) | add or change its row | [ordered issue table](../../../../docs/work-plan/project-planning.md#ordered-implementation-issues) |
+| an issue was split or added (with confirmation) | add or change its row | [dependency chain](../../../../docs/work-plan/project-planning.md#dependency-chain) or [current priorities](../../../../docs/work-plan/current-priorities.md) |
 | optional expansion came up | add a row with the evidence needed to promote it | [backlog](../../../../docs/work-plan/backlog/deferred-expansion.md) |
 | scope or rationale proved wrong | correct the owning spec section, with the user's agreement | the item spec |
 | a step inside an issue | usually nothing; say "queue: no change" and why | handoff |
@@ -146,7 +150,9 @@ prefixes is allowed by the queue but breaks links and habits; propose it, do not
 
 ## When the item blocks midway
 
-Record the reason and the native blocking relationship on the issue, move it back per the
-[status policy](../../../../docs/work-plan/project-planning.md#status-policy) and state the next
-action — each a GitHub write to confirm first. Locally, keep the work on its branch; push only
-when asked. The handoff names the blocker, the evidence gathered so far and what remains unproven.
+First finish the in-scope work that does not depend on the blocker
+([blocker classes](../../cantos-prompt/references/blockers.md#decide-by-cause)). Then record the
+reason and the native blocking relationship on the issue, move its GitHub Project status back and
+state the next action — each a GitHub write to confirm first. Locally, keep the work on its
+branch; push only when asked. The handoff names the blocker, the evidence gathered so far and
+what remains unproven.

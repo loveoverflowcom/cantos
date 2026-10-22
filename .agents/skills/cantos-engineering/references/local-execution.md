@@ -36,6 +36,7 @@ with its pinned toolchain; a slash command does not change the shell's working d
 | Inspect a rendered UI, image or PDF | An available browser/computer-use or image/PDF reader; shell file existence or a URL fetch does not establish visual inspection |
 | Use Drive, GitHub or another connected service | Discover that session's connector/MCP schema, or use an installed authenticated CLI when it supports the same authorized operation; never reuse a different runtime's tool identifier |
 | Ask for missing input or report results | The runtime's user interaction tool or ordinary conversation; no special Codex question tool is required |
+| Follow a task prompt written in another session or runtime | Map the tools it names to this session's capabilities; its environment facts describe the author's machine, so probe this checkout before relying on them |
 
 Use an equivalent available capability without changing the workflow's evidence or authority.
 For example, Claude Bash can run `cargo xtask verify repository` and GitHub CLI can read a PR;

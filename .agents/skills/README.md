@@ -5,7 +5,7 @@
 > instructions and accepts private verified files for review/publication. Historical provider
 > worker contracts are NOT current backend implementation guidance.
 
-Nineteen skills shared by every agent runtime in this repository: nine **rule owners** and ten
+Twenty skills shared by every agent runtime in this repository: nine **rule owners** and eleven
 **task entrypoints** that compose them. They change what an agent *does* while working on Cantos;
 they are not product documentation and they do not implement anything.
 
@@ -30,6 +30,7 @@ cantos-ui-inspector                ← report-only UI/UX inspection with reusabl
 cantos-ui-fix                      ← bounded UI repair with same-scenario and layered evidence
 cantos-logic-fix                   ← bounded invariant repair with regression and layered evidence
 cantos-diagnostics                 ← progressive log reading, failure triage and a diagnosis report
+cantos-prompt                      ← CANTOS_PROMPT_INPUT_V1 prompts for another agent; read-only authoring
 cantos-story-ingest                ← browser capture/OCR → raw sources + Drive handoff
 cantos-radio-adapt                 ← name map + dialogue/cues → versioned score
 cantos-audio-produce               ← reviewed score → final audio + production evidence
@@ -128,6 +129,8 @@ Passing it proves skill hygiene only.
 | repairing one bounded domain, type, state, error-handling, application or I/O defect | [`cantos-logic-fix`](cantos-logic-fix/SKILL.md), then the foundation and invariant owner; persistence/concurrency still needs real acceptance |
 | finding why a gate, test, build, runner, server, browser or service fails; triaging a red or flaky check; reading or summarizing long logs | [`cantos-diagnostics`](cantos-diagnostics/SKILL.md); a requested fix then continues through the repair entrypoint |
 | emitting or reviewing logs, diagnostic events, levels, redaction, correlation IDs, a logging dependency or telemetry services | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [structured observability](cantos-engineering/references/structured-observability.md) reference |
+| writing, splitting, reviewing into or resuming a prompt for another coding agent or work chat; changing the prompt contract | [`cantos-prompt`](cantos-prompt/SKILL.md); authoring edits nothing |
+| a received `CANTOS_PROMPT_INPUT_V1` prompt (from this skill, the external Cantos Prompt plugin or a pasted work-chat prompt) | the entrypoint its `TASK` names, applying the shared [receiving procedure](cantos-prompt/references/prompt-contract.md#receiving-a-prompt) |
 
 `cantos-diagnostics` turns a failure into a classification (environment, pre-existing, flaky,
 regression, test defect or unknown) and a confirmed or bounded cause. It reads signals from summary
@@ -142,6 +145,13 @@ go to logic. Review-only tasks keep the reviewer/inspector read-only/report-only
 leave named core work independently verified, never hide an actual regression failure or establish
 database/device semantics. Wider architecture, schema/API, security, durability or redesign work
 escalates through `cantos-work-item` and its owners.
+
+`cantos-prompt` writes prompts for another agent and executes nothing unless the user also asks
+for execution. One [contract](cantos-prompt/references/prompt-contract.md) serves both sides:
+every receiving entrypoint maps its fields onto its own intake, treats the user-submitted
+prompt's `AUTHORIZED_ACTIONS` as the grant (no more, no less), revalidates its snapshot against
+the current HEAD and keeps working through independent parts when a blocker is classified.
+A plain-language request is equally valid; nobody needs the template to get work done.
 
 The four story artifact entrypoints share [one workspace contract](../../docs/production/story-workspace.md),
 including the configured Drive root, local fallback, indexes and recovery issues. `score/` uses
@@ -188,7 +198,7 @@ skills still route correctly after an edit. It is an evaluation input, not an au
 |---|---|
 | Codex | discovers `.agents/skills/`; invoke `$cantos-engineering` or another exact skill name; `agents/openai.yaml` supplies Codex display metadata |
 | Claude Code | discovers `.claude/skills/<name>/SKILL.md` through the per-skill symlinks; invoke `/cantos-engineering` or another exact skill name; root [`CLAUDE.md`](../../CLAUDE.md) imports `AGENTS.md` |
-| Any other agent | read [`AGENTS.md`](../../AGENTS.md), then the canonical `SKILL.md` named for the task |
+| Any other agent (ChatGPT with repository access, Gemini CLI, Cursor, Copilot, …) | read [`AGENTS.md`](../../AGENTS.md), then the canonical `SKILL.md` named for the task; resolve its links from that file |
 
 Both runtimes use the same frontmatter, body and references. `agents/openai.yaml` is required by
 this repository's hygiene check, but is not Claude configuration. Keep Claude-only frontmatter,
@@ -196,6 +206,12 @@ Codex tool names and runtime macros out of the shared contract. Available shell,
 image and connected-service tools differ by session: follow the foundation's
 [runtime portability](cantos-engineering/references/local-execution.md#runtime-portability)
 before executing a tool-dependent step.
+
+The external **Cantos Prompt** plugin packages the `cantos-prompt` workflow as five skills
+(`cantos-prompt`, `-split`, `-review`, `-resume`, `-repo-skills`) for sessions without a
+checkout. Inside a checkout this directory is the reconciled owner and the five map to the modes
+of [`cantos-prompt`](cantos-prompt/SKILL.md#runtimes-and-the-external-plugin); both emit the same
+contract version. Plugin packaging stays outside the repository.
 
 Keep exactly one copy of every skill here. Do not add per-runtime copies, router aliases or a
 second index. The repository check fails when a skill lacks its Claude symlink or a symlink points

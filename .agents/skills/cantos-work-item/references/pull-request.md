@@ -1,8 +1,8 @@
 # Commit and pull request
 
 > **Scope.** What happens when a slice is ready for review under the foundation's local handoff
-> policy, **only when the user asks**
-> to commit, push or open a PR: the pre-commit audit, the commit, the push, the PR body built from
+> policy, **only when the user asks** (in conversation or through a submitted prompt's
+> `AUTHORIZED_ACTIONS`) to commit, push or open a PR: the pre-commit audit, the commit, the push, the PR body built from
 > [`.github/pull_request_template.md`](../../../../.github/pull_request_template.md), evidence
 > labels and what to do after the PR opens. The template and
 > [CONTRIBUTING](../../../../CONTRIBUTING.md#branch-and-pull-request-workflow) own the fields and
@@ -50,6 +50,14 @@ credentials is their decision, not an agent's.
 - One commit per coherent step is fine; do not amend, squash or rewrite pushed commits unless
   the user asks.
 
+## Several work chats, one PR
+
+When a split prompt names an integration owner, only that owner pushes the integration branch
+and opens or updates the PR; every other task commits on its own branch or worktree and hands
+over commits or a patch. The integration owner audits the combined diff, runs the final handoff
+once for the integrated content and reuses each task's attributable checkpoint evidence. Never
+push another task's branch, cherry-pick unasked, or record a commit SHA that does not exist yet.
+
 ## Push and open the PR
 
 ```sh
@@ -96,7 +104,7 @@ Add rollout and recovery steps when any answer is not `N/A`.
 
 ## Label live and mocked evidence
 
-[Mocked and live evidence are labeled separately](../../../../docs/work-plan/README.md#shared-completion-evidence),
+[Mocked and live evidence are labeled separately](../../cantos-engineering/references/verification-strategy.md#mocked-and-live-evidence-are-different-rows),
 with levels from the [foundation vocabulary](../../cantos-engineering/SKILL.md#6-never-collapse-evidence-into-the-word-verified):
 
 | What ran | Write | Never write |
@@ -118,9 +126,8 @@ with levels from the [foundation vocabulary](../../cantos-engineering/SKILL.md#6
 - A review is a separate read-only pass through
   [`cantos-code-review`](../../cantos-code-review/SKILL.md). Answering review comments, pushing
   fixes and resolving threads are further outward actions: confirm before each kind.
-- Moving the issue to `In review` follows the
-  [status policy](../../../../docs/work-plan/project-planning.md#status-policy) and is a GitHub
-  write: propose it, do it after confirmation.
+- Moving the issue to `In review` in the GitHub Project is a GitHub write: propose it, do it
+  after confirmation, unless a submitted prompt's `AUTHORIZED_ACTIONS` already grants it.
 
 ## Example body (illustrative)
 
