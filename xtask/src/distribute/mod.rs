@@ -196,9 +196,8 @@ fn build_command(
 
 /// The reviewable plan. Built from pure values only: no probe, no file or environment access.
 fn plan_text(workspace: &Workspace, request: &request::Request) -> String {
-    let gradle =
-        build_command(workspace, request.policy, request.api_origin.as_deref())
-            .display(workspace.root());
+    let gradle = build_command(workspace, request.policy, request.api_origin.as_deref())
+        .display(workspace.root());
     let placeholder = PathBuf::from("artifacts/distributions/RUN-ID");
     let apk = placeholder.join("artifact/OUTPUT.apk");
     let notes = placeholder.join("release-notes.txt");
@@ -289,8 +288,8 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         for channel in [Channel::Development, Channel::Production] {
             let raw = Raw { channel, ..raw() };
-            let request = request::resolve(&raw, &Configuration::default(), |_| Ok(Vec::new()))
-                .unwrap();
+            let request =
+                request::resolve(&raw, &Configuration::default(), |_| Ok(Vec::new())).unwrap();
             let plan = plan_text(&workspace, &request).to_ascii_lowercase();
             assert!(plan.contains("https://api.cantos.example"), "{plan}");
             assert!(

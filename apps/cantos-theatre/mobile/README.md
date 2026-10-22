@@ -122,8 +122,9 @@ CMP login. There is no link import, verified polling, resume-triggered login or 
 collection before proof in the native v1 flow; opening the mail never creates a session.
 
 The [Web completion contract](../../../packages/contracts/identity-auth-v1.md#email-link-and-signup)
-is owned by the API and Web work; the Theatre Web completion page is a dependency of end-to-end
-new-account onboarding, which stays **unaccepted** until Web implements and browser-verifies it.
+is owned by the API and Web work. The Theatre Web completion page is merged
+([#378](https://github.com/loveoverflowcom/cantos/pull/378)), but end-to-end new-account onboarding
+stays **unaccepted** until that page is browser-verified against a real Server and Identity.
 This CMP change does not implement a Web frontend or the Server's Turso migration.
 
 The offline Desktop Preview mounts the same shell/account/signup owners and explicit commands,

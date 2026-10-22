@@ -62,6 +62,8 @@ data class AppStartState(
  * Public intents and their consumers are confined to the host application dispatcher;
  * tests inject one virtual dispatcher. Ports never write these owners directly.
  */
+// TODO(owner): nothing constructs AppContainer at this base (TheatreShell/NativeSessionRuntime own the
+// production composition). It was only cleaned of provider entrypoints; decide whether to delete it.
 class AppContainer(
     parentScope: CoroutineScope,
     catalogPort: CatalogPort,

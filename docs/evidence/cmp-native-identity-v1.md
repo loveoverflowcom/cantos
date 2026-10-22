@@ -126,3 +126,39 @@ native integration branch is not a remote CI pass.
 Residual risk: final repository gate remains subject to its actual report; Web completion,
 iOS compiler/linking, both device lifecycles/secure stores, accessibility and real authentication
 must be accepted independently. Next owner is unassigned — assignment required before acceptance.
+
+## Identity-only cleanup
+
+Status: source cleanup implemented; **native device, iOS compile and real-auth acceptance still
+pending**. Base: `refactor/cantos-native-turso` at `7dfaac47` (after the Web cookie PR #378).
+
+Removed from `apps/cantos-theatre/mobile`: `NativeLoginController`, `NativeIdentityClient`,
+`NativeRegistrationHttp` and the registration wire codegen, `RegistrationPort`/`RegistrationBrowser`,
+`NativeLogin`/`NativeCallbackQuery`/`NativeClientConfiguration` (issuer, callback profile, PKCE),
+`ProviderBearerV1` grants and the provider journal writer/parser, desktop/Android crypto, the Android
+system browser, callback parser, `VIEW`/`BROWSABLE` intent filter and `onNewIntent` hook, the iOS
+`ASWebAuthenticationSession`, PKCE and `CFBundleURLTypes`, and the `--native-issuer` plumbing in
+xtask and the host inspectors. Kept: Keystore/Keychain stores, one process owner, the v1 account
+owner and its fences, SQLDelight Library/outbox, native media.
+
+Behavior changes worth review: `NativeIdentityV1Client` and `SecureNativeCredentialJournal` take the
+single `ApiOrigin` owner, so the Android debug loopback `http` exception (and only that) now covers
+auth as well as the catalog; `AndroidNativeHttp` binds to the admitted origin. Retired provider
+records at the exact origin read as `Retired` and are removed locally; other unreadable bytes stay
+`Corrupt`. Signup maps 429 to its own rate-limited message and 503/timeout to an unknown outcome.
+`AppContainer` has no constructor call site at this base; it was cleaned, not deleted.
+
+Verification (this host, JDK 17, Gradle 8.14.3): `cargo xtask theatre-preview verify` PASS — shared
+471 tests / 0 failures / 2 existing opt-in skips, preview 103 / 0 / 0 (baseline before the change:
+535 and 103; the delta is the deleted provider tests plus new v1/retired-record/signup tests). Python
+host/inspector/repository tests pass; `cargo test -p xtask` 613 pass, 3 pre-existing graph failures.
+Android and iOS runtime, secure-store durability, TalkBack/VoiceOver and real-auth integration are
+**NOT_RUN**; iOS compilation is **UNSUPPORTED** on this Linux host.
+
+Also run on the rebased head: `cargo xtask theatre-host android-debug --api-origin http://127.0.0.1:8080`
+PASS (build + APK inspection: no BROWSABLE/URL-scheme filter), `android-release` PASS (unshrunk audit,
+optimized APK/AAB, boundary inspection, identical pre-shrink inputs), `ios-build` **UNSUPPORTED**
+(Kotlin/Native 2.2.20 and Xcode absent). Local preflight stops at the `repository` gate with 26
+Compose-qualification errors that are line-for-line identical to a clean `7dfaac47` checkout
+(introduced: 0), so `rust-*` and `web-lint` were `NOT_RUN` in that invocation; `cargo fmt --check` and
+`cargo clippy -D warnings` for xtask pass separately. No device, simulator, real API or mail was used.

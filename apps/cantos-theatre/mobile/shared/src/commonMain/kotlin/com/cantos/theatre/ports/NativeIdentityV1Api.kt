@@ -32,5 +32,7 @@ interface NativeIdentityV1Api {
     suspend fun refresh(previous: NativeGrant): IdentityV1Result<NativeGrant>
     suspend fun revokeFamily(previous: NativeGrant): IdentityV1Result<Unit>
     suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession>
+    // TODO(owner): production cleanup uses revokeFamily only; this DELETE /session access-only revoke has no
+    // production caller. Kept because the contract defines it and the client tests cover it.
     suspend fun revoke(previous: NativeGrant): IdentityV1Result<Unit>
 }
