@@ -193,7 +193,7 @@ impl ServerFixture {
         seed: &WorkSeed,
     ) -> SeededWork {
         self.seed_actors(&[seed.owner.as_str()]).await;
-        let now = i64::try_from(self.clock_now_micros().div_euclid(1000)).expect("the clock fits");
+        let now = self.clock_now_micros().div_euclid(1000);
         let t0 = now - 3_600_000;
         let mut ids = Ids {
             tag: seed.tag,
@@ -297,7 +297,7 @@ impl ServerFixture {
             tag: work.tag.wrapping_add(0x1_0000),
             next: 0,
         };
-        let now = i64::try_from(self.clock_now_micros().div_euclid(1000)).expect("the clock fits");
+        let now = self.clock_now_micros().div_euclid(1000);
         let t0 = now - 3_600_000;
         let seed = WorkSeed {
             owner: work.owner.clone(),
@@ -339,7 +339,7 @@ impl ServerFixture {
             .release_id
             .as_deref()
             .expect("the unit has a release");
-        let at = i64::try_from(self.clock_now_micros().div_euclid(1000)).expect("the clock fits");
+        let at = self.clock_now_micros().div_euclid(1000);
         self.exec(
             "INSERT INTO audio_release_withdrawals(release_id,actor_id,recorded_at,reason) VALUES(?1,?2,?3,'Synthetic withdrawal')",
             &[&release, &owner, &at],
@@ -356,7 +356,7 @@ impl ServerFixture {
 
     /// Revoke the producer capability behind the unit's submission.
     pub async fn revoke_submission(&self, owner: &str, unit: &SeededUnit) {
-        let at = i64::try_from(self.clock_now_micros().div_euclid(1000)).expect("the clock fits");
+        let at = self.clock_now_micros().div_euclid(1000);
         self.exec(
             "INSERT INTO audio_submission_revocations(submission_id,owner_id,revoked_at) VALUES(?1,?2,?3)",
             &[&unit.chain.submission_id.as_str(), &owner, &at],
@@ -386,7 +386,7 @@ impl ServerFixture {
             crate::contexts::catalog::decode_work_snapshot(&bytes).expect("the work decodes");
         let mut details = current.details().clone();
         change(&mut details);
-        let at = i64::try_from(self.clock_now_micros().div_euclid(1000)).expect("the clock fits");
+        let at = self.clock_now_micros().div_euclid(1000);
         let next = current
             .edit(current.revision(), details, at)
             .expect("the edit is admitted");

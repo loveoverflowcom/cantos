@@ -64,6 +64,17 @@ impl ServerFixture {
         self.run.dir()
     }
 
+    /// The `server.db` path of this fixture, for a test that serves it from another process.
+    pub fn database_path(&self) -> std::path::PathBuf {
+        self.run.path("server.db")
+    }
+
+    /// Release the file so another process (the `cantos-server` binary) may own it. A test then
+    /// reads through [`Self::restart`], which serves the file again.
+    pub fn close(&mut self) {
+        self.store = None;
+    }
+
     /// Close the file and serve it again, as a restart does. Every clone of the previous store
     /// (a router's state, a spawned task) must have been dropped first, or ownership refuses.
     pub async fn restart(&mut self) {

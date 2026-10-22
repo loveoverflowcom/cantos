@@ -1,10 +1,14 @@
 # Cantos API — Editorial and External Audio Authority
 
 > **Incomplete native checkpoint.** `Store`, `cantos-migrate`, `cantos-operator` and the host now
-> use `CANTOS_SERVER_DATABASE` (a local Turso file), never `DATABASE_URL`. Only actors,
-> Identity sessions and development sessions have schema. Business adapters still contain
-> PostgreSQL SQL and will fail against the missing tables; their former integration tests are
-> retained outside Cargo discovery in `legacy-pg-tests/`. The capability descriptions and PG
+> use `CANTOS_SERVER_DATABASE` (a local Turso file), never `DATABASE_URL`. Schema exists for
+> actors, Identity sessions, development sessions and the CMP business API closure (catalog
+> revisions, production briefs, the external-audio release chain and the Listener Library:
+> appended versions 12–15, see the [slice record](../../docs/architecture/server-turso/cmp-business-api.md)).
+> Theatre discovery, manifests, playback authorization, origin media and the Library are served from
+> it. Every other business adapter (Studio, Editorial, Adaptation, Production, publication writes,
+> artwork) still contains PostgreSQL SQL and will fail against the missing tables; their former
+> integration tests are retained outside Cargo discovery in `legacy-pg-tests/`. The capability descriptions and PG
 > operating instructions below describe the pre-port baseline, not working native acceptance.
 > Provider authentication is removed; native Identity v1 is the remaining auth owner, and
 > Admin has no verifier and denies admission. Follow the [checkpoint boundary](../../docs/architecture/server-turso-porting.md#checkpoint-boundary)

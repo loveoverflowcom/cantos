@@ -547,7 +547,7 @@ async fn concurrent_readers_see_a_whole_publication_before_or_after_a_withdrawal
             matches!(manifest, Ok(_) | Err(ListenerError::NotFound)),
             "{manifest:?}"
         );
-        assert!(matches!(works, Ok(_)), "{works:?}");
+        assert!(works.is_ok(), "{works:?}");
     }
     assert_eq!(
         service.manifest(&id).await.unwrap_err(),

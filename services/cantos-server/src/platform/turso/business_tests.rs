@@ -272,7 +272,7 @@ async fn a_binary_of_eleven_refuses_the_file_of_fifteen_and_a_diverged_slice_is_
     // What a binary that predates this slice would be: it knows eleven versions only.
     let old = Registry::new(DatabaseKind::Server, SERVER_EPOCH, &MIGRATIONS[..11]).unwrap();
     for intent in [Intent::Serve, Intent::Migrate] {
-        match OwnedDatabase::open(OpenRequest::new(&path, old.clone(), intent, clock())).await {
+        match OwnedDatabase::open(OpenRequest::new(&path, old, intent, clock())).await {
             Err(OpenError::Refused(Refusal::NewerThanBinary {
                 applied: 15,
                 known: 11,

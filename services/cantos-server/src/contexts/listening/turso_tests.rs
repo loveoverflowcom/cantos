@@ -1508,3 +1508,123 @@ async fn replaced_and_withdrawn_releases_keep_exact_bookmarks_without_remap_or_n
         .items
         .is_empty());
 }
+
+/// The production CMP client (sync adapter, SQLite store, codec, HTTP client) against this real
+/// router over loopback HTTP and the real `server.db`. The Kotlin side is `LiveBookmarkApiTest`;
+/// this harness owns the server, the seeded rows and the final database assertions, so a Kotlin
+/// pass cannot stand in for them. It runs through the Theatre trusted-host principal, not a real
+/// Identity session (the production composition is covered by `tests/theatre_business_journey.rs`).
+///
+/// ```sh
+/// CANTOS_TEST_GRADLE=/path/to/gradle cargo test -p cantos-server --lib \
+///   cmp_production_client_against_the_real_api -- --ignored
+/// ```
+#[tokio::test]
+#[ignore = "requires Gradle and the CMP desktop toolchain (CANTOS_TEST_GRADLE or gradle on PATH); no audio decoder or real identity provider"]
+async fn cmp_production_client_against_the_real_api() {
+    const SEEDED: u64 = 22;
+    let w = world().await;
+    let (a, service) = (w.audio.clone(), w.service());
+    assert!(
+        a.duration_ms >= 100,
+        "fixture audio too short for distinct bookmark positions"
+    );
+    let alice = principal("alice");
+    for n in 1..=SEEDED {
+        service
+            .create_bookmark(&alice, &bm(n), bookmark_write(n, &a, 1, 90, n))
+            .await
+            .unwrap();
+    }
+    let router = app(w.fixture.store().clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move { axum::serve(listener, router).await });
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let identity = serde_json::to_string(&a).unwrap();
+    let gradle = std::env::var("CANTOS_TEST_GRADLE").unwrap_or_else(|_| "gradle".into());
+    let output = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(gradle)
+            .current_dir(root)
+            .args([
+                "--project-dir",
+                "apps/cantos-theatre/mobile",
+                "--no-daemon",
+                "-Dorg.gradle.java.installations.auto-download=false",
+                "--max-workers",
+                "2",
+                "-Pkotlin.compiler.execution.strategy=in-process",
+                "--no-configuration-cache",
+                "-i",
+                ":shared:desktopTest",
+                "--rerun",
+                "--tests",
+                "com.cantos.theatre.adapters.library.LiveBookmarkApiTest",
+            ])
+            .env("CANTOS_LIVE_API_ORIGIN", format!("http://127.0.0.1:{port}"))
+            .env("CANTOS_LIVE_AUDIO", identity)
+            .env("CANTOS_LIVE_SEEDED", SEEDED.to_string())
+            .output()
+    })
+    .await
+    .unwrap()
+    .expect("gradle could not be started");
+    server.abort();
+    let log = String::from_utf8_lossy(&output.stdout).into_owned();
+    assert!(
+        output.status.success(),
+        "{log}\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        log.contains("LIVE-BOOKMARK-OK"),
+        "the live test was skipped, not passed:\n{log}"
+    );
+    println!(
+        "{}",
+        log.lines()
+            .find(|l| l.contains("LIVE-BOOKMARK-OK"))
+            .unwrap_or_default()
+            .trim()
+    );
+    // The database is the authority: what the client believes must be exactly what it holds.
+    let count = |sql: String| {
+        let fixture = &w.fixture;
+        async move { fixture.count(&sql, &[]).await }
+    };
+    assert_eq!(
+        count(
+            "SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND deleted=0"
+                .into()
+        )
+        .await,
+        SEEDED as i64 + 2
+    );
+    assert_eq!(
+        count(
+            "SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND deleted=1"
+                .into()
+        )
+        .await,
+        1
+    );
+    assert_eq!(
+        count("SELECT count(*) FROM listener_bookmarks WHERE listener_id='bob'".into()).await,
+        0,
+        "no row for another account"
+    );
+    assert_eq!(
+        count("SELECT count(*) FROM (SELECT publication_id,position_ms FROM listener_bookmarks WHERE listener_id='alice' AND deleted=0 GROUP BY 1,2 HAVING count(*)>1) d".into()).await,
+        0,
+        "no duplicate at one release position"
+    );
+    assert_eq!(
+        count(format!(
+            "SELECT count(*) FROM listener_bookmarks WHERE listener_id='alice' AND publication_id<>'{}'",
+            a.publication_id
+        ))
+        .await,
+        0,
+        "every row names the exact release"
+    );
+}
