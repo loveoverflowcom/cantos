@@ -149,10 +149,12 @@ draft or upload is pending keeps the draft in RAM; the sign-in form re-authentic
 owner and nothing is auto-replayed.
 
 The authority is documented in [Identity auth v1](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
-and the shared [Web boundary](../../../packages/web-auth/README.md). **Not verified:** no
-backend, browser, cookie (`SameSite`/`Secure`/third-party blocking), CORS, multi-tab or E2E run
-exists for this migration; only host unit tests and the WASM lint/build. Real Identity roster
-and clock-skew behavior are untested.
+and the shared [Web boundary](../../../packages/web-auth/README.md). The
+[23 October integration record](../../../docs/evidence/post-merge-integration-20261023.md)
+covers a real Identity roster login, an Editorial write and its read across a Server restart,
+and one loopback-HTTP browser login → create Work → restart → logout journey. **Not verified:**
+HTTPS `Secure`/third-party cookie blocking, deployed CORS, multi-tab and clock skew; a roster
+subject still has no supported operator lookup.
 
 The pure `authoring.rs` patches known leaves of the complete JSON value, preserving stable IDs,
 unknown metadata, provenance, rights and selected asset fields. It rejects duplicate keys,
