@@ -99,5 +99,6 @@ own their language representation.
 
 - No deployed, browser or device behavior was re-accepted by this change; each contract keeps
   its own acceptance status.
-- `services/cantos-server/legacy-pg-tests` (outside Cargo) still name `cantos_contracts` and
-  `packages/contracts` paths; they are historical porting oracles and are rewritten when ported.
+- `services/cantos-server/legacy-pg-tests` (outside Cargo) still named `cantos_contracts` and
+  `packages/contracts` paths when this decision landed. They were since ported or retired, and no
+  file remains ([retirement record](../architecture/server-turso/remaining-pg-retirement.md)).

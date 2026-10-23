@@ -19,8 +19,9 @@ private authenticated UDS RPC. The Server reaches Identity only through the RPC 
 ## Porting and retirement
 
 Preserve legacy [PG schema inventory](../../services/cantos-server/schema/README.md), invariant
-mappings and `legacy-pg-tests` as migration oracles. PostgreSQL-shaped source names do not
-establish a PostgreSQL runtime, nor does opening Turso establish completed business schema.
+mappings and the [ported/retired oracle record](server-turso/remaining-pg-retirement.md) of the
+former `legacy-pg-tests`. PostgreSQL-shaped source names do not establish a PostgreSQL runtime,
+nor does opening Turso establish completed business schema.
 The ownership scanner still inventories historical PG declarations, including its missing legacy
 registry source; repairing that input without changing its meaning is a #333 follow-up.
 

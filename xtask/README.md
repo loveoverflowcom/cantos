@@ -127,8 +127,8 @@ Theatre Mobile has a JVM-only Desktop Preview Gradle module. Production `--mobil
 `UNSUPPORTED` pending native runtime acceptance; use `theatre-preview` for Desktop Preview evidence
 and `theatre-host android-release` for the production host's release isolation.
 Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
-out-of-scope directory. `build all` covers the API, Forge and both Web clients and notes that Theatre
-Mobile and `services/kanidm` (configuration only) are not built. See the
+out-of-scope directory. `build all` covers the Server, Identity, Forge and both Web clients; it
+does not build Theatre Mobile. See the
 [platform matrix](../docs/architecture/repository-layout.md#platform-scope).
 
 `dev` is the default unoptimized build. `--release` passes `--release` to Cargo or Trunk and
