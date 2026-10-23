@@ -5,10 +5,13 @@
 alias served by the same handlers, with identical bodies and a `Deprecation: true` response header;
 a session cookie from the alias is scoped to `/api/v1`, one from `/api/v1/studio/session` to
 `/api/v1/studio`. Wire DTOs and error codes did not change. Listener and administration APIs are
-separate groups (`/api/v1/theatre`, `/api/v1/admin`), reserved and empty.
+separate groups (`/api/v1/theatre`, `/api/v1/admin`).
 
 Implemented development boundary: [Axum](../../services/cantos-server/src/adapters/inbound/http/studio/mod.rs) →
-[PostgreSQL](../../services/cantos-server/src/contexts/editorial/postgres.rs), consumed by [Leptos](../../apps/cantos-studio/web/src/api.rs).
+[embedded Turso](../../services/cantos-server/src/contexts/editorial/turso.rs), consumed by [Leptos](../../apps/cantos-studio/web/src/api.rs).
+The [Editorial/Ingestion port](../../docs/architecture/server-turso/editorial-ingestion.md)
+records its native boundary. Production authentication follows [Identity auth v1](identity-auth-v1.md);
+the 64-hex token exchange below is development-only compatibility.
 The [Schema](schema/studio/v1.schema.json), [raw Rust DTOs](api/src/lib.rs) and
 [fixtures](fixtures/studio/v1) are hand-authored. Both consumers test the same fixture source;
 backend tests validate live responses with that Schema. No generated OpenAPI/Kotlin API exists.
@@ -19,7 +22,7 @@ backend tests validate live responses with that Schema. No generated OpenAPI/Kot
 | --- | --- |
 | POST /session | SessionRequest token → SessionResponse actor_id and HttpOnly/SameSite=Strict cookie; retire the cookie at the other known Studio mount |
 | GET /session | Current cookie → SessionResponse actor_id; missing, duplicate, inactive, expired or revoked session returns 401; current mount only |
-| DELETE /session | Revoke token in PostgreSQL, expire cookie → 204 |
+| DELETE /session | Revoke token in the Server store, expire cookie → 204 |
 | GET /scripts/{UUID}/head | Current authorized Revision |
 | GET /scripts/{UUID}/revisions/{positive revision} | Pinned immutable Revision, current access still required |
 | POST /scripts/{UUID}/revisions | SaveRevision → Revision; 200 for both acceptance and exact replay |

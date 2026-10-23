@@ -274,7 +274,8 @@ pub struct Row {
 }
 
 impl Row {
-    pub(crate) fn try_get<I: RowIndex, T: FromColumn>(&self, index: I) -> Result<T, Error> {
+    /// Checked access also serves the file-backed fixture's public SQL result rows.
+    pub fn try_get<I: RowIndex, T: FromColumn>(&self, index: I) -> Result<T, Error> {
         let position = index.position(self).ok_or(Error::Column)?;
         T::from_column(self.values[position].clone())
     }

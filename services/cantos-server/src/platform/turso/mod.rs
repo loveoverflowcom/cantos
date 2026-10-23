@@ -1,7 +1,6 @@
-//! Candidate `server.db` for #333: the one Server schema registry over the shared
-//! `cantos-store-turso` owner. Only the actor registry and Identity session slices exist, so this
-//! is not complete Server schema v1. The host now composes this owner, but business context
-//! tables and queries remain unported; successful opening does not accept those routes.
+//! The one Server schema registry over the shared `cantos-store-turso` owner. Foundation,
+//! native sessions, the CMP business API closure and Editorial/Ingestion are implemented;
+//! the remaining context write paths still need their #333 schema and adapter ports.
 //!
 //! Context adapters receive a [`ServerDatabase`] and share its serialized writer and readers.
 //! SQL stays in each owner's persistence adapter; this module holds no business query.
@@ -23,7 +22,7 @@ pub const SERVER_EPOCH: u32 = 1;
 
 /// Each reviewed slice appends a version; an applied version is never edited, so a candidate
 /// file built by an older head is refused as diverged instead of adopted.
-pub(crate) const MIGRATIONS: [Migration; 15] = [
+pub(crate) const MIGRATIONS: [Migration; 16] = [
     Migration {
         version: 1,
         name: "server_actor_registry",
@@ -101,6 +100,11 @@ pub(crate) const MIGRATIONS: [Migration; 15] = [
         version: 15,
         name: "server_listener_library",
         sql: include_str!("listener_library.sql"),
+    },
+    Migration {
+        version: 16,
+        name: "server_editorial_ingestion",
+        sql: include_str!("editorial_ingestion.sql"),
     },
 ];
 

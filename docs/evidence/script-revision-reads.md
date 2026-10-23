@@ -1,5 +1,8 @@
 # Script revision affected-read inventory
 
+Historical PostgreSQL record. The current [Editorial/Ingestion port](../architecture/server-turso/editorial-ingestion.md)
+has separate native evidence; the measurements and outcomes below are unchanged.
+
 Initial inventory: prompt 2, local development persistence slice based on
 `ea8e1d98a31301b0d63dfa75d8e56450397b581d`. Inventory follows the
 [PostgreSQL read-performance skill](../../.agents/skills/cantos-engineering/references/turso-read-performance.md).
@@ -10,7 +13,8 @@ kept separately from the prompt-2 historical NOT_RUN record below.
 
 ## Actual serving reads
 
-All query owners are [postgres.rs](../../services/cantos-server/src/contexts/editorial/postgres.rs); the
+All query owners in this historical PostgreSQL record are
+[`postgres.rs` at the pre-port checkpoint](https://github.com/loveoverflowcom/cantos/blob/12fb751ec71e20233fe4caaee35e4544fe4a0d4b/services/cantos-server/src/contexts/editorial/postgres.rs); the
 [HTTP routes](../../services/cantos-server/src/adapters/inbound/http/router.rs), [migration](https://github.com/loveoverflowcom/cantos/blob/3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a/services/cantos-api/migrations/0001_script_revisions.sql),
 [wire contract](../../packages/contracts/studio-v1.md) and
 [real PostgreSQL suite](../../services/cantos-server/legacy-pg-tests/tests/revisions_postgres.rs) are immediate consumers.

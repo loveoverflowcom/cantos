@@ -8,7 +8,7 @@ use super::domain::receipt::{
     legacy_source_intact, original_text, receipt_digest, sha256_hex, source_id_valid,
     AdmittedImport,
 };
-use super::postgres;
+use super::turso;
 use crate::contexts::editorial::{authorize, register_evidence, Action, EvidenceKind};
 use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError};
 
@@ -31,10 +31,8 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
-        postgres::lock_actor_imports(&tx, &actor).await?;
-        authenticate(&tx, token).await?;
         if let Some((prior, bytes)) =
-            postgres::import_by_operation(&tx, &actor, &request.metadata().operation_id).await?
+            turso::import_by_operation(&tx, &actor, &request.metadata().operation_id).await?
         {
             if bytes != request.bytes() || prior.metadata != *request.metadata() {
                 return Err(StoreError::OperationReused);
@@ -51,9 +49,9 @@ impl Store {
             "Imported manuscript; rights recorded as supplied, never publication clearance",
         )
         .await?;
-        postgres::insert_import(
+        turso::insert_import(
             &tx,
-            postgres::NewImport {
+            turso::NewImport {
                 actor: &actor,
                 id: &id,
                 input: &request,
@@ -64,7 +62,7 @@ impl Store {
             },
         )
         .await?;
-        let response = postgres::load_import(&tx, &actor, &id).await?;
+        let response = turso::load_import(&tx, &actor, &id).await?;
         tx.commit().await?;
         Ok(response)
     }
@@ -88,10 +86,10 @@ impl Store {
         if !source_id_valid(id) {
             return Err(StoreError::InvalidRequest);
         }
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
-        let result = postgres::find_import(&tx, &actor, id)
+        let result = turso::find_import(&tx, &actor, id)
             .await?
             .ok_or(StoreError::NotFound)?;
         tx.commit().await?;
@@ -106,11 +104,11 @@ impl Store {
         id: &str,
     ) -> Result<SourceResponse, StoreError> {
         let script = normalized_uuid(script)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
         let (owner, _) = authorize(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
-        let source = postgres::linked_source(&tx, &owner, id, &script)
+        let source = turso::linked_source(&tx, &owner, id, &script)
             .await?
             .ok_or(StoreError::NotFound)?;
         // The legacy source contract is text-only; binary intake uses /imports/{id}/original.

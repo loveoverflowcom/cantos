@@ -1,13 +1,14 @@
 # Manuscript import API v1
 
 Implemented private development boundary: [Axum](../../services/cantos-server/src/adapters/inbound/http/studio/imports.rs) →
-[the existing PostgreSQL source registry](../../services/cantos-server/src/contexts/ingestion/postgres.rs), consumed by
+[the embedded Turso source registry](../../services/cantos-server/src/contexts/ingestion/turso.rs), consumed by
 Cantos Studio. The [JSON Schema](schema/manuscript/v1.schema.json) and
 [shared raw Rust DTOs](api/src/imports.rs) are hand-authored. Independent literal wire examples
 live in the [consumer tests](api/tests/import_wire.rs) and
 [backend contract tests](../../services/cantos-server/tests/import_contract.rs). They validate transport shape;
 the backend remains authoritative for byte limits, extraction and access decisions. No generated
-OpenAPI or Kotlin bindings are claimed.
+OpenAPI or Kotlin bindings are claimed. The [Editorial/Ingestion port](../../docs/architecture/server-turso/editorial-ingestion.md)
+records real-file coverage and remaining native acceptance.
 
 ## Routes and access
 

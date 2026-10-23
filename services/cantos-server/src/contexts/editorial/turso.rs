@@ -6,30 +6,33 @@ use uuid::Uuid;
 
 use super::domain::revisions::AcceptedRevision;
 use super::domain::{export_digest, EvidenceKind};
-use crate::platform::store::{LockMode, StoreError, Tx};
+use crate::platform::store::{utc_timestamp, StoreError, Tx};
 use crate::script_ir::{read_canonical_script, WRITE_VERSION};
 
-const REVISION_COLUMNS: &str = "script_id, revision, expected_revision, accepted_by, canonical_export, content_digest, export_digest, to_char(accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS accepted_at";
+const REVISION_COLUMNS: &str = "script_id, revision, expected_revision, accepted_by, accepted_at, schema_version, canonical_export, content_digest, export_digest";
 
 fn review_query() -> String {
-    format!("SELECT r.id,r.operation_id,r.reviewed_by,to_char(r.reviewed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS reviewed_at,{REVISION_COLUMNS} FROM script_reviews r JOIN script_revisions USING(script_id,revision)")
+    format!("SELECT r.id,r.operation_id,r.reviewed_by,r.reviewed_at,{REVISION_COLUMNS} FROM script_reviews r JOIN script_revisions USING(script_id,revision)")
 }
 
 /// The stored canonical bytes must still be the admitted Script IR with both recorded digests.
 fn decode_revision(row: &Row) -> Result<RevisionFacts, StoreError> {
     let revision = accepted_sequence(row)?;
-    let bytes: Vec<u8> = row.get("canonical_export");
+    let bytes: Vec<u8> = row.try_get("canonical_export")?;
     let content = read_canonical_script(&bytes).map_err(|_| StoreError::CorruptRevision)?;
-    let digest: String = row.get("content_digest");
-    let export_hash: String = row.get("export_digest");
-    if content.content_digest().to_string() != digest || export_digest(&bytes) != export_hash {
+    let digest: String = row.try_get("content_digest")?;
+    let export_hash: String = row.try_get("export_digest")?;
+    if row.try_get::<_, String>("schema_version")? != WRITE_VERSION
+        || content.content_digest().to_string() != digest
+        || export_digest(&bytes) != export_hash
+    {
         return Err(StoreError::CorruptRevision);
     }
     Ok(RevisionFacts {
-        script_id: row.get("script_id"),
+        script_id: row.try_get("script_id")?,
         revision: revision.get(),
-        accepted_by: row.get("accepted_by"),
-        accepted_at: row.get("accepted_at"),
+        accepted_by: row.try_get("accepted_by")?,
+        accepted_at: utc_timestamp(row.try_get("accepted_at")?)?,
         content_digest: digest,
         export_digest: export_hash,
         canonical_export: String::from_utf8(bytes).map_err(|_| StoreError::CorruptRevision)?,
@@ -49,31 +52,26 @@ fn accepted_sequence(row: &Row) -> Result<AcceptedRevision, StoreError> {
 fn decode_review(row: &Row) -> Result<ReviewFacts, StoreError> {
     let revision = decode_revision(row)?;
     Ok(ReviewFacts {
-        id: row.get("id"),
+        id: row.try_get("id")?,
         script_id: revision.script_id,
         revision: revision.revision,
-        operation_id: row.get("operation_id"),
-        reviewed_by: row.get("reviewed_by"),
-        reviewed_at: row.get("reviewed_at"),
+        operation_id: row.try_get("operation_id")?,
+        reviewed_by: row.try_get("reviewed_by")?,
+        reviewed_at: utc_timestamp(row.try_get("reviewed_at")?)?,
         content_digest: revision.content_digest,
         export_digest: revision.export_digest,
     })
 }
 
-/// Owner and head of a script, locked in `lock` mode for the rest of the transaction.
-pub(crate) async fn lock_script(
-    tx: &Tx<'_>,
-    script: &str,
-    lock: LockMode,
-) -> Result<Option<(String, i64)>, StoreError> {
-    let query = format!(
-        "SELECT owner_id,head_revision FROM scripts WHERE id=$1 FOR {lock}",
-        lock = lock.sql()
-    );
-    Ok(tx
-        .query_opt(&query, &[&script])
-        .await?
-        .map(|row| (row.get(0), row.get(1))))
+/// Owner and head inside the caller's serialized write unit or pinned read snapshot.
+pub(crate) async fn script(tx: &Tx<'_>, script: &str) -> Result<Option<(String, i64)>, StoreError> {
+    tx.query_opt(
+        "SELECT owner_id,head_revision FROM scripts WHERE id=?1",
+        &[&script],
+    )
+    .await?
+    .map(|row| Ok((row.try_get(0)?, row.try_get(1)?)))
+    .transpose()
 }
 
 pub(crate) async fn member_role(
@@ -81,30 +79,31 @@ pub(crate) async fn member_role(
     script: &str,
     actor: &str,
 ) -> Result<Option<String>, StoreError> {
-    Ok(tx
-        .query_opt(
-            "SELECT role FROM script_members WHERE script_id=$1 AND actor_id=$2",
-            &[&script, &actor],
-        )
-        .await?
-        .map(|row| row.get(0)))
+    tx.query_opt(
+        "SELECT role FROM script_members WHERE script_id=?1 AND actor_id=?2",
+        &[&script, &actor],
+    )
+    .await?
+    .map(|row| row.try_get(0).map_err(StoreError::from))
+    .transpose()
 }
 
 pub(crate) async fn script_exists(tx: &Tx<'_>, script: &str) -> Result<bool, StoreError> {
     Ok(tx
-        .query_opt("SELECT id FROM scripts WHERE id=$1", &[&script])
+        .query_opt("SELECT id FROM scripts WHERE id=?1", &[&script])
         .await?
         .is_some())
 }
 
-/// A first save races on the unique ID; the loser then waits on the winner's head lock.
+/// Writer admission orders first saves. Pre-check instead of ON CONFLICT: immutable-identity
+/// guards run before conflict resolution and intentionally reject even an ignored replacement.
 pub(super) async fn create_script(
     tx: &Tx<'_>,
     script: &str,
     owner: &str,
 ) -> Result<(), StoreError> {
     tx.execute(
-        "INSERT INTO scripts(id,owner_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+        "INSERT INTO scripts(id,owner_id) SELECT ?1,?2 WHERE NOT EXISTS(SELECT 1 FROM scripts WHERE id=?1)",
         &[&script, &owner],
     )
     .await?;
@@ -117,7 +116,7 @@ pub(crate) async fn find_revision(
     revision: i64,
 ) -> Result<Option<RevisionFacts>, StoreError> {
     let query = format!(
-        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
+        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=?1 AND revision=?2"
     );
     tx.query_opt(&query, &[&script, &revision])
         .await?
@@ -133,7 +132,7 @@ pub(crate) async fn load_revision(
     revision: i64,
 ) -> Result<RevisionFacts, StoreError> {
     let query = format!(
-        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
+        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=?1 AND revision=?2"
     );
     decode_revision(&tx.query_one(&query, &[&script, &revision]).await?)
 }
@@ -144,7 +143,7 @@ pub(super) async fn revisions_after(
     after: i64,
     limit: i64,
 ) -> Result<Vec<RevisionFacts>, StoreError> {
-    let query = format!("SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision>$2 ORDER BY revision LIMIT $3");
+    let query = format!("SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=?1 AND revision>?2 ORDER BY revision LIMIT ?3");
     tx.query(&query, &[&script, &after, &limit])
         .await?
         .iter()
@@ -168,8 +167,10 @@ impl AcceptedOperation {
         self.revision.expected()
     }
 
-    pub(super) fn export(&self) -> Vec<u8> {
-        self.row.get("canonical_export")
+    pub(super) fn export(&self) -> Result<Vec<u8>, StoreError> {
+        self.row
+            .try_get("canonical_export")
+            .map_err(StoreError::from)
     }
 
     pub(super) fn into_revision(self) -> Result<RevisionFacts, StoreError> {
@@ -183,7 +184,7 @@ pub(super) async fn accepted_operation(
     actor: &str,
     operation: &str,
 ) -> Result<Option<AcceptedOperation>, StoreError> {
-    let query = format!("SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND accepted_by=$2 AND operation_id=$3");
+    let query = format!("SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=?1 AND accepted_by=?2 AND operation_id=?3");
     tx.query_opt(&query, &[&script, &actor, &operation])
         .await?
         .map(|row| {
@@ -205,8 +206,8 @@ pub(super) struct NewRevision<'a> {
 }
 
 pub(super) async fn insert_revision(tx: &Tx<'_>, new: NewRevision<'_>) -> Result<(), StoreError> {
-    tx.execute("INSERT INTO script_revisions(script_id,revision,expected_revision,operation_id,accepted_by,schema_version,canonical_export,content_digest,export_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-            &[&new.script,&new.revision,&new.expected,&new.operation,&new.actor,&WRITE_VERSION,&new.export,&new.content_digest,&new.export_digest]).await?;
+    tx.execute("INSERT INTO script_revisions(script_id,revision,expected_revision,operation_id,accepted_by,schema_version,canonical_export,content_digest,export_digest,accepted_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            &[&new.script,&new.revision,&new.expected,&new.operation,&new.actor,&WRITE_VERSION,&new.export,&new.content_digest,&new.export_digest,&tx.now_micros()]).await?;
     Ok(())
 }
 
@@ -218,7 +219,7 @@ pub(super) async fn link_revision_evidence(
     kind: &str,
     id: &str,
 ) -> Result<(), StoreError> {
-    tx.execute("INSERT INTO revision_evidence(script_id,revision,owner_id,kind,evidence_id) VALUES($1,$2,$3,$4,$5)", &[&script,&revision,&owner,&kind,&id]).await?;
+    tx.execute("INSERT INTO revision_evidence(script_id,revision,owner_id,kind,evidence_id) VALUES(?1,?2,?3,?4,?5)", &[&script,&revision,&owner,&kind,&id]).await?;
     Ok(())
 }
 
@@ -231,7 +232,7 @@ pub(super) async fn advance_head(
 ) -> Result<bool, StoreError> {
     let changed = tx
         .execute(
-            "UPDATE scripts SET head_revision=$1 WHERE id=$2 AND head_revision=$3",
+            "UPDATE scripts SET head_revision=?1 WHERE id=?2 AND head_revision=?3",
             &[&revision, &script, &expected],
         )
         .await?;
@@ -246,7 +247,7 @@ pub(crate) async fn evidence_exists(
 ) -> Result<bool, StoreError> {
     Ok(tx
         .query_opt(
-            "SELECT id FROM script_evidence WHERE owner_id=$1 AND kind=$2 AND id=$3",
+            "SELECT id FROM script_evidence WHERE owner_id=?1 AND kind=?2 AND id=?3",
             &[&owner, &kind, &id],
         )
         .await?
@@ -260,7 +261,21 @@ pub(crate) async fn rights_cited_by_script(
     id: &str,
     script: &str,
 ) -> Result<bool, StoreError> {
-    Ok(tx.query_opt("SELECT id FROM script_evidence e WHERE owner_id=$1 AND kind='rights' AND id=$2 AND EXISTS(SELECT 1 FROM revision_evidence r WHERE r.owner_id=e.owner_id AND r.kind=e.kind AND r.evidence_id=e.id AND r.script_id=$3)", &[&owner,&id,&script]).await?.is_some())
+    Ok(tx.query_opt("SELECT id FROM script_evidence e WHERE owner_id=?1 AND kind='rights' AND id=?2 AND EXISTS(SELECT 1 FROM revision_evidence r WHERE r.owner_id=e.owner_id AND r.kind=e.kind AND r.evidence_id=e.id AND r.script_id=?3)", &[&owner,&id,&script]).await?.is_some())
+}
+
+/// The Editorial owner proves the immutable source citation in the caller's snapshot/unit.
+/// Ingestion then reads its own source row without reaching Editorial tables directly.
+pub(crate) async fn source_cited_by_script(
+    tx: &Tx<'_>,
+    owner: &str,
+    id: &str,
+    script: &str,
+) -> Result<bool, StoreError> {
+    Ok(tx.query_opt(
+        "SELECT 1 FROM revision_evidence WHERE owner_id=?1 AND kind='source' AND evidence_id=?2 AND script_id=?3 LIMIT 1",
+        &[&owner, &id, &script],
+    ).await?.is_some())
 }
 
 /// Registers a new evidence record; an identity collision is a database failure.
@@ -272,7 +287,7 @@ pub(crate) async fn register_evidence(
     description: &str,
 ) -> Result<(), StoreError> {
     tx.execute(
-        "INSERT INTO script_evidence(owner_id,kind,id,description) VALUES($1,$2,$3,$4)",
+        "INSERT INTO script_evidence(owner_id,kind,id,description) VALUES(?1,?2,?3,?4)",
         &[&owner, &kind.as_str(), &id, &description],
     )
     .await?;
@@ -288,7 +303,7 @@ pub(crate) async fn ensure_evidence(
     description: &str,
 ) -> Result<(), StoreError> {
     tx.execute(
-        "INSERT INTO script_evidence(owner_id,kind,id,description) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+        "INSERT INTO script_evidence(owner_id,kind,id,description) SELECT ?1,?2,?3,?4 WHERE NOT EXISTS(SELECT 1 FROM script_evidence WHERE owner_id=?1 AND kind=?2 AND id=?3)",
         &[&owner, &kind.as_str(), &id, &description],
     )
     .await?;
@@ -303,7 +318,21 @@ pub(crate) async fn reviewed_by_active_owner(
     owner: &str,
 ) -> Result<bool, StoreError> {
     // Current owner and active reviewer are both required; a historical receipt cannot confer scope.
-    Ok(tx.query_opt("SELECT r.id FROM script_reviews r JOIN actors a ON a.id=r.reviewed_by WHERE r.script_id=$1 AND r.revision=$2 AND r.reviewed_by=$3 AND a.active", &[&script,&revision,&owner]).await?.is_some())
+    if tx
+        .query_opt(
+            "SELECT id FROM script_reviews WHERE script_id=?1 AND revision=?2 AND reviewed_by=?3",
+            &[&script, &revision, &owner],
+        )
+        .await?
+        .is_none()
+    {
+        return Ok(false);
+    }
+    Ok(
+        crate::platform::store::active_actors(tx, &[owner.to_owned()])
+            .await?
+            .contains(owner),
+    )
 }
 
 pub(super) async fn reviews_between(
@@ -313,7 +342,7 @@ pub(super) async fn reviews_between(
     last: i64,
 ) -> Result<Vec<ReviewFacts>, StoreError> {
     let query = format!(
-        "{} WHERE script_id=$1 AND revision>$2 AND revision<=$3 ORDER BY revision",
+        "{} WHERE script_id=?1 AND revision>?2 AND revision<=?3 ORDER BY revision",
         review_query()
     );
     tx.query(&query, &[&script, &after, &last])
@@ -328,7 +357,7 @@ pub(super) async fn review_exists(
     script: &str,
     revision: i64,
 ) -> Result<bool, StoreError> {
-    let query = format!("{} WHERE script_id=$1 AND revision=$2", review_query());
+    let query = format!("{} WHERE script_id=?1 AND revision=?2", review_query());
     Ok(tx.query_opt(&query, &[&script, &revision]).await?.is_some())
 }
 
@@ -337,7 +366,7 @@ pub(super) async fn load_review(
     script: &str,
     revision: i64,
 ) -> Result<ReviewFacts, StoreError> {
-    let query = format!("{} WHERE script_id=$1 AND revision=$2", review_query());
+    let query = format!("{} WHERE script_id=?1 AND revision=?2", review_query());
     decode_review(&tx.query_one(&query, &[&script, &revision]).await?)
 }
 
@@ -347,7 +376,7 @@ pub(super) async fn review_operation(
     actor: &str,
     operation: &str,
 ) -> Result<Option<u64>, StoreError> {
-    tx.query_opt("SELECT revision FROM script_review_operations WHERE script_id=$1 AND actor_id=$2 AND operation_id=$3", &[&script,&actor,&operation])
+    tx.query_opt("SELECT revision FROM script_review_operations WHERE script_id=?1 AND actor_id=?2 AND operation_id=?3", &[&script,&actor,&operation])
         .await?
         .map(|row| {
             AcceptedRevision::from_number(row.try_get(0).map_err(|_| StoreError::CorruptRevision)?)
@@ -364,7 +393,7 @@ pub(super) async fn insert_review(
     operation: &str,
     actor: &str,
 ) -> Result<(), StoreError> {
-    tx.execute("INSERT INTO script_reviews(id,script_id,revision,operation_id,reviewed_by) VALUES($1,$2,$3,$4,$5)", &[&Uuid::new_v4().to_string(),&script,&revision,&operation,&actor]).await?;
+    tx.execute("INSERT INTO script_reviews(id,script_id,revision,operation_id,reviewed_by,reviewed_at) VALUES(?1,?2,?3,?4,?5,?6)", &[&Uuid::new_v4().to_string(),&script,&revision,&operation,&actor,&tx.now_micros()]).await?;
     Ok(())
 }
 
@@ -375,7 +404,7 @@ pub(super) async fn insert_review_operation(
     operation: &str,
     revision: i64,
 ) -> Result<(), StoreError> {
-    tx.execute("INSERT INTO script_review_operations(script_id,actor_id,operation_id,revision) VALUES($1,$2,$3,$4)", &[&script,&actor,&operation,&revision]).await?;
+    tx.execute("INSERT INTO script_review_operations(script_id,actor_id,operation_id,revision) VALUES(?1,?2,?3,?4)", &[&script,&actor,&operation,&revision]).await?;
     Ok(())
 }
 
@@ -386,7 +415,7 @@ pub(crate) async fn owned_revision(
     script: &str,
     revision: i64,
 ) -> Result<Option<RevisionFacts>, StoreError> {
-    let Some((actual_owner, _)) = lock_script(tx, script, LockMode::Share).await? else {
+    let Some((actual_owner, _)) = self::script(tx, script).await? else {
         return Ok(None);
     };
     if actual_owner != owner {
