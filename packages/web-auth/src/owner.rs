@@ -71,7 +71,8 @@ pub trait Port: 'static {
         origin: Option<&str>,
     ) -> impl Future<Output = Result<Self::TabLock, Failure>>;
     fn pause(&self, millis: u32) -> impl Future<Output = Result<(), Failure>>;
-    /// The views of this document must stop showing the account (the API said it is gone).
+    /// Views must withdraw local authority and re-observe the cookie. A peer signal alone
+    /// proves neither login nor logout; only the API can confirm the current account.
     fn lost(&self, surface: Surface);
     /// Tell other tabs that this document changed the cookie. A signal, never authentication.
     fn announce(&self, surface: Surface);

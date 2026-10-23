@@ -6,14 +6,20 @@ The [Identity v1 contract](../../packages/contracts/identity-auth-v1.md) owns th
 
 ## Provenance and boundary
 
-- Fresh base: `origin/refactor/cantos-native-turso` at
-  `84eea4c3843908f4f21da9760381c129e21d5263`, fetched again after the request for the newest
-  commit. It includes merged #389, #391 and #392; none of their work is combined into this diff.
+- Final base: `origin/refactor/cantos-native-turso` at
+  `443e7251f61aa89020c2afdfcbfb861ff5a807bf`. Initial fresh base after the user requested
+  another fetch was `84eea4c3843908f4f21da9760381c129e21d5263` (including #389/#391/#392).
+  The final remote readback found merged #393 overlapping Web-auth/CORS. The task work was
+  checkpointed, then merged with that tip without reset/force-push; the README conflict retains
+  both the upstream boundary notes and this evidence. Affected checks are repeated on the
+  integrated source; no combined result is inferred from the earlier browser run.
 - Branch: `test/335-web-identity-browser-acceptance`. One isolated Mac checkout:
   `/Users/manhblue/Documents/Codex/2026-10-23/task-4/cantos`. Other checkouts, stashes and data
   were not changed. A clean base source archive has an independent index for read-only comparison.
-- Tested source is that base plus this PR's scoped changes. The eight changed Rust files are
-  bound by `source-manifest.json`, SHA-256
+- Final tested source is that base plus this PR's scoped changes. The seven changed Rust files
+  are bound by `source-manifest-integrated.json`, SHA-256
+  `38d58b4daf6f33fd9deb1799967cd2a2c5c35e2085ead8bf244bb29fecd39a10`.
+  Earlier results at the initial base retain their separate `source-manifest.json` digest
   `4e6af19dd463077131634c65c935ef2ba7aff84b4b7ebcbd7b8bf6e450f444f3`.
 - macOS arm64; Rust/Cargo 1.98.1, Trunk 0.21.14, Leptos 0.7.8 CSR/debug, Node 22.15.0.
   Installed Playwright 1.62.1 drove headless Google Chrome **155.0.8059.85** in fresh contexts.
@@ -39,7 +45,7 @@ the runtime catalog; no cloud path or guessed download URL was used as a local f
 
 | Defect | Before evidence | Narrow owner and repair | Regression |
 | --- | --- | --- | --- |
-| Cross-origin consumers could not read the limiter's actual wait | `each_cookie_surface_exposes_retry_after_without_exposing_credentials` failed: Theatre exposed-header list lacked `retry-after` | Server CORS adds only `retry-after` to each surface's existing exposure list | Same test passes for Theatre and Studio, preserves status/value/credentials/exact origin, rejects foreign Origin and exposure of secrets/other surface fence |
+| Cross-origin consumers could not read the limiter's actual wait (now fixed upstream in #393) | `each_cookie_surface_exposes_retry_after_without_exposing_credentials` failed: Theatre exposed-header list lacked `retry-after` | The task reproduced the defect before its fix; integrated #393 supplies the identical surface exposure change, so this PR now adds the HTTP regression without a duplicate Server source edit | Same test passes for Theatre and Studio, preserves status/value/credentials/exact origin, rejects foreign Origin and exposure of secrets/other surface fence |
 | A mounted guest ignored another tab's login | Real production browser: peer login completed but guest performed no session re-read and kept its guest view | `owner::Client::external_change` invalidates the intent even without a local session and notifies views; it does not queue a revoke or adopt the broadcast | `a_peer_cookie_change_notifies_a_guest_without_adopting_authority`: failed before, passes after; same two-tab browser scenario passes after |
 | A pending guest session read could accept pre-change authority; Theatre then failed to start a replacement observation | Owner test returned `Ok(Some(SessionView))` instead of `Changed`; delayed real A response after B login left Theatre without a fresh B observation | Existing lifecycle invalidation fences the owner read/login; Theatre's `begin_cookie_observation` supersedes the pending UI lookup, clears private state and preserves its own logout barrier. Runtime settles pending cleanup before the authoritative lookup | Owner pending-read regression failed before, passes after. Pure Theatre generation/old-completion/logout regression passes. Identical delayed real-response browser scenario passes after |
 
@@ -61,9 +67,9 @@ inventing a successful response. Screenshots are not used as the oracle.
 | C — real-time renewal and invalidation | PASS | Wait for the actual 600-second idle policy; product account refresh within the renewal margin emits POST session/renew before expiry. Actor/family remain equal, idle deadline increases and stays within the absolute deadline. Wrong-fence renewal remains 409; after product logout, renewal is 401 |
 | D — logout clears cookie and denies protected work | PASS for listed assertions | Product DELETE returns 204; cookie metadata disappears; a protected Library fetch returns 401; peer tab loses the protected account control. Late A completion is covered separately by E and the host cancellation regressions |
 | E — late A response after switching to B | PASS | Hold a real A session response in a second tab, perform product logout/login B, then release it. Require a fresh Server-confirmed B read and zero protected sends stamped with A's old fence |
-| F — BroadcastChannel, Web Lock and two-tab renewal | PASS for listed assertions | Guest peer login triggers authoritative re-read; peer logout clears protected UI; second-tab reload restores through the Server. Holding the actual surface Web Lock prevents production login POST dispatch until release, then login succeeds. After the real idle window, simultaneous product refresh in two tabs emits two successful renewal calls, keeps one actor/family and absolute cap, and both tabs re-confirm the renewed session. Peer logout then removes both protected views |
+| F — BroadcastChannel, Web Lock and two-tab renewal | PASS for listed assertions | Guest peer login triggers authoritative re-read; peer logout clears protected UI; second-tab reload restores through the Server. Holding the actual surface Web Lock prevents production login POST dispatch until release, then login succeeds. After the real idle window, simultaneous product refresh in two tabs keeps one actor/family and absolute cap, and both tabs re-confirm the renewed session. The final-base run made one renewal call (the initial-base run made two); the second authoritative read can already see the extended deadline. Peer logout then removes both protected views |
 | G — Studio/Theatre purpose and roster boundary | PASS for negative scope; authorized Studio NOT_RUN | Theatre cookie absent on Studio session request; cookie-less Studio session is 401; product Studio login with no configured roster is 404 and creates no Studio cookie. This does not qualify an authorized Studio account/workspace or reverse-direction isolation |
-| H — Origin, preflight, 401/409/429/503 | PASS for listed transport/429 UI assertions; outage recovery partial | Real Studio Origin cannot read Theatre; undeclared preflight header is blocked; allowed Origin reads 401; wrong session fence reads 409 and its current nonsecret echo. Five wrong credentials return 401; the next product login returns 429, exposes actual Retry-After (899 seconds in that run), and holds its submit control without authenticating. Paused Identity produced readable 503 and preserved the cookie; recovery caveat below |
+| H — Origin, preflight, 401/409/429/503 | PASS for listed transport/429 UI assertions; outage recovery partial | Real Studio Origin cannot read Theatre; undeclared preflight header is blocked; allowed Origin reads 401; wrong session fence reads 409 and its current nonsecret echo. Five wrong credentials return 401; the next product login returns 429, exposes actual Retry-After (899 seconds in that run), and holds its submit control without authenticating. Initial-base paused Identity produced readable 503 and preserved the cookie; final-base controlled outage/recovery is NOT_RUN, as detailed below |
 | I — HTTP development cookie policy | PASS | Only `cantos_id_theatre`, host `127.0.0.1`, path `/api/v1/theatre`, HttpOnly=true, SameSite=Strict, Secure=false; Set-Cookie has no Domain attribute. Browser JS cannot observe it even from an eligible API cookie path whose session request succeeds. No credential prefix is found in browser storage and Theatre produces no Studio cookie. HTTPS Secure acceptance is separately NOT_RUN |
 
 For H, the first probe incorrectly expected 404 for a cookie-less Studio session read. The actual
@@ -96,18 +102,19 @@ are retained under this checkout's ignored `artifacts/agent-runs/web-identity/`:
 
 - `smtp_fixture.py`: in-memory disposable enrollment, SMTP 25261/control 25262.
 - `browser_protected.cjs` / `browser-cookie-final.log`: A/B/D/F/I and actual protected consumer,
-  including eligible-path HttpOnly and no-Domain assertions (`browser-protected.log` is earlier).
-- `browser_race.cjs` / `browser-race-after.log`: E and actual Web Lock blocking.
+  including eligible-path HttpOnly and no-Domain assertions; `browser-cookie-integrated.log` repeats them on the final base (`browser-protected.log` is earlier).
+- `browser_race.cjs` / `browser-race-integrated.log`: final-base E and actual Web Lock blocking (`browser-race-after.log` retains the initial-base result).
 - `browser_renew.cjs` / `browser-renew.log`: real-time C and post-renew logout.
-- `browser_multi_renew.cjs` / `browser-multi-renew.log`: simultaneous renewal observation.
-- `browser_negative.cjs` / `browser-negative-final.log`: final bounded G/H checks without outage;
+- `browser_multi_renew.cjs` / `browser-multi-integrated.log`: final-base simultaneous renewal and post-renew logout; `browser-multi-renew.log` retains the initial-base observation.
+- `browser_negative.cjs` / `browser-negative-integrated.log`: final-base bounded G/H checks without outage (`browser-negative-final.log` is the initial-base result);
   `browser_extended.cjs` / `browser-extended-corrected.log`: the incomplete outage run.
-- `cors-before.log`, `cors-after.log`, `cors-unit-final.log`, `peer-before.log`, `peer-after.log`,
-  `host-peer-final.log`, `clippy-host.log`, `clippy-wasm-auth.log`, `clippy-cors.log` and the
+- `cors-before.log`, `cors-after.log`, `cors-integrated.log`, `cors-unit-final.log`, `peer-before.log`,
+  `peer-after.log`, `host-integrated.log`, `clippy-host-integrated.log`, `clippy-wasm-auth.log`,
+  `clippy-cors.log` and the
   final preflight/build/baseline logs distinguish the verification layers.
 
 The exact browser primitive was `node artifacts/agent-runs/web-identity/<driver>.cjs` after the
-existing xtask services were ready. These are retained local experiment sources, not a portable
+existing xtask services were ready. All owned supervisors and the fixture are stopped at handoff, while private database files and experiment sources are retained. These are local experiment sources, not a portable
 CI browser entrypoint. No HAR, credential-bearing network dump or downloaded private content
 is included. Re-enrollment creates new disposable identities; original passwords cannot be
 recovered from the logs or reused after the fixture exits.
@@ -116,15 +123,15 @@ recovered from the logs or reused after the fixture exits.
 
 | Layer / command | Result and scope |
 | --- | --- |
-| L1 architecture and final `cantos-code-review` | Source review of the complete scoped diff and callers; final disposition recorded with handoff |
-| L2/L3 production owner/core and Leptos host | `cargo test --locked --offline -p cantos-web-auth -p cantos-theatre -p cantos-studio --features cantos-theatre/preview`: PASS, 41 / 462 / 286 unit tests plus doctests; scripted Port evidence is explicitly mocked, separate from browser rows |
+| L1 architecture and final `cantos-code-review` | Final read-only source review: no-actionable-findings for the scoped repairs; full acceptance gaps remain explicit. Local code-review.md records the assurance ledger |
+| L2/L3 production owner/core and Leptos host | `cargo test --locked --offline -p cantos-web-auth -p cantos-theatre -p cantos-studio --features cantos-theatre/preview`: PASS on the final base, 42 / 462 / 286 unit tests plus doctests; scripted Port evidence is explicitly mocked, separate from browser rows |
 | L3 host lint | Scoped three-package `cargo clippy ... --features cantos-theatre/preview --all-targets -- -D warnings`: PASS |
 | L3 WASM owner lint | `cargo clippy --locked --offline -p cantos-web-auth --target wasm32-unknown-unknown --all-targets -- -D warnings`: PASS |
 | L4 CORS adapter | `cargo test --locked --offline -p cantos-server --test browser_cors`: PASS 2; new limiter response is a deterministic test handler wrapped by production CORS, not live Identity |
-| L4 malformed CORS cases | `cargo test --locked --offline -p cantos-server --lib adapters::inbound::http::cors`: PASS 4; duplicate Origins, exact methods/headers, wrong surface and no-Origin behavior |
+| L4 malformed CORS cases | `cargo test --locked --offline -p cantos-server --lib adapters::inbound::http::cors`: PASS 5 on the final base; duplicate Origins, exact methods/headers, wrong surface and no-Origin behavior |
 | L3 Server CORS lint | `cargo clippy --locked --offline -p cantos-server --lib --test browser_cors -- -D warnings`: PASS |
 | L5 browser / actual file and RPC boundaries | Per-scenario matrix above; real local processes, real cookie jar, production consumers, no fake successful sessions |
-| Web verification and handoff preflight | Final results recorded below after dev servers stop; original `verify web` had PASS web-lint, FAIL Studio build due concurrent Trunk staging output, later rows NOT_RUN |
+| Web verification and handoff preflight | Final-base preflight FAIL at repository: 31 findings exactly match the clean 443e7251 source archive after root-path normalization (no added/removed finding). Later preflight gates remain NOT_RUN. Initial-base preflight likewise had the same 31 findings as its clean base. Final-base serial `cargo xtask verify web` PASS: Web lint, both app builds and UI preview. Independent format and whitespace checks PASS. The first concurrent build failure is retained separately |
 | Kani, CMP/device, deployed/provider/production | NOT_RUN; no claim from these local Web checks |
 
 ## Failures, remaining acceptance and resume conditions
