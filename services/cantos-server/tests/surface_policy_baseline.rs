@@ -1,6 +1,16 @@
-//! Pre-composition regressions for #333.1, using the current origin-pinned HTTP host.
-//! No issuer or database is configured: prefix-shaped sentinels are never real sessions.
-//! An own-purpose sentinel reaches the unavailable verifier; wrong purposes must fail earlier.
+//! Surface-policy regressions for #333.1, using the current origin-pinned HTTP host.
+//!
+//! Credentials are Identity v1 sessions (#335): a Studio Web cookie (`s`), a Theatre Web cookie
+//! (`t`) and a native Bearer (`n`), each issued through the production login route against a
+//! scripted Identity that is then removed. Their rows are live, so a credential of the route's own
+//! purpose reaches the verifier and fails closed as `unavailable` (Identity cannot be asked);
+//! a wrong purpose, a mixed or duplicated credential or a foreign origin must be refused earlier.
+//! No assertion here is a login proof; `identity_password_turso.rs` owns the real executable.
+#[path = "support/fake_identity.rs"]
+mod fake;
+#[path = "support/identity_world.rs"]
+mod world;
+
 use axum::{
     body::Body,
     http::{header, HeaderMap, Method, Request, StatusCode},
@@ -9,13 +19,19 @@ use axum::{
 };
 use cantos_server::adapters::inbound::http::WebSurface;
 use cantos_server::adapters::inbound::http::{api_router, with_browser_cors, AppState};
+use cantos_server::platform::identity_auth::{
+    config::IdentityAuthConfig, decision::Subject, IdentityAuth, PeerPolicy,
+};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
+use std::path::PathBuf;
 use tower::ServiceExt;
 
 const STUDIO_ORIGIN: &str = "https://studio.cantos.example";
 const THEATRE_ORIGIN: &str = "https://cantos.example";
-const SECRET: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const STUDIO_COOKIE: &str = "__Secure-cantos_id_studio";
+const THEATRE_COOKIE: &str = "__Secure-cantos_id_theatre";
+const PASSWORD: &str = "a correct horse battery";
 
 fn api(origin: &str) -> Router {
     api_router(AppState {
@@ -28,8 +44,127 @@ fn browser(surface: WebSurface, origin: &str) -> Router {
     with_browser_cors(api(origin), origin, surface).unwrap()
 }
 
-fn bearer(purpose: &str) -> String {
-    format!("Bearer ca1_{purpose}_{SECRET}")
+/// One private server.db holding a live session per purpose, behind an Identity that no longer
+/// answers. Routers built from it share that file; the directory outlives them.
+struct Sessions {
+    db: world::Database,
+    dir: PathBuf,
+    socket: PathBuf,
+    uid: u32,
+    studio: String,
+    theatre: String,
+    native: String,
+}
+
+impl Sessions {
+    async fn issue() -> Self {
+        use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        // A short private directory: Unix socket paths are limited to about 100 bytes.
+        let dir = PathBuf::from(format!(
+            "/tmp/sp-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::DirBuilder::new().mode(0o700).create(&dir).unwrap();
+        let uid = std::fs::metadata(&dir).unwrap().uid();
+        let socket = dir.join("identity.sock");
+        let identity = fake::Serving::start(&socket, fake::Script::healthy());
+        let db = world::Database::new().await;
+        let roster = [Subject::from_bytes(fake::Script::healthy().subject).unwrap()];
+        let login = json!({"email": "owner@example.com", "password": PASSWORD});
+        let studio_app = world::App::new(&db, STUDIO_ORIGIN, socket.clone(), uid, &roster);
+        let studio = studio_app
+            .post(
+                "/api/v1/studio/identity/login",
+                &[("origin", STUDIO_ORIGIN)],
+                login.clone(),
+            )
+            .await;
+        assert_eq!(studio.status, StatusCode::OK, "{:?}", studio.json);
+        let theatre_app = world::App::new(&db, THEATRE_ORIGIN, socket.clone(), uid, &roster);
+        let theatre = theatre_app
+            .post(
+                "/api/v1/theatre/identity/login",
+                &[("origin", THEATRE_ORIGIN)],
+                login.clone(),
+            )
+            .await;
+        assert_eq!(theatre.status, StatusCode::OK, "{:?}", theatre.json);
+        let native = theatre_app
+            .post("/api/v1/theatre/native/identity/login", &[], login)
+            .await;
+        assert_eq!(native.status, StatusCode::OK, "{:?}", native.json);
+        // From here on Identity cannot be asked: admission of a live session fails closed.
+        drop(identity);
+        std::fs::remove_file(&socket).unwrap();
+        let cookie = |reply: &world::Reply, name: &str| {
+            let (cookie, secret) = reply.cookie();
+            assert_eq!(cookie, name);
+            secret
+        };
+        Self {
+            studio: cookie(&studio, STUDIO_COOKIE),
+            theatre: cookie(&theatre, THEATRE_COOKIE),
+            native: native.json["access_token"].as_str().unwrap().to_owned(),
+            db,
+            dir,
+            socket,
+            uid,
+        }
+    }
+
+    fn state(&self, web_origin: &str) -> AppState {
+        let identity = IdentityAuth::new(
+            IdentityAuthConfig {
+                socket: self.socket.clone(),
+                peer_uid: self.uid,
+                peer_policy: PeerPolicy::DirectPeer,
+                studio_subjects: vec![Subject::from_bytes(fake::Script::healthy().subject).unwrap()],
+            },
+            true,
+        );
+        AppState {
+            store: self.db.store().with_identity_auth(identity),
+            web_origin: web_origin.into(),
+        }
+    }
+
+    fn browser(&self, surface: WebSurface, origin: &str) -> Router {
+        with_browser_cors(api_router(self.state(origin)), origin, surface).unwrap()
+    }
+
+    /// The canonical assembly used by the production executable, over the same sessions.
+    fn combined(&self, admin: Option<&str>) -> Router {
+        let origins = cantos_server::platform::host::SurfaceOrigins::new(
+            STUDIO_ORIGIN,
+            THEATRE_ORIGIN,
+            admin,
+        )
+        .unwrap();
+        cantos_server::adapters::inbound::http::server_router(
+            self.state(STUDIO_ORIGIN),
+            &origins,
+            None,
+            None,
+        )
+    }
+
+    /// The single header a client of `purpose` sends.
+    fn credential(&self, purpose: &str) -> (&'static str, String) {
+        match purpose {
+            "s" => ("cookie", format!("{STUDIO_COOKIE}={}", self.studio)),
+            "t" => ("cookie", format!("{THEATRE_COOKIE}={}", self.theatre)),
+            "n" => ("authorization", format!("Bearer {}", self.native)),
+            _ => unreachable!("unknown purpose {purpose}"),
+        }
+    }
+}
+
+impl Drop for Sessions {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
 }
 
 fn request(method: Method, path: &str, headers: &[(&str, String)]) -> Request<Body> {
@@ -81,14 +216,15 @@ fn cors_origin(headers: &HeaderMap, origin: Option<&str>) {
 
 #[tokio::test]
 async fn pinned_hosts_keep_route_origin_and_credential_purpose_independent() {
+    let sessions = Sessions::issue().await;
     for (surface, origin, purpose) in [
         (WebSurface::Studio, STUDIO_ORIGIN, "s"),
         (WebSurface::Theatre, THEATRE_ORIGIN, "t"),
     ] {
-        let app = browser(surface, origin);
+        let app = sessions.browser(surface, origin);
         for (path, route_purpose) in [
-            ("/api/v1/studio/auth/bearer/session", "s"),
-            ("/api/v1/theatre/auth/bearer/session", "t"),
+            ("/api/v1/studio/identity/session", "s"),
+            ("/api/v1/theatre/identity/session", "t"),
             ("/api/v1/admin/capabilities", "admin"),
             ("/api/v1/production/catalog", "legacy"),
         ] {
@@ -117,7 +253,7 @@ async fn pinned_hosts_keep_route_origin_and_credential_purpose_independent() {
                             path,
                             &[
                                 ("origin", sent_origin.into()),
-                                ("authorization", bearer(sent_purpose)),
+                                sessions.credential(sent_purpose),
                             ],
                         ),
                     )
@@ -130,56 +266,67 @@ async fn pinned_hosts_keep_route_origin_and_credential_purpose_independent() {
     }
 }
 
+/// Every way a request can carry an own-purpose secret that is not exactly one credential of
+/// that purpose. `own`/`other` are the route surface's cookie and the sibling surface's cookie.
+fn mixed_credentials(
+    sessions: &Sessions,
+    own: (&str, &str),
+    other: (&str, &str),
+) -> Vec<Vec<(&'static str, String)>> {
+    let (own_name, own_secret) = own;
+    let (other_name, other_secret) = other;
+    let plain = own_name.trim_start_matches("__Secure-");
+    let own = format!("{own_name}={own_secret}");
+    vec![
+        vec![],
+        vec![("cookie", format!("{other_name}={other_secret}"))],
+        // A sibling's or the native secret under this surface's cookie name.
+        vec![("cookie", format!("{own_name}={other_secret}"))],
+        vec![("cookie", format!("{own_name}={}", sessions.native))],
+        vec![("cookie", format!("{own}; {own}"))],
+        vec![("cookie", own.clone()), ("cookie", own.clone())],
+        // The insecure spelling beside the secure one, as a downgraded jar would send it.
+        vec![("cookie", format!("{own}; {plain}={own_secret}"))],
+        // A Web cookie never travels with a Bearer, of any purpose.
+        vec![("cookie", own.clone()), sessions.credential("n")],
+        vec![
+            ("cookie", own.clone()),
+            ("authorization", format!("Bearer {own_secret}")),
+        ],
+        vec![("authorization", format!("Bearer {own_secret}"))],
+    ]
+}
+
 #[tokio::test]
 async fn duplicate_and_mixed_credentials_cannot_reach_an_own_purpose_verifier() {
-    for (surface, origin, path, purpose) in [
+    let sessions = Sessions::issue().await;
+    for (surface, origin, path, own, other) in [
         (
             WebSurface::Studio,
             STUDIO_ORIGIN,
-            "/api/v1/studio/auth/bearer/session",
-            "s",
+            "/api/v1/studio/identity/session",
+            (STUDIO_COOKIE, sessions.studio.as_str()),
+            (THEATRE_COOKIE, sessions.theatre.as_str()),
         ),
         (
             WebSurface::Theatre,
             THEATRE_ORIGIN,
-            "/api/v1/theatre/auth/bearer/session",
-            "t",
+            "/api/v1/theatre/identity/session",
+            (THEATRE_COOKIE, sessions.theatre.as_str()),
+            (STUDIO_COOKIE, sessions.studio.as_str()),
         ),
     ] {
-        let app = browser(surface, origin);
-        for credentials in [
-            vec![],
-            vec![("cookie", format!("__Secure-cantos_studio={SECRET}"))],
-            vec![("cookie", format!("__Secure-cantos_theatre={SECRET}"))],
-            vec![
-                ("authorization", bearer(purpose)),
-                ("authorization", bearer(purpose)),
-            ],
-            vec![
-                ("authorization", bearer(purpose)),
-                ("authorization", bearer("n")),
-            ],
-            vec![
-                ("authorization", bearer(purpose)),
-                ("cookie", format!("__Secure-cantos_studio={SECRET}")),
-            ],
-            vec![
-                ("authorization", bearer(purpose)),
-                ("cookie", format!("__Secure-cantos_theatre={SECRET}")),
-            ],
-            vec![(
-                "cookie",
-                format!("cantos_session={SECRET}; cantos_session={SECRET}"),
-            )],
-            vec![
-                ("cookie", format!("cantos_session={SECRET}")),
-                ("cookie", format!("cantos_session={SECRET}")),
-            ],
-        ] {
+        let app = sessions.browser(surface, origin);
+        for credentials in mixed_credentials(&sessions, own, other) {
             let mut headers = vec![("origin", origin.to_owned())];
-            headers.extend(credentials);
+            headers.extend(credentials.clone());
             let response = call(&app, request(Method::GET, path, &headers)).await;
             cors_origin(response.headers(), Some(origin));
+            assert_eq!(
+                response.status(),
+                StatusCode::UNAUTHORIZED,
+                "{path} {credentials:?}"
+            );
             error(response, StatusCode::UNAUTHORIZED, "unauthenticated").await;
         }
     }
@@ -358,10 +505,11 @@ fn combined(admin: Option<&str>) -> Router {
 
 #[tokio::test]
 async fn combined_routes_select_only_their_configured_origin_and_credential_purpose() {
-    let app = combined(Some(ADMIN_ORIGIN));
+    let sessions = Sessions::issue().await;
+    let app = sessions.combined(Some(ADMIN_ORIGIN));
     for (path, origin, purpose) in [
-        ("/api/v1/studio/auth/bearer/session", STUDIO_ORIGIN, "s"),
-        ("/api/v1/theatre/auth/bearer/session", THEATRE_ORIGIN, "t"),
+        ("/api/v1/studio/identity/session", STUDIO_ORIGIN, "s"),
+        ("/api/v1/theatre/identity/session", THEATRE_ORIGIN, "t"),
         ("/api/v1/admin/capabilities", ADMIN_ORIGIN, "admin"),
         ("/api/v1/production/catalog", STUDIO_ORIGIN, "s"),
     ] {
@@ -391,7 +539,7 @@ async fn combined_routes_select_only_their_configured_origin_and_credential_purp
                         path,
                         &[
                             ("origin", sent_origin.into()),
-                            ("authorization", bearer(sent_purpose)),
+                            sessions.credential(sent_purpose),
                         ],
                     ),
                 )
@@ -489,42 +637,39 @@ async fn combined_preflight_runs_before_auth_and_keeps_surface_methods_and_heade
 
 #[tokio::test]
 async fn combined_credentials_and_forwarding_headers_cannot_cross_a_route_boundary() {
-    let app = combined(Some(ADMIN_ORIGIN));
-    for (path, origin, purpose) in [
-        ("/api/v1/studio/auth/bearer/session", STUDIO_ORIGIN, "s"),
-        ("/api/v1/theatre/auth/bearer/session", THEATRE_ORIGIN, "t"),
+    let sessions = Sessions::issue().await;
+    let app = sessions.combined(Some(ADMIN_ORIGIN));
+    for (path, origin, own, other) in [
+        (
+            "/api/v1/studio/identity/session",
+            STUDIO_ORIGIN,
+            (STUDIO_COOKIE, sessions.studio.as_str()),
+            (THEATRE_COOKIE, sessions.theatre.as_str()),
+        ),
+        (
+            "/api/v1/theatre/identity/session",
+            THEATRE_ORIGIN,
+            (THEATRE_COOKIE, sessions.theatre.as_str()),
+            (STUDIO_COOKIE, sessions.studio.as_str()),
+        ),
     ] {
-        for credentials in [
-            vec![
-                ("authorization", bearer(purpose)),
-                ("authorization", bearer(purpose)),
-            ],
-            vec![
-                ("authorization", bearer(purpose)),
-                ("cookie", "cantos_session=fixture".into()),
-            ],
-            vec![(
-                "cookie",
-                "cantos_session=fixture; cantos_session=fixture".into(),
-            )],
-            vec![
-                ("cookie", "cantos_session=fixture".into()),
-                ("cookie", "cantos_session=fixture".into()),
-            ],
-        ] {
+        for credentials in mixed_credentials(&sessions, own, other) {
             let mut headers = vec![("origin", origin.into())];
-            headers.extend(credentials);
-            error(
-                call(&app, request(Method::GET, path, &headers)).await,
+            headers.extend(credentials.clone());
+            let response = call(&app, request(Method::GET, path, &headers)).await;
+            assert_eq!(
+                response.status(),
                 StatusCode::UNAUTHORIZED,
-                "unauthenticated",
-            )
-            .await;
+                "{path} {credentials:?}"
+            );
+            error(response, StatusCode::UNAUTHORIZED, "unauthenticated").await;
         }
     }
     for path in [
         "/api/v1/studio/session",
+        "/api/v1/studio/identity/session",
         "/api/v1/theatre/session",
+        "/api/v1/theatre/identity/session",
         "/api/v1/admin/capabilities",
         "/api/v1/production/catalog",
     ] {
@@ -556,15 +701,17 @@ async fn combined_credentials_and_forwarding_headers_cannot_cross_a_route_bounda
 
 #[tokio::test]
 async fn combined_public_native_and_protected_routes_keep_their_contracts() {
-    let app = combined(None);
-    // Public configuration is a real successful handler without authentication or DB I/O.
+    let sessions = Sessions::issue().await;
+    let app = sessions.combined(None);
+    // Public discovery is a real successful handler without authentication, read from the
+    // private file's (empty) catalog, with or without a browser Origin.
     for origin in [None, Some(THEATRE_ORIGIN)] {
         let headers = origin
             .map(|o| vec![("origin", o.into())])
             .unwrap_or_default();
         let response = call(
             &app,
-            request(Method::GET, "/api/v1/theatre/auth/configuration", &headers),
+            request(Method::GET, "/api/v1/theatre/works", &headers),
         )
         .await;
         assert_eq!(response.status(), StatusCode::OK);
@@ -590,21 +737,56 @@ async fn combined_public_native_and_protected_routes_keep_their_contracts() {
             .unwrap(),
         json!({"code":"unauthenticated", "retryable":false})
     );
-    // Native cookie-free Bearer has no synthetic Origin requirement.
+    // Native cookie-free Bearer has no synthetic Origin requirement and reaches its verifier;
+    // a browser marker beside it (Origin, a cookie) is refused before the verifier.
+    let native = "/api/v1/theatre/native/identity/session";
     error(
         call(
             &app,
-            request(
-                Method::GET,
-                "/api/v1/theatre/native/auth/bearer/session",
-                &[("authorization", bearer("n"))],
-            ),
+            request(Method::GET, native, &[sessions.credential("n")]),
         )
         .await,
         StatusCode::SERVICE_UNAVAILABLE,
         "unavailable",
     )
     .await;
+    for marker in [
+        ("origin", THEATRE_ORIGIN.to_owned()),
+        sessions.credential("t"),
+        ("sec-fetch-site", "same-site".to_owned()),
+    ] {
+        error(
+            call(
+                &app,
+                request(Method::GET, native, &[sessions.credential("n"), marker]),
+            )
+            .await,
+            StatusCode::UNAUTHORIZED,
+            "unauthenticated",
+        )
+        .await;
+    }
+    // A Web secret is never a native Bearer.
+    for purpose in ["s", "t"] {
+        let secret = match purpose {
+            "s" => &sessions.studio,
+            _ => &sessions.theatre,
+        };
+        error(
+            call(
+                &app,
+                request(
+                    Method::GET,
+                    native,
+                    &[("authorization", format!("Bearer {secret}"))],
+                ),
+            )
+            .await,
+            StatusCode::UNAUTHORIZED,
+            "unauthenticated",
+        )
+        .await;
+    }
     // Admin browser admission is independently opt-in; Studio cannot enable it.
     error(
         call(
@@ -638,15 +820,16 @@ async fn combined_slow_request_body_expires_with_each_surfaces_error_and_cache_p
         atomic::{AtomicBool, Ordering},
         Arc,
     };
-    let app = combined(None);
+    let sessions = Sessions::issue().await;
+    let app = sessions.combined(None);
     for (path, origin, expected) in [
         (
-            "/api/v1/studio/auth/bearer/flows",
+            "/api/v1/studio/identity/login",
             STUDIO_ORIGIN,
             json!({"code":"unavailable","current_revision":null,"issues":[]}),
         ),
         (
-            "/api/v1/theatre/auth/bearer/flows",
+            "/api/v1/theatre/identity/login",
             THEATRE_ORIGIN,
             json!({"code":"unavailable","retryable":true}),
         ),
