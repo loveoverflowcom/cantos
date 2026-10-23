@@ -62,7 +62,7 @@ This record adds the J1 regression to the existing real-Identity harness.
 
 | Kind | Finding | Next step |
 | --- | --- | --- |
-| Contract gap | No supported operator path discovers an account's Identity subject for the Studio roster; ADR 0045 defers Studio operator provisioning. Tests read it with fixture SQL and J4 read it out of band | An owner decision on Studio provisioning (Identity- or Server-side lookup) before production Studio onboarding |
+| Contract gap | No supported operator path discovers an account's Identity subject for the Studio roster; ADR 0045 defers Studio operator provisioning. Tests read it with fixture SQL and J4 read it out of band | An owner decision on Studio provisioning before production Studio onboarding; [ADR 0047](../decisions/0047-studio-roster-provisioning.md) proposes one |
 | Tooling gap | `cargo xtask run cantos-studio --web` strips the roster and disables Identity mail, so the supported local lane cannot reach an authorized Studio session; J4 needed hand-started processes | Follows the provisioning decision; no roster flag was added without it |
 | Environment | On this Mac a system endpoint agent (`macmnsvc`) listens on `*:8081`, Studio's fixed Trunk port, so `xtask app cantos-studio --web` refuses to start | Free the port or run Trunk on another port with a matching `CANTOS_STUDIO_WEB_ORIGIN`, as here |
 | Observation | The browser log marks the session read and logout as `ERR_ABORTED` after their 401/204 responses; the server-side revocation was durable | None; consistent with the client's best-effort abort after reading the status |

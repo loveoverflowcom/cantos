@@ -79,4 +79,6 @@ Do not recycle old numbers or renumber unrelated accepted decisions.
 
 - [ADR0045: v1 email/password sign-in for Theatre and Studio](0045-v1-email-password-sign-in.md) — accepted #335 v1 scope; Studio passkey/recovery deferred.
 
+- [ADR0047: Studio roster provisioning](0047-studio-roster-provisioning.md) — proposed, not implemented; Identity-owned offline subject lookup, Server-owned roster and an explicit `xtask run --studio-account`.
+
 ADR 0041/#253's Web Bearer direction is superseded by #295 and [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md): Web cookie with exact-origin/CSRF; CMP/native retains Bearer. Provider-only ADRs 0016/0034/0036/0040/0044 are historical within that scope; current mailbox/password behavior follows ADR 0045. Provisioned-only Studio and no registration-issued role remain required.
