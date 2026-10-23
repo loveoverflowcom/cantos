@@ -493,3 +493,23 @@ body { margin: 0; }
 .theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
 .theatre-auth-preview { margin: var(--cantos-space-md); padding: var(--cantos-space-md); border: var(--cantos-size-border) dashed var(--cantos-color-outline); }
 @media (max-width: 56.25rem) { .theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr); } }
+
+/* Live Library composition; reuse canonical roles and the app's licensed icon registry.
+   The invitation symbol is three standard icons wide; section columns wrap at a reading measure. */
+.theatre-library-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); margin-block-end: var(--cantos-space-lg); }
+.theatre-library-tools p { margin: 0; }
+.theatre-library-invitation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-lg); }
+.theatre-library-invitation > div:last-child { flex: 1 1 16rem; min-inline-size: 0; }
+.theatre-library-invitation h2 { margin-block-end: var(--cantos-space-sm); }
+.theatre-library-invitation p { max-inline-size: 55ch; }
+.theatre-library-illustration { display: grid; place-items: center; padding: var(--cantos-space-lg); border-radius: var(--cantos-shape-pill); background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
+.theatre-library-illustration .theatre-icon { inline-size: calc(var(--cantos-size-icon) * 3); block-size: calc(var(--cantos-size-icon) * 3); }
+.theatre-library-sections[data-empty="true"] { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--cantos-space-lg); margin-block-start: var(--cantos-space-lg); }
+.theatre-library-sections[data-empty="true"] .theatre-library-section { margin-block: 0; }
+.theatre-library-sections[data-empty="true"] .theatre-section-heading { margin-block: 0 var(--cantos-space-md); }
+.theatre-library-feedback[data-empty="true"] { display: flex; align-items: flex-start; gap: var(--cantos-space-inset); }
+.theatre-library-feedback[data-empty="true"] > .theatre-icon { margin-block-start: var(--cantos-space-xs); color: var(--cantos-color-primary); }
+.theatre-library-feedback > div { min-inline-size: 0; }
+.theatre-library-feedback p { margin-block-end: var(--cantos-space-sm); }
+
+.theatre-library-section > .theatre-actions:empty { display: none; }

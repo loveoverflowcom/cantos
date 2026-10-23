@@ -996,12 +996,12 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 Route::Account => view! { <LiveAccount state=state.read_only() locale theme on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {
-                                    <LiveLibrary state=state.read_only() locale actions=library_actions on_page=Callback::new(move |(section, restart)| {
+                                    <LiveLibrary state=state.read_only() locale actions=library_actions on_page=Callback::new(move |(section, restart, focus)| {
                                         if preview || !network_allowed.get_untracked() { return; }
                                         #[cfg(target_arch = "wasm32")]
-                                        crate::live::runtime::load_library(state, section, restart, 1, true);
+                                        crate::live::runtime::load_library(state, section, restart, 1, focus);
                                         #[cfg(not(target_arch = "wasm32"))]
-                                        let _ = (section, restart);
+                                        let _ = (section, restart, focus);
                                     })/>
                                     <LibraryAccountEntry state=state.read_only() locale on_account=Callback::new(move |_|nav.open_account())/>
                                 }.into_any(),
