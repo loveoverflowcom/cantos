@@ -25,6 +25,11 @@ ACTIONS_ENV = {"GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": "loveoverflowcom/c
                "GITHUB_JOB": "publish"}
 
 
+def native_amd64_host():
+    """Stand in for a native linux/amd64 builder whatever OS runs the test."""
+    return patch.multiple(build.host_platform, system=lambda: "Linux", machine=lambda: "x86_64")
+
+
 def git(root, *args):
     return subprocess.run(["git", "-c", "core.hooksPath=/dev/null", *args], cwd=root, check=True,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode().strip()
@@ -79,7 +84,7 @@ class ProducerContract(unittest.TestCase):
         base = build.configuration_identity(self.root, self.sha, PLATFORM)
         self.assertNotEqual(base, build.configuration_identity(self.root, self.sha, "linux/arm64"))
         (self.root / "infra/oci/cantos-server/Containerfile").write_bytes(b"FROM scratch\n# new base pin\n")
-        git(self.root, "commit", "-aqm", "pin", "--author=F <f@example.invalid>")
+        git(self.root, "-c", "user.name=Fixture", "-c", "user.email=f@example.invalid", "commit", "-aqm", "pin")
         self.assertNotEqual(base, build.configuration_identity(self.root, git(self.root, "rev-parse", "HEAD"), PLATFORM))
 
     def test_host_bundle_has_only_committed_host_assets_with_git_modes(self):
@@ -196,7 +201,7 @@ class Shell(unittest.TestCase):
                                authfile=authfile, output=Path("out"))
 
     def test_build_only_publishes_nothing_and_emits_no_manifest(self):
-        with patch.object(build, "sh", self.fake()), patch.object(build.host_platform, "machine", lambda: "x86_64"):
+        with patch.object(build, "sh", self.fake()), native_amd64_host():
             result = build.produce(self.root, self.args(False))
         self.assertEqual(result["operation"], "BUILD_ONLY")
         self.assertEqual([c[0] for c in self.calls], ["build", "build"])
@@ -211,13 +216,13 @@ class Shell(unittest.TestCase):
             if argv[0] == "podman" and argv[1] == "build":
                 (self.root / "late.txt").write_text("x")
             return result
-        with patch.object(build, "sh", dirtying), patch.object(build.host_platform, "machine", lambda: "x86_64"):
+        with patch.object(build, "sh", dirtying), native_amd64_host():
             with self.assertRaisesRegex(ValueError, "clean"):
                 build.produce(self.root, self.args(True, Path("auth.json")))
         self.assertNotIn("push", [c[0] for c in self.calls])
 
     def test_failed_push_stops_without_a_manifest_and_never_retries(self):
-        with patch.object(build, "sh", self.fake(None)), patch.object(build.host_platform, "machine", lambda: "x86_64"):
+        with patch.object(build, "sh", self.fake(None)), native_amd64_host():
             with self.assertRaises(ValueError):
                 build.produce(self.root, self.args(True, Path("auth.json")))
         self.assertEqual([c[0] for c in self.calls].count("push"), 1)
@@ -227,7 +232,7 @@ class Shell(unittest.TestCase):
         digest = "sha256:" + "9" * 64
         observe = lambda manifest, plan, authfile=None: {**plan, "images": {}, "release_eligible": False,
                                                           "gates": {**plan["gates"], "registry-access": "PASS"}}
-        with patch.object(build, "sh", self.fake(digest)), patch.object(build.host_platform, "machine", lambda: "x86_64"), \
+        with patch.object(build, "sh", self.fake(digest)), native_amd64_host(), \
                 patch("release_oci_registry.observe", observe):
             result = build.produce(self.root, self.args(True, Path("auth.json")))
         self.assertEqual(result["operation"], "CANDIDATE")

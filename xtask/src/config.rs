@@ -30,6 +30,9 @@ pub const API_PACKAGE: &str = "cantos-server";
 pub const SERVER_MIGRATE_BIN: &str = "cantos-migrate";
 pub const SERVER_OPERATOR_BIN: &str = "cantos-operator";
 pub const IDENTITY_BIN: &str = "cantos-identity";
+/// Test-only input naming the prebuilt `cantos-identity` executable by absolute path; the
+/// Server's candidate journey never builds it.
+pub const IDENTITY_BINARY_VARIABLE: &str = "CANTOS_TEST_IDENTITY_BINARY";
 /// The producer-side Forge CLI. xtask builds it; it never runs it inside build/test/preflight.
 pub const FORGE_PACKAGE: &str = "cantos-forge";
 pub const TURSO_STORE_PACKAGE: &str = "cantos-store-turso";

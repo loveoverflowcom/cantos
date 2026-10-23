@@ -1116,6 +1116,8 @@ mod tests {
         )
         .unwrap();
         plan.composition = None;
+        // The installed Auth Emulator is inspected on the real host; keep this plan hermetic.
+        plan.firebase_auth_emulator = false;
         plan.services[1].endpoint = Endpoint::Tcp(listener.local_addr().unwrap());
         let mut runner = RecordingRunner::default();
         let error = launch(
