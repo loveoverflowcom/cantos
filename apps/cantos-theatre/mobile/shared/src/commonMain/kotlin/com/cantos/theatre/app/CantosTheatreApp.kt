@@ -142,9 +142,9 @@ fun CantosTheatreApp(
                     onToggleTheme = { dispatch(ShellEvent.SetTheme(if (theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark)) })
             },
             membershipScreen = ui.membership.screen,
-            accountContent = { loginFocus -> AccountContent(locale, theme, accountView, onAuth, loginFocus, previewActionIcons = true) },
+            accountContent = { loginFocus -> AccountContent(locale, theme, accountView, onAuth, loginFocus) },
             authContent = {
-                if (state.route == ShellRoute.Register) RegisterScreen(locale, onAuth, previewActionIcons = true,
+                if (state.route == ShellRoute.Register) RegisterScreen(locale, onAuth,
                     registration = registration, onRegistration = { intent ->
                         shell.registration?.let { owner -> when (intent) {
                             is RegistrationIntent.Email -> owner.editEmail(intent.value)
@@ -153,7 +153,7 @@ fun CantosTheatreApp(
                             RegistrationIntent.Restart -> owner.restart()
                         } }
                     })
-                else LoginScreen(locale, accountView, nothingSaved, onAuth, previewActionIcons = true)
+                else LoginScreen(locale, accountView, nothingSaved, onAuth)
             },
             authHeader = { AuthHeader(locale, theme, authReturnFor(state.stack), onAuth) },
             density = density,

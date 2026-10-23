@@ -55,7 +55,6 @@ fun AccountContent(
     account: AccountView,
     onIntent: (AuthIntent) -> Unit,
     loginFocus: FocusRequester,
-    previewActionIcons: Boolean = false,
 ) {
     val copy = AuthCopy(locale)
     val signedIn = account == AccountView.SignedIn
@@ -90,18 +89,18 @@ fun AccountContent(
                 Button(
                     copy.text(AuthText.SignIn), { onIntent(AuthIntent.OpenLogin) },
                     variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenLogin) else "arrow_forward",
+                    icon = authActionIcon(AuthIntent.OpenLogin),
                     controlModifier = Modifier.fillMaxWidth().focusRequester(loginFocus).testTag("sign-in"),
                 )
                 if (account.offersRegistration()) Button(
                     copy.text(AuthText.CreateAccountShort), { onIntent(AuthIntent.OpenRegister) },
                     variant = ButtonVariant.AuthOutlined,
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenRegister) else null,
+                    icon = authActionIcon(AuthIntent.OpenRegister),
                     controlModifier = Modifier.fillMaxWidth().testTag("create-account"),
                 )
                 if (account == AccountView.CleanupRequired) Button(
                     copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.RetryCleanup) else null,
+                    icon = authActionIcon(AuthIntent.RetryCleanup),
                     variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
                 )
             }
@@ -134,13 +133,12 @@ fun AccountContent(
             AccountRow(rememberCantosIconVector("settings"), copy.text(AuthText.ListeningSettings),
                 copy.text(AuthText.ListeningSettingsHint), "settings") { onIntent(AuthIntent.OpenSettings) }
             if (signedIn) {
-                if (previewActionIcons) Button(
+                Button(
                     copy.text(AuthText.Logout), { onIntent(AuthIntent.Logout) },
                     variant = ButtonVariant.Text, icon = authActionIcon(AuthIntent.Logout),
                     controlModifier = Modifier.fillMaxWidth().testTag("logout")
                         .semantics { stateDescription = copy.text(AuthText.LogoutHint) },
-                ) else AccountRow(rememberCantosIconVector("logout"), copy.text(AuthText.Logout),
-                    copy.text(AuthText.LogoutHint), "logout") { onIntent(AuthIntent.Logout) }
+                )
             }
         }
     }

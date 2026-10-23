@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These 34 unmodified SVG files come from
+These 35 unmodified SVG files come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included
@@ -30,6 +30,7 @@ names even when a pending action temporarily hides its glyph.
 | Create account / verify email | `person_add` / `mail` | Theatre registration |
 | Home / contextual Back | `home` / `arrow_back` | Host-owned navigation |
 | Cancel / choose | `close` / `check` | Explicit cancel or selection |
+| Copy | `content_copy` | Studio private handoff receipt copy action |
 | Save / retry | `save` / `refresh` | Draft and recoverable actions |
 | Archive / delete | `archive` / `delete_outline` | Explicit draft management |
 | Generate voice / preview | `mic` / `play_arrow`, `pause` | Forge mock and listening controls |
@@ -40,9 +41,10 @@ names even when a pending action temporarily hides its glyph.
 `arrow_forward` remains progression; `expand_more` remains disclosure. Neither disclosure nor
 a selected/success check represents waiting. Buttons keep the visible action label and localized
 pending reason, with a separate stationary indeterminate ring on both renderers. The ring has no
-numeric progress meaning, independent hit target or motion. AuthPrimary alone keeps its scoped
-paired bubble; regular actions retain their existing shape.
+numeric progress meaning, independent hit target or motion. The 23 October AuthPrimary anatomy keeps icon and label centered without a bubble;
+regular actions retain their existing shape.
 
 The existing `icon`, `button`/AuthPrimary and `icon-button` previews exercise this registry.
-The Select candidate and its native fallback remain under #221; this asset addition does not
-admit that candidate, add option icons, or migrate preference/auth/Forge consumers.
+The [23 October delta](../../../../../docs/evidence/ui-parity-402.md) records the bounded
+Button/Select admission, optional option icons and actual preference/auth consumers.
+Browser/device and remaining #221/#228/#229 acceptance retain their own boundaries.

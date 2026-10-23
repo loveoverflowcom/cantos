@@ -11,7 +11,10 @@ use crate::{
     application::account_view::{AccountFailure, AccountViewState, SessionPhase},
     messages::{self, Key, Locale},
 };
-use cantos_ui::{Button, ButtonVariant, Space, Surface, SurfaceTone, SurfaceVariant, Theme};
+use cantos_ui::{
+    Button, ButtonVariant, IconName, Select, SelectOption, Space, Surface, SurfaceTone,
+    SurfaceVariant, Theme,
+};
 use leptos::prelude::*;
 
 #[cfg(feature = "preview")]
@@ -200,16 +203,18 @@ pub(crate) fn LiveAccount(
                         <section aria-labelledby="theatre-account-preferences-heading">
                             <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
                             <div class="theatre-account-theme">
-                                <label for="theatre-account-theme">{move || messages::text(Key::Theme, locale.get())}</label>
-                                <select id="theatre-account-theme" aria-describedby="theatre-account-theme-help"
-                                    prop:value=move || theme.get().as_str()
-                                    on:change=move |event| {
-                                        if let Some(selected) = Theme::from_attribute(&event_target_value(&event)) { theme.set(selected); }
-                                    }>
-                                    <option value="system">{move || messages::text(Key::System, locale.get())}</option>
-                                    <option value="light">{move || messages::text(Key::Light, locale.get())}</option>
-                                    <option value="dark">{move || messages::text(Key::Dark, locale.get())}</option>
-                                </select>
+                                <Select id="theatre-account-theme"
+                                    label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
+                                    value=Signal::derive(move || theme.get().as_str().to_owned())
+                                    described_by=Some("theatre-account-theme-help".to_owned())
+                                    options=Signal::derive(move || vec![
+                                        SelectOption::new("system", messages::text(Key::System, locale.get())).with_icon(IconName::Settings),
+                                        SelectOption::new("light", messages::text(Key::Light, locale.get())).with_icon(IconName::LightMode),
+                                        SelectOption::new("dark", messages::text(Key::Dark, locale.get())).with_icon(IconName::DarkMode),
+                                    ])
+                                    on_input=Callback::new(move |value: String| {
+                                        if let Some(selected) = Theme::from_attribute(&value) { theme.set(selected); }
+                                    })/>
                                 <p id="theatre-account-theme-help" class="theatre-muted">{label(locale, CopyKey::ThemeHelp)}</p>
                             </div>
                             <ul class="theatre-account-links">
@@ -217,7 +222,7 @@ pub(crate) fn LiveAccount(
                                 <li><a href="#settings">{label(locale, CopyKey::SettingsHelp)}</a></li>
                             </ul>
                             <Show when=move || ui.get().phase == SessionPhase::SignedIn>
-                                <Button id="theatre-account-logout" variant=ButtonVariant::Text
+                                <Button id="theatre-account-logout" icon=IconName::Logout variant=ButtonVariant::Text
                                     on_press=Callback::new(move |_| on_logout.run(()))>
                                     {move || messages::text(Key::SignOut, locale.get())}
                                 </Button>
@@ -510,13 +515,19 @@ mod tests {
                 actor,
                 "Account ID:",
                 "Minh An",
-                "03",
-                "05",
                 "active membership",
                 "Not integrated",
                 "data-variant=\"auth-primary\"",
             ] {
                 assert!(!html.contains(forbidden), "{forbidden}");
+            }
+            // Counts are visible copy. Official SVG path coordinates may contain the same digits.
+            let visible_text = html
+                .split('>')
+                .filter_map(|segment| segment.split('<').next())
+                .collect::<String>();
+            for invented_count in ["03", "05"] {
+                assert!(!visible_text.contains(invented_count), "{invented_count}");
             }
         });
     }

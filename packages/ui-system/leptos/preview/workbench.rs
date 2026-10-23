@@ -353,10 +353,10 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
                 vec![
                     SelectOption::new("system", if recipe.fixture == Fixture::LongVietnamese {
                         fixture_label(recipe)
-                    } else { specimen(recipe.locale, SpecimenKey::System) }),
-                    SelectOption::new("light", specimen(recipe.locale, SpecimenKey::Light)),
+                    } else { specimen(recipe.locale, SpecimenKey::System) }).with_icon(IconName::Settings),
+                    SelectOption::new("light", specimen(recipe.locale, SpecimenKey::Light)).with_icon(IconName::LightMode),
                     SelectOption { disabled: true, ..SelectOption::new("unavailable", specimen(recipe.locale, SpecimenKey::Unavailable)) },
-                    SelectOption::new("dark", specimen(recipe.locale, SpecimenKey::Dark)),
+                    SelectOption::new("dark", specimen(recipe.locale, SpecimenKey::Dark)).with_icon(IconName::DarkMode),
                 ]
             });
             view! {

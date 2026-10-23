@@ -1,5 +1,5 @@
 use cantos_ui::{
-    Checkbox, ChoiceState, DisabledReason, FieldError, FieldHelp, FieldLabel, FieldState,
+    Checkbox, ChoiceState, DisabledReason, FieldError, FieldHelp, FieldLabel, FieldState, IconName,
     NumberField, Radio, RangeField, Select, SelectDensity, SelectLabelPlacement, SelectOption,
     Switch, TextArea, TextField, TextFieldKind,
 };
@@ -13,6 +13,32 @@ fn control<'a>(html: &'a str, element: &str, id: &str) -> &'a str {
     let start = html.find(&format!("<{element} id=\"{id}\"")).unwrap();
     let end = html[start..].find('>').unwrap() + start;
     &html[start..=end]
+}
+
+#[test]
+fn semantic_select_icons_keep_opaque_values_labels_and_independent_selected_check() {
+    let option = SelectOption::new("0", "Người dẫn chuyện").with_icon(IconName::Mic);
+    assert_eq!(option.value, "0");
+    assert_eq!(option.label, "Người dẫn chuyện");
+    assert_eq!(option.icon, Some(IconName::Mic));
+    assert_eq!(SelectOption::new("1", "Không có biểu tượng").icon, None);
+    let html = view! {
+        <Select id="voice" label="Giọng đọc" value="0"
+            options=vec![option, SelectOption::new("1", "Không có biểu tượng")]
+            on_input=Callback::new(|_: String| panic!("render must not dispatch"))/>
+    }
+    .to_html();
+    assert!(html.contains("value=\"0\" selected"), "{html}");
+    assert_eq!(
+        html.matches("class=\"cui-select-leading\"").count(),
+        3,
+        "{html}"
+    );
+    assert_eq!(html.matches("class=\"cui-select-option-check\"").count(), 2);
+    assert!(
+        html.contains("aria-labelledby=\"voice-label voice-value\""),
+        "{html}"
+    );
 }
 
 #[test]

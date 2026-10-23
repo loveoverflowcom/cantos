@@ -22,8 +22,8 @@ use crate::{
     signin_form::SignInPanel,
 };
 use cantos_ui::{
-    Announcement, Button, ButtonVariant, Container, ContainerWidth, Density, FieldLabel, Logo,
-    LogoTone, LogoVariant, Select, Status as UiStatus, Theme, UiRoot,
+    Announcement, Button, ButtonVariant, Container, ContainerWidth, Density, FieldLabel, IconName,
+    Logo, LogoTone, LogoVariant, Select, SelectOption, Status as UiStatus, Theme, UiRoot,
 };
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
@@ -674,20 +674,21 @@ pub fn Studio() -> impl IntoView {
                     <Button id="studio-language" variant=ButtonVariant::Text on_press=Callback::new(move |_| locale.update(|current| *current = current.toggled()))><span lang=move || locale.get().toggled().lang()>{move || locale.get().toggled().autonym()}</span></Button>
                     <Select id="theme-select" label=Signal::derive(move || copy().theme.to_owned())
                         value=Signal::derive(move || theme.get().as_str().to_owned())
-                        on_input=Callback::new(move |value: String| { if let Some(selected) = Theme::from_attribute(&value) { theme.set(selected); } })>
-                        <option value="system" selected=move || theme.get() == Theme::System>{move || copy().system}</option>
-                        <option value="light" selected=move || theme.get() == Theme::Light>{move || copy().light}</option>
-                        <option value="dark" selected=move || theme.get() == Theme::Dark>{move || copy().dark}</option>
-                    </Select>
+                        options=Signal::derive(move || vec![
+                            SelectOption::new("system", copy().system).with_icon(IconName::Settings),
+                            SelectOption::new("light", copy().light).with_icon(IconName::LightMode),
+                            SelectOption::new("dark", copy().dark).with_icon(IconName::DarkMode),
+                        ])
+                        on_input=Callback::new(move |value: String| { if let Some(selected) = Theme::from_attribute(&value) { theme.set(selected); } })/>
                     <details class="studio-account" hidden=move || entry_state.get()!=Entry::Workspace>
                         <summary>{move || entry_text(EntryKey::Session, english.get())}</summary>
                         <p class="identity">{move || authenticated_actor.get().unwrap_or_default()}</p>
-                        <ActionButton id="account-refresh" english=english blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,english.get())}</ActionButton>
-                        <ActionButton id="account-reauthenticate" english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,english.get())}</ActionButton>
+                        <ActionButton id="account-refresh" icon=IconName::Refresh english=english blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,english.get())}</ActionButton>
+                        <ActionButton id="account-reauthenticate" icon=IconName::Login english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,english.get())}</ActionButton>
                         <Show when=move || reauth_open.get()>
                             <SignInPanel id="account" form=account_form english=english blocked=auth_blocked on_submit=submit_reauthentication reauthenticate=true/>
                         </Show>
-                        <ActionButton id="account-logout" english=english variant=ButtonVariant::Secondary blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
+                        <ActionButton id="account-logout" icon=IconName::Logout english=english variant=ButtonVariant::Secondary blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
                     </details>
                 </div>
             </header>
@@ -776,18 +777,18 @@ pub fn Studio() -> impl IntoView {
                 <label class="adaptation-confirm" for="revision-reviewed"><input id="revision-reviewed" type="checkbox" disabled=move || blocked() || activity.get() || !preview.with(|p| p.is_current(&actor.get(), &draft.get())) prop:checked=move || reviewed.get()
                     on:change=move |e| reviewed.set(event_target_checked(&e)) /><span>{move || text(Key::ReviewBeforeSave, english.get())}</span></label>
                 <div class="toolbar">
-                    <ActionButton id="revision-save" english=english blocked=Signal::derive(save_blocked) busy=Signal::derive(move || state.with(Editor::busy)) reason=BlockReason::SaveReview described_by="request-reason" on_press=Callback::new(move |_| {
+                    <ActionButton id="revision-save" icon=IconName::Save english=english blocked=Signal::derive(save_blocked) busy=Signal::derive(move || state.with(Editor::busy)) reason=BlockReason::SaveReview described_by="request-reason" on_press=Callback::new(move |_| {
                         if save_blocked() { return; }
                         match operation_id() {
                             Ok(op) => if let Some((saving,intent)) = state.get_untracked().start_save(op) { state.set(saving); issues.set(vec![]); dispatch_save(state,issues,api,intent); },
                             Err(error) => state.update(|e| *e = e.failed(&error)),
                         }
                     })>{move || copy().save}</ActionButton>
-                    <Show when=move || state.with(Editor::awaits_reconciliation)><ActionButton id="revision-retry" english=english variant=ButtonVariant::Tonal reason=BlockReason::Pending blocked=Signal::derive(move || session_pending.get() || activity.get() || state.with(|e| e.pending().is_some_and(|i| i.actor != e.actor()))) on_press=Callback::new(move |_| {
+                    <Show when=move || state.with(Editor::awaits_reconciliation)><ActionButton id="revision-retry" icon=IconName::Refresh english=english variant=ButtonVariant::Tonal reason=BlockReason::Pending blocked=Signal::derive(move || session_pending.get() || activity.get() || state.with(|e| e.pending().is_some_and(|i| i.actor != e.actor()))) on_press=Callback::new(move |_| {
                         if session_pending.get_untracked() || activity.get_untracked() { return; }
                         if let Some((saving,intent)) = state.get_untracked().retry() { state.set(saving); dispatch_save(state,issues,api,intent); }
                     })>{move || copy().retry}</ActionButton></Show>
-                    <ActionButton id="revision-discard" english=english variant=ButtonVariant::Secondary
+                    <ActionButton id="revision-discard" icon=IconName::DeleteOutline english=english variant=ButtonVariant::Secondary
                         focus_on_press=true
                         blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())
                         on_press=Callback::new(move |_| {

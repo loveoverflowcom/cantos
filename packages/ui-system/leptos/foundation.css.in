@@ -256,20 +256,12 @@
 }
 :where(.cantos-ui) .cui-button[data-variant="auth-primary"] {
   min-block-size: var(--cantos-size-auth-primary);
-  flex-wrap: wrap;
 }
-/* Preserve a readable label column before moving the decorative icon above it.
-   This text measure is responsive geometry, not a second semantic token. */
-:where(.cantos-ui) .cui-button[data-variant="auth-primary"] .cui-control-label {
-  flex: 1 1 auto;
-  min-inline-size: min(100%, 12ch);
-}
-:where(.cantos-ui) .cui-button[data-variant="auth-primary"] .cui-button-icon {
-  inline-size: var(--cantos-size-auth-icon);
-  block-size: var(--cantos-size-auth-icon);
-  border-radius: var(--cantos-shape-pill);
-  background: var(--cantos-color-on-primary);
-  color: var(--cantos-color-primary);
+/* Icon and intrinsic label form one centered group. Only the label wraps;
+   growing it to fill the row would shift the visible group off center. */
+:where(.cantos-ui) .cui-button .cui-control-label {
+  flex: 0 1 auto;
+  text-align: center;
 }
 :where(.cantos-ui) .cui-button[data-variant="auth-secondary"] {
   background: var(--cantos-color-primary-container);
@@ -286,10 +278,6 @@
 :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]):disabled {
   background: var(--cantos-color-surface-container);
   color: var(--cantos-color-on-surface-variant);
-}
-:where(.cantos-ui) .cui-button[data-variant="auth-primary"]:disabled .cui-button-icon {
-  background: var(--cantos-color-on-surface-variant);
-  color: var(--cantos-color-surface-container);
 }
 :where(.cantos-ui) .cui-back-button {
   min-block-size: var(--cantos-size-back-control);
@@ -589,6 +577,18 @@
   min-inline-size: 0;
   overflow-wrap: anywhere;
 }
+:where(.cantos-ui) .cui-select-value,
+:where(.cantos-ui) .cui-select-option-label {
+  flex: 1 1 0;
+}
+:where(.cantos-ui) .cui-select-leading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 var(--cantos-web-select-icon-size);
+  inline-size: var(--cantos-web-select-icon-size);
+  color: inherit;
+}
 :where(.cantos-ui) :is(.cui-select-trigger, .cui-select-native-indicator, .cui-select > select)[hidden] {
   display: none;
 }
@@ -611,7 +611,7 @@
   overscroll-behavior: contain;
   border: var(--cantos-size-border) solid var(--cantos-color-outline-variant);
   border-radius: var(--cantos-web-shape-container);
-  background: var(--cantos-color-surface-container-high);
+  background: var(--cantos-color-surface);
   color: var(--cantos-color-on-surface);
   box-shadow: var(--cantos-elevation-overlay);
   font: inherit;

@@ -12,9 +12,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.ui.preview.ComponentExample
@@ -26,6 +34,53 @@ import kotlin.test.assertEquals
 
 /** Same diagnostic specimens on a real JVM root; no mobile or OS-window claim. */
 class InteractionCaptureTest {
+    @Test
+    @OptIn(ExperimentalTestApi::class)
+    fun auth_support_controls_keep_status_selection_and_modal_text_in_both_themes() {
+        Theme.entries.forEach { theme ->
+            runDesktopComposeUiTest(width = 390, height = 840) {
+                val preferences = UiPreferences(theme = theme)
+                var checked by mutableStateOf(false)
+                var open by mutableStateOf(false)
+                var density = 0f
+                var fontScale = 0f
+                setContent {
+                    density = LocalDensity.current.density
+                    fontScale = LocalDensity.current.fontScale
+                    Box(Modifier.requiredSize(390.dp, 840.dp).testTag("support-root")) {
+                        UiRoot(preferences = preferences) {
+                            Column(Modifier.padding(tokenDp("space.lg")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                                Checkbox("Giữ ghi chú · Ỗ, Ữ", checked, { checked = it })
+                                Status("Bản nháp vẫn còn", modifier = Modifier.testTag("support-status"),
+                                    tone = StatusTone.Info, announcement = Announcement.Polite)
+                                Button("Mở bản nháp", { open = true })
+                                Dialog(open, "Bản nháp Ánh Nguyệt", "Đóng", { open = false }, modifier = Modifier.testTag("support-dialog")) {
+                                    Text("Nội dung tiếng Việt vẫn được giữ. Không có yêu cầu mạng.")
+                                }
+                            }
+                        }
+                    }
+                }
+                onNodeWithText("Giữ ghi chú · Ỗ, Ữ").performClick().assertIsOn()
+                onNodeWithTag("support-status").assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+                fun save(component: String, tag: String) {
+                    waitForIdle()
+                    writeCapture(CaptureScenario("cmp-ui402-$component-${theme.tokenName}", "auth-support", component,
+                        if (component == "dialog") "open" else "selected", themeMode = if (theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light,
+                        systemIsDark = false, preferences = preferences, viewportWidthDp = 390, viewportHeightDp = 840,
+                        hostDensity = density, hostFontScale = fontScale), onNodeWithTag(tag).captureToImage())
+                }
+                save("status-checkbox", "support-root")
+                onNodeWithText("Mở bản nháp").performClick()
+                onNodeWithText("Nội dung tiếng Việt vẫn được giữ. Không có yêu cầu mạng.").assertExists()
+                save("dialog", "support-dialog")
+                onNodeWithText("Đóng").performClick()
+                onNodeWithTag("support-dialog").assertDoesNotExist()
+                assertEquals(true, checked)
+            }
+        }
+    }
+
     @Test
     fun full_label_choices_are_captured_at_both_densities_themes_and_narrow_large_text() {
         capture(PreviewExample.Checkbox, "label-activation", UiPreferences(theme = Theme.Dark, density = Density.Comfortable, textScale = 2f), narrow = true)
