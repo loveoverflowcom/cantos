@@ -24,7 +24,7 @@ async fn history_of(owner: &OwnedDatabase) -> Vec<Vec<Value>> {
 async fn the_registry_of_eleven_upgrades_to_the_business_closure_without_rewriting_a_checksum() {
     let run = TestRun::new("server-schema-business-upgrade");
     let path = run.path("server.db");
-    let v11 = Registry::new(DatabaseKind::Server, SERVER_EPOCH, &MIGRATIONS[..11]).unwrap();
+    let v11 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..11]).unwrap();
     let old = OwnedDatabase::open(OpenRequest::new(&path, v11, Intent::Migrate, clock()))
         .await
         .unwrap();
@@ -158,7 +158,7 @@ async fn a_binary_of_eleven_refuses_the_file_of_fifteen_and_a_diverged_slice_is_
     drop(open(&path, Intent::Migrate).await.unwrap());
     let before = bytes(&path);
     // What a binary that predates this slice would be: it knows eleven versions only.
-    let old = Registry::new(DatabaseKind::Server, SERVER_EPOCH, &MIGRATIONS[..11]).unwrap();
+    let old = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..11]).unwrap();
     for intent in [Intent::Serve, Intent::Migrate] {
         match OwnedDatabase::open(OpenRequest::new(&path, old, intent, clock())).await {
             Err(OpenError::Refused(Refusal::NewerThanBinary {
@@ -191,7 +191,7 @@ async fn a_binary_of_eleven_refuses_the_file_of_fifteen_and_a_diverged_slice_is_
     let diverged = run.path("diverged.db");
     foreign(
         &diverged,
-        Registry::new(DatabaseKind::Server, SERVER_EPOCH, altered).unwrap(),
+        Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, altered).unwrap(),
     )
     .await;
     let before = bytes(&diverged);

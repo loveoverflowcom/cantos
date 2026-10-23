@@ -1,24 +1,71 @@
 # cantos-store-turso
 
-Single-owner embedded [Turso](https://github.com/tursodatabase/turso) foundation for the two native
-Cantos databases: `server.db` (Cantos Server) and `identity.db` (Cantos Identity). It supplies what
-both services would otherwise build twice and holds **no business table, query or rule**; those stay
-in each service's contexts. See the [native Turso decision](../../docs/architecture/native-turso-refactor.md)
-and [epic #331](https://github.com/loveoverflowcom/cantos/issues/331).
+Reusable single-owner embedded [Turso](https://github.com/tursodatabase/turso) infrastructure.
+Consumers supply a nonzero signed `application_id`, schema epoch and ordered migrations. This
+crate knows no service database identities, schemas or business rules and imports no apps or
+services. It remains an internal Cantos library with a deliberately fixed, compatible storage
+format. See the [native Turso decision](../../docs/architecture/native-turso-refactor.md).
 
-**Implemented library with an opt-in Identity persistence consumer.**
-[`cantos-identity`](../../services/cantos-identity/README.md#file-backed-security-state) uses this owner
-for its service-owned instance/subject security state, disable events and operation receipts.
-That library consumer has real file-backed tests but no executable, credential verifier or RPC.
-`cantos-server` holds an uncomposed [candidate `server.db` schema](../../docs/architecture/server-turso-schema.md)
-with only the actor registry slice; PostgreSQL remains its serving authority until #333.9.
+The concrete consumers are [`cantos-server`](../../services/cantos-server/src/platform/turso/mod.rs)
+and [`cantos-identity`](../../services/cantos-identity/src/persistence/mod.rs). Each owns its marker,
+schema registry, migration SQL, row validation and business errors. Server's `ServerDatabase`
+wrapper prevents an arbitrary registry from reaching its adapters; Identity opens only its own
+registry. Their runtime and acceptance boundaries remain in the service guides.
+
+## Consumer boundary and API
+
+Previously `Registry::new(DatabaseKind::Server, epoch, migrations)` selected one of two service
+identities inside this crate. It is now `Registry::new(application_id, epoch, migrations)`;
+`Registry::application_id()` replaces `kind().application_id()`. Zero is rejected as
+`RegistryError::UnmarkedApplicationId`, because it denotes an unmarked file. All other signed
+32-bit markers are accepted; allocating a unique stable marker belongs to the consumer.
+
+```rust
+use std::sync::Arc;
+use cantos_store_turso::{
+    clock::SystemClock,
+    registry::{Intent, Migration, Registry},
+    OpenRequest, OwnedDatabase,
+};
+
+const LEDGER_APPLICATION_ID: i32 = 0x4C45_4447;
+const MIGRATIONS: [Migration; 1] = [Migration {
+    version: 1,
+    name: "create_entries",
+    sql: "CREATE TABLE entries(id INTEGER PRIMARY KEY, payload BLOB NOT NULL) STRICT;",
+}];
+
+async fn open() -> Result<OwnedDatabase, Box<dyn std::error::Error>> {
+    let registry = Registry::new(LEDGER_APPLICATION_ID, 1, &MIGRATIONS)?;
+    // The private parent directory must already exist; serving never migrates.
+    Ok(OwnedDatabase::open(OpenRequest::new(
+        "private/ledger.db", registry, Intent::Serve, Arc::new(SystemClock),
+    )).await?)
+}
+```
+
+`OpenRequest`, owner/read/write/backup APIs, clock/value conversions and error classification
+stay shared. Service statement facades and row decoders stay local: Server's cardinality/column
+errors and Identity's security-record validation have different contracts. Extracting them here
+would introduce business coupling rather than remove duplication. No new dependencies, ORM,
+pool, configuration framework or performance optimization is introduced.
+
+## Persisted compatibility
+
+Server retains `CNTS` (`0x434E5453`); Identity retains `CNTI` (`0x434E5449`). Both retain epoch 1,
+their exact registered SQL, version/name order and checksums. This API refactor requires no data
+migration. The history table/guards (`cantos_schema_history`), checksum domain and framing
+(`cantos-turso-migration/1\0`), guard prefix (`cantos:`), time representation and lock sidecars
+remain fixed infrastructure conventions. They are not service identities. Making those
+configurable would expand format/error compatibility work without a current consumer need;
+any future format change needs a separate migration design.
 
 ## What it provides
 
 | Owner | Guarantee | Evidence |
 | --- | --- | --- |
 | `OwnedDatabase::open` | One owner per file: a non-blocking advisory lock on a sidecar file, retained by every reader and query cursor until its engine/file handles close, so it ends with the process (even `kill -9`). The directory must exist, belong to the process user and grant nothing to group/others; a symlinked database path is refused. | file-backed + two-process tests, including escaped reader/writer cursors |
-| `registry` (pure) | A versioned, checksummed history per file with its own `application_id` (Server vs Identity) and epoch. `plan_startup` decides **before any write**: create an absent/empty file, apply pending migrations (`Intent::Migrate`), or serve a file that is exactly current (`Intent::Serve`). A foreign, unmarked-but-populated, other-epoch, newer-than-binary or diverged file is refused, never adopted. | table-driven unit tests + file-backed refusals |
+| `registry` (pure) | A versioned, checksummed history per file with a consumer-supplied `application_id` and epoch. `plan_startup` decides **before any write**: create an absent/empty file, apply pending migrations (`Intent::Migrate`), or serve a file that is exactly current (`Intent::Serve`). A foreign, unmarked-but-populated, other-epoch, newer-than-binary or diverged file is refused, never adopted. | table-driven unit tests + file-backed refusals |
 | creation | Header marker, history table and every migration in **one** transaction; a definitely rejected migration rolls back. `MigrationCommitUnknown` preserves an uncertain COMMIT and requires the next startup to reconcile header/history before retry. Upgrades commit one migration per transaction. | file-backed, including fault injection after a real COMMIT |
 | `begin_write` | The only mutation entry: `BEGIN IMMEDIATE` on a serialized writer. The trusted [`Clock`](src/clock.rs) is read **after** the writer is held, so timestamps follow commit order. A dropped or cancelled transaction is rolled back before the next one begins. | interleaving + mutation-checked tests |
 | `commit` | `Rejected` (definitely not committed; rolled back) versus `Unknown` (I/O, corruption, interruption: reconcile through the operation receipt before any retry). | unit + file-backed |

@@ -1,11 +1,11 @@
-//! Single-owner embedded Turso foundation shared by Cantos Server (`server.db`) and Cantos
-//! Identity (`identity.db`).
+//! Reusable single-owner embedded Turso infrastructure for internal consumers.
 //!
-//! One process owns each file. The crate supplies what both services would otherwise build
-//! twice: an exclusive owner lock, a versioned and checksummed schema registry with a pure
+//! One process owns each file. The crate supplies an exclusive owner lock, a versioned and
+//! checksummed schema registry with a pure
 //! startup decision, a serialized `BEGIN IMMEDIATE` writer with typed commit outcomes, an
 //! injected trusted clock, read-only readers and a verified `VACUUM INTO` backup. It holds no
-//! business table, query or rule; those stay in each service's contexts.
+//! application identity, business table, query or rule. Consumers choose their header marker,
+//! schema epoch and migrations, and translate store faults into their own business errors.
 //!
 //! The engine is a pre-1.0 library pinned exactly. Every capability the schema relies on is
 //! asserted against the real engine by [`capability`], so an upgrade that changes behavior

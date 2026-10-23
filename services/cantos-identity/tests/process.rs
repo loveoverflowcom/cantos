@@ -8,6 +8,7 @@ mod support;
 
 use std::{os::unix::fs::PermissionsExt, path::Path, time::Duration};
 
+use cantos_identity::persistence::IDENTITY_APPLICATION_ID;
 use cantos_identity_rpc::{
     identity_client::IdentityClient, validate_fact, AccountState, AuthenticatePasswordRequest,
     ClientContext, CompleteTheatreSignupRequest, GetSecurityStateRequest, Purpose, SetupOutcome,
@@ -545,7 +546,7 @@ async fn serve_never_initializes_a_database_and_corruption_is_never_reset() {
 #[tokio::test]
 async fn serve_refuses_a_file_with_pending_migrations_and_explicit_migrate_upgrades_it() {
     use cantos_store_turso::{
-        registry::{DatabaseKind, Intent, Migration, Registry},
+        registry::{Intent, Migration, Registry},
         testing::FixedClock,
         OpenRequest, OwnedDatabase, Value,
     };
@@ -559,7 +560,7 @@ async fn serve_refuses_a_file_with_pending_migrations_and_explicit_migrate_upgra
     // An older-schema file exactly as an earlier build would have left it.
     let database = OwnedDatabase::open(OpenRequest::new(
         env.database.clone(),
-        Registry::new(DatabaseKind::Identity, 1, &V1).unwrap(),
+        Registry::new(IDENTITY_APPLICATION_ID, 1, &V1).unwrap(),
         Intent::Migrate,
         FixedClock::new(1_700_000_000_000_000),
     ))

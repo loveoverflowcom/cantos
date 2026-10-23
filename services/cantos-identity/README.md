@@ -120,8 +120,8 @@ is copied or moved before its replacement is ready.
 
 The optional `persistence` feature supplies `IdentityStore` over the existing
 [`cantos-store-turso`](../../packages/store-turso/README.md) `OwnedDatabase`. It uses
-`DatabaseKind::Identity`, its own checksummed epoch-1 migration and the same exclusive file
-lease, serialized writer, trusted clock and commit-outcome types; it adds no engine wrapper,
+its service-owned `IDENTITY_APPLICATION_ID` (`CNTI`, `0x434E5449`), its own checksummed epoch-1
+migrations and the same exclusive file lease, serialized writer, trusted clock and commit-outcome types; it adds no engine wrapper,
 cross-service file access or second database owner.
 
 The [storage contract](../../packages/contracts/identity-security-store-v1.md) owns the exact

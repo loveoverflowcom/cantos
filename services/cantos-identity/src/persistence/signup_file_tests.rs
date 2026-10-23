@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use cantos_store_turso::error::{GuardCode, StoreFault};
-use cantos_store_turso::registry::{DatabaseKind, Intent, Registry};
+use cantos_store_turso::registry::{Intent, Registry};
 use cantos_store_turso::testing::{FixedClock, TestRun};
 use cantos_store_turso::{OpenRequest, OwnedDatabase, Value};
 
@@ -833,7 +833,7 @@ async fn a_version_two_file_upgrades_to_signup_storage_keeping_its_data() {
     let epoch = InstanceEpoch::from_bytes(1_u128.to_be_bytes()).unwrap();
     let db = OwnedDatabase::open(OpenRequest::new(
         run.path("signup.db"),
-        Registry::new(DatabaseKind::Identity, 1, &V2).unwrap(),
+        Registry::new(super::IDENTITY_APPLICATION_ID, 1, &V2).unwrap(),
         Intent::Migrate,
         clock.clone(),
     ))

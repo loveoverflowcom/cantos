@@ -7,14 +7,14 @@ use std::process::Command;
 use std::task::Poll;
 
 use cantos_store_turso::capability;
-use cantos_store_turso::registry::{DatabaseKind, Intent};
-use cantos_store_turso::testing::{ledger_registry, FixedClock, TestRun};
+use cantos_store_turso::registry::Intent;
+use cantos_store_turso::testing::{ledger_registry, FixedClock, TestRun, TEST_APPLICATION_ID};
 use cantos_store_turso::{BackupError, OpenRequest, OwnedDatabase};
 
 async fn database(run: &TestRun) -> OwnedDatabase {
     OwnedDatabase::open(OpenRequest::new(
-        run.path("server.db"),
-        ledger_registry(DatabaseKind::Server),
+        run.path("fixture.db"),
+        ledger_registry(TEST_APPLICATION_ID),
         Intent::Migrate,
         FixedClock::new(1),
     ))

@@ -8,8 +8,8 @@ PostgreSQL; only the Identity-owned library consumer opens this new file through
 ## Schema and trust boundary
 
 [`schema.sql`](../../services/cantos-identity/src/persistence/schema.sql) is migration 1 of
-Identity schema epoch 1, using the shared registry's `DatabaseKind::Identity` marker. The shared
-owner supplies its own immutable migration history. No PostgreSQL table, registry checksum,
+Identity schema epoch 1, using Identity's service-owned `IDENTITY_APPLICATION_ID`
+(`CNTI`, `0x434E5449`) marker. The shared owner supplies its own immutable migration history. No PostgreSQL table, registry checksum,
 provider access token, ActorId or email binding is copied into this schema.
 
 | Relation | Stored invariant |

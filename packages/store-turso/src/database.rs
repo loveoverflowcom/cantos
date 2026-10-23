@@ -640,10 +640,7 @@ async fn run_plan(
             let now = clock.now().map_err(|_| failed(0)(StoreFault::Clock))?;
             transact(conn, 0, async |version| {
                 conn.execute(
-                    &format!(
-                        "PRAGMA application_id = {}",
-                        registry.kind().application_id()
-                    ),
+                    &format!("PRAGMA application_id = {}", registry.application_id()),
                     (),
                 )
                 .await?;

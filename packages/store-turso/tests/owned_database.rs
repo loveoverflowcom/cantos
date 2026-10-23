@@ -10,10 +10,8 @@ use cantos_store_turso::clock::{Clock, ClockFault};
 use cantos_store_turso::error::{
     CommitFault, ConstraintKind, DirectoryFault, GuardCode, OpenError, StoreFault,
 };
-use cantos_store_turso::registry::{
-    DatabaseKind, Intent, Migration, Refusal, Registry, HISTORY_TABLE,
-};
-use cantos_store_turso::testing::{FixedClock, TestRun};
+use cantos_store_turso::registry::{Intent, Migration, Refusal, Registry, HISTORY_TABLE};
+use cantos_store_turso::testing::{FixedClock, TestRun, OTHER_APPLICATION_ID, TEST_APPLICATION_ID};
 use cantos_store_turso::value::UnixMicros;
 use cantos_store_turso::{
     params_from_iter, BackupError, OpenRequest, OwnedDatabase, Value, DEFAULT_BUSY_TIMEOUT,
@@ -64,12 +62,12 @@ const FIXTURE: [Migration; 1] = [Migration {
         CREATE TABLE ledger(id INTEGER PRIMARY KEY, at INTEGER NOT NULL) STRICT;",
 }];
 
-fn registry(kind: DatabaseKind, epoch: u32, migrations: &'static [Migration]) -> Registry {
-    Registry::new(kind, epoch, migrations).expect("valid test registry")
+fn registry(application_id: i32, epoch: u32, migrations: &'static [Migration]) -> Registry {
+    Registry::new(application_id, epoch, migrations).expect("valid test registry")
 }
 
-fn server(migrations: &'static [Migration]) -> Registry {
-    registry(DatabaseKind::Server, 1, migrations)
+fn fixture_registry(migrations: &'static [Migration]) -> Registry {
+    registry(TEST_APPLICATION_ID, 1, migrations)
 }
 
 fn request(
@@ -78,7 +76,7 @@ fn request(
     intent: Intent,
     clock: Arc<dyn Clock>,
 ) -> OpenRequest {
-    OpenRequest::new(run.path("server.db"), registry, intent, clock)
+    OpenRequest::new(run.path("fixture.db"), registry, intent, clock)
 }
 
 async fn create(run: &TestRun, registry: Registry) -> OwnedDatabase {
@@ -125,10 +123,10 @@ async fn raw_integer(conn: &turso::Connection, sql: &str) -> i64 {
 #[tokio::test]
 async fn creation_marks_the_header_and_records_every_migration_with_the_trusted_time() {
     let run = TestRun::new("create");
-    let db = create(&run, server(&TWO)).await;
+    let db = create(&run, fixture_registry(&TWO)).await;
     assert_eq!(
         integer(&db, "PRAGMA application_id").await,
-        i64::from(DatabaseKind::Server.application_id())
+        i64::from(TEST_APPLICATION_ID)
     );
     assert_eq!(integer(&db, "PRAGMA user_version").await, 1);
     assert_eq!(
@@ -147,7 +145,7 @@ async fn creation_marks_the_header_and_records_every_migration_with_the_trusted_
     drop(db);
     let again = OwnedDatabase::open(request(
         &run,
-        server(&TWO),
+        fixture_registry(&TWO),
         Intent::Serve,
         FixedClock::new(1),
     ))
@@ -161,7 +159,7 @@ async fn a_failed_creation_leaves_an_empty_unmarked_file_that_can_be_created_aga
     let run = TestRun::new("create_fail");
     let failure = OwnedDatabase::open(request(
         &run,
-        server(&BROKEN),
+        fixture_registry(&BROKEN),
         Intent::Migrate,
         FixedClock::new(1),
     ))
@@ -173,14 +171,14 @@ async fn a_failed_creation_leaves_an_empty_unmarked_file_that_can_be_created_aga
         "{failure:?}"
     );
     {
-        let conn = raw(&run.path("server.db")).await;
+        let conn = raw(&run.path("fixture.db")).await;
         assert_eq!(raw_integer(&conn, "PRAGMA application_id").await, 0);
         assert_eq!(
             raw_integer(&conn, "SELECT count(*) FROM sqlite_schema").await,
             0
         );
     }
-    let db = create(&run, server(&TWO)).await;
+    let db = create(&run, fixture_registry(&TWO)).await;
     assert_eq!(
         integer(&db, &format!("SELECT count(*) FROM {HISTORY_TABLE}")).await,
         2
@@ -190,16 +188,16 @@ async fn a_failed_creation_leaves_an_empty_unmarked_file_that_can_be_created_aga
 #[tokio::test]
 async fn migration_sql_that_ends_the_runner_transaction_is_refused_at_registry_construction() {
     static COMMITS: [Migration; 1] = [NEVER_COMMITS];
-    assert!(Registry::new(DatabaseKind::Server, 1, &COMMITS).is_err());
+    assert!(Registry::new(TEST_APPLICATION_ID, 1, &COMMITS).is_err());
 }
 
 #[tokio::test]
 async fn serving_refuses_pending_migrations_and_migrating_applies_only_the_suffix() {
     let run = TestRun::new("upgrade");
-    drop(create(&run, server(&ONE)).await);
+    drop(create(&run, fixture_registry(&ONE)).await);
     let refused = OwnedDatabase::open(request(
         &run,
-        server(&TWO),
+        fixture_registry(&TWO),
         Intent::Serve,
         FixedClock::new(1),
     ))
@@ -214,9 +212,14 @@ async fn serving_refuses_pending_migrations_and_migrating_applies_only_the_suffi
         })
     );
     let clock = FixedClock::new(1_800_000_000_000_000);
-    let db = OwnedDatabase::open(request(&run, server(&TWO), Intent::Migrate, clock))
-        .await
-        .unwrap();
+    let db = OwnedDatabase::open(request(
+        &run,
+        fixture_registry(&TWO),
+        Intent::Migrate,
+        clock,
+    ))
+    .await
+    .unwrap();
     assert_eq!(
         integer(&db, &format!("SELECT count(*) FROM {HISTORY_TABLE}")).await,
         2
@@ -243,10 +246,10 @@ async fn serving_refuses_pending_migrations_and_migrating_applies_only_the_suffi
 #[tokio::test]
 async fn a_failed_upgrade_rolls_back_only_its_own_migration() {
     let run = TestRun::new("upgrade_fail");
-    drop(create(&run, server(&ONE)).await);
+    drop(create(&run, fixture_registry(&ONE)).await);
     let failure = OwnedDatabase::open(request(
         &run,
-        server(&BROKEN),
+        fixture_registry(&BROKEN),
         Intent::Migrate,
         FixedClock::new(5),
     ))
@@ -259,7 +262,7 @@ async fn a_failed_upgrade_rolls_back_only_its_own_migration() {
     );
     let db = OwnedDatabase::open(request(
         &run,
-        server(&ONE),
+        fixture_registry(&ONE),
         Intent::Serve,
         FixedClock::new(5),
     ))
@@ -283,10 +286,10 @@ async fn a_failed_upgrade_rolls_back_only_its_own_migration() {
 async fn files_that_are_not_ours_are_refused_without_being_written() {
     // Not a database at all.
     let run = TestRun::new("refuse_garbage");
-    std::fs::write(run.path("server.db"), vec![0x41_u8; 4096]).unwrap();
+    std::fs::write(run.path("fixture.db"), vec![0x41_u8; 4096]).unwrap();
     let garbage = OwnedDatabase::open(request(
         &run,
-        server(&ONE),
+        fixture_registry(&ONE),
         Intent::Migrate,
         FixedClock::new(1),
     ))
@@ -295,26 +298,31 @@ async fn files_that_are_not_ours_are_refused_without_being_written() {
     .unwrap();
     assert_eq!(garbage, OpenError::Store(StoreFault::NotDatabase));
     assert_eq!(
-        std::fs::read(run.path("server.db")).unwrap(),
+        std::fs::read(run.path("fixture.db")).unwrap(),
         vec![0x41_u8; 4096]
     );
 
     // A database that has tables but no Cantos marker is never adopted.
     let run = TestRun::new("refuse_unmarked");
     {
-        let conn = raw(&run.path("server.db")).await;
+        let conn = raw(&run.path("fixture.db")).await;
         conn.execute("CREATE TABLE stranger(x INTEGER) STRICT", ())
             .await
             .unwrap();
     }
     for intent in [Intent::Migrate, Intent::Serve] {
-        let error = OwnedDatabase::open(request(&run, server(&ONE), intent, FixedClock::new(1)))
-            .await
-            .err()
-            .unwrap();
+        let error = OwnedDatabase::open(request(
+            &run,
+            fixture_registry(&ONE),
+            intent,
+            FixedClock::new(1),
+        ))
+        .await
+        .err()
+        .unwrap();
         assert_eq!(error, OpenError::Refused(Refusal::UnmarkedNonEmpty));
     }
-    let conn = raw(&run.path("server.db")).await;
+    let conn = raw(&run.path("fixture.db")).await;
     assert_eq!(raw_integer(&conn, "PRAGMA application_id").await, 0);
     assert_eq!(
         raw_integer(&conn, "SELECT count(*) FROM sqlite_schema").await,
@@ -323,12 +331,12 @@ async fn files_that_are_not_ours_are_refused_without_being_written() {
 }
 
 #[tokio::test]
-async fn another_services_file_a_different_epoch_and_a_newer_history_are_refused() {
+async fn another_applications_file_a_different_epoch_and_a_newer_history_are_refused() {
     let run = TestRun::new("refuse_marked");
-    drop(create(&run, registry(DatabaseKind::Identity, 1, &TWO)).await);
+    drop(create(&run, registry(OTHER_APPLICATION_ID, 1, &TWO)).await);
     let wrong_kind = OwnedDatabase::open(request(
         &run,
-        server(&TWO),
+        fixture_registry(&TWO),
         Intent::Migrate,
         FixedClock::new(1),
     ))
@@ -338,15 +346,15 @@ async fn another_services_file_a_different_epoch_and_a_newer_history_are_refused
     assert_eq!(
         wrong_kind,
         OpenError::Refused(Refusal::ForeignApplication {
-            found: DatabaseKind::Identity.application_id()
+            found: OTHER_APPLICATION_ID
         })
     );
 
     let run = TestRun::new("refuse_epoch");
-    drop(create(&run, server(&TWO)).await);
+    drop(create(&run, fixture_registry(&TWO)).await);
     let wrong_epoch = OwnedDatabase::open(request(
         &run,
-        registry(DatabaseKind::Server, 2, &TWO),
+        registry(TEST_APPLICATION_ID, 2, &TWO),
         Intent::Migrate,
         FixedClock::new(1),
     ))
@@ -363,7 +371,7 @@ async fn another_services_file_a_different_epoch_and_a_newer_history_are_refused
 
     let newer = OwnedDatabase::open(request(
         &run,
-        server(&ONE),
+        fixture_registry(&ONE),
         Intent::Serve,
         FixedClock::new(1),
     ))
@@ -382,10 +390,10 @@ async fn another_services_file_a_different_epoch_and_a_newer_history_are_refused
 #[tokio::test]
 async fn a_changed_migration_or_a_tampered_history_is_detected() {
     let run = TestRun::new("diverge");
-    drop(create(&run, server(&ONE)).await);
+    drop(create(&run, fixture_registry(&ONE)).await);
     let edited = OwnedDatabase::open(request(
         &run,
-        server(&ALTERED),
+        fixture_registry(&ALTERED),
         Intent::Serve,
         FixedClock::new(1),
     ))
@@ -400,7 +408,7 @@ async fn a_changed_migration_or_a_tampered_history_is_detected() {
     // The history table is append-only while the guard exists; remove it the way an attacker
     // with file access would, forge the checksum, and the next open still refuses.
     {
-        let conn = raw(&run.path("server.db")).await;
+        let conn = raw(&run.path("fixture.db")).await;
         let blocked = conn
             .execute(&format!("UPDATE {HISTORY_TABLE} SET name = 'x'"), ())
             .await
@@ -424,7 +432,7 @@ async fn a_changed_migration_or_a_tampered_history_is_detected() {
     }
     let forged = OwnedDatabase::open(request(
         &run,
-        server(&ONE),
+        fixture_registry(&ONE),
         Intent::Serve,
         FixedClock::new(1),
     ))
@@ -440,10 +448,10 @@ async fn a_changed_migration_or_a_tampered_history_is_detected() {
 #[tokio::test]
 async fn one_owner_per_file_and_a_private_directory() {
     let run = TestRun::new("ownership");
-    let first = create(&run, server(&ONE)).await;
+    let first = create(&run, fixture_registry(&ONE)).await;
     let second = OwnedDatabase::open(request(
         &run,
-        server(&ONE),
+        fixture_registry(&ONE),
         Intent::Serve,
         FixedClock::new(1),
     ))
@@ -454,7 +462,7 @@ async fn one_owner_per_file_and_a_private_directory() {
     drop(first);
     OwnedDatabase::open(request(
         &run,
-        server(&ONE),
+        fixture_registry(&ONE),
         Intent::Serve,
         FixedClock::new(1),
     ))
@@ -462,8 +470,8 @@ async fn one_owner_per_file_and_a_private_directory() {
     .expect("ownership is released when the owner closes");
 
     let missing = OwnedDatabase::open(OpenRequest::new(
-        run.path("absent-dir/server.db"),
-        server(&ONE),
+        run.path("absent-dir/fixture.db"),
+        fixture_registry(&ONE),
         Intent::Migrate,
         FixedClock::new(1),
     ))
@@ -479,8 +487,8 @@ async fn one_owner_per_file_and_a_private_directory() {
         std::fs::create_dir(&shared).unwrap();
         std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o755)).unwrap();
         let open = OwnedDatabase::open(OpenRequest::new(
-            shared.join("server.db"),
-            server(&ONE),
+            shared.join("fixture.db"),
+            fixture_registry(&ONE),
             Intent::Migrate,
             FixedClock::new(1),
         ))
@@ -489,14 +497,14 @@ async fn one_owner_per_file_and_a_private_directory() {
         .unwrap();
         assert_eq!(open, OpenError::Directory(DirectoryFault::TooPermissive));
         assert!(
-            !shared.join("server.db").exists(),
+            !shared.join("fixture.db").exists(),
             "nothing is created in a shared directory"
         );
 
         symlink(run.path("elsewhere.db"), run.path("link.db")).unwrap();
         let linked = OwnedDatabase::open(OpenRequest::new(
             run.path("link.db"),
-            server(&ONE),
+            fixture_registry(&ONE),
             Intent::Migrate,
             FixedClock::new(1),
         ))
@@ -511,7 +519,7 @@ async fn one_owner_per_file_and_a_private_directory() {
 #[tokio::test]
 async fn every_connection_enforces_foreign_keys_and_readers_cannot_write() {
     let run = TestRun::new("fk_readers");
-    let db = create(&run, server(&TWO)).await;
+    let db = create(&run, fixture_registry(&TWO)).await;
     let tx = db.begin_write().await.unwrap();
     let dangling = tx
         .execute("INSERT INTO labels VALUES (1, 99)", ())
@@ -536,7 +544,7 @@ async fn every_connection_enforces_foreign_keys_and_readers_cannot_write() {
 #[tokio::test]
 async fn commit_publishes_atomically_rollback_discards_and_readers_keep_their_snapshot() {
     let run = TestRun::new("commit_rollback");
-    let db = create(&run, server(&ONE)).await;
+    let db = create(&run, fixture_registry(&ONE)).await;
     let tx = db.begin_write().await.unwrap();
     tx.execute("INSERT INTO items VALUES (1, 'a')", ())
         .await
@@ -561,7 +569,7 @@ async fn commit_publishes_atomically_rollback_discards_and_readers_keep_their_sn
 #[tokio::test]
 async fn a_dropped_transaction_is_rolled_back_before_the_next_one_begins() {
     let run = TestRun::new("dropped");
-    let db = create(&run, server(&ONE)).await;
+    let db = create(&run, fixture_registry(&ONE)).await;
     {
         let tx = db.begin_write().await.unwrap();
         tx.execute("INSERT INTO items VALUES (1, 'lost')", ())
@@ -589,7 +597,7 @@ async fn a_dropped_transaction_is_rolled_back_before_the_next_one_begins() {
 #[tokio::test]
 async fn guards_arrive_typed_and_a_deferred_foreign_key_failure_is_a_rejected_commit() {
     let run = TestRun::new("guards");
-    let db = create(&run, registry(DatabaseKind::Server, 1, &FIXTURE)).await;
+    let db = create(&run, registry(TEST_APPLICATION_ID, 1, &FIXTURE)).await;
     let tx = db.begin_write().await.unwrap();
     tx.execute("INSERT INTO settled VALUES (1, 'a')", ())
         .await
@@ -632,7 +640,7 @@ async fn guards_arrive_typed_and_a_deferred_foreign_key_failure_is_a_rejected_co
     );
     assert_eq!(integer(&db, "SELECT count(*) FROM head").await, 1);
     // Rejected means rolled back at once: a foreign writer can take the lock without waiting.
-    let foreign = raw(&run.path("server.db")).await;
+    let foreign = raw(&run.path("fixture.db")).await;
     foreign
         .execute("BEGIN IMMEDIATE", ())
         .await
@@ -670,7 +678,7 @@ async fn the_clock_is_read_after_the_writer_is_held_and_a_clock_fault_begins_not
     let db = Arc::new(
         OwnedDatabase::open(request(
             &run,
-            registry(DatabaseKind::Server, 1, &FIXTURE),
+            registry(TEST_APPLICATION_ID, 1, &FIXTURE),
             Intent::Migrate,
             clock.clone(),
         ))
@@ -700,7 +708,7 @@ async fn the_clock_is_read_after_the_writer_is_held_and_a_clock_fault_begins_not
     let run = TestRun::new("clock_fault");
     let db = OwnedDatabase::open(request(
         &run,
-        registry(DatabaseKind::Server, 1, &FIXTURE),
+        registry(TEST_APPLICATION_ID, 1, &FIXTURE),
         Intent::Migrate,
         FixedClock::new(1),
     ))
@@ -709,7 +717,7 @@ async fn the_clock_is_read_after_the_writer_is_held_and_a_clock_fault_begins_not
     drop(db);
     let db = OwnedDatabase::open(request(
         &run,
-        registry(DatabaseKind::Server, 1, &FIXTURE),
+        registry(TEST_APPLICATION_ID, 1, &FIXTURE),
         Intent::Serve,
         failing,
     ))
@@ -727,7 +735,7 @@ async fn the_clock_is_read_after_the_writer_is_held_and_a_clock_fault_begins_not
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_read_modify_write_transactions_are_serialized_without_lost_updates() {
     let run = TestRun::new("serialized");
-    let db = Arc::new(create(&run, registry(DatabaseKind::Server, 1, &FIXTURE)).await);
+    let db = Arc::new(create(&run, registry(TEST_APPLICATION_ID, 1, &FIXTURE)).await);
     let mut tasks = Vec::new();
     for _ in 0..16 {
         let db = db.clone();
@@ -766,14 +774,14 @@ async fn a_foreign_writer_makes_begin_write_busy_after_the_timeout_and_changes_n
     let run = TestRun::new("busy");
     let mut open = request(
         &run,
-        registry(DatabaseKind::Server, 1, &FIXTURE),
+        registry(TEST_APPLICATION_ID, 1, &FIXTURE),
         Intent::Migrate,
         FixedClock::new(1),
     );
     open.busy_timeout = Duration::from_millis(150);
     let db = OwnedDatabase::open(open).await.unwrap();
     // A second engine handle in the same process stands in for any writer outside the owner.
-    let foreign = raw(&run.path("server.db")).await;
+    let foreign = raw(&run.path("fixture.db")).await;
     foreign.execute("BEGIN IMMEDIATE", ()).await.unwrap();
     let started = Instant::now();
     let busy = db.begin_write().await.err();
@@ -797,7 +805,7 @@ async fn a_foreign_writer_makes_begin_write_busy_after_the_timeout_and_changes_n
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn backup_is_verified_checksummed_restorable_and_never_overwrites() {
     let run = TestRun::new("backup");
-    let db = Arc::new(create(&run, registry(DatabaseKind::Server, 1, &FIXTURE)).await);
+    let db = Arc::new(create(&run, registry(TEST_APPLICATION_ID, 1, &FIXTURE)).await);
 
     // Commit ledger rows continuously while the backup runs; each row's id is the previous + 1.
     let writer = {
@@ -841,10 +849,10 @@ async fn backup_is_verified_checksummed_restorable_and_never_overwrites() {
     // Restore: the copy opens as a current file of the same service, with a gap-free ledger.
     drop(db);
     let restored_dir = TestRun::new("backup_restored");
-    std::fs::copy(&target, restored_dir.path("server.db")).unwrap();
+    std::fs::copy(&target, restored_dir.path("fixture.db")).unwrap();
     let restored = OwnedDatabase::open(OpenRequest::new(
-        restored_dir.path("server.db"),
-        registry(DatabaseKind::Server, 1, &FIXTURE),
+        restored_dir.path("fixture.db"),
+        registry(TEST_APPLICATION_ID, 1, &FIXTURE),
         Intent::Serve,
         FixedClock::new(1),
     ))
@@ -864,7 +872,7 @@ async fn backup_is_verified_checksummed_restorable_and_never_overwrites() {
 async fn a_backup_destination_in_a_shared_directory_is_refused_before_any_copy() {
     use std::os::unix::fs::PermissionsExt;
     let run = TestRun::new("backup_shared");
-    let db = create(&run, server(&ONE)).await;
+    let db = create(&run, fixture_registry(&ONE)).await;
     let shared = run.path("shared");
     std::fs::create_dir(&shared).unwrap();
     std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -879,7 +887,7 @@ async fn a_backup_destination_in_a_shared_directory_is_refused_before_any_copy()
 #[tokio::test]
 async fn a_writer_wait_is_bounded_and_the_queue_recovers_when_the_holder_finishes() {
     let run = TestRun::new("bounded-writer");
-    let db = create(&run, Registry::new(DatabaseKind::Server, 1, &ONE).unwrap()).await;
+    let db = create(&run, Registry::new(TEST_APPLICATION_ID, 1, &ONE).unwrap()).await;
     let held = db.begin_write().await.unwrap();
     let started = Instant::now();
     let refused = db.begin_write_within(Duration::from_millis(80)).await;
@@ -913,7 +921,7 @@ async fn count_items(reader: &cantos_store_turso::ReadConnection) -> i64 {
 #[tokio::test]
 async fn a_pinned_read_snapshot_ignores_commits_made_after_it_began() {
     let run = TestRun::new("read-snapshot");
-    let db = create(&run, Registry::new(DatabaseKind::Server, 1, &ONE).unwrap()).await;
+    let db = create(&run, Registry::new(TEST_APPLICATION_ID, 1, &ONE).unwrap()).await;
     let reader = db.reader().await.unwrap();
     reader.begin_snapshot().await.unwrap();
     assert_eq!(count_items(&reader).await, 0);
@@ -931,4 +939,65 @@ async fn a_pinned_read_snapshot_ignores_commits_made_after_it_began() {
         .query("INSERT INTO items(label) VALUES ('x')", ())
         .await
         .is_err());
+}
+
+#[tokio::test]
+async fn caller_selected_signed_markers_survive_reopen_and_backup_without_adopting_other_files() {
+    for application_id in [i32::MIN, -1, 1, 0x4C45_4447, i32::MAX] {
+        let run = TestRun::new("caller-marker");
+        let schema = registry(application_id, 1, &ONE);
+        let db = create(&run, schema).await;
+        assert_eq!(
+            integer(&db, "PRAGMA application_id").await,
+            i64::from(application_id)
+        );
+        let tx = db.begin_write().await.unwrap();
+        tx.execute("INSERT INTO items VALUES(1,'kept')", ())
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+        let backup = run.path("copy.db");
+        db.backup_to(&backup).await.unwrap();
+        drop(db);
+        for path in [run.path("fixture.db"), backup] {
+            let reopened = OwnedDatabase::open(OpenRequest::new(
+                &path,
+                schema,
+                Intent::Serve,
+                FixedClock::new(9),
+            ))
+            .await
+            .unwrap();
+            assert_eq!(
+                integer(&reopened, "PRAGMA application_id").await,
+                i64::from(application_id)
+            );
+            assert_eq!(
+                integer(
+                    &reopened,
+                    "SELECT count(*) FROM items WHERE id=1 AND label='kept'"
+                )
+                .await,
+                1
+            );
+            drop(reopened);
+            let before = std::fs::read(&path).unwrap();
+            let refused = OwnedDatabase::open(OpenRequest::new(
+                &path,
+                registry(OTHER_APPLICATION_ID, 1, &ONE),
+                Intent::Migrate,
+                FixedClock::new(9),
+            ))
+            .await
+            .err()
+            .unwrap();
+            assert_eq!(
+                refused,
+                OpenError::Refused(Refusal::ForeignApplication {
+                    found: application_id
+                })
+            );
+            assert_eq!(std::fs::read(&path).unwrap(), before);
+        }
+    }
 }
