@@ -9,7 +9,7 @@ use super::super::domain::{check_freeze, check_input_identity, prepare_inputs};
 use super::super::turso::{self, encode};
 use super::{facts, production_actor, snapshot};
 use crate::contexts::editorial::{load_revision, Action};
-use crate::platform::store::{checked_number, normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::store::{checked_number, normalized_uuid, Store, StoreError};
 
 impl Store {
     pub async fn freeze_production(
@@ -24,7 +24,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = production_actor(&tx, token).await?;
-        let facts = facts(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
+        let facts = facts(&tx, &actor, &script, Action::Review).await?;
         if let Some(prior) = turso::snapshot_by_operation(&tx, &script, &actor, &operation).await? {
             if prior.request_bytes() != bytes {
                 return Err(StoreError::OperationReused);
@@ -89,7 +89,7 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await?;
         let actor = production_actor(&tx, token).await?;
-        let facts = facts(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
+        let facts = facts(&tx, &actor, &script, Action::Read).await?;
         let row = turso::find_snapshot(&tx, &id, &script)
             .await?
             .ok_or(StoreError::NotFound)?;

@@ -9,7 +9,7 @@ use crate::contexts::catalog::{
 };
 use crate::contexts::editorial::{self, permits, Action};
 use crate::contexts::ingestion;
-use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError, Tx};
 
 #[path = "content_wire.rs"]
 pub mod wire;
@@ -201,10 +201,10 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        turso::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
         let unit = unit(&tx, &command.unit_id).await?;
-        let work = work(&tx, unit.work_id(), LockMode::Update).await?;
+        let work = work(&tx, unit.work_id()).await?;
         let access = authorize(&tx, &actor, &work, Action::Write).await?;
         let writer = ContentWriter {
             actor: &actor,
@@ -226,10 +226,10 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
         let unit = unit(&tx, id).await?;
-        let work = work(&tx, unit.work_id(), LockMode::Share).await?;
+        let work = work(&tx, unit.work_id()).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
         let value = turso::content::load(&tx, id.as_str(), revision.map(ContentRevisionId::as_str))
             .await?
@@ -253,10 +253,10 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
         let unit = unit(&tx, id).await?;
-        let work = work(&tx, unit.work_id(), LockMode::Share).await?;
+        let work = work(&tx, unit.work_id()).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
         let reply = history_page(&tx, id, after, limit).await?;
         authenticate(&tx, token).await?;

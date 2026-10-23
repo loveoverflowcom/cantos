@@ -15,7 +15,7 @@ use super::{facts, production_actor};
 use crate::contexts::editorial::{
     ensure_evidence, load_revision, rights_cited_by_script, Action, EvidenceKind,
 };
-use crate::platform::store::{checked_number, normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::store::{checked_number, normalized_uuid, Store, StoreError};
 
 impl Store {
     pub async fn production_state(
@@ -27,7 +27,7 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await?;
         let actor = production_actor(&tx, token).await?;
-        let facts = facts(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
+        let facts = facts(&tx, &actor, &script, Action::Read).await?;
         let snapshots = turso::snapshot_history(&tx, &script).await?;
         let result = ProductionStateResponse {
             settings: facts.settings,
@@ -52,7 +52,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = production_actor(&tx, token).await?;
-        let facts = facts(&tx, &actor, &script, Action::Write, LockMode::Update).await?;
+        let facts = facts(&tx, &actor, &script, Action::Write).await?;
         if let Some(prior) = turso::settings_by_operation(&tx, &script, &actor, &operation).await? {
             if prior.request_bytes() != bytes {
                 return Err(StoreError::OperationReused);
@@ -100,7 +100,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = production_actor(&tx, token).await?;
-        let facts = facts(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
+        let facts = facts(&tx, &actor, &script, Action::Review).await?;
         if let Some(prior) = turso::rights_by_operation(&tx, &script, &actor, &operation).await? {
             if prior.request_bytes() != bytes {
                 return Err(StoreError::OperationReused);
@@ -177,7 +177,7 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await?;
         let actor = production_actor(&tx, token).await?;
-        let facts = facts(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
+        let facts = facts(&tx, &actor, &script, Action::Read).await?;
         let settings = facts
             .settings
             .as_ref()

@@ -7,7 +7,7 @@ use super::super::domain::{check_approval, require_current_approval};
 use super::super::turso::{self, encode};
 use super::{facts, production_actor, snapshot};
 use crate::contexts::editorial::Action;
-use crate::platform::store::{normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::store::{normalized_uuid, Store, StoreError};
 
 impl Store {
     pub async fn approve_production(
@@ -24,7 +24,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = production_actor(&tx, token).await?;
-        let facts = facts(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
+        let facts = facts(&tx, &actor, &script, Action::Review).await?;
         if let Some(prior) = turso::approval_by_operation(&tx, &script, &actor, &operation).await? {
             if prior.request_bytes() != bytes || prior.snapshot_id() != id {
                 return Err(StoreError::OperationReused);
