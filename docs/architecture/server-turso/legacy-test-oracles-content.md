@@ -1,11 +1,11 @@
 # Content PostgreSQL oracle inventory
 
-Appendix to the [retained-oracle coverage ledger](legacy-test-oracles.md). Native mappings are source-only, not fresh behavioral acceptance.
+Appendix to the [retained-oracle coverage ledger](legacy-test-oracles.md). Retained rows keep the original source-only audit; the removed Editorial/Ingestion rows below name executed native replacements at the `84eea4c3` base plus this change.
 
 
 Source: `12fb751ec71e20233fe4caaee35e4544fe4a0d4b` (BASE and inspected HEAD). All paths below are relative to `services/cantos-server/` unless explicitly prefixed with `docs/`. Read all 10,113 source lines and helpers in the six listed files. This is a source/assertion inventory, not executed acceptance.
 
-Native Cargo commands and test execution: **NOT_RUN**, because `cargo` is absent from cloud PATH. Native candidates below are statically Cargo-discoverable through ordinary integration-test discovery or the library module graph; Cargo metadata/test-list execution was not possible. No PASS is inferred from source.
+The original audit had native execution **NOT_RUN** because Cargo was absent from that environment. Native candidates below are statically Cargo-discoverable through ordinary integration-test discovery or the library module graph; Cargo metadata/test-list execution was not possible. No PASS is inferred from source.
 
 ## Decision and structural evidence
 
@@ -15,17 +15,15 @@ Native Cargo commands and test execution: **NOT_RUN**, because `cargo` is absent
 | `catalog_http_postgres.rs` | 17 | NEEDS_PORT | #333 Studio Catalog/Content successful HTTP reads/writes, receipts, members, reorder, authoritative links and recovery |
 | `catalog_postgres.rs` | 20 | NEEDS_PORT | #333 Catalog Studio adapter, memberships/operations, concurrent mutation, historical links and recovery |
 | `delegation_http_postgres.rs` | 4 | NEEDS_PORT | #333 durable grant/revocation/lineage tables, owner/delegate HTTP authority and write/revoke ordering |
-| `imports_postgres.rs` | 9 | NEEDS_PORT | #333 source/evidence registry and import receipts, authorization, retry, corruption and recovery |
-| `revisions_postgres.rs` | 21 | NEEDS_PORT | #333 Editorial persistence, reviews/evidence, transactions, successful negotiated HTTP and cross-codec replay |
 
-**91 tests total. No whole file is REPLACED or OBSOLETE.** Partial native coverage is identified below; it is not enough to delete its surrounding business oracle. PostgreSQL-only grants/SQLSTATEs/lock probes/EXPLAIN/restart mechanisms need explicit translation or narrowly justified retirement, not removal of retained business assertions.
+**61 retained tests in four files.** The other 30 original tests are retired by the mappings below. Partial coverage of the remaining Catalog/Adaptation/Delegation surface is still insufficient for deletion. PostgreSQL-only grants/SQLSTATEs/lock probes/EXPLAIN/restart mechanisms need explicit translation or narrowly justified retirement, not removal of retained business assertions.
 
 - `Cargo.toml` has ordinary integration discovery and no registrations for archived files. `src/lib.rs` → `contexts/mod.rs` reaches domain/application tests; `src/platform/turso/mod.rs` → `tests.rs` → `business_tests.rs` reaches native registry tests.
-- `src/platform/turso/{editorial,adaptation,catalog}.sql` versions 4/7/5 contain reserved-slice comments. Versions 12–15 append the listener/publication dependency closure, not the Studio context port.
+- `src/platform/turso/{editorial,adaptation,catalog}.sql` versions 4/7/5 retain immutable placeholder comments. Version 16 appends Editorial/Ingestion; Catalog and Adaptation writes remain unported.
 - `src/contexts/catalog/turso.rs` explicitly limits its port to public-listener metadata. Studio writes remain in `postgres.rs` and `postgres/{content,delegation}.rs`.
 - `docs/architecture/server-turso/catalog.md` excludes Studio writes, member/delegation authority and reorder. `docs/architecture/server-turso/cmp-business-api.md:138` retains Catalog Studio writes/delegation/members/reorder, Editorial, Ingestion and Adaptation under #333.
 - `docs/architecture/server-turso-porting.md` explicitly distinguishes archived migration oracles from native acceptance and states archived suites do not run through Cargo discovery.
-- `tests/wire_contract.rs` explicitly describes detached-store refusals before DB access; its database-backed parity remains in `revisions_postgres.rs`.
+- `tests/wire_contract.rs` explicitly describes detached-store refusals before DB access; its successful database-backed parity now runs in `editorial_turso.rs`.
 - At the pinned source, the catalog mapping document's barrier path was stale (corrected by this cleanup): the actual native catalog raw-SQL test is in `tests/server_turso_barriers.rs`, not `src/platform/turso/business_tests.rs`.
 
 ## adaptations_postgres.rs — NEEDS_PORT (#333), 20 tests
@@ -149,70 +147,55 @@ These supplied-fact tests do not prove actual owner issuance, one-time secret ha
 3. **:855 `only_the_owner_issues_and_every_rejected_issuance_commits_nothing`** — Editor denied, stranger hidden for issue/list. Exact self/missing/inactive/invalid actor, >30-day/past expiry and empty/duplicate action field errors. Unknown action/extra grantor bad request, missing Origin forbidden; counts unchanged. Reused grant ID with new operation conflicts.
 4. **:1015 `an_admitted_write_finishes_before_revoke_and_a_waiting_write_sees_the_revocation`** — Two actual deterministic schedules: admitted append commits before queued revoke then later token use denied; revoke commits first, queued append denied, only revocation count changes. Pure admission truth tables do not replace transaction-order evidence.
 
-## imports_postgres.rs — NEEDS_PORT (#333), 9 tests
+## Removed Editorial and Ingestion sources
 
-Common helpers validate manuscript/error schemas, no-store/nosniff; successful original download must be octet-stream with attachment filename `manuscript.bin`. Independent counts cover sources/source evidence/script revisions.
+All names in the first column identify the deleted source, recoverable from Git at
+`84eea4c3:services/cantos-server/legacy-pg-tests/tests/`. They are not Cargo targets.
+The native mappings exercise real Turso =0.8.3 files; Studio business fixtures explicitly use
+synthetic development sessions, and do not imply Identity/browser acceptance.
 
-### Native partial mapping, not replacement
+### imports_postgres.rs — removed (9 original tests)
 
-- `tests/manuscript_import.rs`: `independent_vietnamese_oracle_preserves_source_labels_and_unknowns`, `normalization_is_derived_and_distinct_vietnamese_orthography_stays_distinct`, `invalid_utf8_control_and_empty_inputs_have_exact_byte_diagnostics`, `structured_import_preserves_full_document_and_projects_validated_cue_anchor_order`, `source_and_block_limits_accept_the_boundary_and_reject_the_next_value`; other tests qualify pure DOCX/parser branches.
-- `tests/import_contract.rs`: `independent_request_and_receipt_match_schema_without_changing_source_bytes`, `real_extractor_branches_conform_to_the_published_outcome_shape`, `unknown_fields_fail_in_schema_and_consumer_at_each_object_boundary`, `request_schema_bounds_bytes_and_metadata_without_claiming_byte_string_validation`, `nullable_omission_does_not_create_an_owner_right_or_resolved_speaker`.
-- `src/contexts/ingestion/domain/receipt.rs::tests::{a_legacy_source_must_agree_with_its_checksum,metadata_diagnostics_collect_independent_safe_paths_and_rules}` and `admission_tests::{admission_accepts_the_byte_limit_and_preserves_failed_extraction_inputs,admission_collects_metadata_and_size_errors_in_the_existing_order,admitted_originals_remain_byte_exact}` verify supplied values, not source registry persistence.
-- Session-foundation tests cover token facts only. Source/evidence tables, durable receipts, current owner authorization, unique operations, rollback/restart and corrupted persisted receipt admission remain #333.
+| Original test | Native test or mechanism retirement |
+| --- | --- |
+| `originals_receipts_failed_extraction_and_registry_survive_reopen_exactly` | `ingestion_turso::originals_receipts_failed_extraction_and_registry_survive_reopen_exactly` |
+| `concurrent_duplicates_replay_once_and_changed_operation_is_rejected_atomically` | `test_support::editorial::tests::{competing_imports_preserve_one_receipt_and_reject_changed_operation,different_payloads_racing_one_operation_have_one_winner_and_actor_scoped_receipts}` |
+| `actor_deactivation_while_waiting_for_import_lock_is_rechecked_before_insert` | `test_support::editorial::tests::waiting_saves_and_imports_recheck_admission_after_the_ordered_revocation` |
+| `denied_sessions_and_wrong_owner_never_read_or_write_sources` | `ingestion_turso::denied_sessions_and_wrong_owner_never_read_or_write_sources` |
+| `invalid_admission_and_injected_insert_or_connection_failure_leave_no_partial_registry` | `ingestion_turso::invalid_admission_and_injected_insert_failure_leave_no_partial_registry` now refuses both BEFORE and AFTER INSERT; real rollback plus clean exact retry; PG process-kill syntax retired |
+| `imported_sources_are_immutable_tamper_detected_and_legacy_links_reuse_revision_store` | `ingestion_turso::script_links_share_the_preserved_original_but_never_grant_source_ownership`; `editorial_ingestion_storage` settled guards, reference/text/bytes corruption and `corrupt_failed_extraction_receipt_is_never_retrieved_as_an_accepted_import` |
+| `baseline_replay_preserves_source_records_and_revisions_without_backfill` | `editorial_recovery_turso::repeated_native_migrations_preserve_business_bytes_and_corrupt_history_refuses_unchanged`; `ingestion_turso::legacy_text_only_sources_remain_readable_without_fabricating_an_import_receipt` |
+| `import_restart_fixture_preserves_exact_bytes_receipt_and_same_operation` | `editorial_recovery_turso::killed_server_reopens_exact_revision_and_import_receipts_with_cross_codec_replay` (TXT, failed DOCX and failed UTF-8; exact byte download/receipt/replay after child kill) |
+| `bounded_import_point_reads_keep_authorized_postgresql_index_baseline` | `ingestion_turso::bounded_native_import_point_reads_use_indexes_and_preserve_authorized_receipts`: 1,000 × 1KiB, native point/replay plans, 5 warmups/30 exact authorized HTTP reads, local warm p95 ≤250ms; no PG/production speedup claim |
 
-### Per-test ledger
+### revisions_postgres.rs — removed (21 original tests)
 
-1. **:209 `originals_receipts_failed_extraction_and_registry_survive_reopen_exactly`** — TXT/Markdown/Script IR and malformed DOCX/UTF-8/NUL/empty sources retain exact metadata/SHA/length/original bytes, replay and reopened receipt. HTTP original bytes exact; text projection rules; seven sources/evidence, zero revisions and no granted rights.
-2. **:309 `concurrent_duplicates_replay_once_and_changed_operation_is_rejected_atomically`** — Same concurrent operation creates once; changed bytes/metadata conflicts; competing different payloads under one key have one winner. Same key scoped separately per actor; exact counts and original receipt.
-3. **:379 `actor_deactivation_while_waiting_for_import_lock_is_rechecked_before_insert`** — Deactivate actor after queuing; import unauthenticated; source/evidence/revision counts stay zero.
-4. **:410 `denied_sessions_and_wrong_owner_never_read_or_write_sources`** — Anonymous/foreign metadata/original routes give 401/404 without source text leak; anonymous import denied. Revoked read/import, expired import and deactivated original download denied; existing counts intact.
-5. **:483 `invalid_admission_and_injected_insert_or_connection_failure_leave_no_partial_registry`** — >1MiB, invalid operation, controlled filename, blank reference/rights and oversized permission rejected. Multi-error HTTP exact paths/no private echo; malformed/oversized bodies. Insert fault and connection termination leave no partial registry/evidence; exact retry/replay creates once.
-6. **:572 `imported_sources_are_immutable_tamper_detected_and_legacy_links_reuse_revision_store`** — Linked imported text exposes exact original; linked binary refuses legacy text-source path but original bytes accessible. App/owner UPDATE/DELETE/TRUNCATE/DDL guards. Bypassed bytes/text-null/reference/failed-outcome tampering independently yields CorruptRevision.
-7. **:745 `baseline_replay_preserves_source_records_and_revisions_without_backfill`** — Existing revision/source survive repeated migrations; all prior JSON fields exact; six added import fields stay null, no invented backfill.
-8. **:812 `import_restart_fixture_preserves_exact_bytes_receipt_and_same_operation`** — Real committed import emits database/token/request/receipt for external restart qualification; native source restart fixture absent.
-9. **:831 `bounded_import_point_reads_keep_authorized_postgresql_index_baseline`** — 1,000 immutable 1KiB sources; real point/replay indexes and authorization plan. Five warmups/30 exact authorized HTTP reads, p95≤250ms and attributed evidence; native import read/performance equivalent absent.
+| Original test | Native test or mechanism retirement |
+| --- | --- |
+| `editorial_reviews_are_pinned_replayable_owner_only_and_history_is_bounded` | `editorial_turso::editorial_reviews_are_pinned_replayable_owner_only_and_history_is_bounded` |
+| `source_bytes_operator_credentials_and_review_rollback_cross_real_boundaries` | `operator_turso::actual_source_and_token_commands_preserve_originals_and_revoke_access_after_reopen`; `test_support::editorial::tests::rejecting_a_final_step_rolls_back_the_provisional_script_and_review`; `editorial_ingestion_storage` settled-row/corrupt-load tests |
+| `baseline_replay_preserves_accepted_revision_bytes_without_retired_runtime_tables` | `editorial_recovery_turso::repeated_native_migrations_preserve_business_bytes_and_corrupt_history_refuses_unchanged`; native history is 16 independent versions; PG epoch/count syntax is obsolete |
+| `baseline_checksum_mismatch_and_unrecognized_database_are_refused_without_mutation` | Same native replay/checksum test; shared-store `files_that_are_not_ours_are_refused_without_being_written` and `a_changed_migration_or_a_tampered_history_is_detected` (real files) |
+| `complete_exports_metadata_retries_and_pinned_history_survive_edits` | `editorial_turso::complete_exports_metadata_retries_and_pinned_history_survive_edits` |
+| `backend_denies_anonymous_wrong_owner_reader_revoked_and_expired_sessions` | `editorial_turso::backend_denies_anonymous_wrong_owner_reader_revoked_and_expired_sessions` |
+| `invalid_exports_and_foreign_evidence_leave_no_partial_script` | `editorial_turso::invalid_exports_and_foreign_evidence_leave_no_partial_script` |
+| `concurrent_stale_saves_and_duplicate_delivery_are_atomic` | `test_support::editorial::tests::competing_saves_have_one_winner_and_duplicate_delivery_has_one_revision` (controlled writer order, exact rows) |
+| `killed_connection_before_commit_rolls_back_and_same_key_can_retry` | `editorial_turso::failure_after_a_new_revision_insert_preserves_the_previous_head_and_retries_once`; real AFTER INSERT failure replaces PG backend termination; unknown COMMIT is separately tested in `lost_commit_acknowledgements_reconcile_each_receipt_without_duplicate_effects` |
+| `app_privileges_triggers_and_load_checks_guard_immutable_history` | `editorial_ingestion_storage::{settled_editorial_and_ingestion_rows_reject_update_delete_replace_and_upsert,stored_corruption_is_refused_on_revision_history_review_and_import_reads}`; PG roles/TRUNCATE/DDL grants retired with explicit owner/file trust shift |
+| `restart_fixture_for_process_and_database_recovery` | `editorial_recovery_turso::killed_server_reopens_exact_revision_and_import_receipts_with_cross_codec_replay` (actual child kill, fresh child, three codecs, persisted counts) |
+| `session_exchange_origin_guard_and_malformed_inputs_are_safe` | `editorial_turso::session_exchange_origin_guard_and_malformed_inputs_are_safe` |
+| `msgpack_and_json_carry_the_same_revision_facts_on_every_negotiated_route` | `editorial_turso::msgpack_and_json_carry_the_same_revision_facts_on_every_negotiated_route` |
+| `a_lost_msgpack_response_replays_in_either_representation_without_a_second_revision` | `editorial_turso::a_lost_msgpack_response_replays_in_either_representation_without_a_second_revision` |
+| `refused_representations_write_nothing_and_other_routes_stay_json_only` | `editorial_turso::refused_representations_write_nothing_and_other_routes_stay_json_only` |
+| `msgpack_requests_get_the_same_origin_session_and_permission_decisions` | `editorial_turso::msgpack_requests_get_the_same_origin_session_and_permission_decisions` |
+| `legacy_studio_paths_remain_compatible_and_sessions_stay_scoped_to_their_mount` | `editorial_turso::legacy_studio_paths_remain_compatible_and_sessions_stay_scoped_to_their_mount` |
+| `protobuf_json_and_legacy_msgpack_have_identical_revision_and_validation_facts` | `editorial_turso::protobuf_json_and_legacy_msgpack_have_identical_revision_and_validation_facts` |
+| `lost_json_and_protobuf_responses_replay_both_directions_without_another_write` | `editorial_turso::lost_json_and_protobuf_responses_replay_both_directions_without_another_write` |
+| `protobuf_refusals_preserve_database_state_and_do_not_expand_other_routes` | `editorial_turso::protobuf_refusals_preserve_database_state_and_do_not_expand_other_routes` |
+| `protobuf_authorization_and_legacy_aliases_keep_existing_json_error_taxonomy` | `editorial_turso::protobuf_authorization_and_legacy_aliases_keep_existing_json_error_taxonomy` |
 
-## revisions_postgres.rs — NEEDS_PORT (#333), 21 tests
-
-Common helpers validate ApiError/Revision/History/Review/Source schemas and no-store. Negotiated exchange also asserts nosniff; successful media type and `Vary: accept`; failures always JSON.
-
-### Native partial mapping, not replacement
-
-- `src/contexts/editorial/domain/revisions.rs::tests::{review_replay_precedes_staleness_but_never_rebinds_an_operation,replay_precedes_staleness_and_binds_base_and_complete_export,export_digest_is_the_tagged_sha256_of_the_exact_bytes}` verifies pure revision/review decisions.
-- `src/contexts/editorial/domain/access.rs::tests::{permission_table_is_closed_and_fail_closed,only_known_member_roles_grant_access}` verifies static permissions, not actual membership/session reads.
-- `tests/script_ir.rs::{provenance_and_rights_are_preserved_in_export_but_do_not_forge_eligibility_or_change_content,normalization_cannot_create_an_export_larger_than_the_reader_and_storage_limit}` and `src/contexts/editorial/document.rs::tests::revision_document_keeps_fixture_bytes_digests_and_timestamp_precision` cover exact exported/projection facts, not durable records.
-- `tests/studio_contract.rs::{studio_wire_fixtures_match_schema_and_independent_complete_export,draft_validation_request_schema_refuses_extra_authority_fields_and_invalid_types}` qualify literal schema/digest shapes only.
-- `tests/wire_contract.rs::{origin_and_session_refusals_are_the_same_json_errors_for_all_representations,canonical_export_bytes_and_both_digests_survive_the_msgpack_representation,a_draft_with_vietnamese_and_special_characters_admits_identically_from_either_representation,protobuf_retains_exact_canonical_export_and_digest_facts}` exercises detached pre-DB middleware or literal codecs, explicitly not successful database parity.
-- `tests/surface_routes.rs` gives limited alias/auth/origin routing; native session/registry foundation tests protect their own scopes. `src/platform/operator.rs::tests::operator_inputs_use_existing_opaque_ids_and_bounded_nonempty_utf8` covers only input predicates, not the old actual operator CLI source/review journey.
-
-Editorial schema is still a placeholder. Successful persisted writes/reads, review/evidence state, current authority, crash/restart, immutable history, successful negotiated routes and durable cross-codec replay remain #333. Generic native registry refusal does not prove legacy accepted revision migration equivalence.
-
-### Per-test ledger
-
-1. **:318 `editorial_reviews_are_pinned_replayable_owner_only_and_history_is_bounded`** — Review remains pinned after head moves; original/different-operation same-revision replay exact. Changed operation target/stale revision conflicts; concurrent duplicate exact. Anonymous/stranger history denied, editor review forbidden but bounded metadata-only history allowed; bad query variants, member removal; exact two review/three operation rows.
-2. **:449 `source_bytes_operator_credentials_and_review_rollback_cross_real_boundaries`** — Operator original source bytes/SHA exact; anonymous/stranger/unlinked source hidden; duplicate cannot overwrite. Receipt-insert fault rolls review back, retry succeeds. Source/review/operation update/delete/truncate barriers; source tamper gives HTTP 500. Actual CLI create/token/revoke/invalid lifetime tested without credential diagnostics.
-3. **:622 `baseline_replay_preserves_accepted_revision_bytes_without_retired_runtime_tables`** — Repeated migrations preserve saved revision; PG history count four; retired durable_runs/speech_clips/adaptation_attempts absent. Preserve explicit historical business-byte and retirement mapping rather than infer from fresh native schema.
-4. **:646 `baseline_checksum_mismatch_and_unrecognized_database_are_refused_without_mutation`** — Valid migration preserves revision; checksum tamper refused; schema collision unrecognized and leaves actors/history absent; removing collision permits migration. Native refusal overlaps mechanism, not old editorial bytes/epoch history.
-5. **:698 `complete_exports_metadata_retries_and_pinned_history_survive_edits`** — Independent canonical fixture bytes/digests. Rights-only edit changes export not content; exact original retry/pinned/head. Changed rights/base same operation conflicts; stale save exact; two rows/head and eleven evidence links.
-6. **:765 `backend_denies_anonymous_wrong_owner_reader_revoked_and_expired_sessions`** — Anonymous read/write denied before malformed body matters; foreign head/pinned/write hidden/no text leakage. Reader exact read but forbidden write; editor writes as Bob; removal/expiry/owner revocation deny; two revisions remain.
-7. **:859 `invalid_exports_and_foreign_evidence_leave_no_partial_script`** — Invalid IR, NFC expansion beyond 2MiB exact 422 DocumentTooLarge rather than 503, foreign rights evidence refused; no script row. Nonzero first base stale=0 and still no partial creation.
-8. **:945 `concurrent_stale_saves_and_duplicate_delivery_are_atomic`** — Actual barrier-queued different saves: one success/one stale=2; identical-operation concurrent delivery returns exact same receipt once; head/history count progresses two then three.
-9. **:998 `killed_connection_before_commit_rolls_back_and_same_key_can_retry`** — Terminate after revision insert: unavailable; head/count/loaded first revision unchanged. Same intent retries/replays once, yielding second revision only.
-10. **:1023 `app_privileges_triggers_and_load_checks_guard_immutable_history`** — App cannot update/delete/truncate history, actor/member authority or DDL; owner cannot update/delete settled revision. Bypassed export-digest corruption refused by Store/head/history/review; no review side effect.
-11. **:1118 `restart_fixture_for_process_and_database_recovery`** — Successful Protobuf HTTP save; exact one head/history row; emits durable external-restart fixture. Literal codec tests are not this path.
-12. **:1140 `session_exchange_origin_guard_and_malformed_inputs_are_safe`** — Successful token-cookie exchange protections/path/actor; foreign-Origin save denied, bad revision path/unknown body/multi-fault IR rejected; counts unchanged. Logout revokes backend token.
-13. **:1232 `msgpack_and_json_carry_the_same_revision_facts_on_every_negotiated_route`** — Successful head/pinned JSON↔MessagePack equality; MessagePack save and later JSON head exact; validation success and semantic failure parity; two accepted rows.
-14. **:1292 `a_lost_msgpack_response_replays_in_either_representation_without_a_second_revision`** — Committed MessagePack result replayed via JSON and MessagePack; exact receipt/no duplicate. Changed rights same-operation and stale base exact conflicts; counts unchanged.
-15. **:1345 `refused_representations_write_nothing_and_other_routes_stay_json_only`** — Exact 406/Vary and 415 issues; truncated MessagePack/forged accepted_by rejected unchanged; same intent subsequently commits once. Reviews reject MessagePack/no row; history JSON/no Vary.
-16. **:1429 `msgpack_requests_get_the_same_origin_session_and_permission_decisions`** — Anonymous/foreign GET+POST exact JSON taxonomy/no leak; foreign Origin denied. Reader successful MessagePack load, forbidden write; revoked read denied; row count fixed.
-17. **:1483 `legacy_studio_paths_remain_compatible_and_sessions_stay_scoped_to_their_mount`** — Successful deprecated login old cookie path/deprecation; legacy write/current read share exact single revision; Studio credential grants no Theatre/Admin script/session endpoints.
-18. **:1555 `protobuf_json_and_legacy_msgpack_have_identical_revision_and_validation_facts`** — Full 3×3 request/response encoding matrix shares one original save receipt/canonical export. Head/pinned GET and validation success exact; Protobuf/JSON semantic error equal; only one revision.
-19. **:1656 `lost_json_and_protobuf_responses_replay_both_directions_without_another_write`** — Drop first successful JSON/Protobuf response; opposite encoding reconciles against authoritative stored revision. Exact head/count; changed-rights operation reuse and stale errors leave state unchanged.
-20. **:1729 `protobuf_refusals_preserve_database_state_and_do_not_expand_other_routes`** — Empty/truncated/duplicate/unknown/invalid-tag/invalid-UTF8/hostile-length/>8MiB bodies rejected with exact error/head/count. Five invalid Content-Type/four Accept forms refused before effects. x-protobuf alias commits; reviews reject Protobuf/no rows; history stays JSON/no Vary.
-21. **:1859 `protobuf_authorization_and_legacy_aliases_keep_existing_json_error_taxonomy`** — Anonymous/foreign head+save JSON errors; bad Origin precedes representation errors. Reader Protobuf read allowed/write denied; revoked read denied. Four successful legacy alias routes retain Protobuf, deprecation/successor/Vary/no-store/nosniff; exactly two revisions.
-
-## Cleanup implication
-
-Retain all six files and their #333 prerequisites. Pure-core, pre-DB transport, literal codec and raw-schema overlaps are partial, not whole-test replacements. Do not remove fixtures, schemas, restart partners or catalog_http support modules solely because archived tests are not compiled.
-
-Resume by implementing the owning business tables/adapter plus late authority and receipt transaction, porting each relevant test to ordinary `tests/` with `ServerFixture`, then establishing focused real-file and successful HTTP evidence before deleting the legacy copy. No schema/checksum history, data/WAL/backup/media/account/runtime asset was changed by this inventory.
+The two transaction fixes are within the existing owner: `record_source` pre-checks immutable
+existing evidence and binds the transaction clock for `recorded_at`; import replay states the
+partial unique index predicate explicitly for the pinned planner. No registered DDL, schema
+version, Script IR bytes, digests or wire error meaning changes. Full-file recovery is native
+reopen, not PostgreSQL conversion; #336 still owns real legacy data/prefix recovery.

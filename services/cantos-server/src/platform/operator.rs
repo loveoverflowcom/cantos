@@ -1,6 +1,5 @@
 //! Trusted local operator tools. They open `server.db` directly as its one owner, so they run
 //! only while the Server is stopped; the HTTP runtime never receives these privileges.
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::platform::{
@@ -142,13 +141,9 @@ pub async fn record_source(
     {
         return Err(StoreError::InvalidRequest);
     }
-    let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
-    let mut client = store.connection().await?;
-    let tx = client.transaction().await?;
-    tx.execute("INSERT INTO script_evidence(owner_id,kind,id,description) VALUES(?1,'source',?2,?3) ON CONFLICT DO NOTHING", &[&owner,&id,&reference]).await?;
-    tx.execute("INSERT INTO source_records(owner_id,id,reference,original_text,sha256) VALUES(?1,?2,?3,?4,?5)", &[&owner,&id,&reference,&text,&hash]).await?;
-    tx.commit().await?;
-    Ok(())
+    store
+        .record_source_for_operator(owner, id, reference, text)
+        .await
 }
 
 #[cfg(test)]

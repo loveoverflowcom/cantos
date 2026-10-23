@@ -1,10 +1,10 @@
-//! #335 journeys: the production router and a disposable PostgreSQL schema, talking to the **real**
+//! #335 journeys: the production router and a real file-backed server.db, talking to the **real**
 //! `cantos-identity` executable over its private Unix socket with a real file-backed Turso
 //! database, real Argon2id and a real SMTP session into a run-owned sink.
 //!
 //! Nothing here seeds a session or mocks a verifier: every credential is earned by signing up
 //! through the mailed link and logging in with the chosen password. Mail never leaves the
-//! machine. Run with `cargo xtask verify postgres` (needs PostgreSQL on PATH).
+//! machine. Run through the ordinary Rust gate; the existing Identity process fixture owns its build.
 #[path = "support/identity_process.rs"]
 mod process;
 #[path = "support/identity_world.rs"]
@@ -20,7 +20,7 @@ use cantos_store_turso::{clock::SystemClock, registry::Intent};
 use process::{IdentityEnv, Instance, RunDir, SmtpSink};
 use serde_json::json;
 use std::sync::Arc;
-use world::{App, Database, Reply};
+use world::{App, Database, FixtureQueries, Reply};
 
 const ORIGIN: &str = "https://theatre.example";
 const STUDIO_ORIGIN: &str = "https://studio.example";
@@ -142,24 +142,25 @@ impl World {
             .db
             .admin
             .query_one(
-                "SELECT subject FROM identity_sessions WHERE id=$1::text::uuid",
+                "SELECT subject FROM identity_sessions WHERE id=?1",
                 &[&email_owner_session],
             )
             .await
             .unwrap();
-        Subject::from_hex(&row.get::<_, String>(0)).unwrap()
+        Subject::from_hex(&row.try_get::<_, String>(0).unwrap()).unwrap()
     }
 
     async fn session_revoked(&self, session: &str) -> Option<String> {
         self.db
             .admin
             .query_one(
-                "SELECT revoked_reason FROM identity_sessions WHERE id=$1::text::uuid",
+                "SELECT revoked_reason FROM identity_sessions WHERE id=?1",
                 &[&session],
             )
             .await
             .unwrap()
-            .get(0)
+            .try_get(0)
+            .unwrap()
     }
 }
 
@@ -181,7 +182,6 @@ fn bearer(token: &str) -> String {
 // ---- Web cookie journey --------------------------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn signup_through_the_mailed_link_then_password_login_gives_an_httponly_cookie_session() {
     let w = World::start(ORIGIN).await;
 
@@ -235,7 +235,8 @@ async fn signup_through_the_mailed_link_then_password_login_gives_an_httponly_co
             .query_one("SELECT access_hash FROM identity_session_tokens", &[])
             .await
             .unwrap()
-            .get(0);
+            .try_get(0)
+            .unwrap();
     assert_eq!(stored.len(), 32);
     assert!(!stored
         .windows(8)
@@ -261,7 +262,6 @@ async fn signup_through_the_mailed_link_then_password_login_gives_an_httponly_co
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn wrong_credentials_and_unknown_accounts_get_one_generic_denial_without_a_session() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -277,12 +277,12 @@ async fn wrong_credentials_and_unknown_accounts_get_one_generic_denial_without_a
             .query_one("SELECT count(*) FROM identity_sessions", &[])
             .await
             .unwrap()
-            .get(0);
+            .try_get(0)
+            .unwrap();
     assert_eq!(count, 0);
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn signup_completion_is_replay_safe_and_never_issues_a_session() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -320,12 +320,12 @@ async fn signup_completion_is_replay_safe_and_never_issues_a_session() {
             )
             .await
             .unwrap()
-            .get(0);
+            .try_get(0)
+            .unwrap();
     assert_eq!(bound, 1);
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn web_and_native_credentials_of_one_account_resolve_to_the_same_actor() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -344,7 +344,6 @@ async fn web_and_native_credentials_of_one_account_resolve_to_the_same_actor() {
 // ---- Native Bearer journey -----------------------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn native_bearer_session_renews_rotates_and_a_spent_refresh_revokes_the_family() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -441,7 +440,6 @@ async fn native_bearer_session_renews_rotates_and_a_spent_refresh_revokes_the_fa
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_native_bearer_write_needs_no_origin_and_is_admitted_as_the_account() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -481,7 +479,6 @@ async fn a_native_bearer_write_needs_no_origin_and_is_admitted_as_the_account() 
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn native_logout_is_durable_and_a_wrong_kind_of_credential_is_refused_everywhere() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -567,7 +564,6 @@ async fn native_logout_is_durable_and_a_wrong_kind_of_credential_is_refused_ever
 // ---- CSRF, Origin and surface isolation ---------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn cookie_mutations_need_the_exact_origin_and_browser_signals_never_reach_native_routes() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -663,7 +659,6 @@ async fn cookie_mutations_need_the_exact_origin_and_browser_signals_never_reach_
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_cookie_of_one_surface_is_never_authority_on_another_or_with_provider_cookies() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -730,7 +725,6 @@ async fn a_cookie_of_one_surface_is_never_authority_on_another_or_with_provider_
 // ---- account switch and late responses ----------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_late_request_from_the_previous_account_is_fenced_and_a_new_login_retires_the_old_cookie()
 {
     let w = World::start(ORIGIN).await;
@@ -810,7 +804,6 @@ async fn a_late_request_from_the_previous_account_is_fenced_and_a_new_login_reti
 // ---- Studio roster --------------------------------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn studio_login_needs_the_server_roster_and_a_theatre_session_never_enters_studio() {
     let mut w = World::start(STUDIO_ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -837,7 +830,8 @@ async fn studio_login_needs_the_server_roster_and_a_theatre_session_never_enters
             )
             .await
             .unwrap()
-            .get(0);
+            .try_get(0)
+            .unwrap();
     assert_eq!(studio_sessions, 0);
     // A wrong password for a roster member is the ordinary generic denial.
     assert_eq!(
@@ -900,7 +894,6 @@ async fn studio_login_needs_the_server_roster_and_a_theatre_session_never_enters
 // ---- expiry, renewal, outage and security changes --------------------------------------------------
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn web_renewal_extends_idle_but_never_the_absolute_deadline_and_expired_secrets_die() {
     let w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -911,11 +904,34 @@ async fn web_renewal_extends_idle_but_never_the_absolute_deadline_and_expired_se
     let first_idle = login.json["expires_at"].as_u64().unwrap();
     assert!(first_idle <= absolute);
     // Age the idle deadline by hand: the renewal moves it forward again, bounded by absolute.
-    w.db
-        .admin
-        .batch_execute("UPDATE identity_session_tokens SET expires_at=expires_at-300; ALTER TABLE identity_sessions DISABLE TRIGGER identity_session_guard; UPDATE identity_sessions SET idle_expires=idle_expires-300; ALTER TABLE identity_sessions ENABLE TRIGGER identity_session_guard;")
+    let guards = w.db.admin.rows(
+        "SELECT name,sql FROM sqlite_schema WHERE type='trigger' AND name IN ('identity_sessions_binding_immutable','identity_session_tokens_immutable') ORDER BY name", &[]
+    ).await.unwrap();
+    for row in &guards {
+        let name: String = row.try_get(0).unwrap();
+        w.db.admin
+            .exec(&format!("DROP TRIGGER {name}"), &[])
+            .await
+            .unwrap();
+    }
+    w.db.admin
+        .exec(
+            "UPDATE identity_session_tokens SET expires_at=expires_at-300",
+            &[],
+        )
         .await
         .unwrap();
+    w.db.admin
+        .exec(
+            "UPDATE identity_sessions SET idle_expires=idle_expires-300",
+            &[],
+        )
+        .await
+        .unwrap();
+    for row in &guards {
+        let ddl: String = row.try_get(1).unwrap();
+        w.db.admin.exec(&ddl, &[]).await.unwrap();
+    }
     let renewed = w
         .app
         .post(
@@ -934,10 +950,21 @@ async fn web_renewal_extends_idle_but_never_the_absolute_deadline_and_expired_se
     // Renewal keeps the same cookie value (no rotation to race between tabs), refreshed Max-Age.
     assert_eq!(renewed.cookie(), (name.clone(), secret.clone()));
     // An expired secret is dead even though nothing revoked it.
+    let token_guard: String = guards
+        .iter()
+        .find(|row| row.try_get::<_, String>(0).unwrap() == "identity_session_tokens_immutable")
+        .unwrap()
+        .try_get(1)
+        .unwrap();
     w.db.admin
-        .batch_execute("UPDATE identity_session_tokens SET expires_at=1")
+        .exec("DROP TRIGGER identity_session_tokens_immutable", &[])
         .await
         .unwrap();
+    w.db.admin
+        .exec("UPDATE identity_session_tokens SET expires_at=1", &[])
+        .await
+        .unwrap();
+    w.db.admin.exec(&token_guard, &[]).await.unwrap();
     assert_eq!(
         library(&w, &[("cookie", &cookie)]).await.status,
         StatusCode::UNAUTHORIZED
@@ -954,7 +981,6 @@ async fn web_renewal_extends_idle_but_never_the_absolute_deadline_and_expired_se
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn identity_outage_fails_protected_requests_closed_but_logout_stays_local_and_recovery_resumes(
 ) {
     let mut w = World::start(ORIGIN).await;
@@ -1016,7 +1042,6 @@ async fn identity_outage_fails_protected_requests_closed_but_logout_stays_local_
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_subject_disabled_in_identity_loses_every_session_and_is_never_resurrected() {
     let mut w = World::start(ORIGIN).await;
     w.signup(OWNER, PASSWORD).await;
@@ -1070,7 +1095,6 @@ async fn a_subject_disabled_in_identity_loses_every_session_and_is_never_resurre
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn an_http_development_origin_uses_plain_cookie_names_without_secure() {
     let w = World::start("http://127.0.0.1:8080").await;
     // Signup budgets are per run; use the dev origin for the whole journey.

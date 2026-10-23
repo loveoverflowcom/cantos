@@ -64,12 +64,29 @@ pub(super) async fn import_by_operation(
     actor: &str,
     operation: &str,
 ) -> Result<Option<(ImportResponse, Vec<u8>)>, StoreError> {
-    let query = format!("SELECT {IMPORT_COLUMNS} FROM source_records WHERE imported_by=?1 AND import_operation_id=?2");
+    // The pinned planner needs the partial index's predicate explicitly. Equality to the
+    // non-null operation already implies it; no accepted row or receipt meaning changes.
+    let query = format!("SELECT {IMPORT_COLUMNS} FROM source_records WHERE imported_by=?1 AND import_operation_id=?2 AND import_operation_id IS NOT NULL");
     tx.query_opt(&query, &[&actor, &operation])
         .await?
         .as_ref()
         .map(decode_import)
         .transpose()
+}
+
+pub(super) async fn insert_text_source(
+    tx: &Tx<'_>,
+    owner: &str,
+    id: &str,
+    reference: &str,
+    text: &str,
+    sha256: &str,
+) -> Result<(), StoreError> {
+    tx.execute(
+        "INSERT INTO source_records(owner_id,id,reference,original_text,sha256,recorded_at) VALUES(?1,?2,?3,?4,?5,?6)",
+        &[&owner, &id, &reference, &text, &sha256, &tx.now_micros()],
+    ).await?;
+    Ok(())
 }
 
 pub(super) struct NewImport<'a> {

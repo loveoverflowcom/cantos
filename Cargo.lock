@@ -614,6 +614,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "cantos-contracts",
+ "cantos-identity",
  "cantos-identity-rpc",
  "cantos-server",
  "cantos-store-turso",

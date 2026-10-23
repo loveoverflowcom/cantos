@@ -6,13 +6,13 @@
 //! Nothing seeds a session or fabricates an `AuthenticationFact`: every credential is earned by
 //! signing up through the mailed link and logging in with the chosen password. This is not a
 //! Server HTTP or E2E journey: no router, cookie transport or production Server binary runs, and
-//! serving still composes PostgreSQL.
+//! the full HTTP matrix lives in `identity_password_turso.rs`.
 //!
 //! The Identity executable is never built here; supply the prebuilt artifact:
 //!
 //! ```sh
 //! CANTOS_TEST_IDENTITY_BINARY=/absolute/path/to/cantos-identity \
-//!   cargo test -p cantos-server --features turso-candidate --test identity_auth_candidate
+//!   cargo test -p cantos-server --test identity_auth_candidate
 //! ```
 #[path = "support/identity_process.rs"]
 mod process;

@@ -171,7 +171,7 @@ class PostgresRunnerTests(unittest.TestCase):
             self.assertEqual([call.args[0] for call in probe.call_args_list],
                              ["initdb", "pg_ctl", "psql", "cargo"])
             self.assertEqual([command[0] for command, _, _ in commands],
-                             ["initdb", "pg_ctl", "psql"] + ["cargo"] * 17 + ["pg_ctl"])
+                             ["initdb", "pg_ctl", "psql"] + ["cargo"] * 12 + ["pg_ctl"])
             cluster = Path(commands[0][0][2]).parent
             self.assertEqual(cluster.parent, evidence / "schema")
             self.assertEqual(commands[-1][0],
@@ -181,22 +181,20 @@ class PostgresRunnerTests(unittest.TestCase):
                     "PATH": "/installed",
                     "CANTOS_TEST_CLUSTER_URL": "postgresql://cantos_test_admin@127.0.0.1:12345/postgres"})
             targets = ["schema_postgres", "bearer_postgres", "production_grants_postgres", "adaptations_postgres",
-                       "imports_postgres", "revisions_postgres", "catalog_http_postgres",
-                       "catalog_postgres", "delegation_http_postgres", "identity_postgres", "theatre_identity_postgres",
-                       "theatre_native_postgres", "studio_oidc_postgres", "identity_password_postgres",
-                       "identity_password_facts_postgres"]
+                       "catalog_http_postgres",
+                       "catalog_postgres", "delegation_http_postgres", "theatre_identity_postgres",
+                       "theatre_native_postgres", "studio_oidc_postgres"]
             logs = ["schema-postgres-tests", "bearer-postgres-tests", "production-grants-postgres-tests",
-                    "adaptation-postgres-tests", "import-postgres-tests", "revision-postgres-tests",
-                    "catalog-http-postgres-tests", "catalog-postgres-tests", "delegation-http-postgres-tests", "identity-postgres-tests",
+                    "adaptation-postgres-tests",
+                    "catalog-http-postgres-tests", "catalog-postgres-tests", "delegation-http-postgres-tests",
                     "theatre-identity-postgres-tests", "theatre-native-postgres-tests",
-                    "studio-oidc-postgres-tests", "identity-password-postgres-tests",
-                    "identity-password-facts-postgres-tests", "theatre-firebase-postgres-tests",
+                    "studio-oidc-postgres-tests", "theatre-firebase-postgres-tests",
                     "theatre-registration-postgres-tests"]
             sql_commands = commands[3:-1]
-            self.assertEqual([command[5] for command, _, _ in sql_commands[:15]], targets)
+            self.assertEqual([command[5] for command, _, _ in sql_commands[:10]], targets)
             selectors = ["platform::theatre_registration::firebase_enrollment::postgres::tests",
                          "platform::theatre_registration::postgres::tests"]
-            self.assertEqual([command[7] for command, _, _ in sql_commands[15:]], selectors)
+            self.assertEqual([command[7] for command, _, _ in sql_commands[10:]], selectors)
             for (command, _, path), name in zip(sql_commands, logs):
                 self.assertIn("--offline", command)
                 self.assertIn("--ignored", command)
@@ -204,15 +202,13 @@ class PostgresRunnerTests(unittest.TestCase):
                 self.assertEqual(path, evidence / "schema" / f"{name}.log")
             skipped = {
                 "adaptations_postgres": ["studio_editor_import_proposal_edit_accept_review_save_and_reopen_preserve_history"],
-                "imports_postgres": ["import_restart_fixture_preserves_exact_bytes_receipt_and_same_operation"],
-                "revisions_postgres": ["restart_fixture_for_process_and_database_recovery"],
                 "catalog_http_postgres": ["catalog_http_recovery_after_server_restart",
                                           "committed_http_catalog_emits_exact_postgres_restart_oracle",
                                           "audio_lifecycle_http::"],
                 "catalog_postgres": ["catalog_recovery_after_server_restart",
                                      "committed_catalog_fixture_survives_new_store_and_emits_server_restart_oracle"],
             }
-            for command, _, _ in sql_commands[:15]:
+            for command, _, _ in sql_commands[:10]:
                 actual_skips = [command[index + 1] for index, arg in enumerate(command) if arg == "--skip"]
                 self.assertEqual(actual_skips, skipped.get(command[5], []))
             record = json.loads((evidence / "schema" / "run.json").read_text())
@@ -224,7 +220,7 @@ class PostgresRunnerTests(unittest.TestCase):
             self.assertEqual(record["full_suite"], "NOT_RUN")
             self.assertFalse(record["retained"])
             self.assertFalse((evidence / "run.json").exists())
-            self.assertEqual(reap.call_count, 16)
+            self.assertEqual(reap.call_count, 11)
             for call in reap.call_args_list:
                 self.assertEqual(call.args[1], "postgresql://cantos_test_admin@127.0.0.1:12345/postgres")
                 self.assertEqual(call.args[2], set())
@@ -286,11 +282,10 @@ class PostgresRunnerTests(unittest.TestCase):
         invalid = ("test result: ok. 0 passed; 0 failed; 0 ignored;\n", "compiled only\n",
                    "test result: ok. 2 passed; 1 failed;\n")
         targets = ["schema-postgres-tests", "bearer-postgres-tests", "production-grants-postgres-tests",
-                   "adaptation-postgres-tests", "import-postgres-tests", "revision-postgres-tests",
-                   "catalog-http-postgres-tests", "catalog-postgres-tests", "delegation-http-postgres-tests", "identity-postgres-tests",
+                   "adaptation-postgres-tests",
+                   "catalog-http-postgres-tests", "catalog-postgres-tests", "delegation-http-postgres-tests",
                    "theatre-identity-postgres-tests", "theatre-native-postgres-tests",
-                   "studio-oidc-postgres-tests", "identity-password-postgres-tests",
-                   "identity-password-facts-postgres-tests", "theatre-firebase-postgres-tests",
+                   "studio-oidc-postgres-tests", "theatre-firebase-postgres-tests",
                    "theatre-registration-postgres-tests"]
         for index, target in enumerate(targets):
             for output in invalid:

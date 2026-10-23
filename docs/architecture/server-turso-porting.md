@@ -22,9 +22,9 @@ statement facade. Successful compilation or an empty migration does not make tho
 - Source retirement is partial: provider auth and PG drivers are removed from the Server build,
   while PostgreSQL schema, business queries, legacy test oracles, scripts and operating assets
   remain. Retain them as migration inputs until the replacement is reviewed.
-- Buildability is measured independently by Rust lint/tests. File-backed foundation/session
-  tests do not replace the suites moved into `legacy-pg-tests/`; none of those archived tests
-  run through Cargo discovery.
+- Buildability is measured independently by Rust lint/tests. Native Revision/Import, Actor and real/scripted Identity HTTP tests have replaced six old
+  paths / 68 original tests. The other 17 files / 183 tests in `legacy-pg-tests/` remain
+  unmatched migration oracles and do not run through Cargo discovery.
 - `cargo xtask run` plans explicit migrations, Identity startup and one Server. Its orchestration
   tests use recording runners; they do not establish a two-process authentication journey.
   `cargo xtask seed theatre` refuses before effects while the `catalog_http` seeder is absent.

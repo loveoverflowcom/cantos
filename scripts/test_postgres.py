@@ -186,10 +186,6 @@ def schema_sql_targets(include_current=False):
         targets.extend([
             ("adaptations_postgres", "adaptation-postgres-tests",
              ("studio_editor_import_proposal_edit_accept_review_save_and_reopen_preserve_history",)),
-            ("imports_postgres", "import-postgres-tests",
-             ("import_restart_fixture_preserves_exact_bytes_receipt_and_same_operation",)),
-            ("revisions_postgres", "revision-postgres-tests",
-             ("restart_fixture_for_process_and_database_recovery",)),
             ("catalog_http_postgres", "catalog-http-postgres-tests",
              ("catalog_http_recovery_after_server_restart",
               "committed_http_catalog_emits_exact_postgres_restart_oracle",
@@ -198,14 +194,9 @@ def schema_sql_targets(include_current=False):
              ("catalog_recovery_after_server_restart",
               "committed_catalog_fixture_survives_new_store_and_emits_server_restart_oracle")),
             ("delegation_http_postgres", "delegation-http-postgres-tests", ()),
-            ("identity_postgres", "identity-postgres-tests", ()),
             ("theatre_identity_postgres", "theatre-identity-postgres-tests", ()),
             ("theatre_native_postgres", "theatre-native-postgres-tests", ()),
             ("studio_oidc_postgres", "studio-oidc-postgres-tests", ()),
-            # #335: the real cantos-identity executable and a scripted Identity; both build/run
-            # only inside this runner's owned cluster and run-owned temporary directories.
-            ("identity_password_postgres", "identity-password-postgres-tests", ()),
-            ("identity_password_facts_postgres", "identity-password-facts-postgres-tests", ()),
         ])
     return targets
 
@@ -956,16 +947,6 @@ def _legacy_main():
         registration_postgres_tests(env, EVIDENCE)
         run(["cargo", "test", "-p", "cantos-server", "--test", "theatre_native_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-native-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-server", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
-        reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-server", "--test", "identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "identity-postgres-tests.log")
-        reap_completed_databases(env, url, retained_restart_databases())
-        for suite, log in (("identity_password_postgres", "identity-password-postgres-tests"),
-                           ("identity_password_facts_postgres", "identity-password-facts-postgres-tests")):
-            run(["cargo", "test", "-p", "cantos-server", "--test", suite, "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / f"{log}.log")
-            reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-server", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
-        reap_completed_databases(env, url, retained_restart_databases())
-        run(["cargo", "test", "-p", "cantos-server", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-server", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())

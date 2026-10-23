@@ -1,5 +1,4 @@
-//! Candidate Turso adapter of the actor registry over the shared `server.db` owner (#333.4).
-//! Not composed: the serving path still uses `PostgresIdentityRegistry`.
+//! Actor registry adapter over the shared, composed `server.db` owner (#333.4).
 //!
 //! Every mutation reads its facts and writes inside one `BEGIN IMMEDIATE` transaction on the
 //! owner's serialized writer, which replaces PostgreSQL's per-key advisory lock and actor share

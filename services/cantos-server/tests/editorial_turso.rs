@@ -1465,3 +1465,136 @@ async fn protobuf_authorization_and_legacy_aliases_keep_existing_json_error_taxo
     }
     assert_eq!(h.count(&script).await, (2, 2));
 }
+
+#[tokio::test]
+async fn session_exchange_origin_guard_and_malformed_inputs_are_safe() {
+    let h = Harness::new().await;
+    let script = Uuid::new_v4().to_string();
+    h.admin
+        .store()
+        .save(ALICE, &script, request(0))
+        .await
+        .unwrap();
+    let login = Request::builder()
+        .method("POST")
+        .uri("/api/v1/studio/session")
+        .header("origin", ORIGIN)
+        .header("content-type", "application/json")
+        .body(Body::from(json!({"token":ALICE}).to_string()))
+        .unwrap();
+    let response = h.app().oneshot(login).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let cookie = response.headers()["set-cookie"].to_str().unwrap();
+    assert!(
+        cookie.contains("HttpOnly")
+            && cookie.contains("SameSite=Strict")
+            && cookie.contains("Path=/api/v1/studio")
+    );
+    let identity: cantos_contracts::SessionResponse =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(identity.actor_id, "alice");
+    let request = Request::builder()
+        .method("POST")
+        .uri(format!("/api/v1/studio/scripts/{script}/revisions"))
+        .header("origin", "https://attacker.invalid")
+        .header("cookie", format!("cantos_session={ALICE}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::to_string(&self::request(1)).unwrap(),
+        ))
+        .unwrap();
+    assert_eq!(
+        h.app().oneshot(request).await.unwrap().status(),
+        StatusCode::FORBIDDEN
+    );
+    let (status, error) = h
+        .request(
+            "GET",
+            &format!("/scripts/{script}/revisions/not-a-number"),
+            Some(ALICE),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(error["code"], "invalid_request");
+    let (status, error) = h
+        .request(
+            "POST",
+            &format!("/scripts/{script}/revisions"),
+            Some(ALICE),
+            Some(json!({"unknown":"field"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(error["code"], "invalid_request");
+    let mut invalid = self::request(1);
+    invalid.script_json = include_str!(
+        "../../../packages/contracts/fixtures/script-ir/0.1.0/reject/multiple-faults.json"
+    )
+    .into();
+    let (status, error) = h
+        .request(
+            "POST",
+            &format!("/scripts/{script}/revisions"),
+            Some(ALICE),
+            Some(serde_json::to_value(invalid).unwrap()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(error["code"], "invalid_script");
+    assert!(error["issues"].as_array().unwrap().len() > 1);
+    assert_eq!(h.count(&script).await, (1, 1));
+    let logout = Request::builder()
+        .method("DELETE")
+        .uri("/api/v1/studio/session")
+        .header("origin", ORIGIN)
+        .header("cookie", format!("cantos_session={ALICE}"))
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(
+        h.app().oneshot(logout).await.unwrap().status(),
+        StatusCode::NO_CONTENT
+    );
+    assert!(matches!(
+        h.admin.store().authenticate(ALICE).await,
+        Err(StoreError::Unauthenticated)
+    ));
+}
+
+#[tokio::test]
+async fn failure_after_a_new_revision_insert_preserves_the_previous_head_and_retries_once() {
+    let h = Harness::new().await;
+    let script = Uuid::new_v4().to_string();
+    let first = h
+        .admin
+        .store()
+        .save(ALICE, &script, request(0))
+        .await
+        .unwrap();
+    h.admin.exec("CREATE TRIGGER refuse_second_revision AFTER INSERT ON script_revisions WHEN NEW.revision=2 BEGIN SELECT RAISE(ABORT,'cantos:test.after_revision'); END", &[]).await.unwrap();
+    let intent = request(1);
+    assert!(matches!(
+        h.admin.store().save(ALICE, &script, intent.clone()).await,
+        Err(StoreError::Unavailable)
+    ));
+    assert_eq!(h.count(&script).await, (1, 1));
+    assert_eq!(
+        h.admin.store().load(ALICE, &script, None).await.unwrap(),
+        first
+    );
+    h.admin
+        .exec("DROP TRIGGER refuse_second_revision", &[])
+        .await
+        .unwrap();
+    let second = h
+        .admin
+        .store()
+        .save(ALICE, &script, intent.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        h.admin.store().save(ALICE, &script, intent).await.unwrap(),
+        second
+    );
+    assert_eq!(h.count(&script).await, (2, 2));
+}

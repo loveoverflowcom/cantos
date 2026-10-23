@@ -388,4 +388,53 @@ mod tests {
         );
         tx.commit().await.unwrap();
     }
+    #[tokio::test]
+    async fn different_payloads_racing_one_operation_have_one_winner_and_actor_scoped_receipts() {
+        let fixture = fixture().await;
+        let first = import();
+        let mut second = first.clone();
+        second.original_bytes = "Một bản thảo khác.\r\n".as_bytes().to_vec();
+        let mut conn = fixture.store().connection().await.unwrap();
+        let blocker = conn.transaction().await.unwrap();
+        let mut one = Box::pin(fixture.store().import_manuscript(ALICE, first.clone()));
+        let mut two = Box::pin(fixture.store().import_manuscript(ALICE, second.clone()));
+        assert!(futures_util::poll!(&mut one).is_pending());
+        assert!(futures_util::poll!(&mut two).is_pending());
+        blocker.commit().await.unwrap();
+        let (one, two) = tokio::join!(one, two);
+        let (winner, input) = match (one, two) {
+            (Ok(receipt), Err(StoreError::OperationReused)) => (receipt, first),
+            (Err(StoreError::OperationReused), Ok(receipt)) => (receipt, second),
+            other => panic!("one immutable import and one changed-operation refusal: {other:?}"),
+        };
+        assert_eq!(
+            fixture
+                .store()
+                .import_manuscript(ALICE, input.clone())
+                .await
+                .unwrap(),
+            winner
+        );
+        let mut changed = input.clone();
+        changed.metadata.reference = "different metadata".into();
+        assert!(matches!(
+            fixture.store().import_manuscript(ALICE, changed).await,
+            Err(StoreError::OperationReused)
+        ));
+        let other_actor = fixture.store().import_manuscript(BOB, input).await.unwrap();
+        assert_eq!(other_actor.imported_by, "bob");
+        assert_ne!(other_actor.id, winner.id);
+        assert_eq!(
+            other_actor.metadata.operation_id,
+            winner.metadata.operation_id
+        );
+        for (table, count) in [("source_records", 2), ("script_revisions", 0)] {
+            assert_eq!(
+                fixture
+                    .count(&format!("SELECT count(*) FROM {table}"), &[])
+                    .await,
+                count
+            );
+        }
+    }
 }

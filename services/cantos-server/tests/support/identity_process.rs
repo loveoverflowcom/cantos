@@ -4,7 +4,7 @@
 //!
 //! [`IDENTITY_BINARY`] names a prebuilt executable by absolute path; it is then the exact file
 //! every process here runs, which is what the native isolation guard binds by digest. Without it
-//! the PostgreSQL journeys build the executable once. An isolated run
+//! the ordinary real-Identity HTTP journeys build the executable once. An isolated run
 //! ([`NATIVE_TEST_DIRECTORY`]) never builds anything, and the candidate journey requires the
 //! artifact. Nothing here needs a program on `PATH`.
 #![allow(dead_code)]
