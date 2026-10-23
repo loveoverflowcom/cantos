@@ -132,7 +132,7 @@ blindly replayed.
 | Owner JSON/Protobuf reads and writes, delegations, catalog/content/briefs/audio metadata | `credentials: include` + session fence; per-route codec negotiation unchanged |
 | Original download, private artwork preview | same, then SHA-256/identity checks before an ephemeral Blob |
 | Artwork upload | XHR with `withCredentials=true` + fence (progress for same- and cross-origin); fetch fallback with the same policy and no invented percentage. The target must be this surface of the configured API origin |
-| 429 on any owner request | `Lease::response(status, Retry-After)` arms the shared hold; commands surface `ClientError::RateLimited { seconds }` (an unknown outcome for a write, reconciled by its operation and never replayed before the hold ends); the `ApiError`-returning paths keep `Unavailable` (shared contract) and expose the wait through `api::rate_wait()` |
+| 429 on any owner request | `Lease::receive` (XHR: `Lease::response(status, Retry-After, echo)`) arms the shared hold; commands surface `ClientError::RateLimited { seconds }` (an unknown outcome for a write, reconciled by its operation and never replayed before the hold ends); the `ApiError`-returning paths keep `Unavailable` (shared contract) and expose the wait through `api::rate_wait()` |
 | Producer status/upload (work capability) | its own `Authorization: Bearer`, `credentials: omit`, no cookie, no fence |
 | Public/anonymous | `credentials: omit` |
 
