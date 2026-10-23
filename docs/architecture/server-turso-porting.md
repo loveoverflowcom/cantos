@@ -52,6 +52,10 @@ PostgreSQL source of truth for your tables, constraints, functions and triggers:
 `services/cantos-server/schema/0001_current.sql` (+ `0002`/`0003`/`0004`). Your context's adapter
 today is `src/contexts/<ctx>/postgres*.rs` (name varies). PG-era integration tests were moved to
 `services/cantos-server/legacy-pg-tests/**` (if present): they are your regression oracles.
+The [coverage ledger](server-turso/legacy-test-oracles.md) inventories all retained files,
+assertions and partial native mappings. It establishes no whole-file parity. The direct
+`scripts/test_postgres.py` entrypoint refuses before setup; its historical implementation is
+porting input, not a runnable gate. Keep unmatched oracles until the owning native boundary runs.
 
 ## 1. Rules that never bend
 

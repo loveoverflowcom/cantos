@@ -510,13 +510,17 @@ encoding does not add an encoder, TTS provider or production worker to the backe
 The adapter probes and decodes to a discarded output; it never converts or publishes media.
 `ffmpeg -version` and `ffprobe -version` must succeed before any selected gate runs.
 Missing tools produce `UNSUPPORTED`; skipped or unreachable inspection remains `NOT_RUN`.
-xtask never installs these tools. The Rust and PostgreSQL CI jobs provision the distribution's
-trusted `ffmpeg` package, which supplies both executables. The PostgreSQL suite also needs them
-for its actual-byte private-intake/storage/replay tests.
+xtask never installs these tools. The Rust CI job provisions the distribution's trusted
+`ffmpeg` package, which supplies both executables. Historical PostgreSQL media oracles also
+used them, but there is no active PostgreSQL CI job or verification lane.
 
 Historical PostgreSQL/Firebase/DBSP runners and suites are retired source inputs; their
 commands are hidden refusals. They are never prerequisites for current preflight or native acceptance.
 Keep actual engine/file/process coverage separate from historical SQL oracle results.
+Direct invocation of `scripts/test_postgres.py` also refuses with exit 2 before argument
+parsing, tool probes or cluster setup. Its historical implementation and archived Rust
+assertions remain [porting inputs](../docs/architecture/server-turso/legacy-test-oracles.md),
+not runnable Cargo targets. Native checks do not establish unported business parity.
 
 ### Isolated Theatre enrollment testing
 
@@ -1155,10 +1159,9 @@ native listening acceptance. Preflight does not run it (it selects only the JVM
 mock gate for host changes and notes this command). See the
 [isolation record](../docs/evidence/issue122-cmp-sandbox-isolation.md#production-android-host-and-release-artifact-acceptance).
 
-The retained local fixture can now select its existing test context with
-`CANTOS_TEST_CONTEXT=editorial|catalog|audio` on `run cantos-studio --web --test-cluster`.
-Editorial is the default. Audio selects the fresh runner's exact AudioLifecycle database and
-private root; it does not provision identity/storage or use an inherited database URL.
+The old `CANTOS_TEST_CONTEXT=editorial|catalog|audio` retained-cluster fixture is historical.
+`run --test-cluster` and the direct PostgreSQL runner refuse before setup; do not use them
+to qualify a native host. The archived fixture assertions remain #333 porting inputs.
 ### Studio Kanidm operator tools
 
 Retired with provider authentication. `cargo xtask kanidm` refuses before metadata requests,

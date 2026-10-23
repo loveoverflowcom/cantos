@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Run full integration or named SQL tests in a new disposable cluster.
+"""Retired PostgreSQL runner; direct invocation refuses before setup.
 
-Never reads DATABASE_URL or connects to an existing database. --keep retains this
-test cluster for local Studio and Theatre inspection; its explicit stop command is printed.
---suite theatre-firebase runs only Firebase and SMTP registration SQL acceptance.
---suite schema runs current-baseline, least-privilege and selected current-owner SQL acceptance without media tools.
+Historical HTTP/restart oracles and mocked runner-safety checks remain porting inputs
+for #333. Their archived target names are not current Cargo targets or native evidence.
+Use cargo xtask verify rust / verify turso for the native owners; the Server business
+port remains incomplete. No PostgreSQL tooling or retained cluster is needed.
 """
 import argparse
 import hashlib
@@ -872,6 +872,20 @@ def finish_owned_run(hosts, started, keep, data, env, ownership, succeeded):
 
 
 def main():
+    print("test_postgres.py is retired: archived PostgreSQL targets are outside Cargo "
+          "discovery. No tools were probed and no cluster was created. Use `cargo xtask "
+          "verify rust` / `cargo xtask verify turso` for the native owners; these do not "
+          "establish unported business parity. Preserve legacy oracles for #333; see "
+          "docs/architecture/server-turso/legacy-test-oracles.md.", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def _legacy_main():
+    """Historical orchestration, exercised only by mocked safety regressions.
+
+    Not a supported command or native acceptance lane. Keep its assertions available
+    for deliberate context porting; the public entrypoint always refuses.
+    """
     if not __debug__:
         raise RuntimeError("PostgreSQL assertions are required; run Python without -O")
     args = parse_args()
