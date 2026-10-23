@@ -2,7 +2,7 @@
 
 Source-bound local qualification for part of #295 and #335. This record does not close either
 issue, qualify production domains, or accept the unrelated native business/publishing work.
-The [Identity v1 contract](../../packages/contracts/identity-auth-v1.md) owns the rules.
+The [Identity v1 contract](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) owns the rules.
 
 ## Provenance and boundary
 

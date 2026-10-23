@@ -9,12 +9,12 @@ mod support;
 use std::{os::unix::fs::PermissionsExt, path::Path, time::Duration};
 
 use cantos_identity::persistence::IDENTITY_APPLICATION_ID;
-use cantos_identity_rpc::{
-    identity_client::IdentityClient, validate_fact, AccountState, AuthenticatePasswordRequest,
-    ClientContext, CompleteTheatreSignupRequest, GetSecurityStateRequest, Purpose, SetupOutcome,
+use support::rpc_client::{
+    identity_client::IdentityClient, AccountState, AuthenticatePasswordRequest, ClientContext,
+    CompleteTheatreSignupRequest, GetSecurityStateRequest, Purpose, SetupOutcome,
     StartTheatreSignupRequest,
 };
-use support::{channel, client, hex, Env, RunDir, SinkMode, SmtpSink};
+use support::{bound_fact, channel, client, hex, Env, RunDir, SinkMode, SmtpSink};
 use tonic::{transport::Channel, Code, Request};
 
 const PASSWORD: &str = "chosen by the mailbox owner";
@@ -129,9 +129,9 @@ async fn mailbox_owner_signs_up_then_authenticates_again_after_a_restart() {
         .into_inner()
         .fact
         .unwrap();
-    let verified = validate_fact(&fact, [5; 16], Purpose::Theatre).unwrap();
-    assert_eq!(verified.subject.to_vec(), done.subject_id);
-    assert_eq!(verified.instance_epoch.to_vec(), done.instance_epoch);
+    let verified = bound_fact(&fact, [5; 16], Purpose::Theatre);
+    assert_eq!(verified.subject, done.subject_id);
+    assert_eq!(verified.instance_epoch, done.instance_epoch);
     assert_eq!(verified.security_version, 1);
     // #335 v1: the same account also authenticates for Studio with its password. Identity keeps
     // no Studio roster; that admission is the Server's.
@@ -144,7 +144,7 @@ async fn mailbox_owner_signs_up_then_authenticates_again_after_a_restart() {
         .into_inner()
         .fact
         .unwrap();
-    let studio_verified = validate_fact(&studio_fact, [8; 16], Purpose::Studio).unwrap();
+    let studio_verified = bound_fact(&studio_fact, [8; 16], Purpose::Studio);
     assert_eq!(studio_verified.subject, verified.subject);
     assert_eq!(studio_verified.purpose, Purpose::Studio);
     let state = rpc
@@ -177,7 +177,7 @@ async fn mailbox_owner_signs_up_then_authenticates_again_after_a_restart() {
         .into_inner()
         .fact
         .unwrap();
-    let after = validate_fact(&fact, [6; 16], Purpose::Theatre).unwrap();
+    let after = bound_fact(&fact, [6; 16], Purpose::Theatre);
     assert_eq!(after.subject, verified.subject);
     assert_eq!(after.instance_epoch, verified.instance_epoch);
     assert!(after.authenticated_at_unix_micros >= verified.authenticated_at_unix_micros);

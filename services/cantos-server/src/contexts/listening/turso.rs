@@ -21,6 +21,7 @@ use super::{
         SavedOutcome, SavedRecord,
     },
 };
+use crate::contract::theatre::library as dto;
 use crate::platform::store::Row;
 use crate::{
     contexts::{
@@ -35,7 +36,6 @@ use crate::{
         store::{active_actors, Store, StoreError, Tx},
     },
 };
-use cantos_contracts::listener_library as dto;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, sync::Arc};
@@ -304,7 +304,7 @@ async fn account(
     ))
 }
 fn audio(
-    manifest: &cantos_contracts::theatre::PublicationManifest,
+    manifest: &crate::contract::theatre::discovery::PublicationManifest,
 ) -> Result<AudioIdentity, LibraryError> {
     AudioIdentity::new(&dto::AudioIdentity {
         work_id: manifest.work_id.clone(),
@@ -1110,7 +1110,7 @@ mod presentation_tests {
                 work_id: a.work().as_str().into(),
                 publication_id: a.publication().as_str().into(),
                 title: "Ánh đèn cuối sân khấu".into(),
-                kind: cantos_contracts::theatre::WorkKind::Story,
+                kind: crate::contract::theatre::discovery::WorkKind::Story,
                 language: "vi-VN".into(),
             },
             unit_id: a.unit().as_str().into(),

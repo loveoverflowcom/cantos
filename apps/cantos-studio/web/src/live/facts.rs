@@ -1,6 +1,6 @@
 //! Pure acknowledgement projection; changing a parent clears every dependent snapshot.
 use super::Reply;
-use cantos_contracts::*;
+use crate::contract::*;
 #[derive(Clone, Default)]
 pub struct Facts {
     pub works: Vec<CatalogWork>,

@@ -2,13 +2,13 @@
 use super::{
     audio_transport, errors::failure, identity_auth, studio, theatre, theatre_library, AppState,
 };
+use crate::contract::studio::ErrorCode;
 use axum::{
     extract::{Request, State},
     http::{header, HeaderValue, StatusCode},
     middleware::Next,
     response::Response,
 };
-use cantos_contracts::ErrorCode;
 
 #[derive(Clone, Copy)]
 pub(super) enum Surface {

@@ -56,7 +56,7 @@ pub(crate) async fn pinned_content(
         .ok_or_else(|| StoreError::NotFound.into())
 }
 pub(crate) fn restore_content(
-    raw: cantos_contracts::ContentRevisionResponse,
+    raw: crate::contract::studio::ContentRevisionResponse,
 ) -> Result<ContentRevision, CatalogStoreError> {
     super::content::wire::restore(raw)
 }

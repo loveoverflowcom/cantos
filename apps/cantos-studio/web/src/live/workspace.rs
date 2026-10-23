@@ -4,8 +4,8 @@ use super::{
     copy::{self, text, Key},
     *,
 };
+use crate::contract::*;
 use crate::ui::{ActionButton, BlockReason};
-use cantos_contracts::*;
 use leptos::{prelude::*, task::spawn_local};
 use std::sync::Arc;
 use wasm_bindgen::JsCast;

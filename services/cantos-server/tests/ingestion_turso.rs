@@ -5,7 +5,7 @@ use axum::{
     http::{Request, StatusCode},
     Router,
 };
-use cantos_contracts::{
+use cantos_server::contract::studio::{
     ImportFormat, ImportMetadata, ImportOutcome, ImportRequest, ImportResponse,
 };
 use cantos_server::{
@@ -23,7 +23,7 @@ const ALICE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 const BOB: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const ORIGIN: &str = "http://127.0.0.1:8080";
 const SCRIPT: &str =
-    include_str!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
+    include_str!("../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json");
 const ORIGINAL: &str = "\u{feff}Chương một\r\n\r\nAn: Người bạn đã về chưa?\r\nMinh: Mình ở đây.\r\n\r\n— Một giọng chưa rõ tên.\r\n";
 
 struct Harness {
@@ -121,7 +121,7 @@ impl Harness {
             validate_import_contract(&value, "ImportResponse");
         } else {
             let schema: Value = serde_json::from_str(include_str!(
-                "../../../packages/contracts/schema/studio/v1.schema.json"
+                "../../../services/cantos-server/contracts/studio/editorial/v1/editorial.schema.json"
             ))
             .unwrap();
             let schema = json!({"$ref":"#/$defs/ApiError","$defs":schema["$defs"]});
@@ -145,7 +145,7 @@ impl Harness {
 
 fn validate_import_contract(value: &Value, definition: &str) {
     let schema: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/manuscript/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/manuscript/v1/manuscript.schema.json"
     ))
     .unwrap();
     let schema = json!({"$ref":format!("#/$defs/{definition}"),"$defs":schema["$defs"]});
@@ -483,7 +483,7 @@ async fn script_links_share_the_preserved_original_but_never_grant_source_owners
         .save(
             ALICE,
             &script,
-            cantos_contracts::SaveRevisionRequest {
+            cantos_server::contract::studio::SaveRevisionRequest {
                 expected_revision: 0,
                 operation_id: Uuid::new_v4().to_string(),
                 script_json: value.to_string(),
@@ -494,7 +494,8 @@ async fn script_links_share_the_preserved_original_but_never_grant_source_owners
     let path = format!("/scripts/{script}/sources/{}", text.id);
     let (status, body) = h.raw("GET", &path, Some(ALICE), vec![]).await;
     assert_eq!(status, StatusCode::OK);
-    let source: cantos_contracts::SourceResponse = serde_json::from_slice(&body).unwrap();
+    let source: cantos_server::contract::studio::SourceResponse =
+        serde_json::from_slice(&body).unwrap();
     assert_eq!(source.original_text, ORIGINAL);
     assert_eq!(source.sha256, text.sha256);
     assert_eq!(source.recorded_at, text.recorded_at);
@@ -531,7 +532,7 @@ async fn script_links_share_the_preserved_original_but_never_grant_source_owners
         .save(
             ALICE,
             &script,
-            cantos_contracts::SaveRevisionRequest {
+            cantos_server::contract::studio::SaveRevisionRequest {
                 expected_revision: 1,
                 operation_id: Uuid::new_v4().to_string(),
                 script_json: value.to_string(),
@@ -594,7 +595,7 @@ async fn legacy_text_only_sources_remain_readable_without_fabricating_an_import_
         .save(
             ALICE,
             &script,
-            cantos_contracts::SaveRevisionRequest {
+            cantos_server::contract::studio::SaveRevisionRequest {
                 expected_revision: 0,
                 operation_id: Uuid::new_v4().to_string(),
                 script_json: SCRIPT.into(),

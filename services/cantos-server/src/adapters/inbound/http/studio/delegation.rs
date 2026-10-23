@@ -1,6 +1,9 @@
 //! Work-scoped delegation transport (ADR 0028). Owner routes ride the Studio cookie session.
 //! Delegate routes accept exactly one `Authorization: Bearer cantos_dlg_…` header and refuse
 //! any request that also carries a cookie or Studio session fence: one credential, one purpose.
+use crate::contract::studio::{
+    AppendContentRequest, DelegationGrantPage, ErrorCode, FieldIssue, IssueDelegationRequest,
+};
 use axum::{
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{header, HeaderMap, StatusCode},
@@ -8,9 +11,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{delete, get, post},
     Json, Router,
-};
-use cantos_contracts::{
-    AppendContentRequest, DelegationGrantPage, ErrorCode, FieldIssue, IssueDelegationRequest,
 };
 use serde::Deserialize;
 

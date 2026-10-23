@@ -3,6 +3,7 @@
 //! not an Identity session: the production session composition is `tests/theatre_business_journey.rs`.
 //! Ported from the retired PostgreSQL oracles. Nothing here establishes the creator -> publication
 //! pipeline, a device, or a live Identity provider.
+use crate::contract::theatre::library as dto;
 use crate::{
     adapters::inbound::http::{router_with_listener_identity, AppState},
     application::Store,
@@ -22,7 +23,6 @@ use axum::{
     http::{Request, StatusCode},
     Router,
 };
-use cantos_contracts::listener_library as dto;
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -84,7 +84,7 @@ async fn request(
     assert_eq!(r.headers()["cache-control"], "no-store");
     let value = serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
     let mut root: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/theatre/library/v1.schema.json"
+        "../../../services/cantos-server/contracts/theatre/library/v1/library.schema.json"
     ))
     .unwrap();
     if status.is_success() && path.contains("presentation=1") {
@@ -162,7 +162,7 @@ async fn presented_library_survives_restart_and_does_not_disclose_edited_studio_
             work_id: a.work_id.clone(),
             publication_id: a.publication_id.clone(),
             title: "Ánh đèn cuối sân khấu".into(),
-            kind: cantos_contracts::theatre::WorkKind::Podcast,
+            kind: crate::contract::theatre::discovery::WorkKind::Podcast,
             language: "vi-VN".into(),
         },
         unit_id: a.unit_id.clone(),

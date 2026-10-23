@@ -32,4 +32,4 @@ as email/password with mailbox verification, to ship a working sign-in before th
 
 A Studio account is weaker than the D3 target until a stronger factor ships; the roster, the short
 Studio lifetimes (idle 300 s, absolute 600 s) and per-admission security-state reads bound that.
-The wire/behavior contract is [Identity auth v1](../../packages/contracts/identity-auth-v1.md).
+The wire/behavior contract is [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md).

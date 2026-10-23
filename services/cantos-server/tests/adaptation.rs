@@ -1,17 +1,18 @@
-use cantos_contracts::{
-    AdaptationCost, AdaptationCostBasis, AdaptationCoverageDisposition, AdaptationCurrency,
-    AdaptationFindingCode, AdaptationUsage, CallerGenerationMetadata, Extraction, ImportBlock,
-    ImportBlockKind, ImportFormat, ImportMetadata, ImportOutcome, ImportResponse, ImportWarning,
-};
 use cantos_server::contexts::adaptation::{
     admit_edited_proposal, admit_output_with_ids, prepare_request, validate_caller_generation,
     TrustedBinding, MAX_OUTPUT_BYTES,
 };
 use cantos_server::contexts::editorial::domain::diagnostics::SafeDiagnostic;
+use cantos_server::contract::studio::{
+    AdaptationCost, AdaptationCostBasis, AdaptationCoverageDisposition, AdaptationCurrency,
+    AdaptationFindingCode, AdaptationUsage, CallerGenerationMetadata, Extraction, ImportBlock,
+    ImportBlockKind, ImportFormat, ImportMetadata, ImportOutcome, ImportResponse, ImportWarning,
+};
 use serde_json::{json, Value};
 
-const OUTPUT: &[u8] =
-    include_bytes!("../../../packages/contracts/fixtures/adaptation/proposal-vi.json");
+const OUTPUT: &[u8] = include_bytes!(
+    "../../../services/cantos-server/contracts/studio/adaptation/v1/fixtures/proposal-vi.json"
+);
 
 fn source() -> ImportResponse {
     ImportResponse {
@@ -89,7 +90,7 @@ fn output() -> Value {
 fn admitted(
     value: &Value,
 ) -> Result<
-    cantos_contracts::AdaptationProposal,
+    cantos_server::contract::studio::AdaptationProposal,
     cantos_server::contexts::adaptation::AdaptationRejection,
 > {
     admit_output_with_ids(
@@ -238,7 +239,7 @@ fn malformed_oversized_and_semantically_invalid_output_yields_no_partial_proposa
 #[test]
 fn reserved_label_reuses_existing_narrator_role_after_rename() {
     let mut base: Value = serde_json::from_slice(include_bytes!(
-        "../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
     ))
     .unwrap();
     base["characters"][0]["name"] = json!("Người kể chuyện");

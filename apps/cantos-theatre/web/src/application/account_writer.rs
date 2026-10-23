@@ -12,7 +12,7 @@ use super::{
     },
     player_session::PlaybackObservation,
 };
-use cantos_contracts::listener_library::{
+use crate::contract::library::{
     AudioIdentity, AudioPresentation, HistoryState, ProgressRecord, Receipt, ResumeStatus,
     SavedRecord, WorkPresentation,
 };

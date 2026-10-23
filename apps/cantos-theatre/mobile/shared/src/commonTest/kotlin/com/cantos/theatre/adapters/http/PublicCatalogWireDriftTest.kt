@@ -39,7 +39,8 @@ import kotlin.test.assertTrue
  * them to the shared strict JSON Schema (property names, required set, JSON types, nullability,
  * enum values, `additionalProperties:false`) and decodes/re-encodes every default-v1 fixture.
  * Presentation-only opt-in fixtures must be refused by these default DTOs. A schema or fixture
- * change in `packages/contracts` fails here until the DTOs and fixture inventory are reviewed.
+ * change in `services/cantos-server/contracts/theatre/discovery/v1` fails here until the DTOs and
+ * fixture inventory are reviewed.
  */
 class PublicCatalogWireDriftTest {
     private val defs: JsonObject =

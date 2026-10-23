@@ -1,5 +1,6 @@
 //! Private owner Work-cover transport. Only metadata negotiates JSON/Protobuf; encoded
 //! image bytes stay unchanged and acquire bounded admission before body extraction.
+use crate::contract::{codec::WireFormat, studio as dto, studio::protobuf::ProtobufDto};
 use axum::{
     body::{Body, Bytes},
     extract::{DefaultBodyLimit, Extension, FromRequest, FromRequestParts, Query, Request, State},
@@ -8,7 +9,6 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
-use cantos_contracts::{self as dto, protobuf::ProtobufDto, wire::WireFormat};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::{catalog, StudioPath};
@@ -99,7 +99,7 @@ impl<S: Send + Sync, T: DeserializeOwned + ProtobufDto> FromRequest<S> for Artwo
             };
             failure(status, dto::ErrorCode::InvalidRequest, None)
         })?;
-        dto::wire::decode_artwork(format, &bytes)
+        crate::contract::codec::decode_artwork(format, &bytes)
             .map(Self)
             .map_err(|_| {
                 failure(
@@ -167,7 +167,7 @@ fn respond<T: Serialize + ProtobufDto>(
     value: &T,
     status: StatusCode,
 ) -> Response {
-    match dto::wire::encode_artwork(format, value) {
+    match crate::contract::codec::encode_artwork(format, value) {
         Ok(bytes) => encoded(format, bytes, status),
         Err(_) => private_headers(error_response(StoreError::Unavailable), true),
     }
@@ -661,7 +661,7 @@ mod tests {
                     &app,
                     sent.media_type(),
                     Some(wanted.media_type()),
-                    dto::wire::encode_artwork(sent, &request()).unwrap(),
+                    crate::contract::codec::encode_artwork(sent, &request()).unwrap(),
                 )
                 .await;
                 assert_eq!(response.status(), StatusCode::OK);
@@ -677,8 +677,10 @@ mod tests {
                 );
                 let bytes = response.into_body().collect().await.unwrap().to_bytes();
                 assert_eq!(
-                    dto::wire::decode_artwork::<dto::SetWorkArtworkRequest>(wanted, &bytes)
-                        .unwrap(),
+                    crate::contract::codec::decode_artwork::<dto::SetWorkArtworkRequest>(
+                        wanted, &bytes
+                    )
+                    .unwrap(),
                     request()
                 );
             }
@@ -714,7 +716,7 @@ mod tests {
     async fn put_admission_and_equal_replay_are_200_in_both_metadata_formats() {
         let corpus: serde_json::Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../packages/contracts/fixtures/artwork/v1/goldens.json"
+            "/../../services/cantos-server/contracts/studio/artwork/v1/fixtures/goldens.json"
         )))
         .unwrap();
         let asset = corpus["cases"]
@@ -738,7 +740,10 @@ mod tests {
                 assert_eq!(response.status(), StatusCode::OK);
                 let bytes = response.into_body().collect().await.unwrap().to_bytes();
                 assert_eq!(
-                    dto::wire::decode_artwork::<dto::ImageAssetDocument>(format, &bytes).unwrap(),
+                    crate::contract::codec::decode_artwork::<dto::ImageAssetDocument>(
+                        format, &bytes
+                    )
+                    .unwrap(),
                     asset
                 );
                 if format == WireFormat::Json {
@@ -752,7 +757,7 @@ mod tests {
         let (app, calls) = probe();
         let valid = serde_json::to_vec(&request()).unwrap();
         let mut proto_trailing =
-            dto::wire::encode_artwork(WireFormat::Protobuf, &request()).unwrap();
+            crate::contract::codec::encode_artwork(WireFormat::Protobuf, &request()).unwrap();
         proto_trailing.push(0);
         let cases = [
             (

@@ -1,4 +1,4 @@
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 
 use super::*;
 use crate::contexts::catalog::domain::{

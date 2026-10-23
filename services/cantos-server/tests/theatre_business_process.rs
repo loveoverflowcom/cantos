@@ -412,6 +412,6 @@ async fn the_server_binary_serves_the_cmp_slice_over_loopback_and_a_second_proce
     );
 }
 
-fn dto_kind() -> cantos_contracts::listener_library::ProgressKind {
-    cantos_contracts::listener_library::ProgressKind::Checkpoint
+fn dto_kind() -> cantos_server::contract::theatre::library::ProgressKind {
+    cantos_server::contract::theatre::library::ProgressKind::Checkpoint
 }

@@ -7,10 +7,10 @@
 //! `unit_id`, and `position` is display order only. The Work's public `unit_count` and each row's
 //! `ordinal` come from the presentation DTOs (`presentation=1`); the loaded rows never supply a
 //! total, and the rank is neither an identity nor an author-assigned number.
-use crate::core::public_ids::{canonical_uuid, PublicWorkId};
-use cantos_contracts::theatre::{
+use crate::contract::discovery::{
     PresentedUnitPage, PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind,
 };
+use crate::core::public_ids::{canonical_uuid, PublicWorkId};
 use std::collections::BTreeSet;
 
 /// Requested page size; the contract default and the decoder's per-page bound.
@@ -485,16 +485,16 @@ mod tests {
     }
     fn units_fixture() -> PresentedUnitPage {
         fixture(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_units.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_units.json"
         ))
     }
     fn work_id() -> PublicWorkId {
         PublicWorkId::parse(WORK).unwrap()
     }
     fn work_summary() -> PresentedWorkSummary {
-        let page: cantos_contracts::theatre::PresentedWorkPage =
+        let page: crate::contract::discovery::PresentedWorkPage =
             serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_works.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
         ))
             .unwrap();
         page.items.into_iter().next().unwrap()
@@ -650,14 +650,14 @@ mod tests {
     fn terminal_empty_list_is_distinct_from_failure_and_from_an_intermediate_empty_page() {
         let (mut state, first) = ready();
         let terminal: PresentedUnitPage = fixture(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_end_empty.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_end_empty.json"
         ));
         assert_eq!(state.finish_page(&first, Ok(terminal)), Step::Settled);
         assert!(units(&state).is_empty_terminal());
 
         let (mut state, first) = ready();
         let continuation: PresentedUnitPage = fixture(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_empty_continuation.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_empty_continuation.json"
         ));
         let cursor = continuation.next_cursor.clone();
         let Step::Continue(next) = state.finish_page(&first, Ok(continuation)) else {
@@ -857,7 +857,7 @@ mod tests {
             panic!("restart")
         };
         let republished: PresentedUnitPage = fixture(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_republished.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_republished.json"
         ));
         assert_eq!(
             state.finish_page(&restart, Ok(republished.clone())),

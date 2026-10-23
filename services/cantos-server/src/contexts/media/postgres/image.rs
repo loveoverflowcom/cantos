@@ -1,7 +1,7 @@
 //! Bounded immutable image receipt admission. SQL is a second barrier; every document is
 //! restored through Media constructors and every indexed fact is cross-checked on read.
+use crate::contract::studio as dto;
 use crate::platform::store::Row;
-use cantos_contracts as dto;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::contexts::catalog::domain::{OwnerId, WorkId};

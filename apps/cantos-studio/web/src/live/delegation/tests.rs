@@ -6,24 +6,24 @@ use super::{
     },
     *,
 };
+use crate::contract::*;
 use crate::live::{ClientError, Command, Credentials, Phase, Reply, RequestState};
-use cantos_contracts::*;
 use leptos::prelude::*;
 
 const WORK: &str = "10000000-0000-4000-8000-00000000000a";
 const GRANT: &str = "40000000-0000-4000-8000-000000000001";
 const SECRET: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const CREATED: &[u8] = include_bytes!(
-    "../../../../../../packages/contracts/fixtures/delegation/v1/issue-created.json"
+    "../../../../../../services/cantos-server/contracts/studio/delegation/v1/fixtures/issue-created.json"
 );
 const REPLAY: &[u8] =
-    include_bytes!("../../../../../../packages/contracts/fixtures/delegation/v1/issue-replay.json");
+    include_bytes!("../../../../../../services/cantos-server/contracts/studio/delegation/v1/fixtures/issue-replay.json");
 const PAGE: &[u8] =
-    include_bytes!("../../../../../../packages/contracts/fixtures/delegation/v1/grant-page.json");
+    include_bytes!("../../../../../../services/cantos-server/contracts/studio/delegation/v1/fixtures/grant-page.json");
 
 fn request() -> IssueDelegationRequest {
     serde_json::from_slice(include_bytes!(
-        "../../../../../../packages/contracts/fixtures/delegation/v1/issue-request.json"
+        "../../../../../../services/cantos-server/contracts/studio/delegation/v1/fixtures/issue-request.json"
     ))
     .unwrap()
 }

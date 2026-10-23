@@ -1,6 +1,6 @@
 //! Projection into the existing versioned revision document, shared by HTTP and frozen
 //! Adaptation/Production records. Field order and exact canonical text are compatibility data.
-use cantos_contracts::RevisionResponse;
+use crate::contract::studio::RevisionResponse;
 
 use super::facts::RevisionFacts;
 
@@ -19,10 +19,10 @@ pub(crate) fn revision(facts: RevisionFacts) -> RevisionResponse {
 /// Shape-only mapping: classification and redaction belong to the pure diagnostic owner.
 pub(crate) fn issues(
     diagnostics: Vec<super::domain::diagnostics::SafeDiagnostic>,
-) -> Vec<cantos_contracts::FieldIssue> {
+) -> Vec<crate::contract::studio::FieldIssue> {
     diagnostics
         .into_iter()
-        .map(|diagnostic| cantos_contracts::FieldIssue {
+        .map(|diagnostic| crate::contract::studio::FieldIssue {
             path: diagnostic.path,
             rule: diagnostic.rule.into(),
         })
@@ -37,7 +37,7 @@ mod tests {
     #[test]
     fn revision_document_keeps_fixture_bytes_digests_and_timestamp_precision() {
         let fixture: RevisionResponse = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/studio/v1/revision.json"
+            "../../../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/revision.json"
         ))
         .unwrap();
         let projected = revision(RevisionFacts {

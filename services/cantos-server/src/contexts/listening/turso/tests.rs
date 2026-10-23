@@ -5,6 +5,7 @@
 //! `theatre_library_http_tests.rs`. Nothing here establishes the creator -> publication pipeline,
 //! a device, or a live Identity provider (see `tests/theatre_business_journey.rs`).
 use super::*;
+use crate::contract::theatre::library as dto;
 use crate::{
     contexts::{
         catalog::domain::Visibility,
@@ -29,7 +30,6 @@ use crate::{
         ServerFixture, WorkSeed,
     },
 };
-use cantos_contracts::listener_library as dto;
 
 fn bm(n: u64) -> String {
     uid(0xb00 + n)

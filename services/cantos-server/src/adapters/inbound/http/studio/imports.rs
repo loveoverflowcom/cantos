@@ -1,4 +1,5 @@
 //! HTTP shells for private, immutable manuscript intake.
+use crate::contract::studio::{ErrorCode, ImportRequest};
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
@@ -6,7 +7,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use cantos_contracts::{ErrorCode, ImportRequest};
 
 use crate::adapters::inbound::http::{
     errors::error_response, errors::failure, studio::admission::cookie_token, AppState,

@@ -12,6 +12,7 @@ use super::{
     publication_delivery::*,
     publication_storage::FilesystemPublicationStorage,
 };
+use crate::contract::studio as dto;
 use crate::{
     contexts::{
         catalog::{
@@ -24,7 +25,6 @@ use crate::{
     },
     platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx},
 };
-use cantos_contracts as dto;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::Semaphore;
 use uuid::Uuid;

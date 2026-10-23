@@ -7,11 +7,11 @@
 //! audio. A temporary grant is a capability, replaced when it nears expiry while the listener is
 //! playing and again whenever the element reports it failed. Recovery is bounded: a withdrawn
 //! release stops at once, a retryable answer backs off a few times, and nothing loops.
+use crate::contract::discovery::PlaybackAuthorization;
 use crate::core::{
     playback::{CallbackIdentity, Effect, Event, Failure, Source, TrackId},
     public_track::{AdmittedGrant, GrantRejection, MediaUrl, PublicTrack},
 };
-use cantos_contracts::theatre::PlaybackAuthorization;
 use uuid::Uuid;
 
 /// Total authorization attempts for one purpose before the answer is reported.
@@ -667,15 +667,15 @@ impl Active {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::discovery::PublicationManifest;
     use crate::core::{
         playback::EngineCommand,
         public_ids::PublicWorkId,
         public_track::{PinnedRelease, ReleaseRequest},
     };
-    use cantos_contracts::theatre::PublicationManifest;
 
     const MANIFEST: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
     );
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const UNIT: &str = "20000000-0000-4000-8000-000000000002";

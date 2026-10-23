@@ -1,10 +1,10 @@
 //! Theatre wire projection of a resolved listener publication. The domain decides eligibility;
-//! this module only maps those facts onto `cantos_contracts::theatre` DTOs. It never reads the
+//! this module only maps those facts onto `crate::contract::theatre::discovery` DTOs. It never reads the
 //! private envelope fields (owner, candidate, delivery object, binding, review evidence).
 use super::domain::listening::ListenerPublication;
 use crate::contexts::catalog::domain::{ContentUnitKind, WorkKind};
-use cantos_contracts::listener_library::{AudioPresentation, WorkPresentation};
-use cantos_contracts::theatre as dto;
+use crate::contract::theatre::discovery as dto;
+use crate::contract::theatre::library::{AudioPresentation, WorkPresentation};
 
 /// `first_published_at_ms` is the work's immutable discovery anchor, not this release's time.
 pub(super) fn work_summary(
@@ -188,7 +188,7 @@ mod tests {
     /// The published contract, independent of this mapping: required fields and no extras.
     fn assert_schema(name: &str, value: &Value) {
         let root: Value = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/schema/theatre/discovery/v1.schema.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/discovery.schema.json"
         ))
         .unwrap();
         let validator = jsonschema::validator_for(

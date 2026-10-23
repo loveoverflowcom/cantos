@@ -1,4 +1,9 @@
-use cantos_contracts::{
+use cantos_server::contexts::production::{
+    admit_frozen_document, authorize_inputs, estimate_cost, evaluate_for_owner, evaluate_snapshot,
+    prepare_inputs, production_catalog, production_input_digest, validate_rights_declaration,
+    validate_settings, MAX_MONEY_MINOR,
+};
+use cantos_server::contract::studio::{
     CharacterCasting, FieldIssue, FrozenProductionDocument, ProductionApprovalResponse,
     ProductionBudget, ProductionCurrency, ProductionEstimate, ProductionFindingCode,
     ProductionPronunciation, ProductionRate, ProductionRightsClaim, ProductionRightsClaimResponse,
@@ -6,17 +11,12 @@ use cantos_contracts::{
     ProductionRightsSubject, ProductionSettings, ProductionSettingsResponse, RevisionResponse,
     SynthesisPerformance,
 };
-use cantos_server::contexts::production::{
-    admit_frozen_document, authorize_inputs, estimate_cost, evaluate_for_owner, evaluate_snapshot,
-    prepare_inputs, production_catalog, production_input_digest, validate_rights_declaration,
-    validate_settings, MAX_MONEY_MINOR,
-};
 use cantos_server::script_ir::read_script;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 const SCRIPT: &[u8] =
-    include_bytes!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
+    include_bytes!("../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json");
 const NOW: i64 = 100;
 
 fn revision_from_json(value: &Value) -> RevisionResponse {

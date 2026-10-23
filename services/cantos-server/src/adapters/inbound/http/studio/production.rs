@@ -1,14 +1,14 @@
 //! Private planning endpoints; persistence and policy stay in the application/domain shell.
+use crate::contract::studio::{
+    ApproveProductionRequest, ErrorCode, FreezeProductionRequest, SaveProductionRightsRequest,
+    SaveProductionSettingsRequest,
+};
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
-};
-use cantos_contracts::{
-    ApproveProductionRequest, ErrorCode, FreezeProductionRequest, SaveProductionRightsRequest,
-    SaveProductionSettingsRequest,
 };
 
 use crate::adapters::inbound::http::{

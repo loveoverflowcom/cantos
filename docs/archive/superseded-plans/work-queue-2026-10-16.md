@@ -82,7 +82,7 @@ The [Work-scoped delegation review](../handoffs/work-scoped-delegation-handoff.m
 [issue #113](https://github.com/loveoverflowcom/cantos/issues/113). The
 [source-bound RFC](../../architecture/work-scoped-delegation-rfc.md) compared the options; the
 owner selected central opaque grants for a first Catalog slice
-([ADR 0028](../../decisions/0028-work-scoped-delegation.md), [contract](../../../packages/contracts/delegation-v1.md),
+([ADR 0028](../../decisions/0028-work-scoped-delegation.md), [contract](../../../services/cantos-server/contracts/studio/delegation/v1/README.md),
 [evidence](../../evidence/work-scoped-delegation-implementation.md)). It does not replace producer
 grants. The Studio Web owner panel for listing, issuing and revoking grants is implemented
 ([evidence](../../evidence/work-scoped-delegation-studio-ui.md)). Next, in order: the Quint
@@ -101,7 +101,7 @@ capability for the accepted contract, then one bounded review per further action
    synchronized playback progress based only on released media.
 
 The next Catalog acceptance is the [Studio Web slice](../handoffs/011-studio-catalog-api.md) using the
-implemented [Catalog JSON API](../../../packages/contracts/catalog-v1.md). The internal foundation
+implemented [Catalog JSON API](../../../services/cantos-server/contracts/studio/catalog/v1/README.md). The internal foundation
 and HTTP evidence are recorded separately in [session 1](../../evidence/studio-catalog-foundation.md)
 and [session 2](../../evidence/studio-catalog-api.md). Keep #66 open for responsive and keyboard
 Studio Web acceptance; GitHub owns execution status.
@@ -110,12 +110,12 @@ The [Content Identity slice](../../decisions/0019-content-identity.md) adds immu
 Catalog metadata. Its [handoff to Production Brief](../handoffs/content-identity-production-brief-handoff.md)
 keeps the next backend boundary narrow: exact content/guidance revision pinning and independent
 producer access, before linking intake/publication. Catalog Web acceptance remains separately
-scoped; this sequence does not close #66 or #64. The [Brief v1 backend](../../../packages/contracts/production-brief-v1.md)
+scoped; this sequence does not close #66 or #64. The [Brief v1 backend](../../../services/cantos-server/contracts/studio/briefs/v1/README.md)
 provides exact snapshots and read grants; [session3 handoff](../handoffs/production-brief-audio-lifecycle-handoff.md)
 keeps intake linkage, review/release and later live client integration in separate boundaries.
 ## Private audio admission and next review boundary
 
-[Audio Lifecycle v1](../../../packages/contracts/audio-lifecycle-v1.md) reuses attributed PR69
+[Audio Lifecycle v1](../../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) reuses attributed PR69
 intake and binds verified private bytes to exact Content/Brief/profile/rights declarations.
 Named append-only reviews and private candidates expose current blockers; public publication
 always remains blocked. [Local evidence](../../evidence/audio-lifecycle.md) and the
@@ -193,7 +193,7 @@ Keep the independent [existing Discovery v1 continuation repair](../../work-plan
 and its mocked application evidence separate from later real PostgreSQL expiry/pagination
 and Web/CMP consumer acceptance. An existing-contract correction does not open the P1 gate.
 
-[Publication v1](../../../packages/contracts/publication-v1.md) implements owner-authored distribution
+[Publication v1](../../../services/cantos-server/contracts/studio/publication/v1/README.md) implements owner-authored distribution
 clearance, exact approval, all readiness blockers, immutable releases, atomic active pointers and
 minimal withdrawal over the existing candidate/intake path. [Verification](../../evidence/publication-core.md)
 separates passing core/Router/proof tests from failed PostgreSQL startup and unrun delivery.
@@ -490,7 +490,7 @@ scoped work; unavailable runtime evidence is not a blocker to reviewing this dra
 
 ## Public discovery before account-owned listening state
 
-The [Discovery/Playback backend contract](../../../packages/contracts/theatre-discovery-v1.md)
+The [Discovery/Playback backend contract](../../../services/cantos-server/contracts/theatre/discovery/v1/README.md)
 adds a current-public projection, stable opaque keysets and explicit unavailable media grants.
 Keep Publication/delivery/SQL acceptance and the isolated Web/CMP mock-to-live adapter work
 separate. The [Library/Progress handoff](../handoffs/discovery-library-handoff.md) requires the coordinated
@@ -499,7 +499,7 @@ No listener registry or native playback is inferred from anonymous catalog reads
 
 ## Listener Library / Progress successor
 
-The [account Library/Progress v1](../../../packages/contracts/listener-library-v1.md) and
+The [account Library/Progress v1](../../../services/cantos-server/contracts/theatre/library/v1/README.md) and
 [identity/Web/CMP handoff](../../work-plan/listener-library-progress-handoff.md) follow inherited draft PR93.
 The [evidence record](../../evidence/listener-library-progress.md) distinguishes pure/use-case/Router
 checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MVP Khám phá | Của tôi;
@@ -565,7 +565,7 @@ actual owner/rights/storage/restart acceptance next; browser HTTP doubles and ad
 images do not satisfy public artwork or publication delivery. The Studio UI introduces no
 new backend dependency and does not reorder the broader queue; GitHub owns execution status.
 
-The [implemented private artwork contract](../../../packages/contracts/artwork-v1.md) now reuses
+The [implemented private artwork contract](../../../services/cantos-server/contracts/studio/artwork/v1/README.md) now reuses
 the reviewed private-storage boundary. The next scoped acceptance is disposable PostgreSQL
 upgrade/constraints/grants, actual owner HTTP/rights/session behavior, read plans and host/PG
 restart faults. The [dated evidence ledger](../../evidence/private-work-artwork.md) separates those

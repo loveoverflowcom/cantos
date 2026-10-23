@@ -2,7 +2,7 @@
 //! Ownership, link existence, permissions and transitions belong to the application.
 use std::collections::BTreeSet;
 
-use cantos_contracts::{
+use crate::contract::studio::{
     ArchiveContentUnitRequest, ArchiveWorkRequest, CatalogContentUnit, CatalogMutationResponse,
     CatalogPage, CatalogScriptRef, CatalogSourceRef, CatalogWork, CreateContentUnitRequest,
     CreateWorkRequest, FieldIssue, PatchContentUnitRequest, PatchField, PatchWorkRequest,

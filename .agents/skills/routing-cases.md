@@ -272,7 +272,7 @@ Apply the [native refactor record](../../docs/architecture/native-turso-refactor
 [base workflow](../../CONTRIBUTING.md#branch-and-pull-request-workflow). R88–R91 and R96 evaluate
 the [v1 owner amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration),
 [ADR 0045](../../docs/decisions/0045-v1-email-password-sign-in.md) and
-[Identity auth v1](../../packages/contracts/identity-auth-v1.md); R97 the projection lifetimes in
+[Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md); R97 the projection lifetimes in
 [Persistence and DBSP](../../docs/architecture/native-turso-refactor.md#persistence-and-dbsp). The
 persistence guard behind R93 is described in [API contexts](../../docs/architecture/api-contexts.md).
 Raw inputs are hypothetical evaluation inputs, not results of an agent run; an author walkthrough

@@ -5,11 +5,13 @@ use axum::{
     http::{HeaderMap, Request, StatusCode},
     Router,
 };
-use cantos_contracts::{
-    protobuf::ProtobufDto,
-    wire::{decode, decode_pilot, encode, encode_pilot, WireFormat},
-    ReviewRequest, RevisionResponse, SaveRevisionRequest, ScriptValidationResponse,
-    ValidateScriptRequest,
+use cantos_server::contract::{
+    codec::{decode, decode_pilot, encode, encode_pilot, WireFormat},
+    studio::protobuf::ProtobufDto,
+    studio::{
+        ReviewRequest, RevisionResponse, SaveRevisionRequest, ScriptValidationResponse,
+        ValidateScriptRequest,
+    },
 };
 use cantos_server::{
     adapters::inbound::http::{router, AppState},
@@ -27,7 +29,7 @@ const ALICE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 const BOB: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const ORIGIN: &str = "http://127.0.0.1:8080";
 const FIXTURE: &str =
-    include_str!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
+    include_str!("../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json");
 
 struct Harness {
     admin: ServerFixture,
@@ -249,7 +251,7 @@ impl Harness {
 
 fn validate_response(value: &Value, definition: &str) {
     let schema: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/studio/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/editorial.schema.json"
     ))
     .unwrap();
     let schema = json!({"$ref":format!("#/$defs/{definition}"),"$defs":schema["$defs"]});
@@ -432,7 +434,7 @@ async fn complete_exports_metadata_retries_and_pinned_history_survive_edits() {
         .await
         .unwrap();
     let fixture: RevisionResponse = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/studio/v1/revision.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/revision.json"
     ))
     .unwrap();
     assert_eq!(first.script_json, fixture.script_json);
@@ -716,7 +718,7 @@ async fn msgpack_and_json_carry_the_same_revision_facts_on_every_negotiated_rout
     assert!(preview.issues.is_empty());
     let invalid = ValidateScriptRequest {
         script_json: include_str!(
-            "../../../packages/contracts/fixtures/script-ir/0.1.0/reject/multiple-faults.json"
+            "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/reject/multiple-faults.json"
         )
         .into(),
     };
@@ -1085,7 +1087,7 @@ async fn protobuf_json_and_legacy_msgpack_have_identical_revision_and_validation
     }
     let invalid = ValidateScriptRequest {
         script_json: include_str!(
-            "../../../packages/contracts/fixtures/script-ir/0.1.0/reject/multiple-faults.json"
+            "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/reject/multiple-faults.json"
         )
         .into(),
     };
@@ -1490,7 +1492,7 @@ async fn session_exchange_origin_guard_and_malformed_inputs_are_safe() {
             && cookie.contains("SameSite=Strict")
             && cookie.contains("Path=/api/v1/studio")
     );
-    let identity: cantos_contracts::SessionResponse =
+    let identity: cantos_server::contract::studio::SessionResponse =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(identity.actor_id, "alice");
     let request = Request::builder()
@@ -1529,7 +1531,7 @@ async fn session_exchange_origin_guard_and_malformed_inputs_are_safe() {
     assert_eq!(error["code"], "invalid_request");
     let mut invalid = self::request(1);
     invalid.script_json = include_str!(
-        "../../../packages/contracts/fixtures/script-ir/0.1.0/reject/multiple-faults.json"
+        "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/reject/multiple-faults.json"
     )
     .into();
     let (status, error) = h

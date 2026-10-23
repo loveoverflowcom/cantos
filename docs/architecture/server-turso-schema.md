@@ -63,7 +63,7 @@ and the [registry contract](identity-registry.md#identity-contract). Tests live 
 
 Source rules are [`0004_identity_sessions.sql`](../../services/cantos-server/schema/0004_identity_sessions.sql),
 the historical [PostgreSQL adapter](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/services/cantos-server/src/platform/identity_auth/postgres.rs) and
-[Identity auth v1](../../packages/contracts/identity-auth-v1.md). The orchestration
+[Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md). The orchestration
 (`IdentityAuth`: fact validation, roster, fresh security reads, `decide_issue`/`decide_admission`,
 `SessionPolicy` and rotation) is shared: both adapters implement the one `SessionStore` port, so
 no decision is copied. Schema tests live in [`platform/turso/tests.rs`](../../services/cantos-server/src/platform/turso/tests.rs),

@@ -15,6 +15,7 @@ compile_error!(
 mod api_endpoint;
 pub mod app;
 pub mod application;
+pub mod contract;
 pub mod core;
 mod features;
 mod infrastructure;

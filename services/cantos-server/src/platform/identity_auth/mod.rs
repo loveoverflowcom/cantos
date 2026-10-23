@@ -10,6 +10,7 @@ pub mod config;
 pub mod credential;
 pub mod decision;
 pub mod peer;
+pub mod rpc;
 pub mod session;
 pub mod turso;
 
@@ -21,7 +22,7 @@ use self::{
     decision::{decide_admission, decide_issue, Admission, IssueRefusal, RevokeReason, Subject},
 };
 use crate::platform::{bearer::core::Lifetime, store::Store};
-use cantos_identity_rpc::Purpose;
+use rpc::Purpose;
 use sha2::{Digest, Sha256};
 use std::{net::IpAddr, sync::Arc, time::Duration};
 

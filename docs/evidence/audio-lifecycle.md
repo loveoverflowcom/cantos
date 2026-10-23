@@ -2,7 +2,7 @@
 
 Review boundary: actual-byte private Content/Brief admission, immutable submission/rendition,
 independent upload capability, append-only named review and private candidate/readiness.
-[Contract](../../packages/contracts/audio-lifecycle-v1.md),
+[Contract](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md),
 [frontend handoff](../archive/handoffs/audio-lifecycle-frontend-handoff.md) and
 [independent review](audio-lifecycle-review.md) own the exact interface and limitations.
 

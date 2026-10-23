@@ -7,7 +7,7 @@ use super::{
     listener_application::ListenerError,
     storage::port::{StorageFuture, StorageRead},
 };
-use cantos_contracts::routes::THEATRE_BASE;
+use crate::contract::routes::THEATRE_BASE;
 use std::{fmt, future::Future, pin::Pin, sync::Arc};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlaybackPermit {

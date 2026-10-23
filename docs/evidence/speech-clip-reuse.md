@@ -7,7 +7,7 @@ Status: bounded backend implementation, 2026-10-12. Branch `feat/speech-clip-reu
 [#7](https://github.com/loveoverflowcom/cantos/issues/7) and the planning half of
 [#8](https://github.com/loveoverflowcom/cantos/issues/8) and **closes neither**: #8's Studio
 journey, object storage, a live provider, listening review and publication are all absent. Contract:
-[clip reuse v1](../../packages/contracts/clip-reuse-v1.md). Decision:
+[clip reuse v1](../../services/cantos-server/contracts/historical/clip-reuse-v1.md). Decision:
 [ADR 0016](../decisions/0016-speech-fingerprint-and-clip-reuse.md) (proposed).
 
 Everything below is **local, development-only and synthetic**. There is no provider call, no real or

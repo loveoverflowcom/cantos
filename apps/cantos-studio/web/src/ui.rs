@@ -26,7 +26,7 @@ mod content_text_tests {
         let owner = Owner::new();
         owner.with(|| {
             let baseline = Document::parse(include_str!(
-                "../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+                "../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
             )).unwrap();
             let document = baseline.clone()
                 .set(&Target::Adaptation, Field::Language, "en").unwrap()
@@ -98,9 +98,9 @@ mod work_kind_tests {
                     assert_eq!(kind.get_untracked(), value);
                 }
                 assert_eq!(kind.get_untracked(), value);
-                let mut request: cantos_contracts::CreateWorkRequest =
+                let mut request: crate::contract::CreateWorkRequest =
                     serde_json::from_str(include_str!(
-                        "../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+                        "../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
                     ))
                     .unwrap();
                 request.kind = kind.get_untracked();

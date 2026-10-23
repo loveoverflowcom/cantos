@@ -20,8 +20,9 @@ pub struct SurfaceOrigins {
 impl SurfaceOrigins {
     pub fn new(studio: &str, theatre: &str, admin: Option<&str>) -> Result<Self, HostConfigError> {
         for origin in [Some(studio), Some(theatre), admin].into_iter().flatten() {
-            cantos_contracts::web_api::ApiOrigin::parse(origin)
-                .map_err(|_| HostConfigError::InvalidSurfaceOrigin)?;
+            if !is_browser_origin(origin) {
+                return Err(HostConfigError::InvalidSurfaceOrigin);
+            }
         }
         Ok(Self {
             studio: studio.into(),
@@ -239,10 +240,51 @@ fn exact_https_origin(value: &str) -> bool {
         && url.origin().ascii_serialization() == value
 }
 
+/// A configured browser origin the Server admits for exact-origin CORS: `https://host[:port]`,
+/// or plain HTTP on loopback only, exactly as the browser serializes it. The Web clients own
+/// their separate API addressing; this is only the Server's acceptance of its configuration.
+pub fn is_browser_origin(value: &str) -> bool {
+    let Ok(url) = url::Url::parse(value) else {
+        return false;
+    };
+    let loopback = matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
+    (url.scheme() == "https" || url.scheme() == "http" && loopback)
+        && url.host_str().is_some()
+        && url.origin().ascii_serialization() == value
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn browser_origins_are_exact_and_never_carry_credentials_or_paths() {
+        for origin in [
+            "",
+            "https://api.example.org/",
+            "https://API.example.org",
+            "https://api.example.org:443",
+            "http://api.example.org",
+            "https://user:secret@api.example.org",
+            "https://api.example.org/path",
+            "https://api.example.org?x=1",
+            "https://api.example.org#fragment",
+            " https://api.example.org",
+            "https://api.example.org\n",
+        ] {
+            assert!(!is_browser_origin(origin), "{origin:?}");
+        }
+        for origin in [
+            "https://studio.cantos.cc",
+            "https://api.example.org:8443",
+            "http://127.0.0.1:8080",
+            "http://localhost:3000",
+            "http://[::1]:8080",
+        ] {
+            assert!(is_browser_origin(origin), "{origin:?}");
+        }
+    }
 
     fn settings(pairs: &[(&str, &str)]) -> Result<HostSettings, HostConfigError> {
         let map: HashMap<String, String> = pairs

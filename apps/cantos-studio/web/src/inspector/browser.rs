@@ -2,6 +2,9 @@
 use super::{
     should_read_import, source_ids, Inspector, PreservedSource, ReadKind, ReviewIntent, SourceRead,
 };
+use crate::contract::{
+    ImportOutcome, ImportResponse, ReviewResponse, RevisionResponse, SourceResponse,
+};
 use crate::{
     api::{StudioContext, StudioHttp},
     editor::{error_status, Editor},
@@ -11,9 +14,6 @@ use crate::{
         workspace::{text, Key},
     },
     view::operation_id,
-};
-use cantos_contracts::{
-    ImportOutcome, ImportResponse, ReviewResponse, RevisionResponse, SourceResponse,
 };
 use leptos::{prelude::*, task::spawn_local};
 

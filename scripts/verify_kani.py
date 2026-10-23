@@ -33,9 +33,10 @@ DEFAULT_PACKAGE = "cantos-server"
 PACKAGES = {
     "cantos-server": (
         "services/cantos-server/Cargo.toml",
-        ("services/cantos-server/src", "packages/contracts/api/src", "packages/contracts/schema", ".cargo"),
+        # The Server's own contract representation is under its src; its canonical schemas and
+        # fixtures (formerly the separate packages/contracts crate) are a hashed directory.
+        ("services/cantos-server/src", "services/cantos-server/contracts", ".cargo"),
         ("Cargo.toml", "services/cantos-server/Cargo.toml", "services/cantos-server/build.rs",
-         "packages/contracts/api/Cargo.toml", "packages/contracts/api/build.rs",
          "scripts/verify_kani.py", "xtask/src/kani.rs"),
     ),
     "cantos-forge": (

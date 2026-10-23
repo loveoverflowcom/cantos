@@ -16,7 +16,7 @@ restore, Kani, footprint or deployed behavior.
 | Need | Owner / reading path |
 | --- | --- |
 | Native business port | [#333](https://github.com/loveoverflowcom/cantos/issues/333), [porting guide](../architecture/server-turso-porting.md), [readiness](../architecture/native-persistence-readiness.md) |
-| Identity and sessions | [Identity v1](../../packages/contracts/identity-auth-v1.md), [RPC](../../packages/contracts/identity-rpc-v1.md), #334/#335; Web cookie, native Bearer |
+| Identity and sessions | [Identity v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md), [RPC](../../services/cantos-identity/contracts/identity/v1/README.md), #334/#335; Web cookie, native Bearer |
 | Native acceptance / restore / migration / footprint | [#336](https://github.com/loveoverflowcom/cantos/issues/336), [isolation](../assurance/native-isolation.md), [Kani](../assurance/kani.md) |
 | Read optimization | [#384](https://github.com/loveoverflowcom/cantos/issues/384), [Turso method](../../.agents/skills/cantos-engineering/references/turso-read-performance.md) |
 | OCI packaging and activation | [#348](../deployment/native-oci-release.md); historical VPS assets establish no native activation |

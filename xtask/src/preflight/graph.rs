@@ -153,40 +153,26 @@ pub mod testing {
                 package(
                     "cantos-studio",
                     "apps/cantos-studio/web",
-                    &["cantos-contracts", "cantos-ui", "cantos-web-auth"],
+                    &["cantos-ui", "cantos-web-auth"],
                 ),
-                package("cantos-contracts", "packages/contracts/api", &[]),
                 package(
                     "cantos-server",
                     "services/cantos-server",
-                    &[
-                        "cantos-contracts",
-                        "cantos-identity-rpc",
-                        "cantos-store-turso",
-                    ],
+                    &["cantos-store-turso"],
                 ),
                 package(
                     "cantos-identity",
                     "services/cantos-identity",
-                    &["cantos-identity-rpc", "cantos-store-turso"],
-                ),
-                package(
-                    "cantos-identity-rpc",
-                    "packages/contracts/identity-rpc",
-                    &[],
+                    &["cantos-store-turso"],
                 ),
                 package("cantos-store-turso", "packages/store-turso", &[]),
                 package(
                     "cantos-theatre",
                     "apps/cantos-theatre/web",
-                    &["cantos-contracts", "cantos-ui", "cantos-web-auth"],
+                    &["cantos-ui", "cantos-web-auth"],
                 ),
                 package("cantos-ui", "packages/ui-system/leptos", &[]),
-                package(
-                    "cantos-web-auth",
-                    "packages/web-auth",
-                    &["cantos-contracts"],
-                ),
+                package("cantos-web-auth", "packages/web-auth", &[]),
                 package("xtask", "xtask", &[]),
             ],
         }
@@ -201,14 +187,14 @@ mod tests {
     fn parses_local_path_dependencies_from_metadata() {
         let json = r#"{"packages":[
             {"name":"cantos-server","manifest_path":"/r/services/cantos-server/Cargo.toml",
-             "dependencies":[{"name":"cantos-contracts","path":"/r/packages/contracts/api"},
+             "dependencies":[{"name":"cantos-store-turso","path":"/r/packages/store-turso"},
                              {"name":"serde"}]},
-            {"name":"cantos-contracts","manifest_path":"/r/packages/contracts/api/Cargo.toml",
+            {"name":"cantos-store-turso","manifest_path":"/r/packages/store-turso/Cargo.toml",
              "dependencies":[]}]}"#;
         let graph = PackageGraph::from_metadata(Path::new("/r"), json).unwrap();
         let api = graph.owner("services/cantos-server/src/lib.rs").unwrap();
         assert_eq!(api.name, "cantos-server");
-        assert_eq!(api.deps.iter().collect::<Vec<_>>(), ["cantos-contracts"]);
+        assert_eq!(api.deps.iter().collect::<Vec<_>>(), ["cantos-store-turso"]);
         assert!(graph.owner("services/kanidm/README.md").is_none());
     }
 
@@ -235,16 +221,15 @@ mod tests {
     #[test]
     fn closure_includes_transitive_dependents() {
         let graph = testing::cantos();
-        let affected = graph.dependents_closure(&["cantos-contracts".to_owned()].into());
+        let affected = graph.dependents_closure(&["cantos-web-auth".to_owned()].into());
         assert_eq!(
             affected.into_iter().collect::<Vec<_>>(),
-            [
-                "cantos-contracts",
-                "cantos-server",
-                "cantos-studio",
-                "cantos-theatre",
-                "cantos-web-auth"
-            ]
+            ["cantos-studio", "cantos-theatre", "cantos-web-auth"]
+        );
+        let store = graph.dependents_closure(&["cantos-store-turso".to_owned()].into());
+        assert_eq!(
+            store.into_iter().collect::<Vec<_>>(),
+            ["cantos-identity", "cantos-server", "cantos-store-turso"]
         );
     }
 
@@ -296,8 +281,9 @@ mod tests {
         let edges = [
             ("cantos-forge", "cantos-server"),
             ("cantos-forge", "cantos-studio"),
-            ("cantos-contracts", "cantos-ui"),
-            ("cantos-contracts", "cantos-server"),
+            ("cantos-web-auth", "cantos-server"),
+            ("cantos-studio", "cantos-server"),
+            ("cantos-server", "cantos-identity"),
             ("cantos-server", "cantos-studio"),
             ("cantos-ui", "xtask"),
         ];
@@ -314,9 +300,11 @@ mod tests {
             [
                 "cantos-forge (services/cantos-forge-functions) -> cantos-server (services/cantos-server)",
                 "cantos-forge (services/cantos-forge-functions) -> cantos-studio (apps/cantos-studio/web)",
-                "cantos-contracts (packages/contracts/api) -> cantos-server (services/cantos-server)",
+                "cantos-studio (apps/cantos-studio/web) -> cantos-server (services/cantos-server)",
+                "cantos-server (services/cantos-server) -> cantos-identity (services/cantos-identity)",
                 "cantos-server (services/cantos-server) -> cantos-studio (apps/cantos-studio/web)",
                 "cantos-ui (packages/ui-system/leptos) -> xtask (xtask)",
+                "cantos-web-auth (packages/web-auth) -> cantos-server (services/cantos-server)",
             ]
         );
     }

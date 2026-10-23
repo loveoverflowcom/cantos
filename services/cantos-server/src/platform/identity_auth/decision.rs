@@ -3,7 +3,9 @@
 //! A snapshot is evidence for exactly the instant it was read. These functions turn a verified
 //! authentication fact and a fresh security-state read into one closed outcome; the shell
 //! executes it. Nothing here proves a password, a mailbox or any resource permission.
-use cantos_identity_rpc::{AccountState, GetSecurityStateResponse, ValidatedFact, ID_BYTES};
+use crate::platform::identity_auth::rpc::{
+    AccountState, GetSecurityStateResponse, ValidatedFact, ID_BYTES,
+};
 
 /// Largest age of an authentication fact the Server will still turn into a session.
 pub const FACT_MAX_AGE_MICROS: i64 = 30_000_000;

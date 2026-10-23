@@ -1,6 +1,6 @@
 //! Continue is derived from progress, with completion tested only after choosing the newest Work state.
 use super::ProgressRecord;
-use cantos_contracts::listener_library::Completion;
+use crate::contract::theatre::library::Completion;
 use std::collections::BTreeMap;
 
 pub(crate) fn continue_records(

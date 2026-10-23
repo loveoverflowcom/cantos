@@ -1,17 +1,19 @@
-use cantos_contracts::admin::{CapabilityResponse, RevokeAccessRequest, RevokeAccessResponse};
+use cantos_server::contract::admin::{
+    CapabilityResponse, RevokeAccessRequest, RevokeAccessResponse,
+};
 #[test]
 fn admin_wire_fixtures_match_schema_and_shared_dtos() {
     let schema: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schemas/admin-v1.schema.json"
+        "../../../services/cantos-server/contracts/admin/access/v1/access.schema.json"
     ))
     .unwrap();
     let validator = jsonschema::validator_for(&schema).unwrap();
     let capability: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/admin/v1/capability.json"
+        "../../../services/cantos-server/contracts/admin/access/v1/fixtures/capability.json"
     ))
     .unwrap();
     let revocation: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/admin/v1/revocation.json"
+        "../../../services/cantos-server/contracts/admin/access/v1/fixtures/revocation.json"
     ))
     .unwrap();
     validator.validate(&capability).unwrap();

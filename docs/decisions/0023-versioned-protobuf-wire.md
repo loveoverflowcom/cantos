@@ -6,6 +6,9 @@
 - Related issue: [#97](https://github.com/loveoverflowcom/cantos/issues/97)
 - Supersedes: [ADR 0013](0013-optional-messagepack-wire.md) for new preferred binary clients;
   its historical evidence and temporary server compatibility remain intact
+- Amended by: [ADR 0046](0046-service-owned-contracts.md) — the `.proto` authorities are
+  Server-owned under `services/cantos-server/contracts/studio/`, each Rust consumer checks in its
+  own generated binding (`tools/proto-codegen`), and the prost pin is 0.14.4 (wire unchanged)
 
 ## Context
 
@@ -25,7 +28,7 @@ fixes and deferred DB/browser/Native acceptance. This is not full feature accept
 
 ## Decision
 
-The one wire authority is [studio_v1.proto](../../packages/contracts/protobuf/studio_v1.proto),
+The one wire authority is [studio_v1.proto](../../services/cantos-server/contracts/studio/editorial/v1/editorial.proto),
 namespace `cantos.studio.wire.v1`, **proto2**. Every scalar is optional on the wire solely to expose
 presence to both implementations. Exhaustive, fallible edge adapters require every scalar in the
 current application DTOs; missing/null cannot manufacture zero, empty, validation or identity.
@@ -37,7 +40,7 @@ sources, without generated JVM Google runtime classes or Rust FFI. JVM interoper
 executed; Android/iOS builds/tests remain independent gates. Full uint64 range maps to Kotlin
 Long raw bits (`toULong`/`toLong`); negative raw Long is not a negative application revision.
 
-See the [versioned policy](../../packages/contracts/protobuf/README.md) for exact field and
+See the [versioned policy](../../services/cantos-server/contracts/studio/editorial/v1/protobuf.md) for exact field and
 conversion tables, HTTP negotiation, hostile decode and frozen worker interfaces.
 
 ### Compatibility, rollout and rollback

@@ -3,7 +3,7 @@
 //! One closed [`Phase`] names the only request the editor owns, so a read, a save and a session
 //! check can never overlap and an unresolved save always carries its exact intent. Text
 //! ownership and the last settled outcome are separate facts; "dirty" is derived from the bytes.
-use cantos_contracts::{ApiError, ErrorCode, FieldIssue, RevisionResponse, SaveRevisionRequest};
+use crate::contract::{ApiError, ErrorCode, FieldIssue, RevisionResponse, SaveRevisionRequest};
 
 /// What the Studio shows. `Loading` and `Saving` are derived from the phase, never stored.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -648,7 +648,7 @@ pub fn error_status(code: &ErrorCode) -> Status {
 #[cfg(test)]
 mod tests {
     use super::{Editor, Phase, ReadTicket, Status, ValidationPreview};
-    use cantos_contracts::{ApiError, ErrorCode, FieldIssue, RevisionResponse};
+    use crate::contract::{ApiError, ErrorCode, FieldIssue, RevisionResponse};
 
     /// A signed-in author typing into a selected script, built only from public transitions.
     fn editing(actor: &str, script: &str, text: &str) -> Editor {
@@ -824,7 +824,7 @@ mod tests {
     #[test]
     fn a_read_cannot_replace_clean_reducer_rows_with_native_text_still_buffered() {
         let original = include_str!(
-            "../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+            "../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
         );
         let mut initial_response = response(1);
         initial_response.script_json = original.into();

@@ -1,7 +1,7 @@
 //! Shared real-file Editorial/Ingestion fixture. Test support only: admitted Script IR and
 //! synthetic actors/evidence seed a world; private transaction faults never enter a runtime build.
 use super::ServerFixture;
-use cantos_contracts::{ImportFormat, ImportMetadata, ImportRequest, SaveRevisionRequest};
+use crate::contract::studio::{ImportFormat, ImportMetadata, ImportRequest, SaveRevisionRequest};
 use cantos_store_turso::testing::FixedClock;
 
 pub const T0: i64 = 1_700_000_000_000_000;
@@ -9,7 +9,7 @@ pub const ALICE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 pub const BOB: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 pub const SCRIPT: &str = "00000000-0000-0000-0000-000000000001";
 pub const FIXTURE: &str =
-    include_str!("../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
+    include_str!("../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json");
 
 pub fn request(base: u64) -> SaveRevisionRequest {
     SaveRevisionRequest {
@@ -57,11 +57,11 @@ pub async fn fixture() -> ServerFixture {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::studio::ReviewRequest;
     use crate::platform::{
         store::{utc_timestamp, StoreError},
         turso::Acknowledgement,
     };
-    use cantos_contracts::ReviewRequest;
     #[test]
     fn wire_timestamps_preserve_six_digits_and_refuse_unrepresentable_stored_time() {
         for (micros, expected) in [

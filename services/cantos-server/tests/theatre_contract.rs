@@ -18,7 +18,7 @@ fn app() -> axum::Router {
 }
 fn schema(name: &str, v: &Value) {
     let root: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/theatre/discovery/v1.schema.json"
+        "../../../services/cantos-server/contracts/theatre/discovery/v1/discovery.schema.json"
     ))
     .unwrap();
     let validator = jsonschema::validator_for(

@@ -210,8 +210,8 @@ pub fn unit_kind(kind: &str, en: bool) -> &'static str {
     )
 }
 
-pub fn review_kind(kind: cantos_contracts::AudioReviewKind, en: bool) -> &'static str {
-    use cantos_contracts::AudioReviewKind;
+pub fn review_kind(kind: crate::contract::AudioReviewKind, en: bool) -> &'static str {
+    use crate::contract::AudioReviewKind;
     text(
         match kind {
             AudioReviewKind::Qc => Key::ReviewQc,
@@ -222,8 +222,8 @@ pub fn review_kind(kind: cantos_contracts::AudioReviewKind, en: bool) -> &'stati
     )
 }
 
-pub fn review_decision(decision: cantos_contracts::AudioReviewDecision, en: bool) -> &'static str {
-    use cantos_contracts::AudioReviewDecision;
+pub fn review_decision(decision: crate::contract::AudioReviewDecision, en: bool) -> &'static str {
+    use crate::contract::AudioReviewDecision;
     text(
         match decision {
             AudioReviewDecision::Rejected => Key::Rejected,
@@ -261,8 +261,8 @@ pub fn error_key(error: &super::ClientError) -> Key {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::{ApiError, ErrorCode};
     use crate::live::ClientError;
-    use cantos_contracts::{ApiError, ErrorCode};
 
     #[test]
     fn every_workspace_resource_has_both_locales() {
@@ -418,7 +418,7 @@ mod tests {
 
     #[test]
     fn review_variants_and_catalog_types_have_exact_bilingual_presentation() {
-        use cantos_contracts::{AudioReviewDecision as Decision, AudioReviewKind as Kind};
+        use crate::contract::{AudioReviewDecision as Decision, AudioReviewKind as Kind};
         for (kind, vi, en) in [
             (Kind::Qc, "QC", "QC"),
             (Kind::Rights, "Quyền sử dụng", "Rights"),

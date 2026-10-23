@@ -453,8 +453,9 @@ mod tests {
         marker: "<title>Cantos Studio</title>",
     };
 
-    const WORK_PAGE: &str =
-        include_str!("../../packages/contracts/fixtures/theatre/discovery/v1/works.json");
+    const WORK_PAGE: &str = include_str!(
+        "../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/works.json"
+    );
 
     #[test]
     fn http_probe_distinguishes_ready_wrong_app_and_unavailable() {

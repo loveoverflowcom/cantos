@@ -1,7 +1,7 @@
 //! Delegation panel copy in both supported locales. Contract labels such as `work:read` are
 //! shown beside plain-language names so an owner can match them to delegate documentation.
 use super::{GrantState, Lifetime, Problem};
-use cantos_contracts::DelegationAction;
+use crate::contract::DelegationAction;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {

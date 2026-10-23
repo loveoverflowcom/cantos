@@ -3,7 +3,7 @@
 //! decoder, HTTP, clock or authorization implementation enters this module.
 use std::collections::BTreeSet;
 
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 

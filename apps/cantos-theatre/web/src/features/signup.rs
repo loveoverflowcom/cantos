@@ -389,7 +389,7 @@ pub(crate) fn SignupPreviewControls(
     locale: RwSignal<Locale>,
 ) -> impl IntoView {
     use crate::application::signup::ProofLink;
-    use cantos_contracts::identity_auth::SignupStatus;
+    use crate::contract::identity_auth::SignupStatus;
     let fixture_link = || {
         ProofLink::from_fragment(&format!(
             "#operation={}&proof={}&secret={}",
@@ -432,7 +432,7 @@ pub(crate) fn SignupPreviewControls(
 mod tests {
     use super::*;
     use crate::application::signup::ProofLink;
-    use cantos_contracts::identity_auth::SignupStatus;
+    use crate::contract::identity_auth::SignupStatus;
 
     const PASSWORD: &str = "correct horse battery";
     fn secret() -> String {

@@ -3,14 +3,14 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use cantos_contracts as dto;
 use cantos_server::adapters::inbound::http::{router, AppState};
+use cantos_server::contract::studio as dto;
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;
 fn schema(name: &str, value: &Value) {
     let root: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/publication/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/publication/v1/publication.schema.json"
     ))
     .unwrap();
     let selected =
@@ -27,26 +27,26 @@ fn strict_raw_request_fixtures_match_versioned_schema_and_reject_unknown_fields(
     for (name, text) in [
         (
             "PublishAudioReleaseRequest",
-            include_str!("../../../packages/contracts/fixtures/publication/v1/publish.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/publication/v1/fixtures/publish.json"),
         ),
         (
             "RecordDistributionRightsRequest",
-            include_str!("../../../packages/contracts/fixtures/publication/v1/clearance.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/publication/v1/fixtures/clearance.json"),
         ),
         (
             "RecordPublicationApprovalRequest",
-            include_str!("../../../packages/contracts/fixtures/publication/v1/approval.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/publication/v1/fixtures/approval.json"),
         ),
         (
             "WithdrawAudioReleaseRequest",
-            include_str!("../../../packages/contracts/fixtures/publication/v1/withdraw.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/publication/v1/fixtures/withdraw.json"),
         ),
     ] {
         let value: Value = serde_json::from_str(text).unwrap();
         schema(name, &value);
     }
     let mut value: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/publication/v1/publish.json"
+        "../../../services/cantos-server/contracts/studio/publication/v1/fixtures/publish.json"
     ))
     .unwrap();
     let request: dto::PublishAudioReleaseRequest = serde_json::from_value(value.clone()).unwrap();

@@ -1,9 +1,7 @@
 //! Owned comparison facts for cold writes; playback uses its bounded entry comparison.
 use super::super::library_sync::publication::SyncPublication;
 use super::*;
-use cantos_contracts::listener_library::{
-    PresentedContinueItem, PresentedHistoryItem, PresentedSavedItem,
-};
+use crate::contract::library::{PresentedContinueItem, PresentedHistoryItem, PresentedSavedItem};
 
 #[derive(PartialEq, Eq)]
 pub(in crate::application) struct AccountControls {

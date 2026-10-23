@@ -1,6 +1,6 @@
 # Cantos architecture overview
 
-The [native decision](native-turso-refactor.md), [Identity v1](../../packages/contracts/identity-auth-v1.md)
+The [native decision](native-turso-refactor.md), [Identity v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
 and [external-production ADR](../decisions/0018-external-audio-production.md) own current boundaries.
 Read the [porting checkpoint](server-turso-porting.md#checkpoint-boundary) before running business flows.
 

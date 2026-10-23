@@ -2,6 +2,7 @@ use super::*;
 use super::{errors::error_response, policy::origin_and_cache};
 use crate::application::{Store, StoreError};
 use crate::contexts::media::read::{StorageCapability, StorageError};
+use crate::contract::studio::ErrorCode;
 use axum::{body::Body, routing::get};
 use axum::{
     extract::Request,
@@ -10,7 +11,6 @@ use axum::{
     response::IntoResponse,
     Router,
 };
-use cantos_contracts::ErrorCode;
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
@@ -24,7 +24,7 @@ fn middleware_state() -> AppState {
 #[tokio::test]
 async fn invalid_script_error_keeps_json_status_codes_paths_and_redaction() {
     let mut shape: serde_json::Value = serde_json::from_slice(include_bytes!(
-        "../../../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        "../../../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
     ))
     .unwrap();
     shape["work"]["id"] = serde_json::json!("private-id-sentinel!");

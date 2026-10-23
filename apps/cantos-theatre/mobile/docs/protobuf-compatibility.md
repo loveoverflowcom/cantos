@@ -9,8 +9,8 @@ are untrusted transport values, never authentication, authorization or validatio
 
 ## Authority and implementation
 
-The authority is [studio_v1.proto](../../../../packages/contracts/protobuf/studio_v1.proto) and
-its [frozen admission policy](../../../../packages/contracts/protobuf/README.md), established at
+The authority is [editorial.proto](../../../../services/cantos-server/contracts/studio/editorial/v1/editorial.proto) and
+its [frozen admission policy](../../../../services/cantos-server/contracts/studio/editorial/v1/protobuf.md), established at
 `9f0368e18de867c58da31619b6be171478779e9e`. No schema or application contract is changed by C4.
 `commonTest/com/cantos/theatre/studiopilotfixtures` contains (C4 placed it in
 `commonMain/.../adapters/protobuf`; it moved to test sources unchanged because its only consumers
@@ -146,7 +146,7 @@ for reproducing the exact codec-only compiler/test result, not a parallel reposi
 mkdir -p "$OUT"
 MOBILE=apps/cantos-theatre/mobile
 TEST=$MOBILE/shared/src/commonTest/kotlin/com/cantos/theatre/studiopilotfixtures
-FIXTURES=packages/contracts/fixtures/protobuf/v1
+FIXTURES=services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf
 python3 "$MOBILE/tooling/embed_protobuf_fixtures.py" "$FIXTURES/goldens.json" \
   "$FIXTURES/hostile.json" "$OUT/CanonicalProtobufVectors.kt"
 CP=$TOOLS/kotlinx-serialization-core-jvm-1.9.0.jar:$TOOLS/kotlinx-serialization-protobuf-jvm-1.9.0.jar

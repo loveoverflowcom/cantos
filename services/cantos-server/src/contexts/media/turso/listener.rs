@@ -640,7 +640,7 @@ pub(crate) async fn library_publications(
     tx: &Tx<'_>,
     units: &[String],
     now: i64,
-) -> Result<Vec<cantos_contracts::theatre::PublicationManifest>, ListenerError> {
+) -> Result<Vec<crate::contract::theatre::discovery::PublicationManifest>, ListenerError> {
     Ok(library_current_items(tx, units, now)
         .await?
         .into_iter()
@@ -654,8 +654,8 @@ pub(crate) async fn library_presentations(
     now: i64,
 ) -> Result<
     Vec<(
-        cantos_contracts::theatre::PublicationManifest,
-        cantos_contracts::listener_library::AudioPresentation,
+        crate::contract::theatre::discovery::PublicationManifest,
+        crate::contract::theatre::library::AudioPresentation,
     )>,
     ListenerError,
 > {
@@ -695,7 +695,7 @@ pub(crate) async fn library_work_presentations(
     tx: &Tx<'_>,
     works: &[String],
     now: i64,
-) -> Result<Vec<cantos_contracts::listener_library::WorkPresentation>, ListenerError> {
+) -> Result<Vec<crate::contract::theatre::library::WorkPresentation>, ListenerError> {
     if works.len() > 50 {
         return Err(ListenerError::InvalidRequest);
     }

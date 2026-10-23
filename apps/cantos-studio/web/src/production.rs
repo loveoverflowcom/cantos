@@ -1,6 +1,6 @@
 //! Pure Studio casting forms and request reconciliation. Authorization belongs to the backend.
+use crate::contract::*;
 use crate::{authoring::Document, editor::Editor};
-use cantos_contracts::*;
 
 #[cfg(target_arch = "wasm32")]
 mod browser;
@@ -923,7 +923,7 @@ mod tests {
 
     fn request() -> SaveProductionSettingsRequest {
         serde_json::from_str(include_str!(
-            "../../../../packages/contracts/fixtures/production/v1/settings-request.json"
+            "../../../../services/cantos-server/contracts/studio/production/v1/fixtures/settings-request.json"
         ))
         .unwrap()
     }
@@ -980,7 +980,7 @@ mod tests {
 
     fn catalog() -> ProductionCatalogResponse {
         serde_json::from_str(include_str!(
-            "../../../../packages/contracts/fixtures/production/v1/catalog-response.json"
+            "../../../../services/cantos-server/contracts/studio/production/v1/fixtures/catalog-response.json"
         ))
         .unwrap()
     }
@@ -1559,7 +1559,7 @@ mod tests {
     fn rights_subjects_come_from_all_saved_script_evidence_not_only_content_digest() {
         assert_eq!(
             evidence_ids(include_str!(
-                "../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+                "../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
             )),
             vec!["rights-adaptation-demo", "rights-asset-demo", "rights-demo"]
         );
@@ -1686,7 +1686,7 @@ mod tests {
     #[test]
     fn unfinished_composition_blocks_settings_and_rights_commands_until_native_text_commits() {
         let rights: SaveProductionRightsRequest = serde_json::from_str(include_str!(
-            "../../../../packages/contracts/fixtures/production/v1/rights-request.json"
+            "../../../../services/cantos-server/contracts/studio/production/v1/fixtures/rights-request.json"
         ))
         .unwrap();
         let mut composing = state();

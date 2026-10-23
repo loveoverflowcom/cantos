@@ -1,11 +1,11 @@
 //! Adaptation tables: runs with their frozen inputs, caller submissions, admitted proposals,
 //! cancellations and acceptance links. Each decoder re-checks the stored
 //! record against its typed digest and the columns that index it.
-use crate::platform::store::Row;
-use cantos_contracts::{
+use crate::contract::studio::{
     AcceptAdaptationRequest, AdaptationProposal, AdaptationStatus, AdaptationSubmissionReceipt,
     AdaptationSubmissionStatus, ImportOutcome, SubmitAdaptationProposalRequest,
 };
+use crate::platform::store::Row;
 use sha2::{Digest, Sha256};
 
 use super::domain::{

@@ -1,5 +1,13 @@
 //! JSON-only Catalog adapter. Admission maps raw fields to typed commands; the application
 //! owns current access, locked PATCH resolution, immutable history and atomic receipts.
+use crate::contract::{
+    codec::WireFormat,
+    studio::{
+        ApiError, ArchiveContentUnitRequest, ArchiveWorkRequest, CreateContentUnitRequest,
+        CreateWorkRequest, ErrorCode, FieldIssue, PatchContentUnitRequest, PatchWorkRequest,
+        ReorderContentUnitsRequest,
+    },
+};
 use axum::{
     extract::{DefaultBodyLimit, FromRequest, FromRequestParts, Path, Query, Request, State},
     http::{header, request::Parts, HeaderMap, HeaderValue, StatusCode},
@@ -7,11 +15,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
-};
-use cantos_contracts::{
-    wire::WireFormat, ApiError, ArchiveContentUnitRequest, ArchiveWorkRequest,
-    CreateContentUnitRequest, CreateWorkRequest, ErrorCode, FieldIssue, PatchContentUnitRequest,
-    PatchWorkRequest, ReorderContentUnitsRequest,
 };
 use serde::{de::DeserializeOwned, Deserialize};
 

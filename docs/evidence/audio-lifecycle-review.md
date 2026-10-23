@@ -10,7 +10,7 @@ BASE `5202ed2cb74db80df290caceae4dbc21cd4ea2e7`; executable/test HEAD
 `a91cb70eeda6770756cc1ea4209572b3e63f6a19`; tree
 `aafb0c3fb5a77033fd656c5c9e0e622559496454`. Completion-record edits after this pin are Markdown
 only and receive their own repository/format preflight. [Full execution ledger](audio-lifecycle.md)
-and [contract](../../packages/contracts/audio-lifecycle-v1.md) delimit actual acceptance.
+and [contract](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) delimit actual acceptance.
 
 ## Resolved findings
 

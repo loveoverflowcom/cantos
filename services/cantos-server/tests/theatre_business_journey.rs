@@ -27,7 +27,7 @@ use axum::{
     http::{header::HeaderMap, Request, StatusCode},
     Router,
 };
-use cantos_contracts::listener_library as dto;
+use cantos_server::contract::theatre::library as dto;
 use cantos_server::{
     adapters::inbound::http::{server_router, AppState},
     contexts::media::{
@@ -123,10 +123,12 @@ fn conforms(schema: &str, definition: &str, value: &Value) {
     assert!(validator.is_valid(value), "{definition}: {value}");
 }
 
-const DISCOVERY: &str =
-    include_str!("../../../packages/contracts/schema/theatre/discovery/v1.schema.json");
-const LIBRARY: &str =
-    include_str!("../../../packages/contracts/schema/theatre/library/v1.schema.json");
+const DISCOVERY: &str = include_str!(
+    "../../../services/cantos-server/contracts/theatre/discovery/v1/discovery.schema.json"
+);
+const LIBRARY: &str = include_str!(
+    "../../../services/cantos-server/contracts/theatre/library/v1/library.schema.json"
+);
 
 /// The composed host: the same assembly `cantos-server` runs, over this process's store.
 struct Host {

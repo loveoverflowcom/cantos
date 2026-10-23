@@ -1,5 +1,10 @@
 //! Leptos adaptation shell: every mutation is an explicit, immutable intent.
 use super::{response_proposal, response_status, AdaptationIntent, AdaptationReview};
+use crate::contract::{
+    AdaptationContextResponse, AdaptationCoverageDisposition, AdaptationFindingCode,
+    AdaptationProposal, AdaptationReviewResponse, AdaptationStatus, AdaptationSubmissionReceipt,
+    ImportOutcome, ImportResponse,
+};
 use crate::{
     api::{StudioContext, StudioHttp},
     authoring_view::StructuredEditor,
@@ -7,11 +12,6 @@ use crate::{
     import::ExtractionPreview,
     messages,
     view::{confirm_discard, operation_id, ValidationControls},
-};
-use cantos_contracts::{
-    AdaptationContextResponse, AdaptationCoverageDisposition, AdaptationFindingCode,
-    AdaptationProposal, AdaptationReviewResponse, AdaptationStatus, AdaptationSubmissionReceipt,
-    ImportOutcome, ImportResponse,
 };
 use leptos::{prelude::*, task::spawn_local};
 use std::sync::Arc;

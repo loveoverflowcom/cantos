@@ -13,7 +13,7 @@ private authenticated UDS RPC. The Server reaches Identity only through the RPC 
 | Server foundation | [Turso owner](../../services/cantos-server/src/platform/turso/mod.rs), [facade](../../services/cantos-server/src/platform/store/mod.rs), actor registry, native sessions and development sessions | Business migration slots remain incomplete; context SQL/test ports under #333 |
 | Server business ports | [CMP read/Library closure](server-turso/cmp-business-api.md) and [Editorial/Ingestion](server-turso/editorial-ingestion.md), appended migrations 12–16 | Remaining Catalog/Adaptation/Production/Admin/Media write ports and full non-auth HTTP parity remain #333 work |
 | Identity | [Service](../../services/cantos-identity/README.md), password/mailbox/security-state persistence and private RPC | Provisioning/recovery/restore and named acceptance under #334/#336 |
-| Auth consumers | [Identity auth v1](../../packages/contracts/identity-auth-v1.md), Web cookie and CMP Bearer adapters | Production two-binary HTTP, browser/device, restore and D1 evidence remain separately owned by #335/#336 |
+| Auth consumers | [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md), Web cookie and CMP Bearer adapters | Production two-binary HTTP, browser/device, restore and D1 evidence remain separately owned by #335/#336 |
 | Tooling | [Native commands](../../xtask/README.md), explicit migration, run-owned development directories and socket readiness | Seeding/catalog HTTP and host activation are not accepted merely from startup |
 
 ## Porting and retirement

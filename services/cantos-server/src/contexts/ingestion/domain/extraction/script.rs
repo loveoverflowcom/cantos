@@ -2,7 +2,7 @@
 //! reviewable blocks while the canonical document is preserved whole.
 use std::collections::BTreeMap;
 
-use cantos_contracts::{Extraction, ImportBlockKind, ImportCueKind, ImportProblem};
+use crate::contract::studio::{Extraction, ImportBlockKind, ImportCueKind, ImportProblem};
 use serde::Deserialize;
 
 use super::prose::decode_text;

@@ -4,6 +4,11 @@
 //! Bearer secrets. The two never mix: a cookie request may not carry `Authorization`, and a
 //! native request may not carry `Origin`, `Cookie` or `Sec-Fetch-*`. Every failure is generic.
 use super::{cookies::unique_cookie, errors::failure, AppState};
+use crate::contract::{
+    auth::bearer::{RefreshRequest, Session, TokenPair, TokenType},
+    auth::identity_auth as dto,
+    studio::ErrorCode,
+};
 use crate::platform::identity_auth::{
     credential::{self, Channel, Surface},
     decision::unhex,
@@ -15,10 +20,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
     Extension, Json, Router,
-};
-use cantos_contracts::{
-    bearer::{RefreshRequest, Session, TokenPair, TokenType},
-    identity_auth as dto, ErrorCode,
 };
 use std::{net::SocketAddr, sync::Arc};
 
@@ -896,7 +897,7 @@ pub(super) async fn admit_theatre(
             }
             request
                 .extensions_mut()
-                .insert(cantos_contracts::theatre_identity::Session {
+                .insert(crate::contract::theatre::identity::Session {
                     actor_id: record.actor_id.clone(),
                     session_id: record.session_id.clone(),
                 });

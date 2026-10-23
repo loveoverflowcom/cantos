@@ -265,7 +265,7 @@ Shell rules that the core cannot discharge:
 
 Keep the v1 authentication scope where its owners put it: email/password with verification,
 Web HttpOnly/Secure cookies and native opaque Bearer per
-[identity auth v1](../../../../packages/contracts/identity-auth-v1.md). An implemented backend
+[identity auth v1](../../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md). An implemented backend
 contract does not mean a frontend consumer migrated; follow the
 [Web auth migration](../../cantos-leptos-web/references/web-architecture.md#web-authentication-migration)
 for that status. Deferred factors, recovery or provider migration are not prerequisites for a

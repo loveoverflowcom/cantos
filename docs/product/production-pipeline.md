@@ -17,10 +17,10 @@ remain valid. The API is the content/admission/review/publication authority.
 6. An eligible immutable release is published through reviewed delivery policy; Theatre consumes
    published media without ever starting production.
 
-[Production Brief v1](../../packages/contracts/production-brief-v1.md),
-[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) and
-[Publication v1](../../packages/contracts/publication-v1.md) own the implemented contracts.
-The [general handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) is broader
+[Production Brief v1](../../services/cantos-server/contracts/studio/briefs/v1/README.md),
+[Audio Lifecycle v1](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) and
+[Publication v1](../../services/cantos-server/contracts/studio/publication/v1/README.md) own the implemented contracts.
+The [general handoff proposal](../../services/cantos-server/contracts/producer/handoff/v1/README.md) is broader
 and remains a proposal; its object-store PUT plus separate finalize design is not a current API.
 
 ## Instructions and external production

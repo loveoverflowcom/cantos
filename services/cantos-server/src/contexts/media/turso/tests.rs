@@ -4,7 +4,7 @@
 //! Nothing here establishes the creator -> publication pipeline, CDN delivery or a device.
 use std::sync::Arc;
 
-use cantos_contracts::theatre as dto;
+use crate::contract::theatre::discovery as dto;
 use cantos_store_turso::testing::FixedClock;
 use futures_util::StreamExt;
 

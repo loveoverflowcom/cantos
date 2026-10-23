@@ -41,7 +41,7 @@ two lines may share one artifact is the pipeline's reuse and rights decision, no
 ## 2. Field classification
 
 Classify every field before it ships, in a reviewed table kept with the schema. Proposed starting
-classification, using the seed [`episode-draft.json`](../../../../packages/contracts/examples/episode-draft.json):
+classification, using the seed [`episode-draft.json`](../../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json):
 
 | Field | Content digest | `SpokenContent` | Reason |
 |---|---|---|---|

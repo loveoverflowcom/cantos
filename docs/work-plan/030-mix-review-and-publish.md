@@ -8,15 +8,15 @@
 
 [ADR 0020](../decisions/0020-studio-private-audio-intake.md) implements owner-session,
 script-revision-bound private intake with four explicit Opus profiles and immutable receipts.
-[Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound
+[Audio Lifecycle](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) adds Content/Brief-bound
 submissions, scoped upload permissions, admitted renditions, named review and private candidates.
 [Private storage](../architecture/object-storage.md) adds filesystem/S3 adapters, durable original
-targets and owner-authorized exact preview. The [read contract](../../packages/contracts/private-content-reads-v1.md)
+targets and owner-authorized exact preview. The [read contract](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md)
 and [storage evidence](../evidence/provider-independent-storage.md) identify actual behavior and
 verification separately. Real-provider policies/performance, stronger rights/listening review,
 public delivery and reference-aware retention remain their own acceptance boundaries.
 
-[Publication v1](../../packages/contracts/publication-v1.md) adds authenticated owner distribution
+[Publication v1](../../services/cantos-server/contracts/studio/publication/v1/README.md) adds authenticated owner distribution
 clearance/approval, complete blockers, immutable releases, atomic active pointers and withdrawal.
 [Core evidence](../evidence/publication-core.md) distinguishes actual passing unit/property/Kani/
 Router evidence from its initial failed PostgreSQL startup and unrun migration/concurrency acceptance.

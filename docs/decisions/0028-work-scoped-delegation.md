@@ -7,7 +7,7 @@
   session); Catalog context maintainers
 - Related issue or PR: [#113](https://github.com/loveoverflowcom/cantos/issues/113),
   [PR #136](https://github.com/loveoverflowcom/cantos/pull/136),
-  [RFC](../architecture/work-scoped-delegation-rfc.md), [contract](../../packages/contracts/delegation-v1.md)
+  [RFC](../architecture/work-scoped-delegation-rfc.md), [contract](../../services/cantos-server/contracts/studio/delegation/v1/README.md)
 - Supersedes / superseded by: N/A. It narrows, not replaces, the RFC: every RFC question this
   ADR does not answer stays open.
 

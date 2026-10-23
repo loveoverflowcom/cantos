@@ -13,9 +13,9 @@ use crate::{
     command::CommandSpec,
     config::{
         App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_PACKAGE, IDENTITY_PERSISTENCE_FEATURE,
-        IDENTITY_RPC_PACKAGE, IDENTITY_SERVICE_FEATURE, THEATRE_PREVIEW_FEATURE,
-        THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE,
-        UI_PACKAGE, WASM_TARGET,
+        IDENTITY_SERVICE_FEATURE, PROTO_CODEGEN_MANIFEST, STUDIO_WEB_PACKAGE,
+        THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE,
+        TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET, WEB_AUTH_PACKAGE,
     },
     kani::{self, Kernel},
     pipeline::Step,
@@ -130,8 +130,10 @@ pub enum Gate {
 
 /// Integration test targets of `cantos-server` for metadata, wire, Script IR and read-only media
 /// admission. Tool-backed ignored tests belong to `Gate::AudioInspection`; the Server's
-/// file-backed database tests are ordinary tests of the workspace gate.
-pub const API_CONTRACT_TESTS: [&str; 13] = [
+/// file-backed database tests are ordinary tests of the workspace gate. `contract_conformance`
+/// checks the Server's own representation against the canonical schemas and fixtures it owns.
+pub const API_CONTRACT_TESTS: [&str; 14] = [
+    "contract_conformance",
     "script_ir",
     "studio_contract",
     "wire_contract",
@@ -286,7 +288,7 @@ impl Gate {
                     "--target-dir",
                     "target/protobuf-oracle",
                     "--",
-                    "packages/contracts/fixtures/protobuf/v1/goldens.json",
+                    "services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf/goldens.json",
                 ]),
                 cargo(&[
                     "clippy",
@@ -299,6 +301,17 @@ impl Gate {
                     "--",
                     "-D",
                     "warnings",
+                ]),
+                // Every consumer-owned binding equals a fresh generation from its owner's proto.
+                cargo(&[
+                    "run",
+                    "--locked",
+                    "--manifest-path",
+                    PROTO_CODEGEN_MANIFEST,
+                    "--target-dir",
+                    "target/proto-codegen",
+                    "--",
+                    "--check",
                 ]),
             ],
             Gate::RustLint(scope) => vec![cargo(&["clippy"])
@@ -377,17 +390,6 @@ impl Gate {
                 cargo(&[
                     "clippy",
                     "-p",
-                    IDENTITY_RPC_PACKAGE,
-                    "--all-targets",
-                    "--locked",
-                    "--",
-                    "-D",
-                    "warnings",
-                ]),
-                cargo(&["test", "-p", IDENTITY_RPC_PACKAGE, "--locked"]),
-                cargo(&[
-                    "clippy",
-                    "-p",
                     TURSO_STORE_PACKAGE,
                     "--features",
                     TURSO_TESTING_FEATURE,
@@ -419,9 +421,25 @@ impl Gate {
                 ]),
             ],
             Gate::ContractTests => vec![
-                cargo(&["test", "--locked", "-p", "cantos-contracts"]),
                 cargo(&["test", "--locked", "-p", API_PACKAGE])
                     .args(API_CONTRACT_TESTS.iter().flat_map(|test| ["--test", test])),
+                // Each Web client's own representation against the same canonical fixtures.
+                cargo(&[
+                    "test",
+                    "--locked",
+                    "-p",
+                    STUDIO_WEB_PACKAGE,
+                    "-p",
+                    THEATRE_WEB_PACKAGE,
+                    "-p",
+                    WEB_AUTH_PACKAGE,
+                    "--features",
+                    THEATRE_PREVIEW_FEATURE,
+                    "--lib",
+                    "--",
+                    "contract::",
+                    "wire::",
+                ]),
             ],
             Gate::WavReference => vec![
                 cargo(&[
@@ -649,8 +667,6 @@ mod tests {
                 "cargo test -p cantos-identity --features persistence --locked",
                 "cargo clippy -p cantos-identity --features service --all-targets --locked -- -D warnings",
                 "cargo test -p cantos-identity --features service --locked",
-                "cargo clippy -p cantos-identity-rpc --all-targets --locked -- -D warnings",
-                "cargo test -p cantos-identity-rpc --locked",
                 "cargo clippy -p cantos-store-turso --features testing --all-targets --locked -- -D warnings",
                 "cargo test -p cantos-store-turso --features testing --locked",
                 "cargo run --locked -p cantos-store-turso --features testing --bin cantos-turso-capability -- report",
@@ -797,8 +813,9 @@ mod tests {
     fn protobuf_reference_checks_independent_goldens_and_exact_generated_schema() {
         assert_eq!(lines(&Gate::ProtobufReference), [
             "python3 scripts/reference_protobuf.py",
-            "cargo run --locked --manifest-path scripts/protobuf-oracle/rust/Cargo.toml --target-dir target/protobuf-oracle -- packages/contracts/fixtures/protobuf/v1/goldens.json",
+            "cargo run --locked --manifest-path scripts/protobuf-oracle/rust/Cargo.toml --target-dir target/protobuf-oracle -- services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf/goldens.json",
             "cargo clippy --locked --manifest-path scripts/protobuf-oracle/rust/Cargo.toml --target-dir target/protobuf-oracle --all-targets -- -D warnings",
+            "cargo run --locked --manifest-path tools/proto-codegen/Cargo.toml --target-dir target/proto-codegen -- --check",
         ]);
         assert_eq!(
             Gate::ProtobufReference.tools(),
@@ -1031,9 +1048,14 @@ mod tests {
             }
         }
         for test in API_CONTRACT_TESTS {
-            let path = format!("services/cantos-server/tests/{test}.rs");
-            assert!(workspace.path(&path).is_file(), "{path}");
+            let file = format!("services/cantos-server/tests/{test}.rs");
+            let directory = format!("services/cantos-server/tests/{test}/main.rs");
+            assert!(
+                workspace.path(&file).is_file() || workspace.path(&directory).is_file(),
+                "{test}"
+            );
         }
+        assert!(workspace.path(PROTO_CODEGEN_MANIFEST).is_file());
     }
 
     #[test]

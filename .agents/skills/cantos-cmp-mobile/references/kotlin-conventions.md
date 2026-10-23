@@ -68,7 +68,7 @@ value class PlaybackSpeed private constructor(val permille: Int) {
 // Counterexample: data class PlaybackSpeed(val factor: Double) accepts NaN and any speed.
 ```
 
-The set belongs to the [mock corpus](../../../../packages/contracts/fixtures/theatre/playback/v1/README.md),
+The set belongs to the [mock corpus](../../../../apps/cantos-theatre/conformance/playback/v1/vectors/README.md),
 not a selected production policy. Current generation is Uint32-bounded with checked exhaustion,
 never wraparound. Kotlin has no native dependent types or general refinement proofs; factories
 establish runtime predicates, and visibility protects their provenance.

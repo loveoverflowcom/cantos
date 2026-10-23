@@ -10,8 +10,8 @@ use crate::contexts::{
     },
     production::domain::brief::fingerprint,
 };
+use crate::contract::studio as dto;
 use crate::platform::ids::canonical_uuid;
-use cantos_contracts as dto;
 use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

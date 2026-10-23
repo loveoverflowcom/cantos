@@ -2,8 +2,8 @@
 //! and every mutation/read response reauthorizes through the Catalog owner-work facade.
 use std::{future::Future, pin::Pin, sync::Arc};
 
+use crate::contract::studio as dto;
 use bytes::Bytes;
-use cantos_contracts as dto;
 use futures_util::Stream;
 use sha2::{Digest, Sha256};
 

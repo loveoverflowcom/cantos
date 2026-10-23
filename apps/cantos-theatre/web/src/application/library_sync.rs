@@ -4,16 +4,16 @@
 //! Receipts are historical operation outcomes; registers only advance monotonically by revision.
 pub(super) mod publication;
 use super::account_view::AccountFailure;
-use crate::core::{
-    playback::{CallbackIdentity, Source, TrackId},
-    public_ids::{canonical_uuid, PublicWorkId},
-    public_track::PinnedRelease,
-};
-use cantos_contracts::listener_library::{
+use crate::contract::library::{
     AudioIdentity, AudioPresentation, ClearConfirmation, Completion, HistoryClear, HistoryStart,
     HistoryState, MutationState, Operation, PlaybackEvent, PresentedContinueItem,
     PresentedHistoryItem, PresentedSavedItem, ProgressKind, ProgressRecord, ProgressWrite, Receipt,
     Resolution, ResumeStatus, SavedRecord, SavedWrite, WorkPresentation, WriteOutcome,
+};
+use crate::core::{
+    playback::{CallbackIdentity, Source, TrackId},
+    public_ids::{canonical_uuid, PublicWorkId},
+    public_track::PinnedRelease,
 };
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -2318,7 +2318,7 @@ mod tests {
     fn history_starts_only_once_per_engine_session_and_clear_epoch_blocks_delayed_starts() {
         let audio = sample_audio(1, 2, 3);
         let release = PinnedRelease::admit(
-            &cantos_contracts::theatre::PublicationManifest {
+            &crate::contract::discovery::PublicationManifest {
                 schema_version: "1".into(),
                 publication_id: audio.publication_id.clone(),
                 work_id: audio.work_id.clone(),

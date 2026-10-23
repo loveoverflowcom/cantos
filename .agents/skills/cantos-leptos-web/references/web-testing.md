@@ -23,7 +23,7 @@ tool; never cite a test command the repository does not define.
 |---|---|---|---|
 | Validation, editor reducer, merge, retry decision, poll schedule, playback reducer, seek clamp | plain `#[test]` and property tests on the host target | `example-tested`, `property-tested` | `cargo test`; `proptest` |
 | Every error variant has a message | exhaustive `match` without `_` | `type-enforced` | compiler |
-| Adapter maps DTOs and statuses to `PortError` | contract test over fixtures generated from `packages/contracts/` | `example-tested`; `differentially-tested` against the schema | host tests |
+| Adapter maps DTOs and statuses to `PortError` | `contract::conformance_tests` over the Server-owned canonical fixtures | `example-tested`; `differentially-tested` against the schema | host tests |
 | A screen renders idle/loading/ready/empty/failed from a fake port | Leptos component mounted in a real browser DOM with a `TestWorld` | `DOM-tested` | `wasm-bindgen-test` in headless browser mode |
 | A slow older response does not win | component test with a manually completed fake | `DOM-tested` (plus the pure guard `example-tested`) | as above |
 | Tab order, focus return, shortcuts, IME composition, drag alternative, media controls | trusted input driven in a real browser | `interaction-tested`; `accessibility-checked` when semantics, keyboard and focus are all covered | Playwright or a CDP driver |
@@ -58,7 +58,7 @@ feature invent its own fake ecosystem, and do not create a support crate before 
 async fn failed_save_keeps_the_typed_line_and_offers_retry() {
     let world = TestWorld::new()
         .with_locale(Locale::Vi)
-        .with_script(fixtures::mot_loi_hen())   // derived from packages/contracts/examples/episode-draft.json
+        .with_script(fixtures::mot_loi_hen())   // derived from services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json
         .with_save_result(Err(PortError::Timeout));
     let ui = world.mount(|| view! { <ScriptEditorPage episode=fixtures::EPISODE_DEMO_01/> });
 
@@ -208,7 +208,7 @@ conditions per surface are in the [UI system validation matrix](../../../../docs
 ## 7. Fixtures and evidence storage
 
 - Fixtures are original or permitted content, starting from
-  [`packages/contracts/examples/episode-draft.json`](../../../../packages/contracts/examples/episode-draft.json). Never a
+  [`services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json`](../../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json). Never a
   private manuscript, real voice sample or provider output.
 - Test audio is generated at test time (a tone or silence of known duration) into an ignored
   directory. Audio extensions are ignored by Git; do not force-add them.

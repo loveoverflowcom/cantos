@@ -1,5 +1,6 @@
 //! Admin-only shell. Accepts a dedicated verified resource JWT, never cookies/identity headers.
 use super::{errors::failure, router::not_found, AppState};
+use crate::contract::{admin::RevokeAccessRequest, studio::ErrorCode};
 use crate::platform::admin::AdminError;
 use axum::{
     extract::{
@@ -11,7 +12,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use cantos_contracts::{admin::RevokeAccessRequest, ErrorCode};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

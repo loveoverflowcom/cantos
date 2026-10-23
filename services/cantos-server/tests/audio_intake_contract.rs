@@ -1,23 +1,28 @@
-use cantos_contracts::{
+use cantos_server::contract::studio::{
     ApiError, AudioIntentResponse, AudioIntentStatusResponse, AudioMediaMetadata,
     AudioReceiptResponse, CreateAudioIntentRequest,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 
-const SCHEMA: &str = include_str!("../../../packages/contracts/schema/audio-intake/v1.schema.json");
-const REQUEST: &str =
-    include_str!("../../../packages/contracts/fixtures/audio-intake/v1/intent-request.json");
+const SCHEMA: &str = include_str!(
+    "../../../services/cantos-server/contracts/studio/audio-intake/v1/audio-intake.schema.json"
+);
+const REQUEST: &str = include_str!(
+    "../../../services/cantos-server/contracts/studio/audio-intake/v1/fixtures/intent-request.json"
+);
 const INTENT: &str =
-    include_str!("../../../packages/contracts/fixtures/audio-intake/v1/intent-response.json");
-const MEDIA: &str =
-    include_str!("../../../packages/contracts/fixtures/audio-intake/v1/media-metadata.json");
+    include_str!("../../../services/cantos-server/contracts/studio/audio-intake/v1/fixtures/intent-response.json");
+const MEDIA: &str = include_str!(
+    "../../../services/cantos-server/contracts/studio/audio-intake/v1/fixtures/media-metadata.json"
+);
 const RECEIPT: &str =
-    include_str!("../../../packages/contracts/fixtures/audio-intake/v1/receipt-response.json");
-const EMPTY: &str =
-    include_str!("../../../packages/contracts/fixtures/audio-intake/v1/status-empty.json");
+    include_str!("../../../services/cantos-server/contracts/studio/audio-intake/v1/fixtures/receipt-response.json");
+const EMPTY: &str = include_str!(
+    "../../../services/cantos-server/contracts/studio/audio-intake/v1/fixtures/status-empty.json"
+);
 const ACCEPTED: &str =
-    include_str!("../../../packages/contracts/fixtures/audio-intake/v1/status-accepted.json");
+    include_str!("../../../services/cantos-server/contracts/studio/audio-intake/v1/fixtures/status-accepted.json");
 
 fn schema(definition: &str) -> jsonschema::Validator {
     let root: Value = serde_json::from_str(SCHEMA).unwrap();
@@ -158,7 +163,7 @@ fn private_media_schema_bounds_duration_size_identity_and_observed_channel_rate(
 #[test]
 fn historical_aac_proposal_never_becomes_an_accepted_current_intake_profile() {
     let value: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/audio-intake/v1/rejected-aac-media.json"
+        "../../../services/cantos-server/contracts/studio/audio-intake/v1/fixtures/rejected-aac-media.json"
     ))
     .unwrap();
     assert!(!schema("AudioMediaMetadata").is_valid(&value));
@@ -224,7 +229,7 @@ fn omitted_or_null_receipt_means_only_no_accepted_receipt() {
 #[test]
 fn audio_rejection_conforms_to_shared_studio_error_schema() {
     let root: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/studio/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/editorial.schema.json"
     ))
     .unwrap();
     let validator = jsonschema::validator_for(&json!({

@@ -347,13 +347,13 @@ use std::fmt;
     def test_domain_cannot_build_theatre_wire_dtos_in_any_import_form(self):
         # Persisted canonical documents stay admitted; the application layer owns projection.
         self.assertEqual(self.errors("contexts/media/domain/publication.rs",
-                                     "use cantos_contracts as dto;"), [])
+                                     "use crate::contract::studio as dto;"), [])
         self.assertEqual(self.errors("contexts/media/listener_projection.rs",
-                                     "use cantos_contracts::theatre as dto;"), [])
+                                     "use crate::contract::theatre::discovery as dto;"), [])
         for content in (
-            "use cantos_contracts::theatre as dto;",
-            "use cantos_contracts::{theatre::WorkSummary, FieldIssue};",
-            "fn f() -> cantos_contracts::theatre::PublicationManifest { todo!() }",
+            "use crate::contract::theatre::discovery as dto;",
+            "use crate::contract::{theatre::discovery::WorkSummary, studio::FieldIssue};",
+            "fn f() -> crate::contract::theatre::discovery::PublicationManifest { todo!() }",
         ):
             with self.subTest(content=content):
                 self.assertRejected("contexts/media/domain/listening.rs", content,
@@ -536,16 +536,16 @@ fn project(facts: ReviewFacts) { document::revision(saved); document::issues(iss
     def test_editorial_and_adaptation_diagnostics_cannot_build_wire_errors(self):
         for owner in ("editorial", "adaptation"):
             for content in (
-                "use cantos_contracts::FieldIssue;",
-                "use cantos_contracts::{AdaptationProblem, Extraction};",
-                "use cantos_contracts as dto; fn f() { dto::FieldIssue { path, rule }; }",
+                "use crate::contract::studio::FieldIssue;",
+                "use crate::contract::studio::{AdaptationProblem, Extraction};",
+                "use crate::contract::studio as dto; fn f() { dto::FieldIssue { path, rule }; }",
             ):
                 with self.subTest(owner=owner, content=content):
                     self.assertRejected(f"contexts/{owner}/domain/diagnostics.rs", content,
                         "pure diagnostics must use safe domain facts")
             (self.root / checks.API_SOURCE / f"contexts/{owner}/domain/diagnostics.rs").unlink()
         self.assertEqual(self.errors("contexts/adaptation/domain/frozen.rs",
-            "use cantos_contracts::{RevisionResponse, ImportResponse};"), [])
+            "use crate::contract::studio::{RevisionResponse, ImportResponse};"), [])
 
     def test_catalog_http_allows_pure_wire_admission_and_typed_error_mapping(self):
         self.assertEqual(self.errors("adapters/inbound/http/studio/catalog.rs", """
@@ -872,7 +872,8 @@ fn open() { turso::open(); postgres::load(); }
                 ("turso::Connection", "pure domain must not depend on I/O"),
                 ("cantos_store_turso::OwnedDatabase", "pure domain must not depend on I/O"),
                 ("libsql::Connection", "pure domain must not depend on I/O"),
-                ("cantos_identity_rpc::ValidatedFact", "pure domain must not depend on generated RPC DTOs"),
+                ("crate::platform::identity_auth::rpc::ValidatedFact",
+                 "pure domain must not depend on generated RPC DTOs"),
                 ("tonic::Status", "pure domain must not depend on generated RPC DTOs"),
                 ("prost::Message", "pure domain must not depend on generated RPC DTOs"),
             ):
@@ -881,12 +882,14 @@ fn open() { turso::open(); postgres::load(); }
 
     def test_rpc_types_stay_in_the_platform_identity_adapter(self):
         self.assertEqual(self.errors("platform/identity_auth/client.rs", """
-use cantos_identity_rpc::{identity_client::IdentityClient, Purpose};
+use super::rpc::{identity_client::IdentityClient, Purpose};
 use tonic::{transport::Channel, Status};
 """), [])
+        self.assertEqual(self.errors("platform/identity_auth/rpc/generated.rs",
+                                     "#[derive(Clone, PartialEq, ::prost::Message)] pub struct A {}"), [])
         for path, dependency in (
-            ("adapters/inbound/http/identity_auth.rs", "cantos_identity_rpc::AuthenticationFact"),
-            ("contexts/listening/application.rs", "cantos_identity_rpc::ValidatedFact"),
+            ("adapters/inbound/http/identity_auth.rs", "crate::platform::identity_auth::rpc::AuthenticationFact"),
+            ("contexts/listening/application.rs", "crate::platform::identity_auth::rpc::ValidatedFact"),
             ("application.rs", "tonic::transport::Channel"),
         ):
             with self.subTest(path=path):
@@ -1093,14 +1096,34 @@ fn grant() { tx.execute("INSERT INTO actors(id) VALUES($1)", &[]); }
             ("contexts/media/application.rs", 'const M: &str = "cannot attach the artwork to this work";'),
             ("platform/postgres/partitions.rs", 'const Q: &str = "ALTER TABLE a ATTACH PARTITION b FOR VALUES IN (1)";'),
             ("contexts/catalog/mod.rs", "mod turso { pub fn open() {} }\nfn f() { turso::open(); }"),
-            ("platform/identity_auth.rs", "use cantos_identity_rpc::Purpose;\nuse tonic::Status;"),
+            ("platform/identity_auth.rs",
+             "use crate::platform::identity_auth::rpc::Purpose;\nuse tonic::Status;"),
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.errors(path, content), [])
 
     def test_rpc_types_stay_in_the_identity_adapter_not_any_platform_module(self):
-        self.assertRejectedAt("platform/bearer/mod.rs", "use cantos_identity_rpc::ValidatedFact;",
+        self.assertRejectedAt("platform/bearer/mod.rs",
+                              "use crate::platform::identity_auth::rpc::ValidatedFact;",
                               "generated Identity RPC DTOs and their runtime stay in the platform Identity adapter")
+
+    def test_prost_stays_in_the_rpc_client_and_the_studio_protobuf_codec(self):
+        self.assertEqual(self.errors("contract/studio/protobuf/mod.rs",
+                                     "use prost::Message;\nuse crate::contract::codec::DecodeError;"), [])
+        for path in ("contract/studio/catalog.rs", "adapters/inbound/http/wire.rs",
+                     "contexts/media/image_application.rs"):
+            with self.subTest(path=path):
+                self.assertRejectedAt(path, "use prost::Message;",
+                                      "prost stays in the generated Identity RPC client")
+
+    def test_the_server_contract_representation_is_a_wire_leaf(self):
+        self.assertEqual(self.errors("contract/studio/content.rs",
+            "use super::{CatalogScriptRef, CatalogSourceRef};\nuse serde::Serialize;"), [])
+        for dependency in ("crate::contexts::catalog::CatalogCommand", "crate::platform::ids::ActorId",
+                           "crate::adapters::inbound::http::AppState", "crate::script_ir::Document"):
+            with self.subTest(dependency=dependency):
+                self.assertRejectedAt("contract/studio/catalog.rs", f"use {dependency};",
+                                      "the Server's contract representation is a wire leaf")
 
 
 class IdentityArchitectureTest(unittest.TestCase):
@@ -1116,8 +1139,9 @@ use cantos_store_turso::{registry::Intent, OwnedDatabase};
 const SCHEMA: &str = include_str!("schema.sql");
 const READ: &str = "SELECT id FROM identity_subjects WHERE id = ?1";
 """,
-        "rpc.rs": "use cantos_identity_rpc::{identity_server::Identity, Purpose};\nuse tonic::{Request, Status};\n",
-        "server.rs": "use cantos_identity_rpc::identity_server::IdentityServer;\nuse cantos_store_turso::clock::SystemClock;\n",
+        "rpc.rs": "pub mod generated;\nuse generated::{identity_server::Identity, Purpose};\nuse tonic::{Request, Status};\n",
+        "rpc/generated.rs": "#[derive(Clone, PartialEq, ::prost::Message)]\npub struct Fact {}\n",
+        "server.rs": "use crate::rpc::generated::identity_server::IdentityServer;\nuse cantos_store_turso::clock::SystemClock;\n",
         "application.rs": "use cantos_store_turso::clock::Clock;\nuse crate::domain::email::EmailAddress;\n",
     }
 
@@ -1172,7 +1196,8 @@ const READ: &str = "SELECT id FROM identity_subjects WHERE id = ?1";
             ("use cantos_store_turso::OwnedDatabase;", "pure domain must not depend on I/O"),
             ("use turso::Connection;", "pure domain must not depend on I/O"),
             ("use tokio::fs;", "pure domain must not depend on I/O"),
-            ("use cantos_identity_rpc::ValidatedFact;", "pure domain must not depend on generated RPC DTOs"),
+            ("use crate::rpc::generated::AuthenticationFact;", "Identity domain must not depend on its adapters"),
+            ("use prost::Message;", "pure domain must not depend on generated RPC DTOs"),
             ("use tonic::Status;", "pure domain must not depend on generated RPC DTOs"),
             ("use crate::persistence::SecurityStore;", "Identity domain must not depend on its adapters"),
             ("use super::application::Identity;", "Identity domain must not depend on its adapters"),
@@ -1182,9 +1207,10 @@ const READ: &str = "SELECT id FROM identity_subjects WHERE id = ?1";
 
     def test_rpc_types_stay_in_the_rpc_adapter_and_composition(self):
         for path in ("application.rs", "persistence/mod.rs", "policy.rs"):
-            with self.subTest(path=path):
-                self.assertRejectedAt(path, "use cantos_identity_rpc::ValidatedFact;",
-                                      "stay in Identity's RPC adapter and process composition")
+            for dependency in ("crate::rpc::generated::AuthenticationFact", "prost::Message"):
+                with self.subTest(path=path, dependency=dependency):
+                    self.assertRejectedAt(path, f"use {dependency};",
+                                          "stay in Identity's RPC adapter and process composition")
 
     def test_identity_sql_stays_in_its_adapter_and_its_own_database(self):
         for path, content, reason in (
@@ -1223,7 +1249,7 @@ class ManifestBoundaryTest(unittest.TestCase):
         "services/cantos-server": """[package]
 name = "cantos-server"
 [dependencies]
-cantos-identity-rpc = { path = "../../packages/contracts/identity-rpc" }
+prost = { version = "=0.14.4", default-features = false }
 [dev-dependencies]
 cantos-identity = { path = "../cantos-identity", features = ["service"] }
 cantos-store-turso = { path = "../../packages/store-turso" }
@@ -1231,7 +1257,7 @@ cantos-store-turso = { path = "../../packages/store-turso" }
         "services/cantos-identity": """[package]
 name = "cantos-identity"
 [dependencies]
-cantos-identity-rpc = { path = "../../packages/contracts/identity-rpc", optional = true }
+prost = { version = "=0.14.4", default-features = false, optional = true }
 cantos-store-turso = { path = "../../packages/store-turso", optional = true }
 """,
         "packages/store-turso": """[package]
@@ -1241,11 +1267,11 @@ turso = { version = "=0.8.3", default-features = false }
 [dev-dependencies]
 cantos-store-turso = { path = ".", features = ["testing"] }
 """,
-        "packages/contracts/identity-rpc": '[package]\nname = "cantos-identity-rpc"\n',
+        "packages/web-auth": '[package]\nname = "cantos-web-auth"\n',
         "apps/cantos-theatre/web": """[package]
 name = "cantos-theatre-web"
 [dependencies]
-cantos-identity-rpc = { path = "../../../packages/contracts/identity-rpc" }
+cantos-web-auth = { path = "../../../packages/web-auth" }
 """,
     }
 
@@ -1299,10 +1325,10 @@ identity = {{ package = "cantos-identity", path = "../cantos-identity" }}
 """, "implementation crates are test-only dev-dependencies")
 
     def test_packages_and_apps_cannot_depend_on_service_or_app_code(self):
-        self.assertRejected("packages/contracts/identity-rpc", """[package]
-name = "cantos-identity-rpc"
+        self.assertRejected("packages/web-auth", """[package]
+name = "cantos-web-auth"
 [dependencies]
-cantos-identity = { path = "../../../services/cantos-identity" }
+cantos-server = { path = "../../services/cantos-server" }
 """, "shared packages must not depend on a service or app")
         for target in ("../../../services/cantos-server", "../../cantos-studio/web"):
             with self.subTest(target=target):
@@ -1324,8 +1350,7 @@ name = "cantos-identity"
 store = { package = "cantos-store-turso", path = "../../packages/store-turso" }
 """, "renaming cantos-store-turso hides it from the source guards")
         for dependency, crate in (('rng = { package = "rand", version = "0.9" }', "rand"),
-                                  ('wire = { package = "cantos-contracts", path = "../../packages/contracts/api" }',
-                                   "cantos-contracts")):
+                                  ('codec = { package = "prost", version = "=0.14.4" }', "prost")):
             with self.subTest(crate=crate):
                 self.assertRejected("services/cantos-identity",
                                     f'[package]\nname = "cantos-identity"\n[dependencies]\n{dependency}\n',
@@ -1342,7 +1367,7 @@ db = {{ package = "turso", version = "=0.8.3" }}
 """, encoding="utf-8")
         self.assertEqual(checks.check_manifest_boundaries(self.root), [])
         for member, dependency, reason in (
-            ("packages/contracts/identity-rpc", "cantos-server = { workspace = true }",
+            ("packages/web-auth", "cantos-server = { workspace = true }",
              "shared packages must not depend on a service or app"),
             ("services/cantos-server", "cantos-identity = { workspace = true }",
              "implementation crates are test-only dev-dependencies"),
@@ -1352,6 +1377,11 @@ db = {{ package = "turso", version = "=0.8.3" }}
             with self.subTest(member=member):
                 name = self.MEMBERS[member].split("\n", 2)[1]
                 self.assertRejected(member, f"[package]\n{name}\n[dependencies]\n{dependency}\n", reason)
+
+    def test_the_retired_central_contract_package_cannot_return(self):
+        (self.root / "packages/contracts/api").mkdir(parents=True)
+        self.assertTrue(any(error.startswith("packages/contracts: retired central contract package")
+                            for error in checks.check_manifest_boundaries(self.root)))
 
     def test_only_the_shared_store_owner_depends_on_the_turso_engine(self):
         for dependency in ('turso = "=0.8.3"', 'engine = { package = "libsql", version = "1" }'):
@@ -1861,14 +1891,14 @@ implementation(compose.desktop.uiTestJUnit4)
 class LibraryWireGenerationBoundaryTest(unittest.TestCase):
     def test_reviewed_codegen_keeps_schema_types_and_fixture_bytes_in_separate_outputs(self):
         mobile = checks.ROOT / checks.THEATRE_MOBILE
-        contract = checks.ROOT / "packages/contracts"
+        library = checks.ROOT / "services/cantos-server/contracts/theatre/library/v1"
         with tempfile.TemporaryDirectory() as folder:
             main = Path(folder) / "commonMain/LibraryWire.kt"
             test = Path(folder) / "commonTest/LibraryFixtures.kt"
             subprocess.run([
                 sys.executable, str(mobile / "tooling/generate_library_wire.py"),
-                str(contract / "schema/theatre/library/v1.schema.json"),
-                str(contract / "fixtures/theatre/library/v1"), str(main), str(test),
+                str(library / "library.schema.json"),
+                str(library / "fixtures"), str(main), str(test),
             ], check=True, capture_output=True, text=True)
             production = main.read_text(encoding="utf-8")
             fixtures = test.read_text(encoding="utf-8")
@@ -1882,16 +1912,16 @@ class LibraryWireGenerationBoundaryTest(unittest.TestCase):
             # The default corpus, the opt-in presentation=1 corpus and the bookmark corpus are separate maps.
             default_part, rest = fixtures.split("internal val libraryPresentationFixtures")
             presented_part, bookmark_part = rest.split("internal val libraryBookmarkFixtures")
-            expected = sorted((contract / "fixtures/theatre/library/v1").glob("*.json"))
+            expected = sorted((library / "fixtures").glob("*.json"))
             self.assertEqual(len(expected), default_part.count(" to "))
             for file in expected:
                 self.assertIn(json.dumps(file.name), default_part)
                 self.assertNotIn(json.dumps(file.name), presented_part)
-            presented = sorted((contract / "fixtures/theatre/library/v1/presentation").glob("*.json"))
+            presented = sorted((library / "fixtures/presentation").glob("*.json"))
             self.assertEqual(len(presented), presented_part.count(" to "))
             for file in presented:
                 self.assertIn(json.dumps(file.name), presented_part)
-            bookmarks = sorted((contract / "fixtures/theatre/library/v1/bookmarks").glob("*.json"))
+            bookmarks = sorted((library / "fixtures/bookmarks").glob("*.json"))
             self.assertEqual(len(bookmarks), bookmark_part.count(" to "))
             for file in bookmarks:
                 self.assertIn(json.dumps(file.name), bookmark_part)

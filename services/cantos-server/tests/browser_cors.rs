@@ -3,8 +3,8 @@ use axum::{
     body::Body,
     http::{header, Request, StatusCode},
 };
-use cantos_contracts::web_api::WebSurface;
 use cantos_server::adapters::inbound::http::with_browser_cors;
+use cantos_server::adapters::inbound::http::WebSurface;
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -122,11 +122,11 @@ async fn production_api_theatre_handler_is_readable_but_other_surface_stays_clos
     let body = axum::body::to_bytes(response.into_body(), 8192)
         .await
         .unwrap();
-    let error: cantos_contracts::listener_library::LibraryError =
+    let error: cantos_server::contract::theatre::library::LibraryError =
         serde_json::from_slice(&body).unwrap();
     assert_eq!(
         error.code,
-        cantos_contracts::listener_library::ErrorCode::Unauthenticated
+        cantos_server::contract::theatre::library::ErrorCode::Unauthenticated
     );
     let response = app
         .oneshot(

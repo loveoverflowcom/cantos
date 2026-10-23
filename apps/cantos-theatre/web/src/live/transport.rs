@@ -6,7 +6,7 @@
 //! * Signup start/complete are anonymous: `credentials: omit`, no fence, never a cookie.
 //! * Public catalog, publication and media requests stay anonymous (`credentials: omit`); a
 //!   cookie never rides to media or any URL outside the API's Theatre surface.
-use cantos_contracts::routes::THEATRE_BASE;
+use cantos_web_auth::address::THEATRE_BASE;
 
 fn route(path: &str) -> &str {
     path.split('?').next().unwrap_or(path)

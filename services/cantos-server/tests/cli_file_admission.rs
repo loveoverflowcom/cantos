@@ -64,7 +64,7 @@ fn writerless_fifo_and_its_symlink_are_rejected_before_reading_by_both_clis() {
     let link = scratch.0.join("linked.fifo");
     symlink(&fifo, &link).unwrap();
     let good = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
+        .join("../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json");
     for path in [&fifo, &link] {
         let mut wav = Command::new(env!("CARGO_BIN_EXE_inspect-wav"));
         wav.arg(path);

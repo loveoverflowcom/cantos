@@ -1,6 +1,6 @@
 //! Concrete short PostgreSQL transactions for private artwork. There is no byte/decoder/
 //! object-storage call in this module, and no live transaction is returned to the service.
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 
 use super::{
     AdmissionContext, ArtworkApplicationError, ArtworkContext, ArtworkReceipt, ArtworkRepository,

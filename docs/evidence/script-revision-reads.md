@@ -16,7 +16,7 @@ kept separately from the prompt-2 historical NOT_RUN record below.
 All query owners in this historical PostgreSQL record are
 [`postgres.rs` at the pre-port checkpoint](https://github.com/loveoverflowcom/cantos/blob/12fb751ec71e20233fe4caaee35e4544fe4a0d4b/services/cantos-server/src/contexts/editorial/postgres.rs); the
 [HTTP routes](../../services/cantos-server/src/adapters/inbound/http/router.rs), [migration](https://github.com/loveoverflowcom/cantos/blob/3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a/services/cantos-api/migrations/0001_script_revisions.sql),
-[wire contract](../../packages/contracts/studio-v1.md) and
+[wire contract](../../services/cantos-server/contracts/studio/editorial/v1/README.md) and
 [real PostgreSQL suite](https://github.com/loveoverflowcom/cantos/blob/12fb751ec71e20233fe4caaee35e4544fe4a0d4b/services/cantos-server/legacy-pg-tests/tests/revisions_postgres.rs) are immediate consumers.
 
 | Read / consumers | Query, parameters and permission scope | Cardinality / index / order | Feeding writes / time | Consistency and cost uncertainty |

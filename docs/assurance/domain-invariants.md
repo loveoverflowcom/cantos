@@ -6,7 +6,10 @@ Initial inventory, recorded before implementation on 2026-10-13 against fresh
 `origin/develop` `4f33a901b87be770be7cf5bbdac909408570240d`. All six Cargo workspace
 members are in scope. CMP/Kotlin is outside this Rust audit. This ledger is an
 inventory of implemented code, not a claim that proposed publication, listener
-integration or external production exists.
+integration or external production exists. Its `cantos-contracts` rows predate
+[ADR 0046](../decisions/0046-service-owned-contracts.md): those DTOs and codecs are now the
+Server's `src/contract` plus separate consumer-owned copies, and the W1–W4 tests run as the
+Server's `contract_conformance` target.
 
 The owning architecture remains [ADR 0018](../decisions/0018-external-audio-production.md),
 [Content identity](../decisions/0019-content-identity.md),

@@ -38,7 +38,7 @@ The owner selected this v1 scope on 21 October 2026 for #332/#334/#335/#336, coo
 #295. It supersedes the earlier Studio D3/passkey requirement and blanket Server-Turso/event-
 consumer prerequisites **for v1**, without accepting unfinished implementation or closing issues.
 [ADR 0045](../decisions/0045-v1-email-password-sign-in.md) records the accepted email/password
-decision and [Identity auth v1](../../packages/contracts/identity-auth-v1.md) its backend contract;
+decision and [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) its backend contract;
 this section owns the parallel-integration and security-state strategy around them.
 
 | Selected v1 decision | Boundary |
@@ -57,7 +57,7 @@ accepted; a documentation amendment does not authorize a runtime bypass.
 | Implementation observed in source | Verification boundary |
 | --- | --- |
 | Identity `service` implements Theatre mailbox-confirmed signup, Argon2id password authentication (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md)) and `GetSecurityState` over private UDS RPC | The [service guide](../../services/cantos-identity/README.md#verification) records source-bound prior runs; this amendment runs no authentication tests. |
-| Studio password is implemented in Identity: [the core](../../services/cantos-identity/src/domain/admission.rs) admits `(Studio, Password)` beside the deferred `UserVerifiedPasskey`, and the Server's roster decides Studio entry | Prior runs are recorded in [Identity auth v1](../../packages/contracts/identity-auth-v1.md#verification); this amendment runs none. Studio provisioning remains absent; a password result is never relabelled as passkey assurance. |
+| Studio password is implemented in Identity: [the core](../../services/cantos-identity/src/domain/admission.rs) admits `(Studio, Password)` beside the deferred `UserVerifiedPasskey`, and the Server's roster decides Studio entry | Prior runs are recorded in [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md#verification); this amendment runs none. Studio provisioning remains absent; a password result is never relabelled as passkey assurance. |
 | [Server foundation](native-persistence-readiness.md) composes Turso sessions/ActorId bindings; business port remains incomplete | Historical transitional PG E2E never qualifies native HTTP parity. |
 | [Shared Web auth](../../packages/web-auth/README.md) now consumes the Server's v1 Web cookie endpoints (source only; no Bearer fallback); [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has first-party Identity v1 Bearer coordination/secure storage | Web cookie/fetch/XHR/session-restore wiring exists in source; real first-party v1 browser journeys remain pending, with separate browser/device acceptance. |
 

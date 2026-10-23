@@ -5,7 +5,8 @@ package com.cantos.theatre.studiopilotfixtures
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
-// Mirrors packages/contracts/protobuf/studio_v1.proto. Optional scalars expose wire presence.
+// Mirrors the Server-owned services/cantos-server/contracts/studio/editorial/v1/editorial.proto.
+// Optional scalars expose wire presence.
 // Long is uint64 raw bits, converted only with toULong/toLong, never signed arithmetic.
 @Serializable
 internal data class ValidateWire(@ProtoNumber(1) val scriptJson: String? = null)

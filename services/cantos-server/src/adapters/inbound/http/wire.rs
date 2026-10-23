@@ -5,17 +5,17 @@
 //! refused `Content-Type`, `Accept` or binary body is answered before the store is touched:
 //! a representation failure can never follow a committed write. Errors stay JSON `ApiError`s
 //! with the existing codes for every client.
+use crate::contract::{
+    codec::{self as wire, WireFormat},
+    studio::protobuf::ProtobufDto,
+    studio::{ApiError, ErrorCode, FieldIssue},
+};
 use axum::{
     body::Bytes,
     extract::{FromRequest, FromRequestParts, Request},
     http::{header, request::Parts, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
-};
-use cantos_contracts::{
-    protobuf::ProtobufDto,
-    wire::{self, WireFormat},
-    ApiError, ErrorCode, FieldIssue,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -330,13 +330,13 @@ mod tests {
         Arc,
     };
 
+    use crate::contract::studio::SaveRevisionRequest;
     use axum::{
         body::Body,
         extract::{DefaultBodyLimit, State},
         routing::post,
         Router,
     };
-    use cantos_contracts::SaveRevisionRequest;
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 

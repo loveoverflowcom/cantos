@@ -1,10 +1,10 @@
 //! One owner-bound request authority; the form dispatches intents and never performs I/O.
 use super::*;
+use crate::contract::*;
 use crate::live::{
     workspace::{uuid, Dispatch},
     ClientError, Command, Phase, Reply, RequestState,
 };
-use cantos_contracts::*;
 use leptos::{prelude::*, task::spawn_local};
 use web_sys::AbortController;
 

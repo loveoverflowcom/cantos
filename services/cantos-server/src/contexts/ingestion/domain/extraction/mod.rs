@@ -2,7 +2,7 @@
 //!
 //! One entry point admits every format; each format keeps its own reader: plain text and
 //! Markdown prose, DOCX (a bounded ZIP of WordprocessingML) and complete Script IR documents.
-use cantos_contracts::{Extraction, ImportFormat, ImportOutcome, ImportProblem};
+use crate::contract::studio::{Extraction, ImportFormat, ImportOutcome, ImportProblem};
 
 mod builder;
 mod docx;

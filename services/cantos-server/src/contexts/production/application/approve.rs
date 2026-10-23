@@ -1,6 +1,6 @@
 //! Owner approval of one frozen snapshot: the exact input identity, eligible when recorded and
 //! still current when the transaction commits.
-use cantos_contracts::{ApproveProductionRequest, ProductionApprovalResponse};
+use crate::contract::studio::{ApproveProductionRequest, ProductionApprovalResponse};
 use uuid::Uuid;
 
 use super::super::domain::{check_approval, require_current_approval};

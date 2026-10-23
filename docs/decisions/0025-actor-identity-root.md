@@ -3,7 +3,7 @@
 - Status: proposed; the listener slice is implemented, the Studio slices are not
 - Date: 2026-10-14
 - Decision owner: Cantos maintainers
-- Related: [identity registry](../architecture/identity-registry.md), [Library v1](../../packages/contracts/listener-library-v1.md), [Theatre identity v1](../../packages/contracts/theatre-identity-v1.md)
+- Related: [identity registry](../architecture/identity-registry.md), [Library v1](../../services/cantos-server/contracts/theatre/library/v1/README.md), [Theatre identity v1](../../services/cantos-server/contracts/theatre/identity/v1/README.md)
 - Supersedes / superseded by: N/A
 
 ## Context

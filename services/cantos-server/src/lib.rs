@@ -4,6 +4,7 @@
 pub mod adapters;
 pub mod application;
 pub mod contexts;
+pub mod contract;
 pub mod platform;
 pub mod script_ir;
 #[cfg(any(test, feature = "test-support"))]

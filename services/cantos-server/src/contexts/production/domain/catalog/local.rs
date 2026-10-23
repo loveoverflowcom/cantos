@@ -1,6 +1,6 @@
 //! Exact local eSpeak instruction identity for an external producer; no process, provider SDK
 //! or network dependency.
-use cantos_contracts::ProductionCapability;
+use crate::contract::studio::ProductionCapability;
 use unicode_normalization::UnicodeNormalization;
 
 pub const PROVIDER_ID: &str = "espeak-ng-local";

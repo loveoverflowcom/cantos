@@ -10,7 +10,7 @@ use super::{
     },
 };
 use crate::contexts::catalog::domain::WorkId;
-use cantos_contracts::listener_library as dto;
+use crate::contract::theatre::library as dto;
 use sha2::{Digest, Sha256};
 use std::{
     future::Future,

@@ -2,7 +2,7 @@
 //! digest and the admission of immutable history against the rows it pinned.
 use std::collections::BTreeSet;
 
-use cantos_contracts::{
+use crate::contract::studio::{
     FieldIssue, FrozenProductionDocument, ProductionEstimate, ProductionFinding,
     ProductionFindingCode, ProductionPreviewResponse, ProductionRightsClaimResponse,
     ProductionSettingsResponse, RevisionResponse,

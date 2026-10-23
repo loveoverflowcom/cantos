@@ -1,3 +1,4 @@
+use crate::contract::{ApiError, ErrorCode, FieldIssue, ValidateScriptRequest};
 use crate::ui::{
     ActionButton, BlockReason, DiscardDraftDialog, FormSubmit, WorkspaceNavigation, WorkspacePane,
 };
@@ -20,7 +21,6 @@ use crate::{
     signin::{sign_in_failure, SignInForm},
     signin_form::SignInPanel,
 };
-use cantos_contracts::{ApiError, ErrorCode, FieldIssue, ValidateScriptRequest};
 use cantos_ui::{
     Announcement, Button, ButtonVariant, Container, ContainerWidth, Density, FieldLabel, Logo,
     LogoTone, LogoVariant, Select, Status as UiStatus, Theme, UiRoot,

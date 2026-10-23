@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURES = ROOT / "packages/contracts/fixtures/script-ir/0.1.0/accept"
+FIXTURES = ROOT / "services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept"
 
 
 def canonical(value):

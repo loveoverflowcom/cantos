@@ -3,8 +3,8 @@
 use crate::contexts::media::{
     domain::object_storage::StorageError, storage::registry::StorageRegistry,
 };
+use crate::contract::studio::FieldIssue;
 use crate::script_ir::ReadError;
-use cantos_contracts::FieldIssue;
 use std::sync::Arc;
 
 /// Outcome vocabulary of every use case, mapped one-to-one onto the HTTP error contract.

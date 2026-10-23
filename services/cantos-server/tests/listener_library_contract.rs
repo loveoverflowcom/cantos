@@ -59,7 +59,7 @@ async fn every_account_route_rejects_guest_studio_cookie_raw_actor_and_dev_beare
                     .unwrap();
             assert_eq!(v, json!({"code":"unauthenticated","retryable":false}));
             let root: Value = serde_json::from_str(include_str!(
-                "../../../packages/contracts/schema/theatre/library/v1.schema.json"
+                "../../../services/cantos-server/contracts/theatre/library/v1/library.schema.json"
             ))
             .unwrap();
             assert!(jsonschema::validator_for(&root).unwrap().is_valid(&v));

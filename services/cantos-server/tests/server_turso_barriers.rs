@@ -3,7 +3,7 @@
 //! an adapter. A refusal is asserted by its exact guard code or constraint kind; no constraint is
 //! weakened to build a fixture. The upgrade from the registry of eleven is in
 //! `src/platform/turso/business_tests.rs`.
-use cantos_contracts::listener_library as dto;
+use cantos_server::contract::theatre::library as dto;
 use cantos_server::{
     contexts::listening::LibraryService,
     store::Error,

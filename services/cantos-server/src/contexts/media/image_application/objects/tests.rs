@@ -8,7 +8,7 @@ use crate::contexts::{
         image_intake::ImageAdmission,
     },
 };
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 
 const PNG: &[u8] = include_bytes!("../../image_intake/fixtures/python-rgb-2x3.png");
 const PNG_SHA256: &str = "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276";

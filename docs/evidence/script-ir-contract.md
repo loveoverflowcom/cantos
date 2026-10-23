@@ -14,7 +14,7 @@ does not deliver a Studio save/retrieve journey, Axum host, migrations, identity
 accepted revision persistence, importer, Narrative Forge adapter or production gate. This is
 local domain/CLI evidence; no PostgreSQL, object storage, AI or device integration was invoked.
 The [ADR](../decisions/0002-script-ir-contract.md) is proposed for production adoption, not accepted
-by an invented owner. [The contract](../../packages/contracts/README.md) records the implemented policy.
+by an invented owner. [The contract](../../services/cantos-server/contracts/README.md) records the implemented policy.
 
 ## Completion ledger
 

@@ -1,6 +1,6 @@
 //! Current eligibility of a frozen snapshot. Staleness is derived from current facts; the
 //! immutable snapshot and approval rows never change.
-use cantos_contracts::{
+use crate::contract::studio::{
     FrozenProductionDocument, ProductionApprovalResponse, ProductionEligibility, ProductionFinding,
     ProductionFindingCode, ProductionRightsClaimResponse,
 };

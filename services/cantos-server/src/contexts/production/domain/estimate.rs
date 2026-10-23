@@ -1,6 +1,6 @@
 //! Integer planning estimates: exact rational cost per dialogue, rounded up per line, summed
 //! without overflow. A missing or invalid rate is unavailable, never zero.
-use cantos_contracts::{
+use crate::contract::studio::{
     ProductionBudget, ProductionCurrency, ProductionEstimate, ResolvedSynthesisInput,
 };
 

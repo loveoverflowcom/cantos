@@ -463,7 +463,7 @@ fn stored_history_and_response_mismatches_fail_closed() {
 
 #[test]
 fn cross_transport_set_and_explicit_clear_keep_identity_while_omission_is_rejected() {
-    use dto::wire::{decode_artwork, encode_artwork, WireFormat};
+    use crate::contract::codec::{decode_artwork, encode_artwork, WireFormat};
     let work = work();
     let asset = asset();
     let set = request(1, Some(selection(&asset)));
@@ -501,13 +501,13 @@ fn cross_transport_set_and_explicit_clear_keep_identity_while_omission_is_reject
             WireFormat::Json,
             format!("{{\"operation_id\":\"{OPERATION}\",\"expected_work_revision\":1}}").as_bytes(),
         ),
-        Err(dto::wire::DecodeError::Shape)
+        Err(crate::contract::codec::DecodeError::Shape)
     );
     let absent_proto = [0x0a, 0x24];
     let mut absent_proto = [absent_proto.as_slice(), OPERATION.as_bytes(), &[0x10, 0x01]].concat();
     assert_eq!(
         decode_artwork::<dto::SetWorkArtworkRequest>(WireFormat::Protobuf, &absent_proto),
-        Err(dto::wire::DecodeError::Shape)
+        Err(crate::contract::codec::DecodeError::Shape)
     );
     // Empty, present ClearArtwork is an explicit action, not an absent oneof arm.
     absent_proto.extend([0x22, 0x00]);

@@ -1,5 +1,6 @@
 //! Opt-in, exact-origin browser transport for one surface. Authorization remains downstream.
 use super::{policy::Surface, AppState};
+use crate::{contract::routes, platform::host::is_browser_origin};
 use axum::{
     extract::{Request, State},
     http::{header, HeaderMap, HeaderValue, Method, StatusCode},
@@ -7,7 +8,13 @@ use axum::{
     response::{IntoResponse, Response},
     Router,
 };
-use cantos_contracts::web_api::{ApiOrigin, WebSurface};
+
+/// The two browser surfaces this layer can admit; Admin browser transport is route-scoped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WebSurface {
+    Studio,
+    Theatre,
+}
 
 #[derive(Clone)]
 struct BrowserCors {
@@ -21,7 +28,9 @@ pub fn with_browser_cors(
     web_origin: &str,
     surface: WebSurface,
 ) -> Result<Router, &'static str> {
-    ApiOrigin::parse(web_origin).map_err(|_| "invalid browser origin")?;
+    if !is_browser_origin(web_origin) {
+        return Err("invalid browser origin");
+    }
     let origin = HeaderValue::from_str(web_origin).map_err(|_| "invalid browser origin")?;
     Ok(app.layer(middleware::from_fn_with_state(
         BrowserCors {
@@ -85,7 +94,7 @@ fn supported_method(value: &str, surface: Surface) -> bool {
 
 fn refusal() -> Response {
     let mut response = super::errors::failure(
-        cantos_contracts::ErrorCode::Forbidden,
+        crate::contract::studio::ErrorCode::Forbidden,
         StatusCode::FORBIDDEN,
     );
     response
@@ -103,8 +112,8 @@ async fn cors(State(policy): State<BrowserCors>, request: Request, next: Next) -
         return next.run(request).await;
     }
     let base = match policy.surface {
-        Surface::Studio => cantos_contracts::routes::STUDIO_BASE,
-        Surface::Theatre => cantos_contracts::routes::THEATRE_BASE,
+        Surface::Studio => routes::STUDIO_BASE,
+        Surface::Theatre => routes::THEATRE_BASE,
         Surface::Admin => "/api/v1/admin",
     };
     let path = request.uri().path();

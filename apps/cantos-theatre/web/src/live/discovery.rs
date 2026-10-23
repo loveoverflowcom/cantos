@@ -2,6 +2,7 @@
 //! player effect. The request is always the one canonical `GET /works` with the opt-in
 //! presentation capability, so every row carries its public `unit_count`.
 use super::public_work::{classify_error, is_json};
+use crate::contract::discovery::PresentedWorkPage;
 use crate::{
     application::{
         public_discovery::{DiscoveryQuery, DiscoveryReadError, PUBLIC_WORK_PAGE_LIMIT},
@@ -9,7 +10,7 @@ use crate::{
     },
     core::public_ids::PublicWorkId,
 };
-use cantos_contracts::{routes::THEATRE_BASE, theatre::PresentedWorkPage};
+use cantos_web_auth::address::THEATRE_BASE;
 use std::collections::BTreeSet;
 
 // Twenty legal catalog records can each carry a 16 KiB description, a 512-byte title and
@@ -92,25 +93,25 @@ pub async fn load(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cantos_contracts::theatre::{PresentedWorkSummary, WorkKind};
+    use crate::contract::discovery::{PresentedWorkSummary, WorkKind};
 
     const PAGE: &[u8] = include_bytes!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
     );
     const EMPTY: &[u8] = include_bytes!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/empty.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/empty.json"
     );
     const INVALID_CURSOR: &[u8] = include_bytes!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/invalid_cursor.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/invalid_cursor.json"
     );
     const INVALID_REQUEST: &[u8] = include_bytes!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/invalid_request.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/invalid_request.json"
     );
     const UNAVAILABLE: &[u8] = include_bytes!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/unavailable.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/unavailable.json"
     );
     const NOT_FOUND: &[u8] = include_bytes!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/not_found.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/not_found.json"
     );
     const JSON: Option<&str> = Some("application/json; charset=utf-8");
 
@@ -190,7 +191,7 @@ mod tests {
     #[test]
     fn the_v1_work_shape_without_unit_count_is_not_a_presented_page() {
         let v1 = include_bytes!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/works.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/works.json"
         );
         assert_eq!(decode(v1), Err(DiscoveryReadError::Protocol));
         let mut value: serde_json::Value = serde_json::from_slice(PAGE).unwrap();

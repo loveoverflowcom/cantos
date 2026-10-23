@@ -1,10 +1,10 @@
 //! PostgreSQL effects only; policy is pure and all success/denial decisions require audit.
 use super::domain::{authorize, Action, AdminError, AdminPermit, RoleEvidence};
+use crate::contract::admin::{CapabilityResponse, RevokeAccessResponse};
 use crate::platform::{
     identity::domain::ActorId,
     store::{Store, Tx},
 };
-use cantos_contracts::admin::{CapabilityResponse, RevokeAccessResponse};
 use uuid::Uuid;
 
 async fn audit(

@@ -68,7 +68,7 @@ configuration/client match; its application and persistence callers resolve the 
 that single server-owned mapping. `bearer/credential.rs` owns opaque-token routing
 tags and protocol syntax. A tag is a routing hint, never admission evidence.
 
-The [Bearer lifetime contract](../../packages/contracts/bearer-v1.md#lifetime-rotation-and-unknown-outcomes)
+The [Bearer lifetime contract](../../services/cantos-server/contracts/auth/bearer/v1/README.md#lifetime-rotation-and-unknown-outcomes)
 keeps the exact TTLs, refusal/replay precedence and original absolute cap. The application and
 PostgreSQL shell retain roster checks, hash/client/issuer/family bindings, actor/family locks,
 provider I/O outside transactions and final-time rereads. This boundary does not implement
@@ -144,17 +144,17 @@ pure diagnostic path constructs a wire error or imports HTTP.
 | `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; private intake, exact owner reads and publication authority | Partially implemented; opt-in Studio OIDC sessions |
 | `/api/v1/theatre/*` | Listener discovery/playback/progress; separate Web/native identity | Public Discovery/Playback and Library/Progress cores plus opt-in identity implemented; default playback unavailable, unconfigured authentication denied; production acceptance pending |
 | `/api/v1/admin/*` | Separate platform authorization and audit | Opt-in [capability/revocation slice](admin-authorization.md); live provider acceptance pending |
-| Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../packages/contracts/production-brief-v1.md) implemented for development |
-| Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; separate [Publication v1](../../packages/contracts/publication-v1.md) core with default unavailable delivery |
-| Studio private audio delivery | Current owner session; exact intent/rendition | [Private content reads v1](../../packages/contracts/private-content-reads-v1.md): protected GET/HEAD/Range and refreshable access; no listener access |
-| Studio Work delegation | Owner session issues/revokes; separate `cantos_dlg_` bearer for one Work and closed Catalog actions | [Delegation v1](../../packages/contracts/delegation-v1.md) / [ADR 0028](../decisions/0028-work-scoped-delegation.md) and bounded Studio owner panel implemented; live acceptance separate |
+| Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../services/cantos-server/contracts/studio/briefs/v1/README.md) implemented for development |
+| Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) implemented in development; separate [Publication v1](../../services/cantos-server/contracts/studio/publication/v1/README.md) core with default unavailable delivery |
+| Studio private audio delivery | Current owner session; exact intent/rendition | [Private content reads v1](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md): protected GET/HEAD/Range and refreshable access; no listener access |
+| Studio Work delegation | Owner session issues/revokes; separate `cantos_dlg_` bearer for one Work and closed Catalog actions | [Delegation v1](../../services/cantos-server/contracts/studio/delegation/v1/README.md) / [ADR 0028](../decisions/0028-work-scoped-delegation.md) and bounded Studio owner panel implemented; live acceptance separate |
 
 Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
-adapters exclusively under `/api/v1/studio`. Its [contract](../../packages/contracts/catalog-v1.md)
+adapters exclusively under `/api/v1/studio`. Its [contract](../../services/cantos-server/contracts/studio/catalog/v1/README.md)
 defines work/content-unit mutations, deterministic pages and immutable Work history.
-[Content Identity](../../packages/contracts/content-v1.md) adds separate immutable content,
+[Content Identity](../../services/cantos-server/contracts/studio/content/v1/README.md) adds separate immutable content,
 plain text/recording support and exact owned source/Script IR bindings in the same context.
-Work-scoped [delegation](../../packages/contracts/delegation-v1.md) also lives in Catalog: a pure
+Work-scoped [delegation](../../services/cantos-server/contracts/studio/delegation/v1/README.md) also lives in Catalog: a pure
 grant decision, an application lane that never turns a bearer into a session actor, and an
 append-only SQL adapter. Delegated writes reuse the Content append core with the delegate as
 recorded actor and no rights authority.
@@ -162,7 +162,7 @@ recorded actor and no rights authority.
 The legacy alias `/api/v1/*` retains preceding Studio handlers. New private byte/read-access
 routes exist only under Studio; they are not added to the deprecated alias. Do not duplicate
 handlers or invent implemented route claims from proposal documents. Shared DTOs remain in
-`packages/contracts/api`; binary delivery has its own versioned HTTP contract.
+`services/cantos-server/src/contract`; binary delivery has its own versioned HTTP contract.
 
 ## Current contexts
 
@@ -172,7 +172,7 @@ handlers or invent implemented route claims from proposal documents. Shared DTOs
 - `catalog`: work/content-unit identities, metadata, authorization and immutable revisions through
   application use cases, PostgreSQL persistence and the authenticated Studio HTTP API.
 - `production`: declarative settings/rights/casting, immutable snapshots and approvals, plus
-  Catalog-bound [Production Briefs](../../packages/contracts/production-brief-v1.md) and scoped
+  Catalog-bound [Production Briefs](../../services/cantos-server/contracts/studio/briefs/v1/README.md) and scoped
   read-only producer grants. Source/export bytes are copied through owning-context entrypoints.
   Existing provider catalog entries are **reference planning metadata**, not live adapters.
 - `media`: structural WAV inspection, explicit profile/binding rules, bounded Opus-byte
@@ -188,7 +188,7 @@ handlers or invent implemented route claims from proposal documents. Shared DTOs
 
 `contexts/listening` is downstream of Catalog and Media. It owns Library/progress/history,
 conditional revisions and durable operation receipts; Media continues to own public eligibility,
-publication and playback delivery. Its [v1 contract](../../packages/contracts/listener-library-v1.md)
+publication and playback delivery. Its [v1 contract](../../services/cantos-server/contracts/theatre/library/v1/README.md)
 and [consumer handoff](../work-plan/listener-library-progress-handoff.md) define separate bearer
 identity with default-deny composition and Server-owned Turso authority (business port incomplete). The separate
 [Platform identity registry](identity-registry.md) binds external identities but supplies no
@@ -205,9 +205,9 @@ This narrow test seam does not admit interface calls from production Listening a
 ## Next contexts
 
 Complete broader Studio Web, provider delivery and Theatre identity/native acceptance
-separately. The bounded [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) links
+separately. The bounded [Audio Lifecycle](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) links
 Catalog-bound Briefs and private admission/review; Media's
-[Publication core](../../packages/contracts/publication-v1.md) owns approvals and atomic manifest
+[Publication core](../../services/cantos-server/contracts/studio/publication/v1/README.md) owns approvals and atomic manifest
 pointers, and Listening owns account read models. Favor typed IDs, pure state
 machines and immutable versioned records. No TTS worker queue, local neural runtime,
 commercial speech-provider adapter, synthesis retry system or speech-clip registry belongs here.

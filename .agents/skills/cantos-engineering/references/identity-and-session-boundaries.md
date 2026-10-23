@@ -8,7 +8,7 @@
 Start with the [v1 owner amendment](../../../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
 for selected factors, deferred work, transitional DB composition and security-state strategy.
 Then inspect the [implemented Identity/RPC boundary](../../../../services/cantos-identity/README.md)
-the Server consumer in [Identity auth v1](../../../../packages/contracts/identity-auth-v1.md)
+the Server consumer in [Identity auth v1](../../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
 (PostgreSQL sessions; Studio password under [ADR 0045](../../../../docs/decisions/0045-v1-email-password-sign-in.md))
 and actual client consumers; the Web clients consume the cookie endpoints from source and CMP the
 native Bearer endpoints, while browser/device acceptance and Studio operator provisioning are pending.

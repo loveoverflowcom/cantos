@@ -8,6 +8,7 @@ use crate::adapters::inbound::http::{
     errors::error_response, errors::failure, studio::admission::cookie_token, AppState,
 };
 use crate::application::{Store, StoreError};
+use crate::contract::studio as dto;
 use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, State},
@@ -17,7 +18,6 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use cantos_contracts as dto;
 async fn method_rejected() -> Response {
     failure(
         dto::ErrorCode::InvalidRequest,

@@ -3,7 +3,7 @@
 Use for Content-Type/Accept negotiation, contract codec helpers, generated wire adapters,
 client codec switches, schema/goldens or a proposed extension to another route/platform.
 [Wire architecture](../../../../docs/architecture/wire-codec.md) and the frozen
-[versioned policy](../../../../packages/contracts/protobuf/README.md) own protocol rules.
+[versioned policy](../../../../services/cantos-server/contracts/studio/editorial/v1/protobuf.md) own protocol rules.
 [ADR 0023](../../../../docs/decisions/0023-versioned-protobuf-wire.md) owns the new binary choice;
 [ADR 0013](../../../../docs/decisions/0013-optional-messagepack-wire.md) and
 [MessagePack evidence](../../../../docs/evidence/messagepack-wire.md) remain historical authority.
@@ -14,8 +14,9 @@ Do not rewrite historical results or duplicate the protocol tables here.
 1. Name the actual consumer, route, DTO and measured cost. A binary format is not a product API
    expansion. Default JSON; errors are the unchanged JSON ApiError. No binary storage/digest/auth
    migration, invented Theatre client or Studio Mobile.
-2. Keep existing Serde DTOs as application values. Protobuf has one versioned `.proto` authority,
-   private generated edge messages and exhaustive fallible adapters. Generic wire helpers refuse
+2. Keep existing Serde DTOs as application values. Protobuf has one versioned, service-owned
+   `.proto` authority; each consumer checks in its own private generated edge messages
+   (`tools/proto-codegen`, drift-checked) and exhaustive fallible adapters. Generic wire helpers refuse
    arbitrary Serde-to-Protobuf; only reviewed roots implement ProtobufDto. Legacy MessagePack
    retains named, representation-neutral Serde maps and independent historical goldens.
 3. Review required scalar presence, unknown/reserved/duplicate fields, canonical varints, uint64,

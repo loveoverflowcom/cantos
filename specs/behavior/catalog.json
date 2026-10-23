@@ -6,7 +6,7 @@
       "lifecycle": "draft",
       "owner": "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
       "sourceRefs": [
-        "packages/contracts/audio-lifecycle-v1.md#state-reviews-and-candidate-blockers",
+        "services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md#state-reviews-and-candidate-blockers",
         "docs/decisions/0020-studio-private-audio-intake.md#decision",
         "docs/assurance/domain-invariants.md",
         "services/cantos-server/src/contexts/production/domain/brief.rs",
@@ -235,7 +235,7 @@
       "lifecycle": "draft",
       "owner": "services/cantos-server/src/contexts/media/domain/playback_grant.rs",
       "sourceRefs": [
-        "packages/contracts/theatre-discovery-v1.md#origin-mode-media-proposed-adr-0032",
+        "services/cantos-server/contracts/theatre/discovery/v1/README.md#origin-mode-media-proposed-adr-0032",
         "docs/decisions/0032-theatre-origin-playback-delivery.md#decision",
         "docs/decisions/0038-publication-streaming-evidence-gates.md#decision",
         "services/cantos-server/src/contexts/media/listener_media.rs",
@@ -410,7 +410,7 @@
       "owner": "services/cantos-server/src/contexts/media/domain/public_cover.rs",
       "sourceRefs": [
         "docs/decisions/0033-release-pinned-public-cover.md#decision",
-        "packages/contracts/artwork-v1.md#bounds-and-receipts",
+        "services/cantos-server/contracts/studio/artwork/v1/README.md#bounds-and-receipts",
         "services/cantos-server/src/contexts/media/domain/artwork.rs",
         "services/cantos-server/src/contexts/media/domain/listening.rs"
       ],
@@ -565,7 +565,7 @@
       "lifecycle": "draft",
       "owner": "services/cantos-server/src/contexts/media/domain/publication.rs",
       "sourceRefs": [
-        "packages/contracts/publication-v1.md"
+        "services/cantos-server/contracts/studio/publication/v1/README.md"
       ],
       "model": null,
       "inventory": "specs/behavior/inventory.md",
@@ -576,7 +576,7 @@
       "lifecycle": "needs-decision",
       "owner": "services/cantos-server/src/contexts/listening/domain/reconcile.rs",
       "sourceRefs": [
-        "packages/contracts/listener-library-v1.md",
+        "services/cantos-server/contracts/theatre/library/v1/README.md",
         "docs/product/business-rules.md#publication-and-listening"
       ],
       "model": null,
@@ -802,7 +802,7 @@
       "sourceRefs": [
         "docs/architecture/theatre-identity.md",
         "docs/decisions/0045-v1-email-password-sign-in.md#decision",
-        "packages/contracts/identity-auth-v1.md",
+        "services/cantos-server/contracts/auth/identity-auth/v1/README.md",
         "specs/behavior/inventory.md"
       ],
       "model": null,
@@ -1136,7 +1136,7 @@
       "lifecycle": "draft",
       "owner": "services/cantos-server/src/platform/bearer/core.rs",
       "sourceRefs": [
-        "packages/contracts/bearer-v1.md",
+        "services/cantos-server/contracts/auth/bearer/v1/README.md",
         "docs/decisions/0041-direct-hosting-api-boundary.md",
         "services/cantos-server/src/platform/bearer/core.rs",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/domain/identity/NativeGrant.kt",
@@ -1144,7 +1144,7 @@
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/ports/NativeCredentialJournal.kt",
         "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeIdentityV1LifecycleTest.kt",
         "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt",
-        "packages/contracts/identity-auth-v1.md",
+        "services/cantos-server/contracts/auth/identity-auth/v1/README.md",
         "services/cantos-server/src/platform/identity_auth/turso.rs",
         "services/cantos-server/src/platform/identity_auth/decision.rs"
       ],
@@ -1380,9 +1380,9 @@
       "owner": "services/cantos-identity/src/domain/mailbox_proof.rs",
       "sourceRefs": [
         "docs/decisions/0045-v1-email-password-sign-in.md#decision",
-        "packages/contracts/identity-rpc-v1.md#one-command-setup-decision",
-        "packages/contracts/identity-mailbox-store-v1.md#secrets-and-atomic-transitions",
-        "packages/contracts/identity-auth-v1.md#email-link-and-signup",
+        "services/cantos-identity/contracts/identity/v1/README.md#one-command-setup-decision",
+        "services/cantos-identity/docs/mailbox-store-v1.md#secrets-and-atomic-transitions",
+        "services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup",
         "services/cantos-identity/src/persistence/proofs.rs",
         "services/cantos-identity/src/persistence/signup.rs"
       ],
@@ -1572,9 +1572,9 @@
       "owner": "services/cantos-server/src/platform/identity_auth/decision.rs",
       "sourceRefs": [
         "docs/decisions/0045-v1-email-password-sign-in.md#decision",
-        "packages/contracts/identity-auth-v1.md#freshness-and-revocation-quantified",
-        "packages/contracts/identity-rpc-v1.md#authentication-fact",
-        "packages/contracts/identity-security-store-v1.md#startup-and-mutations",
+        "services/cantos-server/contracts/auth/identity-auth/v1/README.md#freshness-and-revocation-quantified",
+        "services/cantos-identity/contracts/identity/v1/README.md#authentication-fact",
+        "services/cantos-identity/docs/security-store-v1.md#startup-and-mutations",
         "services/cantos-server/src/platform/identity_auth/mod.rs",
         "services/cantos-server/src/platform/identity_auth/turso.rs",
         "services/cantos-server/tests/identity_password_facts_turso.rs"

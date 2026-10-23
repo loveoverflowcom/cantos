@@ -3,7 +3,14 @@
 //! restored epoch, a slow reply). Evidence from it is mock-integration, never a login proof.
 #![allow(dead_code)]
 
-use cantos_identity_rpc::{
+/// The scripted peer's own server-side binding of Identity's proto (`tools/proto-codegen`),
+/// independent of the Server's client binding: only bytes cross the socket.
+#[allow(clippy::all, clippy::pedantic, dead_code)]
+#[rustfmt::skip]
+#[path = "identity_rpc_peer.rs"]
+mod identity_rpc_peer;
+
+use identity_rpc_peer::{
     identity_server::{Identity, IdentityServer},
     AccountState, AuthenticatePasswordRequest, AuthenticatePasswordResponse, AuthenticationFact,
     CompleteTheatreSignupRequest, CompleteTheatreSignupResponse, GetSecurityStateRequest,

@@ -2,7 +2,7 @@
 //! proposal admission kernel and the trusted evidence bindings that acceptance preserves.
 //! Durable I/O, identity minting and the clock belong to the application shell.
 use crate::contexts::editorial::domain::diagnostics::SafeDiagnostic;
-use cantos_contracts::{Extraction, ImportOutcome, ImportResponse};
+use crate::contract::studio::{Extraction, ImportOutcome, ImportResponse};
 use serde_json::Value;
 
 use crate::contexts::editorial::domain::diagnostics::validation_issues;

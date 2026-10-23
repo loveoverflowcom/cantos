@@ -6,7 +6,7 @@
 > [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
 
 Publication is the first independently reviewed slice in this sequence. Its
-[Studio contract](../../../packages/contracts/publication-v1.md) and [evidence](../../evidence/publication-core.md)
+[Studio contract](../../../services/cantos-server/contracts/studio/publication/v1/README.md) and [evidence](../../evidence/publication-core.md)
 are implemented, while PostgreSQL and real public delivery acceptance remain outstanding.
 No listener, library or progress endpoint is introduced by this slice.
 

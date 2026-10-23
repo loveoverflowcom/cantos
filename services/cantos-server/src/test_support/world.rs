@@ -8,7 +8,7 @@
 //!
 //! Identities are derived from a per-work `tag`, so two works in one file never collide, and every
 //! time is relative to the fixture's clock so rights windows are meaningful against it.
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 use sha2::{Digest, Sha256};
 
 use super::ServerFixture;
@@ -736,7 +736,7 @@ async fn publish_chain(
     let t0 = f.t0;
     // The brief of this unit's content revision.
     let request: dto::CreateProductionBriefRequest = serde_json::from_str(include_str!(
-        "../../../../packages/contracts/fixtures/briefs/v1/create-recording.json"
+        "../../../../services/cantos-server/contracts/studio/briefs/v1/fixtures/create-recording.json"
     ))
     .expect("the brief fixture parses");
     let brief_id = ids.id();

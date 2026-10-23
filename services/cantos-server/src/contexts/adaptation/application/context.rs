@@ -1,6 +1,6 @@
 //! Caller-owned contexts (`c1`): freeze the exact source, base revision and instructions a
 //! caller adapts from, then read, review or cancel that frozen context.
-use cantos_contracts::{
+use crate::contract::studio::{
     AdaptationContextRequest, AdaptationContextResponse, AdaptationReviewResponse,
     AdaptationStatus, AdaptationSubmissionStatus, CancelAdaptationRequest, FieldIssue,
 };

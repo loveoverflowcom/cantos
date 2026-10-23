@@ -51,7 +51,7 @@ The explicit, manual `deploy firebase` can publish this app's static bundle to F
 ([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves static files and clients
 use the explicit Cantos API origin. [#295](https://github.com/loveoverflowcom/cantos/issues/295)
 selects Web cookies on the custom domains; this client now consumes the
-[Identity auth v1](../../../packages/contracts/identity-auth-v1.md) cookie session. Direct-origin
+[Identity auth v1](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) cookie session. Direct-origin
 sign-in remains gated by backend/browser acceptance (none ran). Never upload private Studio content to a preview, which is public.
 Studio keeps its own Hosting site and browser origin. The preferred `cantos-studio.web.app`
 name is conditional on verified allocation; `studio.cantos.web.app` is not supported. The
@@ -148,7 +148,7 @@ unsaved-work warning; no manuscript backup is silently persisted. A session that
 draft or upload is pending keeps the draft in RAM; the sign-in form re-authenticates as the same
 owner and nothing is auto-replayed.
 
-The authority is documented in [Identity auth v1](../../../packages/contracts/identity-auth-v1.md)
+The authority is documented in [Identity auth v1](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
 and the shared [Web boundary](../../../packages/web-auth/README.md). **Not verified:** no
 backend, browser, cookie (`SameSite`/`Secure`/third-party blocking), CORS, multi-tab or E2E run
 exists for this migration; only host unit tests and the WASM lint/build. Real Identity roster
@@ -175,7 +175,7 @@ constant, `REVISION_CODEC`, picks JSON (shipped) or the explicitly configured Pr
 Responses are decoded by their own `Content-Type`, and a request is never retried in the other
 representation. The [pilot build and rollback](#protobuf-pilot-build-and-rollback) section records
 the activation boundary and commands. The browser does not decide backend permissions or Script IR validity.
-`packages/contracts/api/` is shared with Axum; no server crate enters the WASM dependency graph.
+`services/cantos-server/src/contract/` is shared with Axum; no server crate enters the WASM dependency graph.
 
 Vietnamese/English resources cover every async/error state. The root owns a typed `Locale`
 (`vi-VN` first render) and mirrors it onto `<html lang>`; namespaces not yet migrated read a
@@ -255,7 +255,7 @@ mixing or listener control is provided.
 
 ## Casting and production-input review
 
-The [production v1 contract](../../../packages/contracts/production-v1.md) provides a static
+The [production v1 contract](../../../services/cantos-server/contracts/studio/production/v1/README.md) provides a static
 capability catalog and authenticated settings, rights, preview, freeze, exact snapshot and owner
 approval routes. Studio binds existing accepted script characters to catalog provider/model/voice
 profiles (synthetic reference, eSpeak NG, VieNeu Nano research and Google Cloud TTS) with
@@ -350,7 +350,7 @@ acceptance. [Capability matrix](../../../docs/work-plan/live-client-api-matrix.m
 
 A selected Work in **Content & audio** shows **Ủy quyền theo tác phẩm** when the signed-in actor
 is its `owner_id`; members see a short explanation and no request is sent. The panel calls only
-the [delegation v1](../../../packages/contracts/delegation-v1.md) owner routes, built from the
+the [delegation v1](../../../services/cantos-server/contracts/studio/delegation/v1/README.md) owner routes, built from the
 shared `routes::STUDIO_WORK_DELEGATIONS`/`STUDIO_WORK_DELEGATION` templates with the Studio owner cookie session,
 session fence and Origin: it pages grants by `after` (20 per page), issues a grant for a
 registered delegate actor with any of `work:read`, `content:read`, `content:write` and a 1/7/14/30
@@ -406,7 +406,7 @@ lost body, timeout/navigation cancellation, exact reload and JSON rollback.
 
 ## Private Work artwork
 
-The owner-only `studio-artwork` composition uses the existing [artwork-v1](../../../packages/contracts/artwork-v1.md)
+The owner-only `studio-artwork` composition uses the existing [artwork-v1](../../../services/cantos-server/contracts/studio/artwork/v1/README.md)
 Studio routes through `live::Command` and its session-fenced dispatcher. Select an original
 PNG/JPEG, declare provenance and rights, prepare the 30-minute intent, upload raw bytes, then
 explicitly select the admitted asset with alt text and the displayed Work revision. The

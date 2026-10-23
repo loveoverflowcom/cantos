@@ -215,7 +215,7 @@ substitutes for Android/iOS lifecycle/audio validation.
 ### VER-06 — canonical differential vectors
 
 **MUST** for shared playback meaning/harness changes: preserve the canonical
-[mock specification and corpus](../../../../packages/contracts/fixtures/theatre/playback/v1/README.md).
+[mock specification and corpus](../../../../apps/cantos-theatre/conformance/playback/v1/vectors/README.md).
 Good: `assertEquals(step.effects, transition.effects)` **and** complete snapshot equality.
 Counterexample: comparing only status or regenerating expected outputs from either reducer.
 **Oracle/status:** hand-authored specification outputs, independently consumed by Rust/Kotlin.

@@ -4,9 +4,9 @@ use crate::contexts::catalog::domain::{
     OwnerId, WorkId, WorkKind,
 };
 use crate::contexts::ingestion::domain::receipt::{metadata_issues, receipt_digest};
+use crate::contract::studio as dto;
 use crate::platform::ids::canonical_uuid;
 use crate::script_ir::read_script;
-use cantos_contracts as dto;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;

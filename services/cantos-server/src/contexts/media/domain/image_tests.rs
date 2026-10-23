@@ -524,7 +524,7 @@ fn prepare_receipt_replay_is_distinct_from_duplicate_known_id() {
 
 #[test]
 fn json_and_protobuf_normalize_to_the_same_complete_prepare_operation() {
-    use dto::wire::{decode_artwork, encode_artwork, WireFormat};
+    use crate::contract::codec::{decode_artwork, encode_artwork, WireFormat};
     let work = WorkId::parse(WORK).unwrap();
     let original = PrepareImage::admit(&request()).unwrap();
     let fingerprint = original.fingerprint(&work).unwrap();

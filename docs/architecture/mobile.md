@@ -82,7 +82,7 @@ When publication audio changes, retain prior progress/bookmarks keyed to the ori
 
 ## Library/Progress core contract
 
-The [Listener Library/Progress v1 core](../../packages/contracts/listener-library-v1.md) adds
+The [Listener Library/Progress v1 core](../../services/cantos-server/contracts/theatre/library/v1/README.md) adds
 account-scoped saved Work registers, release-pinned progress and acknowledged-start history.
 Continue derives one latest progress register per Work; it does not own a second position store.
 Current Web/CMP mocks remain unconnected and provide no durable account-sync evidence.

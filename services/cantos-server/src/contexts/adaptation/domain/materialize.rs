@@ -1,7 +1,7 @@
 //! Deterministic materialization of a decoded proposal into admitted Script IR with findings.
 //! The caller supplies every opaque identity, so the same inputs always produce the same output.
 use super::AdaptationRejection;
-use cantos_contracts::{
+use crate::contract::studio::{
     AdaptationCoverage, AdaptationCoverageDisposition, AdaptationFinding, AdaptationFindingCode,
     AdaptationProposal, ImportBlockKind, ImportResponse,
 };

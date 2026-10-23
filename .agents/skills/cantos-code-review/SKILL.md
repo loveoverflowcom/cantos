@@ -123,7 +123,7 @@ Skipping a pass is a decision to state, not silence.
 | job claim, lease, heartbeat, retry, provider call, budget, cancellation, outbox | § 5 production durability | [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md) |
 | rights, QC, approvals, manifest, active pointer, upload, bucket policy, signed URL, CDN | § 6 publication gates | [`cantos-publication`](../cantos-publication/SKILL.md) |
 | catalog or listener routes, play, progress, bookmarks, downloads, listener DTOs | § 7 listening contracts | [`cantos-listening`](../cantos-listening/SKILL.md) |
-| `Content-Type`/`Accept` handling, `cantos_contracts::wire`, a client codec switch, serde attributes of a negotiated DTO, MessagePack goldens | § 2, § 3 and § 9 | [wire codec](../cantos-engineering/references/wire-codec.md) |
+| `Content-Type`/`Accept` handling, a consumer's `contract::codec`, a client codec switch, serde attributes of a negotiated DTO, MessagePack goldens | § 2, § 3 and § 9 | [wire codec](../cantos-engineering/references/wire-codec.md) |
 | Leptos views, CSS, Compose UI, tokens, strings, motion, UI evidence | § 8 UI | [`cantos-ui-design`](../cantos-ui-design/SKILL.md) and the renderer skill |
 | catalog, Quint state/action/property/run, witness/control or model/conformance claim | § 1, § 9 and § 11 | [behavior method](../cantos-behavior/SKILL.md): requirement acceptance, stable IDs, reachability, sensitive controls, independent observations and freshness |
 | tests, fixtures, golden files, generators, mutation config, CI workflows | § 9 tests and evidence | [verification-strategy](../cantos-engineering/references/verification-strategy.md) |

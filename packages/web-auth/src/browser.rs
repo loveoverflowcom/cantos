@@ -6,12 +6,12 @@
 //! All decisions live in [`crate::owner`]; this module is the browser [`Port`]: clock, one
 //! `fetch` attempt with a deadline, the cross-tab Web Lock that orders cookie-changing
 //! exchanges, a `BroadcastChannel` that tells other tabs a cookie changed, and the view event.
+use crate::address::api_url;
 use crate::{
     core::session_header,
     owner::{self, Method, Port, Reply, Request, MAX_BODY},
     Failure, Surface,
 };
-use cantos_contracts::web_api::api_url;
 use gloo_net::http::{Request as Fetch, RequestBuilder};
 use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};

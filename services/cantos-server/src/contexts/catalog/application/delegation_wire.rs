@@ -1,6 +1,6 @@
 //! Raw delegation transport admission and response formatting. Pure: it parses DTOs and bearer
 //! text into domain values and formats immutable outcomes; current access is decided elsewhere.
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 
 use super::{DelegationView, IssuedDelegation};
 pub use crate::contexts::catalog::domain::delegation::{

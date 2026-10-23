@@ -5,7 +5,7 @@
 > describe the original session and are not current execution instructions. Use the
 > [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
 
-Session2's bounded implementation is [Production Brief v1](../../../packages/contracts/production-brief-v1.md).
+Session2's bounded implementation is [Production Brief v1](../../../services/cantos-server/contracts/studio/briefs/v1/README.md).
 It follows fresh `develop` PR70 and preserves [Content handoff](content-identity-production-brief-handoff.md).
 Evidence, independent review and scope are in [the report](../../evidence/production-brief.md).
 

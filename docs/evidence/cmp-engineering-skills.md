@@ -45,7 +45,7 @@ Read `domain/playback/{PlaybackState,PlaybackEvent,PlaybackReducer}.kt`:
   Mock adapters are not native media integrations.
 
 Inspected reducer/controller tests, AppContainer reset tests and the Kotlin vector decoder/
-harness. The shared [corpus](../../packages/contracts/fixtures/theatre/playback/v1/README.md)
+harness. The shared [corpus](../../apps/cantos-theatre/conformance/playback/v1/vectors/README.md)
 contains seven scenarios/51 steps with reviewed hand-authored expected states and effects.
 Gradle embeds the JSON bytes after SHA-256 inventory checks; expected outputs are not generated
 from an implementation. Rust and Kotlin consumers/hashes remain unchanged.

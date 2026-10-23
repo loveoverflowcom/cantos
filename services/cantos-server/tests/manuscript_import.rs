@@ -1,19 +1,23 @@
 use std::io::{Cursor, Write};
 
-use cantos_contracts::{
-    Extraction, ImportBlockKind, ImportCueKind, ImportFormat, ImportOutcome, ImportProblem,
-};
 use cantos_server::contexts::ingestion::{
     extract, MAX_BLOCKS, MAX_SOURCE_BYTES, MAX_XML_DEPTH, MAX_XML_EVENTS, MAX_ZIP_ENTRIES,
+};
+use cantos_server::contract::studio::{
+    Extraction, ImportBlockKind, ImportCueKind, ImportFormat, ImportOutcome, ImportProblem,
 };
 use cantos_server::script_ir::read_canonical_script;
 use unicode_normalization::UnicodeNormalization;
 use zip::write::SimpleFileOptions;
 
-const TXT: &[u8] = include_bytes!("../../../packages/contracts/fixtures/manuscript/chapter-vi.txt");
-const MD: &[u8] = include_bytes!("../../../packages/contracts/fixtures/manuscript/chapter-vi.md");
+const TXT: &[u8] = include_bytes!(
+    "../../../services/cantos-server/contracts/studio/manuscript/v1/fixtures/chapter-vi.txt"
+);
+const MD: &[u8] = include_bytes!(
+    "../../../services/cantos-server/contracts/studio/manuscript/v1/fixtures/chapter-vi.md"
+);
 const IR: &[u8] =
-    include_bytes!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
+    include_bytes!("../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json");
 const CONTENT_TYPES: &str = r#"<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>"#;
 const DOCUMENT_START: &str = r#"<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>"#;
 const DOCUMENT_END: &str = "</w:body></w:document>";
@@ -82,7 +86,7 @@ fn central_offset(bytes: &[u8]) -> usize {
 #[test]
 fn independent_vietnamese_oracle_preserves_source_labels_and_unknowns() {
     let expected: Extraction = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/manuscript/chapter-vi.expected.json"
+        "../../../services/cantos-server/contracts/studio/manuscript/v1/fixtures/chapter-vi.expected.json"
     ))
     .unwrap();
     assert_eq!(parsed(TXT, ImportFormat::Txt), expected);
@@ -275,14 +279,14 @@ fn structured_rejections_use_the_existing_reader_and_never_return_partial_blocks
         (b"{broken".as_slice(), "invalid_script_ir"),
         (
             include_bytes!(
-                "../../../packages/contracts/fixtures/script-ir/0.1.0/reject/unknown-field.json"
+                "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/reject/unknown-field.json"
             )
             .as_slice(),
             "invalid_script_ir",
         ),
         (
             include_bytes!(
-                "../../../packages/contracts/fixtures/script-ir/0.1.0/reject/unknown-speaker.json"
+                "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/reject/unknown-speaker.json"
             )
             .as_slice(),
             "script_ir_semantics_invalid",

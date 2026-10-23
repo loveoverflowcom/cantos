@@ -2,7 +2,7 @@
 //! a seeded publication. Pure constructors; no persistence and no authority.
 use std::sync::Arc;
 
-use cantos_contracts::listener_library as dto;
+use crate::contract::theatre::library as dto;
 use cantos_store_turso::testing::FixedClock;
 use uuid::Uuid;
 

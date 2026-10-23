@@ -6,7 +6,7 @@ use unicode_normalization::UnicodeNormalization;
 
 fn corpus() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/contracts/fixtures/script-ir/0.1.0")
+        .join("../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures")
 }
 
 fn load(name: &str) -> Value {
@@ -25,7 +25,9 @@ fn speech(script: &ScriptContent) -> BTreeMap<String, Vec<u8>> {
 }
 
 fn schema() -> jsonschema::Validator {
-    let source = include_str!("../../../packages/contracts/schema/script-ir/0.1.0.schema.json");
+    let source = include_str!(
+        "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/script-ir.schema.json"
+    );
     let value: Value = serde_json::from_str(source).unwrap();
     assert!(jsonschema::draft202012::meta::is_valid(&value));
     jsonschema::draft202012::new(&value).unwrap()
@@ -252,7 +254,9 @@ fn malformed_duplicate_keys_unsupported_history_and_oversized_input_fail_explici
         read_script(duplicate.as_bytes()),
         Err(ReadError::InvalidDocument { .. })
     ));
-    let history = include_bytes!("../../../packages/contracts/examples/episode-draft.json");
+    let history = include_bytes!(
+        "../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json"
+    );
     assert_eq!(
         read_script(history).unwrap_err(),
         ReadError::UnsupportedSchemaVersion {

@@ -4,7 +4,7 @@
 #[cfg(any(target_arch = "wasm32", test))]
 use crate::application::signup::{CompletionFailure, SignupFailure};
 #[cfg(any(target_arch = "wasm32", test))]
-use cantos_contracts::identity_auth::{SignupAccepted, SignupCompleted, SignupStatus};
+use crate::contract::identity_auth::{SignupAccepted, SignupCompleted, SignupStatus};
 #[cfg(any(target_arch = "wasm32", test))]
 use cantos_web_auth::core::retry_after;
 
@@ -139,7 +139,7 @@ fn release_after(
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn submit(state: leptos::prelude::RwSignal<crate::application::signup::SignupState>) {
-    use cantos_contracts::identity_auth::SignupStart;
+    use crate::contract::identity_auth::SignupStart;
     use leptos::prelude::*;
 
     let Some((issued, email)) = state.write().begin_submit(now_ms()) else {

@@ -1,5 +1,5 @@
 //! Exact research-only VieNeu Nano identity and pure input admission.
-use cantos_contracts::{ProductionCapability, ResolvedSynthesisInput};
+use crate::contract::studio::{ProductionCapability, ResolvedSynthesisInput};
 use unicode_normalization::UnicodeNormalization;
 
 pub const PROVIDER_ID: &str = "vieneu-nano-local";

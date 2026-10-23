@@ -1,7 +1,7 @@
 //! Pure production rules: casting resolution, rights claims, planning estimates, frozen input
 //! identity, snapshot eligibility and the decisions behind each production command.
 //! No HTTP, database, clock or provider dependency; nothing here sends a request.
-use cantos_contracts::{FieldIssue, ProductionFinding, ProductionFindingCode};
+use crate::contract::studio::{FieldIssue, ProductionFinding, ProductionFindingCode};
 use unicode_normalization::UnicodeNormalization;
 
 pub mod brief;

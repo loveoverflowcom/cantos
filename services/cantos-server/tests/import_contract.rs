@@ -1,11 +1,13 @@
-use cantos_contracts::{ImportCueKind, ImportFormat, ImportOutcome, ImportRequest, ImportResponse};
 use cantos_server::contexts::ingestion::extract;
+use cantos_server::contract::studio::{
+    ImportCueKind, ImportFormat, ImportOutcome, ImportRequest, ImportResponse,
+};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 fn schema(name: &str) -> jsonschema::Validator {
     let root: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/manuscript/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/manuscript/v1/manuscript.schema.json"
     ))
     .unwrap();
     jsonschema::validator_for(&json!({

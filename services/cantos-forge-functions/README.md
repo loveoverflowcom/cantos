@@ -129,7 +129,7 @@ src/
 firebase/            thin Node process/HTTP boundary; no registered deploy trigger or dependencies
 tests/
   architecture.rs    domain, application and wire import no I/O, framework or outer layer (lexical)
-  audio_profile_contract.rs  Forge's profiles against packages/contracts/studio-audio-intake-v1.md
+  audio_profile_contract.rs  Forge's profiles against services/cantos-server/contracts/studio/audio-intake/v1/README.md
   cli.rs             the built binary end to end on a real directory
   behavior_binding.rs  every Quint run of cantos.production.forge-attempt has one native mirror test
   support/ogg_fixture.rs     a small Ogg Opus writer with its own bitwise CRC, shared with unit tests

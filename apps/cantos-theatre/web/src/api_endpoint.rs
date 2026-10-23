@@ -1,5 +1,5 @@
 //! Build-time nonsecret Theatre origin; absent selects the production API, invalid refuses.
-use cantos_contracts::web_api::{api_url, AddressError, WebSurface};
+use cantos_web_auth::address::{api_url, AddressError, WebSurface, THEATRE_BASE};
 pub(crate) fn endpoint(path: &str) -> Result<String, AddressError> {
     api_url(option_env!("CANTOS_API_ORIGIN"), WebSurface::Theatre, path)
 }
@@ -14,5 +14,5 @@ pub(crate) fn auth() -> Result<cantos_web_auth::browser::Client, cantos_web_auth
 
 /// Configuration is checked before the shell starts network effects.
 pub(crate) fn validate() -> Result<(), AddressError> {
-    endpoint(cantos_contracts::routes::THEATRE_BASE).map(|_| ())
+    endpoint(THEATRE_BASE).map(|_| ())
 }

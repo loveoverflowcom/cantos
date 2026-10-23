@@ -2,15 +2,15 @@
 
 > **Scope.** Keep Cantos Axum handlers thin and its contracts explicit: raw request DTOs,
 > backend-enforced authorization, typed error mapping, idempotent retriable writes, versioned
-> JSON Schema with fixtures, and shared DTOs for the Rust clients. Use when adding or changing an
+> JSON Schema with fixtures, and consumer-owned DTOs checked against them. Use when adding or changing an
 > endpoint, DTO, error code, pagination, authentication rule or client contract.
 
 Listener-facing contracts are owned by [`cantos-listening`](../../cantos-listening/references/listener-api.md);
 this reference owns the general shape every endpoint follows. Implemented today: the Studio v1,
 manuscript import, adaptation and production-input contracts in
 [`services/cantos-server/src/adapters/inbound/http`](../../../../services/cantos-server/src/adapters/inbound/http/mod.rs) (`studio`, `theatre`, `admin`), each with a
-hand-authored JSON Schema, fixtures and raw DTOs in `cantos-contracts` shared by the server and the
-Studio ([contracts README](../../../../packages/contracts/README.md)). There is no OpenAPI document,
+hand-authored JSON Schema and fixtures owned by the Server, the Server's raw DTOs in its own
+`contract` module and Studio Web's separate copy ([contracts README](../../../../services/cantos-server/contracts/README.md)). There is no OpenAPI document,
 no general generated HTTP client. Theatre has discovery, scoped account/Library and opt-in
 origin delivery owners; consult the [current API guide](../../../../services/cantos-server/README.md)
 and [platform map](../../../../docs/architecture/repository-layout.md#platform-scope) for implemented
@@ -26,7 +26,7 @@ non-GET handlers; the HTTP verb alone does not decide DBSP suitability or freshn
 The [single-listener host](../../../../docs/architecture/server-http-composition.md) serves three
 groups under `/api/v1`: `studio`, `theatre` and opt-in `admin` (capability/revocation with audit,
 dedicated authority and separate live issuer acceptance). Each has its own router module in `src/adapters/inbound/http/`, its DTO module
-in `cantos-contracts`, its own authentication and authorization, and its own `Store` methods or
+in the Server's `contract`, its own authentication and authorization, and its own `Store` methods or
 adapter; shared code is middleware, error mapping, domain modules and the current Server DB authority
 (PostgreSQL until the selected Turso migration is accepted).
 Rules: a handler never calls another group's handler; a session for one surface grants nothing on
@@ -110,7 +110,7 @@ with its callers/tests; do not move infrastructure types into domain to imitate 
 
 ### Preserve the wire contract and audit exhaustiveness
 
-- [`cantos_contracts::ApiError` and `ErrorCode`](../../../../packages/contracts/api/src/lib.rs)
+- [`contract::studio::ApiError` and `ErrorCode`](../../../../services/cantos-server/src/contract/studio/mod.rs)
   are the current wire types. Retain the existing snake_case codes and the fields `code`,
   `current_revision`, `issues`; there is no free-form public exception/message field.
   Internal error reshaping alone must not rename codes, change statuses or redefine their meaning.
@@ -142,11 +142,13 @@ and rejects reuse of the key with different content. Test duplicate delivery exp
 
 ## Contracts
 
-- One source of truth per contract, versioned, with serialized fixtures in `packages/contracts/`.
-  Today that is a hand-authored JSON Schema plus raw Rust DTOs in `cantos-contracts`, used by the
-  server and the Studio and checked against the same fixtures on both sides. Kotlin types, when a
-  CMP consumer exists, are generated or drift-checked against those fixtures; generated files name
-  their source and generation command.
+- One source of truth per contract, versioned, owned by the service that provides it, with
+  serialized fixtures beside it (`services/<service>/contracts/<surface>/<module>/<version>/`,
+  [ADR 0046](../../../../docs/decisions/0046-service-owned-contracts.md)). Today that is a
+  hand-authored JSON Schema (plus a `.proto` for the Protobuf pilot). Each consumer — the Server,
+  each Web client, Kotlin — owns its own representation, generated or hand-written and checked
+  against those fixtures; no consumer imports another's types or a service crate. Generated files
+  name their source and generation command.
 - Identifiers are opaque stable IDs, never titles or storage paths.
 - Pagination, ordering, server timestamps and revisions are explicit fields.
 - Compatibility: additive changes are safe only when consumers ignore unknown fields

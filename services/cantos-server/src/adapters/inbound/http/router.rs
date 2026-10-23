@@ -3,8 +3,8 @@ use super::{
     admin, assembly::HttpServices, cors, errors::failure, identity_auth, policy, studio, theatre,
     theatre_library, AppState,
 };
+use crate::contract::{routes, studio::ErrorCode};
 use axum::{extract::DefaultBodyLimit, http::StatusCode, middleware, response::Response, Router};
-use cantos_contracts::{routes, ErrorCode};
 use tower_http::services::ServeDir;
 
 pub(super) fn routes(

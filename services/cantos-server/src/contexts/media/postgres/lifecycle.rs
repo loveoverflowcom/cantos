@@ -4,9 +4,9 @@ use super::super::domain::object_storage::{
     ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageTargetId,
 };
 use super::super::storage::registry::RegistryStoredObject;
+use crate::contract::studio as dto;
 use crate::platform::store::Row;
 use crate::platform::store::{StoreError, Tx};
-use cantos_contracts as dto;
 use serde::{de::DeserializeOwned, Serialize};
 
 fn corrupt<T>(result: Result<T, AudioError>) -> Result<T, StoreError> {

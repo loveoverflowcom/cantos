@@ -7,7 +7,7 @@
 
 This is the PR 1 implementation boundary, not execution status for a broad issue.
 Authoritative model: [ADR 0019](../../decisions/0019-content-identity.md).
-API: [Content Identity v1](../../../packages/contracts/content-v1.md).
+API: [Content Identity v1](../../../services/cantos-server/contracts/studio/content/v1/README.md).
 Evidence and limits: [content identity](../../evidence/content-identity.md).
 
 ## Available to session 2

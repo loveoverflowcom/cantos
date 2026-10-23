@@ -1,5 +1,6 @@
 //! Binary private audio delivery is independent of JSON/MessagePack metadata negotiation.
 use super::StudioPath;
+use crate::contract::studio::ErrorCode;
 use crate::{
     adapters::inbound::http::{
         audio_transport, errors::error_response, errors::failure, studio::admission::cookie_token,
@@ -16,7 +17,6 @@ use axum::{
     routing::get,
     Router,
 };
-use cantos_contracts::ErrorCode;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::Semaphore;
 

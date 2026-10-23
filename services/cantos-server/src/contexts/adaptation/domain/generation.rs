@@ -1,6 +1,6 @@
 //! Caller generation declarations: validated for shape and bounds, never attested.
 use crate::contexts::editorial::domain::diagnostics::SafeDiagnostic;
-use cantos_contracts::{AdaptationCostBasis, CallerGenerationMetadata};
+use crate::contract::studio::{AdaptationCostBasis, CallerGenerationMetadata};
 use serde_json::Value;
 
 pub const MAX_CALLER_CONFIGURATION_BYTES: usize = 16 * 1024;

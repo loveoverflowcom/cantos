@@ -1,11 +1,11 @@
 use super::super::library_sync::{MutationPayload, RecoveryMode};
 use super::*;
+use crate::contract::library::{MutationState, ProgressWrite, WriteOutcome};
 use crate::core::{
     playback::{CallbackIdentity, Source},
     public_ids::PublicWorkId,
     public_track::{PinnedRelease, ReleaseRequest},
 };
-use cantos_contracts::listener_library::{MutationState, ProgressWrite, WriteOutcome};
 
 fn id(value: u128) -> String {
     uuid::Uuid::from_u128(value).to_string()
@@ -24,15 +24,15 @@ fn signed_in() -> AccountViewState {
 }
 fn audio() -> AudioIdentity {
     serde_json::from_str::<ProgressWrite>(include_str!(
-        "../../../../../../packages/contracts/fixtures/theatre/library/v1/progress_write.json"
+        "../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/progress_write.json"
     ))
     .unwrap()
     .audio
 }
 fn source() -> Source {
-    let manifest: cantos_contracts::theatre::PublicationManifest =
+    let manifest: crate::contract::discovery::PublicationManifest =
         serde_json::from_str(include_str!(
-            "../../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+            "../../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
         ))
         .unwrap();
     let request = ReleaseRequest::parse(

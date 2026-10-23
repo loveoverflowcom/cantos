@@ -1,5 +1,5 @@
 //! Content commands and authorized reads reuse Catalog's transactional authorization lane.
-use cantos_contracts::{AppendContentResponse, ContentHistoryResponse};
+use crate::contract::studio::{AppendContentResponse, ContentHistoryResponse};
 use serde::{Deserialize, Serialize};
 
 use super::{authorize, current_actor, unit, work, CatalogStoreError};

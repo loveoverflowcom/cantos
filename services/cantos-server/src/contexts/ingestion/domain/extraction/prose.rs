@@ -1,6 +1,6 @@
 //! UTF-8 text and Markdown: line labels, dash dialogue and headings are suggestions to review,
 //! never resolved speakers or scenes.
-use cantos_contracts::{ImportBlockKind, ImportProblem};
+use crate::contract::studio::{ImportBlockKind, ImportProblem};
 use unicode_normalization::UnicodeNormalization;
 
 use super::{problem, Builder, MAX_DECODED_BYTES};

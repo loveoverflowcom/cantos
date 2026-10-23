@@ -17,7 +17,7 @@ use std::{
     time::Duration,
 };
 
-use cantos_identity_rpc::{identity_server::IdentityServer, MAX_MESSAGE_BYTES};
+use crate::rpc::{generated::identity_server::IdentityServer, MAX_MESSAGE_BYTES};
 use cantos_store_turso::{clock::SystemClock, registry::Intent};
 use tokio::{
     io::{AsyncRead, AsyncWrite, ReadBuf},

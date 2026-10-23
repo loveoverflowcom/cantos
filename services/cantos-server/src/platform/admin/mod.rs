@@ -6,8 +6,8 @@
 //! An Identity v1 password session, a Studio or a Theatre credential is never Admin authority.
 mod domain;
 mod postgres;
+use crate::contract::admin::{CapabilityResponse, RevokeAccessResponse};
 use crate::platform::store::Store;
-use cantos_contracts::admin::{CapabilityResponse, RevokeAccessResponse};
 pub use domain::{map_groups, Action, AdminError, Role, RoleEvidence};
 use std::{future::Future, pin::Pin, sync::Arc};
 use uuid::Uuid;

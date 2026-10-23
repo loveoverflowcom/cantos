@@ -177,7 +177,7 @@ fn command_and_resume_feedback_changes_are_projected_without_changing_membership
                     .record_progress_intent(
                         audio.clone(),
                         30_000,
-                        cantos_contracts::listener_library::ProgressKind::ExplicitSeek,
+                        crate::contract::library::ProgressKind::ExplicitSeek,
                         true,
                         10_000,
                         || operation.clone()
@@ -379,7 +379,7 @@ fn saved_presentation_and_history_completion_are_reactive_under_stable_ids() {
 
 #[test]
 fn conflict_projections_keep_both_positions_and_saved_feedback_then_return_to_idle() {
-    use cantos_contracts::listener_library::{
+    use crate::contract::library::{
         MutationState, ProgressKind, Receipt, Resolution, WriteOutcome,
     };
     Owner::new().with(|| {

@@ -10,10 +10,15 @@ It describes source/configuration, never observed deployment or complete runtime
 | Object storage | Private filesystem or explicitly configured S3 media | Externally managed; no lifecycle/deletion command |
 | [Forge](cantos-forge-functions/README.md) | External producer CLI/finite worker | Separate from serving/login; no registered mandatory process or accepted live Functions/provider execution |
 
+Each service owns the canonical contracts it provides under its `contracts/` folder
+([Server](cantos-server/contracts/README.md), [Identity](cantos-identity/contracts/README.md));
+consumers generate or keep their own representations and never import another service's crate
+([ADR 0046](../docs/decisions/0046-service-owned-contracts.md)).
+
 Each native process owns one file, separate migration and backup lifecycle. The Server never
 opens Identity's DB. Shared owner primitives live in `packages/store-turso`; context SQL stays
 with the context. See the [porting boundary](../docs/architecture/server-turso-porting.md#checkpoint-boundary)
-and [Identity v1](../packages/contracts/identity-auth-v1.md).
+and [Identity v1](cantos-server/contracts/auth/identity-auth/v1/README.md).
 
 ## Runtime policy
 

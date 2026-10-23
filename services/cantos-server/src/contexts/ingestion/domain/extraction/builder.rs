@@ -1,7 +1,7 @@
 //! Accumulates admitted blocks and de-duplicated warnings under the shared extraction bounds.
 use std::collections::BTreeSet;
 
-use cantos_contracts::{
+use crate::contract::studio::{
     Extraction, ImportBlock, ImportBlockKind, ImportCueKind, ImportProblem, ImportWarning,
 };
 

@@ -7,7 +7,7 @@ use crate::contexts::media::domain::lifecycle::{
     decide_admission, submission_state, AdmissionDecision, AudioError, AudioRendition,
     AudioRenditionId, AudioSubmission,
 };
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 

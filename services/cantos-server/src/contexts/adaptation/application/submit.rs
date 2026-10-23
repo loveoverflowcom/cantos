@@ -1,6 +1,6 @@
 //! A caller submits generated output against a frozen context. Every submission, valid or not,
 //! is an immutable receipt; only a valid one records a proposal, and only once.
-use cantos_contracts::{
+use crate::contract::studio::{
     AdaptationSubmissionReceipt, AdaptationSubmissionStatus, FieldIssue,
     SubmitAdaptationProposalRequest,
 };
