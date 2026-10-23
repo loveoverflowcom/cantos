@@ -23,7 +23,7 @@ pub struct ProducerDeclarations {
     pub rights_refs: Vec<String>,
     pub quality_report: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct CreateAudioSubmissionRequest {
     pub operation_id: String,
@@ -160,4 +160,43 @@ pub enum AudioReleaseBlocker {
 pub struct ReleaseCandidateResponse {
     pub candidate: ReleaseCandidateDocument,
     pub blockers: Vec<AudioReleaseBlocker>,
+}
+
+/// `upload_token` is the caller's upload secret: a `{:?}` of the request (a failed assertion, a
+/// panic message) must not print it.
+impl std::fmt::Debug for CreateAudioSubmissionRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CreateAudioSubmissionRequest")
+            .field("operation_id", &self.operation_id)
+            .field("id", &self.id)
+            .field("binding", &self.binding)
+            .field("expected_sha256", &self.expected_sha256)
+            .field("expected_byte_length", &self.expected_byte_length)
+            .field("declarations", &self.declarations)
+            .field("upload_token", &"[redacted]")
+            .field("expires_at", &self.expires_at)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_output_never_contains_the_upload_token() {
+        let request: CreateAudioSubmissionRequest = serde_json::from_value(serde_json::json!({
+            "operation_id": "o", "id": "i", "expected_sha256": "s", "expected_byte_length": 1,
+            "binding": {"work_id": "w", "unit_id": "u", "content_revision_id": "r",
+                "content_revision_digest": "d", "brief_id": "b", "brief_version": 1,
+                "brief_digest": "bd", "profile_id": "p"},
+            "declarations": {"producer": "p", "method": "m", "provenance": "pr",
+                "rights_refs": [], "quality_report": "q"},
+            "upload_token": "SECRET-UPLOAD-TOKEN", "expires_at": 2
+        }))
+        .unwrap();
+        let shown = format!("{request:?}");
+        assert!(!shown.contains("SECRET-UPLOAD-TOKEN"), "{shown}");
+        assert!(shown.contains("[redacted]"));
+    }
 }

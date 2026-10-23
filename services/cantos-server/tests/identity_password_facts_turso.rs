@@ -354,8 +354,8 @@ async fn concurrent_first_logins_of_one_subject_bind_exactly_one_actor() {
     for reply in [&a, &b, &c] {
         assert_eq!(reply.status, StatusCode::OK, "{:?}", reply.json);
     }
-    assert_eq!(a.json["actor_id"], b.json["actor_id"]);
-    assert_eq!(b.json["actor_id"], c.json["actor_id"]);
+    assert_eq!(a.field("actor_id"), b.field("actor_id"));
+    assert_eq!(b.field("actor_id"), c.field("actor_id"));
     let actors: i64 =
         h.db.admin
             .query_one("SELECT count(*) FROM actors", &[])

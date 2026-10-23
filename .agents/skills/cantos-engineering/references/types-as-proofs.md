@@ -91,6 +91,25 @@ carries the exact input identities it was decided for, so it cannot be reused fo
 candidate. It is never `Deserialize`, never `Default`, and never stored as a standing right; a
 new decision is made at commit time.
 
+## Literals that stand for a closed set
+
+A spelled-out string, number or path is a hidden type. Before keeping one that other code must
+spell identically, classify it; a grep hit is only a candidate.
+
+| The literal is | Do |
+|---|---|
+| a closed set of purposes, states or outcomes (`"s"`/`"t"`/`"n"`, `"session_changed"`) | an enum or sealed type with exhaustive matching; where a wire or platform boundary must stay a string, one `const` owner in the module that defines the vocabulary, referenced by producer **and** consumer |
+| a canonical wire name (route, cookie, header, error code, JSON key) | the typed DTO or the owner's constant in production; the value itself never changes without a contract version |
+| the expectation in a test of that contract | keep an **independent** literal; importing the production constant makes a typo pass |
+| a file or module path | resolve it from its owner; a deleted path is removed or re-pointed, and a gate must fail on a missing input, never skip it to stay green |
+
+- A `match`/`when` on a string across two modules is a defect-in-waiting: a misspelling compiles
+  and falls into the `else` arm. Make both sides name the same owner.
+- The owner is the module that defines the vocabulary. Do not add a global constants package or a
+  shared contract crate for reuse ([ADR 0046](../../../../docs/decisions/0046-service-owned-contracts.md));
+  each consumer keeps its own representation and proves it against the canonical fixtures.
+- Test diagnostics name a case by label; they never format cookies, bearer values or token bodies.
+
 ## Money, time and audio units
 
 - Money: integer minor units plus a currency type (`MoneyMinor`, `Currency`), never `f64`. An

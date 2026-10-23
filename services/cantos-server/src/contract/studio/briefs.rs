@@ -136,7 +136,7 @@ pub struct ProductionBriefResponse {
     pub brief: ProductionBriefDocument,
     pub freshness: BriefFreshness,
 }
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct CreateProducerGrantRequest {
     pub operation_id: String,
@@ -158,4 +158,35 @@ pub struct ProducerGrantResponse {
     pub brief_digest: String,
     pub permission: String,
     pub expires_at: i64,
+}
+
+/// `token` is the producer's bearer secret: a `{:?}` of the request must not print it.
+impl std::fmt::Debug for CreateProducerGrantRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CreateProducerGrantRequest")
+            .field("operation_id", &self.operation_id)
+            .field("id", &self.id)
+            .field("brief_digest", &self.brief_digest)
+            .field("token", &"[redacted]")
+            .field("expires_at", &self.expires_at)
+            .field("capabilities", &self.capabilities)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod grant_debug_tests {
+    use super::*;
+
+    #[test]
+    fn debug_output_never_contains_the_grant_token() {
+        let request: CreateProducerGrantRequest = serde_json::from_value(serde_json::json!({
+            "operation_id": "o", "id": "i", "brief_digest": "d",
+            "token": "SECRET-GRANT-TOKEN", "expires_at": 2, "capabilities": []
+        }))
+        .unwrap();
+        let shown = format!("{request:?}");
+        assert!(!shown.contains("SECRET-GRANT-TOKEN"), "{shown}");
+        assert!(shown.contains("[redacted]"));
+    }
 }

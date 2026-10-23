@@ -32,9 +32,11 @@ import com.cantos.theatre.ports.CredentialStore
 import com.cantos.theatre.ports.LibraryLocalPort
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
+import com.cantos.theatre.ports.NativeHttpWire
 import com.cantos.theatre.ports.NativeRequestHandle
 import com.cantos.theatre.ports.PlaybackLocation
 import com.cantos.theatre.ports.StreamingMediaEngine
@@ -67,7 +69,7 @@ class PreviewNativeHttp(
                 val uri = URI(request.url)
                 val base = URI(origin.toString())
                 if (uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority || uri.rawUserInfo != null ||
-                    uri.rawFragment != null || CookieHandler.getDefault() != null) NativeHttpResponse(0, null, null, "configuration")
+                    uri.rawFragment != null || CookieHandler.getDefault() != null) NativeHttpResponse(0, null, null, NativeHttpFailure.Configuration)
                 else {
                     val connection = open(uri)
                     active.set(connection)
@@ -79,7 +81,7 @@ class PreviewNativeHttp(
                     connection.requestMethod = request.method
                     connection.setRequestProperty("Accept", "application/json")
                     request.bearer?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
-                    request.expectedSession?.let { connection.setRequestProperty("X-Cantos-Theatre-Session", it) }
+                    request.expectedSession?.let { connection.setRequestProperty(NativeHttpWire.SessionHeader, it) }
                     request.body?.let { body ->
                         val bytes = body.toByteArray(Charsets.UTF_8)
                         connection.doOutput = true
@@ -102,17 +104,17 @@ class PreviewNativeHttp(
                         output.toByteArray()
                     } ?: byteArrayOf()
                     NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null,
-                        connection.getHeaderField("X-Cantos-Theatre-Session"), connection.getHeaderField("Retry-After"))
+                        connection.getHeaderField(NativeHttpWire.SessionHeader), connection.getHeaderField("Retry-After"))
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-              catch (_: IOException) { NativeHttpResponse(0, null, null, "transport") }
-              catch (_: SecurityException) { NativeHttpResponse(0, null, null, "denied") }
-              catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, "protocol") }
-              catch (_: java.net.URISyntaxException) { NativeHttpResponse(0, null, null, "protocol") }
+              catch (_: IOException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Transport) }
+              catch (_: SecurityException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Denied) }
+              catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Protocol) }
+              catch (_: java.net.URISyntaxException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Protocol) }
               // `disconnect()` from `cancel()` can race a blocked read; the JDK then fails with an unchecked exception
               // of its own (for example `NullPointerException: this.http is null`). Cancelled work delivers nothing;
               // anything else is a transport failure. It must never escape into the shared composition scope.
-              catch (_: RuntimeException) { coroutineContext.ensureActive(); NativeHttpResponse(0, null, null, "transport") }
+              catch (_: RuntimeException) { coroutineContext.ensureActive(); NativeHttpResponse(0, null, null, NativeHttpFailure.Transport) }
               finally { active.getAndSet(null)?.disconnect() }
             completion(response)
         }

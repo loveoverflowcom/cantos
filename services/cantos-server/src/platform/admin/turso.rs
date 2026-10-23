@@ -1,5 +1,5 @@
 //! Native Turso effects only; policy is pure and all success/denial decisions require audit.
-use super::domain::{authorize, Action, AdminError, AdminPermit, RoleEvidence};
+use super::domain::{authorize, Action, AdminError, AdminPermit, AuditOutcome, RoleEvidence};
 use crate::contract::admin::{CapabilityResponse, RevokeAccessResponse};
 use crate::platform::{
     identity::domain::ActorId,
@@ -12,7 +12,7 @@ async fn audit(
     actor: Option<&ActorId>,
     action: Action,
     target: Option<&ActorId>,
-    outcome: &str,
+    outcome: AuditOutcome,
     correlation: Uuid,
 ) -> Result<Uuid, AdminError> {
     let id = Uuid::new_v4();
@@ -23,7 +23,7 @@ async fn audit(
             &actor.map(ActorId::as_str),
             &action.as_str(),
             &target.map(ActorId::as_str),
-            &outcome,
+            &outcome.as_str(),
             &correlation.to_string(), &tx.now_micros(),
         ],
     )
@@ -36,7 +36,7 @@ pub(super) async fn deny(
     actor: Option<&ActorId>,
     action: Action,
     target: Option<&ActorId>,
-    outcome: &str,
+    outcome: AuditOutcome,
     correlation: Uuid,
 ) -> Result<(), AdminError> {
     let mut client = store
@@ -176,7 +176,7 @@ async fn commit_authorized(
             Some(permit.actor()),
             permit.action(),
             target,
-            "denied",
+            AuditOutcome::Denied,
             correlation,
         )
         .await?;
@@ -206,7 +206,7 @@ pub(super) async fn capabilities(
                 actor.as_ref(),
                 Action::Capabilities,
                 None,
-                "denied",
+                AuditOutcome::Denied,
                 correlation,
             )
             .await?;
@@ -225,7 +225,7 @@ pub(super) async fn capabilities(
         Some(permit.actor()),
         permit.action(),
         None,
-        "allowed",
+        AuditOutcome::Allowed,
         correlation,
     )
     .await?;
@@ -261,7 +261,7 @@ pub(super) async fn revoke(
                 actor.as_ref(),
                 Action::RevokeAccess,
                 Some(&target),
-                "denied",
+                AuditOutcome::Denied,
                 correlation,
             )
             .await?;
@@ -290,7 +290,7 @@ pub(super) async fn revoke(
                 Some(permit.actor()),
                 permit.action(),
                 Some(&target),
-                "unavailable",
+                AuditOutcome::Unavailable,
                 correlation,
             )
             .await?;
@@ -305,7 +305,7 @@ pub(super) async fn revoke(
                 Some(permit.actor()),
                 permit.action(),
                 Some(&target),
-                "conflict",
+                AuditOutcome::Conflict,
                 correlation,
             )
             .await?;
@@ -317,7 +317,7 @@ pub(super) async fn revoke(
             Some(permit.actor()),
             permit.action(),
             Some(&target),
-            "replayed",
+            AuditOutcome::Replayed,
             correlation,
         )
         .await?;
@@ -332,7 +332,7 @@ pub(super) async fn revoke(
             Some(permit.actor()),
             permit.action(),
             Some(&target),
-            "allowed",
+            AuditOutcome::Allowed,
             correlation,
         )
         .await?;
@@ -344,7 +344,7 @@ pub(super) async fn revoke(
                 Some(permit.actor()),
                 permit.action(),
                 Some(&target),
-                "unavailable",
+                AuditOutcome::Unavailable,
                 correlation,
             )
             .await?;

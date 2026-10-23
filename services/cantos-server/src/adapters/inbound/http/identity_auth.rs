@@ -43,7 +43,7 @@ type Body<T> = Result<Json<T>, axum::extract::rejection::JsonRejection>;
 
 const BODY_LIMIT: usize = 4096;
 const THEATRE_FENCE: &str = "x-cantos-theatre-session";
-const STUDIO_FENCE: &str = "x-cantos-studio-session";
+const STUDIO_FENCE: &str = super::studio::admission::STUDIO_SESSION_HEADER;
 
 pub(super) fn theatre_routes() -> Router<AppState> {
     let web = Router::new()

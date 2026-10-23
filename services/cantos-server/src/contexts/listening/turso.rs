@@ -142,15 +142,16 @@ fn progress(r: &Row, listener: &ListenerId) -> Result<ProgressRecord, LibraryErr
     if col::<i64>(r, "accepted_at")? != v.accepted_at_ms {
         return Err(LibraryError::Corrupt);
     }
-    match_text(
-        r,
-        "completion",
-        match v.completion {
-            dto::Completion::InProgress => "in_progress",
-            dto::Completion::Completed => "completed",
-        },
-    )?;
+    match_text(r, "completion", completion_text(v.completion))?;
     ProgressRecord::restore(v).map_err(|_| LibraryError::Corrupt)
+}
+/// The stored spelling, pinned by `CHECK (completion IN (...))` in `listener_library.sql` and the
+/// `completion=` literal in the continue-listening query: the write and verify paths share it.
+fn completion_text(completion: dto::Completion) -> &'static str {
+    match completion {
+        dto::Completion::InProgress => "in_progress",
+        dto::Completion::Completed => "completed",
+    }
 }
 fn saved(r: &Row, listener: &ListenerId) -> Result<SavedRecord, LibraryError> {
     match_text(r, "listener_id", listener.as_str())?;
@@ -402,10 +403,7 @@ async fn apply_progress(
 ) -> Result<(), LibraryError> {
     let v = v.raw();
     let (b, d) = encode(v)?;
-    let completion = match v.completion {
-        dto::Completion::InProgress => "in_progress",
-        dto::Completion::Completed => "completed",
-    };
+    let completion = completion_text(v.completion);
     let fields: [&(dyn crate::platform::store::Param + Sync); 14] = [
         &listener.as_str(),
         &v.audio.publication_id,

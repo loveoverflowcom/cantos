@@ -14,6 +14,28 @@ pub const SOCKET_MODE: &str = "CANTOS_IDENTITY_SOCKET_MODE";
 pub const SERVER_UIDS: &str = "CANTOS_IDENTITY_SERVER_UIDS";
 pub const SIGNUP_LINK_BASE: &str = "CANTOS_IDENTITY_SIGNUP_LINK_BASE";
 pub const MAIL_PROVIDER: &str = "CANTOS_IDENTITY_MAIL_PROVIDER";
+
+/// The mail capability selected by [`MAIL_PROVIDER`], parsed once so the validation here and the
+/// Firebase adapter's emulator decision cannot disagree on a spelling.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MailProvider {
+    Smtp,
+    Disabled,
+    Firebase,
+    FirebaseEmulator,
+}
+
+impl MailProvider {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "smtp" => Some(Self::Smtp),
+            "disabled" => Some(Self::Disabled),
+            "firebase" => Some(Self::Firebase),
+            "firebase-emulator" => Some(Self::FirebaseEmulator),
+            _ => None,
+        }
+    }
+}
 pub const LOCAL_DEVELOPMENT: &str = "CANTOS_IDENTITY_LOCAL_DEVELOPMENT";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -99,11 +121,9 @@ impl ServeConfig {
             Some("1") if cfg!(feature = "local-development") => true,
             Some(_) => return Err(ConfigError::Invalid(LOCAL_DEVELOPMENT)),
         };
-        let provider = lookup(MAIL_PROVIDER);
-        match provider.as_deref() {
-            None | Some("smtp" | "disabled" | "firebase" | "firebase-emulator") => {}
-            Some(_) => return Err(ConfigError::Invalid(MAIL_PROVIDER)),
-        }
+        let provider = lookup(MAIL_PROVIDER)
+            .map(|value| MailProvider::parse(&value).ok_or(ConfigError::Invalid(MAIL_PROVIDER)))
+            .transpose()?;
         // Never interpret SDK emulator/credential exports as native configuration. The
         // adapter uses its own project/credential/action binding, not ambient ADC discovery.
         for name in [
@@ -155,22 +175,24 @@ impl ServeConfig {
             MailConfigError::Invalid => ConfigError::Invalid("CANTOS_IDENTITY_SMTP_*"),
         })?;
         if matches!(
-            provider.as_deref(),
-            Some("disabled" | "firebase" | "firebase-emulator")
+            provider,
+            Some(MailProvider::Disabled | MailProvider::Firebase | MailProvider::FirebaseEmulator)
         ) && smtp.is_some()
         {
             return Err(ConfigError::Invalid(MAIL_PROVIDER));
         }
         let firebase: Option<std::sync::Arc<dyn crate::verification::VerificationActions>> =
-            match provider.as_deref() {
-                Some(selected @ ("firebase" | "firebase-emulator")) => Some(std::sync::Arc::new(
-                    crate::firebase::Provider::new(crate::firebase::Config::load(
-                        selected,
-                        local,
-                        &mut lookup,
-                    )?)
-                    .map_err(|_| ConfigError::Invalid("CANTOS_IDENTITY_FIREBASE_*"))?,
-                )),
+            match provider {
+                Some(selected @ (MailProvider::Firebase | MailProvider::FirebaseEmulator)) => {
+                    Some(std::sync::Arc::new(
+                        crate::firebase::Provider::new(crate::firebase::Config::load(
+                            selected,
+                            local,
+                            &mut lookup,
+                        )?)
+                        .map_err(|_| ConfigError::Invalid("CANTOS_IDENTITY_FIREBASE_*"))?,
+                    ))
+                }
                 _ => {
                     for name in [
                         "CANTOS_IDENTITY_FIREBASE_PROJECT",

@@ -3,6 +3,11 @@
 This recognizes the repository's literal CREATE TABLE public.name (...) declarations.
 It does not parse general SQL, inspect a database or authorize migration/retirement.
 An unrecognized CREATE TABLE form fails closed for explicit review.
+
+The two PostgreSQL migrator metadata tables were declared only by the retired Rust registry
+(`platform/postgres/migrations.rs`, last present at b14acf83^). No current source declares them,
+so they are named here and must stay classified `replace-registry`; this check never reads that
+retired path.
 """
 
 import json
@@ -13,7 +18,7 @@ from pathlib import Path
 
 MANIFEST = Path("services/cantos-server/schema/native-table-ownership.json")
 SCHEMA = Path("services/cantos-server/schema")
-REGISTRY = Path("services/cantos-server/src/platform/postgres/migrations.rs")
+RETIRED_REGISTRY_TABLES = frozenset({"cantos_schema", "cantos_migrations"})
 DISPOSITIONS = {"server", "replace-provider-auth", "development-only", "replace-registry"}
 PROVIDER_PREFIXES = (
     "bearer_", "studio_oidc_", "theatre_identity_", "theatre_native_",
@@ -100,18 +105,9 @@ def source_tables(root):
     files = sorted((root / SCHEMA).glob("*.sql"))
     if not files:
         raise ValueError("no current schema SQL files")
-    files.append(root / REGISTRY)
     tables = {}
     for path in files:
-        text = path.read_text(encoding="utf-8")
-        # The Rust registry is deliberately scanned as literal source, including comments;
-        # masking Rust strings would erase the very SQL declarations being inventoried.
-        if path.suffix == ".sql":
-            text = without_sql_comments(text)
-        elif "/*" in text or "--" in text:
-            # Do not guess which Rust literal contains SQL or interpret its escapes.
-            # The current registry has no SQL comment markers; refuse unfamiliar source.
-            raise ValueError(f"{path.relative_to(root)}: unsupported SQL comment marker in migrator source")
+        text = without_sql_comments(path.read_text(encoding="utf-8"))
         declarations = list(DECLARATION.finditer(text))
         if len(declarations) != len(CREATE_TABLE.findall(text)):
             raise ValueError(f"{path.relative_to(root)}: unsupported CREATE TABLE declaration")
@@ -148,7 +144,7 @@ def validate(manifest, tables):
             required = (
                 "replace-provider-auth" if table.startswith(PROVIDER_PREFIXES)
                 else "development-only" if table == "sessions"
-                else "replace-registry" if table in {"cantos_schema", "cantos_migrations"}
+                else "replace-registry" if table in RETIRED_REGISTRY_TABLES
                 else "server"
             )
             if disposition != required:
@@ -158,8 +154,10 @@ def validate(manifest, tables):
             errors.append(f"{table}: classified {count} times")
     for table in sorted(set(tables) - set(classified)):
         errors.append(f"{table}: missing native disposition ({tables[table]})")
-    for table in sorted(set(classified) - set(tables)):
+    for table in sorted(set(classified) - set(tables) - RETIRED_REGISTRY_TABLES):
         errors.append(f"{table}: no current source declaration")
+    for table in sorted(RETIRED_REGISTRY_TABLES - set(classified)):
+        errors.append(f"{table}: retired migrator table must stay classified replace-registry")
     return errors
 
 

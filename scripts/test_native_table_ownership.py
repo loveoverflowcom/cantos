@@ -21,16 +21,13 @@ class NativeTableOwnershipTests(unittest.TestCase):
             "CREATE TABLE public.bearer_tokens (token_hash text);\n"
             "CREATE TABLE public.sessions (id text);\n", encoding="utf-8",
         )
-        registry = self.root / ownership.REGISTRY
-        registry.parent.mkdir(parents=True)
-        registry.write_text('"CREATE TABLE public.cantos_schema (id int);"', encoding="utf-8")
         self.manifest = {
             "version": 1,
             "dispositions": {
                 "server": ["actors"],
                 "replace-provider-auth": ["bearer_tokens"],
                 "development-only": ["sessions"],
-                "replace-registry": ["cantos_schema"],
+                "replace-registry": ["cantos_migrations", "cantos_schema"],
             },
         }
         self.save()
@@ -121,10 +118,9 @@ class NativeTableOwnershipTests(unittest.TestCase):
                     self.sql.write_text(original + "CREATE TABLE public.BEARER_SECRETS (id text);",
                                         encoding="utf-8")
                 else:
-                    path = self.root / ownership.REGISTRY if table == "cantos_schema" else self.sql
-                    saved = path.read_text(encoding="utf-8")
-                    path.write_text(saved.replace(f"public.{table}", f"public.{table.upper()}"),
-                                    encoding="utf-8")
+                    saved = self.sql.read_text(encoding="utf-8")
+                    self.sql.write_text(saved.replace(f"public.{table}", f"public.{table.upper()}"),
+                                        encoding="utf-8")
                 manifest = copy.deepcopy(self.manifest)
                 if table != "bearer_secrets":
                     manifest["dispositions"][required].remove(table)
@@ -133,8 +129,6 @@ class NativeTableOwnershipTests(unittest.TestCase):
                     f"{table.upper()}: expected canonical lowercase unquoted table name",
                     f"{table}: expected {required}, found server",
                 ])
-                if table != "bearer_secrets":
-                    path.write_text(saved, encoding="utf-8")
                 self.sql.write_text(original, encoding="utf-8")
 
     def test_unquoted_identifier_case_cannot_hide_duplicate_source_tables(self):
@@ -149,17 +143,24 @@ class NativeTableOwnershipTests(unittest.TestCase):
             "native table ownership: actors: classified 2 times",
         ])
 
-    def test_migrator_sql_comment_separated_ddl_is_conservatively_refused(self):
-        registry = self.root / ownership.REGISTRY
-        original = registry.read_text(encoding="utf-8")
-        for comment in ["/* note */", "/* nested /* note */ ; */", "-- note\n"]:
-            with self.subTest(comment=comment):
-                registry.write_text(original + f'\n"CREATE {comment} TABLE public.unmapped_secret (id text);"',
-                                    encoding="utf-8")
-                self.assertEqual(self.errors(), [
-                    "native table ownership: services/cantos-server/src/platform/postgres/migrations.rs: "
-                    "unsupported SQL comment marker in migrator source",
+    def test_retired_registry_tables_need_no_source_but_must_stay_classified(self):
+        # The fixture has no registry source at all, exactly like the current tree.
+        self.assertFalse((self.root / "services/cantos-server/src/platform/postgres").exists())
+        self.assertEqual(self.errors(), [])
+        for table in sorted(ownership.RETIRED_REGISTRY_TABLES):
+            with self.subTest(table=table):
+                manifest = copy.deepcopy(self.manifest)
+                manifest["dispositions"]["replace-registry"] = []
+                self.assertEqual(ownership.validate(manifest, ownership.source_tables(self.root)), [
+                    f"{name}: retired migrator table must stay classified replace-registry"
+                    for name in sorted(ownership.RETIRED_REGISTRY_TABLES)
                 ])
+
+    def test_only_the_named_retired_tables_may_lack_a_source_declaration(self):
+        self.manifest["dispositions"]["server"] = ["actors", "cantos_extra"]
+        self.assertEqual(self.errors(), [
+            "native table ownership: cantos_extra: no current source declaration",
+        ])
 
     def test_comments_are_not_table_declarations(self):
         with self.sql.open("a", encoding="utf-8") as file:

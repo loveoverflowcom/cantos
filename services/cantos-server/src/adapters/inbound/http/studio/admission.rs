@@ -26,7 +26,7 @@ pub(in crate::adapters::inbound::http) fn cookie_token(
     if let Some(token) = identity_cookie(headers, store)? {
         return Ok(token);
     }
-    let token = cookie_token_for_name(headers, "cantos_session")?;
+    let token = cookie_token_for_name(headers, DEV_COOKIE)?;
     // Identity-issued secrets (and the retired provider family) have their own cookie; neither may
     // ride the development-token name, where the `__Secure-`/host-only guarantees are absent.
     if token.starts_with("ca1_") || token.starts_with("ci1_") {
@@ -51,7 +51,7 @@ fn identity_cookie(headers: &HeaderMap, store: &Store) -> Result<Option<String>,
     let Some(token) = read(expected)? else {
         return Ok(None);
     };
-    let legacy = ["cantos_session", "__Secure-cantos_studio"]
+    let legacy = DEV_COOKIE_NAMES
         .iter()
         .any(|name| unique_cookie(headers, name).map_or(true, |value| value.is_some()));
     if legacy || credential::access_channel(&token) != Some(Channel::Web(Surface::Studio)) {
@@ -65,7 +65,7 @@ pub(in crate::adapters::inbound::http) fn cookie_token_for_name(
     expected: &str,
 ) -> Result<String, StoreError> {
     let mut found = None;
-    for name in ["cantos_session", "__Secure-cantos_studio"] {
+    for name in DEV_COOKIE_NAMES {
         let value = unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated)?;
         if let Some(value) = value {
             if name != expected || found.is_some() {
@@ -123,6 +123,13 @@ pub(in crate::adapters::inbound::http) fn studio_query_fence_matches(
 
 pub(in crate::adapters::inbound::http) const STUDIO_SESSION_HEADER: &str =
     "x-cantos-studio-session";
+
+/// The development-token cookie the loopback Studio mount issues, and the `__Secure-` spelling a
+/// Studio session must never use. Issuing (`studio/mod.rs`) and reading/rejecting (here) both
+/// name them from this one owner, so a rename cannot leave the collision check stale.
+pub(in crate::adapters::inbound::http) const DEV_COOKIE: &str = "cantos_session";
+const DEV_SECURE_COOKIE: &str = "__Secure-cantos_studio";
+const DEV_COOKIE_NAMES: [&str; 2] = [DEV_COOKIE, DEV_SECURE_COOKIE];
 
 pub(in crate::adapters::inbound::http) fn studio_fence_matches(
     headers: &HeaderMap,

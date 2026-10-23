@@ -95,7 +95,7 @@ pub struct PublicationManifest {
     pub language: String,
     pub published_at_ms: i64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct PlaybackAuthorization {
     pub publication_id: String,
@@ -120,4 +120,41 @@ pub enum ListenerErrorCode {
 pub struct ListenerError {
     pub code: ListenerErrorCode,
     pub retryable: bool,
+}
+
+/// `url` is a short-lived playback capability: a `{:?}` of the grant (or of anything holding it)
+/// must not print it. The admitted `MediaUrl` redacts the same way once the grant is checked.
+impl std::fmt::Debug for PlaybackAuthorization {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlaybackAuthorization")
+            .field("publication_id", &self.publication_id)
+            .field("rendition_id", &self.rendition_id)
+            .field("sha256", &self.sha256)
+            .field("url", &"[redacted]")
+            .field("expires_at_ms", &self.expires_at_ms)
+            .field("content_type", &self.content_type)
+            .field("byte_range_supported", &self.byte_range_supported)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod playback_debug_tests {
+    use super::*;
+
+    #[test]
+    fn debug_output_never_contains_the_capability_url() {
+        let grant = PlaybackAuthorization {
+            publication_id: "p".into(),
+            rendition_id: "r".into(),
+            sha256: "s".into(),
+            url: "https://media.example/pg1_SECRET-CAPABILITY".into(),
+            expires_at_ms: 1,
+            content_type: "audio/ogg".into(),
+            byte_range_supported: true,
+        };
+        let shown = format!("{grant:?}");
+        assert!(!shown.contains("SECRET-CAPABILITY"), "{shown}");
+        assert!(shown.contains("[redacted]"));
+    }
 }

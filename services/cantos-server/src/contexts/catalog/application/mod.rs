@@ -48,6 +48,13 @@ impl MemberRole {
             Self::Editor => "editor",
         }
     }
+
+    /// The stored spelling back to a role; `None` for a role this table does not know.
+    pub fn parse(stored: &str) -> Option<Self> {
+        [Self::Reader, Self::Editor]
+            .into_iter()
+            .find(|role| role.as_str() == stored)
+    }
 }
 
 /// Owner is always derived from the authenticated actor, never from this input.

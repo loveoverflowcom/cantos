@@ -2,6 +2,7 @@
 //! only locks and persists their admitted values, rechecking snapshot integrity on every read.
 use crate::platform::store::Row;
 
+use super::application::MemberRole;
 use super::domain::{ContentUnit, Revision, Work};
 use crate::platform::store::{checked_number, StoreError, Tx};
 
@@ -171,7 +172,7 @@ pub(super) async fn member_role(
         .transpose()?;
     if role
         .as_deref()
-        .is_some_and(|role| role != "reader" && role != "editor")
+        .is_some_and(|role| MemberRole::parse(role).is_none())
     {
         return Err(StoreError::CorruptRevision);
     }

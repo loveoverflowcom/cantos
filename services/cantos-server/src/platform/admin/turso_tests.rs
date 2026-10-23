@@ -61,7 +61,7 @@ async fn final_check(fail_clock: bool) {
         Some(permit.actor()),
         permit.action(),
         Some(&target),
-        "allowed",
+        AuditOutcome::Allowed,
         correlation,
     )
     .await

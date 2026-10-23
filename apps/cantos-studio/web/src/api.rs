@@ -20,7 +20,10 @@ use crate::wire::{self, REVISION_CODEC};
 use leptos::prelude::{Callable, Callback};
 use std::cell::Cell;
 
-pub const SESSION_HEADER: &str = "x-cantos-studio-session";
+/// The fence header, from its one owner: the client that sets it and the checks that read it
+/// can no longer disagree on the spelling.
+pub const SESSION_HEADER: &str =
+    cantos_web_auth::core::session_header(cantos_web_auth::Surface::Studio);
 #[derive(Clone, Copy)]
 struct ClientSession {
     fence: SessionFence,

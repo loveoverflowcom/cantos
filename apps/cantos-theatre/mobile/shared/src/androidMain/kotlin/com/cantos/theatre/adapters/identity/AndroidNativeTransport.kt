@@ -8,8 +8,10 @@ import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
+import com.cantos.theatre.ports.NativeHttpWire
 import com.cantos.theatre.ports.NativeHttpResponse
 import com.cantos.theatre.ports.NativeRequestHandle
 import java.io.ByteArrayOutputStream
@@ -70,7 +72,7 @@ class AndroidNativeHttp(private val scope: CoroutineScope, private val origin: A
                 val admittedScheme = uri.scheme == "https" || (!origin.isHttps && uri.scheme == "http")
                 if (!admittedScheme || uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority ||
                     uri.rawUserInfo != null || uri.fragment != null || CookieHandler.getDefault() != null ||
-                    request.method !in setOf("GET", "POST", "PUT", "DELETE")) NativeHttpResponse(0, null, null, "configuration")
+                    request.method !in setOf("GET", "POST", "PUT", "DELETE")) NativeHttpResponse(0, null, null, NativeHttpFailure.Configuration)
                 else {
                     val connection = uri.toURL().openConnection() as HttpURLConnection
                     active.set(connection)
@@ -101,12 +103,12 @@ class AndroidNativeHttp(private val scope: CoroutineScope, private val origin: A
                         }
                         output.toByteArray()
                     } ?: ByteArray(0)
-                    NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null, connection.getHeaderField("X-Cantos-Theatre-Session"), connection.getHeaderField("Retry-After"))
+                    NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null, connection.getHeaderField(NativeHttpWire.SessionHeader), connection.getHeaderField("Retry-After"))
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-              catch (_: IOException) { NativeHttpResponse(0, null, null, "transport") }
-              catch (_: SecurityException) { NativeHttpResponse(0, null, null, "denied") }
-              catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, "protocol") }
+              catch (_: IOException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Transport) }
+              catch (_: SecurityException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Denied) }
+              catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Protocol) }
               finally { active.getAndSet(null)?.disconnect() }
             completion(response)
         }

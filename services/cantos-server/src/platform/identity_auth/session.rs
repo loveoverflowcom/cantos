@@ -5,7 +5,7 @@
 //! No method performs network I/O. Identity is consulted by the caller before and after a call,
 //! never while an adapter holds a lock or the writer.
 use super::{
-    credential::{Channel, Secrets, Surface},
+    credential::{Channel, Secrets},
     decision::{ObservedSecurity, RevokeReason, Subject},
 };
 use crate::platform::bearer::core::Lifetime;
@@ -63,12 +63,9 @@ pub fn digest(secret: &str) -> [u8; 32] {
 }
 
 pub(crate) fn channel_of(stored: &str) -> Option<Channel> {
-    match stored {
-        "theatre-web" => Some(Channel::Web(Surface::Theatre)),
-        "studio-web" => Some(Channel::Web(Surface::Studio)),
-        "theatre-native" => Some(Channel::Native),
-        _ => None,
-    }
+    Channel::ALL
+        .into_iter()
+        .find(|channel| channel.stored() == stored)
 }
 
 /// Web: the cookie lives until the idle deadline (renewal extends it). Native: the access
@@ -151,6 +148,7 @@ pub trait SessionStore: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platform::identity_auth::credential::Surface;
 
     #[test]
     fn both_adapters_store_the_same_secret_digest() {
@@ -165,6 +163,15 @@ mod tests {
 
     #[test]
     fn stored_channels_round_trip_and_nothing_else_decodes() {
+        // The stored spellings are also literals in the session SQL and schema: pin them here
+        // independently of `stored()`.
+        for (channel, stored) in [
+            (Channel::Web(Surface::Theatre), "theatre-web"),
+            (Channel::Web(Surface::Studio), "studio-web"),
+            (Channel::Native, "theatre-native"),
+        ] {
+            assert_eq!(channel.stored(), stored);
+        }
         for channel in [
             Channel::Web(Surface::Theatre),
             Channel::Web(Surface::Studio),

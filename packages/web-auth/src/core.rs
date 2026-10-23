@@ -244,7 +244,7 @@ impl RateGate {
 }
 
 /// Header carrying the session id the client believes it holds (a fence, never a credential).
-pub fn session_header(surface: Surface) -> &'static str {
+pub const fn session_header(surface: Surface) -> &'static str {
     match surface {
         Surface::Studio => "x-cantos-studio-session",
         Surface::Theatre => "x-cantos-theatre-session",

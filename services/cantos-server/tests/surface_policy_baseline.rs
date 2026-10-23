@@ -1,7 +1,7 @@
 //! Surface-policy regressions for #333.1, using the current origin-pinned HTTP host.
 //!
-//! Credentials are Identity v1 sessions (#335): a Studio Web cookie (`s`), a Theatre Web cookie
-//! (`t`) and a native Bearer (`n`), each issued through the production login route against a
+//! Credentials are Identity v1 sessions (#335): a Studio Web cookie, a Theatre Web cookie and a
+//! native Bearer (the three [`Purpose`]s), each issued through the production login route against a
 //! scripted Identity that is then removed. Their rows are live, so a credential of the route's own
 //! purpose reaches the verifier and fails closed as `unavailable` (Identity cannot be asked);
 //! a wrong purpose, a mixed or duplicated credential or a foreign origin must be refused earlier.
@@ -23,6 +23,7 @@ use cantos_server::platform::identity_auth::{
     config::IdentityAuthConfig, decision::Subject, IdentityAuth, PeerPolicy,
 };
 use http_body_util::BodyExt;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use tower::ServiceExt;
@@ -32,6 +33,35 @@ const THEATRE_ORIGIN: &str = "https://cantos.example";
 const STUDIO_COOKIE: &str = "__Secure-cantos_id_studio";
 const THEATRE_COOKIE: &str = "__Secure-cantos_id_theatre";
 const PASSWORD: &str = "a correct horse battery";
+
+/// What a session credential is for. The oracle names the contract's three purposes itself
+/// rather than borrowing the production `Channel`, so a production rename cannot silently
+/// rewrite what is being asserted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Purpose {
+    Studio,
+    Theatre,
+    Native,
+}
+
+const PURPOSES: [Purpose; 3] = [Purpose::Studio, Purpose::Theatre, Purpose::Native];
+
+/// What a request path accepts: a session of one purpose, the Admin surface (no session
+/// credential satisfies it; only its availability is observable here) or a path no pinned
+/// browser host serves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Route {
+    Session(Purpose),
+    Admin,
+    Unserved,
+}
+
+/// The one field of the native login reply these tests read. A renamed field fails the parse
+/// by name instead of indexing an untyped value.
+#[derive(Deserialize)]
+struct NativeLogin {
+    access_token: String,
+}
 
 fn api(origin: &str) -> Router {
     api_router(AppState {
@@ -106,7 +136,9 @@ impl Sessions {
         Self {
             studio: cookie(&studio, STUDIO_COOKIE),
             theatre: cookie(&theatre, THEATRE_COOKIE),
-            native: native.json["access_token"].as_str().unwrap().to_owned(),
+            native: serde_json::from_value::<NativeLogin>(native.json)
+                .unwrap()
+                .access_token,
             db,
             dir,
             socket,
@@ -150,13 +182,21 @@ impl Sessions {
         )
     }
 
-    /// The single header a client of `purpose` sends.
-    fn credential(&self, purpose: &str) -> (&'static str, String) {
+    fn secret(&self, purpose: Purpose) -> &str {
         match purpose {
-            "s" => ("cookie", format!("{STUDIO_COOKIE}={}", self.studio)),
-            "t" => ("cookie", format!("{THEATRE_COOKIE}={}", self.theatre)),
-            "n" => ("authorization", format!("Bearer {}", self.native)),
-            _ => unreachable!("unknown purpose {purpose}"),
+            Purpose::Studio => &self.studio,
+            Purpose::Theatre => &self.theatre,
+            Purpose::Native => &self.native,
+        }
+    }
+
+    /// The single header a client of `purpose` sends.
+    fn credential(&self, purpose: Purpose) -> (&'static str, String) {
+        let secret = self.secret(purpose);
+        match purpose {
+            Purpose::Studio => ("cookie", format!("{STUDIO_COOKIE}={secret}")),
+            Purpose::Theatre => ("cookie", format!("{THEATRE_COOKIE}={secret}")),
+            Purpose::Native => ("authorization", format!("Bearer {secret}")),
         }
     }
 }
@@ -218,15 +258,21 @@ fn cors_origin(headers: &HeaderMap, origin: Option<&str>) {
 async fn pinned_hosts_keep_route_origin_and_credential_purpose_independent() {
     let sessions = Sessions::issue().await;
     for (surface, origin, purpose) in [
-        (WebSurface::Studio, STUDIO_ORIGIN, "s"),
-        (WebSurface::Theatre, THEATRE_ORIGIN, "t"),
+        (WebSurface::Studio, STUDIO_ORIGIN, Purpose::Studio),
+        (WebSurface::Theatre, THEATRE_ORIGIN, Purpose::Theatre),
     ] {
         let app = sessions.browser(surface, origin);
-        for (path, route_purpose) in [
-            ("/api/v1/studio/identity/session", "s"),
-            ("/api/v1/theatre/identity/session", "t"),
-            ("/api/v1/admin/capabilities", "admin"),
-            ("/api/v1/production/catalog", "legacy"),
+        for (path, route) in [
+            (
+                "/api/v1/studio/identity/session",
+                Route::Session(Purpose::Studio),
+            ),
+            (
+                "/api/v1/theatre/identity/session",
+                Route::Session(Purpose::Theatre),
+            ),
+            ("/api/v1/admin/capabilities", Route::Admin),
+            ("/api/v1/production/catalog", Route::Unserved),
         ] {
             for sent_origin in [
                 STUDIO_ORIGIN,
@@ -236,8 +282,8 @@ async fn pinned_hosts_keep_route_origin_and_credential_purpose_independent() {
                 "https://studio.cantos.example.attacker.invalid",
                 "null",
             ] {
-                for sent_purpose in ["s", "t", "n"] {
-                    let admitted = sent_origin == origin && route_purpose == purpose;
+                for sent_purpose in PURPOSES {
+                    let admitted = sent_origin == origin && route == Route::Session(purpose);
                     let (status, code) = if !admitted {
                         (StatusCode::FORBIDDEN, "forbidden")
                     } else if sent_purpose == purpose {
@@ -267,33 +313,65 @@ async fn pinned_hosts_keep_route_origin_and_credential_purpose_independent() {
 }
 
 /// Every way a request can carry an own-purpose secret that is not exactly one credential of
-/// that purpose. `own`/`other` are the route surface's cookie and the sibling surface's cookie.
+/// that purpose, each with a label for failure messages: the headers hold live secrets and
+/// must never be printed. `own`/`other` are the route surface's cookie and the sibling
+/// surface's cookie.
 fn mixed_credentials(
     sessions: &Sessions,
     own: (&str, &str),
     other: (&str, &str),
-) -> Vec<Vec<(&'static str, String)>> {
+) -> Vec<(&'static str, Vec<(&'static str, String)>)> {
     let (own_name, own_secret) = own;
     let (other_name, other_secret) = other;
     let plain = own_name.trim_start_matches("__Secure-");
     let own = format!("{own_name}={own_secret}");
     vec![
-        vec![],
-        vec![("cookie", format!("{other_name}={other_secret}"))],
+        ("no credential", vec![]),
+        (
+            "sibling cookie only",
+            vec![("cookie", format!("{other_name}={other_secret}"))],
+        ),
         // A sibling's or the native secret under this surface's cookie name.
-        vec![("cookie", format!("{own_name}={other_secret}"))],
-        vec![("cookie", format!("{own_name}={}", sessions.native))],
-        vec![("cookie", format!("{own}; {own}"))],
-        vec![("cookie", own.clone()), ("cookie", own.clone())],
+        (
+            "sibling secret under own cookie name",
+            vec![("cookie", format!("{own_name}={other_secret}"))],
+        ),
+        (
+            "native secret under own cookie name",
+            vec![("cookie", format!("{own_name}={}", sessions.native))],
+        ),
+        (
+            "own cookie twice in one header",
+            vec![("cookie", format!("{own}; {own}"))],
+        ),
+        (
+            "own cookie in two headers",
+            vec![("cookie", own.clone()), ("cookie", own.clone())],
+        ),
         // The insecure spelling beside the secure one, as a downgraded jar would send it.
-        vec![("cookie", format!("{own}; {plain}={own_secret}"))],
+        (
+            "insecure spelling beside the secure cookie",
+            vec![("cookie", format!("{own}; {plain}={own_secret}"))],
+        ),
         // A Web cookie never travels with a Bearer, of any purpose.
-        vec![("cookie", own.clone()), sessions.credential("n")],
-        vec![
-            ("cookie", own.clone()),
-            ("authorization", format!("Bearer {own_secret}")),
-        ],
-        vec![("authorization", format!("Bearer {own_secret}"))],
+        (
+            "cookie beside the native bearer",
+            vec![
+                ("cookie", own.clone()),
+                sessions.credential(Purpose::Native),
+            ],
+        ),
+        (
+            "cookie beside its own secret as a bearer",
+            vec![
+                ("cookie", own.clone()),
+                ("authorization", format!("Bearer {own_secret}")),
+            ],
+        ),
+        (
+            "own secret as a bearer",
+            vec![("authorization", format!("Bearer {own_secret}"))],
+        ),
     ]
 }
 
@@ -317,15 +395,15 @@ async fn duplicate_and_mixed_credentials_cannot_reach_an_own_purpose_verifier() 
         ),
     ] {
         let app = sessions.browser(surface, origin);
-        for credentials in mixed_credentials(&sessions, own, other) {
+        for (label, credentials) in mixed_credentials(&sessions, own, other) {
             let mut headers = vec![("origin", origin.to_owned())];
-            headers.extend(credentials.clone());
+            headers.extend(credentials);
             let response = call(&app, request(Method::GET, path, &headers)).await;
             cors_origin(response.headers(), Some(origin));
             assert_eq!(
                 response.status(),
                 StatusCode::UNAUTHORIZED,
-                "{path} {credentials:?}"
+                "{path} {label}"
             );
             error(response, StatusCode::UNAUTHORIZED, "unauthenticated").await;
         }
@@ -507,11 +585,23 @@ fn combined(admin: Option<&str>) -> Router {
 async fn combined_routes_select_only_their_configured_origin_and_credential_purpose() {
     let sessions = Sessions::issue().await;
     let app = sessions.combined(Some(ADMIN_ORIGIN));
-    for (path, origin, purpose) in [
-        ("/api/v1/studio/identity/session", STUDIO_ORIGIN, "s"),
-        ("/api/v1/theatre/identity/session", THEATRE_ORIGIN, "t"),
-        ("/api/v1/admin/capabilities", ADMIN_ORIGIN, "admin"),
-        ("/api/v1/production/catalog", STUDIO_ORIGIN, "s"),
+    for (path, origin, route) in [
+        (
+            "/api/v1/studio/identity/session",
+            STUDIO_ORIGIN,
+            Route::Session(Purpose::Studio),
+        ),
+        (
+            "/api/v1/theatre/identity/session",
+            THEATRE_ORIGIN,
+            Route::Session(Purpose::Theatre),
+        ),
+        ("/api/v1/admin/capabilities", ADMIN_ORIGIN, Route::Admin),
+        (
+            "/api/v1/production/catalog",
+            STUDIO_ORIGIN,
+            Route::Session(Purpose::Studio),
+        ),
     ] {
         for sent_origin in [
             STUDIO_ORIGIN,
@@ -522,11 +612,11 @@ async fn combined_routes_select_only_their_configured_origin_and_credential_purp
             "null",
             "https://studio.cantos.example.attacker.invalid",
         ] {
-            for sent_purpose in ["s", "t", "n"] {
+            for sent_purpose in PURPOSES {
                 let admitted = sent_origin == origin;
                 let (status, code) = if !admitted {
                     (StatusCode::FORBIDDEN, "forbidden")
-                } else if purpose == "admin" || purpose == sent_purpose {
+                } else if route == Route::Admin || route == Route::Session(sent_purpose) {
                     // Absent verifier/disabled Admin, not successful authentication.
                     (StatusCode::SERVICE_UNAVAILABLE, "unavailable")
                 } else {
@@ -653,14 +743,14 @@ async fn combined_credentials_and_forwarding_headers_cannot_cross_a_route_bounda
             (STUDIO_COOKIE, sessions.studio.as_str()),
         ),
     ] {
-        for credentials in mixed_credentials(&sessions, own, other) {
+        for (label, credentials) in mixed_credentials(&sessions, own, other) {
             let mut headers = vec![("origin", origin.into())];
-            headers.extend(credentials.clone());
+            headers.extend(credentials);
             let response = call(&app, request(Method::GET, path, &headers)).await;
             assert_eq!(
                 response.status(),
                 StatusCode::UNAUTHORIZED,
-                "{path} {credentials:?}"
+                "{path} {label}"
             );
             error(response, StatusCode::UNAUTHORIZED, "unauthenticated").await;
         }
@@ -743,7 +833,7 @@ async fn combined_public_native_and_protected_routes_keep_their_contracts() {
     error(
         call(
             &app,
-            request(Method::GET, native, &[sessions.credential("n")]),
+            request(Method::GET, native, &[sessions.credential(Purpose::Native)]),
         )
         .await,
         StatusCode::SERVICE_UNAVAILABLE,
@@ -752,13 +842,17 @@ async fn combined_public_native_and_protected_routes_keep_their_contracts() {
     .await;
     for marker in [
         ("origin", THEATRE_ORIGIN.to_owned()),
-        sessions.credential("t"),
+        sessions.credential(Purpose::Theatre),
         ("sec-fetch-site", "same-site".to_owned()),
     ] {
         error(
             call(
                 &app,
-                request(Method::GET, native, &[sessions.credential("n"), marker]),
+                request(
+                    Method::GET,
+                    native,
+                    &[sessions.credential(Purpose::Native), marker],
+                ),
             )
             .await,
             StatusCode::UNAUTHORIZED,
@@ -767,11 +861,8 @@ async fn combined_public_native_and_protected_routes_keep_their_contracts() {
         .await;
     }
     // A Web secret is never a native Bearer.
-    for purpose in ["s", "t"] {
-        let secret = match purpose {
-            "s" => &sessions.studio,
-            _ => &sessions.theatre,
-        };
+    for purpose in [Purpose::Studio, Purpose::Theatre] {
+        let secret = sessions.secret(purpose);
         error(
             call(
                 &app,
