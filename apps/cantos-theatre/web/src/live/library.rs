@@ -12,19 +12,18 @@ use cantos_contracts::listener_library::{
 };
 
 /// 429 is the API's Identity budget: bounded Retry-After, never a dense retry. In production
-/// `Lease::response` reads the header (when the API exposes it to this origin; otherwise a
-/// conservative default applies), arms the surface-wide gate and answers before any decoder runs,
+/// `Lease::receive` reads the header (exposed to the configured Web origin; a proxy that drops it
+/// gets a conservative default), arms the surface-wide gate and answers before any decoder runs,
 /// so the decoders below only ever see a 429 when called directly: they keep the default.
 pub fn rate_limited(status: u16, retry_after: Option<&str>) -> Option<AccountFailure> {
     (status == 429)
         .then(|| AccountFailure::RateLimited(cantos_web_auth::core::retry_after(retry_after)))
 }
 
-/// The API echoes the session it admitted. A different echo (any status) means another tab
-/// changed the cookie: the owner must drop its local session and re-read before more requests.
-pub fn session_fence_mismatch(response_session: Option<&str>, expected_session: &str) -> bool {
-    response_session.is_some_and(|actual| actual != expected_session)
-}
+/// The session the API echoes on every admitted answer. `Lease::receive` drops the local session
+/// when it names another one; the decoders below still require it to name this one exactly.
+#[cfg(target_arch = "wasm32")]
+const SESSION_HEADER: &str = "x-cantos-theatre-session";
 
 pub fn check_response(
     status: u16,
@@ -241,7 +240,7 @@ fn check_session_header(
     if status == 403 {
         return Err(CommandError::Forbidden);
     }
-    // Identity budget spent before dispatch. `Lease::response` normally answers first, with the
+    // Identity budget spent before dispatch. `Lease::receive` normally answers first, with the
     // header; reaching a decoder means the conservative default applies.
     if status == 429 {
         return Err(CommandError::RateLimited(
@@ -546,17 +545,14 @@ async fn send_authenticated(
             .map_err(|_| CommandError::Unavailable)?
     };
     let status = response.status();
-    // The shared owner reads Retry-After once for every protected answer: a 429 arms the gate for
-    // the whole surface, and a stale lease or a real 401 is judged before any body is read.
+    // The shared owner judges every protected answer before any body is read: a 429 arms the
+    // gate for the whole surface, a stale lease or a real 401 is refused, and an echo of another
+    // session (another tab changed the account) drops the local session so the owner re-reads.
     credential
-        .response(status, response.headers().get("retry-after").as_deref())
+        .receive(&response)
         .map_err(map_auth_to_command_error)?;
     let content_type = response.headers().get("content-type");
-    let response_session = response.headers().get("X-Cantos-Theatre-Session");
-    if session_fence_mismatch(response_session.as_deref(), expected_session) {
-        // Another tab changed the account: drop the local session so the owner re-reads.
-        return Err(map_auth_to_command_error(credential.fence_mismatch()));
-    }
+    let response_session = response.headers().get(SESSION_HEADER);
     let bytes = response
         .binary()
         .await
@@ -694,38 +690,19 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
         .await
         .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
     let body_status = response.status();
+    // 429 gate, stale lease, real 401 and an echo of another session, before any body.
     credential
-        .response(
-            body_status,
-            response.headers().get("retry-after").as_deref(),
-        )
+        .receive(&response)
         .map_err(super::account::auth_error)?;
-    if session_fence_mismatch(
-        response
-            .headers()
-            .get("X-Cantos-Theatre-Session")
-            .as_deref(),
-        expected_session,
-    ) {
-        return Err(super::account::auth_error(credential.fence_mismatch()));
-    }
     // Even error pages must echo this exact session before their body can affect this account.
     if body_status == 400 {
         check_response(
             200,
             response.headers().get("content-type").as_deref(),
-            response
-                .headers()
-                .get("X-Cantos-Theatre-Session")
-                .as_deref(),
+            response.headers().get(SESSION_HEADER).as_deref(),
             expected_session,
         )?;
-        if response
-            .headers()
-            .get("X-Cantos-Theatre-Session")
-            .as_deref()
-            != Some(expected_session)
-        {
+        if response.headers().get(SESSION_HEADER).as_deref() != Some(expected_session) {
             return Err(AccountFailure::SessionChanged);
         }
         let body = response
@@ -744,10 +721,7 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
     check_response(
         body_status,
         response.headers().get("content-type").as_deref(),
-        response
-            .headers()
-            .get("X-Cantos-Theatre-Session")
-            .as_deref(),
+        response.headers().get(SESSION_HEADER).as_deref(),
         expected_session,
     )?;
     let body = response
@@ -876,11 +850,9 @@ mod tests {
     }
 
     #[test]
-    fn another_sessions_echo_is_a_fence_mismatch_for_any_status() {
-        assert!(session_fence_mismatch(Some("session-b"), "session-a"));
-        assert!(!session_fence_mismatch(Some("session-a"), "session-a"));
-        assert!(!session_fence_mismatch(None, "session-a"));
-        // Reads: the same echo rule decides SessionChanged before any body is read.
+    fn reads_judge_rate_limit_and_refusal_before_any_session_echo() {
+        // Dropping the local session on another session's echo is `Lease::receive`'s rule
+        // (tested in `cantos-web-auth`); a decoder only refuses what is left.
         assert_eq!(
             check_response(429, Some("application/json"), None, "session-a"),
             Err(AccountFailure::RateLimited(30))

@@ -98,12 +98,7 @@ pub async fn execute(
     .map_err(|_| ClientError::Transport)?;
     let response = request.send().await.map_err(|_| ClientError::Transport)?;
     if let Some(credential) = &credential {
-        credential
-            .response(
-                response.status(),
-                response.headers().get("retry-after").as_deref(),
-            )
-            .map_err(auth_error)?;
+        credential.receive(&response).map_err(auth_error)?;
     }
     if response.ok()
         && expected_fence.is_some_and(|fence| {

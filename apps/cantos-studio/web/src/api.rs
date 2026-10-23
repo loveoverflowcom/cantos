@@ -179,18 +179,35 @@ impl StudioHttp {
 pub use crate::session::is_session_changed;
 use crate::session::{session_changed, unauthenticated};
 
-/// `Retry-After` as the browser lets this origin read it. Cross-origin it is only visible when
-/// the API exposes it; an absent header makes the shared owner hold for its conservative default.
-fn retry_after(response: &Response) -> Option<String> {
-    response.headers().get("retry-after")
-}
-
 /// Seconds the shared owner still holds this surface after a 429, for a view that shows a wait.
 /// Nothing is dispatched before it ends: `credential()` refuses first.
 pub fn rate_wait() -> Option<u32> {
     match crate::api_endpoint::auth().ok()?.gate() {
         Err(cantos_web_auth::Failure::RateLimited(seconds)) => Some(seconds),
         _ => None,
+    }
+}
+
+/// The shared owner judges an owner answer before its body: 429 hold, stale lease, a real 401 and
+/// an echo of another session (which drops the local session). A `Changed` 409 is the API's fence
+/// refusal, so nothing was applied and it is an observed session change; any other `Changed`
+/// leaves an unknown outcome. Either way the current projection re-reads its session.
+fn received(
+    api: StudioHttp,
+    credential: &cantos_web_auth::browser::Lease,
+    response: &Response,
+) -> Result<(), ApiError> {
+    match credential.receive(response) {
+        Err(cantos_web_auth::Failure::Changed) => {
+            let error = if response.status() == 409 {
+                session_changed()
+            } else {
+                crate::session::unconfirmed_response()
+            };
+            api.invalidate_projection(&error);
+            Err(error)
+        }
+        other => api.notify_denial(other.map_err(auth_error)),
     }
 }
 
@@ -239,11 +256,7 @@ async fn execute<T: DeserializeOwned>(
     credential: cantos_web_auth::browser::Lease,
 ) -> Result<T, ApiError> {
     let response = request.send().await.map_err(|_| unavailable())?;
-    api.notify_denial(
-        credential
-            .response(response.status(), retry_after(&response).as_deref())
-            .map_err(auth_error),
-    )?;
+    received(api, &credential, &response)?;
     let result = match check_echo(&response, Some(fence)) {
         Ok(()) => decode(response).await,
         Err(error) => {
@@ -309,11 +322,7 @@ async fn negotiate<T: DeserializeOwned + ProtobufDto>(
     credential: cantos_web_auth::browser::Lease,
 ) -> Result<T, ApiError> {
     let response = request.send().await.map_err(|_| unavailable())?;
-    api.notify_denial(
-        credential
-            .response(response.status(), retry_after(&response).as_deref())
-            .map_err(auth_error),
-    )?;
+    received(api, &credential, &response)?;
     if let Err(error) = check_echo(&response, Some(fence)) {
         api.invalidate_projection(&error);
         return Err(error);
@@ -560,9 +569,7 @@ impl StudioHttp {
             .send()
             .await
             .map_err(|_| unavailable())?;
-        credential
-            .response(response.status(), retry_after(&response).as_deref())
-            .map_err(auth_error)?;
+        received(*self, &credential, &response)?;
         check_echo(&response, Some(fence))?;
         if !response.ok() {
             let status = response.status();

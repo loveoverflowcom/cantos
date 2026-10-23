@@ -42,7 +42,7 @@ Provider artifacts stay in the API; mixed credentials remain refused by the serv
 Each API process may opt into `CANTOS_BROWSER_API_SURFACE=theatre|studio`, with its one exact
 `CANTOS_WEB_ORIGIN` as the CORS allowlist. Preflight accepts only the declared surface, methods and
 headers, returns no wildcard, and reaches no authentication or database effect. Actual responses
-expose only their surface's session-fence/representation headers and vary on Origin. Preflight
+expose only their surface's session-fence/representation headers plus `Retry-After` and vary on Origin. Preflight
 and refusals are no-store; real responses retain their transport-owned private cache policy. The API ingress
 routes Studio paths to the Studio process and Theatre paths to the Theatre process.
 
