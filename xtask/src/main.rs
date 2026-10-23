@@ -2,6 +2,7 @@
 //! Cantos. Repository-level operations go through cargo xtask; scripts and external tools are
 //! implementation primitives, not competing orchestration interfaces.
 
+mod auth_emulator;
 mod behavior;
 mod build;
 mod capture;

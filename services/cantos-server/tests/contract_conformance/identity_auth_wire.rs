@@ -27,7 +27,6 @@ fn requests_reject_unknown_fields_and_missing_values() {
     for field in [
         "operation_id",
         "proof_id",
-        "proof_secret",
         "password",
         "explicit_confirmation",
     ] {
@@ -38,6 +37,17 @@ fn requests_reject_unknown_fields_and_missing_values() {
             "{field}"
         );
     }
+    let firebase = json!({
+        "operation_id": "00".repeat(16), "proof_id": "11".repeat(16),
+        "firebase_oob_code": "synthetic-action", "password": "chosen", "explicit_confirmation": true,
+    });
+    let action: SignupComplete = serde_json::from_value(firebase).unwrap();
+    assert!(action.proof_secret.is_empty());
+    assert_eq!(
+        action.firebase_oob_code.as_deref(),
+        Some("synthetic-action")
+    );
+    // The handler checks exactly one alternative; serde checks field names/types here.
     let mut extra = complete;
     extra["actor_id"] = json!("x");
     assert!(serde_json::from_value::<SignupComplete>(extra).is_err());
@@ -75,6 +85,7 @@ fn debug_output_never_contains_an_address_a_password_or_a_proof() {
         operation_id: "aa".repeat(16),
         proof_id: "bb".repeat(16),
         proof_secret: "cc".repeat(32),
+        firebase_oob_code: None,
         password: "hunter2-hunter2".into(),
         explicit_confirmation: true,
     };

@@ -456,6 +456,7 @@ pub struct Env {
     pub socket: PathBuf,
     pub uids: String,
     pub smtp_port: Option<u16>,
+    pub firebase: Option<(String, String, PathBuf)>,
 }
 
 impl Env {
@@ -465,6 +466,7 @@ impl Env {
             socket: run.path("identity.sock"),
             uids: run.uid().to_string(),
             smtp_port: None,
+            firebase: None,
         }
     }
 
@@ -488,6 +490,23 @@ impl Env {
                 .env("CANTOS_IDENTITY_SMTP_PORT", port.to_string())
                 .env("CANTOS_IDENTITY_SMTP_TLS", "loopback-plaintext")
                 .env("CANTOS_IDENTITY_SMTP_FROM", "cantos@example.test");
+        }
+        if let Some((project, endpoint, key)) = &self.firebase {
+            command
+                .env("CANTOS_IDENTITY_LOCAL_DEVELOPMENT", "1")
+                .env("CANTOS_IDENTITY_MAIL_PROVIDER", "firebase-emulator")
+                .env("CANTOS_IDENTITY_SIGNUP_LINK_BASE", "http://127.0.0.1:8082/")
+                .env("CANTOS_IDENTITY_FIREBASE_PROJECT", project)
+                .env("CANTOS_IDENTITY_FIREBASE_EMULATOR_ENDPOINT", endpoint)
+                .env("CANTOS_IDENTITY_FIREBASE_ENVELOPE_KEY_FILE", key)
+                .env(
+                    "CANTOS_IDENTITY_FIREBASE_ACTION_ORIGIN",
+                    "http://127.0.0.1:8082",
+                )
+                .env(
+                    "CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER",
+                    "http://127.0.0.1:8082/",
+                );
         }
         command
     }

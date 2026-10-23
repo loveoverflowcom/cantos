@@ -91,6 +91,7 @@ pub struct SignupCommand {
     pub operation: [u8; 16],
     pub proof: [u8; 16],
     pub secret: [u8; 32],
+    pub firebase_oob_code: Option<String>,
     pub password: String,
 }
 
@@ -148,6 +149,7 @@ impl IdentityAuth {
                 command.operation,
                 command.proof,
                 command.secret,
+                command.firebase_oob_code.as_deref(),
                 &command.password,
                 client,
             )

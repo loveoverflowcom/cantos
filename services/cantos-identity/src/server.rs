@@ -229,7 +229,7 @@ pub async fn compose(config: &ServeConfig) -> Result<(Arc<IdentityService>, Read
             events::emit("open_failed", store_reason(&error));
             RunError::Database
         })?;
-    let mail_configured = config.smtp.is_some();
+    let mail_configured = config.smtp.is_some() || config.firebase.is_some();
     let mailer: Arc<dyn Mailer> = match &config.smtp {
         Some(smtp) => Arc::new(SmtpMailer::new(smtp.clone()).map_err(|_| RunError::Configuration)?),
         None => Arc::new(UnconfiguredMailer),
@@ -245,7 +245,11 @@ pub async fn compose(config: &ServeConfig) -> Result<(Arc<IdentityService>, Read
     };
     let service = tokio::task::spawn_blocking({
         let store = Arc::new(store);
-        move || IdentityService::new(store, clock, mailer, settings)
+        let firebase = config.firebase.clone();
+        move || {
+            IdentityService::new(store, clock, mailer, settings)
+                .map(|service| service.with_firebase(firebase))
+        }
     })
     .await
     .map_err(|_| RunError::Serve)?

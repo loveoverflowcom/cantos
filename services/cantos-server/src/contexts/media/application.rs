@@ -19,21 +19,16 @@ use super::turso;
 use crate::contexts::catalog::domain::OwnerId;
 use crate::contexts::editorial::{authorize, find_revision, Action};
 use crate::platform::store::{
-    authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
+    authenticate, checked_number, normalized_uuid, Store, StoreError, Tx,
 };
 
 // Fail fast when the bounded inspector lanes are occupied. The permit is owned by the blocking
 // task, so HTTP cancellation cannot release a lane while its subprocess still runs.
 static INSPECTION_LANES: Semaphore = Semaphore::const_new(2);
 
-async fn owner(
-    tx: &Tx<'_>,
-    token: &str,
-    script: &str,
-    lock: LockMode,
-) -> Result<(String, u64), StoreError> {
+async fn owner(tx: &Tx<'_>, token: &str, script: &str) -> Result<(String, u64), StoreError> {
     let actor = authenticate(tx, token).await?;
-    let (_, head) = authorize(tx, &actor, script, Action::Review, lock).await?;
+    let (_, head) = authorize(tx, &actor, script, Action::Review).await?;
     if !turso::actor_active(tx, &actor).await? {
         return Err(StoreError::Unauthenticated);
     }
@@ -74,7 +69,7 @@ async fn reauthorize_intent(
 ) -> Result<(), StoreError> {
     let client = store.connection().await?;
     let tx = client.read().await?;
-    let (actor, head) = owner(&tx, token, &intent.script_id, LockMode::Share).await?;
+    let (actor, head) = owner(&tx, token, &intent.script_id).await?;
     let locked = turso::find_intent(&tx, &actor, &intent.script_id, &intent.id)
         .await?
         .ok_or(StoreError::NotFound)?;
@@ -169,7 +164,7 @@ impl Store {
         let id = normalized_uuid(id)?;
         let client = self.connection().await?;
         let tx = client.read().await?;
-        let (actor, _) = owner(&tx, token, &script, LockMode::Share).await?;
+        let (actor, _) = owner(&tx, token, &script).await?;
         let intent = turso::find_intent(&tx, &actor, &script, &id)
             .await?
             .ok_or(StoreError::NotFound)?;
@@ -209,7 +204,7 @@ impl Store {
         })?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
-        let (actor, head) = owner(&tx, token, &script, LockMode::Update).await?;
+        let (actor, head) = owner(&tx, token, &script).await?;
         let prior = turso::by_operation(&tx, &actor, &operation).await?;
         let pinned = find_revision(&tx, &script, checked_number(head)?)
             .await?
@@ -269,7 +264,7 @@ impl Store {
         let id = normalized_uuid(id)?;
         let client = self.connection().await?;
         let tx = client.read().await?;
-        let (actor, _) = owner(&tx, token, &script, LockMode::Share).await?;
+        let (actor, _) = owner(&tx, token, &script).await?;
         let intent = turso::find_intent(&tx, &actor, &script, &id)
             .await?
             .ok_or(StoreError::NotFound)?;
@@ -306,7 +301,7 @@ impl Store {
         let id = normalized_uuid(id)?;
         let client = self.connection().await?;
         let tx = client.read().await?;
-        let (actor, head) = owner(&tx, token, &script, LockMode::Share).await?;
+        let (actor, head) = owner(&tx, token, &script).await?;
         let intent = turso::find_intent(&tx, &actor, &script, &id)
             .await?
             .ok_or(StoreError::NotFound)?;
@@ -335,7 +330,7 @@ impl Store {
 
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
-        let (current_actor, head) = owner(&tx, token, &script, LockMode::Update).await?;
+        let (current_actor, head) = owner(&tx, token, &script).await?;
         if current_actor != actor {
             return Err(StoreError::Unauthenticated);
         }

@@ -10,7 +10,7 @@ use super::domain::{
 use super::turso;
 use crate::contexts::editorial::{self, permits, Access, Action};
 use crate::contexts::ingestion;
-use crate::platform::store::{authenticate, LockMode, StoreError, Tx};
+use crate::platform::store::{authenticate, StoreError, Tx};
 
 pub(super) const MAX_UNITS: usize = 1000;
 
@@ -189,12 +189,8 @@ pub(super) async fn current_actor(tx: &Tx<'_>, token: &str) -> Result<String, Ca
     authenticate(tx, token).await?;
     Ok(actor)
 }
-pub(super) async fn work(
-    tx: &Tx<'_>,
-    id: &WorkId,
-    lock: LockMode,
-) -> Result<Work, CatalogStoreError> {
-    turso::load_work(tx, id.as_str(), lock)
+pub(super) async fn work(tx: &Tx<'_>, id: &WorkId) -> Result<Work, CatalogStoreError> {
+    turso::load_work(tx, id.as_str())
         .await?
         .ok_or_else(|| StoreError::NotFound.into())
 }

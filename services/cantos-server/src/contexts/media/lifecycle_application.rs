@@ -19,7 +19,7 @@ use crate::contexts::{
 };
 use crate::contract::studio as dto;
 use crate::platform::store::{
-    authenticate, normalized_uuid, session_token_registered, LockMode, Store, StoreError, Tx,
+    authenticate, normalized_uuid, session_token_registered, Store, StoreError, Tx,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -59,7 +59,6 @@ async fn facts(
     tx: &Tx<'_>,
     token: Option<&str>,
     s: &AudioSubmission,
-    lock: LockMode,
 ) -> Result<(ProductionContent, ProductionBrief, bool), StoreError> {
     let d = s.document();
     let owner = OwnerId::parse(&d.owner_id).map_err(|_| StoreError::CorruptRevision)?;
@@ -69,7 +68,6 @@ async fn facts(
         Some(&owner),
         &d.binding.unit_id,
         d.binding.brief_version,
-        lock,
     )
     .await?;
     if Binding::from_brief(&result.1)
@@ -100,7 +98,6 @@ async fn scoped(
     tx: &Tx<'_>,
     id: &str,
     bearer: &str,
-    lock: LockMode,
 ) -> Result<(AudioSubmission, bool), StoreError> {
     let expected = hash(bearer)?;
     let row = sql::load(tx, id)
@@ -109,7 +106,7 @@ async fn scoped(
     if row.token_hash != expected {
         return Err(StoreError::Unauthenticated);
     }
-    let (_, _, current) = facts(tx, None, &row.value, lock).await?;
+    let (_, _, current) = facts(tx, None, &row.value).await?;
     let revoked = sql::revoked(tx, id).await?;
     let d = row.value.document();
     decide_admission(
@@ -129,14 +126,13 @@ pub(super) async fn owner(
     token: &str,
     unit: &str,
     id: &str,
-    lock: LockMode,
 ) -> Result<(AudioSubmission, ProductionContent, bool), StoreError> {
     let actor = authenticate(tx, token).await?;
     let row = sql::load(tx, id).await?.ok_or(StoreError::NotFound)?;
     if row.value.document().owner_id != actor || row.value.document().binding.unit_id != unit {
         return Err(StoreError::NotFound);
     }
-    let (facts, _, current) = facts(tx, Some(token), &row.value, lock).await?;
+    let (facts, _, current) = facts(tx, Some(token), &row.value).await?;
     Ok((row.value, facts, current))
 }
 /// SQL-only snapshot. Actual object verification runs after these locks are released.
@@ -220,7 +216,7 @@ async fn finish_owner_snapshot(
     }
     let client = store.connection().await?;
     let tx = client.read().await?;
-    let (s, _, current) = owner(&tx, token, unit, &reply.submission.id, LockMode::Share).await?;
+    let (s, _, current) = owner(&tx, token, unit, &reply.submission.id).await?;
     refresh_snapshot(&tx, &s, current, &mut reply, location.as_ref()).await?;
     authenticate(&tx, token).await?;
     tx.commit().await?;
@@ -238,9 +234,9 @@ async fn finish_producer_snapshot(
     }
     let client = store.connection().await?;
     let tx = client.read().await?;
-    let (s, current) = scoped(&tx, &reply.submission.id, bearer, LockMode::Share).await?;
+    let (s, current) = scoped(&tx, &reply.submission.id, bearer).await?;
     refresh_snapshot(&tx, &s, current, &mut reply, location.as_ref()).await?;
-    scoped(&tx, &reply.submission.id, bearer, LockMode::Share).await?;
+    scoped(&tx, &reply.submission.id, bearer).await?;
     tx.commit().await?;
     Ok(reply)
 }
@@ -270,7 +266,7 @@ async fn verified_owner_rendition(
 ) -> Result<(AudioRendition, PrivateObjectRef), StoreError> {
     let client = store.connection().await?;
     let tx = client.read().await?;
-    let (s, _, _) = owner(&tx, token, unit, id, LockMode::Share).await?;
+    let (s, _, _) = owner(&tx, token, unit, id).await?;
     let r = sql::rendition(&tx, &s).await?.ok_or(StoreError::NotFound)?;
     let location = sql::location(&tx, &r).await?;
     authenticate(&tx, token).await?;
@@ -290,12 +286,12 @@ async fn verified_producer_rendition(
     storage(store)?.verify(&location).await?;
     let client = store.connection().await?;
     let tx = client.read().await?;
-    let (locked, _) = scoped(&tx, &s.document().id, bearer, LockMode::Share).await?;
+    let (locked, _) = scoped(&tx, &s.document().id, bearer).await?;
     if locked != *s {
         return Err(StoreError::CorruptRevision);
     }
     checked_rendition(&tx, &locked, &r, &location).await?;
-    scoped(&tx, &s.document().id, bearer, LockMode::Share).await?;
+    scoped(&tx, &s.document().id, bearer).await?;
     tx.commit().await?;
     Ok(r.document().clone())
 }
@@ -364,22 +360,15 @@ impl Store {
         .map_err(|_| StoreError::CorruptRevision)?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
-        let (facts, brief, current) = production::audio_brief(
-            &tx,
-            Some(token),
-            None,
-            unit,
-            request.binding.brief_version,
-            LockMode::Update,
-        )
-        .await?;
+        let (facts, brief, current) =
+            production::audio_brief(&tx, Some(token), None, unit, request.binding.brief_version)
+                .await?;
         let actor = facts.work.owner_id().as_str();
         if let Some(prior) = sql::prior(&tx, actor, &request.operation_id).await? {
             if prior.request_digest != request_digest {
                 return Err(StoreError::OperationReused);
             }
-            let (_, _, fresh) =
-                self::facts(&tx, Some(token), &prior.value, LockMode::Update).await?;
+            let (_, _, fresh) = self::facts(&tx, Some(token), &prior.value).await?;
             let (response, location) = snapshot(&tx, prior.value, fresh).await?;
             authenticate(&tx, token).await?;
             tx.commit().await?;
@@ -425,7 +414,7 @@ impl Store {
         AudioSubmissionId::parse(id).map_err(invalid)?;
         let client = self.connection().await?;
         let tx = client.read().await?;
-        let (s, _, current) = owner(&tx, token, unit, id, LockMode::Share).await?;
+        let (s, _, current) = owner(&tx, token, unit, id).await?;
         let (reply, location) = snapshot(&tx, s, current).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
@@ -446,14 +435,7 @@ impl Store {
         let rendition = AudioRenditionId::parse(rendition).map_err(invalid)?;
         let client = self.connection().await?;
         let tx = client.read().await?;
-        let (s, _, _) = owner(
-            &tx,
-            token,
-            unit.as_str(),
-            submission.as_str(),
-            LockMode::Share,
-        )
-        .await?;
+        let (s, _, _) = owner(&tx, token, unit.as_str(), submission.as_str()).await?;
         let actor = authenticate(&tx, token).await?;
         let actor = OwnerId::parse(&actor).map_err(|_| StoreError::CorruptRevision)?;
         let resource_owner =
@@ -477,9 +459,9 @@ impl Store {
         AudioSubmissionId::parse(id).map_err(invalid)?;
         let client = self.connection().await?;
         let tx = client.read().await?;
-        let (s, current) = scoped(&tx, id, bearer, LockMode::Share).await?;
+        let (s, current) = scoped(&tx, id, bearer).await?;
         let (reply, location) = snapshot(&tx, s, current).await?;
-        scoped(&tx, id, bearer, LockMode::Share).await?;
+        scoped(&tx, id, bearer).await?;
         tx.commit().await?;
         drop(client);
         finish_producer_snapshot(self, bearer, reply, location).await
@@ -493,7 +475,7 @@ impl Store {
         AudioSubmissionId::parse(id).map_err(invalid)?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
-        let (s, _, _) = owner(&tx, token, unit, id, LockMode::Update).await?;
+        let (s, _, _) = owner(&tx, token, unit, id).await?;
         transition(
             submission_state(
                 sql::now(&tx).await?,
@@ -527,7 +509,7 @@ impl Store {
         let length = bytes.len() as u64;
         let client = self.connection().await?;
         let tx = client.read().await?;
-        let (s, current) = scoped(&tx, id, bearer, LockMode::Share).await?;
+        let (s, current) = scoped(&tx, id, bearer).await?;
         let settled = sql::rendition(&tx, &s).await?;
         let decision = decide_admission(
             &s,
@@ -542,7 +524,7 @@ impl Store {
         if decision == AdmissionDecision::Replay {
             let r = settled.ok_or(StoreError::CorruptRevision)?;
             let location = sql::location(&tx, &r).await?;
-            scoped(&tx, id, bearer, LockMode::Share).await?;
+            scoped(&tx, id, bearer).await?;
             tx.commit().await?;
             drop(client);
             return verified_producer_rendition(self, bearer, &s, r, location).await;
@@ -552,7 +534,7 @@ impl Store {
         let (metadata, stored) = inspect_and_store(objects, bytes, s.binding().profile()).await?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
-        let (locked, current) = scoped(&tx, id, bearer, LockMode::Update).await?;
+        let (locked, current) = scoped(&tx, id, bearer).await?;
         if locked != s {
             return Err(StoreError::CorruptRevision);
         }
@@ -572,7 +554,7 @@ impl Store {
                 return Err(StoreError::OperationReused);
             }
             let location = sql::location(&tx, &prior).await?;
-            scoped(&tx, id, bearer, LockMode::Update).await?;
+            scoped(&tx, id, bearer).await?;
             tx.commit().await?;
             drop(client);
             return verified_producer_rendition(self, bearer, &s, prior, location).await;
@@ -590,7 +572,7 @@ impl Store {
         )
         .map_err(invalid)?;
         sql::insert_rendition(&tx, &r, &stored).await?;
-        scoped(&tx, id, bearer, LockMode::Update).await?;
+        scoped(&tx, id, bearer).await?;
         // The receipt is speculative until the final deadline fence. The transaction's fixed
         // timestamp orders its facts, but must not extend a producer grant through SQL work.
         let now = self
@@ -623,7 +605,7 @@ impl Store {
         let (verified, location) = verified_owner_rendition(self, token, unit, id).await?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
-        let (s, _, current) = owner(&tx, token, unit, id, LockMode::Update).await?;
+        let (s, _, current) = owner(&tx, token, unit, id).await?;
         if !current || sql::revoked(&tx, id).await? {
             return Err(StoreError::StaleProductionInputs);
         }
@@ -680,7 +662,7 @@ impl Store {
         let (verified, location) = verified_owner_rendition(self, token, unit, id).await?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
-        let (s, facts, current) = owner(&tx, token, unit, id, LockMode::Update).await?;
+        let (s, facts, current) = owner(&tx, token, unit, id).await?;
         let r = checked_rendition(&tx, &s, &verified, &location).await?;
         if request.rendition_digest != r.document().digest {
             return Err(invalid(AudioError::DigestMismatch));
@@ -747,7 +729,7 @@ impl Store {
         let (verified, location) = verified_owner_rendition(self, token, unit, id).await?;
         let client = self.connection().await?;
         let tx = client.read().await?;
-        let (s, facts, current) = owner(&tx, token, unit, id, LockMode::Share).await?;
+        let (s, facts, current) = owner(&tx, token, unit, id).await?;
         let r = checked_rendition(&tx, &s, &verified, &location).await?;
         let candidate = sql::load_candidate(&tx, candidate, &r)
             .await?

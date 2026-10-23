@@ -76,6 +76,7 @@ fn every_message_round_trips_and_truncation_is_refused() {
         operation_id: vec![2; 16],
         proof_id: vec![3; 16],
         proof_secret: vec![4; 32],
+        firebase_oob_code: String::new(),
         password: "một mật khẩu dài".to_owned(),
         explicit_confirmation: true,
         client: Some(ClientContext {
@@ -113,6 +114,7 @@ fn every_message_round_trips_and_truncation_is_refused() {
 fn debug_of_secret_bearing_requests_never_prints_content() {
     let complete = CompleteTheatreSignupRequest {
         proof_secret: vec![0xAB; 32],
+        firebase_oob_code: String::new(),
         password: "correct horse battery".to_owned(),
         ..Default::default()
     };

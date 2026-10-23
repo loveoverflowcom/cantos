@@ -12,7 +12,7 @@ use super::turso;
 use crate::contexts::editorial::{
     authorize, ensure_evidence, register_evidence, Action, EvidenceKind,
 };
-use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError};
 
 impl Store {
     /// The stopped-file operator has validated these bounded text inputs. No HTTP route calls
@@ -127,7 +127,7 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
-        let (owner, _) = authorize(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
+        let (owner, _) = authorize(&tx, &actor, &script, Action::Read).await?;
         let source = turso::linked_source(&tx, &owner, id, &script)
             .await?
             .ok_or(StoreError::NotFound)?;

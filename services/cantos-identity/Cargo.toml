@@ -9,6 +9,8 @@ description = "Cantos native Identity: security-state kernels, credentials and t
 [features]
 # Opt-in service-owned persistence; the default/Kani core has no database dependency.
 persistence = ["dep:cantos-store-turso", "dep:getrandom", "dep:sha2", "dep:subtle", "dep:zeroize"]
+# Explicit xtask development composition only. OCI builds select `service` without this.
+local-development = ["service"]
 # Credentials, mail, private RPC and the `cantos-identity` executable. Never part of the default
 # pure core, so Kani and `cargo test -p cantos-identity` keep their dependency-free build.
 service = [
@@ -20,9 +22,16 @@ service = [
     "dep:tokio-stream",
     "dep:tonic",
     "dep:tonic-prost",
+    "dep:base64", "dep:reqwest", "dep:ring", "dep:serde", "dep:serde_json", "dep:url",
 ]
 
 [dependencies]
+base64 = { version = "=0.22.1", optional = true }
+reqwest = { version = "=0.12.15", default-features = false, features = ["rustls-tls", "stream"], optional = true }
+ring = { version = "=0.17.14", optional = true }
+serde = { version = "=1.0.228", features = ["derive"], optional = true }
+serde_json = { version = "=1.0.145", optional = true }
+url = { version = "=2.5.8", optional = true }
 argon2 = { version = "=0.5.3", default-features = false, features = ["alloc", "password-hash"], optional = true }
 cantos-store-turso = { path = "../../packages/store-turso", optional = true }
 getrandom = { version = "=0.3.4", optional = true }

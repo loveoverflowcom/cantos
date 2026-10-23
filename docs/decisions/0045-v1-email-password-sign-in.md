@@ -30,6 +30,18 @@ as email/password with mailbox verification, to ship a working sign-in before th
 
 ## Consequences
 
+### Owner amendment: Firebase verification (23 October 2026)
+
+The corrected owner task selects Firebase Authentication for verification email/actions and
+the Auth Emulator for local Theatre development. This supersedes source retirement only for
+that external verification boundary. Native Identity/Turso keep subjects, credentials, security
+state and authentication facts; Firebase verification never issues a Cantos session or links
+accounts by email. [The implemented verification protocol and acceptance limits](../architecture/firebase-verification.md)
+use durable effect fences and sealed native proof custody through a distinct verification-action
+port. No native proof secret enters a Firebase continuation. Production activation, safe expired
+enrollment recovery and cross-browser/device acceptance remain separate gaps; configuration alone does
+not qualify them. PG/Kanidm/OIDC login remain retired.
+
 A Studio account is weaker than the D3 target until a stronger factor ships; the roster, the short
 Studio lifetimes (idle 300 s, absolute 600 s) and per-admission security-state reads bound that.
 The wire/behavior contract is [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md).

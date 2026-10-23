@@ -157,6 +157,7 @@ pub struct IdentityService {
     /// A real, policy-parameter hash verified against when an email has no account, so an
     /// unknown account does not exit before the KDF. Equal timing is not claimed.
     dummy: PhcString,
+    firebase: Option<Arc<dyn crate::verification::VerificationActions>>,
 }
 
 fn random_nonzero() -> Option<[u8; 16]> {
@@ -191,7 +192,16 @@ impl IdentityService {
             settings,
             keys: KeyFactory::new().map_err(|_| ServiceError::Unavailable)?,
             dummy,
+            firebase: None,
         })
+    }
+
+    pub fn with_firebase(
+        mut self,
+        provider: Option<Arc<dyn crate::verification::VerificationActions>>,
+    ) -> Self {
+        self.firebase = provider;
+        self
     }
 
     pub fn epoch(&self) -> InstanceEpoch {
@@ -232,7 +242,7 @@ impl IdentityService {
         client: ClientAddress,
     ) -> Result<SignupStarted, ServiceError> {
         let email = EmailAddress::parse(email).map_err(|_| ServiceError::InvalidRequest)?;
-        if !self.mailer.is_configured() {
+        if !self.mailer.is_configured() && self.firebase.is_none() {
             return Err(ServiceError::Unavailable);
         }
         let now = self.now_seconds()?;
@@ -247,6 +257,11 @@ impl IdentityService {
                 .signup_email
                 .admit(self.keys.text("signup-email", email.as_str()), now),
         )?;
+        if let Some(provider) = &self.firebase {
+            return self
+                .start_firebase(provider.as_ref(), operation, email, now)
+                .await;
+        }
         let command = new_command()?;
         let material = ProofMaterial::generate().map_err(|_| ServiceError::Unavailable)?;
         let started = self
@@ -302,6 +317,31 @@ impl IdentityService {
         explicit_confirmation: bool,
         client: ClientAddress,
     ) -> Result<SignupOutcome, ServiceError> {
+        self.complete_native(
+            command,
+            operation,
+            proof,
+            secret,
+            password,
+            explicit_confirmation,
+            client,
+            false,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn complete_native(
+        &self,
+        command: ProofCommandId,
+        operation: OperationId,
+        proof: ProofId,
+        secret: [u8; 32],
+        password: &str,
+        explicit_confirmation: bool,
+        client: ClientAddress,
+        already_admitted: bool,
+    ) -> Result<SignupOutcome, ServiceError> {
         if !explicit_confirmation {
             return Err(ServiceError::InvalidRequest);
         }
@@ -309,21 +349,23 @@ impl IdentityService {
             Arc::new(PasswordInput::new(password).map_err(|_| ServiceError::InvalidPassword)?);
         let now = self.now_seconds()?;
         let limits = &self.settings.limits;
-        Self::throttle(
-            limits
-                .complete_ip
-                .admit(self.keys.address("complete-ip", client.0), now),
-        )?;
-        // Keyed by (operation, address): the operation id is known to whoever started it, so a
-        // budget per operation alone would let that party exhaust the mailbox owner's attempts.
-        Self::throttle(limits.complete_operation.admit(
-            self.keys.pair(
-                "complete-operation",
-                &format!("{:032x}", u128::from_be_bytes(operation.to_bytes())),
-                client.0,
-            ),
-            now,
-        ))?;
+        if !already_admitted {
+            Self::throttle(
+                limits
+                    .complete_ip
+                    .admit(self.keys.address("complete-ip", client.0), now),
+            )?;
+            // Keyed by (operation, address): the operation id is known to whoever started it, so a
+            // budget per operation alone would let that party exhaust the mailbox owner's attempts.
+            Self::throttle(limits.complete_operation.admit(
+                self.keys.pair(
+                    "complete-operation",
+                    &format!("{:032x}", u128::from_be_bytes(operation.to_bytes())),
+                    client.0,
+                ),
+                now,
+            ))?;
+        }
         let secret = ProofSecret::from_bytes(secret);
 
         // Replay of an identical command: no new hash. The supplied password must match the
@@ -392,6 +434,251 @@ impl IdentityService {
             }
         }
         Ok(outcome)
+    }
+
+    async fn start_firebase(
+        &self,
+        provider: &dyn crate::verification::VerificationActions,
+        operation: OperationId,
+        email: EmailAddress,
+        now: u64,
+    ) -> Result<SignupStarted, ServiceError> {
+        use crate::persistence::firebase::{Start, State};
+        use crate::verification::VerificationFault as Fault;
+        let material = ProofMaterial::generate().map_err(|_| ServiceError::Unavailable)?;
+        let expires = now.saturating_add(policy::PROOF_TTL_SECONDS);
+        let envelope = provider
+            .seal(
+                operation,
+                material.id(),
+                email.as_str(),
+                &self.epoch().to_bytes(),
+                expires,
+                material.secret(),
+            )
+            .map_err(|_| ServiceError::Unavailable)?;
+        let action = self
+            .store
+            .start_firebase(
+                provider.project(),
+                new_command()?,
+                operation,
+                &email,
+                &material,
+                &envelope,
+                expires,
+                policy::RESEND_COOLDOWN_SECONDS,
+            )
+            .await
+            .map_err(map_start_store)?;
+        let record = match action {
+            Start::Skip => {
+                return Ok(SignupStarted {
+                    dispatch: Dispatch::NotAttempted,
+                })
+            }
+            Start::Create(record) => {
+                let result = provider
+                    .create(record.operation, record.email.as_str())
+                    .await;
+                let next = match result {
+                    Ok(()) => State::Created,
+                    Err(Fault::Rejected | Fault::Configuration) => State::CreateRejected,
+                    Err(Fault::Uncertain) => State::CreateUncertain,
+                };
+                let recorded = self
+                    .store
+                    .firebase_transition(
+                        provider.project(),
+                        record.operation,
+                        State::CreateReserved,
+                        next,
+                        result.is_ok(),
+                    )
+                    .await
+                    .map_err(map_start_store)?;
+                if !recorded {
+                    return Err(ServiceError::OutcomeUnknown);
+                }
+                if let Err(fault) = result {
+                    return Ok(SignupStarted {
+                        dispatch: if fault == Fault::Uncertain {
+                            Dispatch::TransportUncertain
+                        } else {
+                            Dispatch::TransportRefused
+                        },
+                    });
+                }
+                if !self
+                    .store
+                    .firebase_transition(
+                        provider.project(),
+                        record.operation,
+                        State::Created,
+                        State::SendReserved,
+                        false,
+                    )
+                    .await
+                    .map_err(map_start_store)?
+                {
+                    return Err(ServiceError::OutcomeUnknown);
+                }
+                record
+            }
+            Start::Send(record) => record,
+        };
+        let result = provider
+            .send(record.operation, record.proof, record.email.as_str())
+            .await;
+        let (state, dispatch) = match result {
+            Ok(()) => (State::Sent, Dispatch::TransportAccepted),
+            Err(Fault::Rejected | Fault::Configuration) => {
+                (State::SendRejected, Dispatch::TransportRefused)
+            }
+            Err(Fault::Uncertain) => (State::SendUncertain, Dispatch::TransportUncertain),
+        };
+        if !self
+            .store
+            .firebase_transition(
+                provider.project(),
+                record.operation,
+                State::SendReserved,
+                state,
+                false,
+            )
+            .await
+            .map_err(map_start_store)?
+        {
+            return Err(ServiceError::OutcomeUnknown);
+        }
+        Ok(SignupStarted { dispatch })
+    }
+
+    /// Possession of this exact provider action plus explicit confirmation can release the
+    /// matching encrypted native proof internally; the native transaction still consumes it.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn complete_firebase_signup(
+        &self,
+        command: ProofCommandId,
+        operation: OperationId,
+        proof: ProofId,
+        code: &str,
+        password: &str,
+        explicit: bool,
+        client: ClientAddress,
+    ) -> Result<SignupOutcome, ServiceError> {
+        use crate::persistence::firebase::{Claim, State};
+        if !explicit || !crate::verification::valid_action_code(code) {
+            return Err(ServiceError::InvalidRequest);
+        }
+        PasswordInput::new(password).map_err(|_| ServiceError::InvalidPassword)?;
+        let provider = self.firebase.as_ref().ok_or(ServiceError::Unavailable)?;
+        let now = self.now_seconds()?;
+        Self::throttle(
+            self.settings
+                .limits
+                .complete_ip
+                .admit(self.keys.address("complete-ip", client.0), now),
+        )?;
+        Self::throttle(self.settings.limits.complete_operation.admit(
+            self.keys.pair(
+                "complete-operation",
+                &format!("{:032x}", u128::from_be_bytes(operation.to_bytes())),
+                client.0,
+            ),
+            now,
+        ))?;
+        let record = self
+            .store
+            .firebase_enrollment(provider.project(), operation)
+            .await
+            .map_err(map_start_store)?
+            .filter(|record| {
+                record.proof == proof
+                    && now < record.expires
+                    && record.state != State::ConsumeRejected
+            })
+            .ok_or(ServiceError::Denied)?;
+        let digest = provider
+            .confirmation_tag(operation, proof, command, code, password)
+            .map_err(|_| ServiceError::Unavailable)?;
+        // An acknowledged consume can reconcile only this exact action/command/password.
+        if !matches!(record.state, State::ReceiptReady | State::ConsumeReserved) {
+            provider
+                .inspect(code, record.email.as_str())
+                .await
+                .map_err(|fault| {
+                    if fault == crate::verification::VerificationFault::Rejected {
+                        ServiceError::Denied
+                    } else {
+                        ServiceError::Unavailable
+                    }
+                })?;
+        }
+        match self
+            .store
+            .claim_firebase(provider.project(), operation, proof, digest)
+            .await
+            .map_err(map_start_store)?
+        {
+            Claim::Won => {
+                if let Err(fault) = provider
+                    .consume(operation, code, record.email.as_str())
+                    .await
+                {
+                    if fault == crate::verification::VerificationFault::Rejected {
+                        let recorded = self
+                            .store
+                            .firebase_transition(
+                                provider.project(),
+                                operation,
+                                State::ConsumeReserved,
+                                State::ConsumeRejected,
+                                false,
+                            )
+                            .await
+                            .map_err(|_| ServiceError::OutcomeUnknown)?;
+                        return Err(if recorded {
+                            ServiceError::Denied
+                        } else {
+                            ServiceError::OutcomeUnknown
+                        });
+                    }
+                    return Err(ServiceError::OutcomeUnknown);
+                }
+                if !self
+                    .store
+                    .firebase_transition(
+                        provider.project(),
+                        operation,
+                        State::ConsumeReserved,
+                        State::ReceiptReady,
+                        false,
+                    )
+                    .await
+                    .map_err(map_start_store)?
+                {
+                    return Err(ServiceError::OutcomeUnknown);
+                }
+            }
+            Claim::Ready => {}
+            Claim::Pending => return Err(ServiceError::OutcomeUnknown),
+            Claim::Denied => return Err(ServiceError::Denied),
+        }
+        let secret = provider
+            .open(
+                operation,
+                proof,
+                record.email.as_str(),
+                &self.epoch().to_bytes(),
+                record.expires,
+                &record.envelope,
+            )
+            .map_err(|_| ServiceError::Denied)?;
+        self.complete_native(
+            command, operation, proof, *secret, password, true, client, true,
+        )
+        .await
     }
 
     async fn finish_completion(

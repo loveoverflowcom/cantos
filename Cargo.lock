@@ -565,12 +565,15 @@ name = "cantos-identity"
 version = "0.1.0"
 dependencies = [
  "argon2",
+ "base64 0.22.1",
  "cantos-store-turso",
  "getrandom 0.3.4",
  "hyper-util",
  "lettre",
  "libc",
  "prost",
+ "reqwest",
+ "ring",
  "serde",
  "serde_json",
  "sha2",
@@ -580,6 +583,7 @@ dependencies = [
  "tonic",
  "tonic-prost",
  "tower",
+ "url",
  "zeroize",
 ]
 

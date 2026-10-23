@@ -20,6 +20,12 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
 
 ## Independent product work
 
+- The owner-selected [Firebase verification bridge](../architecture/firebase-verification.md)
+  now has sealed native proof custody, effect fences and an owned RPC action alternative.
+  Next accept provider-safe expired enrollment recovery, the full dispatch/commit crash matrix
+  and browser/device coverage beyond the executed local signup/login/reload/logout journey. Local acceptance alone does not close #242/#334/#335. This is
+  verification-only; provider login, PG and Kanidm remain retired.
+
 - [#203](https://github.com/loveoverflowcom/cantos/issues/203): trusted Forge invocation and
   provider/Drive/Functions execution; reuse the finite worker and attempt/recovery cores.
 - [#170](https://github.com/loveoverflowcom/cantos/issues/170), [#120](https://github.com/loveoverflowcom/cantos/issues/120):

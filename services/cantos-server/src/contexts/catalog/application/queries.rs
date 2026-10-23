@@ -8,16 +8,16 @@ use super::{
     CatalogStoreError,
 };
 use crate::contexts::editorial::Action;
-use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError, Tx};
 
 impl Store {
     pub async fn catalog_work(&self, token: &str, id: &WorkId) -> Result<Work, CatalogStoreError> {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
-        let work = work(&tx, id, LockMode::Share).await?;
+        let work = work(&tx, id).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
         authenticate(&tx, token).await?;
         tx.commit().await.map_err(StoreError::from)?;
@@ -31,10 +31,10 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
         let unit = unit(&tx, id).await?;
-        let work = work(&tx, unit.work_id(), LockMode::Share).await?;
+        let work = work(&tx, unit.work_id()).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
         authenticate(&tx, token).await?;
         tx.commit().await.map_err(StoreError::from)?;
@@ -52,7 +52,7 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        let epoch = turso::lock_clock(&tx, LockMode::Share).await?;
+        let epoch = turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
         let scope = format!("works:{actor}:{include_archived}");
         let after = cursor_after(cursor, &scope, epoch)?;
@@ -91,9 +91,9 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        let epoch = turso::lock_clock(&tx, LockMode::Share).await?;
+        let epoch = turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
-        let work = work(&tx, id, LockMode::Share).await?;
+        let work = work(&tx, id).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
         let scope = format!("units:{actor}:{}:{include_archived}", id.as_str());
         let page = units_page(&tx, id, &scope, epoch, limit, include_archived, cursor).await?;
@@ -113,9 +113,9 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        let epoch = turso::lock_clock(&tx, LockMode::Share).await?;
+        let epoch = turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
-        let work = work(&tx, id, LockMode::Share).await?;
+        let work = work(&tx, id).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
         let scope = format!("history:{actor}:{}", id.as_str());
         let after = cursor_after(cursor, &scope, epoch)?

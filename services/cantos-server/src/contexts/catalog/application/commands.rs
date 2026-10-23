@@ -8,7 +8,7 @@ use super::{
     CatalogOutcome, CatalogStoreError, MemberRole, MAX_UNITS,
 };
 use crate::contexts::editorial::{Access, Action};
-use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError, Tx};
 
 impl Store {
     pub async fn catalog_execute(
@@ -28,11 +28,11 @@ impl Store {
         authenticate(&tx, token).await?;
         // One bounded metadata lane makes all list epochs and permission changes atomic.
         // This intentionally simple initial implementation is assessed in the read inventory.
-        turso::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
         let (existing, access) = match &command {
             CatalogCommand::CreateWork { id, .. } => {
-                let existing = turso::load_work(&tx, id.as_str(), LockMode::Update).await?;
+                let existing = turso::load_work(&tx, id.as_str()).await?;
                 let access = match &existing {
                     Some(work) => authorize(&tx, &actor, work, Action::Write).await?,
                     None => Access::Owner,
@@ -42,7 +42,7 @@ impl Store {
             CatalogCommand::EditWork { id, .. }
             | CatalogCommand::PatchWork { id, .. }
             | CatalogCommand::ArchiveWork { id, .. } => {
-                let work = work(&tx, id, LockMode::Update).await?;
+                let work = work(&tx, id).await?;
                 let action = if matches!(command, CatalogCommand::ArchiveWork { .. }) {
                     Action::Review
                 } else {
@@ -54,7 +54,7 @@ impl Store {
             CatalogCommand::CreateUnit { work_id, .. }
             | CatalogCommand::Reorder { work_id, .. }
             | CatalogCommand::SetMember { work_id, .. } => {
-                let work = work(&tx, work_id, LockMode::Update).await?;
+                let work = work(&tx, work_id).await?;
                 let action = if matches!(command, CatalogCommand::SetMember { .. }) {
                     Action::Review
                 } else {
@@ -67,7 +67,7 @@ impl Store {
             | CatalogCommand::PatchUnit { id, .. }
             | CatalogCommand::ArchiveUnit { id, .. } => {
                 let unit = unit(&tx, id).await?;
-                let work = work(&tx, unit.work_id(), LockMode::Update).await?;
+                let work = work(&tx, unit.work_id()).await?;
                 let action = if matches!(command, CatalogCommand::ArchiveUnit { .. }) {
                     Action::Review
                 } else {

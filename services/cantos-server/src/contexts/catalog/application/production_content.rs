@@ -8,7 +8,7 @@ use crate::contexts::catalog::{
     turso,
 };
 use crate::contexts::editorial::{Access, Action};
-use crate::platform::store::{LockMode, StoreError, Tx};
+use crate::platform::store::{StoreError, Tx};
 
 pub(crate) struct ProductionContent {
     pub work: Work,
@@ -23,9 +23,8 @@ pub(crate) async fn production_content(
     token: Option<&str>,
     expected_owner: Option<&OwnerId>,
     id: &ContentUnitId,
-    lock: LockMode,
 ) -> Result<ProductionContent, CatalogStoreError> {
-    turso::lock_clock(tx, lock).await?;
+    turso::lock_clock(tx).await?;
     let actor = if let Some(token) = token {
         current_actor(tx, token).await?
     } else {
@@ -36,7 +35,7 @@ pub(crate) async fn production_content(
         owner.as_str().into()
     };
     let unit = unit(tx, id).await?;
-    let work = work(tx, unit.work_id(), lock).await?;
+    let work = work(tx, unit.work_id()).await?;
     if actor != work.owner_id().as_str() {
         return Err(StoreError::NotFound.into());
     }

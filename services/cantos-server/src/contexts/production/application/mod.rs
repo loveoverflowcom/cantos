@@ -10,9 +10,7 @@ use super::turso::{self, SnapshotRow};
 use crate::contexts::editorial::{
     authorize, find_revision, permits, reviewed_by_active_owner, Access, Action,
 };
-use crate::platform::store::{
-    authenticate, checked_number, normalized_uuid, LockMode, StoreError, Tx,
-};
+use crate::platform::store::{authenticate, checked_number, normalized_uuid, StoreError, Tx};
 
 mod approve;
 pub(super) mod briefs;
@@ -61,10 +59,9 @@ pub(super) async fn facts(
     actor: &str,
     script: &str,
     action: Action,
-    lock: LockMode,
 ) -> Result<Facts, StoreError> {
     // All production writes lock this row before rights/settings rows. Reads share the same order.
-    let (owner, head) = authorize(tx, actor, script, action, lock).await?;
+    let (owner, head) = authorize(tx, actor, script, action).await?;
     if actor != owner {
         let access = match turso::lock_member_role(tx, script, actor).await? {
             Some(role) => Access::from_member_role(&role).ok_or(StoreError::CorruptRevision)?,

@@ -283,13 +283,29 @@ async fn signup_complete(
     let Ok(Json(body)) = body else {
         return refusal(AuthFailure::InvalidRequest);
     };
-    let (Some(operation), Some(proof), Some(secret), true) = (
+    let (Some(operation), Some(proof), true) = (
         unhex::<16>(&body.operation_id),
         unhex::<16>(&body.proof_id),
-        unhex::<32>(&body.proof_secret),
         body.explicit_confirmation,
     ) else {
         return refusal(AuthFailure::InvalidRequest);
+    };
+    let secret = match (
+        unhex::<32>(&body.proof_secret),
+        body.firebase_oob_code.as_deref(),
+    ) {
+        (Some(secret), None) => secret,
+        (None, Some(code))
+            if body.proof_secret.is_empty()
+                && !code.is_empty()
+                && code.len() <= 4096
+                && code.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.')
+                }) =>
+        {
+            [0; 32]
+        }
+        _ => return refusal(AuthFailure::InvalidRequest),
     };
     let ip = match client_ip(&service, peer, &headers) {
         Ok(v) => v,
@@ -299,6 +315,7 @@ async fn signup_complete(
         operation,
         proof,
         secret,
+        firebase_oob_code: body.firebase_oob_code,
         password: body.password,
     };
     match service.complete_signup(&state.store, command, ip).await {

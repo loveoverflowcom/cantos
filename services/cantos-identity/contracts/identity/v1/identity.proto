@@ -85,6 +85,9 @@ message CompleteTheatreSignupRequest {
   // Must be true: the explicit confirmation of the mailbox owner.
   bool explicit_confirmation = 6;
   ClientContext client = 7;
+  // Alternative to proof_secret: exact Firebase verification action. Never a login token.
+  // Exactly one of proof_secret and firebase_oob_code must be present.
+  string firebase_oob_code = 8;
 }
 
 message CompleteTheatreSignupResponse {

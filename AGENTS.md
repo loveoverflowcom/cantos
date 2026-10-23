@@ -266,6 +266,15 @@ Do not report an app build, mobile test, audio quality result or end-to-end prod
 
 ## Service runtime ownership
 
+The corrected 23 October owner task selects Firebase only for verification email/actions;
+see the [native amendment](docs/architecture/native-turso-refactor.md#owner-amendment-firebase-verification-provider)
+and [proof-bridge boundary](docs/architecture/firebase-verification.md). Local Theatre `xtask run`
+starts an isolated installed Auth Emulator and uses an operation-bound sealed-proof adapter.
+Keep native proof secrets out of continuation URLs. Preserve durable create/send/consume fences,
+exact-request keyed replay binding and terminal expiry/uncertain outcomes; do not poll
+`emailVerified`, restore provider login or infer browser/production acceptance from readiness.
+Ordinary tests/builds do not start the emulator; the explicit ignored boundary test is separate.
+
 For [#348](https://github.com/loveoverflowcom/cantos/issues/348), production distribution is
 GHCR registry digests plus Podman Quadlet for the two native executables. This supersedes only
 the native refactor's production no-container clause; native dev/E2E/Turso/Kani remain
