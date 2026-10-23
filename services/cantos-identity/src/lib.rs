@@ -23,6 +23,8 @@ pub mod credentials;
 #[cfg(feature = "service")]
 pub mod events;
 #[cfg(feature = "service")]
+pub mod firebase;
+#[cfg(feature = "service")]
 pub mod limits;
 #[cfg(feature = "service")]
 pub mod mail;
@@ -32,6 +34,8 @@ pub mod policy;
 pub mod rpc;
 #[cfg(feature = "service")]
 pub mod server;
+#[cfg(feature = "service")]
+pub mod verification;
 
 // Test-only event observer of the pure cores for the registered Quint capability. It lives
 // outside `domain` because it reads files and the environment; no release build links it.

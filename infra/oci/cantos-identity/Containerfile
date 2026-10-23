@@ -28,7 +28,10 @@ LABEL org.opencontainers.image.title="cantos-identity" \
       org.opencontainers.image.revision="${CANTOS_REVISION}" \
       io.cantos.release.configuration="${CANTOS_CONFIGURATION}" \
       io.cantos.binary="cantos-identity"
-ENV RUST_BACKTRACE=0
+# Local-development link parsing/emulator selection is not enabled by the service-only build.
+# Firebase verification is compiled but requires explicit validated runtime configuration.
+# No provider credential is a build argument or image layer; builds send no email.
+ENV RUST_BACKTRACE=0 CANTOS_IDENTITY_MAIL_PROVIDER=disabled
 USER 10002:10002
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/usr/local/bin/cantos-identity"]

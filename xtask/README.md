@@ -323,6 +323,27 @@ adds no required gate: the primitive tests run in `repository`, the command-plan
 
 ### run and app
 
+Theatre `run --web` now starts a supervised, run-owned Firebase Auth Emulator from an already
+installed `firebase-tools` **14.2.2** Auth module and Node.js. Missing/wrong tooling refuses before
+build; no install, Firebase login or real Firebase fallback occurs. Set
+`CANTOS_FIREBASE_AUTH_MODULE` to an absolute installed `lib/emulator/auth/server.js` when it cannot
+be derived from the `firebase` executable. This pin is separate from Hosting/App Distribution.
+The emulator has an empty environment, loopback ephemeral port, unique demo project, disposable
+in-memory state and blocked outbound TCP/TLS. Its provider logs are suppressed. The console
+prints only its local developer action-inventory endpoint; never log the returned codes/links.
+
+Theatre Web runs select the operation-bound Firebase emulator adapter, reject inherited
+Google/Firebase/SMTP configuration and use Theatre's actual loopback origin. Native Identity
+still owns proof consumption/passwords and returns no session on signup. The
+[protocol and acceptance limits](../docs/architecture/firebase-verification.md) distinguish the
+real Identity/RPC journey from full browser and production acceptance, and document the unresolved
+expired enrollment recovery boundary. Other local run targets keep mail disabled.
+The explicit boundary test uses the installed emulator (no native signup claim):
+
+```sh
+cargo test --locked -p xtask auth_emulator::tests::installed_emulator -- --ignored --nocapture
+```
+
 | Command | Starts / boundary |
 | --- | --- |
 | `run cantos-server` | One Server + Identity, explicit migrations, private development files and authenticated UDS RPC |

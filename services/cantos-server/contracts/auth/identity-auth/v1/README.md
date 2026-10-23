@@ -121,6 +121,14 @@ set a password, and polling or a receipt never grants a login.
 * Completion creates an account and **no session**: the user then logs in with the password.
 * Existing address: the start answers identically and sends no mail; nothing is reset or linked.
 
+For Firebase verification, `signup/complete` instead carries `firebase_oob_code` with an absent/
+empty `proof_secret`. Exactly one alternative is required; native proof fields retain their old
+wire representation. Public operation/proof locators come from a validated same-origin
+continuation and convey no authority. Web captures/scrubs the action query into RAM, then uses
+the existing explicit-confirmation state machine. Server forwards the bounded action to Identity;
+only Identity's durable consumed-action/native-proof transaction can create credentials. No
+cookie/session is issued by signup. See the [verification protocol and recovery limits](../../../../../../docs/architecture/firebase-verification.md).
+
 ## Errors
 
 Failures are generic: the body is the existing `ApiError` (`unauthenticated`, `forbidden`,

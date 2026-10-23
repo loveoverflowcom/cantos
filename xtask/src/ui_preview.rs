@@ -170,6 +170,7 @@ pub fn verify_steps(workspace: &Workspace, renderer: Renderer) -> Vec<Step> {
 pub fn leptos_launch_plan(workspace: &Workspace, open: bool) -> LaunchPlan {
     let addr = loopback(UI_PREVIEW_PORT);
     LaunchPlan {
+        firebase_auth_emulator: false,
         requirements: Vec::new(),
         composition: None,
         prepare: Vec::new(),

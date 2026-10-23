@@ -128,6 +128,7 @@ impl IdentityClient {
         operation: [u8; ID_BYTES],
         proof: [u8; ID_BYTES],
         secret: [u8; 32],
+        firebase_oob_code: Option<&str>,
         password: &str,
         client: IpAddr,
     ) -> Result<SignupDone, RpcFault> {
@@ -135,7 +136,12 @@ impl IdentityClient {
             command_id: command.to_vec(),
             operation_id: operation.to_vec(),
             proof_id: proof.to_vec(),
-            proof_secret: secret.to_vec(),
+            proof_secret: if firebase_oob_code.is_some() {
+                Vec::new()
+            } else {
+                secret.to_vec()
+            },
+            firebase_oob_code: firebase_oob_code.unwrap_or_default().to_owned(),
             password: password.to_owned(),
             explicit_confirmation: true,
             client: Some(context(client)),

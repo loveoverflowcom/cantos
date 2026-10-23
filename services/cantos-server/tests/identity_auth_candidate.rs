@@ -112,6 +112,7 @@ async fn real_identity_actor_session_journey() {
         operation: unhex(&link.operation),
         proof: unhex(&link.proof),
         secret: unhex(&link.secret),
+        firebase_oob_code: None,
         password: PASSWORD.to_owned(),
     };
     assert_eq!(

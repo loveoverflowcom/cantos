@@ -40,6 +40,20 @@ There is therefore no setup capability to leak, and the password is chosen by th
 presents the proof, never by the initiator of the signup. A receipt, a status poll or a `REPLAYED`
 answer is history, not authority, and is not accepted anywhere as proof of a current account.
 
+### Firebase verification action alternative
+
+`CompleteTheatreSignup.firebase_oob_code` is additive field 8. Exactly one of nonempty
+`firebase_oob_code` or the 32-byte native `proof_secret` is accepted; no provider token is a
+native login credential. Both retain exact operation/proof/command/password and explicit consent.
+The Firebase path uses the [operation-bound verification protocol](../../../../../docs/architecture/firebase-verification.md):
+inspect purpose/mailbox, reserve one consume, validate its UID/email/verified acknowledgment,
+then release the matching encrypted native proof internally to the existing native transaction.
+
+Identical command/body retries may reconcile an acknowledged receipt. A lost/uncertain consume
+remains `Unknown` without redispatch. Acknowledged rejection remains denied on retry. Expiry is
+strict, including receipts; no Firebase mailbox lookup recovers authority. This provider path
+has the documented permanent expired-enrollment recovery gap. It returns no session or setup token.
+
 ### Retry, replay and unknown outcomes
 
 `command_id` names one `CompleteTheatreSignup`. After a lost response, retry the **identical**

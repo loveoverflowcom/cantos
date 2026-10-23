@@ -235,25 +235,41 @@ impl Identity for IdentityRpc {
         let operation = operation(&body.operation_id)?;
         let proof = ProofId::from_bytes(id16(&body.proof_id)?)
             .map_err(|_| Status::invalid_argument("invalid request"))?;
-        let secret: [u8; 32] = body
-            .proof_secret
-            .as_slice()
-            .try_into()
-            .map_err(|_| Status::invalid_argument("invalid request"))?;
         let client = client(body.client)?;
-        let outcome = self
-            .service
-            .complete_theatre_signup(
-                command,
-                operation,
-                proof,
-                secret,
-                &body.password,
-                body.explicit_confirmation,
-                client,
-            )
-            .await
-            .map_err(|error| status(error, Code::PermissionDenied))?;
+        let outcome = if !body.firebase_oob_code.is_empty() {
+            if !body.proof_secret.is_empty() {
+                return Err(Status::invalid_argument("invalid request"));
+            }
+            self.service
+                .complete_firebase_signup(
+                    command,
+                    operation,
+                    proof,
+                    &body.firebase_oob_code,
+                    &body.password,
+                    body.explicit_confirmation,
+                    client,
+                )
+                .await
+        } else {
+            let secret: [u8; 32] = body
+                .proof_secret
+                .as_slice()
+                .try_into()
+                .map_err(|_| Status::invalid_argument("invalid request"))?;
+            self.service
+                .complete_theatre_signup(
+                    command,
+                    operation,
+                    proof,
+                    secret,
+                    &body.password,
+                    body.explicit_confirmation,
+                    client,
+                )
+                .await
+        }
+        .map_err(|error| status(error, Code::PermissionDenied))?;
         let (subject, epoch, outcome) = match outcome {
             SignupOutcome::Completed { subject, epoch } => {
                 (subject, epoch, SetupOutcome::Completed)

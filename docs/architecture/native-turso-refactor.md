@@ -91,6 +91,17 @@ last two and authorizes no deployment, publication, data conversion, deletion of
 backup or media on any host, nor any change to an installed service. A database file, WAL, backup,
 account or secret on a real machine stays out of reach of source retirement.
 
+## Owner amendment: Firebase verification provider
+
+The corrected owner task of 23 October 2026 narrows the source-retirement decision above:
+Firebase Authentication is selected again only for verification email/actions, with a supervised
+Auth Emulator in local Theatre `xtask run`. Native Identity + Turso remain authoritative and
+Firebase remains outside login/session issuance. PG/Kanidm/OIDC/provider login are not restored.
+Read the [implemented operation-bound protocol and recovery limits](firebase-verification.md).
+Identity uses encrypted native proof custody and durable provider-effect fences. The production
+adapter is source only; expired enrollment recovery and broader browser/device/deployed acceptance remain
+open. Emulator readiness alone establishes no authentication acceptance.
+
 ## Single-process HTTP review boundary
 
 The [HTTP composition owner](server-http-composition.md) describes the implemented one-listener
@@ -145,8 +156,10 @@ SQL JOIN, foreign key or atomic transaction across the two databases. Identity d
 protected by separate OS ownership and narrowly scoped RPC, not by shared credentials.
 Do not enable experimental multiprocess access merely to permit overlapping deployments.
 
-Native development, offline E2E, Turso tests and Kani must not require or start Podman, Docker,
-PostgreSQL, Kanidm, Firebase Auth Emulator, Redis, a message broker or a Feldera service.
+Native offline tests, Turso tests and Kani must not require Podman, Docker, PostgreSQL, Kanidm,
+Firebase Auth Emulator, Redis, a message broker or a Feldera service. The explicit local Theatre
+`xtask run` now owns an Auth Emulator under the verification-provider amendment above; ordinary
+build/test/preflight does not start it. Its installed tooling is an explicit local-run prerequisite.
 Native development targets macOS and Linux. [#348](https://github.com/loveoverflowcom/cantos/issues/348)
 supersedes only the earlier production no-container clause: the two Rust executables are
 packaged as OCI images, distributed through GHCR registry digests and supervised by Podman

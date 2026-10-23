@@ -21,6 +21,7 @@ pub struct ProofLink {
     operation_id: String,
     proof_id: String,
     secret: String,
+    firebase_oob_code: Option<String>,
 }
 
 impl ProofLink {
@@ -40,6 +41,7 @@ impl ProofLink {
             operation_id: operation.to_owned(),
             proof_id: proof.to_owned(),
             secret: secret.to_owned(),
+            firebase_oob_code: None,
         })
     }
 
@@ -53,6 +55,83 @@ impl ProofLink {
                     .into_iter()
                     .any(|name| key.eq_ignore_ascii_case(name))
             })
+        })
+    }
+
+    pub fn is_firebase_query(query: &str) -> bool {
+        url::form_urlencoded::parse(query.trim_start_matches('?').as_bytes()).any(|(key, value)| {
+            key.eq_ignore_ascii_case("oobCode")
+                || key.eq_ignore_ascii_case("continueUrl")
+                || (key == "mode" && value == "verifyEmail")
+        })
+    }
+
+    /// Only public locators come from continueUrl. Their authority is checked by Identity,
+    /// against the exact consumed Firebase UID; the URL itself never grants setup authority.
+    pub fn from_firebase_query(query: &str, current_page: &str) -> Option<Self> {
+        use std::collections::BTreeMap;
+        let mut fields = BTreeMap::new();
+        for (key, value) in url::form_urlencoded::parse(query.trim_start_matches('?').as_bytes()) {
+            if !matches!(
+                key.as_ref(),
+                "mode" | "oobCode" | "continueUrl" | "apiKey" | "lang"
+            ) || fields
+                .insert(key.into_owned(), value.into_owned())
+                .is_some()
+            {
+                return None;
+            }
+        }
+        if fields.get("mode")?.as_str() != "verifyEmail" {
+            return None;
+        }
+        let code = fields.get("oobCode")?;
+        if code.is_empty()
+            || code.len() > 4096
+            || !code
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+        {
+            return None;
+        }
+        let current = url::Url::parse(current_page).ok()?;
+        let continuation = url::Url::parse(fields.get("continueUrl")?).ok()?;
+        if current.origin() != continuation.origin()
+            || current.path() != continuation.path()
+            || continuation.fragment().is_some()
+            || !continuation.username().is_empty()
+            || continuation.password().is_some()
+        {
+            return None;
+        }
+        if current.scheme() != "https"
+            && !(current.scheme() == "http"
+                && current.host_str().is_some_and(|host| {
+                    host == "localhost"
+                        || host
+                            .parse::<std::net::IpAddr>()
+                            .is_ok_and(|ip| ip.is_loopback())
+                }))
+        {
+            return None;
+        }
+        let mut locators = BTreeMap::new();
+        for (key, value) in continuation.query_pairs() {
+            if !matches!(key.as_ref(), "operation" | "proof")
+                || locators
+                    .insert(key.into_owned(), value.into_owned())
+                    .is_some()
+            {
+                return None;
+            }
+        }
+        let operation = locators.get("operation")?;
+        let proof = locators.get("proof")?;
+        (lower_hex(operation, 32) && lower_hex(proof, 32)).then(|| Self {
+            operation_id: operation.clone(),
+            proof_id: proof.clone(),
+            secret: String::new(),
+            firebase_oob_code: Some(code.clone()),
         })
     }
 }
@@ -361,6 +440,7 @@ impl SignupState {
             operation_id: link.operation_id.clone(),
             proof_id: link.proof_id.clone(),
             proof_secret: link.secret.clone(),
+            firebase_oob_code: link.firebase_oob_code.clone(),
             password: self.password.clone(),
             explicit_confirmation: true,
         })
@@ -465,6 +545,47 @@ mod tests {
         state
     }
 
+    #[test]
+    fn firebase_actions_require_exact_origin_purpose_and_unique_public_locators() {
+        fn query(continuation: &str) -> String {
+            url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("mode", "verifyEmail")
+                .append_pair("oobCode", "synthetic-action")
+                .append_pair("continueUrl", continuation)
+                .finish()
+        }
+        let continuation = format!("https://cantos.example/?operation={OP}&proof={PROOF}");
+        let valid = query(&continuation);
+        let parsed = ProofLink::from_firebase_query(&valid, "https://cantos.example/").unwrap();
+        assert_eq!(parsed.secret, "");
+        assert_eq!(
+            parsed.firebase_oob_code.as_deref(),
+            Some("synthetic-action")
+        );
+        assert_eq!(format!("{parsed:?}"), "ProofLink([redacted])");
+        for value in [
+            format!("{valid}&oobCode=other"),
+            valid.replace("verifyEmail", "resetPassword"),
+            query(&continuation.replace("cantos.example", "other.example")),
+            query(&format!("{continuation}&secret=forbidden")),
+            query(&format!("{continuation}&proof={PROOF}")),
+            query(&format!("{continuation}#fragment")),
+        ] {
+            assert!(ProofLink::from_firebase_query(&value, "https://cantos.example/").is_none());
+        }
+        assert!(ProofLink::from_firebase_query(
+            &query(&continuation.replace("https://cantos.example", "http://127.0.0.1:8082")),
+            "http://127.0.0.1:8082/"
+        )
+        .is_some());
+        assert!(ProofLink::from_firebase_query(
+            &query(&continuation.replace("https://", "http://")),
+            "http://cantos.example/"
+        )
+        .is_none());
+        assert!(ProofLink::is_firebase_query("?OOBcode=malformed"));
+        assert!(ProofLink::is_firebase_query("?continueUrl=malformed"));
+    }
     #[test]
     fn proof_parser_requires_exactly_three_lowercase_hex_fields_in_contract_order() {
         assert!(ProofLink::from_fragment(&fragment()).is_some());

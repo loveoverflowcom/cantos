@@ -64,6 +64,13 @@ Sending, mailbox delivery and consumption are separate facts. Production still n
 approved mail transport; local tests use a run-owned private capture inbox. Durable outbox
 storage of challenge material requires an explicit encrypted/TTL-bound design rather than
 plaintext logging for retry. No generic SMTP server or cloud account is implicitly provisioned.
+The [Firebase verification amendment](../../../../docs/architecture/firebase-verification.md)
+changes the selected external email-action provider, not native authority. Inspect the distinct
+capabilities before adapting a transport; keep native proof secrets out of continuation URLs and
+require durable operation-bound provider-consumption evidence before native credential effects.
+The implemented sealed-proof bridge and emulator lifecycle have separate evidence. Preserve its
+terminal expired-mailbox/uncertain-consume boundaries; do not infer safe provider invalidation or
+production recovery from local success.
 
 ## Private RPC and separated databases
 

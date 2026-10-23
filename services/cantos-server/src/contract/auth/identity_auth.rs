@@ -29,7 +29,11 @@ pub struct SignupComplete {
     /// 32 lowercase hex characters (16 bytes).
     pub proof_id: String,
     /// 64 lowercase hex characters (32 bytes).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub proof_secret: String,
+    /// Alternative exact Firebase action; never an ID/login token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub firebase_oob_code: Option<String>,
     /// Chosen by the mailbox owner; never trimmed or normalized.
     pub password: String,
     /// Must be true.
