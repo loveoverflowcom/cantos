@@ -4,8 +4,10 @@
 //! migrates, grants, drops or resets a persistent database.
 use super::*;
 use axum::http::header;
-use cantos_server::contract::theatre::{PublicationManifest, UnitPage, WorkPage, WorkSummary};
 use cantos_server::adapters::inbound::http::server_router;
+use cantos_server::contract::theatre::discovery::{
+    PublicationManifest, UnitPage, WorkPage, WorkSummary,
+};
 const THEATRE_BROWSER_ORIGIN: &str = "http://127.0.0.1:8082";
 use cantos_server::contexts::media::{
     domain::playback_grant::GrantKey, FilesystemPublicationStorage, OriginPlayback,
@@ -1229,7 +1231,7 @@ async fn theatre_development_catalog_seed() {
         )
         .await
         .success(StatusCode::OK);
-    let grant: cantos_server::contract::theatre::PlaybackAuthorization =
+    let grant: cantos_server::contract::theatre::discovery::PlaybackAuthorization =
         serde_json::from_value(grant).unwrap();
     assert_eq!(grant.sha256, novel.sha256);
     let (status, headers, bytes) = world.media("GET", &grant.url, None).await;
@@ -1466,7 +1468,7 @@ async fn persistent_http_transport_binds_real_session_and_public_reads_cross_act
     let app = cantos_server::adapters::inbound::http::with_browser_cors(
         app,
         "https://studio.example.org",
-        cantos_server::contract::studio::web_api::WebSurface::Studio,
+        cantos_server::adapters::inbound::http::WebSurface::Studio,
     )
     .unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });

@@ -1,7 +1,7 @@
 //! Actual run-owned native Turso artwork constraints, receipts and Catalog CAS.
 
-use crate::test_support::{FixtureSql, ServerFixture};
 use crate::contract::studio as dto;
+use crate::test_support::{FixtureSql, ServerFixture};
 use cantos_store_turso::error::ConstraintKind;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;

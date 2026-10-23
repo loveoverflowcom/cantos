@@ -30,7 +30,7 @@ Web cookie and native Bearer consumers exist; browser/device acceptance is separ
 **Native business adapters now use Turso; production acceptance remains pending.** Appended
 migrations 12–23 cover all 69 Server-owned business tables. The [retirement record](docs/architecture/server-turso/remaining-pg-retirement.md)
 maps 17 removed files / 183 legacy PG tests to actual native boundaries and retired mechanisms;
-six files / 68 tests remain for the separate PR #395. Provider authentication is removed and
+the earlier six files / 68 tests were retired by the merged PR #395. No archived Rust oracle remains. Provider authentication is removed and
 Admin fails closed. Retained PostgreSQL schema/checksum history and recovery assets remain
 migration inputs. Host activation, data conversion, restore and full browser/device acceptance
 remain separate.

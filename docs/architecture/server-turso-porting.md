@@ -20,9 +20,9 @@ This is source and local behavioral evidence, not completed production or data-c
 - Provider authentication/PG drivers and PostgreSQL-shaped business adapters are removed from the
   Server build. Retained PostgreSQL schema/checksum history and operating assets remain recovery
   inputs. No runtime fallback, dual write or SQL dialect shim exists.
-- Seventeen archived files / 183 tests are retired here. Six files / 68 tests handled separately by
-  [PR #395](https://github.com/loveoverflowcom/cantos/pull/395) remain on this independent branch.
-  No archived file runs through Cargo discovery.
+- Seventeen archived files / 183 tests are retired here after the merged
+  [PR #395](https://github.com/loveoverflowcom/cantos/pull/395) retired six files / 68 tests.
+  No Rust file remains in the archived tree; native replacements run in ordinary Cargo discovery.
 - `cargo xtask run` plans explicit migrations, Identity startup and one Server. Its orchestration
   tests use recording runners; they do not establish a two-process authentication journey.
   `cargo xtask seed theatre` refuses before effects while the `catalog_http` seeder is absent.

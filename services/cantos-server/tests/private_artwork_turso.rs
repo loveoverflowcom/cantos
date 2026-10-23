@@ -14,7 +14,7 @@ use std::{
 };
 
 use axum::http::StatusCode;
-use cantos_server::contract::studio as dto;
+use cantos_server::contract::{codec as wire, studio as dto};
 use cantos_server::{
     adapters::inbound::http::{router, AppState},
     contexts::catalog::{
@@ -328,7 +328,7 @@ async fn admit(host: &HttpHost, work: &str, fixture: Fixture) -> dto::ImageAsset
         Some(ALICE),
         Some(ALICE_FENCE),
         Some("application/protobuf"),
-        dto::wire::encode_artwork(dto::wire::WireFormat::Protobuf, &raw).unwrap(),
+        wire::encode_artwork(wire::WireFormat::Protobuf, &raw).unwrap(),
         &[("accept", "application/protobuf")],
     )
     .await;
@@ -336,11 +336,8 @@ async fn admit(host: &HttpHost, work: &str, fixture: Fixture) -> dto::ImageAsset
     assert_eq!(proto.headers["content-type"], "application/protobuf");
     assert_eq!(proto.headers["vary"], "accept");
     assert_eq!(
-        dto::wire::decode_artwork::<dto::ImageIntentDocument>(
-            dto::wire::WireFormat::Protobuf,
-            &proto.bytes
-        )
-        .unwrap(),
+        wire::decode_artwork::<dto::ImageIntentDocument>(wire::WireFormat::Protobuf, &proto.bytes)
+            .unwrap(),
         intent
     );
     let pending: dto::ImageIntentResponse = host
@@ -402,11 +399,8 @@ async fn admit(host: &HttpHost, work: &str, fixture: Fixture) -> dto::ImageAsset
     assert_eq!(proto.headers["content-type"], "application/protobuf");
     assert_eq!(proto.headers["vary"], "accept");
     assert_eq!(
-        dto::wire::decode_artwork::<dto::ImageAssetDocument>(
-            dto::wire::WireFormat::Protobuf,
-            &proto.bytes
-        )
-        .unwrap(),
+        wire::decode_artwork::<dto::ImageAssetDocument>(wire::WireFormat::Protobuf, &proto.bytes)
+            .unwrap(),
         asset
     );
     let serialized = String::from_utf8(metadata.bytes).unwrap();

@@ -249,7 +249,10 @@ async fn killed_server_reopens_exact_revision_and_import_receipts_with_cross_cod
         ("scripts", 1),
         ("script_revisions", 1),
         ("source_records", 3),
-        ("cantos_schema_history", 16),
+        (
+            "cantos_schema_history",
+            i64::try_from(registry().unwrap().migrations().len()).unwrap(),
+        ),
     ] {
         assert_eq!(
             fixture

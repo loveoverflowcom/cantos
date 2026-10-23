@@ -1,10 +1,13 @@
 # Remaining PostgreSQL business-oracle retirement
 
-Base: `refactor/cantos-native-turso` at `755c857cd90627aebcac398552c4968e5855b9be`.
+Initial oracle source: `755c857cd90627aebcac398552c4968e5855b9be`. After concurrent accepted changes,
+final base: `refactor/cantos-native-turso@7057ab41720b9bb341b27bae8a08f0ea7211b6ae`.
+The branch was rebased before final validation; diff, review, preflight and clean-baseline checks
+all use that final base. ADR 0046 service-owned contracts and consumer representations are preserved.
 This change removes 17 archived Rust files / 183 test functions. The [exact function mapping](remaining-pg-oracles.json)
 pins each old assertion family to its native test or explicitly explains a retired PG mechanism.
-The six files / 68 tests in the separate [PR #395](https://github.com/loveoverflowcom/cantos/pull/395)
-remain on this independent base. The counts must not be reported as zero until both changes land.
+The merged [PR #395](https://github.com/loveoverflowcom/cantos/pull/395) already retired six files / 68 tests.
+After this change, no Rust file remains in `legacy-pg-tests`.
 
 ## Schema and adapter mapping
 
@@ -43,7 +46,9 @@ expiry rolls metadata back while an already persisted private object may remain 
 Unknown acknowledgement tests exercise actual COMMIT and ROLLBACK, then reconcile original operation
 keys on the normal owner, including a true close/reopen. Cancellation after object persistence,
 dropped transactions, injected SQL failures, stale input, corrupt rows, wrong target identity and
-concurrent delivery are distinct cases. Only clock/ack and external role observations are doubles.
+concurrent delivery are distinct cases. Named doubles include clock/ack seams, external role
+observations and synthetic transport/public-delivery observers. Native SQL, filesystem and full
+Studio-to-Theatre journeys use the actual owning adapters.
 Test-case serialization respects the existing two-inspector resource bound; tasks raced within a
 case remain concurrent. Synthetic media is generated at runtime and never committed.
 
@@ -65,7 +70,7 @@ Identity auth v1; native authentication/browser qualification remains with its e
 Local native SQL, object and Router evidence is distinct from actual two-process authentication,
 Linux isolation/Kani, browser/device, provider/cloud storage, rights verification, human listening,
 production activation and cutover. Admin tests supply a synthetic verified role observation; the
-production Admin verifier stays fail-closed. Publication tests use a synthetic origin and local
-filesystem, not CDN or public delivery acceptance. Warm synthetic performance samples and actual
+production Admin verifier stays fail-closed. Publication tests exercise both a named synthetic delivery observer and a real local publication
+filesystem; neither establishes CDN or live-origin acceptance. Warm synthetic performance samples and actual
 indexed plans establish bounded local behavior only. Exact commands/results and remaining gates
 are recorded in the PR; remote CI is not awaited.

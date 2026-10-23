@@ -15,8 +15,7 @@ The Server is one Rust/Axum listener for Studio/Theatre/Admin, exclusively ownin
 `server.db`. `platform/store` provides checked statements, rows and errors; `platform/turso`
 owns the append-only registry over `cantos-store-turso`. Pure reads use pinned snapshots and
 mutations use the bounded serialized writer. No registered migration may be edited.
-Six archived files / 68 tests remain on this independent branch for the separate PR #395;
-17 files / 183 tests are retired here with [explicit dispositions](../../docs/architecture/server-turso/remaining-pg-oracles.json).
+The merged PR #395 retired six files / 68 tests; the final 17 files / 183 tests are retired here with [explicit dispositions](../../docs/architecture/server-turso/remaining-pg-oracles.json).
 The direct PostgreSQL runner refuses before setup and no longer retains unreachable orchestration.
 Retained PG operating material below is historical recovery input, not a runnable native workflow.
 
