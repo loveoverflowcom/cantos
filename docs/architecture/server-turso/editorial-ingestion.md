@@ -1,7 +1,8 @@
 # Editorial and Ingestion on `server.db`
 
 Implementation slice of [#333](https://github.com/loveoverflowcom/cantos/issues/333), based on
-`refactor/cantos-native-turso@12fb751e`. This ports the production Editorial/Ingestion adapters
+`refactor/cantos-native-turso@9b6fdb2e`, revalidated after the initial `12fb751e` snapshot.
+This ports the production Editorial/Ingestion adapters
 and their Studio HTTP consumers to the existing single-owner embedded Turso `=0.8.3` file.
 It does not complete the [Server checkpoint](../server-turso-porting.md#checkpoint-boundary).
 

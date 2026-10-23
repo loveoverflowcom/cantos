@@ -9,7 +9,7 @@
 > version 16 for Script IR save/read/history/review and private manuscript import/source APIs.
 > Theatre discovery, manifests, playback authorization, origin media and the Library are served from
 > it. Remaining business write adapters (Catalog, Adaptation, Production, publication writes,
-> artwork) still contains PostgreSQL SQL and will fail against the missing tables; their former
+> artwork) still contain PostgreSQL SQL and will fail against the missing tables; their former
 > integration tests are retained outside Cargo discovery in `legacy-pg-tests/`. The capability descriptions and PG
 > operating instructions below describe the pre-port baseline, not working native acceptance.
 > Provider authentication is removed; native Identity v1 is the remaining auth owner, and
