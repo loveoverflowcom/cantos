@@ -220,23 +220,22 @@ business data**, classified `server` in the
 4. Only digests of secrets are stored; no secret appears in any log or reply except at issue.
 5. Actor binding is idempotent per exact subject, serialized with the operator registry lock;
    email is never an identity key.
-6. Historical porting oracles for #333 are the archived PostgreSQL suites `identity_password_postgres`,
-   `identity_password_facts_postgres` and `schema_postgres`; a Turso port must keep each assertion.
+6. Cargo-discovered `identity_password_turso` preserves the 15 real-Identity HTTP journeys;
+   `identity_password_facts_turso` preserves the 14 scripted-RPC HTTP partitions over real
+   `server.db`. The scripted service is mock integration, not a password-login proof. Both use
+   `tests/support/identity_world.rs`, whose store rejects development sessions.
 7. The composed Turso foundation ([mapping](../../docs/architecture/server-turso-schema.md#identity-session-mapping))
-   implements the same `SessionStore` port behind the unchanged orchestration and keeps invariants
-   1–5 in its schema and file-backed tests, adding a bound-actor guard, live-session token issue
-   and no-delete/no-replace guards. It does **not** yet keep every assertion of those suites:
-   - real executable (journey): signup, completion replay, login, fresh security read, exact
-     binding, Web renewal, native rotation and replay, the Studio roster, logout, refresh
-     cleanup, an outage without revocation, reopen;
-   - scripted Identity (mock-integration, adapter unit tests): durable revocation with its reason
-     for every security change and an unknown subject, no resurrection, a change between fact and
-     issue cutting nothing, concurrent first logins binding one actor, renewal racing logout, a
-     slow Identity failing closed without revoking;
-   - retained PostgreSQL HTTP oracles awaiting native acceptance: every HTTP assertion (status projection, cookies, Origin/CSRF, the
-     409 session fence, the admission lease under dispatch), operator-bound actor reuse, the
-     Studio cookie name and legacy logout cases, a subject disabled in the real Identity file, and
-     the runtime-role privilege test (Turso has no roles; its schema guards are tested instead).
+   implements the same `SessionStore` port behind unchanged orchestration. In addition to the
+   real/scripted HTTP matrix, native schema tests enforce immutable binding/deadlines, permanent
+   revocation/consumption, live-session token issuance and no-delete/no-replace guards. There is
+   no Turso table-role equivalent: the PG-only grants/function/SQLSTATE assertions are retired,
+   with the private owner/file boundary and actual schema guards tested separately.
+8. These HTTP tests cover cookies, exact Origin/CSRF, the 409 account fence, native rotation,
+   Studio roster and cookie spelling, legacy logout, RPC deadlines/peer UID, unknown/disabled
+   subjects, outage without revocation and stored-row effects. Scripted security-change
+   revocations are rechecked after reopening `server.db`. The old `schema_postgres` suite remains
+   an input for legacy epoch/prefix recovery; native files do not establish PG data conversion.
+   Browser/device, Linux isolation/Kani and deployed acceptance remain separate #336 gates.
 
 ## Verification
 

@@ -27,12 +27,13 @@ granting access to another actor's original-import endpoint.
 
 ## PostgreSQL mechanism → Turso mechanism → regression
 
-Source objects are preserved in `services/cantos-server/schema/0001_current.sql`; the old
-`legacy-pg-tests/tests/{revisions,imports}_postgres.rs` remain historical oracles. Their applicable
-HTTP/codec, admission, receipt and source assertions are ported into ordinary discovered tests,
-without PostgreSQL setup or ignored annotations. The legacy files retain other, unported
-provider/operator/process and measurement scenarios; their historical results are not native
-acceptance.
+Source objects remain in `services/cantos-server/schema/0001_current.sql`. The former
+`legacy-pg-tests/tests/{revisions,imports}_postgres.rs` are removed after the complete
+[per-original-test mapping](legacy-test-oracles-content.md#removed-editorial-and-ingestion-sources).
+Native HTTP/codec, admission, receipts, rollback, immutable history, actual operator CLI,
+process kill/reopen and measured point-query assertions now run under Cargo discovery.
+PostgreSQL-only roles/grants/backend termination/EXPLAIN syntax are retired with explicit native
+mechanisms. This does not establish legacy-data conversion or full #333 acceptance.
 
 | Source rule / object | Turso mechanism | Test (ordinary Server tests) |
 | --- | --- | --- |
@@ -89,8 +90,13 @@ joins without adding an architecture-guard exception; their extra statement cost
 
 Head/revision and operation reads use exact composite keys. Revision/review history is ordered
 by revision, bounded to 50 and traversed by a revision key. Import reads use the source PK or
-the actor/operation partial unique index. There is no cache or incremental engine. Query-plan,
-latency, RSS and footprint measurements are **NOT_RUN**; no performance improvement is claimed.
+the actor/operation partial unique index. There is no cache or incremental engine. The native import regression observes the actual point/replay query plans on 1,000 synthetic
+1KiB sources plus 5 warmups/30 authorized HTTP reads (local debug warm p95 ≤250ms). The pinned
+planner initially scanned the operation lookup; explicitly retaining `import_operation_id IS
+NOT NULL` selects its existing partial unique index without changing accepted rows. The actor
+lookup regression records the native PK plan over 2,000 bindings and 20 warm exact lookups.
+These are local bounded workloads, not production or cross-engine improvement measurements;
+RSS and footprint remain **NOT_RUN**.
 
 The shared facade exposes only its existing checked `Row::try_get` accessor publicly so the
 file-backed fixture's result rows can be asserted from integration tests. `utc_timestamp` is a
@@ -107,7 +113,22 @@ No real data was converted or reset. Default production migration remains Tier B
 
 Catalog write/membership/delegation/content, Adaptation, Production, Admin and Media publication
 transactions remain separate ports. `cargo xtask seed theatre` remains unavailable. The existing
-CMP read/Library adapters are reused. Repository-wide failures, complete non-auth HTTP parity,
-two-binary Studio authentication, real process crash/disk-full, D1 Kani, restore/import rehearsal,
+CMP read/Library adapters are reused. Complete non-auth HTTP parity,
+two-binary Studio authentication, mid-transaction process crash/disk-full, D1 Kani, restore/import rehearsal,
 browser/device and deployed acceptance remain separate evidence; this slice closes none of those
 gates and does not complete #333. Queue order and dependencies are unchanged.
+
+## Native oracle retirement follow-through
+
+`editorial_recovery_turso` kills the actual Server after committed Protobuf/import writes,
+starts a fresh child against the same file, reconciles JSON/MessagePack/Protobuf revision
+operations and downloads exact original bytes for parsed and failed inputs. It also compares
+all business rows and schema history across repeated explicit native migrations, keeps
+legacy text-only imports unbackfilled and proves damaged-checksum startup does not repair bytes.
+`operator_turso` exercises the real CLI while the Server file is closed, preserves existing
+immutable evidence, records source time from the trusted transaction clock, refuses duplicate
+source overwrite and checks token issue/revoke and registry commands without session creation.
+
+The storage compatibility test uses `SERVER_APPLICATION_ID` after the shared registry's
+consumer-owned marker refactor; `DatabaseKind` is no longer an API. Original red operator and
+query-plan evidence, followed by the focused native results, are recorded in the PR.

@@ -9,10 +9,30 @@ use super::domain::receipt::{
     AdmittedImport,
 };
 use super::turso;
-use crate::contexts::editorial::{authorize, register_evidence, Action, EvidenceKind};
+use crate::contexts::editorial::{
+    authorize, ensure_evidence, register_evidence, Action, EvidenceKind,
+};
 use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError};
 
 impl Store {
+    /// The stopped-file operator has validated these bounded text inputs. No HTTP route calls
+    /// this capability; the owning contexts still coordinate evidence and source atomically.
+    pub(crate) async fn record_source_for_operator(
+        &self,
+        owner: &str,
+        id: &str,
+        reference: &str,
+        text: &str,
+    ) -> Result<(), StoreError> {
+        let sha256 = sha256_hex(text.as_bytes());
+        let mut client = self.connection().await?;
+        let tx = client.transaction().await?;
+        ensure_evidence(&tx, owner, EvidenceKind::Source, id, reference).await?;
+        turso::insert_text_source(&tx, owner, id, reference, text, &sha256).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     /// A retry gets the exact immutable receipt, including a failed extraction.
     /// Extraction is pure and bounded; no provider or external resource is contacted.
     pub async fn import_manuscript(

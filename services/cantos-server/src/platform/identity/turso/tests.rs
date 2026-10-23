@@ -445,6 +445,132 @@ async fn a_failed_step_after_the_actor_insert_rolls_back_the_speculative_actor()
     assert_eq!(stored(&database).await, before);
     assert_eq!(before.actors, actors(&[("winner", 1)]));
     assert!(before.bindings.is_empty());
+    execute(&database, "DROP TRIGGER test_refused_binding").await;
+    assert_eq!(
+        registry
+            .register(&key("issuer", "failing"), &actor("orphan"))
+            .await,
+        Ok(Registration::Created(actor("orphan")))
+    );
+    assert_eq!(
+        stored(&database).await.actors,
+        actors(&[("orphan", 1), ("winner", 1)])
+    );
+    assert_eq!(
+        stored(&database).await.bindings,
+        bindings(&[("issuer", "failing", "orphan", T0)])
+    );
+}
+
+#[tokio::test]
+async fn waiting_registration_replay_rechecks_a_committed_actor_disable() {
+    let run = TestRun::new("identity-disabled-replay");
+    let database = open(&run, Intent::Migrate, FixedClock::new(T0)).await;
+    let registry = TursoIdentityRegistry::new(database.clone());
+    let identity = key("issuer", "subject");
+    registry.register(&identity, &actor("owner")).await.unwrap();
+    let blocker = database.owner().begin_write().await.unwrap();
+    blocker
+        .execute("UPDATE actors SET active=0 WHERE id='owner'", ())
+        .await
+        .unwrap();
+    let candidate = actor("must-not-exist");
+    let mut replay = Box::pin(registry.register(&identity, &candidate));
+    assert!(futures_util::poll!(&mut replay).is_pending());
+    blocker.commit().await.unwrap();
+    assert_eq!(replay.await, Err(rejected(IdentityError::ActorInactive)));
+    assert_eq!(stored(&database).await.actors, actors(&[("owner", 0)]));
+    assert_eq!(
+        stored(&database).await.bindings,
+        bindings(&[("issuer", "subject", "owner", T0)])
+    );
+}
+
+#[tokio::test]
+async fn distinct_identity_keys_competing_for_one_candidate_have_exactly_one_winner() {
+    let run = TestRun::new("identity-candidate-race");
+    let database = open(&run, Intent::Migrate, FixedClock::new(T0)).await;
+    let registry = TursoIdentityRegistry::new(database.clone());
+    let candidate = actor("one-candidate");
+    let first = key("issuer", "first");
+    let second = key("issuer", "second");
+    let blocker = database.owner().begin_write().await.unwrap();
+    let mut one = Box::pin(registry.register(&first, &candidate));
+    let mut two = Box::pin(registry.register(&second, &candidate));
+    assert!(futures_util::poll!(&mut one).is_pending());
+    assert!(futures_util::poll!(&mut two).is_pending());
+    blocker.commit().await.unwrap();
+    let (one, two) = tokio::join!(one, two);
+    let winner = match (one, two) {
+        (
+            Ok(Registration::Created(value)),
+            Err(RegistryError::Rejected(IdentityError::ActorIdCollision)),
+        ) => {
+            assert_eq!(value, actor("one-candidate"));
+            "first"
+        }
+        (
+            Err(RegistryError::Rejected(IdentityError::ActorIdCollision)),
+            Ok(Registration::Created(value)),
+        ) => {
+            assert_eq!(value, actor("one-candidate"));
+            "second"
+        }
+        other => panic!("expected one created and one candidate collision: {other:?}"),
+    };
+    let rows = stored(&database).await;
+    assert_eq!(rows.actors, actors(&[("one-candidate", 1)]));
+    assert_eq!(
+        rows.bindings,
+        bindings(&[("issuer", winner, "one-candidate", T0)])
+    );
+}
+
+#[tokio::test]
+async fn exact_lookup_uses_the_native_primary_key_on_a_bounded_registry() {
+    let run = TestRun::new("identity-lookup-plan");
+    let database = open(&run, Intent::Migrate, FixedClock::new(T0)).await;
+    let tx = database.owner().begin_write().await.unwrap();
+    tx.execute("INSERT INTO actors(id) VALUES('owner')", ())
+        .await
+        .unwrap();
+    for index in 0..2_000 {
+        tx.execute("INSERT INTO actor_external_identities(issuer,subject,actor_id,linked_at) VALUES('issuer',?1,'owner',?2)", params_from_iter([Value::Text(format!("subject-{index:04}")), Value::Integer(T0)])).await.unwrap();
+    }
+    tx.commit().await.unwrap();
+    let reader = database.owner().reader().await.unwrap();
+    let mut plan = reader.query("EXPLAIN QUERY PLAN SELECT a.id,a.active FROM actor_external_identities i JOIN actors a ON a.id=i.actor_id WHERE i.issuer=?1 AND i.subject=?2", params_from_iter([Value::Text("issuer".into()),Value::Text("subject-1234".into())])).await.unwrap();
+    let mut details = Vec::new();
+    while let Some(row) = plan.next().await.unwrap() {
+        details.push(stored_text(&row, 3));
+    }
+    assert!(
+        details
+            .iter()
+            .any(|line| line.contains("SEARCH i USING") && line.contains("issuer=? AND subject=?")),
+        "{details:?}"
+    );
+    assert!(
+        !details.iter().any(|line| line.contains("SCAN ")),
+        "{details:?}"
+    );
+    let registry = TursoIdentityRegistry::new(database.clone());
+    let started = std::time::Instant::now();
+    for _ in 0..20 {
+        assert_eq!(
+            registry.lookup(&key("issuer", "subject-1234")).await,
+            Ok(Some(record("owner", true)))
+        );
+    }
+    assert_eq!(
+        registry.lookup(&key("issuer", "Subject-1234")).await,
+        Ok(None)
+    );
+    assert_eq!(
+        registry.lookup(&key("another", "subject-1234")).await,
+        Ok(None)
+    );
+    println!("Turso =0.8.3 debug, private file, 2000 synthetic bindings, 20 warm exact lookups: {:?}; plan={details:?}; no latency or improvement claim", started.elapsed());
 }
 
 #[tokio::test]

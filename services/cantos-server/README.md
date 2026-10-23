@@ -25,8 +25,9 @@ sessions and development sessions exist; business migration slots and context SQ
 incomplete. `legacy-pg-tests` preserves assertions outside Cargo discovery for deliberate porting.
 No registered migration may be edited, including comments/names/checksums.
 The [oracle coverage ledger](../../docs/architecture/server-turso/legacy-test-oracles.md)
-inventories every retained file and its native partial coverage. No whole-file replacement is
-established by that source inventory. The direct PostgreSQL runner now refuses before setup;
+inventories the 17 retained files / 183 tests and maps the six removed paths / 68 original
+tests to native business assertions and explicit PG-mechanism retirements. Revision/Import,
+Actor and real/scripted Identity HTTP replacements run under ordinary Cargo discovery. The direct PostgreSQL runner now refuses before setup;
 its historical targets are not active test commands.
 
 ### Module map

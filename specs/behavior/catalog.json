@@ -1577,7 +1577,7 @@
         "packages/contracts/identity-security-store-v1.md#startup-and-mutations",
         "services/cantos-server/src/platform/identity_auth/mod.rs",
         "services/cantos-server/src/platform/identity_auth/turso.rs",
-        "services/cantos-server/legacy-pg-tests/tests/identity_password_facts_postgres.rs"
+        "services/cantos-server/tests/identity_password_facts_turso.rs"
       ],
       "model": "specs/behavior/identity/native_session_admission.qnt",
       "module": "native_session_admission",

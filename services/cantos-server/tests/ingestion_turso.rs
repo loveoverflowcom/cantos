@@ -412,6 +412,19 @@ async fn invalid_admission_and_injected_insert_failure_leave_no_partial_registry
         .exec("DROP TRIGGER injected_import_failure", &[])
         .await
         .unwrap();
+    h.admin.exec("CREATE TRIGGER fail_import_after_insert AFTER INSERT ON source_records BEGIN SELECT RAISE(ABORT,'cantos:test.after_insert'); END", &[]).await.unwrap();
+    assert!(matches!(
+        h.admin
+            .store()
+            .import_manuscript(ALICE, intent.clone())
+            .await,
+        Err(StoreError::Unavailable)
+    ));
+    assert_eq!(h.counts().await, (0, 0, 0));
+    h.admin
+        .exec("DROP TRIGGER fail_import_after_insert", &[])
+        .await
+        .unwrap();
     let receipt = h
         .admin
         .store()
@@ -603,4 +616,68 @@ async fn legacy_text_only_sources_remain_readable_without_fabricating_an_import_
         h.admin.store().load_import(ALICE, "source-demo").await,
         Err(StoreError::NotFound)
     ));
+}
+
+#[tokio::test]
+async fn bounded_native_import_point_reads_use_indexes_and_preserve_authorized_receipts() {
+    let h = Harness::new().await;
+    let mut bytes = "An: Ánh đèn cuối sân khấu. ".as_bytes().to_vec();
+    bytes.resize(1024, b'x');
+    let mut last = None;
+    for _ in 0..1000 {
+        last = Some(
+            h.admin
+                .store()
+                .import_manuscript(ALICE, request(ImportFormat::Txt, &bytes))
+                .await
+                .unwrap(),
+        );
+    }
+    let receipt = last.unwrap();
+    let mut details = Vec::new();
+    for (sql, params) in [
+        ("EXPLAIN QUERY PLAN SELECT * FROM source_records WHERE owner_id=?1 AND id=?2 AND imported_by=?1", vec!["alice", receipt.id.as_str()]),
+        ("EXPLAIN QUERY PLAN SELECT * FROM source_records WHERE imported_by=?1 AND import_operation_id=?2 AND import_operation_id IS NOT NULL", vec!["alice", receipt.metadata.operation_id.as_str()]),
+    ] {
+        let plan = h.admin.rows(sql, &[&params[0],&params[1]]).await.unwrap();
+        let lines: Vec<String> = plan.iter().map(|row| row.try_get(3).unwrap()).collect();
+        assert!(lines.iter().all(|line| !line.contains("SCAN ")), "{lines:?}");
+        assert!(lines.iter().any(|line| line.contains("SEARCH source_records USING")), "{lines:?}");
+        details.push(lines);
+    }
+    assert!(
+        details[1]
+            .iter()
+            .any(|line| line.contains("source_import_operations")),
+        "{details:?}"
+    );
+    let path = format!("/imports/{}", receipt.id);
+    for _ in 0..5 {
+        assert_eq!(
+            h.json("GET", &path, Some(ALICE), None).await.0,
+            StatusCode::OK
+        );
+    }
+    let mut millis = Vec::new();
+    for _ in 0..30 {
+        let start = std::time::Instant::now();
+        let (status, body) = h.raw("GET", &path, Some(ALICE), vec![]).await;
+        millis.push(start.elapsed().as_secs_f64() * 1000.0);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            serde_json::from_slice::<ImportResponse>(&body).unwrap(),
+            receipt
+        );
+    }
+    millis.sort_by(f64::total_cmp);
+    println!(
+        "{}",
+        json!({"engine":"Turso =0.8.3","profile":"debug","synthetic_sources":1000,"bytes_per_source":1024,"warmups":5,"samples":30,"concurrency":1,"p50_ms":millis[14],"p95_ms":millis[28],"p99_ms":millis[29],"plan":details,"scope":"local authorized HTTP; no production or PG speedup claim"})
+    );
+    assert!(
+        millis[28] <= 250.0,
+        "bounded local warm-read p95 was {}ms",
+        millis[28]
+    );
+    assert_eq!(h.counts().await, (1000, 1000, 0));
 }

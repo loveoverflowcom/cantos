@@ -1,7 +1,7 @@
 //! The Server's fact boundary against a **scripted** Identity: stale, misbound, raced, restored
 //! and slow answers that the real executable never produces. This is `mock-integration-tested`
 //! evidence about what the Server refuses; it is not a login proof (see
-//! `identity_password_postgres.rs` for the real executable). Real PostgreSQL, production router.
+//! `identity_password_turso.rs` for the real executable). Real Turso, production router.
 #[path = "support/fake_identity.rs"]
 mod fake;
 #[path = "support/identity_world.rs"]
@@ -11,7 +11,7 @@ use axum::http::StatusCode;
 use cantos_server::platform::identity_auth::decision::Subject;
 use fake::{Script, Serving};
 use serde_json::json;
-use world::{App, Database, Reply};
+use world::{App, Database, FixtureQueries, Reply};
 
 const ORIGIN: &str = "https://theatre.example";
 const THEATRE: &str = "/api/v1/theatre";
@@ -75,7 +75,8 @@ impl Harness {
             .query_one("SELECT count(*) FROM identity_sessions", &[])
             .await
             .unwrap()
-            .get(0)
+            .try_get(0)
+            .unwrap()
     }
 
     async fn revoked_reason(&self) -> Vec<Option<String>> {
@@ -88,7 +89,7 @@ impl Harness {
             .await
             .unwrap()
             .iter()
-            .map(|row| row.get(0))
+            .map(|row| row.try_get(0).unwrap())
             .collect()
     }
 
@@ -100,6 +101,19 @@ impl Harness {
             )
             .await
             .status
+    }
+
+    async fn reopen(&mut self) {
+        use std::os::unix::fs::MetadataExt;
+        self.app.release();
+        self.db.admin.restart().await;
+        self.app = App::new(
+            &self.db,
+            ORIGIN,
+            self._dir.join("identity.sock"),
+            std::fs::metadata(&self._dir).unwrap().uid(),
+            &[],
+        );
     }
 }
 
@@ -115,7 +129,6 @@ fn cookie_of(reply: &Reply) -> String {
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_stale_future_or_misbound_fact_never_becomes_a_session() {
     let h = Harness::start().await;
     // Edge of the window: 29 s old is admitted, which also shows the happy path is reachable.
@@ -146,7 +159,6 @@ async fn a_stale_future_or_misbound_fact_never_becomes_a_session() {
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_security_change_between_the_fact_and_the_issue_is_refused_and_cuts_no_session() {
     type Mutation = fn(&mut Script);
     let races: [(&str, Mutation, StatusCode); 6] = [
@@ -189,7 +201,6 @@ async fn a_security_change_between_the_fact_and_the_issue_is_refused_and_cuts_no
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn every_security_change_revokes_durably_and_a_matching_snapshot_never_resurrects() {
     type Mutation = fn(&mut Script);
     let changes: [(&str, Mutation, &str); 4] = [
@@ -207,7 +218,7 @@ async fn every_security_change_revokes_durably_and_a_matching_snapshot_never_res
         ),
     ];
     for (label, mutate, reason) in changes {
-        let h = Harness::start().await;
+        let mut h = Harness::start().await;
         let cookie = cookie_of(&h.login().await);
         assert_eq!(h.protected(&cookie).await, StatusCode::OK, "{label}");
         let original = h.fake.script.lock().unwrap().clone();
@@ -225,6 +236,7 @@ async fn every_security_change_revokes_durably_and_a_matching_snapshot_never_res
         // Identity looks exactly as it did at issue again (re-enabled, restored back): the family
         // stays dead, because revocation is a durable fact and not a comparison.
         h.fake.set(|s| *s = original);
+        h.reopen().await;
         assert_eq!(
             h.protected(&cookie).await,
             StatusCode::UNAUTHORIZED,
@@ -239,7 +251,6 @@ async fn every_security_change_revokes_durably_and_a_matching_snapshot_never_res
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_slow_or_confused_identity_fails_closed_without_revoking_anything() {
     let h = Harness::start().await;
     let cookie = cookie_of(&h.login().await);
@@ -266,7 +277,6 @@ async fn a_slow_or_confused_identity_fails_closed_without_revoking_anything() {
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_login_that_outlives_its_deadline_is_an_unknown_effect_never_a_session_or_a_retry() {
     let h = Harness::start().await;
     h.fake
@@ -278,7 +288,6 @@ async fn a_login_that_outlives_its_deadline_is_an_unknown_effect_never_a_session
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn only_the_configured_peer_uid_is_trusted_as_identity() {
     let h = Harness::with_peer_uid(Some(0xfff0_0000)).await;
     h.fake.set(|_| {});
@@ -291,7 +300,6 @@ async fn only_the_configured_peer_uid_is_trusted_as_identity() {
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn an_operator_bound_actor_is_reused_and_an_inactive_one_is_never_logged_into() {
     use cantos_server::platform::{
         identity::domain::{ActorId, ExternalIdentityKey},
@@ -300,11 +308,15 @@ async fn an_operator_bound_actor_is_reused_and_an_inactive_one_is_never_logged_i
     let h = Harness::start().await;
     let subject = Subject::from_bytes([0x11; 16]).unwrap();
     // The operator linked this exact Identity subject to an existing actor beforehand.
-    let actor = operator::create_creator(&h.db.operator).await.unwrap();
+    let actor = operator::create_creator(h.db.admin.store()).await.unwrap();
     let key = ExternalIdentityKey::new("cantos-identity", subject.hex()).unwrap();
-    operator::link_identity(&h.db.operator, &ActorId::new(actor.clone()).unwrap(), &key)
-        .await
-        .unwrap();
+    operator::link_identity(
+        h.db.admin.store(),
+        &ActorId::new(actor.clone()).unwrap(),
+        &key,
+    )
+    .await
+    .unwrap();
     let login = h.login().await;
     assert_eq!(login.status, StatusCode::OK, "{:?}", login.json);
     assert_eq!(
@@ -319,12 +331,13 @@ async fn an_operator_bound_actor_is_reused_and_an_inactive_one_is_never_logged_i
             .query_one("SELECT count(*) FROM actors", &[])
             .await
             .unwrap()
-            .get(0);
+            .try_get(0)
+            .unwrap();
     assert_eq!(actors, 1);
 
     // Deactivating the actor ends admission at once and refuses the next login, with no session.
     h.db.admin
-        .execute("UPDATE actors SET active=false WHERE id=$1", &[&actor])
+        .execute("UPDATE actors SET active=0 WHERE id=?1", &[&actor])
         .await
         .unwrap();
     assert_eq!(h.protected(&cookie).await, StatusCode::UNAUTHORIZED);
@@ -335,7 +348,6 @@ async fn an_operator_bound_actor_is_reused_and_an_inactive_one_is_never_logged_i
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn concurrent_first_logins_of_one_subject_bind_exactly_one_actor() {
     let h = Harness::start().await;
     let (a, b, c) = tokio::join!(h.login(), h.login(), h.login());
@@ -349,7 +361,8 @@ async fn concurrent_first_logins_of_one_subject_bind_exactly_one_actor() {
             .query_one("SELECT count(*) FROM actors", &[])
             .await
             .unwrap()
-            .get(0);
+            .try_get(0)
+            .unwrap();
     assert_eq!(actors, 1, "a losing candidate actor is never left behind");
     assert_eq!(h.session_count().await, 3);
 }
@@ -377,7 +390,6 @@ impl Harness {
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn a_studio_secret_is_accepted_only_from_its_own_secure_cookie() {
     let h = Harness::with_studio().await;
     let login = h.login_studio().await;
@@ -407,7 +419,6 @@ async fn a_studio_secret_is_accepted_only_from_its_own_secure_cookie() {
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn legacy_studio_session_logout_really_ends_an_identity_session() {
     let h = Harness::with_studio().await;
     let login = h.login_studio().await;
@@ -432,7 +443,6 @@ async fn legacy_studio_session_logout_really_ends_an_identity_session() {
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn an_unknown_subject_at_admission_is_a_durable_security_fact_not_an_outage() {
     let h = Harness::start().await;
     let cookie = cookie_of(&h.login().await);
@@ -452,7 +462,6 @@ async fn an_unknown_subject_at_admission_is_a_durable_security_fact_not_an_outag
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn concurrent_refresh_of_one_secret_lets_one_win_and_revokes_the_family() {
     let h = Harness::start().await;
     let login = h.login_native().await;
@@ -483,7 +492,6 @@ async fn concurrent_refresh_of_one_secret_lets_one_win_and_revokes_the_family() 
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
 async fn renew_racing_logout_always_ends_revoked_and_never_fails_with_a_server_error() {
     for _ in 0..4 {
         let h = Harness::start().await;
@@ -509,94 +517,94 @@ async fn renew_racing_logout_always_ends_revoked_and_never_fails_with_a_server_e
 }
 
 #[tokio::test]
-#[ignore = "cargo xtask verify postgres"]
-async fn the_runtime_role_cannot_weaken_or_rewrite_a_session_whatever_its_privileges() {
+async fn native_session_guards_preserve_binding_consumption_and_permanent_revocation() {
+    use cantos_store_turso::error::ConstraintKind;
     let h = Harness::start().await;
     let native = h.login_native().await;
-    let web = h.login().await;
-    let runtime = world::connect(&h.db.runtime).await;
-    let code = |result: Result<u64, tokio_postgres::Error>| {
-        result.unwrap_err().code().unwrap().code().to_owned()
-    };
-    // No DELETE or TRUNCATE; no column outside the narrow UPDATE grants.
-    for sql in [
-        "DELETE FROM identity_sessions",
-        "DELETE FROM identity_session_tokens",
-        "UPDATE identity_sessions SET actor_id='someone-else'",
-        "UPDATE identity_sessions SET absolute_expires=absolute_expires+1",
-        "UPDATE identity_sessions SET observed_security_version=1",
-        "UPDATE identity_session_tokens SET access_hash=refresh_hash",
-        "UPDATE identity_session_tokens SET session_id=gen_random_uuid()",
+    assert_eq!(native.status, StatusCode::OK);
+    assert_eq!(h.login().await.status, StatusCode::OK);
+    for (sql, guard) in [
+        (
+            "DELETE FROM identity_sessions",
+            "immutable.identity_sessions",
+        ),
+        (
+            "DELETE FROM identity_session_tokens",
+            "immutable.identity_session_tokens",
+        ),
+        (
+            "UPDATE identity_sessions SET actor_id='someone-else'",
+            "immutable.identity_sessions",
+        ),
+        (
+            "UPDATE identity_sessions SET absolute_expires=absolute_expires+1",
+            "immutable.identity_sessions",
+        ),
+        (
+            "UPDATE identity_sessions SET observed_security_version=1",
+            "immutable.identity_sessions",
+        ),
+        (
+            "UPDATE identity_session_tokens SET access_hash=zeroblob(32)",
+            "immutable.identity_session_tokens",
+        ),
+        (
+            "UPDATE identity_session_tokens SET session_id='00000000-0000-4000-8000-000000000001'",
+            "immutable.identity_session_tokens",
+        ),
+        (
+            "UPDATE identity_sessions SET idle_expires=idle_expires-1",
+            "immutable.identity_sessions",
+        ),
     ] {
-        assert_eq!(code(runtime.execute(sql, &[]).await), "42501", "{sql}");
+        let error = h.db.admin.try_exec(sql, &[]).await.unwrap_err();
+        assert_eq!(error.guard(), Some(guard), "{sql}");
     }
-    // Granted columns are still guarded: the idle deadline never shrinks, a Web cookie has no
-    // refresh secret to spend, and a spent refresh secret never becomes unspent.
-    assert_eq!(
-        code(
-            runtime
-                .execute(
-                    "UPDATE identity_sessions SET idle_expires=idle_expires-1",
-                    &[]
-                )
-                .await
-        ),
-        "23514"
-    );
-    assert_eq!(
-        code(
-            runtime
-                .execute(
-                    "UPDATE identity_session_tokens SET used=true WHERE refresh_hash IS NULL",
-                    &[]
-                )
-                .await
-        ),
-        "23514"
-    );
-    runtime
-        .execute(
-            "UPDATE identity_session_tokens SET used=true WHERE refresh_hash IS NOT NULL",
+    let error =
+        h.db.admin
+            .try_exec(
+                "UPDATE identity_session_tokens SET used=1 WHERE refresh_hash IS NULL",
+                &[],
+            )
+            .await
+            .unwrap_err();
+    assert_eq!(error.constraint(), Some(ConstraintKind::Check));
+    h.db.admin
+        .exec(
+            "UPDATE identity_session_tokens SET used=1 WHERE refresh_hash IS NOT NULL",
             &[],
         )
         .await
         .unwrap();
     assert_eq!(
-        code(
-            runtime
-                .execute(
-                    "UPDATE identity_session_tokens SET used=false WHERE refresh_hash IS NOT NULL",
-                    &[]
-                )
-                .await
-        ),
-        "23514"
+        h.db.admin
+            .try_exec(
+                "UPDATE identity_session_tokens SET used=0 WHERE refresh_hash IS NOT NULL",
+                &[]
+            )
+            .await
+            .unwrap_err()
+            .guard(),
+        Some("immutable.identity_session_tokens")
     );
-    // Revocation is permanent and cannot be rewritten or extended.
     let session = native.json["session_id"].as_str().unwrap();
-    runtime
-        .execute(
-            "UPDATE identity_sessions SET revoked=true,revoked_reason='logout' WHERE id=$1::text::uuid",
+    h.db.admin
+        .exec(
+            "UPDATE identity_sessions SET revoked=1,revoked_reason='logout' WHERE id=?1",
             &[&session],
         )
         .await
         .unwrap();
     for sql in [
-        "UPDATE identity_sessions SET revoked=false,revoked_reason=NULL WHERE revoked",
-        "UPDATE identity_sessions SET revoked_reason='replay' WHERE revoked",
-        "UPDATE identity_sessions SET idle_expires=idle_expires+1 WHERE revoked",
+        "UPDATE identity_sessions SET revoked=0,revoked_reason=NULL WHERE revoked=1",
+        "UPDATE identity_sessions SET revoked_reason='replay' WHERE revoked=1",
+        "UPDATE identity_sessions SET idle_expires=idle_expires+1 WHERE revoked=1",
     ] {
-        assert_eq!(code(runtime.execute(sql, &[]).await), "23514", "{sql}");
+        assert_eq!(
+            h.db.admin.try_exec(sql, &[]).await.unwrap_err().guard(),
+            Some("immutable.identity_sessions.revocation"),
+            "{sql}"
+        );
     }
-    // The registry function binds only the fixed issuer and only a well-formed subject.
-    let bound: Option<String> = runtime
-        .query_one(
-            "SELECT identity_session_register('not-a-subject','candidate-x')",
-            &[],
-        )
-        .await
-        .unwrap()
-        .get(0);
-    assert_eq!(bound, None);
-    let _ = web;
+    assert_eq!(h.session_count().await, 2);
 }

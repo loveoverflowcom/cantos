@@ -1,6 +1,6 @@
-//! Test-harness-only: a disposable PostgreSQL database with the production schema, grants and
-//! runtime role, and the production router with Identity-backed sessions mounted. Requests are
-//! dispatched in process; the socket peer is declared per request like a real connection.
+//! Test-only native Server/Identity HTTP world. One real, private server.db and the production
+//! router; no development session is admitted. Requests declare their socket peer. Turso has
+//! no table roles: raw fixture SQL is a privileged test observation, never HTTP authority.
 #![allow(dead_code)]
 
 use axum::{
@@ -9,71 +9,53 @@ use axum::{
     http::{header, HeaderMap, Method, Request, StatusCode},
     Router,
 };
+use cantos_server::test_support::ServerFixture;
 use cantos_server::{
     adapters::inbound::http::{api_router, AppState},
     platform::{
-        identity_auth::{config::IdentityAuthConfig, decision::Subject, IdentityAuth},
-        postgres::{local_config, migrate, Store},
         identity_auth::PeerPolicy,
+        identity_auth::{config::IdentityAuthConfig, decision::Subject, IdentityAuth},
+        store::{Params, Row, Store, StoreError},
     },
 };
 use http_body_util::BodyExt;
-use std::{env, net::SocketAddr, path::PathBuf};
-use tokio_postgres::Config;
+use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceExt;
 
-pub async fn connect(config: &Config) -> tokio_postgres::Client {
-    let (client, connection) = config.connect(tokio_postgres::NoTls).await.unwrap();
-    tokio::spawn(async move {
-        let _ = connection.await;
-    });
-    client
-}
-
 pub struct Database {
-    pub admin: tokio_postgres::Client,
-    /// The operator role's configuration (explicit local operator tools, never the HTTP role).
-    pub operator: Config,
-    pub runtime: Config,
+    pub admin: ServerFixture,
 }
 
 impl Database {
-    /// A fresh database per test, migrated by the operator role and used by the runtime role.
     pub async fn new() -> Self {
-        let mut config = local_config(
-            &env::var("CANTOS_TEST_CLUSTER_URL").expect("cargo xtask verify postgres"),
-        )
-        .unwrap();
-        assert_eq!(config.get_user(), Some("cantos_test_admin"));
-        assert_eq!(config.get_dbname(), Some("postgres"));
-        let name = format!("cantos_test_{}", uuid::Uuid::new_v4().simple());
-        connect(&config)
-            .await
-            .batch_execute(&format!("CREATE DATABASE {name}"))
-            .await
-            .unwrap();
-        config.dbname(&name);
-        migrate(&config).await.unwrap();
-        let admin = connect(&config).await;
-        admin
-            .batch_execute(include_str!(
-                "../../../../infra/vps/postgres/runtime-grants.sql"
-            ))
-            .await
-            .unwrap();
-        let operator = config.clone();
-        config.user("cantos_app");
         Self {
-            admin,
-            operator,
-            runtime: config,
+            admin: ServerFixture::new().await,
         }
     }
 
     pub fn store(&self) -> Store {
-        Store::new(self.runtime.clone())
-            .unwrap()
-            .without_development_sessions()
+        self.admin.store().clone().without_development_sessions()
+    }
+}
+
+// SQL in callers is native and parameterized; this trait only keeps single-row assertions terse.
+pub trait FixtureQueries {
+    async fn query_one(&self, sql: &str, params: Params<'_>) -> Result<Row, StoreError>;
+    async fn query(&self, sql: &str, params: Params<'_>) -> Result<Vec<Row>, StoreError>;
+    async fn execute(&self, sql: &str, params: Params<'_>) -> Result<u64, StoreError>;
+}
+
+impl FixtureQueries for ServerFixture {
+    async fn query_one(&self, sql: &str, params: Params<'_>) -> Result<Row, StoreError> {
+        let mut rows = self.rows(sql, params).await?;
+        assert_eq!(rows.len(), 1);
+        Ok(rows.remove(0))
+    }
+    async fn query(&self, sql: &str, params: Params<'_>) -> Result<Vec<Row>, StoreError> {
+        self.rows(sql, params).await
+    }
+    async fn execute(&self, sql: &str, params: Params<'_>) -> Result<u64, StoreError> {
+        self.exec(sql, params).await
     }
 }
 
@@ -108,6 +90,11 @@ pub struct App {
 }
 
 impl App {
+    /// Drop the router's file-owner clone before the fixture reopens server.db.
+    pub fn release(&mut self) {
+        self.router = Router::new();
+    }
+
     pub fn new(
         db: &Database,
         origin: &'static str,

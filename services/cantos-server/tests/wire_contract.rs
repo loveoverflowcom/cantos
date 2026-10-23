@@ -1,6 +1,6 @@
 //! The negotiated revision routes behind the real router and middleware, without PostgreSQL.
 //! Origin and session refusals happen before any store access, so both representations are
-//! checked here; database-backed parity lives in `revisions_postgres.rs`.
+//! checked here; database-backed parity lives in `editorial_turso.rs`.
 use axum::{
     body::Body,
     http::{header, Request, StatusCode},

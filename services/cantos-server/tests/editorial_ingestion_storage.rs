@@ -4,7 +4,9 @@ use cantos_contracts::ReviewRequest;
 use cantos_server::{
     platform::{
         store::StoreError,
-        turso::{registry, ServerDatabase, ServerDatabaseError, SERVER_EPOCH},
+        turso::{
+            registry, ServerDatabase, ServerDatabaseError, SERVER_APPLICATION_ID, SERVER_EPOCH,
+        },
     },
     test_support::{
         editorial::{fixture, import, request, ALICE, SCRIPT, T0},
@@ -14,7 +16,7 @@ use cantos_server::{
 use cantos_store_turso::{
     clock::Clock,
     error::{ConstraintKind, OpenError},
-    registry::{DatabaseKind, Intent, Refusal, Registry},
+    registry::{Intent, Refusal, Registry},
     testing::{FixedClock, TestRun},
     OpenRequest, OwnedDatabase, Value,
 };
@@ -45,7 +47,7 @@ async fn version_fifteen_upgrades_by_suffix_and_preserves_existing_business_rows
     let run = TestRun::new("server-editorial-upgrade");
     let path = run.path("server.db");
     let v15 = Registry::new(
-        DatabaseKind::Server,
+        SERVER_APPLICATION_ID,
         SERVER_EPOCH,
         &cantos_server::platform::turso::registry()
             .unwrap()
@@ -368,6 +370,7 @@ async fn stored_corruption_is_refused_on_revision_history_review_and_import_read
     for assignment in [
         "original_bytes=X'01'",
         "original_text=NULL",
+        "reference='forged reference'",
         "import_metadata='{}'",
         "import_outcome='{}'",
         "import_operation_id='00000000-0000-0000-0000-000000000099'",
@@ -566,4 +569,30 @@ async fn review_keys_times_and_all_reference_targets_are_checked_by_the_engine()
         )
         .await;
     }
+}
+
+#[tokio::test]
+async fn corrupt_failed_extraction_receipt_is_never_retrieved_as_an_accepted_import() {
+    let fixture = fixture().await;
+    let mut input = import();
+    input.metadata.format = cantos_contracts::ImportFormat::Docx;
+    input.original_bytes = b"PK\x01".to_vec();
+    let receipt = fixture
+        .store()
+        .import_manuscript(ALICE, input)
+        .await
+        .unwrap();
+    fixture
+        .exec("DROP TRIGGER source_records_no_update", &[])
+        .await
+        .unwrap();
+    fixture.exec("UPDATE source_records SET import_outcome=json_set(import_outcome,'$.error.code','forged_fact')", &[]).await.unwrap();
+    assert!(matches!(
+        fixture.store().load_import(ALICE, &receipt.id).await,
+        Err(StoreError::CorruptRevision)
+    ));
+    assert!(matches!(
+        fixture.store().original_import(ALICE, &receipt.id).await,
+        Err(StoreError::CorruptRevision)
+    ));
 }
