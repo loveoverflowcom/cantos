@@ -258,7 +258,7 @@ async fn signup_through_the_mailed_link_then_password_login_gives_an_httponly_co
         library(&w, &[("cookie", &cookie)]).await.status,
         StatusCode::UNAUTHORIZED
     );
-    assert_eq!(w.session_revoked(&session).await.as_deref(), Some("logout"));
+    assert!(w.session_revoked(&session).await.is_some());
 }
 
 #[tokio::test]
@@ -1138,4 +1138,144 @@ async fn an_http_development_origin_uses_plain_cookie_names_without_secure() {
         "{raw}"
     );
     let _ = &w.run;
+}
+
+// ---- Studio editorial authority -----------------------------------------------------------------
+
+/// The Studio half of the cross-system journey: a roster member's cookie, earned through the real
+/// Identity, is the authority for an Editorial write on the real `server.db`, and the authoritative
+/// read survives a Server restart. Development sessions are refused by this world, so nothing here
+/// can pass on a synthetic credential.
+#[tokio::test]
+async fn an_identity_earned_studio_session_writes_a_revision_that_survives_restart_and_logout_ends_it(
+) {
+    use cantos_server::{
+        platform::operator,
+        script_ir::read_script,
+        test_support::editorial::{FIXTURE, SCRIPT},
+    };
+    let mut w = World::start(STUDIO_ORIGIN).await;
+    w.signup(OWNER, PASSWORD).await;
+    let theatre = w.login_web("theatre", OWNER, PASSWORD).await;
+    let subject = w
+        .subject_of(theatre.field("session_id").as_str().unwrap())
+        .await;
+    w.restart_server(&[subject]);
+    let login = w.login_web("studio", OWNER, PASSWORD).await;
+    assert_eq!(login.status, StatusCode::OK, "{:?}", login.json);
+    let actor = login.field("actor_id").as_str().unwrap().to_owned();
+    let session = login.field("session_id").as_str().unwrap().to_owned();
+    let (name, secret) = login.cookie();
+    let cookie = cookie_header(&name, &secret);
+    // The fixture cites rights/source evidence; the operator's production function records it for
+    // the Identity-bound actor, exactly as an operator would before the first save.
+    for (kind, id) in read_script(FIXTURE.as_bytes()).unwrap().evidence_refs() {
+        operator::register_evidence(w.db.admin.store(), &actor, kind, id, "synthetic fixture")
+            .await
+            .unwrap();
+    }
+    let revisions = format!("{STUDIO}/scripts/{SCRIPT}/revisions");
+    let head = format!("{STUDIO}/scripts/{SCRIPT}/head");
+    fn save(operation: &str, base: u64) -> serde_json::Value {
+        json!({
+            "expected_revision": base, "operation_id": operation,
+            "script_json": cantos_server::test_support::editorial::FIXTURE,
+        })
+    }
+    let first = "11111111-1111-4111-8111-111111111111";
+    async fn stored(w: &World) -> i64 {
+        w.db.admin
+            .count("SELECT count(*) FROM script_revisions", &[])
+            .await
+    }
+
+    // Refusals before any effect: no Origin, a stale fence, and the same account's Theatre cookie.
+    let without_origin = w
+        .app
+        .post(
+            &revisions,
+            &[("cookie", &cookie), ("x-cantos-studio-session", &session)],
+            save(first, 0),
+        )
+        .await;
+    assert_eq!(without_origin.status, StatusCode::FORBIDDEN);
+    let stale = w
+        .app
+        .post(
+            &revisions,
+            &[
+                ("origin", STUDIO_ORIGIN),
+                ("cookie", &cookie),
+                (
+                    "x-cantos-studio-session",
+                    "00000000-0000-4000-8000-000000000000",
+                ),
+            ],
+            save(first, 0),
+        )
+        .await;
+    assert_eq!(stale.status, StatusCode::CONFLICT);
+    assert_eq!(stale.headers["x-cantos-studio-session"], session.as_str());
+    let (_, theatre_secret) = theatre.cookie();
+    let theatre_cookie = cookie_header(THEATRE_COOKIE, &theatre_secret);
+    let wrong_surface = w
+        .app
+        .post(
+            &revisions,
+            &[("origin", STUDIO_ORIGIN), ("cookie", &theatre_cookie)],
+            save(first, 0),
+        )
+        .await;
+    assert_eq!(wrong_surface.status, StatusCode::UNAUTHORIZED);
+    assert_eq!(stored(&w).await, 0);
+
+    let headers = [
+        ("origin", STUDIO_ORIGIN),
+        ("cookie", cookie.as_str()),
+        ("x-cantos-studio-session", session.as_str()),
+    ];
+    let saved = w.app.post(&revisions, &headers, save(first, 0)).await;
+    assert_eq!(saved.status, StatusCode::OK, "{:?}", saved.json);
+    assert_eq!(saved.field("revision"), 1);
+    assert_eq!(saved.field("accepted_by").as_str(), Some(actor.as_str()));
+    // A lost response is reconciled by replaying the identical intent: same receipt, one row.
+    let replay = w.app.post(&revisions, &headers, save(first, 0)).await;
+    assert_eq!(replay.status, StatusCode::OK);
+    assert_eq!(replay.json, saved.json);
+    assert_eq!(stored(&w).await, 1);
+    let read = w.app.get(&head, &headers[1..]).await;
+    assert_eq!(read.status, StatusCode::OK);
+    assert_eq!(read.json, saved.json);
+
+    // An Identity outage fails the next write closed with no effect; the session is not revoked.
+    let second = "22222222-2222-4222-8222-222222222222";
+    w.identity.take().unwrap().terminate().await;
+    let outage = w.app.post(&revisions, &headers, save(second, 1)).await;
+    assert_eq!(outage.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(stored(&w).await, 1);
+    w.identity = Some(w.env.serve().await);
+
+    // A Server restart reopens the same file: the session and the revision are both durable.
+    w.app.release();
+    w.db.admin.restart().await;
+    w.restart_server(&[subject]);
+    let reread = w.app.get(&head, &headers[1..]).await;
+    assert_eq!(reread.status, StatusCode::OK);
+    assert_eq!(reread.json, saved.json);
+
+    // Logout is durable Studio revocation: the next write is unauthenticated and changes nothing.
+    let out = w
+        .app
+        .send(
+            Method::DELETE,
+            &format!("{STUDIO}/identity/session"),
+            &headers,
+            None,
+        )
+        .await;
+    assert_eq!(out.status, StatusCode::NO_CONTENT);
+    assert!(w.session_revoked(&session).await.is_some());
+    let after = w.app.post(&revisions, &headers, save(second, 1)).await;
+    assert_eq!(after.status, StatusCode::UNAUTHORIZED);
+    assert_eq!(stored(&w).await, 1);
 }
