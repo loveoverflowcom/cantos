@@ -34,8 +34,9 @@ adapter itself is untested on the host.
 - Every user-session request is `credentials: include` with redirects refused, and carries
   `x-cantos-{theatre,studio}-session` with the session the client believes it holds. The browser
   adds `Origin` itself; application code never forges it. `Lease::apply` is the single place a
-  protected `fetch` receives that policy; XHR callers take `Lease::fence` and set
-  `withCredentials` themselves. `core::credentialed_target` is the only way an arbitrary URL
+  protected `fetch` receives that policy and `Lease::receive` the single place its answer is
+  judged; XHR callers take `Lease::fence`, set `withCredentials` themselves and pass the status,
+  `Retry-After` and session echo to `Lease::response`. `core::credentialed_target` is the only way an arbitrary URL
   (artwork upload) may receive the ambient cookie: exact API origin, this surface's path only.
 - Public catalog/media, producer capability Bearer and signup requests are **not** user-session
   requests and never use this policy.
@@ -66,27 +67,33 @@ adapter itself is untested on the host.
 - Local time is the wall clock with a monotonic floor (`core::Clock`), so a device clock moving
   backwards never extends a session; deadlines remain the server's.
 - 401 → signed out (session/protected calls) or `InvalidCredentials` (login). 409 → another
-  tab/intent changed the account: drop the local session and re-read. 429 → `RateLimited(n)` with
+  tab/intent changed the account: drop the local session and re-read. The API stamps every
+  admitted answer (and its fence refusal) with the session the cookie holds; an echo naming
+  another session, for any status, drops the local session inside `Lease::response` without a
+  sign-out event, so a stale lease cannot keep acting and no caller has to remember the rule. A
+  business 409 echoes the caller's own session and keeps its meaning. 429 → `RateLimited(n)` with
   a bounded `Retry-After`. 503/network → `Unavailable`, never signed-out. 403 → `Forbidden`: a
   wrong Origin **or** a Studio login whose password verified but has no roster seat; the response
   does not say which, so no consumer may claim the password was right. 404 → `NotFound`
   (Identity not configured, no Studio roster): a clear error, never a fallback.
-- **429 gate.** Every user-session request goes through it: `Lease::response(status,
-  retry_after)` must be called with each answer's status and `Retry-After` before its body is
-  used. A 429 arms one surface-wide hold (a later shorter answer never shortens it), even for a
+- **429 gate.** Every user-session request goes through it: `Lease::receive(&response)` (or,
+  for XHR, `Lease::response(status, retry_after, echo)`) must be called with each answer before
+  its body is used. A 429 arms one surface-wide hold (a later shorter answer never shortens it), even for a
   stale lease: it is a fact about the API, not the account. While the hold lasts `Client::access`
   (and login, read, renew, cleanup) refuse with `RateLimited(remaining)` before any dispatch,
   including for a session that is still valid, so view refresh, manual retry and durable-journal
   replay in this document all keep the deadline. It is document RAM: another tab or a reload
-  starts with an empty gate. `Retry-After` is read only when the API exposes it to this origin; at
-  this base the Server's CORS layer does not, so cross-origin answers use the conservative 30 s
-  default (an **API-owner dependency**; the exact wait the Server asked for is not accepted).
+  starts with an empty gate. The Server's CORS layer exposes `Retry-After` to the configured Web
+  origin of its surface, so the hold is the wait the API asked for; an answer without a readable
+  header (an intermediary that drops it, an HTTP-date) holds for the conservative 30 s default.
 - **Cookie-changing exchanges are ordered.** Login, renew and logout DELETE leave one at a time:
   inside the document through `serial`, across tabs through a Web Lock named for the surface and
   API origin (`navigator.locks`, reached by reflection because `web-sys` marks it unstable). The
   browser applies `Set-Cookie` in dispatch order, so a late `renew(A)` cannot overwrite the cookie
   of `login(B)` and a late `logout(A)` cannot clear it. A browser without Web Locks keeps only the
-  in-document ordering. A lock another tab never releases within 15 s is `Unavailable`.
+  in-document ordering. A lock another tab never releases within 15 s is `Unavailable`. A waiter
+  dropped before the grant aborts its request; a grant that lands after the waiter was dropped is
+  released at once, so a cancelled login or renewal cannot hold the lock for the document's life.
 - **Cross-tab signal.** After this document changes the cookie (login adopted, a refused login
   revoked, a logout DELETE acknowledged) it posts on a per-surface `BroadcastChannel`. A receiving
   tab only withdraws its local authority (`Client::external_change`: fence every lease, fire the
@@ -98,6 +105,26 @@ adapter itself is untested on the host.
   original session, so a late A cleanup cannot close B. Browser termination can lose the queue;
   the server's idle/absolute deadlines remain the bound.
 
+## Deliberate coupling
+
+These are reviewed choices, not leftovers; revisit one only when its condition changes.
+
+- **Two named surfaces, not a generic scope config.** `Surface` is the contract's `WebSurface`, and
+  the fence header, invalidation event, lock and channel names are fixed per surface. Studio and
+  Theatre are the only consumers; a configurable scope would turn cookie path, header and lock
+  isolation into caller-supplied strings that must then be validated. Revisit with a third real
+  Web consumer.
+- **Contract DTOs, not a private wire copy.** The package implements Identity auth v1, so it reads
+  `Session`/`Login` and `api_url` from `cantos-contracts`; a duplicate DTO could drift from the
+  Server silently. Apps project `SessionView` into their own account types.
+- **One owner per surface and document.** `browser::client` keeps a document-lifetime owner per
+  surface: the serial queue, cross-tab lock, 429 gate, renewal flight and cleanup queue are only
+  correct when every request of that surface shares them. Applications never construct a second
+  browser owner; host tests construct `owner::Client` with a scripted `Port`.
+- **Consumers keep their resource rules.** Business codecs, receipts, required-echo confirmation of
+  writes and user-visible errors stay in the apps; this package owns only session admission,
+  credential policy and the answer checks every protected request shares.
+
 ## Signup is not here
 
 Theatre signup (`identity/signup`, the mailed `#operation=…&proof=…&secret=…` fragment and
@@ -108,11 +135,11 @@ creates an account and **no session**. See the [Theatre Web README](../../apps/c
 
 | Consumer | Transport / boundary |
 | --- | --- |
-| Theatre session, Continue, Saved, History, progress, bookmarks, operation receipts | `Lease::apply`, expected session fence, `Lease::response(status, Retry-After)`, body/intent checks, JSON only |
-| Studio revision head/history/save/validation | `Lease::apply` plus the UUID fence echo and `Lease::response`; existing per-route JSON/Protobuf codec and ambiguous-write receipts retained |
+| Theatre session, Continue, Saved, History, progress, bookmarks, operation receipts | `Lease::apply`, expected session fence, `Lease::receive`, body/intent checks, JSON only |
+| Studio revision head/history/save/validation | `Lease::apply` plus the UUID fence echo and `Lease::receive`; existing per-route JSON/Protobuf codec and ambiguous-write receipts retained |
 | Studio catalog/content/brief/audio metadata/delegations | owner session; producer status/upload keeps its distinct work-capability Bearer with cookies omitted |
-| Artwork upload | XHR `withCredentials=true` + fence header to a `credentialed_target`, `Retry-After` read from the XHR; fetch fallback via `Lease::apply` |
-| Private artwork preview, original-source download | authenticated fetch via `Lease::apply` + `Lease::response`, exact identity/hash/format checks, owned revocable object URL / ephemeral Blob |
+| Artwork upload | XHR `withCredentials=true` + fence header to a `credentialed_target`, `Lease::response` with the XHR's `Retry-After` and echo; fetch fallback via `Lease::apply` + `Lease::receive` |
+| Private artwork preview, original-source download | authenticated fetch via `Lease::apply` + `Lease::receive`, exact identity/hash/format checks, owned revocable object URL / ephemeral Blob |
 | Public catalog, public media, signup | credentials omitted; never cookie-bearing |
 
 ## Verification and activation
@@ -126,7 +153,7 @@ Host tests: `cargo test -p cantos-web-auth`.
   cleanup is retried, while another tab holds the cookie lock and after the POST left (zero /
   zero / revoke-the-late-session); definite refusal versus unknown effect; an old read, renewal or
   401 arriving after a new intent changes nothing; the 429 hold across `access`, `read_session`
-  and a stale lease; one cookie-changing exchange at a time in dispatch order; the cross-tab
+  and a stale lease; an echo of another session dropping the local session for any status; one cookie-changing exchange at a time in dispatch order; the cross-tab
   signal; malformed or oversized session bodies. Each guard was mutation-checked once (removing
   it fails the named test).
 - `serial`, `refresh`: FIFO and cancelled-waiter behavior; single-flight renewal.
@@ -146,3 +173,6 @@ origins, authorized Studio roster journeys or other browser engines. See the rec
 results and deferred checks. The removed mocked-issuer `verify web-bearer` lane remains retired;
 no mock replaces the native cookie wire. The one-off installed browser driver is not a registered
 repository/CI browser gate.
+
+Grant-after-drop Web Lock cancellation and browser fetch-deadline execution remain `NOT_RUN`;
+ordinary lock dispatch/release and protected response headers are distinct assertions.

@@ -156,6 +156,8 @@ async fn cors(State(policy): State<BrowserCors>, request: Request, next: Next) -
         header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
         HeaderValue::from_static("true"),
     );
+    // `retry-after` is not CORS-safelisted: without it a Web 429 hold falls back to the client's
+    // conservative default instead of the wait the API asked for.
     let exposed = match policy.surface {
         Surface::Studio => {
             "x-cantos-studio-session, retry-after, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
@@ -329,6 +331,52 @@ mod tests {
         assert!(!response
             .headers()
             .contains_key(header::ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+    #[tokio::test]
+    async fn each_web_surface_exposes_its_own_fence_and_retry_after_to_its_origin() {
+        for (surface, base, origin, own, other) in [
+            (
+                WebSurface::Studio,
+                "/api/v1/studio/identity/login",
+                "https://studio.example.org",
+                "x-cantos-studio-session",
+                "x-cantos-theatre-session",
+            ),
+            (
+                WebSurface::Theatre,
+                "/api/v1/theatre/identity/login",
+                "https://listen.example.org",
+                "x-cantos-theatre-session",
+                "x-cantos-studio-session",
+            ),
+        ] {
+            let app = Router::new().route(
+                base,
+                get(|| async { (StatusCode::TOO_MANY_REQUESTS, [(header::RETRY_AFTER, "12")]) }),
+            );
+            let response = with_browser_cors(app, origin, surface)
+                .unwrap()
+                .oneshot(
+                    Request::builder()
+                        .uri(base)
+                        .header(header::ORIGIN, origin)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+            assert_eq!(response.headers()[header::RETRY_AFTER], "12");
+            let exposed: Vec<_> = response.headers()[header::ACCESS_CONTROL_EXPOSE_HEADERS]
+                .to_str()
+                .unwrap()
+                .split(',')
+                .map(str::trim)
+                .collect();
+            assert!(exposed.contains(&"retry-after"), "{base}");
+            assert!(exposed.contains(&own), "{base}");
+            assert!(!exposed.contains(&other), "{base}");
+        }
     }
     #[tokio::test]
     async fn cors_preserves_transport_owned_cache_policy_and_its_own_surface_fence() {

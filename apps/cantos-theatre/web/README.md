@@ -500,7 +500,7 @@ that names no factor; `400` names only the format; `403`/`404` show clear config
 authoritative read, so a browser that did not retain the cookie reports a fault.
 
 **Rate limits and refusals.** The shared owner reads `Retry-After` for **every** protected answer
-(`Lease::response`: point reads, writes, receipt lookups and Library pages) and holds the whole
+(`Lease::receive`: point reads, writes, receipt lookups and Library pages) and holds the whole
 Theatre surface of this document until it passes: a request is not dispatched inside the hold, even
 with a still-valid session, and the 60 s timer, window focus and manual refresh wait instead of
 blanking a valid account with a failed session read. The hold survives a view refresh, a manual retry
@@ -509,11 +509,10 @@ operation id and recovers receipt-first; it is never resent early, never dropped
 never given a new id. Only a real `401` is a lost session: a `403` is a refusal (wrong Origin,
 no permission) that runs no expiry cleanup, a `409` or a differing session echo drops the local
 session so it is re-read (a business `409` keeps its own receipt/error meaning), and a `404` is a
-configuration fault. **Dependency:** the Server's CORS layer
-(`services/cantos-server/src/adapters/inbound/http/cors.rs`) does not expose `Retry-After` at this
-base, so a cross-origin read cannot see the header and falls back to 30 s. That is a conservative
-wait, not an acceptance of the exact time the Server asked for; exposing the header is the API
-owner's change.
+configuration fault. The Server's CORS layer
+(`services/cantos-server/src/adapters/inbound/http/cors.rs`) exposes `Retry-After` and the session
+echo to the configured Theatre origin, so the hold is the wait the Server asked for; a hop that
+drops the header falls back to a conservative 30 s. No browser has observed this cross-origin.
 
 **Renewal and expiry.** A due idle deadline (≤90 s left) triggers one shared `POST …/session/renew`
 from the same lookup that runs every minute; the absolute deadline cannot be extended. Local clocks

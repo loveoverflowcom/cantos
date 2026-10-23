@@ -40,11 +40,25 @@ pub struct BrowserPort {
     channel: Option<BroadcastChannel>,
 }
 
+/// What the browser's lock callback and the waiting owner share. Whichever of "granted" and
+/// "dropped" happens second releases the lock, so a waiter cancelled between the grant and its
+/// next poll cannot keep the cross-tab lock for the rest of the document's life.
+#[derive(Default)]
+struct Grant {
+    release: Option<js_sys::Function>,
+    dropped: bool,
+}
+
 /// Held while this tab owns the cookie exchange; the Web Lock is released on drop.
-pub struct TabLock(Option<js_sys::Function>);
+pub struct TabLock(Rc<RefCell<Grant>>);
 impl Drop for TabLock {
     fn drop(&mut self) {
-        if let Some(release) = self.0.take() {
+        let release = {
+            let mut grant = self.0.borrow_mut();
+            grant.dropped = true;
+            grant.release.take()
+        };
+        if let Some(release) = release {
             let _ = release.call0(&JsValue::UNDEFINED);
         }
     }
@@ -151,8 +165,10 @@ impl Port for BrowserPort {
 /// (the typed binding is unstable in `web-sys`). A browser without Web Locks, or one that
 /// throws while we set the request up, yields a no-op lock: ordering then holds inside this
 /// document only. A lock another tab never releases within the deadline is `Unavailable`.
+/// Dropping the returned future before the grant aborts the request (the deadline's drop); a
+/// grant that lands after the drop is released at once (see [`Grant`]).
 async fn acquire_tab_lock(name: &str) -> Result<TabLock, Failure> {
-    let none = || Ok(TabLock(None));
+    let none = || Ok(TabLock(Rc::default()));
     let Some(window) = web_sys::window() else {
         return none();
     };
@@ -187,14 +203,24 @@ async fn acquire_tab_lock(name: &str) -> Result<TabLock, Failure> {
     if !ready {
         return none();
     }
-    let release: Rc<RefCell<Option<js_sys::Function>>> = Rc::default();
+    // Owned before the first await: dropping this future drops it, and with it any grant.
+    let lock = TabLock(Rc::default());
     let mut failed_setup = false;
     let granted = js_sys::Promise::new(&mut |resolve, reject| {
-        let slot = release.clone();
+        let slot = lock.0.clone();
         let on_lock = Closure::once_into_js(move |_lock: JsValue| -> js_sys::Promise {
             // The returned promise keeps the lock until `release` is called.
             let held = js_sys::Promise::new(&mut |release_fn, _| {
-                *slot.borrow_mut() = Some(release_fn);
+                let abandoned = {
+                    let mut grant = slot.borrow_mut();
+                    if !grant.dropped {
+                        grant.release = Some(release_fn.clone());
+                    }
+                    grant.dropped
+                };
+                if abandoned {
+                    let _ = release_fn.call0(&JsValue::UNDEFINED);
+                }
             });
             let _ = resolve.call0(&JsValue::UNDEFINED);
             held
@@ -220,8 +246,7 @@ async fn acquire_tab_lock(name: &str) -> Result<TabLock, Failure> {
         .await
         .map_err(|_| Failure::Unavailable)?;
     drop(deadline);
-    let function = release.borrow_mut().take();
-    Ok(TabLock(function))
+    Ok(lock)
 }
 
 pub type Client = owner::Client<BrowserPort>;
@@ -235,6 +260,17 @@ impl Lease {
             .credentials(RequestCredentials::Include)
             .redirect(RequestRedirect::Error)
             .header(session_header(self.surface()), self.session())
+    }
+    /// [`owner::Lease::response`] for a `fetch` answer: this package reads the status,
+    /// `Retry-After` and this surface's session echo itself, so a caller cannot pass the wrong
+    /// header or forget one. Call it before the body can change any state.
+    pub fn receive(&self, response: &gloo_net::http::Response) -> Result<(), Failure> {
+        let headers = response.headers();
+        self.response(
+            response.status(),
+            headers.get("retry-after").as_deref(),
+            headers.get(session_header(self.surface())).as_deref(),
+        )
     }
 }
 

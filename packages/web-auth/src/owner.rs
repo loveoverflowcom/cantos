@@ -140,14 +140,26 @@ impl<P: Port> Lease<P> {
             Err(Failure::Changed)
         }
     }
-    /// Call with the status (and `Retry-After`, when the origin exposes it) of every answer to a
-    /// request made with this lease, before its body can change any state. A 429 arms the
-    /// surface-wide gate even for a stale lease: it is a fact about the API, not the account.
-    /// A stale lease is `Changed`; a stale 401 cannot sign out a switched or new account.
-    /// 403 is left to the caller: it is `Forbidden`, never an expired session.
-    pub fn response(&self, status: u16, retry_after: Option<&str>) -> Result<(), Failure> {
+    /// Call with the status, `Retry-After` and session echo (`x-cantos-{surface}-session`) of
+    /// every answer to a request made with this lease, before its body can change any state;
+    /// headers the origin does not expose are `None`. A 429 arms the surface-wide gate even for a
+    /// stale lease: it is a fact about the API, not the account. A stale lease is `Changed`; a
+    /// stale 401 cannot sign out a switched or new account. An echo naming another session, for
+    /// any status, means the cookie changed under this lease: the local session is dropped here
+    /// ([`Self::fence_mismatch`]), never left to a caller convention. An absent echo proves
+    /// nothing either way and stays the caller's to judge. 403 is left to the caller: it is
+    /// `Forbidden`, never an expired session.
+    pub fn response(
+        &self,
+        status: u16,
+        retry_after: Option<&str>,
+        echo: Option<&str>,
+    ) -> Result<(), Failure> {
         let limited = (status == 429).then(|| self.client.limited(retry_after));
         self.check()?;
+        if echo.is_some_and(|echo| echo != self.view.session) {
+            return Err(self.fence_mismatch());
+        }
         if let Some(failure) = limited {
             return Err(failure);
         }
@@ -159,6 +171,8 @@ impl<P: Port> Lease<P> {
     }
     /// The API answered 409 with the session-fence code: another tab changed the account. The
     /// local session is dropped (no event) so the owner must re-read before any further request.
+    /// [`Self::response`] already does this for a mismatched echo; call it only when the mismatch
+    /// is known otherwise (a 409 `unauthenticated` body whose echo was not readable).
     pub fn fence_mismatch(&self) -> Failure {
         match self.client.forget(self.ticket) {
             Ok(_) => Failure::Changed,

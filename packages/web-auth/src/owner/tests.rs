@@ -377,9 +377,9 @@ fn a_429_holds_every_protected_request_even_for_a_session_that_is_still_valid() 
     let mut access = start(async move { client.access(Some(A1)).await });
     let lease = done(&mut access).unwrap();
     let sent = world.count();
-    assert_eq!(lease.response(200, None), Ok(()));
+    assert_eq!(lease.response(200, None, None), Ok(()));
     assert_eq!(
-        lease.response(429, Some("12")),
+        lease.response(429, Some("12"), None),
         Err(Failure::RateLimited(12))
     );
     // Within the hold nothing is admitted, so nothing can be dispatched.
@@ -406,9 +406,9 @@ fn an_unreadable_retry_after_still_holds_and_a_stale_lease_still_arms_the_gate()
     let lease = done(&mut access).unwrap();
     // Another tab switches the account: the lease is stale, but the API's 429 is still a fact.
     world.client.invalidate().unwrap();
-    assert_eq!(lease.response(429, None), Err(Failure::Changed));
+    assert_eq!(lease.response(429, None, None), Err(Failure::Changed));
     assert_eq!(world.client.gate(), Err(Failure::RateLimited(30)));
-    assert_eq!(lease.response(401, None), Err(Failure::Changed));
+    assert_eq!(lease.response(401, None, None), Err(Failure::Changed));
     assert_eq!(world.script.lost.get(), 0, "a stale 401 signs nobody out");
 }
 
@@ -419,12 +419,45 @@ fn only_a_current_401_signs_out_and_403_is_left_to_the_caller() {
     let client = world.client.clone();
     let mut access = start(async move { client.access(Some(A1)).await });
     let lease = done(&mut access).unwrap();
-    assert_eq!(lease.response(403, None), Ok(()));
-    assert_eq!(lease.response(409, None), Ok(()));
+    assert_eq!(lease.response(403, None, None), Ok(()));
+    assert_eq!(lease.response(409, None, None), Ok(()));
     assert!(world.client.has_session());
-    assert_eq!(lease.response(401, None), Err(Failure::SignedOut));
+    assert_eq!(lease.response(401, None, None), Err(Failure::SignedOut));
     assert!(!world.client.has_session());
     assert_eq!(world.script.lost.get(), 1);
+}
+
+#[test]
+fn an_echo_of_another_session_drops_the_local_session_for_any_status() {
+    for answer in [200, 204, 400, 409, 429, 503] {
+        let world = World::new();
+        world.adopt(A1, 600);
+        let client = world.client.clone();
+        let mut access = start(async move { client.access(Some(A1)).await });
+        let lease = done(&mut access).unwrap();
+        // The lease's own session, or no readable echo, changes nothing.
+        assert_eq!(lease.response(200, None, Some(A1)), Ok(()));
+        assert!(world.client.has_session());
+        assert_eq!(
+            lease.response(answer, Some("12"), Some(B2)),
+            Err(Failure::Changed),
+            "{answer}"
+        );
+        assert!(!world.client.has_session(), "{answer}");
+        assert_eq!(lease.check(), Err(Failure::Changed));
+        // A fence mismatch is not a sign-out: the views re-read instead of being told it is gone.
+        assert_eq!(world.script.lost.get(), 0, "{answer}");
+        // The 429 is still a fact about the API, even though the account changed.
+        let held = world.client.gate();
+        assert_eq!(held.is_err(), answer == 429, "{answer}");
+        world.advance(12);
+        // A stale lease cannot drop or sign out whatever session the owner adopts next.
+        let sent = world.count();
+        world.adopt(B2, 600);
+        assert_eq!(world.count(), sent + 1);
+        assert_eq!(lease.response(401, None, Some(A1)), Err(Failure::Changed));
+        assert_eq!(world.client.session().unwrap().session, B2);
+    }
 }
 
 #[test]
