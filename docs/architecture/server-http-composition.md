@@ -46,9 +46,13 @@ supervises only its foreground groups. Web `run` adds Trunk on Studio 8081 or Th
 `app` attaches a frontend to an existing API. Occupied ports refuse. `--test-cluster` is retired.
 Native readiness is not a working business catalog, login, publication or browser/device gate.
 
-`surface_policy_baseline` retains route/origin/purpose controls, with provider-era expectations
-still requiring native rebinding under #333/#335. The archived PG suites are historical issued-
-credential/transaction oracles, not executable native HTTP acceptance. Preserve slow-body,
-duplicate/mixed credentials, current admission, cross-origin and exact cache/CORS assertions
-when porting. File-backed session/RPC and model evidence never replace those HTTP assertions.
+`surface_policy_baseline` retains route/origin/purpose controls, bound to Identity v1 sessions:
+each purpose (Studio cookie, Theatre cookie, native Bearer) is issued through the production
+login route against a scripted Identity that is then removed, so an own-purpose credential
+reaches its verifier and fails closed as `unavailable` while a wrong, mixed or duplicated
+credential, a foreign origin or a browser marker on the native channel is refused earlier. That
+is mock-integration evidence of admission order, not a login proof. The archived PG suites are
+historical issued-credential/transaction oracles, not executable native HTTP acceptance.
+Preserve slow-body, duplicate/mixed credentials, current admission, cross-origin and exact
+cache/CORS assertions when porting. File-backed session/RPC and model evidence never replace those HTTP assertions.
 Browser/device, restore, Linux isolation, D1 Kani, footprint and deployed state remain independent.
