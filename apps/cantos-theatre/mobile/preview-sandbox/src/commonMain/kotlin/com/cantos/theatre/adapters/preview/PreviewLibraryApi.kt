@@ -33,6 +33,7 @@ import com.cantos.theatre.adapters.library.wire.SavedWrite
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.ports.LocalLibraryIntent
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
@@ -65,6 +66,11 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
     /** When set, every call fails as a retryable outage and the client keeps its durable intents. */
     var unavailable: Boolean = false
     var latencyOverrideMs: Long? = null
+    private var readGate: CompletableDeferred<Unit>? = null
+
+    /** External read availability only: the real controller still owns Loading and retry transitions. */
+    fun holdReads() { readGate = CompletableDeferred() }
+    fun releaseReads() { readGate?.complete(Unit); readGate = null }
     var mutations: Int = 0
         private set
 
@@ -154,6 +160,7 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
     }
 
     private suspend fun <T> served(read: () -> T): LibraryResult<T> {
+        readGate?.await()
         pause()
         return if (unavailable) LibraryResult.Failed("unavailable", retryable = true) else LibraryResult.Value(read())
     }

@@ -27,6 +27,8 @@ import com.cantos.theatre.application.preferences.PreferencesState
 import com.cantos.theatre.domain.membership.MembershipState
 import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.publication.WorkKey
+import com.cantos.theatre.domain.library.LibraryLoad
+import com.cantos.theatre.domain.library.LibrarySection
 import com.cantos.theatre.ports.LibraryLocalPort
 import com.cantos.theatre.ports.LocalePreferenceStore
 import com.cantos.theatre.presentation.model.ShellCatalogMode
@@ -42,6 +44,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+/** Availability supplied by the external preview Library port. */
+enum class PreviewLibraryRead { Ready, Loading, Failed, Stale }
+
 /** What a workbench scenario starts the real owners with. Everything is data; no owner is named. */
 data class PreviewSeed(
     /** The shared presentation vocabulary: route stack, theme, locale, query, saved works, positions. */
@@ -53,6 +58,8 @@ data class PreviewSeed(
     /** True when the remote Library is unreachable: writes stay durable and visibly pending. */
     val remoteOffline: Boolean = false,
     val membership: MembershipState = MembershipState.unavailable(),
+    /** Deterministic external read fault; never a forced production projection. */
+    val libraryRead: PreviewLibraryRead = PreviewLibraryRead.Ready,
 )
 
 /**
@@ -75,7 +82,10 @@ class PreviewOwners(
     val catalogPort = PreviewCatalogPort(seed.state.catalogMode.toScenario(), pageSize)
     val access = PreviewPlaybackAccess(nowMs)
     val engine = PreviewStreamingEngine()
-    val libraryApi = PreviewLibraryApi(nowMs, seed.writeLatencyMs).also { it.unavailable = seed.remoteOffline }
+    val libraryApi = PreviewLibraryApi(nowMs, seed.writeLatencyMs).also {
+        it.unavailable = seed.remoteOffline || seed.libraryRead == PreviewLibraryRead.Failed
+        if (seed.libraryRead == PreviewLibraryRead.Loading) it.holdReads()
+    }
     private val firstAccount = PreviewAccount.Linh
     val identity = PreviewIdentity(scope, { nowMs() / 1000 }, firstAccount.takeIf { seed.signedIn })
 
@@ -112,6 +122,14 @@ class PreviewOwners(
 
     init {
         applyInteractionSeed()
+        if (seed.libraryRead == PreviewLibraryRead.Stale) scope.launch {
+            // First admit real pages into the production store, then fail an actual refresh.
+            shell.library.first { state -> state.account != null && LibrarySection.entries.all {
+                state.section(it).loaded && state.section(it).loading == LibraryLoad.Idle
+            } }
+            libraryApi.unavailable = true
+            library.refresh()
+        }
     }
 
     private fun seedRemoteLibrary() {

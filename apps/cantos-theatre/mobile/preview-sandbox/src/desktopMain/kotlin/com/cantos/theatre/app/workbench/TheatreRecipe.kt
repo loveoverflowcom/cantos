@@ -2,6 +2,7 @@ package com.cantos.theatre.app.workbench
 
 import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
 import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.PreviewLibraryRead
 import com.cantos.theatre.app.PreviewSession
 import com.cantos.theatre.adapters.preview.PreviewWorkIds
 import com.cantos.theatre.app.previewState
@@ -24,6 +25,9 @@ import com.cantos.ui.preview.workbench.PreviewSettings
 enum class TheatreFixture(val id: String) {
     Fresh("theatre-fresh-v1"), Restored("theatre-restored-v1"), Empty("theatre-empty-v1"),
     Loading("theatre-loading-v1"), Error("theatre-error-v1"), Offline("theatre-offline-v1"),
+    LibraryEmpty("theatre-library-empty-v1"), LibraryPartial("theatre-library-partial-v1"),
+    LibraryLoading("theatre-library-loading-v1"), LibraryError("theatre-library-error-v1"),
+    LibraryStale("theatre-library-stale-v1"), HistoryEmpty("theatre-history-empty-v1"),
 }
 
 /** Every step reuses an app intent. Delays belong to the explicit desktop simulation clock. */
@@ -65,13 +69,19 @@ class TheatreRecipe private constructor(
     val id: String get() = fixture.id
 
     /** Whether this fixture starts with the first sample account signed in. */
-    val startsSignedIn: Boolean get() = fixture == TheatreFixture.Restored || fixture == TheatreFixture.Offline
+    val startsSignedIn: Boolean get() = initialSeed(false).signedIn
 
     fun initialSeed(systemIsDark: Boolean): PreviewSeed {
         val base = when (fixture) {
             TheatreFixture.Restored -> PreviewSession.Restored.seed()
             // A signed-in listener with an empty Library and a remote that cannot be reached.
             TheatreFixture.Offline -> PreviewSeed(previewState(stack = listOf(ShellRoute.Library)), signedIn = true)
+            TheatreFixture.LibraryEmpty, TheatreFixture.LibraryLoading, TheatreFixture.LibraryError ->
+                PreviewSeed(previewState(stack = listOf(ShellRoute.Library)), signedIn = true)
+            TheatreFixture.LibraryPartial -> PreviewSeed(previewState(stack = listOf(ShellRoute.Library),
+                savedWorks = setOf(PreviewWorkIds.SonHa)), signedIn = true)
+            TheatreFixture.LibraryStale -> PreviewSession.Restored.seed()
+            TheatreFixture.HistoryEmpty -> PreviewSeed(previewState(stack = listOf(ShellRoute.Library, ShellRoute.History)), signedIn = true)
             else -> PreviewSession.Fresh.seed()
         }
         val state = base.state.copy(
@@ -79,12 +89,19 @@ class TheatreRecipe private constructor(
                 TheatreFixture.Empty -> ShellCatalogMode.Empty
                 TheatreFixture.Loading -> ShellCatalogMode.Loading
                 TheatreFixture.Error, TheatreFixture.Offline -> ShellCatalogMode.Error
-                TheatreFixture.Fresh, TheatreFixture.Restored -> ShellCatalogMode.Ready
+                TheatreFixture.Fresh, TheatreFixture.Restored, TheatreFixture.LibraryEmpty, TheatreFixture.LibraryPartial,
+                TheatreFixture.LibraryLoading, TheatreFixture.LibraryError, TheatreFixture.LibraryStale, TheatreFixture.HistoryEmpty -> ShellCatalogMode.Ready
             },
             theme = if (settings.preferences(systemIsDark).theme == Theme.Dark) ShellTheme.Dark else ShellTheme.Light,
             locale = if (settings.locale == PreviewLocale.En) ShellLocale.English else ShellLocale.Vietnamese,
         )
-        return base.copy(state = state, writeLatencyMs = writeLatencyMs, remoteOffline = fixture == TheatreFixture.Offline)
+        return base.copy(state = state, writeLatencyMs = writeLatencyMs, remoteOffline = fixture == TheatreFixture.Offline,
+            libraryRead = when (fixture) {
+                TheatreFixture.LibraryLoading -> PreviewLibraryRead.Loading
+                TheatreFixture.LibraryError -> PreviewLibraryRead.Failed
+                TheatreFixture.LibraryStale -> PreviewLibraryRead.Stale
+                else -> PreviewLibraryRead.Ready
+            })
     }
 
     fun initialState(systemIsDark: Boolean): ShellState = initialSeed(systemIsDark).state

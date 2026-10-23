@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,6 +27,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.LibraryEmptyKind
 import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
@@ -40,9 +40,11 @@ import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.clockTime
 import com.cantos.theatre.presentation.model.continuingProgress
+import com.cantos.theatre.presentation.model.emptyLibrarySections
+import com.cantos.theatre.presentation.model.isLibraryCompletelyEmpty
 import com.cantos.ui.CantosShapes
-import com.cantos.ui.tokenDp
 import com.cantos.ui.rememberCantosIconVector
+import com.cantos.ui.tokenDp
 
 @Composable
 internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
@@ -50,20 +52,32 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
         modifier = Modifier.semantics { heading() })
     Text(copy.text(CopyKey.LibrarySession), style = MaterialTheme.typography.bodySmall)
     LocalShellLibraryHeader.current?.invoke()
+    val capabilities = LocalShellCapabilities.current
+    val empty = emptyLibrarySections(state, catalog.library, capabilities)
+    val allEmpty = isLibraryCompletelyEmpty(state, catalog.library, capabilities)
+    val discoverSection = if (allEmpty) null else listOf(ShellLibrarySection.Continue, ShellLibrarySection.Saved,
+        ShellLibrarySection.Bookmarks, ShellLibrarySection.History).firstOrNull { it in empty }
+    if (allEmpty) LibraryEmpty(LibraryEmptyKind.Library, copy, dispatch, Modifier.testTag("library-empty-hero"), discover = true)
     Column(Modifier.testTag("library-continue"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        SectionHeading(CopyKey.Continuing, copy)
+        if (!allEmpty) SectionHeading(CopyKey.Continuing, copy)
         val points = continuingProgress(state)
         val phase = catalog.library.continuing
-        if (points.isEmpty() && phase == ShellLibraryPhase.Complete) SectionEmpty(CopyKey.NoContinue, CopyKey.NoContinueHelp, copy, dispatch)
+        if (ShellLibrarySection.Continue in empty) LibraryEmpty(
+            LibraryEmptyKind.Continue, copy, dispatch, Modifier.testTag("library-continue-empty"),
+            discover = discoverSection == ShellLibrarySection.Continue, compact = allEmpty,
+        )
         points.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = false, tag = "resume-${it.episodeId}") }
         LibraryFooter(phase, ShellLibrarySection.Continue, "library-continue", copy, dispatch)
     }
     Column(Modifier.testTag("library-saved"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        SectionHeading(CopyKey.SavedTab, copy)
+        if (!allEmpty) SectionHeading(CopyKey.SavedTab, copy)
         // The API's order (newest save first), not the browsing catalog's.
         val works = state.savedWorks.mapNotNull { catalog.work(it) }
         val phase = catalog.library.saved
-        if (works.isEmpty() && phase == ShellLibraryPhase.Complete) SectionEmpty(CopyKey.NoSaved, CopyKey.NoSavedHelp, copy, dispatch)
+        if (ShellLibrarySection.Saved in empty) LibraryEmpty(
+            LibraryEmptyKind.Saved, copy, dispatch, Modifier.testTag("library-saved-empty"),
+            discover = discoverSection == ShellLibrarySection.Saved, compact = allEmpty,
+        )
         else {
             val (bare, described) = works.partition { it.unavailable }
             if (described.isNotEmpty()) WorkShelf(described, state, copy, dispatch)
@@ -73,22 +87,28 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
         LibraryFooter(phase, ShellLibrarySection.Saved, "library-saved", copy, dispatch)
     }
     Column(Modifier.testTag("library-bookmarks"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        SectionHeading(CopyKey.Bookmarks, copy)
+        if (!allEmpty) SectionHeading(CopyKey.Bookmarks, copy)
         val phase = catalog.library.bookmarks
-        if (state.bookmarks.isEmpty() && phase == ShellLibraryPhase.Complete) {
-            Text(copy.text(CopyKey.NoBookmarks), style = MaterialTheme.typography.titleMedium)
-            Text(copy.text(CopyKey.NoBookmarksHelp), style = MaterialTheme.typography.bodySmall)
+        if (!capabilities.bookmarks) {
+            if (allEmpty) SectionHeading(CopyKey.Bookmarks, copy)
+            Text(copy.text(CopyKey.BookmarksUnavailable), Modifier.testTag("library-bookmarks-unavailable"))
         }
-        BookmarkRows(state, catalog, copy, dispatch, "library-bookmark")
-        LibraryFooter(phase, ShellLibrarySection.Bookmarks, "library-bookmarks", copy, dispatch)
+        else {
+            if (ShellLibrarySection.Bookmarks in empty) LibraryEmpty(LibraryEmptyKind.Bookmarks, copy, dispatch,
+                Modifier.testTag("library-bookmarks-empty"), discover = discoverSection == ShellLibrarySection.Bookmarks, compact = allEmpty)
+            BookmarkRows(state, catalog, copy, dispatch, "library-bookmark")
+            LibraryFooter(phase, ShellLibrarySection.Bookmarks, "library-bookmarks", copy, dispatch)
+        }
     }
     Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        SectionHeading(CopyKey.History, copy)
-        TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.History)) }, modifier = Modifier.testTag("history-all")) {
+        if (!allEmpty) SectionHeading(CopyKey.History, copy)
+        val phase = catalog.library.history
+        if (ShellLibrarySection.History !in empty) TextButton(shape = MaterialTheme.shapes.small,
+            onClick = { dispatch(ShellEvent.Navigate(ShellRoute.History)) }, modifier = Modifier.testTag("history-all")) {
             Text(copy.text(CopyKey.ViewAllHistory))
         }
-        val phase = catalog.library.history
-        if (state.history.isEmpty() && phase == ShellLibraryPhase.Complete) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
+        if (ShellLibrarySection.History in empty) LibraryEmpty(LibraryEmptyKind.History, copy, dispatch,
+            Modifier.testTag("library-history-empty"), discover = discoverSection == ShellLibrarySection.History, compact = allEmpty)
         state.history.take(3).forEach {
             ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "recent-${it.episodeId}")
         }
@@ -110,13 +130,6 @@ private fun UndescribedSaved(work: ShellWork, state: ShellState, copy: ShellCopy
             SaveWorkButton(work, state, copy, dispatch, "save-card-${work.id}")
         }
     }
-}
-
-@Composable
-private fun SectionEmpty(title: CopyKey, help: CopyKey, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
-    Text(copy.text(title), style = MaterialTheme.typography.titleMedium)
-    Text(copy.text(help), style = MaterialTheme.typography.bodySmall)
-    TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) }) { Text(copy.text(CopyKey.Discover)) }
 }
 
 @Composable
@@ -176,7 +189,9 @@ internal fun HistoryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     SectionHeading(CopyKey.History, copy)
     Text(copy.text(CopyKey.HistoryHelp))
     val phase = catalog.library.history
-    if (state.history.isEmpty()) { if (phase == ShellLibraryPhase.Complete) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch) }
+    if (state.history.isEmpty()) {
+        if (phase == ShellLibraryPhase.Complete) LibraryEmpty(LibraryEmptyKind.History, copy, dispatch, Modifier.testTag("history-empty"), discover = true)
+    }
     else {
         TextButton(shape = MaterialTheme.shapes.small, onClick = { confirming = true }, modifier = Modifier.testTag("history-clear")) { Text(copy.text(CopyKey.ClearHistory)) }
         state.history.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "history-${it.episodeId}") }

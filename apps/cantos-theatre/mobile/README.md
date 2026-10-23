@@ -568,6 +568,21 @@ scripted intents and 0–5000 ms remote Library latency. Steps reuse app intents
 work page and `PlayFirstSonHa` plays a unit the API has listed; the sleep timer is real and pauses
 the stand-in player when it fires.
 
+Library-specific recipes use `theatre-library-empty-v1`, `theatre-library-partial-v1`,
+`theatre-library-loading-v1`, `theatre-library-error-v1`, `theatre-library-stale-v1` and
+`theatre-history-empty-v1`. These start a signed-in synthetic listener. Loading holds the external
+read port; error refuses it; stale first admits real pages to the in-memory production Library
+store and then fails an actual refresh. None forces a UI phase or replaces the shell/controller.
+All recipes accept the existing VI/EN, light/dark, narrow frame, text-scale and motion preferences.
+The Library capture suite exercises both languages/themes and 320dp at 200% text, including
+scrolling to Discover and the last section. These are JVM presentation observations only.
+
+A completed empty Library uses one tonal invitation plus compact contextual summaries. A partial
+Library keeps local explanations. Only completed sections without retained rows are empty;
+loading, retry, paging, stale rows, missing metadata and disabled bookmarks keep their distinct
+meaning. Full History retains its own recovery actions. See the
+[bounded implementation/evidence record](../../../docs/evidence/theatre-cmp-library-empty-417.md).
+
 `TheatreWorkbenchController` owns one `TheatreMount` (its `PreviewOwners`, replay scope and counters)
 at a time. Select and **Reset to selected** remount that recipe with new owners and a new in-memory
 database; **Recreate** starts fresh owners from the current projection. `ShellEvent.Reset` and
