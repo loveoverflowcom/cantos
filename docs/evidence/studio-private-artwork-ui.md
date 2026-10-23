@@ -2,7 +2,7 @@
 
 Scope: [issue #156](https://github.com/loveoverflowcom/cantos/issues/156), based on develop
 `a079e72`. Owner: Studio Web `live/artwork`; contract:
-[artwork-v1](../../packages/contracts/artwork-v1.md), policy:
+[artwork-v1](../../services/cantos-server/contracts/studio/artwork/v1/README.md), policy:
 [012](../archive/superseded-plans/012-private-work-artwork.md). This adds the private owner UI without a new
 API, migration, public projection, provider, image transformation or publication decision.
 

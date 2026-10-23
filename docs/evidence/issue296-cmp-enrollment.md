@@ -3,7 +3,7 @@
 Implementation and development evidence record, 2026-10-20. This is not registration activation,
 full-stack signup acceptance, native device acceptance or acceptance of proposed ADR 0044.
 Base: `develop@23ac242147f6e5e66bcacf48aa64d36ce92e14af`; this record travels with the implementation PR and its source diff.
-The [contract](../../packages/contracts/theatre-identity-v1.md#native-cmp-admission-296-development-opt-in),
+The [contract](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/packages/contracts/theatre-identity-v1.md#native-cmp-admission-296-development-opt-in),
 [ADR 0044](../decisions/0044-native-enrollment-preview.md) and
 [preview runbook](../../apps/cantos-theatre/mobile/README.md#live-enrollment-integration-296)
 own behavior, decision status and reproduction.

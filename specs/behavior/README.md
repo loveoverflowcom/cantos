@@ -17,9 +17,22 @@ A **draft, model-only** producer-side capability, `cantos.production.forge-attem
 may start and what an uncertain outcome permits. It has no Rust observer; native mirror tests
 carry each named run's ID and `tests/behavior_binding.rs` keeps the lists equal.
 
-Two further **draft, model-only** capabilities describe proposed public media rules:
-`cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md))
-and `cantos.media.public-cover-projection` ([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)).
+Two **draft** native Identity v1 capabilities (#334/#335,
+[ADR 0045](../../docs/decisions/0045-v1-email-password-sign-in.md)) describe mailbox-proof
+consumption, `cantos.identity.native-mailbox-proof`, and fact-to-session issue plus per-admission
+security-state rechecks, `cantos.identity.native-session-admission`. Each registers a test-only
+**pure-core observer** (#106): `--conformance` replays the original-model traces through the real
+`MailboxProof::plan_*` and `validate_fact`/`SecurityState::from_response`/`decide_issue`/
+`decide_admission` seams with a small, disclosed synthetic shell. This is pure-core conformance,
+not DB/RPC/E2E acceptance; read the [native protocol](observation-protocol.md#native-identity-auth-observation-protocol-v1).
+Their [inventory rows](inventory.md#draft-cantosidentitynative-mailbox-proof-334335-v1-signup)
+report two contract/implementation mismatches and a needs-decision case that no property constrains, and map
+the unchanged legacy `cantos.identity.bearer-lifecycle` scope.
+
+Two further **draft, model-only** capabilities describe public media rules:
+`cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md),
+accepted for step-1 origin integration only) and `cantos.media.public-cover-projection`
+([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md), proposed).
 Neither has a registered Rust observer, so `--conformance` does not apply to them; their
 [inventory rows](inventory.md) separate implemented kernels from model assumptions.
 
@@ -34,6 +47,10 @@ cargo xtask verify behavior
 cargo xtask verify behavior --capability cantos.media.private-audio-admission
 # Add real pure-core observations, semantic sensitivity and fresh implementation inputs.
 cargo xtask verify behavior --conformance --capability cantos.media.private-audio-admission
+cargo xtask verify behavior --conformance --capability cantos.identity.native-mailbox-proof
+cargo xtask verify behavior --conformance --capability cantos.identity.native-session-admission
+# Without --capability every model runs; only catalog-registered observers are replayed.
+cargo xtask verify behavior --conformance
 ```
 
 Each executable capability runs type/effect checks, all selected named runs, the fixed
@@ -48,7 +65,11 @@ The official Quint CLI is used unchanged. The runner only validates selected dec
 output contracts and the raw ITF envelope/hashes. It does not parse a new model language,
 evaluate actions or reproduce expected state transitions in Python/Rust. With `--conformance`,
 the [registered codec](../../scripts/verify_behavior_conformance.py) decodes existing ITF outputs
-and compares an [event-only Rust observer](../../services/cantos-api/src/contexts/media/quint_conformance_tests.rs).
+and compares an [event-only Rust observer](../../services/cantos-server/src/contexts/media/quint_conformance_tests.rs).
+The native Identity capabilities use a [declared codec](../../scripts/verify_behavior_conformance_native.py) and their own test-only
+observers ([mailbox](../../services/cantos-identity/src/quint_conformance_tests.rs),
+[session decisions](../../services/cantos-server/src/platform/identity_auth/decision/quint_conformance_tests.rs)).
+The dispatcher's finite allowlist (`adapters()`) fails closed for any capability the catalog and an adapter do not both register.
 The existing POSIX bounded process primitive owns timeout/output/group cleanup. Current
 execution requires POSIX with waitid/WNOWAIT; another host is UNSUPPORTED at tool probing.
 The behavior gate is opt-in outside full preflight/CI. Non-document changes under

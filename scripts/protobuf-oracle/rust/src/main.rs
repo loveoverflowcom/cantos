@@ -18,14 +18,22 @@ fn check<M: Message + Default + PartialEq + std::fmt::Debug>(message: M, expecte
 }
 fn main() {
     let generated = include_str!(concat!(env!("OUT_DIR"), "/cantos.studio.wire.v1.rs"));
-    let reviewed = include_str!("../../../../packages/contracts/api/src/protobuf/generated.rs");
-    assert_eq!(
-        generated, reviewed,
-        "generated prost wire drift: regenerate from reviewed schema, never edit generated types"
-    );
+    // Each consumer checks in its own binding of the Server-owned proto.
+    for reviewed in [
+        include_str!(
+            "../../../../services/cantos-server/src/contract/studio/protobuf/generated.rs"
+        ),
+        include_str!("../../../../apps/cantos-studio/web/src/contract/protobuf/generated.rs"),
+    ] {
+        assert_eq!(
+            generated, reviewed,
+            "generated prost wire drift: regenerate from reviewed schema, never edit generated types"
+        );
+    }
     let artwork_generated = include_str!(concat!(env!("OUT_DIR"), "/cantos.studio.artwork.v1.rs"));
-    let artwork_reviewed =
-        include_str!("../../../../packages/contracts/api/src/protobuf/generated_artwork.rs");
+    let artwork_reviewed = include_str!(
+        "../../../../services/cantos-server/src/contract/studio/protobuf/generated_artwork.rs"
+    );
     assert_eq!(
         artwork_generated, artwork_reviewed,
         "generated artwork prost wire drift"
@@ -91,8 +99,9 @@ fn main() {
         .nth(2)
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| {
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../../packages/contracts/fixtures/artwork/v1/goldens.json")
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../../services/cantos-server/contracts/studio/artwork/v1/fixtures/goldens.json",
+            )
         });
     let artwork_corpus: Value =
         serde_json::from_slice(&std::fs::read(artwork_path).unwrap()).unwrap();
@@ -149,7 +158,7 @@ fn main() {
         }
     }
     println!(
-        "PASS prost 0.13.5 schema oracle: {} pilot + {} artwork vectors",
+        "PASS prost 0.14.4 schema oracle: {} pilot + {} artwork vectors",
         cases.len(),
         artwork_cases.len()
     );

@@ -11,9 +11,29 @@ The product owner is [`apps/cantos-studio/web/README.md`](../../../../apps/canto
 dependency rule itself is the foundation's [`decoupling.md`](../../cantos-engineering/references/decoupling.md);
 this reference applies it to the browser. Two Leptos packages exist, one per product:
 [`apps/cantos-studio/web`](../../../../apps/cantos-studio/web/README.md) (implemented) and
-[`apps/cantos-theatre/web`](../../../../apps/cantos-theatre/web/README.md) (a skeleton with no listener behavior).
+[`apps/cantos-theatre/web`](../../../../apps/cantos-theatre/web/README.md) (discovery, account/Library and an isolated listening mock).
+Use the [implementation map](../../../../docs/architecture/repository-layout.md#platform-scope)
+and shared [`cantos-ui`](../../../../packages/ui-system/leptos/README.md)/
+[`cantos-web-auth`](../../../../packages/web-auth/README.md) owners rather than a fixed module snapshot.
 Every path, crate and type below that the repository does not contain is a **proposal** until a Web
 work item creates it.
+
+## Web authentication migration
+
+The [v1 amendment](../../../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
+owns selected login factors and Web/native transport; the
+[shared Web auth owner](../../../../packages/web-auth/README.md) implements the **cookie** client
+(email/password, HttpOnly cookie, session fence, idle renewal). The Server's
+[Identity auth v1](../../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) endpoints issue the cookies;
+browser and real Server/Identity acceptance remain pending.
+
+When changing it, trace session issuance/restore/revoke and every fetch, XHR, private-byte and
+resource adapter. Review credential inclusion, HttpOnly/Secure cookie scope, exact-origin
+CORS/CSRF, expiry and server-confirmed reload restore together. Preserve one owner per surface,
+account/family/intent fences and unknown-write reconciliation; never add a cookie/Bearer fallback
+or authenticate from local storage. Exercise missing/stale/ambiguous cookies, cross-surface/origin
+refusals, late account-switch responses and actual browser restore. Source tests are not proof
+that the real cookie path works in a browser.
 
 ## 1. Two surfaces, two permission contexts
 
@@ -43,8 +63,8 @@ port (trait)         capability the screen needs, provided through Leptos contex
     ↓
 HTTP adapter         URLs, contract DTOs, representation (wire codec), status → typed PortError
     ↓
-contract types       cantos-contracts raw DTOs shared with the server and checked against the
-                     packages/contracts fixtures; never hand-copied into the client
+contract types       the app's own raw DTOs (src/contract) checked against the Server-owned
+                     fixtures; never imported from the Server crate (ADR 0046)
 ```
 
 | Layer | Owns | Must not own |
@@ -85,6 +105,121 @@ let dto: ScriptDto = response.json().await?;
 The test for the layering is mechanical: a component test can mount the screen with an in-memory
 port and no network. If it cannot, a transport concern has leaked upward.
 
+### Reactive state ownership and publication
+
+These rules apply to the Leptos renderer only; CMP keeps its own Kotlin state owners and never
+adopts Rust types or Leptos primitives. API facts below were checked against the pinned
+`leptos 0.7.8` / `reactive_graph 0.1.8` / `tachys 0.1.9` sources in `Cargo.lock`; recheck them
+after any upgrade. The transition contract itself belongs to the foundation's
+[transition semantics](../../cantos-engineering/references/functional-core.md#transition-semantics)
+and [closed mutation boundary](../../cantos-engineering/references/functional-core.md#close-the-mutation-boundary).
+
+**Read-only presentation (MUST).** A component that only reads domain state receives a
+`ReadSignal` (`RwSignal::read_only()`), a `Memo`, a read-only `Signal`, or an immutable UI
+projection, plus `Callback`s or typed intents for what it may request. Do not pass the
+`RwSignal` of a whole account/editor aggregate to a reader. Projections need not be `Copy`:
+scalars and control projections usually are; text-bearing projections can be `Clone + PartialEq`.
+Local input, menu and theme state may use ordinary signals owned where they are used.
+
+- Counterexample at `d02b2dc8`: [`features/account.rs`](../../../../apps/cantos-theatre/web/src/features/account.rs)
+  takes `RwSignal<AccountViewState>` and renders `state.get().phase()` and
+  `state.get().can_authenticate()`, cloning the whole account aggregate (Library projection and
+  sync coordinator included) to read one enum.
+- Patterns to reuse: `sync_admission` in [`view/live_shell.rs`](../../../../apps/cantos-theatre/web/src/view/live_shell.rs)
+  memoizes `state.with(AccountViewState::fence)` so unchanged writes cannot reschedule its
+  effect; [`features/public_work.rs`](../../../../apps/cantos-theatre/web/src/features/public_work.rs)
+  derives `Memo::new(move |_| state.with(shape))` once for the page.
+
+**Reading an aggregate (MUST).** Never `get()` or `get_untracked()` a large aggregate to read a
+field. Use tracked `.with(|s| …)` while rendering, `with_untracked` for a deliberate event-time
+snapshot, and a `Memo`/selector when several consumers share a derivation or downstream work
+must stop when the result is equal.
+
+- `.with()` avoids the clone but still subscribes to the whole signal; it does not create
+  field-level reactivity.
+- A `Memo` recomputes on every upstream notification and suppresses only equal *outputs*
+  (`PartialEq`); it makes downstream work conditional, not upstream updates free.
+- Do not switch a rendered read to untracked to hide reruns; the view can go stale.
+- Do not hold a borrow or guard across `.await`, or write the same signal inside its own read.
+
+**No-op suppression happens before notification (MUST).** In the pinned version `set`, `update`
+and `try_update` always notify (`try_update` is `try_maybe_update(|v| (true, f(v)))`);
+`maybe_update`/`try_maybe_update` notify only when the closure returns `true`;
+`update_untracked`/`try_update_untracked` never notify. A rejected or unchanged transition MUST
+NOT notify the aggregate's subscribers, so derive the notify flag from the transition outcome:
+
+```rust
+// Illustrative over the pinned API; `decide`, `Transition` and `StateChange` are the owner's
+// pure contract (see the foundation link above), not existing Cantos types.
+let outcome = state.try_maybe_update(|current| match decide(current, command, &facts) {
+    Ok(Transition { change: StateChange::Replace(next), effects }) => {
+        *current = next;
+        (true, Ok(effects))
+    }
+    Ok(Transition { change: StateChange::Unchanged, effects }) => (false, Ok(effects)),
+    Err(refusal) => (false, Err(refusal)),
+});
+// The write guard is dropped here. Interpret Ok(effects) even when nothing was published.
+```
+
+- Never return `false` after mutating: subscribers keep showing the old value. Never use an
+  untracked write as an "optimization" for a change the UI must reflect.
+- Discovering a no-op inside `update`/`try_update` is too late: the notification already happens.
+- An effects-only transition is still interpreted although no state was published.
+- A UI error projection that really changed (a visible failure banner) is a state change and
+  notifies; "on `Err` publish nothing" applies to a refused command, not to an absorbed event.
+- Counterexample at `d02b2dc8`: [`live/runtime.rs`](../../../../apps/cantos-theatre/web/src/live/runtime.rs)
+  `persist_sync_journal` ends with `state.try_update(|s| s.record_storage(&fence, result))`,
+  which notifies every `AccountViewState` subscriber even when the fence is stale or the stored
+  fault is unchanged; most `try_update` calls in that file share the shape.
+
+**Split signals keep one authoritative owner (MUST).** If an aggregate is split into several
+signals for granularity, one owner still performs each transition and writes all affected
+signals; do not chain `Effect`s that copy state from one signal to another. Logout and account
+switch publish the private purge with the phase change, so no observable moment shows a new
+account with old Library rows, and fenced late completions are ignored rather than written.
+
+### Dynamic lists and keyed rows
+
+For a list with insert, remove or reorder, or with row-local state (focus, an open menu, an
+input, an in-flight action), MUST use keyed `<For>` with a stable domain identity as the key,
+never an index or a per-render random value. In the pinned `tachys` keyed diff, only the key
+set is compared: a row whose key survives keeps its existing view and `children` is not called
+again. Therefore:
+
+- separate membership/order (`each` yields IDs or `(id, …)` identities) from row content;
+- each row reads a reactive projection of its own entity by ID, never only the snapshot it was
+  created from, or an updated entity with the same ID stays stale;
+- a row whose entity was removed between notifications renders nothing or a removed state; its
+  lookup returns `Option` and never panics;
+- do not put mutable content (availability, progress, title) in the key unless remounting the
+  row is the intended behavior, because a key change destroys DOM identity, focus and IME
+  composition;
+- preserve DOM identity, focus, selection and Vietnamese IME composition across sibling updates.
+
+`Memo<Vec<RowId>>` is one way to publish membership. The pinned `For` requires
+`each: Fn() -> I` with `I: IntoIterator + Send + 'static`; an `Arc<[RowId]>` is not an owned
+iterator, so `each` still has to produce one (for example a collected `Vec`) and saves no
+allocation by itself. `.map(…).collect_view()` remains fine for a small static list with no
+identity requirement.
+
+- Pattern to reuse: Studio [`authoring_view.rs`](../../../../apps/cantos-studio/web/src/authoring_view.rs)
+  keys acts and scenes by ID and reads titles by ID inside each row.
+- Counterexample at `d02b2dc8`: Theatre `LiveSection` in
+  [`features/library/live.rs`](../../../../apps/cantos-theatre/web/src/features/library/live.rs)
+  rebuilds every row and its action buttons inside one `state.with(…)` closure on any account
+  notification, so focus on a row control cannot survive an unrelated progress or sync write.
+- Review question: [`features/public_work.rs`](../../../../apps/cantos-theatre/web/src/features/public_work.rs)
+  keys units by `(unit_id, publication_id, unavailable)` and passes the row snapshot to
+  `children`; an availability change remounts the row by design or by accident, and other row
+  fields do not update under an unchanged key.
+
+Cost is a separate claim; see [performance: keyed rows](performance-and-caching.md#keyed-rows-are-not-automatically-o1).
+Granularity beyond this (normalized entity state with indexed lookup, scoped per-entity signals,
+or a field-tracking reactive store) needs a compatibility check against the pinned version, a
+concrete consumer and a recorded decision; `reactive_stores` is only a transitive dependency
+today and is not adopted by this guidance.
+
 ## 3. Which decisions the browser may make
 
 The browser gives fast feedback; the backend decides. Mirror a rule in WASM only when the *same*
@@ -111,8 +246,8 @@ browser. It must not pull in `tokio`, SQL clients, Axum, provider SDKs or object
 
 | Rule | Oracle | Status |
 |---|---|---|
-| Web depends on pure core crates and `cantos-contracts` only, never on backend application or infrastructure crates | manifest review; `cargo tree --target wasm32-unknown-unknown -e normal` shows no server-only crate (proposed check) | manual until a dependency check exists |
-| DTOs live in the adapter and map to view-model types | host tests decode the shared `packages/contracts/` fixtures (Studio `wire.rs`, adaptation tests) | partial; see [`packages/contracts/README.md`](../../../../packages/contracts/README.md) |
+| Web depends on pure core crates and its own `contract` module only, never on a service crate | manifest review; `cargo tree --target wasm32-unknown-unknown -e normal` shows no server-only crate (proposed check) | manual until a dependency check exists |
+| DTOs live in the adapter and map to view-model types | host tests decode the Server-owned fixtures (`contract::conformance_tests`, Studio `wire.rs`, adaptation tests) | partial; see [`services/cantos-server/contracts/README.md`](../../../../services/cantos-server/contracts/README.md) |
 | A new crate needs a consumer and a reason to change of its own | review against [decision 0001](../../../../docs/decisions/0001-modular-monolith.md) | always |
 
 Shared DTOs follow the foundation's [`http-api-boundary.md`](../../cantos-engineering/references/http-api-boundary.md);
@@ -164,29 +299,13 @@ above the inspector, timeline and narrow-screen panes ([`script-editor.md`](scri
 
 ## 7. Feature-first module organization
 
-```text
-apps/cantos-studio/web/           implemented as flat modules (adaptation, authoring, editor, import,
-                                  inspector, production, view); this tree is the proposed direction
-  src/
-    app.rs                        router, surface root, context providers, theme/lang attributes
-    script_editor/                page, rows, status region, resources, styles (.scss beside .rs)
-    import/                       upload, source preview, adaptation review
-    casting/                      character ↔ voice profile, sample preview
-    production/                   run status, job progress, regeneration scope, QC findings
-    publication/                  approval and publish controls (render server gates)
-apps/cantos-theatre/web/                  skeleton today (lib, main, one placeholder view); proposed for the first item
-  src/
-    app.rs                        router, surface root, context providers, theme/lang attributes
-    discovery/  work/  episode/  library/
-    player/                       session, mini_player, full_player, media_host
-packages/                         code both apps really use; nothing Web-side is shared yet
-```
-
-Each package also gets `platform/` (web-sys helpers: media, storage, clipboard, dialog, visibility),
-`adapters/` (HTTP adapters per port over `cantos-contracts`) and
-`i18n/` (locale resources and message keys) when it needs them. `ui/` primitives (button, chip,
-dialog, field) move to `packages/` only once both apps have a real consumer; until then each app
-owns its own. Studio and Theatre never share a route tree, session context or permission context.
+Inspect [Studio](../../../../apps/cantos-studio/web/README.md),
+[Theatre](../../../../apps/cantos-theatre/web/README.md) and the
+[implementation map](../../../../docs/architecture/repository-layout.md#map) before adding a module.
+Both apps already consume shared UI and auth packages. Reuse those public APIs; keep app
+routes, feature ports, copy and permission contexts with their current owner. Add a platform
+helper or feature folder only for an actual consumer, not to realize an illustrative tree.
+Shared code never means a shared route tree, session authority or permission context.
 
 Never create `components/`, `hooks/`, `utils/`, `helpers/` or `common/` buckets; they collect
 unrelated reasons to change. A feature folder owns its page, its resources, its styles and its
@@ -204,8 +323,8 @@ job tracking) a pure reducer in a core crate and a thin Leptos layer over it.
 
 ## 9. CSR today; SSR needs a decision
 
-Both packages are client-side rendered and built with Trunk: Studio is implemented, Theatre is a
-skeleton. Moving any surface to server rendering (for example Theatre discovery) needs a decision
+Both implemented Web packages are client-side rendered and built with Trunk.
+Moving any surface to server rendering (for example Theatre discovery) needs a decision
 recorded with [`templates/adr.md`](../../../../templates/adr.md) first; do not add `cargo-leptos`
 or server functions without it.
 

@@ -4,9 +4,11 @@ Only what several consumers really use. A package imports neither `apps/` nor `s
 
 | Package | Contents | Consumers |
 | --- | --- | --- |
-| [`contracts`](contracts/README.md) | Script IR, Studio, import, adaptation and production schemas, fixtures, contract documents, and the `cantos-contracts` Rust wire DTO crate | `services/cantos-api`, `apps/cantos-studio/web` |
-| [`web-auth`](web-auth/README.md) | RAM Bearer lifecycle, single-flight refresh and browser PKCE/popup adapter | Theatre Web and Studio Web |
+| [`web-auth`](web-auth/README.md) | Identity v1 cookie-session lifecycle, single-flight idle renewal, its own session wire shapes and browser API addressing | Theatre Web and Studio Web |
+| [`store-turso`](store-turso/README.md) | Single-owner embedded Turso foundation: owner lock, checksummed schema registry, serialized `BEGIN IMMEDIATE` writer, typed commit outcomes, verified backup and an engine capability report | [`services/cantos-identity` opt-in persistence](../services/cantos-identity/README.md#file-backed-security-state) (`identity.db`, #334); composed Server [foundation](../docs/architecture/server-turso-schema.md) (`server.db` actor/session foundation, business port incomplete; #333) |
 | [`ui-system`](ui-system/README.md) | Canonical semantic tokens, licensed outlined icons and separate renderer ownership | Studio theme/CSS and a bounded Leptos foundation preview; CMP deferred |
 
 Add a package when a second concrete consumer exists and a review accepts its interface; not
-before. See the [repository layout](../docs/architecture/repository-layout.md).
+before. Contracts are not packages: each service owns its canonical schemas, protos and fixtures
+([Server](../services/cantos-server/contracts/README.md), [Identity](../services/cantos-identity/contracts/README.md))
+and each consumer keeps its own representation ([ADR 0046](../docs/decisions/0046-service-owned-contracts.md)). See the [repository layout](../docs/architecture/repository-layout.md).

@@ -10,13 +10,11 @@ sealed interface NativeCredentialRecord {
     class Refreshing(val grant: NativeGrant) : NativeCredentialRecord {
         override fun toString(): String = "NativeCredentialRecord.Refreshing([redacted])"
     }
-    class Flow(val flow: String, val state: String, val verifier: String) : NativeCredentialRecord {
-        override fun toString(): String = "NativeCredentialRecord.Flow([redacted])"
-    }
-    /** Unbound old token: discard locally; never send it to a possibly changed API origin. */
-    class Legacy(val accessToken: String) : NativeCredentialRecord {
-        override fun toString(): String = "NativeCredentialRecord.Legacy([redacted])"
-    }
+    /**
+     * A recognized record of a retired protocol (an unbound opaque token or a provider journal at this
+     * origin): discard locally and require login. Never sent to the API and never read as a credential.
+     */
+    data object Retired : NativeCredentialRecord
     /** Revocation completed; a crash before clearing the logout barrier can finish locally. */
     data object Cleared : NativeCredentialRecord
 }

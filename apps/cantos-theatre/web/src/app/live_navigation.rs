@@ -11,18 +11,8 @@ use crate::{
 };
 use leptos::prelude::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum PendingAuthRequest {
-    Outbound(AuthRequestFence),
-    ConfirmingReturn(AuthRequestFence),
-}
-
-impl PendingAuthRequest {
-    fn fence(self) -> AuthRequestFence {
-        match self {
-            Self::Outbound(fence) | Self::ConfirmingReturn(fence) => fence,
-        }
-    }
+fn observed_session_phase(state: ReadSignal<AccountViewState>) -> Memo<SessionPhase> {
+    Memo::new(move |_| state.with(AccountViewState::phase))
 }
 
 #[derive(Clone, Copy)]
@@ -33,7 +23,7 @@ pub(crate) struct LiveNavigation {
     pub query: RwSignal<DiscoveryQuery>,
     preview: bool,
     intents: RwSignal<AuthIntentState>,
-    pending: RwSignal<Option<PendingAuthRequest>>,
+    pending: RwSignal<Option<AuthRequestFence>>,
     returned: StoredValue<Option<(Route, browser::ReturnSnapshot)>>,
     /// Home position and card that opened a public Work, restored when that detail returns.
     work_return: StoredValue<Option<(PublicWorkId, browser::ReturnSnapshot)>>,
@@ -46,32 +36,12 @@ impl LiveNavigation {
         preview: bool,
     ) -> Self {
         let hash = browser::hash();
-        let callback_kind = hash.split('?').next().unwrap_or_default();
-        let callback = matches!(callback_kind, "#auth-return" | "#auth-cancelled");
-        let restored = if callback {
-            browser::take_provider_return(&hash)
-        } else {
-            browser::clear_provider_return();
-            None
-        };
-        let initial = if callback {
-            restored.map(Route::Auth).unwrap_or(Route::Discover)
-        } else {
-            Route::from_live_hash(&hash)
-        };
+        let initial = Route::from_live_hash(&hash);
         let auth = match initial {
             Route::Auth(auth) => Some(auth),
             _ => None,
         };
-        let mut intents = AuthIntentState::new(auth);
-        let pending = if callback_kind == "#auth-return" && restored.is_some() {
-            intents
-                .begin()
-                .ok()
-                .map(PendingAuthRequest::ConfirmingReturn)
-        } else {
-            None
-        };
+        let intents = AuthIntentState::new(auth);
         let navigation = Self {
             route: RwSignal::new(initial),
             query: RwSignal::new(match initial {
@@ -80,17 +50,10 @@ impl LiveNavigation {
             }),
             preview,
             intents: RwSignal::new(intents),
-            pending: RwSignal::new(pending),
-            returned: StoredValue::new(if restored.is_some() {
-                browser::take_return_snapshot()
-            } else {
-                None
-            }),
+            pending: RwSignal::new(None),
+            returned: StoredValue::new(None),
             work_return: StoredValue::new(None),
         };
-        if callback {
-            browser::go(navigation.route, initial, true);
-        }
         let previous = StoredValue::new(initial);
         Effect::new(move |_| {
             let current = navigation.route.get();
@@ -104,7 +67,6 @@ impl LiveNavigation {
                     });
                 });
                 navigation.pending.set(None);
-                browser::clear_provider_return();
                 if matches!(old, Route::Auth(_)) && !matches!(current, Route::Auth(_)) {
                     if let Some((destination, snapshot)) = navigation
                         .returned
@@ -149,8 +111,9 @@ impl LiveNavigation {
                 }
             }
         });
+        let phase = observed_session_phase(state.read_only());
         Effect::new(move |_| {
-            navigation.observe_session(state.get().phase());
+            navigation.observe_session(phase.get());
         });
         #[cfg(target_arch = "wasm32")]
         {
@@ -202,15 +165,13 @@ impl LiveNavigation {
 
     fn observe_session(self, phase: SessionPhase) {
         if phase == SessionPhase::SignedIn {
-            if let Some(request) = self.pending.get_untracked() {
-                let fence = request.fence();
+            if let Some(fence) = self.pending.get_untracked() {
                 let mut accepted = false;
                 self.intents.update(|s| {
                     accepted =
                         self.route.get_untracked() == Route::Auth(fence.route()) && s.finish(fence)
                 });
                 self.pending.set(None);
-                browser::clear_provider_return();
                 if accepted {
                     browser::go(
                         self.route,
@@ -224,16 +185,24 @@ impl LiveNavigation {
             }
         } else if matches!(phase, SessionPhase::Failed(_))
             || (phase == SessionPhase::Guest
-                && match self.pending.get_untracked() {
-                    Some(PendingAuthRequest::ConfirmingReturn(_)) => true,
-                    Some(PendingAuthRequest::Outbound(_)) => !self.preview,
-                    None => false,
-                })
+                && self.pending.get_untracked().is_some()
+                && !self.preview)
         {
-            // Actual popup attempts enter Checking synchronously; Guest means cleanup finished.
-            // The isolated preview retains its deliberately staged Outbound/Guest scenario.
-            self.cancel();
+            // A sign-in attempt enters Checking synchronously. Guest afterwards means the API
+            // refused it or the attempt was cleaned up: release the intent so the form can be
+            // used again. The isolated preview retains its deliberately staged Outbound/Guest
+            // scenario.
+            self.release();
         }
+    }
+
+    /// The attempt has already ended (refused, failed or cleaned up): free the intent without
+    /// signalling the session owner.
+    fn release(self) {
+        self.intents.update(|s| {
+            let _ = s.invalidate();
+        });
+        self.pending.set(None);
     }
 
     pub fn open_auth(self, auth: AuthRoute) {
@@ -290,11 +259,7 @@ impl LiveNavigation {
         if !self.preview && self.pending.get_untracked().is_some() {
             crate::live::runtime::cancel_login();
         }
-        self.intents.update(|s| {
-            let _ = s.invalidate();
-        });
-        self.pending.set(None);
-        browser::clear_provider_return();
+        self.release();
     }
     pub fn back(self) {
         self.cancel();
@@ -309,12 +274,10 @@ impl LiveNavigation {
         };
         browser::back(self.route, destination);
     }
-    pub fn login(
-        self,
-        state: RwSignal<AccountViewState>,
-        configuration: crate::application::registration::RegistrationState,
-    ) {
-        if !state.get_untracked().can_login(configuration) {
+    /// Start one email/password attempt on the open login route. The credentials are moved to
+    /// the account owner's typed intent and are never kept here.
+    pub fn login(self, state: RwSignal<AccountViewState>, email: String, password: String) {
+        if !state.with_untracked(AccountViewState::can_login) {
             return;
         }
         let Route::Auth(auth) = self.route.get_untracked() else {
@@ -328,13 +291,14 @@ impl LiveNavigation {
         let Some(fence) = fence else {
             return;
         };
+        self.pending.set(Some(fence));
         if self.preview {
-            self.pending.set(Some(PendingAuthRequest::Outbound(fence)));
             return;
         }
-        self.pending.set(Some(PendingAuthRequest::Outbound(fence)));
         #[cfg(target_arch = "wasm32")]
-        crate::live::runtime::login(state, configuration);
+        crate::live::runtime::login(state, email, password);
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = (email, password);
     }
     pub fn logout(self, state: RwSignal<AccountViewState>) {
         self.cancel();
@@ -367,58 +331,117 @@ mod tests {
     use super::*;
     use crate::application::{
         account::AccountScope,
-        account_view::{AccountFailure, SessionCompletion},
+        account_view::{AccountFailure, LoginRefusal, SessionCompletion},
     };
 
-    fn configured() -> crate::application::registration::RegistrationState {
-        let mut state = crate::application::registration::RegistrationState::default();
-        let issued = state.begin().unwrap();
-        state.finish(issued, Ok(cantos_contracts::theatre_identity::Configuration {
-            login: cantos_contracts::theatre_identity::LoginMethod::Oidc,
-            registration: cantos_contracts::theatre_identity::Registration::Unavailable { reason: cantos_contracts::theatre_identity::RegistrationUnavailableReason::RegistrationUnconfigured },
-        }));
-        state
-    }
     #[test]
-    fn unconfirmed_or_unconfigured_login_never_reserves_an_auth_intent() {
+    fn observed_session_phase_preserves_transition_sequence_without_unrelated_notifications() {
+        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
+        use std::sync::{Arc, Mutex};
         Owner::new().with(|| {
             let state = RwSignal::new(AccountViewState::default());
-            crate::features::auth_preview::guest(state).unwrap();
-            let nav = LiveNavigation::new(state, NodeRef::new(), true);
-            nav.open_auth(AuthRoute::login(ReturnDestination::Home));
-            let mut configuration = crate::application::registration::RegistrationState::default();
-            nav.login(state, configuration);
-            assert!(nav.pending.get_untracked().is_none());
-            let issued = configuration.begin().unwrap();
-            configuration.finish(
-                issued,
-                Ok(cantos_contracts::theatre_identity::Configuration {
-                    login: cantos_contracts::theatre_identity::LoginMethod::Unconfigured,
-                    registration:
-                        cantos_contracts::theatre_identity::Registration::EmailVerification {},
-                }),
+            guest(state).unwrap();
+            let (nav, _) = staged_login();
+            let phase = observed_session_phase(state.read_only());
+            let seen = Arc::new(Mutex::new(Vec::new()));
+            let observations = seen.clone();
+            let observe = Memo::new(move |_| {
+                let phase = phase.get();
+                observations.lock().unwrap().push(phase);
+                nav.observe_session(phase);
+                phase
+            });
+            assert_eq!(observe.get(), SessionPhase::Guest);
+            let issued = state.write().begin_refresh().unwrap();
+            assert_eq!(observe.get(), SessionPhase::Checking);
+            state
+                .write()
+                .finish_session(issued, Err(AccountFailure::Protocol), || {
+                    uuid::Uuid::from_u128(100).to_string()
+                })
+                .unwrap();
+            assert_eq!(
+                observe.get(),
+                SessionPhase::Failed(AccountFailure::Protocol)
             );
-            nav.login(state, configuration);
+            signed_in(state, PreviewActor::A).unwrap();
+            assert_eq!(observe.get(), SessionPhase::SignedIn);
+            let fence = state.with_untracked(AccountViewState::fence).unwrap();
+            for _ in 0..3 {
+                state.update(|s| s.record_storage(&fence, Ok(())));
+                assert_eq!(observe.get(), SessionPhase::SignedIn);
+            }
+            let cleanup = state.write().begin_logout().unwrap();
+            assert_eq!(observe.get(), SessionPhase::LogoutPending);
+            state
+                .write()
+                .finish_logout(cleanup, Err(AccountFailure::Unavailable));
+            assert_eq!(observe.get(), SessionPhase::LogoutPending);
+            let retry = state.write().begin_logout().unwrap();
+            state.write().finish_logout(retry, Ok(()));
+            assert_eq!(observe.get(), SessionPhase::Guest);
+            assert_eq!(
+                *seen.lock().unwrap(),
+                vec![
+                    SessionPhase::Guest,
+                    SessionPhase::Checking,
+                    SessionPhase::Failed(AccountFailure::Protocol),
+                    SessionPhase::SignedIn,
+                    SessionPhase::LogoutPending,
+                    SessionPhase::Guest
+                ]
+            );
+        });
+    }
+
+    const EMAIL: &str = "listener@example.invalid";
+    const PASSWORD: &str = "correct horse battery";
+
+    /// A guest on the open login route; the isolated preview never touches the network.
+    fn guest_on_login(preview: bool) -> (LiveNavigation, RwSignal<AccountViewState>) {
+        let state = RwSignal::new(AccountViewState::default());
+        crate::features::auth_preview::guest(state).unwrap();
+        let nav = LiveNavigation::new(state, NodeRef::new(), preview);
+        nav.open_auth(AuthRoute::login(ReturnDestination::Account));
+        (nav, state)
+    }
+    fn login(nav: LiveNavigation, state: RwSignal<AccountViewState>) {
+        nav.login(state, EMAIL.to_owned(), PASSWORD.to_owned());
+    }
+
+    #[test]
+    fn login_needs_a_guest_on_the_login_route_and_keeps_one_intent_per_attempt() {
+        Owner::new().with(|| {
+            // Not a guest (nothing observed yet): no intent.
+            let idle = RwSignal::new(AccountViewState::default());
+            let nav = LiveNavigation::new(idle, NodeRef::new(), true);
+            nav.open_auth(AuthRoute::login(ReturnDestination::Home));
+            login(nav, idle);
             assert!(nav.pending.get_untracked().is_none());
+            // A guest away from the login route: no intent either.
+            let state = RwSignal::new(AccountViewState::default());
+            crate::features::auth_preview::guest(state).unwrap();
+            let home = LiveNavigation::new(state, NodeRef::new(), true);
+            login(home, state);
+            assert!(home.pending.get_untracked().is_none());
+            // A guest on the route reserves exactly one intent; a repeated submit keeps it.
+            let (nav, state) = guest_on_login(true);
+            login(nav, state);
+            let first = nav.pending.get_untracked();
+            assert!(first.is_some());
+            let before = nav.intents.get_untracked();
+            login(nav, state);
+            assert_eq!(nav.pending.get_untracked(), first);
+            assert_eq!(nav.intents.get_untracked(), before);
             assert_eq!(state.get_untracked().phase(), SessionPhase::Guest);
         });
     }
-    fn returned_login() -> (LiveNavigation, AuthRequestFence) {
-        let auth = AuthRoute::login(ReturnDestination::Account);
-        let mut intents = AuthIntentState::new(Some(auth));
-        let fence = intents.begin().unwrap();
-        (
-            LiveNavigation {
-                route: RwSignal::new(Route::Auth(auth)),
-                query: RwSignal::new(DiscoveryQuery::default()),
-                preview: true,
-                intents: RwSignal::new(intents),
-                pending: RwSignal::new(Some(PendingAuthRequest::ConfirmingReturn(fence))),
-                returned: StoredValue::new(None),
-                work_return: StoredValue::new(None),
-            },
-            fence,
-        )
+
+    fn staged_login() -> (LiveNavigation, AuthRequestFence) {
+        let (nav, state) = guest_on_login(true);
+        login(nav, state);
+        let fence = nav.pending.get_untracked().unwrap();
+        (nav, fence)
     }
 
     fn signed_out_cleanup(
@@ -427,7 +450,9 @@ mod tests {
         let mut current = state.write();
         let lookup = current.begin_refresh().unwrap();
         let SessionCompletion::Cleanup(cleanup) = current
-            .finish_session(lookup, Err(AccountFailure::SignedOut))
+            .finish_session(lookup, Err(AccountFailure::SignedOut), || {
+                uuid::Uuid::from_u128(100).to_string()
+            })
             .unwrap()
         else {
             panic!("a missing callback session must require cookie cleanup")
@@ -436,106 +461,101 @@ mod tests {
     }
 
     #[test]
-    fn callback_without_session_releases_its_fence_only_after_cleanup_and_allows_retry() {
+    fn a_refused_attempt_releases_its_fence_and_allows_a_fresh_one() {
         Owner::new().with(|| {
-            let (nav, old) = returned_login();
-            let state = RwSignal::new(AccountViewState::default());
-            let cleanup = signed_out_cleanup(state);
+            let (nav, state) = guest_on_login(false);
+            login(nav, state);
+            let old = nav.pending.get_untracked().unwrap();
+            // The attempt enters Checking synchronously; the API then refuses it outright.
+            let lookup = state.write().begin_refresh().unwrap();
             nav.observe_session(state.get_untracked().phase());
-            assert!(!state.get_untracked().can_authenticate());
-            assert_eq!(
-                nav.pending.get_untracked(),
-                Some(PendingAuthRequest::ConfirmingReturn(old))
-            );
-
-            assert!(!state
+            assert_eq!(nav.pending.get_untracked(), Some(old));
+            state
                 .write()
-                .finish_logout(cleanup, Err(AccountFailure::Unavailable)));
-            nav.observe_session(state.get_untracked().phase());
-            nav.login(state, configured());
-            assert!(!state.get_untracked().can_authenticate());
+                .finish_session(
+                    lookup,
+                    Err(AccountFailure::LoginRefused(LoginRefusal::Credentials)),
+                    || uuid::Uuid::from_u128(100).to_string(),
+                )
+                .unwrap();
+            assert_eq!(state.get_untracked().phase(), SessionPhase::Guest);
             assert_eq!(
-                nav.pending.get_untracked(),
-                Some(PendingAuthRequest::ConfirmingReturn(old))
+                state.get_untracked().login_refusal(),
+                Some(LoginRefusal::Credentials)
             );
-            assert!(nav.intents.get_untracked().accepts(old));
-
-            let retry = state.write().begin_logout().unwrap();
-            assert!(state.write().finish_logout(retry, Ok(())));
             nav.observe_session(state.get_untracked().phase());
-            assert!(state.get_untracked().can_authenticate());
-            assert_eq!(
-                nav.route.get_untracked(),
-                Route::Auth(AuthRoute::login(ReturnDestination::Account))
-            );
             assert_eq!(nav.pending.get_untracked(), None);
             assert!(!nav.intents.get_untracked().accepts(old));
-
-            nav.login(state, configured());
-            let Some(PendingAuthRequest::Outbound(current)) = nav.pending.get_untracked() else {
-                panic!("retry must start a new outbound request")
-            };
+            assert!(matches!(nav.route.get_untracked(), Route::Auth(_)));
+            // The form is usable again and the next attempt has a new fence.
+            assert!(state.get_untracked().can_login());
+            login(nav, state);
+            let current = nav.pending.get_untracked().unwrap();
             assert_ne!(current, old);
-            let before = nav.intents.get_untracked();
-            nav.login(state, configured());
-            assert_eq!(
-                nav.pending.get_untracked(),
-                Some(PendingAuthRequest::Outbound(current))
-            );
-            assert_eq!(nav.intents.get_untracked(), before);
+            assert!(nav.intents.get_untracked().accepts(current));
         });
     }
 
     #[test]
-    fn completed_popup_guest_releases_live_outbound_intent_for_retry() {
+    fn unfinished_cleanup_never_enables_a_new_attempt_until_acknowledged() {
         Owner::new().with(|| {
-            let (mut nav, fence) = returned_login();
+            let (nav, _) = guest_on_login(true);
+            let state = RwSignal::new(AccountViewState::default());
+            let cleanup = signed_out_cleanup(state);
+            login(nav, state);
+            assert_eq!(nav.pending.get_untracked(), None);
+            assert!(!state.get_untracked().can_login());
+            assert!(!state
+                .write()
+                .finish_logout(cleanup, Err(AccountFailure::Unavailable)));
+            login(nav, state);
+            assert_eq!(nav.pending.get_untracked(), None);
+            let retry = state.write().begin_logout().unwrap();
+            assert!(state.write().finish_logout(retry, Ok(())));
+            login(nav, state);
+            assert!(nav.pending.get_untracked().is_some());
+        });
+    }
+
+    #[test]
+    fn a_live_attempt_is_retained_while_checking_and_released_by_failure() {
+        Owner::new().with(|| {
+            let (mut nav, fence) = staged_login();
             nav.preview = false;
-            nav.pending.set(Some(PendingAuthRequest::Outbound(fence)));
-            nav.observe_session(SessionPhase::Guest);
+            for phase in [SessionPhase::Checking, SessionPhase::LogoutPending] {
+                nav.observe_session(phase);
+                assert_eq!(nav.pending.get_untracked(), Some(fence));
+            }
+            nav.observe_session(SessionPhase::Failed(AccountFailure::Unavailable));
             assert_eq!(nav.pending.get_untracked(), None);
             assert!(!nav.intents.get_untracked().accepts(fence));
         });
     }
+
     #[test]
-    fn outbound_login_is_retained_while_guest_and_during_unacknowledged_cleanup() {
+    fn the_isolated_preview_keeps_its_staged_guest_scenario() {
         Owner::new().with(|| {
-            let (nav, _) = returned_login();
-            nav.cancel();
-            let state = RwSignal::new(AccountViewState::default());
-            let cleanup = signed_out_cleanup(state);
-            assert!(state.write().finish_logout(cleanup, Ok(())));
-            nav.login(state, configured());
-            let pending = nav.pending.get_untracked();
-            assert!(matches!(pending, Some(PendingAuthRequest::Outbound(_))));
-            for phase in [
-                SessionPhase::Guest,
-                SessionPhase::Checking,
-                SessionPhase::LogoutPending,
-            ] {
-                nav.observe_session(phase);
-                assert_eq!(nav.pending.get_untracked(), pending);
-            }
-            nav.observe_session(SessionPhase::Failed(AccountFailure::Unavailable));
-            assert_eq!(nav.pending.get_untracked(), None);
+            let (nav, fence) = staged_login();
+            nav.observe_session(SessionPhase::Guest);
+            assert_eq!(nav.pending.get_untracked(), Some(fence));
         });
     }
 
     #[test]
-    fn cancelled_callback_and_stale_session_cannot_complete_a_repeated_login() {
+    fn cancelled_attempt_and_stale_session_cannot_complete_a_repeated_login() {
         Owner::new().with(|| {
-            let (nav, old_auth) = returned_login();
+            let (nav, old_auth) = staged_login();
             let state = RwSignal::new(AccountViewState::default());
             let old_lookup = state.write().begin_refresh().unwrap();
             nav.cancel();
+            assert!(!nav.intents.get_untracked().accepts(old_auth));
             let cleanup = state.write().begin_logout().unwrap();
             assert!(state.write().finish_logout(cleanup, Ok(())));
-            nav.login(state, configured());
+            login(nav, state);
             let pending = nav.pending.get_untracked();
-            assert!(matches!(pending, Some(PendingAuthRequest::Outbound(_))));
-            nav.login(state, configured());
+            assert!(pending.is_some());
+            login(nav, state);
             assert_eq!(nav.pending.get_untracked(), pending);
-            assert!(!nav.intents.get_untracked().accepts(old_auth));
 
             let scope = AccountScope::from_session(
                 "listener-a".into(),
@@ -543,7 +563,10 @@ mod tests {
             )
             .unwrap();
             assert_eq!(
-                state.write().finish_session(old_lookup, Ok(scope.clone())),
+                state
+                    .write()
+                    .finish_session(old_lookup, Ok(scope.clone()), || uuid::Uuid::from_u128(100)
+                        .to_string()),
                 Ok(SessionCompletion::Ignored)
             );
             nav.observe_session(state.get_untracked().phase());
@@ -552,11 +575,15 @@ mod tests {
 
             let current_lookup = state.write().begin_refresh().unwrap();
             assert!(matches!(
-                state.write().finish_session(current_lookup, Ok(scope)),
+                state
+                    .write()
+                    .finish_session(current_lookup, Ok(scope), || uuid::Uuid::from_u128(100)
+                        .to_string()),
                 Ok(SessionCompletion::Authenticated(_))
             ));
             nav.observe_session(state.get_untracked().phase());
-            assert_eq!(nav.route.get_untracked(), Route::Account);
+            // The listener opened sign-in from Discover and returns there.
+            assert_eq!(nav.route.get_untracked(), Route::Discover);
             assert_eq!(nav.pending.get_untracked(), None);
         });
     }
@@ -580,7 +607,7 @@ mod tests {
 
             // Guest presses Save -> open_auth(login) -> completes login -> returns to PublicWork(work).
             nav.open_auth(AuthRoute::login(nav.origin()));
-            nav.login(state, configured());
+            login(nav, state);
             let lookup = state.write().begin_refresh().unwrap();
             let scope = AccountScope::from_session(
                 "listener-a".into(),
@@ -588,7 +615,9 @@ mod tests {
             )
             .unwrap();
             assert!(matches!(
-                state.write().finish_session(lookup, Ok(scope)),
+                state
+                    .write()
+                    .finish_session(lookup, Ok(scope), || uuid::Uuid::from_u128(100).to_string()),
                 Ok(SessionCompletion::Authenticated(_))
             ));
             nav.observe_session(state.get_untracked().phase());

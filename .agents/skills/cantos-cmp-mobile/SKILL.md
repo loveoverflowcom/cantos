@@ -4,8 +4,8 @@ description: >-
   Builds and reviews the Cantos Theatre Kotlin Compose Multiplatform app for Android and iOS:
   feature-first CMP packages, one process-wide media session behind platform-native playback
   adapters, validated domain types, sealed ADTs, pure reducers, explicit effects, structured
-  concurrency and reproducible verification. Guides future downloads/outbox and native acceptance
-  beyond the implemented memory-only mock. Use for CMP, Compose, Kotlin, apps/cantos-theatre/mobile, mini or full player, background
+  concurrency and reproducible verification. Covers Library/outbox, future downloads and native acceptance
+  across implemented native owners and the isolated JVM preview. Use for CMP, Compose, Kotlin, apps/cantos-theatre/mobile, mini or full player, background
   audio, lock-screen or notification controls, audio focus, interruptions, sleep timer,
   downloads, offline listening, TalkBack/VoiceOver, Android/iOS lifecycle work, emulator-free
   Compose preview capture, Android CLI render-compose-preview or PNG/semantics inspection.
@@ -38,11 +38,11 @@ and never infer client/device acceptance from model simulation.
 - `apps/cantos-theatre/mobile/` separates production-safe UI/domain/application code and ports
   in `:shared` from mock adapters, fixtures, previews and diagnostic composition in the KMP
   JVM-only `:preview-sandbox` module. Only the Desktop Preview selects the sandbox; Android/iOS have no mock host.
-  Shared composition has no implicit mock fallback. The pure playback reducer, independent
-  controllers and narrow ports are real code. The preview mounts the shared shell and real
-  in-memory SQLite Library store with mock external ports; it establishes no native playback or
-  process-death persistence acceptance. The [mobile guide](../../../apps/cantos-theatre/mobile/README.md)
-  owns native implementation/acceptance status. The aggregate `--mobile` command remains `UNSUPPORTED`.
+  Shared composition has no implicit mock fallback. The [implementation map](../../../docs/architecture/repository-layout.md#platform-scope)
+  and [mobile guide](../../../apps/cantos-theatre/mobile/README.md) own production catalog,
+  native account/player and durable SQLDelight Library scope. The JVM preview uses the real
+  Library store in memory and mocked external ports; it accepts no device/process-death behavior.
+  The aggregate `--mobile` command remains `UNSUPPORTED`.
   The sole mobile product is Theatre; Studio is Web-only under the
   [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
   Shared libraries may serve Theatre Mobile and Studio Web.
@@ -99,6 +99,7 @@ APK/AAB exclusion are re-proved by `theatre-host android-release`, not by any de
 | The task | Use |
 |---|---|
 | CMP screen, Kotlin state holder, playback, downloads, progress outbox, native adapter, CMP theme | this skill + its owners above |
+| Native login/restore, opaque Bearer coordinator, secure storage, Web email verification and return | [native auth owner](../../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) + foundation [identity/session method](../cantos-engineering/references/identity-and-session-boundaries.md), starting with its v1 amendment; reuse the existing session engine and preserve account/late-result fences |
 | Theatre Web or Studio (Leptos), CSS, browser media | [`cantos-leptos-web`](../cantos-leptos-web/SKILL.md) |
 | listener endpoint, progress reconciliation rule, entitlement policy on the server | [`cantos-listening`](../cantos-listening/SKILL.md) + foundation |
 | offline redistribution rights, release manifests, delivery URLs | [`cantos-publication`](../cantos-publication/SKILL.md) |

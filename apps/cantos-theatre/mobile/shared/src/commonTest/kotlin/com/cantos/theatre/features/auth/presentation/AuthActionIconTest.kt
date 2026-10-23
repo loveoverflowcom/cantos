@@ -9,7 +9,7 @@ class AuthActionIconTest {
     @Test
     fun action_icons_describe_intents_without_claiming_verified_or_disclosure_state() {
         val expected = mapOf(
-            AuthIntent.BeginLogin to "login", AuthIntent.OpenLogin to "login",
+            AuthIntent.OpenLogin to "login",
             AuthIntent.OpenRegister to "person_add", AuthIntent.CancelLogin to "close",
             AuthIntent.RestoreSession to "refresh", AuthIntent.RetryCleanup to "refresh",
             AuthIntent.OpenHome to "home", AuthIntent.Logout to "logout", AuthIntent.Back to "arrow_back",

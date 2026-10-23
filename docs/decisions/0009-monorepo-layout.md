@@ -4,7 +4,11 @@
 - Date: 2026-10-11
 - Decision owner: Cantos maintainers
 - Related issue or PR: `refactor: reorganize Cantos apps and backend services` (targets `develop`)
-- Supersedes / superseded by: refines the source layout in [decision 0001](0001-modular-monolith.md); N/A
+- Supersedes / superseded by: refines the source layout in [decision 0001](0001-modular-monolith.md); contract placement superseded by [ADR 0046](0046-service-owned-contracts.md)
+
+> Amended by [ADR 0046](0046-service-owned-contracts.md): `packages/contracts` and its
+> `cantos-contracts` crate are retired. Canonical contracts live with their defining service and
+> each consumer owns its representation; the text below is the original 2026-10-11 decision.
 
 > Current scope: the [platform matrix](../architecture/repository-layout.md#platform-scope)
 > supersedes this decision's Studio Mobile reservation. Studio is web-only; the historical layout

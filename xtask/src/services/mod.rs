@@ -1,150 +1,74 @@
-//! Explicit local infrastructure lifecycle. No build/test/run path calls `up`.
-mod config;
-mod lifecycle;
+//! The process inventory (`services list|validate`). It describes the native Server and
+//! Identity processes and the external object store; it starts nothing. The Podman lifecycle
+//! (`up|down|logs|status`) was retired with PostgreSQL and Kanidm, the only services it managed.
 mod manifest;
-mod podman;
 
-#[cfg(all(test, unix))]
-mod tests;
+use std::process::ExitCode;
 
-use std::{collections::BTreeMap, path::Path, process::ExitCode, time::Duration};
-
-use anyhow::{ensure, Result};
+use anyhow::Result;
 use clap::{Args, Subcommand};
 
 use crate::{
     report::{Report, Status},
+    retired::Retired,
     workspace::Workspace,
 };
-use manifest::{Manifest, Runtime};
-use podman::{Podman, SystemPodman};
+use manifest::Manifest;
 
 #[derive(Debug, Args)]
 pub struct ServicesArgs {
-    /// Existing local resource namespace; shared across checkouts unless changed explicitly.
-    #[arg(long, default_value = "local")]
-    pub instance: String,
+    /// Retired with the container lifecycle; accepted only so the retired actions can refuse.
+    #[arg(long, hide = true)]
+    pub instance: Option<String>,
     #[command(subcommand)]
     pub action: Action,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Action {
-    /// List the typed inventory without probing or starting infrastructure.
+    /// List the typed inventory without probing or starting anything.
     List,
-    /// Validate the inventory and public examples without Podman, secrets or containers.
+    /// Validate the inventory without running any process.
     Validate,
-    /// Explicitly start local container infrastructure; --all excludes optional Kanidm.
-    Up {
-        #[command(flatten)]
-        target: Target,
-        /// Readiness deadline after container creation/start. Every Podman command is bounded too.
-        #[arg(long, default_value_t = 60, value_parser = clap::value_parser!(u16).range(1..=300))]
-        timeout_seconds: u16,
-    },
-    /// Observe container state; native/external services are explicitly unobserved.
-    Status,
-    /// Print at most the last200 log lines from the inspected owned container ID.
-    Logs { service: String },
-    /// Stop owned containers only. Never removes a container, volume or data.
-    Down {
-        #[command(flatten)]
-        target: Target,
-    },
+    /// Retired: no container-managed service remains.
+    #[command(hide = true)]
+    Up(Retired),
+    /// Retired: no container-managed service remains.
+    #[command(hide = true)]
+    Down(Retired),
+    /// Retired: no container-managed service remains.
+    #[command(hide = true)]
+    Logs(Retired),
+    /// Retired: nothing is observed.
+    #[command(hide = true)]
+    Status(Retired),
 }
 
-#[derive(Debug, Args)]
-pub struct Target {
-    #[arg(required_unless_present = "all", conflicts_with = "all")]
-    pub service: Option<String>,
-    #[arg(long)]
-    pub all: bool,
-}
-
-impl Target {
-    fn names(&self, up: bool) -> Vec<&str> {
-        if self.all {
-            if up {
-                vec!["postgresql"]
-            } else {
-                vec!["kanidm", "postgresql"]
-            }
-        } else {
-            self.service.as_deref().into_iter().collect()
-        }
+impl ServicesArgs {
+    pub fn is_retired(&self) -> bool {
+        matches!(
+            self.action,
+            Action::Up(_) | Action::Down(_) | Action::Logs(_) | Action::Status(_)
+        )
     }
 }
 
-pub fn validate(root: &Path) -> Result<Manifest> {
-    let manifest = Manifest::load(root)?;
-    config::validate_kanidm(
-        &manifest::read_small(&root.join("services/kanidm/server.toml.example"))?,
-        Some(
-            manifest
-                .service("kanidm")?
-                .container
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("Kanidm container missing"))?
-                .default_port,
-        ),
-    )?;
-    for (service, expected) in [
-        (
-            "postgresql",
-            vec!["CANTOS_POSTGRES_PORT", "CANTOS_POSTGRES_PASSWORD_FILE"],
-        ),
-        (
-            "kanidm",
-            vec!["CANTOS_KANIDM_PORT", "CANTOS_KANIDM_CONFIG_DIR"],
-        ),
-    ] {
-        let text = manifest::read_small(&root.join(format!("services/{service}/env.example")))?;
-        let mut keys = std::collections::BTreeSet::new();
-        for line in text
-            .lines()
-            .filter(|line| !line.trim().is_empty() && !line.starts_with('#'))
-        {
-            let (key, value) = line
-                .split_once('=')
-                .ok_or_else(|| anyhow::anyhow!("invalid service env.example assignment"))?;
-            ensure!(
-                expected.contains(&key) && keys.insert(key),
-                "unknown or duplicate env.example key"
-            );
-            ensure!(!value.is_empty(), "empty env.example value");
-            if key.ends_with("_PORT") {
-                ensure!(value.parse::<u16>()? >= 1024, "invalid env.example port");
-            } else {
-                ensure!(
-                    value.starts_with("/absolute/private/"),
-                    "examples must use placeholder private paths"
-                );
-            }
-        }
-        ensure!(
-            keys.len() == expected.len(),
-            "missing service env.example keys"
-        );
-    }
-    Ok(manifest)
+pub fn validate(root: &std::path::Path) -> Result<Manifest> {
+    Manifest::load(root)
 }
 
 pub fn run(workspace: &Workspace, args: &ServicesArgs) -> Result<ExitCode> {
     let manifest = validate(workspace.root())?;
-    ensure!(
-        config::instance_valid(&args.instance),
-        "invalid instance name; use 1–32 lowercase letters/digits/hyphens"
-    );
     match &args.action {
         Action::Validate => {
             let mut report = Report::new("services validate");
             report.record(
-                "manifest and examples",
+                "manifest",
                 Status::Pass,
-                "typed/static validation only; no Podman/TLS/runtime evidence",
+                "typed/static validation only; no process was started or observed",
             );
             report.print();
-            return Ok(report.exit_code());
+            Ok(report.exit_code())
         }
         Action::List => {
             for (name, service) in &manifest.services {
@@ -165,170 +89,112 @@ pub fn run(workspace: &Workspace, args: &ServicesArgs) -> Result<ExitCode> {
                     service.health, service.persistence, service.lifecycle
                 );
             }
-            return Ok(ExitCode::SUCCESS);
+            Ok(ExitCode::SUCCESS)
         }
-        Action::Up { target, .. } | Action::Down { target } => {
-            for name in target.names(matches!(args.action, Action::Up { .. })) {
-                ensure_container(&manifest, name)?;
-            }
+        Action::Up(_) | Action::Down(_) | Action::Logs(_) | Action::Status(_) => {
+            unreachable!("retired actions are refused before dispatch")
         }
-        Action::Logs { service } => ensure_container(&manifest, service)?,
-        Action::Status => {}
     }
-    let mut report = Report::new("services");
-    let mut podman = SystemPodman::new()?;
-    if let Err(error) = lifecycle::available(&mut podman) {
-        let status = if error.to_string().starts_with("UNSUPPORTED:") {
-            Status::Unsupported
-        } else {
-            Status::Fail
-        };
-        report.record("runtime", status, format!("{error:#}"));
-        report.print();
-        return Ok(report.exit_code());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::workspace::Workspace;
+
+    fn manifest() -> Manifest {
+        Manifest::load(Workspace::discover().unwrap().root()).unwrap()
     }
-    let env: BTreeMap<_, _> = [
-        "CANTOS_POSTGRES_PORT",
-        "CANTOS_POSTGRES_PASSWORD_FILE",
-        "CANTOS_KANIDM_PORT",
-        "CANTOS_KANIDM_CONFIG_DIR",
-    ]
-    .into_iter()
-    .filter_map(|key| std::env::var(key).ok().map(|value| (key.to_owned(), value)))
-    .collect();
-    execute(
-        workspace.root(),
-        &manifest,
-        args,
-        &env,
-        &mut podman,
-        &mut report,
-    )?;
-    if matches!(args.action, Action::Status) {
-        print!("{}", report.render_table());
-        Ok(
-            if report
-                .outcomes
-                .iter()
-                .any(|outcome| matches!(outcome.status, Status::Fail | Status::Unsupported))
-            {
-                ExitCode::FAILURE
-            } else {
-                ExitCode::SUCCESS
-            },
+
+    #[test]
+    fn the_checked_in_inventory_is_the_native_composition_plus_external_storage() {
+        let manifest = manifest();
+        let names: Vec<_> = manifest.services.keys().map(String::as_str).collect();
+        assert_eq!(
+            names,
+            ["cantos-identity", "cantos-server", "object-storage"]
+        );
+        let server = manifest.service("cantos-server").unwrap();
+        assert!(server.required_dependencies.is_empty());
+        assert_eq!(server.ports, [8080]);
+        assert!(manifest
+            .service("cantos-identity")
+            .unwrap()
+            .ports
+            .is_empty());
+    }
+
+    #[test]
+    fn no_inventory_text_names_a_retired_database_or_provider() {
+        let text = std::fs::read_to_string(
+            Workspace::discover()
+                .unwrap()
+                .path("services/manifest.toml"),
         )
-    } else {
-        report.print();
-        Ok(report.exit_code())
+        .unwrap()
+        .to_ascii_lowercase();
+        for retired in ["postgres", "kanidm", "database_url", "podman_machine"] {
+            assert!(!text.contains(retired), "{retired}");
+        }
     }
-}
 
-fn ensure_container(manifest: &Manifest, name: &str) -> Result<()> {
-    let service = manifest.service(name)?;
-    ensure!(service.runtime == Runtime::Podman, "UNSUPPORTED: {name} is {:?}; native lifecycle uses cargo xtask run and external services are operator-managed", service.runtime);
-    Ok(())
-}
+    fn edited(replace: &str, with: &str) -> String {
+        let text = std::fs::read_to_string(
+            Workspace::discover()
+                .unwrap()
+                .path("services/manifest.toml"),
+        )
+        .unwrap();
+        assert!(text.contains(replace), "fixture drifted: {replace}");
+        text.replacen(replace, with, 1)
+    }
 
-fn execute(
-    root: &Path,
-    manifest: &Manifest,
-    args: &ServicesArgs,
-    env: &BTreeMap<String, String>,
-    podman: &mut impl Podman,
-    report: &mut Report,
-) -> Result<()> {
-    match &args.action {
-        Action::Up {
-            target,
-            timeout_seconds,
-        } => {
-            // Resolve all prerequisites before the first effect; never partially start --all
-            // because the next service's private inputs were missing.
-            let plans = target
-                .names(true)
-                .iter()
-                .map(|name| {
-                    let container = manifest
-                        .service(name)?
-                        .container
-                        .as_ref()
-                        .ok_or_else(|| anyhow::anyhow!("container configuration missing"))?;
-                    config::Plan::resolve(root, &args.instance, name, container, env)
-                })
-                .collect::<Result<Vec<_>>>()?;
-            for plan in plans {
-                let result = lifecycle::up(
-                    podman,
-                    &plan,
-                    Duration::from_secs(u64::from(*timeout_seconds)),
-                );
-                let failed = result.is_err();
-                record(report, &plan.service, result);
-                if failed {
-                    break;
-                }
-            }
-        }
-        Action::Down { target } => {
-            for name in target.names(false) {
-                let result = lifecycle::down(podman, &args.instance, name);
-                let failed = result.is_err();
-                record(report, name, result);
-                if failed {
-                    break;
-                }
-            }
-        }
-        Action::Logs { service } => {
-            record(
-                report,
-                service,
-                lifecycle::logs(podman, &args.instance, service).map(|logs| {
-                    print!("{logs}");
-                    "bounded log read from owned ID".to_owned()
-                }),
+    #[test]
+    fn a_container_table_a_database_url_or_a_required_identity_is_refused() {
+        let with_container = format!(
+            "{}\n[services.cantos-server.container]\nkind = \"postgresql\"\nimage = \"x\"\n",
+            edited("version = 1", "version = 1")
+        );
+        assert!(Manifest::parse(&with_container).is_err());
+        assert!(Manifest::parse(&edited(
+            "\"CANTOS_ENV\"",
+            "\"DATABASE_URL\", \"CANTOS_ENV\""
+        ))
+        .is_err());
+        assert!(Manifest::parse(&edited(
+            "required_dependencies = []\noptional_dependencies = [\"cantos-identity\", \"object-storage\"]",
+            "required_dependencies = [\"cantos-identity\"]\noptional_dependencies = [\"object-storage\"]"
+        ))
+        .is_err());
+        assert!(Manifest::parse(&edited("runtime = \"native\"", "runtime = \"podman\"")).is_err());
+    }
+
+    #[test]
+    fn identity_owns_no_tcp_port_and_depends_on_nothing() {
+        assert!(Manifest::parse(&edited(
+            "ports = []\nhealth = \"Native run connects",
+            "ports = [9000]\nhealth = \"Native run connects"
+        ))
+        .is_err());
+    }
+
+    #[test]
+    fn identity_environment_names_exist_in_the_identity_sources() {
+        let workspace = Workspace::discover().unwrap();
+        let config =
+            std::fs::read_to_string(workspace.path("services/cantos-identity/src/config.rs"))
+                .unwrap();
+        let mail = std::fs::read_to_string(workspace.path("services/cantos-identity/src/mail.rs"))
+            .unwrap();
+        for name in &manifest().service("cantos-identity").unwrap().environment {
+            let smtp = name.starts_with("CANTOS_IDENTITY_SMTP_");
+            let suffix = name.trim_start_matches("CANTOS_IDENTITY_SMTP_");
+            assert!(
+                config.contains(&format!("\"{name}\""))
+                    || (smtp && mail.contains(&format!("\"{name}\"")))
+                    || (smtp && mail.contains(&format!("\"{suffix}\""))),
+                "{name} is not read by the Identity executable"
             );
         }
-        Action::Status => {
-            for (name, service) in &manifest.services {
-                if service.runtime == Runtime::Podman {
-                    record(
-                        report,
-                        name,
-                        lifecycle::inspect(podman, &args.instance, name).map(|state| {
-                            state
-                                .map(|state| state.description())
-                                .unwrap_or_else(|| "observed ABSENT".into())
-                        }),
-                    );
-                } else {
-                    report.record(
-                        name,
-                        Status::NotRun,
-                        format!(
-                            "NOT_OBSERVED {:?}; no implemented runtime probe",
-                            service.runtime
-                        ),
-                    );
-                }
-            }
-        }
-        Action::List | Action::Validate => {}
-    }
-    Ok(())
-}
-
-fn record(report: &mut Report, name: &str, result: Result<String>) {
-    match result {
-        Ok(detail) => report.record(name, Status::Pass, detail),
-        Err(error) => report.record(
-            name,
-            if error.to_string().starts_with("UNSUPPORTED:") {
-                Status::Unsupported
-            } else {
-                Status::Fail
-            },
-            format!("{error:#}"),
-        ),
     }
 }

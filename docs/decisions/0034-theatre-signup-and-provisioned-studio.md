@@ -136,7 +136,7 @@ The approved module supplies Cantos's public workflow around those primitives. S
 does not establish deployed permissions, email delivery, account protection or live signup.
 No live issuer configuration was inspected or changed by this ADR.
 
-The [Theatre contract](../../packages/contracts/theatre-identity-v1.md) distinguishes the accepted
+The [Theatre contract](../../services/cantos-server/contracts/theatre/identity/v1/README.md) distinguishes the accepted
 policy from configured capability. Missing identity or registration configuration remains
 unavailable. An enabled capability describes mounted adapters, not a successful live probe.
 Existing-account login can be accepted independently. A real issuer,

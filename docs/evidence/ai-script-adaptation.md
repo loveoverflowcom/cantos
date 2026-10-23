@@ -19,7 +19,7 @@ invalid output, duplicate delivery, stale inputs, cancellation and process/datab
 proposal into the actual Script IR reader. The existing Axum/PostgreSQL monolith owns rights
 assertions, current authorization, append-only records and the shared revision transaction.
 Leptos Studio owns source comparison, local JSON editing and explicit acceptance. The thin
-[CLI/HTTP tool contract](../../packages/contracts/adaptation-v1.md) adds no inference service, MCP runtime,
+[CLI/HTTP tool contract](../../services/cantos-server/contracts/studio/adaptation/v1/README.md) adds no inference service, MCP runtime,
 provider SDK or persistent credentials. Its four tools exclude acceptance.
 
 ## Implemented and checked claims

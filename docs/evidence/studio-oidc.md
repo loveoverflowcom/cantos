@@ -3,7 +3,7 @@
 Review boundary: opt-in Studio BFF credential/session integration in the existing development
 host. [Architecture/threat model](../architecture/studio-oidc.md),
 [ADR0023](../decisions/0024-studio-oidc-bff.md) and
-[operator policy](../../services/kanidm/README.md) separate implementation from deployment.
+[operator policy](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/services/kanidm/README.md) separate implementation from deployment.
 No real provider/client/account/grant/TLS/container was activated or created.
 
 Initial base: fresh Cantos develop `df7d62fecf0023cb557a3051ae75918cedcd2610`. PR92 remains an explicit

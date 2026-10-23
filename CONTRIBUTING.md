@@ -1,16 +1,23 @@
 # Contributing to Cantos
 
-Cantos combines an audio-drama production Studio with a Theatre listening experience. Read the [project overview](README.md) before proposing a change. The repository starts with planning documents and templates; implementation status and supported commands must be documented as the runtime is added.
+Cantos combines an audio-drama production Studio with a Theatre listening experience. Read the [project overview](README.md) before proposing a change. The native Server/Identity foundation exists; the [business porting boundary](docs/architecture/server-turso-porting.md#checkpoint-boundary) remains incomplete. Documentation, implementation and executed acceptance are separate.
 
 ## Branch and pull request workflow
 
-`develop` is the default and integration branch. Create focused branches from its latest revision and open pull requests back to `develop`. A `main` branch is not required for this workflow.
+Resolve `BASE_BRANCH` once: use the user's explicit base; otherwise the work item's accepted
+integration/staging base; otherwise `develop`. `BASE_REF=origin/$BASE_BRANCH` is the common
+remote ref for branching, diff/review, preflight and clean-baseline reproduction; PR creation
+uses the matching `BASE_BRANCH`. Record its fetched SHA. Never move another worktree or discard
+unrelated edits; use an isolated checkout when necessary. `develop` remains the default integration branch.
 
 ```bash
-git fetch origin
-git switch develop
-git pull --ff-only origin develop
-git switch -c feat/scene-casting
+# Example when the user/work item has not selected another base:
+BASE_BRANCH=develop
+BASE_REF="origin/$BASE_BRANCH"
+git fetch origin "$BASE_BRANCH"
+git switch -c feat/scene-casting "$BASE_REF"
+git diff "$BASE_REF"...HEAD
+gh pr create --base "$BASE_BRANCH" --head feat/scene-casting --body-file <scratch-file>
 ```
 
 Use a short, descriptive branch name such as `feat/scene-casting`, `fix/player-progress`, or `docs/production-workflow`. Keep unrelated changes in separate pull requests. For a large feature, define its dependencies and divide it into changes that each have an observable outcome.
@@ -32,11 +39,11 @@ Do not invent labels, reviewer identities, provider accounts, or approval polici
 
 ## Architecture and contracts
 
-Keep the initial architecture modular without introducing microservices prematurely. Put code where the [repository layout](docs/architecture/repository-layout.md) says: listener apps in `apps/cantos-theatre`, creator apps in `apps/cantos-studio`, the backend in `services/cantos-api`, and shared contracts, semantic tokens or renderer primitives with concrete consumers in `packages/`. Separate domain rules, provider adapters, production orchestration, storage, APIs, and app presentation through explicit interfaces.
+Keep the initial architecture modular without introducing microservices prematurely. Put code where the [repository layout](docs/architecture/repository-layout.md) says: listener apps in `apps/cantos-theatre`, creator apps in `apps/cantos-studio`, the backend in `services/cantos-server`, canonical contracts in the service that provides them (`services/<service>/contracts/`), and semantic tokens or renderer primitives with concrete consumers in `packages/`. Separate domain rules, provider adapters, production orchestration, storage, APIs, and app presentation through explicit interfaces.
 
 Treat the versioned Script IR as the boundary for exchanging narrative data with Narrative Forge. Reuse concepts and documented contracts rather than importing another project's internal modules. Record schema compatibility, migration behavior, and stable identities for works, episodes, scenes, and dialogue segments before changing persisted data.
 
-Rust backend and Kotlin mobile code may share generated API contracts where practical. Document the source of truth and generation process when selecting that tooling; do not assume Rust types can be consumed directly by Kotlin. Keep platform audio playback native on Android and iOS.
+Every consumer owns its own representation of a service-owned contract: Rust and Kotlin code read the same canonical schema or `.proto` as a build input and generate or hand-write their own types, checked against the owner's fixtures ([ADR 0046](docs/decisions/0046-service-owned-contracts.md)). Name the source of truth and generation command; do not import another consumer's or the service's types. Keep platform audio playback native on Android and iOS.
 
 ## Production changes
 
@@ -72,13 +79,13 @@ entrypoint. From any directory in the repository:
 
 ```bash
 cargo xtask doctor
-cargo xtask preflight --changed-only
+cargo xtask preflight --changed-only --base "$BASE_REF"
 ```
 
-Preflight compares your branch, staged, unstaged and untracked files with `origin/develop`, runs
+Preflight compares your branch, staged, unstaged and untracked files with the resolved `BASE_REF`, runs
 the gates they affect and broadens to every gate when the impact is uncertain. Use Rust 1.98.1 and
 see [the command contract](xtask/README.md) for the individual `cargo xtask verify` suites
-(`repository`, `rust`, `contracts`, `web`, `postgres`, `mutation`) and `cargo xtask ci`, which
+(`repository`, `rust`, `contracts`, `web`, `turso`, `mutation`) and `cargo xtask ci`, which
 runs the same jobs as GitHub Actions. If a gate cannot run on your machine, it is reported as
 `UNSUPPORTED` and preflight fails; `--skip <gate>` records it as `NOT_RUN`. State every skipped or
 unsupported gate in the pull request. On affected macOS temporary-path setups, run with
@@ -88,12 +95,10 @@ For runtime changes, run the relevant stack-specific checks once the correspondi
 
 ## Service runtime ownership
 
-A service is a runnable process or independently managed infrastructure, not necessarily a Rust
-crate. Follow [the service inventory](services/README.md) and
-[ADR 0021](docs/decisions/0021-podman-service-runtime.md). Podman is the standard OCI runtime;
-Docker Engine/Desktop/daemon and Compose are not dependencies (`docker.io` remains an allowed
-registry). Only explicit `cargo xtask services up` starts local infrastructure. Build/test/run
-never auto-start it. Native disposable PostgreSQL verification stays independent. Never install
-Podman, initialize/start a machine or change its connection without explicit consent. Manage
-only exact Cantos-owned labeled resources; stop never deletes persistent volumes. Keep secrets,
-TLS and data outside Git, and distinguish configuration from observed runtime and integration.
+Follow the [service inventory](services/README.md) and [native decision](docs/architecture/native-turso-refactor.md).
+Server and Identity each own a local embedded Turso file and private migration lifecycle. Native
+build/test/run never starts PostgreSQL, Kanidm, Podman or an emulator. `cargo xtask run` supervises
+the two native processes; `services list|validate` checks inventory, while legacy lifecycle commands refuse.
+Production OCI/Quadlet packaging follows [#348](docs/deployment/native-oci-release.md), separate
+from native acceptance and host activation. Preserve DB/WAL/media, backups and other tasks' artifacts.
+No deploy, migration of user data or installed-service cleanup follows from a source change.

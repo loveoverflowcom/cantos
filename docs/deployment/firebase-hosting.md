@@ -171,7 +171,7 @@ cargo xtask deploy firebase cantos-studio --web --project "$PROJECT_ID" --channe
 - `--expires` (`30m`, `12h`, `7d`; at most `30d`) applies only to preview channels. Without it the
   CLI's default of 7 days applies to a new channel, and an existing channel is extended to at least
   that. It is refused with `--channel live`.
-- Targets other than the two Web apps (`cantos-api`, `cantos-forge`, `all`, mobile) are rejected
+- Targets other than the two Web apps (`cantos-server`, `cantos-forge`, `all`, mobile) are rejected
   before anything runs. There is no `--no-build`, artifact path, deploy-all, automatic promotion or
   automatic rollback.
 
@@ -300,7 +300,7 @@ identify the actual public bytes, not a clean source revision when the build was
 
 Static Hosting does not proxy to an external VPS. [#295](https://github.com/loveoverflowcom/cantos/issues/295)
 selects API-issued HttpOnly/Secure cookies for Web on the custom domains; the coordinated API/Web
-migration and browser acceptance remain pending. Native retains [Bearer v1](../../packages/contracts/bearer-v1.md).
+migration and browser acceptance remain pending. Native retains [Bearer v1](../../services/cantos-server/contracts/auth/bearer/v1/README.md).
 Raw `web.app`/preview origins need a separately declared and qualified topology. Exact-origin
 credentialed CORS, CSRF and the restricted identity gateway remain required; wildcard CORS,
 token-in-localStorage or weakened cookie policy is no substitute. Initial email-action HTML needs no-store/no-referrer on Hosting itself
@@ -343,7 +343,7 @@ working operator mapping and Caddy upstreams until the following gates pass.
    login, catalog or playback on a raw Firebase URL.
 4. For the selected direct-Hosting topology, separately review the new exact Web origins,
    per-surface API CORS, fixed Web return origins and API-host OIDC callbacks through the
-   [production configuration procedure](vps-production.md#direct-hosting--api-configuration).
+   [production configuration procedure](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#direct-hosting--api-configuration).
    Supply the required HTTPS `CANTOS_API_ORIGIN` during each app's build/deploy. Preserve
    host-only Strict session cookies and existing CSRF checks. A shorter `web.app` URL still
    requires a separately declared preview auth policy and gateway/browser acceptance before authenticated use; a static

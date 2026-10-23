@@ -1,6 +1,6 @@
 # Production Brief evidence
 
-Boundary: [immutable Production Brief v1](../../packages/contracts/production-brief-v1.md),
+Boundary: [immutable Production Brief v1](../../services/cantos-server/contracts/studio/briefs/v1/README.md),
 under [ADR0018](../decisions/0018-external-audio-production.md). Source base is fresh
 `develop` at `c28a3d0f4f1c1d1e262cfd56f02120e6a62966f0`; checkpoints are in
 [PR71](https://github.com/loveoverflowcom/cantos/pull/71). This record separates implementation

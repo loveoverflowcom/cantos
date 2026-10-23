@@ -56,9 +56,9 @@ static Web assets; it is distinct from Forge Functions and the VPS API.
 5. Studio reviews verified private bytes, provenance, rights and named QC/listening findings.
 6. Publish an eligible immutable release; Theatre discovery and playback consume that release.
 
-The [general handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) describes
+The [general handoff proposal](../../services/cantos-server/contracts/producer/handoff/v1/README.md) describes
 broader ideas. Its direct-object-store prepare/finalize design is not the implemented route
-contract; [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) owns today's flow.
+contract; [Audio Lifecycle v1](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) owns today's flow.
 
 ## MVP scope
 
@@ -74,7 +74,7 @@ separate from current deployment acceptance.
 | Capability | Current implementation / remaining boundary |
 | --- | --- |
 | Catalog/editorial | Work/ContentUnit CRUD, immutable content/script revisions, import/adaptation and bounded Studio consumers exist. [#66](https://github.com/loveoverflowcom/cantos/issues/66) is completed for Catalog + Studio consumer; remaining QA is tracked separately |
-| Brief and private audio | Immutable Brief/read grants, scoped uploads, byte inspection, receipts, named review and candidates exist; [contract](../../packages/contracts/audio-lifecycle-v1.md) and [evidence](../evidence/audio-lifecycle.md) bound the claim |
+| Brief and private audio | Immutable Brief/read grants, scoped uploads, byte inspection, receipts, named review and candidates exist; [contract](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) and [evidence](../evidence/audio-lifecycle.md) bound the claim |
 | Private storage/artwork | Filesystem/S3 adapters, original-target reads and private Work-cover API/Studio controls exist; [storage](../architecture/object-storage.md) and [UI evidence](../evidence/studio-private-artwork-ui.md) retain provider/runtime gaps |
 | Publication/listener backend | Release core, anonymous Discovery and account-owned Library/Progress exist. Origin delivery has a composition-gated core; real public delivery/activation remains unaccepted |
 | Theatre clients | Web has live anonymous discovery/account reads and explicit mocks; CMP has isolated previews and one listener application (`CantosTheatreApp`) over the live catalog, account, Library and native player, with an explicit unavailable state when no API origin is admitted. Device/audio acceptance and downloads remain unfinished; release-bound bookmarks have API and CMP source evidence (#299) without device or deployment acceptance |

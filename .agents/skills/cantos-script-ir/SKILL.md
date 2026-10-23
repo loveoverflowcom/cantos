@@ -17,7 +17,7 @@ Rule owner for how Cantos represents, versions, digests, revises and admits scri
 product rules live in [Script IR](../../../docs/architecture/script-ir.md),
 [business rules § Content and revisions](../../../docs/product/business-rules.md#work-chapter-and-episode-identity),
 [Script/editor acceptance reference](../../../docs/assurance/script-editor-acceptance.md)
-and [`packages/contracts/README.md`](../../../packages/contracts/README.md). This skill owns the working method: how
+and [`services/cantos-server/contracts/README.md`](../../../services/cantos-server/contracts/README.md). This skill owns the working method: how
 to model those rules as types, where each decision lives, how to test it and which evidence
 proves it. It composes [`cantos-engineering`](../cantos-engineering/SKILL.md) and reuses its
 order, [evidence vocabulary](../cantos-engineering/SKILL.md#6-never-collapse-evidence-into-the-word-verified)
@@ -25,10 +25,10 @@ and [report](../cantos-engineering/SKILL.md#9-completion-report) without redefin
 
 ## Ground rules
 
-- **Implemented slice.** [Script IR 0.1.0](../../../packages/contracts/README.md), its schema/validator,
+- **Implemented slice.** [Script IR 0.1.0](../../../services/cantos-server/contracts/README.md), its schema/validator,
   immutable PostgreSQL revisions, bounded import and caller-authored adaptation exist.
   Provider inference and historical `a1` runtime adapters are outside the API; production
-  planning and external media acceptance have their own current contracts. [`episode-draft.json`](../../../packages/contracts/examples/episode-draft.json) is a
+  planning and external media acceptance have their own current contracts. [`episode-draft.json`](../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json) is a
   historical `0.1.0-draft` sample rejected by the reader. Inspect current code/tests before
   treating the proposed types and examples below as implemented.
 - **Docs win for product behavior.** When this skill and an owning document disagree, follow the
@@ -55,7 +55,7 @@ and [report](../cantos-engineering/SKILL.md#9-completion-report) without redefin
 ## The required order for a Script IR change
 
 ```text
-read script-ir.md, business rules § Content and revisions, the work item, packages/contracts/
+read script-ir.md, business rules § Content and revisions, the work item, services/cantos-server/contracts/studio/script-ir/
         ↓
 classify: content model | wire schema | canonical encoding | lifecycle | untrusted entry path
         ↓

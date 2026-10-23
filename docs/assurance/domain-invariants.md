@@ -6,7 +6,10 @@ Initial inventory, recorded before implementation on 2026-10-13 against fresh
 `origin/develop` `4f33a901b87be770be7cf5bbdac909408570240d`. All six Cargo workspace
 members are in scope. CMP/Kotlin is outside this Rust audit. This ledger is an
 inventory of implemented code, not a claim that proposed publication, listener
-integration or external production exists.
+integration or external production exists. Its `cantos-contracts` rows predate
+[ADR 0046](../decisions/0046-service-owned-contracts.md): those DTOs and codecs are now the
+Server's `src/contract` plus separate consumer-owned copies, and the W1–W4 tests run as the
+Server's `contract_conformance` target.
 
 The owning architecture remains [ADR 0018](../decisions/0018-external-audio-production.md),
 [Content identity](../decisions/0019-content-identity.md),
@@ -54,7 +57,7 @@ request defaults are intentionally not domain witnesses.
 | U4: Links retain native navigation and reject unsupported executable schemes | `src/navigation.rs::LinkHref` | Private fields and fallible constructor; no unchecked serde/default. Controls do not decide routes or unsaved business state | `TYPE_ENFORCED`, `RUNTIME_VALIDATED`; `tests/actions_navigation.rs`. Browser URL interpretation and focus remain runtime obligations. |
 | U5: Dialog close reasons and feedback tones remain explicit | `src/dialog.rs`, `src/feedback.rs` | Render framework/browser effects are not a suitable Kani target | `TYPE_ENFORCED` closed enums; native dialog/feedback tests available. No rendering formal proof; keyboard/focus/reduced motion are not established by SSR. |
 
-### cantos-api: Catalog, ingestion and Script IR
+### cantos-server: Catalog, ingestion and Script IR
 
 | ID / proposition | Owner and admission boundary | Failure / bypass audit | Initial enforcement; available oracle; residual obligation |
 | --- | --- | --- | --- |
@@ -64,12 +67,12 @@ request defaults are intentionally not domain witnesses.
 | C4: Content is immutable, NFC/LF canonical and exact-pinned; content and full revision digests differ | `domain/content.rs`, `application/content_wire.rs`, `postgres/content.rs::decode` | No Deserialize/Default on admitted text/content; SQL restores raw DTO through constructors and compares identity/sequence/digest. Script/source links are references, never clearance | `TYPE_ENFORCED`, `RUNTIME_VALIDATED`; `content_tests.rs` literal digests and NFC cases. Add generated canonical/idempotence and constructor-bypass checks; don't renormalize persisted snapshots silently. |
 | C5: Rights declarations are bounded unique token references, with owner-only set changes | `domain/metadata.rs`, `content.rs::rights_change_requires_owner` | Raw WorkDetails serde can exist invalid but Work admission validates; declarations are not verified rights | `RUNTIME_VALIDATED`; multi-error/set-order tests. Current access and referenced owner evidence remain shell checks. |
 | I1: Import metadata and byte size are admitted together before extraction or durable writes | `contexts/ingestion/application.rs`, `domain/receipt.rs` | Application checks a raw DTO then continues using it; lower storage insert facts are strings/bytes without an admission witness | `RUNTIME_VALIDATED`; metadata/extraction tests. Introduce a narrow immutable validated input consumed by the existing application/storage boundary, preserving all diagnostics and original bytes. |
-| I2: Stored import receipt binds original bytes, metadata, outcome and text projection | `ingestion/postgres.rs::decode_import` | Stored serde metadata is revalidated; byte hash/receipt digest/projection compared. Some `Row::get` paths panic on wrong SQL types | `RUNTIME_VALIDATED`; `imports_postgres.rs` corruption/replay tests available. SQL type correctness and role constraints still need real PostgreSQL; do not claim extraction authenticity from a digest alone. |
+| I2: Stored import receipt binds original bytes, metadata, outcome and text projection | `ingestion/turso.rs::decode_import` | Stored serde metadata is revalidated; byte hash/receipt digest/projection compared. Checked `Row::try_get` refuses wrong SQL types | `RUNTIME_VALIDATED`; `ingestion_turso.rs` and `editorial_ingestion_storage.rs` exercise real Turso corruption/replay and schema guards; Turso has no table roles; do not claim extraction authenticity from a digest alone. |
 | S1: Script admission checks bounded structure, global unique IDs, narrator/speaker/cue/provenance resolution | `script_ir/{wire,validation,model}.rs` | Public ScriptContent has only module-private fields, no Deserialize/Default or setters; raw DTO defaults only optional collections | `TYPE_ENFORCED`, `RUNTIME_VALIDATED`; `tests/script_ir.rs` accepted/rejected schema corpus, exact diagnostics and malformed input. Internal sibling modules are a trusted construction boundary. |
 | S2: Canonical NFC/whitespace/export and c1/e1/speech bytes preserve domain meaning | `script_ir/canonical.rs`, `read_canonical_script` | Stored exports reject noncanonical bytes; original ingestion bytes remain unchanged; exact decimal intensity avoids float-rounding admission | `RUNTIME_VALIDATED`; independent Python/golden digest, normalized-size/intensity/pronunciation tests. Add generated re-admission laws/compile-fail barriers; don't rewrite existing digests or schema. |
 | S3: Positional edits don't become identity changes or speech edits | `script_ir/diff`, `SpokenLine` | IDs and speech projections are read-only; placement stays separate | `TYPE_ENFORCED`, `RUNTIME_VALIDATED`; `tests/script_diff.rs` independent/property oracles available. No producer cache or backend TTS exists. |
 
-### Remaining cantos-api contexts
+### Remaining cantos-server contexts
 
 | ID / proposition | Owner and admission boundary | Failure / bypass audit | Initial enforcement; available oracle; residual obligation |
 | --- | --- | --- | --- |
@@ -151,7 +154,7 @@ creating an empty commit or an abstraction without a current consumer.
   1.87.0 (`rustc 1.87.0 (17067e9ac 2025-05-09)`), rustfmt, clippy and the WASM
   target were installed into isolated task tooling; no repository or production
   default version was changed.
-- `cargo test --locked -p cantos-contracts -p cantos-ui -p cantos-api --no-fail-fast`
+- `cargo test --locked -p cantos-contracts -p cantos-ui -p cantos-server --no-fail-fast`
   passed 388 tests at the unchanged baseline; 135 tests were explicitly ignored,
   including real PostgreSQL cases. Ignored cases earn no integration evidence.
 - `cargo xtask verify repository` passed repository checks and 221 Python tests
@@ -338,10 +341,10 @@ or guessed standalone lifetime rule was added.
 
 Execution on the phase-1 fresh base, Rust 1.87.0:
 
-- `cargo test --locked -p cantos-api --lib --test production --test adaptation --test brief_domain`:
+- `cargo test --locked -p cantos-server --lib --test production --test adaptation --test brief_domain`:
   134 unit, 22 production, 15 adaptation and 8 brief-domain tests PASS.
-- `cargo test --locked -p cantos-api --doc`: all 9 compile-fail checks PASS.
-- `cargo clippy --locked -p cantos-api --all-targets -- -D warnings`: PASS.
+- `cargo test --locked -p cantos-server --doc`: all 9 compile-fail checks PASS.
+- `cargo clippy --locked -p cantos-server --all-targets -- -D warnings`: PASS.
 - `cargo fmt --all -- --check`, `git diff --check`: PASS.
 - `cargo xtask verify repository`: PASS, including 225 Python tests.
 - Real PostgreSQL integration remains NOT_RUN after the earlier verified startup/socket denial;
@@ -607,7 +610,7 @@ and actual model-checking. No crate receives a whole-program proof label.
 | --- | --- | --- |
 | `cantos-contracts` — W1–W4 | Existing strict DTO/codec decoder retained; all Content variants, integer bounds, unknown/nested fields, exact prefix/trailing-byte and PATCH distinctions tested in 61 package cases and the contract gates. Raw serde values are deliberately not domain witnesses. | HTTP size/admission/current authority remains API-owned; no widened MessagePack route scope, fuzz/formal or network claim. |
 | `cantos-ui` — U1–U5 | Private nonblank reason/name types and closed control-state enums retained; exhaustive action/field projection with complete state matrices; 53 tests including compile-fail barriers, native rendering and Web compilation. No justified new rendering abstraction. | Live DOM ID uniqueness, focus/keyboard, contrast/pixels, screen reader/reduced motion and genuine IME remain separate acceptance; no rendering Kani. |
-| `cantos-api` — C1–C5, I1/I2, S1–S3, E1/A1/P1/M1/M2/D1 | Sealed storage-bounded revisions, admitted immutable import, existing sealed Script IR, positive editorial reconstruction, consumed bound adaptation source, current-owner planning witness, storage-bounded rights successor, submission lifetime/clock/replay bindings, checked WAV range and atomic experimental count/page transitions. Compile-fail/example/fixed-seed independent properties and actual three-kernel Kani results recorded above and in [proof record](kani.md). | SQL/current ownership/rights/head/time/revocation/constraints/byte object authenticity and transactions remain rechecked at actual shells. PostgreSQL NOT_RUN after denied startup. DBSP opt-in only, no live consumer; publication always unimplemented. Only three 64-bit local kernels model-checked. |
+| `cantos-server` — C1–C5, I1/I2, S1–S3, E1/A1/P1/M1/M2/D1 | Sealed storage-bounded revisions, admitted immutable import, existing sealed Script IR, positive editorial reconstruction, consumed bound adaptation source, current-owner planning witness, storage-bounded rights successor, submission lifetime/clock/replay bindings, checked WAV range and atomic experimental count/page transitions. Compile-fail/example/fixed-seed independent properties and actual three-kernel Kani results recorded above and in [proof record](kani.md). | SQL/current ownership/rights/head/time/revocation/constraints/byte object authenticity and transactions remain rechecked at actual shells. PostgreSQL NOT_RUN after denied startup. DBSP opt-in only, no live consumer; publication always unimplemented. Only three 64-bit local kernels model-checked. |
 | `cantos-studio` — F1/F2 | Private single exchange and immutable retry provenance; real DTO-available reply binding; ambiguous operation retention through later denial; exact save-finding snapshot guard. 166 unit + one compile-fail test, five fail-before regressions, adapter fixture checks and native/WASM/Web checks. Adequate existing client validation/projections retained. | Raw projection/echo gaps and current backend auth remain explicit. Browser lifetime/cookies/receipt reconciliation/revision conflicts, Vietnamese IME/native buffer and accessibility NOT_RUN. No client authorization witness or whole-UI proof. |
 | `cantos-theatre` — T1/T2 | Private admitted resume checkpoints, private probe state, immutable checked transitions before transport abort; existing intent/engine, stale-event and root lifetime boundaries retained. 86 unit + three compile-fail tests after PR83 integration; exact fail-before checks, independent finite retention oracle, mock adapters and unchanged shared vectors. | Synthetic/session-only mock model; unsupported live boundary. Browser abort/unmount, release identity/storage/CDN/auth/audio/native/persistence NOT_RUN or unimplemented. Two existing Theatre Kani sources NOT_RUN. |
 | `xtask` — X1/X2 | Registered typed opt-in Kani gate selection and fixed model/tool compatibility, strict evidence validation, lock/input identities and owned bounded subprocess cleanup. Ordinary default full/build/CI and merged service lifecycle commands retained. 56 focused xtask + 73 Python tests PASS; repository 298 PASS. The separate full-workspace Rust gate still fails in 17 unchanged service fixtures. | Ordinary parser/pipeline tests are not proofs. Missing/incompatible prerequisites are UNSUPPORTED; skips/stopped later gates NOT_RUN. Actual workspace service-fixture failures remain unresolved; no security guard weakened or mandatory paid/proof CI lane. |

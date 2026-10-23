@@ -6,7 +6,7 @@
 > Studio does not dispatch TTS and the Work/ContentUnit/Audio handoff UI is not implemented yet
 > ([#66](https://github.com/loveoverflowcom/cantos/issues/66), [#8](https://github.com/loveoverflowcom/cantos/issues/8)).
 
-`cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the actual local Axum/PostgreSQL
+`cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the native Axum/Turso (business port incomplete)
 revision API. Its text-first workspace has scene/act/character navigation, native dialogue,
 narration, emotion, pronunciation and cue controls, and a source/validation/change inspector.
 Import, proposal review and accepted-revision editing keep their state mounted when switching
@@ -50,8 +50,9 @@ cargo xtask deploy firebase cantos-studio --web --project ID --channel NAME --dr
 The explicit, manual `deploy firebase` can publish this app's static bundle to Firebase Hosting
 ([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves static files and clients
 use the explicit Cantos API origin. [#295](https://github.com/loveoverflowcom/cantos/issues/295)
-selects Web cookies on the custom domains with migration pending; current source still uses
-Bearer. Direct-origin sign-in remains gated by gateway/issuer/browser acceptance. Never upload private Studio content to a preview, which is public.
+selects Web cookies on the custom domains; this client now consumes the
+[Identity auth v1](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) cookie session. Direct-origin
+sign-in remains gated by backend/browser acceptance (none ran). Never upload private Studio content to a preview, which is public.
 Studio keeps its own Hosting site and browser origin. The preferred `cantos-studio.web.app`
 name is conditional on verified allocation; `studio.cantos.web.app` is not supported. The
 [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
@@ -64,24 +65,32 @@ that helper on `PATH` as well as the Cargo cache; the Mac run used
 The [performance audit](../../../docs/evidence/web-performance-patterns.md) records measurement
 limits and deferred editor/SSR/splitting experiments. The inventory does not measure browser
 startup or change the existing private/session cache boundary.
-Serve the built files with the local Axum host, using the [isolated database runner](../../../services/cantos-api/README.md).
-The actual walkthrough used `python3 scripts/serve_studio.py` at `http://127.0.0.1:8080`; today
-`cargo xtask run cantos-api --test-cluster` starts that same primitive after
-`cargo xtask verify postgres --keep`.
-
-`Trunk.toml` also declares an optional 8081 development proxy to 8080.
-`cargo xtask run cantos-studio --web` starts the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`
-and then `trunk serve --locked`; `cargo xtask app cantos-studio --web` starts only Trunk against an
-API that is already listening. That proxy mode was not used as browser evidence.
+`cargo xtask run cantos-studio --web` starts the native Server + Identity with private files,
+explicit migrations, distinct surface origins and Trunk on 8081. `app cantos-studio --web`
+starts only Trunk against an API already listening. Retained-PG `--test-cluster`/`verify postgres`
+commands are retired; prior browser walkthroughs remain source-bound history. Business porting
+and actual browser/login acceptance are separate from build/source checks.
 
 ## Login entry and writing desk
 
-Studio opens a login-only entry while its RAM Bearer session is unconfirmed. OIDC shows
-**Sign in with Cantos ID**; legacy development-cookie token login is explicitly unavailable
-in this client. Checking, unavailable, explicit permission-denied and retained-owner states
-keep every private workspace hidden/inert. Cancel returns to Studio sign-in and invalidates
-that observation, so a delayed response cannot reopen the workspace. There is no Theatre Back,
-registration, access-request, invitation or Membership flow.
+Studio opens a login-only entry while the API has not confirmed the browser's session. Sign-in is
+**email and password** (Identity auth v1); there is no public sign-up, passkey/MFA, recovery,
+change-password, phone or Google sign-in, and no provider or OIDC popup. Checking, unavailable,
+explicit permission-denied, sign-in-unavailable (404) and retained-owner states keep every private
+workspace hidden/inert. Cancel returns to Studio sign-in and invalidates that observation, so a
+delayed response cannot reopen the workspace. There is no Theatre Back, registration,
+access-request, invitation or Membership flow.
+
+| API answer at sign-in / session read | Studio shows (vi-VN and en copy) |
+| --- | --- |
+| 200 session | confirmed by an authoritative `GET identity/session`; only then the writing desk |
+| 401 at login | one generic "could not sign in" message; never names the password or the account |
+| 403 at login | "the request was refused: this account may not access Cantos Studio"; the Denied entry. A 403 is a wrong `Origin` **or** a roster denial and the response cannot tell which, so no copy claims the password was right. Login and email never grant Studio authority |
+| 404 | "Studio sign-in is not available on this server"; no fallback sign-in, form hidden |
+| 429 | the bounded `Retry-After` seconds; the identity client refuses every request of this surface (login, renew, reads, writes, downloads, uploads) until then, even with a still-valid session |
+| 503, network, timeout | unknown effect, shown as unavailable with Retry; never as signed out; drafts kept |
+| 400 | invalid input message |
+| refused account (retained-draft owner mismatch) | message that the new session was revoked; the other account is never adopted |
 
 A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
 Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and
@@ -89,8 +98,14 @@ request authority. No summary endpoint, portfolio total, QC count or demo record
 Import, new Work, current Work, audio and script-editor actions open the existing mounted
 workspaces. Returning to the desk preserves authoring text and request snapshots; pane return
 retains native caret/selection/scroll without copying manuscript text into navigation state.
-In-flight requests block authentication changes; ambiguous writes retain their owner while
-allowing explicit reauthentication and same-operation reconciliation, including delegation.
+In-flight requests block sign-in, refresh and reauthentication, but **never logout**: logout
+(`session::admits`) closes local authority synchronously, before its first await. The session
+owner fences every lease (a late reply of the account being left is an unknown outcome, never an
+acknowledgement), the page-wide fence is withdrawn so nothing new is dispatched and a late denial
+cannot touch the next account, each panel aborts its request best effort (an abort is not proof
+that a write did not commit), and the private workspace is hidden. Unsaved drafts and unresolved
+operations are kept for their owner; ambiguous writes allow explicit reauthentication as the same
+owner and same-operation reconciliation, including delegation.
 
 The [scoped evidence](../../../docs/evidence/studio-login-dashboard.md) separates native/SSR,
 WASM and synthetic-HTTP browser observations from live identity-provider acceptance. The
@@ -98,29 +113,48 @@ reference's raster illustration and aggregate metrics are not imported as produc
 
 ## Interaction and ownership
 
-On mount and idle browser-history restoration, Studio reads its public authentication mode and
-confirms only a Cantos-issued Bearer through `/api/v1/studio/auth/bearer/session`. Credentials
-live in RAM, rotate through the single shared refresh flight and are omitted from storage/URLs.
-Every protected request sends Authorization and its immutable UUID fence with cookies omitted.
-Unknown refresh/exchange outcomes revoke/cancel before a new authorization; business writes keep
-their existing operation receipt and are never blindly replayed.
+On mount, idle browser-history restoration and **Check current session**, Studio asks the API
+(`GET /api/v1/studio/identity/session`) who the browser is; an empty page proves nothing. The
+credential is the API-issued HttpOnly cookie, which Studio never reads, stores or forwards;
+only nonsecret facts (actor, session id, idle/absolute deadlines) are kept in RAM by
+[`cantos-web-auth`](../../../packages/web-auth/README.md). Every owner request is sent with
+`credentials: include` and the immutable session-id fence in `x-cantos-studio-session`, never an
+`Authorization` header; the browser adds `Origin` itself. A request renews the idle deadline
+once (shared flight) before it is near, and re-reads the session instead of concluding "signed
+out" when local deadlines pass; the absolute deadline cannot be extended, so the person signs in
+again after it. A 409 `unauthenticated` is a session-fence mismatch (another tab changed
+account): the local session is dropped, the denial re-reads the session, and nothing is
+accepted for the old one. Business writes keep their existing operation receipt and are never
+blindly replayed.
 
-A trusted click reserves an authentication popup. The opener stays mounted with its owner-bound
-drafts and pane/focus state; the popup carries only TTL-limited PKCE protocol artifacts through
-full issuer pages. A one-use completion is scrubbed and returned to the exact opener/origin;
-API session admission confirms the account before exposing private workspaces. Retained drafts
-require their original actor. Cancel/logout invalidate intent before asynchronous cleanup; late
-success/401/body/refresh results cannot reopen an old account. The account menu has a distinct
-sensitive-action reauthentication intent; refresh is never recent authentication.
+| Request | Transport |
+| --- | --- |
+| Owner JSON/Protobuf reads and writes, delegations, catalog/content/briefs/audio metadata | `credentials: include` + session fence; per-route codec negotiation unchanged |
+| Original download, private artwork preview | same, then SHA-256/identity checks before an ephemeral Blob |
+| Artwork upload | XHR with `withCredentials=true` + fence (progress for same- and cross-origin); fetch fallback with the same policy and no invented percentage. The target must be this surface of the configured API origin |
+| 429 on any owner request | `Lease::receive` (XHR: `Lease::response(status, Retry-After, echo)`) arms the shared hold; commands surface `ClientError::RateLimited { seconds }` (an unknown outcome for a write, reconciled by its operation and never replayed before the hold ends); the `ApiError`-returning paths keep `Unavailable` (shared contract) and expose the wait through `api::rate_wait()` |
+| Producer status/upload (work capability) | its own `Authorization: Bearer`, `credentials: omit`, no cookie, no fence |
+| Public/anonymous | `credentials: omit` |
 
-Reload/new tab has no credential and requires explicit authorization, potentially using valid
-issuer SSO. Canonical pane IDs survive in history, while confirmed reload/close discards RAM
-drafts under the existing unsaved-work warning. No manuscript backup is silently persisted.
-Original downloads use authenticated byte fetch and SHA-256 before an ephemeral local Blob;
-private artwork fetch/XHR uses the same credential owner. See the [shared Web boundary and
-resource inventory](../../../packages/web-auth/README.md), [Bearer contract](../../../packages/contracts/bearer-v1.md)
-and [OIDC authority](../../../docs/architecture/studio-oidc.md). Gateway/callback reconciliation
-and real issuer/browser/deployment acceptance remain separate; no cookie fallback is used here.
+Sign-in is one typed intent built from an explicit form submission: the password leaves the form
+with the intent (the field is empty before the request) and is never logged, persisted or kept
+for a retry. A retained draft (or the account menu's reauthentication) pins its owner: the
+identity client refuses and revokes any other account, so the owner's private drafts are never
+projected to it. Cancel/logout invalidate intent before asynchronous cleanup (the previous
+session is revoked with a fenced `DELETE identity/session`; an unacknowledged revoke blocks new
+admission until retried); late success/401/body results cannot reopen an old account. Pane IDs
+survive in history, while confirmed reload/close discards RAM drafts under the existing
+unsaved-work warning; no manuscript backup is silently persisted. A session that expires while a
+draft or upload is pending keeps the draft in RAM; the sign-in form re-authenticates as the same
+owner and nothing is auto-replayed.
+
+The authority is documented in [Identity auth v1](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
+and the shared [Web boundary](../../../packages/web-auth/README.md). The
+[23 October integration record](../../../docs/evidence/post-merge-integration-20261023.md)
+covers a real Identity roster login, an Editorial write and its read across a Server restart,
+and one loopback-HTTP browser login → create Work → restart → logout journey. **Not verified:**
+HTTPS `Secure`/third-party cookie blocking, deployed CORS, multi-tab and clock skew; a roster
+subject still has no supported operator lookup.
 
 The pure `authoring.rs` patches known leaves of the complete JSON value, preserving stable IDs,
 unknown metadata, provenance, rights and selected asset fields. It rejects duplicate keys,
@@ -143,7 +177,7 @@ constant, `REVISION_CODEC`, picks JSON (shipped) or the explicitly configured Pr
 Responses are decoded by their own `Content-Type`, and a request is never retried in the other
 representation. The [pilot build and rollback](#protobuf-pilot-build-and-rollback) section records
 the activation boundary and commands. The browser does not decide backend permissions or Script IR validity.
-`packages/contracts/api/` is shared with Axum; no server crate enters the WASM dependency graph.
+`services/cantos-server/src/contract/` is shared with Axum; no server crate enters the WASM dependency graph.
 
 Vietnamese/English resources cover every async/error state. The root owns a typed `Locale`
 (`vi-VN` first render) and mirrors it onto `<html lang>`; namespaces not yet migrated read a
@@ -223,7 +257,7 @@ mixing or listener control is provided.
 
 ## Casting and production-input review
 
-The [production v1 contract](../../../packages/contracts/production-v1.md) provides a static
+The [production v1 contract](../../../services/cantos-server/contracts/studio/production/v1/README.md) provides a static
 capability catalog and authenticated settings, rights, preview, freeze, exact snapshot and owner
 approval routes. Studio binds existing accepted script characters to catalog provider/model/voice
 profiles (synthetic reference, eSpeak NG, VieNeu Nano research and Google Cloud TTS) with
@@ -284,13 +318,13 @@ SSR is a native test feature only. Browser builds remain CSR.
 
 ## Catalog, immutable content and private audio workspace
 
-The **Content & audio** pane calls the actual JSON Studio owner APIs with surface-scoped Bearer
-and normal browser Origin enforcement. It lists bounded work/unit pages, creates work/chapter/
+The **Content & audio** pane calls the actual JSON Studio owner APIs with the Studio cookie
+session, its session fence and normal browser Origin enforcement. It lists bounded work/unit pages, creates work/chapter/
 episode metadata, edits the selected unit, reads current/exact/history content and appends
 text or recording revisions. It creates/reads exact narration/recording briefs with an explicit
 Opus mono20/24/32/40 profile, then prepares a private submission, reads bounded file bytes and
 SHA-256 in-browser and PUTs octet-stream using the separate upload bearer with
-`credentials: omit`. The token stays in browser memory and is never put in result JSON or
+`credentials: omit` (the producer capability, unchanged by the cookie migration). The token stays in browser memory and is never put in result JSON or
 storage. The current prepared file must match the expected size/hash; server byte inspection
 remains authoritative. No encoding or playback preview runs here.
 
@@ -318,8 +352,8 @@ acceptance. [Capability matrix](../../../docs/work-plan/live-client-api-matrix.m
 
 A selected Work in **Content & audio** shows **Ủy quyền theo tác phẩm** when the signed-in actor
 is its `owner_id`; members see a short explanation and no request is sent. The panel calls only
-the [delegation v1](../../../packages/contracts/delegation-v1.md) owner routes, built from the
-shared `routes::STUDIO_WORK_DELEGATIONS`/`STUDIO_WORK_DELEGATION` templates with the Studio owner Bearer,
+the [delegation v1](../../../services/cantos-server/contracts/studio/delegation/v1/README.md) owner routes, built from the
+shared `routes::STUDIO_WORK_DELEGATIONS`/`STUDIO_WORK_DELEGATION` templates with the Studio owner cookie session,
 session fence and Origin: it pages grants by `after` (20 per page), issues a grant for a
 registered delegate actor with any of `work:read`, `content:read`, `content:write` and a 1/7/14/30
 day lifetime, and revokes after a native confirmation dialog. The browser decides no admission
@@ -363,7 +397,7 @@ Pilot requests offer `application/protobuf, application/json;q=0.5`. A successfu
 read by its actual Content-Type; JSON success/errors remain accepted. Malformed, mislabeled or
 unoffered binary successes remain ambiguous `unavailable`. Errors remain JSON ApiError. There
 is one fetch per call and no automatic codec fallback, retry or reauthentication. Existing
-request deadlines, Bearer credentials/Origin, immutable operation identity, draft retention and
+request deadlines, cookie credentials/Origin, immutable operation identity, draft retention and
 actor fences are unchanged. All other APIs remain on their existing JSON helpers; the client
 continues to call Studio routes rather than introducing a legacy-alias consumer.
 
@@ -374,7 +408,7 @@ lost body, timeout/navigation cancellation, exact reload and JSON rollback.
 
 ## Private Work artwork
 
-The owner-only `studio-artwork` composition uses the existing [artwork-v1](../../../packages/contracts/artwork-v1.md)
+The owner-only `studio-artwork` composition uses the existing [artwork-v1](../../../services/cantos-server/contracts/studio/artwork/v1/README.md)
 Studio routes through `live::Command` and its session-fenced dispatcher. Select an original
 PNG/JPEG, declare provenance and rights, prepare the 30-minute intent, upload raw bytes, then
 explicitly select the admitted asset with alt text and the displayed Work revision. The
@@ -412,13 +446,20 @@ requires its documented local API; mock-browser observations do not waive that p
 
 Build with nonsecret `CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org` through the existing
 `cargo xtask build|app|deploy` command. Unset retains the local Trunk proxy. All live HTTP,
-XHR/private reads and login navigation resolve within this app's own API group; invalid origins
-fail closed. The client never takes an identity-provider URL or provider token as configuration.
-Current Web requests omit cookies. Owner Bearer, producer capability and anonymous requests
-retain their separate authority and fences. The server needs exact per-surface Web CORS and
-configured Bearer callbacks. [ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
-now selects #295 Web cookies on the custom domains, with migration pending. Exact credentialed
-CORS, CSRF, cookie scope, callback and browser qualification remain activation gates; previews
-need their own declared topology. Native Bearer is unchanged.
+XHR/private reads and sign-in resolve within this app's own API group; invalid origins
+fail closed, and a credentialed upload/read target must be this surface of that origin. The
+client never takes an identity-provider URL or provider token as configuration. Owner requests
+carry the API's HttpOnly cookie (`credentials: include`); producer capability and anonymous
+requests retain their separate authority and omit cookies. The server needs exact per-surface Web
+CORS with credentials, CSRF/Origin enforcement and cookie scope (`SameSite=Strict`, host-only,
+`Path=/api/v1/studio`). [ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md#owner-selected-web-cookies-native-bearer-retained-295)
+owns the topology; previews need their own declared topology. Native Bearer is unchanged.
 The [current production runbook](../../../docs/deployment/vps-production.md) owns destinations;
 a successful local build or mocked browser run is not deployed-user acceptance.
+
+**Retry-After and cross-origin reads.** The wait comes from the `Retry-After` header, which a
+cross-origin page can read only when the API exposes it (`Access-Control-Expose-Headers`). At this
+base `services/cantos-server/src/adapters/inbound/http/cors.rs` does not, so the header reads as
+absent and the owner holds for its conservative 30 s default instead of the Server's value (API
+owner follow-up; same-origin proxies are unaffected). Cross-tab cookie ordering and logout-while-busy
+have host tests only: no browser, Web Locks or real Server/Identity acceptance exists.

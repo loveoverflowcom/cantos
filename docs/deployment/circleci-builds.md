@@ -119,7 +119,7 @@ checks the host's Linux x86_64 inventory; uploads a verified snapshot with trans
 uses the artifact's own `cantos-vps promote REVISION TREE IMAGE_ID`. One host lock covers load,
 ID/platform/revision/schema checks, matching runtime install and the existing deploy protocol:
 backup → schema/migration/grants → image switch → health → switch-back when applicable.
-See the [VPS runbook](vps-production.md#verified-artifact-promotion).
+See the [VPS runbook](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#verified-artifact-promotion).
 Image rollback never rolls back migrations. Bootstrap, identity, epoch cutover and restore
 remain separate operator operations.
 

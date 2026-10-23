@@ -1,5 +1,6 @@
-//! A token exchange is not authenticated until the API admits the browser's owner session.
-use cantos_contracts::{ApiError, ErrorCode, SessionResponse, StudioAuthenticationMode};
+//! A sign-in is not authenticated until the API admits the browser's owner cookie session.
+use crate::contract::{ApiError, ErrorCode, FieldIssue};
+use cantos_web_auth::Failure;
 
 /// A noncredential server correlation UUID, captured immutably for one HTTP attempt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,6 +32,69 @@ pub fn current_attempt(
     expected.is_some() && expected == current && expected_epoch == current_epoch
 }
 
+pub fn unauthenticated() -> ApiError {
+    ApiError {
+        code: ErrorCode::Unauthenticated,
+        current_revision: None,
+        issues: vec![],
+    }
+}
+
+/// The browser's session is no longer the one the request was made for (another tab, an
+/// account switch, a refused account): an observed denial that re-reads the session.
+pub fn session_changed() -> ApiError {
+    let mut error = unauthenticated();
+    error.issues.push(FieldIssue {
+        path: "session".into(),
+        rule: "session_changed".into(),
+    });
+    error
+}
+
+pub fn is_session_changed(error: &ApiError) -> bool {
+    error.code == ErrorCode::Unauthenticated
+        && error
+            .issues
+            .iter()
+            .any(|issue| issue.path == "session" && issue.rule == "session_changed")
+}
+
+fn coded(code: ErrorCode) -> ApiError {
+    ApiError {
+        code,
+        current_revision: None,
+        issues: vec![],
+    }
+}
+
+/// The Studio projection of an identity failure. Unknown effects stay `Unavailable` (never
+/// "signed out"); a 403 keeps its own code so the entry can say this account may not access
+/// Studio (it is never read as a verified password: an Origin refusal is also a 403); a missing
+/// sign-in capability (404) is explicit and has no fallback. A 429 hold stays `Unavailable` here
+/// because `ApiError` is a shared contract: its wait is read from the owner (`api::rate_wait`).
+pub fn failure_error(failure: Failure) -> ApiError {
+    match failure {
+        Failure::SignedOut | Failure::InvalidCredentials => unauthenticated(),
+        Failure::AccountMismatch => session_changed(),
+        Failure::Forbidden => coded(ErrorCode::Forbidden),
+        Failure::NotFound => coded(ErrorCode::NotFound),
+        Failure::Invalid => coded(ErrorCode::InvalidRequest),
+        // A fence or intent that changed under a request: an unknown outcome for a write.
+        Failure::Changed => unconfirmed_response(),
+        Failure::RateLimited(_)
+        | Failure::Unavailable
+        | Failure::Protocol
+        | Failure::CleanupPending => coded(ErrorCode::Unavailable),
+    }
+}
+
+/// The API answers 409 with `unauthenticated` when the request's session fence names a session
+/// the cookie no longer holds (another tab changed account). A business conflict (stale
+/// revision, reused operation) has its own code and never matches.
+pub fn is_fence_mismatch(status: u16, error: &ApiError) -> bool {
+    status == 409 && error.code == ErrorCode::Unauthenticated
+}
+
 /// A successful mutation whose owner correlation cannot be confirmed has an unknown outcome.
 /// Preserve the operation snapshot for receipt reconciliation while hiding private projection.
 pub fn unconfirmed_response() -> ApiError {
@@ -44,13 +108,35 @@ pub fn unconfirmed_response() -> ApiError {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionTicket(u64);
 
+/// An authentication action the shell may start.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuthIntent {
+    SignIn,
+    Refresh,
+    Reauthenticate,
+    Logout,
+}
+
+/// Whether `intent` may start now. Sign-in, refresh and reauthentication wait for a settled
+/// session and for in-flight work (`busy`), so they never race a save, upload or import.
+/// Logout never waits for work: closing local authority is a synchronous fence, the draft and
+/// every unresolved operation stay with their owner, and a late reply cannot reopen the session.
+/// It only needs an account to leave.
+pub fn admits(intent: AuthIntent, session: &SessionState, busy: bool) -> bool {
+    match intent {
+        AuthIntent::Logout => !session.pending() && session.actor().is_some(),
+        AuthIntent::SignIn | AuthIntent::Refresh | AuthIntent::Reauthenticate => {
+            !session.pending() && !busy
+        }
+    }
+}
+
 /// Browser presentation is fenced independently from retained authoring draft ownership.
 /// Only an actual current-session response establishes a displayed actor.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SessionState {
     epoch: u64,
     pending: bool,
-    mode: Option<StudioAuthenticationMode>,
     actor: Option<String>,
 }
 
@@ -60,9 +146,6 @@ impl SessionState {
     }
     pub fn pending(&self) -> bool {
         self.pending
-    }
-    pub fn mode(&self) -> Option<StudioAuthenticationMode> {
-        self.mode
     }
     pub fn actor(&self) -> Option<&str> {
         self.actor.as_deref()
@@ -93,7 +176,6 @@ impl SessionState {
                 epoch,
                 pending: true,
                 actor: None,
-                ..self.clone()
             },
             SessionTicket(epoch),
         ))
@@ -103,24 +185,14 @@ impl SessionState {
         self.pending && self.epoch == ticket.0
     }
 
-    pub fn configured(&self, ticket: SessionTicket, mode: StudioAuthenticationMode) -> Self {
-        if !self.accepts(ticket) {
-            return self.clone();
-        }
-        Self {
-            mode: Some(mode),
-            ..self.clone()
-        }
-    }
-
     pub fn settled(&self, ticket: SessionTicket, actor: Option<String>) -> Self {
         if !self.accepts(ticket) {
             return self.clone();
         }
         Self {
+            epoch: self.epoch,
             pending: false,
             actor: actor.filter(|actor| !actor.is_empty()),
-            ..self.clone()
         }
     }
 
@@ -129,23 +201,7 @@ impl SessionState {
             epoch: self.epoch.saturating_add(1),
             pending: false,
             actor: None,
-            ..self.clone()
         }
-    }
-}
-
-pub fn confirm_exchange(
-    expected: SessionResponse,
-    observed: SessionResponse,
-) -> Result<SessionResponse, ApiError> {
-    if !expected.actor_id.is_empty() && expected.actor_id == observed.actor_id {
-        Ok(observed)
-    } else {
-        Err(ApiError {
-            code: ErrorCode::Unauthenticated,
-            current_revision: None,
-            issues: vec![],
-        })
     }
 }
 
@@ -185,43 +241,198 @@ mod tests {
         assert!(SessionFence::new("cookie-secret").is_none());
     }
     #[test]
-    fn login_acknowledgement_requires_the_same_nonempty_cookie_actor() {
-        for (expected, observed, accepted) in [
-            ("alice", "alice", true),
-            ("alice", "bob", false),
-            ("alice", "", false),
-            ("", "", false),
+    fn identity_failures_map_to_distinct_studio_states_and_never_to_signed_out_by_accident() {
+        for (failure, code) in [
+            (Failure::SignedOut, ErrorCode::Unauthenticated),
+            (Failure::InvalidCredentials, ErrorCode::Unauthenticated),
+            (Failure::Forbidden, ErrorCode::Forbidden),
+            (Failure::NotFound, ErrorCode::NotFound),
+            (Failure::Invalid, ErrorCode::InvalidRequest),
+            // Unknown effects: 503, network, a lost renewal, a pending revoke, a rate limit.
+            (Failure::RateLimited(30), ErrorCode::Unavailable),
+            (Failure::Unavailable, ErrorCode::Unavailable),
+            (Failure::Protocol, ErrorCode::Unavailable),
+            (Failure::CleanupPending, ErrorCode::Unavailable),
+            (Failure::Changed, ErrorCode::Unavailable),
         ] {
-            let result = confirm_exchange(
-                SessionResponse {
-                    actor_id: expected.into(),
-                },
-                SessionResponse {
-                    actor_id: observed.into(),
-                },
+            assert_eq!(failure_error(failure).code, code, "{failure:?}");
+        }
+        // A refused account and a fence mismatch are observed denials that re-read the session;
+        // a changed lease mid-request is an unknown outcome and must not look like one.
+        assert!(is_session_changed(&failure_error(Failure::AccountMismatch)));
+        assert!(!is_session_changed(&failure_error(Failure::Changed)));
+        assert!(!is_session_changed(&unauthenticated()));
+        assert_eq!(unconfirmed_response().code, ErrorCode::Unavailable);
+    }
+
+    #[test]
+    fn reload_expiry_and_outages_present_distinct_entries_and_keep_the_retained_draft() {
+        use crate::entry::{presentation, Entry};
+        let editor = crate::editor::Editor::default()
+            .signed_in("alice".into())
+            .select_script("script".into())
+            .edit("private draft".into());
+        for (failure, entry) in [
+            // Reload without a cookie, idle or absolute expiry, a revoked or replaced session.
+            (Failure::SignedOut, Entry::Login),
+            // 503 or a lost renewal: unknown, so never presented as a signed-out login.
+            (Failure::Unavailable, Entry::Unavailable),
+            (Failure::RateLimited(5), Entry::Unavailable),
+            // A 403: wrong Origin or a roster denial; the response cannot tell which.
+            (Failure::Forbidden, Entry::Denied),
+            // The API has no Studio sign-in at all; there is no fallback.
+            (Failure::NotFound, Entry::SignInUnavailable),
+        ] {
+            let (checking, ticket) = SessionState::default().begin().unwrap();
+            let failed = editor
+                .checking_session()
+                .session_failed(&failure_error(failure));
+            let settled = checking.settled(ticket, None);
+            assert_eq!(
+                presentation(&settled, failed.actor(), failed.status()),
+                entry,
+                "{failure:?}"
             );
-            if accepted {
-                assert_eq!(result.unwrap().actor_id, expected);
-            } else {
-                assert_eq!(result.err().unwrap().code, ErrorCode::Unauthenticated);
-            }
+            assert_eq!(failed.draft(), "private draft", "{failure:?}");
+            assert!(!settled.projects_owner("alice"));
         }
     }
 
     #[test]
-    fn delayed_session_success_failure_and_configuration_cannot_restore_account_a() {
+    fn a_refused_account_never_adopts_or_exposes_the_retained_draft() {
+        let editor = crate::editor::Editor::default()
+            .signed_in("alice".into())
+            .select_script("script".into())
+            .edit("private A draft".into());
+        // Bob signs in while Alice's draft is retained. The identity client refuses and revokes
+        // him (AccountMismatch), so the session never settles on Bob.
+        let (checking, ticket) = SessionState::default().begin().unwrap();
+        let failed = editor
+            .checking_session()
+            .session_failed(&failure_error(Failure::AccountMismatch));
+        let settled = checking.settled(ticket, None);
+        assert_eq!(settled.actor(), None);
+        assert_eq!(settled.retained_owner("alice", true), "alice");
+        assert!(!settled.projects_owner("alice"));
+        assert!(!settled.projects_owner("bob"));
+        assert_eq!(failed.actor(), "alice");
+        assert_eq!(failed.draft(), "private A draft");
+        // A late Bob completion of the same attempt cannot settle it again.
+        assert_eq!(settled.settled(ticket, Some("bob".into())), settled);
+        // Only Alice returning projects her draft again.
+        let (checking, ticket) = settled.begin().unwrap();
+        let restored = checking.settled(ticket, Some("alice".into()));
+        let editor = failed.signed_in(restored.retained_owner(failed.actor(), true));
+        assert!(restored.projects_owner(editor.actor()));
+        assert_eq!(editor.draft(), "private A draft");
+    }
+
+    #[test]
+    fn only_a_409_unauthenticated_reply_is_a_session_fence_mismatch() {
+        let error = |code| ApiError {
+            code,
+            current_revision: None,
+            issues: vec![],
+        };
+        assert!(is_fence_mismatch(409, &error(ErrorCode::Unauthenticated)));
+        for (status, code) in [
+            (401, ErrorCode::Unauthenticated),
+            (403, ErrorCode::Forbidden),
+            (409, ErrorCode::StaleRevision),
+            (409, ErrorCode::OperationReused),
+            (409, ErrorCode::CatalogConflict),
+            (503, ErrorCode::Unavailable),
+        ] {
+            assert!(!is_fence_mismatch(status, &error(code)), "{status}");
+        }
+    }
+
+    #[test]
+    fn logout_is_admitted_while_work_is_busy_but_sign_in_refresh_and_reauthentication_wait() {
+        let (checking, ticket) = SessionState::default().begin().unwrap();
+        let signed_in = checking.settled(ticket, Some("alice".into()));
+        for intent in [
+            AuthIntent::SignIn,
+            AuthIntent::Refresh,
+            AuthIntent::Reauthenticate,
+        ] {
+            assert!(admits(intent, &signed_in, false), "{intent:?}");
+            assert!(
+                !admits(intent, &signed_in, true),
+                "{intent:?} must wait for work"
+            );
+        }
+        assert!(admits(AuthIntent::Logout, &signed_in, true));
+        assert!(admits(AuthIntent::Logout, &signed_in, false));
+        // Nothing is admitted while a session check is pending, and there is nobody to log out
+        // before an account is confirmed.
+        let (pending, _) = signed_in.begin().unwrap();
+        let guest = SessionState::default();
+        for intent in [AuthIntent::Logout, AuthIntent::SignIn, AuthIntent::Refresh] {
+            assert!(!admits(intent, &pending, false), "{intent:?}");
+        }
+        assert!(!admits(AuthIntent::Logout, &guest, false));
+    }
+
+    #[test]
+    fn logout_during_a_save_hides_the_workspace_keeps_the_draft_and_fences_the_late_reply() {
+        let editor = crate::editor::Editor::default()
+            .signed_in("alice".into())
+            .select_script("script".into())
+            .edit("private A draft".into());
+        let (saving, intent) = editor.start_save("operation".into()).unwrap();
+        let (checking, ticket) = SessionState::default().begin().unwrap();
+        let alice = checking.settled(ticket, Some("alice".into()));
+        assert!(admits(AuthIntent::Logout, &alice, saving.busy()));
+        // Logout closes the shell's authority at once, while the save is still in flight.
+        let (logging_out, logout_ticket) = alice.begin().unwrap();
+        let held = saving.checking_session();
+        assert!(
+            !logging_out.projects_owner("alice"),
+            "the private workspace is hidden"
+        );
+        assert_eq!(
+            held.pending(),
+            Some(&intent),
+            "the unresolved save keeps its identity"
+        );
+        // The save answers late: the owner reports an unknown outcome, never a success.
+        let unknown = held.save_failed(&intent, &unconfirmed_response());
+        assert_eq!(unknown.draft(), "private A draft");
+        assert_eq!(unknown.pending(), Some(&intent));
+        // The logout settles with nobody signed in; draft and pending save survive for A.
+        let signed_out = logging_out.settled(logout_ticket, None);
+        let after = unknown.session_failed(&unauthenticated());
+        assert!(!signed_out.projects_owner("alice"));
+        assert_eq!(after.draft(), "private A draft");
+        assert_eq!(after.pending(), Some(&intent));
+        assert!(after.awaits_reconciliation());
+        // Account B signs in: A's draft is neither editable nor projected, and A's late
+        // acknowledgement of the same operation changes nothing.
+        let for_b = after.signed_in("bob".into());
+        assert!(!for_b.can_edit());
+        assert_eq!(for_b.draft(), "private A draft");
+        let late = crate::contract::RevisionResponse {
+            script_id: "script".into(),
+            revision: 1,
+            accepted_by: "alice".into(),
+            accepted_at: "2026-10-10T00:00:00.000000Z".into(),
+            content_digest: "content".into(),
+            export_digest: "export".into(),
+            script_json: "canonical".into(),
+        };
+        assert_eq!(for_b.saved(&intent, late), for_b);
+    }
+
+    #[test]
+    fn delayed_session_success_and_failure_cannot_restore_account_a() {
         let initial = SessionState::default();
         let (checking, a) = initial.begin().unwrap();
-        let checking = checking.configured(a, StudioAuthenticationMode::Oidc);
         let signed_in = checking.settled(a, Some("alice".into()));
         let (switching, b) = signed_in.begin().unwrap();
         assert_eq!(switching.actor(), None);
         assert_eq!(switching.settled(a, Some("alice".into())), switching);
         assert_eq!(switching.settled(a, None), switching);
-        assert_eq!(
-            switching.configured(a, StudioAuthenticationMode::Development),
-            switching
-        );
         let account_b = switching.settled(b, Some("bob".into()));
         let logout = account_b.invalidated();
         assert_eq!(logout.actor(), None);

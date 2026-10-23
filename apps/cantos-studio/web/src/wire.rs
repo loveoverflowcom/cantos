@@ -6,9 +6,9 @@
 //! errors are always JSON, and an older or intermediate server may answer JSON to a Protobuf
 //! request. A request is sent exactly once; no failure is retried in the other representation,
 //! because a write may already have committed (the editor reconciles its own operation).
-use cantos_contracts::{
+use crate::contract::{
+    codec::{self as wire, WireFormat},
     protobuf::ProtobufDto,
-    wire::{self, WireFormat},
     ApiError, ErrorCode,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -85,19 +85,19 @@ fn unavailable() -> ApiError {
 
 #[cfg(test)]
 mod tests {
-    use cantos_contracts::{FieldIssue, RevisionResponse, SaveRevisionRequest};
+    use crate::contract::{FieldIssue, RevisionResponse, SaveRevisionRequest};
 
     use super::*;
 
     fn revision() -> RevisionResponse {
         serde_json::from_str(include_str!(
-            "../../../../packages/contracts/fixtures/studio/v1/revision.json"
+            "../../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/revision.json"
         ))
         .unwrap()
     }
 
     fn stale() -> &'static [u8] {
-        include_bytes!("../../../../packages/contracts/fixtures/studio/v1/stale-revision.json")
+        include_bytes!("../../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/stale-revision.json")
     }
 
     #[test]

@@ -26,22 +26,28 @@ TIMEOUT_SECONDS = 900
 MAX_LOG_BYTES = 4 * 1024 * 1024
 MAX_CONFIGURATION_BYTES = 1024 * 1024
 MAX_GROUP_STATUS_BYTES = 64 * 1024
-DEFAULT_PACKAGE = "cantos-api"
+DEFAULT_PACKAGE = "cantos-server"
 # Closed allowlist of workspace packages that may own a proof kernel (mirrors xtask's
 # `Package`): manifest, hashed source directories and hashed files, all workspace-relative.
 # The API row is the long-standing model and must not change; a new package is a new row.
 PACKAGES = {
-    "cantos-api": (
-        "services/cantos-api/Cargo.toml",
-        ("services/cantos-api/src", "packages/contracts/api/src", "packages/contracts/schema", ".cargo"),
-        ("Cargo.toml", "services/cantos-api/Cargo.toml", "services/cantos-api/build.rs",
-         "packages/contracts/api/Cargo.toml", "packages/contracts/api/build.rs",
+    "cantos-server": (
+        "services/cantos-server/Cargo.toml",
+        # The Server's own contract representation is under its src; its canonical schemas and
+        # fixtures (formerly the separate packages/contracts crate) are a hashed directory.
+        ("services/cantos-server/src", "services/cantos-server/contracts", ".cargo"),
+        ("Cargo.toml", "services/cantos-server/Cargo.toml", "services/cantos-server/build.rs",
          "scripts/verify_kani.py", "xtask/src/kani.rs"),
     ),
     "cantos-forge": (
         "services/cantos-forge-functions/Cargo.toml",
         ("services/cantos-forge-functions/src", ".cargo"),
         ("Cargo.toml", "services/cantos-forge-functions/Cargo.toml", "scripts/verify_kani.py", "xtask/src/kani.rs"),
+    ),
+    "cantos-identity": (
+        "services/cantos-identity/Cargo.toml",
+        ("services/cantos-identity/src", ".cargo"),
+        ("Cargo.toml", "services/cantos-identity/Cargo.toml", "scripts/verify_kani.py", "xtask/src/kani.rs"),
     ),
 }
 FORBIDDEN_ENVIRONMENT = frozenset((
@@ -240,9 +246,13 @@ def validate_output(text, harness, cover_count, allowed_unreachable):
     selected = re.findall(r"^Checking harness (.+)\.\.\.$", text, re.MULTILINE)
     if selected != [harness]: raise KaniError("expected exactly one matching executed harness")
     headers = re.findall(r"^Check [^\n]*$", text, re.MULTILINE)
+    # Kani quotes each description; a quoted one may wrap where rustfmt wrapped a long asserted
+    # expression. A continuation line can never start another field or check header, so a
+    # wrapped description cannot absorb a missing Location or a following block.
     blocks = list(re.finditer(
         r"^Check ([1-9][0-9]*): ([^\n]+)\n[ \t]+- Status: ([A-Z]+)\n"
-        r"[ \t]+- Description: ([^\n]+)\n[ \t]+- Location: ([^\n]+)(?=\n|$)", text, re.MULTILINE))
+        r"[ \t]+- Description: (\"[^\n]*(?:\n(?![ \t]+- |Check [0-9]+: )[^\n]*)*\"|[^\n\"][^\n]*)\n"
+        r"[ \t]+- Location: ([^\n]+)(?=\n|$)", text, re.MULTILINE))
     if not blocks or len(blocks) != len(headers): raise KaniError("missing or malformed property blocks")
     for field in ("Status", "Description", "Location"):
         if len(re.findall(r"^[ \t]+- " + field + r":", text, re.MULTILINE)) != len(blocks):

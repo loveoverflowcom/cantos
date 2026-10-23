@@ -1,0 +1,31 @@
+[package]
+name = "cantos-store-turso"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98.1"
+publish = false
+description = "Reusable single-owner embedded Turso infrastructure for internal consumers"
+
+[features]
+# Run-owned temporary directories and a deterministic clock. Never enabled in a runtime build.
+testing = []
+
+[dependencies]
+# Exact pin: the engine is pre-1.0. Default features are off on purpose: `mimalloc` installs a
+# process-wide `#[global_allocator]` from inside the library and `fts` pulls tantivy.
+turso = { version = "=0.8.3", default-features = false }
+sha2 = "=0.10.9"
+tokio = { version = "=1.47.1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
+
+[dev-dependencies]
+cantos-store-turso = { path = ".", features = ["testing"] }
+tokio = { version = "=1.47.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+
+[[bin]]
+name = "cantos-turso-capability"
+path = "src/bin/cantos-turso-capability.rs"
+required-features = ["testing"]
+
+[lints.rust]
+# Kani injects its crate only for cfg(kani); ordinary builds retain no proof dependency.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

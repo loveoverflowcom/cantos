@@ -8,8 +8,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DIRECTORY = ROOT / "packages/contracts/fixtures/protobuf/v1"
-ARTWORK_DIRECTORY = ROOT / "packages/contracts/fixtures/artwork/v1"
+DIRECTORY = ROOT / "services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf"
+ARTWORK_DIRECTORY = ROOT / "services/cantos-server/contracts/studio/artwork/v1/fixtures"
 # Preserve the pilot table and corpus independently of the additive artwork schema.
 FIELDS = {
     "ValidateScriptRequest": [(1, "script_json", "string")],

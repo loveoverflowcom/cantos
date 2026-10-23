@@ -6,7 +6,7 @@
   [#157](https://github.com/loveoverflowcom/cantos/issues/157)
 - Related issue or PR: [#171](https://github.com/loveoverflowcom/cantos/issues/171) (implementation after #157),
   [ADR 0030](0030-release-safe-public-metadata.md) (P1 metadata gate)
-- Supersedes / superseded by: N/A; [Artwork v1](../../packages/contracts/artwork-v1.md) stays owner-only
+- Supersedes / superseded by: N/A; [Artwork v1](../../services/cantos-server/contracts/studio/artwork/v1/README.md) stays owner-only
 
 ## Context
 

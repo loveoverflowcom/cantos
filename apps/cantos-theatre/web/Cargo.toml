@@ -15,7 +15,7 @@ preview = []
 [dependencies]
 cantos-web-auth = { path = "../../../packages/web-auth" }
 uuid = { version = "=1.18.1", default-features = false, features = ["std"] }
-cantos-contracts = { path = "../../../packages/contracts/api" }
+serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.145"
 url = "=2.5.8"
 cantos-ui = { path = "../../../packages/ui-system/leptos" }

@@ -20,13 +20,13 @@ and needs a measured listener payload first. Progress and bookmark semantics are
 
 ## Resource map
 
-Every listener route lives under `/api/v1/theatre` (`cantos_contracts::routes::THEATRE_BASE`) and
+Every listener route lives under `/api/v1/theatre` (the Server's `contract::routes::THEATRE_BASE`) and
 never reuses a Studio route, session or editor `Store` method; a Studio session grants nothing
 here. Two routers implement it: `adapters/inbound/http/theatre.rs` (anonymous Discovery/Playback, DTOs
-in `cantos_contracts::theatre`) and `adapters/inbound/http/theatre_library.rs` (account-owned Library,
-DTOs in `cantos_contracts::listener_library`). The actual contracts own names and behavior:
-[Discovery v1](../../../../packages/contracts/theatre-discovery-v1.md) and
-[Library v1](../../../../packages/contracts/listener-library-v1.md). Actual public delivery is
+in the Server's `contract::theatre::discovery`) and `adapters/inbound/http/theatre_library.rs` (account-owned Library,
+DTOs in `contract::theatre::library`). The actual contracts own names and behavior:
+[Discovery v1](../../../../services/cantos-server/contracts/theatre/discovery/v1/README.md) and
+[Library v1](../../../../services/cantos-server/contracts/theatre/library/v1/README.md). Actual public delivery is
 fail-closed unless the host composes `router_with_theatre_delivery`; OpenAPI and drift-checked
 Kotlin generation remain required client acceptance.
 
@@ -56,7 +56,7 @@ signature, so it stays cacheable and loggable.
 ## Read performance
 
 For the database-backed reads in the resource map, use the foundation's
-[PostgreSQL/DBSP workflow](../../cantos-engineering/references/postgresql-read-performance.md).
+[Turso read workflow](../../cantos-engineering/references/turso-read-performance.md).
 Keep the visibility matrix, cursor law, no-production-work test and backend access checks below
 as acceptance oracles for every serving path, including fallback.
 
@@ -127,8 +127,8 @@ as an account are different facts that happen to share the actor registry gramma
 **A2 — The committed OpenAPI document is the reviewed contract; wire types are derived from it.**
 
 - *Why.* Hand-maintained Kotlin or Leptos DTOs drift from the server silently; the
-  [contracts guide](../../../../packages/contracts/README.md) forbids divergent definitions.
-- *Good.* `packages/contracts/listener-api/openapi.yaml` (proposed path) reviewed in the PR that changes
+  [contracts guide](../../../../services/cantos-server/contracts/README.md) forbids divergent definitions.
+- *Good.* `services/cantos-server/contracts` (proposed path) reviewed in the PR that changes
   behavior; Kotlin wire types generated from it; Rust either generated from it or emitting it,
   with CI regenerating and failing on any diff.
 - *Counterexample.* A `data class ProgressDto` written by hand "until generation is set up", or a
@@ -137,9 +137,9 @@ as an account are different facts that happen to share the actor registry gramma
   generated type set (`example-tested`); server responses validate against the schema in handler
   tests.
 - *Status.* partial. Implemented: the committed JSON Schemas
-  `packages/contracts/schema/theatre/{discovery,library,playback}/v1.schema.json`, strict serde DTOs
-  in the `cantos-contracts` crate (`theatre`, `listener_library`) shared by the API and Theatre
-  Web, and fixture conformance tests (`packages/contracts/api/tests/listener_library_wire.rs`,
+  `services/cantos-server/contracts/theatre/{discovery,library}/v1/*.schema.json` (and the
+  Theatre-owned `apps/cantos-theatre/conformance/playback/v1`), strict serde DTOs owned separately
+  by the Server (`contract::theatre`) and Theatre Web (`contract`), and fixture conformance tests (`services/cantos-server/tests/contract_conformance/listener_library_wire.rs`,
   `theatre_discovery_wire.rs`). Proposed: OpenAPI and generated or drift-checked Kotlin; CMP
   has no Library wire types yet. *Exception.* None for wire types. Hand-written **domain** types
   are expected; they are mapped from wire types at the boundary, as `listening::domain` does.
@@ -164,14 +164,15 @@ fun ProgressRecordDto.toDomain(): Decoded<ProgressRecord> {
 }
 ```
 
-Theatre Web is Rust, so it depends on the shared `cantos-contracts` wire crate (today
-`live/library.rs` decodes `ContinuePage`, `SavedPage` and `HistoryPage`); it never depends on
-server domain, application or SQL modules. Add TypeScript types only when a JavaScript consumer exists
+Theatre Web is Rust but owns its own wire DTOs (`src/contract`, today decoding the presented
+Continue/Saved/History pages), checked against the Server-owned fixtures
+([ADR 0046](../../../../docs/decisions/0046-service-owned-contracts.md)); it never depends on the
+Server crate or its domain, application or SQL modules. Add TypeScript types only when a JavaScript consumer exists
 (a service worker, for example), generated from the same schema.
 
 ### Contract fixtures
 
-Library fixtures live in `packages/contracts/fixtures/theatre/library/v1/` (22 files today: each
+Library fixtures live in `services/cantos-server/contracts/theatre/library/v1/fixtures/` (22 files today: each
 operation's request and response, every closed error code, both conflict kinds and an empty
 page); Discovery and the mock player have sibling directories. Keep for every operation:
 a normal case, each error code the operation can return, a conflict carrying the current record,
@@ -264,7 +265,7 @@ revisioned state and an explicit resolution
 | outcome `history_epoch_conflict` | 409 | — | receipt: the acknowledgement predates a clear; drop it |
 | outcome `bookmark_deleted` | 409 | — | receipt: the ID's tombstone is final; the create is refused, never retried |
 
-Discovery/Playback errors are owned by [Discovery v1](../../../../packages/contracts/theatre-discovery-v1.md).
+Discovery/Playback errors are owned by [Discovery v1](../../../../services/cantos-server/contracts/theatre/discovery/v1/README.md).
 
 **Proposed, not implemented:** `publication_withdrawn` (410), `access_denied` (403),
 `access_expired` (401 after one refresh), `rendition_unavailable` (503, never a trigger for
@@ -318,7 +319,7 @@ resulting or current state, so a client never needs a follow-up read to learn it
 - *Status.* implemented for anonymous current-public access: `ListenerPublication::resolve`
   admits only an active, complete, approved, rights-cleared release of a Public work with an
   active owner, and every other state answers the same `not_found`
-  ([Discovery v1](../../../../packages/contracts/theatre-discovery-v1.md)). Library re-admits a
+  ([Discovery v1](../../../../services/cantos-server/contracts/theatre/discovery/v1/README.md)). Library re-admits a
   *new* progress key, Saved desire or history start against the current publications before
   commit; an already-owned register stays readable after access disappears. The retained-release
   exception below is **proposed**: superseded releases are not resumable today and no `410` exists.
@@ -397,13 +398,13 @@ A code comment saying "this never triggers TTS" is `documented`; only the test i
 ## Testing ladder for a listener endpoint
 
 1. Pure decisions with exact error variants: access, visibility projection, cursor decoding
-   (`cargo test -p cantos-api --lib contexts::listening`, plus the `--doc` compile-fail barriers).
+   (`cargo test -p cantos-server --lib contexts::listening`, plus the `--doc` compile-fail barriers).
 2. Fixtures decoded and re-encoded by Rust wire types (`cargo xtask verify contracts`); Kotlin
    and regenerate-and-diff are proposed.
-3. Handler tests against real PostgreSQL: visibility matrix, denials, exact code and status,
-   duplicate replay, key reuse, pagination law. The Library's real-database tests are
-   `#[ignore]`d in `listening/postgres/tests.rs` and run only in `cargo xtask verify postgres`;
-   default-deny Router tests run in `tests/listener_library_contract.rs`.
+3. Native file-backed/handler acceptance must retain: visibility matrix, denials, exact code and status,
+   duplicate replay, key reuse, pagination law. The PG Library oracles are
+   retained outside Cargo discovery; port them deliberately under #333/#335. The old PG gate
+   is retired; source names or prior PASS do not establish native HTTP acceptance.
 4. Response conformance: actual handler output validated against the schema.
 5. The no-production-work test.
 6. Real storage/CDN delivery for playback authorization, range requests and expiry, per the

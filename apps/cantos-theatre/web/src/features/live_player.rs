@@ -5,6 +5,7 @@ use super::{
     common::{clock, icon},
     player_timeline::{PlayerPanel, PlayerTimeline, TimelineCopy},
 };
+use crate::contract::library::Completion;
 use crate::{
     app::routes::Route,
     application::{
@@ -16,7 +17,6 @@ use crate::{
     core::playback::{Event, Intent, Status},
     messages::{self, Key, Locale},
 };
-use cantos_contracts::listener_library::Completion;
 use leptos::prelude::*;
 
 const ICON_PLAY: &str = "play_arrow";
@@ -27,7 +27,7 @@ const ICON_COMPLETED: &str = "check_circle";
 /// Optional authenticated progress synchronization controls for the active source.
 #[derive(Clone, Copy)]
 pub(crate) struct PlayerSyncControls {
-    pub account: RwSignal<AccountViewState>,
+    pub account: ReadSignal<AccountViewState>,
     pub on_mark_completed: Callback<()>,
     pub on_restart: Callback<()>,
     pub on_resolve_conflict: Callback<(String, bool)>,
@@ -773,7 +773,7 @@ mod tests {
             account_view::{AccountViewState, SessionCompletion},
             library_sync::audio_identity_from_source,
         };
-        use cantos_contracts::listener_library::{
+        use crate::contract::library::{
             Completion, MutationState, ProgressKind, ProgressRecord, Receipt, Resolution,
             WriteOutcome,
         };
@@ -793,14 +793,15 @@ mod tests {
                         "listener-a".into(),
                         uuid::Uuid::from_u128(10).to_string()
                     )
-                    .unwrap())
+                    .unwrap()),
+                    || uuid::Uuid::from_u128(100).to_string()
                 ),
                 Ok(SessionCompletion::Authenticated(_))
             ));
 
             // Create a revision conflict on the active publication.
             let op_id = uuid::Uuid::from_u128(501).to_string();
-            account.with_sync_mut(|sync, _| {
+            account.seed_sync(|sync, _| {
                 sync.record_progress_intent(
                     audio.clone(),
                     45_000,
@@ -835,7 +836,7 @@ mod tests {
             });
 
             let sync_controls = PlayerSyncControls {
-                account: RwSignal::new(account),
+                account: RwSignal::new(account).read_only(),
                 on_mark_completed: Callback::new(|_| {}),
                 on_restart: Callback::new(|_| {}),
                 on_resolve_conflict: Callback::new(|_| {}),

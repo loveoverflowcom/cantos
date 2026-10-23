@@ -1,6 +1,7 @@
 package com.cantos.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.material3.Checkbox as MaterialCheckbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch as MaterialSwitch
@@ -39,6 +41,7 @@ import kotlin.math.nextDown
 import kotlin.math.nextUp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
@@ -199,6 +202,7 @@ fun Select(
         ButtonState.Disabled(DisabledReason.of(emptyDescription))
     } else state
     val selectedOption = options.firstOrNull { it.value == value }
+    val hasIcons = options.any { it.icon != null }
     val text = selectedOption?.label ?: placeholder
     // Any external input change interrupts the menu. Availability recovery cannot reopen it.
     var expanded by remember(effective.canPress(), options.toList(), value) { mutableStateOf(false) }
@@ -213,8 +217,13 @@ fun Select(
             ButtonControl(onPress = { expanded = true }, state = effective,
                 modifier = controlModifier.onSizeChanged { anchorWidth = it.width }
                     .semantics { error?.takeIf { it.isNotBlank() }?.let { error(it) } },
-                variant = ButtonVariant.Secondary, name = AccessibleName.of("$label: $text"),
+                variant = ButtonVariant.Tonal, name = AccessibleName.of(listOf(label, text).joinToString(": ")),
                 description = description) {
+                if (hasIcons) {
+                    Box(Modifier.padding(end = tokenDp("space.sm")).size(tokenDp("size.icon"))) {
+                        selectedOption?.icon?.let { Icon(it) }
+                    }
+                }
                 Text(text, Modifier.weight(1f))
                 // A trailing slot keeps long labels away from the decorative disclosure.
                 // Loading already has the action's pending cue; it must not look expandable.
@@ -223,19 +232,32 @@ fun Select(
                 }
             }
             DropdownMenu(expanded = expanded && effective.canPress(), onDismissRequest = { expanded = false },
-                modifier = Modifier.widthIn(min = menuMinWidth)) {
+                modifier = Modifier.widthIn(min = menuMinWidth), shape = CantosShapes.overlay,
+                containerColor = MaterialTheme.colorScheme.surface) {
                 options.forEach { option ->
+                    val isSelected = option.value == value
+                    val selectedColor = MaterialTheme.colorScheme.onPrimaryContainer
                     DropdownMenuItem(text = {
                         Column {
                             Text(option.label)
                             option.state.reason()?.let { FieldHelp(it) }
                         }
                     }, enabled = option.state.canPress(),
-                        modifier = Modifier.cantosFocus().actionState(option.state).semantics { selected = option.value == value },
+                        colors = MenuDefaults.itemColors(
+                            textColor = if (isSelected) selectedColor else MaterialTheme.colorScheme.onSurface,
+                            leadingIconColor = if (isSelected) selectedColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                            trailingIconColor = if (isSelected) selectedColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                        modifier = Modifier.background(
+                            if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                            CantosShapes.reading,
+                        ).cantosFocus().actionState(option.state).semantics { selected = isSelected },
                         onClick = {
                             if (effective.canPress() && option.state.canPress()) onValueChange(option.value)
                             expanded = false
-                        }, trailingIcon = {
+                        }, leadingIcon = if (hasIcons) {
+                            { Box(Modifier.size(tokenDp("size.icon"))) { option.icon?.let { Icon(it) } } }
+                        } else null, trailingIcon = {
                             Box(Modifier.size(tokenDp("size.icon"))) {
                                 if (option.value == value) Icon("check")
                             }

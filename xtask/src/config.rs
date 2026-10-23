@@ -24,23 +24,37 @@ pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 /// Default comparison base for `preflight --changed-only`.
 pub const DEFAULT_BASE: &str = "origin/develop";
 
-pub const API_PACKAGE: &str = "cantos-api";
+pub const API_PACKAGE: &str = "cantos-server";
+/// The Server's offline binaries: the explicit schema owner and the operator commands. Each
+/// opens `server.db` as its single owner, so neither runs while the Server is up.
+pub const SERVER_MIGRATE_BIN: &str = "cantos-migrate";
+pub const SERVER_OPERATOR_BIN: &str = "cantos-operator";
+pub const IDENTITY_BIN: &str = "cantos-identity";
+/// Test-only input naming the prebuilt `cantos-identity` executable by absolute path; the
+/// Server's candidate journey never builds it.
+pub const IDENTITY_BINARY_VARIABLE: &str = "CANTOS_TEST_IDENTITY_BINARY";
 /// The producer-side Forge CLI. xtask builds it; it never runs it inside build/test/preflight.
 pub const FORGE_PACKAGE: &str = "cantos-forge";
-/// The opt-in experimental DBSP incremental core of the API; off in every other gate and build.
-pub const DBSP_FEATURE: &str = "dbsp-experimental";
+pub const TURSO_STORE_PACKAGE: &str = "cantos-store-turso";
+pub const IDENTITY_PACKAGE: &str = "cantos-identity";
+pub const IDENTITY_PERSISTENCE_FEATURE: &str = "persistence";
+/// Credentials, mail, private RPC and the `cantos-identity` executable (never in the pure core).
+pub const IDENTITY_SERVICE_FEATURE: &str = "service";
+/// Feature that exposes only run-owned temp directories and a deterministic clock; never a runtime build.
+pub const TURSO_TESTING_FEATURE: &str = "testing";
+pub const TURSO_CAPABILITY_BIN: &str = "cantos-turso-capability";
 pub const UI_PACKAGE: &str = "cantos-ui";
 /// Theatre Web's package and its opt-in development-preview feature (`?mode=mock` and siblings).
 /// Production, release and deploy builds never enable it; tests, lint and `TRUNK_BUILD_FEATURES`
 /// development runs do.
 pub const THEATRE_WEB_PACKAGE: &str = "cantos-theatre";
+pub const STUDIO_WEB_PACKAGE: &str = "cantos-studio";
+pub const WEB_AUTH_PACKAGE: &str = "cantos-web-auth";
+/// Pinned, isolated generator of every consumer-owned Protobuf binding; never a workspace member.
+pub const PROTO_CODEGEN_MANIFEST: &str = "tools/proto-codegen/Cargo.toml";
 pub const THEATRE_PREVIEW_FEATURE: &str = "cantos-theatre/preview";
 pub const API_SERVER_BIN: &str = "cantos-server";
 pub const API_PORT: u16 = 8080;
-/// Written by `scripts/test_postgres.py --keep`; read by `scripts/serve_studio.py`.
-pub const TEST_CLUSTER_RECORD: &str = "target/revision-evidence/run.json";
-/// Ownership only, emitted by an explicit retained full/narrow run; never full-suite acceptance.
-pub const RETAINED_CLUSTER_RECORD: &str = "target/revision-evidence/retained-cluster.json";
 
 pub fn loopback(port: u16) -> SocketAddr {
     SocketAddr::from((Ipv4Addr::LOCALHOST, port))
@@ -168,11 +182,11 @@ mod tests {
             &[toml::Value::from(WASM_TARGET)]
         );
         for manifest in [
-            "services/cantos-api/Cargo.toml",
+            "services/cantos-server/Cargo.toml",
             "services/cantos-forge-functions/Cargo.toml",
             "apps/cantos-studio/web/Cargo.toml",
             "apps/cantos-theatre/web/Cargo.toml",
-            "packages/contracts/api/Cargo.toml",
+            "packages/web-auth/Cargo.toml",
             "packages/ui-system/leptos/Cargo.toml",
             "xtask/Cargo.toml",
         ] {

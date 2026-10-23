@@ -82,7 +82,7 @@ def android_version(root):
 def runtime_archive(context, destination):
     with tarfile.open(destination, "w") as archive:
         paths = [context / "REVISION", context / "infra/edge/Caddyfile",
-                 context / "services/cantos-api/schema/legacy-epoch-1-manifest.json"]
+                 context / "services/cantos-server/schema/legacy-epoch-1-manifest.json"]
         paths += sorted((context / "infra/vps").rglob("*"))
         for path in paths:
             if path.is_dir():
@@ -121,7 +121,7 @@ def build(root, target, sha, output, origin=API_ORIGIN):
                 "schema_epoch": 2}, indent=2) + "\n")
             (context / "REVISION").write_text(sha + "\n")
             runtime_archive(context, output / "runtime.tar")
-        return {"name": tomllib.loads((root / "services/cantos-api/Cargo.toml").read_text())["package"]["version"]}
+        return {"name": tomllib.loads((root / "services/cantos-server/Cargo.toml").read_text())["package"]["version"]}
     if target in ("theatre-web", "studio-web"):
         app = "cantos-" + target.removesuffix("-web")
         dist = root / "apps" / app / "web/dist"
@@ -137,7 +137,6 @@ def build(root, target, sha, output, origin=API_ORIGIN):
     base = root / MOBILE / "androidApp/build"
     evidence = json.loads((base / "reports/release-boundary/release-evidence.json").read_text())
     if (evidence["configuration"]["api_origin"] != origin or
-            evidence["configuration"].get("native_issuer", "") != "" or
             Path(evidence["artifacts"]["optimized"]["apk"]["path"]).name != "androidApp-release-unsigned.apk"):
         raise ValueError("Android snapshot configuration differs from the requested unsigned package")
     snapshot = Path(contract.safe_name(evidence["snapshot_directory"]))
@@ -196,7 +195,7 @@ def package(root, target, *, dry_run=False, origin=None, request=None, base=None
         raise ValueError("release requires the repository Rust 1.98.1 pin")
     if target == "android":
         manifest.update(application_id="com.cantos.theatre", signing="unsigned",
-                        native_issuer=None, live_login_acceptance="NOT_RUN")
+                        live_login_acceptance="NOT_RUN")
         manifest["gradle"] = run(root, ["gradle", "--version"], capture=True)
         manifest["android_build_tools"] = "35.0.0"
     if target.endswith("-web"):

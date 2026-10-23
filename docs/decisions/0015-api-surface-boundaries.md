@@ -60,5 +60,5 @@ Wire DTOs, error codes, migrations, persisted identifiers and Script IR digests 
 ## Validation and revisit conditions
 
 `services/cantos-api/tests/surface_routes.rs` (no database), the PostgreSQL compatibility test in
-`revisions_postgres.rs` and `cargo xtask` gates; see [evidence](../evidence/api-surface-split.md).
+`editorial_turso.rs` and `cargo xtask` gates; see [evidence](../evidence/api-surface-split.md).
 Revisit when the first listener endpoint is designed or when the alias has no remaining callers.

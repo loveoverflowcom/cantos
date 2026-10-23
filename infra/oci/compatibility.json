@@ -1,0 +1,6 @@
+{
+  "identity_schema": "identity-migrations-v4",
+  "rpc": "identity-rpc-v1",
+  "security_state": "identity-security-store-v1",
+  "server_schema": "postgres-epoch-2"
+}

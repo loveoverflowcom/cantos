@@ -122,13 +122,42 @@ let snapshot = editor.with_untracked(|state| state.save_snapshot());
   temporary resource/listener/timer state below its actual owner and clean up on disposal. Do not
   move private data to a global owner for reuse. Measure retained heap after repeated enter/leave
   and account switches, distinguishing a deliberate draft/history bound from an unbounded leak.
-- Key repeated rows by stable domain identity. Exercise insertion/reorder/focus and Vietnamese
-  composition before/after list optimizations. A large-list strategy must preserve focus, reading
-  order and IME state; do not adopt virtualization only because a fixture contains many rows.
+- Key repeated rows by stable domain identity under the
+  [keyed-row correctness rules](web-architecture.md#dynamic-lists-and-keyed-rows). Exercise
+  insertion/reorder/focus and Vietnamese composition before/after list optimizations. A
+  large-list strategy must preserve focus, reading order and IME state; do not adopt
+  virtualization only because a fixture contains many rows.
+- Suppress no-op notifications at the write, as the
+  [publication rules](web-architecture.md#reactive-state-ownership-and-publication) require;
+  a downstream memo cannot recover the work an unconditional `try_update` already triggered
+  upstream of it.
 
 The cheap correctness oracle remains exact state/typed-intent results plus deterministic race
 tests. Browser profiler, allocation or rerun-count evidence establishes only the measured cost
 under its recorded fixture; host string-render tests establish neither DOM cost nor browser CPU.
+
+### Keyed rows are not automatically O(1)
+
+`<For>` plus a per-row memo does not by itself make a one-row update O(1). Name which cost a
+claim is about, because they differ:
+
+| Cost | What it scales with | Typical trap |
+|---|---|---|
+| selector evaluation | number of memos/derivations that read the notified signal | every row memo reads the root aggregate, so one write re-evaluates all of them |
+| row lookup | the lookup structure | `find` by ID over a `Vec` makes each row O(n) and the update O(n²) |
+| list reconciliation | keys produced by `each` | rebuilding and hashing the full key list on every unrelated notification |
+| row computation and clone | the projection size | `document.get()` per row clones the whole document per row |
+| DOM mutation | nodes whose text/attributes really changed | the only part keyed rows minimize |
+
+At `d02b2dc8`, Studio [`authoring_view.rs`](../../../../apps/cantos-studio/web/src/authoring_view.rs)
+has correct identity (keyed acts/scenes, titles read by ID) but each row title derives from
+`document.get()` plus a linear `find`, so an edit costs clones and scans proportional to rows ×
+document. Treat that as a measurement candidate, not a proven bottleneck.
+
+Deeper granularity options (normalized entities with indexed lookup, scoped per-entity signals,
+a compatible field-tracking store) are evaluated per workload with a concrete consumer and a
+before/after measurement; none is adopted by default, and no Leptos upgrade or new dependency is
+implied. Changing a source pattern is not a performance improvement until measured.
 
 ## Comparable performance evidence
 

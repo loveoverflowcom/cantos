@@ -19,10 +19,15 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 | Publication/delivery | [Core](publication-core.md), [Range transport](playback-range-transport.md), [origin delivery](public-media-delivery-core.md); composition-gated cores are not live playback |
 | Theatre catalog integration | [Step-1 production catalog/API/storage](theatre-live-catalog-step1.md); [earlier seeded Web/CMP evidence](theatre-seeded-catalog-integration.md) retains its original scope. Native runtime/playback require separate evidence |
 | Identity | [Studio OIDC](studio-oidc.md), [Theatre activation](theatre-auth-activation.md), [Theatre identity](theatre-identity.md), [Firebase runtime](firebase-enrollment-runtime.md), [Theatre live sign-in](theatre-live-auth-206.md); live mail/provider/device gates stay explicit |
+| CMP Desktop Preview live Library | [Desktop live acceptance](cmp-desktop-live-acceptance.md); loopback-fixture and real Server/Identity lanes are separate rows, no GUI window content, audio or device is observed |
 | CMP registration preview | [#296 shared enrollment](issue296-cmp-enrollment.md); JVM protocol fixtures and native build evidence remain separate from the isolated complete signup journey and device acceptance |
 | Behavior | [Quint foundation](quint-behavior-foundation.md), [pure-core observations](quint-code-conformance.md); draft model PASS is not accepted behavior or DB/API/client conformance |
-| Optional incremental platform | [DBSP review](dbsp-platform-review.md); current grouped-count core and forward-only legacy capture retirement, with future-consumer and production gates kept separate |
+| Historical incremental platform | [DBSP review](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/evidence/dbsp-platform-review.md); retired grouped-count/capture experiment, retained by pinned history for provenance; #384 defers incremental engines and current read work follows SQL/index first |
+| Embedded Turso engine | [Capability report](turso-capability-report.md); probes of the pinned engine on named hosts and filesystems, recorded hazards with their mitigations, dependency review and what remains `NOT_RUN` (macOS, true `ENOSPC`, footprint). Not a schema or a durability claim |
 | Develop consistency | [Eight-commit review](develop-eight-commit-review-20261016.md); pinned merge-aware scope, receipt-wait expiry repair and independently reported local gates |
+| Post-merge integration | [23 October vertical journeys](post-merge-integration-20261023.md); Studio Identity → Editorial/Catalog write → restart, Theatre/CMP live re-runs, loopback browser only; roster provisioning remains a contract gap |
+| Theatre Web keyed rows | [#359 membership/content separation](theatre-keyed-rows-359.md); scoped host, browser identity/focus and separate reactive/DOM counters, with browser reorder and performance acceptance explicit |
+| Engineering method | [FCIS/reactivity skills audit](fcis-reactivity-skills-audit.md); baseline-pinned skill findings and runtime follow-up checklist, with no runtime, browser or Kani evidence |
 | Localization ownership | [17 October audit](i18n-audit-20261017/README.md); baseline-addressed five-scope inventory, existing-owner repairs, bounded changed-source guard and separate renderer/runtime acceptance |
 | Runtime cleanup | [Current/retired SQL caller inventory](legacy-runtime-inventory.md); `a1` routes/DTOs are removed together with their Studio branch, while controlled schema cutover and live acceptance remain separate |
 | Deployment tooling | [Historical Hosting tool evidence](issue199-firebase-hosting.md); current topology/operations live only in the [production runbook](../deployment/vps-production.md), never a dated deployment diary |
@@ -32,7 +37,7 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 [ADR 0018](../decisions/0018-external-audio-production.md) supersedes backend TTS/provider/job
 execution. Retained [eSpeak](tts-receipt-inspection.md), [provider prerequisites](tts-provider-prerequisites.md),
 [Google adapter](google-tts-adapter.md), [neural research](local-neural-tts-research.md),
-[neural samples](local-neural-tts.md) and [DBSP job summary](dbsp-job-summary.md) describe
+[neural samples](local-neural-tts.md) and [DBSP job summary](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/evidence/dbsp-job-summary.md) describe
 the original experiments. They do not authorize restoring a worker or claim a live provider.
 Forge's producer-side work is independently scoped by #203.
 

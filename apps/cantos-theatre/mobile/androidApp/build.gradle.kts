@@ -46,13 +46,11 @@ android {
         manifestPlaceholders["cantosApiOrigin"] = providers.gradleProperty("cantos.apiOrigin")
             .orElse(providers.environmentVariable("CANTOS_API_ORIGIN"))
             .orElse("__CANTOS_DEFAULT_API_ORIGIN__").get()
-        manifestPlaceholders["cantosNativeIssuer"] = providers.gradleProperty("cantos.nativeIssuer")
-            .orElse(providers.environmentVariable("CANTOS_NATIVE_ISSUER"))
-            .orElse("").get()
+
     }
     buildTypes {
         // One real-only application, two build types and no flavors. Debug is a side-by-side
-        // developer identity with its own app data and callback scheme (NativeCallbackProfile).
+        // developer identity with its own app data and secure credential namespace.
         debug {
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"

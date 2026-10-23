@@ -166,7 +166,7 @@ def archive_members(archive, *, web=False, runtime=False, image=False):
                     "unexpected Web asset type")
         if runtime:
             require(entry.name == "REVISION" or entry.name.startswith("infra/vps/") or
-                    entry.name in {"infra/edge/Caddyfile", "services/cantos-api/schema/legacy-epoch-1-manifest.json"},
+                    entry.name in {"infra/edge/Caddyfile", "services/cantos-server/schema/legacy-epoch-1-manifest.json"},
                     "unexpected runtime asset")
         if runtime and entry.name == "infra/vps/bin/cantos-vps":
             require(entry.mode & 0o100, "runtime entrypoint must be executable")
@@ -180,17 +180,17 @@ def archive_members(archive, *, web=False, runtime=False, image=False):
         require("index.html" in names, "Web build has no index.html")
     if runtime:
         require({"REVISION", "infra/vps/bin/cantos-vps", "infra/edge/Caddyfile",
-                 "services/cantos-api/schema/legacy-epoch-1-manifest.json"} <= names, "incomplete runtime bundle")
+                 "services/cantos-server/schema/legacy-epoch-1-manifest.json"} <= names, "incomplete runtime bundle")
     return entries
 
 
-def copy_verified(source, destination, expected):
-    regular(source)
+def copy_verified(source, destination, expected, *, limit=MAX_BYTES):
+    regular(source, limit)
     with source.open("rb") as stream, destination.open("xb") as target:
         total = 0
         while chunk := stream.read(1024 * 1024):
             total += len(chunk)
-            require(total <= MAX_BYTES, "artifact changed or exceeds release limit")
+            require(total <= min(limit, expected["bytes"]), "artifact changed or exceeds release limit")
             target.write(chunk)
     require(file_record(destination, destination.parent) == expected, "artifact changed before staging")
 

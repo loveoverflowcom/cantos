@@ -1,6 +1,6 @@
 //! Read-only Library paging. Exact server records are retained; only page admission is local.
 use super::account_view::AccountFailure;
-use cantos_contracts::listener_library::{
+use crate::contract::library::{
     HistoryState, PresentedContinueItem, PresentedContinuePage, PresentedHistoryItem,
     PresentedHistoryPage, PresentedSavedItem, PresentedSavedPage,
 };
@@ -69,6 +69,11 @@ pub struct LibraryProjection {
     pages: [PageState; 3],
 }
 impl LibraryProjection {
+    #[cfg(test)]
+    pub(super) fn exhaust_page_generation_for_test(&mut self, section: Section) {
+        self.pages[section.index()].generation = u64::MAX;
+    }
+
     pub fn phase(&self, section: Section) -> PagePhase {
         self.pages[section.index()].phase
     }
@@ -244,8 +249,8 @@ mod tests {
         account_view::{AccountViewState, LibraryCompletion},
     };
     use crate::live::library::{decode_page, request_path};
-    const SAVED: &[u8] = include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json");
-    const HISTORY: &[u8] = include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_history.json");
+    const SAVED: &[u8] = include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json");
+    const HISTORY: &[u8] = include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_history.json");
     fn account(actor: &str, session: u128) -> AccountViewState {
         let mut s = AccountViewState::default();
         let issued = s.begin_refresh().unwrap();
@@ -256,6 +261,7 @@ mod tests {
                 uuid::Uuid::from_u128(session).to_string(),
             )
             .unwrap()),
+            || uuid::Uuid::from_u128(100).to_string(),
         )
         .unwrap();
         s
@@ -363,6 +369,7 @@ mod tests {
                 AccountScope::from_session("b".into(), uuid::Uuid::from_u128(2).to_string())
                     .unwrap(),
             ),
+            || uuid::Uuid::from_u128(100).to_string(),
         )
         .unwrap();
         for result in [

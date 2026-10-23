@@ -1,0 +1,3 @@
+-- Server.db version 10: External audio intake, review, release candidates, publication and listener release views.
+-- Reserved slice: filled by the context's port (see docs/architecture/server-turso/media_audio.md).
+-- DDL only; queries live in the owning persistence adapter.

@@ -1,14 +1,14 @@
-//! Studio owner Bearer transport. Cookies are omitted on every request.
-use cantos_contracts::protobuf::ProtobufDto;
-use cantos_contracts::{
+//! Studio owner transport: the API-issued HttpOnly cookie session (`credentials: include`) plus
+//! the session fence on every owner request. The cookie is never read, stored or forwarded here.
+use crate::contract::protobuf::ProtobufDto;
+use crate::contract::{
     AcceptAdaptationRequest, AdaptationReviewResponse, ApiError, ApproveProductionRequest,
     ErrorCode, FreezeProductionRequest, HistoryResponse, ImportRequest, ImportResponse,
     ProductionApprovalResponse, ProductionCatalogResponse, ProductionPreviewResponse,
     ProductionRightsClaimResponse, ProductionSettingsResponse, ProductionSnapshotResponse,
     ProductionStateResponse, ReviewRequest, ReviewResponse, RevisionResponse,
     SaveProductionRightsRequest, SaveProductionSettingsRequest, SaveRevisionRequest,
-    ScriptValidationResponse, SessionResponse, SourceResponse, StudioAuthenticationConfiguration,
-    ValidateScriptRequest,
+    ScriptValidationResponse, SessionResponse, SourceResponse, ValidateScriptRequest,
 };
 use gloo_net::http::{Request, Response};
 use serde::{de::DeserializeOwned, Serialize};
@@ -20,7 +20,10 @@ use crate::wire::{self, REVISION_CODEC};
 use leptos::prelude::{Callable, Callback};
 use std::cell::Cell;
 
-pub const SESSION_HEADER: &str = "x-cantos-studio-session";
+/// The fence header, from its one owner: the client that sets it and the checks that read it
+/// can no longer disagree on the spelling.
+pub const SESSION_HEADER: &str =
+    cantos_web_auth::core::session_header(cantos_web_auth::Surface::Studio);
 #[derive(Clone, Copy)]
 struct ClientSession {
     fence: SessionFence,
@@ -79,6 +82,16 @@ pub struct ObservedSession {
     pub fence: SessionFence,
 }
 
+/// Only an API-confirmed session establishes an actor and a fence; its id must be a canonical UUID.
+fn observed(view: cantos_web_auth::core::SessionView) -> Result<ObservedSession, ApiError> {
+    Ok(ObservedSession {
+        response: SessionResponse {
+            actor_id: view.actor,
+        },
+        fence: SessionFence::new(&view.session).ok_or_else(unauthenticated)?,
+    })
+}
+
 impl StudioHttp {
     pub const fn new() -> Self {
         Self {
@@ -135,51 +148,70 @@ impl StudioHttp {
     }
 }
 
+/// The Studio projection of an identity failure (see `session::failure_error`).
 pub(crate) fn auth_error(error: cantos_web_auth::Failure) -> ApiError {
-    match error {
-        cantos_web_auth::Failure::SignedOut => unauthenticated(),
-        cantos_web_auth::Failure::AccountMismatch => session_changed(),
-        cantos_web_auth::Failure::Changed => crate::session::unconfirmed_response(),
-        cantos_web_auth::Failure::Unavailable
-        | cantos_web_auth::Failure::Protocol
-        | cantos_web_auth::Failure::Cancelled
-        | cantos_web_auth::Failure::PopupBlocked
-        | cantos_web_auth::Failure::CleanupPending => unavailable(),
-    }
+    crate::session::failure_error(error)
 }
 impl StudioHttp {
+    /// Admit the owner session for one request. A session that is gone or was switched before
+    /// the request leaves is an observed denial: it re-reads the session instead of staying stale.
     pub(crate) async fn credential(self) -> Result<cantos_web_auth::browser::Lease, ApiError> {
         let fence = self.required_fence()?.header();
-        crate::api_endpoint::auth()
+        match crate::api_endpoint::auth()
             .map_err(auth_error)?
             .access(Some(&fence))
             .await
-            .map_err(auth_error)
+        {
+            Ok(lease) => Ok(lease),
+            Err(
+                failure @ (cantos_web_auth::Failure::SignedOut | cantos_web_auth::Failure::Changed),
+            ) => {
+                let error = if failure == cantos_web_auth::Failure::Changed {
+                    session_changed()
+                } else {
+                    unauthenticated()
+                };
+                self.invalidate_projection(&error);
+                Err(error)
+            }
+            Err(failure) => Err(auth_error(failure)),
+        }
     }
 }
 
-fn unauthenticated() -> ApiError {
-    ApiError {
-        code: ErrorCode::Unauthenticated,
-        current_revision: None,
-        issues: vec![],
+pub use crate::session::is_session_changed;
+use crate::session::{session_changed, unauthenticated};
+
+/// Seconds the shared owner still holds this surface after a 429, for a view that shows a wait.
+/// Nothing is dispatched before it ends: `credential()` refuses first.
+pub fn rate_wait() -> Option<u32> {
+    match crate::api_endpoint::auth().ok()?.gate() {
+        Err(cantos_web_auth::Failure::RateLimited(seconds)) => Some(seconds),
+        _ => None,
     }
 }
 
-fn session_changed() -> ApiError {
-    let mut error = unauthenticated();
-    error.issues.push(cantos_contracts::FieldIssue {
-        path: "session".into(),
-        rule: "session_changed".into(),
-    });
-    error
-}
-pub fn is_session_changed(error: &ApiError) -> bool {
-    error.code == ErrorCode::Unauthenticated
-        && error
-            .issues
-            .iter()
-            .any(|issue| issue.path == "session" && issue.rule == "session_changed")
+/// The shared owner judges an owner answer before its body: 429 hold, stale lease, a real 401 and
+/// an echo of another session (which drops the local session). A `Changed` 409 is the API's fence
+/// refusal, so nothing was applied and it is an observed session change; any other `Changed`
+/// leaves an unknown outcome. Either way the current projection re-reads its session.
+fn received(
+    api: StudioHttp,
+    credential: &cantos_web_auth::browser::Lease,
+    response: &Response,
+) -> Result<(), ApiError> {
+    match credential.receive(response) {
+        Err(cantos_web_auth::Failure::Changed) => {
+            let error = if response.status() == 409 {
+                session_changed()
+            } else {
+                crate::session::unconfirmed_response()
+            };
+            api.invalidate_projection(&error);
+            Err(error)
+        }
+        other => api.notify_denial(other.map_err(auth_error)),
+    }
 }
 
 fn check_echo(response: &Response, fence: Option<SessionFence>) -> Result<(), ApiError> {
@@ -211,13 +243,11 @@ async fn decode<T: DeserializeOwned>(response: Response) -> Result<T, ApiError> 
     } else {
         let status = response.status();
         let error: ApiError = response.json().await.unwrap_or_else(|_| unavailable());
-        Err(
-            if status == 409 && error.code == ErrorCode::Unauthenticated {
-                session_changed()
-            } else {
-                error
-            },
-        )
+        Err(if crate::session::is_fence_mismatch(status, &error) {
+            session_changed()
+        } else {
+            error
+        })
     }
 }
 
@@ -225,14 +255,12 @@ async fn execute<T: DeserializeOwned>(
     api: StudioHttp,
     request: Request,
     deadline: RequestDeadline,
-    fence: Option<SessionFence>,
-    credential: Option<cantos_web_auth::browser::Lease>,
+    fence: SessionFence,
+    credential: cantos_web_auth::browser::Lease,
 ) -> Result<T, ApiError> {
     let response = request.send().await.map_err(|_| unavailable())?;
-    if let Some(credential) = &credential {
-        api.notify_denial(credential.response(response.status()).map_err(auth_error))?;
-    }
-    let result = match check_echo(&response, fence) {
+    received(api, &credential, &response)?;
+    let result = match check_echo(&response, Some(fence)) {
         Ok(()) => decode(response).await,
         Err(error) => {
             api.invalidate_projection(&error);
@@ -242,37 +270,29 @@ async fn execute<T: DeserializeOwned>(
     // A timeout while decoding the body remains an ambiguous write outcome. The caller
     // reconciles its immutable operation snapshot; this transport never retries a request.
     drop(deadline);
-    if let Some(credential) = credential {
-        credential.check().map_err(auth_error)?;
+    // A 409 `unauthenticated` is a session-fence mismatch (another tab changed account): drop
+    // the local session so nothing else is dispatched on it. The denial then re-reads the
+    // session before any other data is accepted.
+    if result.as_ref().err().is_some_and(is_session_changed) {
+        let _ = credential.fence_mismatch();
+        return api.notify_denial(result);
     }
+    credential.check().map_err(auth_error)?;
     api.notify_denial(result)
 }
 
 async fn get<T: DeserializeOwned>(api: StudioHttp, path: &str) -> Result<T, ApiError> {
-    let fence = if path == "/api/v1/studio/auth/configuration" {
-        None
-    } else {
-        Some(api.required_fence()?)
-    };
-    let credential = if fence.is_some() {
-        Some(api.credential().await?)
-    } else {
-        None
-    };
+    let fence = api.required_fence()?;
+    let credential = api.credential().await?;
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
-    let mut request =
-        Request::get(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
-            .credentials(web_sys::RequestCredentials::Omit)
-            .redirect(web_sys::RequestRedirect::Error)
-            .abort_signal(Some(&signal));
-    if let Some(fence) = fence {
-        request = request.header(SESSION_HEADER, &fence.header());
-        if let Some(credential) = &credential {
-            request = request.header("Authorization", &credential.header());
-        }
-    }
-    let request = request.build().map_err(|_| unavailable())?;
+    let request = credential
+        .apply(
+            Request::get(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
+                .abort_signal(Some(&signal)),
+        )
+        .build()
+        .map_err(|_| unavailable())?;
     execute(api, request, deadline, fence, credential).await
 }
 
@@ -281,19 +301,18 @@ async fn post<T: DeserializeOwned, P: Serialize>(
     path: &str,
     body: &P,
 ) -> Result<T, ApiError> {
-    let fence = Some(api.required_fence()?);
+    let fence = api.required_fence()?;
     let credential = api.credential().await?;
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
-    let request = Request::post(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
-        .credentials(web_sys::RequestCredentials::Omit)
-        .redirect(web_sys::RequestRedirect::Error)
-        .header(SESSION_HEADER, &api.required_fence()?.header())
-        .header("Authorization", &credential.header())
-        .abort_signal(Some(&signal))
+    let request = credential
+        .apply(
+            Request::post(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
+                .abort_signal(Some(&signal)),
+        )
         .json(body)
         .map_err(|_| unavailable())?;
-    execute(api, request, deadline, fence, Some(credential)).await
+    execute(api, request, deadline, fence, credential).await
 }
 
 /// The negotiated routes (head, pinned revision, save, validation) declare `REVISION_CODEC` and
@@ -306,7 +325,7 @@ async fn negotiate<T: DeserializeOwned + ProtobufDto>(
     credential: cantos_web_auth::browser::Lease,
 ) -> Result<T, ApiError> {
     let response = request.send().await.map_err(|_| unavailable())?;
-    api.notify_denial(credential.response(response.status()).map_err(auth_error))?;
+    received(api, &credential, &response)?;
     if let Err(error) = check_echo(&response, Some(fence)) {
         api.invalidate_projection(&error);
         return Err(error);
@@ -317,18 +336,15 @@ async fn negotiate<T: DeserializeOwned + ProtobufDto>(
     // As in `execute`, a lost body after the headers is ambiguous, and nothing is retried.
     let body = response.binary().await.map_err(|_| unavailable());
     drop(deadline);
+    let decoded = wire::decode_response(REVISION_CODEC, ok, content_type.as_deref(), &body?);
+    if let Err(error) = &decoded {
+        if crate::session::is_fence_mismatch(status, error) {
+            let _ = credential.fence_mismatch();
+            return api.notify_denial(Err(session_changed()));
+        }
+    }
     credential.check().map_err(auth_error)?;
-    api.notify_denial(
-        wire::decode_response(REVISION_CODEC, ok, content_type.as_deref(), &body?).map_err(
-            |error| {
-                if status == 409 && error.code == ErrorCode::Unauthenticated {
-                    session_changed()
-                } else {
-                    error
-                }
-            },
-        ),
-    )
+    api.notify_denial(decoded)
 }
 
 async fn negotiated_get<T: DeserializeOwned + ProtobufDto>(
@@ -339,13 +355,12 @@ async fn negotiated_get<T: DeserializeOwned + ProtobufDto>(
     let credential = api.credential().await?;
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
-    let request = Request::get(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
-        .credentials(web_sys::RequestCredentials::Omit)
-        .redirect(web_sys::RequestRedirect::Error)
-        .header(SESSION_HEADER, &fence.header())
-        .header("Authorization", &credential.header())
-        .header("Accept", wire::accept(REVISION_CODEC))
-        .abort_signal(Some(&signal))
+    let request = credential
+        .apply(
+            Request::get(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
+                .header("Accept", wire::accept(REVISION_CODEC))
+                .abort_signal(Some(&signal)),
+        )
         .build()
         .map_err(|_| unavailable())?;
     negotiate(api, request, deadline, fence, credential).await
@@ -361,14 +376,13 @@ async fn negotiated_post<T: DeserializeOwned + ProtobufDto, P: Serialize + Proto
     let bytes = wire::encode_body(REVISION_CODEC, body)?;
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
-    let request = Request::post(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
-        .credentials(web_sys::RequestCredentials::Omit)
-        .redirect(web_sys::RequestRedirect::Error)
-        .header(SESSION_HEADER, &fence.header())
-        .header("Authorization", &credential.header())
-        .header("Content-Type", REVISION_CODEC.media_type())
-        .header("Accept", wire::accept(REVISION_CODEC))
-        .abort_signal(Some(&signal))
+    let request = credential
+        .apply(
+            Request::post(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
+                .header("Content-Type", REVISION_CODEC.media_type())
+                .header("Accept", wire::accept(REVISION_CODEC))
+                .abort_signal(Some(&signal)),
+        )
         .body(js_sys::Uint8Array::from(bytes.as_slice()))
         .map_err(|_| unavailable())?;
     negotiate(api, request, deadline, fence, credential).await
@@ -546,24 +560,28 @@ impl StudioHttp {
         &self,
         id: &str,
     ) -> Result<(Vec<u8>, cantos_web_auth::browser::Lease), ApiError> {
-        let credential = self.credential().await?;
         let fence = self.required_fence()?;
+        let credential = self.credential().await?;
         let path = format!("{}/original", import_path(id)?);
         let deadline = RequestDeadline::new()?;
-        let response =
-            Request::get(&crate::api_endpoint::endpoint(&path).map_err(|_| unavailable())?)
-                .credentials(web_sys::RequestCredentials::Omit)
-                .redirect(web_sys::RequestRedirect::Error)
-                .header("Authorization", &credential.header())
-                .header(SESSION_HEADER, &fence.header())
-                .abort_signal(Some(&deadline.controller.signal()))
-                .send()
-                .await
-                .map_err(|_| unavailable())?;
-        credential.response(response.status()).map_err(auth_error)?;
+        let response = credential
+            .apply(
+                Request::get(&crate::api_endpoint::endpoint(&path).map_err(|_| unavailable())?)
+                    .abort_signal(Some(&deadline.controller.signal())),
+            )
+            .send()
+            .await
+            .map_err(|_| unavailable())?;
+        received(*self, &credential, &response)?;
         check_echo(&response, Some(fence))?;
         if !response.ok() {
-            return Err(response.json().await.unwrap_or_else(|_| unavailable()));
+            let status = response.status();
+            let error: ApiError = response.json().await.unwrap_or_else(|_| unavailable());
+            if crate::session::is_fence_mismatch(status, &error) {
+                let _ = credential.fence_mismatch();
+                return Err(session_changed());
+            }
+            return Err(error);
         }
         let bytes = response.binary().await.map_err(|_| unavailable())?;
         credential.check().map_err(auth_error)?;
@@ -572,42 +590,39 @@ impl StudioHttp {
         }
         Ok((bytes, credential))
     }
-    pub async fn authentication_configuration(
-        &self,
-    ) -> Result<StudioAuthenticationConfiguration, ApiError> {
-        get(*self, "/api/v1/studio/auth/configuration").await
-    }
+    /// Authoritative read of the cookie session (`GET identity/session`). `Ok(None)` is a
+    /// genuine 401; every other failure is an unknown state, never "signed out". A pending
+    /// logout cleanup is retried first so a failed revoke is never silently forgotten.
     pub async fn current_session(&self) -> Result<Option<ObservedSession>, ApiError> {
         let client = crate::api_endpoint::auth().map_err(auth_error)?;
-        if !client.has_session() {
-            return Ok(None);
+        client.cleanup().await.map_err(auth_error)?;
+        client
+            .read_session()
+            .await
+            .map_err(auth_error)?
+            .map(observed)
+            .transpose()
+    }
+    /// Email/password sign-in as one typed intent. The login is confirmed by an authoritative
+    /// read: a reply whose cookie the browser did not keep, or another session than the one
+    /// just issued (another tab won the race), is never admitted.
+    pub async fn sign_in(
+        &self,
+        intent: crate::signin::SignInIntent,
+    ) -> Result<ObservedSession, cantos_web_auth::Failure> {
+        use cantos_web_auth::Failure;
+        let client = crate::api_endpoint::auth()?;
+        let crate::signin::SignInIntent {
+            email,
+            password,
+            expected_actor,
+        } = intent;
+        let issued = client.login(email, password, expected_actor).await?;
+        let view = client.read_session().await?.ok_or(Failure::SignedOut)?;
+        if view.session != issued.session || view.actor != issued.actor {
+            return Err(Failure::Changed);
         }
-        let credential = client.access(None).await.map_err(auth_error)?;
-        let deadline = RequestDeadline::new()?;
-        let response = Request::get(
-            &crate::api_endpoint::endpoint("/api/v1/studio/auth/bearer/session")
-                .map_err(|_| unavailable())?,
-        )
-        .credentials(web_sys::RequestCredentials::Omit)
-        .redirect(web_sys::RequestRedirect::Error)
-        .header("Authorization", &credential.header())
-        .header("Accept", "application/json")
-        .abort_signal(Some(&deadline.controller.signal()))
-        .send()
-        .await
-        .map_err(|_| unavailable())?;
-        credential.response(response.status()).map_err(auth_error)?;
-        let view: cantos_contracts::bearer::Session = decode(response).await?;
-        credential.check().map_err(auth_error)?;
-        if view.actor_id != credential.actor() || view.session_id != credential.session() {
-            return Err(session_changed());
-        }
-        Ok(Some(ObservedSession {
-            response: SessionResponse {
-                actor_id: view.actor_id,
-            },
-            fence: SessionFence::new(&view.session_id).ok_or_else(unauthenticated)?,
-        }))
+        observed(view).map_err(|_| Failure::Protocol)
     }
     pub async fn logout(&self) -> Result<(), ApiError> {
         let expected = self.fence().map(|f| f.header());
@@ -622,16 +637,6 @@ impl StudioHttp {
         crate::api_endpoint::auth()
             .map_err(auth_error)?
             .begin_logout(expected.as_deref())
-            .map_err(auth_error)
-    }
-    pub fn reserve_login(
-        &self,
-        expected_actor: Option<String>,
-        reauthenticate: bool,
-    ) -> Result<cantos_web_auth::browser::Login, ApiError> {
-        crate::api_endpoint::auth()
-            .map_err(auth_error)?
-            .reserve_login(expected_actor, reauthenticate)
             .map_err(auth_error)
     }
     pub async fn read(&self, script: &str) -> Result<RevisionResponse, ApiError> {

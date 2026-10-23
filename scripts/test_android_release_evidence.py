@@ -1,6 +1,9 @@
 """Audit pairing against synthetic artifact bytes, never an actual APK size measurement."""
+import contextlib
+import io
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -56,6 +59,19 @@ class AuditEvidenceTests(unittest.TestCase):
         self.assertEqual(result["size"]["metric"], "APK archive bytes")
         self.assertEqual(result["size"]["installed_footprint"], "NOT_RUN")
         self.assertEqual(result["device_acceptance"], "NOT_RUN")
+
+    def test_release_evidence_records_only_the_api_origin_and_refuses_the_retired_issuer_option(self):
+        configuration = self.bind()["configuration"]
+        self.assertEqual(configuration["application_id"], "com.cantos.theatre")
+        self.assertFalse([key for key in configuration if "issuer" in key.lower()])
+        argv = ["android_release_evidence.py", "--mobile", str(self.mobile),
+                "--report", str(self.mobile / "release-evidence.json")]
+        stderr = io.StringIO()
+        with patch.object(sys, "argv", argv + ["--native-issuer", "https://idm.example"]), \
+                contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            evidence.main()
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("unrecognized arguments: --native-issuer", stderr.getvalue())
 
     def test_graph_classes_or_source_disagreement_is_rejected(self):
         report = self.mobile / "androidApp/build-audit/reports/release-boundary/pre-shrink.json"
@@ -133,13 +149,16 @@ class AuditEvidenceTests(unittest.TestCase):
             (output / name).write_bytes(original)
 
     def test_audit_marker_cannot_be_laundered_by_renaming_apk(self):
+        wrong = ["missing or wrong audit marker; distribution refuses audit bytes"]
         for marker in ("true", "0xffffffff", "-1", None):
-            elements = [(0,"manifest",{}), (2,"data",{"scheme":"com.cantos.theatre"})]
+            elements = [(0,"manifest",{})]
             if marker is not None:
                 elements.append((2,"meta-data",{"name":"CantosReleaseAudit", "value":marker}))
-            self.assertEqual(inspector.release_metadata_findings(elements, "com.cantos.theatre", audit=False),
-                ["missing or wrong audit marker; distribution refuses audit bytes"])
-        elements = [(0,"manifest",{}),(2,"data",{"scheme":"com.cantos.theatre.dev"}),
-                    (2,"meta-data",{"name":"CantosReleaseAudit","value":"false"})]
-        self.assertEqual(inspector.release_metadata_findings(elements,"com.cantos.theatre", audit=False),
-                         ["callback scheme differs from application identity"])
+            self.assertEqual(inspector.release_metadata_findings(elements, audit=False), wrong)
+        # The same marker is right for the unshrunk audit and wrong for a distributable build.
+        audit = [(0,"manifest",{}),(2,"meta-data",{"name":"CantosReleaseAudit","value":"true"})]
+        release = [(0,"manifest",{}),(2,"meta-data",{"name":"CantosReleaseAudit","value":"false"})]
+        self.assertEqual(inspector.release_metadata_findings(release, audit=False), [])
+        self.assertEqual(inspector.release_metadata_findings(audit, audit=True), [])
+        self.assertEqual(inspector.release_metadata_findings(release, audit=True), wrong)
+        self.assertEqual(inspector.release_metadata_findings(audit, audit=False), wrong)

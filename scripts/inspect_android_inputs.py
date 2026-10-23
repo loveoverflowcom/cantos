@@ -25,7 +25,9 @@ def inspect(mobile, variant, inputs):
     fixture_roots = []
     for module in ("shared", "androidApp"):
         fixture_roots += list((mobile / module / "src").glob("*Test"))
-    fixture_roots.append(mobile / "../../../packages/contracts/fixtures/theatre")
+    # Server-owned Theatre contract fixtures and the Theatre client conformance corpora.
+    fixture_roots += list((mobile / "../../../services/cantos-server/contracts/theatre").glob("*/v*/fixtures"))
+    fixture_roots += list((mobile / "../conformance").glob("*/v*"))
     for root in fixture_roots:
         if root.is_dir():
             for path in root.rglob("*"):

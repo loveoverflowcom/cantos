@@ -1,7 +1,7 @@
 # External producer adapter guidance
 
 > [ADR 0018](../../../../docs/decisions/0018-external-audio-production.md): all model
-> and audio-generation adapters execute outside **`services/cantos-api`**: an external host/plugin
+> and audio-generation adapters execute outside **`services/cantos-server`**: an external host/plugin
 > or the separate Forge producer selected by [ADR 0022](../../../../docs/decisions/0022-cantos-forge-producer-cli.md).
 > The [worker runbook](../../../../docs/deployment/forge-worker.md) distinguishes implemented
 > local foundations from unavailable provider/Drive/Functions execution.

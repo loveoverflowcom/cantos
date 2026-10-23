@@ -1,0 +1,3 @@
+-- Server.db version 5: Catalog works, units, revisions, content heads, members, delegation grants and operations.
+-- Reserved slice: filled by the context's port (see docs/architecture/server-turso/catalog.md).
+-- DDL only; queries live in the owning persistence adapter.

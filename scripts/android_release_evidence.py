@@ -122,7 +122,6 @@ def main():
     parser.add_argument("--mobile", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--api-origin", default="")
-    parser.add_argument("--native-issuer", default="")
     parser.add_argument("--begin", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
@@ -137,7 +136,7 @@ def main():
         raise ValueError("source changed during audit/release build")
     result = bind(root, args.mobile.resolve())
     result["source"] = snapshot
-    result["configuration"].update(api_origin=args.api_origin, native_issuer=args.native_issuer)
+    result["configuration"]["api_origin"] = args.api_origin
     freeze(root, args.mobile.resolve(), result)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(result, indent=2) + "\n")

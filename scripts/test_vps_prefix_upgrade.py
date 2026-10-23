@@ -277,7 +277,7 @@ prefix_commit "$TARGET" "$TREE" "$ATTEMPT"
 
     def test_registry_contract_is_bound_to_every_real_migration_file(self):
         import hashlib
-        schema = ROOT / 'services/cantos-api/schema'
+        schema = ROOT / 'services/cantos-server/schema'
         files = sorted(schema.glob('[0-9][0-9][0-9][0-9]_*.sql'))
         # The migrator numbers versions by position: a gap or reorder would be a different registry.
         self.assertEqual([int(path.name[:4]) for path in files], list(range(1, len(files) + 1)))

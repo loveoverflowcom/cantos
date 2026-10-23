@@ -128,5 +128,5 @@ Frequency/production load is unknown. Target is correctness under the stated dea
 SLO or performance gain is claimed. DBSP is rejected for this indexed point-lookup/transaction
 workload: asynchronous rights would weaken current admission. Synthetic PG plans/timings are
 recorded in [evidence](../evidence/admin-authorization.md); performance/load acceptance remains
-separate. See [wire contract](../../packages/contracts/admin-v1.md) and
+separate. See [wire contract](../../services/cantos-server/contracts/admin/access/v1/README.md) and
 [combined-review handoff](../archive/handoffs/admin-authorization-handoff.md).

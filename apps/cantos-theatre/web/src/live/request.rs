@@ -1,4 +1,10 @@
 //! Pure listener capability/probe state. A successful socket never supplies a publication.
+//!
+//! Proof boundary (#363): `Mode` is live, but `ProbeState` has no runtime consumer and
+//! `classify` is reached only by tests and the uncalled browser probe. The retired verifier-only
+//! harnesses were never registered or executed, so their former presence supplies no proof
+//! coverage. Ordinary tests retain concrete guard/fixture evidence; live Account, discovery,
+//! sync and browser behavior remain unverified by Kani. See `docs/assurance/kani.md` for scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
     Live,
@@ -88,8 +94,8 @@ impl ProbeState {
 }
 pub fn classify(status: u16, body: &[u8]) -> ProbePhase {
     match status {
-        404 if serde_json::from_slice::<cantos_contracts::ApiError>(body).is_ok_and(|e| {
-            e.code == cantos_contracts::ErrorCode::NotFound
+        404 if serde_json::from_slice::<crate::contract::ApiError>(body).is_ok_and(|e| {
+            e.code == crate::contract::ErrorCode::NotFound
                 && e.current_revision.is_none()
                 && e.issues.is_empty()
         }) =>
@@ -235,61 +241,13 @@ mod tests {
     }
 }
 
-#[cfg(kani)]
-mod proofs {
-    use super::*;
-    /// Proposition: terminal replies cannot replace cancelled, settled or newer state.
-    /// Domain: all u64 current/answered generations, four phase classes. No assumptions;
-    /// no allocation, network, Kotlin or UI. Production ProbeState::finish is reached.
-    /// Unwind2 suffices: this production path has no loops. Nothing is stubbed.
-    #[kani::proof]
-    #[kani::unwind(2)]
-    fn completion_requires_current_pending_generation() {
-        let generation: u64 = kani::any();
-        let answered: u64 = kani::any();
-        let phase = match kani::any::<u8>() % 4 {
-            0 => ProbePhase::Idle,
-            1 => ProbePhase::Pending,
-            2 => ProbePhase::Unsupported(Unsupported::ListenerApiNotImplemented),
-            _ => ProbePhase::Failed(Failure::Transport),
-        };
-        let state = ProbeState { generation, phase };
-        let result = state.finish(answered, ProbePhase::Failed(Failure::Protocol));
-        if generation != answered || phase != ProbePhase::Pending {
-            assert_eq!(result, state);
-        } else {
-            assert_eq!(result.phase, ProbePhase::Failed(Failure::Protocol));
-        }
-    }
-    /// All u64 generations, no assumptions/stubs. Production checked increment must refuse
-    /// exhaustion and every admitted increment fences the previous request. Unwind2, no loops.
-    #[kani::proof]
-    #[kani::unwind(2)]
-    fn cancellation_never_wraps_or_accepts_previous_completion() {
-        let state = ProbeState {
-            generation: kani::any(),
-            phase: ProbePhase::Pending,
-        };
-        match state.cancel() {
-            None => assert_eq!(state.generation, u64::MAX),
-            Some(cancelled) => {
-                assert!(cancelled.generation > state.generation);
-                assert_eq!(
-                    cancelled.finish(state.generation, ProbePhase::Failed(Failure::Transport)),
-                    cancelled
-                );
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod compatibility {
     use super::*;
     #[test]
     fn canonical_shared_error_fixtures_agree_with_kotlin() {
         let cases: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/client-boundary/v1/probe-cases.json"
+            "../../../../../apps/cantos-theatre/conformance/client-boundary/v1/probe-cases.json"
         ))
         .unwrap();
         let cases = cases["cases"].as_array().unwrap();

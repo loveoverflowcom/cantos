@@ -1,42 +1,45 @@
 //! `run` and `app`: local process plans and their supervised execution.
 //!
-//! `run` builds what the target needs and starts every implemented local process for it.
-//! `app` starts only Web: Studio requires an existing API; Theatre warns when its catalog
-//! dependency is unavailable so explicit offline previews remain usable.
-//! Neither command provisions PostgreSQL, Kanidm, object storage or any provider: the API uses
-//! an explicit `DATABASE_URL` or the disposable cluster retained by `verify postgres --keep`.
+//! `run` builds what the target needs and starts the native development composition: one
+//! `cantos-identity` and one `cantos-server`, each owning its own embedded Turso file under
+//! a private development data directory (see [`crate::native_dev`]), plus Trunk for a Web
+//! surface. Schema creation is the explicit `cantos-migrate` / `cantos-identity migrate` steps
+//! executed here before anything serves. `app` starts only Web: Studio requires an existing
+//! API; Theatre warns when its catalog dependency is unavailable so explicit offline previews
+//! remain usable.
+//! Theatre `run --web` also owns an isolated installed Auth Emulator. Native proof confirmation stays in Identity; no cloud resource, database server, container or object store is provisioned.
 
-use std::{io::IsTerminal, net::SocketAddr, path::PathBuf, process::ExitCode, time::Duration};
+use std::{io::IsTerminal, net::SocketAddr, process::ExitCode, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
 
 use crate::{
+    auth_emulator,
     build::{self, app_surface, Profile, Refusal, Surface},
     command::{CommandSpec, Runner},
-    config::{
-        loopback, App, API_PORT, API_SERVER_BIN, RETAINED_CLUSTER_RECORD, TEST_CLUSTER_RECORD,
-    },
+    config::{loopback, App, API_PORT, API_SERVER_BIN, IDENTITY_BIN},
+    native_dev::{self, Layout, WithIdentity},
     pipeline::{self, Step},
-    probe::{self, Readiness},
+    probe::{self, Endpoint, Readiness},
     process::{Supervisor, Wait},
     tools::{Tool, ToolProbe},
     workspace::Workspace,
 };
 
 const API_READY_TIMEOUT: Duration = Duration::from_secs(60);
+const IDENTITY_READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// Trunk compiles the WASM bundle before it serves the first page.
 const TRUNK_READY_TIMEOUT: Duration = Duration::from_secs(900);
-const THEATRE_SEED_RECORD: &str = "target/revision-evidence/theatre-seed.json";
 
 #[allow(clippy::enum_variant_names)] // CLI names mirror the package names
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum RunTarget {
-    /// The Axum API host (`cantos-server`) in the foreground.
-    CantosApi,
-    /// Cantos Studio: with --web, the API plus a `trunk serve` frontend.
+    /// The native Server and Identity in the foreground.
+    CantosServer,
+    /// Cantos Studio: with --web, the native Server + Identity plus a `trunk serve` frontend.
     CantosStudio,
-    /// Cantos Theatre: with --web, the API plus a `trunk serve` frontend.
+    /// Cantos Theatre: with --web, the native Server + Identity plus a `trunk serve` frontend.
     #[value(alias = "cantos")]
     CantosTheatre,
 }
@@ -55,21 +58,11 @@ pub struct LaunchOptions {
     pub surface: Option<Surface>,
     pub release: bool,
     pub open: bool,
-    pub test_cluster: bool,
     pub web_origin: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Requirement {
-    /// An environment variable must be set; its value is never printed.
-    EnvVar {
-        name: &'static str,
-        hint: String,
-    },
-    File {
-        path: PathBuf,
-        hint: String,
-    },
     /// Another process must already accept connections here.
     Listening {
         name: &'static str,
@@ -77,10 +70,7 @@ pub enum Requirement {
         hint: String,
     },
     /// Frontend-only Theatre can still serve explicit offline previews when this fails.
-    TheatreApi {
-        addr: SocketAddr,
-        hint: String,
-    },
+    TheatreApi { addr: SocketAddr, hint: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,14 +78,18 @@ pub struct Service {
     pub name: String,
     pub command: CommandSpec,
     pub tools: Vec<Tool>,
-    pub addr: SocketAddr,
+    pub endpoint: Endpoint,
     pub readiness: Readiness,
     pub timeout: Duration,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaunchPlan {
+    /// Theatre's supervised local verification action provider.
+    pub firebase_auth_emulator: bool,
     pub requirements: Vec<Requirement>,
+    /// The development data directories xtask creates (0700) before anything runs.
+    pub composition: Option<Layout>,
     pub prepare: Vec<Step>,
     pub services: Vec<Service>,
     pub open: Option<String>,
@@ -123,113 +117,81 @@ pub fn validate_web_origin(origin: &str) -> Result<(), Refusal> {
     }
 }
 
-fn api_service(
+/// The builds, then the two explicit migrations. Nothing here starts a serving process, and a
+/// failed migration stops the run before any process is spawned.
+pub fn native_prepare(workspace: &Workspace, layout: &Layout, profile: Profile) -> Vec<Step> {
+    vec![
+        Step::new(
+            format!("build cantos-server binaries ({})", profile.label()),
+            &[Tool::Cargo],
+            vec![
+                build::api_binaries(workspace, profile, Some(API_SERVER_BIN)),
+                build::api_binaries(workspace, profile, Some(crate::config::SERVER_MIGRATE_BIN)),
+            ],
+        ),
+        Step::new(
+            format!(
+                "build {IDENTITY_BIN} --features service ({})",
+                profile.label()
+            ),
+            &[Tool::Cargo],
+            vec![build::identity_binary(workspace, profile)
+                .args(["--features", "local-development"])],
+        ),
+        Step::new(
+            "migrate server.db (cantos-migrate)",
+            &[],
+            vec![native_dev::migrate_server(workspace, layout, profile)],
+        ),
+        Step::new(
+            "migrate identity.db (cantos-identity migrate)",
+            &[],
+            vec![native_dev::migrate_identity(workspace, layout, profile)],
+        ),
+    ]
+}
+
+/// Identity first (the Server dials its socket lazily, but an Identity that fails to start
+/// should stop the run before the Server reports ready), then the Server.
+fn native_services(
     workspace: &Workspace,
+    layout: &Layout,
     profile: Profile,
-    test_cluster: bool,
     web_origin: Option<&str>,
-    theatre_context: bool,
-) -> Result<(Requirement, Service), Refusal> {
-    let (record, owned_seed) = if test_cluster {
-        test_cluster_record(workspace, theatre_context)?
-    } else {
-        (workspace.path(TEST_CLUSTER_RECORD), false)
+) -> Result<Vec<Service>, Refusal> {
+    let signup_link = format!("{}/", App::Theatre.web_origin());
+    let identity = Service {
+        name: IDENTITY_BIN.into(),
+        command: native_dev::identity_serve(workspace, layout, profile, Some(&signup_link))
+            .env("CANTOS_IDENTITY_LOCAL_DEVELOPMENT", "1")
+            .env("CANTOS_IDENTITY_MAIL_PROVIDER", "disabled"),
+        tools: Vec::new(),
+        endpoint: Endpoint::Unix(layout.socket.clone()),
+        readiness: Readiness::Tcp,
+        timeout: IDENTITY_READY_TIMEOUT,
     };
-    let (requirement, command) = if test_cluster {
-        // The primitive validates that the record names the disposable test database.
-        (
-            Requirement::File {
-                path: record,
-                hint: "create and retain one with `cargo xtask verify postgres --keep`".into(),
-            },
-            CommandSpec::new("python3", workspace.root()).args(["scripts/serve_studio.py"]),
-        )
-    } else {
-        let binary = workspace
-            .path("target")
-            .join(profile.cargo_dir())
-            .join(API_SERVER_BIN);
-        (
-            Requirement::EnvVar {
-                name: "DATABASE_URL",
-                hint: "export a migrated local app-role URL (services/cantos-api/README.md) \
-                       or pass --test-cluster"
-                    .into(),
-            },
-            CommandSpec::new(binary.display().to_string(), workspace.root())
-                .env("CANTOS_ENV", "development")
-                .env("CANTOS_BIND_ADDRESS", api_addr().to_string()),
-        )
-    };
-    let command = match web_origin {
-        Some(origin) => command.env("CANTOS_WEB_ORIGIN", origin),
-        None => command,
-    };
-    let service = Service {
+    let media_origin = std::env::var("CANTOS_LOCAL_MEDIA_ORIGIN").ok();
+    let mut command = native_dev::server_serve(
+        workspace,
+        layout,
+        profile,
+        &web_origin
+            .map(str::to_owned)
+            .unwrap_or_else(|| App::Studio.web_origin()),
+        WithIdentity::Yes,
+    );
+    for (name, value) in native_dev::media_environment(layout, media_origin.as_deref())? {
+        command = command.env(name, value);
+    }
+    let server = Service {
         name: API_SERVER_BIN.into(),
         command,
-        tools: if test_cluster {
-            if owned_seed {
-                vec![Tool::Python3, Tool::Psql]
-            } else {
-                vec![Tool::Python3]
-            }
-        } else {
-            Vec::new()
-        },
-        addr: api_addr(),
+        tools: Vec::new(),
+        endpoint: Endpoint::Tcp(api_addr()),
         readiness: Readiness::Tcp,
         timeout: API_READY_TIMEOUT,
     };
-    Ok((requirement, service))
-}
-
-fn inherited_theatre_context() -> bool {
-    std::env::var("CANTOS_TEST_CONTEXT").is_ok_and(|context| context == "theatre")
-}
-
-/// The serving primitive performs the ownership and live-cluster validation before exec.
-/// Planning only admits this alternate prerequisite for an explicitly seeded Theatre target.
-fn test_cluster_record(
-    workspace: &Workspace,
-    theatre_context: bool,
-) -> Result<(PathBuf, bool), Refusal> {
-    let ownership_path = workspace.path(RETAINED_CLUSTER_RECORD);
-    let seed_path = workspace.path(THEATRE_SEED_RECORD);
-    if theatre_context && ownership_path.is_file() && seed_path.is_file() {
-        let read = |path: &std::path::Path| -> Result<serde_json::Value, Refusal> {
-            std::fs::read_to_string(path)
-                .map_err(|_| {
-                    Refusal::Usage(format!(
-                        "cannot read retained Theatre record {}",
-                        path.display()
-                    ))
-                })
-                .and_then(|text| {
-                    serde_json::from_str(&text).map_err(|_| {
-                        Refusal::Usage(format!(
-                            "invalid retained Theatre record {}",
-                            path.display()
-                        ))
-                    })
-                })
-        };
-        let ownership = read(&ownership_path)?;
-        let seed = read(&seed_path)?;
-        let cluster = ownership.get("cluster").and_then(serde_json::Value::as_str);
-        let port = ownership.get("port").and_then(serde_json::Value::as_u64);
-        if cluster.is_some()
-            && port.is_some()
-            && cluster == seed.get("cluster").and_then(serde_json::Value::as_str)
-            && port == seed.get("port").and_then(serde_json::Value::as_u64)
-        {
-            return Ok((ownership_path, true));
-        }
-        return Err(Refusal::Usage(
-            "Theatre seed does not match retained cluster ownership; seed again".into(),
-        ));
-    }
-    Ok((workspace.path(TEST_CLUSTER_RECORD), false))
+    Ok(vec![identity, server])
 }
 
 fn trunk_service(workspace: &Workspace, app: App, profile: Profile) -> Service {
@@ -242,7 +204,7 @@ fn trunk_service(workspace: &Workspace, app: App, profile: Profile) -> Service {
             App::Studio => build::trunk(workspace, app, "serve", profile),
         },
         tools: vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk],
-        addr: loopback(app.web_port()),
+        endpoint: Endpoint::Tcp(loopback(app.web_port())),
         readiness: Readiness::Http {
             path: "/",
             marker: app.web_marker(),
@@ -251,28 +213,11 @@ fn trunk_service(workspace: &Workspace, app: App, profile: Profile) -> Service {
     }
 }
 
-fn api_build(workspace: &Workspace, profile: Profile) -> Step {
-    Step::new(
-        format!("build {API_SERVER_BIN} ({})", profile.label()),
-        &[Tool::Cargo],
-        vec![build::api_binaries(
-            workspace,
-            profile,
-            Some(API_SERVER_BIN),
-        )],
-    )
-}
-
 fn check_flags(options: &LaunchOptions, api: bool, web: bool) -> Result<Profile, Refusal> {
     let profile = Profile::from_release(options.release);
-    if options.test_cluster && profile == Profile::Release {
+    if !api && options.web_origin.is_some() {
         return Err(Refusal::Usage(
-            "--test-cluster serves the debug cantos-server; drop --release".into(),
-        ));
-    }
-    if !api && (options.test_cluster || options.web_origin.is_some()) {
-        return Err(Refusal::Usage(
-            "--test-cluster and --web-origin only apply when xtask starts the API".into(),
+            "--web-origin only applies when xtask starts the Server".into(),
         ));
     }
     if options.open && !web {
@@ -290,24 +235,25 @@ pub fn plan_run(
     options: &LaunchOptions,
 ) -> Result<LaunchPlan, Refusal> {
     match target {
-        RunTarget::CantosApi => {
+        RunTarget::CantosServer => {
             if options.surface.is_some() {
                 return Err(Refusal::Usage(
-                    "cantos-api takes no --web/--mobile flag".into(),
+                    "cantos-server takes no --web/--mobile flag".into(),
                 ));
             }
             let profile = check_flags(options, true, false)?;
-            let (requirement, service) = api_service(
-                workspace,
-                profile,
-                options.test_cluster,
-                options.web_origin.as_deref(),
-                inherited_theatre_context(),
-            )?;
+            let layout = Layout::for_current_user(workspace)?;
             Ok(LaunchPlan {
-                requirements: vec![requirement],
-                prepare: vec![api_build(workspace, profile)],
-                services: vec![service],
+                firebase_auth_emulator: false,
+                requirements: Vec::new(),
+                prepare: native_prepare(workspace, &layout, profile),
+                services: native_services(
+                    workspace,
+                    &layout,
+                    profile,
+                    options.web_origin.as_deref(),
+                )?,
+                composition: Some(layout),
                 open: None,
             })
         }
@@ -331,30 +277,28 @@ fn run_web(
     {
         return Err(Refusal::Usage(format!(
             "run {} --web requires --web-origin {origin}, matching its Trunk server; \
-             use run cantos-api --web-origin ORIGIN with app {} --web for a separate profile",
-            app.cli_name(),
+             omit --web-origin to use the default per-surface origins",
             app.cli_name()
         )));
     }
-    let (requirement, mut api) = api_service(
-        workspace,
-        profile,
-        options.test_cluster,
-        Some(&origin),
-        app == App::Theatre || inherited_theatre_context(),
-    )?;
+    let layout = Layout::for_current_user(workspace)?;
+    let mut services = native_services(workspace, &layout, profile, None)?;
     let mut frontend = trunk_service(workspace, app, profile);
     if app == App::Theatre {
+        let api = services
+            .iter_mut()
+            .find(|service| service.name == API_SERVER_BIN)
+            .expect("the composition always contains the Server");
         api.readiness = Readiness::TheatreCatalog;
         frontend.readiness = Readiness::TheatreWeb;
-        if options.test_cluster {
-            api.command = api.command.env("CANTOS_TEST_CONTEXT", "theatre");
-        }
     }
+    services.push(frontend);
     Ok(LaunchPlan {
-        requirements: vec![requirement],
-        prepare: vec![api_build(workspace, profile)],
-        services: vec![api, frontend],
+        firebase_auth_emulator: app == App::Theatre,
+        requirements: Vec::new(),
+        prepare: native_prepare(workspace, &layout, profile),
+        composition: Some(layout),
+        services,
         open: options.open.then_some(origin),
     })
 }
@@ -370,14 +314,16 @@ pub fn plan_app(
             let profile = check_flags(options, false, true)?;
             let origin = App::Studio.web_origin();
             Ok(LaunchPlan {
+                firebase_auth_emulator: false,
                 requirements: vec![Requirement::Listening {
                     name: API_SERVER_BIN,
                     addr: api_addr(),
                     hint: format!(
-                        "start it first with `cargo xtask run cantos-api --web-origin {origin}` \
+                        "start it first with `cargo xtask run cantos-server --web-origin {origin}` \
                          (or use `cargo xtask run cantos-studio --web`)"
                     ),
                 }],
+                composition: None,
                 prepare: Vec::new(),
                 services: vec![trunk_service(workspace, App::Studio, profile)],
                 open: options.open.then_some(origin),
@@ -391,14 +337,15 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
     app_surface(App::Theatre, options.surface)?;
     let profile = check_flags(options, false, true)?;
     Ok(LaunchPlan {
+        firebase_auth_emulator: false,
         requirements: vec![Requirement::TheatreApi {
             addr: api_addr(),
-            hint: "start `cargo xtask run cantos-api --web-origin http://127.0.0.1:8082` \
-                   with a migrated app-role DATABASE_URL, or use \
-                   `cargo xtask run cantos-theatre --web [--test-cluster]`; \
+            hint: "start `cargo xtask run cantos-server`, or use \
+                   `cargo xtask run cantos-theatre --web`; \
                    explicit ?mode=mock or ?mode=membership-preview remain offline previews"
                 .into(),
         }],
+        composition: None,
         prepare: Vec::new(),
         services: vec![trunk_service(workspace, App::Theatre, profile)],
         open: options.open.then_some(App::Theatre.web_origin()),
@@ -406,24 +353,10 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
 }
 
 /// Fails before any build or process start when a precondition is not met.
-fn check_preconditions(
-    plan: &LaunchPlan,
-    tools: &dyn ToolProbe,
-    workspace: &Workspace,
-) -> Result<()> {
+fn check_preconditions(plan: &LaunchPlan, tools: &dyn ToolProbe) -> Result<()> {
     let mut problems = Vec::new();
     for requirement in &plan.requirements {
         match requirement {
-            Requirement::EnvVar { name, hint } => {
-                if std::env::var_os(name).is_none_or(|value| value.is_empty()) {
-                    problems.push(format!("{name} is not set: {hint}"));
-                }
-            }
-            Requirement::File { path, hint } => {
-                if !path.is_file() {
-                    problems.push(format!("{} is missing: {hint}", workspace.relative(path)));
-                }
-            }
             Requirement::Listening { name, addr, hint } => {
                 if !probe::accepts_connections(*addr) {
                     problems.push(format!("{name} is not listening on {addr}: {hint}"));
@@ -460,17 +393,31 @@ fn check_preconditions(
                 names.join(", ")
             ));
         }
-        if !probe::port_is_free(service.addr) {
-            let alternative = if service.addr == api_addr() {
-                "; if it is a Cantos API you started, use `cargo xtask app <cantos-studio|cantos-theatre> --web`"
-            } else {
-                ""
-            };
-            problems.push(format!(
-                "{} ({}) is already in use and xtask does not stop processes it did not start; \
-                 free the port{alternative}",
-                service.addr, service.name
-            ));
+        match &service.endpoint {
+            Endpoint::Tcp(addr) => {
+                if !probe::port_is_free(*addr) {
+                    let alternative = if *addr == api_addr() {
+                        "; if it is a Cantos Server you started, use `cargo xtask app <cantos-studio|cantos-theatre> --web`"
+                    } else {
+                        ""
+                    };
+                    problems.push(format!(
+                        "{addr} ({}) is already in use and xtask does not stop processes it did not start; \
+                         free the port{alternative}",
+                        service.name
+                    ));
+                }
+            }
+            Endpoint::Unix(path) => {
+                if probe::accepts_unix(path) {
+                    problems.push(format!(
+                        "{} ({}) already answers and xtask does not stop processes it did not start; \
+                         stop that Identity first",
+                        path.display(),
+                        service.name
+                    ));
+                }
+            }
         }
     }
     if problems.is_empty() {
@@ -486,7 +433,27 @@ pub fn launch(
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
-    check_preconditions(plan, tools, workspace)?;
+    // All native local runs refuse ambient cloud/mail configuration, including Server-only.
+    if plan.composition.is_some() {
+        auth_emulator::reject_inherited_configuration(
+            std::env::vars_os().filter_map(|(name, _)| name.into_string().ok()),
+        )?;
+    }
+    let installed_emulator = plan
+        .firebase_auth_emulator
+        .then(auth_emulator::Installed::inspect)
+        .transpose()?;
+    check_preconditions(plan, tools)?;
+    if let Some(layout) = &plan.composition {
+        native_dev::ensure_private_directories(layout)?;
+        println!(
+            "Development data (private, kept between runs): {}\n  server.db   {}\n  identity.db {}\n  identity socket {}",
+            workspace.relative(&layout.root),
+            workspace.relative(&layout.server_db),
+            workspace.relative(&layout.identity_db),
+            layout.socket.display()
+        );
+    }
     if !plan.prepare.is_empty() {
         let report = pipeline::execute("prepare", &plan.prepare, tools, runner);
         if !report.succeeded() {
@@ -495,32 +462,83 @@ pub fn launch(
         }
     }
 
+    // The run directory must drop after the supervisor, including on an early error.
+    let mut emulator_run = None;
     let mut supervisor = Supervisor::new()?;
+    if let Some(installed) = installed_emulator {
+        emulator_run = Some(auth_emulator::Run::start(
+            workspace,
+            &installed,
+            &mut supervisor,
+        )?);
+    }
+    if let Some(emulator) = &emulator_run {
+        println!("Firebase Auth Emulator {version}: loopback {address}, project {project}.\n  Local developer action inventory: http://{address}/emulator/v1/projects/{project}/oobCodes\n  Verification actions stay local; native password login remains a separate step.",
+            version = auth_emulator::VERSION, address = emulator.address, project = emulator.project);
+    }
     for service in &plan.services {
-        if !probe::port_is_free(service.addr) {
+        let mut command = service.command.clone();
+        if service.name == IDENTITY_BIN {
+            if let Some(emulator) = &emulator_run {
+                command
+                    .env
+                    .retain(|(name, _)| name != "CANTOS_IDENTITY_MAIL_PROVIDER");
+                command = command
+                    .env("CANTOS_IDENTITY_MAIL_PROVIDER", "firebase-emulator")
+                    .env("CANTOS_IDENTITY_FIREBASE_PROJECT", &emulator.project)
+                    .env(
+                        "CANTOS_IDENTITY_FIREBASE_EMULATOR_ENDPOINT",
+                        emulator.address.to_string(),
+                    )
+                    .env(
+                        "CANTOS_IDENTITY_FIREBASE_ENVELOPE_KEY_FILE",
+                        emulator.key_file.display().to_string(),
+                    )
+                    .env(
+                        "CANTOS_IDENTITY_FIREBASE_ACTION_ORIGIN",
+                        App::Theatre.web_origin(),
+                    )
+                    .env(
+                        "CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER",
+                        format!("{}/", App::Theatre.web_origin()),
+                    );
+            }
+        }
+        let free = match &service.endpoint {
+            Endpoint::Tcp(addr) => probe::port_is_free(*addr),
+            Endpoint::Unix(path) => !probe::accepts_unix(path),
+        };
+        if !free {
             bail!(
                 "{} was taken while preparing; xtask does not stop processes it did not start",
-                service.addr
+                service.endpoint
             );
         }
         println!(
             "\n==> start {}: {}",
             service.name,
-            service.command.display(workspace.root())
+            command.display(workspace.root())
         );
-        supervisor.spawn(&service.name, &service.command)?;
+        supervisor.spawn(&service.name, &command)?;
         let ready = supervisor
-            .await_ready(service.addr, &service.readiness, service.timeout)
+            .await_endpoint(&service.endpoint, &service.readiness, service.timeout)
             .with_context(|| readiness_hint(service))?;
         if !ready {
             supervisor.shutdown();
             println!("Interrupted before {} became ready.", service.name);
             return Ok(ExitCode::SUCCESS);
         }
-        println!(
-            "{} ready on http://{} ({:?})",
-            service.name, service.addr, service.readiness
-        );
+        match &service.endpoint {
+            Endpoint::Tcp(addr) => println!(
+                "{} ready on http://{addr} ({:?})",
+                service.name, service.readiness
+            ),
+            Endpoint::Unix(path) => println!(
+                "{} accepts connections on {} (a listening process, not an authentication)",
+                service.name,
+                path.display()
+            ),
+        }
     }
 
     if let Some(url) = &plan.open {
@@ -547,10 +565,13 @@ pub fn launch(
 }
 
 fn readiness_hint(service: &Service) -> &'static str {
+    if matches!(service.endpoint, Endpoint::Unix(_)) {
+        return "Identity startup failed: check its output, that `cantos-identity migrate` succeeded, and that no other process owns identity.db. Local mail is disabled until the Firebase/native proof bridge exists; inherited production mail configuration is refused.";
+    }
     match service.readiness {
-        Readiness::TheatreCatalog => "Theatre API startup failed: check the API output, local PostgreSQL availability, app-role grants/migrations and any explicitly configured issuer. No database or identity is provisioned; no mock fallback is selected.",
+        Readiness::TheatreCatalog => "Theatre Server startup failed: check the Server output, that `cantos-migrate` succeeded, and that no other process (an operator command, an old Server) owns server.db. No database server or identity provider is provisioned; no mock fallback is selected.",
         Readiness::TheatreWeb => "Theatre Web startup failed: check Trunk output and GET /api/v1/theatre/works?limit=20 at both http://127.0.0.1:8080 and http://127.0.0.1:8082. The API and proxy must return JSON; /session success is optional.",
-        _ => "Local process startup failed; inspect the process output and configured local dependencies.",
+        _ => "Local process startup failed; inspect the process output and the private development files.",
     }
 }
 
@@ -583,42 +604,6 @@ fn open_browser(url: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::{command::testing::RecordingRunner, tools::testing::FakeTools};
-    use std::fs;
-
-    struct TemporaryWorkspace(PathBuf);
-
-    impl Drop for TemporaryWorkspace {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
-
-    fn workspace_with_ownership() -> (TemporaryWorkspace, Workspace) {
-        let root = std::env::temp_dir().join(format!(
-            "cantos-xtask-run-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        fs::create_dir_all(root.join("target/revision-evidence")).unwrap();
-        fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
-        let cluster = root.join("target/revision-evidence/schema/cluster-1");
-        let ownership = serde_json::json!({ "cluster": cluster, "port": 12345 });
-        fs::write(root.join(RETAINED_CLUSTER_RECORD), ownership.to_string()).unwrap();
-        let workspace = Workspace::fixture(&root).unwrap();
-        (TemporaryWorkspace(root), workspace)
-    }
-
-    fn write_matching_seed(workspace: &Workspace) {
-        let seed = serde_json::json!({
-            "cluster": workspace.path("target/revision-evidence/schema/cluster-1"),
-            "port": 12345,
-            "database": "cantos_test_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        });
-        fs::write(workspace.path(THEATRE_SEED_RECORD), seed.to_string()).unwrap();
-    }
 
     fn workspace() -> Workspace {
         Workspace::discover().unwrap()
@@ -640,141 +625,265 @@ mod tests {
             .map(|(_, value)| value.clone())
     }
 
+    fn server(plan: &LaunchPlan) -> &Service {
+        plan.services
+            .iter()
+            .find(|service| service.name == API_SERVER_BIN)
+            .unwrap()
+    }
+
     #[test]
-    fn run_api_builds_the_server_and_requires_an_explicit_database() {
+    fn run_builds_both_executables_and_migrates_each_file_before_anything_serves() {
         let workspace = workspace();
-        let plan = plan_run(&workspace, RunTarget::CantosApi, &LaunchOptions::default()).unwrap();
-        assert!(matches!(
-            &plan.requirements[..],
-            [Requirement::EnvVar {
-                name: "DATABASE_URL",
-                ..
-            }]
-        ));
+        let plan = plan_run(
+            &workspace,
+            RunTarget::CantosServer,
+            &LaunchOptions::default(),
+        )
+        .unwrap();
+        assert!(plan.requirements.is_empty(), "no DATABASE_URL, no cluster");
+        let lines: Vec<String> = plan
+            .prepare
+            .iter()
+            .flat_map(|step| step.commands.iter())
+            .map(|command| command.display(workspace.root()))
+            .collect();
+        let layout = plan.composition.as_ref().unwrap();
         assert_eq!(
-            plan.prepare[0].commands[0].display(workspace.root()),
-            "cargo build --locked -p cantos-api --bin cantos-server"
+            lines,
+            [
+                "cargo build --locked -p cantos-server --bin cantos-server".to_owned(),
+                "cargo build --locked -p cantos-server --bin cantos-migrate".to_owned(),
+                "cargo build --locked -p cantos-identity --features service --bin cantos-identity --features local-development"
+                    .to_owned(),
+                format!(
+                    "CANTOS_SERVER_DATABASE={} target/debug/cantos-migrate",
+                    layout.server_db.display()
+                ),
+                format!(
+                    "CANTOS_IDENTITY_DATABASE={} target/debug/cantos-identity migrate",
+                    layout.identity_db.display()
+                ),
+            ]
         );
-        let api = &plan.services[0];
+        // Builds first, then migrations, and no serving command is a preparation step.
+        assert!(plan
+            .prepare
+            .iter()
+            .flat_map(|step| step.commands.iter())
+            .all(|command| !command.args.contains(&"serve".to_owned())));
+    }
+
+    #[test]
+    fn identity_starts_before_the_server_and_each_has_its_own_endpoint_and_file() {
+        let plan = plan_run(
+            &workspace(),
+            RunTarget::CantosServer,
+            &LaunchOptions::default(),
+        )
+        .unwrap();
+        let layout = plan.composition.clone().unwrap();
+        let [identity, server] = &plan.services[..] else {
+            panic!("expected Identity then Server");
+        };
+        assert_eq!(identity.name, IDENTITY_BIN);
+        assert_eq!(identity.endpoint, Endpoint::Unix(layout.socket.clone()));
+        assert_eq!(identity.readiness, Readiness::Tcp);
+        assert_eq!(server.endpoint, Endpoint::Tcp(loopback(8080)));
+        assert_eq!(server.readiness, Readiness::Tcp);
         assert_eq!(
-            api.command.display(workspace.root()),
-            "CANTOS_ENV=development CANTOS_BIND_ADDRESS=127.0.0.1:8080 target/debug/cantos-server"
+            env_of(identity, "CANTOS_IDENTITY_DATABASE").unwrap(),
+            layout.identity_db.display().to_string()
         );
-        assert_eq!(api.readiness, Readiness::Tcp);
+        assert_eq!(
+            env_of(server, "CANTOS_SERVER_DATABASE").unwrap(),
+            layout.server_db.display().to_string()
+        );
+        assert_ne!(
+            env_of(identity, "CANTOS_IDENTITY_DATABASE"),
+            env_of(server, "CANTOS_SERVER_DATABASE")
+        );
+        // The Server dials the socket Identity serves, as the uid Identity runs as.
+        assert_eq!(
+            env_of(server, "CANTOS_IDENTITY_SOCKET"),
+            env_of(identity, "CANTOS_IDENTITY_SOCKET")
+        );
+        assert_eq!(
+            env_of(server, "CANTOS_IDENTITY_PEER_UID"),
+            env_of(identity, "CANTOS_IDENTITY_SERVER_UIDS")
+        );
         assert_eq!(plan.open, None);
     }
 
     #[test]
-    fn run_api_against_the_retained_test_cluster_reuses_the_serving_primitive() {
-        let workspace = workspace();
-        let options = LaunchOptions {
-            test_cluster: true,
-            web_origin: Some("http://127.0.0.1:8081".into()),
-            ..Default::default()
-        };
-        let plan = plan_run(&workspace, RunTarget::CantosApi, &options).unwrap();
-        assert!(matches!(&plan.requirements[..], [Requirement::File { .. }]));
-        assert_eq!(
-            plan.services[0].command.display(workspace.root()),
-            "CANTOS_WEB_ORIGIN=http://127.0.0.1:8081 python3 scripts/serve_studio.py"
-        );
-        let release = LaunchOptions {
-            release: true,
-            ..options
-        };
-        assert!(matches!(
-            plan_run(&workspace, RunTarget::CantosApi, &release),
-            Err(Refusal::Usage(_))
-        ));
-    }
-
-    #[test]
-    fn ownership_alone_never_substitutes_for_the_full_fixture_record() {
-        let (_root, workspace) = workspace_with_ownership();
-        assert!(!workspace.path(TEST_CLUSTER_RECORD).exists());
-        for theatre_context in [false, true] {
-            assert_eq!(
-                test_cluster_record(&workspace, theatre_context).unwrap(),
-                (workspace.path(TEST_CLUSTER_RECORD), false)
-            );
-        }
-    }
-
-    #[test]
-    fn matching_seed_allows_only_theatre_to_plan_without_the_full_fixture_record() {
-        let (_root, workspace) = workspace_with_ownership();
-        write_matching_seed(&workspace);
-        assert_eq!(
-            test_cluster_record(&workspace, false).unwrap(),
-            (workspace.path(TEST_CLUSTER_RECORD), false)
-        );
+    fn theatre_selects_local_emulator_and_disables_delivery_at_the_actual_theatre_origin() {
         let plan = plan_run(
-            &workspace,
+            &workspace(),
             RunTarget::CantosTheatre,
-            &web(LaunchOptions {
-                test_cluster: true,
-                ..Default::default()
-            }),
+            &web(LaunchOptions::default()),
         )
         .unwrap();
-        assert!(matches!(
-            &plan.requirements[..],
-            [Requirement::File { path, .. }] if *path == workspace.path(RETAINED_CLUSTER_RECORD)
-        ));
-        assert_eq!(plan.services[0].tools, [Tool::Python3, Tool::Psql]);
+        assert!(plan.firebase_auth_emulator);
+        let identity = plan
+            .services
+            .iter()
+            .find(|service| service.name == IDENTITY_BIN)
+            .unwrap();
         assert_eq!(
-            env_of(&plan.services[0], "CANTOS_TEST_CONTEXT").as_deref(),
-            Some("theatre")
+            env_of(identity, "CANTOS_IDENTITY_MAIL_PROVIDER").as_deref(),
+            Some("disabled")
         );
-        assert!(!workspace.path(TEST_CLUSTER_RECORD).exists());
-        let (requirement, api) = api_service(&workspace, Profile::Dev, true, None, true).unwrap();
-        assert!(matches!(requirement, Requirement::File { path, .. }
-            if path == workspace.path(RETAINED_CLUSTER_RECORD)));
-        assert_eq!(api.tools, [Tool::Python3, Tool::Psql]);
-        let (requirement, api) = api_service(&workspace, Profile::Dev, true, None, false).unwrap();
-        assert!(matches!(requirement, Requirement::File { path, .. }
-            if path == workspace.path(TEST_CLUSTER_RECORD)));
-        assert_eq!(api.tools, [Tool::Python3]);
+        assert_eq!(
+            env_of(identity, "CANTOS_IDENTITY_LOCAL_DEVELOPMENT").as_deref(),
+            Some("1")
+        );
+        assert_eq!(
+            env_of(identity, "CANTOS_IDENTITY_SIGNUP_LINK_BASE"),
+            Some(format!("{}/", App::Theatre.web_origin()))
+        );
+        let app = plan_app(
+            &workspace(),
+            AppTarget::CantosTheatre,
+            &web(LaunchOptions::default()),
+        )
+        .unwrap();
+        assert!(
+            !app.firebase_auth_emulator,
+            "frontend-only attachment owns no infrastructure"
+        );
     }
 
     #[test]
-    fn stale_or_malformed_seed_refuses_even_when_a_valid_full_fixture_exists() {
-        let (_root, workspace) = workspace_with_ownership();
-        fs::write(
-            workspace.path(TEST_CLUSTER_RECORD),
-            serde_json::json!({
-                "retained": true,
-                "theatre_app_url": "postgresql://cantos_app@127.0.0.1:12346/cantos_test_old"
-            })
-            .to_string(),
-        )
-        .unwrap();
-        let cluster = workspace.path("target/revision-evidence/schema/cluster-1");
-        for seed in [
-            serde_json::json!({ "cluster": cluster, "port": 12346 }),
-            serde_json::json!({ "cluster": "/other/cluster-1", "port": 12345 }),
-            serde_json::json!({}),
-        ] {
-            fs::write(workspace.path(THEATRE_SEED_RECORD), seed.to_string()).unwrap();
-            let refusal = plan_run(
+    fn no_plan_mentions_a_database_url_a_cluster_a_container_or_a_provider() {
+        let workspace = workspace();
+        let plans = [
+            plan_run(
+                &workspace,
+                RunTarget::CantosServer,
+                &LaunchOptions::default(),
+            )
+            .unwrap(),
+            plan_run(
+                &workspace,
+                RunTarget::CantosStudio,
+                &web(LaunchOptions::default()),
+            )
+            .unwrap(),
+            plan_run(
                 &workspace,
                 RunTarget::CantosTheatre,
-                &web(LaunchOptions {
-                    test_cluster: true,
-                    ..Default::default()
-                }),
+                &web(LaunchOptions::default()),
             )
-            .unwrap_err();
-            assert!(matches!(refusal, Refusal::Usage(message)
-                if message == "Theatre seed does not match retained cluster ownership; seed again"));
+            .unwrap(),
+        ];
+        for plan in plans {
+            let text: String = plan
+                .prepare
+                .iter()
+                .flat_map(|step| step.commands.iter())
+                .chain(plan.services.iter().map(|service| &service.command))
+                .map(|command| command.display(workspace.root()))
+                .collect::<Vec<_>>()
+                .join("\n");
+            for retired in [
+                "DATABASE_URL",
+                "postgres",
+                "podman",
+                "docker",
+                "kanidm",
+                "OIDC",
+                "test-cluster",
+                "serve_studio",
+            ] {
+                assert!(!text.contains(retired), "{retired}: {text}");
+            }
+            assert!(plan.services.iter().all(|service| service
+                .tools
+                .iter()
+                .all(|tool| !matches!(tool, Tool::Python3))));
         }
-        fs::write(workspace.path(THEATRE_SEED_RECORD), "invalid JSON").unwrap();
-        assert!(matches!(test_cluster_record(&workspace, true),
-            Err(Refusal::Usage(message)) if message.starts_with("invalid retained Theatre record ")));
     }
 
     #[test]
-    fn run_studio_web_starts_the_api_for_the_trunk_origin_then_trunk_serve() {
+    fn every_run_owns_one_server_with_both_web_policies_and_apps_attach_without_a_server() {
+        for target in [
+            RunTarget::CantosServer,
+            RunTarget::CantosStudio,
+            RunTarget::CantosTheatre,
+        ] {
+            let options = if target == RunTarget::CantosServer {
+                LaunchOptions::default()
+            } else {
+                web(LaunchOptions::default())
+            };
+            let plan = plan_run(&workspace(), target, &options).unwrap();
+            let servers: Vec<_> = plan
+                .services
+                .iter()
+                .filter(|service| service.name == API_SERVER_BIN)
+                .collect();
+            assert_eq!(servers.len(), 1);
+            let identities = plan
+                .services
+                .iter()
+                .filter(|service| service.name == IDENTITY_BIN)
+                .count();
+            assert_eq!(identities, 1);
+            let server = servers[0];
+            assert_eq!(server.endpoint, Endpoint::Tcp(loopback(8080)));
+            assert_eq!(
+                env_of(server, "CANTOS_STUDIO_WEB_ORIGIN"),
+                Some(App::Studio.web_origin())
+            );
+            assert_eq!(
+                env_of(server, "CANTOS_THEATRE_WEB_ORIGIN"),
+                Some(App::Theatre.web_origin())
+            );
+            assert!(server
+                .command
+                .env_remove
+                .iter()
+                .any(|name| name == "CANTOS_BROWSER_API_SURFACE"));
+        }
+        for target in [AppTarget::CantosStudio, AppTarget::CantosTheatre] {
+            let plan = plan_app(&workspace(), target, &web(LaunchOptions::default())).unwrap();
+            assert!(plan.composition.is_none() && plan.prepare.is_empty());
+            assert!(plan
+                .services
+                .iter()
+                .all(|service| service.name != API_SERVER_BIN && service.name != IDENTITY_BIN));
+        }
+    }
+
+    #[test]
+    fn standalone_server_may_pin_studios_origin_and_release_uses_release_binaries() {
+        let workspace = workspace();
+        let plan = plan_run(
+            &workspace,
+            RunTarget::CantosServer,
+            &LaunchOptions {
+                release: true,
+                web_origin: Some("http://127.0.0.1:8081".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(server(&plan)
+            .command
+            .program
+            .ends_with("target/release/cantos-server"));
+        assert!(plan.services[0]
+            .command
+            .program
+            .ends_with("target/release/cantos-identity"));
+        assert_eq!(
+            env_of(server(&plan), "CANTOS_STUDIO_WEB_ORIGIN").as_deref(),
+            Some("http://127.0.0.1:8081")
+        );
+    }
+
+    #[test]
+    fn run_studio_web_starts_identity_and_the_server_then_trunk_serve() {
         let workspace = workspace();
         let plan = plan_run(
             &workspace,
@@ -786,13 +895,10 @@ mod tests {
             }),
         )
         .unwrap();
-        let [api, studio] = &plan.services[..] else {
-            panic!("expected two services");
+        let [identity, api, studio] = &plan.services[..] else {
+            panic!("expected three services");
         };
-        assert_eq!(
-            env_of(api, "CANTOS_WEB_ORIGIN").as_deref(),
-            Some("http://127.0.0.1:8081")
-        );
+        assert_eq!(identity.name, IDENTITY_BIN);
         assert!(api
             .command
             .program
@@ -801,12 +907,12 @@ mod tests {
             studio.command.display(workspace.root()),
             "(in apps/cantos-studio/web) NO_COLOR=true trunk serve --locked --release"
         );
-        assert_eq!(studio.addr, loopback(8081));
+        assert_eq!(studio.endpoint, Endpoint::Tcp(loopback(8081)));
         assert_eq!(plan.open.as_deref(), Some("http://127.0.0.1:8081"));
     }
 
     #[test]
-    fn app_studio_never_builds_or_starts_the_api() {
+    fn app_studio_never_builds_or_starts_a_native_process() {
         let workspace = workspace();
         let plan = plan_app(
             &workspace,
@@ -823,50 +929,27 @@ mod tests {
     }
 
     #[test]
-    fn theatre_run_requires_a_database_and_starts_api_before_trunk() {
+    fn theatre_run_starts_identity_then_the_server_before_trunk() {
         let plan = plan_run(
             &workspace(),
             RunTarget::CantosTheatre,
             &web(Default::default()),
         )
         .unwrap();
-        assert_eq!(plan.services.len(), 2);
-        assert_eq!(plan.services[0].addr, loopback(8080));
-        assert_eq!(plan.services[1].addr, loopback(8082));
+        assert_eq!(plan.services.len(), 3);
+        assert_eq!(plan.services[0].name, IDENTITY_BIN);
+        assert_eq!(plan.services[1].endpoint, Endpoint::Tcp(loopback(8080)));
+        assert_eq!(plan.services[2].endpoint, Endpoint::Tcp(loopback(8082)));
         assert_eq!(
-            env_of(&plan.services[1], "CANTOS_API_ORIGIN").as_deref(),
+            env_of(&plan.services[2], "CANTOS_API_ORIGIN").as_deref(),
             Some("http://127.0.0.1:8080")
         );
-        assert!(matches!(
-            &plan.requirements[..],
-            [Requirement::EnvVar {
-                name: "DATABASE_URL",
-                ..
-            }]
-        ));
+        assert!(plan.requirements.is_empty());
         assert_eq!(
-            env_of(&plan.services[0], "CANTOS_WEB_ORIGIN").as_deref(),
+            env_of(&plan.services[1], "CANTOS_THEATRE_WEB_ORIGIN").as_deref(),
             Some("http://127.0.0.1:8082")
         );
-        assert_eq!(plan.prepare.len(), 1);
-    }
-
-    #[test]
-    fn theatre_test_cluster_is_an_explicit_retained_database_profile() {
-        let plan = plan_run(
-            &workspace(),
-            RunTarget::CantosTheatre,
-            &web(LaunchOptions {
-                test_cluster: true,
-                ..Default::default()
-            }),
-        )
-        .unwrap();
-        assert!(matches!(&plan.requirements[..], [Requirement::File { .. }]));
-        assert_eq!(
-            env_of(&plan.services[0], "CANTOS_TEST_CONTEXT").as_deref(),
-            Some("theatre")
-        );
+        assert_eq!(plan.prepare.len(), 4);
     }
 
     #[test]
@@ -879,7 +962,7 @@ mod tests {
         .unwrap();
         assert!(plan.prepare.is_empty());
         assert_eq!(plan.services.len(), 1);
-        assert_eq!(plan.services[0].addr, loopback(8082));
+        assert_eq!(plan.services[0].endpoint, Endpoint::Tcp(loopback(8082)));
         assert!(
             matches!(&plan.requirements[..], [Requirement::TheatreApi { addr, .. }] if *addr == loopback(8080))
         );
@@ -904,8 +987,9 @@ mod tests {
             &web(Default::default()),
         )
         .unwrap();
-        assert_eq!(plan.services[0].readiness, Readiness::TheatreCatalog);
-        assert_eq!(plan.services[1].readiness, Readiness::TheatreWeb);
+        assert_eq!(server(&plan).readiness, Readiness::TheatreCatalog);
+        assert_eq!(plan.services[2].readiness, Readiness::TheatreWeb);
+        assert_eq!(plan.services[0].readiness, Readiness::Tcp);
         assert_eq!(ready_summary(&plan), "All processes are ready.");
     }
 
@@ -921,7 +1005,15 @@ mod tests {
             });
             let plan = plan_run(&workspace(), target, &options).unwrap();
             assert_eq!(
-                env_of(&plan.services[0], "CANTOS_WEB_ORIGIN").as_deref(),
+                env_of(
+                    server(&plan),
+                    if matches!(target, RunTarget::CantosStudio) {
+                        "CANTOS_STUDIO_WEB_ORIGIN"
+                    } else {
+                        "CANTOS_THEATRE_WEB_ORIGIN"
+                    }
+                )
+                .as_deref(),
                 Some(origin)
             );
             let wrong = web(LaunchOptions {
@@ -940,15 +1032,17 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         drop(listener);
         let plan = LaunchPlan {
+            firebase_auth_emulator: false,
             requirements: vec![Requirement::TheatreApi {
                 addr,
-                hint: "start the API explicitly".into(),
+                hint: "start the Server explicitly".into(),
             }],
+            composition: None,
             prepare: Vec::new(),
             services: Vec::new(),
             open: None,
         };
-        check_preconditions(&plan, &FakeTools::all(), &workspace()).unwrap();
+        check_preconditions(&plan, &FakeTools::all()).unwrap();
     }
 
     #[test]
@@ -983,7 +1077,15 @@ mod tests {
             ..Default::default()
         };
         assert!(matches!(
-            plan_run(&workspace, RunTarget::CantosApi, &open_api),
+            plan_run(&workspace, RunTarget::CantosServer, &open_api),
+            Err(Refusal::Usage(_))
+        ));
+        let origin_for_app = web(LaunchOptions {
+            web_origin: Some("http://127.0.0.1:8081".into()),
+            ..Default::default()
+        });
+        assert!(matches!(
+            plan_app(&workspace, AppTarget::CantosStudio, &origin_for_app),
             Err(Refusal::Usage(_))
         ));
     }
@@ -1004,7 +1106,7 @@ mod tests {
     }
 
     #[test]
-    fn a_taken_port_or_missing_tool_fails_before_anything_runs() {
+    fn a_taken_port_or_missing_tool_fails_before_any_directory_or_command() {
         let workspace = workspace();
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let mut plan = plan_run(
@@ -1013,7 +1115,10 @@ mod tests {
             &web(Default::default()),
         )
         .unwrap();
-        plan.services[0].addr = listener.local_addr().unwrap();
+        plan.composition = None;
+        // The installed Auth Emulator is inspected on the real host; keep this plan hermetic.
+        plan.firebase_auth_emulator = false;
+        plan.services[1].endpoint = Endpoint::Tcp(listener.local_addr().unwrap());
         let mut runner = RecordingRunner::default();
         let error = launch(
             &workspace,
@@ -1027,5 +1132,59 @@ mod tests {
         assert!(!error.contains("app cantos-studio"), "{error}");
         assert!(error.contains("UNSUPPORTED here"), "{error}");
         assert!(runner.commands.is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_identity_socket_that_already_answers_is_not_ours_to_replace() {
+        let dir = std::env::temp_dir().join(format!("xtask-run-uds-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("identity.sock");
+        let _listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let mut plan = plan_run(
+            &workspace(),
+            RunTarget::CantosServer,
+            &LaunchOptions::default(),
+        )
+        .unwrap();
+        plan.composition = None;
+        plan.services.truncate(1);
+        plan.services[0].endpoint = Endpoint::Unix(path);
+        let mut runner = RecordingRunner::default();
+        let error = launch(&workspace(), &plan, &FakeTools::all(), &mut runner)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("already answers"), "{error}");
+        assert!(runner.commands.is_empty());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_failed_migration_stops_the_run_before_any_process_is_spawned() {
+        let workspace = workspace();
+        let plan = plan_run(
+            &workspace,
+            RunTarget::CantosServer,
+            &LaunchOptions::default(),
+        )
+        .unwrap();
+        let mut runner = RecordingRunner {
+            fail_on: Some("target/debug/cantos-migrate".into()),
+            ..Default::default()
+        };
+        // Preconditions hold, directories are not touched by this fixture, and the run ends
+        // at the failing step with a failure exit before `Supervisor` could spawn anything.
+        let mut plan = plan;
+        plan.composition = None;
+        plan.services.clear();
+        let code = launch(&workspace, &plan, &FakeTools::all(), &mut runner).unwrap();
+        assert_ne!(code, ExitCode::SUCCESS);
+        let last = runner.commands.last().unwrap();
+        assert!(last.program.ends_with("cantos-migrate"));
+        // The identity migration never ran after the Server's failed.
+        assert!(runner
+            .commands
+            .iter()
+            .all(|command| !command.args.contains(&"migrate".to_owned())));
     }
 }

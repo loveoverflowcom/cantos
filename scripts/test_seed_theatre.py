@@ -203,7 +203,7 @@ class SeedFlowTest(unittest.TestCase):
             cargo = [(command, kwargs) for command, kwargs in fake.calls if command[0] == "cargo"]
             self.assertEqual(len(cargo), 1)
             command, kwargs = cargo[0]
-            self.assertEqual(command, ["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres",
+            self.assertEqual(command, ["cargo", "test", "-p", "cantos-server", "--test", "catalog_http_postgres",
                                        "--locked", "--offline", "--", "--ignored", "--exact",
                                        seed_theatre.SEED_TEST, "--test-threads=1"])
             self.assertEqual(kwargs["env"]["CANTOS_TEST_CLUSTER_URL"],

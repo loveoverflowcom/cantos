@@ -33,7 +33,7 @@ checks; historical results below are not promoted to the current diff.
 | Boundary | Next required work / acceptance |
 | --- | --- |
 | Theatre Web application | Reuse the existing BFF and server-confirmed sessions; exercise validation/errors, Back/cancel/retry/history/reload, account fences and logout in the Mac browser. Keep the prior Library spacing repair and shared tokens. |
-| Theatre registration | Consume the separate [login/registration capability and email-onboarding contract](../../../packages/contracts/theatre-identity-v1.md). Verify email before any person/intent effect; preserve durable single use, generic responses, cooldown/budget fences and explicit user confirmation before side effects. Missing configuration stays unavailable. |
+| Theatre registration | Consume the separate [login/registration capability and email-onboarding contract](../../../services/cantos-server/contracts/theatre/identity/v1/README.md). Verify email before any person/intent effect; preserve durable single use, generic responses, cooldown/budget fences and explicit user confirmation before side effects. Missing configuration stays unavailable. |
 | Issuer enrollment | Implement the approved Kanidm create/credential-intent adapter around pinned1.10.5 authenticated APIs. Only an acknowledged new operation-owned person can receive a setup intent; conflict/uncertain outcomes never trigger existing-account lookup/reset or blind retry. No issuer switch or password store. |
 | Activation policy | Review external existing-email handling, parsing/deduplication/naming, bounded TTL/cooldown/budgets, retention/cleanup/recovery and effective issuer target protection. The onboarding group can reset existing people: its name and an application witness are not least-privilege evidence for a stolen bearer. Keep live disabled pending accepted policy and specific operator authorization. |
 | Studio admission | Enforce the [one/two-subject server configuration](../../architecture/studio-oidc.md) at callback issuance and every private request. Prove that valid unlisted identities, removed subjects, Theatre/native credentials and client-claimed roles cannot enter Studio. No public registration CTA or API is introduced. |
@@ -50,7 +50,7 @@ acceptance is missing; do not close #174/#191 from fixture/build results. Accoun
 membership, provider/credential-format changes and dedicated Admin roles remain outside this
 policy decision.
 
-The [operator runbook](../../../services/kanidm/README.md#theatre-registration-activation-runbook--approval-required-before-execution)
+The [operator runbook](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/services/kanidm/README.md#theatre-registration-activation-runbook--approval-required-before-execution)
 records the review sequence, secret-delivery boundary and real-inbox/session acceptance. No
 live resource is provisioned by these docs. A positively accepted SMTP transaction is separate
 from actual delivery, credential completion and server-confirmed authentication; native device
@@ -121,7 +121,7 @@ plumbing, not a shared credential/session purpose. Neither Studio nor Theatre au
    revocation recovery before deployment. No performance/DRM/global logout promise is made.
 
 See [architecture](../../architecture/theatre-identity.md),
-[contract](../../../packages/contracts/theatre-identity-v1.md) and [evidence](../../evidence/theatre-identity.md).
+[contract](../../../services/cantos-server/contracts/theatre/identity/v1/README.md) and [evidence](../../evidence/theatre-identity.md).
 
 ## Independent campaign completion handoff
 

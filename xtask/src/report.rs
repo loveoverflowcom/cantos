@@ -149,7 +149,7 @@ mod tests {
         report.record("a", Status::Pass, "");
         assert!(report.succeeded());
         assert!(report.render().contains("PASS with 1 explicitly skipped"));
-        report.record("c", Status::Unsupported, "missing initdb");
+        report.record("c", Status::Unsupported, "missing trunk");
         assert!(!report.succeeded());
         assert!(report.render().contains("UNSUPPORTED  c"));
         assert!(report.render().contains("verify: UNSUPPORTED"));

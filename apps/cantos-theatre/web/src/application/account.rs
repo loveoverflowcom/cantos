@@ -69,7 +69,7 @@ impl PendingIntent {
         self.recovery
     }
 }
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AccountState {
     generation: u64,
     scope: Option<AccountScope>,
@@ -78,6 +78,10 @@ pub struct AccountState {
     logout_pending: bool,
 }
 impl AccountState {
+    #[cfg(test)]
+    pub(super) fn set_generation_for_test(&mut self, generation: u64) {
+        self.generation = generation;
+    }
     pub fn scope(&self) -> Option<&AccountScope> {
         self.scope.as_ref()
     }
@@ -120,12 +124,16 @@ impl AccountState {
     }
     /// Hide old projections before any asynchronous logout or new sign-in starts.
     pub fn leave(&mut self) -> Result<(), AccountError> {
+        let next = self.generation.checked_add(1);
         self.scope = None;
         self.projection = None;
-        self.generation = self
-            .generation
-            .checked_add(1)
-            .ok_or(AccountError::Exhausted)?;
+        let Some(next) = next else {
+            // No new request identity can be issued. Cancel cleanup too, so a previous
+            // MAX-generation completion cannot acknowledge a retry that never started.
+            self.logout_pending = false;
+            return Err(AccountError::Exhausted);
+        };
+        self.generation = next;
         Ok(())
     }
     pub fn enter(&mut self, scope: AccountScope) -> Result<(), AccountError> {
@@ -275,5 +283,35 @@ mod tests {
         assert!(state.logout_pending());
         assert!(state.finish_logout(retry));
         state.enter(scope("B", 2)).unwrap();
+    }
+    #[test]
+    fn exhausted_security_invalidations_purge_without_reissuing_a_generation() {
+        for action in 0..4 {
+            let mut state = AccountState::default();
+            state.enter(scope("A", 1)).unwrap();
+            state.set_generation_for_test(u64::MAX);
+            let old = state.fence().unwrap();
+            state.project(&old, vec![1, 2]);
+            let result = match action {
+                0 => state.leave(),
+                1 => state.enter(scope("B", 2)),
+                2 => state.begin_logout().map(|_| ()),
+                3 => state
+                    .finish_session(state.generation(), scope("B", 2))
+                    .map(|_| ()),
+                _ => unreachable!(),
+            };
+            assert_eq!(result, Err(AccountError::Exhausted));
+            assert_eq!(state.generation(), AccountGeneration(u64::MAX));
+            assert_eq!(state.fence(), Err(AccountError::SignedOut));
+            assert_eq!(state.projection(), None);
+            assert!(!state.accepts(&old));
+            assert!(!state.finish_logout(state.generation()));
+        }
+        let mut state = AccountState::default();
+        state.begin_logout().unwrap();
+        let before = state.clone();
+        assert_eq!(state.enter(scope("A", 1)), Err(AccountError::LogoutPending));
+        assert_eq!(state, before);
     }
 }

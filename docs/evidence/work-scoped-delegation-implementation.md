@@ -1,7 +1,7 @@
 # Work-scoped delegation — first slice implementation evidence
 
 - Decision: [ADR 0028](../decisions/0028-work-scoped-delegation.md); contract:
-  [delegation v1](../../packages/contracts/delegation-v1.md); issue
+  [delegation v1](../../services/cantos-server/contracts/studio/delegation/v1/README.md); issue
   [#113](https://github.com/loveoverflowcom/cantos/issues/113) (stays open).
 - Source baseline: PR 136 branch `docs/issue113-delegation-rfc` at `3c27aef` (based on
   `develop` `b6066ac`), 15 October 2026. Rust 1.98.1, PostgreSQL 17.11 (Homebrew), macOS arm64.

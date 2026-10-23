@@ -62,6 +62,8 @@ data class AppStartState(
  * Public intents and their consumers are confined to the host application dispatcher;
  * tests inject one virtual dispatcher. Ports never write these owners directly.
  */
+// TODO(owner): nothing constructs AppContainer at this base (TheatreShell/NativeSessionRuntime own the
+// production composition). It was only cleaned of provider entrypoints; decide whether to delete it.
 class AppContainer(
     parentScope: CoroutineScope,
     catalogPort: CatalogPort,
@@ -107,7 +109,7 @@ class AppContainer(
         if (!closed) mutableNavigation.update { reduceNavigation(it, event) }
     }
 
-    /** Back closes the open auth intent first: a pending login is cancelled, so its callback is fenced. */
+    /** Back closes the open auth intent first: a pending login is cancelled, so its late response is fenced. */
     fun back() {
         if (closed) return
         if (navigation.value.route.isAuth) cancelLogin()
@@ -134,11 +136,10 @@ class AppContainer(
     }
 
     /** One attempt, only from the open Login route, and never while another is pending or cleanup is owed. */
-    fun beginLogin(): Boolean {
+    fun login(email: com.cantos.theatre.domain.identity.RegistrationEmail, password: String): Boolean {
         val owner = account ?: return false
-        if (closed || navigation.value.route != TheatreRoute.Login) return false
-        if (!owner.state.value.toAccountView().canBeginLogin) return false
-        owner.beginLogin()
+        if (closed || navigation.value.route != TheatreRoute.Login || !owner.state.value.toAccountView().canBeginLogin) return false
+        owner.login(email, password)
         return true
     }
 
@@ -156,7 +157,7 @@ class AppContainer(
         return if (owner.state.value == NativeAccountState.SignedOut) RestoreOutcome.NothingSaved else RestoreOutcome.Requested
     }
 
-    /** Abandons a pending attempt and stays on the entry; the browser is not reopened. */
+    /** Abandons a pending attempt and stays on the entry; the password is never replayed. */
     fun cancelLogin() {
         val owner = account ?: return
         if (!closed && owner.state.value == NativeAccountState.Pending) owner.cancelLogin()

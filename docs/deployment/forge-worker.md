@@ -96,12 +96,12 @@ is a possible alternative requiring an explicit topology decision, not an automa
 
 | Boundary | Required invariant / acceptance |
 | --- | --- |
-| Invocation authority | Every operation checks trusted actor, audience, action, expiry, resource/input and revocation. Existing [Catalog delegation](../../packages/contracts/delegation-v1.md) has only its documented Work scopes; it does not authorize private drafts or spending |
+| Invocation authority | Every operation checks trusted actor, audience, action, expiry, resource/input and revocation. Existing [Catalog delegation](../../services/cantos-server/contracts/studio/delegation/v1/README.md) has only its documented Work scopes; it does not authorize private drafts or spending |
 | Paid dispatch coordination | Demonstrate durable reservation/fencing across local, deployed and overlapping writers before a provider adapter is reachable. Drive files, process mutexes and `maxInstances=1` do not prove this |
 | App-data store | Actual owner/application namespace and `drive.appdata`; paginated bounded reads, immutable output readback digest/size, interrupted-write reconciliation and rebuildable indexes. No ordinary-folder default or cross-space move |
 | Gemini and encoder | Officially available endpoint/model/config; exact unary/streaming media handling; bounded one-call adapter with refusal/quota/timeout/invalid-audio fixtures, safe post-generation storage failure and independently inspected Cantos Opus bytes |
 | Studio workspace | Separate Forge client, structured drafts/revisions/runs/takes, bounded edits, explicit generation/regeneration/resume, exact authenticated previews, selected-artifact handoff and reload/work/session race evidence; browser light/dark, keyboard, narrow and Vietnamese qualification |
-| API handoff | Explicit owner preparation, exact retained-byte producer PUT and receipt reconciliation using the [existing audio lifecycle](../../packages/contracts/audio-lifecycle-v1.md). No invented finalize route, automatic content writes or publication |
+| API handoff | Explicit owner preparation, exact retained-byte producer PUT and receipt reconciliation using the [existing audio lifecycle](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md). No invented finalize route, automatic content writes or publication |
 | Deploy tooling | Exact-project/codebase dry-run and explicit deploy contract, independent of Hosting/distribution, with uncertain-result reconciliation and separately authorized runtime acceptance |
 
 The [Gemini speech guide](https://ai.google.dev/gemini-api/docs/speech-generation) is the model

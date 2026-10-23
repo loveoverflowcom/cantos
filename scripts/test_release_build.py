@@ -34,15 +34,14 @@ class ReleaseBuildTests(unittest.TestCase):
             root = Path(temporary)
             report = root / release.MOBILE / "androidApp/build/reports/release-boundary/release-evidence.json"
             report.parent.mkdir(parents=True)
-            for origin, issuer, apk, snapshot, message in (
-                ("https://other.example", "", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
-                ("https://catalog.example", "unexpected issuer", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
-                ("https://catalog.example", "", "androidApp-release.apk", "artifacts/android-release/run", "configuration differs"),
-                ("https://catalog.example", "", "androidApp-release-unsigned.apk", "../../outside", "unsafe archive path"),
-                ("https://catalog.example", "", "androidApp-release-unsigned.apk", "artifacts/other/run", "invalid Android snapshot"),
+            for origin, apk, snapshot, message in (
+                ("https://other.example", "androidApp-release-unsigned.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "androidApp-release.apk", "artifacts/android-release/run", "configuration differs"),
+                ("https://catalog.example", "androidApp-release-unsigned.apk", "../../outside", "unsafe archive path"),
+                ("https://catalog.example", "androidApp-release-unsigned.apk", "artifacts/other/run", "invalid Android snapshot"),
             ):
                 with self.subTest(origin=origin, apk=apk, snapshot=snapshot):
-                    report.write_text(json.dumps({"configuration": {"api_origin": origin, "native_issuer": issuer},
+                    report.write_text(json.dumps({"configuration": {"api_origin": origin},
                         "artifacts": {"optimized": {"apk": {"path": apk}}}, "snapshot_directory": snapshot}))
                     with patch.object(release, "run"), self.assertRaisesRegex(ValueError, message):
                         release.build(root, "android", "c" * 40, root / "out", "https://catalog.example")
@@ -68,11 +67,13 @@ class ReleaseBuildTests(unittest.TestCase):
         with patch.object(audit.subprocess, "run") as run:
             run.return_value.stdout = "c" * 40
             evidence = audit.bind(root, mobile)
-        evidence["configuration"].update(api_origin="https://catalog.example", native_issuer="foreign issuer")
+        evidence["configuration"]["api_origin"] = "https://catalog.example"
         snapshot = audit.freeze(root, mobile, evidence)
         # This is a valid same-source artifact set for the ordinary artifact validator.
         contract.validate_android_outputs(snapshot, "c" * 40)
-        evidence["configuration"]["native_issuer"] = ""
+        # The completed build record is edited after the immutable snapshot was taken.
+        self.assertEqual(evidence["device_acceptance"], "NOT_RUN")
+        evidence["device_acceptance"] = "PASS"
         report = mobile / "androidApp/build/reports/release-boundary/release-evidence.json"
         report.write_text(json.dumps(evidence))
         output = root / "out"

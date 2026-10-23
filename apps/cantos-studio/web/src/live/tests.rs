@@ -1,11 +1,11 @@
 use super::*;
-use cantos_contracts::*;
+use crate::contract::*;
 const ID: &str = "10000000-0000-4000-8000-000000000001";
 
 #[test]
 fn only_owner_authentication_denials_invalidate_not_producer_or_permission_denial() {
     let rendition: AudioRenditionDocument = serde_json::from_slice(include_bytes!(
-        "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/rendition-response.json"
+        "../../../../../services/cantos-server/contracts/studio/audio-lifecycle/v1/fixtures/rendition-response.json"
     ))
     .unwrap();
     let producer = Command::Upload {
@@ -49,7 +49,7 @@ fn only_owner_authentication_denials_invalidate_not_producer_or_permission_denia
     let (sending, ticket) = state.begin(producer).unwrap();
     let unknown = sending.finish(ticket, Err(ClientError::Transport));
     let (reconciling, ticket, owner_read) = unknown.begin_reconcile().unwrap();
-    assert_eq!(owner_read.credentials(), Credentials::OwnerBearer);
+    assert_eq!(owner_read.credentials(), Credentials::OwnerSession);
     assert_eq!(
         denied.owner_session_denial(&owner_read).unwrap().code,
         ErrorCode::Unauthenticated
@@ -72,7 +72,7 @@ fn only_owner_authentication_denials_invalidate_not_producer_or_permission_denia
 fn interrupted_write_retries_the_exact_snapshot_without_false_success() {
     let command = Command::CreateWork(
         serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+            "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
         ))
         .unwrap(),
     );
@@ -172,7 +172,7 @@ fn upload_is_bounded_credential_separated_and_uses_only_derived_paths() {
     );
     assert_eq!(
         Command::Work { id: ID.into() }.credentials(),
-        Credentials::OwnerBearer
+        Credentials::OwnerSession
     );
 }
 #[test]
@@ -194,7 +194,7 @@ fn all_four_explicit_profiles_and_no_default_are_admitted() {
 fn async_local_input_failure_does_not_corrupt_pending_or_ambiguous_write() {
     let command = Command::CreateWork(
         serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+            "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
         ))
         .unwrap(),
     );
@@ -216,7 +216,7 @@ fn async_local_input_failure_does_not_corrupt_pending_or_ambiguous_write() {
 fn original_unknown_outcome_survives_retry_auth_denial_and_reauthentication() {
     let command = Command::CreateWork(
         serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+            "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
         ))
         .unwrap(),
     );
@@ -252,7 +252,7 @@ fn original_unknown_outcome_survives_retry_auth_denial_and_reauthentication() {
 #[test]
 fn creation_of_a_different_work_clears_all_unit_dependent_facts() {
     let mutation: CatalogMutationResponse = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/catalog/v1/mutation.json"
+        "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/mutation.json"
     ))
     .unwrap();
     let initial = Facts::default().apply(Reply::Mutation(mutation.clone()));
@@ -274,7 +274,7 @@ fn creation_of_a_different_work_clears_all_unit_dependent_facts() {
 #[test]
 fn upload_decodes_the_actual_rendition_dto_not_the_owner_status_dto() {
     let raw = include_bytes!(
-        "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/rendition-response.json"
+        "../../../../../services/cantos-server/contracts/studio/audio-lifecycle/v1/fixtures/rendition-response.json"
     );
     let rendition: AudioRenditionDocument = serde_json::from_slice(raw).unwrap();
     let command = Command::Upload {
@@ -298,12 +298,12 @@ fn upload_decodes_the_actual_rendition_dto_not_the_owner_status_dto() {
 fn cross_tab_cookie_change_cannot_acknowledge_another_actors_write() {
     let command = Command::CreateWork(
         serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+            "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
         ))
         .unwrap(),
     );
     let response: CatalogMutationResponse = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/catalog/v1/mutation.json"
+        "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/mutation.json"
     ))
     .unwrap();
     let (sending, ticket) = RequestState::default()
@@ -364,11 +364,11 @@ fn empty_page_and_failed_read_are_distinct_and_neither_implies_a_save() {
 
 fn private_status_with_rendition() -> AudioSubmissionResponse {
     let request: CreateAudioSubmissionRequest = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/prepare-recording.json"
+        "../../../../../services/cantos-server/contracts/studio/audio-lifecycle/v1/fixtures/prepare-recording.json"
     ))
     .unwrap();
     let rendition: AudioRenditionDocument = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/rendition-response.json"
+        "../../../../../services/cantos-server/contracts/studio/audio-lifecycle/v1/fixtures/rendition-response.json"
     ))
     .unwrap();
     AudioSubmissionResponse {
@@ -409,7 +409,7 @@ fn unknown_upload_is_reconciled_by_exact_owner_receipt_after_bearer_revocation()
     let unknown = pending.finish(ticket, Err(ClientError::Transport));
     assert!(unknown.can_reconcile());
     let (checking, ticket, read) = unknown.begin_reconcile().unwrap();
-    assert_eq!(read.credentials(), Credentials::OwnerBearer);
+    assert_eq!(read.credentials(), Credentials::OwnerSession);
     assert_eq!(read.method(), "GET");
     let reconciled = checking.finish(ticket, Ok(Reply::Submission(Box::new(status.clone()))));
     assert_eq!(reconciled.phase(), Phase::Ready);
@@ -425,7 +425,7 @@ fn unknown_upload_is_reconciled_by_exact_owner_receipt_after_bearer_revocation()
 #[test]
 fn a_well_formed_reply_for_another_work_never_becomes_ready() {
     let response: CatalogMutationResponse = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/catalog/v1/mutation.json"
+        "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/mutation.json"
     ))
     .unwrap();
     let (pending, ticket) = RequestState::default()
@@ -445,7 +445,7 @@ fn a_well_formed_reply_for_another_work_never_becomes_ready() {
 fn prepare_acknowledgement_cannot_arm_a_different_upload_intent() {
     let response = private_status_with_rendition();
     let mut request: CreateAudioSubmissionRequest = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/prepare-recording.json"
+        "../../../../../services/cantos-server/contracts/studio/audio-lifecycle/v1/fixtures/prepare-recording.json"
     ))
     .unwrap();
     request.binding = response.submission.binding.clone();
@@ -475,7 +475,7 @@ fn prepare_acknowledgement_cannot_arm_a_different_upload_intent() {
 #[test]
 fn every_client_failure_has_one_completion_and_never_an_empty_success() {
     let create: CreateWorkRequest = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+        "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
     ))
     .unwrap();
     let cases = [
@@ -485,6 +485,7 @@ fn every_client_failure_has_one_completion_and_never_an_empty_success() {
         (ClientError::ReceiptNotEstablished, Phase::Ambiguous),
         (ClientError::ReplyMismatch, Phase::Ambiguous),
         (ClientError::Transport, Phase::Ambiguous),
+        (ClientError::RateLimited { seconds: 30 }, Phase::Ambiguous),
         (ClientError::Protocol { status: 200 }, Phase::Ambiguous),
         (
             ClientError::http(
@@ -562,7 +563,7 @@ fn late_success_and_failure_cannot_replace_a_newer_completed_read() {
 #[test]
 fn content_and_brief_replies_bind_exact_requested_unit_and_revision() {
     let content: ContentRevisionResponse = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/content/v1/text-revision.json"
+        "../../../../../services/cantos-server/contracts/studio/content/v1/fixtures/text-revision.json"
     ))
     .unwrap();
     let exact = Command::ContentRevision {
@@ -595,7 +596,7 @@ fn content_and_brief_replies_bind_exact_requested_unit_and_revision() {
     );
 
     let brief: ProductionBriefDocument = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/briefs/v1/narration-document.json"
+        "../../../../../services/cantos-server/contracts/studio/briefs/v1/fixtures/narration-document.json"
     ))
     .unwrap();
     let command = Command::Brief {
@@ -675,6 +676,123 @@ fn submission_reads_reject_internally_misbound_renditions() {
         assert_eq!(
             command.check_reply(&Reply::Submission(Box::new(changed))),
             Err(ClientError::ReplyMismatch)
+        );
+    }
+}
+
+#[test]
+fn transport_policy_owner_requests_use_the_cookie_session_and_only_producer_routes_carry_a_bearer()
+{
+    let rendition: AudioRenditionDocument = serde_json::from_slice(include_bytes!(
+        "../../../../../services/cantos-server/contracts/studio/audio-lifecycle/v1/fixtures/rendition-response.json"
+    ))
+    .unwrap();
+    let token = UploadCredential::new("b".repeat(64)).unwrap();
+    let producer = [
+        Command::ProducerStatus {
+            submission: ID.into(),
+            credential: token.clone(),
+        },
+        Command::Upload {
+            binding: rendition.binding,
+            sha256: rendition.verified_media.sha256,
+            submission: rendition.submission_id,
+            credential: token,
+            bytes: std::sync::Arc::new(vec![0]),
+        },
+    ];
+    let owner = [
+        Command::Works { cursor: None },
+        Command::Work { id: ID.into() },
+        Command::Units {
+            work: ID.into(),
+            cursor: None,
+        },
+        Command::ContentHead { unit: ID.into() },
+        Command::Artwork { work: ID.into() },
+        Command::Delegations {
+            work: ID.into(),
+            after: None,
+        },
+        Command::Revoke {
+            unit: ID.into(),
+            submission: ID.into(),
+        },
+        Command::RevokeDelegation {
+            work: ID.into(),
+            grant: ID.into(),
+        },
+    ];
+    for command in &owner {
+        // credentials: include + the session fence; never an Authorization header.
+        assert_eq!(command.credentials(), Credentials::OwnerSession);
+        assert!(command.credentials().includes_cookie());
+        assert!(command.producer_credential().is_none());
+    }
+    for command in &producer {
+        // credentials: omit; the producer capability is its own Bearer and never meets the cookie.
+        assert_eq!(command.credentials(), Credentials::Omit);
+        assert!(!command.credentials().includes_cookie());
+        assert!(command.producer_credential().is_some());
+    }
+}
+
+#[test]
+fn a_session_fence_mismatch_is_recognized_only_on_a_409_unauthenticated_reply() {
+    let body = |code| {
+        serde_json::to_vec(&ApiError {
+            code,
+            current_revision: None,
+            issues: vec![],
+        })
+        .unwrap()
+    };
+    assert!(ClientError::http(409, &body(ErrorCode::Unauthenticated)).is_session_fence_mismatch());
+    for (status, code) in [
+        (401, ErrorCode::Unauthenticated),
+        (409, ErrorCode::StaleRevision),
+        (409, ErrorCode::CatalogConflict),
+        (403, ErrorCode::Forbidden),
+    ] {
+        assert!(!ClientError::http(status, &body(code)).is_session_fence_mismatch());
+    }
+    assert!(!ClientError::Transport.is_session_fence_mismatch());
+    assert!(!ClientError::SessionChanged.is_session_fence_mismatch());
+}
+
+#[test]
+fn identity_failures_project_onto_commands_without_signing_out_by_accident() {
+    use cantos_web_auth::Failure;
+    let code = |error: ClientError| match error {
+        ClientError::Http { status, error } => Some((status, error.code)),
+        _ => None,
+    };
+    // 401 is signed out; 403 stays forbidden and is never turned into an expired session.
+    assert_eq!(
+        code(ClientError::from_identity(Failure::SignedOut)),
+        Some((401, ErrorCode::Unauthenticated))
+    );
+    assert_eq!(
+        code(ClientError::from_identity(Failure::Forbidden)),
+        Some((403, ErrorCode::Forbidden))
+    );
+    // A 429 hold keeps its wait, is an unknown outcome for a write and never reads as signed out.
+    let held = ClientError::from_identity(Failure::RateLimited(42));
+    assert_eq!(held, ClientError::RateLimited { seconds: 42 });
+    assert!(held.ambiguous());
+    assert!(!held.is_session_fence_mismatch());
+    for unknown in [
+        Failure::Unavailable,
+        Failure::Protocol,
+        Failure::CleanupPending,
+        Failure::NotFound,
+    ] {
+        assert_eq!(ClientError::from_identity(unknown), ClientError::Transport);
+    }
+    for moved in [Failure::Changed, Failure::AccountMismatch] {
+        assert_eq!(
+            ClientError::from_identity(moved),
+            ClientError::SessionChanged
         );
     }
 }

@@ -47,7 +47,7 @@ const FIREBASE_HELP: &str = "Explicit operator distribution only; may notify tes
   development -> :androidApp:assembleDebug, com.cantos.theatre.dev, debuggable, real-only
   production  -> :androidApp:assembleRelease, com.cantos.theatre, R8/resource shrinking, real-only
   demo/demo-qa are retired and refused. AAB distribution remains unsupported.
-Use --api-origin HTTPS_ORIGIN independently of build type; --native-issuer is optional.
+Use --api-origin HTTPS_ORIGIN independently of build type; it is the only app configuration input.
 Firebase App ID must be registered for the exact package (no .demo/.dev/production substitution).
 CANTOS_FIREBASE_DEVELOPMENT_APP_ID / CANTOS_FIREBASE_PRODUCTION_APP_ID or --app-id.
 CANTOS_FIREBASE_DEVELOPMENT_CERT_SHA256 / CANTOS_FIREBASE_PRODUCTION_CERT_SHA256 are required.
@@ -74,9 +74,6 @@ pub struct FirebaseArgs {
     /// Exact HTTPS API origin embedded in production artifacts; required for production.
     #[arg(long, value_name = "ORIGIN")]
     pub api_origin: Option<String>,
-    /// Optional public native issuer; absence keeps native sign-in unavailable.
-    #[arg(long, value_name = "ISSUER")]
-    pub native_issuer: Option<String>,
     /// Comma-separated Firebase group aliases (union with --testers).
     #[arg(long, value_delimiter = ',', value_name = "ALIASES")]
     pub groups: Vec<String>,
@@ -127,7 +124,6 @@ pub fn execute(
     }
     let raw = Raw {
         api_origin: args.api_origin.clone(),
-        native_issuer: args.native_issuer.clone(),
         target: args.target,
         channel: args.channel,
         artifact: args.artifact,
@@ -180,40 +176,28 @@ fn build_command(
     workspace: &Workspace,
     policy: request::Policy,
     origin: Option<&str>,
-    issuer: Option<&str>,
 ) -> crate::command::CommandSpec {
     match policy {
-        request::Policy::DevelopmentApk => crate::theatre_host::gradle_debug_identity_command(
-            workspace,
-            origin.unwrap_or_default(),
-            issuer,
-        ),
+        request::Policy::DevelopmentApk => {
+            crate::theatre_host::gradle_debug_command(workspace, origin.unwrap_or_default())
+        }
         request::Policy::ProductionApk => {
-            let mut command = crate::command::CommandSpec::new("cargo", workspace.root()).args([
+            crate::command::CommandSpec::new("cargo", workspace.root()).args([
                 "xtask",
                 "theatre-host",
                 "android-release",
                 "--operator-signing",
                 "--api-origin",
                 origin.unwrap_or_default(),
-            ]);
-            if let Some(issuer) = issuer {
-                command = command.args(["--native-issuer", issuer]);
-            }
-            command
+            ])
         }
     }
 }
 
 /// The reviewable plan. Built from pure values only: no probe, no file or environment access.
 fn plan_text(workspace: &Workspace, request: &request::Request) -> String {
-    let gradle = build_command(
-        workspace,
-        request.policy,
-        request.api_origin.as_deref(),
-        request.native_issuer.as_deref(),
-    )
-    .display(workspace.root());
+    let gradle = build_command(workspace, request.policy, request.api_origin.as_deref())
+        .display(workspace.root());
     let placeholder = PathBuf::from("artifacts/distributions/RUN-ID");
     let apk = placeholder.join("artifact/OUTPUT.apk");
     let notes = placeholder.join("release-notes.txt");
@@ -261,7 +245,6 @@ mod tests {
     fn raw() -> Raw {
         Raw {
             api_origin: Some("https://api.cantos.example".into()),
-            native_issuer: None,
             target: Target::CantosTheatre,
             channel: Channel::Development,
             artifact: ArtifactKind::Apk,
@@ -298,6 +281,22 @@ mod tests {
         assert!(plan.contains(":androidApp:assembleDebug"));
         assert!(plan.contains("--no-daemon"));
         assert!(!plan.contains("private.person"), "{plan}");
+    }
+
+    #[test]
+    fn plans_for_both_channels_name_the_api_origin_and_no_provider_identity_input() {
+        let workspace = Workspace::discover().unwrap();
+        for channel in [Channel::Development, Channel::Production] {
+            let raw = Raw { channel, ..raw() };
+            let request =
+                request::resolve(&raw, &Configuration::default(), |_| Ok(Vec::new())).unwrap();
+            let plan = plan_text(&workspace, &request).to_ascii_lowercase();
+            assert!(plan.contains("https://api.cantos.example"), "{plan}");
+            assert!(
+                !plan.contains("issuer") && !plan.contains("callback"),
+                "{plan}"
+            );
+        }
     }
 
     #[test]
@@ -549,11 +548,12 @@ mod tests {
         );
         for target in [
             crate::build::BuildTarget::All,
-            crate::build::BuildTarget::CantosApi,
+            crate::build::BuildTarget::CantosServer,
+            crate::build::BuildTarget::CantosIdentity,
             crate::build::BuildTarget::CantosForge,
         ] {
             if let Ok(steps) =
-                crate::build::plan(&workspace, target, None, crate::build::Profile::Dev, false)
+                crate::build::plan(&workspace, target, None, crate::build::Profile::Dev)
             {
                 commands.extend(steps.into_iter().flat_map(|step| step.commands));
             }

@@ -1,26 +1,23 @@
 package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.application.identity.NativeAccountController
-import com.cantos.theatre.domain.identity.LoginSecret
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.application.identity.StubIdentityV1Api
+import com.cantos.theatre.application.identity.v1Access
+import com.cantos.theatre.application.identity.v1Grant
 import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.ports.CredentialFailure
-import com.cantos.theatre.ports.IdentityCrypto
+import com.cantos.theatre.ports.IdentityV1Failure
+import com.cantos.theatre.ports.IdentityV1Result
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
-import com.cantos.theatre.ports.NativeApiFailure
-import com.cantos.theatre.ports.NativeApiResult
 import com.cantos.theatre.ports.NativeCredentialJournal
 import com.cantos.theatre.ports.NativeCredentialRecord
-import com.cantos.theatre.ports.NativeFlow
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
-import com.cantos.theatre.ports.NativeIdentityApi
 import com.cantos.theatre.ports.NativeJournalRead
 import com.cantos.theatre.ports.NativeRequestHandle
 import com.cantos.theatre.ports.NativeSession
-import com.cantos.theatre.ports.SystemBrowser
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,46 +34,28 @@ import kotlin.test.assertTrue
 /** Real identity/transport owners over deterministic secure journal, API and HTTP doubles. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NativeAuthorizedHttpPortTest {
-    private class Fixture(scope: CoroutineScope) {
+    private class Fixture(scope: CoroutineScope, val origin: ApiOrigin = ApiOrigin.parse("https://api.invalid")) {
         val family = "00000000-0000-4000-8000-000000000001"
-        val initialBearer = "ca1_n_" + "a".repeat(64)
+        val initialBearer = v1Access('a')
         var now = 100L
-        var remote = requireNotNull(NativeGrant.create(initialBearer, "cr1_" + "a".repeat(64),
-            "actor-a", family, 220, 700, 1000, 100, now))
+        var remote = v1Grant('a', 'a', "actor-a", family, 220, 700, 1000, 100, now)
         var refreshes = 0
         var refreshGate: CompletableDeferred<Unit>? = null
-        val configuration = requireNotNull(NativeClientConfiguration.create("https://api.invalid",
-            "https://identity.invalid/oauth2/openid/cantos-theatre-native"))
-        private val api = object : NativeIdentityApi {
-            override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> =
-                NativeApiResult.Refused(NativeApiFailure.Unavailable)
-            override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeGrant> =
-                NativeApiResult.Refused(NativeApiFailure.Unavailable)
-            override suspend fun refresh(refreshToken: String, session: String): NativeApiResult<NativeGrant> {
-                assertEquals(remote.refreshToken, refreshToken)
-                assertEquals(family, session)
+        private val api = object : StubIdentityV1Api() {
+            override suspend fun refresh(previous: NativeGrant): IdentityV1Result<NativeGrant> {
+                assertEquals(remote.refreshToken, previous.refreshToken)
+                assertEquals(family, previous.view.session)
                 refreshes += 1
                 refreshGate?.await()
-                val letter = ('a'.code + refreshes).toChar().toString().repeat(64)
-                remote = requireNotNull(NativeGrant.create("ca1_n_$letter", "cr1_$letter", "actor-a", family,
-                    now + 120, minOf(now + 600, 1000), 1000, 100, now, previous = remote))
-                return NativeApiResult.Accepted(remote)
+                val letter = ('a'.code + refreshes).toChar()
+                remote = v1Grant(letter, letter, "actor-a", family, now + 120, minOf(now + 600, 1000), 1000, 100, now, previous = remote)
+                return IdentityV1Result.Accepted(remote)
             }
-            override suspend fun session(credential: String): NativeApiResult<NativeSession> =
-                if (credential == remote.accessToken) NativeApiResult.Accepted(remote.view)
-                else NativeApiResult.Refused(NativeApiFailure.Unauthorized)
-            override suspend fun revokeFamily(refreshToken: String, session: String) = NativeApiResult.Accepted(Unit)
-            override suspend fun cancel(flow: String, state: String, verifier: String) = NativeApiResult.Accepted(Unit)
-            override suspend fun revoke(credential: String) = NativeApiResult.Accepted(Unit)
-            override suspend fun saved(credential: String, session: String) = NativeApiResult.Accepted(0)
+            override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> =
+                if (previous.accessToken == remote.accessToken) IdentityV1Result.Accepted(remote.view)
+                else IdentityV1Result.Refused(IdentityV1Failure.Unauthorized)
         }
-        val account = NativeAccountController(scope, configuration, api, object : IdentityCrypto {
-            override fun secret(): LoginSecret? = null
-            override fun challenge(verifier: LoginSecret): String? = null
-        }, object : SystemBrowser {
-            override fun open(url: String) = false
-            override fun cancel() = Unit
-        }, object : NativeCredentialJournal {
+        val account = NativeAccountController(scope, api, object : NativeCredentialJournal {
             private var record: NativeCredentialRecord? = NativeCredentialRecord.Active(remote)
             override fun read(): NativeJournalRead = record?.let(NativeJournalRead::Found) ?: NativeJournalRead.Missing
             override fun write(record: NativeCredentialRecord): CredentialFailure? { this.record = record; return null }
@@ -89,7 +68,7 @@ class NativeAuthorizedHttpPortTest {
         }) { now }
         class Pending(val request: NativeHttpRequest, val completion: (NativeHttpResponse) -> Unit) { var cancelled = false }
         val requests = mutableListOf<Pending>()
-        val http = NativeAuthorizedHttpPort(scope, ApiOrigin.parse(configuration.apiOrigin), account, object : NativeHttpPort {
+        val http = NativeAuthorizedHttpPort(scope, origin, account, object : NativeHttpPort {
             override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
                 val pending = Pending(request, completion)
                 requests += pending
@@ -97,13 +76,40 @@ class NativeAuthorizedHttpPortTest {
             }
         })
         fun request(method: String = "GET", route: String = "/library/saved?limit=20&presentation=1", bearer: String = initialBearer,
-                    session: String = family) = NativeHttpRequest(method, configuration.apiOrigin + "/api/v1/theatre" + route,
+                    session: String = family) = NativeHttpRequest(method, origin.toString() + "/api/v1/theatre" + route,
             if (method == "GET") null else "{}", bearer, session)
         fun reply(index: Int = requests.lastIndex, status: Int = 200) {
             requests[index].completion(NativeHttpResponse(status, "application/json", "{}", null, family))
         }
         init { account.restore() }
         fun close() = account.close()
+    }
+
+    @Test
+    fun hostApprovedDebugLoopbackUsesTheProductionAuthorizedBoundary() = runTest {
+        for (text in listOf("http://127.0.0.1:8080", "http://localhost:8081")) {
+            val selected = selectCatalogOrigin(text, allowLoopbackHttp = true) as CatalogOriginSelection.Configured
+            val f = Fixture(backgroundScope, selected.origin)
+            try {
+                runCurrent()
+                f.http.send(f.request()) {}
+                runCurrent()
+                assertEquals(1, f.requests.size)
+                assertEquals(text + "/api/v1/theatre/library/saved?limit=20&presentation=1", f.requests.single().request.url)
+                assertEquals(f.initialBearer, f.requests.single().request.bearer)
+                assertEquals(f.family, f.requests.single().request.expectedSession)
+                val replies = mutableListOf<NativeHttpResponse>()
+                for (foreign in listOf("http://localhost:8080", "http://127.0.0.1:8082", "https://127.0.0.1:8080")) {
+                    if (foreign == text) continue
+                    f.http.send(NativeHttpRequest("GET", foreign + "/api/v1/theatre/library/saved?limit=20&presentation=1",
+                        null, f.initialBearer, f.family), replies::add)
+                }
+                runCurrent()
+                assertEquals(1, f.requests.size, "scheme, host and port must all match")
+                assertTrue(replies.all { it.failure == "protocol" })
+                assertTrue(selectCatalogOrigin(text, allowLoopbackHttp = false) is CatalogOriginSelection.Rejected)
+            } finally { f.close() }
+        }
     }
 
     @Test
@@ -226,7 +232,7 @@ class NativeAuthorizedHttpPortTest {
         val f = Fixture(backgroundScope)
         try {
             runCurrent()
-            val client = com.cantos.theatre.adapters.library.NativeLibraryClient(f.configuration, f.http)
+            val client = com.cantos.theatre.adapters.library.NativeLibraryClient(f.origin, f.http)
             val auth = com.cantos.theatre.adapters.library.LibraryAuthorization("actor", f.family, f.initialBearer)
             val write = com.cantos.theatre.adapters.library.libraryBookmarkFixtures.getValue("bookmark_write.json")
             val delete = com.cantos.theatre.adapters.library.libraryBookmarkFixtures.getValue("bookmark_delete.json")
@@ -253,7 +259,7 @@ class NativeAuthorizedHttpPortTest {
         try {
             runCurrent()
             val replies = mutableListOf<NativeHttpResponse>()
-            f.http.send(f.request(bearer = "ca1_n_" + "c".repeat(64)), replies::add)
+            f.http.send(f.request(bearer = v1Access('c')), replies::add)
             f.http.send(f.request(session = "00000000-0000-4000-8000-000000000002"), replies::add)
             runCurrent()
             assertTrue(f.requests.isEmpty())

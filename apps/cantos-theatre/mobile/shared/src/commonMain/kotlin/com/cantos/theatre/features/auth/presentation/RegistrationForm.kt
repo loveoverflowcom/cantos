@@ -7,10 +7,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -33,15 +29,15 @@ import com.cantos.ui.tokenDp
 
 sealed interface RegistrationIntent {
     class Email(val value: String) : RegistrationIntent { override fun toString() = "RegistrationIntent.Email([redacted])" }
-    class Import(val link: String) : RegistrationIntent { override fun toString() = "RegistrationIntent.Import([redacted])" }
     data object Submit : RegistrationIntent
-    data object Confirm : RegistrationIntent
     data object Cancel : RegistrationIntent
-    data object OpenSetup : RegistrationIntent
     data object Restart : RegistrationIntent
 }
 
-/** Values and intents only. Link input is local RAM, never rememberSaveable or a route value. */
+/**
+ * Values and intents only. Signup initiation sends the email; the mailbox proof and password are
+ * completed on Web, so this form never collects a link, a code or a password.
+ */
 @Composable
 internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onIntent: (RegistrationIntent) -> Unit) {
     val copy = AuthCopy(locale)
@@ -61,15 +57,9 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
                 controlModifier = Modifier.fillMaxWidth().testTag("register-submit"))
         }
         val status = when (phase) {
-            RegistrationPhase.Idle, RegistrationPhase.Checking -> copy.text(AuthText.RegisterChecking)
-            RegistrationPhase.Editing -> null
+            RegistrationPhase.Idle, RegistrationPhase.Editing -> null
             RegistrationPhase.Submitting -> copy.text(AuthText.RegisterSending)
             RegistrationPhase.Waiting -> copy.text(AuthText.RegisterWaiting)
-            is RegistrationPhase.Confirmable -> copy.text(AuthText.RegisterConfirmHelp)
-            is RegistrationPhase.Verifying -> copy.text(AuthText.RegisterVerifying)
-            is RegistrationPhase.SetupReady -> copy.text(AuthText.RegisterSetupReady)
-            RegistrationPhase.CredentialSetup -> copy.text(AuthText.RegisterCredentialSetup)
-            RegistrationPhase.Cancelling -> copy.text(AuthText.RegisterCancelling)
             RegistrationPhase.Cancelled -> copy.text(AuthText.RegisterCancelled)
             is RegistrationPhase.Failed -> copy.registrationFailure(phase.reason)
         }
@@ -77,24 +67,12 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
             liveRegion = LiveRegionMode.Polite
             if (failure != null) error(status)
         }, color = if (failure == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
-        if (phase == RegistrationPhase.Waiting || failure == RegistrationFailure.InvalidAction || failure == RegistrationFailure.StartUnknownOutcome) {
-            var link by remember { mutableStateOf("") }
-            TextField(copy.text(AuthText.RegisterLink), link, { link = it.take(8192) },
-                modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), controlModifier = Modifier.testTag("register-link"))
-            Button(copy.text(AuthText.RegisterImport), { val candidate = link; link = ""; onIntent(RegistrationIntent.Import(candidate)) },
-                variant = ButtonVariant.AuthPrimary, controlModifier = Modifier.fillMaxWidth().testTag("register-import"))
-        }
-        if (phase is RegistrationPhase.Confirmable) Button(copy.text(AuthText.RegisterConfirm), { onIntent(RegistrationIntent.Confirm) },
-            variant = ButtonVariant.AuthPrimary, controlModifier = Modifier.fillMaxWidth().testTag("register-confirm"))
-        if (phase is RegistrationPhase.SetupReady) Button(copy.text(AuthText.RegisterOpenSetup), { onIntent(RegistrationIntent.OpenSetup) },
-            variant = ButtonVariant.AuthPrimary, controlModifier = Modifier.fillMaxWidth().testTag("register-setup"))
-        if (phase != RegistrationPhase.Idle && phase != RegistrationPhase.Checking && phase != RegistrationPhase.Cancelled && phase !is RegistrationPhase.Failed && phase != RegistrationPhase.CredentialSetup) {
+        if (phase == RegistrationPhase.Editing || phase == RegistrationPhase.Submitting || phase == RegistrationPhase.Waiting) {
             Button(copy.text(AuthText.RegisterCancel), { onIntent(RegistrationIntent.Cancel) },
                 variant = ButtonVariant.Text, icon = "close", controlModifier = Modifier.fillMaxWidth().testTag("register-cancel"))
         }
-        if (phase is RegistrationPhase.Failed && phase.reason != RegistrationFailure.InvalidEmail && phase.reason != RegistrationFailure.InvalidAction || phase == RegistrationPhase.Cancelled) {
-            Button(copy.text(if (failure == RegistrationFailure.Unavailable || failure == RegistrationFailure.Disabled) AuthText.RegisterRetry else AuthText.RegisterRestart),
+        if (phase is RegistrationPhase.Failed && failure != RegistrationFailure.InvalidEmail || phase == RegistrationPhase.Cancelled) {
+            Button(copy.text(if (failure == RegistrationFailure.Disabled || failure == RegistrationFailure.RateLimited) AuthText.RegisterRetry else AuthText.RegisterRestart),
                 { onIntent(RegistrationIntent.Restart) }, variant = ButtonVariant.AuthPrimary,
                 controlModifier = Modifier.fillMaxWidth().testTag("register-retry"))
         }

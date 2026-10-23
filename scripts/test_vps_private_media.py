@@ -178,7 +178,7 @@ render_api_configuration
         self.assertEqual(self.prepare().returncode, 0)
         sentinel = self.media / "immutable"
         sentinel.write_bytes(b"admitted bytes")
-        longvan = (REPOSITORY / 'services/cantos-api/config/storage.longvan.example.toml').read_text()
+        longvan = (REPOSITORY / 'services/cantos-server/config/storage.longvan.example.toml').read_text()
         longvan += ('\n[storage.targets.legacy-filesystem]\ndriver = "filesystem"\n'
                     f'private_root = "{self.media}"\n')
         for profile in (self.default.read_text(), longvan):

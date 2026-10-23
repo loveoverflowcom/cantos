@@ -19,9 +19,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURES = ROOT / "packages" / "contracts" / "fixtures" / "studio" / "v1"
+FIXTURES = ROOT / "services" / "cantos-server" / "contracts" / "studio" / "editorial" / "v1" / "fixtures"
 GOLDENS = FIXTURES / "msgpack-goldens.json"
-# Matches cantos_contracts::wire::MAX_MSGPACK_DEPTH: a value nests fewer arrays/maps than this.
+# Matches MAX_MSGPACK_DEPTH in each consumer's own `contract::codec` (Server, Studio Web):
+# a value nests fewer arrays/maps than this.
 MAX_DEPTH = 16
 # Contract DTO definition -> JSON fixture. Route support is listed in studio-v1.md; these pin
 # the representation of each shape, including null, nested arrays and Unicode text.

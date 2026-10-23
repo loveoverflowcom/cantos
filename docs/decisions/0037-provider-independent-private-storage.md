@@ -82,7 +82,7 @@ provider that ignores create preconditions cannot preserve immutable acceptance.
 
 The detailed [storage contract](../architecture/object-storage.md) owns the capability/security
 matrix, configuration schema and deferred provider acceptance. The
-[private-read contract](../../packages/contracts/private-content-reads-v1.md) owns the exact
+[private-read contract](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md) owns the exact
 implemented routes. Existing content identities, profile limits, rights
 claims and review/publication blockers remain unchanged.
 

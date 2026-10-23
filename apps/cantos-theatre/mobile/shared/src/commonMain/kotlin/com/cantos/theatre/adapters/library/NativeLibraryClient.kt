@@ -7,16 +7,15 @@ import com.cantos.theatre.adapters.library.wire.HistoryClear
 import com.cantos.theatre.adapters.library.wire.HistoryStart
 import com.cantos.theatre.adapters.library.wire.ProgressWrite
 import com.cantos.theatre.adapters.library.wire.SavedWrite
-import com.cantos.theatre.adapters.library.wire.LibraryError
 import com.cantos.theatre.adapters.library.wire.MutationState
 import com.cantos.theatre.adapters.library.wire.PresentedContinuePage
 import com.cantos.theatre.adapters.library.wire.PresentedHistoryPage
 import com.cantos.theatre.adapters.library.wire.PresentedSavedPage
 import com.cantos.theatre.adapters.library.wire.Receipt
 import com.cantos.theatre.adapters.library.wire.SavedRecord
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.ports.LocalLibraryIntent
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
@@ -26,7 +25,6 @@ import kotlin.coroutines.resume
 
 /** JSON metadata only. Audio bytes use the native media engine's separate transport. */
 class NativeLibraryClient(private val apiOrigin: ApiOrigin, private val http: NativeHttpPort) : LibraryApi {
-    constructor(configuration: NativeClientConfiguration, http: NativeHttpPort) : this(ApiOrigin.parse(configuration.apiOrigin), http)
     private val uuid = Regex("[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}")
     private suspend inline fun <reified T> request(auth: LibraryAuthorization, method: String, path: String, type: String, body: String? = null): LibraryResult<T> {
         val response = withTimeoutOrNull(15_000) {
@@ -36,24 +34,16 @@ class NativeLibraryClient(private val apiOrigin: ApiOrigin, private val http: Na
                 }
                 continuation.invokeOnCancellation { handle.cancel() }
             }
-        } ?: NativeHttpResponse(0, null, null, "timeout")
+        } ?: NativeHttpResponse(0, null, null, NativeHttpFailure.Timeout)
         val mutation = method != "GET"
-        if (response.failure == "authority_changed") return LibraryResult.Failed("authority_changed", true, mutation)
-        if (response.failure == "session_changed") return LibraryResult.Failed("session_changed", false, mutation)
-        if (response.failure == "unauthenticated") return LibraryResult.Failed("unauthenticated", false, mutation)
-        if (response.failure == "denied") return LibraryResult.Failed("denied", false, mutation)
-        if (response.failure == "protocol") return LibraryResult.Failed("protocol", false, mutation)
-        if (response.failure != null) return LibraryResult.Failed("unavailable", true, mutation)
-        if (response.status == 401) return LibraryResult.Failed("unauthenticated", false)
-        if (response.actualSession != auth.session) return LibraryResult.Failed("session_changed", false, mutation)
-        if (response.contentType?.substringBefore(';')?.trim()?.lowercase() != "application/json" || (response.body?.length ?: Int.MAX_VALUE) > 1_048_576) return LibraryResult.Failed("protocol", false, mutation)
+        libraryResponseFailure(response, auth.session, mutation)?.let { return it }
         val raw = response.body ?: return LibraryResult.Failed("protocol", false, mutation)
-        if (response.status in 200..299 || (response.status == 409 && type == "Receipt")) {
+        if (response.status == 200 || (response.status == 409 && type == "Receipt")) {
             LibraryCodec.decode<T>(type, raw)?.let { return LibraryResult.Value(it) }
         }
-        LibraryCodec.decode<LibraryError>("LibraryError", raw)?.let { return LibraryResult.Failed(it.code, it.retryable) }
         return LibraryResult.Failed("protocol", false, mutation)
     }
+
     private fun page(section: String, cursor: String?): String? {
         if (cursor != null && !Regex("[a-f0-9]{64}").matches(cursor)) return null
         return "/library/$section?limit=20&presentation=1" + (cursor?.let { "&cursor=$it" } ?: "")

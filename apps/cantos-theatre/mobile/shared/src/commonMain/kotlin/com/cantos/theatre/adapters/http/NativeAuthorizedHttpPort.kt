@@ -1,8 +1,10 @@
 package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.ports.NativeApiFailure
 import com.cantos.theatre.ports.NativeApiResult
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
@@ -27,32 +29,40 @@ class NativeAuthorizedHttpPort(
     override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
         val job = scope.launch {
             if (!isBusinessRequest(request)) {
-                completion(refused("protocol"))
+                completion(refused(NativeHttpFailure.Protocol))
                 return@launch
             }
             val bearer = request.bearer
             val family = request.expectedSession
             if (bearer == null || family == null || !account.belongsToCurrent(bearer, family)) {
-                completion(refused("session_changed"))
+                completion(refused(NativeHttpFailure.SessionChanged))
                 return@launch
             }
             val lease = when (val result = account.authorization(family)) {
                 is NativeApiResult.Accepted -> result.value
                 is NativeApiResult.Refused -> {
                     val failure = when (result.reason) {
-                        NativeApiFailure.Unauthorized -> "unauthenticated"
-                        NativeApiFailure.Denied -> "denied"
-                        NativeApiFailure.Protocol -> "protocol"
-                        NativeApiFailure.SessionChanged -> "session_changed"
-                        NativeApiFailure.Unavailable, NativeApiFailure.UnknownOutcome -> "unavailable"
+                        NativeApiFailure.Unauthorized -> NativeHttpFailure.Unauthenticated
+                        NativeApiFailure.Denied -> NativeHttpFailure.Denied
+                        NativeApiFailure.Protocol -> NativeHttpFailure.Protocol
+                        NativeApiFailure.SessionChanged -> NativeHttpFailure.SessionChanged
+                        NativeApiFailure.Unavailable, NativeApiFailure.UnknownOutcome -> NativeHttpFailure.Unavailable
                     }
-                    completion(refused(failure))
+                    val identityFailure = result.identityFailure
+                    completion(when (identityFailure) {
+                        is IdentityV1Failure.RateLimited -> NativeHttpResponse(429, null, null, failure,
+                            retryAfter = identityFailure.retryAfterSeconds?.toString())
+                        IdentityV1Failure.ServiceUnavailable -> NativeHttpResponse(503, null, null, failure)
+                        null, IdentityV1Failure.Unauthorized, IdentityV1Failure.NotConfigured,
+                        IdentityV1Failure.SessionChanged, IdentityV1Failure.Denied, IdentityV1Failure.Protocol,
+                        IdentityV1Failure.Transport, IdentityV1Failure.UnknownOutcome -> refused(failure)
+                    })
                     return@launch
                 }
             }
             // Recheck after waiting: a logout or another login may have advanced the owner.
             if (!account.belongsToCurrent(bearer, family) || lease.session.session != family || !account.accepts(lease)) {
-                completion(refused("session_changed"))
+                completion(refused(NativeHttpFailure.SessionChanged))
                 return@launch
             }
             val response = suspendCancellableCoroutine { continuation ->
@@ -66,7 +76,7 @@ class NativeAuthorizedHttpPort(
             // expiry or logout; operation receipts reconcile uncertain writes at the Library owner.
             // This is a local discarded lease, not a server rejection of the current family.
             // A normal rotation must not quarantine the healthy replacement authority/player.
-            completion(if (account.accepts(lease)) response else refused("authority_changed"))
+            completion(if (account.accepts(lease)) response else refused(NativeHttpFailure.AuthorityChanged))
         }
         return object : NativeRequestHandle { override fun cancel() { job.cancel() } }
     }
@@ -76,7 +86,9 @@ class NativeAuthorizedHttpPort(
     /** Exact API origin and existing Theatre business routes only; no auth-route recursion. */
     private fun isBusinessRequest(request: NativeHttpRequest): Boolean {
         val prefix = origin.probeUrl
-        if (!origin.isHttps || !request.url.startsWith("$prefix/")) return false
+        // The host admitted this exact scheme/host/port once (debug loopback included).
+        // The slash and closed route shapes below prevent authority/path-prefix escapes.
+        if (!request.url.startsWith("$prefix/")) return false
         val route = request.url.removePrefix(prefix)
         val id = "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
         return when (request.method) {

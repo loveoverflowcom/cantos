@@ -5,9 +5,9 @@ use super::{
     display_time, field_problem, grant_state, Field, GrantState, IssueDraft, Lifetime, Problem,
     Reveal, ACTIONS,
 };
+use crate::contract::{DelegationAction, DelegationGrantResponse};
 use crate::ui::{ActionButton, FormSubmit};
-use cantos_contracts::{DelegationAction, DelegationGrantResponse};
-use cantos_ui::ButtonVariant;
+use cantos_ui::{ButtonVariant, IconName};
 use leptos::prelude::*;
 
 pub const REVEAL_HEADING: &str = "delegation-reveal-title";
@@ -87,10 +87,10 @@ pub fn TokenReveal(
                 <p id="delegation-token-help" class="cui-field-help">{move || text(Key::RevealUse, english.get())}</p>
             </div>
             <div class="toolbar">
-                <ActionButton id="delegation-copy" english=english on_press=Callback::new(move |_| on_copy.run(()))>
+                <ActionButton id="delegation-copy" icon=IconName::ContentCopy english=english on_press=Callback::new(move |_| on_copy.run(()))>
                     {move || text(Key::Copy, english.get())}
                 </ActionButton>
-                <ActionButton id="delegation-dismiss" english=english variant=ButtonVariant::Secondary on_press=Callback::new(move |_| on_dismiss.run(()))>
+                <ActionButton id="delegation-dismiss" icon=IconName::Close english=english variant=ButtonVariant::Secondary on_press=Callback::new(move |_| on_dismiss.run(()))>
                     {move || text(Key::Dismiss, english.get())}
                 </ActionButton>
             </div>
@@ -121,7 +121,7 @@ pub fn UnrecoverableNotice(
             <p>{move || text(Key::UnrecoverableBody, english.get())}</p>
             <p>{move || text(Key::DelegateLabel, english.get())}": "<strong>{delegate.clone()}</strong>" · "
                 {move || text(Key::GrantId, english.get())}": "<code>{id.clone()}</code></p>
-            <ActionButton id="delegation-revoke-unrecoverable" english=english variant=ButtonVariant::Secondary
+            <ActionButton id="delegation-revoke-unrecoverable" icon=IconName::Close english=english variant=ButtonVariant::Secondary
                 focus_on_press=true blocked=blocked
                 on_press=Callback::new(move |_| on_revoke.run(grant.clone()))>
                 {move || text(Key::RevokeThis, english.get())}
@@ -156,7 +156,7 @@ pub fn GrantItem(
         let delegate = delegate.clone();
         let target = grant.clone();
         view! {
-            <ActionButton id=format!("delegation-revoke-{id}") english=english variant=ButtonVariant::Secondary
+            <ActionButton id=format!("delegation-revoke-{id}") icon=IconName::Close english=english variant=ButtonVariant::Secondary
                 focus_on_press=true blocked=blocked
                 on_press=Callback::new(move |_| on_revoke.run(target.clone()))>
                 {move || text(Key::Revoke, english.get())}

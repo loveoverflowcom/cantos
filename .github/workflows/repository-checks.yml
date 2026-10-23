@@ -1,7 +1,9 @@
 name: Repository checks
 
-# Each job only provisions its environment (toolchain, Trunk, PostgreSQL and media tools) and then
-# runs one job of the shared `cargo xtask ci` contract; xtask owns what is verified.
+# Each job only provisions its environment (toolchain, Trunk and media tools) and then runs one
+# job of the shared `cargo xtask ci` contract; xtask owns what is verified. No job provisions a
+# database or another service: the Server and Identity persist in embedded files owned by the
+# test process itself.
 
 on:
   push:
@@ -9,6 +11,11 @@ on:
   pull_request:
     branches: [develop]
   workflow_dispatch:
+    inputs:
+      native_auth_qualification:
+        description: Also run the manual #336 native auth Linux qualification campaign (with Kani)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -26,8 +33,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # The localization guard compares PR merge parent 1 / the prior develop commit.
-          fetch-depth: 2
+          # Manual feature-branch dispatch needs origin/develop and its shared ancestry.
+          fetch-depth: 0
       - name: Select pinned Rust toolchain for xtask
         run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
       - name: Documents, fixtures, skills and the Script IR oracle
@@ -67,13 +74,12 @@ jobs:
         run: cargo install trunk --version 0.21.14 --locked
       - name: WASM lint and Trunk builds of Studio and Theatre Web
         run: cargo xtask ci --job web
-  postgres:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        postgres: [17, 18]
+  native-auth-qualification:
+    # Manual only (#336): dispatch on the candidate ref with native_auth_qualification=true. It
+    # provisions pinned tools, then xtask owns every check; nothing here is a verifier.
+    if: github.event_name == 'workflow_dispatch' && inputs.native_auth_qualification
+    runs-on: ubuntu-24.04 # D1: GitHub Actions Ubuntu x86_64
+    timeout-minutes: 240
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,19 +87,28 @@ jobs:
           persist-credentials: false
       - name: Select pinned Rust toolchain
         run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
-      - name: Install supported PostgreSQL server binaries
-        env:
-          POSTGRES_MAJOR: ${{ matrix.postgres }}
+      - name: Select the pinned Node for the locked Quint tool
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24.19.0'
+          package-manager-cache: false
+      - name: Select the pinned npm and install the locked Quint tool
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-common
-          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install --yes "postgresql-${POSTGRES_MAJOR}"
-          echo "/usr/lib/postgresql/${POSTGRES_MAJOR}/bin" >> "$GITHUB_PATH"
-          "/usr/lib/postgresql/${POSTGRES_MAJOR}/bin/postgres" --version
-      - name: Install read-only inspection and owned-fixture test tools
+          npm install --global --ignore-scripts --no-audit --no-fund npm@11.9.0
+          cargo xtask verify behavior --setup --capability cantos.identity.native-mailbox-proof
+      - name: Install the pinned Kani 0.68.0 bundle
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes ffmpeg
-      - name: Disposable-cluster migrations, persistence, restart and recovery tests
-        run: cargo xtask ci --job postgres
+          cargo install --locked kani-verifier --version 0.68.0
+          cargo kani setup
+      - name: Allow the isolation guard's unprivileged user and network namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Native auth Linux qualification, isolation and Kani
+        run: cargo xtask verify native-auth-qualification --kani --report "$RUNNER_TEMP/native-auth-qualification.json"
+      - name: Retain the sanitized report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-auth-qualification-${{ github.sha }}
+          path: ${{ runner.temp }}/native-auth-qualification.json
+          if-no-files-found: warn
+          retention-days: 30

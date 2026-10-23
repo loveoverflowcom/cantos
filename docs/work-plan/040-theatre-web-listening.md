@@ -28,8 +28,8 @@ Recommendation engines, subscriptions/payments, social feeds, live broadcasting,
 
 [030 — Mix, review, upload, and publish an episode](030-mix-review-and-publish.md). Inspect actual publication/delivery contracts and retention rules before choosing player and progress behavior. Confirm supported browsers and authentication/session conventions.
 
-Publication, [Discovery](../../packages/contracts/theatre-discovery-v1.md) and
-[Library/Progress](../../packages/contracts/listener-library-v1.md) backend contracts already
+Publication, [Discovery](../../services/cantos-server/contracts/theatre/discovery/v1/README.md) and
+[Library/Progress](../../services/cantos-server/contracts/theatre/library/v1/README.md) backend contracts already
 exist. [#170](https://github.com/loveoverflowcom/cantos/issues/170) owns real public media
 delivery: its origin-mode core is implemented but composition/acceptance remains gated by
 [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md). #172 owns remaining public

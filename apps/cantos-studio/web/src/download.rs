@@ -19,7 +19,7 @@ pub fn DownloadOriginal(
     let file_name = StoredValue::new(file_name);
     let sha256 = StoredValue::new(sha256);
     let busy = RwSignal::new(false);
-    let failure = RwSignal::new(None::<cantos_contracts::ApiError>);
+    let failure = RwSignal::new(None::<crate::contract::ApiError>);
     view! {
         <div class="download-original">
             <ActionButton id=format!("download-{namespace}-{}",id.get_value()) english variant=ButtonVariant::Text
@@ -45,7 +45,7 @@ async fn save(
     file_name: &str,
     expected_hash: &str,
     credential: cantos_web_auth::browser::Lease,
-) -> Result<(), cantos_contracts::ApiError> {
+) -> Result<(), crate::contract::ApiError> {
     let error = || crate::api::auth_error(cantos_web_auth::Failure::Protocol);
     let window = web_sys::window().ok_or_else(error)?;
     let promise = window

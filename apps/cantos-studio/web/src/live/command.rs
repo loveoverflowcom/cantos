@@ -1,14 +1,23 @@
 //! Concrete route plans reuse the server's raw DTOs. No domain policy is decided here.
 use super::{artwork, delegation::IssuedGrant};
-use cantos_contracts::*;
+use crate::contract::*;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
 
 pub const MAX_AUDIO_BYTES: u64 = 32 * 1024 * 1024;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Credentials {
-    OwnerBearer,
+    /// The Studio owner's HttpOnly cookie session: `credentials: include` and the session fence,
+    /// never an `Authorization` header.
+    OwnerSession,
+    /// No ambient credential. The producer capability Bearer, where a route takes one, is
+    /// attached explicitly from its own `UploadCredential`.
     Omit,
+}
+impl Credentials {
+    pub fn includes_cookie(self) -> bool {
+        self == Self::OwnerSession
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientError {
@@ -18,22 +27,64 @@ pub enum ClientError {
     ReceiptNotEstablished,
     ReplyMismatch,
     Transport,
-    Protocol { status: u16 },
-    Http { status: u16, error: ApiError },
+    /// The shared session owner holds this surface after a 429 (bounded `Retry-After` seconds, or
+    /// its conservative default). Nothing is dispatched before the hold ends. For a write the
+    /// outcome stays unknown: it is reconciled by its operation, never replayed blindly.
+    RateLimited {
+        seconds: u32,
+    },
+    Protocol {
+        status: u16,
+    },
+    Http {
+        status: u16,
+        error: ApiError,
+    },
 }
 impl ClientError {
-    /// Producer capability expiry says nothing about the Studio owner's Bearer session.
+    /// Producer capability expiry says nothing about the Studio owner's cookie session.
     pub fn owner_session_denial(&self, command: &Command) -> Option<&ApiError> {
         match self {
             Self::Http {
                 status: 401 | 409,
                 error,
-            } if command.credentials() == Credentials::OwnerBearer
+            } if command.credentials() == Credentials::OwnerSession
                 && error.code == ErrorCode::Unauthenticated =>
             {
                 Some(error)
             }
             _ => None,
+        }
+    }
+    /// A 409 `unauthenticated` names a session fence the cookie no longer holds.
+    pub fn is_session_fence_mismatch(&self) -> bool {
+        matches!(self, Self::Http { status, error } if crate::session::is_fence_mismatch(*status, error))
+    }
+    /// Identity failures as a command outcome. A request that never left (or whose session
+    /// moved) is `Transport`/`SessionChanged`, both unknown outcomes for a write; only a real
+    /// 401/403 carries an API error, and a 429 hold keeps its bounded wait. Nothing here retries.
+    pub fn from_identity(error: cantos_web_auth::Failure) -> Self {
+        use cantos_web_auth::Failure;
+        match error {
+            Failure::SignedOut | Failure::InvalidCredentials => Self::Http {
+                status: 401,
+                error: crate::session::failure_error(error),
+            },
+            // A wrong Origin or a roster/permission refusal: forbidden, never an expired session.
+            Failure::Forbidden => Self::Http {
+                status: 403,
+                error: crate::session::failure_error(error),
+            },
+            Failure::Changed | Failure::AccountMismatch => Self::SessionChanged,
+            // Held by the shared owner: nothing was dispatched, or the API refused before
+            // acting. A write stays an unknown outcome for receipt reconciliation and is never
+            // replayed here.
+            Failure::RateLimited(seconds) => Self::RateLimited { seconds },
+            Failure::NotFound
+            | Failure::Invalid
+            | Failure::Unavailable
+            | Failure::Protocol
+            | Failure::CleanupPending => Self::Transport,
         }
     }
     pub fn http(status: u16, body: &[u8]) -> Self {
@@ -49,6 +100,7 @@ impl ClientError {
             | Self::ReceiptNotEstablished
             | Self::ReplyMismatch
             | Self::Transport
+            | Self::RateLimited { .. }
             | Self::Protocol { .. } => true,
             Self::Http { status, .. } => *status >= 500,
             Self::InvalidInput => false,
@@ -230,7 +282,7 @@ pub enum Command {
         work: String,
         request: SetWorkArtworkRequest,
     },
-    /// Owner-only Work delegation (ADR 0028), on the Studio owner Bearer session.
+    /// Owner-only Work delegation (ADR 0028), on the Studio owner cookie session.
     Delegations {
         work: String,
         after: Option<String>,
@@ -423,7 +475,17 @@ impl Command {
     pub fn credentials(&self) -> Credentials {
         match self {
             Self::ProducerStatus { .. } | Self::Upload { .. } => Credentials::Omit,
-            _ => Credentials::OwnerBearer,
+            _ => Credentials::OwnerSession,
+        }
+    }
+    /// The producer capability a route carries as `Authorization: Bearer`. It is the only
+    /// Authorization any Studio command sends, and never travels with the owner cookie.
+    pub fn producer_credential(&self) -> Option<&UploadCredential> {
+        match self {
+            Self::ProducerStatus { credential, .. } | Self::Upload { credential, .. } => {
+                Some(credential)
+            }
+            _ => None,
         }
     }
     pub fn json(&self) -> Result<Option<String>, ClientError> {

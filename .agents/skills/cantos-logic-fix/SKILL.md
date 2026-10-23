@@ -24,7 +24,7 @@ rules. Read [input-contract.md](references/input-contract.md) to normalize diagn
 | invariant, ownership, functional core, types, immutability, tests and evidence | [`cantos-engineering`](../cantos-engineering/SKILL.md) |
 | domain meaning and current product contract | the owner from [the skill index](../README.md#which-skill-to-load) and its owning document |
 | HTTP, validation, authorization or DTO/error mapping | [HTTP boundary](../cantos-engineering/references/http-api-boundary.md), plus the domain owner |
-| persistence, transactions, constraints or concurrent writes | [persistence](../cantos-engineering/references/persistence.md); [read performance](../cantos-engineering/references/postgresql-read-performance.md) for queries/writes feeding read models |
+| persistence, transactions, constraints or concurrent writes | [persistence](../cantos-engineering/references/persistence.md); [read performance](../cantos-engineering/references/turso-read-performance.md) for queries/writes feeding read models |
 | Leptos state, async decisions or browser shell | [`cantos-leptos-web`](../cantos-leptos-web/SKILL.md) |
 | Kotlin reducer, controller, state or native shell | [`cantos-cmp-mobile`](../cantos-cmp-mobile/SKILL.md), including all required Kotlin/architecture/testing references |
 | execution, secrets, local gates and requested publication | [local execution](../cantos-engineering/references/local-execution.md), [PR procedure](../cantos-work-item/references/pull-request.md) |

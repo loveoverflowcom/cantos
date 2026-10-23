@@ -193,7 +193,7 @@ def seed(config, env):
                         CANTOS_THEATRE_SEED_PRIVATE_ROOT=str(private),
                         CANTOS_THEATRE_SEED_PUBLICATION_ROOT=str(publication),
                         CANTOS_THEATRE_SEED_PLAYBACK_KEY_FILE=str(key))
-        command = ["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres",
+        command = ["cargo", "test", "-p", "cantos-server", "--test", "catalog_http_postgres",
                    "--locked", "--offline", "--", "--ignored", "--exact", SEED_TEST,
                    "--test-threads=1"]
         if subprocess.run(command, cwd=ROOT, env=test_env).returncode:
@@ -284,7 +284,7 @@ def persistent_seed(args, inherited):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise Refusal("this seed receipt is already in use") from error
-        command = ["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres",
+        command = ["cargo", "test", "-p", "cantos-server", "--test", "catalog_http_postgres",
                    "--locked", "--offline", "--", "--ignored", "--exact", SEED_TEST,
                    "--test-threads=1"]
         if subprocess.run(command, cwd=ROOT, env=env).returncode:

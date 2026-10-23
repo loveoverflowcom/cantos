@@ -1,7 +1,7 @@
 //! Internal auth return routes and request fencing, independent of browser history and identity IO.
 //!
 //! A route is presentation intent, never proof of authentication or registration. The shell must
-//! confirm the current session and a supported provider registration flow before showing completion.
+//! confirm the current session with the API before treating the listener as signed in.
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ReturnDestination {
@@ -46,7 +46,6 @@ impl ReturnDestination {
 pub enum AuthStep {
     Login,
     Register,
-    RegistrationComplete,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -70,20 +69,12 @@ impl AuthRoute {
         }
     }
 
-    pub fn registration_complete(origin: ReturnDestination) -> Self {
-        Self {
-            step: AuthStep::RegistrationComplete,
-            origin,
-        }
-    }
-
     /// Only internal named destinations are accepted; absent or malformed context falls home.
     pub fn from_hash(hash: &str) -> Option<Self> {
         let (page, context) = split_hash(hash);
         let step = match page {
             "login" => AuthStep::Login,
             "register" => AuthStep::Register,
-            "registration-complete" => AuthStep::RegistrationComplete,
             _ => return None,
         };
         let origin = context
@@ -97,20 +88,15 @@ impl AuthRoute {
         let page = match self.step {
             AuthStep::Login => "login",
             AuthStep::Register => "register",
-            AuthStep::RegistrationComplete => "registration-complete",
         };
         format!("#{page}?from={}", self.origin.slug())
     }
 
     pub fn back(self) -> NavigationTarget {
         match self.step {
-            AuthStep::Login | AuthStep::RegistrationComplete => self.origin.target(),
+            AuthStep::Login => self.origin.target(),
             AuthStep::Register => NavigationTarget::Auth(Self::login(self.origin)),
         }
-    }
-
-    pub fn registration_plans(self) -> NavigationTarget {
-        NavigationTarget::Membership(MembershipReturn::RegistrationComplete(self.origin))
     }
 }
 
@@ -119,7 +105,6 @@ pub enum MembershipReturn {
     #[default]
     Home,
     Account,
-    RegistrationComplete(ReturnDestination),
 }
 
 impl MembershipReturn {
@@ -130,14 +115,6 @@ impl MembershipReturn {
         }
         let target = match context.and_then(|value| value.strip_prefix("from=")) {
             Some("account") => Self::Account,
-            Some("registered-home") => Self::RegistrationComplete(ReturnDestination::Home),
-            Some("registered-account") => Self::RegistrationComplete(ReturnDestination::Account),
-            Some("registered-membership") => {
-                Self::RegistrationComplete(ReturnDestination::Membership)
-            }
-            Some("registered-membership-account") => {
-                Self::RegistrationComplete(ReturnDestination::MembershipFromAccount)
-            }
             _ => Self::Home,
         };
         Some(target)
@@ -147,12 +124,6 @@ impl MembershipReturn {
         let source = match self {
             Self::Home => "home",
             Self::Account => "account",
-            Self::RegistrationComplete(ReturnDestination::Home) => "registered-home",
-            Self::RegistrationComplete(ReturnDestination::Account) => "registered-account",
-            Self::RegistrationComplete(ReturnDestination::Membership) => "registered-membership",
-            Self::RegistrationComplete(ReturnDestination::MembershipFromAccount) => {
-                "registered-membership-account"
-            }
         };
         format!("#membership?from={source}")
     }
@@ -161,9 +132,6 @@ impl MembershipReturn {
         match self {
             Self::Home => NavigationTarget::Home,
             Self::Account => NavigationTarget::Account,
-            Self::RegistrationComplete(origin) => {
-                NavigationTarget::Auth(AuthRoute::registration_complete(origin))
-            }
         }
     }
 }
@@ -182,75 +150,6 @@ fn split_hash(hash: &str) -> (&str, Option<&str>) {
         Some((page, context)) => (page, Some(context)),
         None => (value, None),
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ProviderReturnResponse {
-    Completed,
-    Cancelled,
-}
-
-/// Nonsecret UI correlation only. A matching response still proves no current session.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ProviderReturn {
-    route: AuthRoute,
-    intent: String,
-}
-
-impl ProviderReturn {
-    pub fn new(route: AuthRoute, intent: impl Into<String>) -> Option<Self> {
-        let intent = intent.into();
-        (route.step == AuthStep::Login && valid_provider_intent(&intent))
-            .then_some(Self { route, intent })
-    }
-
-    pub fn route(&self) -> AuthRoute {
-        self.route
-    }
-
-    pub fn intent(&self) -> &str {
-        &self.intent
-    }
-
-    pub fn serialize(&self) -> String {
-        format!("{}|{}", self.intent, self.route.hash())
-    }
-
-    /// Stored text must be the exact canonical encoding, including its closed return context.
-    pub fn parse(stored: &str) -> Option<Self> {
-        let (intent, hash) = stored.split_once('|')?;
-        let route = AuthRoute::from_hash(hash)?;
-        let value = Self::new(route, intent)?;
-        (value.serialize() == stored).then_some(value)
-    }
-
-    /// A mismatched old callback is inert. The shell must retain newer stored context B when
-    /// callback A returns `None`; only `Some` permits consuming this exact context.
-    pub fn response(&self, hash: &str) -> Option<ProviderReturnResponse> {
-        let (response, intent) = parse_provider_callback(hash)?;
-        (intent == self.intent).then_some(response)
-    }
-}
-
-pub fn valid_provider_intent(intent: &str) -> bool {
-    intent.len() == 32
-        && intent
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-}
-
-/// Only the fixed callback hashes and one exact correlation field are accepted. No route,
-/// arbitrary URL, provider error text or registration completion comes from this callback.
-pub fn parse_provider_callback(hash: &str) -> Option<(ProviderReturnResponse, &str)> {
-    let (response, intent) = if let Some(intent) = hash.strip_prefix("#auth-return?intent=") {
-        (ProviderReturnResponse::Completed, intent)
-    } else {
-        (
-            ProviderReturnResponse::Cancelled,
-            hash.strip_prefix("#auth-cancelled?intent=")?,
-        )
-    };
-    valid_provider_intent(intent).then_some((response, intent))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -298,7 +197,7 @@ impl AuthIntentState {
         Ok(())
     }
 
-    /// Back, provider cancel and logout call this before starting any asynchronous side effect.
+    /// Back, login cancel and logout call this before starting any asynchronous side effect.
     pub fn invalidate(&mut self) -> Result<(), AuthIntentError> {
         self.pending = None;
         self.epoch = self.epoch.checked_add(1).ok_or_else(|| {
@@ -313,9 +212,6 @@ impl AuthIntentState {
             return Err(AuthIntentError::EpochExhausted);
         }
         let route = self.current.ok_or(AuthIntentError::Closed)?;
-        if route.step == AuthStep::RegistrationComplete {
-            return Err(AuthIntentError::Closed);
-        }
         if self.pending.is_some() {
             return Err(AuthIntentError::RequestPending);
         }
@@ -402,11 +298,7 @@ mod tests {
             assert_eq!(AuthRoute::from_hash(hash).unwrap().back(), expected);
         }
         for origin in ORIGINS {
-            for route in [
-                AuthRoute::login(origin),
-                AuthRoute::register(origin),
-                AuthRoute::registration_complete(origin),
-            ] {
+            for route in [AuthRoute::login(origin), AuthRoute::register(origin)] {
                 assert_eq!(AuthRoute::from_hash(&route.hash()), Some(route));
             }
         }
@@ -440,19 +332,23 @@ mod tests {
     }
 
     #[test]
-    fn membership_opened_from_registration_returns_to_the_same_completion_intent() {
-        for origin in ORIGINS {
-            let complete = AuthRoute::registration_complete(origin);
-            let NavigationTarget::Membership(membership) = complete.registration_plans() else {
-                panic!("registration plans must stay inside the app");
-            };
-            assert_eq!(
-                MembershipReturn::from_hash(&membership.hash()),
-                Some(membership)
-            );
-            assert_eq!(membership.back(), NavigationTarget::Auth(complete));
-        }
+    fn membership_back_names_only_internal_destinations() {
         assert_eq!(MembershipReturn::Account.back(), NavigationTarget::Account);
+        assert_eq!(MembershipReturn::Home.back(), NavigationTarget::Home);
+        for member in [MembershipReturn::Home, MembershipReturn::Account] {
+            assert_eq!(MembershipReturn::from_hash(&member.hash()), Some(member));
+        }
+        // The retired provider completion contexts are ordinary unknown contexts now.
+        for context in ["registered-home", "registered-account"] {
+            assert_eq!(
+                MembershipReturn::from_hash(&format!("#membership?from={context}")),
+                Some(MembershipReturn::Home)
+            );
+        }
+        assert_eq!(
+            AuthRoute::from_hash("#registration-complete?from=home"),
+            None
+        );
     }
 
     #[test]
@@ -496,7 +392,7 @@ mod tests {
             assert!(!state.accepts(old));
             assert!(!state.finish(old));
         }
-        for _intent in ["provider-cancel", "logout", "back-before-hashchange"] {
+        for _intent in ["cancel", "logout", "back-before-hashchange"] {
             let mut state = AuthIntentState::new(Some(login));
             let old = state.begin().unwrap();
             assert_eq!(state.invalidate(), Ok(()));
@@ -505,15 +401,6 @@ mod tests {
             assert!(state.finish(current));
             assert_eq!(current.route(), login);
         }
-    }
-
-    #[test]
-    fn direct_completion_route_cannot_start_a_provider_request_or_confirm_registration() {
-        let route = AuthRoute::from_hash("#registration-complete?from=account").unwrap();
-        let mut state = AuthIntentState::new(Some(route));
-        assert_eq!(state.begin(), Err(AuthIntentError::Closed));
-        // Parsing creates only a destination value; no identity/session/capability is present.
-        assert_eq!(route.origin, ReturnDestination::Account);
     }
 
     #[test]
@@ -537,94 +424,5 @@ mod tests {
             Err(AuthIntentError::EpochExhausted)
         );
         assert_eq!(state.begin(), Err(AuthIntentError::EpochExhausted));
-    }
-
-    #[test]
-    fn provider_context_round_trips_only_canonical_login_routes_and_lowercase_hex_intents() {
-        let intent = "0123456789abcdef0123456789abcdef";
-        for origin in ORIGINS {
-            let route = AuthRoute::login(origin);
-            let context = ProviderReturn::new(route, intent).unwrap();
-            assert_eq!(context.route(), route);
-            assert_eq!(context.intent(), intent);
-            assert_eq!(ProviderReturn::parse(&context.serialize()), Some(context));
-        }
-        for invalid in [
-            "",
-            "0123456789abcdef0123456789abcde",
-            "0123456789abcdef0123456789abcdef0",
-            "0123456789ABCDEF0123456789ABCDEF",
-            "0123456789abcdef0123456789abcdeg",
-        ] {
-            assert!(!valid_provider_intent(invalid));
-            assert!(
-                ProviderReturn::new(AuthRoute::login(ReturnDestination::Home), invalid).is_none()
-            );
-        }
-        for hash in [
-            "#login",
-            "#login?from=https://example.com",
-            "#login?from=account&from=home",
-            "#login?from=unknown",
-            "#login?from=account|extra",
-            "#register?from=home",
-            "#registration-complete?from=home",
-            "https://example.com/#login?from=home",
-        ] {
-            assert!(
-                ProviderReturn::parse(&format!("{intent}|{hash}")).is_none(),
-                "{hash}"
-            );
-        }
-    }
-
-    #[test]
-    fn late_provider_a_response_does_not_consume_or_relabel_newer_context_b() {
-        let intent_a = "a".repeat(32);
-        let context_b = ProviderReturn::new(
-            AuthRoute::login(ReturnDestination::MembershipFromAccount),
-            "b".repeat(32),
-        )
-        .unwrap();
-        let stored_b = context_b.serialize();
-        for prefix in ["#auth-return?intent=", "#auth-cancelled?intent="] {
-            assert_eq!(context_b.response(&format!("{prefix}{intent_a}")), None);
-            assert_eq!(context_b.serialize(), stored_b);
-            assert_eq!(ProviderReturn::parse(&stored_b), Some(context_b.clone()));
-        }
-        assert_eq!(
-            context_b.response(&format!("#auth-return?intent={}", context_b.intent())),
-            Some(ProviderReturnResponse::Completed)
-        );
-        assert_eq!(
-            context_b.response(&format!("#auth-cancelled?intent={}", context_b.intent())),
-            Some(ProviderReturnResponse::Cancelled)
-        );
-        assert_eq!(
-            context_b.route().origin,
-            ReturnDestination::MembershipFromAccount
-        );
-    }
-
-    #[test]
-    fn malformed_or_extra_provider_callback_fields_never_authorize_context_consumption() {
-        let intent = "a".repeat(32);
-        let context =
-            ProviderReturn::new(AuthRoute::login(ReturnDestination::Account), &intent).unwrap();
-        for hash in [
-            "#auth-return".to_owned(),
-            "#auth-cancelled".to_owned(),
-            format!("#auth-return?intent={intent}&from=account"),
-            format!("#auth-return?intent={intent}&intent={intent}"),
-            format!("#auth-return?intent={intent}#account"),
-            format!("#auth-return?intent=%61{}", "a".repeat(31)),
-            format!("#auth-return?intent={}", "A".repeat(32)),
-            format!("#auth-return?return_to=https://example.com&intent={intent}"),
-            format!("#registration-complete?intent={intent}"),
-            format!("https://example.com/#auth-return?intent={intent}"),
-        ] {
-            assert_eq!(parse_provider_callback(&hash), None, "{hash}");
-            assert_eq!(context.response(&hash), None, "{hash}");
-        }
     }
 }

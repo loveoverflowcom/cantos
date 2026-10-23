@@ -95,7 +95,11 @@ impl PackageGraph {
                             package.name
                         )
                     })?;
-                    deps.insert(name.clone());
+                    // A package may enable its own test-support feature through a dev-dependency
+                    // on itself; that is not an edge to a different package.
+                    if *name != package.name {
+                        deps.insert(name.clone());
+                    }
                 }
             }
             packages.push(LocalPackage {
@@ -149,21 +153,26 @@ pub mod testing {
                 package(
                     "cantos-studio",
                     "apps/cantos-studio/web",
-                    &["cantos-contracts", "cantos-ui", "cantos-web-auth"],
+                    &["cantos-ui", "cantos-web-auth"],
                 ),
-                package("cantos-contracts", "packages/contracts/api", &[]),
-                package("cantos-api", "services/cantos-api", &["cantos-contracts"]),
+                package(
+                    "cantos-server",
+                    "services/cantos-server",
+                    &["cantos-store-turso"],
+                ),
+                package(
+                    "cantos-identity",
+                    "services/cantos-identity",
+                    &["cantos-store-turso"],
+                ),
+                package("cantos-store-turso", "packages/store-turso", &[]),
                 package(
                     "cantos-theatre",
                     "apps/cantos-theatre/web",
-                    &["cantos-contracts", "cantos-ui", "cantos-web-auth"],
+                    &["cantos-ui", "cantos-web-auth"],
                 ),
                 package("cantos-ui", "packages/ui-system/leptos", &[]),
-                package(
-                    "cantos-web-auth",
-                    "packages/web-auth",
-                    &["cantos-contracts"],
-                ),
+                package("cantos-web-auth", "packages/web-auth", &[]),
                 package("xtask", "xtask", &[]),
             ],
         }
@@ -177,16 +186,29 @@ mod tests {
     #[test]
     fn parses_local_path_dependencies_from_metadata() {
         let json = r#"{"packages":[
-            {"name":"cantos-api","manifest_path":"/r/services/cantos-api/Cargo.toml",
-             "dependencies":[{"name":"cantos-contracts","path":"/r/packages/contracts/api"},
+            {"name":"cantos-server","manifest_path":"/r/services/cantos-server/Cargo.toml",
+             "dependencies":[{"name":"cantos-store-turso","path":"/r/packages/store-turso"},
                              {"name":"serde"}]},
-            {"name":"cantos-contracts","manifest_path":"/r/packages/contracts/api/Cargo.toml",
+            {"name":"cantos-store-turso","manifest_path":"/r/packages/store-turso/Cargo.toml",
              "dependencies":[]}]}"#;
         let graph = PackageGraph::from_metadata(Path::new("/r"), json).unwrap();
-        let api = graph.owner("services/cantos-api/src/lib.rs").unwrap();
-        assert_eq!(api.name, "cantos-api");
-        assert_eq!(api.deps.iter().collect::<Vec<_>>(), ["cantos-contracts"]);
+        let api = graph.owner("services/cantos-server/src/lib.rs").unwrap();
+        assert_eq!(api.name, "cantos-server");
+        assert_eq!(api.deps.iter().collect::<Vec<_>>(), ["cantos-store-turso"]);
         assert!(graph.owner("services/kanidm/README.md").is_none());
+    }
+
+    #[test]
+    fn a_dev_dependency_on_the_package_itself_is_not_an_edge() {
+        let json = r#"{"packages":[
+            {"name":"store","manifest_path":"/r/packages/store/Cargo.toml",
+             "dependencies":[{"name":"store","path":"/r/packages/store"}]}]}"#;
+        let graph = PackageGraph::from_metadata(Path::new("/r"), json).unwrap();
+        assert!(graph
+            .owner("packages/store/src/lib.rs")
+            .unwrap()
+            .deps
+            .is_empty());
     }
 
     #[test]
@@ -199,16 +221,15 @@ mod tests {
     #[test]
     fn closure_includes_transitive_dependents() {
         let graph = testing::cantos();
-        let affected = graph.dependents_closure(&["cantos-contracts".to_owned()].into());
+        let affected = graph.dependents_closure(&["cantos-web-auth".to_owned()].into());
         assert_eq!(
             affected.into_iter().collect::<Vec<_>>(),
-            [
-                "cantos-api",
-                "cantos-contracts",
-                "cantos-studio",
-                "cantos-theatre",
-                "cantos-web-auth"
-            ]
+            ["cantos-studio", "cantos-theatre", "cantos-web-auth"]
+        );
+        let store = graph.dependents_closure(&["cantos-store-turso".to_owned()].into());
+        assert_eq!(
+            store.into_iter().collect::<Vec<_>>(),
+            ["cantos-identity", "cantos-server", "cantos-store-turso"]
         );
     }
 
@@ -258,11 +279,12 @@ mod tests {
     fn the_inward_rule_rejects_each_forbidden_edge() {
         let mut graph = testing::cantos();
         let edges = [
-            ("cantos-forge", "cantos-api"),
+            ("cantos-forge", "cantos-server"),
             ("cantos-forge", "cantos-studio"),
-            ("cantos-contracts", "cantos-ui"),
-            ("cantos-contracts", "cantos-api"),
-            ("cantos-api", "cantos-studio"),
+            ("cantos-web-auth", "cantos-server"),
+            ("cantos-studio", "cantos-server"),
+            ("cantos-server", "cantos-identity"),
+            ("cantos-server", "cantos-studio"),
             ("cantos-ui", "xtask"),
         ];
         for (from, to) in edges {
@@ -276,11 +298,13 @@ mod tests {
         assert_eq!(
             inward_violations(&graph),
             [
-                "cantos-forge (services/cantos-forge-functions) -> cantos-api (services/cantos-api)",
+                "cantos-forge (services/cantos-forge-functions) -> cantos-server (services/cantos-server)",
                 "cantos-forge (services/cantos-forge-functions) -> cantos-studio (apps/cantos-studio/web)",
-                "cantos-contracts (packages/contracts/api) -> cantos-api (services/cantos-api)",
-                "cantos-api (services/cantos-api) -> cantos-studio (apps/cantos-studio/web)",
+                "cantos-studio (apps/cantos-studio/web) -> cantos-server (services/cantos-server)",
+                "cantos-server (services/cantos-server) -> cantos-identity (services/cantos-identity)",
+                "cantos-server (services/cantos-server) -> cantos-studio (apps/cantos-studio/web)",
                 "cantos-ui (packages/ui-system/leptos) -> xtask (xtask)",
+                "cantos-web-auth (packages/web-auth) -> cantos-server (services/cantos-server)",
             ]
         );
     }

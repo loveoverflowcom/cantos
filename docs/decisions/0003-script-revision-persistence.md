@@ -89,7 +89,7 @@ usage, without changing release behavior.
 concurrency, killed connections and HTTP/PG restart plus native Safari interaction observations.
 [Read inventory](../evidence/script-revision-reads.md) maps the implemented consumers;
 [prompt-3 measurements](../evidence/script-revision-performance.md) retain the existing PG path.
-The [conditional DBSP decision](../evidence/script-revision-dbsp-decision.md) records DEFER and
+The [conditional DBSP decision](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/docs/evidence/script-revision-dbsp-decision.md) records DEFER and
 admission criteria for a future experiment, without changing this ADR's proposed status. Revisit the
 lock strategy at measured contention, auth at production deployment, wire versions at a new
 consumer and e1 at any canonical-export policy change. Neither this proposed ADR nor a passing

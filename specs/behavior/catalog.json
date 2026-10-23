@@ -4,15 +4,15 @@
     {
       "id": "cantos.media.private-audio-admission",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+      "owner": "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
       "sourceRefs": [
-        "packages/contracts/audio-lifecycle-v1.md#state-reviews-and-candidate-blockers",
+        "services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md#state-reviews-and-candidate-blockers",
         "docs/decisions/0020-studio-private-audio-intake.md#decision",
         "docs/assurance/domain-invariants.md",
-        "services/cantos-api/src/contexts/production/domain/brief.rs",
-        "services/cantos-api/src/contexts/production/application/briefs.rs",
-        "services/cantos-api/src/contexts/catalog/domain/work.rs",
-        "services/cantos-api/src/contexts/catalog/domain/unit.rs"
+        "services/cantos-server/src/contexts/production/domain/brief.rs",
+        "services/cantos-server/src/contexts/production/application/briefs.rs",
+        "services/cantos-server/src/contexts/catalog/domain/work.rs",
+        "services/cantos-server/src/contexts/catalog/domain/unit.rs"
       ],
       "model": "specs/behavior/media/private_audio_admission.qnt",
       "module": "private_audio_admission",
@@ -233,14 +233,14 @@
     {
       "id": "cantos.media.public-playback-delivery",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/contexts/media/domain/playback_grant.rs",
+      "owner": "services/cantos-server/src/contexts/media/domain/playback_grant.rs",
       "sourceRefs": [
-        "packages/contracts/theatre-discovery-v1.md#origin-mode-media-proposed-adr-0032",
+        "services/cantos-server/contracts/theatre/discovery/v1/README.md#origin-mode-media-proposed-adr-0032",
         "docs/decisions/0032-theatre-origin-playback-delivery.md#decision",
         "docs/decisions/0038-publication-streaming-evidence-gates.md#decision",
-        "services/cantos-api/src/contexts/media/listener_media.rs",
-        "services/cantos-api/src/contexts/media/listener_application.rs",
-        "services/cantos-api/src/contexts/media/domain/listening.rs"
+        "services/cantos-server/src/contexts/media/listener_media.rs",
+        "services/cantos-server/src/contexts/media/listener_application.rs",
+        "services/cantos-server/src/contexts/media/domain/listening.rs"
       ],
       "model": "specs/behavior/media/public_playback_delivery.qnt",
       "module": "public_playback_delivery",
@@ -407,12 +407,12 @@
     {
       "id": "cantos.media.public-cover-projection",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/contexts/media/domain/public_cover.rs",
+      "owner": "services/cantos-server/src/contexts/media/domain/public_cover.rs",
       "sourceRefs": [
         "docs/decisions/0033-release-pinned-public-cover.md#decision",
-        "packages/contracts/artwork-v1.md#bounds-and-receipts",
-        "services/cantos-api/src/contexts/media/domain/artwork.rs",
-        "services/cantos-api/src/contexts/media/domain/listening.rs"
+        "services/cantos-server/contracts/studio/artwork/v1/README.md#bounds-and-receipts",
+        "services/cantos-server/src/contexts/media/domain/artwork.rs",
+        "services/cantos-server/src/contexts/media/domain/listening.rs"
       ],
       "model": "specs/behavior/media/public_cover_projection.qnt",
       "module": "public_cover_projection",
@@ -563,9 +563,9 @@
     {
       "id": "cantos.publishing.lifecycle",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/contexts/media/domain/publication.rs",
+      "owner": "services/cantos-server/src/contexts/media/domain/publication.rs",
       "sourceRefs": [
-        "packages/contracts/publication-v1.md"
+        "services/cantos-server/contracts/studio/publication/v1/README.md"
       ],
       "model": null,
       "inventory": "specs/behavior/inventory.md",
@@ -574,9 +574,9 @@
     {
       "id": "cantos.listening.progress",
       "lifecycle": "needs-decision",
-      "owner": "services/cantos-api/src/contexts/listening/domain/reconcile.rs",
+      "owner": "services/cantos-server/src/contexts/listening/domain/reconcile.rs",
       "sourceRefs": [
-        "packages/contracts/listener-library-v1.md",
+        "services/cantos-server/contracts/theatre/library/v1/README.md",
         "docs/product/business-rules.md#publication-and-listening"
       ],
       "model": null,
@@ -797,17 +797,15 @@
     },
     {
       "id": "cantos.identity.theatre-registration",
-      "lifecycle": "draft",
-      "owner": "services/cantos-api/src/platform/theatre_registration/application.rs",
+      "lifecycle": "deprecated",
+      "owner": "docs/architecture/theatre-identity.md",
       "sourceRefs": [
-        "docs/decisions/0034-theatre-signup-and-provisioned-studio.md#decision",
-        "docs/decisions/0036-firebase-enrollment-proof.md#decision",
-        "packages/contracts/theatre-identity-v1.md",
-        "services/cantos-api/schema/0001_current.sql",
-        "services/cantos-api/src/platform/theatre_registration/firebase_enrollment/application.rs",
-        "services/cantos-api/src/platform/theatre_registration/firebase_enrollment/postgres.rs"
+        "docs/architecture/theatre-identity.md",
+        "docs/decisions/0045-v1-email-password-sign-in.md#decision",
+        "services/cantos-server/contracts/auth/identity-auth/v1/README.md",
+        "specs/behavior/inventory.md"
       ],
-      "model": "specs/behavior/identity/theatre_registration.qnt",
+      "model": null,
       "module": "theatre_registration",
       "scenarios": "specs/behavior/identity/theatre_registration_tests.qnt",
       "scenarioModule": "theatre_registration_tests",
@@ -939,7 +937,8 @@
           "to": "val allowed = Set(Awaiting, Blocked).contains(state.phase) and proof == state.epoch and state.unexpired"
         }
       ],
-      "aliases": []
+      "aliases": [],
+      "reason": "Provider-only SMTP/Kanidm/Firebase registration was removed. Stable ID and original declarations retained for history; native mailbox signup is cantos.identity.native-mailbox-proof. See inventory retirement and pinned original model; no native acceptance is inherited."
     },
     {
       "id": "cantos.production.forge-attempt",
@@ -1135,16 +1134,19 @@
     {
       "id": "cantos.identity.bearer-lifecycle",
       "lifecycle": "draft",
-      "owner": "services/cantos-api/src/platform/bearer/core.rs",
+      "owner": "services/cantos-server/src/platform/bearer/core.rs",
       "sourceRefs": [
-        "packages/contracts/bearer-v1.md",
+        "services/cantos-server/contracts/auth/bearer/v1/README.md",
         "docs/decisions/0041-direct-hosting-api-boundary.md",
-        "services/cantos-api/tests/bearer_postgres.rs",
+        "services/cantos-server/src/platform/bearer/core.rs",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/domain/identity/NativeGrant.kt",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/identity/NativeAccountController.kt",
         "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/ports/NativeCredentialJournal.kt",
-        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeAccountControllerTest.kt",
-        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt"
+        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeIdentityV1LifecycleTest.kt",
+        "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/identity/NativeCredentialJournalTest.kt",
+        "services/cantos-server/contracts/auth/identity-auth/v1/README.md",
+        "services/cantos-server/src/platform/identity_auth/turso.rs",
+        "services/cantos-server/src/platform/identity_auth/decision.rs"
       ],
       "model": "specs/behavior/identity/bearer_lifecycle.qnt",
       "module": "bearer_lifecycle",
@@ -1371,6 +1373,371 @@
         }
       ],
       "aliases": []
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof",
+      "lifecycle": "draft",
+      "owner": "services/cantos-identity/src/domain/mailbox_proof.rs",
+      "sourceRefs": [
+        "docs/decisions/0045-v1-email-password-sign-in.md#decision",
+        "services/cantos-identity/contracts/identity/v1/README.md#one-command-setup-decision",
+        "services/cantos-identity/docs/mailbox-store-v1.md#secrets-and-atomic-transitions",
+        "services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup",
+        "services/cantos-identity/src/persistence/proofs.rs",
+        "services/cantos-identity/src/persistence/signup.rs"
+      ],
+      "model": "specs/behavior/identity/native_mailbox_proof.qnt",
+      "module": "native_mailbox_proof",
+      "scenarios": "specs/behavior/identity/native_mailbox_proof_tests.qnt",
+      "scenarioModule": "native_mailbox_proof_tests",
+      "inventory": "specs/behavior/inventory.md",
+      "properties": [
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.explicit-only",
+          "declaration": "explicitOnly"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.consumed-within-bound-window",
+          "declaration": "consumedWithinBoundWindow"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.terminal-sticky",
+          "declaration": "terminalSticky"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.retired-locator-rejected",
+          "declaration": "retiredLocatorRejected"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.plan-has-no-effect",
+          "declaration": "planHasNoEffect"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.commit-compares-snapshot",
+          "declaration": "commitComparesSnapshot"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.single-account-effect",
+          "declaration": "singleAccountEffect"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.no-authority",
+          "declaration": "noAuthority"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.property.only-committed-effects",
+          "declaration": "onlyCommittedEffects"
+        }
+      ],
+      "runs": [
+        {
+          "id": "cantos.identity.native-mailbox-proof.run.explicit-confirmation",
+          "declaration": "explicitConfirmationTest"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.run.binding-and-window",
+          "declaration": "bindingAndWindowTest"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.run.cancelled-terminal",
+          "declaration": "cancelledTerminalTest"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.run.consumed-terminal",
+          "declaration": "consumedTerminalTest"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.run.replacement",
+          "declaration": "replacementTest"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.run.stale-plan",
+          "declaration": "stalePlanTest"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.run.lost-response",
+          "declaration": "lostResponseTest"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.run.lost-before-commit",
+          "declaration": "lostBeforeCommitTest"
+        }
+      ],
+      "witnesses": [
+        {
+          "id": "cantos.identity.native-mailbox-proof.witness.consumed-explicitly",
+          "declaration": "consumedExplicitly"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.witness.inspected-pending",
+          "declaration": "inspectedPending"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.witness.expired-at-commit",
+          "declaration": "expiredAtCommit"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.witness.cancelled-replace-refused",
+          "declaration": "cancelledReplaceRefused"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.witness.retired-locator-refused",
+          "declaration": "retiredLocatorRefused"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.witness.plan-without-effect",
+          "declaration": "planWithoutEffect"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.witness.stale-commit-refused",
+          "declaration": "staleCommitRefused"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.witness.exact-retry-replayed",
+          "declaration": "exactRetryReplayed"
+        }
+      ],
+      "simulation": {
+        "backend": "typescript",
+        "seed": "334",
+        "samples": 500,
+        "steps": 30,
+        "scenarioSamples": 1,
+        "witnessSamples": 3000,
+        "timeoutSeconds": 60
+      },
+      "controls": [
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.explicit-only",
+          "property": "cantos.identity.native-mailbox-proof.property.explicit-only",
+          "from": "else if (not(p.explicit)) record(state, event, Rejected(NotExplicit))",
+          "to": "else if (false) record(state, event, Rejected(NotExplicit))"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.consumed-within-bound-window",
+          "property": "cantos.identity.native-mailbox-proof.property.consumed-within-bound-window",
+          "from": "else if (state.now >= d.proof.expiresAt) record(cleared, event, Rejected(Expired))",
+          "to": "else if (false) record(cleared, event, Rejected(Expired))"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.terminal-sticky",
+          "property": "cantos.identity.native-mailbox-proof.property.terminal-sticky",
+          "from": "else if (current.state == Cancelled) record(state, event, Rejected(AlreadyCancelled))",
+          "to": "else if (false) record(state, event, Rejected(AlreadyCancelled))"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.retired-locator-rejected",
+          "property": "cantos.identity.native-mailbox-proof.property.retired-locator-rejected",
+          "from": "else if (p.loc != d.proof.loc) record(state, event, Rejected(ProofChanged))",
+          "to": "else if (false) record(state, event, Rejected(ProofChanged))"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.plan-has-no-effect",
+          "property": "cantos.identity.native-mailbox-proof.property.plan-has-no-effect",
+          "from": "else record({ ...state, plan: Planned({",
+          "to": "else record({ ...state, durable: { ...d, proof: { ...d.proof, state: Consumed } }, plan: Planned({"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.commit-compares-snapshot",
+          "property": "cantos.identity.native-mailbox-proof.property.commit-compares-snapshot",
+          "from": "if (plan.expected != d.proof) record(cleared, event, Rejected(StaleSnapshot))",
+          "to": "if (false) record(cleared, event, Rejected(StaleSnapshot))"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.single-account-effect",
+          "property": "cantos.identity.native-mailbox-proof.property.single-account-effect",
+          "from": "else if (d.proof.state == Consumed) record(state, event, Rejected(AlreadyConsumed))",
+          "to": "else if (false) record(state, event, Rejected(AlreadyConsumed))"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.no-authority",
+          "property": "cantos.identity.native-mailbox-proof.property.no-authority",
+          "from": "receipts: d.receipts.put(plan.command, plan.request), accounts: d.accounts + 1 } }",
+          "to": "receipts: d.receipts.put(plan.command, plan.request), accounts: d.accounts + 1 }, session: true }"
+        },
+        {
+          "id": "cantos.identity.native-mailbox-proof.control.only-committed-effects",
+          "property": "cantos.identity.native-mailbox-proof.property.only-committed-effects",
+          "from": "else if (fate == UnknownLost) record(cleared, event, UnknownEffect)",
+          "to": "else if (fate == UnknownLost) record(applied, event, UnknownEffect)"
+        }
+      ],
+      "aliases": [],
+      "observationSchema": "cantos-native-mailbox-proof-observation-v1",
+      "implementationConformance": "pure-core-observer"
+    },
+    {
+      "id": "cantos.identity.native-session-admission",
+      "lifecycle": "draft",
+      "owner": "services/cantos-server/src/platform/identity_auth/decision.rs",
+      "sourceRefs": [
+        "docs/decisions/0045-v1-email-password-sign-in.md#decision",
+        "services/cantos-server/contracts/auth/identity-auth/v1/README.md#freshness-and-revocation-quantified",
+        "services/cantos-identity/contracts/identity/v1/README.md#authentication-fact",
+        "services/cantos-identity/docs/security-store-v1.md#startup-and-mutations",
+        "services/cantos-server/src/platform/identity_auth/mod.rs",
+        "services/cantos-server/src/platform/identity_auth/turso.rs",
+        "services/cantos-server/tests/identity_password_facts_turso.rs"
+      ],
+      "model": "specs/behavior/identity/native_session_admission.qnt",
+      "module": "native_session_admission",
+      "scenarios": "specs/behavior/identity/native_session_admission_tests.qnt",
+      "scenarioModule": "native_session_admission_tests",
+      "inventory": "specs/behavior/inventory.md",
+      "properties": [
+        {
+          "id": "cantos.identity.native-session-admission.property.issue-needs-fresh-bound-fact",
+          "declaration": "issueNeedsFreshBoundFact"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.property.admit-only-exact-active",
+          "declaration": "admitOnlyExactActive"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.property.mismatch-requests-revoke",
+          "declaration": "mismatchRequestsRevoke"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.property.request-is-not-commit",
+          "declaration": "requestIsNotCommit"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.property.revocation-sticky",
+          "declaration": "revocationSticky"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.property.outage-never-revokes",
+          "declaration": "outageNeverRevokes"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.property.session-changes-only-by-transition",
+          "declaration": "sessionChangesOnlyByTransition"
+        }
+      ],
+      "runs": [
+        {
+          "id": "cantos.identity.native-session-admission.run.issue",
+          "declaration": "issueTest"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.run.fact-binding",
+          "declaration": "factBindingTest"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.run.version-advanced",
+          "declaration": "versionAdvancedTest"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.run.version-regressed",
+          "declaration": "versionRegressedTest"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.run.security-changes",
+          "declaration": "securityChangesTest"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.run.outage",
+          "declaration": "outageTest"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.run.failed-revoke-write",
+          "declaration": "failedRevokeWriteTest"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.run.studio-roster",
+          "declaration": "studioRosterTest"
+        }
+      ],
+      "witnesses": [
+        {
+          "id": "cantos.identity.native-session-admission.witness.issued",
+          "declaration": "issued"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.witness.admitted",
+          "declaration": "admitted"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.witness.stale-fact-refused",
+          "declaration": "staleFactRefused"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.witness.epoch-change-requested",
+          "declaration": "epochChangeRequested"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.witness.regression-requested",
+          "declaration": "regressionRequested"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.witness.request-without-commit",
+          "declaration": "requestWithoutCommit"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.witness.sticky-after-restore",
+          "declaration": "stickyAfterRestore"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.witness.outage-denied",
+          "declaration": "outageDenied"
+        }
+      ],
+      "simulation": {
+        "backend": "typescript",
+        "seed": "335",
+        "samples": 500,
+        "steps": 30,
+        "scenarioSamples": 1,
+        "witnessSamples": 3000,
+        "timeoutSeconds": 60
+      },
+      "controls": [
+        {
+          "id": "cantos.identity.native-session-admission.control.issue-needs-fresh-bound-fact",
+          "property": "cantos.identity.native-session-admission.property.issue-needs-fresh-bound-fact",
+          "from": "else if (fact.age != Fresh) record(state, event, Rejected(FactNotFresh))",
+          "to": "else if (false) record(state, event, Rejected(FactNotFresh))"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.control.admit-only-exact-active",
+          "property": "cantos.identity.native-session-admission.property.admit-only-exact-active",
+          "from": "else if (id.version < observed.version) request(VersionRegressed)",
+          "to": "else if (false) request(VersionRegressed)"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.control.mismatch-requests-revoke",
+          "property": "cantos.identity.native-session-admission.property.mismatch-requests-revoke",
+          "from": "else if (not(id.active)) request(Disabled)",
+          "to": "else if (not(id.active)) record(state, Admit, Rejected(Inactive))"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.control.request-is-not-commit",
+          "property": "cantos.identity.native-session-admission.property.request-is-not-commit",
+          "from": "record({ ...state, pending: Requested(reason) }, Admit, Rejected(SecurityChanged))",
+          "to": "record({ ...state, pending: Requested(reason), session: { ...state.session, revoked: true } }, Admit, Rejected(SecurityChanged))"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.control.revocation-sticky",
+          "property": "cantos.identity.native-session-admission.property.revocation-sticky",
+          "from": "else if (state.session.revoked) record(state, Admit, Rejected(SessionRevoked))",
+          "to": "else if (false) record(state, Admit, Rejected(SessionRevoked))"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.control.outage-never-revokes",
+          "property": "cantos.identity.native-session-admission.property.outage-never-revokes",
+          "from": "else if (state.identity.read != Answer) record(state, Admit, Rejected(IdentityUnavailable))",
+          "to": "else if (state.identity.read != Answer) request(SubjectMissing)"
+        },
+        {
+          "id": "cantos.identity.native-session-admission.control.session-changes-only-by-transition",
+          "property": "cantos.identity.native-session-admission.property.session-changes-only-by-transition",
+          "from": "else record({ ...state, pending: NoPending }, CommitRevoke(written), Rejected(RevokeWriteFailed))",
+          "to": "else record({ ...state, pending: NoPending, session: { ...state.session, revoked: true } }, CommitRevoke(written), Rejected(RevokeWriteFailed))"
+        }
+      ],
+      "aliases": [],
+      "observationSchema": "cantos-native-session-admission-observation-v1",
+      "implementationConformance": "pure-core-observer"
     }
   ]
 }

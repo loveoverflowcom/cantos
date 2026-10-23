@@ -25,14 +25,13 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.key.Key
 import com.cantos.theatre.adapters.http.ApiOrigin
-import com.cantos.theatre.adapters.http.NativeRegistrationHttp
+import com.cantos.theatre.adapters.http.NativeIdentityV1Client
 import com.cantos.theatre.adapters.preview.PreviewLoginMode
 import com.cantos.theatre.adapters.preview.previewLibraryStore
 import com.cantos.theatre.application.identity.NativeAccountState
 import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.domain.identity.RegistrationPhase
 import com.cantos.theatre.domain.identity.RegistrationFailure
-import com.cantos.theatre.ports.RegistrationBrowser
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTheme
@@ -49,8 +48,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** Real production UI/controller/generated HTTP adapter and desktop transport against a
- * loopback protocol fixture. Firebase, Kanidm and SQL are not present: mocked integration only.
+/** Real production UI/controller/Identity v1 HTTP client and desktop transport against a loopback
+ * protocol fixture (the explicit debug loopback origin). No mailbox, account store or SQL is
+ * present: mocked integration only, never proof of real signup or mail delivery.
  */
 @OptIn(ExperimentalTestApi::class)
 class RegistrationPreviewUiTest {
@@ -60,24 +60,19 @@ class RegistrationPreviewUiTest {
         private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val paths = CopyOnWriteArrayList<String>()
         val bodies = CopyOnWriteArrayList<String>()
-        var proofUnavailable = false
+        /** 202 by default; a scenario can answer the documented 429 or 503 instead. */
+        @Volatile var status = 202
         init {
             server.executor = executor
-            server.createContext("/api/v1/theatre/native/auth/registration") { exchange ->
+            server.createContext("/api/v1/theatre/native/identity") { exchange ->
                 paths += exchange.requestURI.path
-                val body = exchange.requestBody.use { it.readBytes().toString(Charsets.UTF_8) }
-                bodies += body
+                bodies += exchange.requestBody.use { it.readBytes().toString(Charsets.UTF_8) }
                 // The real native transport must not manufacture browser or session authority.
-                check(listOf("Origin", "Cookie", "Authorization").none { exchange.requestHeaders.containsKey(it) })
-                val path = exchange.requestURI.path
-                val (status, response) = when {
-                    path.endsWith("/configuration") -> 200 to """{"status":"firebase_email_verification","action_origin":"https://cantos.example"}"""
-                    path.endsWith("/confirm") -> 200 to if (proofUnavailable) """{"status":"unavailable"}""" else
-                        """{"status":"setup_ready","login":"listener_fixture","setup_url":"https://idm.example/ui/reset?token=fixture-only"}"""
-                    else -> 202 to """{"status":"accepted"}"""
-                }
+                check(listOf("Origin", "Cookie", "Authorization", "Sec-Fetch-Site").none { exchange.requestHeaders.containsKey(it) })
+                val response = if (status == 202) """{"accepted":true,"proof_ttl_seconds":900}""" else """{"error":"unavailable"}"""
                 exchange.responseHeaders.set("Content-Type", "application/json")
                 exchange.responseHeaders.set("Cache-Control", "no-store")
+                if (status == 429) exchange.responseHeaders.set("Retry-After", "30")
                 val bytes = response.toByteArray(Charsets.UTF_8)
                 exchange.sendResponseHeaders(status, bytes.size.toLong())
                 exchange.responseBody.use { it.write(bytes) }
@@ -88,35 +83,30 @@ class RegistrationPreviewUiTest {
         val origin: ApiOrigin get() = ApiOrigin.parse("http://127.0.0.1:${server.address.port}")
         override fun close() { server.stop(0); executor.shutdownNow() }
     }
-    private val action = "https://cantos.example/?mode=verifyEmail&oobCode=fixture-only&continueUrl=https%3A%2F%2Fcantos.example%2F%3FfirebaseEnrollment%3D00000000-0000-4000-8000-000000000001"
 
-    @Test fun production_register_performs_real_http_and_one_shot_setup_without_fabricating_sign_in() {
+    @Test fun production_register_sends_the_email_once_over_real_http_and_waits_for_web_without_fabricating_sign_in() {
         ApiFixture().use { api ->
             runDesktopComposeUiTest(width = 390, height = 844) {
                 lateinit var owners: PreviewOwners
                 lateinit var registration: RegistrationController
-                var opens = 0
-                mount(api, 390, 844, ShellTheme.Light, ShellLocale.Vietnamese, 1f, { opens += 1 }) { owner, controller -> owners = owner; registration = controller }
+                mount(api, 390, 844, ShellTheme.Light, ShellLocale.Vietnamese, 1f) { owner, controller -> owners = owner; registration = controller }
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
                 onNodeWithTag("register-email").performScrollTo().performTextInput("Linh@example.test")
                 click("register-submit")
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Waiting }
-                onNodeWithTag("register-link").performScrollTo().performTextInput(action)
-                click("register-import")
-                assertEquals(0, api.paths.count { it.endsWith("/confirm") })
-                click("register-confirm")
-                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase is RegistrationPhase.SetupReady }
+                onNodeWithTag("register-status").assertTextContains("Web", substring = true)
+                // Web owns proof and password: this form offers no link import, confirmation or setup.
+                for (tag in listOf("register-link", "register-import", "register-confirm", "register-setup", "register-submit")) {
+                    onNodeWithTag(tag).assertDoesNotExist()
+                }
                 assertEquals(NativeAccountState.SignedOut, owners.account.state.value)
-                assertEquals(0, owners.identity.begins)
-                capture("setup-ready-light-390x844", 390, 844, ShellTheme.Light, ShellLocale.Vietnamese, 1f)
-                click("register-setup")
-                assertEquals(1, opens)
-                onNodeWithTag("register-setup").assertDoesNotExist()
+                assertEquals(0, owners.identity.loginRequests)
+                capture("waiting-light-390x844", 390, 844, ShellTheme.Light, ShellLocale.Vietnamese, 1f)
                 click("register-login")
                 onNodeWithTag("login-primary").assertExists()
                 assertEquals(NativeAccountState.SignedOut, owners.account.state.value)
-                assertEquals(1, api.paths.count { it.endsWith("/confirm") })
-                assertTrue(api.bodies.any { it == """{"email":"Linh@example.test"}""" })
+                assertEquals(listOf("/api/v1/theatre/native/identity/signup"), api.paths.toList())
+                assertEquals(listOf("""{"email":"Linh@example.test"}"""), api.bodies.toList())
             }
         }
     }
@@ -143,7 +133,7 @@ class RegistrationPreviewUiTest {
                 onNodeWithTag("register-email").performScrollTo().performTextInput("invalid")
                 click("register-submit")
                 onNodeWithTag("register-status").assertExists()
-                assertEquals(1, api.paths.size) // Metadata only: invalid input dispatches nothing.
+                assertEquals(0, api.paths.size) // Invalid input dispatches nothing.
                 click("back")
                 onNodeWithTag("login-primary").assertExists()
                 click("login-create")
@@ -153,29 +143,31 @@ class RegistrationPreviewUiTest {
         }
     }
 
-    @Test fun cancelled_and_expired_or_replayed_proof_never_offer_setup_or_sign_in() {
+    @Test fun a_rate_limited_signup_says_so_dispatches_once_and_only_an_explicit_retry_edits_again() {
         ApiFixture().use { api ->
-            api.proofUnavailable = true
+            api.status = 429
             runDesktopComposeUiTest(width = 390, height = 844) {
                 lateinit var registration: RegistrationController
                 lateinit var owner: PreviewOwners
-                mount(api, 390, 844, ShellTheme.Dark, ShellLocale.Vietnamese, 1f) { h, c -> owner = h; registration = c }
+                mount(api, 390, 844, ShellTheme.Dark, ShellLocale.English, 1f) { h, c -> owner = h; registration = c }
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
                 onNodeWithTag("register-email").performScrollTo().performTextInput("a@example.test")
                 click("register-submit")
-                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Waiting }
-                onNodeWithTag("register-link").performScrollTo().performTextInput(action)
-                click("register-import"); click("register-confirm")
-                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase is RegistrationPhase.Failed }
-                onNodeWithTag("register-status").assertTextContains("Mã đã hết hạn", substring = true)
-                onNodeWithTag("register-confirm").assertDoesNotExist()
-                onNodeWithTag("register-setup").assertDoesNotExist()
+                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Failed(RegistrationFailure.RateLimited) }
+                onNodeWithTag("register-status").assertTextContains("Too many requests", substring = true)
+                onNodeWithTag("register-submit").assertDoesNotExist()
+                assertEquals(1, api.paths.size, "a refusal is never replayed automatically")
+                api.status = 202
+                click("register-retry")
+                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
+                onNodeWithTag("register-email").performScrollTo().assertTextContains("a@example.test")
+                assertEquals(1, api.paths.size, "retry returns to editing; it does not resend")
                 assertEquals(NativeAccountState.SignedOut, owner.account.state.value)
             }
         }
     }
 
-    @Test fun real_connection_refusal_shows_unknown_submit_then_retryable_capability_failure_without_mock_fallback() {
+    @Test fun real_connection_refusal_shows_an_unknown_outcome_with_no_mock_fallback_and_no_automatic_resend() {
         ApiFixture().use { api ->
             runDesktopComposeUiTest(width = 390, height = 844) {
                 lateinit var registration: RegistrationController
@@ -189,17 +181,17 @@ class RegistrationPreviewUiTest {
                 onNodeWithTag("register-status").assertTextContains("submission outcome is unknown", substring = true)
                 onNodeWithTag("register-submit").assertDoesNotExist()
                 click("register-retry")
-                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Failed(RegistrationFailure.Unavailable) }
-                onNodeWithTag("register-status").assertTextContains("could not be reached", substring = true)
-                onNodeWithTag("register-retry").assertIsEnabled()
+                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
+                onNodeWithTag("register-submit").assertIsEnabled()
                 assertEquals(NativeAccountState.SignedOut, owner.account.state.value)
                 capture("api-down-light-en-390x844", 390, 844, ShellTheme.Light, ShellLocale.English, 1f)
             }
         }
     }
 
-    @Test fun explicit_cancel_posts_the_imported_action_once_and_returns_to_login_as_a_guest() {
+    @Test fun a_503_leaves_the_mail_effect_unknown_and_explicit_cancel_after_waiting_returns_to_login_as_a_guest() {
         ApiFixture().use { api ->
+            api.status = 503
             runDesktopComposeUiTest(width = 390, height = 844) {
                 lateinit var registration: RegistrationController
                 lateinit var owner: PreviewOwners
@@ -207,15 +199,18 @@ class RegistrationPreviewUiTest {
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
                 onNodeWithTag("register-email").performScrollTo().performTextInput("a@example.test")
                 click("register-submit")
+                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Failed(RegistrationFailure.StartUnknownOutcome) }
+                api.status = 202
+                click("register-retry")
+                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
+                click("register-submit")
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Waiting }
-                onNodeWithTag("register-link").performScrollTo().performTextInput(action)
-                click("register-import"); click("register-cancel")
-                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Cancelled }
-                assertEquals(1, api.paths.count { it.endsWith("/cancel") })
-                assertEquals(0, api.paths.count { it.endsWith("/confirm") })
+                click("register-cancel")
+                assertEquals(RegistrationPhase.Cancelled, registration.state.value.phase)
+                assertEquals(2, api.paths.size, "cancel sends nothing and recalls no mail")
                 click("register-login")
                 assertEquals(NativeAccountState.SignedOut, owner.account.state.value)
-                assertEquals(0, owner.identity.begins)
+                assertEquals(0, owner.identity.loginRequests)
             }
         }
     }
@@ -228,14 +223,12 @@ class RegistrationPreviewUiTest {
     }
 
     private fun ComposeUiTest.mount(api: ApiFixture, width: Int, height: Int, theme: ShellTheme, locale: ShellLocale, scale: Float,
-                                   onOpen: () -> Unit = {}, owners: (PreviewOwners, RegistrationController) -> Unit) {
+                                   owners: (PreviewOwners, RegistrationController) -> Unit) {
         setContent {
             rendererDensity = LocalDensity.current.density
             val scope = rememberCoroutineScope()
             val registration = remember {
-                RegistrationController(scope, NativeRegistrationHttp(api.origin, "https://idm.example", PreviewNativeHttp(scope, api.origin)), object : RegistrationBrowser {
-                    override fun openSetup(url: String, completion: (Boolean) -> Unit) { onOpen(); completion(true) }
-                })
+                RegistrationController(scope, NativeIdentityV1Client(api.origin, PreviewNativeHttp(scope, api.origin)) { System.currentTimeMillis() / 1000 })
             }
             val seed = remember { PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Login), theme = theme, locale = locale)) }
             val owner = remember { PreviewOwners(scope, seed, previewLibraryStore(), registration = registration).also { it.identity.mode = PreviewLoginMode.Hold; it.shell.openRegister(); owners(it, registration) } }
@@ -251,6 +244,6 @@ class RegistrationPreviewUiTest {
         File(output, "$name.png").writeBytes(bytes)
         val hash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xff) }
         assertTrue(rendererDensity.isFinite() && rendererDensity > 0f)
-        File(output, "$name.json").writeText("""{"renderer":"JVM Desktop Compose UI test","widthDp":$width,"heightDp":$height,"density":$rendererDensity,"textScale":$scale,"theme":"$theme","locale":"$locale","motion":"Reduced","screenReader":"not exercised","fixture":"loopback protocol fixture; mocked Firebase/Kanidm, no SQL","png_sha256":"$hash"}""" + "\n")
+        File(output, "$name.json").writeText("""{"renderer":"JVM Desktop Compose UI test","widthDp":$width,"heightDp":$height,"density":$rendererDensity,"textScale":$scale,"theme":"$theme","locale":"$locale","motion":"Reduced","screenReader":"not exercised","fixture":"loopback Identity v1 protocol fixture; no mailbox, no account store, no SQL","png_sha256":"$hash"}""" + "\n")
     }
 }

@@ -9,7 +9,7 @@
 
 ## Repository reality
 
-**These conventions are proposed. None is enforced by a tool.** Today `cantos-api` has no
+**These conventions are proposed. None is enforced by a tool.** Today `cantos-server` has no
 `tracing`, `tracing-subscriber`, request ID, metric or trace pipeline. `cantos-server` writes a
 few plain stderr lines; the CLIs (`validate-script`, `inspect-wav`, `diff-script`) write data
 to stdout and errors to stderr; xtask prints `==> <step>` headers and a summary table; runners
@@ -88,7 +88,7 @@ when one exists; they do not invent a parallel vocabulary. Their reducers never 
 | Field | Contract |
 |---|---|
 | Level / scope | MUST for any filter or level change |
-| Rule / rationale | The default level is `INFO`. Raise detail per module and per process for an investigation, for example `RUST_LOG=warn,cantos_api::contexts::media=debug` once `tracing` with an environment filter exists, with JSON output for machine reading. Never commit a raised default or require debug output for correctness. |
+| Rule / rationale | The default level is `INFO`. Raise detail per module and per process for an investigation, for example `RUST_LOG=warn,cantos_server::contexts::media=debug` once `tracing` with an environment filter exists, with JSON output for machine reading. Never commit a raised default or require debug output for correctness. |
 | Good / counterexample | a one-command environment variable during a diagnosis vs. `debug` persisted in `.cargo/config.toml`, a service manifest or CI |
 | Oracle / enforcement | review of configuration diffs; manual |
 | Exception | none |
@@ -106,10 +106,9 @@ when one exists; they do not invent a parallel vocabulary. Their reducers never 
 ## Telemetry infrastructure — proposed, not implemented
 
 A collector with log, trace and metric stores (for example OpenTelemetry Collector, Loki, Tempo,
-Prometheus) would run as Podman services under [ADR 0021](../../../../docs/decisions/0021-podman-service-runtime.md):
-its own ADR, a [service inventory](../../../../services/README.md) entry, explicit
-`cargo xtask services up`, per-worktree isolation through `--instance` and no automatic start
-from build or test. Agents could then query LogQL/PromQL against their own instance. None of
+Prometheus) needs its own reviewed ADR, a [service inventory](../../../../services/README.md) consumer and
+explicit lifecycle design. Legacy `services up` is retired; do not add infrastructure to native
+build/test/acceptance or infer an implemented telemetry runner. Agents could then query LogQL/PromQL against their own instance. None of
 this exists; no report may claim `production-observed` from local logs.
 
 ## Review questions

@@ -1,10 +1,8 @@
 package com.cantos.theatre.features.auth.presentation
 
-/** Semantic candidates from the canonical registry; only the explicit sandbox opts in.
- * Existing product rendering remains unchanged until both-renderer admission is complete.
- */
+/** Admitted semantic action mapping. Labels and navigation remain owned by the caller. */
 internal fun authActionIcon(intent: AuthIntent): String? = when (intent) {
-    AuthIntent.BeginLogin, AuthIntent.OpenLogin -> "login"
+    is AuthIntent.Login, AuthIntent.OpenLogin -> "login"
     AuthIntent.OpenRegister -> "person_add"
     AuthIntent.CancelLogin -> "close"
     AuthIntent.RestoreSession, AuthIntent.RetryCleanup -> "refresh"

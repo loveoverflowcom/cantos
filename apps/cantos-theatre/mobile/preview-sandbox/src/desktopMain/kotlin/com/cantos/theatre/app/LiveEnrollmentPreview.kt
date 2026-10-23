@@ -1,7 +1,5 @@
 package com.cantos.theatre.app
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -9,21 +7,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.http.JvmCatalogTransport
-import com.cantos.theatre.adapters.http.NativeIdentityClient
-import com.cantos.theatre.adapters.http.NativeRegistrationHttp
+import com.cantos.theatre.adapters.http.NativeAuthorizedHttpPort
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
 import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
-import com.cantos.theatre.adapters.identity.DesktopIdentityCrypto
-import com.cantos.theatre.app.workbench.LiveEnrollmentTools
+import com.cantos.theatre.adapters.library.AccountCatalogCache
+import com.cantos.theatre.adapters.library.NativeLibraryClient
+import com.cantos.theatre.adapters.library.nativeLibraryController
+import com.cantos.theatre.adapters.preview.previewLibraryStore
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.UiPreferences
 import com.cantos.theatre.application.catalog.PublicCatalogController
+import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.preferences.PreferencesController
-import com.cantos.theatre.domain.identity.NativeCallback
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.playback.PlaybackFailure
@@ -31,23 +29,22 @@ import com.cantos.theatre.domain.playback.PlaybackObservation
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.CredentialRead
 import com.cantos.theatre.ports.CredentialStore
+import com.cantos.theatre.ports.LibraryLocalPort
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
+import com.cantos.theatre.ports.NativeHttpWire
 import com.cantos.theatre.ports.NativeRequestHandle
 import com.cantos.theatre.ports.PlaybackLocation
-import com.cantos.theatre.ports.RegistrationBrowser
 import com.cantos.theatre.ports.StreamingMediaEngine
-import com.cantos.theatre.ports.SystemBrowser
-import java.awt.Desktop
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.CookieHandler
 import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URLDecoder
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
@@ -59,7 +56,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 /** Desktop adapter only. Exact configured origin, bounded bytes, no ambient cookies/redirects. */
-class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: ApiOrigin) : NativeHttpPort {
+class PreviewNativeHttp(
+    private val scope: CoroutineScope,
+    private val origin: ApiOrigin,
+    /** The one connection factory; tests substitute a connection that misbehaves the way the JDK's can. */
+    private val open: (URI) -> HttpURLConnection = { it.toURL().openConnection() as HttpURLConnection },
+) : NativeHttpPort {
     override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
         val active = AtomicReference<HttpURLConnection?>()
         val job = scope.launch(Dispatchers.IO) {
@@ -67,9 +69,9 @@ class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: A
                 val uri = URI(request.url)
                 val base = URI(origin.toString())
                 if (uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority || uri.rawUserInfo != null ||
-                    uri.rawFragment != null || CookieHandler.getDefault() != null) NativeHttpResponse(0, null, null, "configuration")
+                    uri.rawFragment != null || CookieHandler.getDefault() != null) NativeHttpResponse(0, null, null, NativeHttpFailure.Configuration)
                 else {
-                    val connection = uri.toURL().openConnection() as HttpURLConnection
+                    val connection = open(uri)
                     active.set(connection)
                     coroutineContext.ensureActive()
                     connection.instanceFollowRedirects = false
@@ -79,7 +81,7 @@ class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: A
                     connection.requestMethod = request.method
                     connection.setRequestProperty("Accept", "application/json")
                     request.bearer?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
-                    request.expectedSession?.let { connection.setRequestProperty("X-Cantos-Theatre-Session", it) }
+                    request.expectedSession?.let { connection.setRequestProperty(NativeHttpWire.SessionHeader, it) }
                     request.body?.let { body ->
                         val bytes = body.toByteArray(Charsets.UTF_8)
                         connection.doOutput = true
@@ -102,73 +104,73 @@ class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: A
                         output.toByteArray()
                     } ?: byteArrayOf()
                     NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null,
-                        connection.getHeaderField("X-Cantos-Theatre-Session"))
+                        connection.getHeaderField(NativeHttpWire.SessionHeader), connection.getHeaderField("Retry-After"))
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-              catch (_: IOException) { NativeHttpResponse(0, null, null, "transport") }
-              catch (_: SecurityException) { NativeHttpResponse(0, null, null, "denied") }
-              catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, "protocol") }
+              catch (_: IOException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Transport) }
+              catch (_: SecurityException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Denied) }
+              catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Protocol) }
+              catch (_: java.net.URISyntaxException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Protocol) }
+              // `disconnect()` from `cancel()` can race a blocked read; the JDK then fails with an unchecked exception
+              // of its own (for example `NullPointerException: this.http is null`). Cancelled work delivers nothing;
+              // anything else is a transport failure. It must never escape into the shared composition scope.
+              catch (_: RuntimeException) { coroutineContext.ensureActive(); NativeHttpResponse(0, null, null, NativeHttpFailure.Transport) }
               finally { active.getAndSet(null)?.disconnect() }
             completion(response)
         }
-        return object : NativeRequestHandle { override fun cancel() { active.getAndSet(null)?.disconnect(); job.cancel() } }
+        // Cancel the job first: a read that fails because of the disconnect must already see its own cancellation.
+        return object : NativeRequestHandle { override fun cancel() { job.cancel(); active.getAndSet(null)?.disconnect() } }
     }
 }
 
-private fun openPreviewBrowser(url: String): Boolean = try {
-    if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) false
-    else { Desktop.getDesktop().browse(URI(url)); true }
-} catch (_: IOException) { false }
-  catch (_: SecurityException) { false }
-  catch (_: IllegalArgumentException) { false }
-  catch (_: UnsupportedOperationException) { false }
-
-/** Real account/HTTP controllers with explicitly transient desktop credential storage. No success stub. */
-class LiveEnrollmentOwners(scope: CoroutineScope, private val config: NativeClientConfiguration) {
-    private val origin = ApiOrigin.parse(config.apiOrigin)
-    private val http = PreviewNativeHttp(scope, origin)
+/**
+ * Real v1 transport by default; injectable HTTP/clock are external test ports, never a fallback.
+ * Library composition is the one the Android and iOS hosts build: account-leased
+ * [NativeAuthorizedHttpPort] → [NativeLibraryClient] → [nativeLibraryController] over the production
+ * SQLDelight store. [store] is in-memory by default, so it is neither disk persistence nor
+ * process-death evidence; it is closed with the runtime.
+ */
+class LiveEnrollmentOwners(
+    scope: CoroutineScope,
+    private val origin: ApiOrigin,
+    http: NativeHttpPort = PreviewNativeHttp(scope, origin),
+    store: LibraryLocalPort = previewLibraryStore(),
+    now: () -> Long = { System.currentTimeMillis() / 1000 },
+) {
     private var credential: String? = null
     private var logoutPending = false
-    private val now = { System.currentTimeMillis() / 1000 }
-    val account = NativeAccountController(scope, config, NativeIdentityClient(config, http, now),
-        DesktopIdentityCrypto(), object : SystemBrowser {
-            override fun open(url: String): Boolean = openPreviewBrowser(url)
-            override fun cancel() = Unit
-        }, SecureNativeCredentialJournal(object : CredentialStore {
+    private var accountScope: String? = null
+    private val api = com.cantos.theatre.adapters.http.NativeIdentityV1Client(origin, http, now)
+    val account = NativeAccountController(scope, api,
+        SecureNativeCredentialJournal(object : CredentialStore {
             override fun read(): CredentialRead = credential?.let(CredentialRead::Found) ?: CredentialRead.Missing
             override fun write(value: String): CredentialFailure? { credential = value; return null }
             override fun clear(): CredentialFailure? { credential = null; return null }
-        }, config.apiOrigin, config.identity.issuer), object : LogoutBarrier {
+        }, origin), object : LogoutBarrier {
             override fun read() = if (logoutPending) LogoutBarrierRead.Pending else LogoutBarrierRead.Clear
             override fun mark(): CredentialFailure? { logoutPending = true; return null }
             override fun clear(): CredentialFailure? { logoutPending = false; return null }
         }, now)
-    val registration = RegistrationController(scope, NativeRegistrationHttp(origin,
-        config.identity.issuer.substringBefore("/oauth2/openid/"), http), object : RegistrationBrowser {
-        override fun openSetup(url: String, completion: (Boolean) -> Unit) = completion(openPreviewBrowser(url))
-    })
-    private val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport()))
-    private val runtime = NativeSessionRuntime(scope, { UnavailableDesktopAudio() }, PlaybackAccessHttp(origin, http) { System.currentTimeMillis() },
-        account, null, { UUID.randomUUID().toString() }, { System.currentTimeMillis() })
+    val registration = RegistrationController(scope, api)
+    /** Account-scoped catalog cache over the same Library database, as the native hosts build it. */
+    val cache = AccountCatalogCache(store) { accountScope }
+    private val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport(), cache), { cache.invalidate() })
+        .also { it.dispatch(PublicCatalogIntent.Start) }
+    private val authorizedHttp = NativeAuthorizedHttpPort(scope, origin, account, http)
+    val library = nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), store,
+        { UUID.randomUUID().toString() }, onSessionInvalidated = { expected -> account.revalidate(expected) },
+        ownsAuthorization = { owner -> account.belongsToCurrent(owner.bearer, owner.session) &&
+            account.verifiedSession.value?.session?.actor == owner.account },
+        nowMs = { now() * 1000 })
+    private val runtime = NativeSessionRuntime(scope, { UnavailableDesktopAudio() }, PlaybackAccessHttp(origin, http) { now() * 1000 },
+        account, library, { UUID.randomUUID().toString() }, { now() * 1000 }, onAccountChanged = { actor ->
+            if (actor != accountScope) {
+                accountScope = actor
+                catalog.dispatch(PublicCatalogIntent.AccountChanged)
+            }
+        })
     val shell = TheatreShell(scope, catalog, runtime, PreferencesController(), registration = registration)
         .also { it.openRegister() }
-
-    /** Diagnostic manual return only; URI must match the configured closed native callback. */
-    fun callback(raw: String): Boolean {
-        val uri = try { URI(raw) } catch (_: java.net.URISyntaxException) { return false }
-        if (raw.substringBefore('?') != config.identity.redirect || uri.rawFragment != null || raw.length > 16_384) return false
-        val fields = mutableMapOf<String, String>()
-        for (part in (uri.rawQuery ?: return false).split('&')) {
-            val name = part.substringBefore('=')
-            if ('=' !in part || name !in setOf("state", "code", "error", "error_description") || name in fields) return false
-            val value = try { URLDecoder.decode(part.substringAfter('='), Charsets.UTF_8) } catch (_: IllegalArgumentException) { return false }
-            fields[name] = value
-        }
-        val state = fields["state"] ?: return false
-        account.callback(NativeCallback(config.identity.redirect, state, fields["code"] ?: "", fields["error"] != null))
-        return true
-    }
-
     fun close() { shell.close(); registration.close(); runtime.close(); catalog.close(); credential = null }
 }
 
@@ -186,34 +188,20 @@ private class UnavailableDesktopAudio : StreamingMediaEngine {
     override fun close() = Unit
 }
 
+/**
+ * The one admission of `CANTOS_THEATRE_PREVIEW_API_ORIGIN`: the Android debug host's origin owner, so HTTPS or an
+ * explicit loopback `http` origin is admitted and anything else is a typed refusal. A refusal mounts no owner and
+ * dispatches no request; it never falls back to production or the offline recipes.
+ */
+internal fun selectLivePreviewOrigin(raw: String): HostOrigin =
+    hostOrigin(com.cantos.theatre.adapters.http.selectCatalogOrigin(raw, allowLoopbackHttp = true))
+
 @Composable
-fun LiveEnrollmentPreview(config: NativeClientConfiguration) {
+fun LiveEnrollmentPreview(origin: ApiOrigin) {
     val scope = rememberCoroutineScope()
-    val owners = remember(config) { LiveEnrollmentOwners(scope, config) }
+    val owners = remember(origin) { LiveEnrollmentOwners(scope, origin) }
     DisposableEffect(owners) { onDispose { owners.close() } }
     CantosTheme(UiPreferences()) {
-        Column(Modifier.fillMaxSize()) {
-            LiveEnrollmentTools(owners::callback)
-            CantosTheatreApp(owners.shell, Modifier.weight(1f), identityAvailability = com.cantos.theatre.domain.identity.NativeIdentityAvailability.Available(config))
-        }
+        CantosTheatreApp(owners.shell, cache = owners.cache)
     }
-}
-
-/** Public real-API preview does not depend on valid identity configuration. No fallback ports. */
-private class LivePublicCatalogOwners(scope: CoroutineScope, origin: ApiOrigin) {
-    private val http = PreviewNativeHttp(scope, origin)
-    private val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport()))
-        .also { it.dispatch(com.cantos.theatre.application.catalog.PublicCatalogIntent.Start) }
-    private val runtime = NativeSessionRuntime(scope, { UnavailableDesktopAudio() }, PlaybackAccessHttp(origin, http) { System.currentTimeMillis() },
-        null, null, { UUID.randomUUID().toString() }, { System.currentTimeMillis() })
-    val shell = TheatreShell(scope, catalog, runtime, PreferencesController())
-    fun close() { shell.close(); runtime.close(); catalog.close() }
-}
-
-@Composable
-fun LivePublicCatalogPreview(origin: ApiOrigin, identity: com.cantos.theatre.domain.identity.NativeIdentityAvailability?) {
-    val scope = rememberCoroutineScope()
-    val owners = remember(origin) { LivePublicCatalogOwners(scope, origin) }
-    DisposableEffect(owners) { onDispose { owners.close() } }
-    CantosTheatreApp(owners.shell, identityAvailability = identity)
 }

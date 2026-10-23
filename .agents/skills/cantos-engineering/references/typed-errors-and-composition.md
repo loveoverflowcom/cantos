@@ -36,6 +36,10 @@ translation value. Keep an existing adequate outcome instead of adding a paralle
   `map` transforms success; `map_err`/`mapLeft` translates failure at its owning boundary;
   `fold` projects both alternatives. Monadic composition means dependent steps stop on the
   first typed failure; it does not require a monad library or custom generic framework.
+- Readable Rust beats point-free style. Keep exhaustive `match` for state/event/outcome enums;
+  guard clauses and `let … else` are welcome where they flatten a precondition. Reduce needless
+  nesting, but this is no ban on `if let` or early return. Naming a result struct after a monad
+  proves no composition law; the tests of its semantics do.
 - Accumulate **independent** validation findings when the contract requires all blockers.
   A fail-fast `?`/bind chain cannot implement that promise. Do not run dependent stages on
   invalid inputs merely to accumulate more errors. Keep ordering/path attribution deterministic;

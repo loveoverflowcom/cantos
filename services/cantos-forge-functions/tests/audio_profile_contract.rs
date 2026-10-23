@@ -5,7 +5,7 @@ use cantos_forge::domain::audio_profile::{AudioProfile, MAX_BODY_BYTES, MAX_DURA
 fn contract() -> String {
     std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../packages/contracts/studio-audio-intake-v1.md"
+        "/../../services/cantos-server/contracts/studio/audio-intake/v1/README.md"
     ))
     .expect("the intake contract is part of the repository")
 }

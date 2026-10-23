@@ -2,17 +2,18 @@
 //!
 //! Pure domain/application state machine: no DOM, timers, storage or HTTP calls live here.
 //! Receipts are historical operation outcomes; registers only advance monotonically by revision.
+pub(super) mod publication;
 use super::account_view::AccountFailure;
-use crate::core::{
-    playback::{CallbackIdentity, Source, TrackId},
-    public_ids::{canonical_uuid, PublicWorkId},
-    public_track::PinnedRelease,
-};
-use cantos_contracts::listener_library::{
+use crate::contract::library::{
     AudioIdentity, AudioPresentation, ClearConfirmation, Completion, HistoryClear, HistoryStart,
     HistoryState, MutationState, Operation, PlaybackEvent, PresentedContinueItem,
     PresentedHistoryItem, PresentedSavedItem, ProgressKind, ProgressRecord, ProgressWrite, Receipt,
     Resolution, ResumeStatus, SavedRecord, SavedWrite, WorkPresentation, WriteOutcome,
+};
+use crate::core::{
+    playback::{CallbackIdentity, Source, TrackId},
+    public_ids::{canonical_uuid, PublicWorkId},
+    public_track::PinnedRelease,
 };
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -265,7 +266,7 @@ impl PendingMutation {
 }
 
 /// Non-secret account-isolated outbox journal for reload/reauth recovery.
-/// Never stores Bearer tokens, session IDs, cookies or signed media URLs.
+/// Never stores session credentials, session IDs, cookies or signed media URLs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccountSyncJournal {
     pub actor_id: String,
@@ -375,6 +376,10 @@ impl AccountSyncJournal {
 pub enum CommandError {
     SignedOut,
     SessionChanged,
+    /// 403: a refusal (wrong Origin, no permission). Never a lost session.
+    Forbidden,
+    /// 429 with its bounded wait; the shared owner holds every protected request until then.
+    RateLimited(u32),
     StaleDeviceSequence,
     IdempotencyKeyReused,
     RevisionExhausted,
@@ -1755,13 +1760,21 @@ impl LibrarySyncState {
     /// Synchronize an in-memory [`super::library::LibraryProjection`] with the latest confirmed
     /// registers so `Của tôi` stays consistent with detail/player actions without erasing other
     /// sections on Unsave or Clear History.
-    pub fn sync_projection(&self, projection: &mut super::library::LibraryProjection) {
+    pub fn sync_projection(&self, projection: &mut super::library::LibraryProjection) -> bool {
+        // Report actual presentation changes while retaining the existing reconciliation order.
+        // No bulk projection clone, and no assumption that paging left it synchronized.
+        fn replace<T: PartialEq>(target: &mut T, next: T) -> bool {
+            let changed = *target != next;
+            *target = next;
+            changed
+        }
+        let mut changed = false;
         if let Some(state) = &self.history_state {
             let epoch_cleared = projection
                 .history_state
                 .as_ref()
                 .is_some_and(|old| state.epoch > old.epoch);
-            projection.history_state = Some(state.clone());
+            changed |= replace(&mut projection.history_state, Some(state.clone()));
             if epoch_cleared {
                 projection.history.clear();
                 projection.clear_history_cursor();
@@ -1770,21 +1783,23 @@ impl LibrarySyncState {
 
         // Reconcile Saved list: remove unsaved works, update/insert confirmed saved works.
         if projection.phase(super::library::Section::Saved) != super::library::PagePhase::Loading {
+            let before_len = projection.saved.len();
             projection.saved.retain(|item| {
                 self.saved
                     .get(&item.saved.work_id)
                     .and_then(|s| s.record.as_ref())
                     .is_none_or(|record| record.saved)
             });
+            changed |= before_len != projection.saved.len();
             for item in &mut projection.saved {
                 if let Some(state) = self.saved.get(&item.saved.work_id) {
                     if let Some(record) = &state.record {
                         if record.revision >= item.saved.revision {
-                            item.saved = record.clone();
+                            changed |= replace(&mut item.saved, record.clone());
                         }
                     }
                     if item.presentation.is_none() {
-                        item.presentation = state.work_presentation.clone();
+                        changed |= replace(&mut item.presentation, state.work_presentation.clone());
                     }
                 }
             }
@@ -1806,6 +1821,7 @@ impl LibrarySyncState {
                     inserted = true;
                 }
             }
+            changed |= inserted;
             if inserted {
                 projection.saved.sort_by(|a, b| {
                     b.saved
@@ -1825,11 +1841,11 @@ impl LibrarySyncState {
                         .as_ref()
                         .is_none_or(|old| record.revision >= old.revision);
                     if newer {
-                        item.progress = Some(record.clone());
+                        changed |= replace(&mut item.progress, Some(record.clone()));
                     }
                 }
                 if item.presentation.is_none() {
-                    item.presentation = state.presentation.clone();
+                    changed |= replace(&mut item.presentation, state.presentation.clone());
                 }
             }
         }
@@ -1837,25 +1853,27 @@ impl LibrarySyncState {
         // Reconcile Continue list: completed items leave Continue; in-progress items update/insert.
         if projection.phase(super::library::Section::Continue) != super::library::PagePhase::Loading
         {
+            let before_len = projection.continuing.len();
             projection.continuing.retain(|item| {
                 self.progress
                     .get(&item.progress.audio.publication_id)
                     .and_then(|s| s.record.as_ref())
                     .is_none_or(|record| record.completion == Completion::InProgress)
             });
+            changed |= before_len != projection.continuing.len();
             for item in &mut projection.continuing {
                 if let Some(state) = self.progress.get(&item.progress.audio.publication_id) {
                     if let Some(record) = &state.record {
                         if record.revision >= item.progress.revision {
-                            item.progress = record.clone();
+                            changed |= replace(&mut item.progress, record.clone());
                         }
                     }
                     if item.presentation.is_none() {
-                        item.presentation = state.presentation.clone();
+                        changed |= replace(&mut item.presentation, state.presentation.clone());
                     }
                 }
             }
-            let mut changed = false;
+            let mut reordered = false;
             for (pub_id, state) in &self.progress {
                 let Some(record) = &state.record else {
                     continue;
@@ -1876,7 +1894,7 @@ impl LibrarySyncState {
                         if let Some(p) = &state.presentation {
                             existing.presentation = Some(p.clone());
                         }
-                        changed = true;
+                        reordered = true;
                     }
                 } else if state.presentation.is_some() {
                     projection.continuing.push(PresentedContinueItem {
@@ -1884,10 +1902,11 @@ impl LibrarySyncState {
                         resume: ResumeStatus::ExactAvailable,
                         presentation: state.presentation.clone(),
                     });
-                    changed = true;
+                    reordered = true;
                 }
             }
-            if changed {
+            changed |= reordered;
+            if reordered {
                 projection.continuing.sort_by(|a, b| {
                     b.progress
                         .listener_order
@@ -1896,6 +1915,7 @@ impl LibrarySyncState {
                 });
             }
         }
+        changed
     }
 }
 
@@ -2298,7 +2318,7 @@ mod tests {
     fn history_starts_only_once_per_engine_session_and_clear_epoch_blocks_delayed_starts() {
         let audio = sample_audio(1, 2, 3);
         let release = PinnedRelease::admit(
-            &cantos_contracts::theatre::PublicationManifest {
+            &crate::contract::discovery::PublicationManifest {
                 schema_version: "1".into(),
                 publication_id: audio.publication_id.clone(),
                 work_id: audio.work_id.clone(),

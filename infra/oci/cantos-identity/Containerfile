@@ -1,0 +1,37 @@
+# Native OCI image for the `cantos-identity` executable (#348). Built from a `git archive` of one
+# commit, never on the VPS. Its Turso database and private Unix socket directory are host mounts;
+# the image contains neither, and runs as a UID distinct from `cantos-server` so a bind-mounted
+# database directory is writable by exactly one service. Build arguments are required, see the
+# `cantos-server` Containerfile.
+
+FROM docker.io/library/rust:1.98.1-slim-trixie@sha256:fce83543909cd5409924a61ce296bdf5bab0fca37f004c0f6c8ef6f4a37bbc59 AS build
+ENV RUSTUP_TOOLCHAIN=1.98.1 CARGO_TERM_COLOR=never
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,id=cantos-oci-cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cantos-oci-identity-target,target=/src/target \
+    cargo build --locked --release -p cantos-identity --features service --bin cantos-identity \
+ && install -d /out \
+ && install -m 0755 target/release/cantos-identity /out/
+
+FROM docker.io/library/debian:trixie-slim@sha256:918311b7b6c4c6f68b232ba516584925f6c78ad82b6fd534b98979df6438e483
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10002 cantos-identity \
+ && useradd --system --uid 10002 --gid cantos-identity --home-dir /nonexistent --shell /usr/sbin/nologin cantos-identity
+COPY --from=build /out/cantos-identity /usr/local/bin/cantos-identity
+ARG CANTOS_REVISION
+ARG CANTOS_CONFIGURATION
+LABEL org.opencontainers.image.title="cantos-identity" \
+      org.opencontainers.image.source="https://github.com/loveoverflowcom/cantos" \
+      org.opencontainers.image.revision="${CANTOS_REVISION}" \
+      io.cantos.release.configuration="${CANTOS_CONFIGURATION}" \
+      io.cantos.binary="cantos-identity"
+# Local-development link parsing/emulator selection is not enabled by the service-only build.
+# Firebase verification is compiled but requires explicit validated runtime configuration.
+# No provider credential is a build argument or image layer; builds send no email.
+ENV RUST_BACKTRACE=0 CANTOS_IDENTITY_MAIL_PROVIDER=disabled
+USER 10002:10002
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/cantos-identity"]

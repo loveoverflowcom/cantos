@@ -18,6 +18,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToString
@@ -65,11 +66,12 @@ class AuthCaptureTest {
         capture("login-pending-light-390x844", 390, 844, login()) { it.click("login-primary") }
         capture("login-failed-light-390x844", 390, 844, login()) { d ->
             d.click("login-primary")
-            d.h.identity.returnFromBrowser(approve = false)
+            d.h.identity.completeLogin(approve = false)
         }
         capture("login-cleanup-dark-390x844", 390, 844, login(ShellTheme.Dark)) { d ->
             d.click("login-primary")
-            d.h.identity.returnFromBrowser(approve = true)
+            d.h.identity.completeLogin(approve = true)
+            d.test.waitForIdle()
             d.h.identity.clearFails = true
             d.h.shell.logout()
             d.h.shell.openLogin()
@@ -102,6 +104,10 @@ class AuthCaptureTest {
     /** The preview owners plus the Compose test that drives them, so a step can click and settle. */
     private class Drive(val test: ComposeUiTest, val h: PreviewOwners) {
         fun click(tag: String) {
+            if (tag == "login-primary") {
+                test.onNodeWithTag("login-email").performScrollTo().performTextInput("listener@example.test")
+                test.onNodeWithTag("login-password").performScrollTo().performTextInput("preview-only")
+            }
             test.onNodeWithTag(tag).performScrollTo().performClick()
             test.waitForIdle()
         }
@@ -109,7 +115,7 @@ class AuthCaptureTest {
         fun completeLogin() {
             click("sign-in")
             click("login-primary")
-            h.identity.returnFromBrowser(approve = true)
+            h.identity.completeLogin(approve = true)
             test.waitForIdle()
         }
     }
@@ -129,7 +135,7 @@ class AuthCaptureTest {
             setContent {
                 rendererDensity = LocalDensity.current.density
                 Box(Modifier.requiredSize(width.dp, height.dp).testTag("capture-root")) {
-                    // The provider is held so each step decides when the browser returns.
+                    // The login response is held until the capture step completes it.
                     PreviewTestRoot(state, textScale = textScale, onOwners = { it.identity.mode = PreviewLoginMode.Hold; owners = it })
                 }
             }

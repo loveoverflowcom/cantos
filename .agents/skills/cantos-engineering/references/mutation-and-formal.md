@@ -79,6 +79,41 @@ does not make an unsupported SDK, database or native callback verifiable. Keep t
 the kernel and name their assumptions at the boundary under
 [ERR-04](typed-errors-and-composition.md#err-04--exceptions-and-panics-stay-at-the-outer-edge).
 
+### Selecting a control kernel
+
+Kani fits the small **control** decision, not the bulk data around it
+([control state versus bulk data](immutability.md#control-state-versus-bulk-data)). Good shapes
+take phases, generations/request identities, security versions, deadlines, admissibility and
+replay/receipt/outbox control facts as bounded inputs and return a closed outcome. A Library
+projection, catalog, editor document or journal payload is not symbolic state by default.
+
+When a proof abstracts production data (an opaque ID as a small symbolic index, a payload as
+its digest), record the mapping to the production type, what the abstraction omits and why the
+proposition survives it. A proof over a hand-written re-model is evidence about the model, not
+about the implementation; call the production symbol or label the result as model evidence.
+
+For a change to a critical authentication, session or sync kernel, name the proof obligation
+before choosing evidence. Typical propositions:
+
+| Obligation | Example production owner at `d02b2dc8` |
+|---|---|
+| a stale, future/unissued or mismatched request/session identity is never applied | Theatre `AccountState`/`RequestFence`, `live/request.rs` probe generations |
+| generation and security-version arithmetic never wraps; exhaustion fails closed per contract | `cantos-identity` `SecurityVersion` (registered `identity-security-version`) |
+| an old login completion cannot revive an invalidated account or session | Theatre `AccountViewState::finish_session`; Server identity-auth admission |
+| a mailbox proof is never consumed with the wrong binding, after expiry or without explicit confirmation | `cantos-identity` mailbox proof (registered `identity-mailbox-proof`) |
+| replay/idempotency distinguishes an identical request from a conflicting one | Server bearer `rotate` (`used` ⇒ revoke family), receipt matching |
+| logout/account switch leaves no prior private projection admissible; late callbacks cannot write into the next account | Theatre `begin_logout`/`clear_private` and fenced completions |
+| outbox ownership, operation identity and receipt matching are preserved | Theatre `LibrarySyncState` pending mutations |
+
+Listing a row is not selecting a harness: only the registered kernels above are in the xtask
+registry, and none of the Theatre rows has an executed proof. A proof that the kernel *requests*
+a purge does not show that the shell removed the `LibraryProjection` or that the reactive view
+stopped rendering it; that needs a test linking kernel → aggregate → reactive publication
+([Web regressions](../../cantos-leptos-web/references/web-testing.md#reactive-publication-regressions)).
+Kani never replaces real-file durability, transactions, RPC, cryptographic verification or
+browser/native integration evidence. Updating these rules is a docs change; it does not call
+for a Kani campaign to accept the Markdown.
+
 ### Harness obligations
 
 Every selected harness must record:
@@ -109,16 +144,18 @@ violated proposition; it is not authorization for panic-driven production contro
 
 ### Actual execution and repository integration
 
-**Current implemented scope:** `cargo xtask verify kani` registers eleven
+**Current implemented scope:** `cargo xtask verify kani` registers fourteen
 production kernels: ten in the API library (`catalog-revision`, `image-bounds`, `wav-payload`,
 `submission-window`, `publication-commit`, `listener-access`, `listener-reconcile`,
 `byte-range`, `playback-grant` and `public-cover`) and one in the Forge crate
-(`forge-attempt-ledger`, the paid-attempt integer kernel). Each kernel names its one package.
-Omission selects all eleven; repeat `--harness` for a subset. Registration is not execution:
+(`forge-attempt-ledger`, the paid-attempt integer kernel), plus three in `cantos-identity`
+(`identity-security-version`, `identity-completion`, `identity-mailbox-proof`; NOT_RUN until a pinned
+Ubuntu x86_64 D1 workflow has attributable results). Each kernel names its one package.
+Omission selects all fourteen; repeat `--harness` for a subset. Registration is not execution:
 the ledger records which kernels have an actual attributable run.
 The fixed model pins Kani 0.68.0, bundled rustc 1.100.0-nightly (8925ea358,
 nightly-2026-08-21), CBMC 6.11.0 and x86_64-unknown-linux-gnu/64-bit usize,
-API library/no default features, CaDiCaL and unwind 2. Actual execution, source
+the selected package's library/no default features, CaDiCaL and unwind 2. Actual execution, source
 identity, covers and residuals are recorded in
 [the proof ledger](../../../../docs/assurance/kani.md). Production remains Rust
 1.98.1; the verifier has no runtime dependency and no automatic install/setup.
@@ -144,16 +181,19 @@ edits; they are integrity evidence, not filesystem isolation. Always inspect the
 actual selected proof output; tool probes, parser mocks and ordinary tests are
 not model-checking evidence.
 
-Two existing `cfg(kani)` Theatre sources remain **unregistered and NOT_RUN**:
-[`live/request.rs`](../../../../apps/cantos-theatre/web/src/live/request.rs)
+The two former unregistered `cfg(kani)` Theatre harnesses in
+[`live/request.rs`](../../../../apps/cantos-theatre/web/src/live/request.rs),
 `completion_requires_current_pending_generation` and
-`cancellation_never_wraps_or_accepts_previous_completion`. They call production
-ProbeState methods over u64 generations/representative phases, unwind 2 and no
-assumptions/stubs, but lack explicit cover goals. Their historical
-[unrun record](../../../../docs/evidence/live-client-integration.md#kani-boundary)
-is retained. Private fields, source presence and ordinary tests establish no
-Theatre formal claim. Any future campaign must justify reachability and execute
-its exact model; do not add speculative UI/rendering/native/backend proof lanes.
+`cancellation_never_wraps_or_accepts_previous_completion`, are **retired under #363**:
+`ProbeState` has no runtime consumer; `classify` is reached only by the uncalled browser probe
+and ordinary tests. The live `Mode::from_query`, production probe types/methods, ordinary tests
+and shared Kotlin fixtures remain. The historical
+[NOT_RUN record](../../../../docs/evidence/live-client-integration.md#kani-boundary) is retained;
+the [current inventory](../../../../docs/assurance/kani.md#theatre-web-k1-inventory-and-feasibility-363)
+records actual callers, reach and the unsupported/unrun feasibility boundary. Private fields,
+source presence and ordinary tests establish no Theatre formal claim. Any future campaign must
+justify production reach and execute its exact model through the existing registry; do not add
+speculative UI/rendering/native/backend proof lanes.
 
 For any new target, record its concrete gap/production reach, exact verifier /
 compiler / solver / target compatibility and configuration before adopting it.

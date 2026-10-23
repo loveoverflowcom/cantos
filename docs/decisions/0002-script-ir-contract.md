@@ -22,7 +22,7 @@ version probe → closed raw DTO/shape checks → accumulating semantic validato
 `ScriptContent`. Only the validator constructs content; there is no public field, Deserialize,
 Default or mutation path for content. Use array order for sequence, globally unique opaque IDs,
 an explicit narrator, same-scene cue anchors, typed respellings and preserved source/rights
-record references. The [contract](../../packages/contracts/README.md) owns exact spellings, bounds,
+record references. The [contract](../../services/cantos-server/contracts/README.md) owns exact spellings, bounds,
 diagnostic order, normalization and field classification.
 
 Keep casting, mutable rights status, timestamps and revision/workflow metadata outside content.

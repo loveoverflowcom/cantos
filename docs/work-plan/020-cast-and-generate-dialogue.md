@@ -6,8 +6,8 @@
 
 ## Current narrow implementation
 
-[Production Brief v1](../../packages/contracts/production-brief-v1.md) and
-[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implement immutable
+[Production Brief v1](../../services/cantos-server/contracts/studio/briefs/v1/README.md) and
+[Audio Lifecycle v1](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) implement immutable
 Catalog-bound instructions, scoped read/upload permissions, private byte inspection and
 receipts. Filesystem/S3 adapters and bounded Studio consumers also exist. Do not restart this
 plan at the older script-only ADR 0020 slice or copy its original NOT_RUN result as current status.
@@ -36,7 +36,7 @@ agents/human producers select their own voices, models, costs and mixing tools.
   changing published releases. Cantos may flag stale instructions, but never regenerates audio.
 - Surface submitted, rejected, incomplete and pending-review status in Studio Web.
 
-Full production/mixing occurs in the external producer, not `services/cantos-api`.
+Full production/mixing occurs in the external producer, not `services/cantos-server`.
 No backend TTS probe, local neural model, Google adapter, worker leasing, TTS receipt dispatch
 or DBSP generation-job read model may be reintroduced.
 

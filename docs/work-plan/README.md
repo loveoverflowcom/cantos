@@ -1,50 +1,37 @@
-# Current work queue
+# Work plan
 
-Scope: Web-only Studio, Theatre Web/CMP and producer-side Forge outside the Cantos API runtime.
-Read the [documentation map](../README.md) and [current priorities](current-priorities.md) first.
-GitHub issues/Projects own execution status; this folder owns recommended order and rationale.
+Read [current priorities](current-priorities.md) for the short dependency queue. GitHub owns
+assignment, execution and acceptance; these documents own scope, rationale and reading paths.
+The [native checkpoint](../architecture/server-turso-porting.md#checkpoint-boundary) overrides
+provider/PG-era implementation assumptions in historical product slices.
 
 ## How to use the queue
 
-Choose one independently reviewable outcome from [current priorities](current-priorities.md),
-re-read its issue and current source, then update the owning contract/architecture document.
-A merged core is not live acceptance. Completed Catalog work (#66) is a foundation to reuse,
-not the next implementation task.
+Resolve the user's integration base, fetch/pin it and inspect current source/PRs before selecting
+one reviewable outcome. Reuse the implemented native owner/RPC/session/client foundation.
+Do not reintroduce a retired provider, PG/DBSP gate or second framework to satisfy a stale task.
+Keep original acceptance gaps: model/core/file evidence never proves full HTTP/browser/device,
+restore, Kani, footprint or deployed behavior.
 
-Numeric prefixes on work items are ordering markers, not permanent IDs; they may be renumbered.
-The retained 020–050 files describe unfinished capability acceptance, not an instruction to
-rebuild their implemented portions. Keep speculative expansion in [backlog](backlog/deferred-expansion.md).
-
-## Active review inputs
-
-| Boundary | Owning input |
+| Need | Owner / reading path |
 | --- | --- |
-| Session policy separation (#326) | Review the [policy and credential dependency boundary](../architecture/api-contexts.md#session-policy-and-credential-boundary), exact [Bearer TTLs/replay/deadlines](../../packages/contracts/bearer-v1.md#lifetime-rotation-and-unknown-outcomes) and independent core plus disposable PostgreSQL auth evidence. Coordinate #261's admission-result seam and #295's transport migration separately; neither is a prerequisite of this policy extraction. |
-| API inbound ownership (#327) | Review the [canonical HTTP adapter, outer assembly and host-capability matrix](../architecture/api-contexts.md#http-assembly-and-transport-owners), architecture negative controls and preserved route/auth regressions. Coordinate later #295 middleware changes against this single assembly; retain PostgreSQL and live issuer/browser acceptance separately. |
-| Theatre default API origin and error recovery (#298) | Review the [shared `DefaultProductionApiOrigin` (`https://api.cantos.cc`), typed `HostConfigurationFault` refusals and `ErrorNotice`/`ErrorCenter`/`ErrorDialog` contract](../../apps/cantos-theatre/mobile/README.md#production-host-contract) alongside [mobile architecture](../architecture/mobile.md). Review the paired [Web/CMP client error contract](../../packages/contracts/client-error-presentation-v1.md), typed identity diagnostics and journal/receipt recovery. Real browser/live-preview and Android/iOS + TalkBack/VoiceOver acceptance remain separate from source/host tests. |
-| CMP registration preview (#296) | Review the [shared registration and explicit live-preview mode](../../apps/cantos-theatre/mobile/README.md#live-enrollment-integration-296) over the existing enrollment owner, [proposed native admission](../decisions/0044-native-enrollment-preview.md) and [evidence ledger](../evidence/issue296-cmp-enrollment.md). Preserve #242 isolated API/PostgreSQL/Auth Emulator/Kanidm and #191/#184 device acceptance independently of JVM protocol fixtures. |
-| Editorial application/document separation (#258) | Review the [facts and projection boundary](../architecture/api-contexts.md#editorial-application-and-document-boundaries) against existing revision/adaptation and immutable Brief oracles; retain byte, permission, replay/CAS and transaction acceptance independently of the #97 transport pilot. |
-| Android release/distribution (#288) | Review the [same-release audit and APK policy](../../apps/cantos-theatre/mobile/docs/firebase-distribution.md) on integrated #285/#286/#287 source; require separate optimized-device, callback, signing/registration and explicit tester acceptance. |
-| Release artifact promotion (#277) | [CircleCI release boundary](../deployment/circleci-builds.md); review manifest v2/source/config provenance, same-workflow transfer/approval, artifact consumers and per-component recovery. Account restrictions, actual API/Web/unsigned Android builds and live activation remain separate acceptance before #278/#280. |
-| Cloudflare release transition (#277–#280) | Review exact archive-byte binding through extraction and initial-response security headers, alongside artifact promotion and provider/publisher prerequisites before live cutover; [rollout/recovery runbook](../deployment/cloudflare-rollout.md), the #278 Pages publisher ([source-bound preview observations](../deployment/cloudflare-pages.md#acceptance-status)), standalone [read-only HTTP comparison](../../xtask/README.md#read-only-hosting-http-observation) and offline declared-evidence reporting can ship independently. Operator scope/budget, real build/publish/browser/rollback evidence and Hosting-only retirement remain separate acceptance. |
-| Dependencies, phase exit and GitHub workflow | [Project planning](project-planning.md) |
-| Brief/private audio completion | [020](020-cast-and-generate-dialogue.md), [live client matrix](live-client-api-matrix.md) |
-| Review/storage/publication acceptance | [030](030-mix-review-and-publish.md) |
-| First private audio on VPS filesystem (#309, #314) | Review incoming-bundle storage preparation before runtime installation, scoped runtime guards and preserved Long Vân/historical targets in the [VPS runbook](../deployment/vps-production.md#development-private-audio-on-the-vps). Next qualify actual upload/read/Range/denial, restart and off-host media restore under #179; public delivery remains #170. |
-| Theatre Web auth and Library adoption (#271, #272) | Review independent login/registration readiness, [presented Web lists and authenticated Save/progress/history/resume sync](../../apps/cantos-theatre/web/README.md#scope-and-honest-behavior); qualify real issuer/emulator/PostgreSQL multi-device acceptance separately from unit/loopback evidence. |
-| Theatre Web and native listening | [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md), [Library/Progress handoff](listener-library-progress-handoff.md) |
-| Public catalog, cover and metadata | [Catalog states](theatre-catalog-state-handoff.md), [cover handoff](public-cover-implementation-handoff.md), [P1 decisions](public-metadata-decision-handoff.md) |
-| Identity activation and onboarding | [Identity handoff](theatre-identity-handoff.md); #295 selects Web HttpOnly/Secure cookies on the custom domains, superseding only #253's Web Bearer target. Review the coordinated API/session/resource migration and exact-origin CORS/CSRF through [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md) and the [shared Web owner](../../packages/web-auth/README.md); current Web source still uses Bearer. Native keeps the [Bearer contract](../../packages/contracts/bearer-v1.md), [secure journal/lifecycle](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) and #285 [closed callback profiles](../deployment/native-callback-profiles.md). Qualify issuer/browser/device and co-install acceptance separately; source completion does not accept live rollout. |
-| Direct Hosting and VPS API (ADR 0041) | [Current topology/runbook](../deployment/vps-production.md#selected-custom-domains); owner selected `cantos.cc`, `studio.cantos.cc` and `api.cantos.cc`; [legacy Firebase alias redirects](../deployment/firebase-hosting.md#canonical-browser-domains) are scoped to the Web entrypoints. #295 selects Web cookies on this topology, with API/client migration and browser acceptance pending; native retains Bearer. Preserve legacy identity ingress while qualifying the implemented default-deny gateway source with actual peer CIDRs/issuer/browser traces and permitted real account/session journeys. Review the explicit [same-epoch prefix upgrade](../deployment/postgres-prefix-upgrade.md) against paired recovery, off-host durability and accepted-write boundaries before qualifying Linux/17.11 live activation. |
-| Mechanical infrastructure ownership (#212) | [Repository layout](../architecture/repository-layout.md), [infra assets](../../infra/README.md); separate from #203 Forge/Functions runtime work and live deployment acceptance |
-| Forge paid-attempt safety (#203) | [Attempt core evidence](../evidence/forge-attempt-verification.md), [race/readback follow-up](../evidence/forge-attempt-reconciliation.md), [worker boundary](../deployment/forge-worker.md); establish invocation authority and cross-runtime fencing before enabling a real provider |
-| Optional DBSP platform | [Current review, capture retirement and bounded core hardening](../evidence/dbsp-platform-review.md); review migration compatibility, terminal engine errors and snapshot/freshness evidence before proposing a measured non-synthesis consumer |
-| Shared previews and localization | [Leptos](015-leptos-ui-system.md), [CMP](016-cmp-ui-system.md) |
-| Optional craft and membership | [Audio craft](audio-drama-quality.md), [interest receipt](membership-interest-handoff.md), [plan publication proposal](../product/membership-plan-publication.md) |
+| Native business port | [#333](https://github.com/loveoverflowcom/cantos/issues/333), [porting guide](../architecture/server-turso-porting.md), [readiness](../architecture/native-persistence-readiness.md) |
+| Identity and sessions | [Identity v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md), [RPC](../../services/cantos-identity/contracts/identity/v1/README.md), #334/#335; Web cookie, native Bearer |
+| Native acceptance / restore / migration / footprint | [#336](https://github.com/loveoverflowcom/cantos/issues/336), [isolation](../assurance/native-isolation.md), [Kani](../assurance/kani.md) |
+| Read optimization | [#384](https://github.com/loveoverflowcom/cantos/issues/384), [Turso method](../../.agents/skills/cantos-engineering/references/turso-read-performance.md) |
+| OCI packaging and activation | [#348](../deployment/native-oci-release.md); historical VPS assets establish no native activation |
+| Phase boundaries and planning | [Project planning](project-planning.md) |
+| Script/editor | [Script IR](../architecture/script-ir.md), [editor acceptance](../assurance/script-editor-acceptance.md) |
+| Production briefs/private audio | [020](020-cast-and-generate-dialogue.md), [client matrix](live-client-api-matrix.md) |
+| Review/publication | [030](030-mix-review-and-publish.md) |
+| Theatre Web/CMP listening | [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md), [Library handoff](listener-library-progress-handoff.md) |
+| Catalog/cover/metadata | [Catalog states](theatre-catalog-state-handoff.md), [cover](public-cover-implementation-handoff.md), [metadata](public-metadata-decision-handoff.md) |
+| Shared UI | [Leptos](015-leptos-ui-system.md), [CMP](016-cmp-ui-system.md) |
+| Forge | [Worker boundary](../deployment/forge-worker.md), [attempt evidence](../evidence/forge-attempt-reconciliation.md); #203 |
+| Delivery | [Firebase Hosting](../deployment/firebase-hosting.md), [Pages](../deployment/cloudflare-pages.md), [rollout](../deployment/cloudflare-rollout.md) |
+| Deferred expansion | [Backlog](backlog/deferred-expansion.md) |
 
-The [archive index](../archive/README.md) preserves the previous 743-line queue and completed
-handoffs. Historical commands, worktree paths, session permissions, SHAs and PASS/NOT_RUN results
-belong there or in their original evidence, not in this queue.
-
-At handoff, follow the repository's verification cadence and report final-diff evidence in the
-PR. Do not append test transcripts or session logs here.
+Completed/superseded session instructions are history, not current plans. Preserve unique
+source-bound evidence through its pinned provenance; delete redundant guidance and repair
+incoming links. Do not create a second issue tracker here or refresh historical PASS into a
+native qualification. [Templates](../../templates/README.md) remain for concrete consumers.

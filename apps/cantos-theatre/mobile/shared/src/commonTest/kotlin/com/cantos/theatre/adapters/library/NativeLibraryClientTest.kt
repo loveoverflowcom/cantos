@@ -1,6 +1,6 @@
 package com.cantos.theatre.adapters.library
 
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.ports.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
@@ -18,8 +18,61 @@ class NativeLibraryClientTest {
             return object : NativeRequestHandle { override fun cancel() = Unit }
         }
     }
-    private fun client(http: Http) = NativeLibraryClient(requireNotNull(NativeClientConfiguration.create("https://api.example", "https://idm.example/oauth2/openid/cantos-theatre-native")), http)
+    private fun client(http: Http) = NativeLibraryClient(ApiOrigin.parse("https://api.example"), http)
     private fun presented(name: String) = libraryPresentationFixtures.getValue("$name.json")
+    @Test fun contractedPreAdmission503WithoutStampIsRetryableWithoutAuthorityLoss() = runTest {
+        val http = Http(); val client = client(http)
+        http.response = NativeHttpResponse(503, "application/json", """{"code":"unavailable","retryable":true}""", null)
+        assertEquals(LibraryResult.Failed("unavailable", true), client.savedPage(auth))
+        val body = libraryFixtures.getValue("history_clear.json")
+        val operation = Json.parseToJsonElement(body).jsonObject.getValue("operation").jsonObject.getValue("operation_id").jsonPrimitive.content
+        assertEquals(LibraryResult.Failed("unavailable", true), client.mutate(auth,
+            LocalLibraryIntent(operation, "history", "POST", "/library/history/clear", body)))
+    }
+
+    @Test fun unstampedOrWrongStampedPayloadsAndUnrecognizedErrorsNeverBecomeSuccessOrRetry() = runTest {
+        val http = Http(); val client = client(http)
+        val unavailable = """{"code":"unavailable","retryable":true}"""
+        val receipt = libraryFixtures.getValue("accepted.json")
+        for (stamp in listOf(null, id)) {
+            http.response = NativeHttpResponse(200, "application/json", presented("presented_saved"), null, stamp)
+            assertEquals(LibraryResult.Failed(if (stamp == null) "protocol" else "session_changed", false), client.savedPage(auth))
+            http.response = NativeHttpResponse(200, "application/json", receipt, null, stamp)
+            assertIs<LibraryResult.Failed>(client.receipt(auth, id))
+        }
+        for ((status, contentType, body) in listOf(
+            Triple(503, "text/html", unavailable), Triple(503, "application/json", "{}"),
+            Triple(503, "application/json", """{"code":"unavailable","retryable":false}"""),
+            Triple(503, "application/json", """{"code":"unavailable","retryable":true,"extra":1}"""),
+            Triple(502, "application/json", unavailable), Triple(429, "application/json", unavailable),
+            Triple(200, "application/json", unavailable), Triple(503, "application/json", presented("presented_saved")),
+            Triple(503, "application/json", " ".repeat(1_048_577) + unavailable),
+        )) {
+            http.response = NativeHttpResponse(status, contentType, body, null)
+            assertEquals(LibraryResult.Failed("protocol", false), client.savedPage(auth))
+        }
+        http.response = NativeHttpResponse(503, "application/json", unavailable, null, id)
+        assertEquals(LibraryResult.Failed("session_changed", false), client.savedPage(auth))
+        http.response = NativeHttpResponse(401, null, null, null)
+        assertEquals(LibraryResult.Failed("unauthenticated", false), client.savedPage(auth))
+        http.response = NativeHttpResponse(500, "application/json", unavailable, null, session)
+        assertEquals(LibraryResult.Failed("protocol", false), client.savedPage(auth), "a body cannot broaden retry status")
+        http.response = NativeHttpResponse(200, "application/json", unavailable, null, session)
+        assertEquals(LibraryResult.Failed("protocol", false), client.savedPage(auth))
+    }
+
+    @Test fun localTransportFailureRemainsDistinctFromARealUnstampedHttpResponse() = runTest {
+        val http = Http(); val client = client(http)
+        val body = libraryFixtures.getValue("history_clear.json")
+        val operation = Json.parseToJsonElement(body).jsonObject.getValue("operation").jsonObject.getValue("operation_id").jsonPrimitive.content
+        val intent = LocalLibraryIntent(operation, "history", "POST", "/library/history/clear", body)
+        for (failure in listOf("timeout", "transport", "unavailable")) {
+            http.response = NativeHttpResponse(0, null, null, failure)
+            assertEquals(LibraryResult.Failed("unavailable", true), client.savedPage(auth))
+            assertEquals(LibraryResult.Failed("unavailable", true, true), client.mutate(auth, intent))
+        }
+    }
+
     @Test fun pagesAskForPresentationAndReturnActualRowsAndOpaqueCursorWithBearerSessionFence() = runTest {
         val http = Http(); val client = client(http)
         val saved = Json.parseToJsonElement(presented("presented_saved")).jsonObject

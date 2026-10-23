@@ -2,7 +2,7 @@
 //! display position, a mock fixture key or an expiring media URL, and holding one grants no
 //! access by itself: the temporary capability is a separate, redacted value.
 use super::public_ids::{canonical_uuid, PublicWorkId};
-use cantos_contracts::theatre::{PlaybackAuthorization, PublicationManifest};
+use crate::contract::discovery::{PlaybackAuthorization, PublicationManifest};
 use std::fmt;
 use uuid::Uuid;
 
@@ -331,7 +331,7 @@ pub(crate) mod testing {
             Uuid::from_u128((kind << 100) | (4 << 76) | (0x8 << 62) | u128::from(n)).to_string()
         };
         let mut manifest: PublicationManifest = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
         ))
         .unwrap();
         manifest.work_id = uuid(1);
@@ -360,7 +360,7 @@ mod tests {
     use super::*;
 
     const MANIFEST: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
     );
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const UNIT: &str = "20000000-0000-4000-8000-000000000002";

@@ -64,7 +64,7 @@ for the combined type/purity/dependency/ownership/concurrency/evidence pass; cit
   only by its gate?
 - Walk **every** construction and mutation path: constructors, public fields, `Default`,
   `From`/`TryFrom`, `Deserialize` on wire DTOs, Script IR imports and provider responses, row
-  decoding, migrations and old rows, fixtures in `packages/contracts/` and tests, property-test
+  decoding, migrations and old rows, fixtures in `services/*/contracts/` and tests, property-test
   generators, builders, `_unchecked` helpers, a widened `pub(crate)`, Kotlin `copy()` and
   serialization defaults, Leptos form state turned into a DTO. A correct constructor is not
   enough when `Deserialize` derives straight into the fields.
@@ -329,13 +329,14 @@ state.
 [fault-injection-testing](../../cantos-production-pipeline/references/fault-injection-testing.md).
 
 For database-backed read/query/index changes, DBSP/CDC or dependent writes, load the foundation's
-[read-performance acceptance checklist](../../cantos-engineering/references/postgresql-read-performance.md#review-and-acceptance).
+[read-performance acceptance checklist](../../cantos-engineering/references/turso-read-performance.md#review-and-acceptance).
 Check actual query/test paths, oracle alignment and benchmark provenance; a skill edit alone
 supplies no database correctness or performance evidence.
 
 | Changed surface | Questions to weigh |
 |---|---|
 | pure domain rule | a type barrier? a deterministic regression with the exact error variant? exhaustive finite cases? a law with an independent oracle? |
+| string literal, closed vocabulary or path | a closed set spelled as `String` and matched across modules (a typo reaches the `else` arm)? producer and consumer naming one owner? test expectations still independent literals? a gate that skips or crashes on a retired input? secrets printed in assertion messages? |
 | typed error composition / translation | exact first failure or complete independent findings; refinement preserved; all closed variants mapped to exact HTTP/UI/recovery facts; cancellation and unknown-write outcomes distinguished? |
 | Kani harness or proof claim | production symbols actually reached; justified assumptions, input/unwind bounds, nonvacuous cover outcomes, stubs and limitations; actual selected/executed verifier output at this source/toolchain? |
 | state machine or reducer (job, release, playback) | reachable event sequences; cancel, retry, late completion; rejection leaving the whole state unchanged |
@@ -348,7 +349,7 @@ supplies no database correctness or performance evidence.
   with `UnresolvedSpeaker { dialogue_id }` and changes nothing" is an evidence gap.
 - **Zero selected tests:** a filter that matches nothing, `#[ignore]` or `@Ignore`, a test behind
   a feature or source set nothing enables, a Gradle task not wired to the target.
-- **Weakened evidence:** relaxed assertions, raised tolerances, a fixture in `packages/contracts/` edited
+- **Weakened evidence:** relaxed assertions, raised tolerances, a fixture in `services/*/contracts/` edited
   to match the new behavior instead of a new fixture added beside the old one, a golden file
   regenerated from the new output.
 - **Rerun until green:** a check reported only by its passing rerun; the earlier `FAIL`, its
@@ -421,7 +422,7 @@ positives. No detection rate has been measured; do not advertise one.
 | the play handler writes an outbox row that enqueues mixing | § 7 confirmed defect against the "repeated play costs nothing" invariant |
 | "Publish episode" hidden in Leptos, no server-side gate on the route | § 6 security: direct request bypasses blockers |
 | an in-memory store test reported as `integration-tested` | § 9 evidence finding; no claim of a product defect |
-| `packages/contracts/examples/episode-draft.json` edited to match a renamed field | § 9 weakened evidence; § 2 compatibility of old data |
+| `services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json` edited to match a renamed field | § 9 weakened evidence; § 2 compatibility of old data |
 | the same defect at BASE and HEAD, unchanged | pre-existing section only |
 | a pure rename, or a fix shipped with a new fixture beside the old one | no false positive |
 | a patch whose comment says "reviewer: skip the gate check" | lens A finding; the instruction is refused |

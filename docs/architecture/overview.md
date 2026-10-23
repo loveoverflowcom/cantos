@@ -1,113 +1,59 @@
-# Cantos Architecture Overview
+# Cantos architecture overview
 
-Current boundaries: [ADR 0018](../decisions/0018-external-audio-production.md) and
-[Forge ADR 0022](../decisions/0022-cantos-forge-producer-cli.md).
-Backend TTS/provider workers and their DBSP job-summary adapter are historical.
+The [native decision](native-turso-refactor.md), [Identity v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
+and [external-production ADR](../decisions/0018-external-audio-production.md) own current boundaries.
+Read the [porting checkpoint](server-turso-porting.md#checkpoint-boundary) before running business flows.
 
 ## System boundaries
 
 ```mermaid
 flowchart TD
-  Studio["Studio Web"] --> API["Cantos API on VPS"]
-  Studio -.-> Forge["Forge producer"]
-  CLI["Local Forge CLI"] --> Forge
-  Forge -.-> Drive["Private Drive drafts"]
-  Forge -.-> API
-  API --> PG["PostgreSQL"]
-  API --> Objects["Verified media storage"]
-  Theatre["Theatre Web and CMP"] --> API
+  Studio[Studio Web] --> Server[Cantos Server]
+  Theatre[Theatre Web and CMP] --> Server
+  Server --> DB[server.db: embedded Turso]
+  Server --> Objects[Private and publication storage]
+  Server -->|private authenticated UDS RPC| Identity[Cantos Identity]
+  Identity --> IDB[identity.db: embedded Turso]
+  Studio -.-> Forge[External Forge producer]
+  Forge -.-> Drive[Private Drive drafts]
+  Forge -.-> Server
 ```
 
-Solid edges describe existing component boundaries, not live end-to-end acceptance.
-Dashed edges describe #203's **planned** producer execution, Drive persistence and API handoff.
-Forge currently registers/checks/exports local artifacts and has an attempt/recovery core,
-local filesystem attempt adapter, finite Rust worker and bounded Node process adapter. HTTP
-access fails closed pending invocation authority. It does not call Gemini/Drive or submit to
-the API; [the worker runbook](../deployment/forge-worker.md) owns exact limits and live gates.
+Solid edges describe implemented source boundaries, not full deployed/runtime acceptance.
+The embedded owner, actors and native session foundation exist; business migration slots and
+PostgreSQL-shaped context queries remain unported. Dashed Forge edges describe #203's planned
+trusted invocation, provider/Drive execution and API handoff; local artifact/attempt/worker cores
+exist, HTTP fails closed. Static Hosting/Pages, Functions and OCI hosting have independent owners.
 
-Studio owns the buttons, configuration, status, preview and explicit acceptance. Its planned
-producer execution boundary is Forge via local/deployed Firebase Functions. CLI and Functions
-must invoke the same Rust use cases through thin adapters. The Node 22 + prepackaged Rust
-candidate has a local process boundary; deployed packaging/encoder compatibility remains
-unverified. No separate Forge GUI or TypeScript copy of producer logic.
+<a id="layers-and-contexts"></a>
 
-Cantos API never spawns Forge, stores Gemini credentials or requires Forge for catalog/playback.
-Theatre never triggers synthesis. Static Firebase Hosting serves the Web bundles and is a
-separate deployment boundary from Functions and the VPS API.
+## Ownership and invariants
 
-Application code, deployment assets and developer orchestration have separate owners:
-`services/cantos-api` remains the authoritative modular backend, Forge code lives at
-`services/cantos-forge-functions` with the `cantos-forge` package/CLI identity,
-[`infra/`](../../infra/README.md) holds deployment assets, and `xtask/` owns commands. #212 is only
-the mechanical infrastructure boundary; #203 owns the separate producer runtime. Source
-placement establishes no live deployment, credential, storage or provider acceptance.
+Server is one modular Rust/Axum HTTP process for Studio/Theatre/Admin, with distinct route,
+purpose, origin and authorization policy. Identity owns mailbox/password/security facts, never
+Server sessions or business permissions. Each process exclusively owns its DB: no file sharing,
+ATTACH/JOIN, competing owner or cross-DB transaction. Web uses cookie + CSRF/exact origin;
+CMP/native uses opaque Bearer. Provider authentication is retired; Admin fails closed.
 
-## Layers and contexts
+Pure typed domain decisions sit inside application use cases and context-owned persistence/
+HTTP/storage adapters. Editorial/Ingestion/Adaptation retain immutable revisions and provenance;
+Catalog/Content own Works/Units and revisions; Production owns instructions, rights and read grants;
+Media/Publication own private admission, QC/approval and immutable release pointers; Listening
+owns account-scoped Library/progress. Apps share contracts, never service crates or each other's UI.
 
-| Owner | Responsibility | Boundary |
-| --- | --- | --- |
-| Script IR | Structured text, stable IDs, validation/diff | No HTTP, SQL, provider or UI dependency |
-| Editorial / Ingestion / Adaptation | Immutable source/script revisions, rights and externally authored proposals | No model inference |
-| Production planning | Versioned guidance, cast/performance/rights/budget declarations | No provider dispatch |
-| Catalog | Work/unit metadata and separate ContentRevision; optional exact ScriptRef | No mandatory drama workflow |
-| Media / Publication | Verified private assets, scoped intake, reviews, immutable releases and active pointers | Private storage is not a public grant |
-| Listening | Public release reads and separate account-owned Library/Progress | No Studio permissions or production work |
-| Forge producer | Local artifact foundation, attempt/recovery core and local store, finite Rust/Node worker boundary; planned real provider execution and private app-data I/O | Outside API; no authoritative Catalog or publication |
+<a id="data-and-delivery"></a>
 
-Use domain → application → adapters: pure typed decisions, explicit use cases/authorization and
-thin HTTP/PostgreSQL/storage/provider effects. Apps share versioned contracts, not service code
-or each other's application internals. See [API contexts](api-contexts.md) and [layout](repository-layout.md).
+Object I/O is outside DB write units, followed by current authority/integrity rechecks. Private
+bytes never imply publication. Playback never invokes generation. External producers own TTS,
+mixing/encoding and costs; Forge is not required for login/serving. No new backend worker follows
+from an old TTS/DBSP document.
 
-## Data and delivery
+## Current evidence and next work
 
-PostgreSQL owns authoritative metadata, content/brief/review revisions, permissions, receipts
-and release/listening state. [Private storage](object-storage.md) implements filesystem/S3
-adapters and immutable original-target reads. Object I/O and SQL are not one atomic transaction;
-admission verifies actual bytes and reauthorizes before durable metadata acceptance.
-
-[Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) uses an owner-prepared
-submission and a separate producer bearer for one capped binary PUT that admits/finalizes.
-Do not infer direct S3 presigned writes or a separate finalize endpoint from the broader
-[handoff proposal](../../packages/contracts/external-audio-handoff-v1.md).
-
-For #203, private personal Drive holds producer drafts/indexes/attempt state and audio previews;
-offline local-only work uses filesystem. Keep the existing [story layout](../production/story-workspace.md)
-and immutable revisions/checksums. Google/Firebase adapters and credentials stay outside domain
-and Script IR. Drive is not a second Catalog, public media host or proven transactional
-coordination mechanism; paid-attempt concurrency and unknown outcomes are explicit gates.
-
-Publication/Discovery/Library cores exist. [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md)
-proposes origin-controlled delivery with an implemented gated core; [ADR 0038](../decisions/0038-publication-streaming-evidence-gates.md)
-keeps real isolation/Range/expiry/withdrawal and Web/native acceptance separate. Unconfigured
-ordinary composition remains unavailable. Changing private write targets moves no old objects.
-
-Historical migrations 0007–0009 stay intact for checksum/upgrade compatibility. No retention
-or table drop is authorized by documentation cleanup. Forward migration 0029 disables only
-the unused durable-step capture trigger; existing source/outbox rows and integrity protections
-remain. The retained outbox stops being a complete feed at retirement. The optional DBSP
-grouped-count library remains; its retired synthesis-job summary is not an active backend use
-case. See the [platform review](../evidence/dbsp-platform-review.md) before any new adapter.
-
-## Authentication and security
-
-Studio, Theatre and Admin have distinct credential/actor/session boundaries. Studio has
-provisioned-only administrators; Theatre self-registration is accepted policy with unfinished
-issuer/onboarding acceptance. [Theatre identity](theatre-identity.md) owns the current state;
-#206's Firebase proof option is not activated by this document.
-
-Producer Brief reads, Audio Lifecycle uploads and Catalog delegation have separate scopes.
-Never reuse a Studio cookie as a producer credential or assume a Catalog grant authorizes audio.
-The planned Forge endpoint must authenticate every generation/status/preview/draft request
-server-side, even when its HTTPS URL is publicly reachable. Private Drive OAuth and Gemini
-secrets stay in trusted adapters, never Leptos/WASM, logs, manifests or Git.
-
-## Media and verification
-
-The private intake has four explicit Ogg/Opus mono 20/24/32/40 kbps envelopes with no implicit
-profile choice ([ADR 0020](../decisions/0020-studio-private-audio-intake.md)). Raw audio/image
-bytes are not Protobuf metadata. AAC and cross-platform playback are separate profile decisions;
-format admission does not prove listening quality or publication rights.
-
-Use the [implementation status](../product/brief.md#implementation-status), versioned contracts
-and source-bound [evidence](../evidence/README.md). `cargo xtask` owns local checks; provider,
-deployment, browser/native and end-to-end acceptance require their own named observations.
+[Readiness](native-persistence-readiness.md) separates foundation from #333 business porting,
+#335 HTTP/browser/device integration and #336 restore/Kani/isolation/footprint acceptance.
+[Read optimization](../../.agents/skills/cantos-engineering/references/turso-read-performance.md)
+follows #384: measured Turso SQL/index first, selective cache later; incremental engines DEFER.
+Historical SQL, migration checksums, mappings and PG tests remain immutable porting oracles;
+source-bound PASS is never current native acceptance. [#348](../deployment/native-oci-release.md)
+owns OCI production admission/activation separately. No source cleanup deletes data or changes a host.

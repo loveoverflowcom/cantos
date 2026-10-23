@@ -1,5 +1,5 @@
 //! `cargo xtask ci`: the repository CI contract. GitHub Actions provisions toolchains and
-//! PostgreSQL, then calls `cargo xtask ci --job <job>`; locally, `cargo xtask ci` runs every
+//! trusted media tools only (no database or other service), then calls `cargo xtask ci --job <job>`; locally, `cargo xtask ci` runs every
 //! job in order. CI never accepts `--skip`: a missing tool is UNSUPPORTED and fails the run.
 
 use std::process::ExitCode;
@@ -7,11 +7,11 @@ use std::process::ExitCode;
 use clap::ValueEnum;
 
 use crate::{
-    command::{CommandSpec, Runner},
+    command::Runner,
     config::App,
     gate::{self, Gate, Scope},
     pipeline::{self, Step},
-    tools::{Tool, ToolProbe},
+    tools::ToolProbe,
     workspace::Workspace,
 };
 
@@ -19,28 +19,27 @@ use crate::{
 pub enum CiJob {
     /// Documents, links, skills, Python tests and the independent Script IR oracle.
     Repository,
-    /// Formatting, clippy and tests for the whole Cargo workspace, the API with its experimental
-    /// DBSP feature, offline Forge wrapper tests, the WAV oracle and read-only Opus inspection.
+    /// Formatting, clippy and tests for the whole Cargo workspace (the Server's file-backed
+    /// database tests included), offline Forge wrapper tests, the embedded Turso store
+    /// foundation, the WAV oracle and read-only Opus inspection. No database service exists.
     Rust,
     /// WASM clippy and Trunk builds of both Web clients and the UI gallery.
     Web,
-    /// PostgreSQL integration tests in a new disposable cluster.
-    Postgres,
 }
 
 impl CiJob {
-    pub const ALL: [CiJob; 4] = [CiJob::Repository, CiJob::Rust, CiJob::Web, CiJob::Postgres];
+    pub const ALL: [CiJob; 3] = [CiJob::Repository, CiJob::Rust, CiJob::Web];
 
     pub fn gates(self) -> Vec<Gate> {
         match self {
-            CiJob::Repository => vec![Gate::Repository, Gate::ScriptIrReference],
+            CiJob::Repository => vec![Gate::Repository { base: None }, Gate::ScriptIrReference],
             CiJob::Rust => vec![
                 Gate::RustFormat,
                 Gate::ProtobufReference,
                 Gate::RustLint(Scope::Workspace),
                 Gate::RustTests(Scope::Workspace),
                 Gate::ForgeFunctions,
-                Gate::Dbsp,
+                Gate::Turso,
                 Gate::WavReference,
                 Gate::AudioInspection,
             ],
@@ -50,26 +49,12 @@ impl CiJob {
                 Gate::WebBuild(App::Theatre),
                 Gate::UiPreview,
             ],
-            CiJob::Postgres => vec![Gate::Postgres { keep: false }],
         }
-    }
-
-    /// The PostgreSQL runner builds and tests with `cargo --offline`, so dependencies are
-    /// fetched first; the other jobs let Cargo fetch on demand.
-    fn needs_fetch(self) -> bool {
-        self == CiJob::Postgres
     }
 }
 
 pub fn steps(workspace: &Workspace, jobs: &[CiJob]) -> Vec<Step> {
     let mut steps = Vec::new();
-    if jobs.iter().any(|job| job.needs_fetch()) {
-        steps.push(Step::new(
-            "fetch locked dependencies",
-            &[Tool::Cargo],
-            vec![CommandSpec::new("cargo", workspace.root()).args(["fetch", "--locked"])],
-        ));
-    }
     for job in jobs {
         steps.extend(gate::steps(&job.gates(), workspace));
     }
@@ -125,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn only_the_postgres_job_prefetches() {
+    fn no_job_provisions_or_selects_a_database_and_none_prefetches() {
         let workspace = Workspace::discover().unwrap();
         let names = |jobs: &[CiJob]| -> Vec<String> {
             steps(&workspace, jobs)
@@ -134,13 +119,18 @@ mod tests {
                 .collect()
         };
         assert_eq!(
-            names(&[CiJob::Postgres]),
-            ["fetch locked dependencies", "postgres"]
-        );
-        assert_eq!(
             names(&[CiJob::Repository]),
             ["repository", "script-ir-reference"]
         );
+        let every = names(&CiJob::ALL);
+        assert!(every.iter().all(|name| !name.contains("postgres")
+            && !name.contains("dbsp")
+            && !name.contains("fetch")));
+        let jobs: Vec<_> = CiJob::ALL
+            .iter()
+            .map(|job| job.to_possible_value().unwrap().get_name().to_owned())
+            .collect();
+        assert_eq!(jobs, ["repository", "rust", "web"]);
     }
 
     #[test]
@@ -148,20 +138,61 @@ mod tests {
         assert!(CiJob::Rust.gates().contains(&Gate::AudioInspection));
         assert!(!CiJob::Repository.gates().contains(&Gate::AudioInspection));
         assert!(!CiJob::Web.gates().contains(&Gate::AudioInspection));
-        assert!(!CiJob::Postgres.gates().contains(&Gate::AudioInspection));
     }
 
     #[test]
     fn rust_ci_runs_offline_forge_wrapper_tests_with_node_22_provisioned() {
         assert!(CiJob::Rust.gates().contains(&Gate::ForgeFunctions));
         assert!(!CiJob::Web.gates().contains(&Gate::ForgeFunctions));
-        assert!(!CiJob::Postgres.gates().contains(&Gate::ForgeFunctions));
         let workspace = Workspace::discover().unwrap();
         let workflow =
             std::fs::read_to_string(workspace.path(".github/workflows/repository-checks.yml"))
                 .unwrap();
         assert!(workflow.contains("node-version: '22'"));
         assert!(workflow.contains("package-manager-cache: false"));
+    }
+
+    #[test]
+    fn the_manual_qualification_campaign_is_dispatch_only_and_calls_one_xtask_owner() {
+        let workspace = Workspace::discover().unwrap();
+        let workflow =
+            std::fs::read_to_string(workspace.path(".github/workflows/repository-checks.yml"))
+                .unwrap();
+        let job = workflow
+            .split_once("  native-auth-qualification:\n")
+            .expect("the manual campaign job exists")
+            .1;
+        assert!(job.contains(
+            "if: github.event_name == 'workflow_dispatch' && inputs.native_auth_qualification"
+        ));
+        assert!(job.contains("runs-on: ubuntu-24.04"));
+        assert_eq!(
+            job.matches("cargo xtask verify native-auth-qualification --kani")
+                .count(),
+            1
+        );
+        // Provisioning only: the pinned tools, never a copied verifier or a skipped gate.
+        for pin in [
+            "node-version: '24.19.0'",
+            "npm@11.9.0",
+            "kani-verifier --version 0.68.0",
+        ] {
+            assert!(job.contains(pin), "{pin}");
+        }
+        for forbidden in [
+            "--skip",
+            "cargo kani --",
+            "verify_native_isolation.py",
+            "cargo test",
+        ] {
+            assert!(!job.contains(forbidden), "{forbidden}");
+        }
+        // No ordinary CI job runs the campaign.
+        let ordinary = workflow
+            .split_once("  native-auth-qualification:\n")
+            .unwrap()
+            .0;
+        assert!(!ordinary.contains("native-auth-qualification --"));
     }
 
     #[test]
@@ -181,8 +212,8 @@ mod tests {
             workflow
                 .matches("run: rustup show active-toolchain")
                 .count(),
-            CiJob::ALL.len(),
-            "every job must select rust-toolchain.toml"
+            CiJob::ALL.len() + 1,
+            "every job, and the manual qualification campaign, must select rust-toolchain.toml"
         );
         assert!(
             !workflow.contains("RUSTUP_TOOLCHAIN:"),

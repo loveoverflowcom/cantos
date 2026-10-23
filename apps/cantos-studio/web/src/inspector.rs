@@ -1,9 +1,9 @@
 //! Pure revision/source inspection and immutable owner-review intents.
-use crate::editor::Editor;
-use cantos_contracts::{
+use crate::contract::{
     ApiError, ErrorCode, HistoryResponse, ImportResponse, ReviewRequest, ReviewResponse,
     RevisionResponse, SourceResponse,
 };
+use crate::editor::Editor;
 use std::collections::BTreeSet;
 
 #[cfg(target_arch = "wasm32")]
@@ -423,10 +423,10 @@ mod tests {
         should_read_import, source_ids, Inspector, PreservedSource, ReadKind, ReviewIntent,
         SourceRead,
     };
-    use crate::editor::Editor;
-    use cantos_contracts::{
+    use crate::contract::{
         ErrorCode, HistoryResponse, ReviewResponse, RevisionResponse, SourceResponse,
     };
+    use crate::editor::Editor;
 
     fn revision(version: u64) -> RevisionResponse {
         RevisionResponse {
@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn imported_source_receipt_cannot_cross_the_requested_id_or_signed_actor() {
-        use cantos_contracts::{ImportFormat, ImportMetadata, ImportOutcome, ImportProblem};
+        use crate::contract::{ImportFormat, ImportMetadata, ImportOutcome, ImportProblem};
         let document = r#"{"provenance":[{"source_record_id":"src_example"}]}"#;
         let mut head = revision(3);
         head.script_json = document.into();
@@ -735,7 +735,7 @@ mod tests {
                 },
             )
             .unwrap();
-        let receipt = cantos_contracts::ImportResponse {
+        let receipt = crate::contract::ImportResponse {
             id: "src_example".into(),
             imported_by: "alice".into(),
             recorded_at: "now".into(),

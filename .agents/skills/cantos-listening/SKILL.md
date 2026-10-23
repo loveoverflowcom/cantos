@@ -42,11 +42,11 @@ Inspect the code before citing it; this table is the status at the last sync, no
 
 | Surface | Implemented | Owning contract / code |
 |---|---|---|
-| Discovery and playback authorization | `/api/v1/theatre/{works,search,works/{work},works/{work}/units,publications/{publication},publications/{publication}/playback-authorizations}`; `ListenerPublication` witness | [Discovery v1](../../../packages/contracts/theatre-discovery-v1.md); `contexts/media` (`ListenerService`, pure `domain/listening.rs`, wire mapping `listener_projection.rs`); `adapters/inbound/http/theatre.rs` |
-| Library and progress | Continue, Saved, History, playback starts, clear, progress, release-bound bookmarks (v1.2), operation receipts | [Library v1](../../../packages/contracts/listener-library-v1.md); `contexts/listening`; `adapters/inbound/http/theatre_library.rs`; migration `0019_listener_library_progress.sql` |
-| Listener admission | sealed `AuthenticatedListener`, default `DenyListenerAuthentication`, Theatre Web cookie and native bearer adapters | [Theatre identity v1](../../../packages/contracts/theatre-identity-v1.md); `listening/{auth,theatre_identity}.rs`; `theatre_auth::bff_identity` |
-| Wire contract | JSON Schema `schema/theatre/library/v1.schema.json`, strict Rust DTOs `cantos_contracts::listener_library`, 22 fixtures in `fixtures/theatre/library/v1/` | `packages/contracts/api/tests/listener_library_wire.rs` |
-| Mock player | Rust `core/playback/reducer.rs` (Theatre Web) and Kotlin `reducePlayback` (CMP) both run the `theatre-mock-playback@1` corpus | `packages/contracts/fixtures/theatre/playback/v1/` |
+| Discovery and playback authorization | `/api/v1/theatre/{works,search,works/{work},works/{work}/units,publications/{publication},publications/{publication}/playback-authorizations}`; `ListenerPublication` witness | [Discovery v1](../../../services/cantos-server/contracts/theatre/discovery/v1/README.md); `contexts/media` (`ListenerService`, pure `domain/listening.rs`, wire mapping `listener_projection.rs`); `adapters/inbound/http/theatre.rs` |
+| Library and progress | Continue, Saved, History, playback starts, clear, progress, release-bound bookmarks (v1.2), operation receipts | [Library v1](../../../services/cantos-server/contracts/theatre/library/v1/README.md); `contexts/listening`; `adapters/inbound/http/theatre_library.rs`; migration `0019_listener_library_progress.sql` |
+| Listener admission | sealed `AuthenticatedListener`, default `DenyListenerAuthentication`, Theatre Web cookie and native bearer adapters | [Theatre identity v1](../../../services/cantos-server/contracts/theatre/identity/v1/README.md); `listening/{auth,theatre_identity}.rs`; `theatre_auth::bff_identity` |
+| Wire contract | Server-owned JSON Schema `services/cantos-server/contracts/theatre/library/v1/library.schema.json` and its `fixtures/`; strict Rust DTOs owned by the Server (`contract::theatre::library`) and Theatre Web (`contract::library`) | `services/cantos-server/tests/contract_conformance/listener_library_wire.rs` |
+| Mock player | Rust `core/playback/reducer.rs` (Theatre Web) and Kotlin `reducePlayback` (CMP) both run the `theatre-mock-playback@1` corpus | `apps/cantos-theatre/conformance/playback/v1/vectors/` |
 | Clients | Theatre Web reads Continue/Saved/History (`live/library.rs`); no client sends Library mutations or keeps an outbox | — |
 
 **Not implemented (still proposals here):** downloads (manifest,
@@ -80,7 +80,7 @@ Listening work adds two obligations: the contract changes **before** the code, a
 implementation that claims a contract runs that contract's fixtures.
 
 For database-backed catalog, manifest, progress and bookmark reads, apply the foundation's
-[read-performance workflow](../cantos-engineering/references/postgresql-read-performance.md).
+[read-performance workflow](../cantos-engineering/references/turso-read-performance.md).
 It owns the DBSP fit decision and evidence; listener visibility and authorization remain owned
 by this skill and its documents.
 
@@ -207,7 +207,7 @@ Open product decisions:    <rules encoded as needs-decision, with the owning doc
 Foundation techniques these references build on:
 [`http-api-boundary.md`](../cantos-engineering/references/http-api-boundary.md),
 [`persistence.md`](../cantos-engineering/references/persistence.md),
-[`postgresql-read-performance.md`](../cantos-engineering/references/postgresql-read-performance.md),
+[`turso-read-performance.md`](../cantos-engineering/references/turso-read-performance.md),
 [`types-as-proofs.md`](../cantos-engineering/references/types-as-proofs.md),
 [`boundary-hardening.md`](../cantos-engineering/references/boundary-hardening.md),
 [`immutability.md`](../cantos-engineering/references/immutability.md),
@@ -216,7 +216,7 @@ Foundation techniques these references build on:
 ## Decoupling map
 
 ```text
-packages/contracts/ (schema, fixtures, player vectors)   ← reviewed spec; Rust DTOs in api/
+services/cantos-server/contracts/theatre (schema, fixtures)   ← reviewed spec; each client owns its DTOs
         ↑ strict Rust DTOs today; generated or drift-checked Kotlin proposed
 contexts/listening            domain: catalog::domain IDs + platform::identity::domain::ActorId;
         ↑                     adapter: media's current-publication reads (library_public_work,

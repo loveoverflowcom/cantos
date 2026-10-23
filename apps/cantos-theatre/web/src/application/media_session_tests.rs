@@ -9,11 +9,11 @@ use super::{
     player_session::PlayerSession,
     ports::MediaPort,
 };
+use crate::contract::discovery::PlaybackAuthorization;
 use crate::core::{
     playback::{Effect, Event, Failure, Intent, PauseCause, Source, Status},
     public_track::testing,
 };
-use cantos_contracts::theatre::PlaybackAuthorization;
 use leptos::prelude::*;
 use std::{cell::RefCell, rc::Rc};
 

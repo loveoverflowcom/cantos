@@ -10,18 +10,38 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import com.cantos.theatre.application.identity.AccountView
+import com.cantos.theatre.domain.identity.RegistrationEmail
+import com.cantos.theatre.domain.identity.RegistrationResult
 import com.cantos.theatre.domain.identity.RegistrationState
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
@@ -39,14 +59,15 @@ import com.cantos.ui.Space
 import com.cantos.ui.Surface
 import com.cantos.ui.SurfaceTone
 import com.cantos.ui.SurfaceVariant
-import com.cantos.ui.tokenDp
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import com.cantos.ui.rememberCantosIconVector
+import com.cantos.ui.tokenDp
+
 
 /** Explicit listener intents. The app root owns every decision; this layer only emits them. */
 sealed interface AuthIntent {
-    data object BeginLogin : AuthIntent
+    class Login(val email: com.cantos.theatre.domain.identity.RegistrationEmail, val password: String) : AuthIntent {
+        override fun toString() = "AuthIntent.Login([redacted])"
+    }
     data object CancelLogin : AuthIntent
     data object RestoreSession : AuthIntent
     data object RetryCleanup : AuthIntent
@@ -128,7 +149,6 @@ internal fun loginState(account: AccountView, copy: AuthCopy): ButtonState = whe
     AccountView.SignedOut, is AccountView.Failed -> ButtonState.Enabled
     AccountView.Pending, AccountView.SignedIn -> ButtonState.Loading(DisabledReason.of(copy.text(AuthText.PendingReason)))
     AccountView.CleanupRequired -> ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.CleanupReason)))
-    is AccountView.ConfigurationUnavailable -> ButtonState.Disabled(DisabledReason.of(copy.configuration(account.reason)))
     AccountView.Unavailable -> ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.UnavailableReason)))
 }
 
@@ -143,8 +163,7 @@ internal fun AccountView.offersRegistration(): Boolean =
 @Composable
 internal fun AccountStatus(account: AccountView, copy: AuthCopy, nothingSaved: Boolean = false) {
     val message = when (account) {
-        is AccountView.ConfigurationUnavailable -> copy.configuration(account.reason)
-        is AccountView.Failed -> copy.failure(account.reason)
+        is AccountView.Failed -> copy.failure(account.reason, account.identityFailure)
         AccountView.CleanupRequired -> copy.text(AuthText.CleanupRequired)
         AccountView.Pending -> copy.text(AuthText.PendingStatus)
         AccountView.SignedOut -> if (nothingSaved) copy.text(AuthText.NothingSaved) else null
@@ -172,7 +191,6 @@ fun LoginScreen(
     account: AccountView,
     nothingSaved: Boolean,
     onIntent: (AuthIntent) -> Unit,
-    previewActionIcons: Boolean = false,
 ) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
@@ -187,44 +205,39 @@ fun LoginScreen(
         }
         AccountStatus(account, copy, nothingSaved)
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            Button(
-                copy.text(AuthText.CantosIdLogin), { onIntent(AuthIntent.BeginLogin) },
-                variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
-                icon = if (previewActionIcons) authActionIcon(AuthIntent.BeginLogin) else "arrow_forward",
-                controlModifier = Modifier.fillMaxWidth().testTag("login-primary"),
-            )
+            LoginForm(account, copy, onIntent)
             if (account.offersRegistration()) Button(
                 copy.text(AuthText.CreateAccount), { onIntent(AuthIntent.OpenRegister) },
                 variant = ButtonVariant.AuthSecondary,
-                icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenRegister) else null,
+                icon = authActionIcon(AuthIntent.OpenRegister),
                 controlModifier = Modifier.fillMaxWidth().testTag("login-create"),
             )
             when (account) {
                 AccountView.Pending -> Button(
                     copy.text(AuthText.CancelLogin), { onIntent(AuthIntent.CancelLogin) },
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.CancelLogin) else null,
+                    icon = authActionIcon(AuthIntent.CancelLogin),
                     variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-cancel"),
                 )
                 AccountView.CleanupRequired -> Button(
                     copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.RetryCleanup) else null,
+                    icon = authActionIcon(AuthIntent.RetryCleanup),
                     variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
                 )
                 AccountView.SignedOut, is AccountView.Failed -> Button(
                     copy.text(AuthText.RestoreSession), { onIntent(AuthIntent.RestoreSession) },
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.RestoreSession) else null,
+                    icon = authActionIcon(AuthIntent.RestoreSession),
                     variant = ButtonVariant.Text, controlModifier = Modifier.fillMaxWidth().testTag("auth-restore"),
                 )
-                AccountView.SignedIn, AccountView.Unavailable, is AccountView.ConfigurationUnavailable -> Unit
+                AccountView.SignedIn, AccountView.Unavailable -> Unit
             }
-            SupportingText(copy.text(AuthText.ProviderHelp))
+            SupportingText(copy.text(AuthText.PasswordHelp))
         }
     }
 }
 
 /** Production Register renders the enrollment owner; an absent owner remains explained. */
 @Composable
-fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit, previewActionIcons: Boolean = false,
+fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit,
                    registration: RegistrationState? = null, onRegistration: (RegistrationIntent) -> Unit = {}) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
@@ -238,15 +251,68 @@ fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit, previewA
             Button(
                 copy.text(AuthText.ReturnLogin), { onIntent(AuthIntent.OpenLogin) },
                 variant = if (registration == null) ButtonVariant.AuthPrimary else ButtonVariant.Text,
-                icon = if (previewActionIcons || registration != null) authActionIcon(AuthIntent.OpenLogin) else "arrow_back",
+                icon = authActionIcon(AuthIntent.OpenLogin),
                 controlModifier = Modifier.fillMaxWidth().testTag("register-login"),
             )
             Button(
                 copy.text(AuthText.RegisterLater), { onIntent(AuthIntent.OpenHome) },
-                icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenHome) else null,
+                icon = authActionIcon(AuthIntent.OpenHome),
                 variant = if (registration == null) ButtonVariant.AuthOutlined else ButtonVariant.Text,
                 controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
             )
         }
+    }
+}
+/** Form RAM only: no saveable state, shell projection, snapshot or automatic password retry. */
+@Composable
+private fun LoginForm(account: AccountView, copy: AuthCopy, onIntent: (AuthIntent) -> Unit) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var visible by remember { mutableStateOf(false) }
+    var invalidEmail by remember { mutableStateOf(false) }
+    var invalidPassword by remember { mutableStateOf(false) }
+    val passwordFocus = remember { FocusRequester() }
+    val focus = LocalFocusManager.current
+    DisposableEffect(Unit) { onDispose { password = ""; visible = false } }
+    // Submission clears the field before dispatch. The account owner synchronously enters Pending.
+    val submit = {
+        if (account.canBeginLogin) {
+            val checked = RegistrationEmail.parse(email)
+            invalidEmail = checked !is RegistrationResult.Accepted
+            invalidPassword = password.isEmpty()
+            if (checked is RegistrationResult.Accepted && !invalidPassword) {
+                val command = AuthIntent.Login(checked.value, password)
+                password = ""
+                visible = false
+                focus.clearFocus()
+                onIntent(command)
+            }
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        // Existing app-owned Material fields use the theme roles. The shared TextField has no
+        // password transformation/visibility contract; extending its two renderers is separate.
+        OutlinedTextField(email, { email = it.take(254); invalidEmail = false },
+            modifier = Modifier.fillMaxWidth().testTag("login-email"), singleLine = true,
+            label = { androidx.compose.material3.Text(copy.text(AuthText.RegisterEmail)) },
+            enabled = account.canBeginLogin, isError = invalidEmail,
+            supportingText = if (invalidEmail) ({ androidx.compose.material3.Text(copy.text(AuthText.RegisterInvalidEmail)) }) else null,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }))
+        OutlinedTextField(password, { password = it; invalidPassword = false },
+            modifier = Modifier.fillMaxWidth().focusRequester(passwordFocus).testTag("login-password"), singleLine = true,
+            label = { androidx.compose.material3.Text(copy.text(AuthText.Password)) },
+            enabled = account.canBeginLogin, isError = invalidPassword,
+            supportingText = if (invalidPassword) ({ androidx.compose.material3.Text(copy.text(AuthText.PasswordRequired)) }) else null,
+            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { submit() }))
+        // A separate control keeps the password label legible at narrow widths and 2x text.
+        TextButton({ visible = !visible }, modifier = Modifier.align(Alignment.End), enabled = account.canBeginLogin) {
+            androidx.compose.material3.Text(copy.text(if (visible) AuthText.HidePassword else AuthText.ShowPassword))
+        }
+        Button(copy.text(AuthText.CantosIdLogin), { submit() }, variant = ButtonVariant.AuthPrimary,
+            state = loginState(account, copy), icon = "login",
+            controlModifier = Modifier.fillMaxWidth().testTag("login-primary"))
     }
 }

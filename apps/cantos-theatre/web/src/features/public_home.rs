@@ -3,6 +3,7 @@
 //! This is the Khám phá screen: the hero, the search/filter form and the public Work list. The
 //! list is only a projection of [`PublicDiscoveryState`]; every search, retry and continuation is
 //! a callback the shell turns into a request, so nothing here parses a cursor or fetches.
+use crate::contract::discovery::{PresentedWorkSummary, WorkKind};
 use crate::{
     app::routes::Route,
     application::public_discovery::{
@@ -17,7 +18,6 @@ use crate::{
     },
     messages::{self, text, Key, Locale},
 };
-use cantos_contracts::theatre::{PresentedWorkSummary, WorkKind};
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, DisabledReason, IconName, Select, SelectDensity,
     SelectLabelPlacement, TextField, TextFieldKind,
@@ -218,7 +218,7 @@ fn SearchForm(
                     value=language options=language_options
                     on_input=Callback::new(move |value: String| { language.set(value); submit(); })/>
                 <Show when=filtered>
-                    <Button id="theatre-discovery-clear" variant=ButtonVariant::Text
+                    <Button id="theatre-discovery-clear" icon=IconName::Close variant=ButtonVariant::Text
                         on_press=Callback::new(move |_| on_search.run(DiscoveryQuery::default()))>
                         {move || text(Key::DiscoveryClear, locale.get())}
                     </Button>
@@ -390,11 +390,11 @@ pub(crate) fn PublicHome(
                 // Account is reached from the avatar; these stay quiet so they never compete with
                 // the Work's own action.
                 <div class="theatre-home-auth-actions">
-                    <Button id="theatre-home-login" variant=ButtonVariant::Text
+                    <Button id="theatre-home-login" icon=IconName::Login variant=ButtonVariant::Text
                         focus_on_press=true on_press=Callback::new(move |_| on_login.run(()))>
                         {move || text(Key::SignIn, locale.get())}
                     </Button>
-                    <Button id="theatre-home-register" variant=ButtonVariant::Text
+                    <Button id="theatre-home-register" icon=IconName::PersonAdd variant=ButtonVariant::Text
                         focus_on_press=true on_press=Callback::new(move |_| on_register.run(()))>
                         {move || auth_copy::text(CopyKey::CreateAccount, locale.get())}
                     </Button>
@@ -435,7 +435,7 @@ pub(crate) fn PublicHome(
                             <div class="theatre-public-state theatre-panel" role="status">
                                 <h3>{move || text(heading, locale.get())}</h3>
                                 <p>{move || text(help, locale.get())}</p>
-                                <Button id="theatre-home-refresh" variant=ButtonVariant::Tonal
+                                <Button id="theatre-home-refresh" icon=IconName::Refresh variant=ButtonVariant::Tonal
                                     on_press=Callback::new(move |_| on_restart.run(()))>
                                     {move || text(Key::PublicHomeRefresh, locale.get())}
                                 </Button>
@@ -469,7 +469,7 @@ pub(crate) fn PublicHome(
                             <div class="theatre-public-state theatre-panel" role="status">
                                 <h3>{move || text(heading, locale.get())}</h3>
                                 <p>{move || text(help, locale.get())}</p>
-                                <Button id="theatre-home-retry" variant=ButtonVariant::Tonal
+                                <Button id="theatre-home-retry" icon=IconName::Refresh variant=ButtonVariant::Tonal
                                     on_press=Callback::new(move |_| on_retry.run(()))>
                                     {move || text(Key::PublicRetry, locale.get())}
                                 </Button>
@@ -486,7 +486,7 @@ pub(crate) fn PublicHome(
 mod tests {
     use super::*;
     use crate::application::public_discovery::DiscoveryReadError;
-    use cantos_contracts::theatre::PresentedWorkPage;
+    use crate::contract::discovery::PresentedWorkPage;
 
     fn render_with(state: PublicDiscoveryState, applied: DiscoveryQuery, locale: Locale) -> String {
         Owner::new().with(|| {

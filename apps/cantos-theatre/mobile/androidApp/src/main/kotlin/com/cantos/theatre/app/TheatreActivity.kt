@@ -1,6 +1,5 @@
 package com.cantos.theatre.app
 
-import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
@@ -12,8 +11,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.cantos.theatre.adapters.identity.parseAndroidCallback
-import com.cantos.theatre.domain.identity.NativeCallbackProfile
 import com.cantos.theatre.adapters.preferences.AndroidLocalePreferenceStore
 import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.features.launch.presentation.CantosListeningUnavailable
@@ -48,11 +45,9 @@ class TheatreActivity : ComponentActivity() {
                         onThemeChanged = ::updateSystemBars,
                         backHandler = { enabled, onBack -> BackHandler(enabled = enabled, onBack = onBack) },
                         cache = owner.cache,
-                        identityAvailability = owner.identityAvailability,
                     )
                 }
             }
-            deliverCallback(intent)
             return
         }
         val ui = UiPreferences(theme = ThemeMode.System.resolve(systemIsDark = dark))
@@ -63,20 +58,9 @@ class TheatreActivity : ComponentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        deliverCallback(intent)
-    }
-
-    private fun deliverCallback(intent: Intent?) {
-        val uri = intent?.data ?: return
-        // The final application ID selects the closed profile; an ID without one has no callback.
-        val profile = NativeCallbackProfile.forApplicationId(packageName) ?: return
-        if (uri.scheme != profile.scheme) return
-        intent.data = null
-        val callback = parseAndroidCallback(uri, profile) ?: return
-        ProductionProcess.current()?.runtime?.account?.callback(callback)
+    override fun onStart() {
+        super.onStart()
+        ProductionProcess.current()?.runtime?.foregrounded()
     }
 
     override fun onStop() {

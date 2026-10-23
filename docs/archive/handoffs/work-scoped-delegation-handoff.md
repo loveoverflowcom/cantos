@@ -16,7 +16,7 @@ PR 136 first delivered the source-bound RFC comparison and synthetic evidence as
 After the owner selected direction A on 15 October 2026, the same PR adds the bounded first
 backend slice recorded in [ADR 0028](../../decisions/0028-work-scoped-delegation.md): additive
 migration 0026, the Catalog delegation core/application/SQL adapter, owner and bearer-only HTTP
-routes and the [delegation v1 contract](../../../packages/contracts/delegation-v1.md), with its
+routes and the [delegation v1 contract](../../../services/cantos-server/contracts/studio/delegation/v1/README.md), with its
 [implementation evidence](../../evidence/work-scoped-delegation-implementation.md). Preserve
 existing Studio/Admin/producer/storage boundaries and production gates. Do not create live
 grants/credentials, provision production roles, change identity/security settings, deploy or

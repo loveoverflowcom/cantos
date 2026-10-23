@@ -1,8 +1,8 @@
 # Theatre Library presentation metadata (#251)
 
 Status: implemented backend/contract slice; client adoption and live acceptance are separate.
-The [Library contract](../../packages/contracts/listener-library-v1.md#presentation-metadata-v110-explicit-opt-in)
-and [discovery contract](../../packages/contracts/theatre-discovery-v1.md#presentation-metadata-v110-explicit-opt-in)
+The [Library contract](../../services/cantos-server/contracts/theatre/library/v1/README.md#presentation-metadata-v110-explicit-opt-in)
+and [discovery contract](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#presentation-metadata-v110-explicit-opt-in)
 own the wire semantics. This record describes the implementation boundary and verification gaps.
 
 ## Invariants and compatibility

@@ -30,7 +30,7 @@ pub async fn probe(controller: AbortController) -> ProbePhase {
         return ProbePhase::Failed(Failure::Transport);
     };
     let signal = deadline.controller.signal();
-    let Ok(path) = crate::api_endpoint::endpoint(cantos_contracts::routes::THEATRE_BASE) else {
+    let Ok(path) = crate::api_endpoint::endpoint(cantos_web_auth::address::THEATRE_BASE) else {
         return ProbePhase::Failed(Failure::Transport);
     };
     let request = Request::get(&path)

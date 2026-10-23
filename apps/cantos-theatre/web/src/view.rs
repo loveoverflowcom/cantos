@@ -12,13 +12,14 @@ use crate::{
         work_detail::WorkDetail,
     },
 };
+#[cfg(feature = "preview")]
 use crate::{
     messages::{self, Key, Locale},
     platform,
 };
-use cantos_ui::{Container, ContainerWidth, Density, Select, Theme, UiRoot};
+use cantos_ui::{Container, ContainerWidth, Density, Theme, UiRoot};
 #[cfg(feature = "preview")]
-use cantos_ui::{EmptyState, Space, Stack, Surface, SurfaceTone};
+use cantos_ui::{EmptyState, Select, Space, Stack, Surface, SurfaceTone};
 use leptos::prelude::*;
 
 #[cfg(feature = "preview")]
@@ -350,15 +351,4 @@ fn LiveFrame(theme: RwSignal<Theme>, children: Children) -> impl IntoView {
 #[component]
 fn LiveContainer(children: Children) -> impl IntoView {
     view! { <Container width=ContainerWidth::Wide>{children()}</Container> }
-}
-
-#[component]
-pub fn AuthorizationComplete() -> impl IntoView {
-    let locale = RwSignal::new(crate::messages::Locale::Vietnamese);
-    Effect::new(move |_| platform::set_document_language(locale.get().lang()));
-    view! {<main class="theatre-main"><h1>{move ||crate::features::auth_copy::text(crate::features::auth_copy::CopyKey::LoginHeading,locale.get())}</h1><p role="status">{move ||crate::features::auth_copy::text(crate::features::auth_copy::CopyKey::AuthorizationComplete,locale.get())}</p>
-        <Select id="authorization-language" label=Signal::derive(move ||messages::text(Key::Locale,locale.get()).to_owned()) value=Signal::derive(move ||locale.get().lang().to_owned()) on_input=Callback::new(move |value:String|{if let Some(value)=Locale::from_lang(&value){locale.set(value);}})>
-            {Locale::ALL.into_iter().map(|value|view!{<option value=value.lang() lang=value.lang()>{value.autonym()}</option>}).collect_view()}
-        </Select>
-    </main>}
 }

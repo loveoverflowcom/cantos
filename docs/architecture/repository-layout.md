@@ -48,6 +48,8 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
     web/                   Leptos CSR discovery/playback/Library (package cantos-theatre) LIVE CLIENT + MOCK
+      src/contract/        Theatre Web's own DTOs of the Server contracts it uses (ADR 0046)
+    conformance/           Theatre-owned client corpora (mock playback, boundary probes) for Web and Mobile
     mobile/                Kotlin Compose Multiplatform     (production adapters + isolated demo; acceptance pending)
       shared/              Production-safe UI/domain/application, ports and non-mock adapters
       preview-sandbox/     JVM-only Desktop Preview; shared TheatreShell and mock external ports
@@ -55,26 +57,37 @@ apps/
                            "Cantos", debug com.cantos.theatre.dev "Cantos Dev"; no flavors, no mock variant
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
+      src/contract/        Studio Web's own DTOs, codec and generated pilot Protobuf binding
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
-  cantos-api/              Rust + Axum + PostgreSQL modular monolith (package cantos-api)  IMPLEMENTED
-  manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
-  postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
-  kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
+  cantos-server/           Rust + Axum + embedded Turso (business port incomplete) (package cantos-server)  IMPLEMENTED
+    contracts/             Canonical Studio/Theatre/Admin/auth schemas, protos, fixtures by surface/module/version
+    src/contract/          The Server's own Rust representation of those contracts (a wire leaf)
+  cantos-identity/         Security/proof core + file-backed state + `service` executable   Theatre signup/password (and Studio password) over private UDS RPC; NO passkey/recovery; Server sessions consume Turso
+    contracts/identity/v1/ Canonical private RPC proto and wire goldens (each side generates its own binding)
+  manifest.toml            Typed native/external process inventory                  CONFIGURED
 infra/                     Deployment/runtime assets; no application domain logic
-  vps/                     Production VPS image, Quadlet units, grants, host script         DEPLOYED
+  vps/                     Legacy PG/Kanidm/two-API VPS image, Quadlet units, grants, host script RETAINED
   edge/                    Public HTTPS edge (Caddy) and host DNS updater assets            DEPLOYED
+  oci/                     Native Server/Identity OCI image definitions (#348)              CONFIG ONLY
+  cloudflare/              Pages Direct Upload policy and pinned Wrangler lockfile (ADR 0043, proposed) CONFIG ONLY
   firebase/
     hosting/               Static Web Hosting policy and operator site-mapping example     CONFIG ONLY
     app-distribution/      Existing CLI-only operator inputs; no new config format         DOCUMENTED
-packages/
-  contracts/               Script IR/Studio/production schemas, fixtures, contract docs and
-    api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
-  web-auth/                Shared RAM Bearer lifecycle + browser adapter for both Web apps IMPLEMENTED
+    auth-emulator/         Launcher primitive used by `cargo xtask run`; not a deploy input
+packages/                  No contract package: canonical contracts belong to their service (ADR 0046)
+  web-auth/                Shared Identity v1 cookie-session owner, its session wire and browser API addressing IMPLEMENTED
+  store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (Server and Identity persistence)
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
     cmp/                   Shared native controls and JVM desktop diagnostics              PREVIEW
+specs/
+  behavior/                Quint behavior catalog, models and named runs (ADR 0027, proposed; no capability accepted)
+tools/
+  proto-codegen/           Pinned, isolated generator of every consumer-owned Protobuf binding (not a workspace member)
+  behavior/                Locked Node/npm install of the pinned Quint tool for `cargo xtask verify behavior`
+  visual-compare/          Optional pinned dependency for `cargo xtask visual-compare` (ADR 0029, proposed)
 xtask/                     cargo xtask: command orchestration (package xtask), not deployment assets
 .cargo/                    the `cargo xtask` alias
 docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scripts/ are xtask primitives
@@ -101,11 +114,13 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   Its unsigned release graph and APK/AAB are inspected for sandbox exclusion; catalog integration
   does not establish native listening, a signed release or distribution.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
-- **CONFIG ONLY** documents and validates deployment configuration, not live deployment or
-  integration acceptance. For Kanidm, the API has opt-in [Studio OIDC](studio-oidc.md) and separate
-  [Theatre OIDC](theatre-identity.md) adapters. [Local Theatre sign-in/logout](../evidence/theatre-live-auth-206.md)
-  has real issuer evidence; Firebase signup, Studio live acceptance and production activation
-  retain their own gates.
+- **CONFIG ONLY** describes tracked assets, not deployed state. The native process inventory
+  registers Server + Identity and external storage. Provider OIDC/Firebase enrollment paths
+  are retired; old issuer/mail/browser observations remain source-bound history.
+- **RETAINED** is a legacy runtime asset kept as a recovery/migration input until real native
+  acceptance and a separately authorized cutover; it is not a current setup or deploy path
+  ([VPS assets](../../infra/vps/README.md), [native OCI release](../deployment/native-oci-release.md)).
+
 - **FOUNDATION** is the [Cantos Forge](../../services/cantos-forge-functions/README.md) crate governed by
   accepted [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
   a filesystem workspace and a host-assisted local workflow (`workspace init`, `artifact add`,
@@ -128,10 +143,10 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 | Context | Name |
 | --- | --- |
 | Listener app path, package and Trunk binary | `cantos-theatre` (`apps/cantos-theatre/{web,mobile}`) |
-| Listener API module, route group and DTOs | `theatre` (`/api/v1/theatre`, `cantos_contracts::theatre`) |
+| Listener API module, route group and DTOs | `theatre` (`/api/v1/theatre`, Server `contract::theatre`, canonical `services/cantos-server/contracts/theatre`) |
 | Creator app path, package, API route group | `cantos-studio`, `studio` (`/api/v1/studio`) |
 | Operations API module and route group | `admin` (`/api/v1/admin`) |
-| Shared backend | `cantos-api` |
+| Shared backend | `cantos-server` |
 | Listener-facing title, navigation, splash, manifest, metadata, localization | **Cantos** |
 | Creator-facing product title | **Cantos Studio** |
 
@@ -145,7 +160,7 @@ as an alias of `cantos-theatre`.
 ## Dependency direction
 
 ```text
-apps/*  ──HTTP──▶  services/cantos-api
+apps/*  ──HTTP──▶  services/cantos-server
 apps/*  ──code/data──▶  packages/*          services/*  ──code/data──▶  packages/*
 ```
 
@@ -158,7 +173,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   context. A listener request must never reach a Studio route and a Studio screen must not ship in
   the Theatre bundle. Enforcement stays in the backend: private drafts, voice assets and previews
   remain unavailable to public delivery whichever client asks.
-- **One authoritative modular backend.** `services/cantos-api` owns authoritative metadata and
+- **One authoritative modular backend.** `services/cantos-server` owns authoritative metadata and
   product APIs for both products, as decided in
   [decision 0001](../decisions/0001-modular-monolith.md). This is not a claim that Cantos can have
   only one runnable process: infrastructure and the planned Forge producer remain separate
@@ -167,7 +182,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` (public Discovery/Playback
   core; actual delivery/identity/client acceptance pending) and `/api/v1/admin/*`
   (opt-in [Admin capability/revocation and audit](admin-authorization.md); live provider acceptance pending; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
-  Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's
+  Domain rules and the one Server Turso owner stay shared; a surface never calls another surface's
   handler. Backend no longer starts TTS workers. Current contexts are Editorial, Ingestion,
   Adaptation, reference-only Production, pure Media inspection and the internal Catalog
   API, plus immutable Production Brief export and scoped development read grants; external
@@ -176,34 +191,23 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 - **Firebase Hosting is configuration, not code.** `infra/firebase/hosting/` holds the tracked
   Hosting policy and a mapping example for the explicit, manual
   `cargo xtask deploy firebase` ([runbook](../deployment/firebase-hosting.md)). It serves only each
-  Web app's static bundle: the API, PostgreSQL, Kanidm and storage stay outside it. The VPS
+  Web app's static bundle: the Server, Identity and storage stay outside it. The VPS
   [edge](../../infra/edge/README.md) serves those bundles and the API on one origin per app
   ([ADR 0039](../decisions/0039-vps-production-runtime.md)).
 - **Infrastructure and command orchestration are separate.** [`infra/`](../../infra/README.md)
   owns deployment/runtime assets, including the edge configuration and Firebase Hosting policy.
   `xtask/` owns typed command planning, validation and explicit execution, not a second copy of
-  those assets. The current service inventory and PostgreSQL/Kanidm configuration remain under
-  `services/`; this mechanical boundary does not move application or producer code, provision a
+  those assets. The native process inventory (`services/manifest.toml`) remains under
+  `services/`; retained PostgreSQL/Kanidm assets live under `infra/vps/` as recovery inputs. This
+  mechanical boundary does not move application or producer code, provision a
   runtime or establish deployment acceptance. Add a Functions directory only with a concrete
   consumer and reviewed runtime decision under #203.
-- **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
-  example server config. The API implements a separate opt-in [Studio OIDC verifier](studio-oidc.md);
-  nothing in this repository reimplements an identity provider.
-  The [internal actor registry](identity-registry.md) now owns exact external bindings under
-  `platform/identity`, preserving existing actors and development sessions; it does not verify
-  provider claims, add OIDC login or grant Theatre/Admin authority.
+- **Identity is a native owner.** `services/cantos-identity` owns one Turso file and private
+  authenticated RPC. Removed Kanidm config/provider adapters are historical migration inputs;
+  no provider is required by native build/run/verification.
 
-## What is shared, and what is not
 
-| Shared | Where | Consumers today |
-| --- | --- | --- |
-| Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-api`, `cantos-studio`, `cantos-theatre` |
-| RAM credential lifecycle and browser authorization adapter | `packages/web-auth` | Studio Web and Theatre Web; separate purposes/instances |
-| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web live auth/account and isolated mock; development gallery |
-
-Not shared, deliberately:
-
-- **Script IR rules, revisions and production instructions** remain modules of `cantos-api`
+- **Script IR rules, revisions and production instructions** remain modules of `cantos-server`
   (`script_ir` and the domain modules under `contexts/`). The Studio editor validates through
   the API. There is **no** synthesis worker or provider client to share that package.
   Domain code stays free of HTTP, UI and provider runtime types.
@@ -214,8 +218,9 @@ Not shared, deliberately:
   density and layout vary by task. No separate app token copy or Kotlin runtime is introduced.
 - **Kotlin code.** Theatre is the only mobile product. The shared `packages/ui-system/cmp`
   Gradle package and its Android preview host are component diagnostics, not Studio Mobile.
-  Shared contracts and semantic tokens may serve Theatre Mobile and Studio Web; extract further
-  libraries only for concrete consumers.
+  Service-owned contract schemas and shared semantic tokens may serve Theatre Mobile and Studio
+  Web as build inputs; each consumer keeps its own representation. Extract further libraries only
+  for concrete consumers.
   Within Theatre Mobile, `:preview-sandbox` depends on `:shared`; only the JVM Desktop Preview selects both
   explicitly. Android and iOS have no mock host. `:shared` has no reverse sandbox dependency or implicit mock fallback. The
   one Android application `:androidApp` consumes `:shared` and its injected production adapters
@@ -224,21 +229,23 @@ Not shared, deliberately:
 
 ## Cargo workspace
 
-The root `Cargo.toml` lists seven members and one `Cargo.lock`. Each builds on its own.
+The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds on its own.
 
 | Member | Package | Build target |
 | --- | --- | --- |
-| `services/cantos-api` | `cantos-api` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
+| `services/cantos-server` | `cantos-server` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
+| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events, mailbox-proof lifecycles and bound receipts; opt-in `service` feature: the `cantos-identity` executable with Theatre signup, Argon2id password authentication and an OS-peer-authenticated private Unix-socket RPC ([contract](../../services/cantos-identity/contracts/identity/v1/README.md)); no Studio passkey, recovery or production composition (the Server consumer is Turso sessions, see Identity auth v1) |
 | `services/cantos-forge-functions` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
-| `packages/contracts/api` | `cantos-contracts` | native and WASM |
+| `packages/store-turso` | `cantos-store-turso` | native; file-backed tests, a capability-report binary behind the `testing` feature and `cargo xtask verify turso` |
 | `packages/web-auth` | `cantos-web-auth` | native core tests and WASM browser adapter |
 | `packages/ui-system/leptos` | `cantos-ui` | native string-render checks and WASM CSR |
 | `xtask` | `xtask` | native developer tool; never a dependency of another member |
 
-Package names follow their directories, except `cantos-contracts`, which was renamed from
-`cantos-api` so that two packages do not share a name. Binary names did not change.
+Package names follow their directories. The former `cantos-contracts` (renamed from `cantos-api`)
+and `cantos-identity-rpc` crates were retired by [ADR 0046](../decisions/0046-service-owned-contracts.md);
+`tools/proto-codegen` is an isolated tool, not a member. Binary names did not change.
 
 ## Build and verify per target
 
@@ -246,7 +253,7 @@ Package names follow their directories, except `cantos-contracts`, which was ren
 Trunk and refuses reserved surfaces instead of simulating them.
 
 ```sh
-cargo xtask build cantos-api           # service binaries (native)
+cargo xtask build cantos-server           # service binaries (native)
 cargo xtask build cantos-forge         # producer-side Forge CLI (native); built, never run by xtask
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
 cargo xtask build cantos-theatre --web         # Theatre Web live boundary and isolated mock through Trunk
@@ -260,10 +267,10 @@ cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```
 
-PostgreSQL and optional Kanidm use explicit `cargo xtask services` lifecycle commands, separate
-from native `run` and disposable database verification. See [services](../../services/README.md).
-Configured infrastructure is not a deployed identity provider. The opt-in Studio OIDC code has
-separate mocked/SQL evidence and unrun live-provider gates.
+`cargo xtask run` starts the native Server and Identity over private development files;
+`cargo xtask services list|validate` describe and check the process inventory. Container
+lifecycle, Kanidm and PostgreSQL verification commands are retired refusals
+([services](../../services/README.md), [xtask](../../xtask/README.md)).
 
 `cantos-server` serves `apps/cantos-studio/web/dist` by default for local development, through
 `CANTOS_WEB_DIST`. This is a development convenience for same-origin cookies, not a statement that
@@ -283,10 +290,11 @@ because they describe what was run at the time. Their links point to the current
 | `apps/server/` | `services/cantos-api/` |
 | `apps/web/` | `apps/cantos-studio/web/` |
 | `apps/mobile/` | `apps/cantos-theatre/mobile/` |
-| `contracts/` | `packages/contracts/` |
+| `contracts/` | `packages/contracts/` (since ADR 0046: `services/cantos-server/contracts/`, `services/cantos-identity/contracts/`, `apps/cantos-theatre/conformance/`) |
 | `contracts/design/studio-tokens-0.1.0.json` | `packages/ui-system/shared/legacy/studio-tokens-0.1.0.json` (via `packages/design-tokens`) |
 | package `cantos-server` | package `cantos-api` (binary `cantos-server` unchanged) |
-| package `cantos-api` | package `cantos-contracts` |
+| package `cantos-api` | package `cantos-contracts` (retired by ADR 0046: each consumer owns its representation) |
+| `services/cantos-api/` (package `cantos-api`) | `services/cantos-server/` (package `cantos-server`; #332, checkpoint 1/5 of #331) — the binary, routes and wire contracts are unchanged; see the [rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api) for what intentionally keeps the old name |
 
 The subsequent [UI foundation migration](ui-system-migration.md) renames the token package and
 adds renderer primitives; the restructure itself did not implement these components.

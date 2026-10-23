@@ -1,6 +1,10 @@
 //! Live public Work detail. Server text only: no cover art, genre, credit or count. The Listen
 //! control and each unit's control only express an intent; the root resolves the exact release
 //! and owns the one player. Opening this page never plays anything.
+use crate::contract::{
+    discovery::{PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind},
+    library::{AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation},
+};
 use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
@@ -19,13 +23,9 @@ use crate::{
     },
     messages::{self, text, Key, Locale},
 };
-use cantos_contracts::{
-    listener_library::{
-        AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
-    },
-    theatre::{PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind},
+use cantos_ui::{
+    AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, IconName,
 };
-use cantos_ui::{AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason};
 use leptos::prelude::*;
 
 pub(crate) const HEADING_ID: &str = "theatre-public-work-heading";
@@ -217,7 +217,7 @@ fn status_line(units: &UnitList, work_kind: WorkKind, locale: Locale) -> String 
 
 #[derive(Clone, Copy)]
 pub(crate) struct WorkSyncControls {
-    pub account: RwSignal<AccountViewState>,
+    pub account: ReadSignal<AccountViewState>,
     pub on_login_to_save: Callback<()>,
     pub on_set_saved: Callback<(String, bool, Option<WorkPresentation>)>,
     pub on_retry_saved: Callback<String>,
@@ -263,7 +263,7 @@ pub(crate) fn PublicWorkDetail(
                         <div class="theatre-public-state theatre-panel" role="status">
                             <h1 id=HEADING_ID tabindex="-1">{move || text(heading, locale.get())}</h1>
                             <p>{move || text(help, locale.get())}</p>
-                            <Button id="theatre-public-work-retry" variant=ButtonVariant::Tonal
+                            <Button id="theatre-public-work-retry" icon=IconName::Refresh variant=ButtonVariant::Tonal
                                 on_press=Callback::new(move |_| on_retry.run(()))>
                                 {move || text(Key::PublicRetry, locale.get())}
                             </Button>
@@ -324,7 +324,7 @@ fn WorkSaveControl(
             if controls.account.with(|a| a.phase()) != SessionPhase::SignedIn {
                 let guest_sr = title_for_guest.clone();
                 view! {
-                    <Button id="theatre-public-work-save-login" variant=ButtonVariant::Tonal
+                    <Button id="theatre-public-work-save-login" icon=IconName::Login variant=ButtonVariant::Tonal
                         on_press=Callback::new(move |_| controls.on_login_to_save.run(()))>
                         {move || text(Key::LiveSaveSignIn, locale.get())}
                         <span class="cui-sr-only">" "{guest_sr}</span>
@@ -371,7 +371,7 @@ fn WorkSaveControl(
                             {can_retry.then(|| {
                                 let retry_id = work_id_retry.clone();
                                 view! {
-                                    <Button id="theatre-public-work-save-retry" variant=ButtonVariant::Text
+                                    <Button id="theatre-public-work-save-retry" icon=IconName::Refresh variant=ButtonVariant::Text
                                         on_press=Callback::new(move |_| controls.on_retry_saved.run(retry_id.clone()))>
                                         {move || text(Key::PublicRetry, locale.get())}
                                     </Button>
@@ -404,19 +404,7 @@ fn ReadyWork(
         WorkKind::Podcast => (Key::PublicWorkEpisodes, Key::PublicWorkMoreEpisodes),
         WorkKind::Novel | WorkKind::Story => (Key::PublicWorkChapters, Key::PublicWorkMoreChapters),
     };
-    let rows = move || {
-        state
-            .with(|s| {
-                with_units(s, |units| {
-                    units
-                        .rows()
-                        .iter()
-                        .map(|row| (row.clone(), units.is_unavailable(&row.unit_id)))
-                        .collect::<Vec<_>>()
-                })
-            })
-            .unwrap_or_default()
-    };
+    let membership = Memo::new(move |_| state.with(unit_membership));
     let status = move || state.with(|s| with_units(s, |units| units.status().clone()));
     let first_page_failure = move || {
         state
@@ -518,8 +506,8 @@ fn ReadyWork(
             aria-busy=move || matches!(status(), Some(PageStatus::Loading)).then_some("true")>
             <h2 id="theatre-public-units-heading" class="theatre-section-heading">{move || text(list_heading, locale.get())}</h2>
             <ol class="theatre-episode-list theatre-public-unit-list">
-                <For each=rows key=|(row, unavailable)| (row.unit_id.clone(), row.publication_id.clone(), *unavailable)
-                    children=move |(row, unavailable)| view! { <UnitRow row unavailable work=work_summary.get_value() lang=row_lang.get_value() locale listen sync_controls/> }/>
+                <For each=move || membership.get() key=|id| id.clone()
+                    children=move |unit_id| view! { <UnitRow state=state.read_only() unit_id work=work_summary.get_value() lang=row_lang.get_value() locale listen sync_controls/> }/>
             </ol>
             {move || first_page_failure().map(|failure| {
                 let help = match failure {
@@ -551,32 +539,73 @@ fn ReadyWork(
     }
 }
 
-#[component]
-fn UnitRow(
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct UnitRowUi {
     row: PresentedUnitSummary,
     unavailable: bool,
+}
+
+fn unit_membership(state: &WorkDetailState) -> Vec<String> {
+    with_units(state, |units| {
+        units.rows().iter().map(|row| row.unit_id.clone()).collect()
+    })
+    .unwrap_or_default()
+}
+
+fn unit_row_ui(state: &WorkDetailState, unit_id: &str) -> Option<UnitRowUi> {
+    with_units(state, |units| {
+        units
+            .rows()
+            .iter()
+            .find(|row| row.unit_id == unit_id)
+            .map(|row| UnitRowUi {
+                row: row.clone(),
+                unavailable: units.is_unavailable(unit_id),
+            })
+    })
+    .flatten()
+}
+
+fn press_current_unit(state: ReadSignal<WorkDetailState>, unit_id: &str, listen: ListenControls) {
+    let current = state.with_untracked(|s| unit_row_ui(s, unit_id));
+    if let Some(current) = current.filter(|r| !r.unavailable) {
+        listen.press(&current.row);
+    }
+}
+
+#[component]
+fn UnitRow(
+    state: ReadSignal<WorkDetailState>,
+    unit_id: String,
     work: PresentedWorkSummary,
     lang: String,
     locale: RwSignal<Locale>,
     listen: ListenControls,
     sync_controls: Option<WorkSyncControls>,
 ) -> impl IntoView {
-    let kind = unit_label(row.kind);
-    // The current rank in the public list: never an identity or an author-assigned number.
-    let ordinal = row.ordinal;
-    let seconds = u32::try_from(row.duration_ms / 1000).unwrap_or(u32::MAX);
-    let known = row.duration_ms > 0;
-    let description = (!row.description.trim().is_empty()).then(|| row.description.clone());
-    let control = StoredValue::new(row.clone());
-    let row_state = move || control.with_value(|row| listen.state_of(row));
+    let id = StoredValue::new(unit_id.clone());
+    let row = Memo::new(move |_| state.with(|s| unit_row_ui(s, &unit_id)));
+    let heading = NodeRef::<leptos::html::H3>::new();
+    let actions = NodeRef::<leptos::html::Div>::new();
+    let offered = Memo::new(move |_| row.with(|r| r.as_ref().is_some_and(|r| !r.unavailable)));
+    let row_state = move || {
+        row.with(|r| {
+            r.as_ref()
+                .map(|r| listen.state_of(&r.row))
+                .unwrap_or(RowListen::Ready)
+        })
+    };
     let button_state = Signal::derive(move || match row_state() {
-        RowListen::Preparing => control
-            .with_value(|row| {
-                DisabledReason::new(messages::format(
-                    Key::ListenUnitPreparing,
-                    locale.get(),
-                    &[("title", row.title.clone())],
-                ))
+        RowListen::Preparing => row
+            .with(|r| {
+                r.as_ref().and_then(|r| {
+                    DisabledReason::new(messages::format(
+                        Key::ListenUnitPreparing,
+                        locale.get(),
+                        &[("title", r.row.title.clone())],
+                    ))
+                    .ok()
+                })
             })
             .map(ButtonState::Loading)
             .unwrap_or_default(),
@@ -587,18 +616,13 @@ fn UnitRow(
         RowListen::Failed(_) => Key::PublicRetry,
         RowListen::Ready | RowListen::Preparing => Key::PublicWorkListen,
     };
-    let title = row.title.clone();
-    let pub_id_progress = StoredValue::new(row.publication_id.clone());
-    let pub_id_resume = row.publication_id.clone();
-    let unit_id_resume = row.unit_id.clone();
-    let unit_title_resume = row.title.clone();
-    let work_for_resume = work.clone();
     let unit_progress = move || {
         let controls = sync_controls?;
-        controls.account.with(|a| {
-            pub_id_progress.with_value(|pub_id| {
+        row.with(|r| {
+            let r = r.as_ref()?;
+            controls.account.with(|a| {
                 a.sync()
-                    .and_then(|s| s.progress_for(pub_id))
+                    .and_then(|s| s.progress_for(&r.row.publication_id))
                     .and_then(|p| p.record.clone())
             })
         })
@@ -612,24 +636,21 @@ fn UnitRow(
             locale.get(),
             &[("position", clock(pos_sec)), ("total", clock(total_sec))],
         );
-        if rec.completion == Completion::Completed {
-            Some(format!(
-                "{line} · {}",
-                text(Key::LiveResumeCompleted, locale.get())
-            ))
+        Some(if rec.completion == Completion::Completed {
+            format!("{line} · {}", text(Key::LiveResumeCompleted, locale.get()))
         } else {
-            Some(line)
-        }
+            line
+        })
     };
     let unit_resume_feedback = move || {
         let controls = sync_controls?;
-        controls.account.with(|a| {
-            let attempt = a.sync()?.resume_attempt();
-            match attempt {
+        row.with(|r| {
+            let r = r.as_ref()?;
+            controls.account.with(|a| match a.sync()?.resume_attempt() {
                 ResumeAttemptState::Restored {
                     publication_id,
                     position_ms,
-                } if publication_id == &pub_id_resume => Some(messages::format(
+                } if publication_id == &r.row.publication_id => Some(messages::format(
                     Key::LiveResumeRestored,
                     locale.get(),
                     &[("time", clock(position_ms / 1000))],
@@ -637,135 +658,121 @@ fn UnitRow(
                 ResumeAttemptState::Refused {
                     publication_id,
                     reason,
-                } if publication_id == &pub_id_resume => {
-                    let key = match reason {
-                        ResumeRefusal::ReleaseReplaced => Key::LiveResumeReplaced,
-                        ResumeRefusal::AccessUnavailable => Key::LiveResumeUnavailable,
-                        ResumeRefusal::LoadFailed | ResumeRefusal::Protocol => {
-                            Key::LiveResumeLoadFailed
-                        }
-                    };
-                    Some(text(key, locale.get()).to_owned())
-                }
+                } if publication_id == &r.row.publication_id => Some(
+                    text(
+                        match reason {
+                            ResumeRefusal::ReleaseReplaced => Key::LiveResumeReplaced,
+                            ResumeRefusal::AccessUnavailable => Key::LiveResumeUnavailable,
+                            ResumeRefusal::LoadFailed | ResumeRefusal::Protocol => {
+                                Key::LiveResumeLoadFailed
+                            }
+                        },
+                        locale.get(),
+                    )
+                    .to_owned(),
+                ),
                 _ => None,
-            }
+            })
         })
     };
+    let resume_visible =
+        Memo::new(move |_| offered.get() && unit_progress().is_some_and(|r| r.position_ms > 0));
+    let seconds = move || {
+        row.with(|r| {
+            r.as_ref()
+                .map(|r| u32::try_from(r.row.duration_ms / 1000).unwrap_or(u32::MAX))
+                .unwrap_or_default()
+        })
+    };
+    let row_lang = StoredValue::new(lang);
+    let work = StoredValue::new(work);
     view! {
-        <li class="theatre-episode-row theatre-public-unit" data-unit-id=row.unit_id.clone()
-            data-listen=move || match row_state() {
-                RowListen::Ready => "ready",
-                RowListen::Preparing => "preparing",
-                RowListen::Playing => "playing",
-                RowListen::Failed(_) => "failed",
-            }
-            data-unavailable=unavailable.then_some("true")>
-            <div class="theatre-episode-copy">
-                <p class="theatre-eyebrow" data-ordinal=ordinal.to_string()>
-                    {move || messages::format(Key::PublicWorkUnitLabel, locale.get(), &[
-                        ("kind", text(kind, locale.get()).to_owned()),
-                        ("ordinal", ordinal.to_string()),
-                    ])}
-                </p>
-                <h3 id=unit_heading_id(&row.unit_id) tabindex="-1" lang=lang.clone()>{row.title.clone()}</h3>
-                {description.map(|text| view! { <p class="theatre-muted" lang=lang.clone()>{text}</p> })}
-                <p class="theatre-muted theatre-public-unit-duration">
-                    {move || if known {
-                        view! {
-                            <span aria-hidden="true">{clock(seconds)}</span>
-                            <span class="cui-sr-only">{messages::format(Key::PublicWorkDurationDescription, locale.get(), &[("duration", messages::spoken_time(locale.get(), seconds))])}</span>
-                        }.into_any()
-                    } else {
-                        text(Key::PublicWorkDurationUnknown, locale.get()).into_any()
-                    }}
-                </p>
-                {move || unit_progress_text().map(|line| view! {
-                    <p class="theatre-muted theatre-public-unit-progress">{line}</p>
-                })}
-                {move || unit_resume_feedback().map(|feedback| view! {
-                    <p class="theatre-muted theatre-public-unit-resume-status" role="status">{feedback}</p>
-                })}
-                {unavailable.then(|| view! { <p class="theatre-muted">{move || text(Key::PublicWorkRowUnavailable, locale.get())}</p> })}
-                {move || match row_state() {
-                    RowListen::Failed(failure) => Some(view! {
-                        <p class="theatre-muted theatre-public-unit-failure" role="status">{text(resolve_failure_key(failure), locale.get())}</p>
-                    }),
-                    _ => None,
-                }}
-            </div>
-            {(!unavailable).then(|| view! {
-                <div class="theatre-episode-actions">
-                    <Button id=format!("theatre-public-unit-listen-{}", row.unit_id) variant=ButtonVariant::Tonal state=button_state
-                        on_press=Callback::new(move |_| control.with_value(|row| listen.press(row)))>
-                        {move || text(verb(), locale.get())}
-                        <span class="cui-sr-only">" "{title.clone()}</span>
-                    </Button>
-                    {move || {
-                        let controls = sync_controls?;
-                        let rec = unit_progress()?;
-                        if rec.position_ms == 0 {
-                            return None;
-                        }
-                        let audio = rec.audio.clone();
-                        let pos = rec.position_ms;
-                        let resume_unit_id = unit_id_resume.clone();
-                        let resume_title = unit_title_resume.clone();
-                        let resume_title_sr = resume_title.clone();
-                        let w = work_for_resume.clone();
-                        Some(view! {
-                            <Button id=format!("theatre-public-unit-resume-{}", resume_unit_id) variant=ButtonVariant::Text
-                                on_press=Callback::new(move |_| {
-                                    let pres = AudioPresentation {
-                                        work: WorkPresentation {
-                                            work_id: w.work_id.clone(),
-                                            publication_id: audio.publication_id.clone(),
-                                            title: w.title.clone(),
-                                            kind: w.kind,
-                                            language: w.language.clone(),
-                                        },
-                                        unit_id: resume_unit_id.clone(),
-                                        unit_title: resume_title.clone(),
-                                    };
-                                    controls.on_resume.run((
-                                        audio.clone(),
-                                        pos,
-                                        ResumeStatus::ExactAvailable,
-                                        Some(pres),
-                                    ));
-                                })>
-                                {move || text(Key::LiveResumeOpen, locale.get())}
-                                <span class="cui-sr-only">" "{resume_title_sr}</span>
-                            </Button>
-                        })
+        <Show when=move || row.with(Option::is_some)>
+            <li class="theatre-episode-row theatre-public-unit" data-unit-id=id.get_value()
+                data-listen=move || match row_state() {
+                    RowListen::Ready => "ready", RowListen::Preparing => "preparing", RowListen::Playing => "playing", RowListen::Failed(_) => "failed",
+                }
+                data-unavailable=move || row.with(|r| r.as_ref().is_some_and(|r| r.unavailable)).then_some("true")>
+                <div class="theatre-episode-copy">
+                    <p class="theatre-eyebrow" data-ordinal=move || row.with(|r| r.as_ref().map(|r| r.row.ordinal.to_string()))>
+                        {move || row.with(|r| r.as_ref().map(|r| messages::format(Key::PublicWorkUnitLabel, locale.get(), &[("kind", text(unit_label(r.row.kind), locale.get()).to_owned()), ("ordinal", r.row.ordinal.to_string())])))}
+                    </p>
+                    <h3 node_ref=heading id=unit_heading_id(&id.get_value()) tabindex="-1" lang=row_lang.get_value()>{move || row.with(|r| r.as_ref().map(|r| r.row.title.clone()).unwrap_or_default())}</h3>
+                    <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| !r.row.description.trim().is_empty()))>
+                        <p class="theatre-muted" lang=row_lang.get_value()>{move || row.with(|r| r.as_ref().map(|r| r.row.description.clone()).unwrap_or_default())}</p>
+                    </Show>
+                    <p class="theatre-muted theatre-public-unit-duration">
+                        <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| r.row.duration_ms > 0)) fallback=move || text(Key::PublicWorkDurationUnknown, locale.get())>
+                            <span aria-hidden="true">{move || clock(seconds())}</span>
+                            <span class="cui-sr-only">{move || messages::format(Key::PublicWorkDurationDescription, locale.get(), &[("duration", messages::spoken_time(locale.get(), seconds()))])}</span>
+                        </Show>
+                    </p>
+                    {move || unit_progress_text().map(|line| view! { <p class="theatre-muted theatre-public-unit-progress">{line}</p> })}
+                    {move || unit_resume_feedback().map(|feedback| view! { <p class="theatre-muted theatre-public-unit-resume-status" role="status">{feedback}</p> })}
+                    <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| r.unavailable))>
+                        <p class="theatre-muted">{move || text(Key::PublicWorkRowUnavailable, locale.get())}</p>
+                    </Show>
+                    {move || match row_state() {
+                        RowListen::Failed(failure) => Some(view! { <p class="theatre-muted theatre-public-unit-failure" role="status">{text(resolve_failure_key(failure), locale.get())}</p> }),
+                        _ => None,
                     }}
                 </div>
-            })}
-        </li>
+                <Show when=move || {
+                    let offered = offered.get();
+                    // Run before Show removes the focused subtree; an effect afterward would
+                    // see body. Other focus is left alone, including during background walks.
+                    if !offered { crate::platform::focus_before_unit_actions_removed(actions, heading); }
+                    offered
+                }>
+                    <div node_ref=actions class="theatre-episode-actions">
+                        <Button id=format!("theatre-public-unit-listen-{}", id.get_value()) variant=ButtonVariant::Tonal state=button_state
+                            on_press=Callback::new(move |_| id.with_value(|id| press_current_unit(state, id, listen)))>
+                            {move || text(verb(), locale.get())}
+                            <span class="cui-sr-only">" "{move || row.with(|r| r.as_ref().map(|r| r.row.title.clone()).unwrap_or_default())}</span>
+                        </Button>
+                        <Show when=move || resume_visible.get()>
+                            <Button id=format!("theatre-public-unit-resume-{}", id.get_value()) variant=ButtonVariant::Text
+                                on_press=Callback::new(move |_| {
+                                    let Some(controls) = sync_controls else { return; };
+                                    let Some(current) = state.with_untracked(|s| id.with_value(|id| unit_row_ui(s, id))).filter(|r| !r.unavailable) else { return; };
+                                    let Some(rec) = controls.account.with_untracked(|a| a.sync().and_then(|s| s.progress_for(&current.row.publication_id)).and_then(|p| p.record.clone())).filter(|r| r.position_ms > 0) else { return; };
+                                    let w = work.get_value();
+                                    let pres = AudioPresentation { work: WorkPresentation { work_id: w.work_id, publication_id: rec.audio.publication_id.clone(), title: w.title, kind: w.kind, language: w.language }, unit_id: current.row.unit_id, unit_title: current.row.title };
+                                    controls.on_resume.run((rec.audio, rec.position_ms, ResumeStatus::ExactAvailable, Some(pres)));
+                                })>
+                                {move || text(Key::LiveResumeOpen, locale.get())}
+                                <span class="cui-sr-only">" "{move || row.with(|r| r.as_ref().map(|r| r.row.title.clone()).unwrap_or_default())}</span>
+                            </Button>
+                        </Show>
+                    </div>
+                </Show>
+            </li>
+        </Show>
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::discovery::{PresentedUnitPage, PresentedWorkPage};
     use crate::{
         application::public_work::{CatalogReadError, Step},
         core::public_ids::PublicWorkId,
         infrastructure::inert_media::InertMedia,
     };
-    use cantos_contracts::theatre::{PresentedUnitPage, PresentedWorkPage};
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
 
     fn fixture_work() -> PresentedWorkSummary {
         let page: PresentedWorkPage = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_works.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
         ))
         .unwrap();
         page.items.into_iter().next().unwrap()
     }
     fn fixture_units() -> PresentedUnitPage {
         serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_units.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_units.json"
         ))
         .unwrap()
     }
@@ -786,10 +793,10 @@ mod tests {
     }
     fn fixture_manifest(
         row: &PresentedUnitSummary,
-    ) -> cantos_contracts::theatre::PublicationManifest {
-        let mut manifest: cantos_contracts::theatre::PublicationManifest =
+    ) -> crate::contract::discovery::PublicationManifest {
+        let mut manifest: crate::contract::discovery::PublicationManifest =
             serde_json::from_str(include_str!(
-                "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+                "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
             ))
             .unwrap();
         manifest.work_id = WORK.into();
@@ -849,6 +856,118 @@ mod tests {
         ] {
             assert!(!html.contains(absent), "{absent}");
         }
+    }
+
+    fn replace_walk(state: &mut WorkDetailState, items: Vec<PresentedUnitSummary>) {
+        let more = state.load_more().unwrap();
+        let Step::Continue(first) = state.finish_page(&more, Err(CatalogReadError::InvalidCursor))
+        else {
+            panic!("restart")
+        };
+        assert_eq!(
+            state.finish_page(&first, Ok(page(items, Some("lc1_next")))),
+            Step::Settled
+        );
+    }
+
+    #[test]
+    fn unit_fields_refresh_with_unchanged_membership_and_event_time_listen_uses_new_release() {
+        use std::sync::{Arc, Mutex};
+        Owner::new().with(|| {
+            let original = unit(1, "Ban đầu");
+            let (mut initial, first) = opened(fixture_work());
+            initial.finish_page(&first, Ok(page(vec![original.clone()], Some("lc1_next"))));
+            let state = RwSignal::new(initial);
+            let id = StoredValue::new(original.unit_id.clone());
+            let row = Memo::new(move |_| state.with(|s| id.with_value(|id| unit_row_ui(s, id))));
+            let membership = Memo::new(move |_| state.with(unit_membership));
+            let original_ids = membership.get();
+            let targets = Arc::new(Mutex::new(Vec::new()));
+            let received = targets.clone();
+            let listen = ListenControls {
+                on_listen: Callback::new(move |target| received.lock().unwrap().push(target)),
+                ..controls()
+            };
+            for field in 0..7 {
+                let mut updated = original.clone();
+                match field {
+                    0 => updated.title = "Tên hiện tại".into(),
+                    1 => updated.description = "Mô tả hiện tại".into(),
+                    2 => updated.duration_ms = 123_000,
+                    3 => updated.ordinal = 12,
+                    4 => updated.position = 18,
+                    5 => updated.published_at_ms = 55_000,
+                    6 => updated.publication_id = uuid::Uuid::from_u128(999).to_string(),
+                    _ => unreachable!(),
+                }
+                state.update(|s| replace_walk(s, vec![updated.clone()]));
+                assert_eq!(
+                    row.get().unwrap(),
+                    UnitRowUi {
+                        row: updated.clone(),
+                        unavailable: false
+                    }
+                );
+                assert_eq!(membership.get(), original_ids);
+                // The retained handler consults the state even before a rendered row reads it.
+                id.with_value(|id| press_current_unit(state.read_only(), id, listen));
+                assert_eq!(
+                    targets.lock().unwrap().last(),
+                    Some(&ListenTarget::of(&updated))
+                );
+            }
+            let count = targets.lock().unwrap().len();
+            state.update(|s| {
+                s.leave();
+            });
+            id.with_value(|id| press_current_unit(state.read_only(), id, listen));
+            assert_eq!(targets.lock().unwrap().len(), count);
+            assert_eq!(row.get(), None);
+        });
+    }
+
+    #[test]
+    fn unavailable_unit_keeps_identity_but_retained_action_is_inert() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        Owner::new().with(|| {
+            let original = unit(1, "Một");
+            let (mut initial, first) = opened(fixture_work());
+            initial.finish_page(&first, Ok(page(vec![original.clone()], Some("lc1_next"))));
+            let state = RwSignal::new(initial);
+            let calls = Arc::new(AtomicUsize::new(0));
+            let count = calls.clone();
+            let listen = ListenControls {
+                on_listen: Callback::new(move |_| {
+                    count.fetch_add(1, Ordering::SeqCst);
+                }),
+                ..controls()
+            };
+            let more = state
+                .try_update(WorkDetailState::load_more)
+                .unwrap()
+                .unwrap();
+            let Step::Continue(first) = state
+                .try_update(|s| s.finish_page(&more, Err(CatalogReadError::InvalidCursor)))
+                .unwrap()
+            else {
+                panic!("restart")
+            };
+            state.update(|s| {
+                s.finish_page(&first, Ok(page(Vec::new(), None)));
+            });
+            assert_eq!(state.with(unit_membership), vec![original.unit_id.clone()]);
+            assert!(
+                state
+                    .with(|s| unit_row_ui(s, &original.unit_id))
+                    .unwrap()
+                    .unavailable
+            );
+            press_current_unit(state.read_only(), &original.unit_id, listen);
+            assert_eq!(calls.load(Ordering::SeqCst), 0);
+        });
     }
 
     #[test]
@@ -1360,7 +1479,7 @@ mod tests {
             account_view::{AccountViewState, SessionCompletion},
             library_sync::ResumeAttemptState,
         };
-        use cantos_contracts::listener_library::{
+        use crate::contract::library::{
             AudioIdentity, Completion, ProgressKind, ProgressRecord, SavedRecord,
         };
 
@@ -1376,6 +1495,7 @@ mod tests {
         let _ = guest_account.finish_session(
             issued,
             Err(crate::application::account_view::AccountFailure::SignedOut),
+            || uuid::Uuid::from_u128(100).to_string(),
         );
 
         let render_with_sync = |account_state: AccountViewState, locale: Locale| -> String {
@@ -1384,7 +1504,7 @@ mod tests {
                 let account = RwSignal::new(account_state);
                 let listen = controls();
                 let sync_controls = WorkSyncControls {
-                    account,
+                    account: account.read_only(),
                     on_set_saved: Callback::new(|_| {}),
                     on_retry_saved: Callback::new(|_| {}),
                     on_login_to_save: Callback::new(|_| {}),
@@ -1419,11 +1539,12 @@ mod tests {
                     "listener-a".into(),
                     uuid::Uuid::from_u128(10).to_string()
                 )
-                .unwrap())
+                .unwrap()),
+                || uuid::Uuid::from_u128(100).to_string()
             ),
             Ok(SessionCompletion::Authenticated(_))
         ));
-        signed_in.with_sync_mut(|sync, _| {
+        signed_in.seed_sync(|sync, _| {
             sync.observe_saved_record(SavedRecord {
                 work_id: WORK.into(),
                 saved: true,

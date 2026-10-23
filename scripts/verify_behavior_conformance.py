@@ -1,7 +1,9 @@
-"""Private-admission ITF codec and differential observer gate, owned by cargo xtask.
+"""Registered ITF codecs and differential observer gate, owned by cargo xtask.
 
 This module decodes Quint expectations and compares independent Rust observations. It
-never evaluates the model or decides an admission. Events alone enter the Rust observer.
+never evaluates the model or decides an outcome. Events alone enter a Rust observer.
+Registration is a finite allowlist (`adapters()`): one capability, one observation schema, one
+exact ignored Rust test and one codec/comparator. Unregistered capabilities fail closed.
 """
 
 import os
@@ -9,15 +11,18 @@ import re
 import shutil
 import time
 import tomllib
+from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Callable, Optional
 
 from verify_kani import FORBIDDEN_ENVIRONMENT, KaniError, bounded_run, configuration_identity
 
 CAPABILITY = "cantos.media.private-audio-admission"
 SCHEMA = "cantos-private-audio-admission-observation-v1"
 SCRIPT = "scripts/verify_behavior_conformance.py"
-OBSERVER = "services/cantos-api/src/contexts/media/quint_conformance_tests.rs"
+NATIVE_SCRIPT = "scripts/verify_behavior_conformance_native.py"
+OBSERVER = "services/cantos-server/src/contexts/media/quint_conformance_tests.rs"
 TEST = "contexts::media::domain::lifecycle::tests::quint_conformance_tests::replay_quint_private_admission"
 ERRORS = {"PermissionRevoked", "PermissionExpired", "InvalidExpiry", "StaleBrief", "DigestMismatch", "OperationReused"}
 OWNERS = {"AwaitingBytes", "OwnerAdmitted", "Expired", "Revoked", "Stale"}
@@ -136,23 +141,34 @@ def decode_trace(raw):
     return result
 
 
-def snapshot(root, behavior):
+def snapshot(root, behavior, adapter=None):
     """Pin implementation, fixture, compiler configuration and comparison inputs."""
-    paths = {SCRIPT, "scripts/test_verify_behavior_conformance.py", "Cargo.toml", "Cargo.lock", ".cargo/config.toml", "rust-toolchain.toml"}
-    for directory in ("services/cantos-api", "packages/contracts/api"):
+    adapter = adapter or AUDIO
+    paths = {SCRIPT, "scripts/test_verify_behavior_conformance.py", NATIVE_SCRIPT, "scripts/test_verify_behavior_conformance_native.py",
+             "Cargo.toml", "Cargo.lock", ".cargo/config.toml", "rust-toolchain.toml"}
+    for directory in adapter.source_roots:
         paths.add(directory + "/Cargo.toml")
         paths.update(str(path.relative_to(root)) for path in (root / directory / "src").rglob("*.rs"))
-    paths.update(str(path.relative_to(root)) for path in (root / "packages/contracts/fixtures/briefs").rglob("*.json"))
-    paths.update(str(path.relative_to(root)) for path in (root / "packages/contracts/schema").rglob("*.json"))
-    for relative in ("services/cantos-api/build.rs", "packages/contracts/api/build.rs", "rust-toolchain", "rust-toolchain.toml"):
+        if (root / directory / "build.rs").exists():
+            paths.add(directory + "/build.rs")
+    for directory, pattern in adapter.extra_inputs:
+        paths.update(str(path.relative_to(root)) for path in (root / directory).rglob(pattern))
+    for relative in ("rust-toolchain",):
         if (root / relative).exists():
             paths.add(relative)
     return {path: behavior.digest(behavior.local_path(root, path)) for path in sorted(paths)}
 
 
-def collect_cases(root, cap, bundle, report, inputs, versions, revision, behavior):
-    require(cap["id"] == CAPABILITY and cap.get("observationSchema") == SCHEMA and
+def adapter_for(cap):
+    """The finite allowlist. Catalog metadata must agree with the registered adapter exactly."""
+    adapter = adapters().get(cap.get("id"))
+    require(adapter is not None and cap.get("observationSchema") == adapter.schema and
             cap.get("implementationConformance") == "pure-core-observer", "unregistered implementation observation adapter/schema")
+    return adapter
+
+
+def collect_cases(root, cap, bundle, report, inputs, versions, revision, behavior):
+    adapter = adapter_for(cap)
     require(report.get("schemaVersion") == 1 and report.get("capability") == cap["id"] and
             report.get("scope") == "model-only" and report.get("status") == "PASS", "model evidence did not pass independently")
     require(report.get("sourceRevision") == revision and report.get("inputs") == inputs and
@@ -161,7 +177,7 @@ def collect_cases(root, cap, bundle, report, inputs, versions, revision, behavio
             report.get("controlSelection") == [{"id": row["id"], "property": row["property"]} for row in cap["controls"]], "stale scenario/control selection")
     require(set(report.get("stages", {})) == {"typecheck", "scenarios", "simulation", "witnesses", "negativeControls", "freshness"} and
             set(report["stages"].values()) == {"PASS"}, "partial model stage evidence")
-    require(report.get("observationVariables") == sorted(["state", "before", "last", "outcome"]),
+    require(report.get("observationVariables") == sorted(adapter.variables),
             "model variables do not match the registered observation schema")
     require(all(behavior.digest(behavior.local_path(bundle / "inputs", path)) == sha for path, sha in inputs.items()), "stale retained model inputs")
     receipt = report.get("installationReceipt", {})
@@ -177,7 +193,7 @@ def collect_cases(root, cap, bundle, report, inputs, versions, revision, behavio
         path = behavior.local_path(bundle, evidence.get("file"))
         require(behavior.digest(path) == evidence.get("sha256"), "stale raw ITF hash")
         behavior.validate_itf(path, source, status, expected_variables=report.get("observationVariables"))
-        checkpoints = decode_trace(behavior.read_json(path))
+        checkpoints = adapter.decode(behavior.read_json(path))
         cases.append({"id": identity, "checkpoints": checkpoints, "sensitivity": sensitivity,
                       "source": str(source), "file": path.name, "sha256": evidence["sha256"], "seed": evidence.get("seed", cap["simulation"]["seed"])})
 
@@ -199,8 +215,8 @@ def collect_cases(root, cap, bundle, report, inputs, versions, revision, behavio
     return cases
 
 
-def replay_input(cases):
-    return {"schemaVersion": 1, "observationSchema": SCHEMA, "traces": [
+def replay_input(cases, schema=SCHEMA):
+    return {"schemaVersion": 1, "observationSchema": schema, "traces": [
         {"id": case["id"], "checkpoints": [{"index": step["index"], "event": step["event"]} for step in case["checkpoints"]]}
         for case in cases]}
 
@@ -268,9 +284,33 @@ def compare(cases, observed):
             if first is None and (actual["state"] != expected["state"] or actual["outcome"] != expected["outcome"]):
                 first = {"id": case["id"], "index": index, "expected": {key: expected[key] for key in ("state", "outcome")},
                          "observed": {key: actual[key] for key in ("state", "outcome")}}
+                first["fields"] = differing(first["expected"], first["observed"])
         if first is not None:
             mismatches.append(first)
     return mismatches
+
+
+@dataclass(frozen=True)
+class Adapter:
+    """One registered observer: schema, exact ignored test, codec, comparator and fault controls."""
+    capability: str
+    schema: str
+    package: str               # cargo package that owns the ignored observer test
+    test: str                  # exact libtest path, run with --ignored --exact
+    observer: str              # repository path of the observer source
+    variables: tuple           # observation variables the model must expose
+    decode: Callable           # raw ITF -> ordered checkpoints (events, states, outcomes)
+    compare: Callable          # (cases, observed) -> first semantic mismatch per case
+    faults: tuple              # (label, fault, scenario run suffixes, failure message)
+    source_roots: tuple        # directories whose Cargo.toml and src/**/*.rs compile into the observer
+    extra_inputs: tuple = ()   # (directory, glob) fixtures that shape the observation
+    shell: tuple = ()          # synthetic shell elements a report must disclose
+    symbols: tuple = ()        # production symbols the observer calls
+    summary: Optional[Callable] = None
+    # control name -> {"event": tag, "outcomes": [[tag, value]], "fields": [prefix] | None, "by": detector}:
+    # the rule a deliberately wrong model removes, as the correct implementation's behavior at the first
+    # divergence, and whether a production seam, the synthetic shell or a harness constant detects it.
+    reasons: dict = field(default_factory=dict)
 
 
 def compiler_override_environment(key):
@@ -335,8 +375,45 @@ def implementation_tools(root, behavior):
     return identity
 
 
+def differing(expected, observed, prefix=""):
+    """Dotted paths where two normalized JSON values differ; lists compare as one value."""
+    if isinstance(expected, dict) and isinstance(observed, dict) and set(expected) == set(observed):
+        paths = []
+        for key in sorted(expected):
+            paths.extend(differing(expected[key], observed[key], prefix + ("." if prefix else "") + key))
+        return paths
+    return [] if expected == observed and type(expected) is type(observed) else [prefix or "."]
+
+
+DETECTORS = ("core", "shell", "harness")
+
+
+def check_reason(adapter, row):
+    """A control counts only when the divergence is the removed rule firing where it is registered.
+
+    A `core` kill needs a differing outcome at a checkpoint a production seam decided alone. `shell`
+    and `harness` kills only show that a disclosed shell rule or harness constant disagrees with the
+    wrong model; they are counted apart and are never production evidence. Returns the detector.
+    """
+    name = row["id"].rsplit(".control.", 1)[-1]
+    reason = adapter.reasons.get(name)
+    require(reason is not None, "mutant control has no registered detection reason: " + name)
+    require(reason.get("by") in DETECTORS, "mutant control has no registered detector: " + name)
+    require(row["event"]["tag"] == reason["event"] and
+            [row["observed"]["outcome"]["tag"], row["observed"]["outcome"]["value"]] in reason["outcomes"] and
+            (reason["fields"] is None or all(any(path == prefix or path.startswith(prefix + ".") for prefix in reason["fields"])
+                                             for path in row["fields"])) and
+            (reason["by"] != "core" or (row.get("origin") == "core" and
+                                        any(path == "outcome" or path.startswith("outcome.") for path in row["fields"]))),
+            "model control was detected for the wrong reason: " + name)
+    return reason["by"]
+
+
 def execute(root, cap, bundle, report, versions, inputs, revision, behavior):
-    result = {"schemaVersion": 1, "observationSchema": SCHEMA, "scope": "pure-core-synthetic-shell",
+    adapter = adapter_for(cap)
+    result = {"schemaVersion": 1, "observationSchema": adapter.schema, "capability": cap["id"], "scope": "pure-core-synthetic-shell",
+              "observer": adapter.observer, "package": adapter.package, "test": adapter.test,
+              "productionSymbols": list(adapter.symbols), "syntheticShell": list(adapter.shell),
               "modelReportSha256": behavior.digest(bundle / "report.json"), "sourceRevision": revision,
               "implementationInputs": {}, "status": "NOT_RUN", "commands": [],
               "startedAt": datetime.now(timezone.utc).isoformat(),
@@ -347,11 +424,11 @@ def execute(root, cap, bundle, report, versions, inputs, revision, behavior):
 
     def invoke(label, cases, fault=None):
         input_path, output_path, log = (bundle / (label + suffix) for suffix in ("-input.json", "-observations.json", ".log"))
-        behavior.write_json(input_path, replay_input(cases))
+        behavior.write_json(input_path, replay_input(cases, adapter.schema))
         env = observer_environment(behavior, input_path, output_path, fault)
         cargo = result["implementationTools"]["cargo"]["toolchainBinary"]
         env["RUSTC"] = result["implementationTools"]["rustc"]["toolchainBinary"]
-        command = [cargo, "test", "-p", "cantos-api", "--lib", "--locked", "--offline", TEST, "--", "--ignored", "--exact", "--nocapture"]
+        command = [cargo, "test", "-p", adapter.package, "--lib", "--locked", "--offline", adapter.test, "--", "--ignored", "--exact", "--nocapture"]
         entry = {"label": label, "argv": command, "cwd": str(root), "timeoutSeconds": 180,
                  "inputSha256": behavior.digest(input_path), "fault": fault, "rustc": env["RUSTC"]}
         result["commands"].append(entry)
@@ -363,7 +440,10 @@ def execute(root, cap, bundle, report, versions, inputs, revision, behavior):
             require(completed.returncode == 0 and re.search(r"test result: ok\. 1 passed; 0 failed; 0 ignored;", completed.stdout), "observer failed or selected zero/incorrect tests")
             data = behavior.read_json(output_path)
             entry["outputSha256"] = behavior.digest(output_path)
-            return compare(cases, data)
+            found = adapter.compare(cases, data)
+            if adapter.summary is not None:
+                entry["observationSummary"] = adapter.summary(data)
+            return found
         except KaniError as error:
             raise ConformanceError("implementation observer process: " + str(error)) from error
         finally:
@@ -372,7 +452,7 @@ def execute(root, cap, bundle, report, versions, inputs, revision, behavior):
             behavior.write_json(target, result)
 
     try:
-        result["implementationInputs"] = snapshot(root, behavior)
+        result["implementationInputs"] = snapshot(root, behavior, adapter)
         result["compilerConfiguration"] = compiler_configuration(root, behavior)
         result["implementationTools"] = implementation_tools(root, behavior)
         cases = collect_cases(root, cap, bundle, report, inputs, versions, revision, behavior)
@@ -382,11 +462,17 @@ def execute(root, cap, bundle, report, versions, inputs, revision, behavior):
         positive = [case for case in cases if not case["sensitivity"]]
         negative = [case for case in cases if case["sensitivity"]]
         stage = "originalTraces"
+        require(bool(positive), "zero selected positive traces")
         mismatch = invoke("original", positive)
         result["originalMismatches"] = mismatch
         require(not mismatch, "actual implementation diverges from original Quint expectations")
         result["positiveTraces"] = len(positive)
         result["positiveCheckpoints"] = sum(len(case["checkpoints"]) for case in positive)
+        original = next(entry for entry in result["commands"] if entry["label"] == "original")
+        if "observationSummary" in original:
+            result["observationSummary"] = original["observationSummary"]
+            require(all(count > 0 for count in original["observationSummary"]["productionCalls"].values()),
+                    "a registered production seam was never exercised by the original traces")
         result["stages"][stage] = "PASS"
         stage = "mutantSensitivity"
         # A faulty model can enable an event that is illegal after the correct core
@@ -403,19 +489,30 @@ def execute(root, cap, bundle, report, versions, inputs, revision, behavior):
             length += 1
         result["mutantMismatches"] = mismatch
         require({row["id"] for row in mismatch} == {case["id"] for case in negative}, "incomplete semantic model sensitivity")
+        if adapter.reasons:
+            require(set(adapter.reasons) == {row["id"].rsplit(".control.", 1)[-1] for row in cap["controls"]}, "detection reasons do not match the catalog controls")
+            kills = {detector: 0 for detector in DETECTORS}
+            for row in mismatch:
+                kills[check_reason(adapter, row)] += 1
+            result["mutantKillsByDetector"] = kills
         result["stages"][stage] = "PASS"
         stage = "observerSensitivity"
-        fault_cases = [case for case in positive if case["id"] in {CAPABILITY + ".run.revoke-during-inspection", CAPABILITY + ".run.revoked-replay"}]
-        require(len(fault_cases) == 2, "missing observer-fault witness scenarios")
-        mismatch = invoke("fault-ignore-revocation", fault_cases, "ignore-revocation")
-        result["observerFaultMismatches"] = mismatch
-        require(CAPABILITY + ".run.revoke-during-inspection" in {row["id"] for row in mismatch} and
-                CAPABILITY + ".run.revoked-replay" in {row["id"] for row in mismatch}, "revocation input adapter defect escaped original trace assertions")
+        detected, faults = [], []
+        for label, fault, suffixes, message in adapter.faults:
+            wanted = [cap["id"] + "." + suffix for suffix in suffixes]
+            fault_cases = [case for case in positive if case["id"] in wanted]
+            require(len(fault_cases) == len(wanted), "missing observer-fault witness scenarios")
+            found = invoke(label, fault_cases, fault)
+            detected.extend(found)
+            faults.append({"label": label, "fault": fault, "scenarios": wanted, "detected": sorted(row["id"] for row in found)})
+            require(set(wanted) <= {row["id"] for row in found}, message)
+        result["observerFaultMismatches"] = detected
+        result["observerFaults"] = faults
         result["stages"][stage] = "PASS"
         stage = "freshness"
         require(compiler_configuration(root, behavior) == result["compilerConfiguration"] and
                 implementation_tools(root, behavior) == result["implementationTools"], "compiler tool/configuration changed during conformance")
-        require(snapshot(root, behavior) == result["implementationInputs"] and behavior.snapshot(root, [cap]) == inputs, "implementation/model inputs changed during conformance")
+        require(snapshot(root, behavior, adapter) == result["implementationInputs"] and behavior.snapshot(root, [cap]) == inputs, "implementation/model inputs changed during conformance")
         require(behavior.installed_tool(root)[0] == versions, "installed model tool changed during conformance")
         head = behavior.process(["git", "rev-parse", "HEAD"], root)
         require(head.returncode == 0 and head.stdout.strip() == revision, "implementation revision changed during conformance")
@@ -430,3 +527,23 @@ def execute(root, cap, bundle, report, versions, inputs, revision, behavior):
         behavior.write_json(target, result)
         print(f"implementation-conformance: {result['status']} (pure-core-synthetic-shell); evidence: {target.relative_to(root)}")
     return result
+
+
+AUDIO = Adapter(
+    capability=CAPABILITY, schema=SCHEMA, package="cantos-server", test=TEST, observer=OBSERVER,
+    variables=("state", "before", "last", "outcome"), decode=decode_trace, compare=compare,
+    faults=(("fault-ignore-revocation", "ignore-revocation", ("run.revoke-during-inspection", "run.revoked-replay"),
+             "revocation input adapter defect escaped original trace assertions"),),
+    source_roots=("services/cantos-server",),
+    extra_inputs=(("services/cantos-server/contracts/studio/briefs/v1/fixtures", "*.json"),
+                  ("services/cantos-server/contracts", "*.schema.json")),
+    symbols=("decide_admission", "submission_state", "AudioSubmission::create", "AudioRendition::create"),
+    shell=("Complete(false) and Abandon harness effects", "synthetic verified-media metadata", "external authority facts"))
+
+
+def adapters():
+    """Registered observers, keyed by capability. Native adapters load lazily from their own codec."""
+    from verify_behavior_conformance_native import ADAPTERS as native
+    registry = {AUDIO.capability: AUDIO, **{adapter.capability: adapter for adapter in native}}
+    require(len(registry) == 1 + len(native), "duplicate observation adapter registration")
+    return registry

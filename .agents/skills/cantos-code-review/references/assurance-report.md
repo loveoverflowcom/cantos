@@ -84,7 +84,7 @@ Cell rules:
 ## Coverage
 
 State coverage by path, module and claim **and** by target: Rust server, worker, Leptos Web
-(Studio, Theatre), CMP common, Android, iOS, `packages/contracts/` fixtures, docs, skills and templates, CI
+(Studio, Theatre), CMP common, Android, iOS, service-owned contract fixtures, docs, skills and templates, CI
 and scripts. `complete-for-declared-scope` names that scope; it never means the repository. List
 what was not read and why — truncated patches, binary entries, generated files without their
 generator, unreadable issue or Project data.

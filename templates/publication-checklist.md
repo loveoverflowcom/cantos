@@ -11,7 +11,7 @@
 - Intended publication time: [timestamp and timezone]
 - Required approvers: [roles or people, according to the episode's approval policy]
 
-Follow the [publication contract](../packages/contracts/publication-v1.md) and
+Follow the [publication contract](../services/cantos-server/contracts/studio/publication/v1/README.md) and
 [production pipeline](../docs/product/production-pipeline.md). Keep private evidence outside
 Git; pin instruction links when copying. An approval, API admission and observed public release
 are separate facts. Leave boxes unchecked until their named evidence exists; record unrun

@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn missing_tools_make_the_step_unsupported_and_nothing_runs() {
-        let mut skipped = step("skipped", &[Tool::Initdb], "pg");
+        let mut skipped = step("skipped", &[Tool::Gradle], "gradle");
         skipped.skipped = true;
         let steps = [
             step("cheap", &[Tool::Python3], "python3"),
@@ -155,7 +155,7 @@ mod tests {
         let report = execute(
             "test",
             &steps,
-            &FakeTools::without(&[Tool::Trunk, Tool::Initdb]),
+            &FakeTools::without(&[Tool::Trunk, Tool::Gradle]),
             &mut runner,
         );
         assert!(runner.commands.is_empty());
@@ -170,14 +170,14 @@ mod tests {
 
     #[test]
     fn explicit_skips_are_reported_but_do_not_fail() {
-        let mut skipped = step("postgres", &[Tool::Initdb], "python3");
+        let mut skipped = step("gradle-preview", &[Tool::Gradle], "python3");
         skipped.skipped = true;
         let steps = [step("rust", &[Tool::Cargo], "cargo"), skipped];
         let mut runner = RecordingRunner::default();
         let report = execute(
             "test",
             &steps,
-            &FakeTools::without(&[Tool::Initdb]),
+            &FakeTools::without(&[Tool::Gradle]),
             &mut runner,
         );
         assert_eq!(runner.commands.len(), 1);

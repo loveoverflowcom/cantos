@@ -121,6 +121,10 @@ class NativeSessionRuntime(
         }
     }
 
+    /** Scheduling hints only: they grant no admission and never touch the player/session. */
+    fun foregrounded() { library?.drain() }
+    fun networkRestored() { library?.drain() }
+
     fun backgrounded() {
         val session = listening.playback.state.value.session ?: return
         val audio = session.source.audio ?: return

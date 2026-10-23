@@ -44,7 +44,7 @@ Correction: the private `AuthorizedAudioRead` factory now requires the registry'
 routing check. `StorageRegistry::ensure_read_target` reuses the existing resolver without an
 adapter call, byte verification, network I/O, fallback or new public capability. Current SQL
 ownership resolution still precedes the factory. This is configuration readiness, not proof
-that remote bytes exist. The [read contract](../../packages/contracts/private-content-reads-v1.md)
+that remote bytes exist. The [read contract](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md)
 records that distinction.
 
 Regression: an absent historical target fails with exact `Storage(Unavailable)`; a missing

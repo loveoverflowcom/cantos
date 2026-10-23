@@ -7,6 +7,8 @@ pub enum Entry {
     Login,
     Denied,
     Unavailable,
+    /// 404: Studio sign-in is not configured on the API. There is no fallback sign-in.
+    SignInUnavailable,
     RetainedOwner,
     Workspace,
 }
@@ -21,6 +23,7 @@ pub fn presentation(session: &SessionState, owner: &str, status: Status) -> Entr
     } else {
         match status {
             Status::Forbidden => Entry::Denied,
+            Status::NotFound => Entry::SignInUnavailable,
             Status::Unavailable | Status::CorruptRevision => Entry::Unavailable,
             _ => Entry::Login,
         }
@@ -79,6 +82,12 @@ mod tests {
         assert_eq!(
             presentation(&guest, "alice", Status::Unauthenticated),
             Entry::Login
+        );
+        // A missing sign-in capability (404) is its own state, never a silent login form or
+        // a fallback; a retained draft stays hidden behind it.
+        assert_eq!(
+            presentation(&guest, "alice", Status::NotFound),
+            Entry::SignInUnavailable
         );
     }
 }

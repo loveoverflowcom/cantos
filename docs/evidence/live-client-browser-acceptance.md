@@ -135,7 +135,7 @@ are local file-save UTC, immediately after capture; exact capture/inspection wal
   successful creation returned story. The default probe write reproduced this once; source
   separately shows the story signal and first novel option.
 - Component/rule/authority: `SelectField` and CreateWork; product contract
-  [Catalog creation](../../packages/contracts/catalog-v1.md#creation-and-partial-update),
+  [Catalog creation](../../services/cantos-server/contracts/studio/catalog/v1/README.md#creation-and-partial-update),
   [UI states](../design/ui-system.md#components-and-interaction-states).
 - Actual/expected/impact: form says novel, saved immutable kind is story. Selected kind must
   match submitted/stored kind. A creator can silently create the wrong work classification;

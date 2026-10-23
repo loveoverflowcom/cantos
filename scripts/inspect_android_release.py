@@ -269,16 +269,60 @@ def mapping_classes(mapping, artifact):
             for source, target in re.findall(r"^([^ #\s]+) -> ([^\s]+):$", text, re.M)}
 
 
-def release_metadata_findings(elements, application_id, *, audit=False, callback=True):
+def release_metadata_findings(elements, *, audit=False):
     values = [attrs.get("value") for _, tag, attrs in elements
               if tag == "meta-data" and attrs.get("name") == "CantosReleaseAudit"]
     allowed = {"true", "0xffffffff", "-1"} if audit else {"false", "0x0", "0"}
     findings = []
     if len(values) != 1 or values[0] not in allowed:
         findings.append("missing or wrong audit marker; distribution refuses audit bytes")
-    schemes = [attrs.get("scheme") for _, tag, attrs in elements if tag == "data" and "scheme" in attrs]
-    if callback and schemes != [application_id]:
-        findings.append("callback scheme differs from application identity")
+    return findings
+
+
+def intent_filters(elements):
+    """Each `<intent-filter>` as (owning component name or None, categories, data attribute maps).
+
+    Nesting comes from the xmltree indentation depth, so a `<data>` under `<queries><intent>`
+    (package visibility, not a receiving filter) is never mistaken for a receiving filter.
+    """
+    filters, component = [], None
+    for index, (depth, tag, attributes) in enumerate(elements):
+        if tag in COMPONENT_TAGS:
+            component = (depth, attributes.get("name"))
+        elif component and depth <= component[0]:
+            component = None
+        if tag != "intent-filter":
+            continue
+        categories, data = [], []
+        for child_depth, child_tag, child in elements[index + 1:]:
+            if child_depth <= depth:
+                break
+            if child_tag == "category":
+                categories.append(child.get("name"))
+            elif child_tag == "data":
+                data.append(child)
+        filters.append((component[1] if component else None, categories, data))
+    return filters
+
+
+def identity_surface_findings(elements):
+    """Identity v1 is first-party JSON on the API origin: nothing may be launched from a browser.
+
+    The built manifest must carry no BROWSABLE intent-filter, no scheme declared by an
+    intent-filter `<data>` and no retired provider-issuer metadata. The MAIN/LAUNCHER entry is
+    required separately by `manifest_findings`.
+    """
+    findings = []
+    for component, categories, data in intent_filters(elements):
+        owner = component or "<unknown component>"
+        if "android.intent.category.BROWSABLE" in categories:
+            findings.append(f"{owner} declares a BROWSABLE intent-filter; Identity v1 has no browser callback")
+        for attributes in data:
+            if "scheme" in attributes:
+                findings.append(f"{owner} declares an intent-filter URL scheme {attributes['scheme']!r}; "
+                                "Identity v1 has no custom-scheme callback")
+    if any(tag == "meta-data" and attrs.get("name") == "CantosNativeIssuer" for _, tag, attrs in elements):
+        findings.append("retired native issuer metadata is present in an Identity v1 host")
     return findings
 
 
@@ -322,21 +366,16 @@ def inspect(args, dump=dump_manifest):
             + manifest_findings(parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.application_id,
                                 args.launcher, set(args.allowed_permission), getattr(args, "debug_apk", False), getattr(args, "allowed_component", ())))]
         elements = parse_xmltree(dump(args.aapt2, path, manifest, proto))
+        # Unconditional: no flag can omit the check that no browser/URL-scheme entry exists.
+        own += [f"{label}: {finding}" for finding in identity_surface_findings(elements)]
         if getattr(args, "enforce_audit_marker", False):
-            own += [f"{label}: {f}" for f in release_metadata_findings(elements, args.application_id,
-                        audit=getattr(args, "audit", False), callback=getattr(args, "enforce_callback", False))]
+            own += [f"{label}: {f}" for f in release_metadata_findings(elements, audit=getattr(args, "audit", False))]
         # R8 may inline or merge ordinary classes. Only manifest entrypoint names remain required.
         own += [f"{label}: required production class {name} is absent"
                 for name in args.require_class if name not in classes]
         if getattr(args, "api_origin", None) is not None:
             own += [f"{label}: {finding}" for finding in catalog_origin_findings(
                 parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.api_origin, getattr(args, "debug_apk", False))]
-        issuer = getattr(args, "native_issuer", None)
-        if issuer is not None:
-            values = [attrs.get("value", "") for _, tag, attrs in parse_xmltree(dump(args.aapt2, path, manifest, proto))
-                      if tag == "meta-data" and attrs.get("name") == "CantosNativeIssuer"]
-            if values != [issuer]:
-                own.append(f"{label}: native issuer metadata does not match the requested build issuer")
         findings += own
     if "aab" in defined and defined["apk"] != defined["aab"]:
         findings.append("apk and aab define different class sets; they are not the same release build")
@@ -350,7 +389,6 @@ def main(argv=None):
     parser.add_argument("--apk", required=True, type=Path)
     parser.add_argument("--aab", type=Path)
     parser.add_argument("--debug-apk", action="store_true", help="inspect one production debug APK; never a release acceptance")
-    parser.add_argument("--native-issuer", help="expected optional native issuer metadata")
     parser.add_argument("--allowed-component", action="append", default=[])
     parser.add_argument("--aapt2", required=True, type=Path)
     parser.add_argument("--application-id", required=True)
@@ -360,7 +398,6 @@ def main(argv=None):
     parser.add_argument("--forbidden-source", action="append", default=[], type=Path)
     parser.add_argument("--audit", action="store_true")
     parser.add_argument("--enforce-audit-marker", action="store_true")
-    parser.add_argument("--enforce-callback", action="store_true")
     parser.add_argument("--apk-only", action="store_true")
     parser.add_argument("--forbidden-resources", action="append", default=[], type=Path)
     parser.add_argument("--require-class", action="append", default=[])

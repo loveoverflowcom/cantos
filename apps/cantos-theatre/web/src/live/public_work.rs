@@ -1,15 +1,13 @@
 //! Anonymous public Work detail and unit-page reads. No identity cookie, credential, write,
 //! playback authorization or player effect. Decoding is pure and strict over the shared DTOs.
+use crate::contract::discovery::{
+    ListenerError, ListenerErrorCode, PresentedUnitPage, PresentedWorkSummary, UnitKind,
+};
 use crate::{
     application::public_work::{validate_page, validate_work, CatalogReadError, UNIT_PAGE_LIMIT},
     core::public_ids::PublicWorkId,
 };
-use cantos_contracts::{
-    routes::THEATRE_BASE,
-    theatre::{
-        ListenerError, ListenerErrorCode, PresentedUnitPage, PresentedWorkSummary, UnitKind,
-    },
-};
+use cantos_web_auth::address::THEATRE_BASE;
 
 // One legal Work: 512-byte title, 16 KiB description and short language, with worst-case
 // `\u` escaping (6×) plus framing.
@@ -196,34 +194,34 @@ mod tests {
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const WORKS: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
     );
     const UNITS: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_units.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_units.json"
     );
     const CONTINUATION: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_empty_continuation.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_empty_continuation.json"
     );
     const END_EMPTY: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_end_empty.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_end_empty.json"
     );
     const REPUBLISHED: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/units_republished.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_republished.json"
     );
     const NOT_FOUND: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/not_found.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/not_found.json"
     );
     const INVALID_CURSOR: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/invalid_cursor.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/invalid_cursor.json"
     );
     const INVALID_REQUEST: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/invalid_request.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/invalid_request.json"
     );
     const UNAVAILABLE: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/unavailable.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/unavailable.json"
     );
     const RENDITION_UNAVAILABLE: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/rendition_unavailable.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/rendition_unavailable.json"
     );
     const JSON: Option<&str> = Some("application/json; charset=utf-8");
 

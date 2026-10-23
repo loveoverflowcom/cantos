@@ -17,17 +17,16 @@ class AccountViewTest {
         assertEquals(AccountView.SignedOut, NativeAccountState.SignedOut.toAccountView())
         assertEquals(AccountView.Pending, NativeAccountState.Pending.toAccountView())
         assertEquals(AccountView.CleanupRequired, NativeAccountState.CleanupRequired.toAccountView())
-        assertEquals(AccountView.SignedIn, NativeAccountState.SignedIn(actor, 200, savedCount = 7).toAccountView())
+        assertEquals(AccountView.SignedIn, NativeAccountState.SignedIn(actor, 200).toAccountView())
         NativeAccountFailure.entries.forEach {
             assertEquals(AccountView.Failed(it), NativeAccountState.Failed(it).toAccountView())
         }
     }
 
     @Test
-    fun signed_in_presentation_carries_no_actor_session_or_page_count() {
-        val rendered = NativeAccountState.SignedIn(actor, 200, savedCount = 7).toAccountView().toString()
+    fun signed_in_presentation_carries_no_actor_session_or_expiry() {
+        val rendered = NativeAccountState.SignedIn(actor, 200).toAccountView().toString()
         assertFalse(actor in rendered)
-        assertFalse("7" in rendered)
         assertFalse("200" in rendered)
     }
 
@@ -36,7 +35,7 @@ class AccountViewTest {
         assertEquals(
             listOf(true, true, false, false, false, false),
             listOf(
-                AccountView.SignedOut, AccountView.Failed(NativeAccountFailure.Login), AccountView.Unavailable,
+                AccountView.SignedOut, AccountView.Failed(NativeAccountFailure.Api), AccountView.Unavailable,
                 AccountView.Pending, AccountView.SignedIn, AccountView.CleanupRequired,
             ).map { it.canBeginLogin },
         )

@@ -1,0 +1,3 @@
+-- Server.db version 7: Adaptation runs, proposals, submissions, acceptances and cancellations.
+-- Reserved slice: filled by the context's port (see docs/architecture/server-turso/adaptation.md).
+-- DDL only; queries live in the owning persistence adapter.

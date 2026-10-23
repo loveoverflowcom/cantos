@@ -2,7 +2,6 @@ package com.cantos.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip as MaterialFilterChip
@@ -27,7 +25,6 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -138,28 +135,17 @@ internal fun ButtonControl(
             else PaddingValues(horizontal = tokenDp("space.controlInline")),
     ) {
         if (icon != null || state is ButtonState.Loading) {
-            ActionIcon(icon, state, variant)
+            ActionIcon(icon, state)
             Spacer(Modifier.size(tokenDp("space.sm")))
         }
         content()
     }
 }
 
-/** Leading icons are decorative; the native action keeps the sole localized name.
- * Only AuthPrimary uses the contrast-paired circle, including its blocked tonal state.
- */
+/** The 23 October anatomy centers the glyph and label together, without an icon bubble. */
 @Composable
-private fun ActionIcon(icon: String?, state: ButtonState, variant: ButtonVariant) {
-    if (variant == ButtonVariant.AuthPrimary) {
-        val circleRole = if (state.canPress()) "color.onPrimary" else "color.onSurfaceVariant"
-        val glyphRole = if (state.canPress()) "color.primary" else "color.surfaceContainer"
-        Box(
-            Modifier.size(tokenDp("size.authIcon")).background(tokenColor(circleRole), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) { ActionGlyph(icon, state, tokenColor(glyphRole)) }
-    } else {
-        ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current)
-    }
+private fun ActionIcon(icon: String?, state: ButtonState) {
+    ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current)
 }
 
 /** Stationary indeterminate ring; the action's localized state owns the pending announcement.

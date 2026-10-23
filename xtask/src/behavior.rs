@@ -5,7 +5,12 @@ use std::path::Path;
 use crate::{command::CommandSpec, workspace::Workspace};
 
 pub const CONFORMANCE_SCRIPT: &str = "scripts/verify_behavior_conformance.py";
-pub const OBSERVER: &str = "services/cantos-api/src/contexts/media/quint_conformance_tests.rs";
+pub const NATIVE_CONFORMANCE_SCRIPT: &str = "scripts/verify_behavior_conformance_native.py";
+pub const OBSERVER: &str = "services/cantos-server/src/contexts/media/quint_conformance_tests.rs";
+/// Native Identity observers: the mailbox-proof core's and the session decisions'.
+pub const MAILBOX_OBSERVER: &str = "services/cantos-identity/src/quint_conformance_tests.rs";
+pub const ADMISSION_OBSERVER: &str =
+    "services/cantos-server/src/platform/identity_auth/decision/quint_conformance_tests.rs";
 
 pub const SCRIPT: &str = "scripts/verify_behavior.py";
 

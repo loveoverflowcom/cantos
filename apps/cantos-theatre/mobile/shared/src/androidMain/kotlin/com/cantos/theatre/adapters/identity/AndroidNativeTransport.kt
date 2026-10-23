@@ -4,11 +4,14 @@ import android.content.Context
 import android.system.Os
 import android.system.OsConstants
 import android.system.ErrnoException
+import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
+import com.cantos.theatre.ports.NativeHttpWire
 import com.cantos.theatre.ports.NativeHttpResponse
 import com.cantos.theatre.ports.NativeRequestHandle
 import java.io.ByteArrayOutputStream
@@ -54,17 +57,22 @@ class AndroidLogoutBarrier(context: Context) : LogoutBarrier {
       catch (_: ErrnoException) { CredentialFailure.Unavailable }
 }
 
-/** OS TLS, no ambient cookies, no redirects; cancellation disconnects the owned connection. */
-class AndroidNativeHttp(private val scope: CoroutineScope, private val apiOrigin: String) : NativeHttpPort {
+/**
+ * OS TLS, no ambient cookies, no redirects; cancellation disconnects the owned connection. Requests
+ * are bound to the exact [origin] its owner admitted: HTTPS, or the loopback `http` development
+ * origin that only a debug host admits (the release manifest and network policy forbid cleartext).
+ */
+class AndroidNativeHttp(private val scope: CoroutineScope, private val origin: ApiOrigin) : NativeHttpPort {
     override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
         val active = AtomicReference<HttpURLConnection?>()
         val job = scope.launch(Dispatchers.IO) {
             val response = try {
                 val uri = URI(request.url)
-                val base = URI(apiOrigin)
-                if (uri.scheme != "https" || uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority ||
+                val base = URI(origin.toString())
+                val admittedScheme = uri.scheme == "https" || (!origin.isHttps && uri.scheme == "http")
+                if (!admittedScheme || uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority ||
                     uri.rawUserInfo != null || uri.fragment != null || CookieHandler.getDefault() != null ||
-                    request.method !in setOf("GET", "POST", "PUT", "DELETE")) NativeHttpResponse(0, null, null, "configuration")
+                    request.method !in setOf("GET", "POST", "PUT", "DELETE")) NativeHttpResponse(0, null, null, NativeHttpFailure.Configuration)
                 else {
                     val connection = uri.toURL().openConnection() as HttpURLConnection
                     active.set(connection)
@@ -74,13 +82,10 @@ class AndroidNativeHttp(private val scope: CoroutineScope, private val apiOrigin
                     connection.connectTimeout = 5_000
                     connection.readTimeout = 5_000
                     connection.requestMethod = request.method
-                    connection.setRequestProperty("Accept", "application/json")
-                    request.bearer?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
-                    request.expectedSession?.let { connection.setRequestProperty("X-Cantos-Theatre-Session", it) }
+                    request.headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
                     request.body?.let {
                         val bytes = it.toByteArray(Charsets.UTF_8)
                         connection.doOutput = true
-                        connection.setRequestProperty("Content-Type", "application/json")
                         connection.setFixedLengthStreamingMode(bytes.size)
                         connection.outputStream.use { output -> output.write(bytes) }
                     }
@@ -98,12 +103,12 @@ class AndroidNativeHttp(private val scope: CoroutineScope, private val apiOrigin
                         }
                         output.toByteArray()
                     } ?: ByteArray(0)
-                    NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null, connection.getHeaderField("X-Cantos-Theatre-Session"))
+                    NativeHttpResponse(status, connection.contentType, bytes.decodeToString(throwOnInvalidSequence = true), null, connection.getHeaderField(NativeHttpWire.SessionHeader), connection.getHeaderField("Retry-After"))
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-              catch (_: IOException) { NativeHttpResponse(0, null, null, "transport") }
-              catch (_: SecurityException) { NativeHttpResponse(0, null, null, "denied") }
-              catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, "protocol") }
+              catch (_: IOException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Transport) }
+              catch (_: SecurityException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Denied) }
+              catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, NativeHttpFailure.Protocol) }
               finally { active.getAndSet(null)?.disconnect() }
             completion(response)
         }

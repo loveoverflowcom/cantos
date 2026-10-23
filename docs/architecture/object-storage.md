@@ -5,7 +5,7 @@ adapters, durable target selection and owner-authorized audio reads. This docume
 the code boundary; the separate [evidence record](../evidence/provider-independent-storage.md)
 owns commands and actual results. No live-provider, publication or production-streaming
 acceptance is implied. See [ADR 0037](../decisions/0037-provider-independent-private-storage.md)
-and [Private content reads v1](../../packages/contracts/private-content-reads-v1.md).
+and [Private content reads v1](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md).
 
 ## Content authorities
 
@@ -71,7 +71,7 @@ For image PUT, owner-backed `Bytes` retains `Arc<VerifiedImage>` through every t
 clone; a separate owner survives actual readback. Cancelling the caller cannot release the
 image admission lane while a surviving encoded transport body still owns it. This is bounded
 ownership, not a hard decoder/process CPU or total-RSS guarantee. See the
-[artwork contract](../../packages/contracts/artwork-v1.md) and
+[artwork contract](../../services/cantos-server/contracts/studio/artwork/v1/README.md) and
 [current evidence](../evidence/private-work-artwork.md).
 
 ## Immutable location and integrity
@@ -137,8 +137,8 @@ does not establish that capability or provider retention.
 ## Checked configuration and switching
 
 `CANTOS_STORAGE_CONFIG` is an absolute path to a non-secret TOML topology. The
-[example](../../services/cantos-api/config/storage.example.toml) and
-[API guide](../../services/cantos-api/README.md#private-audio-storage) describe setup.
+[example](../../services/cantos-server/config/storage.example.toml) and
+[API guide](../../services/cantos-server/README.md#private-audio-storage) describe setup.
 The existing `CANTOS_AUDIO_ROOT` setting selects `legacy-filesystem`. Setting both is a
 startup error. Leaving both unset preserves existing editorial/static behavior and makes
 private audio storage unavailable. Either storage setting disables same-process static serving;
@@ -226,7 +226,7 @@ Binary responses remain separate from JSON/MessagePack metadata. Full GET is `20
 satisfiable single closed/open/suffix range is `206` with exact interval length/Content-Range;
 an unsatisfiable range is `416` with `bytes */<length>`. Malformed/multiple/overflow byte ranges
 are `400`. Unknown units and mismatching If-Range use full delivery; HEAD ignores Range and
-has no body. The [read contract](../../packages/contracts/private-content-reads-v1.md) owns
+has no body. The [read contract](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md) owns
 the supported conditional subset and safe error responses.
 
 The API ETag is accepted SHA-256; responses are `audio/ogg`, uncompressed and `no-store`.
@@ -265,7 +265,7 @@ locations do not cross it. Theatre cannot reuse Studio cookies/handlers or invok
 | Publication | Separate release core; delivery gated | Not implied by private S3 intake | Separate manifest/identity/isolation/delivery acceptance under #11/#12/#170 |
 
 Long Vân, R2 and B2 are configuration targets, not domain variants. This slice has no live
-acceptance for any of them. The [Long Vân profile](../../services/cantos-api/config/storage.longvan.example.toml)
+acceptance for any of them. The [Long Vân profile](../../services/cantos-server/config/storage.longvan.example.toml)
 and the operator-run live-acceptance harness are recorded in the
 [Long Vân evidence](../evidence/longvan-s3-acceptance.md); until that harness passes against the
 real account, the profile is a declaration, not acceptance. A one-bucket plan that cannot isolate future publication policy

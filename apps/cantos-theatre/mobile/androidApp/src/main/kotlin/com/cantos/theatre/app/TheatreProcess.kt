@@ -52,7 +52,7 @@ private fun Context.nativeMetadata(key: String): String? = try {
 internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, systemDark: Boolean) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val app = context.applicationContext
-    private val http = AndroidNativeHttp(scope, origin.toString())
+    private val http = AndroidNativeHttp(scope, origin)
     private val store = try { androidLibraryStore(app) }
         catch (_: android.database.sqlite.SQLiteException) { null }
         catch (_: SecurityException) { null }
@@ -60,12 +60,11 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
     val cache = store?.let { AccountCatalogCache(it) { accountScope } }
     val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport(), cache), { cache?.invalidate() })
         .also { it.dispatch(PublicCatalogIntent.Start) }
-    val identityAvailability = com.cantos.theatre.domain.identity.NativeClientConfiguration.resolveForApplication(origin.toString(), app.nativeMetadata("CantosNativeIssuer"), app.packageName)
-    private val account = createAndroidNativeAccount(scope, app, origin.toString(), app.nativeMetadata("CantosNativeIssuer"))
-    private val authorizedHttp = account?.let { NativeAuthorizedHttpPort(scope, origin, it, http) } ?: http
+    private val account = createAndroidNativeAccount(scope, app, origin)
+    private val authorizedHttp = NativeAuthorizedHttpPort(scope, origin, account, http)
     private val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), it,
-        { UUID.randomUUID().toString() }, onSessionInvalidated = { expected -> account?.revalidate(expected) },
-        ownsAuthorization = { owner -> account?.belongsToCurrent(owner.bearer, owner.session) == true &&
+        { UUID.randomUUID().toString() }, onSessionInvalidated = { expected -> account.revalidate(expected) },
+        ownsAuthorization = { owner -> account.belongsToCurrent(owner.bearer, owner.session) &&
             account.verifiedSession.value?.session?.actor == owner.account },
         nowMs = { System.currentTimeMillis() }) }
     /** Language is stored; the theme starts from the system and is then the listener's in-app choice. */
@@ -85,8 +84,10 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
                 catalog.dispatch(PublicCatalogIntent.AccountChanged)
             }
         })
+    // One registration for this process, independent of Activity/navigation recreation.
+    private val networkSignals = AndroidLibraryNetworkSignals(app, scope, runtime::networkRestored)
     /** Navigation and typed route text outlive Activity recreation, like every other owner here. */
-    private val registration = createAndroidRegistration(scope, app, origin.toString(), app.nativeMetadata("CantosNativeIssuer"))
+    private val registration = createAndroidRegistration(scope, origin)
     val shell = TheatreShell(scope, catalog, runtime, preferences, registration = registration)
 }
 

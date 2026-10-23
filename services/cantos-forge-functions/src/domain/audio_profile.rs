@@ -1,7 +1,7 @@
 //! The audio intake profiles the Cantos API accepts, as pure values.
 //!
 //! Forge never invents or defaults a profile: a producer names one and Forge only measures
-//! against it. The numbers mirror `packages/contracts/studio-audio-intake-v1.md`; a test reads
+//! against it. The numbers mirror `services/cantos-server/contracts/studio/audio-intake/v1/README.md`; a test reads
 //! that table so the two cannot drift silently. The server inspects the received bytes again
 //! and stays the authority: passing here is a producer-side measurement, not admission.
 

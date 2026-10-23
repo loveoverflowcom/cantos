@@ -3,7 +3,7 @@
 //! One closed [`Phase`] names the only request the editor owns, so a read, a save and a session
 //! check can never overlap and an unresolved save always carries its exact intent. Text
 //! ownership and the last settled outcome are separate facts; "dirty" is derived from the bytes.
-use cantos_contracts::{ApiError, ErrorCode, FieldIssue, RevisionResponse, SaveRevisionRequest};
+use crate::contract::{ApiError, ErrorCode, FieldIssue, RevisionResponse, SaveRevisionRequest};
 
 /// What the Studio shows. `Loading` and `Saving` are derived from the phase, never stored.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -258,8 +258,9 @@ impl Editor {
         }
     }
 
-    /// The browser leaves for the identity provider. The check stops guarding unload, while an
-    /// unresolved save keeps its retry identity and the draft keeps its own guard.
+    /// The person cancels the session check (the shell fences the pending login/read). The check
+    /// stops guarding unload, while an unresolved save keeps its retry identity and the draft
+    /// keeps its own guard.
     pub fn release_session_check(&self) -> Self {
         if !matches!(self.phase, Phase::CheckingSession(_)) {
             return self.clone();
@@ -647,7 +648,7 @@ pub fn error_status(code: &ErrorCode) -> Status {
 #[cfg(test)]
 mod tests {
     use super::{Editor, Phase, ReadTicket, Status, ValidationPreview};
-    use cantos_contracts::{ApiError, ErrorCode, FieldIssue, RevisionResponse};
+    use crate::contract::{ApiError, ErrorCode, FieldIssue, RevisionResponse};
 
     /// A signed-in author typing into a selected script, built only from public transitions.
     fn editing(actor: &str, script: &str, text: &str) -> Editor {
@@ -823,7 +824,7 @@ mod tests {
     #[test]
     fn a_read_cannot_replace_clean_reducer_rows_with_native_text_still_buffered() {
         let original = include_str!(
-            "../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+            "../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
         );
         let mut initial_response = response(1);
         initial_response.script_json = original.into();
@@ -1241,7 +1242,7 @@ mod tests {
             assert_eq!(checking.rebase(), checking);
             assert_eq!(checking.pending(), before.pending());
             assert_eq!(checking.draft(), before.draft());
-            // Leaving for the identity provider releases the check, never the save identity.
+            // Cancelling the session check releases it, never the save identity.
             let released = checking.release_session_check();
             assert!(!released.busy());
             assert_eq!(released.pending(), before.pending());

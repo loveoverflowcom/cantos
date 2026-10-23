@@ -15,7 +15,7 @@ def kotlin_type(spec):
         assert len(real) == 1 and len(spec['anyOf']) == 2
         return kotlin_type(real[0]) + '?'
     return {'string': 'String', 'integer': 'Long', 'boolean': 'Boolean', 'array': lambda: 'List<' + kotlin_type(spec['items']) + '>'}[spec['type']]() if spec['type'] == 'array' else {'string': 'String', 'integer': 'Long', 'boolean': 'Boolean'}[spec['type']]
-lines = ['// Generated from packages/contracts/schema/theatre/library/v1.schema.json. Do not edit.',
+lines = ['// Generated from services/cantos-server/contracts/theatre/library/v1/library.schema.json. Do not edit.',
          'package com.cantos.theatre.adapters.library.wire',
          'import kotlinx.serialization.Serializable', 'import kotlinx.serialization.SerialName', '']
 for name, spec in schema['$defs'].items():

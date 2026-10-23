@@ -4,11 +4,18 @@
 //! known gate, or unknown. Package impact follows reverse Cargo dependencies. Shared Cargo
 //! configuration, verification tooling (`xtask/`, workflows), an empty change set and any
 //! unclassified path broaden to every gate: when impact is uncertain, verify more.
+//!
+//! The local DEV/CHECKPOINT profile ([`select_local`]) reuses the same classification and graph
+//! but plans only static repository checks, formatting, affected Rust lint/tests and WASM lint.
+//! Everything else the handoff selection would run on the same diff is listed as deferred.
 
 use std::collections::BTreeSet;
 
 use crate::{
-    config::{App, API_PACKAGE, FORGE_PACKAGE, UI_CMP_DIR, UI_PACKAGE},
+    config::{
+        App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_PACKAGE, STUDIO_WEB_PACKAGE, THEATRE_WEB_PACKAGE,
+        TURSO_STORE_PACKAGE, UI_CMP_DIR, UI_PACKAGE, WEB_AUTH_PACKAGE,
+    },
     gate::{self, Gate, Scope},
 };
 
@@ -21,6 +28,8 @@ pub struct Selection {
     pub broadened: Option<String>,
     pub affected: BTreeSet<String>,
     pub notes: BTreeSet<String>,
+    /// Local profile only: handoff gates for the same diff that this profile does not run.
+    pub deferred: Vec<Gate>,
 }
 
 #[derive(Default)]
@@ -45,11 +54,36 @@ const SHARED_RUST_INPUTS: [&str; 8] = [
 const VERIFICATION_TOOLING: [&str; 3] = [".cargo", "xtask", ".github/workflows"];
 const DOCUMENT_TREES: [&str; 5] = ["docs", "templates", ".agents", ".claude", ".github"];
 const REPOSITORY_FILES: [&str; 3] = [".editorconfig", ".gitignore", ".env.example"];
-const CONTRACTS: &str = "packages/contracts";
-const CONTRACTS_PACKAGE: &str = "cantos-contracts";
-const SCRIPT_IR_SOURCES: &str = "services/cantos-api/src/script_ir";
-const SCRIPT_IR_TESTS: &str = "services/cantos-api/tests/script_ir.rs";
-const SCRIPT_IR_FIXTURES: &str = "packages/contracts/fixtures/script-ir";
+/// Canonical schemas, `.proto` files and fixtures of the contracts the Server publishes. Its
+/// clients read them as build/test inputs, so a change reaches every consumer of its surface.
+const SERVER_CONTRACTS: &str = "services/cantos-server/contracts";
+/// Identity's private RPC proto and wire goldens; the Server's client binding reads them too.
+const IDENTITY_CONTRACTS: &str = "services/cantos-identity/contracts";
+/// Theatre client conformance corpora shared by Theatre Web and Theatre Mobile.
+const THEATRE_CONFORMANCE: &str = "apps/cantos-theatre/conformance";
+const PROTO_CODEGEN: &str = "tools/proto-codegen";
+/// Consumer-owned bindings written by `tools/proto-codegen` (its `JOBS`), drift-checked by
+/// `protobuf-reference`. A test keeps this list equal to the generator's outputs.
+const GENERATED_PROTOBUF_BINDINGS: [&str; 7] = [
+    "services/cantos-server/src/contract/studio/protobuf/generated.rs",
+    "services/cantos-server/src/contract/studio/protobuf/generated_artwork.rs",
+    "apps/cantos-studio/web/src/contract/protobuf/generated.rs",
+    "services/cantos-identity/src/rpc/generated.rs",
+    "services/cantos-identity/tests/support/rpc_client.rs",
+    "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
+    "services/cantos-server/tests/support/identity_rpc_peer.rs",
+];
+/// Hand-written Studio Protobuf edge codecs and their corpus tests, in each consumer.
+const STUDIO_PROTOBUF_CODECS: [&str; 5] = [
+    "services/cantos-server/src/contract/studio/protobuf",
+    "apps/cantos-studio/web/src/contract/protobuf",
+    "apps/cantos-studio/web/src/wire/protobuf_tests.rs",
+    "services/cantos-server/tests/contract_conformance/protobuf_wire.rs",
+    "services/cantos-server/tests/contract_conformance/artwork_wire.rs",
+];
+const SCRIPT_IR_SOURCES: &str = "services/cantos-server/src/script_ir";
+const SCRIPT_IR_TESTS: &str = "services/cantos-server/tests/script_ir.rs";
+const SCRIPT_IR_FIXTURES: &str = "services/cantos-server/contracts/studio/script-ir";
 
 pub fn within(path: &str, dir: &str) -> bool {
     path == dir
@@ -113,7 +147,7 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         });
     }
     let affected = graph.dependents_closure(&impact.packages);
-    let mut gates: BTreeSet<Gate> = [Gate::Repository, Gate::RustFormat].into();
+    let mut gates: BTreeSet<Gate> = [Gate::Repository { base: None }, Gate::RustFormat].into();
     gates.extend(impact.gates);
     if !affected.is_empty() {
         let scope = Scope::Packages(affected.clone());
@@ -131,12 +165,13 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         gates.insert(Gate::WebLint(apps));
     }
     if affected.contains(API_PACKAGE) {
-        // The API's binaries, migrations and HTTP host are all exercised by these, and its
-        // experimental DBSP feature must keep compiling and passing the same tests.
-        gates.insert(Gate::Dbsp);
+        // The Server's binaries and HTTP host are exercised by the workspace gates (its database
+        // tests are ordinary file-backed tests); these two need the real media tools.
         gates.insert(Gate::WavReference);
         gates.insert(Gate::AudioInspection);
-        gates.insert(Gate::Postgres { keep: false });
+    }
+    if affected.contains(TURSO_STORE_PACKAGE) || affected.contains(IDENTITY_PACKAGE) {
+        gates.insert(Gate::Turso);
     }
     if affected.contains(UI_PACKAGE) {
         gates.insert(Gate::UiPreview);
@@ -146,6 +181,7 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         broadened: None,
         affected,
         notes: impact.notes,
+        deferred: Vec::new(),
     }
 }
 
@@ -155,19 +191,151 @@ fn full(reason: &str) -> Selection {
         broadened: Some(reason.to_owned()),
         affected: BTreeSet::new(),
         notes: BTreeSet::new(),
+        deferred: Vec::new(),
     }
+}
+
+/// The local DEV/CHECKPOINT plan for a collected change set. Package impact keeps normal, dev
+/// and build reverse dependencies. Tooling code (`xtask/`, `scripts/`, workflows) adds the
+/// repository gate's Python regression suite; documentation under `xtask/` stays a document.
+/// Shared Cargo inputs and unclassified paths broaden to every local check, never to the
+/// handoff campaigns. An empty change set plans only the always-on checks.
+pub fn select_local(paths: &[String], graph: &PackageGraph) -> Selection {
+    let handoff = select(Some(paths), graph);
+    let mut impact = Impact::default();
+    let mut tooling = false;
+    let broadened = paths
+        .iter()
+        .find_map(|path| classify_local(path, graph, &mut impact, &mut tooling));
+
+    let mut gates: BTreeSet<Gate> = [Gate::RustFormat].into();
+    let mut affected = BTreeSet::new();
+    if broadened.is_some() {
+        gates.insert(Gate::Repository { base: None });
+        gates.insert(Gate::RustLint(Scope::Workspace));
+        gates.insert(Gate::RustTests(Scope::Workspace));
+        gates.insert(Gate::WebLint(App::ALL.into_iter().collect()));
+    } else {
+        gates.insert(if tooling {
+            Gate::Repository { base: None }
+        } else {
+            Gate::RepositoryStatic { base: None }
+        });
+        affected = graph.dependents_closure(&impact.packages);
+        if !affected.is_empty() {
+            let scope = Scope::Packages(affected.clone());
+            gates.insert(Gate::RustLint(scope.clone()));
+            gates.insert(Gate::RustTests(scope));
+        }
+        let apps: BTreeSet<App> = App::ALL
+            .into_iter()
+            .filter(|app| affected.contains(app.web_package()))
+            .collect();
+        if !apps.is_empty() {
+            gates.insert(Gate::WebLint(apps));
+        }
+    }
+
+    let deferred: Vec<Gate> = handoff
+        .gates
+        .into_iter()
+        .filter(|gate| !gates.contains(gate))
+        .collect();
+    let mut notes = impact.notes;
+    if paths.is_empty() {
+        notes.insert("no changed paths: only the always-on local checks run".into());
+    }
+    if gates
+        .iter()
+        .any(|gate| matches!(gate, Gate::RustLint(_) | Gate::RustTests(_)))
+    {
+        notes.insert("rust-lint/rust-tests check the listed packages with their default features (plus `cantos-theatre/preview` when that package is selected); no other feature lane is covered".into());
+    }
+    notes.extend(
+        deferred
+            .iter()
+            .filter_map(deferred_coverage)
+            .map(str::to_owned),
+    );
+    Selection {
+        gates: gates.into_iter().collect(),
+        broadened,
+        affected,
+        notes,
+        deferred,
+    }
+}
+
+/// Returns a broadening reason, or records the path's local impact.
+fn classify_local(
+    path: &str,
+    graph: &PackageGraph,
+    impact: &mut Impact,
+    tooling: &mut bool,
+) -> Option<String> {
+    if SHARED_RUST_INPUTS.contains(&path) || within(path, ".cargo") {
+        return Some(format!("{path} is a shared Cargo input"));
+    }
+    if within(path, "xtask") {
+        // xtask fixtures are test inputs, whatever their extension.
+        if !path.ends_with(".md") || within(path, "xtask/fixtures") {
+            *tooling = true;
+            if let Some(package) = graph.owner(path) {
+                impact.packages.insert(package.name.clone());
+            }
+        }
+        return None;
+    }
+    if within(path, ".github/workflows") {
+        // Workflows are read by xtask's CI tests and by the Python repository tests.
+        *tooling = true;
+        impact.packages.insert("xtask".to_owned());
+        return None;
+    }
+    if within(path, "scripts") {
+        *tooling = true;
+    }
+    classify(path, graph, impact);
+    impact.broaden.take()
+}
+
+/// What a deferred handoff gate leaves uncovered that the local plan could be mistaken for.
+fn deferred_coverage(gate: &Gate) -> Option<&'static str> {
+    Some(match gate {
+        Gate::Repository { .. } => "the repository Python regression suite is not run (no tooling input changed)",
+        Gate::Turso => "Turso feature lanes (cantos-identity `persistence`/`service`, cantos-store-turso `testing`) and the capability report are not checked",
+        Gate::WebBuild(_) | Gate::UiPreview => "no Trunk build runs: Web coverage is WASM lint only",
+        Gate::CmpUiPreview | Gate::TheatreCmpPreview => {
+            "Kotlin/CMP sources are not compiled or tested by this profile"
+        }
+        _ => return None,
+    })
 }
 
 fn conformance_input(path: &str) -> bool {
     [
         crate::behavior::CONFORMANCE_SCRIPT,
+        crate::behavior::NATIVE_CONFORMANCE_SCRIPT,
         crate::behavior::OBSERVER,
         "scripts/test_verify_behavior_conformance.py",
-        "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
-        "services/cantos-api/src/contexts/media/lifecycle_tests.rs",
-        "services/cantos-api/src/contexts/production/domain/brief.rs",
-        "packages/contracts/api/src/audio_lifecycle.rs",
-        "packages/contracts/api/src/audio_intake.rs",
+        "scripts/test_verify_behavior_conformance_native.py",
+        "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
+        "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
+        "services/cantos-server/src/contexts/production/domain/brief.rs",
+        "services/cantos-server/src/contract/studio/audio_lifecycle.rs",
+        "services/cantos-server/src/contract/studio/audio_intake.rs",
+        crate::behavior::MAILBOX_OBSERVER,
+        crate::behavior::ADMISSION_OBSERVER,
+        // Native Identity auth: the production seams the observers call (`validate_fact` included),
+        // the checked constructors and wire types they build inputs with, and the observer's parent.
+        "services/cantos-identity/src/lib.rs",
+        "services/cantos-identity/src/domain/mailbox_proof.rs",
+        "services/cantos-identity/src/domain/ids.rs",
+        "services/cantos-identity/src/domain/security_version.rs",
+        "services/cantos-identity/src/domain/admission.rs",
+        "services/cantos-server/src/platform/identity_auth/decision.rs",
+        "services/cantos-server/src/platform/identity_auth/rpc.rs",
+        "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
     ]
     .contains(&path)
 }
@@ -177,7 +345,8 @@ fn behavior_input(path: &str) -> bool {
         && (within(path, "specs/behavior")
             || within(path, "tools/behavior")
             || path == crate::behavior::SCRIPT
-            || path == crate::behavior::CONFORMANCE_SCRIPT)
+            || path == crate::behavior::CONFORMANCE_SCRIPT
+            || path == crate::behavior::NATIVE_CONFORMANCE_SCRIPT)
 }
 
 fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
@@ -192,24 +361,58 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
             setup: false,
             conformance: false,
         });
-    } else if within(path, CONTRACTS) {
-        // Fixtures (Markdown manuscripts included) and schemas are read by Rust tests.
-        if is_doc && !within(path, "packages/contracts/fixtures") {
+    } else if within(path, SERVER_CONTRACTS) {
+        // Fixtures (Markdown manuscripts included) and schemas are read by Rust and Kotlin tests;
+        // contract documents are covered by the repository gate.
+        if is_doc && !path.contains("/fixtures/") {
             return;
         }
-        impact.packages.insert(CONTRACTS_PACKAGE.to_owned());
-        if within(path, "packages/contracts/protobuf")
-            || within(path, "packages/contracts/fixtures/protobuf")
-            || within(path, "packages/contracts/fixtures/artwork")
-            || within(path, "packages/contracts/api/src/protobuf")
-            || path == "packages/contracts/api/tests/protobuf_wire.rs"
-            || path == "packages/contracts/api/tests/artwork_wire.rs"
+        impact.packages.insert(API_PACKAGE.to_owned());
+        let surface = path[SERVER_CONTRACTS.len()..].split('/').nth(1);
+        if surface == Some("studio") {
+            impact.packages.insert(STUDIO_WEB_PACKAGE.to_owned());
+        }
+        if matches!(surface, Some("theatre" | "auth")) {
+            impact.packages.insert(THEATRE_WEB_PACKAGE.to_owned());
+            impact.gates.insert(Gate::TheatreCmpPreview);
+        }
+        if surface == Some("auth") {
+            impact.packages.insert(WEB_AUTH_PACKAGE.to_owned());
+        }
+        if path.ends_with(".proto")
+            || within(
+                path,
+                "services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf",
+            )
+            || within(
+                path,
+                "services/cantos-server/contracts/studio/artwork/v1/fixtures",
+            )
         {
             impact.gates.insert(Gate::ProtobufReference);
             impact.gates.insert(Gate::TheatreCmpPreview);
         }
         if within(path, SCRIPT_IR_FIXTURES) {
             impact.gates.insert(Gate::ScriptIrReference);
+        }
+    } else if within(path, IDENTITY_CONTRACTS) {
+        // The proto and goldens are read by Identity's server binding and the Server's client.
+        if is_doc && !path.contains("/fixtures/") {
+            return;
+        }
+        impact.packages.insert(IDENTITY_PACKAGE.to_owned());
+        impact.packages.insert(API_PACKAGE.to_owned());
+        if path.ends_with(".proto") {
+            impact.gates.insert(Gate::ProtobufReference);
+        }
+    } else if within(path, THEATRE_CONFORMANCE) {
+        if !is_doc {
+            impact.packages.insert(THEATRE_WEB_PACKAGE.to_owned());
+            impact.gates.insert(Gate::TheatreCmpPreview);
+        }
+    } else if within(path, PROTO_CODEGEN) {
+        if !is_doc {
+            impact.gates.insert(Gate::ProtobufReference);
         }
     } else if within(path, UI_CMP_DIR) {
         // Kotlin is not a Cargo member. Its gate must not depend on metadata or reverse Rust deps.
@@ -234,6 +437,16 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         if path != format!("{}/README.md", package.dir) {
             impact.packages.insert(package.name.clone());
         }
+        if GENERATED_PROTOBUF_BINDINGS.contains(&path) {
+            impact.gates.insert(Gate::ProtobufReference);
+        }
+        if STUDIO_PROTOBUF_CODECS
+            .iter()
+            .any(|codec| within(path, codec))
+        {
+            impact.gates.insert(Gate::ProtobufReference);
+            impact.gates.insert(Gate::TheatreCmpPreview);
+        }
         if within(path, SCRIPT_IR_SOURCES) || path == SCRIPT_IR_TESTS {
             impact.gates.insert(Gate::Mutation);
         }
@@ -248,11 +461,11 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         }
     } else if within(path, "infra/edge") {
         impact.notes.insert("edge configuration is statically checked by repository; no Podman, DNS or Caddy process is started".into());
-    } else if within(path, "services/kanidm")
-        || within(path, "services/postgresql")
-        || path == "services/manifest.toml"
-    {
-        impact.notes.insert("service inventory/examples are statically validated by repository; no runtime is started".into());
+    } else if path == "services/manifest.toml" {
+        impact.notes.insert(
+            "the service inventory is statically validated by repository; no process is started"
+                .into(),
+        );
     } else if within(path, crate::config::THEATRE_MOBILE_DIR) {
         if !is_doc {
             impact.gates.insert(Gate::TheatreCmpPreview);
@@ -284,7 +497,8 @@ fn classify_script(script: &str, impact: &mut Impact) {
         "reference_protobuf.py" => {
             impact.gates.insert(Gate::ProtobufReference);
             impact.gates.insert(Gate::TheatreCmpPreview);
-            impact.packages.insert(CONTRACTS_PACKAGE.to_owned());
+            impact.packages.insert(API_PACKAGE.to_owned());
+            impact.packages.insert(STUDIO_WEB_PACKAGE.to_owned());
         }
         _ if within(script, "protobuf-oracle") => {
             impact.gates.insert(Gate::ProtobufReference);
@@ -298,16 +512,13 @@ fn classify_script(script: &str, impact: &mut Impact) {
         "reference_wav_inspection.py" => {
             impact.gates.insert(Gate::WavReference);
         }
-        "test_postgres.py" | "production_oracle.py" | "cantos_adaptation_tool.py" => {
-            impact.gates.insert(Gate::Postgres { keep: false });
-        }
         // Tested by the repository gate's Python unit tests (or untested helpers).
         "check_repository.py"
+        | "cantos_adaptation_tool.py"
         | "render_compose_preview.py"
         | "prepare_story_workspace.py"
-        | "benchmark_revision_reads.py"
+        | "verify_native_isolation.py"
         | "serve_studio.py"
-        | "seed_theatre.py"
         | "apk_size.py" => {}
         _ if script.starts_with("test_") && script.ends_with(".py") => {}
         _ => impact.broaden = Some(format!("scripts/{script} has no known impact")),
@@ -317,7 +528,7 @@ fn classify_script(script: &str, impact: &mut Impact) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::preflight::graph::testing;
+    use crate::{gate::GateKind, preflight::graph::testing};
 
     fn pick(paths: &[&str]) -> Selection {
         let paths: Vec<String> = paths.iter().map(|path| (*path).to_owned()).collect();
@@ -332,9 +543,18 @@ mod tests {
     fn registered_observation_inputs_select_conformance_without_losing_native_impact() {
         for path in [
             crate::behavior::CONFORMANCE_SCRIPT,
+            crate::behavior::NATIVE_CONFORMANCE_SCRIPT,
             "scripts/test_verify_behavior_conformance.py",
+            "scripts/test_verify_behavior_conformance_native.py",
             crate::behavior::OBSERVER,
-            "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+            "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
+            "services/cantos-server/src/platform/identity_auth/decision.rs",
+            crate::behavior::ADMISSION_OBSERVER,
+            "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
+            "services/cantos-identity/src/lib.rs",
+            "services/cantos-identity/src/domain/mailbox_proof.rs",
+            "services/cantos-identity/src/domain/ids.rs",
+            crate::behavior::MAILBOX_OBSERVER,
         ] {
             let selection = pick(&[path]);
             assert!(
@@ -361,10 +581,12 @@ mod tests {
                         .any(|gate| matches!(gate, Gate::RustTests(_))),
                     "{path}"
                 );
-                assert!(
-                    selection.gates.contains(&Gate::Postgres { keep: false }),
-                    "{path}"
-                );
+            }
+            if path.starts_with("services/cantos-server/") {
+                assert!(selection.gates.contains(&Gate::WavReference), "{path}");
+            }
+            if path.starts_with("services/cantos-identity/") {
+                assert!(selection.gates.contains(&Gate::Turso), "{path}");
             }
         }
         let mut expected = gate::full();
@@ -436,8 +658,9 @@ mod tests {
             "README.md",
             "docs/architecture/overview.md",
             ".agents/skills/cantos-engineering/SKILL.md",
-            "services/cantos-api/README.md",
-            "packages/contracts/adaptation-v1.md",
+            "services/cantos-server/README.md",
+            "services/cantos-server/contracts/studio/adaptation/v1/README.md",
+            "services/cantos-identity/contracts/identity/v1/README.md",
             "packages/ui-system/README.md",
             ".github/pull_request_template.md",
             "docs/evidence/casting-production-read-results.json",
@@ -466,23 +689,78 @@ mod tests {
     }
 
     #[test]
-    fn contract_changes_reach_every_dependent_package() {
-        let selection = pick(&["packages/contracts/api/src/production.rs"]);
+    fn a_consumer_representation_selects_only_its_owner() {
+        // The Server's own Rust representation is server code; no client imports it.
+        let server = pick(&["services/cantos-server/src/contract/studio/production.rs"]);
         assert_eq!(
-            names(&selection),
+            names(&server),
             [
                 "repository",
                 "rust-format",
-                "rust-lint (cantos-api, cantos-contracts, cantos-studio, cantos-theatre, cantos-web-auth)",
-                "rust-tests (cantos-api, cantos-contracts, cantos-studio, cantos-theatre, cantos-web-auth)",
-                "dbsp",
+                "rust-lint (cantos-server)",
+                "rust-tests (cantos-server)",
                 "wav-reference",
                 "audio-inspection",
-                "web-lint (cantos-studio, cantos-theatre)",
-                "web-build (cantos-studio)",
-                "web-build (cantos-theatre)",
-                "postgres",
             ]
+        );
+        let studio = pick(&["apps/cantos-studio/web/src/contract/production.rs"]);
+        assert_eq!(
+            names(&studio),
+            [
+                "repository",
+                "rust-format",
+                "rust-lint (cantos-studio)",
+                "rust-tests (cantos-studio)",
+                "web-lint (cantos-studio)",
+                "web-build (cantos-studio)",
+            ]
+        );
+    }
+
+    #[test]
+    fn canonical_contract_changes_reach_the_owner_and_every_consumer_of_the_surface() {
+        let studio =
+            pick(&["services/cantos-server/contracts/studio/production/v1/production.schema.json"]);
+        assert_eq!(
+            names(&studio),
+            [
+                "repository",
+                "rust-format",
+                "rust-lint (cantos-server, cantos-studio)",
+                "rust-tests (cantos-server, cantos-studio)",
+                "wav-reference",
+                "audio-inspection",
+                "web-lint (cantos-studio)",
+                "web-build (cantos-studio)",
+            ]
+        );
+        for path in [
+            "services/cantos-server/contracts/theatre/library/v1/fixtures/saved.json",
+            "services/cantos-server/contracts/auth/bearer/v1/fixtures/session.json",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert!(selection.affected.contains("cantos-server"), "{path}");
+            assert!(selection.affected.contains("cantos-theatre"), "{path}");
+            assert!(selection.gates.contains(&Gate::TheatreCmpPreview), "{path}");
+        }
+        let auth = pick(&[
+            "services/cantos-server/contracts/auth/identity-auth/v1/identity-auth.schema.json",
+        ]);
+        assert!(auth.affected.contains("cantos-web-auth"));
+        let admin =
+            pick(&["services/cantos-server/contracts/admin/access/v1/fixtures/capability.json"]);
+        assert_eq!(admin.affected, [API_PACKAGE.to_owned()].into());
+        let conformance = pick(&["apps/cantos-theatre/conformance/playback/v1/vectors/index.json"]);
+        assert_eq!(conformance.broadened, None);
+        assert_eq!(
+            conformance.affected,
+            [THEATRE_WEB_PACKAGE.to_owned()].into()
+        );
+        assert!(conformance.gates.contains(&Gate::TheatreCmpPreview));
+        assert_eq!(
+            names(&pick(&["services/cantos-server/contracts/README.md"])),
+            ["repository", "rust-format"]
         );
     }
 
@@ -505,25 +783,27 @@ mod tests {
 
     #[test]
     fn script_ir_fixtures_and_markdown_manuscripts_are_contract_inputs() {
-        let selection = pick(&["packages/contracts/fixtures/script-ir/0.1.0/cases.json"]);
+        let selection =
+            pick(&["services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/cases.json"]);
         assert!(selection.gates.contains(&Gate::ScriptIrReference));
-        assert!(selection.affected.contains("cantos-api"));
-        let manuscript = pick(&["packages/contracts/fixtures/manuscript/chapter-vi.md"]);
-        assert!(manuscript.affected.contains("cantos-api"));
+        assert!(selection.affected.contains("cantos-server"));
+        let manuscript =
+            pick(&["services/cantos-server/contracts/studio/manuscript/v1/fixtures/chapter-vi.md"]);
+        assert!(manuscript.affected.contains("cantos-server"));
         assert!(!manuscript.gates.contains(&Gate::ScriptIrReference));
     }
 
     #[test]
     fn script_ir_sources_add_the_mutation_gate() {
         for path in [
-            "services/cantos-api/src/script_ir/validation.rs",
-            "services/cantos-api/tests/script_ir.rs",
+            "services/cantos-server/src/script_ir/validation.rs",
+            "services/cantos-server/tests/script_ir.rs",
             "scripts/mutate_script_ir.py",
         ] {
             assert!(pick(&[path]).gates.contains(&Gate::Mutation), "{path}");
         }
         assert!(
-            !pick(&["services/cantos-api/src/adapters/inbound/http/mod.rs"])
+            !pick(&["services/cantos-server/src/adapters/inbound/http/mod.rs"])
                 .gates
                 .contains(&Gate::Mutation)
         );
@@ -531,18 +811,16 @@ mod tests {
 
     #[test]
     fn an_api_change_does_not_build_unrelated_web_clients() {
-        let selection = pick(&["services/cantos-api/schema/0001_current.sql"]);
+        let selection = pick(&["services/cantos-server/schema/0001_current.sql"]);
         assert_eq!(
             names(&selection),
             [
                 "repository",
                 "rust-format",
-                "rust-lint (cantos-api)",
-                "rust-tests (cantos-api)",
-                "dbsp",
+                "rust-lint (cantos-server)",
+                "rust-tests (cantos-server)",
                 "wav-reference",
                 "audio-inspection",
-                "postgres",
             ]
         );
     }
@@ -560,6 +838,138 @@ mod tests {
                 "web-build (cantos-theatre)",
             ]
         );
+    }
+
+    #[test]
+    fn identity_inputs_select_their_rust_package_and_persistence() {
+        for path in [
+            "services/cantos-identity/src/lib.rs",
+            "services/cantos-identity/src/domain/security_version.rs",
+            "services/cantos-identity/src/domain/admission.rs",
+            "services/cantos-identity/src/persistence/mod.rs",
+            "services/cantos-identity/src/persistence/schema.sql",
+            "services/cantos-identity/Cargo.toml",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            // The mailbox observer's parent module and the checked constructors it builds
+            // inputs with are registered conformance inputs.
+            let behavior: &[&str] = if path.ends_with("/src/lib.rs")
+                || path.ends_with("/security_version.rs")
+                || path.ends_with("/admission.rs")
+            {
+                &["behavior"]
+            } else {
+                &[]
+            };
+            let expected: Vec<&str> = ["repository"]
+                .into_iter()
+                .chain(behavior.iter().copied())
+                .chain([
+                    "rust-format",
+                    "rust-lint (cantos-identity)",
+                    "rust-tests (cantos-identity)",
+                    "turso",
+                ])
+                .collect();
+            assert_eq!(names(&selection), expected, "{path}");
+        }
+    }
+
+    #[test]
+    fn identity_rpc_contract_inputs_select_both_sides_with_the_turso_gate() {
+        for path in [
+            "services/cantos-identity/contracts/identity/v1/identity.proto",
+            "services/cantos-identity/contracts/identity/v1/fixtures/wire-goldens.json",
+            "services/cantos-identity/src/rpc/generated.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            // Identity's own binding is Identity code; the shared proto and goldens reach both.
+            let server = !path.starts_with("services/cantos-identity/src/");
+            assert_eq!(
+                selection.affected.contains("cantos-server"),
+                server,
+                "{path}"
+            );
+            assert_eq!(
+                selection.gates.contains(&Gate::WavReference),
+                server,
+                "{path}"
+            );
+            if !path.starts_with("services/cantos-server/") {
+                assert!(selection.affected.contains("cantos-identity"), "{path}");
+                assert!(selection.gates.contains(&Gate::Turso), "{path}");
+            }
+            // `validate_fact` and the Server's client binding are production seams of the
+            // session-admission observer.
+            let observed =
+                path.starts_with("services/cantos-server/src/platform/identity_auth/rpc");
+            assert_eq!(
+                selection
+                    .gates
+                    .iter()
+                    .any(|gate| matches!(gate, Gate::Behavior { .. })),
+                observed,
+                "{path}"
+            );
+            let generated = path.ends_with(".proto") || path.ends_with("generated.rs");
+            assert_eq!(
+                selection.gates.contains(&Gate::ProtobufReference),
+                generated,
+                "{path}"
+            );
+        }
+        // Its prose contract is a document: repository gate only.
+        let document = pick(&["services/cantos-identity/contracts/identity/v1/README.md"]);
+        assert_eq!(names(&document), ["repository", "rust-format"]);
+    }
+
+    #[test]
+    fn generated_binding_list_matches_the_generator_jobs() {
+        let workspace = crate::workspace::Workspace::discover().unwrap();
+        let source =
+            std::fs::read_to_string(workspace.path("tools/proto-codegen/src/main.rs")).unwrap();
+        let outputs: BTreeSet<&str> = source
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("out: \""))
+            .filter_map(|line| line.strip_suffix("\","))
+            .collect();
+        assert_eq!(outputs, GENERATED_PROTOBUF_BINDINGS.into_iter().collect());
+        for path in GENERATED_PROTOBUF_BINDINGS {
+            assert!(workspace.path(path).is_file(), "{path}");
+        }
+    }
+
+    #[test]
+    fn turso_store_inputs_select_their_package_and_the_capability_gate_only() {
+        for path in [
+            "packages/store-turso/src/lib.rs",
+            "packages/store-turso/src/registry.rs",
+            "packages/store-turso/tests/owned_database.rs",
+            "packages/store-turso/Cargo.toml",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository",
+                    "rust-format",
+                    "rust-lint (cantos-identity, cantos-server, cantos-store-turso)",
+                    "rust-tests (cantos-identity, cantos-server, cantos-store-turso)",
+                    "turso",
+                    "wav-reference",
+                    "audio-inspection",
+                ],
+                "{path}"
+            );
+        }
+        // Its README is a document: no package gate and no capability run.
+        let readme = pick(&["packages/store-turso/README.md"]);
+        assert_eq!(names(&readme), ["repository", "rust-format"]);
     }
 
     #[test]
@@ -597,19 +1007,21 @@ mod tests {
     #[test]
     fn media_sources_and_audio_contract_inputs_require_actual_media_inspection() {
         for path in [
-            "services/cantos-api/src/contexts/media/audio_intake.rs",
-            "services/cantos-api/tests/audio_intake.rs",
-            "packages/contracts/api/src/audio_intake.rs",
-            "packages/contracts/schema/audio-intake/v1.schema.json",
-            "packages/contracts/fixtures/audio-intake/v1/receipt-response.json",
+            "services/cantos-server/src/contexts/media/audio_intake.rs",
+            "services/cantos-server/tests/audio_intake.rs",
+            "services/cantos-server/src/contract/studio/audio_intake.rs",
+            "services/cantos-server/contracts/studio/audio-intake/v1/audio-intake.schema.json",
+            "services/cantos-server/contracts/studio/audio-intake/v1/fixtures/receipt-response.json",
         ] {
             let selection = pick(&[path]);
             assert!(selection.gates.contains(&Gate::AudioInspection), "{path}");
             assert_eq!(selection.broadened, None, "{path}");
         }
-        assert!(!pick(&["packages/contracts/studio-audio-intake-v1.md"])
-            .gates
-            .contains(&Gate::AudioInspection));
+        assert!(
+            !pick(&["services/cantos-server/contracts/studio/audio-intake/v1/README.md"])
+                .gates
+                .contains(&Gate::AudioInspection)
+        );
         assert!(!pick(&["apps/cantos-theatre/web/src/lib.rs"])
             .gates
             .contains(&Gate::AudioInspection));
@@ -618,33 +1030,50 @@ mod tests {
     #[test]
     fn protobuf_inputs_select_drift_goldens_and_both_language_consumers() {
         for path in [
-            "packages/contracts/protobuf/studio_v1.proto",
-            "packages/contracts/protobuf/artwork_v1.proto",
-            "packages/contracts/fixtures/protobuf/v1/goldens.json",
-            "packages/contracts/fixtures/protobuf/v1/hostile.json",
-            "packages/contracts/fixtures/artwork/v1/goldens.json",
-            "packages/contracts/fixtures/artwork/v1/hostile.json",
-            "packages/contracts/api/src/protobuf/generated.rs",
-            "packages/contracts/api/src/protobuf/generated_artwork.rs",
-            "packages/contracts/api/tests/artwork_wire.rs",
+            "services/cantos-server/contracts/studio/editorial/v1/editorial.proto",
+            "services/cantos-server/contracts/studio/artwork/v1/artwork.proto",
+            "services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf/goldens.json",
+            "services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf/hostile.json",
+            "services/cantos-server/contracts/studio/artwork/v1/fixtures/goldens.json",
+            "services/cantos-server/contracts/studio/artwork/v1/fixtures/hostile.json",
+            "services/cantos-server/src/contract/studio/protobuf/generated.rs",
+            "services/cantos-server/src/contract/studio/protobuf/generated_artwork.rs",
+            "services/cantos-server/tests/contract_conformance/artwork_wire.rs",
+            "apps/cantos-studio/web/src/contract/protobuf/generated.rs",
             "scripts/reference_protobuf.py",
         ] {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
             assert!(selection.gates.contains(&Gate::ProtobufReference), "{path}");
             assert!(selection.gates.contains(&Gate::TheatreCmpPreview), "{path}");
-            assert!(selection.affected.contains(CONTRACTS_PACKAGE), "{path}");
+            assert!(
+                selection.affected.contains(API_PACKAGE)
+                    || selection.affected.contains(STUDIO_WEB_PACKAGE),
+                "{path}"
+            );
         }
-        let oracle = pick(&["scripts/protobuf-oracle/rust/build.rs"]);
-        assert_eq!(oracle.broadened, None);
-        assert!(oracle.gates.contains(&Gate::ProtobufReference));
+        for path in [
+            "scripts/protobuf-oracle/rust/build.rs",
+            "tools/proto-codegen/src/main.rs",
+            "tools/proto-codegen/Cargo.lock",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert!(selection.gates.contains(&Gate::ProtobufReference), "{path}");
+        }
     }
 
     #[test]
     fn primitive_scripts_select_the_gate_that_exercises_them() {
+        // The adaptation primitive is exercised by its own repository-gate unit tests.
+        assert_eq!(
+            names(&pick(&["scripts/cantos_adaptation_tool.py"])),
+            ["repository", "rust-format"]
+        );
+        // Retained Python test primitives run in the repository gate.
         assert_eq!(
             names(&pick(&["scripts/test_postgres.py"])),
-            ["repository", "rust-format", "postgres"]
+            ["repository", "rust-format"]
         );
         assert_eq!(
             names(&pick(&["scripts/reference_wav_inspection.py"])),
@@ -657,10 +1086,12 @@ mod tests {
             ])),
             ["repository", "rust-format"]
         );
-        // Its offline unit tests run in repository; the seed test itself is a cantos-api test.
-        let seed = pick(&["scripts/seed_theatre.py", "scripts/test_seed_theatre.py"]);
-        assert_eq!(seed.broadened, None);
-        assert_eq!(names(&seed), ["repository", "rust-format"]);
+        let isolation = pick(&[
+            "scripts/verify_native_isolation.py",
+            "scripts/test_verify_native_isolation.py",
+        ]);
+        assert_eq!(isolation.broadened, None);
+        assert_eq!(names(&isolation), ["repository", "rust-format"]);
     }
 
     #[test]
@@ -691,11 +1122,18 @@ mod tests {
     #[test]
     fn configuration_only_and_reserved_locations_are_noted_not_built() {
         let selection = pick(&[
-            "services/kanidm/server.toml.example",
+            "services/manifest.toml",
             "apps/cantos-theatre/mobile/README.md",
         ]);
         assert_eq!(names(&selection), ["repository", "rust-format"]);
         assert_eq!(selection.notes.len(), 1);
+        // The deleted container service trees are unknown locations now, not configuration.
+        assert!(pick(&["services/postgresql/env.example"])
+            .broadened
+            .is_some());
+        assert!(pick(&["services/kanidm/server.toml.example"])
+            .broadened
+            .is_some());
     }
 
     #[test]
@@ -775,6 +1213,339 @@ mod tests {
                 .notes
                 .iter()
                 .any(|note| note.contains("theatre-host android-release"))
+        );
+    }
+
+    fn local(paths: &[&str]) -> Selection {
+        let paths: Vec<String> = paths.iter().map(|path| (*path).to_owned()).collect();
+        select_local(&paths, &testing::cantos())
+    }
+
+    fn deferred(selection: &Selection) -> Vec<String> {
+        selection.deferred.iter().map(Gate::name).collect()
+    }
+
+    const LOCAL_KINDS: [GateKind; 5] = [
+        GateKind::Repository,
+        GateKind::RustFormat,
+        GateKind::RustLint,
+        GateKind::RustTests,
+        GateKind::WebLint,
+    ];
+
+    #[test]
+    fn local_documents_select_static_repository_checks_and_format_only() {
+        let selection = local(&[
+            "README.md",
+            "docs/architecture/overview.md",
+            ".agents/skills/cantos-engineering/references/verification-cadence.md",
+            "services/cantos-server/README.md",
+            "xtask/README.md",
+        ]);
+        assert_eq!(selection.broadened, None);
+        assert_eq!(names(&selection), ["repository-static", "rust-format"]);
+        // xtask/README.md broadens the handoff selection, never the local one.
+        assert!(deferred(&selection).contains(&"repository".to_owned()));
+        assert!(selection
+            .notes
+            .iter()
+            .any(|note| note.contains("Python regression suite is not run")));
+    }
+
+    #[test]
+    fn local_server_changes_keep_package_checks_and_defer_every_campaign() {
+        for path in [
+            "services/cantos-server/src/adapters/inbound/http/mod.rs",
+            "services/cantos-server/src/script_ir/validation.rs",
+            "services/cantos-server/src/contexts/media/audio_intake.rs",
+        ] {
+            let selection = local(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository-static",
+                    "rust-format",
+                    "rust-lint (cantos-server)",
+                    "rust-tests (cantos-server)",
+                ],
+                "{path}"
+            );
+            for campaign in ["wav-reference", "audio-inspection"] {
+                assert!(
+                    deferred(&selection).contains(&campaign.to_owned()),
+                    "{path}"
+                );
+            }
+            for retired in ["dbsp", "postgres"] {
+                assert!(
+                    !deferred(&selection).contains(&retired.to_owned()),
+                    "{path}: {retired}"
+                );
+            }
+        }
+        assert!(deferred(&local(&[
+            "services/cantos-server/src/script_ir/validation.rs"
+        ]))
+        .contains(&"mutation".to_owned()));
+    }
+
+    #[test]
+    fn local_theatre_web_changes_add_wasm_lint_without_trunk_or_cmp() {
+        let selection = local(&["apps/cantos-theatre/web/src/lib.rs"]);
+        assert_eq!(
+            names(&selection),
+            [
+                "repository-static",
+                "rust-format",
+                "rust-lint (cantos-theatre)",
+                "rust-tests (cantos-theatre)",
+                "web-lint (cantos-theatre)",
+            ]
+        );
+        assert_eq!(
+            deferred(&selection),
+            ["repository", "web-build (cantos-theatre)"]
+        );
+        assert!(selection
+            .notes
+            .iter()
+            .any(|note| note.contains("WASM lint only")));
+    }
+
+    #[test]
+    fn local_contract_changes_reach_the_owner_and_the_surface_consumers() {
+        let selection = local(&[
+            "services/cantos-server/contracts/studio/production/v1/production.schema.json",
+        ]);
+        assert_eq!(
+            names(&selection),
+            [
+                "repository-static",
+                "rust-format",
+                "rust-lint (cantos-server, cantos-studio)",
+                "rust-tests (cantos-server, cantos-studio)",
+                "web-lint (cantos-studio)",
+            ]
+        );
+    }
+
+    #[test]
+    fn local_identity_and_turso_changes_keep_graph_consumers_and_report_feature_gaps() {
+        for (path, packages) in [
+            ("services/cantos-identity/src/lib.rs", "cantos-identity"),
+            (
+                "packages/store-turso/src/lib.rs",
+                "cantos-identity, cantos-server, cantos-store-turso",
+            ),
+            (
+                "services/cantos-identity/contracts/identity/v1/identity.proto",
+                "cantos-identity, cantos-server",
+            ),
+        ] {
+            let selection = local(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository-static".to_owned(),
+                    "rust-format".to_owned(),
+                    format!("rust-lint ({packages})"),
+                    format!("rust-tests ({packages})"),
+                ],
+                "{path}"
+            );
+            let mut expected = vec!["repository"];
+            if path == "services/cantos-identity/src/lib.rs" {
+                expected.push("behavior");
+            }
+            if path.ends_with(".proto") {
+                expected.push("protobuf-reference");
+            }
+            expected.push("turso");
+            if packages.contains("cantos-server") {
+                expected.extend(["wav-reference", "audio-inspection"]);
+            }
+            assert_eq!(deferred(&selection), expected, "{path}");
+            assert!(selection
+                .notes
+                .iter()
+                .any(|note| note.contains("`persistence`/`service`")));
+            assert!(selection
+                .notes
+                .iter()
+                .any(|note| note.contains("default features")));
+        }
+    }
+
+    #[test]
+    fn local_selection_keeps_dev_dependency_consumers() {
+        // The server's Identity/Turso journeys are dev-dependencies; graph edges carry
+        // normal, dev and build dependencies alike, so the server stays a consumer.
+        let mut graph = testing::cantos();
+        graph
+            .packages
+            .iter_mut()
+            .find(|package| package.name == API_PACKAGE)
+            .unwrap()
+            .deps
+            .extend([IDENTITY_PACKAGE.to_owned(), TURSO_STORE_PACKAGE.to_owned()]);
+        let selection = select_local(&["packages/store-turso/src/lib.rs".to_owned()], &graph);
+        assert_eq!(
+            names(&selection),
+            [
+                "repository-static",
+                "rust-format",
+                "rust-lint (cantos-identity, cantos-server, cantos-store-turso)",
+                "rust-tests (cantos-identity, cantos-server, cantos-store-turso)",
+            ]
+        );
+        assert!(deferred(&selection).contains(&"turso".to_owned()));
+    }
+
+    #[test]
+    fn local_tooling_code_keeps_the_repository_regression_suite() {
+        for (path, rust) in [
+            ("xtask/src/gate.rs", true),
+            ("xtask/fixtures/hosting-bundles/README.md", true),
+            (".github/workflows/repository-checks.yml", true),
+            ("scripts/check_repository.py", false),
+            ("scripts/test_check_repository.py", false),
+            ("scripts/verify_behavior.py", false),
+        ] {
+            let selection = local(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            let mut expected = vec!["repository", "rust-format"];
+            if rust {
+                expected.extend(["rust-lint (xtask)", "rust-tests (xtask)"]);
+            }
+            assert_eq!(names(&selection), expected, "{path}");
+        }
+        assert!(deferred(&local(&["scripts/verify_behavior.py"])).contains(&"behavior".to_owned()));
+    }
+
+    #[test]
+    fn local_shared_or_unknown_inputs_broaden_within_the_profile_only() {
+        for path in [
+            "Cargo.lock",
+            "Cargo.toml",
+            "rust-toolchain.toml",
+            ".cargo/config.toml",
+            "Makefile",
+            "scripts/new_tool.py",
+        ] {
+            let selection = local(&[path, "apps/cantos-theatre/web/src/lib.rs"]);
+            assert!(
+                selection
+                    .broadened
+                    .as_deref()
+                    .is_some_and(|reason| reason.contains(path)),
+                "{path}: {:?}",
+                selection.broadened
+            );
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository",
+                    "rust-format",
+                    "rust-lint (workspace)",
+                    "rust-tests (workspace)",
+                    "web-lint (cantos-studio, cantos-theatre)",
+                ],
+                "{path}"
+            );
+            assert!(
+                deferred(&selection).contains(&"wav-reference".to_owned()),
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_truly_empty_local_diff_runs_no_workspace_rust_checks() {
+        let selection = select_local(&[], &testing::cantos());
+        assert_eq!(selection.broadened, None);
+        assert_eq!(names(&selection), ["repository-static", "rust-format"]);
+        assert!(selection.affected.is_empty());
+        assert!(selection
+            .notes
+            .iter()
+            .any(|note| note.contains("no changed paths")));
+        // Handoff still treats an empty diff as unknown impact.
+        assert_eq!(select(Some(&[]), &testing::cantos()).gates, gate::full());
+    }
+
+    #[test]
+    fn local_cmp_changes_report_their_coverage_gap_instead_of_building() {
+        let selection = local(&["packages/ui-system/cmp/src/commonMain/kotlin/PreviewCatalog.kt"]);
+        assert_eq!(names(&selection), ["repository-static", "rust-format"]);
+        assert_eq!(
+            deferred(&selection),
+            ["repository", "cmp-ui-preview", "theatre-cmp-preview"]
+        );
+        assert!(selection
+            .notes
+            .iter()
+            .any(|note| note.contains("Kotlin/CMP")));
+    }
+
+    #[test]
+    fn local_plans_never_contain_a_campaign_gate() {
+        let all = [
+            "services/cantos-server/contracts/studio/editorial/v1/editorial.proto",
+            "services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/cases.json",
+            "tools/proto-codegen/src/main.rs",
+            "specs/behavior/catalog.json",
+            crate::behavior::OBSERVER,
+            "packages/ui-system/shared/tokens.json",
+            "services/cantos-forge-functions/firebase/src/boundary.mjs",
+            "apps/cantos-theatre/mobile/settings.gradle.kts",
+            "services/cantos-identity/src/persistence/mod.rs",
+            "scripts/cantos_adaptation_tool.py",
+            "scripts/mutate_script_ir.py",
+            "infra/firebase/hosting/firebase.json",
+        ];
+        let mut paths: Vec<&str> = all.to_vec();
+        for path in all {
+            paths.push(path);
+            let selection = local(&[path]);
+            assert!(
+                selection
+                    .gates
+                    .iter()
+                    .all(|gate| LOCAL_KINDS.contains(&gate.kind())),
+                "{path}: {:?}",
+                names(&selection)
+            );
+            for gate in &selection.deferred {
+                assert!(!selection.gates.contains(gate), "{path}");
+            }
+        }
+        let combined = local(&paths);
+        assert!(combined
+            .gates
+            .iter()
+            .all(|gate| LOCAL_KINDS.contains(&gate.kind())));
+    }
+
+    #[test]
+    fn the_handoff_selection_is_unchanged_and_has_no_deferred_gates() {
+        for paths in [
+            &["README.md"][..],
+            &["services/cantos-server/src/lib.rs"],
+            &["xtask/src/gate.rs"],
+            &[],
+        ] {
+            let selection = pick(paths);
+            assert!(selection.deferred.is_empty(), "{paths:?}");
+            assert!(!selection
+                .gates
+                .iter()
+                .any(|gate| matches!(gate, Gate::RepositoryStatic { .. })));
+        }
+        assert_eq!(
+            names(&pick(&["xtask/README.md"])),
+            names(&select(None, &testing::cantos()))
         );
     }
 

@@ -377,7 +377,7 @@ body { margin: 0; }
   .theatre-live-app .theatre-mini-player .theatre-time { grid-row: auto; }
   .theatre-live-app .theatre-mini-player .theatre-transport { grid-column: 1; grid-row: auto; justify-self: start; }
 }
-.theatre-account-theme select, .theatre-listen-speed select {
+.theatre-listen-speed select {
   min-block-size: var(--cantos-size-control); max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-md);
   font: inherit; color: var(--cantos-color-on-surface);
@@ -405,7 +405,16 @@ body { margin: 0; }
 .theatre-auth-actions .cui-button { inline-size: 100%; }
 .theatre-auth-helper { font-size: var(--cantos-type-metadata-size); }
 .theatre-account-profile .theatre-avatar { margin-block-end: var(--cantos-space-lg); }
-.theatre-account-recovery { display: grid; gap: var(--cantos-space-sm); }
+/* Existing Web-owned live regions: Status/ErrorState await both-renderer admission for
+   new Theatre sites. Keep their semantic tone vocabulary without copying a shared control. */
+.theatre-auth-feedback { margin-block: var(--cantos-space-md); font-size: var(--cantos-type-label-size); line-height: var(--cantos-type-body-line-height); }
+.theatre-auth-feedback[data-tone="neutral"] { color: inherit; }
+.theatre-auth-feedback:is([data-tone="info"], [data-tone="warning"], [data-tone="error"]) {
+  padding: var(--cantos-space-inset); border-radius: var(--cantos-web-shape-reading);
+}
+.theatre-auth-feedback[data-tone="info"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
+.theatre-auth-feedback[data-tone="warning"] { background: var(--cantos-color-warning-container); color: var(--cantos-color-warning); }
+.theatre-auth-feedback[data-tone="error"] { background: var(--cantos-color-error-container); color: var(--cantos-color-error); }
 .theatre-account-content { min-inline-size: 0; display: grid; gap: var(--cantos-space-lg); }
 .theatre-account-theme { display: grid; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-lg); }
 .theatre-account-theme p { font-size: var(--cantos-type-metadata-size); }

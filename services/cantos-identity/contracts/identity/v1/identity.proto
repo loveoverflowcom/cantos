@@ -1,0 +1,132 @@
+// Cantos Identity private RPC, package cantos.identity.v1. DRAFT (#332 prerequisite slice
+// delivered with #334). Field numbers are fixed once a consumer exists; removed numbers AND
+// names must then be reserved. Transport is private gRPC on a Unix domain socket whose caller
+// is authenticated from the OS peer credential; nothing in a message authenticates its sender.
+syntax = "proto3";
+
+package cantos.identity.v1;
+
+service Identity {
+  // Theatre signup, step 1. Records a pending signup bound to the exact mailbox and mails a
+  // proof to it. The response is generic and carries no proof, setup capability or account fact.
+  rpc StartTheatreSignup(StartTheatreSignupRequest) returns (StartTheatreSignupResponse);
+
+  // Theatre signup, step 2. The mailbox owner presents the mailed proof together with the
+  // password they chose and an explicit confirmation. One command consumes the proof and
+  // creates the account, verified email and credential atomically.
+  rpc CompleteTheatreSignup(CompleteTheatreSignupRequest) returns (CompleteTheatreSignupResponse);
+
+  // Verifies an email/password pair and returns an authentication fact for the caller's
+  // Server to bind. The fact is not a session and grants no resource access.
+  rpc AuthenticatePassword(AuthenticatePasswordRequest) returns (AuthenticatePasswordResponse);
+
+  // Reads current security state so a Server can check freshness before it issues a session.
+  rpc GetSecurityState(GetSecurityStateRequest) returns (GetSecurityStateResponse);
+}
+
+enum Purpose {
+  PURPOSE_UNSPECIFIED = 0;
+  PURPOSE_THEATRE = 1;
+  // Studio admission. The #335 v1 decision accepts Assurance PASSWORD for it; the Server owns
+  // the Studio roster, and a passkey path remains a separate, deferred assurance.
+  PURPOSE_STUDIO = 2;
+}
+
+enum Assurance {
+  ASSURANCE_UNSPECIFIED = 0;
+  ASSURANCE_PASSWORD = 1;
+}
+
+enum AccountState {
+  ACCOUNT_STATE_UNSPECIFIED = 0;
+  ACCOUNT_STATE_ACTIVE = 1;
+  ACCOUNT_STATE_DISABLED = 2;
+}
+
+enum SetupOutcome {
+  SETUP_OUTCOME_UNSPECIFIED = 0;
+  // This command created the account.
+  SETUP_OUTCOME_COMPLETED = 1;
+  // An identical earlier command already created it; this is a historical result only.
+  SETUP_OUTCOME_REPLAYED = 2;
+}
+
+// Asserted by the authenticated Server caller under its own trusted-proxy policy.
+message ClientContext {
+  // Textual IPv4 or IPv6 address of the end user's connection.
+  string client_ip = 1;
+}
+
+message StartTheatreSignupRequest {
+  // 16 random nonzero bytes chosen by the Server for this signup operation.
+  bytes operation_id = 1;
+  string email = 2;
+  ClientContext client = 3;
+}
+
+message StartTheatreSignupResponse {
+  // Always true for a well-formed request: it does not say whether mail was sent.
+  bool accepted = 1;
+  // The fixed policy lifetime of a mailed proof, identical for every request.
+  uint32 proof_ttl_seconds = 2;
+}
+
+message CompleteTheatreSignupRequest {
+  // 16 random nonzero bytes naming this command; retry the identical command after a lost
+  // response. Reusing it with different content is refused.
+  bytes command_id = 1;
+  // The operation_id given to StartTheatreSignup.
+  bytes operation_id = 2;
+  bytes proof_id = 3;
+  // The 32-byte secret carried by the mailed link.
+  bytes proof_secret = 4;
+  // Chosen by the mailbox owner; never trimmed, truncated or normalized.
+  string password = 5;
+  // Must be true: the explicit confirmation of the mailbox owner.
+  bool explicit_confirmation = 6;
+  ClientContext client = 7;
+  // Alternative to proof_secret: exact Firebase verification action. Never a login token.
+  // Exactly one of proof_secret and firebase_oob_code must be present.
+  string firebase_oob_code = 8;
+}
+
+message CompleteTheatreSignupResponse {
+  bytes subject_id = 1;
+  bytes instance_epoch = 2;
+  SetupOutcome outcome = 3;
+}
+
+message AuthenticatePasswordRequest {
+  // 16 random nonzero bytes chosen by the Server for this attempt; echoed in the fact.
+  bytes operation_id = 1;
+  Purpose purpose = 2;
+  string email = 3;
+  string password = 4;
+  ClientContext client = 5;
+}
+
+message AuthenticationFact {
+  bytes subject_id = 1;
+  Purpose purpose = 2;
+  Assurance assurance = 3;
+  // Trusted Identity clock at the final state check, microseconds since the Unix epoch.
+  int64 authenticated_at_unix_micros = 4;
+  uint64 security_version = 5;
+  bytes instance_epoch = 6;
+  bytes operation_id = 7;
+}
+
+message AuthenticatePasswordResponse {
+  AuthenticationFact fact = 1;
+}
+
+message GetSecurityStateRequest {
+  bytes subject_id = 1;
+}
+
+message GetSecurityStateResponse {
+  bytes subject_id = 1;
+  AccountState state = 2;
+  uint64 security_version = 3;
+  bytes instance_epoch = 4;
+}

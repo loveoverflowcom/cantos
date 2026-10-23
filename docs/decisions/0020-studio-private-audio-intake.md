@@ -3,13 +3,13 @@
 - **Status:** Accepted for the narrow development scope; original PR69 runtime verification was incomplete; [PR3 evidence](../evidence/audio-lifecycle.md) records actual Mac verification.
 - **Date:** 2026-10-12
 - **Decision owner:** Cantos project, explicit current intake/profile request.
-- **Related:** [ADR 0018](0018-external-audio-production.md), [implementation contract](../../packages/contracts/studio-audio-intake-v1.md).
+- **Related:** [ADR 0018](0018-external-audio-production.md), [implementation contract](../../services/cantos-server/contracts/studio/audio-intake/v1/README.md).
 
 ## Context
 
 The existing backend already owns accepted Script IR revisions and Studio development sessions.
 The Catalog API now owns work/content-unit identities. Catalog-bound immutable production
-briefs and read credentials were separate prerequisites at the original PR69 authoring. They now exist on develop; [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) extends them with independently scoped upload. S3-compatible storage remains unimplemented. A small intake slice can exercise actual byte
+briefs and read credentials were separate prerequisites at the original PR69 authoring. They now exist on develop; [Audio Lifecycle](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) extends them with independently scoped upload. S3-compatible storage remains unimplemented. A small intake slice can exercise actual byte
 admission and durable receipt binding without pretending those foundations exist or sharing
 Studio cookies with third-party producers.
 

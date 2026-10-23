@@ -34,7 +34,7 @@ changes. Backend publication authorization remains authoritative; draft/TTS prev
 Canonical contract: `theatre-mock-playback@1`, vector format 1. Fixture-only commit:
 [`56bb39bcd769befd8385e7cb963b7ff4930f3c89`](https://github.com/loveoverflowcom/cantos/commit/56bb39bcd769befd8385e7cb963b7ff4930f3c89),
 tree `dac6fa1b6a8d6bb6e3543a5fb82b6677b9fbaccf`. It can be reused by CMP independently of Web
-source. [Canonical rules/schema/index](../../packages/contracts/fixtures/theatre/playback/v1/README.md)
+source. [Canonical rules/schema/index](../../apps/cantos-theatre/conformance/playback/v1/vectors/README.md)
 are shared as data, not a language binding or playback acceptance.
 
 - Index SHA-256: `108503bdcceb36fe6351b1d320075d974615f7dc0ea560582bbe19c2da2b0485`.

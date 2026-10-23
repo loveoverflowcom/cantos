@@ -120,9 +120,10 @@ class BehaviorContracts(unittest.TestCase):
             "cantos.media.public-cover-projection": (10, 5, 8),
             "cantos.tooling.hosting-deploy": (6, 3, 3),
             "cantos.presentation.locale-preference": (6, 4, 4),
-            "cantos.identity.theatre-registration": (11, 5, 4),
             "cantos.production.forge-attempt": (13, 7, 9),
             "cantos.identity.bearer-lifecycle": (12, 11, 11),
+            "cantos.identity.native-mailbox-proof": (8, 9, 8),
+            "cantos.identity.native-session-admission": (8, 7, 8),
         }
         self.assertEqual([cap["id"] for cap in selected], list(expected))
         for cap in selected:
@@ -133,7 +134,7 @@ class BehaviorContracts(unittest.TestCase):
                 self.assertEqual(len(cap["controls"]), len(cap["properties"]))
 
     def test_unknown_or_unmodeled_selection_fails(self):
-        for selection in ("cantos.unknown", "cantos.publishing.lifecycle"):
+        for selection in ("cantos.unknown", "cantos.publishing.lifecycle", "cantos.identity.theatre-registration"):
             with self.subTest(selection=selection), self.assertRaises(behavior.BehaviorError):
                 behavior.load_catalog(behavior.ROOT, selection)
 

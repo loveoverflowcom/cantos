@@ -1,262 +1,239 @@
-//! Same-origin enrollment transport. A receipt grants no account, session or Studio access.
+//! Theatre signup transport for Identity v1. Both routes are anonymous (`credentials: omit`, no
+//! session fence): a receipt grants no account, session or Studio access, and completion never
+//! sets a cookie. The browser adds `Origin`; no code here forges it.
 #[cfg(any(target_arch = "wasm32", test))]
-use crate::application::signup::SignupFailure;
+use crate::application::signup::{CompletionFailure, SignupFailure};
 #[cfg(any(target_arch = "wasm32", test))]
-use crate::application::signup::{FirebaseVerification, SetupLink};
+use crate::contract::identity_auth::{SignupAccepted, SignupCompleted, SignupStatus};
 #[cfg(any(target_arch = "wasm32", test))]
-use cantos_contracts::theatre_registration::{
-    Accepted, FirebaseConfirmation, VerificationResponse, VerificationStatus,
-};
+use cantos_web_auth::core::retry_after;
+
+pub const SIGNUP_PATH: &str = "/api/v1/theatre/identity/signup";
+pub const COMPLETE_PATH: &str = "/api/v1/theatre/identity/signup/complete";
+#[cfg(any(target_arch = "wasm32", test))]
+const MAX_BODY: usize = 8192;
 
 #[cfg(any(target_arch = "wasm32", test))]
-fn json_body(content_type: Option<&str>, body: &[u8]) -> Result<(), SignupFailure> {
-    if body.len() > 8192
-        || !content_type.is_some_and(|value| {
+fn json_body(content_type: Option<&str>, body: &[u8]) -> bool {
+    body.len() <= MAX_BODY
+        && content_type.is_some_and(|value| {
             value
                 .split(';')
                 .next()
                 .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("application/json"))
         })
-    {
-        return Err(SignupFailure::Protocol);
-    }
-    Ok(())
 }
 
+/// `202 {accepted:true, proof_ttl_seconds}` is the only receipt, and it says nothing about the
+/// address: the reply is identical for a registered mailbox.
 #[cfg(any(target_arch = "wasm32", test))]
-fn accepted(status: u16, content_type: Option<&str>, body: &[u8]) -> Result<(), SignupFailure> {
-    json_body(content_type, body)?;
-    match status {
-        202 => serde_json::from_slice::<Accepted>(body)
-            .map(|_| ())
-            .map_err(|_| SignupFailure::Protocol),
-        400 if serde_json::from_slice::<cantos_contracts::ApiError>(body)
-            .is_ok_and(|error| error.code == cantos_contracts::ErrorCode::InvalidRequest) =>
-        {
-            Err(SignupFailure::InvalidEmail)
-        }
-        429 | 503 => Err(SignupFailure::Unavailable),
-        _ => Err(SignupFailure::UnknownOutcome),
-    }
-}
-
-#[cfg(any(target_arch = "wasm32", test))]
-fn verified(
+pub(crate) fn accepted(
     status: u16,
     content_type: Option<&str>,
+    retry_after_header: Option<&str>,
     body: &[u8],
-) -> Result<VerificationStatus, SignupFailure> {
-    json_body(content_type, body)?;
+) -> Result<(), SignupFailure> {
     match status {
-        200 => serde_json::from_slice::<VerificationResponse>(body)
-            .map(|reply| reply.status)
-            .map_err(|_| SignupFailure::Protocol),
-        429 | 503 => Err(SignupFailure::Unavailable),
-        _ => Err(SignupFailure::UnknownOutcome),
-    }
-}
-
-#[cfg(any(target_arch = "wasm32", test))]
-fn firebase_verified(
-    status: u16,
-    content_type: Option<&str>,
-    body: &[u8],
-) -> Result<FirebaseVerification, SignupFailure> {
-    json_body(content_type, body)?;
-    match status {
-        200 => match serde_json::from_slice::<FirebaseConfirmation>(body)
-            .map_err(|_| SignupFailure::Protocol)?
-        {
-            FirebaseConfirmation::SetupReady { login, setup_url } => {
-                SetupLink::new(login, setup_url)
-                    .map(FirebaseVerification::SetupReady)
-                    .ok_or(SignupFailure::Protocol)
+        202 => {
+            if !json_body(content_type, body) {
+                return Err(SignupFailure::Protocol);
             }
-            FirebaseConfirmation::Unavailable {} => Ok(FirebaseVerification::Unavailable),
-        },
-        429 | 503 => Err(SignupFailure::Unavailable),
+            match serde_json::from_slice::<SignupAccepted>(body) {
+                Ok(SignupAccepted {
+                    accepted: true,
+                    proof_ttl_seconds,
+                }) if proof_ttl_seconds > 0 => Ok(()),
+                _ => Err(SignupFailure::Protocol),
+            }
+        }
+        400 => Err(SignupFailure::InvalidEmail),
+        403 | 404 => Err(SignupFailure::NotConfigured),
+        429 => Err(SignupFailure::RateLimited(retry_after(retry_after_header))),
+        503 => Err(SignupFailure::Unavailable),
         _ => Err(SignupFailure::UnknownOutcome),
+    }
+}
+
+/// Only an exact `{status}` receipt is success. Definite refusals (400/401/403/404) had no
+/// effect; 429, 503, other statuses and an unreadable 200 may have committed, so the caller
+/// repeats only the identical request.
+#[cfg(any(target_arch = "wasm32", test))]
+pub(crate) fn completed(
+    status: u16,
+    content_type: Option<&str>,
+    retry_after_header: Option<&str>,
+    body: &[u8],
+) -> Result<SignupStatus, CompletionFailure> {
+    match status {
+        200 => {
+            if !json_body(content_type, body) {
+                return Err(CompletionFailure::UnknownOutcome);
+            }
+            serde_json::from_slice::<SignupCompleted>(body)
+                .map(|receipt| receipt.status)
+                .map_err(|_| CompletionFailure::UnknownOutcome)
+        }
+        400 => Err(CompletionFailure::Invalid),
+        401 => Err(CompletionFailure::Refused),
+        403 => Err(CompletionFailure::Forbidden),
+        404 => Err(CompletionFailure::NotConfigured),
+        429 => Err(CompletionFailure::RateLimited(retry_after(
+            retry_after_header,
+        ))),
+        503 => Err(CompletionFailure::Unavailable),
+        _ => Err(CompletionFailure::UnknownOutcome),
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn post(
-    path: &'static str,
-    body: String,
-) -> Result<(u16, Option<String>, Vec<u8>), SignupFailure> {
+type Answer = (u16, Option<String>, Option<String>, Vec<u8>);
+
+/// Network loss and deadlines are unknown outcomes: the request may have been processed.
+#[cfg(target_arch = "wasm32")]
+async fn post(path: &'static str, body: String) -> Option<Answer> {
     use gloo_net::http::Request;
     use web_sys::{AbortController, RequestCredentials};
 
-    let controller = AbortController::new().map_err(|_| SignupFailure::Unavailable)?;
-    let deadline = super::browser::deadline(controller).map_err(|_| SignupFailure::Unavailable)?;
+    let controller = AbortController::new().ok()?;
+    let deadline = super::browser::deadline(controller).ok()?;
     let signal = deadline.controller.signal();
-    let request = Request::post(
-        &crate::api_endpoint::endpoint(path).map_err(|_| SignupFailure::Unavailable)?,
-    )
-    .credentials(RequestCredentials::Omit)
-    .abort_signal(Some(&signal))
-    .header("Accept", "application/json")
-    .header("Content-Type", "application/json")
-    .body(body)
-    .map_err(|_| SignupFailure::Unavailable)?;
-    let response = request
-        .send()
-        .await
-        .map_err(|_| SignupFailure::UnknownOutcome)?;
+    let request = Request::post(&crate::api_endpoint::endpoint(path).ok()?)
+        .credentials(RequestCredentials::Omit)
+        .redirect(web_sys::RequestRedirect::Error)
+        .abort_signal(Some(&signal))
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .body(body)
+        .ok()?;
+    let response = request.send().await.ok()?;
     let status = response.status();
     let content_type = response.headers().get("content-type");
-    let bytes = response
-        .binary()
-        .await
-        .map_err(|_| SignupFailure::UnknownOutcome)?;
-    Ok((status, content_type, bytes))
+    let retry = response.headers().get("retry-after");
+    let bytes = response.binary().await.ok()?;
+    Some((status, content_type, retry, bytes))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn now_ms() -> u64 {
+    web_sys::js_sys::Date::now() as u64
+}
+
+/// Re-render the panel when the 429 hold ends, so the disabled start button re-enables itself.
+#[cfg(target_arch = "wasm32")]
+fn release_after(
+    state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
+    seconds: u32,
+) {
+    use leptos::prelude::*;
+    use web_sys::wasm_bindgen::{closure::Closure, JsCast};
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let release = Closure::once_into_js(move || {
+        let _ = state.try_update(|_| ());
+    });
+    let millis = seconds.saturating_mul(1000).min(i32::MAX as u32) as i32;
+    let _ = window
+        .set_timeout_with_callback_and_timeout_and_arguments_0(release.unchecked_ref(), millis);
 }
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn submit(state: leptos::prelude::RwSignal<crate::application::signup::SignupState>) {
-    use cantos_contracts::theatre_registration::RegistrationRequest;
+    use crate::contract::identity_auth::SignupStart;
     use leptos::prelude::*;
 
-    let Some((issued, email)) = state.write().begin_submit() else {
+    let Some((issued, email)) = state.write().begin_submit(now_ms()) else {
         return;
     };
     leptos::task::spawn_local(async move {
-        let result = match serde_json::to_string(&RegistrationRequest { email }) {
-            Ok(body) => match post("/api/v1/theatre/auth/registration", body).await {
-                Ok((status, content_type, body)) => {
-                    accepted(status, content_type.as_deref(), &body)
+        let result = match serde_json::to_string(&SignupStart { email }) {
+            Ok(body) => match post(SIGNUP_PATH, body).await {
+                Some((status, content_type, retry, body)) => {
+                    accepted(status, content_type.as_deref(), retry.as_deref(), &body)
                 }
-                Err(error) => Err(error),
+                None => Err(SignupFailure::UnknownOutcome),
             },
             Err(_) => Err(SignupFailure::Protocol),
         };
+        let now = now_ms();
+        let held = match result {
+            Err(SignupFailure::RateLimited(seconds)) => Some(seconds),
+            _ => None,
+        };
         let _ = state.try_update(|current| {
-            current.finish_submit(issued, result);
+            current.finish_submit(issued, result, now);
         });
-    });
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn verify(state: leptos::prelude::RwSignal<crate::application::signup::SignupState>) {
-    use crate::application::signup::VerificationDispatch;
-    use cantos_contracts::theatre_registration::{FirebaseConfirmRequest, TokenRequest};
-    use leptos::prelude::*;
-
-    let Some((issued, token)) = state.write().begin_verify() else {
-        return;
-    };
-    leptos::task::spawn_local(async move {
-        match token.into_dispatch() {
-            VerificationDispatch::Email(token) => {
-                let result = match serde_json::to_string(&TokenRequest { token }) {
-                    Ok(body) => {
-                        match post("/api/v1/theatre/auth/registration/verify", body).await {
-                            Ok((status, content_type, body)) => {
-                                verified(status, content_type.as_deref(), &body)
-                            }
-                            Err(error) => Err(error),
-                        }
-                    }
-                    Err(_) => Err(SignupFailure::Protocol),
-                };
-                let _ = state.try_update(|current| {
-                    current.finish_verify(issued, result);
-                });
-            }
-            VerificationDispatch::Firebase {
-                operation_id,
-                oob_code,
-            } => {
-                let result = match serde_json::to_string(&FirebaseConfirmRequest {
-                    operation_id,
-                    oob_code,
-                }) {
-                    Ok(body) => {
-                        match post("/api/v1/theatre/auth/registration/firebase/confirm", body).await
-                        {
-                            Ok((status, content_type, body)) => {
-                                firebase_verified(status, content_type.as_deref(), &body)
-                            }
-                            Err(error) => Err(error),
-                        }
-                    }
-                    Err(_) => Err(SignupFailure::Protocol),
-                };
-                let _ = state.try_update(|current| {
-                    current.finish_firebase(issued, result);
-                });
-            }
+        if let Some(seconds) = held {
+            release_after(state, seconds);
         }
     });
 }
 
-pub(crate) fn open_setup(
+/// Send the explicit completion. `on_completed` runs only for a current, successful answer and
+/// moves to sign-in; no session exists yet and none is adopted.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn complete(
     state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
+    on_completed: leptos::prelude::Callback<()>,
 ) {
     use leptos::prelude::*;
-    let Some(url) = state.write().take_setup_url() else {
+    let Some((issued, body)) = state.write().begin_complete() else {
         return;
     };
-    if crate::platform::signup_browser::open_setup(&url).is_err() {
-        state.update(|current| current.setup_navigation_failed());
-    }
+    send(state, issued, body, on_completed);
 }
 
-/// Close local intent first. Even a failed cancellation response cannot revive a discarded link.
+/// Repeat the identical retained request after an unknown outcome.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn retry(
+    state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
+    on_completed: leptos::prelude::Callback<()>,
+) {
+    use leptos::prelude::*;
+    let Some((issued, body)) = state.write().begin_retry(now_ms()) else {
+        return;
+    };
+    send(state, issued, body, on_completed);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn send(
+    state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
+    issued: u64,
+    body: String,
+    on_completed: leptos::prelude::Callback<()>,
+) {
+    use crate::application::signup::SignupPhase;
+    use leptos::prelude::*;
+    leptos::task::spawn_local(async move {
+        let result = match post(COMPLETE_PATH, body).await {
+            Some((status, content_type, retry, body)) => {
+                completed(status, content_type.as_deref(), retry.as_deref(), &body)
+            }
+            None => Err(CompletionFailure::UnknownOutcome),
+        };
+        let now = now_ms();
+        let finished = state
+            .try_update(|current| {
+                current.finish_complete(issued, result, now)
+                    && matches!(current.phase(), SignupPhase::Completed(_))
+            })
+            .unwrap_or(false);
+        if finished {
+            on_completed.run(());
+        }
+    });
+}
+
+/// Close local intent. A close cannot undo an account a pending request may already have
+/// created; the owner can still sign in with the chosen password.
 pub(crate) fn cancel(
     state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
     preview: bool,
 ) {
-    cancel_local(state, preview, true);
-}
-
-/// Only an explicit Cancel button may consume a Firebase action to revoke enrollment.
-/// Back, Escape, account switches and route cleanup only discard local action possession.
-pub(crate) fn cancel_explicit(
-    state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
-    preview: bool,
-) {
     use leptos::prelude::*;
-    let token = state.write().clear();
-    #[cfg(target_arch = "wasm32")]
-    if !preview {
-        if let Some(token) = token {
-            let Ok((path, body)) = explicit_cancellation_request(token) else {
-                return;
-            };
-            leptos::task::spawn_local(async move {
-                let _ = post(path, body).await;
-            });
-        }
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    let _ = (token, preview);
-}
-
-#[cfg(any(target_arch = "wasm32", test))]
-fn explicit_cancellation_request(
-    token: crate::application::signup::VerificationToken,
-) -> Result<(&'static str, String), SignupFailure> {
-    use crate::application::signup::VerificationDispatch;
-    let (path, body) = match token.into_dispatch() {
-        VerificationDispatch::Email(token) => (
-            "/api/v1/theatre/auth/registration/cancel",
-            serde_json::to_string(&cantos_contracts::theatre_registration::TokenRequest { token }),
-        ),
-        VerificationDispatch::Firebase {
-            operation_id,
-            oob_code,
-        } => (
-            "/api/v1/theatre/auth/registration/firebase/cancel",
-            serde_json::to_string(
-                &cantos_contracts::theatre_registration::FirebaseConfirmRequest {
-                    operation_id,
-                    oob_code,
-                },
-            ),
-        ),
-    };
-    Ok((path, body.map_err(|_| SignupFailure::Protocol)?))
+    let _ = preview;
+    state.write().clear();
 }
 
 /// Invalidate private inputs before leaving without waking the subtree which navigation is
@@ -265,211 +242,144 @@ pub(crate) fn leave(
     state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
     preview: bool,
 ) {
-    cancel_local(state, preview, false);
-}
-
-fn cancel_local(
-    state: leptos::prelude::RwSignal<crate::application::signup::SignupState>,
-    preview: bool,
-    notify_current_page: bool,
-) {
     use leptos::prelude::*;
-    let token = if notify_current_page {
-        state.write().clear()
-    } else {
-        state.update_untracked(crate::application::signup::SignupState::clear)
-    };
-    #[cfg(target_arch = "wasm32")]
-    if !preview {
-        if let Some(crate::application::signup::VerificationDispatch::Email(token)) =
-            token.map(|token| token.into_dispatch())
-        {
-            leptos::task::spawn_local(async move {
-                if let Ok(body) =
-                    serde_json::to_string(&cantos_contracts::theatre_registration::TokenRequest {
-                        token,
-                    })
-                {
-                    let _ = post("/api/v1/theatre/auth/registration/cancel", body).await;
-                }
-            });
-        }
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    let _ = (token, preview);
+    let _ = preview;
+    state.update_untracked(crate::application::signup::SignupState::clear);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn explicit_cancellation_has_same_action_binding_and_never_accepts_operation_only() {
-        use crate::application::signup::VerificationToken;
-        let query="?mode=verifyEmail&oobCode=fixture-action&continueUrl=https%3A%2F%2Fcantos.example.invalid%2F%3FfirebaseEnrollment%3D00000000-0000-4000-8000-000000000001";
-        let token = VerificationToken::from_firebase_query(query, "https://cantos.example.invalid")
-            .unwrap();
-        let (path, body) = explicit_cancellation_request(token).unwrap();
-        assert_eq!(path, "/api/v1/theatre/auth/registration/firebase/cancel");
-        assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&body).unwrap(),
-            serde_json::json!({"operation_id":"00000000-0000-4000-8000-000000000001","oob_code":"fixture-action"})
-        );
-        assert!(VerificationToken::from_firebase_query("?continueUrl=https%3A%2F%2Fcantos.example.invalid%2F%3FfirebaseEnrollment%3D00000000-0000-4000-8000-000000000001","https://cantos.example.invalid").is_none());
-        let email = VerificationToken::from_fragment(&format!(
-            "#register-verify?token={}",
-            "af".repeat(32)
-        ))
-        .unwrap();
-        assert_eq!(
-            explicit_cancellation_request(email).unwrap().0,
-            "/api/v1/theatre/auth/registration/cancel"
-        );
-    }
+    const JSON: Option<&str> = Some("application/json; charset=utf-8");
 
     #[test]
-    fn navigation_close_invalidates_without_notifying_the_form_which_route_will_dispose() {
-        use crate::application::signup::{SignupPhase, SignupState, VerificationToken};
-        use leptos::prelude::*;
-
-        Owner::new().with(|| {
-            let state = RwSignal::new(SignupState::default());
-            state.update(|current| current.set_email("listener@example.invalid".to_owned()));
-            let (issued, _) = state.write().begin_submit().unwrap();
-            state.update(|current| {
-                current.finish_submit(issued, Ok(()));
-            });
-            let old_route = Owner::new();
-            let old_form = old_route.with(|| Memo::new(move |_| state.get().phase()));
-            assert_eq!(old_form.get(), SignupPhase::EmailAccepted);
-
-            leave(state, true);
-            assert_eq!(state.get_untracked().phase(), SignupPhase::Editing);
-            assert_eq!(state.get_untracked().email(), "");
-            // The old conditional must stay hidden until its route owner is dropped.
-            assert_eq!(old_form.get(), SignupPhase::EmailAccepted);
-            old_route.cleanup();
-            let new_form = Memo::new(move |_| state.get().phase());
-            assert_eq!(new_form.get(), SignupPhase::Editing);
-
-            // Same-page NewRequest is different: its reset must notify the existing form.
-            state.update(|current| {
-                current.capture(
-                    VerificationToken::from_fragment(&format!(
-                        "#register-verify?token={}",
-                        "af".repeat(32)
-                    ))
-                    .unwrap(),
-                )
-            });
-            assert_eq!(new_form.get(), SignupPhase::AwaitingConfirmation);
-            cancel(state, true);
-            assert_eq!(new_form.get(), SignupPhase::Editing);
-            assert_eq!(state.write().begin_verify(), None);
-            assert!(!state.write().finish_submit(issued, Ok(())));
-        });
-    }
-
-    #[test]
-    fn signup_receipts_require_exact_bounded_json_without_credentials_or_completion() {
-        let accepted_body = br#"{"status":"accepted"}"#;
-        assert_eq!(
-            accepted(202, Some("application/json; charset=utf-8"), accepted_body),
-            Ok(())
-        );
-        assert_eq!(
-            verified(
-                200,
-                Some("application/json"),
-                br#"{"status":"setup_link_sent"}"#
-            ),
-            Ok(VerificationStatus::SetupLinkSent)
-        );
-        assert_eq!(
-            verified(
-                200,
-                Some("application/json"),
-                br#"{"status":"unavailable"}"#
-            ),
-            Ok(VerificationStatus::Unavailable)
-        );
+    fn the_start_receipt_is_exactly_accepted_and_never_names_the_address() {
+        let body = br#"{"accepted":true,"proof_ttl_seconds":900}"#;
+        assert_eq!(accepted(202, JSON, None, body), Ok(()));
         for body in [
-            br#"{"status":"complete"}"#.as_slice(),
-            br#"{"status":"accepted","actor_id":"forged"}"#,
-            br#"{"status":"accepted","token":"secret"}"#,
+            br#"{"accepted":false,"proof_ttl_seconds":900}"#.as_slice(),
+            br#"{"accepted":true,"proof_ttl_seconds":0}"#,
+            br#"{"accepted":true}"#,
+            br#"{"accepted":true,"proof_ttl_seconds":900,"exists":true}"#,
+            br#"{"status":"accepted"}"#,
             &[b' '; 8193],
         ] {
             assert_eq!(
-                accepted(202, Some("application/json"), body),
+                accepted(202, JSON, None, body),
                 Err(SignupFailure::Protocol)
             );
         }
         for mime in [None, Some("text/html"), Some("application/jsonp")] {
             assert_eq!(
-                accepted(202, mime, accepted_body),
+                accepted(
+                    202,
+                    mime,
+                    None,
+                    br#"{"accepted":true,"proof_ttl_seconds":900}"#
+                ),
                 Err(SignupFailure::Protocol)
             );
         }
     }
 
     #[test]
-    fn firebase_setup_requires_strict_bounded_json_and_never_accepts_login_or_credentials() {
-        let good=br#"{"status":"setup_ready","login":"listener_fixture","setup_url":"https://idm.example.invalid/ui/reset?token=fixture"}"#;
-        assert!(matches!(
-            firebase_verified(200, Some("application/json"), good),
-            Ok(FirebaseVerification::SetupReady(_))
-        ));
+    fn start_failures_distinguish_invalid_budget_outage_and_unknown_effect() {
         assert_eq!(
-            firebase_verified(
-                200,
-                Some("application/json"),
-                br#"{"status":"unavailable"}"#
-            ),
-            Ok(FirebaseVerification::Unavailable)
-        );
-        for body in [
-            br#"{"status":"setup_ready","login":"fixture","setup_url":"javascript:alert(1)"}"#.as_slice(),
-            br#"{"status":"setup_ready","login":"fixture","setup_url":"https://idm.example.invalid/ui/reset","session_id":"forged"}"#,
-            br#"{"status":"complete"}"#,
-            br#"{"status":"setup_link_sent"}"#,
-            &[b' ';8193],
-        ] { assert_eq!(firebase_verified(200,Some("application/json"),body),Err(SignupFailure::Protocol)); }
-        assert_eq!(
-            firebase_verified(200, Some("text/html"), good),
-            Err(SignupFailure::Protocol)
+            accepted(400, JSON, None, b"{}"),
+            Err(SignupFailure::InvalidEmail)
         );
         assert_eq!(
-            firebase_verified(503, Some("application/json"), b"{}"),
+            accepted(429, JSON, Some("12"), b"{}"),
+            Err(SignupFailure::RateLimited(12))
+        );
+        assert_eq!(
+            accepted(429, JSON, None, b"{}"),
+            Err(SignupFailure::RateLimited(30))
+        );
+        assert_eq!(
+            accepted(503, JSON, None, b"{}"),
             Err(SignupFailure::Unavailable)
         );
+        for status in [403, 404] {
+            assert_eq!(
+                accepted(status, JSON, None, b"{}"),
+                Err(SignupFailure::NotConfigured)
+            );
+        }
+        for status in [401, 500, 502, 504] {
+            assert_eq!(
+                accepted(status, JSON, None, b"{}"),
+                Err(SignupFailure::UnknownOutcome)
+            );
+        }
+    }
+
+    #[test]
+    fn completion_receipts_are_history_never_a_session() {
+        for (body, expected) in [
+            (r#"{"status":"completed"}"#, SignupStatus::Completed),
+            (r#"{"status":"replayed"}"#, SignupStatus::Replayed),
+        ] {
+            assert_eq!(completed(200, JSON, None, body.as_bytes()), Ok(expected));
+        }
+        // Anything that carries credentials or a session is not the contract's answer, and an
+        // unreadable 200 may have committed: it is an unknown outcome, retried identically.
+        for body in [
+            br#"{"status":"completed","session_id":"forged"}"#.as_slice(),
+            br#"{"status":"completed","access_token":"x"}"#,
+            br#"{"status":"session"}"#,
+            br#"{"actor_id":"a","session_id":"s"}"#,
+            b"",
+            &[b' '; 8193],
+        ] {
+            assert_eq!(
+                completed(200, JSON, None, body),
+                Err(CompletionFailure::UnknownOutcome)
+            );
+        }
         assert_eq!(
-            firebase_verified(500, Some("application/json"), b"{}"),
-            Err(SignupFailure::UnknownOutcome)
+            completed(200, Some("text/html"), None, br#"{"status":"completed"}"#),
+            Err(CompletionFailure::UnknownOutcome)
         );
     }
 
     #[test]
-    fn invalid_email_outage_and_ambiguous_writes_remain_different() {
-        let invalid = br#"{"code":"invalid_request","current_revision":null,"issues":[]}"#;
-        assert_eq!(
-            accepted(400, Some("application/json"), invalid),
-            Err(SignupFailure::InvalidEmail)
-        );
-        for status in [429, 503] {
+    fn only_definite_refusals_are_terminal_and_everything_else_may_have_committed() {
+        for (status, expected) in [
+            (400, CompletionFailure::Invalid),
+            (401, CompletionFailure::Refused),
+            (403, CompletionFailure::Forbidden),
+            (404, CompletionFailure::NotConfigured),
+            (503, CompletionFailure::Unavailable),
+            (429, CompletionFailure::RateLimited(30)),
+        ] {
             assert_eq!(
-                accepted(status, Some("application/json"), invalid),
-                Err(SignupFailure::Unavailable)
-            );
-            assert_eq!(
-                verified(status, Some("application/json"), invalid),
-                Err(SignupFailure::Unavailable)
+                completed(status, JSON, None, b"{}"),
+                Err(expected),
+                "{status}"
             );
         }
-        for status in [401, 403, 500] {
+        assert_eq!(
+            completed(429, JSON, Some("5"), b"{}"),
+            Err(CompletionFailure::RateLimited(5))
+        );
+        for status in [409, 500, 502, 504, 0] {
             assert_eq!(
-                verified(status, Some("application/json"), invalid),
-                Err(SignupFailure::UnknownOutcome)
+                completed(status, JSON, None, b"{}"),
+                Err(CompletionFailure::UnknownOutcome),
+                "{status}"
             );
+        }
+    }
+
+    #[test]
+    fn signup_routes_are_the_two_anonymous_contract_paths() {
+        assert_eq!(SIGNUP_PATH, "/api/v1/theatre/identity/signup");
+        assert_eq!(COMPLETE_PATH, "/api/v1/theatre/identity/signup/complete");
+        for path in [SIGNUP_PATH, COMPLETE_PATH] {
+            assert!(crate::live::transport::is_anonymous_identity(path));
+            assert!(!crate::live::transport::is_protected(path));
         }
     }
 }

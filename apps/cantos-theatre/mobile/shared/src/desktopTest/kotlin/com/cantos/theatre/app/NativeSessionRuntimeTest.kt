@@ -2,6 +2,8 @@ package com.cantos.theatre.app
 
 import com.cantos.theatre.adapters.library.desktopLibraryStore
 import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.StubIdentityV1Api
+import com.cantos.theatre.application.identity.v1Grant
 import com.cantos.theatre.adapters.library.nativeLibraryController
 import com.cantos.theatre.adapters.library.presented
 import com.cantos.theatre.adapters.library.wire.PresentedContinuePage
@@ -18,8 +20,6 @@ import com.cantos.theatre.adapters.library.wire.ProgressWrite
 import com.cantos.theatre.adapters.library.wire.Receipt
 import com.cantos.theatre.adapters.library.wire.SavedPage
 import com.cantos.theatre.adapters.library.wire.SavedRecord
-import com.cantos.theatre.domain.identity.LoginSecret
-import com.cantos.theatre.domain.identity.NativeClientConfiguration
 import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.PlaybackEngineCommand
@@ -78,9 +78,7 @@ class NativeSessionRuntimeTest {
     private class Fixture(scope: CoroutineScope) {
         val actor = "actor-a"
         private val session = "00000000-0000-4000-8000-000000000001"
-        private val bearer = "ca1_n_" + "a".repeat(64)
-        private var grant = requireNotNull(NativeGrant.create(bearer, "cr1_" + "c".repeat(64), actor,
-            "00000000-0000-4000-8000-000000000001", 121, 601, 901, 1, now = 1))
+        private var grant = v1Grant('a', 'c', actor, "00000000-0000-4000-8000-000000000001", 121, 601, 901, authenticatedAt = 1, now = 1)
         var identityNow = 1L
         var rotations = 0
         var sessionGate: CompletableDeferred<Unit>? = null
@@ -92,35 +90,21 @@ class NativeSessionRuntimeTest {
             "20000000-0000-4000-8000-000000000001", "30000000-0000-4000-8000-000000000001",
             "40000000-0000-4000-8000-000000000001", "b".repeat(64), 100_000))
         val decoder = Decoder()
-        val account = NativeAccountController(scope,
-            requireNotNull(NativeClientConfiguration.create("https://api.invalid", "https://identity.invalid/oauth2/openid/cantos-theatre-native")),
-            object : NativeIdentityApi {
-                override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
-                override suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeGrant> = NativeApiResult.Refused(NativeApiFailure.Unavailable)
-                override suspend fun refresh(refreshToken: String, session: String): NativeApiResult<NativeGrant> {
-                    assertEquals(grant.refreshToken, refreshToken)
-                    assertEquals(grant.view.session, session)
-                    rotations += 1
-                    grant = requireNotNull(NativeGrant.create("ca1_n_" + "d".repeat(64), "cr1_" + "e".repeat(64), actor,
-                        session, identityNow + 120, minOf(identityNow + 600, 901), 901, 1, identityNow, previous = grant))
-                    return NativeApiResult.Accepted(grant)
-                }
-                override suspend fun revokeFamily(refreshToken: String, session: String) = NativeApiResult.Accepted(Unit)
-                override suspend fun cancel(flow: String, state: String, verifier: String) = NativeApiResult.Accepted(Unit)
-                override suspend fun session(credential: String): NativeApiResult<NativeSession> {
-                    assertEquals(grant.accessToken, credential)
-                    sessionGate?.await()
-                    return NativeApiResult.Accepted(grant.view)
-                }
-                override suspend fun revoke(credential: String) = NativeApiResult.Accepted(Unit)
-                override suspend fun saved(credential: String, session: String): NativeApiResult<Int> = error("runtime must not use saved page count")
-            }, object : IdentityCrypto {
-                override fun secret(): LoginSecret? = null
-                override fun challenge(verifier: LoginSecret): String? = null
-            }, object : SystemBrowser {
-                override fun open(url: String) = false
-                override fun cancel() = Unit
-            }, object : NativeCredentialJournal {
+        val account = NativeAccountController(scope, object : StubIdentityV1Api() {
+            override suspend fun refresh(previous: NativeGrant): IdentityV1Result<NativeGrant> {
+                assertEquals(grant.refreshToken, previous.refreshToken)
+                assertEquals(grant.view.session, previous.view.session)
+                rotations += 1
+                grant = v1Grant('d', 'e', actor, previous.view.session, identityNow + 120, minOf(identityNow + 600, 901), 901,
+                    authenticatedAt = 1, now = identityNow, previous = grant)
+                return IdentityV1Result.Accepted(grant)
+            }
+            override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> {
+                assertEquals(grant.accessToken, previous.accessToken)
+                sessionGate?.await()
+                return IdentityV1Result.Accepted(grant.view)
+            }
+        }, object : NativeCredentialJournal {
                 private var record: NativeCredentialRecord? = NativeCredentialRecord.Active(grant)
                 override fun read(): NativeJournalRead = record?.let(NativeJournalRead::Found) ?: NativeJournalRead.Missing
                 override fun write(record: NativeCredentialRecord): CredentialFailure? { this.record = record; return null }

@@ -1,5 +1,5 @@
 # Cantos API production image. Built on the developer machine (or CI) by
-# `cargo xtask deploy vps cantos-api`, never on the VPS. The build context is a `git archive`
+# `cargo xtask deploy vps cantos-server`, never on the VPS. The build context is a `git archive`
 # of exactly the deployed commit, so untracked or private files cannot enter the image.
 # Base images are pinned by digest; an upgrade is a reviewed edit of these lines.
 
@@ -8,9 +8,9 @@ FROM docker.io/library/rust:1.98.1-slim-trixie@sha256:fce83543909cd5409924a61ce2
 ENV RUSTUP_TOOLCHAIN=1.98.1 CARGO_TERM_COLOR=never
 WORKDIR /src
 COPY . .
-RUN --mount=type=cache,id=cantos-api-cargo-registry,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=cantos-api-target,target=/src/target \
-    cargo build --locked --release -p cantos-api --bin cantos-server --bin cantos-migrate \
+RUN --mount=type=cache,id=cantos-server-cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cantos-server-target,target=/src/target \
+    cargo build --locked --release -p cantos-server --bin cantos-server --bin cantos-migrate \
  && install -d /out \
  && install -m 0755 target/release/cantos-server target/release/cantos-migrate /out/
 

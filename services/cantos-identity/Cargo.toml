@@ -1,0 +1,70 @@
+[package]
+name = "cantos-identity"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98.1"
+publish = false
+description = "Cantos native Identity: security-state kernels, credentials and the private RPC executable"
+
+[features]
+# Opt-in service-owned persistence; the default/Kani core has no database dependency.
+persistence = ["dep:cantos-store-turso", "dep:getrandom", "dep:sha2", "dep:subtle", "dep:zeroize"]
+# Explicit xtask development composition only. OCI builds select `service` without this.
+local-development = ["service"]
+# Credentials, mail, private RPC and the `cantos-identity` executable. Never part of the default
+# pure core, so Kani and `cargo test -p cantos-identity` keep their dependency-free build.
+service = [
+    "persistence",
+    "dep:argon2",
+    "dep:lettre",
+    "dep:prost",
+    "dep:tokio",
+    "dep:tokio-stream",
+    "dep:tonic",
+    "dep:tonic-prost",
+    "dep:base64", "dep:reqwest", "dep:ring", "dep:serde", "dep:serde_json", "dep:url",
+]
+
+[dependencies]
+base64 = { version = "=0.22.1", optional = true }
+reqwest = { version = "=0.12.15", default-features = false, features = ["rustls-tls", "stream"], optional = true }
+ring = { version = "=0.17.14", optional = true }
+serde = { version = "=1.0.228", features = ["derive"], optional = true }
+serde_json = { version = "=1.0.145", optional = true }
+url = { version = "=2.5.8", optional = true }
+argon2 = { version = "=0.5.3", default-features = false, features = ["alloc", "password-hash"], optional = true }
+cantos-store-turso = { path = "../../packages/store-turso", optional = true }
+getrandom = { version = "=0.3.4", optional = true }
+lettre = { version = "=0.11.23", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls", "ring", "webpki-roots"], optional = true }
+# The server-side binding generated from the owned `contracts/identity/v1/identity.proto`.
+prost = { version = "=0.14.4", default-features = false, features = ["derive", "std"], optional = true }
+sha2 = { version = "=0.10.9", optional = true }
+subtle = { version = "=2.6.1", default-features = false, optional = true }
+tokio = { version = "=1.47.1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"], optional = true }
+tokio-stream = { version = "=0.1.19", default-features = false, features = ["net"], optional = true }
+tonic = { version = "=0.14.5", default-features = false, features = ["transport", "codegen", "router"], optional = true }
+tonic-prost = { version = "=0.14.5", default-features = false, optional = true }
+zeroize = { version = "=1.9.1", default-features = false, features = ["alloc"], optional = true }
+
+[dev-dependencies]
+# Test-only: the Quint conformance observer decodes events and encodes observations. Never a
+# release dependency; the dependency-free default core is checked by scripts/test_verify_behavior_conformance_native.py.
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = { version = "=1.0.145" }
+cantos-store-turso = { path = "../../packages/store-turso", features = ["testing"] }
+hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
+# Test-only: the process harness signals its own child with kill(2) instead of a PATH program.
+libc = "=0.2.190"
+prost = { version = "=0.14.4", default-features = false, features = ["derive", "std"] }
+tonic-prost = { version = "=0.14.5", default-features = false }
+tokio = { version = "=1.47.1", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tower = { version = "=0.5.2", default-features = false, features = ["util"] }
+
+[[bin]]
+name = "cantos-identity"
+path = "src/bin/cantos-identity.rs"
+required-features = ["service"]
+
+[lints.rust]
+# Kani injects its crate only for cfg(kani); normal builds have no verifier dependency.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

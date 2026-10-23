@@ -6,7 +6,7 @@
 //! or readable `Debug`, is never placed in a URL or storage, and is dropped on dismissal,
 //! revocation, Work change or actor change.
 use super::{ClientError, Command, Phase, Reply, RequestState};
-use cantos_contracts::{
+use crate::contract::{
     DelegationAction, DelegationGrantResponse, ErrorCode, FieldIssue, IssueDelegationRequest,
     IssueDelegationResponse,
 };
@@ -432,6 +432,7 @@ pub fn problems(error: &ClientError) -> Vec<Problem> {
             ClientError::Cancelled
             | ClientError::SessionChanged
             | ClientError::ReceiptNotEstablished
+            | ClientError::RateLimited { .. }
             | ClientError::Transport => Problem::Interrupted,
             ClientError::Http { .. } => Problem::Unavailable,
         }];

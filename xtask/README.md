@@ -1,5 +1,20 @@
 # Cantos xtask
 
+> **Native checkpoint command override.** This branch has a partial tooling migration; this
+> paragraph overrides the legacy PostgreSQL/Kanidm commands and gate descriptions below.
+> `build cantos-server` builds the Server binaries; `build cantos-identity` enables `service`.
+> `run cantos-server` plans explicit file migrations then Identity + Server under private
+> `target/native-dev/` directories with a short private Unix socket. `--dry-run` makes no
+> directories or processes. Serving does not migrate files. `seed theatre` refuses before
+> effects until its native `catalog_http` integration target exists. `verify rust` covers
+> ordinary file-backed Server tests; `verify turso` covers shared-store/Identity feature lanes.
+> PostgreSQL, DBSP and provider-enrollment gates are removed from ordinary selection/CI.
+> Their explicit commands, Kanidm/service lifecycle, legacy VPS deploy and legacy API release
+> refuse with exit 2 before probes/effects. `services list|validate` remain read-only.
+> No native host activation is implemented. These command changes do not establish business
+> context or two-process runtime acceptance; see the [checkpoint boundary](../docs/architecture/server-turso-porting.md#checkpoint-boundary).
+
+
 `cargo xtask` is the repository-level command surface for building, running and verifying Cantos.
 It is a workspace member (`xtask/`) invoked through the alias in [`.cargo/config.toml`](../.cargo/config.toml),
 and it finds the repository root from its own manifest, so it behaves the same from any directory.
@@ -15,10 +30,10 @@ The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surf
 
 | Layer | Owns |
 | --- | --- |
-| Cargo, rustup, Trunk, Python 3, Node.js, Git, PostgreSQL binaries | Primitive tool execution |
-| `scripts/*.py` | Repository checks, independent oracles, the mutation runner, the disposable PostgreSQL runner and its retained-fixture API host. Their logic is reused, not rewritten |
+| Cargo, rustup, Trunk, Python 3, Node.js, Git | Primitive tool execution |
+| `scripts/*.py` | Repository checks, independent oracles, the mutation runner, historical migration oracles. Their logic is reused, not rewritten |
 | `cargo xtask` | Targets, profiles, surfaces, gate catalog, prerequisite checks, changed-path selection, process supervision and the CI job contract |
-| GitHub Actions | Runner lifecycle and environment: the pinned toolchain, Trunk, PostgreSQL 17 binaries. Each job then calls `cargo xtask ci --job <job>` |
+| GitHub Actions | Runner lifecycle and environment: the pinned toolchain and Trunk. Each job then calls `cargo xtask ci --job <job>` |
 
 Tool detection never installs anything. Explicit `verify behavior --setup` alone installs its
 locked npm development dependency; ordinary verification never fetches it. xtask does not
@@ -28,15 +43,14 @@ providers, create cloud resources, publish or deploy, with **explicit, opt-in ex
 hands it to Firebase App Distribution, and `deploy firebase` ([below](#deploy-firebase)) builds one
 Leptos Web app and publishes its static bundle to Firebase Hosting, and `deploy cloudflare`
 ([below](#deploy-cloudflare)) uploads an already built, verified Web artifact to Cloudflare Pages
-(it never builds). Only explicit `services up`
-starts local container infrastructure; build/test/run/preflight/ci never start it and never reach
-distribution or deployment.
+(it never builds). Legacy `services up` refuses. Native build/test/run/preflight/ci never
+start container infrastructure or implicitly distribute/deploy.
 
 ## Commands
 
 ```sh
-cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
-cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experimental (opt-in incremental core; no consumer)
+cargo xtask build cantos-server [--release]          # cargo build --locked -p cantos-server --bins
+cargo xtask build cantos-identity [--release]        # native Identity service binary
 cargo xtask build cantos-forge [--release]        # cargo build --locked -p cantos-forge --bins
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
@@ -47,12 +61,12 @@ cargo xtask hosting-smoke <cantos-theatre|cantos-studio> --origin ORIGIN --api-o
 cargo xtask theatre-size --apk PATH [--baseline report.json]  # offline APK size groups/deltas (no upload or install)
 cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
-cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
-cargo xtask run cantos-studio --web [--test-cluster] [--web-origin URL] [--open]
-cargo xtask run cantos-theatre --web [--test-cluster] [--web-origin URL] [--open]
+cargo xtask run cantos-server [--web-origin URL]
+cargo xtask run cantos-studio --web [--web-origin URL] [--open]
+cargo xtask run cantos-theatre --web [--web-origin URL] [--open]
 cargo xtask app cantos-studio --web [--open]
 cargo xtask app cantos-theatre --web [--open]
-cargo xtask seed theatre [--reset]                 # synthetic Theatre catalog + media in the retained disposable cluster
+cargo xtask seed theatre [--reset]                 # synthetic Theatre catalog + media in the native development files (currently refuses without catalog_http)
 
 cargo xtask ui-preview leptos build|run|verify       # package-local Leptos gallery
 cargo xtask ui-preview leptos run --open             # loopback browser preview on 8083
@@ -62,29 +76,23 @@ cargo xtask theatre-host android-release [--api-origin HTTPS_ORIGIN] # productio
 cargo xtask theatre-host ios-build --kotlin-native-home PATH # shared-only simulator frameworks; macOS + Xcode
 cargo xtask theatre-host android-debug --api-origin URL  # production host debug APK for the live catalog; installs nothing
 
-cargo xtask verify repository|rust|forge|web|contracts|mutation|dbsp
+cargo xtask verify repository|rust|forge|turso|web|contracts|mutation
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
-cargo xtask verify postgres [--keep]
-cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
-cargo xtask verify postgres --suite schema           # current baseline/refusal and SQL acceptance
-cargo xtask verify theatre-auth --suite firebase-emulator|firebase-web-e2e [--dry-run]
-cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger]...
+cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger|identity-security-version|identity-completion|identity-mailbox-proof]...
+cargo xtask verify native-isolation --test-binary /absolute/prebuilt-rust-test --test fully::qualified::name [--timeout-seconds 60] [--identity-binary /absolute/prebuilt/cantos-identity] [--dry-run]
+cargo xtask verify native-auth-qualification [--kani] [--report PATH] [--dry-run] # manual #336 Linux campaign
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
-cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
+cargo xtask preflight --profile local --changed-only [--base REF] [--skip GATE]... [--dry-run] # DEV/CHECKPOINT subset
+cargo xtask ci [--job repository|rust|web] [--dry-run]
 cargo xtask doctor
-cargo xtask services list|validate|status
-cargo xtask services [--instance NAME] up postgresql|kanidm [--timeout-seconds 60]
-cargo xtask services [--instance NAME] up --all
-cargo xtask services [--instance NAME] logs postgresql|kanidm
-cargo xtask services [--instance NAME] down postgresql|kanidm|--all
+cargo xtask services list|validate
 cargo xtask distribute firebase cantos-theatre --channel development [--artifact apk] \
   (--groups ALIASES | --testers EMAILS)... [--app-id ID] [--release-notes TEXT | --release-notes-file PATH] [--dry-run]
 cargo xtask deploy firebase cantos-theatre|cantos-studio --web --project PROJECT_ID \
   --channel live|PREVIEW_CHANNEL [--expires 7d] [--dry-run]   # explicit static Web deploy to Firebase Hosting
 cargo xtask deploy cloudflare cantos-theatre|cantos-studio --web --account ACCOUNT_ID --project NAME \
   --branch BRANCH --environment production|preview --artifact DIR [--dry-run]  # opt-in Pages Direct Upload of a release-build artifact
-cargo xtask deploy vps cantos-api --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2] \
   [--smoke-origin https://API_HOST] [--dry-run]               # explicit API deploy to the production VPS
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
@@ -96,9 +104,18 @@ cargo xtask visual-compare --spike-pairs JSON [--python PATH]
 
 `cargo xtask <command> --help` documents every flag.
 
+The `cantos-identity` selector builds the opt-in service binary. It is registered beside the
+Server in the native process inventory. Its pure default core, persistence and service evidence
+remain distinct; optional Kani kernels require actual D1 Ubuntu x86_64 execution.
+
+Legacy `kanidm`, container lifecycle, `verify postgres`, `verify dbsp`, `verify theatre-auth`,
+`--dbsp-experimental`, `--test-cluster`, named-environment seeding and `deploy vps` are hidden
+retired refusals before effects. The old `api` release component is retired too; Web/Android
+release paths and static Firebase Hosting/Functions/App Distribution retain separate ownership.
+
 ### Targets, surfaces and profiles
 
-`cantos-api` is the Axum/PostgreSQL backend. `cantos-forge` is the producer-side CLI
+`cantos-server` is the native Axum/Turso backend (business port incomplete). `cantos-forge` is the producer-side CLI
 ([ADR 0022](../docs/decisions/0022-cantos-forge-producer-cli.md)); it takes no surface flag and
 xtask builds its binaries and `verify forge` checks its Rust package and offline Functions
 wrapper. Ordinary gates use fixtures and injected doubles; they never call a live provider or
@@ -110,8 +127,8 @@ Theatre Mobile has a JVM-only Desktop Preview Gradle module. Production `--mobil
 `UNSUPPORTED` pending native runtime acceptance; use `theatre-preview` for Desktop Preview evidence
 and `theatre-host android-release` for the production host's release isolation.
 Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
-out-of-scope directory. `build all` covers the API, Forge and both Web clients and notes that Theatre
-Mobile and `services/kanidm` (configuration only) are not built. See the
+out-of-scope directory. `build all` covers the Server, Identity, Forge and both Web clients; it
+does not build Theatre Mobile. See the
 [platform matrix](../docs/architecture/repository-layout.md#platform-scope).
 
 `dev` is the default unoptimized build. `--release` passes `--release` to Cargo or Trunk and
@@ -156,7 +173,7 @@ archive/provenance validation, config/checkout/release revisions, expiry, strict
 freshness, context prerequisites, additive-workspace rerun refusal and component receipts.
 Cross-pipeline promotion is unsupported. No cache supplies a release or a deploy binary.
 
-Both `deploy vps cantos-api` and `deploy firebase APP --web --project ID --channel CHANNEL`
+Both `deploy vps cantos-server` and `deploy firebase APP --web --project ID --channel CHANNEL`
 accept `--release-manifest PATH --release-digest SHA256 --release-sha FULL_SHA`, together with
 `--release-request PATH` in CircleCI or `--local-artifact` outside CI. The latter is the operator's
 explicit acknowledgement of independently verified local provenance, not proof supplied by a
@@ -221,6 +238,32 @@ the [rollout runbook](../docs/deployment/cloudflare-rollout.md#standalone-read-o
 This adds no gate, CI job, provider dependency or automatic live request; the existing Rust gate
 exercises deterministic fake extraction/HTTP boundaries.
 
+### Native OCI release verification
+
+`cargo xtask release oci-verify --manifest PATH --manifest-digest SHA256 --source-sha FULL_SHA
+--configuration-digest SHA256 --platform linux/amd64|linux/arm64 --admission PATH
+--admission-digest SHA256 [--registry-readback [--authfile PATH]] [--dry-run]` validates an explicitly admitted existing image pair,
+producer evidence declarations and the checksummed/source-bound host bundle offline.
+By default it prints `PLAN_ONLY`; registry access, native qualification, activation and cleanup
+remain `NOT_RUN`. Explicit `--registry-readback` observes exact GHCR manifest/config bytes only,
+with a sanitized `OBSERVED` result and `release_eligible=false`; it never pulls layers or accepts
+a release. `--dry-run` stays offline, even with that option, including no authfile/network/SSH/build
+or persistent output. The [v1 contract](../docs/deployment/native-oci-release.md) owns the exact
+manifest/admission/evidence schemas, limits, trust boundary and deferred producers.
+The Python regressions are included by `release self-test` and the repository gate; CLI
+regressions are included by the Rust gate. No gate publishes or activates an image.
+
+`cargo xtask release oci-build --platform P --producer local --build-id ID | --producer github-actions
+[--publish --authfile PATH]` builds the Server/Identity pair from one clean commit on a natively matching
+host and, only with `--publish`, pushes it to GHCR and writes an **unadmitted** candidate (all gates
+`NOT_RUN`; `oci-verify` refuses it). No gate or CI job calls it; the opt-in
+[`native-oci-publish`](../.github/workflows/native-oci-publish.yml) workflow is manual only. See the
+[producer contract](../docs/deployment/native-oci-release.md#producers-release-oci-build).
+
+These are preparatory PR A slices of #348; a real registry publish and
+exact-image fixture acceptance remain required before PR B's native VPS activation. The existing `deploy vps`
+executor still belongs to the legacy archive lane; it does not consume this contract.
+
 ### Optional Web release inventory
 
 ```sh
@@ -280,194 +323,59 @@ adds no required gate: the primitive tests run in `repository`, the command-plan
 
 ### run and app
 
-| Command | Starts | Requires |
-| --- | --- | --- |
-| `run cantos-api` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
-| `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-api` |
-| `run cantos-theatre --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8082`, then `trunk serve` on 8082; checks anonymous discovery directly and through the proxy | as `run cantos-api`; a readable Theatre public catalog, including a legitimate empty page |
-| `app cantos-theatre --web` | only `trunk serve` on 8082; warns prominently when the existing API's public catalog cannot be reached or decoded | no API for explicit offline previews (which need `TRUNK_BUILD_FEATURES=preview`, see below); live mode needs an API already listening on 8080 |
-| `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-api --web-origin http://127.0.0.1:8081` |
+Theatre `run --web` now starts a supervised, run-owned Firebase Auth Emulator from an already
+installed `firebase-tools` **14.2.2** Auth module and Node.js. Missing/wrong tooling refuses before
+build; no install, Firebase login or real Firebase fallback occurs. Set
+`CANTOS_FIREBASE_AUTH_MODULE` to an absolute installed `lib/emulator/auth/server.js` when it cannot
+be derived from the `firebase` executable. This pin is separate from Hosting/App Distribution.
+The emulator has an empty environment, loopback ephemeral port, unique demo project, disposable
+in-memory state and blocked outbound TCP/TLS. Its provider logs are suppressed. The console
+prints only its local developer action-inventory endpoint; never log the returned codes/links.
 
-**Theatre preview lane.** Theatre Web's offline previews (`?mode=mock`, `?mode=auth-preview`,
-`?mode=membership-preview`) are compiled only by the opt-in Cargo feature `preview`; a default
-`build`/`run`/`app`, including `--release` without a feature override, produces the production
-lane, where those URLs are ordinary live URLs. Local builds inherit an explicit preview opt-in
-through Trunk's own variable, e.g.
-`TRUNK_BUILD_FEATURES=preview cargo xtask app cantos-theatre --web`. `rust-lint`, `rust-tests` and
-`web-lint` enable the feature for the code they check and `web-lint` lints the production lane
-separately. The release-bundle builder (`build::release_bundle`, used by `deploy` and `web-performance`)
-removes `TRUNK_BUILD_FEATURES`, `TRUNK_BUILD_ALL_FEATURES` and `TRUNK_BUILD_NO_DEFAULT_FEATURES`
-from the Trunk child (the plan displays `env -u …`); `web-performance` and `release-build` also
-refuse any inherited `TRUNK_*` override outright. An inherited setting therefore cannot ship a
-preview.
-
-**Compatibility proposal — pending review ([#183](https://github.com/loveoverflowcom/cantos/issues/183)).**
-Option A changes Theatre `run` from frontend-only to API+Web, matching Studio. Existing
-frontend-only users should replace `run cantos-theatre --web` with
-`app cantos-theatre --web`; keep the explicit preview query when working offline. A running
-API on 8080 is reused only through `app`, never taken over by `run`. This implementation is
-delivered for review in a Draft PR; it does not declare the compatibility choice accepted.
-See the [decision and evidence ledger](../docs/evidence/theatre-local-run.md).
-
-Web `run` profiles select their actual Trunk origin. An explicit `--web-origin` must exactly
-match `http://127.0.0.1:8081` for Studio or `http://127.0.0.1:8082` for Theatre; a different
-port or `localhost` is rejected before launch. Host identity matters for cookies and callbacks.
-Standalone `run cantos-api --web-origin URL` remains configurable within its loopback HTTP
-origin contract. `app` starts no API and takes neither `--web-origin` nor `--test-cluster`.
-The development host has one Web origin; simultaneous Studio and Theatre authentication
-against that one host is not established by these profiles.
-
-`--test-cluster` serves the API through `scripts/serve_studio.py` against the disposable cluster
-retained by `cargo xtask verify postgres --keep`; that script refuses any other database. xtask
-never reads, prints or invents a database URL. It sets `CANTOS_ENV=development` and the loopback
-bind address; the server itself refuses anything else. Theatre selects
-`CANTOS_TEST_CONTEXT=theatre` and the retained record's separate `theatre_app_url`, backed by
-the disposable audio fixture with bounded public-discovery read grants. That fixture has no
-published Work. After an explicit `cargo xtask seed theatre` (below), `serve_studio.py` serves
-the recorded seed database instead, but only when its record names the same retained cluster
-and port; it prints which one it serves. A new seed receipt also binds separate private/publication roots and a local grant key; the host
-composes actual origin media for API path checks. Its HTTPS grant origin needs separately
-configured TLS for native playback; local loopback HTTP checks do not establish TLS/proxy acceptance. A retained
-record predating `theatre_app_url` must be recreated by an explicit fresh
-`verify postgres --keep`, never patched to point to another DB.
-
-With an already-exported migrated local app-role `DATABASE_URL`, the one-command Theatre
-profile is:
+Theatre Web runs select the operation-bound Firebase emulator adapter, reject inherited
+Google/Firebase/SMTP configuration and use Theatre's actual loopback origin. Native Identity
+still owns proof consumption/passwords and returns no session on signup. The
+[protocol and acceptance limits](../docs/architecture/firebase-verification.md) distinguish the
+real Identity/RPC journey from full browser and production acceptance, and document the unresolved
+expired enrollment recovery boundary. Other local run targets keep mail disabled.
+The explicit boundary test uses the installed emulator (no native signup claim):
 
 ```sh
-cargo xtask run cantos-theatre --web
-# Alternative: only after a successful explicit disposable verification retained its cluster.
-cargo xtask run cantos-theatre --web --test-cluster
+cargo test --locked -p xtask auth_emulator::tests::installed_emulator -- --ignored --nocapture
 ```
 
-The [Theatre runbook](../apps/cantos-theatre/web/README.md#build-run-and-checks) lists modes,
-manual HTTP smoke checks and corrective actions. `run`/`app` never provision PostgreSQL,
-roles, migrations, credentials, Kanidm, S3 or Podman. The explicit verification command owns
-its disposable test-cluster setup; operator-owned databases remain operator-managed.
+| Command | Starts / boundary |
+| --- | --- |
+| `run cantos-server` | One Server + Identity, explicit migrations, private development files and authenticated UDS RPC |
+| `run cantos-studio --web` | Same backend composition plus Trunk on 8081 |
+| `run cantos-theatre --web` | Same backend composition plus Trunk on 8082; anonymous catalog readiness can fail while business schema is unported |
+| `app cantos-studio --web` | Trunk only; requires an existing API |
+| `app cantos-theatre --web` | Trunk only; warns when the existing public catalog is unavailable |
 
-Process lifecycle:
+The runner owns only the foreground groups/directories it creates, refuses occupied ports and
+never takes over another process. Studio/Theatre have distinct loopback origins; `--web-origin`
+for a Web profile must match its Trunk origin. Server uses `CANTOS_SERVER_DATABASE`, never
+`DATABASE_URL`. Identity owns its own file and socket. Socket/TCP readiness is not authentication,
+business HTTP parity, publication, browser/device or deployed acceptance.
 
-- Preconditions are checked before any build: required variables and files, tools, and that
-  every port is free. A taken port fails with an explanation; xtask never stops a process it did
-  not start, and never looks processes up by port or name.
-- Each service starts in its own process group with inherited output. Standalone API and
-  Studio retain their existing TCP API readiness and Studio's HTML-title readiness. Theatre
-  full-stack readiness requires HTTP 200 with a JSON catalog envelope from
-  `/api/v1/theatre/works?limit=20` on 8080, then the Theatre HTML title and the same JSON catalog-envelope
-  route through Trunk on 8082. A zero-item page is success;
-  a 404, typed unavailable error, non-JSON body or connection failure is not ready. Probes use
-  bounded waits/backoff: the API has 60 seconds and Trunk up to 15 minutes for its first WASM
-  build. A process that exits before readiness fails the command.
-- `/api/v1/theatre/session` is optional for anonymous discovery and is not a readiness gate.
-  An unconfigured/unauthenticated session's 404/401 does not invalidate a working public catalog.
-  A successful catalog probe establishes no provider login, publication delivery or playback.
-- Theatre `app` probes its existing catalog dependency before launch and prints a prominent
-  `WARNING` if it is missing or invalid (red on a suitable terminal). It still permits explicit
-  offline previews. Its final readiness message always describes **frontend-only** readiness;
-  it does not certify an integrated API, including when the advisory probe succeeded.
-- Ctrl-C, SIGTERM or SIGHUP stops every started group, newest first: SIGINT (graceful for Axum and
-  Trunk), then SIGKILL after 10 seconds. If any service exits by itself, the others are stopped and
-  the command fails.
-- If xtask itself is killed with SIGKILL its children survive; the next run finds their ports taken
-  and refuses to start. `--open` uses `xdg-open` or `open` after readiness.
-
-The Trunk development proxy is a convenience. The browser walkthroughs recorded in
-`docs/evidence/` used the API serving `apps/cantos-studio/web/dist` same-origin; do not cite a
-`trunk serve` session as that evidence.
+Theatre offline previews require explicit `TRUNK_BUILD_FEATURES=preview` plus `?mode=mock`,
+`?mode=auth-preview` or `?mode=membership-preview`. Production release tooling removes/refuses
+preview overrides; a preview supplies no real account/playback acceptance.
 
 ### seed
 
-`cargo xtask seed theatre` creates synthetic development data for the Theatre catalog, only in
-the disposable cluster retained by `verify postgres --keep`. It is never a gate, preflight
-selection or CI job; the full PostgreSQL gate already runs the same seed test as a regression
-without retaining its database. The primitive `scripts/seed_theatre.py`:
-
-- refuses without a retained record whose `cluster-<number>` directory sits directly under
-  `target/revision-evidence/` with `pgdata/PG_VERSION`, and never reads `DATABASE_URL` or any
-  inherited `PG*`/`CANTOS_*` variable;
-- confirms with `SHOW data_directory` that the recorded loopback port is still served by that
-  retained `pgdata` before any write;
-- runs `cargo test -p cantos-api --test catalog_http_postgres -- --ignored --exact
-  …::theatre_development_catalog_seed` with `CANTOS_TEST_CLUSTER_URL` set to the retained
-  admin URL. The test publishes through the real Studio HTTP routes, app-role SQL and private
-  Ogg/Opus intake, automatic promotion to a separate publication filesystem, and actual-byte delivery;
-- writes `target/revision-evidence/theatre-seed.json` atomically and then drops the previous
-  seed database recorded for the same cluster.
-
-`--reset` drops only that recorded seed database and removes the record. Requirements: Python 3
-and `psql`; seeding also needs Cargo, `ffmpeg` and `ffprobe`. Work and unit IDs are stable across
-reseeds, publication IDs are new releases. The [runbook](../docs/deployment/theatre-seeded-catalog.md)
-lists the dataset, Web/Android steps, a live withdrawal and troubleshooting. A new seeded catalog supports manifest → grant → exact full/Range byte checks; synthetic
-rights/QC records and a 125-second owned tone do not establish native playback or human listening.
-
-A persistent lane requires every explicit input and performs no schema administration or reset:
-
-```sh
-cargo xtask seed theatre --environment NAME --database-url-env DB_VARIABLE \
-  --studio-token-env TOKEN_VARIABLE --rights-ref EVIDENCE_ID \
-  --api-origin https://api.example.test --web-origin https://studio.example.test \
-  --private-root /absolute/private --publication-root /absolute/publication \
-  --record /absolute/private-records/theatre-seed.json
-```
-
-The private fsynced journal replays exact operation IDs, binds environment/connection/actor/roots,
-refuses unowned dataset collisions and checks current records for drift. Keep it for uncertain
-outcome recovery. Persistent requests use the configured real Studio HTTP host and its existing
-session/fence authentication; they never bypass OIDC with a development-session store. See the
-runbook for credential, evidence and pre-existing-schema prerequisites.
-The cookie name defaults to `__Secure-cantos_studio`; only an explicitly configured development
-host uses `--studio-cookie-name cantos_session`. No dual-cookie or authentication fallback is attempted.
+`cargo xtask seed theatre [--reset]` is opt-in development data, never a gate/preflight/CI step.
+The native planner requires the Server-owned `catalog_http` test fixture; it currently refuses
+before setup while that fixture is absent. `--environment` is a retired refusal. Do not restore
+PostgreSQL setup or use a persistent/user database to bypass the native prerequisite. Any reset
+is limited to the lane's proven owned development dataset; Identity/user data is separate.
 
 ### Explicit local service infrastructure
 
-[Services](../services/README.md) and [ADR 0021](../docs/decisions/0021-podman-service-runtime.md)
-are the ownership contract. `list` and `validate` require no Podman, secret, TLS or container.
-Repository/CI gates call `validate` using the existing xtask executable path through Cargo;
-there is no separate orchestration script or new workflow. Validation covers schema/version,
-runtimes, dependencies/cycles, official patch image pins, ports, fixed mounts/health argv and
-public Kanidm/environment examples. It does not run upstream `configtest` or prove TLS validity.
-
-`up` manages container infrastructure only. Native API lifecycle stays under `run`; external
-storage is inventory-only. `up --all` includes required PostgreSQL and excludes optional Kanidm.
-`down --all` stops any already-owned Kanidm and PostgreSQL containers. Secrets/configuration
-are exported explicitly using the service `env.example` guides; no dotenv file is loaded.
-`--instance` precedes the action, defaults to `local` and scopes resource names/labels. Use a
-unique instance and unused port for task fixtures; defaults are shared across worktrees.
-
-Linux commands force local rootless Podman. macOS requires an existing default loopback SSH
-connection to a running rootless Podman Machine. The command pins the existing connection name
-for this invocation, ignores remote/cloud environment overrides and observes rootless state
-before effects. It does not install Podman, attach/change a connection, initialize or start a
-machine. Missing runtime/connection, rootful or remote/cloud targets are `UNSUPPORTED`.
-
-The Podman server must support the documented named-volume `nocreate` option. Older releases
-such as 5.8 lack it; an explicit invalid-option result is `UNSUPPORTED` with no automatic update.
-The [current Podman volume contract](https://docs.podman.io/en/latest/markdown/podman-run.1.html)
-allows this safety fence; actual version compatibility is unverified on this host.
-
-Startup validates private caller-owned inputs outside Git, inspects ownership and image labels,
-creates/reuses only the expected persistent volume, and checks configuration signatures.
-Kanidm `configtest` uses network-disabled temporary data. Server creation is stopped first:
-its returned ID, actual mount and volume labels are rechecked before starting that ID.
-This container reference prevents ordinary removal of its volume. `nocreate` prevents a
-missing volume from silently becoming empty data. No `--replace`, prune, migration, deletion or
-security-label mutation is performed. On enforcing SELinux, operator-prepared input labels
-must already permit container read access; xtask never relabels files or disables isolation.
-
-Every Podman call has a 60s bound (connection/info 10s), at most 4 MiB per captured output stream,
-private temporary logs and an owned CLI process group. Readiness after start has one 1–300s
-budget covering all inspections/probes (default 60s), with 5s container health checks. Ctrl-C,
-SIGTERM and SIGHUP persist cancellation across calls and stop only the owned CLI group.
-Remote interruption/timeouts can leave created/running state: inspect status/logs before retry;
-xtask never deletes retained data or guesses that an ambiguous operation did not happen.
-
-`status` reports inspected state/health/exit code and ABSENT only after the documented exists
-result. Native/external entries are `NOT_RUN`/NOT_OBSERVED. `logs` reads at most 200 lines from
-both streams of an inspected owned ID. `down` verifies stop on that same ID and retains its
-container/volume. Names alone never authorize effects or log reads. Drift fails closed; review
-recreation/upgrades separately. Ownership labels are an operational guard, not isolation from a
-same-user administrator: do not concurrently edit connection definitions, forge labels or force
-remove containers/volumes. Backups and production deployment remain operator-owned.
+`cargo xtask services list|validate` reads the native inventory and starts nothing. The old
+container `up|down|logs|status` commands refuse before probes/effects. Native dev/E2E/Turso/Kani
+requires no PostgreSQL, Kanidm, Auth Emulator or Podman. Production OCI/Quadlet belongs to the
+[release contract](../docs/deployment/native-oci-release.md), with activation separately pending.
 
 ### Package-local UI-system previews
 
@@ -524,24 +432,20 @@ same catalog in [`gate.rs`](src/gate.rs).
 | --- | --- | --- |
 | `repository` | typed `services validate`; `scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | cargo, python3, git |
 | `rust-format` | `cargo fmt --all -- --check` | rustfmt |
-| `protobuf-reference` | independent Python goldens + pinned isolated prost/protoc exact generated-schema drift oracle + its clippy | cargo, python3, clippy |
+| `protobuf-reference` | independent Python goldens + pinned isolated prost/protoc exact generated-schema drift oracle (both Studio pilot bindings) + its clippy + `tools/proto-codegen --check` over every consumer-owned Protobuf binding (Studio pilot/artwork, Identity RPC server/client and test peers) | cargo, python3, clippy |
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> [--features cantos-theatre/preview] --all-targets --locked -- -D warnings` | clippy |
-| `rust-tests` | `cargo test <workspace or -p …> [--features cantos-theatre/preview] --locked` | cargo |
+| `rust-tests` | when `cantos-server` is selected, first `cargo build --locked -p cantos-identity --features service --bin cantos-identity --target-dir target`; then `cargo test <workspace or -p …> [--features cantos-theatre/preview] --locked` with that executable's absolute path as `CANTOS_TEST_IDENTITY_BINARY` (the candidate journey never builds it) | cargo |
 | `forge-functions` | `cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target`, then `node --test test/boundary.test.mjs test/native-worker.test.mjs` in `services/cantos-forge-functions/firebase` | cargo, installed stable Node.js 22+ |
-| `dbsp` | `cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings`; `cargo test -p cantos-api --features dbsp-experimental --locked` | clippy |
-| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets | cargo |
-| `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
-| `audio-inspection` | `cargo test -p cantos-api --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
+| `contract-tests` | `cantos-server` `contract_conformance` (its own representation against the schemas/fixtures it owns), Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets; then each client's own representation (`cantos-studio`, `cantos-theatre`, `cantos-web-auth` lib tests filtered to `contract::`/`wire::`) | cargo |
+| `wav-reference` | `cargo build -p cantos-server --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
+| `audio-inspection` | `cargo test -p cantos-server --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
 | `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview,cantos-theatre/preview --locked -- -D warnings`, then the production lane `cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings` | clippy, wasm32 target |
 | `web-build` | `trunk build --locked` per Web client (Theatre: the production lane, no previews) | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
 | `theatre-cmp-preview` (formerly `theatre-cmp-demo`, still accepted by `--skip`) | installed Gradle `:shared:desktopTest :preview-sandbox:desktopTest` for the Theatre Desktop Preview | compatible gradle, java, both KMP modules |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
-| `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | cargo, python3, initdb, pg_ctl, psql, ffmpeg, ffprobe |
-| `postgres (theatre-firebase)` | `scripts/test_postgres.py --suite theatre-firebase` (new disposable cluster; Firebase enrollment and SMTP registration SQL only) | cargo, python3, initdb, pg_ctl, psql |
-| `postgres (schema)` | `scripts/test_postgres.py --suite schema` (new disposable cluster; current schema bootstrap/refusal and current SQL flows) | cargo, python3, initdb, pg_ctl, psql |
 
 | `verify` suite | Gates |
 | --- | --- |
@@ -549,14 +453,45 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `behavior` | behavior (locked model tool, named runs/properties/witnesses/controls; optional pure-core conformance) |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
 | `forge` | rust-lint (cantos-forge), rust-tests (cantos-forge), forge-functions |
+| `turso` | turso (Identity persistence clippy/tests, shared-store tests and capability report) |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
 | `contracts` | script-ir-reference, protobuf-reference, contract-tests, wav-reference, audio-inspection |
 | `mutation` | mutation |
-| `dbsp` | dbsp |
-| `postgres` | postgres |
 | `kani` | explicitly selected registered `kani` kernels only; opt-in |
+| `native-isolation` | explicit prebuilt exact-test isolation; separate executable/credential/network controls, never an implicit build or infrastructure start |
+| `native-auth-qualification` | manual #336 campaign: builds first, then guarded exact native auth tests, model/pure-core conformance and optional Kani; never selected by gates, preflight or ordinary CI |
 
-The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a
+`verify native-isolation` accepts one absolute prebuilt Rust test executable and exact test
+name. It sanitizes the child environment, creates private run directories and exercises real
+executable/credential injection controls. Linux additionally requires fresh network/PID
+namespaces and kernel egress refusal; macOS records best-effort test results but reports overall
+`UNSUPPORTED`. `--dry-run` is a pure `NOT_RUN` plan. Its regression tests are registered with
+the existing repository/Rust CI jobs; a failure before discovery does not exercise them.
+The explicit fixture lane stays outside ordinary gates and CI.
+`--identity-binary` names a second, already built `cantos-identity` executable that the test
+starts as a child: the guard passes exactly that absolute path as the one test-only key
+`CANTOS_TEST_IDENTITY_BINARY` and binds its digest before and after the run (receipt schema 2).
+Read the [guard contract and evidence limits](../docs/assurance/native-isolation.md).
+
+`verify native-auth-qualification` is the finite #336 Linux campaign. It records the source
+revision, lockfile digest and tool identities; reads `cargo metadata` for the agreed Server
+session target (`identity_auth_candidate`, test `real_identity_actor_session_journey`) and its
+actual required-feature metadata; builds the Identity executable
+and each test executable with `--locked` and resolves them from that invocation's Cargo JSON
+(never a glob of old artifacts), retaining the Identity executable at a campaign-owned path;
+lists each allowlisted exact test once; then runs each one under `verify native-isolation`,
+checking that every receipt binds the built digests and source revision. It then runs the
+behavior model and pure-core conformance for the two native auth capabilities and, with `--kani`,
+the three registered Identity kernels. It reports `MODEL`, `PURE_CONFORMANCE`,
+`IDENTITY_PROCESS_RPC`, `ACTOR_TURSO`, `SERVER_SESSION_CANDIDATE`, `ISOLATION`, `KANI`,
+`FULL_CANDIDATE`, `FULL_SERVER_HTTP`, `BROWSER` and `DEVICE` separately and writes one sanitized
+JSON report (default `target/verification/native-auth-qualification/report.json`).
+`FULL_CANDIDATE` passes only when every required layer passed on one unchanged revision.
+The D1 run is the manual `native-auth-qualification` job of `repository-checks.yml`
+(`workflow_dispatch` with `native_auth_qualification=true`), which only provisions pinned
+tools. See the [campaign boundary](../docs/assurance/native-isolation.md#native-auth-linux-qualification-campaign).
+
+The mutation runner uses `cargo --offline`; run `cargo fetch --locked` once on a
 new machine. On macOS setups affected by `/var` versus `/private/var`, prefix Python-heavy runs
 with `TMPDIR=/private/tmp`.
 
@@ -572,6 +507,22 @@ Cargo/Node or an older/prerelease Node version is
 these wrapper tests; their result does not qualify the separately selected hosted Node 22
 runtime. This prerequisite is independent of the exact Node/npm pins for Quint.
 
+`verify turso` first lints/tests the `cantos-identity` service's opt-in `persistence` feature
+against run-owned real files, then checks the embedded foundation in `packages/store-turso` and
+prints its engine capability report. It also lints/tests Identity's `service` feature (including
+its own RPC server binding and wire-golden tests), and lints ordinary `cantos-server` targets. The former `turso-candidate`
+feature no longer exists; the real Identity journey still requires a prebuilt executable.
+The foundation commands enable its `testing` feature
+(run-owned temporary directories and a deterministic clock), then run the
+`cantos-turso-capability` binary, which exits non-zero when any of its probes differs from the
+expectation recorded beside it. Files live in a private temporary directory removed afterwards. The
+gate starts no server, container, database daemon or cloud service; the process probes spawn only
+the report binary and `sh` (a file-size limit simulates a full disk). It is selected by changes to
+that package and its dependents, belongs to the `rust` CI job, and is part of the full preflight.
+Its result is for the pinned engine, this host and this filesystem
+([report](../docs/evidence/turso-capability-report.md)). Linux x86_64 and macOS arm64 have recorded
+host evidence; a real `ENOSPC` is not covered. Use `report DIR` of the binary to probe another disk.
+
 The `audio-inspection` gate explicitly runs the ignored real-media tests that ordinary
 `cargo test` skips. Tests encode owned synthetic signals into temporary files at runtime,
 then exercise the actual bounded read-only inspection adapter at all four explicit Opus
@@ -580,70 +531,24 @@ encoding does not add an encoder, TTS provider or production worker to the backe
 The adapter probes and decodes to a discarded output; it never converts or publishes media.
 `ffmpeg -version` and `ffprobe -version` must succeed before any selected gate runs.
 Missing tools produce `UNSUPPORTED`; skipped or unreachable inspection remains `NOT_RUN`.
-xtask never installs these tools. The Rust and PostgreSQL CI jobs provision the distribution's
-trusted `ffmpeg` package, which supplies both executables. The PostgreSQL suite also needs them
-for its actual-byte private-intake/storage/replay tests.
+xtask never installs these tools. The Rust CI job provisions the distribution's trusted
+`ffmpeg` package, which supplies both executables. Historical PostgreSQL media oracles also
+used them, but there is no active PostgreSQL CI job or verification lane.
 
-`cargo xtask verify postgres --suite theatre-firebase` selects a separately named narrow gate.
-It runs the Firebase enrollment repository tests and existing SMTP registration tests through
-the same migration path, each with a nonzero passing test requirement, in a newly initialized
-native PostgreSQL cluster. The runner strips inherited database/libpq/Cantos configuration and
-stops only its owned cluster on success, failure or interruption. It neither starts containers
-nor accepts an external database URL. Its logs and scope record are under
-`target/revision-evidence/theatre-firebase/`; it does not overwrite retained full-suite fixtures.
-An explicit `--keep` retains only an independently recorded owned cluster (see below).
-Media, other database contexts, HTTP hosts and the complete
-restart campaign remain unrun by this command. A `PASS` for `postgres (theatre-firebase)` never
-satisfies the full `postgres` gate: default verification, preflight and CI still select the full
-gate and retain their ffmpeg/ffprobe prerequisites.
-
-`cargo xtask verify postgres --suite schema` selects current schema bootstrap/replay/refusal,
-least-privilege and current SQL owner acceptance without media prerequisites. It includes caller
-adaptation, imports, revisions, Catalog/Content/Brief and delegation repository/HTTP, actor/Theatre
-identity, native credentials,
-Studio OIDC and both registration SQL owners. It uses a new owned cluster, locked/offline Cargo
-and nonzero passing-test checks per target. It never takes
-an inherited database URL or performs a live cutover. Logs and the exact selected scope are under
-`target/revision-evidence/schema/`; an explicit `--keep` retains it. The scope record lists all integration
-targets, registration selectors and skipped tests. Catalog HTTP's nested `audio_lifecycle_http::`
-tests (including publication/discovery media fixtures) are excluded because they require real
-`ffmpeg`/`ffprobe`. Restart-only tests and their full-suite fixture writers are skipped to preserve
-retained fixture records; completed disposable databases are
-released between targets. Full media, actual HTTP process/restart and PostgreSQL 18.6 acceptance
-remain separate; this gate never replaces full `postgres`.
-
-For retained full or narrow runs, `target/revision-evidence/retained-cluster.json` records
-resource ownership independently of acceptance. It contains the exact cluster/port, inactive
-runner identity and scoped/full outcomes, with no application fixture URLs. A failed run stays
-`FAIL`; narrow runs always record full `NOT_RUN`. After the runner exits, `seed theatre` can
-create a new seed DB in that proven cluster, and only a matching seeded Theatre context can
-start without the full success-only `run.json`. Active, stale, foreign, stopped or swapped
-targets are refused. This does not change required full-gate selection or turn resource
-retention into passing evidence. See the [seed runbook](../docs/deployment/theatre-seeded-catalog.md).
-The retired `legacy-dbsp` suite is no longer accepted. Generic `verify dbsp` remains optional
-incremental-core evidence, without a PostgreSQL feed or production consumer.
+Historical PostgreSQL/Firebase/DBSP runners and suites are retired source inputs; their
+commands are hidden refusals. They are never prerequisites for current preflight or native acceptance.
+Keep actual engine/file/process coverage separate from historical SQL oracle results.
+Direct invocation of `scripts/test_postgres.py` also refuses with exit 2 before argument
+parsing, tool probes or cluster setup. Its historical implementation and archived Rust
+assertions remain [porting inputs](../docs/architecture/server-turso/legacy-test-oracles.md),
+not runnable Cargo targets. Native checks do not establish unported business parity.
 
 ### Isolated Theatre enrollment testing
 
-`cargo xtask verify theatre-auth --suite firebase-emulator` is an explicit local integration
-lane outside ordinary gates, preflight and CI. It uses the existing registration HTTP/application/
-PostgreSQL code and an owned Auth Emulator, with a recording mock Kanidm issuer. It is separate
-from the registration-only SQL gate. The [runbook](../docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
-owns its source-to-test map, separately installed prerequisites, private recipient handling,
-recovery and acceptance limits.
-
-`--dry-run` prints a pure plan without tool subprocesses, network, fixture creation or receipt
-writes during xtask execution. Missing or incompatible tools produce `UNSUPPORTED`; nothing is
-installed automatically. Runtime requires Linux user/network/PID namespace isolation with
-loopback-only egress, PostgreSQL 17 binaries, Node and the explicitly selected installed `firebase-tools`
-14.2.2 Auth module. It creates only fresh owned fixtures and clears inherited cloud/database/
-proxy configuration. Normal summaries include no proof, setup or session credentials.
-
-`--suite firebase-web-e2e` reports `UNSUPPORTED` because the disposable real Kanidm/PKI/Web
-fixture and complete browser journey are not implemented. It never converts mock onboarding
-or zero selected tests into a successful login. The required setup/OIDC/session/reload/logout
-and separate-browser isolation remain open under #242; live provider and deployed-origin
-acceptance remain separate.
+Retired with the provider handlers. `verify theatre-auth` is a hidden refusal; the Firebase
+emulator and Kanidm lanes are not native acceptance. Use `verify native-auth-qualification`
+for the explicitly scoped Linux campaign, keeping model/core/process evidence distinct from
+production HTTP/browser/device acceptance. No infrastructure installation follows from a check.
 
 ### Outcome vocabulary
 
@@ -668,20 +573,31 @@ reporting vocabulary, `PASS` is `passed`, `FAIL` is `failed`, `NOT_RUN` is `not-
 base of `--base` (default `origin/develop`): committed, staged, unstaged and untracked paths, with
 both ends of a rename. A missing base fails before any gate runs. `--dry-run` prints the plan.
 
+The repository gate's changed-UI localization check uses the same `--base` and merge-base
+comparison, including when preflight runs without `--changed-only`. Standalone `verify repository`
+and CI retain their automatic develop/CI-parent comparison. No comparison silently skips an
+unavailable base.
+
 Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conservative:
 
 - `repository` and `rust-format` always run.
 - A path inside a Cargo package selects that package and, through `cargo metadata`, every package
   that depends on it (`rust-lint`/`rust-tests` with `-p`). A package's top-level `README.md` is a
-  document. All of `packages/contracts` (fixtures, schemas, examples and the DTO crate) is an input
-  of `cantos-contracts` and its dependents; only its non-fixture Markdown is documentation.
+  document. Canonical contracts are build inputs of their consumers: a non-document path under
+  `services/cantos-server/contracts/` selects `cantos-server` plus that surface's clients
+  (`studio/` → Studio Web; `theatre/`, `auth/` → Theatre Web and `theatre-cmp-preview`; `auth/` also
+  `cantos-web-auth`), `.proto` and Protobuf fixtures add `protobuf-reference`, and Script IR fixtures
+  `script-ir-reference`. `services/cantos-identity/contracts/` selects Identity and the Server;
+  `apps/cantos-theatre/conformance/` selects Theatre Web and `theatre-cmp-preview`;
+  `tools/proto-codegen` and every generated binding it writes select `protobuf-reference`. Only
+  non-fixture Markdown is documentation.
 - An affected Web package selects `web-lint`/`web-build` for that client. Shared
   `packages/ui-system` tokens, icons, Leptos components and their generators affect `cantos-ui`,
   both Web consumers and `ui-preview`; shared semantic inputs and generators also select
   `cmp-ui-preview` and `theatre-cmp-preview`. Package-local CMP source, Gradle and resource changes
   select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
-  An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
+  An affected `cantos-server` selects `turso`, `wav-reference` and `audio-inspection`.
 - Non-document inputs beneath `services/cantos-forge-functions` select its Rust lint/tests and
   `forge-functions`; they do not select the API, database or Web clients.
 - Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-preview` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
@@ -691,8 +607,8 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 - Registered observer/codec and private admission/projection seam changes select behavior
   with `--conformance`, preserving the ordinary affected native Cargo gates.
 - Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
-- Documents, templates, skills and issue forms need only the always-on gates. The service
-  manifest, PostgreSQL/Kanidm examples and configuration docs are statically validated by
+- Documents, templates, skills and issue forms need only the always-on gates. The native service
+  manifest and configuration docs are statically validated by
   `repository`; no Podman or runtime input is required. The Studio Mobile scope notice is documentation only.
   Theatre mock Kotlin/Gradle/native host inputs select `theatre-cmp-preview`; its docs are documents.
 - Shared Cargo inputs (`Cargo.toml`, `Cargo.lock`, `.cargo/`, toolchain/format/lint files),
@@ -700,8 +616,39 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   unclassified path or an empty change set select every gate.
 
 `--skip GATE` (repeatable) is the only way to leave out a selected gate. The gate is reported as
-`NOT_RUN`, never `PASS`. Use it, for example, for `postgres` on a machine without PostgreSQL, and
-state it in the pull request.
+`NOT_RUN`, never `PASS`. State the exact skip and prerequisite in the pull request; retired commands are not selectable gates.
+
+#### Local profile
+
+```sh
+cargo xtask preflight --profile local --changed-only --base "$BASE_REF" [--dry-run]
+```
+
+The default profile is `handoff`: everything above, unchanged. `--profile local` is a lighter
+DEV/CHECKPOINT loop over the same change collection, base and reverse Cargo graph (normal, dev and
+build dependencies). It requires `--changed-only`, rejects `--kani`, and plans only:
+
+- `repository-static`: service manifest validation, `check_repository.py --base` and both
+  whitespace checks, without the Python unit-test discovery. Code under `xtask/` (fixtures
+  included), `scripts/` or `.github/workflows/` selects the full `repository` gate instead, and
+  `xtask`'s own lint/tests for xtask or workflow inputs. Markdown under `xtask/` outside
+  `xtask/fixtures` is a document here.
+- `rust-format`, then `rust-lint`/`rust-tests` for the affected packages with the existing
+  commands, and `web-lint` for an affected Web package. Packages keep their default features
+  (plus `cantos-theatre/preview` when selected); no other feature lane is claimed.
+- Shared Cargo inputs (`Cargo.toml`, `Cargo.lock`, `.cargo/`, toolchain/format/lint files) and
+  unclassified paths broaden to every *local* check (full `repository`, workspace lint/tests and
+  both Web clients' WASM lint) with the reason printed. A collected, truly empty diff runs only
+  `repository-static` and `rust-format`. A missing base is still an error.
+
+It never dispatches Trunk or preview builds, CMP/Gradle, `turso`,
+`wav-reference`, `audio-inspection`, `script-ir-reference`, `protobuf-reference`,
+`forge-functions`, `mutation`, behavior or Kani, so only the selected steps' tools are required.
+The plan lists the gates the handoff selection would add for the same diff as *outside the local
+profile*: they are neither `PASS` nor `NOT_RUN` rows, and notes name the uncovered feature lanes
+and Kotlin/CMP sources. The summary is titled `local checkpoint`, and every result states that full
+handoff, database integration, platform runtime and formal verification are not established by
+this profile. Use the default profile on the final diff at handoff.
 
 ### Executable behavior models
 
@@ -726,18 +673,19 @@ process. See the [observation protocol](../specs/behavior/observation-protocol.m
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly eleven registered propositions. Ten are API-library
+`cargo xtask verify kani` selects exactly fourteen registered propositions. Ten are API-library
 kernels: `catalog-revision`, `image-bounds`, `wav-payload`, `submission-window`,
 `publication-commit`, `listener-access`, `listener-reconcile`, `byte-range`, `playback-grant`
 and `public-cover`. One is in the `cantos-forge` package: `forge-attempt-ledger`
-(`services/cantos-forge-functions/src/domain/attempt.rs`). Every kernel names exactly one workspace package
-(the closed allowlist is `cantos-api` and `cantos-forge`) and passes it to the primitive as
-`--package`; the primitive refuses any other name, and an absent value means `cantos-api`.
+(`services/cantos-forge-functions/src/domain/attempt.rs`). Three are in `cantos-identity`:
+`identity-security-version`, `identity-completion` and `identity-mailbox-proof`. Every kernel names exactly one workspace package
+(the closed allowlist is `cantos-server`, `cantos-forge` and `cantos-identity`) and passes it to the primitive as
+`--package`; the primitive refuses any other name, and an absent value means `cantos-server`.
 Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
 fully qualified harness names, unwind 2, expected covers (6/13/7/8/6/5/7/6/6/6 for the API
-kernels in the order above, 9 for `forge-attempt-ledger`) and reviewed unreachable checks (none
-for the Forge kernel).
+kernels in the order above, 9 for `forge-attempt-ledger`, 6/10/16 for the Identity kernels) and
+reviewed unreachable checks (none for Forge or Identity).
 The last three API kernels were registered for #170/#171 without an actual Kani run (pinned x86_64 Linux
 model unavailable on the authoring host); see the [proof ledger](../docs/assurance/kani.md#public-media-kernels-registered-not-yet-run).
 The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
@@ -747,15 +695,23 @@ The registered Forge kernel's proof is `NOT_RUN`: the registration/selection tes
 primitive's synthetic tests are not a Kani execution of its harness. It becomes evidence only when
 `cargo xtask verify kani --harness forge-attempt-ledger` runs on a host with the pinned Kani
 0.68.0 bundle and its retained output is inspected. It adds no new tool, dependency or CI job:
-the same pinned bundle, primitive and opt-in gate serve both packages.
+the same pinned bundle, primitive and opt-in gate serve all three packages.
+
+The three Identity kernels have [their own ledger](../docs/assurance/kani.md#native-identity-kernels-registered-not-yet-run): all three passed on the D1 run recorded there.
+Under #331 D1 their evidence requires an actual pinned Ubuntu x86_64 `workflow_dispatch`
+run URL/SHA and complete assertion/unwinding/cover results. Normal macOS unit tests and
+synthetic verifier-adapter output do not establish `bounded-model-checked`.
 
 This is separate from normal builds, `verify rust`, full preflight and every CI job. Explicit
 `preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
 Kernel source/owner inputs select their propositions. Selection is package-local: API
 manifest/build/contract inputs select only the ten API kernels, and a changed
 `services/cantos-forge-functions/src/domain/**`, `services/cantos-forge-functions/src/lib.rs` or `services/cantos-forge-functions/Cargo.toml`
-selects only `forge-attempt-ledger`. The primitive and its tests, shared Cargo/toolchain/
-verification and uncertain changes select all eleven. Unrelated documents, Web/CMP, other Forge
+selects only `forge-attempt-ledger`. Identity manifest/lib/module/ID/version inputs select
+all three Identity kernels because completion/proof reach the ID/version constructors. Admission
+source selects `identity-completion` and `identity-mailbox-proof` (which uses `Purpose`);
+`domain/mailbox_proof.rs` and its child sources select `identity-mailbox-proof`. The primitive and its tests, shared Cargo/toolchain/
+verification and uncertain changes select all fourteen. Unrelated documents, Web/CMP, other Forge
 modules and service configuration select none and print a no-affected-kernel note.
 `--skip kani` reports selected proofs as `NOT_RUN`;
 `--dry-run` prints plans without probing or executing the verifier. Service infrastructure is
@@ -779,7 +735,7 @@ implicit Kani manifest/Cargo configuration are rejected rather than weakening th
 additional Python 3.11/TOML parser is required. Rust uses the already locked TOML parser.
 It hashes the exact bytes it approves and binds existing and absent root/ancestor/Cargo-home
 configuration candidates to each proof command. The required manifests are the workspace
-manifest and the owning package's manifest only (`services/cantos-api/Cargo.toml` or
+manifest and the owning package's manifest only (`services/cantos-server/Cargo.toml` or
 `services/cantos-forge-functions/Cargo.toml`); Rust computes one snapshot per package and the primitive
 re-derives the identical set from the same package name, so an approval for one package is
 never accepted for the other. The primitive refuses stale approval before
@@ -801,8 +757,9 @@ before reaping the leader.
 
 Fresh raw output and metadata are retained under ignored `artifacts/agent-runs/kani-*/` with Git
 revision and sanitized dirty/diff hashes, source/configuration identities, the package and
-before/after lock and model digests. Model binding for an API kernel covers all API source,
-contracts API source/schema inputs, their manifests/build scripts, root Cargo/.cargo settings and
+before/after lock and model digests. Model binding for an API kernel covers all API source
+(including its own `src/contract` representation), the Server-owned canonical contracts, its
+manifest/build script, root Cargo/.cargo settings and
 the primitive/registry, including created/deleted files. For the Forge kernel it covers all
 `services/cantos-forge-functions/src` files, the Forge manifest, root Cargo/.cargo settings and the
 primitive/registry, and no API or contracts source (the Forge manifest depends only on external
@@ -819,9 +776,8 @@ output before making a `bounded-model-checked` claim; ordinary adapter tests do 
 | Job | Gates |
 | --- | --- |
 | `repository` | repository, script-ir-reference |
-| `rust` | rust-format, protobuf-reference, rust-lint (workspace), rust-tests (workspace), forge-functions, dbsp, wav-reference, audio-inspection |
+| `rust` | rust-format, protobuf-reference, rust-lint (workspace), rust-tests (workspace), forge-functions, turso, wav-reference, audio-inspection |
 | `web` | web-lint, web-build (Studio and Theatre) |
-| `postgres` | `cargo fetch --locked`, then postgres |
 
 `cargo xtask ci` runs all four locally; [the workflow](../.github/workflows/repository-checks.yml)
 runs one per GitHub job after `rustup show active-toolchain` selects the exact
@@ -831,6 +787,8 @@ runs in CI except `mutation`, `cmp-ui-preview` and `theatre-cmp-preview`. Mutati
 a local `ui-preview cmp verify` / preflight gate until a separately provisioned Gradle CI lane is
 added. Existing `verify web` and the Web CI job never require the Kotlin toolchain. Branch
 protection and required checks are configured outside this repository.
+The repository job checks out full history so manual feature-branch dispatch can compare
+against `origin/develop`; checkout credentials remain disabled and a missing base still fails closed.
 The Rust CI job also provisions Node 22 through a SHA-pinned `actions/setup-node` with package
 manager caching disabled, then runs the same offline wrapper gate. xtask itself installs nothing.
 
@@ -898,7 +856,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `ui_preview.rs` | package-local Leptos/CMP preview plans and supervised execution |
 | `run.rs`, `process.rs`, `probe.rs` | launch plans, supervised process groups, port ownership and readiness |
 | `seed.rs` | explicit `seed theatre [--reset]` plan; `scripts/seed_theatre.py` owns cluster ownership checks, the seed test run and the record |
-| `preflight/` | Git change collection, the Cargo package graph and pure selection |
+| `preflight/` | Git change collection, the Cargo package graph and pure handoff/local selection |
 | `theatre_auth.rs` | pure plans and redacted outcomes for explicit isolated enrollment lanes; invokes the owned Python fixture primitive, outside ordinary gates |
 | `doctor.rs` | read-only environment report |
 | `services/` | typed process inventory/config validation, explicit local Podman lifecycle, bounded command boundary |
@@ -906,6 +864,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `deploy/` | explicit static Web deployment to Firebase Hosting: `request` (pure plan), `hosting_config` (tracked policy, `.firebaserc` mapping, effective configuration), `bundle` (exact-bytes validation and manifest), `firebase` (CLI argv, site lookup, remote-outcome interpretation, redaction), `smoke` (read-only HTTPS judgement), `receipt`, `host` (files, bundle scan, Git, clock) and `flow` (stage ordering and short-circuiting) |
 | `run_files.rs`, `firebase_cli.rs` | what `distribute` and `deploy` share: private per-run directories, SHA-256, Git source identity and atomic records; the Firebase CLI version gate and output redaction |
 | `capture.rs` | bounded captured execution with a typed timeout/interruption/output-limit vocabulary, used where output must be interpreted |
+| `native_isolation.rs`, `native_qualification.rs` | the isolation primitive's plan and typed receipt validation; the #336 campaign's fixed allowlist, Cargo JSON artifact resolution, layer statuses and sanitized report |
 | `compose_preview.rs` | optional host-preview command and status mapping; the Python primitive owns capture/log/output validation |
 
 Plans are values: tests assert exact commands with a recording runner and fake tools, while
@@ -940,7 +899,7 @@ cargo xtask distribute firebase cantos-theatre --channel production \
 Dry-run is pure planning: no subprocess/network/write. Real execution needs an explicit App ID,
 recipients and pinned certificate. Production uses only operator-supplied `CANTOS_RELEASE_*`
 signing inputs and the same release/audit primitives as `theatre-host`; debug cannot substitute
-for release. Exact AGP output metadata, staged manifest/version/config/callback/signature,
+for release. Exact AGP output metadata, staged manifest/version/config/signature (no browser callback or URL scheme),
 audit-marker refusal and APK/mapping binding precede the one remote write. Intent receipts
 record staged hashes; unknown remote outcomes require console reconciliation before replay.
 
@@ -985,7 +944,7 @@ build/run commands keeps relative Trunk-proxy paths;
 cross-site web.app authentication is not accepted. See the [current topology/runbook](../docs/deployment/vps-production.md).
 
 **Request.** The app (`cantos-theatre` or `cantos-studio`, nothing else), `--web`, `--project` and
-`--channel` are required and never defaulted; `cantos-api`, `cantos-forge`, `all` and mobile are
+`--channel` are required and never defaulted; `cantos-server`, `cantos-forge`, `all` and mobile are
 rejected before any tool runs (usage error, exit 2; Theatre mobile is `UNSUPPORTED` like `build`).
 Four identifiers stay distinct: the **project ID** (`--project`), the **Hosting site ID** (read from
 the operator's `.firebaserc`), the **deploy target** (`cantos-theatre` → `theatre`, `cantos-studio` →
@@ -1133,106 +1092,18 @@ a second provider adapter, long-lived caching of hashed assets. Real-account acc
 
 ### deploy vps
 
-```sh
-# Plan only: resolves HEAD and prints every step; builds, uploads and runs nothing.
-cargo xtask deploy vps cantos-api --host root@HOST --dry-run
-# One-time and idempotent host setup from the committed infra/vps bundle (no image).
-cargo xtask deploy vps cantos-api --host root@HOST --bootstrap
-# Existing host only: validate/restart installed browser configuration, no SQL or secrets.
-cargo xtask deploy vps cantos-api --host root@HOST --reload-browser
-# Build HEAD's image here, upload, then backup -> migrate -> grants -> switch -> health gate.
-cargo xtask deploy vps cantos-api --host root@HOST --smoke-origin https://api.example.org
-cargo xtask deploy vps cantos-api --host root@HOST --rollback   # previous image
-cargo xtask deploy vps cantos-api --host root@HOST --status     # read-only
-# Explicit same-epoch registry-suffix sibling upgrade ([1]->[1,2], [1,2]->[1,2,3]); native Linux x86_64 only.
-cargo xtask deploy vps cantos-api --host root@HOST --upgrade-epoch2-prefix --dry-run
-# Explicit narrow legacy conversion; inspect the complete plan first.
-cargo xtask deploy vps cantos-api --host root@HOST --cutover-epoch2 --dry-run
-```
-
-The third opt-in remote write ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md),
-[runbook](../docs/deployment/vps-production.md)). Never invoked by `build`, `run`, `verify`,
-`preflight` or `ci`. The plan (`xtask/src/deploy/vps.rs`) is pure and unit-tested: every local
-step (git archive of the **committed** `HEAD`, digest-pinned Podman build, export, compression,
-bundle) precedes the first remote write, and the remote side only calls the uploaded
-`infra/vps/bin/cantos-vps`, which owns backup, migration, grants, the image switch, health gating
-and automatic switch-back. SSH runs with `BatchMode=yes` and the operator's own agent/config;
-xtask never reads, stores or prints a key, password or token, and the host generates its own
-secrets. `--host` accepts only `user@host` (no options or ports); `--smoke-origin` only an exact
-`https` origin. A failed remote step reports that the remote state may have changed: run
-`--status` before retrying. Run records stay in ignored `artifacts/vps/<stamp>-<sha>/`.
-
-`--reload-browser` uploads the committed host bundle and runs its source-bound browser validator.
-It validates the
-already reconciled browser env files, exact OIDC callback receipt, supported API drop-ins and
-candidate Caddy configuration before replacing the edge file and restarting the existing edge
-and two API units. It preserves the previous Caddyfile and leaves installed runtime/Quadlet
-assets unchanged. API restarts use
-their existing healthy-notification gate. It never builds/switches an API image, runs SQL,
-creates credentials, bootstraps identity or changes OAuth clients. Keep a private copy of the
-previous config before a domain migration; failed restart requires restoring that reviewed
-configuration and rerunning this explicit lane. Like other remote operations, reconcile status
-before retrying an uncertain
-outcome. This lane does not establish browser login or Firebase SSL acceptance.
-
-`--cutover-epoch2` is mutually exclusive with bootstrap/rollback/status and is never selected
-by ordinary deploy. It supports exactly legacy revision
-`883e188095227f04fb92cf4dcd29c659ac9de1fe`, 28 matching migrations, checked schema/ownership,
-zero business/session rows and one clock/two Studio-flow/three Theatre-flow rows. The host
-rehearses restoration/import in sibling databases, freezes the APIs/source, verifies a final
-restore and exact preserved rows, then pauses for xtask to copy the recovery tar/manifest
-off-host, verify SHA-256 and acknowledge those bytes. Only then does commit reconcile the six
-staged browser inputs/existing OIDC clients and switch the database/runtime/image together.
-The [cutover runbook](../docs/deployment/postgres-schema-cutover.md#implemented-narrow-epoch-1-cutover)
-owns prerequisites, the precise import boundary and the exact incoming-tree recovery command.
-The general populated-data transformer remains unimplemented; PostgreSQL stays at 17.11.
-Each cutover execution creates a fresh 32-hex attempt ID, persists it in the private
-`artifacts/vps/<stamp>-<revision12>-<attempt>/cutover-attempt` and scopes remote files to
-`/root/cantos-services/incoming/<revision>/<attempt>/`. Prepare, commit and recovery require
-the same `REVISION TREE ATTEMPT_ID`; mismatched attempts cannot select a pending journal,
-archive or acknowledgement. Dry runs show an all-zero planning placeholder only. Retained
-older journals use their exact original bundle/protocol; there is no revision-only fallback.
-Local cutover prerequisites include Python 3. Before any remote work, `persist cutover attempt`
-uses filesystem `fsync` on the attempt file and context/run/ancestor directory entries through
-the workspace. After SHA-256 verification, `persist off-host recovery copy` synchronizes the
-archive, manifest and directory entries before any acknowledgement. Synchronization failure
-reports `FAIL` and leaves acknowledgement/commit `NOT_RUN`; once prepare has been attempted,
-recovery retains the original failure and uses only that invocation's revision/tree/attempt.
-This is filesystem durability, not hardware or complete disaster-recovery acceptance.
-
-Failure after prepare triggers state-aware recovery without hiding the original `FAIL`.
-Before durable `accepted`, recovery restores the matching legacy database/image/runtime and
-browser/client settings; afterwards it only finalizes epoch 2, because writes may exist.
-Unknown state retains the pending journal and stopped APIs for reconciliation. Ordinary
-mutations refuse a pending cutover. Keep the old database/image/runtime and private run records.
-The off-host archive excludes OCI image bytes, Podman secrets, the Kanidm administrator
-password and private CA; the host-local old image and separate protected disaster-recovery
-copies remain necessary. Cutover runtime/production acceptance is separate from command tests.
-
-`--upgrade-epoch2-prefix` is a separate explicit, attempt-bound sibling-database lane for
-an exact epoch 2 registry prefix → the candidate's reviewed registry (`[1]` → `[1,2]`, `[1,2]` →
-`[1,2,3]`); it never migrates the source database and refuses non-additive migrations. It shares the durable
-off-host-copy protocol, but uses its own pending journal and `prefix-prepare/commit/recover`.
-Native Linux x86_64, PostgreSQL 17.11 and unchanged non-API infrastructure are mandatory; Mac
-may print its dry run only. Before acceptance recovery restores the DB/image/runtime pair;
-after acceptance it finalizes only. Ordinary deploy/rollback and artifact-promotion guards
-stay strict. Read the [prefix upgrade runbook](../docs/deployment/postgres-prefix-upgrade.md)
-for prerequisites, retained resources, separate media backup and remaining live acceptance.
-
-The host primitive `identity --reconcile-existing` updates only existing-client landing URLs,
-exact callbacks and strict redirect matching, using provider readback and a callback receipt.
-It preserves accounts, roster, groups, scopes, passwords and existing secrets; no reset is
-issued. A dedicated basic-secret read is transient/root-only and retained as a digest for
-comparison. This differs from account-provisioning identity and from the plan-only
-[`cargo xtask kanidm reconcile`](#studio-kanidm-operator-tools). Neither establishes
-cross-site `web.app`/DuckDNS authentication with Strict session cookies.
+Retired: the PostgreSQL/Kanidm/two-API archive executor refuses before effects. Use
+`release oci-build` for candidate image production and `release oci-verify` for offline admission.
+No xtask command activates a native host yet. [#348](../docs/deployment/native-oci-release.md)
+owns activation/rollback; legacy assets and records remain recovery inputs, not native deployment
+instructions. No VPS operation follows from a docs change.
 
 ### theatre-preview
 
 The Desktop Preview command surface (#287); starts no API, database, identity provider or audio
 adapter. Its default recipes are offline. The explicit [live enrollment mode](../apps/cantos-theatre/mobile/README.md#live-enrollment-integration-296)
-uses real HTTP with `CANTOS_THEATRE_PREVIEW_API_ORIGIN` and
-`CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER`; it provisions no dependency and has no mock fallback.
+uses real Identity v1 HTTP with explicit `CANTOS_THEATRE_PREVIEW_API_ORIGIN`; it requires
+HTTPS for auth, provisions no dependency and has no mock fallback.
 `theatre-demo` is its historical name and runs the same commands.
 
 ```sh
@@ -1288,14 +1159,19 @@ inspection and mapping hashes go into `reports/release-boundary/release-evidence
 marker bytes are rejected by distribution. See the [owning runbook](../apps/cantos-theatre/mobile/docs/firebase-distribution.md)
 for comparison metrics, operator signing and remaining acceptance. No third build type is added.
 
-`theatre-host android-debug --api-origin ORIGIN [--native-issuer ISSUER]` builds `:androidApp:assembleDebug`
+`theatre-host android-debug --api-origin ORIGIN` builds `:androidApp:assembleDebug`
 then inspects the actual debug APK (expecting application ID
 `com.cantos.theatre.dev`) and prints
 installed-tool signature/version facts (`apksigner verify --print-certs -v`, `aapt2 dump badging`)
 with `-Pcantos.apiOrigin=ORIGIN`. It accepts `https://` or `http://127.0.0.1|localhost:<port>`
 (for `adb reverse`) and refuses anything else with exit 2 before Gradle. The debug manifest overlay
-adds only a cleartext policy limited to those loopback hosts. The APK composes the production catalog, native player and account/Library owners. Native JSON
-transport requires HTTPS; loopback HTTP is a catalog-only local diagnostic. Installing it on a
+adds only a cleartext policy limited to those loopback hosts. The APK composes the production catalog, native player and account/Library owners.
+The one origin owner (`selectCatalogOrigin`) admits that origin once; the public catalog and the
+first-party Identity v1 JSON transport (email/password) both use it, so a debug host's loopback HTTP
+origin also carries Identity v1. Release builds and iOS stay HTTPS-only and the release
+manifest/network policy forbid cleartext. `--api-origin` is the only app configuration input: no
+build declares a browser callback, URL scheme or provider issuer, and the inspector rejects a built
+manifest (debug or release, audit or optimized) that carries one. Installing it on a
 device is the developer's own `adb install`.
 
 `theatre-host ios-build --kotlin-native-home PATH` checks the installed Kotlin/Native 2.2.20
@@ -1311,48 +1187,12 @@ native listening acceptance. Preflight does not run it (it selects only the JVM
 mock gate for host changes and notes this command). See the
 [isolation record](../docs/evidence/issue122-cmp-sandbox-isolation.md#production-android-host-and-release-artifact-acceptance).
 
-The retained local fixture can now select its existing test context with
-`CANTOS_TEST_CONTEXT=editorial|catalog|audio` on `run cantos-studio --web --test-cluster`.
-Editorial is the default. Audio selects the fresh runner's exact AudioLifecycle database and
-private root; it does not provision identity/storage or use an inherited database URL.
-PostgreSQL verification now discards completed suite databases only after their tests pass,
-retaining all five restart fixtures for the existing crash/replay assertions. This bounds local
-disk consumption without removing any test or weakening PostgreSQL durability settings.
-Completed-database cleanup permits up to 60 seconds for a durable checkpoint; it never uses
-`DROP ... FORCE` or closes an unrelated connection.
-
+The old `CANTOS_TEST_CONTEXT=editorial|catalog|audio` retained-cluster fixture is historical.
+`run --test-cluster` and the direct PostgreSQL runner refuse before setup; do not use them
+to qualify a native host. The archived fixture assertions remain #333 porting inputs.
 ### Studio Kanidm operator tools
 
-`cargo xtask kanidm reconcile --issuer ISSUER --web-origin ORIGIN --group GROUP --dry-run`
-prints a typed Studio-only client/callback/openid plan. It has no mutation execution path and
-reports provider reconciliation NOT_RUN. No container, user, grants, credential or TLS bootstrap
-is started. `cargo xtask kanidm verify --issuer ISSUER --web-origin ORIGIN [--dry-run]` invokes the
-API's bounded read-only discovery/JWKS primitive only when explicitly run; dry-run starts nothing.
-Metadata PASS establishes no user login, disable/logout or production acceptance. These optional
-operator operations are outside preflight/CI; Rust tests exercise their plans and the real adapter
-against ephemeral signed HTTP mocks. See the [operator policy](../services/kanidm/README.md).
-
-
-### verify web-bearer
-
-`cargo xtask verify web-bearer [--dry-run]` is an explicit, local-only browser fixture for #253.
-It builds both actual Web apps with the fixed nonsecret mock API `http://127.0.0.1:18080`, serves
-synthetic API/issuer pages on loopback ports18080–18083, and drives installed Chromium via Node's
-built-in CDP WebSocket. It uses a new disposable browser profile, installs nothing and calls no
-live provider, account, gateway, database, Firebase or deployment command. Ordinary gates,
-preflight, CI and run/build never invoke it.
-
-Requires Node22+ with WebSocket and an installed Chromium executable. On macOS it defaults to
-Google Chrome's application executable; another installed host supplies the absolute path in
-`CANTOS_TEST_CHROMIUM`. Missing prerequisites leave the fixture unavailable; occupied loopback
-ports or a failed executed scenario are failures. Browser subprocesses and HTTP listeners are
-owned by this invocation and closed on completion. The isolated profile is removed; reports,
-source/bundle hashes and synthetic captures remain under ignored `artifacts/agent-runs/`.
-The run must use a frozen source tree; source changes invalidate its result.
-
-It exercises production Web lifecycle/transport with mocked identity/API only. Third-party
-cookie restrictions have an intentional cross-site probe plus a first-party positive control;
-this does not establish real Kanidm, gateway, Hosting headers, other engines or native media
-acceptance. Source download evidence uses generated synthetic UTF-8 bytes. Inspect captured PNGs
-before claiming visual review. Rebuild through normal `verify web` after this fixture when a
-normal-origin local bundle is needed; these mock-addressed outputs are never a deployment input.
+Retired with provider authentication. `cargo xtask kanidm` refuses before metadata requests,
+probes, account/bootstrap operations or writes. Current auth uses
+[Identity v1](../services/cantos-server/contracts/auth/identity-auth/v1/README.md); Studio roster admission remains distinct
+from password authentication, and Admin fails closed without its verifier.

@@ -57,7 +57,11 @@ class NativeLauncherLogos(unittest.TestCase):
         activity = application.find("activity")
         self.assertEqual(activity.attrib[self.android + "launchMode"], "singleTask")
         self.assertEqual(activity.attrib[self.android + "theme"], "@style/Theme.Cantos.Starting")
-        self.assertEqual(activity.find(".//data").attrib[self.android + "scheme"], "${applicationId}")
+        # The launcher entry stays; the retired provider sign-in callback must not come back.
+        filters = [{element.attrib[self.android + "name"] for element in intent if element.tag in {"action", "category"}}
+                   for intent in activity.findall("intent-filter")]
+        self.assertEqual(filters, [{"android.intent.action.MAIN", "android.intent.category.LAUNCHER"}])
+        self.assertIsNone(activity.find(".//data"))
         # Night is selected before density/API. A night legacy PNG must never override the
         # adaptive icon on API26+, so both appearances need their own anydpi-v26 descriptor.
         for qualifier in ("mipmap-anydpi-v26", "mipmap-night-anydpi-v26"):

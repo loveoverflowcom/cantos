@@ -29,18 +29,18 @@ The following are **inspection facts**, not newly executed runtime tests:
 
 | Implemented authority | Source and observed boundary |
 | --- | --- |
-| Public Work/unit wire shape | [strict shared Rust DTOs](../../packages/contracts/api/src/theatre.rs), [JSON Schema](../../packages/contracts/schema/theatre/discovery/v1.schema.json) and [literal fixtures](../../packages/contracts/fixtures/theatre/discovery/v1); no genre/credits/season fields |
-| Query keys and typed rejection | [HTTP Theatre owner](../../services/cantos-api/src/adapters/inbound/http/theatre.rs): works/search accept q, kind, language, limit and cursor; both query structs deny unknown fields and translate rejection to invalid_request |
-| Pure eligibility and query normalization | [Media listening core](../../services/cantos-api/src/contexts/media/domain/listening.rs): exact pinned/current identity checks, current visibility/archive/owner/rights gating; bounded q/language/limit |
-| Metadata and media projection | [listener projection](../../services/cantos-api/src/contexts/media/listener_projection.rs): released Work/unit text, actual released audio language, immutable listing anchors; no private envelope fields |
-| Revision authority and batched reads | [Catalog facade](../../services/cantos-api/src/contexts/catalog/postgres/listener.rs) loads exact release-pinned revisions plus current eligibility snapshots, checks their digests and bounds requests to 51; no per-item Catalog query |
-| Representative selection and indexing | [Media PostgreSQL adapter](../../services/cantos-api/src/contexts/media/postgres/listener.rs): newest eligible active release per Work by published time descending and release ID ascending, then filters; immutable first-publication/first-position anchors |
-| Cursor binding | [cursor vault](../../services/cantos-api/src/contexts/media/listener_cursor.rs) binds the normalized DiscoveryQuery and typed keyset; 15-minute expiry, 4096 entries, restart invalidation, no query/private identity in token |
+| Public Work/unit wire shape | [strict shared Rust DTOs](../../services/cantos-server/src/contract/theatre/discovery.rs), [JSON Schema](../../services/cantos-server/contracts/theatre/discovery/v1/discovery.schema.json) and [literal fixtures](../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/); no genre/credits/season fields |
+| Query keys and typed rejection | [HTTP Theatre owner](../../services/cantos-server/src/adapters/inbound/http/theatre.rs): works/search accept q, kind, language, limit and cursor; both query structs deny unknown fields and translate rejection to invalid_request |
+| Pure eligibility and query normalization | [Media listening core](../../services/cantos-server/src/contexts/media/domain/listening.rs): exact pinned/current identity checks, current visibility/archive/owner/rights gating; bounded q/language/limit |
+| Metadata and media projection | [listener projection](../../services/cantos-server/src/contexts/media/listener_projection.rs): released Work/unit text, actual released audio language, immutable listing anchors; no private envelope fields |
+| Revision authority and batched reads | [Catalog facade](../../services/cantos-server/src/contexts/catalog/turso/listener.rs) loads exact release-pinned revisions plus current eligibility snapshots, checks their digests and bounds requests to 51; no per-item Catalog query |
+| Representative selection and indexing | [Media Turso adapter](../../services/cantos-server/src/contexts/media/turso/listener.rs): newest eligible active release per Work by published time descending and release ID ascending, then filters; immutable first-publication/first-position anchors |
+| Cursor binding | [cursor vault](../../services/cantos-server/src/contexts/media/listener_cursor.rs) binds the normalized DiscoveryQuery and typed keyset; 15-minute expiry, 4096 entries, restart invalidation, no query/private identity in token |
 | Current live Web consumer | [discovery reader](../../apps/cantos-theatre/web/src/live/discovery.rs) fetches works with limit 20; [public shelf](../../apps/cantos-theatre/web/src/features/public_home.rs) renders kind/title/description. Mock Explore genres and mock episode labels are not live consumer or taxonomy evidence |
 | Existing behavior catalog | [Quint catalog](../../specs/behavior/catalog.json) contains private audio admission, publishing lifecycle and progress, not a public metadata capability; no metadata model acceptance may be inferred |
 
-Retain [Discovery v1](../../packages/contracts/theatre-discovery-v1.md) and
-[Publication v1](../../packages/contracts/publication-v1.md) as the actual contract authorities.
+Retain [Discovery v1](../../services/cantos-server/contracts/theatre/discovery/v1/README.md) and
+[Publication v1](../../services/cantos-server/contracts/studio/publication/v1/README.md) as the actual contract authorities.
 The [private artwork plan](../archive/superseded-plans/012-private-work-artwork.md#deferred-scope-with-a-concrete-trigger-rather-than-placeholder-fields)
 requires a separate use case/decision for each P1 family. Its historical private-cover baseline
 is not current public metadata acceptance. Do not reimplement q/kind/language search v1.
@@ -55,11 +55,11 @@ proposal, not a commercial or metadata source. None supplies #157's missing P1 d
 
 ## Existing Discovery v1 continuation repair
 
-The [existing pagination contract](../../packages/contracts/theatre-discovery-v1.md#opaque-keyset-pagination)
+The [existing pagination contract](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#opaque-keyset-pagination)
 allows an empty page with a next cursor when eligibility changes during a bounded read.
-The [PostgreSQL reader](../../services/cantos-api/src/contexts/media/postgres/listener.rs)
+The [Turso reader](../../services/cantos-server/src/contexts/media/turso/listener.rs)
 retains the scanned continuation after its final expiry check. Previously,
-[`ListenerService::units`](../../services/cantos-api/src/contexts/media/listener_application.rs)
+[`ListenerService::units`](../../services/cantos-server/src/contexts/media/listener_application.rs)
 discarded that continuation on an empty first page by returning `not_found`.
 
 The application now returns `not_found` on an empty initial unit page only when the read also
@@ -152,7 +152,7 @@ and season rows need their own applicable decisions only when their slices are s
    cross-page snapshot; document insertion/removal/replacement behavior honestly.
 5. **Bounded PostgreSQL work:** apply selected-representative filters before limit, avoid
    duplicate Works for multi-genre joins, and retain batched metadata admission. Follow the
-   [read-performance owner](../../.agents/skills/cantos-engineering/references/postgresql-read-performance.md)
+   [read-performance owner](../../.agents/skills/cantos-engineering/references/turso-read-performance.md)
    before choosing indexes, scanning JSON, DBSP or another endpoint. Measure eligible and
    ineligible high-cardinality data, query/label length and selection count. No unbounded LIKE,
    per-item metadata/grant lookup or full-catalog facet count without a measured accepted bound.

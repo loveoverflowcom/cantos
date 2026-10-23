@@ -6,10 +6,25 @@ use crate::application::{
     library::{LibraryPage, Section},
     library_sync::CommandError,
 };
-use cantos_contracts::listener_library::{
+use crate::contract::library::{
     self as dto, AudioIdentity, AudioPresentation, HistoryState, MutationState, ProgressKind,
     ProgressRecord, Receipt, ResumeStatus, SavedRecord, WorkPresentation, WriteOutcome,
 };
+
+/// 429 is the API's Identity budget: bounded Retry-After, never a dense retry. In production
+/// `Lease::receive` reads the header (exposed to the configured Web origin; a proxy that drops it
+/// gets a conservative default), arms the surface-wide gate and answers before any decoder runs,
+/// so the decoders below only ever see a 429 when called directly: they keep the default.
+pub fn rate_limited(status: u16, retry_after: Option<&str>) -> Option<AccountFailure> {
+    (status == 429)
+        .then(|| AccountFailure::RateLimited(cantos_web_auth::core::retry_after(retry_after)))
+}
+
+/// The session the API echoes on every admitted answer. `Lease::receive` drops the local session
+/// when it names another one; the decoders below still require it to name this one exactly.
+#[cfg(target_arch = "wasm32")]
+const SESSION_HEADER: &str =
+    cantos_web_auth::core::session_header(cantos_web_auth::Surface::Theatre);
 
 pub fn check_response(
     status: u16,
@@ -17,7 +32,11 @@ pub fn check_response(
     response_session: Option<&str>,
     expected_session: &str,
 ) -> Result<(), AccountFailure> {
+    if let Some(limited) = rate_limited(status, None) {
+        return Err(limited);
+    }
     match status {
+        // Only a 401 is a lost session. 403 is a refusal (wrong Origin, no permission).
         401 => return Err(AccountFailure::SignedOut),
         403 => {
             return Err(AccountFailure::Diagnostic(
@@ -195,6 +214,9 @@ pub fn decode_page(section: Section, body: &[u8]) -> Result<LibraryPage, Account
 pub enum WriteHttpOutcome {
     Receipt(Box<Receipt>),
     UnknownOutcome,
+    /// The gate or a 429 held the request. Whether the write was applied is still unknown, so the
+    /// operation keeps its id and recovers receipt-first; nothing is resent before the deadline.
+    RateLimited(u32),
     Error(CommandError),
 }
 
@@ -203,6 +225,7 @@ pub enum OperationLookupOutcome {
     Found(Box<Receipt>),
     NotFound,
     UnknownOutcome,
+    RateLimited(u32),
     Error(CommandError),
 }
 
@@ -211,8 +234,19 @@ fn check_session_header(
     response_session: Option<&str>,
     expected_session: &str,
 ) -> Result<(), CommandError> {
-    if status == 401 || status == 403 {
+    // 401 is the only lost session; 403 is a refusal that must not run expiry cleanup.
+    if status == 401 {
         return Err(CommandError::SignedOut);
+    }
+    if status == 403 {
+        return Err(CommandError::Forbidden);
+    }
+    // Identity budget spent before dispatch. `Lease::receive` normally answers first, with the
+    // header; reaching a decoder means the conservative default applies.
+    if status == 429 {
+        return Err(CommandError::RateLimited(
+            cantos_web_auth::core::retry_after(None),
+        ));
     }
     if let Some(actual) = response_session {
         if actual != expected_session {
@@ -340,6 +374,7 @@ pub fn decode_write_response(
     if let Err(err) = check_session_header(status, response_session, expected_session) {
         return match err {
             CommandError::Unavailable => WriteHttpOutcome::UnknownOutcome,
+            CommandError::RateLimited(seconds) => WriteHttpOutcome::RateLimited(seconds),
             other => WriteHttpOutcome::Error(other),
         };
     }
@@ -387,6 +422,7 @@ pub fn decode_operation_lookup(
     if let Err(err) = check_session_header(status, response_session, expected_session) {
         return match err {
             CommandError::Unavailable => OperationLookupOutcome::UnknownOutcome,
+            CommandError::RateLimited(seconds) => OperationLookupOutcome::RateLimited(seconds),
             other => OperationLookupOutcome::Error(other),
         };
     }
@@ -450,10 +486,19 @@ pub const HISTORY_CLEAR_PATH: &str = "/api/v1/theatre/library/history/clear";
 
 #[cfg(target_arch = "wasm32")]
 fn map_auth_to_command_error(error: cantos_web_auth::Failure) -> CommandError {
-    match super::account::auth_error(error) {
+    command_error_of(super::failure::auth_error(error))
+}
+
+/// Session admission failures keep their identity; everything else is an unknown outcome.
+pub fn command_error_of(failure: AccountFailure) -> CommandError {
+    match failure {
         AccountFailure::SignedOut => CommandError::SignedOut,
         AccountFailure::SessionChanged => CommandError::SessionChanged,
         AccountFailure::Protocol => CommandError::Protocol,
+        AccountFailure::RateLimited(seconds) => CommandError::RateLimited(seconds),
+        AccountFailure::Diagnostic(crate::application::errors::ErrorKind::Forbidden) => {
+            CommandError::Forbidden
+        }
         _ => CommandError::Unavailable,
     }
 }
@@ -466,7 +511,7 @@ async fn send_authenticated(
     json_body: Option<String>,
 ) -> Result<(u16, Option<String>, Option<String>, Vec<u8>), CommandError> {
     use gloo_net::http::RequestBuilder;
-    use web_sys::{AbortController, RequestCredentials};
+    use web_sys::AbortController;
 
     let credential = crate::api_endpoint::auth()
         .map_err(map_auth_to_command_error)?
@@ -481,13 +526,10 @@ async fn send_authenticated(
         "POST" => gloo_net::http::Method::POST,
         _ => gloo_net::http::Method::GET,
     };
-    let mut builder = RequestBuilder::new(&url)
-        .method(http_method)
-        .credentials(RequestCredentials::Omit)
-        .redirect(web_sys::RequestRedirect::Error)
-        .header("Authorization", &credential.header())
+    // Cookie credential plus the session fence, from the one policy owner.
+    let mut builder = credential
+        .apply(RequestBuilder::new(&url).method(http_method))
         .header("Accept", "application/json")
-        .header("X-Cantos-Theatre-Session", expected_session)
         .abort_signal(Some(&deadline.controller.signal()));
     let response = if let Some(body) = json_body {
         builder = builder.header("Content-Type", "application/json");
@@ -503,12 +545,15 @@ async fn send_authenticated(
             .await
             .map_err(|_| CommandError::Unavailable)?
     };
-    credential
-        .response(response.status())
-        .map_err(map_auth_to_command_error)?;
     let status = response.status();
+    // The shared owner judges every protected answer before any body is read: a 429 arms the
+    // gate for the whole surface, a stale lease or a real 401 is refused, and an echo of another
+    // session (another tab changed the account) drops the local session so the owner re-reads.
+    credential
+        .receive(&response)
+        .map_err(map_auth_to_command_error)?;
     let content_type = response.headers().get("content-type");
-    let response_session = response.headers().get("X-Cantos-Theatre-Session");
+    let response_session = response.headers().get(SESSION_HEADER);
     let bytes = response
         .binary()
         .await
@@ -571,6 +616,7 @@ pub async fn load_operation_receipt(
             &body,
         ),
         Err(CommandError::Unavailable) => OperationLookupOutcome::UnknownOutcome,
+        Err(CommandError::RateLimited(seconds)) => OperationLookupOutcome::RateLimited(seconds),
         Err(err) => OperationLookupOutcome::Error(err),
     }
 }
@@ -614,6 +660,8 @@ pub async fn send_mutation(expected_session: &str, payload: &MutationPayload) ->
             &body,
         ),
         Err(CommandError::Unavailable) => WriteHttpOutcome::UnknownOutcome,
+        // Held before dispatch or answered 429: never a definite failure that drops the operation.
+        Err(CommandError::RateLimited(seconds)) => WriteHttpOutcome::RateLimited(seconds),
         Err(err) => WriteHttpOutcome::Error(err),
     }
 }
@@ -621,7 +669,7 @@ pub async fn send_mutation(expected_session: &str, payload: &MutationPayload) ->
 #[cfg(target_arch = "wasm32")]
 pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailure> {
     use gloo_net::http::Request;
-    use web_sys::{AbortController, RequestCredentials};
+    use web_sys::AbortController;
     let expected_session = request.session();
     let credential = crate::api_endpoint::auth()
         .map_err(super::account::auth_error)?
@@ -632,40 +680,30 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
         .map_err(|_| AccountFailure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
     let deadline = super::browser::deadline(controller)
         .map_err(|_| AccountFailure::Diagnostic(crate::application::errors::ErrorKind::Network))?;
-    let response = Request::get(
-        &crate::api_endpoint::endpoint(&request_path(request))
-            .map_err(|_| AccountFailure::Unavailable)?,
-    )
-    .credentials(RequestCredentials::Omit)
-    .redirect(web_sys::RequestRedirect::Error)
-    .header("Authorization", &credential.header())
-    .abort_signal(Some(&deadline.controller.signal()))
-    .header("Accept", "application/json")
-    .header("X-Cantos-Theatre-Session", expected_session)
-    .send()
-    .await
-    .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
-    credential
-        .response(response.status())
-        .map_err(super::account::auth_error)?;
+    let response = credential
+        .apply(Request::get(
+            &crate::api_endpoint::endpoint(&request_path(request))
+                .map_err(|_| AccountFailure::Unavailable)?,
+        ))
+        .abort_signal(Some(&deadline.controller.signal()))
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|_| AccountFailure::Diagnostic(deadline.failure_kind()))?;
     let body_status = response.status();
+    // 429 gate, stale lease, real 401 and an echo of another session, before any body.
+    credential
+        .receive(&response)
+        .map_err(super::account::auth_error)?;
     // Even error pages must echo this exact session before their body can affect this account.
     if body_status == 400 {
         check_response(
             200,
             response.headers().get("content-type").as_deref(),
-            response
-                .headers()
-                .get("X-Cantos-Theatre-Session")
-                .as_deref(),
+            response.headers().get(SESSION_HEADER).as_deref(),
             expected_session,
         )?;
-        if response
-            .headers()
-            .get("X-Cantos-Theatre-Session")
-            .as_deref()
-            != Some(expected_session)
-        {
+        if response.headers().get(SESSION_HEADER).as_deref() != Some(expected_session) {
             return Err(AccountFailure::SessionChanged);
         }
         let body = response
@@ -684,10 +722,7 @@ pub async fn load(request: &LibraryRequest) -> Result<LibraryPage, AccountFailur
     check_response(
         body_status,
         response.headers().get("content-type").as_deref(),
-        response
-            .headers()
-            .get("X-Cantos-Theatre-Session")
-            .as_deref(),
+        response.headers().get(SESSION_HEADER).as_deref(),
         expected_session,
     )?;
     let body = response
@@ -736,6 +771,98 @@ mod tests {
                 "session-a"
             ),
             Ok(())
+        );
+    }
+
+    #[test]
+    fn only_a_401_is_a_lost_session_for_point_reads_writes_and_receipts() {
+        let op = uuid::Uuid::from_u128(100).to_string();
+        let work = uuid::Uuid::from_u128(10).to_string();
+        let json = Some("application/json");
+        let body = br#"{"code":"forbidden","retryable":false}"#;
+        // 401: signed out, on every protected decoder.
+        assert_eq!(
+            decode_saved_point(401, json, None, "session-a", &work, body),
+            Err(CommandError::SignedOut)
+        );
+        assert_eq!(
+            decode_progress_point(401, json, None, "session-a", &work, body),
+            Err(CommandError::SignedOut)
+        );
+        assert_eq!(
+            decode_write_response(401, json, None, "session-a", &op, body),
+            WriteHttpOutcome::Error(CommandError::SignedOut)
+        );
+        assert_eq!(
+            decode_operation_lookup(401, json, None, "session-a", &op, body),
+            OperationLookupOutcome::Error(CommandError::SignedOut)
+        );
+        // 403: a refusal that must never run the lost-session cleanup, and (for a write) a
+        // definite refusal, not an unknown outcome.
+        assert_eq!(
+            decode_saved_point(403, json, None, "session-a", &work, body),
+            Err(CommandError::Forbidden)
+        );
+        assert_eq!(
+            decode_progress_point(403, json, None, "session-a", &work, body),
+            Err(CommandError::Forbidden)
+        );
+        assert_eq!(
+            decode_write_response(403, json, None, "session-a", &op, body),
+            WriteHttpOutcome::Error(CommandError::Forbidden)
+        );
+        assert_eq!(
+            decode_operation_lookup(403, json, None, "session-a", &op, body),
+            OperationLookupOutcome::Error(CommandError::Forbidden)
+        );
+        for error in [CommandError::Forbidden, CommandError::RateLimited(7)] {
+            assert_eq!(error.to_account_failure(), None, "{error:?}");
+        }
+    }
+
+    #[test]
+    fn a_write_or_lookup_held_by_a_429_keeps_its_operation_and_is_never_a_refusal() {
+        let op = uuid::Uuid::from_u128(100).to_string();
+        let json = Some("application/json");
+        // Decoders only see a 429 when called directly: the conservative default applies.
+        assert_eq!(
+            decode_write_response(429, json, None, "session-a", &op, b"{}"),
+            WriteHttpOutcome::RateLimited(30)
+        );
+        assert_eq!(
+            decode_operation_lookup(429, json, None, "session-a", &op, b"{}"),
+            OperationLookupOutcome::RateLimited(30)
+        );
+        // The owner's typed answer (gate or Retry-After) keeps its seconds through the mapping.
+        assert_eq!(
+            command_error_of(AccountFailure::RateLimited(12)),
+            CommandError::RateLimited(12)
+        );
+        assert_eq!(
+            command_error_of(AccountFailure::Diagnostic(
+                crate::application::errors::ErrorKind::Forbidden
+            )),
+            CommandError::Forbidden
+        );
+        assert_eq!(
+            command_error_of(AccountFailure::Unavailable),
+            CommandError::Unavailable
+        );
+    }
+
+    #[test]
+    fn reads_judge_rate_limit_and_refusal_before_any_session_echo() {
+        // Dropping the local session on another session's echo is `Lease::receive`'s rule
+        // (tested in `cantos-web-auth`); a decoder only refuses what is left.
+        assert_eq!(
+            check_response(429, Some("application/json"), None, "session-a"),
+            Err(AccountFailure::RateLimited(30))
+        );
+        assert_eq!(
+            check_response(403, Some("application/json"), None, "session-a"),
+            Err(AccountFailure::Diagnostic(
+                crate::application::errors::ErrorKind::Forbidden
+            ))
         );
     }
 
@@ -863,12 +990,12 @@ mod presentation_tests {
     use super::*;
     fn fixture(section: Section, unavailable: bool) -> &'static [u8] {
         match (section, unavailable) {
-            (Section::Continue, false) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue.json"),
-            (Section::Continue, true) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue_unavailable.json"),
-            (Section::Saved, false) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json"),
-            (Section::Saved, true) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved_unavailable.json"),
-            (Section::History, false) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_history.json"),
-            (Section::History, true) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_history_unavailable.json"),
+            (Section::Continue, false) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue.json"),
+            (Section::Continue, true) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue_unavailable.json"),
+            (Section::Saved, false) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json"),
+            (Section::Saved, true) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved_unavailable.json"),
+            (Section::History, false) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_history.json"),
+            (Section::History, true) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_history_unavailable.json"),
         }
     }
     #[test]

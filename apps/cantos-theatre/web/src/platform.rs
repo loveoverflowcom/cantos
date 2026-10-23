@@ -239,3 +239,104 @@ pub fn set_title(_title: &str) {}
 
 pub(crate) mod auth_browser;
 pub(crate) mod signup_browser;
+
+/// Pinned keyed rendering moves retained nodes with insertBefore, which can clear browser
+/// focus/selection. Snapshot before that synchronous diff; restore in its next microtask,
+/// before the existing page-completion RAF. Never carry interaction across removed owners.
+pub(crate) fn preserve_library_row_interaction(list: NodeRef<leptos::html::Ul>) {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(list) = list.get_untracked() {
+        preserve_library_interaction(&list);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = list;
+}
+
+// Native Selection bindings stay at the browser boundary. Reuse Leptos's wasm-bindgen;
+// no new dependency/features or production test hook is needed.
+#[cfg(target_arch = "wasm32")]
+#[leptos::wasm_bindgen::prelude::wasm_bindgen(
+    wasm_bindgen = leptos::wasm_bindgen,
+    inline_js = r#"
+export function preserve_library_interaction(list) {
+    const doc = list.ownerDocument;
+    const active = list.contains(doc.activeElement) ? doc.activeElement : null;
+    const selection = doc.getSelection();
+    const inside = node => node && list.contains(node);
+    const saved = selection && inside(selection.anchorNode) && inside(selection.focusNode)
+        ? {anchor: selection.anchorNode, anchorOffset: selection.anchorOffset,
+           focus: selection.focusNode, focusOffset: selection.focusOffset,
+           anchorText: selection.anchorNode.textContent, focusText: selection.focusNode.textContent}
+        : null;
+    if (!active && !saved) return;
+    queueMicrotask(() => {
+        if (!list.isConnected) return;
+        if (active && inside(active) && active.isConnected &&
+            (!doc.activeElement || doc.activeElement === doc.body)) {
+            active.focus({preventScroll: true});
+        }
+        if (saved && inside(saved.anchor) && inside(saved.focus) &&
+            saved.anchor.isConnected && saved.focus.isConnected &&
+            saved.anchor.textContent === saved.anchorText && saved.focus.textContent === saved.focusText) {
+            selection.setBaseAndExtent(saved.anchor, saved.anchorOffset, saved.focus, saved.focusOffset);
+        }
+    });
+}
+"#
+)]
+extern "C" {
+    fn preserve_library_interaction(list: &leptos::web_sys::HtmlUListElement);
+}
+
+/// Keep keyboard focus on the retained row when its action subtree becomes unavailable.
+/// Call synchronously at the conditional boundary, while the focused node is still connected.
+pub(crate) fn focus_before_unit_actions_removed(
+    actions: NodeRef<leptos::html::Div>,
+    heading: NodeRef<leptos::html::H3>,
+) {
+    #[cfg(target_arch = "wasm32")]
+    if let (Some(actions), Some(heading)) = (actions.get_untracked(), heading.get_untracked()) {
+        let active = leptos::web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.active_element());
+        if active
+            .as_ref()
+            .is_some_and(|active| actions.contains(Some(active)))
+        {
+            let _ = heading.focus();
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = (actions, heading);
+}
+
+/// A disappearing unit action has already handed focus to its retained heading during render.
+/// Preserve that handoff when the page request's usual status/new-row focus runs afterward.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn focus_after_unit_page(id: String) {
+    leptos::leptos_dom::helpers::request_animation_frame(move || {
+        use leptos::wasm_bindgen::JsCast;
+        let Some(document) = leptos::web_sys::window().and_then(|w| w.document()) else {
+            return;
+        };
+        let handed_off = document.active_element().is_some_and(|active| {
+            active.tag_name() == "H3"
+                && active.id().starts_with("theatre-public-unit-")
+                && active
+                    .parent_element()
+                    .and_then(|copy| copy.parent_element())
+                    .is_some_and(|row| {
+                        row.get_attribute("data-unavailable").as_deref() == Some("true")
+                    })
+        });
+        if handed_off {
+            return;
+        }
+        if let Some(element) = document
+            .get_element_by_id(&id)
+            .and_then(|e| e.dyn_into::<leptos::web_sys::HtmlElement>().ok())
+        {
+            let _ = element.focus();
+        }
+    });
+}

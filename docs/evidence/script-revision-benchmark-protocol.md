@@ -1,5 +1,14 @@
 # Prompt-3 bounded read benchmark protocol
 
+> **Historical PostgreSQL protocol.** The direct benchmark runner is now a refusal-only stub;
+> the commands below describe the source-bound campaign, not a supported native workflow.
+> Its former implementation is preserved at
+> [the pre-retirement source](https://github.com/loveoverflowcom/cantos/blob/84eea4c3843908f4f21da9760381c129e21d5263/scripts/benchmark_revision_reads.py).
+> Results/hashes remain unchanged. Native file/HTTP regressions are mapped in the
+> [oracle ledger](../architecture/server-turso/legacy-test-oracles-content.md); comparable
+> production query measurements remain #384 work.
+
+
 Protocol fixed before measurement, on `626416500599b852dc985683fa3a4ac905f9401f` plus
 the new benchmark harness. This is a local sizing experiment for the **implemented**
 development API, not a production traffic forecast or SLO. The

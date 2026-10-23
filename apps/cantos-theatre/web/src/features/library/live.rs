@@ -1,19 +1,19 @@
 //! Web-owned Library composition over the full presented read model, separate from demo data.
+use crate::contract::library::{
+    AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
+};
 use crate::{
     app::routes::Route,
     application::{
         account_view::{AccountFailure, AccountViewState, SessionPhase},
         library::{LibraryProjection, PagePhase, Section},
         library_sync::{
-            HistoryCommandPhase, LibrarySyncState, ProgressCommandPhase, ProgressConflict,
-            ResumeAttemptState, ResumeRefusal, SavedCommandPhase,
+            HistoryCommandPhase, ProgressCommandPhase, ProgressConflict, ResumeAttemptState,
+            ResumeRefusal, SavedCommandPhase,
         },
     },
     core::public_ids::PublicWorkId,
     messages::{self, Key, Locale},
-};
-use cantos_contracts::listener_library::{
-    AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
 };
 use cantos_ui::{Button, ButtonState, ButtonVariant, DisabledReason};
 use leptos::prelude::*;
@@ -56,324 +56,8 @@ fn availability(resume: ResumeStatus) -> Key {
         ResumeStatus::AccessUnavailable => Key::LiveResumeUnavailable,
     }
 }
-fn title(presentation: Option<WorkPresentation>, locale: Locale) -> AnyView {
-    match presentation.and_then(|work| PublicWorkId::parse(&work.work_id).map(|id| (work, id))) {
-        Some((work, id)) => view! {
-            <h3 class="theatre-row-label" lang=work.language><a href=Route::PublicWork(id).hash()>{work.title}</a></h3>
-        }.into_any(),
-        None => view! { <h3 class="theatre-row-label">{messages::text(Key::LiveLibraryMetadataUnavailable, locale)}</h3> }.into_any(),
-    }
-}
-#[allow(clippy::too_many_arguments)]
-fn audio_row(
-    section: Section,
-    audio: &AudioIdentity,
-    position: Option<u64>,
-    completion: Option<Completion>,
-    resume: ResumeStatus,
-    presentation: Option<AudioPresentation>,
-    sync: Option<&LibrarySyncState>,
-    actions: Option<LibraryActions>,
-    locale: Locale,
-) -> AnyView {
-    let unit = presentation
-        .as_ref()
-        .map(|p| (p.unit_title.clone(), p.work.language.clone()));
-    let unit_title_for_sr = presentation
-        .as_ref()
-        .map(|p| p.unit_title.clone())
-        .unwrap_or_default();
-    let work = presentation.as_ref().map(|p| p.work.clone());
-    let time = position.map_or_else(
-        || messages::text(Key::LiveLibraryNoPosition, locale).to_owned(),
-        |position| {
-            let base = messages::format(
-                Key::LivePosition,
-                locale,
-                &[
-                    ("position", clock(position)),
-                    ("total", clock(audio.duration_ms)),
-                ],
-            );
-            if completion == Some(Completion::Completed) {
-                format!(
-                    "{base} · {}",
-                    messages::text(Key::LiveResumeCompleted, locale)
-                )
-            } else {
-                base
-            }
-        },
-    );
-    let resume_feedback = sync.and_then(|s| match s.resume_attempt() {
-        ResumeAttemptState::Restored {
-            publication_id,
-            position_ms,
-        } if publication_id == &audio.publication_id => Some(messages::format(
-            Key::LiveResumeRestored,
-            locale,
-            &[("time", clock(u64::from(*position_ms)))],
-        )),
-        ResumeAttemptState::Refused {
-            publication_id,
-            reason,
-        } if publication_id == &audio.publication_id => {
-            let key = match reason {
-                ResumeRefusal::ReleaseReplaced => Key::LiveResumeReplaced,
-                ResumeRefusal::AccessUnavailable => Key::LiveResumeUnavailable,
-                ResumeRefusal::LoadFailed | ResumeRefusal::Protocol => Key::LiveResumeLoadFailed,
-            };
-            Some(messages::text(key, locale).to_owned())
-        }
-        _ => None,
-    });
-    let progress_command = sync
-        .and_then(|s| s.progress_for(&audio.publication_id))
-        .map(|p| p.command.clone())
-        .unwrap_or_default();
-    let pub_id = audio.publication_id.clone();
-    let resume_id = format!("theatre-library-{}-resume-{}", section.name(), pub_id);
-    let audio_owned = audio.clone();
-    let pres_owned = presentation;
-    let resume_pos = position.unwrap_or(0);
-    view! {
-        <li class="theatre-row" data-publication-id=pub_id.clone()>
-            <div class="theatre-row-copy">
-                {title(work, locale)}
-                {unit.map(|(title, language)| view! { <p lang=language>{title}</p> })}
-                <p>{time}</p>
-                <p class="theatre-muted">{messages::text(availability(resume), locale)}</p>
-                {resume_feedback.map(|msg| view! { <p class="theatre-muted" role="status">{msg}</p> })}
-                {match progress_command {
-                    ProgressCommandPhase::Conflict(ProgressConflict::ListenerChooses {
-                        local_position_ms,
-                        server,
-                        ..
-                    }) => {
-                        let prompt = messages::format(
-                            Key::LiveProgressConflictPrompt,
-                            locale,
-                            &[
-                                ("local", clock(local_position_ms)),
-                                ("server", clock(server.position_ms)),
-                            ],
-                        );
-                        let keep_here = messages::format(
-                            Key::LiveProgressResolveHere,
-                            locale,
-                            &[("time", clock(local_position_ms))],
-                        );
-                        let keep_other = messages::format(
-                            Key::LiveProgressResolveOther,
-                            locale,
-                            &[("time", clock(server.position_ms))],
-                        );
-                        let pub_here = pub_id.clone();
-                        let pub_other = pub_id.clone();
-                        Some(view! {
-                            <div class="theatre-conflict-panel" role="status">
-                                <p>{prompt}</p>
-                                {actions.map(|act| view! {
-                                    <div class="theatre-actions">
-                                        <Button id=format!("theatre-library-{}-resolve-here-{}", section.name(), pub_here)
-                                            variant=ButtonVariant::Tonal
-                                            on_press=Callback::new(move |_| act.on_resolve_progress.run((pub_here.clone(), true)))>
-                                            {keep_here}
-                                        </Button>
-                                        <Button id=format!("theatre-library-{}-resolve-other-{}", section.name(), pub_other)
-                                            variant=ButtonVariant::Text
-                                            on_press=Callback::new(move |_| act.on_resolve_progress.run((pub_other.clone(), false)))>
-                                            {keep_other}
-                                        </Button>
-                                    </div>
-                                })}
-                            </div>
-                        }.into_any())
-                    }
-                    ProgressCommandPhase::Conflict(ProgressConflict::KeepServer { server, .. }) => {
-                        let msg = messages::format(
-                            Key::LiveProgressKeepServer,
-                            locale,
-                            &[("time", clock(server.position_ms))],
-                        );
-                        Some(view! { <p class="theatre-muted" role="status">{msg}</p> }.into_any())
-                    }
-                    ProgressCommandPhase::UnknownOutcome { .. } => {
-                        let pub_retry = pub_id.clone();
-                        Some(view! {
-                            <p class="theatre-muted" role="status">{messages::text(Key::LiveProgressUnknown, locale)}</p>
-                            {actions.map(|act| view! {
-                                <Button id=format!("theatre-library-{}-progress-retry-{}", section.name(), pub_retry)
-                                    variant=ButtonVariant::Text
-                                    on_press=Callback::new(move |_| act.on_retry_progress.run(pub_retry.clone()))>
-                                    {messages::text(Key::PublicRetry, locale)}
-                                </Button>
-                            })}
-                        }.into_any())
-                    }
-                    ProgressCommandPhase::Failed { .. } => {
-                        let pub_retry = pub_id.clone();
-                        Some(view! {
-                            <p class="theatre-muted" role="status">{messages::text(Key::LiveProgressError, locale)}</p>
-                            {actions.map(|act| view! {
-                                <Button id=format!("theatre-library-{}-progress-retry-{}", section.name(), pub_retry)
-                                    variant=ButtonVariant::Text
-                                    on_press=Callback::new(move |_| act.on_retry_progress.run(pub_retry.clone()))>
-                                    {messages::text(Key::PublicRetry, locale)}
-                                </Button>
-                            })}
-                        }.into_any())
-                    }
-                    ProgressCommandPhase::Idle | ProgressCommandPhase::Pending { .. } => None,
-                }}
-            </div>
-            {actions.and_then(|act| {
-                (resume == ResumeStatus::ExactAvailable).then(|| {
-                    let sr = unit_title_for_sr.clone();
-                    view! {
-                        <div class="theatre-row-actions">
-                            <Button id=resume_id variant=ButtonVariant::Tonal
-                                on_press=Callback::new(move |_| {
-                                    act.on_resume.run((
-                                        audio_owned.clone(),
-                                        resume_pos,
-                                        resume,
-                                        pres_owned.clone(),
-                                    ));
-                                })>
-                                {messages::text(Key::LiveResumeOpen, locale)}
-                                {(!sr.is_empty()).then(|| view! { <span class="cui-sr-only">" "{sr}</span> })}
-                            </Button>
-                        </div>
-                    }
-                })
-            })}
-        </li>
-    }
-    .into_any()
-}
+mod rows;
 
-fn saved_row(
-    item: &cantos_contracts::listener_library::PresentedSavedItem,
-    sync: Option<&LibrarySyncState>,
-    actions: Option<LibraryActions>,
-    locale: Locale,
-) -> AnyView {
-    let work_id = item.saved.work_id.clone();
-    let presentation = item.presentation.clone();
-    let sr_title = presentation
-        .as_ref()
-        .map(|w| w.title.clone())
-        .unwrap_or_default();
-    let saved_cmd = sync
-        .and_then(|s| s.saved_work(&work_id))
-        .map(|s| s.command.clone())
-        .unwrap_or_default();
-    let status_info = match &saved_cmd {
-        SavedCommandPhase::UnknownOutcome { .. } => Some((Key::LiveSaveUnknown, true)),
-        SavedCommandPhase::Conflict { .. } => Some((Key::LiveSaveConflict, true)),
-        SavedCommandPhase::Failed { .. } => Some((Key::LiveSaveError, true)),
-        SavedCommandPhase::Idle | SavedCommandPhase::Pending { .. } => None,
-    };
-    let pending = matches!(saved_cmd, SavedCommandPhase::Pending { .. });
-    let btn_state = Signal::derive(move || {
-        if pending {
-            DisabledReason::new(messages::text(Key::LiveSaveRemoving, locale))
-                .map(ButtonState::Loading)
-                .unwrap_or_default()
-        } else {
-            ButtonState::Enabled
-        }
-    });
-    let work_unsave = work_id.clone();
-    let work_retry = work_id.clone();
-    let pres_unsave = presentation.clone();
-    view! {
-        <li class="theatre-row" data-work-id=work_id.clone()>
-            <div class="theatre-row-copy">
-                {title(presentation, locale)}
-                {status_info.map(|(msg_key, can_retry)| view! {
-                    <p class="theatre-muted" role="status">{messages::text(msg_key, locale)}</p>
-                    {actions.zip(can_retry.then_some(())).map(|(act, ())| {
-                        let retry_id = work_retry.clone();
-                        view! {
-                            <Button id=format!("theatre-library-saved-retry-{}", retry_id)
-                                variant=ButtonVariant::Text
-                                on_press=Callback::new(move |_| act.on_retry_saved.run(retry_id.clone()))>
-                                {messages::text(Key::PublicRetry, locale)}
-                            </Button>
-                        }
-                    })}
-                })}
-            </div>
-            {actions.map(|act| view! {
-                <div class="theatre-row-actions">
-                    <Button id=format!("theatre-library-saved-unsave-{}", work_unsave)
-                        variant=ButtonVariant::Text
-                        state=btn_state
-                        on_press=Callback::new(move |_| act.on_unsave.run((work_unsave.clone(), pres_unsave.clone())))>
-                        {messages::text(Key::RemoveSave, locale)}
-                        {(!sr_title.is_empty()).then(|| view! { <span class="cui-sr-only">" "{sr_title}</span> })}
-                    </Button>
-                </div>
-            })}
-        </li>
-    }
-    .into_any()
-}
-
-fn rows(
-    projection: &LibraryProjection,
-    sync: Option<&LibrarySyncState>,
-    section: Section,
-    actions: Option<LibraryActions>,
-    locale: Locale,
-) -> AnyView {
-    match section {
-        Section::Continue => projection
-            .continuing
-            .iter()
-            .map(|i| {
-                audio_row(
-                    Section::Continue,
-                    &i.progress.audio,
-                    Some(i.progress.position_ms),
-                    Some(i.progress.completion),
-                    i.resume,
-                    i.presentation.clone(),
-                    sync,
-                    actions,
-                    locale,
-                )
-            })
-            .collect_view()
-            .into_any(),
-        Section::Saved => projection
-            .saved
-            .iter()
-            .map(|i| saved_row(i, sync, actions, locale))
-            .collect_view()
-            .into_any(),
-        Section::History => projection
-            .history
-            .iter()
-            .map(|i| {
-                audio_row(
-                    Section::History,
-                    &i.audio,
-                    i.progress.as_ref().map(|p| p.position_ms),
-                    i.progress.as_ref().map(|p| p.completion),
-                    i.resume,
-                    i.presentation.clone(),
-                    sync,
-                    actions,
-                    locale,
-                )
-            })
-            .collect_view()
-            .into_any(),
-    }
-}
 fn row_count(projection: &LibraryProjection, section: Section) -> usize {
     match section {
         Section::Continue => projection.continuing.len(),
@@ -381,21 +65,41 @@ fn row_count(projection: &LibraryProjection, section: Section) -> usize {
         Section::History => projection.history.len(),
     }
 }
-fn status(projection: &LibraryProjection, section: Section, locale: Locale) -> String {
-    let key = match projection.phase(section) {
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct SectionUi {
+    phase: PagePhase,
+    count: usize,
+    has_more: bool,
+}
+
+fn section_ui(state: &AccountViewState, section: Section) -> Option<SectionUi> {
+    let projection = state.library()?;
+    Some(SectionUi {
+        phase: projection.phase(section),
+        count: row_count(projection, section),
+        has_more: projection.has_more(section),
+    })
+}
+
+fn status(ui: Option<&SectionUi>, section: Section, locale: Locale) -> String {
+    let Some(ui) = ui else {
+        return String::new();
+    };
+    let key = match ui.phase {
         PagePhase::Idle | PagePhase::Loading => Key::LiveLibraryLoading,
         PagePhase::Failed(AccountFailure::Diagnostic(kind)) => crate::messages::error_key(kind),
         PagePhase::Failed(AccountFailure::CursorExpired) => Key::LiveLibraryCursorExpired,
         PagePhase::Failed(AccountFailure::Protocol) => Key::LiveLibraryInvalidPage,
+        PagePhase::Failed(AccountFailure::RateLimited(_)) => Key::AccountRateLimited,
         PagePhase::Failed(_) => Key::LiveLibraryPageError,
-        PagePhase::Ready if row_count(projection, section) == 0 => {
+        PagePhase::Ready if ui.count == 0 => {
             return messages::text(empty(section), locale).to_owned()
         }
         PagePhase::Ready => {
             return messages::format(
                 Key::LiveLibraryLoaded,
                 locale,
-                &[("count", row_count(projection, section).to_string())],
+                &[("count", ui.count.to_string())],
             )
         }
     };
@@ -406,20 +110,16 @@ pub(crate) fn status_id(section: Section) -> String {
 }
 
 fn history_clear_controls(
-    projection: &LibraryProjection,
-    sync: Option<&LibrarySyncState>,
+    history: &HistoryUi,
     actions: Option<LibraryActions>,
     locale: Locale,
 ) -> AnyView {
     let Some(act) = actions else {
         return ().into_any();
     };
-    let Some(sync) = sync else {
-        return ().into_any();
-    };
-    let confirming = sync.clear_confirmation().is_some();
-    let cmd = sync.history_command().clone();
-    let has_rows = !projection.history.is_empty();
+    let confirming = history.confirming;
+    let cmd = history.command.clone();
+    let has_rows = history.has_rows;
     if !confirming && matches!(cmd, HistoryCommandPhase::Idle) {
         return has_rows
             .then(|| {
@@ -480,58 +180,100 @@ fn history_clear_controls(
     .into_any()
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct HistoryUi {
+    confirming: bool,
+    command: HistoryCommandPhase,
+    has_rows: bool,
+}
+
+fn history_ui(state: &AccountViewState) -> Option<HistoryUi> {
+    let projection = state.library()?;
+    if projection.phase(Section::History) != PagePhase::Ready {
+        return None;
+    }
+    let sync = state.sync()?;
+    Some(HistoryUi {
+        confirming: sync.clear_confirmation().is_some(),
+        command: sync.history_command().clone(),
+        has_rows: !projection.history.is_empty(),
+    })
+}
+
 #[component]
 fn LiveSection(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     section: Section,
     on_page: Callback<(Section, bool)>,
     actions: Option<LibraryActions>,
 ) -> impl IntoView {
     let heading_id = format!("theatre-library-{}-heading", section.name());
+    let list = NodeRef::<leptos::html::Ul>::new();
+    let membership = Memo::new(move |_| state.with(|s| rows::membership(s, section)));
+    let chrome = Memo::new(move |_| state.with(|s| section_ui(s, section)));
+    let history = Memo::new(move |_| {
+        if section == Section::History {
+            state.with(history_ui)
+        } else {
+            None
+        }
+    });
+    let phase = move || chrome.with(|s| s.as_ref().map(|s| s.phase));
+    let restart = move || {
+        matches!(
+            phase(),
+            Some(PagePhase::Failed(
+                AccountFailure::CursorExpired | AccountFailure::Protocol
+            ))
+        )
+    };
     view! {
         <section class="theatre-library-section" aria-labelledby=heading_id.clone()>
             <h2 id=heading_id.clone() class="theatre-section-heading">{move || messages::text(heading(section), locale.get())}</h2>
-            {move || state.with(|s| s.library().map(|projection| {
-                let locale = locale.get();
-                let sync = s.sync();
-                let phase = projection.phase(section);
-                let restart = matches!(phase, PagePhase::Failed(AccountFailure::CursorExpired | AccountFailure::Protocol));
-                let more_label = messages::format(Key::LiveLibraryLoadMore, locale, &[("section", messages::text(heading(section), locale).to_owned())]);
-                view! {
-                    <ul class="theatre-rows" aria-busy=(phase == PagePhase::Loading).to_string()>{rows(projection, sync, section, actions, locale)}</ul>
-                    <p id=status_id(section) tabindex="-1" role="status" aria-live="polite">{status(projection, section, locale)}</p>
-                    {(section == Section::History && phase == PagePhase::Ready).then(|| history_clear_controls(projection, sync, actions, locale))}
-                    <div class="theatre-actions">
-                        {matches!(phase, PagePhase::Failed(_)).then(|| view! {
-                            <Button id=format!("theatre-library-{}-retry", section.name()) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| on_page.run((section, restart)))>
-                                {messages::text(if restart { Key::LiveLibraryRestart } else { Key::LiveLibraryRetry }, locale)}
-                            </Button>
-                        })}
-                        {(phase == PagePhase::Ready && projection.has_more(section)).then(|| view! {
-                            <Button id=format!("theatre-library-{}-more", section.name()) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| on_page.run((section, false)))>{more_label}</Button>
-                        })}
-                        {(phase == PagePhase::Ready).then(|| view! {
-                            <Button id=format!("theatre-library-{}-reload", section.name()) variant=ButtonVariant::Text on_press=Callback::new(move |_| on_page.run((section, true)))>{messages::text(Key::LiveLibraryRestart, locale)}</Button>
-                        })}
-                    </div>
-                }
-            }))}
+            <ul node_ref=list class="theatre-rows" aria-busy=move || (phase() == Some(PagePhase::Loading)).to_string()>
+                <For each=move || {
+                    let ids = membership.get();
+                    crate::platform::preserve_library_row_interaction(list);
+                    ids
+                } key=|id| id.clone()
+                    children=move |work_id| view! { <rows::LiveRow state work_id section actions locale/> }/>
+            </ul>
+            <p id=status_id(section) tabindex="-1" role="status" aria-live="polite">{move || chrome.with(|ui| status(ui.as_ref(), section, locale.get()))}</p>
+            {move || history.with(|h| h.as_ref().map(|h| history_clear_controls(h, actions, locale.get())))}
+            <div class="theatre-actions">
+                <Show when=move || matches!(phase(), Some(PagePhase::Failed(_)))>
+                    <Button id=format!("theatre-library-{}-retry", section.name()) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| on_page.run((section, restart())))>
+                        {move || messages::text(if restart() { Key::LiveLibraryRestart } else { Key::LiveLibraryRetry }, locale.get())}
+                    </Button>
+                </Show>
+                <Show when=move || chrome.with(|s| s.as_ref().is_some_and(|s| s.phase == PagePhase::Ready && s.has_more))>
+                    <Button id=format!("theatre-library-{}-more", section.name()) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| on_page.run((section, false)))>
+                        {move || messages::format(Key::LiveLibraryLoadMore, locale.get(), &[("section", messages::text(heading(section), locale.get()).to_owned())])}
+                    </Button>
+                </Show>
+                <Show when=move || phase() == Some(PagePhase::Ready)>
+                    <Button id=format!("theatre-library-{}-reload", section.name()) variant=ButtonVariant::Text on_press=Callback::new(move |_| on_page.run((section, true)))>
+                        {move || messages::text(Key::LiveLibraryRestart, locale.get())}
+                    </Button>
+                </Show>
+            </div>
         </section>
     }
 }
 #[component]
 pub(crate) fn LiveLibrary(
-    state: RwSignal<AccountViewState>,
+    state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     on_page: Callback<(Section, bool)>,
     #[prop(optional)] actions: Option<LibraryActions>,
 ) -> impl IntoView {
+    let phase = Memo::new(move |_| state.with(AccountViewState::phase));
     view! {
         <section id="library" aria-labelledby="theatre-live-library-heading">
             <h1 id="theatre-live-library-heading">{move || messages::text(Key::Library, locale.get())}</h1>
-            <Show when=move || state.get().phase() == SessionPhase::SignedIn fallback=move || view! {
-                <p role="status">{move || messages::text(match state.get().phase() {
+            <Show when=move || phase.get() == SessionPhase::SignedIn fallback=move || view! {
+                <p role="status">{move || messages::text(match phase.get() {
                     SessionPhase::Idle | SessionPhase::Checking => Key::AccountChecking,
                     SessionPhase::Failed(failure) => crate::features::account::account_failure_key(failure),
                     SessionPhase::LogoutPending => Key::AccountLogoutRetryHelp,
@@ -549,7 +291,7 @@ pub(crate) fn LiveLibrary(
 mod tests {
     use super::*;
     use crate::application::{account::AccountScope, account_view::SessionCompletion};
-    fn signed_in() -> AccountViewState {
+    pub(super) fn signed_in() -> AccountViewState {
         let mut s = AccountViewState::default();
         let issued = s.begin_refresh().unwrap();
         assert!(matches!(
@@ -559,17 +301,18 @@ mod tests {
                     "listener-a".into(),
                     uuid::Uuid::from_u128(10).to_string()
                 )
-                .unwrap())
+                .unwrap()),
+                || uuid::Uuid::from_u128(100).to_string()
             ),
             Ok(SessionCompletion::Authenticated(_))
         ));
         s
     }
-    fn populate(s: &mut AccountViewState) {
+    pub(super) fn populate(s: &mut AccountViewState) {
         for (section, body) in [
-            (Section::Continue, include_bytes!("../../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue.json").as_slice()),
-            (Section::Saved, include_bytes!("../../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json").as_slice()),
-            (Section::History, include_bytes!("../../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_history.json").as_slice()),
+            (Section::Continue, include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue.json").as_slice()),
+            (Section::Saved, include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json").as_slice()),
+            (Section::History, include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_history.json").as_slice()),
         ] {
             let request = s.begin_library(section, false).unwrap();
             s.finish_page(&request, crate::live::library::decode_page(section, body)).unwrap();
@@ -577,7 +320,7 @@ mod tests {
     }
     fn render(s: AccountViewState, language: Locale) -> String {
         Owner::new().with(|| view! {
-            <LiveLibrary state=RwSignal::new(s) locale=RwSignal::new(language) on_page=Callback::new(|_| {})/>
+            <LiveLibrary state=RwSignal::new(s).read_only() locale=RwSignal::new(language) on_page=Callback::new(|_| {})/>
         }.to_html())
     }
     #[test]
@@ -621,7 +364,7 @@ mod tests {
     fn null_and_replaced_rows_never_borrow_other_metadata_and_failures_stay_section_local() {
         let mut s = signed_in();
         let request = s.begin_library(Section::Continue, false).unwrap();
-        let mut page: cantos_contracts::listener_library::PresentedContinuePage = serde_json::from_slice(include_bytes!("../../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue_unavailable.json")).unwrap();
+        let mut page: crate::contract::library::PresentedContinuePage = serde_json::from_slice(include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue_unavailable.json")).unwrap();
         page.items[0].resume = ResumeStatus::ReleaseReplaced;
         s.finish_page(
             &request,
@@ -635,8 +378,8 @@ mod tests {
         s.finish_page(
             &history,
             Ok(crate::application::library::LibraryPage::History(
-                cantos_contracts::listener_library::PresentedHistoryPage {
-                    state: cantos_contracts::listener_library::HistoryState {
+                crate::contract::library::PresentedHistoryPage {
+                    state: crate::contract::library::HistoryState {
                         epoch: 0,
                         revision: 0,
                     },
@@ -676,7 +419,7 @@ mod tests {
             Owner::new().with(|| {
                 view! {
                     <LiveLibrary
-                        state=RwSignal::new(state)
+                        state=RwSignal::new(state).read_only()
                         locale=RwSignal::new(locale)
                         on_page=Callback::new(|_| {})
                         actions=dummy_actions
@@ -694,7 +437,7 @@ mod tests {
         assert!(html.contains("Xóa lịch sử nghe"));
 
         // Prompting clear history renders the confirmation region with confirm and cancel buttons.
-        s.with_sync_mut(|sync, _| {
+        s.seed_sync(|sync, _| {
             sync.prompt_clear_history();
         });
         let confirm_html = render_with_actions(s, Locale::Vietnamese);

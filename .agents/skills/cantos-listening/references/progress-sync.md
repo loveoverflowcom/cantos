@@ -21,8 +21,8 @@ concurrency control in general: [`persistence.md`](../../cantos-engineering/refe
 
 ## Repository reality
 
-The server half is implemented in `services/cantos-api/src/contexts/listening` under the
-[Library v1 contract](../../../../packages/contracts/listener-library-v1.md): pure registers in
+The server half is implemented in `services/cantos-server/src/contexts/listening` under the
+[Library v1 contract](../../../../services/cantos-server/contracts/theatre/library/v1/README.md): pure registers in
 `domain/`, use cases in `application.rs`, PostgreSQL in `postgres.rs` (migration
 `0019_listener_library_progress.sql`). No client sends these mutations yet: the client contract
 below is binding for the future Web/CMP outboxes. **Bookmarks are implemented** (Library v1.2, #299: API, PostgreSQL and the CMP outbox consumer); Web has no bookmark consumer.
@@ -95,7 +95,7 @@ No client implements them yet.
    named setting recorded with its rationale, so a property can bound writes.
 8. **Fence the account.** Responses are fenced by account/session and local intent generation;
    account A's queued operations are never submitted as B
-   ([Theatre identity v1](../../../../packages/contracts/theatre-identity-v1.md)).
+   ([Theatre identity v1](../../../../services/cantos-server/contracts/theatre/identity/v1/README.md)).
 
 | Response | Client action |
 |---|---|
@@ -211,7 +211,7 @@ milliseconds. Rows map to the implemented decision; the domain and application t
 A bookmark is `{bookmark_id, exact AudioIdentity, position_ms}` with a client-minted UUID, stable across
 retries; primary key `(listener_id, bookmark_id)`, so an ID collision across accounts cannot alias. Deletion
 writes a final tombstone with the same key, a new `listener_order` and the same exact audio. The contract is
-[Library v1.2](../../../../packages/contracts/listener-library-v1.md#release-bound-bookmarks-v120): there is no
+[Library v1.2](../../../../services/cantos-server/contracts/theatre/library/v1/README.md#release-bound-bookmarks-v120): there is no
 `since` delta sync; the listing returns **live** bookmarks only (bounded keyset pages, newest first) and the client
 keeps its own record of deletions, so a stale or replayed page can never revive one (I5). Pure core:
 `reconcile_bookmark_create` / `reconcile_bookmark_delete`; the table guard refuses any change except live→tombstone.
@@ -298,12 +298,12 @@ schedules against their own outbox code.
 I8 as generated properties, network fault schedules and a reference client are proposed; I2 and
 I6 have example tests only.
 
-### Real PostgreSQL
+### Historical PostgreSQL oracles and native port
 
-The pure model cannot show what the database does under concurrency. The implemented sources
-are the `#[ignore]`d tests in `listening/postgres/tests.rs`, run only by
-`cargo xtask verify postgres` against a disposable cluster (`integration-tested` only when that
-gate actually ran): `duplicate_and_same_base_first_write_races_commit_one_revision_and_identical_receipts`,
+The pure model cannot show what the database does under concurrency. Retained PG assertions
+are historical porting oracles outside Cargo discovery; the old gate is retired. Native file-backed
+acceptance under #333 must preserve the following race/receipt/isolation cases, with actual
+execution evidence before claiming integration-tested: `duplicate_and_same_base_first_write_races_commit_one_revision_and_identical_receipts`,
 `clear_preserves_progress_saved_and_sessions_and_router_is_account_isolated`,
 `receipt_failure_rolls_back_progress_sequences_and_account_state_before_retry`,
 `replacement_and_withdrawal_retain_owned_progress_without_silent_substitution`,

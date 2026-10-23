@@ -38,7 +38,7 @@ conflict and fix the stale side when in scope.
 
 ## Repository reality
 
-[Publication v1](../../../packages/contracts/publication-v1.md) and the Media publication
+[Publication v1](../../../services/cantos-server/contracts/studio/publication/v1/README.md) and the Media publication
 domain/application/migrations implement the development core: clearance, exact approvals,
 readiness, immutable releases, atomic active pointers and withdrawal. Real public delivery
 and provider acceptance remain separately gated. Names in technique examples are proposals

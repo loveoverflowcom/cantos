@@ -96,7 +96,7 @@ Design notes:
   that permission to publish does not grant offline redistribution.
 - A grant is effective only with a separate `RightsReview { grant, decision, reviewer, at }`
   record. Imported material starts unreviewed, matching the `pending_review` status in the
-  [illustrative fixture](../../../../packages/contracts/examples/episode-draft.json).
+  [illustrative fixture](../../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json).
 - Withdrawal is a new `RightsRevocation { grant, effective_at, actor, reason }` row. Grants,
   reviews and revocations are append-only; nothing in the ledger is updated in place
   ([immutability](../../cantos-engineering/references/immutability.md)).

@@ -1,8 +1,8 @@
 # Commit and pull request
 
 > **Scope.** What happens when a slice is ready for review under the foundation's local handoff
-> policy, **only when the user asks**
-> to commit, push or open a PR: the pre-commit audit, the commit, the push, the PR body built from
+> policy, **only when the user asks** (in conversation or through a submitted prompt's
+> `AUTHORIZED_ACTIONS`) to commit, push or open a PR: the pre-commit audit, the commit, the push, the PR body built from
 > [`.github/pull_request_template.md`](../../../../.github/pull_request_template.md), evidence
 > labels and what to do after the PR opens. The template and
 > [CONTRIBUTING](../../../../CONTRIBUTING.md#branch-and-pull-request-workflow) own the fields and
@@ -19,7 +19,7 @@ push or PR packages content already checked. Review evidence in this order; fix 
 |---|---|---|
 | 1. inventory | `git status --short` and `git diff --stat`; every path belongs to the review boundary | unrelated cleanup, stray files |
 | 2. evidence inventory | identify applicable format/lint/test and owner evidence, its covered inputs and remaining gaps under [§ 8](../../cantos-engineering/SKILL.md#8-clean-syntax-and-formatting-before-completion); use implemented commands and retain valid results | stale evidence, missing regression or formatting |
-| 3. final handoff gates | `cargo xtask preflight --changed-only` on the final diff, or cite a still-valid run covering it; it includes repository/format and selected suites, so do not run their equivalents again. Supplement uncovered owner evidence. For missing prerequisites use [local handoff](../../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr) or the narrow [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start). Intermediate commits do not trigger this step | broken links, skill structure, whitespace, uncovered gates |
+| 3. final handoff gates | `cargo xtask preflight --changed-only --base "$BASE_REF"` on the final diff, or cite a still-valid run covering that base and content; it includes repository/format and selected suites, so do not run their equivalents again. Supplement uncovered owner evidence. For missing prerequisites use [local handoff](../../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr) or the narrow [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start). Intermediate commits do not trigger this step | broken links, skill structure, whitespace, uncovered gates |
 | 4. content audit | read the full diff for the items in the next table | secrets and private material in history |
 | 5. stage by path | `git add <path> …`; review `git diff --cached` | `git add -A` sweeping untracked captures or `.env` files |
 
@@ -33,7 +33,7 @@ Never in a commit, even in a fixture or a test:
 |---|---|---|
 | provider credentials, tokens, `.env` values | copied into a test or example config | search the staged diff for keys, `Authorization`, `Bearer`, `secret`, `token` |
 | signed URLs | pasted from a log into a fixture or doc | search for signature query parameters and expiring URLs |
-| private manuscripts, real personal data | "realistic" fixture text | fixtures are original or permitted, like [the example episode](../../../../packages/contracts/examples/episode-draft.json) |
+| private manuscripts, real personal data | "realistic" fixture text | fixtures are original or permitted, like [the example episode](../../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json) |
 | generated audio, downloaded media | test output beside the source | `git check-ignore -v <file>`; [`.gitignore`](../../../../.gitignore) covers common audio extensions and `/artifacts/`, not every media type |
 | screenshots with private content | evidence copied into `docs/` | evidence stays under the ignored `artifacts/` tree and is attached, not committed |
 
@@ -50,16 +50,25 @@ credentials is their decision, not an agent's.
 - One commit per coherent step is fine; do not amend, squash or rewrite pushed commits unless
   the user asks.
 
+## Several work chats, one PR
+
+When a split prompt names an integration owner, only that owner pushes the integration branch
+and opens or updates the PR; every other task commits on its own branch or worktree and hands
+over commits or a patch. The integration owner audits the combined diff, runs the final handoff
+once for the integrated content and reuses each task's attributable checkpoint evidence. Never
+push another task's branch, cherry-pick unasked, or record a commit SHA that does not exist yet.
+
 ## Push and open the PR
 
 ```sh
 git push -u origin <branch>
-gh pr create --base develop --head <branch> --title "<type>: <outcome>" --body-file <scratch file>
+gh pr create --base "$BASE_BRANCH" --head <branch> --title "<type>: <outcome>" --body-file <scratch file>
 ```
 
-Write the body file outside the repository. A request to open a PR authorizes that PR against
-`develop`; choose a descriptive title and a regular PR unless the user asks for a draft. Never
-push to `develop` directly and never force-push a branch someone else may use. Labels, reviewers,
+Use the [resolved base](../SKILL.md#4-resolve-the-base-and-branch-from-its-latest-head):
+`BASE_REF=origin/$BASE_BRANCH` for local comparison and the same `BASE_BRANCH` for the PR.
+Write the body file outside the repository. Choose a descriptive title and a regular PR unless
+the user asks for a draft (`--draft`). Never push directly to the base or force-push a branch someone else may use. Labels, reviewers,
 assignees, milestones and Project status are separate GitHub writes: confirm each, and use only
 labels that `gh label list` shows exist.
 
@@ -95,7 +104,7 @@ Add rollout and recovery steps when any answer is not `N/A`.
 
 ## Label live and mocked evidence
 
-[Mocked and live evidence are labeled separately](../../../../docs/work-plan/README.md#shared-completion-evidence),
+[Mocked and live evidence are labeled separately](../../cantos-engineering/references/verification-strategy.md#mocked-and-live-evidence-are-different-rows),
 with levels from the [foundation vocabulary](../../cantos-engineering/SKILL.md#6-never-collapse-evidence-into-the-word-verified):
 
 | What ran | Write | Never write |
@@ -117,9 +126,8 @@ with levels from the [foundation vocabulary](../../cantos-engineering/SKILL.md#6
 - A review is a separate read-only pass through
   [`cantos-code-review`](../../cantos-code-review/SKILL.md). Answering review comments, pushing
   fixes and resolving threads are further outward actions: confirm before each kind.
-- Moving the issue to `In review` follows the
-  [status policy](../../../../docs/work-plan/project-planning.md#status-policy) and is a GitHub
-  write: propose it, do it after confirmation.
+- Moving the issue to `In review` in the GitHub Project is a GitHub write: propose it, do it
+  after confirmation, unless a submitted prompt's `AUTHORIZED_ACTIONS` already grants it.
 
 ## Example body (illustrative)
 

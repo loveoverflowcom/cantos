@@ -3,12 +3,12 @@ use super::{
     optional_metadata, page_bounds, warning_on_page, ImportEditor, ImportIntent, ImportStatus,
     MAX_FILE_BYTES,
 };
+use crate::contract::{Extraction, ImportFormat, ImportOutcome, ImportResponse};
 use crate::{
     api::{StudioContext, StudioHttp},
     messages,
     view::operation_id,
 };
-use cantos_contracts::{Extraction, ImportFormat, ImportOutcome, ImportResponse};
 use cantos_ui::{Icon, IconName};
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;

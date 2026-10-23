@@ -4,8 +4,8 @@ use super::{
     dashboard_copy::{text, Key},
     ClientError, Facts, Reply,
 };
+use crate::contract::AudioSubmissionState;
 use crate::ui::{ActionButton, BlockReason};
-use cantos_contracts::AudioSubmissionState;
 use cantos_ui::{ButtonVariant, Surface};
 use leptos::prelude::*;
 
@@ -165,7 +165,7 @@ pub fn Dashboard(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cantos_contracts::{CatalogPage, CatalogWork, CreateWorkRequest};
+    use crate::contract::{CatalogPage, CatalogWork, CreateWorkRequest};
 
     #[test]
     fn failed_initial_read_stays_attempted_until_explicit_refresh_or_new_context() {
@@ -210,7 +210,7 @@ mod tests {
         let owner = Owner::new();
         owner.with(|| {
             let request: CreateWorkRequest = serde_json::from_str(include_str!(
-                "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+                "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
             )).unwrap();
             let work = CatalogWork {
                 id: request.id,
@@ -258,7 +258,7 @@ mod tests {
         let owner = Owner::new();
         owner.with(|| {
             let request: CreateWorkRequest = serde_json::from_str(include_str!(
-                "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+                "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
             )).unwrap();
             let mut work = CatalogWork {
                 id: request.id, kind: request.kind, owner_id: "alice".into(), details: request.details,

@@ -23,7 +23,7 @@ tool; never cite a test command the repository does not define.
 |---|---|---|---|
 | Validation, editor reducer, merge, retry decision, poll schedule, playback reducer, seek clamp | plain `#[test]` and property tests on the host target | `example-tested`, `property-tested` | `cargo test`; `proptest` |
 | Every error variant has a message | exhaustive `match` without `_` | `type-enforced` | compiler |
-| Adapter maps DTOs and statuses to `PortError` | contract test over fixtures generated from `packages/contracts/` | `example-tested`; `differentially-tested` against the schema | host tests |
+| Adapter maps DTOs and statuses to `PortError` | `contract::conformance_tests` over the Server-owned canonical fixtures | `example-tested`; `differentially-tested` against the schema | host tests |
 | A screen renders idle/loading/ready/empty/failed from a fake port | Leptos component mounted in a real browser DOM with a `TestWorld` | `DOM-tested` | `wasm-bindgen-test` in headless browser mode |
 | A slow older response does not win | component test with a manually completed fake | `DOM-tested` (plus the pure guard `example-tested`) | as above |
 | Tab order, focus return, shortcuts, IME composition, drag alternative, media controls | trusted input driven in a real browser | `interaction-tested`; `accessibility-checked` when semantics, keyboard and focus are all covered | Playwright or a CDP driver |
@@ -58,7 +58,7 @@ feature invent its own fake ecosystem, and do not create a support crate before 
 async fn failed_save_keeps_the_typed_line_and_offers_retry() {
     let world = TestWorld::new()
         .with_locale(Locale::Vi)
-        .with_script(fixtures::mot_loi_hen())   // derived from packages/contracts/examples/episode-draft.json
+        .with_script(fixtures::mot_loi_hen())   // derived from services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json
         .with_save_result(Err(PortError::Timeout));
     let ui = world.mount(|| view! { <ScriptEditorPage episode=fixtures::EPISODE_DEMO_01/> });
 
@@ -118,6 +118,31 @@ async fn slow_older_episode_response_does_not_replace_newer_selection() {
 
 Assert only after the stale future has completed *and* the scheduler has flushed; asserting
 earlier passes vacuously. Remove the guard once locally and confirm the test fails.
+
+## Reactive publication regressions
+
+Use these when a change touches [reactive publication](web-architecture.md#reactive-state-ownership-and-publication)
+or [keyed rows](web-architecture.md#dynamic-lists-and-keyed-rows). Count notifications or reruns
+with a test-only `Effect`/memo counter or a recording fake port; count DOM identity by holding a
+node reference across the update. Each regression names its expected count, not "fewer".
+
+| Regression | Oracle |
+|---|---|
+| a stale response changes no state and notifies no aggregate subscriber | subscriber counter unchanged; full state equal before/after |
+| a no-op transition causes no refetch and no notification loop | fake port call count and subscriber counter stay at their prior values |
+| progress of row A does not change or rerun the account heading | heading counter unchanged; heading node identical |
+| replacing A's content keeps list membership when order is unchanged | membership memo/counter unchanged; `children` not called again |
+| A's row shows the update although its ID is unchanged | row text equals the new projection |
+| sibling row B keeps its DOM identity when A changes | node reference for B is the same element |
+| insert/reorder keeps focus and Vietnamese IME composition | focused element and composition state survive (`DOM-tested`; a real IME walkthrough is separate) |
+| removing a row while a selector is pending does not panic | the row's lookup returns `None`; no panic or console error |
+| logout/account switch purges private views and blocks late completions | after switch, no prior-account row text; a late fenced completion leaves state and counters unchanged |
+| a domain effect runs once per transition/protocol step, not per reactive rerun | effect/port counter equals the number of transitions |
+
+Native string-render tests can check projection text and some counts; they are not live DOM,
+focus, IME or browser CPU evidence. Report `DOM-tested`/`interaction-tested` only for a live DOM
+or driven browser, and make no performance claim from a changed source pattern alone; use
+[performance and caching](performance-and-caching.md#comparable-performance-evidence).
 
 ## 4. Real-browser checks
 
@@ -183,7 +208,7 @@ conditions per surface are in the [UI system validation matrix](../../../../docs
 ## 7. Fixtures and evidence storage
 
 - Fixtures are original or permitted content, starting from
-  [`packages/contracts/examples/episode-draft.json`](../../../../packages/contracts/examples/episode-draft.json). Never a
+  [`services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json`](../../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json). Never a
   private manuscript, real voice sample or provider output.
 - Test audio is generated at test time (a tone or silence of known duration) into an ignored
   directory. Audio extensions are ignored by Git; do not force-add them.

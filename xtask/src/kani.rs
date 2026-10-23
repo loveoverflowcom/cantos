@@ -32,23 +32,26 @@ const MAX_CONFIGURATION_BYTES: u64 = 1024 * 1024;
 pub enum Package {
     Api,
     Forge,
+    Identity,
 }
 
 impl Package {
-    pub const ALL: [Self; 2] = [Self::Api, Self::Forge];
+    pub const ALL: [Self; 3] = [Self::Api, Self::Forge, Self::Identity];
 
     pub fn name(self) -> &'static str {
         match self {
-            Self::Api => "cantos-api",
+            Self::Api => "cantos-server",
             Self::Forge => "cantos-forge",
+            Self::Identity => "cantos-identity",
         }
     }
 
     /// Workspace-relative manifest that must exist and carry no implicit Kani configuration.
     pub fn manifest(self) -> &'static str {
         match self {
-            Self::Api => "services/cantos-api/Cargo.toml",
+            Self::Api => "services/cantos-server/Cargo.toml",
             Self::Forge => "services/cantos-forge-functions/Cargo.toml",
+            Self::Identity => "services/cantos-identity/Cargo.toml",
         }
     }
 
@@ -69,11 +72,14 @@ pub enum Kernel {
     ByteRange,
     PlaybackGrant,
     PublicCover,
+    IdentitySecurityVersion,
+    IdentityCompletion,
+    IdentityMailboxProof,
     ForgeAttemptLedger,
 }
 
 impl Kernel {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 14] = [
         Self::CatalogRevision,
         Self::ImageBounds,
         Self::WavPayload,
@@ -84,6 +90,9 @@ impl Kernel {
         Self::ByteRange,
         Self::PlaybackGrant,
         Self::PublicCover,
+        Self::IdentitySecurityVersion,
+        Self::IdentityCompletion,
+        Self::IdentityMailboxProof,
         Self::ForgeAttemptLedger,
     ];
 
@@ -99,6 +108,9 @@ impl Kernel {
             Self::ByteRange => "byte-range",
             Self::PlaybackGrant => "playback-grant",
             Self::PublicCover => "public-cover",
+            Self::IdentitySecurityVersion => "identity-security-version",
+            Self::IdentityCompletion => "identity-completion",
+            Self::IdentityMailboxProof => "identity-mailbox-proof",
             Self::ForgeAttemptLedger => "forge-attempt-ledger",
         }
     }
@@ -117,6 +129,9 @@ impl Kernel {
             | Self::PlaybackGrant
             | Self::PublicCover => Package::Api,
             Self::ForgeAttemptLedger => Package::Forge,
+            Self::IdentitySecurityVersion
+            | Self::IdentityCompletion
+            | Self::IdentityMailboxProof => Package::Identity,
         }
     }
 
@@ -138,30 +153,44 @@ impl Kernel {
             Self::ByteRange => "contexts::media::domain::object_storage::kani_proofs::byte_range_normalization_stays_inside_the_exact_object",
             Self::PlaybackGrant => "contexts::media::domain::playback_grant::kani_proofs::playback_grant_expiry_and_fetch_fail_closed",
             Self::PublicCover => "contexts::media::domain::public_cover::kani_proofs::public_cover_requires_pinned_bound_image_and_current_disclosure",
+            Self::IdentitySecurityVersion => "domain::security_version::kani_proofs::security_version_never_wraps_or_leaves_storage_range",
+            Self::IdentityCompletion => "domain::admission::kani_proofs::completion_requires_current_active_bound_security_state",
+            Self::IdentityMailboxProof => "domain::mailbox_proof::kani_proofs::mailbox_proof_plans_require_explicit_current_bound_unexpired_confirmation",
             Self::ForgeAttemptLedger => "domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry",
         }
     }
 
     pub fn source(self) -> &'static str {
         match self {
-            Self::CatalogRevision => "services/cantos-api/src/contexts/catalog/domain/revision.rs",
-            Self::ImageBounds => "services/cantos-api/src/contexts/media/domain/image.rs",
+            Self::CatalogRevision => {
+                "services/cantos-server/src/contexts/catalog/domain/revision.rs"
+            }
+            Self::ImageBounds => "services/cantos-server/src/contexts/media/domain/image.rs",
             Self::WavPayload => {
-                "services/cantos-api/src/contexts/media/domain/wav_inspection/chunks.rs"
+                "services/cantos-server/src/contexts/media/domain/wav_inspection/chunks.rs"
             }
-            Self::SubmissionWindow => "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+            Self::SubmissionWindow => {
+                "services/cantos-server/src/contexts/media/domain/lifecycle.rs"
+            }
             Self::PublicationCommit => {
-                "services/cantos-api/src/contexts/media/domain/publication.rs"
+                "services/cantos-server/src/contexts/media/domain/publication.rs"
             }
-            Self::ListenerAccess => "services/cantos-api/src/contexts/media/domain/listening.rs",
+            Self::ListenerAccess => "services/cantos-server/src/contexts/media/domain/listening.rs",
             Self::ListenerReconcile => {
-                "services/cantos-api/src/contexts/listening/domain/reconcile.rs"
+                "services/cantos-server/src/contexts/listening/domain/reconcile.rs"
             }
-            Self::ByteRange => "services/cantos-api/src/contexts/media/domain/object_storage.rs",
+            Self::ByteRange => "services/cantos-server/src/contexts/media/domain/object_storage.rs",
             Self::PlaybackGrant => {
-                "services/cantos-api/src/contexts/media/domain/playback_grant.rs"
+                "services/cantos-server/src/contexts/media/domain/playback_grant.rs"
             }
-            Self::PublicCover => "services/cantos-api/src/contexts/media/domain/public_cover.rs",
+            Self::PublicCover => "services/cantos-server/src/contexts/media/domain/public_cover.rs",
+            Self::IdentitySecurityVersion => {
+                "services/cantos-identity/src/domain/security_version.rs"
+            }
+            Self::IdentityCompletion => "services/cantos-identity/src/domain/admission.rs",
+            Self::IdentityMailboxProof => {
+                "services/cantos-identity/src/domain/mailbox_proof/kani_proofs.rs"
+            }
             Self::ForgeAttemptLedger => "services/cantos-forge-functions/src/domain/attempt.rs",
         }
     }
@@ -178,6 +207,9 @@ impl Kernel {
             Self::ByteRange => 6,
             Self::PlaybackGrant => 6,
             Self::PublicCover => 6,
+            Self::IdentitySecurityVersion => 6,
+            Self::IdentityCompletion => 10,
+            Self::IdentityMailboxProof => 16,
             Self::ForgeAttemptLedger => 9,
         }
     }
@@ -199,6 +231,9 @@ impl Kernel {
             Self::ByteRange => Vec::new(),
             Self::PlaybackGrant => Vec::new(),
             Self::PublicCover => Vec::new(),
+            Self::IdentitySecurityVersion
+            | Self::IdentityCompletion
+            | Self::IdentityMailboxProof => Vec::new(),
             Self::ForgeAttemptLedger => Vec::new(),
         }
     }
@@ -270,14 +305,12 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
         // API build inputs reach only API kernels; Forge sources reach only the Forge kernel.
         if matches!(
             path.as_str(),
-            "services/cantos-api/Cargo.toml"
-                | "services/cantos-api/build.rs"
-                | "packages/contracts/api/build.rs"
-                | "services/cantos-api/src/lib.rs"
-                | "services/cantos-api/src/contexts/mod.rs"
-                | "packages/contracts/api/Cargo.toml"
-        ) || path.starts_with("packages/contracts/api/src/")
-            || path.starts_with("packages/contracts/schema/")
+            "services/cantos-server/Cargo.toml"
+                | "services/cantos-server/build.rs"
+                | "services/cantos-server/src/lib.rs"
+                | "services/cantos-server/src/contexts/mod.rs"
+        ) || path.starts_with("services/cantos-server/src/contract/")
+            || path.starts_with("services/cantos-server/contracts/")
         {
             selected.extend(Kernel::in_package(Package::Api));
         }
@@ -287,8 +320,26 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
         {
             selected.extend(Kernel::in_package(Package::Forge));
         }
-        if path == "services/cantos-api/src/contexts/listening/mod.rs"
-            || path.starts_with("services/cantos-api/src/contexts/listening/domain/")
+        if matches!(
+            path.as_str(),
+            "services/cantos-identity/Cargo.toml"
+                | "services/cantos-identity/src/lib.rs"
+                | "services/cantos-identity/src/domain/mod.rs"
+                | "services/cantos-identity/src/domain/ids.rs"
+                | "services/cantos-identity/src/domain/security_version.rs"
+        ) {
+            // Completion and mailbox proof reach the checked version/identifier constructors.
+            selected.extend(Kernel::in_package(Package::Identity));
+        }
+        if path == "services/cantos-identity/src/domain/admission.rs"
+            || path == "services/cantos-identity/src/domain/mailbox_proof.rs"
+            || path.starts_with("services/cantos-identity/src/domain/mailbox_proof/")
+        {
+            // Mailbox recovery uses Purpose from admission; its proof module is split by role.
+            selected.insert(Kernel::IdentityMailboxProof);
+        }
+        if path == "services/cantos-server/src/contexts/listening/mod.rs"
+            || path.starts_with("services/cantos-server/src/contexts/listening/domain/")
         {
             selected.insert(Kernel::ListenerReconcile);
         }
@@ -299,16 +350,16 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
         }
         if matches!(
             path.as_str(),
-            "services/cantos-api/src/contexts/catalog/mod.rs"
-                | "services/cantos-api/src/contexts/catalog/domain/mod.rs"
-                | "services/cantos-api/src/contexts/catalog/domain/error.rs"
+            "services/cantos-server/src/contexts/catalog/mod.rs"
+                | "services/cantos-server/src/contexts/catalog/domain/mod.rs"
+                | "services/cantos-server/src/contexts/catalog/domain/error.rs"
         ) {
             selected.insert(Kernel::CatalogRevision);
         }
         if matches!(
             path.as_str(),
-            "services/cantos-api/src/contexts/media/mod.rs"
-                | "services/cantos-api/src/contexts/media/domain/mod.rs"
+            "services/cantos-server/src/contexts/media/mod.rs"
+                | "services/cantos-server/src/contexts/media/domain/mod.rs"
         ) {
             selected.extend([
                 Kernel::ImageBounds,
@@ -321,7 +372,7 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
                 Kernel::PublicCover,
             ]);
         }
-        if path == "services/cantos-api/src/contexts/media/domain/wav_inspection/mod.rs" {
+        if path == "services/cantos-server/src/contexts/media/domain/wav_inspection/mod.rs" {
             selected.insert(Kernel::WavPayload);
         }
     }
@@ -629,7 +680,7 @@ mod tests {
             assert!(candidates.contains(&home.join(name)));
         }
         assert!(candidates.contains(&root.join("Cargo.toml")));
-        assert!(candidates.contains(&root.join("services/cantos-api/Cargo.toml")));
+        assert!(candidates.contains(&root.join("services/cantos-server/Cargo.toml")));
     }
 
     #[test]
@@ -663,7 +714,7 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         let mut steps = crate::gate::steps(
             &[
-                crate::gate::Gate::Repository,
+                crate::gate::Gate::Repository { base: None },
                 crate::gate::Gate::Kani(Kernel::CatalogRevision),
                 crate::gate::Gate::Kani(Kernel::WavPayload),
                 crate::gate::Gate::Kani(Kernel::SubmissionWindow),
@@ -745,18 +796,29 @@ mod tests {
     #[test]
     fn changed_kernels_select_only_registered_affected_propositions() {
         for kernel in Kernel::ALL {
-            assert_eq!(pick(&[kernel.source()], false), [kernel]);
+            let expected = match kernel {
+                Kernel::IdentitySecurityVersion => vec![
+                    Kernel::IdentitySecurityVersion,
+                    Kernel::IdentityCompletion,
+                    Kernel::IdentityMailboxProof,
+                ],
+                Kernel::IdentityCompletion => {
+                    vec![Kernel::IdentityCompletion, Kernel::IdentityMailboxProof]
+                }
+                _ => vec![kernel],
+            };
+            assert_eq!(pick(&[kernel.source()], false), expected);
         }
         assert_eq!(
             pick(
-                &["services/cantos-api/src/contexts/catalog/domain/error.rs"],
+                &["services/cantos-server/src/contexts/catalog/domain/error.rs"],
                 false
             ),
             [Kernel::CatalogRevision]
         );
         assert_eq!(
             pick(
-                &["services/cantos-api/src/contexts/media/domain/mod.rs"],
+                &["services/cantos-server/src/contexts/media/domain/mod.rs"],
                 false
             ),
             [
@@ -776,14 +838,12 @@ mod tests {
             assert_eq!(pick(&[path], false), Kernel::ALL);
         }
         for path in [
-            "services/cantos-api/Cargo.toml",
-            "services/cantos-api/build.rs",
-            "packages/contracts/api/build.rs",
-            "packages/contracts/api/Cargo.toml",
-            "packages/contracts/api/src/lib.rs",
-            "packages/contracts/schema/script-ir.schema.json",
-            "services/cantos-api/src/lib.rs",
-            "services/cantos-api/src/contexts/mod.rs",
+            "services/cantos-server/Cargo.toml",
+            "services/cantos-server/build.rs",
+            "services/cantos-server/src/contract/studio/mod.rs",
+            "services/cantos-server/contracts/studio/script-ir/0.1.0/script-ir.schema.json",
+            "services/cantos-server/src/lib.rs",
+            "services/cantos-server/src/contexts/mod.rs",
         ] {
             assert_eq!(pick(&[path], false), API_KERNELS, "{path}");
         }
@@ -808,7 +868,7 @@ mod tests {
         let workspace = Workspace::discover().unwrap();
         assert_eq!(
             Package::ALL.map(Package::name),
-            ["cantos-api", "cantos-forge"]
+            ["cantos-server", "cantos-forge", "cantos-identity"]
         );
         for package in Package::ALL {
             assert_eq!(Package::from_name(package.name()), Some(package));
@@ -818,15 +878,15 @@ mod tests {
         }
         for name in [
             "",
-            "cantos-api ",
+            "cantos-server ",
             "CANTOS-FORGE",
             "cantos-contracts",
             "../cantos-forge",
-            "cantos-api,cantos-forge",
+            "cantos-server,cantos-forge",
         ] {
             assert_eq!(Package::from_name(name), None, "{name:?}");
         }
-        assert_eq!(Package::Api.manifest(), "services/cantos-api/Cargo.toml");
+        assert_eq!(Package::Api.manifest(), "services/cantos-server/Cargo.toml");
         assert_eq!(
             Package::Forge.manifest(),
             "services/cantos-forge-functions/Cargo.toml"
@@ -862,6 +922,50 @@ mod tests {
     }
 
     #[test]
+    fn identity_proofs_select_their_real_shared_construction_dependencies() {
+        let identity = [
+            Kernel::IdentitySecurityVersion,
+            Kernel::IdentityCompletion,
+            Kernel::IdentityMailboxProof,
+        ];
+        assert_eq!(
+            Kernel::in_package(Package::Identity).collect::<Vec<_>>(),
+            identity
+        );
+        for path in [
+            Package::Identity.manifest(),
+            "services/cantos-identity/src/lib.rs",
+            "services/cantos-identity/src/domain/mod.rs",
+            "services/cantos-identity/src/domain/ids.rs",
+            Kernel::IdentitySecurityVersion.source(),
+        ] {
+            assert_eq!(pick(&[path], false), identity, "{path}");
+        }
+        assert_eq!(
+            pick(&[Kernel::IdentityCompletion.source()], false),
+            [Kernel::IdentityCompletion, Kernel::IdentityMailboxProof]
+        );
+        for path in [
+            "services/cantos-identity/src/domain/mailbox_proof.rs",
+            "services/cantos-identity/src/domain/mailbox_proof/tests.rs",
+            Kernel::IdentityMailboxProof.source(),
+        ] {
+            assert_eq!(
+                pick(&[path], false),
+                [Kernel::IdentityMailboxProof],
+                "{path}"
+            );
+        }
+        assert_eq!(pick(&["services/cantos-identity/README.md"], false), []);
+        assert_eq!(Kernel::IdentitySecurityVersion.covers(), 6);
+        assert_eq!(Kernel::IdentityCompletion.covers(), 10);
+        assert_eq!(Kernel::IdentityMailboxProof.covers(), 16);
+        for kernel in identity {
+            assert!(kernel.unreachable().is_empty());
+        }
+    }
+
+    #[test]
     fn forge_attempt_ledger_registration_is_exact() {
         let kernel = Kernel::ForgeAttemptLedger;
         assert_eq!(kernel.name(), "forge-attempt-ledger");
@@ -875,7 +979,7 @@ mod tests {
         );
         assert_eq!(kernel.covers(), 9);
         assert!(kernel.unreachable().is_empty());
-        assert_eq!(Kernel::ALL.len(), 11);
+        assert_eq!(Kernel::ALL.len(), 14);
         assert_eq!(Kernel::ALL.last(), Some(&kernel));
     }
 
@@ -903,7 +1007,7 @@ mod tests {
             .args
             .windows(2)
             .any(|args| args == ["--package", "cantos-forge"]));
-        assert!(!forge.args.iter().any(|arg| arg == "cantos-api"));
+        assert!(!forge.args.iter().any(|arg| arg == "cantos-server"));
         assert!(forge
             .args
             .windows(2)
@@ -913,7 +1017,7 @@ mod tests {
         assert!(api
             .args
             .windows(2)
-            .any(|args| args == ["--package", "cantos-api"]));
+            .any(|args| args == ["--package", "cantos-server"]));
     }
 
     #[test]
@@ -929,8 +1033,8 @@ mod tests {
             &[][..],
             &["--package"][..],
             &["--package", "cantos-contracts"][..],
-            &["--package", "cantos-api", "--package", "cantos-forge"][..],
-            &["--package", "cantos-api", "--package", "cantos-api"][..],
+            &["--package", "cantos-server", "--package", "cantos-forge"][..],
+            &["--package", "cantos-server", "--package", "cantos-server"][..],
         ] {
             assert!(command_package(&command(args)).is_err(), "{args:?}");
         }
@@ -942,10 +1046,10 @@ mod tests {
         let home = Path::new("/separate/cargo-home");
         let api = configuration_candidates(root, Some(home), Package::Api);
         let forge = configuration_candidates(root, Some(home), Package::Forge);
-        assert!(api.contains(&root.join("services/cantos-api/Cargo.toml")));
+        assert!(api.contains(&root.join("services/cantos-server/Cargo.toml")));
         assert!(!api.contains(&root.join("services/cantos-forge-functions/Cargo.toml")));
         assert!(forge.contains(&root.join("services/cantos-forge-functions/Cargo.toml")));
-        assert!(!forge.contains(&root.join("services/cantos-api/Cargo.toml")));
+        assert!(!forge.contains(&root.join("services/cantos-server/Cargo.toml")));
         for candidates in [&api, &forge] {
             assert!(candidates.contains(&root.join("Cargo.toml")));
             assert!(candidates.contains(&home.join("config.toml")));
@@ -959,7 +1063,7 @@ mod tests {
                 .collect::<BTreeSet<_>>()
         };
         assert_eq!(
-            shared(&api, "services/cantos-api/Cargo.toml"),
+            shared(&api, "services/cantos-server/Cargo.toml"),
             shared(&forge, "services/cantos-forge-functions/Cargo.toml")
         );
     }
@@ -1000,15 +1104,15 @@ mod tests {
         assert_eq!(api[&key("Cargo.toml")], digest("Cargo.toml"));
         assert_eq!(forge[&key("Cargo.toml")], digest("Cargo.toml"));
         assert_eq!(
-            api[&key("services/cantos-api/Cargo.toml")],
-            digest("services/cantos-api/Cargo.toml")
+            api[&key("services/cantos-server/Cargo.toml")],
+            digest("services/cantos-server/Cargo.toml")
         );
         assert!(!api.contains_key(&key("services/cantos-forge-functions/Cargo.toml")));
         assert_eq!(
             forge[&key("services/cantos-forge-functions/Cargo.toml")],
             digest("services/cantos-forge-functions/Cargo.toml")
         );
-        assert!(!forge.contains_key(&key("services/cantos-api/Cargo.toml")));
+        assert!(!forge.contains_key(&key("services/cantos-server/Cargo.toml")));
     }
 
     #[test]
@@ -1047,17 +1151,16 @@ mod tests {
         );
         // No API path selects the Forge kernel, and no Forge path selects an API kernel.
         let api_paths = [
-            "services/cantos-api/Cargo.toml",
-            "services/cantos-api/build.rs",
-            "services/cantos-api/src/lib.rs",
-            "services/cantos-api/src/contexts/mod.rs",
-            "services/cantos-api/src/contexts/media/mod.rs",
-            "services/cantos-api/src/contexts/media/domain/mod.rs",
-            "services/cantos-api/src/contexts/catalog/domain/error.rs",
-            "services/cantos-api/src/contexts/listening/domain/mod.rs",
-            "packages/contracts/api/Cargo.toml",
-            "packages/contracts/api/src/lib.rs",
-            "packages/contracts/schema/script-ir.schema.json",
+            "services/cantos-server/Cargo.toml",
+            "services/cantos-server/build.rs",
+            "services/cantos-server/src/lib.rs",
+            "services/cantos-server/src/contexts/mod.rs",
+            "services/cantos-server/src/contexts/media/mod.rs",
+            "services/cantos-server/src/contexts/media/domain/mod.rs",
+            "services/cantos-server/src/contexts/catalog/domain/error.rs",
+            "services/cantos-server/src/contexts/listening/domain/mod.rs",
+            "services/cantos-server/src/contract/studio/mod.rs",
+            "services/cantos-server/contracts/studio/script-ir/0.1.0/script-ir.schema.json",
         ];
         for path in api_paths {
             assert!(

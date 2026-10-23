@@ -70,13 +70,13 @@ runtime/accessibility/native requirements of #66/#13/#14 or shared preview admis
 The earlier TTS provider implementations, worker leases, budgets, speech-clip cache and
 DBSP generation-job summary are **historical**, not active roadmap milestones.
 [ADR 0018](../../decisions/0018-external-audio-production.md) supersedes those assumptions;
-the [proposed external handoff contract](../../../packages/contracts/external-audio-handoff-v1.md)
+the [proposed external handoff contract](../../../services/cantos-server/contracts/producer/handoff/v1/README.md)
 states only proposed routes, not a feature implementation.
 
 ## Exit criteria and evidence
 
 - **Catalog:** create a plain novel chapter and an unscripted podcast episode without casting.
-  The [backend API](../../../packages/contracts/catalog-v1.md) is implemented; #66 also requires
+  The [backend API](../../../services/cantos-server/contracts/studio/catalog/v1/README.md) is implemented; #66 also requires
   responsive/keyboard Studio Web flows and mocked client integration against that contract.
 - **Instructions:** independently authorized plugin can read exact pinned brief/version/digest.
 - **Intake:** real external file, private upload, server-observed integrity, idempotent finalize,

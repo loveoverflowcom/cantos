@@ -1,6 +1,7 @@
 package com.cantos.theatre.features.auth.presentation
 
 import com.cantos.theatre.application.identity.NativeAccountFailure
+import com.cantos.theatre.application.identity.AccountLoginFailure
 import com.cantos.theatre.domain.identity.RegistrationFailure
 import com.cantos.theatre.presentation.model.ShellLocale
 
@@ -9,28 +10,31 @@ internal class AuthCopy(private val locale: ShellLocale) {
 
     fun registrationFailure(reason: RegistrationFailure): String = text(when (reason) {
         RegistrationFailure.InvalidEmail -> AuthText.RegisterInvalidEmail
-        RegistrationFailure.InvalidAction -> AuthText.RegisterInvalidAction
         RegistrationFailure.Disabled -> AuthText.RegisterDisabled
-        RegistrationFailure.Unavailable -> AuthText.RegisterNetwork
         RegistrationFailure.Denied -> AuthText.RegisterDenied
         RegistrationFailure.Protocol -> AuthText.FailureProtocol
-        RegistrationFailure.ProofUnavailable -> AuthText.RegisterProofUnavailable
+        RegistrationFailure.RateLimited -> AuthText.RegisterRateLimited
         RegistrationFailure.StartUnknownOutcome -> AuthText.RegisterSendUnknown
-        RegistrationFailure.UnknownOutcome -> AuthText.RegisterUnknown
-        RegistrationFailure.Browser -> AuthText.RegisterBrowserFailed
     })
 
-    fun failure(reason: NativeAccountFailure): String = text(when (reason) {
-        NativeAccountFailure.Configuration -> AuthText.FailureConfiguration
-        NativeAccountFailure.Entropy -> AuthText.FailureEntropy
-        NativeAccountFailure.Login -> AuthText.FailureLogin
-        NativeAccountFailure.Storage -> AuthText.FailureStorage
-        NativeAccountFailure.Cleanup -> AuthText.FailureCleanup
-        NativeAccountFailure.Expired -> AuthText.FailureExpired
-        NativeAccountFailure.Api -> AuthText.FailureApi
-        NativeAccountFailure.Protocol -> AuthText.FailureProtocol
-        NativeAccountFailure.Exhausted -> AuthText.FailureExhausted
-    })
+    fun failure(reason: NativeAccountFailure, identity: AccountLoginFailure? = null): String {
+        if (identity is AccountLoginFailure.RateLimited) {
+            val seconds = identity.retryAfterSeconds
+            return if (seconds == null) text(AuthText.RetryLater) else text(AuthText.RetryAfter).replace("{seconds}", seconds.toString())
+        }
+        if (identity != null) return text(when (identity) {
+            AccountLoginFailure.InvalidCredentials -> AuthText.InvalidCredentials
+            AccountLoginFailure.Protocol -> AuthText.FailureProtocol
+            AccountLoginFailure.RetryLater, is AccountLoginFailure.RateLimited -> AuthText.RetryLater
+        })
+        return text(when (reason) {
+            NativeAccountFailure.Storage -> AuthText.FailureStorage
+            NativeAccountFailure.Expired -> AuthText.FailureExpired
+            NativeAccountFailure.Api -> AuthText.FailureApi
+            NativeAccountFailure.Protocol -> AuthText.FailureProtocol
+            NativeAccountFailure.Exhausted -> AuthText.FailureExhausted
+        })
+    }
 }
 
 /**
@@ -38,13 +42,6 @@ internal class AuthCopy(private val locale: ShellLocale) {
  * Nothing here is a name, count or entitlement: those need a real contract before display.
  */
 internal enum class AuthText(val vi: String, val en: String) {
-    ApiOriginMissing("Thiếu cấu hình API cho đăng nhập.", "The sign-in API origin is missing."),
-    IssuerMissing("Chưa cấu hình dịch vụ đăng nhập. Bạn vẫn có thể khám phá nội dung công khai.", "The identity service is not configured. You can still explore public content."),
-    BothMissing("Thiếu cấu hình API và dịch vụ đăng nhập.", "The API origin and identity service are not configured."),
-    ApiOriginInvalid("Cấu hình API cho đăng nhập không hợp lệ.", "The sign-in API origin is invalid."),
-    IssuerInvalid("Cấu hình dịch vụ đăng nhập không hợp lệ.", "The identity service configuration is invalid."),
-    CallbackInvalid("Cấu hình đường trở về ứng dụng không hợp lệ.", "The app callback configuration is invalid."),
-
     Brand("Cantos", "Cantos"),
     Back("Quay lại", "Back"),
     ReturnHome("Về Khám phá", "Back to Discover"),
@@ -59,11 +56,18 @@ internal enum class AuthText(val vi: String, val en: String) {
         "Đăng nhập để trở lại thư viện của bạn. Nội dung công khai vẫn có thể nghe ngay mà không cần đăng nhập.",
         "Sign in to return to your library. Public stories are still available without signing in.",
     ),
-    CantosIdLogin("Đăng nhập với Cantos ID", "Sign in with Cantos ID"),
+    Password("Mật khẩu", "Password"),
+    PasswordRequired("Nhập mật khẩu.", "Enter your password."),
+    ShowPassword("Hiện mật khẩu", "Show password"),
+    HidePassword("Ẩn mật khẩu", "Hide password"),
+    InvalidCredentials("Không thể đăng nhập bằng thông tin này.", "Unable to sign in with these credentials."),
+    RetryLater("Đăng nhập tạm thời chưa khả dụng. Vui lòng thử lại sau.", "Sign-in is temporarily unavailable. Please try again later."),
+    RetryAfter("Vui lòng đợi {seconds} giây trước khi thử lại.", "Please wait {seconds} seconds before trying again."),
+    CantosIdLogin("Đăng nhập", "Sign in"),
     CreateAccount("Tạo tài khoản Cantos", "Create a Cantos account"),
-    ProviderHelp(
-        "Mở bước xác thực an toàn trong trình duyệt hệ thống, rồi quay lại Cantos. Bạn có thể quay lại mà chưa đăng nhập.",
-        "Open secure authentication in the system browser, then return to Cantos. You can go back without signing in.",
+    PasswordHelp(
+        "Dùng email và mật khẩu đã thiết lập sau khi xác minh hộp thư.",
+        "Use the email and password you set up after verifying your mailbox.",
     ),
     BrandHeading("Nhắm mắt lại. Mở một thế giới.", "Close your eyes. Open a world."),
     BrandHelp(
@@ -74,7 +78,7 @@ internal enum class AuthText(val vi: String, val en: String) {
     RestoreSession("Khôi phục phiên đã lưu", "Restore the saved session"),
     NothingSaved("Thiết bị này chưa lưu phiên nào để khôi phục.", "This device has no saved session to restore."),
     CancelLogin("Hủy đăng nhập", "Cancel sign-in"),
-    PendingReason("Đang mở Cantos ID. Không gửi yêu cầu lần hai.", "Opening Cantos ID. A second request is not sent."),
+    PendingReason("Đang đăng nhập. Không gửi yêu cầu lần hai.", "Signing in. A second request is not sent."),
     PendingStatus("Đang xác minh phiên đăng nhập…", "Verifying the sign-in session…"),
     UnavailableReason(
         "Đăng nhập chưa khả dụng trên bản này. Bạn vẫn nghe được nội dung công khai.",
@@ -90,11 +94,7 @@ internal enum class AuthText(val vi: String, val en: String) {
     ),
     RetryCleanup("Thử xóa phiên lại", "Retry removing the session"),
 
-    FailureConfiguration("Đăng nhập chưa sẵn sàng. Vui lòng thử lại sau.", "Sign-in is not ready. Please try again later."),
-    FailureEntropy("Không thể bắt đầu đăng nhập an toàn. Vui lòng thử lại.", "Secure sign-in could not start. Please try again."),
-    FailureLogin("Đăng nhập đã hủy hoặc hết hạn. Vui lòng thử lại.", "Sign-in was cancelled or expired. Please try again."),
     FailureStorage("Không thể đọc phiên đã lưu trên thiết bị.", "The saved session on this device could not be read."),
-    FailureCleanup("Cần xóa phiên cũ trước khi đăng nhập lại.", "The previous session must be removed before you sign in again."),
     FailureExpired("Phiên đã hết hạn. Vui lòng đăng nhập lại.", "The session expired. Please sign in again."),
     FailureApi("Không thể xác minh phiên qua mạng. Vui lòng thử lại.", "The session could not be verified over the network. Please try again."),
     FailureProtocol("Không thể xác minh phản hồi đăng nhập an toàn.", "The secure sign-in response could not be verified."),
@@ -117,29 +117,15 @@ internal enum class AuthText(val vi: String, val en: String) {
     RegisterEmail("Địa chỉ email", "Email address"),
     RegisterSend("Gửi yêu cầu xác minh", "Request email verification"),
     RegisterSending("Đang gửi yêu cầu…", "Submitting the request…"),
-    RegisterChecking("Đang kiểm tra đăng ký…", "Checking registration availability…"),
-    RegisterWaiting("Yêu cầu đã được tiếp nhận. Kiểm tra hộp thư; phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo.", "The request was accepted. Check your inbox; this does not confirm delivery or account creation."),
-    RegisterLink("Dán liên kết xác minh từ email", "Paste the verification link from your email"),
-    RegisterImport("Kiểm tra liên kết", "Check the link"),
-    RegisterConfirm("Xác minh email", "Verify email"),
-    RegisterConfirmHelp("Liên kết đã sẵn sàng. Chỉ nút Xác minh email mới gửi mã tới máy chủ.", "The link is ready. Only Verify email sends the code to the server."),
-    RegisterVerifying("Đang xác minh email…", "Verifying email…"),
-    RegisterSetupReady("Email đã được xác minh. Mở bước đặt thông tin đăng nhập một lần trong trình duyệt; bạn chưa đăng nhập.", "Email verified. Open the one-time credential setup in the browser; you are not signed in yet."),
-    RegisterOpenSetup("Đặt thông tin đăng nhập", "Set up credentials"),
-    RegisterCredentialSetup("Hoàn tất trong trình duyệt, rồi trở lại Đăng nhập. Chỉ phiên được máy chủ xác nhận mới mở thư viện của bạn.", "Finish in the browser, then return to sign-in. Your library opens only after the server confirms your session."),
+    RegisterWaiting("Yêu cầu đã được tiếp nhận. Kiểm tra hộp thư và hoàn tất xác minh, đặt mật khẩu trên Web, rồi trở lại đây để đăng nhập. Phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo.", "The request was accepted. Check your inbox and complete verification and password setup on the Web, then return here to sign in. This does not confirm delivery or account creation."),
     RegisterCancel("Hủy đăng ký", "Cancel registration"),
-    RegisterCancelling("Đang yêu cầu hủy…", "Requesting cancellation…"),
     RegisterCancelled("Đã dừng đăng ký tại đây. Hủy không thu hồi thao tác máy chủ đã hoàn tất.", "Registration stopped here. Cancellation cannot undo work already completed by the server."),
     RegisterRestart("Bắt đầu yêu cầu mới", "Start a new request"),
     RegisterRetry("Kiểm tra lại", "Check again"),
     RegisterInvalidEmail("Nhập địa chỉ email hợp lệ.", "Enter a valid email address."),
-    RegisterInvalidAction("Liên kết không hợp lệ hoặc không thuộc máy chủ này. Dán nguyên liên kết từ email.", "The link is invalid or belongs to another server. Paste the complete link from your email."),
-    RegisterNetwork("Không kết nối được dịch vụ đăng ký. Kiểm tra kết nối rồi thử lại.", "Registration could not be reached. Check your connection and try again."),
     RegisterDenied("Máy chủ từ chối yêu cầu đăng ký trên bản này.", "The server refused registration from this build."),
-    RegisterProofUnavailable("Mã đã hết hạn, đã dùng hoặc không thể xác minh. Không gửi lại mã này; bắt đầu yêu cầu mới hoặc đăng nhập.", "The code is expired, already used or could not be verified. Do not resend this code; start a new request or sign in."),
+    RegisterRateLimited("Bạn đã gửi quá nhiều yêu cầu. Hãy thử lại sau ít phút.", "Too many requests were sent. Please try again in a few minutes."),
     RegisterSendUnknown("Chưa biết máy chủ đã nhận yêu cầu hay chưa. Kiểm tra hộp thư trước khi bắt đầu yêu cầu mới.", "The submission outcome is unknown. Check your inbox before starting a new request."),
-    RegisterUnknown("Chưa xác định được kết quả xác minh hoặc bàn giao. Không thử lại mã hay liên kết đặt thông tin; cần đối soát hoặc đăng nhập nếu đã hoàn tất.", "Verification or setup delivery has an unknown outcome. Do not retry the code or setup link; reconcile it, or sign in if setup finished."),
-    RegisterBrowserFailed("Không mở được trình duyệt. Liên kết một lần đã được bỏ khỏi ứng dụng; cần đối soát bàn giao trước khi thử lại.", "The browser could not open. The one-time link was removed from the app; reconcile setup delivery before trying again."),
     RegisterLater("Để sau, về Khám phá", "Later, back to Discover"),
 
     GuestBadge("Người nghe khách", "Guest listener"),
@@ -158,8 +144,8 @@ internal enum class AuthText(val vi: String, val en: String) {
     ),
     OpenLibrary("Mở thư viện", "Open my library"),
     LibraryNote(
-        "Thư viện của bản này vẫn chỉ lưu trong phiên, chưa đồng bộ với tài khoản.",
-        "This build's library is still session-only and is not synced with your account.",
+        "Thư viện được lưu riêng theo tài khoản. Các thay đổi đang chờ sẽ đồng bộ khi kết nối khả dụng.",
+        "Your library is stored separately for each account. Pending changes sync when a connection is available.",
     ),
     MembershipBadge("Sắp ra mắt", "Coming soon"),
     MembershipName("Cantos Membership", "Cantos Membership"),
@@ -178,12 +164,3 @@ internal enum class AuthText(val vi: String, val en: String) {
     Logout("Đăng xuất", "Sign out"),
     LogoutHint("Trở về trạng thái người nghe khách", "Return to the guest listener state"),
 }
-
-internal fun AuthCopy.configuration(reason: com.cantos.theatre.application.identity.IdentityConfigurationFault): String = text(when (reason) {
-    com.cantos.theatre.application.identity.IdentityConfigurationFault.ApiOriginMissing -> AuthText.ApiOriginMissing
-    com.cantos.theatre.application.identity.IdentityConfigurationFault.IssuerMissing -> AuthText.IssuerMissing
-    com.cantos.theatre.application.identity.IdentityConfigurationFault.BothMissing -> AuthText.BothMissing
-    com.cantos.theatre.application.identity.IdentityConfigurationFault.ApiOriginInvalid -> AuthText.ApiOriginInvalid
-    com.cantos.theatre.application.identity.IdentityConfigurationFault.IssuerInvalid -> AuthText.IssuerInvalid
-    com.cantos.theatre.application.identity.IdentityConfigurationFault.CallbackInvalid -> AuthText.CallbackInvalid
-})

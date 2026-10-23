@@ -5,8 +5,8 @@
 //! `cargo xtask deploy firebase`. A *preview* deploy publishes a PUBLIC, expiring URL; a *live*
 //! deploy replaces what a site serves. `--dry-run` is the way to review either first.
 //!
-//! The command serves the static HTML/CSS/JS/WASM bundle and nothing else: the Rust API,
-//! PostgreSQL, Kanidm and object storage stay outside Firebase Hosting, and no Firebase SDK,
+//! The command serves the static HTML/CSS/JS/WASM bundle and nothing else: the Rust Server,
+//! database files, the identity process and object storage stay outside Firebase Hosting, and no Firebase SDK,
 //! Cloud Functions or Cloud Run proxy is added. It runs no GitHub Action and is never triggered by
 //! a commit or a push.
 //!
@@ -52,7 +52,6 @@ pub(crate) mod inspect;
 mod receipt;
 mod request;
 mod smoke;
-mod vps;
 
 use std::process::ExitCode;
 
@@ -78,8 +77,16 @@ pub enum Provider {
     Firebase(FirebaseArgs),
     /// Publish a verified release-build Web artifact to Cloudflare Pages (Direct Upload).
     Cloudflare(cloudflare::CloudflareArgs),
-    /// Build the API image locally and deploy it to the production VPS over SSH.
-    Vps(vps::VpsArgs),
+    /// Retired with the legacy PostgreSQL/Kanidm VPS runtime; refuses before any effect. The
+    /// replacement is `cargo xtask release oci-build` / `oci-verify`.
+    #[command(hide = true)]
+    Vps(crate::retired::Retired),
+}
+
+impl DeployArgs {
+    pub fn is_vps(&self) -> bool {
+        matches!(self.provider, Provider::Vps(_))
+    }
 }
 
 const FIREBASE_HELP: &str = "\
@@ -143,7 +150,7 @@ pub fn execute(
     let args = match &args.provider {
         Provider::Firebase(args) => args,
         Provider::Cloudflare(args) => return cloudflare::execute(workspace, args, tools),
-        Provider::Vps(args) => return vps::execute(workspace, args, runner),
+        Provider::Vps(_) => unreachable!("the retired VPS lane is refused before dispatch"),
     };
     let raw = Raw {
         app: args.target,
@@ -598,7 +605,7 @@ mod tests {
         }
         // Only the two Web apps are targets: not the API, Forge, `all`, or Theatre's alias.
         for target in [
-            "cantos-api",
+            "cantos-server",
             "cantos-forge",
             "all",
             "cantos",
@@ -751,14 +758,15 @@ mod tests {
         );
         for target in [
             build::BuildTarget::All,
-            build::BuildTarget::CantosApi,
+            build::BuildTarget::CantosServer,
+            build::BuildTarget::CantosIdentity,
             build::BuildTarget::CantosForge,
             build::BuildTarget::CantosStudio,
             build::BuildTarget::CantosTheatre,
         ] {
             for surface in [None, Some(build::Surface::Web)] {
                 for profile in [build::Profile::Dev, build::Profile::Release] {
-                    if let Ok(steps) = build::plan(&workspace, target, surface, profile, false) {
+                    if let Ok(steps) = build::plan(&workspace, target, surface, profile) {
                         commands.extend(steps.into_iter().flat_map(|step| step.commands));
                     }
                 }

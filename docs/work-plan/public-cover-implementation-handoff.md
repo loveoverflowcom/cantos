@@ -38,11 +38,11 @@ accepting those P1 rows would not accept this P0 gate.
 
 | Owner / implemented seam | What it supplies | What it does not supply |
 | --- | --- | --- |
-| [Private Artwork v1](../../packages/contracts/artwork-v1.md), [Media artwork SQL](../../services/cantos-api/src/contexts/media/postgres/artwork.rs) | Owner-only image admission and immutable set/clear history; `effective` reads the last change at or before an exact Work revision, retaining clear tombstones | Public rights, an anonymous preview URL, publication promotion or public cover DTO |
-| [Listener publication SQL](../../services/cantos-api/src/contexts/media/postgres/listener.rs), [Discovery v1](../../packages/contracts/theatre-discovery-v1.md#public-eligibility-and-representative-metadata) | Current eligibility plus exact release-pinned metadata; shared representative selection for list/detail; bounded batched reads | Image/disclosure resolution; present-day private head is not the release's cover |
-| [Pure cover kernel](../../services/cantos-api/src/contexts/media/domain/public_cover.rs) | Proposed `project_public_cover` over eligible `ListenerPublication`, artwork history, exact admitted asset and explicit disclosure; typed total fallback | A production caller, persisted disclosure authority or public wire serialization |
-| [Theatre DTO](../../packages/contracts/api/src/theatre.rs), [wire projection](../../services/cantos-api/src/contexts/media/listener_projection.rs) | Strict existing `WorkSummary` for list/detail, with no cover field | Automatic compatibility for an optional addition: `deny_unknown_fields` readers reject extra properties |
-| [Private storage](../architecture/object-storage.md), [origin playback seam](../../services/cantos-api/src/contexts/media/listener_delivery.rs) | Existing private adapters and a separate composition-gated audio `PublicationObjects` port | A promoted public-image adapter; private storage has no promotion/ACL operation, and the audio route is not an image endpoint |
+| [Private Artwork v1](../../services/cantos-server/contracts/studio/artwork/v1/README.md), [Media artwork SQL](https://github.com/loveoverflowcom/cantos/blob/7057ab41720b9bb341b27bae8a08f0ea7211b6ae/services/cantos-server/src/contexts/media/postgres/artwork.rs) | Owner-only image admission and immutable set/clear history; `effective` reads the last change at or before an exact Work revision, retaining clear tombstones | Public rights, an anonymous preview URL, publication promotion or public cover DTO |
+| [Listener publication SQL](../../services/cantos-server/src/contexts/media/turso/listener.rs), [Discovery v1](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-eligibility-and-representative-metadata) | Current eligibility plus exact release-pinned metadata; shared representative selection for list/detail; bounded batched reads | Image/disclosure resolution; present-day private head is not the release's cover |
+| [Pure cover kernel](../../services/cantos-server/src/contexts/media/domain/public_cover.rs) | Proposed `project_public_cover` over eligible `ListenerPublication`, artwork history, exact admitted asset and explicit disclosure; typed total fallback | A production caller, persisted disclosure authority or public wire serialization |
+| [Theatre DTO](../../services/cantos-server/src/contract/theatre/discovery.rs), [wire projection](../../services/cantos-server/src/contexts/media/listener_projection.rs) | Strict existing `WorkSummary` for list/detail, with no cover field | Automatic compatibility for an optional addition: `deny_unknown_fields` readers reject extra properties |
+| [Private storage](../architecture/object-storage.md), [origin playback seam](../../services/cantos-server/src/contexts/media/listener_delivery.rs) | Existing private adapters and a separate composition-gated audio `PublicationObjects` port | A promoted public-image adapter; private storage has no promotion/ACL operation, and the audio route is not an image endpoint |
 
 [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md) is also proposed and concerns
 audio. Its grant TTL, MIME, URL shape and headers do not select image delivery. Do not add an
@@ -63,7 +63,7 @@ hazard but supplies no accepted Theatre Protobuf field numbers or cover DTO.
    must not suppress an otherwise eligible title or playable release.
 4. Add the reviewed disclosure persistence and bounded read path, with additive migrations
    only where needed. Before changing reads, follow the
-   [PostgreSQL read workflow](../../.agents/skills/cantos-engineering/references/postgresql-read-performance.md):
+   [PostgreSQL read workflow](../../.agents/skills/cantos-engineering/references/turso-read-performance.md):
    inventory list/search/detail, retain representative-first filtering and opaque keysets,
    compare query counts/plans and avoid per-item artwork queries. No measured need for DBSP
    or another storage service is established here.

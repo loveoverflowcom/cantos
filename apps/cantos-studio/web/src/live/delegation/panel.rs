@@ -10,6 +10,7 @@ use super::{
     },
     Grants, IssueDraft, Problem,
 };
+use crate::contract::{CatalogWork, DelegationGrantResponse};
 use crate::{
     live::{
         workspace::{uuid, Dispatch},
@@ -17,7 +18,6 @@ use crate::{
     },
     ui::{ActionButton, DelegationRevokeDialog},
 };
-use cantos_contracts::{CatalogWork, DelegationGrantResponse};
 use cantos_ui::ButtonVariant;
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::{JsCast, JsValue};

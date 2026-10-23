@@ -103,7 +103,7 @@ class LibraryPresentationSyncTest {
     private fun id(): String = "90000000-0000-0000-0000-${sequence++.toString().padStart(12, '0')}"
     private fun TestScope.controller(api: LibraryApi, store: LibraryLocalPort): NativeLibraryController =
         nativeLibraryController(backgroundScope, api, store, ::id) { 1000 }
-    private fun NativeLibraryController.enterAs(actor: String, session: String = sessionA) { enter(NativeSession(actor, session, Long.MAX_VALUE, null), "b".repeat(64)) }
+    private fun NativeLibraryController.enterAs(actor: String, session: String = sessionA) { enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)) }
     private fun workIds(state: LibraryState) = state.continueListening.map { it.audio.workId }
 
     @Test fun metadataFromTheApiNamesWorksNoCatalogEverListed() = runTest {

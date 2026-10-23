@@ -138,7 +138,7 @@ CMP scale, Web mapping, player, mini-player, editor, colors, fonts or density ro
 | Role | Logical units | Scope |
 | --- | --- | --- |
 | `size.authPrimary`, `size.authSecondary` | 60, 56 | Minimum action height; intrinsic text height may grow |
-| `size.authIcon` | 28 | Decorative circle in the filled auth action; no independent name |
+| `size.authIcon` | 28 | Retained historical role; the 23 October action anatomy uses `size.icon` without a circle |
 | `size.authField`, `shape.authField` | 56, 20 | Tonal text entry with external label/help/error |
 | `size.backControl` | 48 | Contextual Back hit area; host owns destination/cancellation |
 | `size.authOutline` | 1.5 | Functional outlined auth action; regular `size.border=1` unchanged |

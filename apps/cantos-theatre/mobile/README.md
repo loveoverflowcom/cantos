@@ -32,134 +32,145 @@ JVM classes only as a forbidden inventory; a Desktop Preview build cannot accept
 The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md) records current checks
 separately from the historical results cited below.
 
-## Opt-in native identity
+## Native identity (Identity v1 only)
 
-`NativeAccountController` is the one process/application-dispatcher owner of the native
-Bearer lifecycle. `NativeIdentityClient` uses `/api/v1/theatre/native/auth/bearer` on the exact
-configured HTTPS API origin. The public native client embeds no Studio/Web secret. State,
-nonce, S256 and exact system-browser redirect bind one server flow and one exchange. Provider
-credentials remain on the API; only scoped Cantos access/refresh credentials reach native.
+Android and iOS compose first-party **Identity v1** through `NativeIdentityV1Client` and the
+existing `NativeAccountController`. Login is explicit email/password inside the existing CMP Login
+route; signup sends only the email to `/native/identity/signup`. The native JSON surface is
+`/api/v1/theatre/native/identity/*` with `ci1_n_`/`ci1_r_` credentials, the
+`x-cantos-theatre-session` fence and no cookie jar or browser `Origin`. The app has **no** OIDC
+issuer, PKCE/state/nonce, system-browser or `ASWebAuthenticationSession` hook, URL scheme or
+callback intent filter, provider fallback, Firebase/Kanidm enrollment or confirm/setup endpoint.
+A provider credential found on a device is retired locally and the listener signs in again; it is
+never sent to the API and is never a fallback.
 
-`SecureNativeCredentialJournal` replaces one complete encrypted OS value, bound to exact API
-origin and issuer. Its Active, Flow, Refreshing and Cleared records distinguish usable candidates
-from cleanup-only recovery. Flow is persisted before code exchange; Refreshing with the old
-family is persisted before rotation. An interrupted or unknown exchange is cancelled, and an
-interrupted or unknown refresh revokes the old family; neither consuming request is replayed.
-Failed write/readback still attempts known-flow/family cleanup, while the durable denial barrier
-blocks adoption. A durable Cleared record makes a crash between revoke and marker deletion
-recoverable. Old unbound single-token records are removed locally, never sent to a changed
-origin or admitted as new Bearer; their original server lifetime remains bounded to 900 seconds.
+### Identity v1 lifecycle integration
 
-The production runtime restores on launch through API confirmation, or one safe rotation when
-only access has expired. Local credentials alone never expose an account or its SQLite rows.
-The active process timer and all private requests share one refresh flight; cancelling a waiter
-does not cancel or repeat rotation. Access is at most 120 seconds; original provider/proof,
-idle and absolute authority remain server-owned and never extend through refresh.
+The account owner accepts `(scope, NativeIdentityV1Api, journal, barrier, now)` and explicit
+`login(RegistrationEmail, password)`. The form password exists only in
+ordinary composition RAM and the necessary command/in-flight call; it is cleared before dispatch
+and on leaving. It never enters saveable state, navigation, shell projections, preview snapshots,
+SQLite, preferences, diagnostics or the credential journal. There is no automatic password retry.
+Validation, pending/double-submit, generic credential refusal, `429` with bounded Retry-After,
+retry-later and cleanup-required states use the existing VI/EN copy and account projection: a
+`401`/`403` is "cannot sign in with these credentials", `429` and `503` are retry-later (a `503`
+never claims the server revoked or logged out anything), and a `409` fence is never shown as
+"session expired". Every navigation away from pending Login fences its result through the same
+account owner.
 
-Logout hides authority and durably marks intent before network cleanup. Local intent/rotation
-leases reject late bodies, callbacks and cleanup from account A after B. Library HTTP borrows
-the current access pair from that owner; same-family rotation preserves the player, local
-checkpoint and exact outbox operations. Direct same-turn Library changes after logout also
-check authority. No account token is put in a media URL: current public playback retains the
-existing short-lived release capability and separate native media transport.
+The complete pair is written/read back before `GET /native/identity/session` admission. Exact
+actor/family/deadline/authentication-time match precedes `verifiedSession`/`SignedIn`. Restore
+runs once at process start and checks the API or performs one safe refresh within the original
+deadlines; timer and private requests share one flight. A nonconsuming session-check outage hides
+authority and retains a candidate for explicit restore. Refresh failure/unknown outcome is
+cleanup-only, never replayed with the old secret.
+Identity v1 time checks use a monotonic elapsed-time floor over the supplied UNIX clock, so
+moving the device clock backwards cannot postpone renewal or extend local access/absolute
+authority. The floor survives rotation and revalidation; restart still requires API admission.
+Native suspend/time-source behavior remains a device acceptance item.
+Logout hides authority, marks the durable denial barrier, then cleans the exact known family.
+Late A results cannot change B's journal, Library, player or navigation. No auth token enters a
+media URL; public playback keeps its separate release capability. SQLDelight and playback policy
+are unchanged, and signing out, retiring a credential or switching account never deletes an
+account's progress, bookmarks or outbox (they are partitioned by actor).
 
-Android uses Keystore AES-GCM with full-record AtomicFile/readback/fsync in `noBackupFilesDir`,
-ACTION_VIEW and bounded no-cookie/no-redirect HTTP. iOS uses Keychain
-`AfterFirstUnlockThisDeviceOnly` with full-record readback, ASWebAuthenticationSession and
-ephemeral no-cookie/no-cache/no-redirect URLSession. The synced nonsecret denial marker is
-backup-excluded on both platforms. No credential enters Compose/SwiftUI state, SQLite,
-preferences, logs or plaintext files. Source implementation and JVM examples do not establish
-installed-device secure-store/process-death or native decoder acceptance.
+`SecureNativeCredentialJournal(store, origin)` writes version 2 bound to the exact `api_origin`
+and `protocol: identity-v1`; it can no longer write or parse a provider credential. An exact
+canonical retired record at this origin (a version-1 issuer-bound provider journal of any kind, or
+the unbound 64-hex pre-provider token) reads as `NativeCredentialRecord.Retired`: it is removed
+locally and the listener must sign in again. That is not server revocation. Anything else
+unreadable, foreign, mixed, ambiguous or from another origin is `Corrupt` and fails closed, and OS
+secure-storage failures (`Unavailable`/`Denied`) stay distinct from both. A pending denial barrier
+cannot be cleared by inventing an empty record. Interrupted refresh and Active-plus-pending-barrier
+recover through cleanup, never credential replay.
 
-Operator-owned **nonsecret** configuration keys are `CantosApiOrigin` and `CantosNativeIssuer`,
-read from Android application metadata / iOS Info.plist. Both must be supplied; the issuer must
-be the exact HTTPS `/oauth2/openid/cantos-theatre-native` issuer, and the callback is exactly
-`com.cantos.theatre:/oauth2/callback` (production). The Android host resolves its closed
-`NativeCallbackProfile` from the final application ID: release uses `com.cantos.theatre`, debug uses
-`com.cantos.theatre.dev:/oauth2/callback` and the manifest scheme is `${applicationId}`, so
-co-installed builds receive only their own callback
-([contract](../../../docs/deployment/native-callback-profiles.md)). An older `.demo` install may
-still register the production scheme; it is not removed here. This repository supplies no live values, OAuth registration,
-credentials or TLS override. The user authorized the previously held Android INTERNET,
-callback-filter and Application/MainActivity source changes on 14 October 2026. Those changes
-are now mounted: one process owner, `singleTask` callback delivery and the optional account
-boundary when both validated configuration keys are present. That boundary is no longer a separate
-screen: it is composed into the [guest shell](#guest-first-account-and-auth) (the #130 change edits
-only `MainActivity`'s composition and the Application's container wiring, not the manifest, callback
-filter or callback delivery). Missing or invalid identity configuration keeps Sign in disabled and explained; the native
-host has no mock fallback, and catalog availability depends on the separate API-origin input. The API origin defaults to the owner-selected production API; the identity issuer remains
-explicitly configured. No OS network/TLS setting is relaxed.
+Android keeps Keystore AES-GCM + full-record AtomicFile/readback/fsync in `noBackupFilesDir`;
+iOS keeps Keychain `AfterFirstUnlockThisDeviceOnly` + full-record readback. Both keep their
+backup-excluded logout barrier, app IDs, signing and storage namespaces. One process owner and one
+native player survive navigation/Activity recreation.
+
+### Durable Library recovery at the API boundary
+
+`NativeAuthorizedHttpPort` borrows the process account owner's credential lease and admits only
+closed Theatre Library/progress/receipt routes at the exact host-approved scheme, host and port.
+The Android debug loopback exception passes through this same production adapter. Foreign origins,
+Studio/Admin/auth routes, malformed paths and unknown bearer/family inputs are refused before dispatch.
+Release and iOS origin selection remain HTTPS-only; the native transports refuse redirects.
+
+`LibraryResponse` classifies local transport/authority failures before inspecting HTTP payloads.
+A real pre-admission `503` with no session stamp is retryable only with the strict Library
+`{"code":"unavailable","retryable":true}` JSON envelope. It grants no account payload authority
+and does not clear the account, player or local Library. A real `401` or explicit different stamp
+still fences authority. Successful pages and receipts require the real matching response stamp,
+JSON content type, byte limit, schema and record binding; a missing stamp is never filled from the
+request expectation. Other statuses and error bodies retain their contracted, closed mappings.
+
+`NativeSessionRuntime.foregrounded()` and `networkRestored()` ask the existing account flusher to
+drain. After six automatic backoffs are exhausted, a new opportunity starts another bounded episode;
+callbacks during an active drain share it. These signals neither revalidate/login nor reset/start
+the player. Android registers one process `ConnectivityManager` callback (requires
+`android.permission.ACCESS_NETWORK_STATE`) and Activity foreground hook. The callback follows the
+current default network from API 24, where a new default replaces the old one without a guaranteed
+loss for it; API 23 follows all networks. `NetworkRecoveryTracker` decides, once per outage, when a
+usable network returns; iOS uses the retained `NWPathMonitor` and active scene hook, delivering to the main owner.
+Network availability is a hint, never proof of admission or synchronization. Frozen sent intents
+keep their operation ID and body and query the original receipt before replay; account/generation
+and credential-lease fences still reject old callbacks after logout or switching accounts.
+
+Focused tests exercise the production owners over disposable SQLite with controlled Identity/HTTP
+and decoder doubles. The explicit `cmp_authorized_library_against_real_identity_and_http` test in
+`services/cantos-server/tests/theatre_business_journey.rs` adds real Identity login/admission, TCP HTTP,
+file-backed Server storage, and an actual Identity stop/restart. Its Kotlin side uses
+`NativeAccountController → NativeAuthorizedHttpPort → JDK HTTP → NativeLibraryClient → SQLite/sync/runtime`.
+The older `cmp_production_client_against_the_real_api` trusted-host fixture is synthetic, not auth
+acceptance; it stamps at the fixture server and the JDK transport reads that actual header.
+See the [slice evidence and remaining native gates](../../../docs/architecture/server-turso/cmp-business-api.md#cmp-authorized-boundary-and-recovery-follow-up).
 
 ### Native identity build inputs and operator diagnostics
 
-For Android, set the nonsecret environment variables `CANTOS_API_ORIGIN` and
-`CANTOS_NATIVE_ISSUER` before `cargo xtask theatre-host android-debug` / `android-release`.
-Alternatively, put `cantos.apiOrigin` and `cantos.nativeIssuer` in an operator-owned Gradle
-user-home `gradle.properties`, outside Git. Gradle properties take precedence over the
-environment, including an explicit empty value to disable identity. The selected values flow
-through manifest placeholders into `CantosApiOrigin` / `CantosNativeIssuer` application metadata.
-The Android application (`:androidApp`) reads these two build inputs in both build types; neither
-build type hard-codes an origin, so the operator chooses it. Debug (`com.cantos.theatre.dev`) is a
-new app-data sandbox: it does not inherit the database, tokens or Library of the former `.demo` or
-the production install. Release keeps the `com.cantos.theatre` package, storage and signing/version
-upgrade policy.
+Only `CantosApiOrigin` is required. Origin selection preserves the existing precedence:
+Android `cantos.apiOrigin` Gradle property, then `CANTOS_API_ORIGIN`, then the packaged absence
+marker selecting `https://api.cantos.cc`. iOS uses the `CANTOS_API_ORIGIN` Xcode build setting
+expanded into Info.plist, followed by the same shared default selection. Explicit invalid inputs
+never fall back: the host shows a typed `CantosListeningUnavailable` diagnostic instead of the app.
 
-For iOS, the `Cantos` target's Debug and Release build settings
-`CANTOS_API_ORIGIN` / `CANTOS_NATIVE_ISSUER` default to empty. Both configurations consume
-`Cantos/Info.plist` through `INFOPLIST_FILE`, expand its two Cantos keys and merge the generated
-system keys. Supply values as explicit Xcode build-setting overrides or an operator-owned Xcode
-configuration; plain environment variables may lose to the target defaults. The shared `Cantos`
-scheme builds the production host (`com.cantos.theatre`); `cargo xtask theatre-host ios-build
---kotlin-native-home /absolute/installed/native-2.2.20` links only the simulator frameworks, and
-Xcode runs the host separately when native acceptance is authorized. Framework linking does not
-prove the built app's Info.plist. There is no iOS mock host (#287): the former `CantosDemo` project
-and its `CantosTheatreDemo` framework were removed, and the launch storyboard, privacy manifest,
-asset catalog (icons) and `TheatreIdentity.swift` it shared with `Cantos` now live in `iosApp/Cantos`.
+One owner decides which origin the app talks to: `selectCatalogOrigin`/`selectPackagedApiOrigin`
+produce the `ApiOrigin` that the catalog, Library, playback access **and** Identity v1 client and
+journal all use, so they can never disagree. Release builds and iOS admit HTTPS only. The Android
+**debug** host additionally admits `http://127.0.0.1:<port>` or `http://localhost:<port>` (for
+`adb reverse`) for catalog and auth JSON alike; its debug-only network policy and
+`cantos_loopback_origin_allowed` resource are the single switch, and the release manifest forbids
+cleartext. A cleartext origin to any other host, or on iOS, is refused with a typed fault. An
+HTTP loopback origin therefore carries real credentials over the local USB/loopback path only; use
+HTTPS for anything beyond a developer's own machine.
 
-Both hosts call the same pure `NativeClientConfiguration.resolve` before creating a controller.
-It retains the existing HTTPS API-origin and exact native-issuer/callback rules. It does not
-normalize origins or accept a Studio/Web issuer. Inspect Android Application's
-`nativeIdentityAvailability` or iOS owner's `availability` in the debugger:
+`CantosNativeIssuer`/`CANTOS_NATIVE_ISSUER`, `--native-issuer` and the callback scheme no longer
+exist. Guest discovery/listening remain independent of authentication. The backend must
+independently configure the real Identity service and Server consumer; no client secret belongs
+in an app. Existing-account login can be accepted independently of signup completion.
 
-| Outcome | Meaning / next check |
-| --- | --- |
-| `Missing(ApiOrigin/Issuer/Both)` | A required key is absent or empty; check build inputs and selected artifact |
-| `Invalid(ApiOrigin/Issuer)` | A supplied value fails the existing strict configuration grammar; correct that key |
-| `Available` | Client configuration is syntactically valid; API/provider/session acceptance remains separate |
+### Signup Web dependency and acceptance boundary
 
-Missing keys take diagnostic precedence: if either key is absent/empty, `Missing` identifies
-those keys before validating the other value. Once both are supplied, invalid API origin is
-reported before invalid issuer. Every unavailable outcome keeps identity disabled.
+Native signup collects **only email**. A generic `202` shows check-mail guidance; it establishes
+neither delivery, account existence, mailbox proof nor a session, and a `429` is shown as
+rate-limited while a `503`/timeout is an unknown effect that asks the listener to check the inbox
+before starting a new request. Proof and password completion belong on Web, followed by explicit
+CMP login. There is no link import, verified polling, resume-triggered login or password
+collection before proof in the native v1 flow; opening the mail never creates a session.
 
-Missing/invalid diagnostics contain enum fields only, never the supplied strings. Android
-preserves non-string manifest literals for invalid-value refusal instead of treating them as
-missing. iOS creates no account controller or logout-barrier directory for unavailable config.
-The existing guest UI retains its generic unavailable explanation; these operator diagnostics
-do not add another user-facing auth state machine.
+The [Web completion contract](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup)
+is owned by the API and Web work. The Theatre Web completion page is merged
+([#378](https://github.com/loveoverflowcom/cantos/pull/378)), but end-to-end new-account onboarding
+stays **unaccepted** until that page is browser-verified against a real Server and Identity.
+This CMP change does not implement a Web frontend or the Server's Turso migration.
 
-The backend must independently have `CANTOS_THEATRE_NATIVE_ISSUER` configured, an authorized
-public client/callback, reachable HTTPS API/provider and an existing account. No client secret
-belongs in either app. See the [activation evidence and acceptance boundary](../../../docs/evidence/theatre-auth-activation.md)
-for Web configuration, preview instructions and outstanding artifact/device/provider checks.
-
-The cleanup controller retains the exact exchanged credential even when OS persistence fails
-or revocation has an unknown outcome. A pending durable denial marker with a missing, corrupt
-or invalid credential stays closed: it cannot manufacture a revoke acknowledgement or clear
-its own barrier to start another account. Controlled recovery for a lost credential is still
-unassigned; no automatic reset or deletion workaround is supplied.
-
-Common/JVM regression tests exercise actual controller/client code with deterministic HTTP/OS
-ports, including one-time exchange, unknown outcomes, logout deletion/restart barriers, late
-account results and strict session/Library decoding. The 14 October resumed run passed all 207
-common/JVM tests, including 28 identity tests. Four production callback-query tests reject
-encoded field-name aliases before Android URI value decoding; platform callback dispatch still
-needs OS evidence. The canonical Android gate passed as **Theatre mock Android build** and the
-packaged manifest confirms INTERNET, callback routing and `singleTask`. The iOS simulator
-framework gate is **UNSUPPORTED** without the required installed Kotlin/Native 2.2.20 compiler.
-Keychain/Keystore IO, device/system-browser/lifecycle flows and UI/accessibility acceptance
-remain **NOT_RUN**. See the [resumed evidence](../../../docs/evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).
-Native playback, durable Library synchronization, downloads and broad issue acceptance remain
-deferred.
+The offline Desktop Preview mounts the same shell/account/signup owners and explicit commands,
+with only external ports mocked in `:preview-sandbox`. Release never depends on that module.
+See the [source-aligned evidence](../../../docs/evidence/cmp-native-identity-v1.md) for the earlier
+migration record and the [identity-only cleanup section](../../../docs/evidence/cmp-native-identity-v1.md#identity-only-cleanup)
+for what was removed and what ran. Desktop renders/builds do not
+accept Keystore/Keychain durability, process death, native IME, TalkBack/VoiceOver or real auth.
+Historical provider observations remain in the [earlier identity record](../../../docs/evidence/theatre-identity.md).
 
 ## Native launcher icons
 
@@ -237,26 +248,26 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   `OpenRegister` and `AuthCompleted` are idempotent; a completion that arrives after Back or any
   other destination is inert, and navigating elsewhere dismisses auth first.
 - **Lifecycle** stays in `NativeAccountController`. `TheatreShell.back()` cancels a pending login
-  before popping, so a late callback is fenced; `beginLogin()` is accepted only on the open Login
+  before popping, so a late response is fenced; `login(email, password)` is accepted only on the open Login
   route in a resting guest state (a double tap or pending flow cannot restart it) and
-  `openLogin()` is refused for a signed-in listener. Provider cancellation leaves Login and its
-  failure visible, and the browser is reopened only by a new explicit tap. Restore remains an
+  `openLogin()` is refused for a signed-in listener. A refusal leaves Login and its
+  generic failure visible; another request requires a fresh explicit submit. Restore remains an
   explicit action that says when the device holds nothing. Logout hides the projection first; a failed
   cleanup keeps Login disabled with a retry. A Membership draft is cleared only when a signed-in
   account ends, so Membership → Login → success resumes the guest's draft.
-- **Presentation** (`features/auth`): Login uses the vertical **Đăng nhập với Cantos ID** primary and
+- **Presentation** (`features/auth`): Login uses the vertical **Đăng nhập** primary and
   **Tạo tài khoản Cantos** tonal actions from the #127 auth variants, with no tabs, legal links or
-  consent, and no password field. Native login opens the system browser with PKCE. When its
-  enrollment owner is configured, Register uses the shared email/proof/setup flow below; otherwise
+  consent. Email/password fields dispatch through the account owner. When its
+  signup owner is configured, Register collects only email and gives Web completion guidance; otherwise
   it explains the missing capability. Enrollment never authenticates the account. Guest and signed-in Account use the Profile,
   Membership and AccountGroup surfaces; signed-in shows no invented name, total, conflict or
   entitlement. Auth hides the tab bar and mini-player; the header gives priority to Back and the theme
   toggle and shows the logo only in leftover space. Back (visible, Android system and JVM Escape) is one
   intent; scroll positions are kept per stack entry and Back from auth restores focus to Sign in or
   the avatar.
-- Still unrun: Android system-browser/callback/Keystore flows, iOS compilation and ASWebAuthenticationSession
+- Still unrun: Android Keystore/lifecycle flows, iOS compilation and Keychain
   (the pinned Kotlin/Native compiler is absent), TalkBack/VoiceOver, IME, font scale on a device and the
-  live provider. The #35 two primary destinations remain; Account is not a third tab.
+  real Identity service. The #35 two primary destinations remain; Account is not a third tab.
 
 ## Screens and behavior
 
@@ -275,7 +286,7 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   acknowledged; opening a page creates none.
 - Mini/full player: bounded manual seek, speed, a sleep timer that pauses the real player and the
   episode queue.
-- **Release-bound bookmarks** ([Library v1.2](../../../packages/contracts/listener-library-v1.md#release-bound-bookmarks-v120), #299).
+- **Release-bound bookmarks** ([Library v1.2](../../../services/cantos-server/contracts/theatre/library/v1/README.md#release-bound-bookmarks-v120), #299).
   The player's *Bookmark this moment* control takes the exact audio identity and the position from **one
   snapshot of the player owner**, records both in the existing SQLite store with its outbox intent in one local
   transaction, and shows the row at once as pending (offline when the last attempt could not be delivered, failed
@@ -286,7 +297,8 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   Opening a bookmark restores its exact release at its position through the one player owner, **paused**, or moves
   the loaded release; a replaced or unavailable release is explained and never substituted. A guest is taken to sign
   in and nothing is saved. Evidence: JVM tests, the production authorized HTTP port's route allow-list, and a loopback run of the sync adapter
-  and client over a JDK transport against the real API and PostgreSQL; no device, audio, deployed run or real identity provider.
+  and client over a JDK transport against a file-backed Server API. The separate authorized
+  journey above adds real Identity; neither is device, audio or deployed acceptance.
 - Contextual settings from the account screen: light/dark, vi/en UI and speed/timer preferences.
 
 Android system Back, visible Back/close and JVM Escape use the same pure navigation transitions.
@@ -329,7 +341,7 @@ The shared module directly compiles the canonical `packages/ui-system/cmp` sourc
 as the isolated Android preview does, excluding its `com/cantos/ui/preview/**` diagnostics.
 Shell screens use its theme/tokens; Membership composes the six reviewed shared APIs described
 above. No package source, palette, registry or qualification is copied/changed. The explicitly approved shared
-[mock playback corpus](../../../packages/contracts/fixtures/theatre/playback/v1/README.md)
+[mock playback corpus](../conformance/playback/v1/vectors/README.md)
 is imported unchanged for tests; it is not a listener API DTO. Shell compositions use stable
 native Material controls and official outlined icons; no reusable Cantos primitive is introduced.
 The current [preview catalog](../../../packages/ui-system/shared/preview-catalog.json) owns
@@ -442,61 +454,64 @@ declarations become evidence only after the supported command executes and captu
 
 ### Live enrollment integration (#296)
 
-The existing Desktop Preview has a separately selected live mode. It mounts the same
-`CantosTheatreApp` / `TheatreShell`, `RegistrationController`, generated registration wire types,
-`NativeRegistrationHttp`, `NativeAccountController` and `NativeIdentityClient` as native hosts.
-It never selects `PreviewIdentity`, a successful-session stub or a sample catalog in this mode.
-The default recipes/workbench remain offline and cannot silently replace a failed live mode.
+The separately selected live Desktop Preview mounts Identity v1 and the durable Library through the same
+`CantosTheatreApp`, `TheatreShell`, `RegistrationController`, `NativeAccountController`, checked
+origin and client/journal protocol as the native hosts. `LiveEnrollmentOwners` builds the composition
+the Android and iOS hosts build, only with different platform ports:
+`NativeAccountController` → `NativeAuthorizedHttpPort` → `NativeLibraryClient` →
+`nativeLibraryController` → `NativeSessionRuntime` → `TheatreShell`, with the account-scoped
+`AccountCatalogCache` over the same store. It uses real HTTP (`PreviewNativeHttp`: exact origin, bounded body, no
+redirect, no ambient cookie, cancellable), transient RAM credentials/barrier, an **in-memory SQLDelight
+store** (neither disk persistence nor process-death evidence), no browser callback, issuer, mocked
+fallback or native audio decoder: playback requests fail as unavailable instead of simulating audio.
+Missing capabilities remain explained.
 
 ```sh
 CANTOS_THEATRE_PREVIEW_API_ORIGIN=https://api.local.example \
-CANTOS_THEATRE_PREVIEW_NATIVE_ISSUER=https://idm.local.example/oauth2/openid/cantos-theatre-native \
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
 ```
 
-An explicit API origin alone opens the real public catalog preview; a missing/invalid issuer
-is explained in Account and does not block Home. A supplied issuer with no API origin is refused
-before network, so a fixture cannot inherit production. When both inputs form a valid native
-HTTPS/issuer configuration, the existing enrollment preview opens. Use an
-explicitly owned isolated environment and trusted local TLS. The command starts only the preview;
-it never provisions an API, PostgreSQL, Auth Emulator, Kanidm, certificates or mail. Do not point
-the registration form at a real-mail environment without separate recipient/operator authority.
-The server needs its complete existing Firebase enrollment configuration and the separately
-disabled `CANTOS_THEATRE_REGISTRATION_FIREBASE_NATIVE_ENABLED=true` flag. The
-[contract](../../../packages/contracts/theatre-identity-v1.md#native-cmp-admission-296-development-opt-in)
-and proposed [ADR 0044](../../../docs/decisions/0044-native-enrollment-preview.md) own admission.
+A supplied invalid origin is refused, never replaced by production or offline recipes. The preview
+uses the same origin owner as the Android debug host, so an explicit `http://127.0.0.1:<port>` or
+`http://localhost:<port>` origin also mounts live login/signup (RAM store only); any other
+cleartext origin is refused. Use an already owned isolated service fixture; the command provisions
+no API, database, certificates or mail.
+Do not submit signup to a real-mail environment without separate recipient/operator authority.
+Web proof/password completion remains an unaccepted dependency described above.
 
-Register checks capability, accepts an email and sends only on explicit Submit. A generic
-`accepted` response means neither delivery nor account creation. Obtain the exact action from
-the owned emulator's OOB inventory using the existing [#242 recipient tooling](../../../docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing);
-never send real mail, consume its default handler link, edit verified flags or manufacture a
-session. Paste the server-selected Web action link into Register, then explicitly confirm or
-cancel. Import validates the exact action origin, canonical operation continuation and closed
-query keys without dispatching a request. The API owns proof and provisioning.
+Escape is the shell's own Back in the offline window. It is installed on the window
+(`Window(onKeyEvent = PreviewBackKeys::onKeyEvent)`), not on a composable: a window with no focused control
+holds focus at the scene root, which never visits a descendant's key handler, so a handler inside the content
+stopped working after pointer-only navigation. The window's `onKeyEvent` only sees keys the content did not
+consume, so a focused control or dialog that handles Escape keeps it. The live window has no Escape binding.
 
-The one-shot setup button opens the configured Kanidm reset path in the external browser.
-Complete credentials there, return manually and select Login. The diagnostic strip can import
-the exact closed native OAuth callback from the system browser; it does not claim an OS deep link.
-The existing state/nonce/PKCE and API session checks still decide identity. Setup, proof, accepted
-and browser navigation never mark the account signed in. A failed/lost consuming response clears
-the capability and explains reconciliation; no automatic confirmation or setup retry occurs.
-Back preserves email and intent, forgets proof/setup and fences old replies. Cancel cannot recall
-a winning provider operation; its generic acknowledgement is not proof that cancellation won.
+The live window has no desktop connectivity or foreground signal (`NativeSessionRuntime.networkRestored()` and
+`foregrounded()` are not called), so an exhausted retry episode there resumes only on the next Library action;
+Android and iOS register those signals.
 
-Desktop credentials and the logout marker are deliberately RAM-only, erased on disposal. The
-live host has no audio decoder or durable Library adapter and reports those limits honestly.
-These desktop boundaries do not accept native storage, browser return, process death or playback.
-Static captures never select this mode or initiate network/mail. Android/iOS compose the same
-shared registration controller and adapter with their external-browser ports; separate device
-acceptance remains under #191/#184.
+Evidence, kept separate by layer (record: [CMP Desktop Preview live acceptance](../../../docs/evidence/cmp-desktop-live-acceptance.md)):
 
-`cargo xtask theatre-preview verify` includes strict shared-schema fixtures, hostile action/setup
-URLs, cancellation/Back/late responses, duplicate clicks and unknown consuming outcomes. The
-JVM UI tests use a loopback protocol fixture through the real desktop HTTP transport; that is
-**mocked integration**, with no Firebase, Kanidm or PostgreSQL. Captures under
-`preview-sandbox/build/reports/theatre-registration/` are synthetic, with theme/locale/frame/
-text-scale/density/hash sidecars. The [#296 ledger](../../../docs/evidence/issue296-cmp-enrollment.md)
-records actual results and remaining full-stack/native acceptance.
+- `LiveLibraryPreviewTest`, `LiveDesktopUiTest`, `LivePreviewOriginTest` (`:preview-sandbox:desktopTest`): the live composition over a
+  **loopback protocol fixture** (stamped Identity v1 and Library routes, injected 401/503/lost response/oversized
+  body, a held response across logout). Mocked server evidence for the preview's wiring and transport, run by
+  `theatre-preview verify`.
+- `DesktopAcceptanceJourneyTest`: product controls driven by semantics only, no screenshot or window.
+- `DesktopWindowEscapeTest` (explicit: `CANTOS_PREVIEW_WINDOW_TESTS=1`, skipped headless): a short-lived real AWT
+  `ComposeWindow` with static content, proving that Escape reaches `Window.onKeyEvent` with nothing focused and
+  that a focused control that handles it keeps precedence. An AWT event, not an OS keystroke.
+- `cmp_live_desktop_preview_against_real_identity_and_http` (explicit, `--ignored`): `LiveEnrollmentOwners` in
+  `LiveDesktopPreviewRealServerTest` over the real Server, the real public catalog and the real Identity
+  process; the harness then reads the Server rows. Not part of any gate; needs Gradle/JDK and the built `cantos-identity`.
+  No window is driven and audio stays unavailable.
+
+Static captures use offline ports and never initiate network or mail. V1 controller/form/host
+fixtures test email-only signup, explicit login, generic failures, duplicate submit, Back and
+late responses, and `RegistrationPreviewUiTest` drives the real v1 client against a loopback
+protocol fixture (202, 429, 503 and a refused connection). The retired provider enrollment
+adapter, controller and fixtures no longer exist; the historical
+[#296 ledger](../../../docs/evidence/issue296-cmp-enrollment.md) remains source-bound to that earlier
+implementation, and the [v1 record](../../../docs/evidence/cmp-native-identity-v1.md)
+covers the migration.
 
 ### Offline recipes
 
@@ -510,7 +525,7 @@ ports:
 | --- | --- |
 | `PublicCatalogController` | `PreviewCatalogPort` (`PublicCatalogPort`): the sample works and units under canonical UUIDs, source search, paging by cursor, and the `Ready`/`Loading`/`Empty`/`Error` scenarios |
 | `NativeListeningController` + `AuthorizingMediaEngine` | `PreviewPlaybackAccess` (`PlaybackAccessPort`, with injectable refusal) and `PreviewStreamingEngine` (`StreamingMediaEngine`): a decoder stand-in that acknowledges commands and reports the resumed position; no audio, no clock |
-| `NativeAccountController` | `PreviewIdentity`: a deterministic `NativeIdentityApi`, entropy, system browser, credential journal and logout barrier. `PreviewLoginMode` approves, holds or refuses the provider return; two sample accounts make account switching real |
+| `NativeAccountController` | `PreviewIdentity`: a deterministic `NativeIdentityV1Api`, credential journal and logout barrier. `PreviewLoginMode` approves, holds or refuses the explicit login response; two sample accounts make account switching real |
 | `NativeLibraryController` (`NativeLibrarySync`) | `PreviewLibraryApi` (`LibraryApi`): an in-memory remote with idempotent receipts, plus the real SQLite store (`previewLibraryStore()`, `:memory:`) so the transactions, outbox and account partitions are production code |
 | `PreferencesController` | `PreviewLocalePreferenceStore` (`LocalePreferenceStore`) |
 | `TheatreShell` | none: the same class, navigation, dispatch and `projectTheatreShell` |
@@ -620,7 +635,7 @@ playback-quality or production-acceptance evidence.
 ## Live public catalog
 
 Production-safe code in `:shared` reads the anonymous Theatre Discovery v1 catalog
-([contract](../../../packages/contracts/theatre-discovery-v1.md), [ADR 0035](../../../docs/decisions/0035-theatre-catalog-unit-availability.md)):
+([contract](../../../services/cantos-server/contracts/theatre/discovery/v1/README.md), [ADR 0035](../../../docs/decisions/0035-theatre-catalog-unit-availability.md)):
 work list → work detail → chapter/episode list, keyed only by the server's UUIDs.
 
 - `domain/catalog/PublicCatalog.kt`: validated `PublicWorkId`/`PublicUnitId`/`PublicationId`/
@@ -733,7 +748,7 @@ the reviewed Theatre backend contract before probe wiring. This legacy probe is 
 the implemented iOS public-catalog transport above.
 
 `cargo xtask theatre-preview verify` compiles the common/JVM code, executes the shared
-[error fixtures](../../../packages/contracts/fixtures/client-boundary/v1/README.md), exercises
+[error fixtures](../conformance/client-boundary/v1/README.md), exercises
 noncooperative late responses and drives the JVM adapter against a fresh local HTTP server.
 These are common/JVM and mocked HTTP integration evidence, not Android/iOS device or playback
 acceptance. See the [client handoff](../../../docs/work-plan/live-client-api-matrix.md).
@@ -786,7 +801,7 @@ projections; identities are the API's lower-case UUIDs, never a sample key.
 | Work, chapters/episodes | `PublicCatalogController` detail + units walk; a count appears only when the walk is complete |
 | Player, mini-player, Queue, speed | `NativeListeningController`/`PlaybackController` over `AndroidMediaEngine`/`IosMediaEngine` with API-authorized grants |
 | Continue, History, Saved | `NativeLibraryController` (SQLDelight local SSOT, outbox, server sync); guests are asked to sign in |
-| Account, Login | `NativeAccountController` (Bearer session, system browser, Keystore/Keychain) |
+| Account, Login | `NativeAccountController` (Identity v1 Bearer session, Keystore/Keychain) |
 | Theme, language | `PreferencesController` (language persisted) |
 | Sleep timer | local to `TheatreShell`: pauses the real player after 15/30 minutes |
 
@@ -801,7 +816,7 @@ The [Android release/distribution runbook](docs/firebase-distribution.md) owns R
 audit pairing, exact staged APK/mapping hashes and the explicit development/production policies.
 Device and live Firebase acceptance remain independent of source/build/audit results.
 
-The [client error contract](../../../packages/contracts/client-error-presentation-v1.md) also
+The [client error contract](../conformance/client-error-presentation-v1.md) also
 owns the paired Web/CMP taxonomy and safe actions. Catalog 401/403 and HTTP/JVM deadlines survive
 as typed diagnostics into the shared shell ErrorCenter. Unknown Library outcomes keep their
 existing receipt owner and never gain a generic modal Retry. Native identity configuration

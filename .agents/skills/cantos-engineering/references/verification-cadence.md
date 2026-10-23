@@ -14,9 +14,9 @@ commit, push or progress update does not by itself require another verification 
 
 | Milestone | Trigger | Run |
 | --- | --- | --- |
-| DEV | investigate a failure or change a behavior while the slice is in progress | the cheapest focused regression, syntax/static check or scoped formatter that answers the current question; do not automatically expand to module suites or preflight |
-| CHECKPOINT | a coherent rule, module or component is ready for a dependent layer or review | applicable module tests, format/lint and contract/renderer checks; reuse covered focused results and broaden only for a changed boundary, regression or unresolved risk |
-| HANDOFF | the completed review boundary is ready for user acceptance or opening/updating its PR | `cargo xtask preflight --changed-only` on the final diff, plus required evidence outside its plan; one run covers the same commit/push/PR handoff |
+| DEV | investigate a failure or change a behavior while the slice is in progress | the cheapest focused regression, syntax/static check or scoped formatter that answers the current question; do not automatically expand to module suites or preflight; when the affected package set is the question, `cargo xtask preflight --profile local --changed-only --base "$BASE_REF"` |
+| CHECKPOINT | a coherent rule, module or component is ready for a dependent layer or review | applicable module tests, format/lint and contract/renderer checks, for example the local profile above; add the owner's renderer/integration check where the changed claim needs it; reuse covered focused results and broaden only for a changed boundary, regression or unresolved risk |
+| HANDOFF | the completed review boundary is ready for user acceptance or opening/updating its PR | `cargo xtask preflight --changed-only --base "$BASE_REF"` on the final diff, plus required evidence outside its plan; one run covers the same commit/push/PR handoff |
 | CRITICAL | an edit reaches a security, durability, publication, contract or synchronization invariant | add the owner's targeted failure/boundary evidence before accepting that claim or dependent work; combine it with the relevant checkpoint/handoff rather than creating a full-preflight loop |
 
 Keep the [L1–L5 order](verification-strategy.md#layered-verification) within the affected scope.
@@ -27,9 +27,10 @@ to settle their claims; do not build an application just to obtain a baseline.
 
 ## Plan the handoff once
 
-1. Inventory the complete review diff and applicable owner obligations. Discover implemented
+1. Resolve the base through [CONTRIBUTING](../../../../CONTRIBUTING.md#branch-and-pull-request-workflow).
+   Inventory the complete review diff and applicable owner obligations. Discover implemented
    commands in the [xtask contract](../../../../xtask/README.md#preflight); use
-   `cargo xtask preflight --changed-only --dry-run` when the selected scope is unclear.
+   `cargo xtask preflight --changed-only --base "$BASE_REF" --dry-run` when scope is unclear.
 2. Use preflight for the gates it already covers, including `repository` and `rust-format`.
    Do not routinely run `verify repository`, whole suites, format/lint and then the same gates
    again in preflight. Earlier focused/checkpoint checks remain useful feedback; they are not
@@ -39,6 +40,11 @@ to settle their claims; do not build an application just to obtain a baseline.
    Missing tools and partial delivery use [local handoff](local-execution.md#progressive-commit-push-and-pr);
    documents/skills alone may use its narrow [Cargo-unavailable fallback](local-execution.md#docs-only-fallback-when-xtask-cannot-start).
    Never hide a failure, call a skipped gate passed or change CI/required checks for a green exit.
+
+The [local profile](../../../../xtask/README.md#local-profile) plans static repository checks,
+format, affected Rust lint/tests and WASM lint only. Its `local checkpoint` PASS is CHECKPOINT
+evidence for those steps; it never replaces the HANDOFF preflight, database integration, Trunk,
+CMP, feature-lane, mutation, behavior or Kani evidence it lists as outside the profile.
 
 `--changed-only` includes the whole branch since its merge base, plus staged, unstaged and
 untracked inputs. It is not an incremental check since the last edit or verification run.
@@ -79,7 +85,7 @@ execution when a tool is missing are separate tooling work.
 | Changed risk | Required scope from the owner |
 | --- | --- |
 | authentication, capabilities, ownership or revocation | allow/deny boundaries, cross-owner/resource scope, expiry/revocation and replay cases |
-| SQL, transactions, migrations or concurrent writes | real disposable PostgreSQL semantics, rollback/retry/race checks and compatibility; mocks do not accept these claims |
+| SQL, transactions, migrations or concurrent writes | real authoritative-engine semantics (current PostgreSQL or accepted Turso), rollback/retry/race checks and compatibility; mocks do not accept these claims |
 | private intake, rights, approval or publication | byte/binding integrity, duplicate/lost-response and stale-revision rejection, crash/replacement behavior at the changed step |
 | API/Script IR/Protobuf or another shared contract | affected producer/consumer fixtures, compatibility and exact error mapping; compilation alone is insufficient |
 | progress, bookmarks, outbox or offline synchronization | ordering, conflict/replay, cancellation, restoration and stale-response evidence for the changed flow |

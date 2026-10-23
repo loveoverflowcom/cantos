@@ -2,7 +2,7 @@
 
 Date: 2026-10-13. Scope: [issue #97](https://github.com/loveoverflowcom/cantos/issues/97),
 [ADR 0023](../decisions/0023-versioned-protobuf-wire.md),
-[frozen policy](../../packages/contracts/protobuf/README.md).
+[frozen policy](../../services/cantos-server/contracts/studio/editorial/v1/protobuf.md).
 This is a partial acceptance record. JSON remains default, legacy MessagePack is retained,
 and no storage, Script IR, audio, auth, business-rule or Theatre endpoint migration is claimed.
 

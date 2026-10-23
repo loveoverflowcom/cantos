@@ -3,7 +3,7 @@
 This record concerns [#5](https://github.com/loveoverflowcom/cantos/issues/5): versioned casting,
 rights/budget declarations, immutable frozen candidates, exact owner approval and current
 eligibility on the existing local Axum/PostgreSQL authority. [ADR 0007](../decisions/0007-casting-production-inputs.md)
-is proposed for production adoption. The [production v1 contract](../../packages/contracts/production-v1.md)
+is proposed for production adoption. The [production v1 contract](../../services/cantos-server/contracts/studio/production/v1/README.md)
 separates wire shape from domain evaluation and from the reference-only capability catalog.
 
 Generation and payment are zero in this slice. There is no TTS/LLM request, Ollama/model install,

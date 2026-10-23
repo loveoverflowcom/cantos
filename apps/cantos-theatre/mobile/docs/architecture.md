@@ -62,7 +62,7 @@ recorded separately from the historical ledger below.
 | `presentation/model` | neutral immutable `ShellState`, `ShellEvent`, `ShellCatalogView` and keyed `ShellCopy` vi/en text (`CopyKey`, `clockTime`) | pure shared leaf consumed by shell, auth and Membership; synthetic defaults, IDs and fixture mappings stay in the sandbox |
 | `features/shell/presentation` | supplied read-only projection/catalog metadata | emits intents; no fixture/reducer/port/I/O imports; `CantosPresentation.kt` is the root and shared helpers, with `PlayerSection.kt`, `LibrarySection.kt` and `SettingsSection.kt` as same-package, state-free section files. Account/auth content arrives as slots; `RouteRestoration.kt` keeps per-entry scroll and restores focus after Back from auth; artwork is injected with a neutral fallback |
 | `features/auth/presentation` | `AccountView` (an `application/identity` projection), route and theme from `ShellState` | stateless Login, Register-unavailable and guest/signed-in Account over the #127 variants; emits `AuthIntent` only, with no controller, port or provider; listener copy in `AuthCopy.kt` |
-| `application/identity` | `NativeAccountController` (one owner, unchanged) and the pure `AccountView` projection | `AppContainer` observes it, never closes it, and gates `openLogin/beginLogin/restoreSession/back/logout` over the pure `Login`/`Register` navigation suffix |
+| `application/identity` | `NativeAccountController` (one owner, unchanged) and the pure `AccountView` projection | `AppContainer` observes it, never closes it, and gates `openLogin/login/restoreSession/back/logout` over the pure `Login`/`Register` navigation suffix |
 
 The sandbox root derives `ShellState` through `projectDemoState` for rendering; it does not own a writable aggregate mirroring the
 controllers. Query, timer selection, confirmation and scroll remain screen-local. The legacy
@@ -116,7 +116,7 @@ preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/
     PreviewFixtures.kt                synthetic Discovery values under canonical UUIDs (PreviewWorkIds/EpisodeIds)
     PreviewCatalogPort.kt             PublicCatalogPort: pages, search, Ready/Loading/Empty/Error
     PreviewPlayback.kt                PlaybackAccessPort + StreamingMediaEngine decoder stand-in
-    PreviewIdentity.kt                NativeIdentityApi/crypto/browser/journal/barrier -> real NativeAccountController
+    PreviewIdentity.kt                NativeIdentityV1Api/journal/barrier -> real NativeAccountController
     PreviewLibraryApi.kt              LibraryApi: in-memory remote with idempotent receipts
     PreviewLocalePreferenceStore.kt   LocalePreferenceStore
   app/
@@ -195,7 +195,7 @@ boundary.
 
 The fixture-only commit `56bb39bcd769befd8385e7cb963b7ff4930f3c89` was explicitly approved and
 cherry-picked as `1b8e56a980e095bc1d1346b95f0f975344082327`; no Web implementation is imported.
-[Contract/data](../../../../packages/contracts/fixtures/theatre/playback/v1/README.md) is
+[Contract/data](../../conformance/playback/v1/vectors/README.md) is
 `theatre-mock-playback@1`, vector_format 1. Its seven vectors contain 51 hand-authored steps.
 
 - index SHA-256: `108503bdcceb36fe6351b1d320075d974615f7dc0ea560582bbe19c2da2b0485`

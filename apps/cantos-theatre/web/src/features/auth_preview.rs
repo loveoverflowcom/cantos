@@ -41,10 +41,14 @@ fn finish_fixture(
     issued: AccountGeneration,
     actor: PreviewActor,
 ) -> Result<bool, AccountError> {
-    match current.finish_session(issued, Ok(actor.scope()?))? {
+    match current.finish_session(
+        issued,
+        Ok(actor.scope()?),
+        crate::application::library_sync::generate_uuid_string,
+    )? {
         SessionCompletion::Authenticated(_) => {
             use crate::application::library::{LibraryPage, Section};
-            use cantos_contracts::listener_library::{
+            use crate::contract::library::{
                 HistoryState, PresentedContinuePage, PresentedHistoryPage, PresentedSavedPage,
             };
             for section in Section::ALL {
@@ -268,7 +272,7 @@ mod tests {
             }
             .to_html();
             assert!(html.contains("Auth preview · Fixtures only"));
-            assert!(html.contains("no network, Cantos ID, timers or passwords"));
+            assert!(html.contains("no network, timers or real credentials"));
             assert!(html.contains("theatre-preview-delay-complete"));
             for absent in [
                 "<input",
