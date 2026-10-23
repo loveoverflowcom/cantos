@@ -66,6 +66,15 @@ pub struct Reply {
 }
 
 impl Reply {
+    /// A top-level field the contract promises. Indexing a missing key yields `null`, so an
+    /// equality between two replies on a misspelled name would pass vacuously (`null == null`);
+    /// this fails at the first reply instead. The literal at the call site stays the oracle.
+    pub fn field(&self, name: &str) -> &serde_json::Value {
+        self.json
+            .get(name)
+            .unwrap_or_else(|| panic!("the reply has no `{name}` field"))
+    }
+
     pub fn set_cookies(&self) -> Vec<String> {
         self.headers
             .get_all(header::SET_COOKIE)
@@ -77,7 +86,8 @@ impl Reply {
     /// `name=value` of the single Set-Cookie of this reply, as a browser would store it.
     pub fn cookie(&self) -> (String, String) {
         let cookies = self.set_cookies();
-        assert_eq!(cookies.len(), 1, "{cookies:?}");
+        // Counted, never printed: a Set-Cookie value is a live session secret.
+        assert_eq!(cookies.len(), 1, "expected exactly one Set-Cookie header");
         let pair = cookies[0].split(';').next().unwrap();
         let (name, value) = pair.split_once('=').unwrap();
         (name.to_owned(), value.to_owned())

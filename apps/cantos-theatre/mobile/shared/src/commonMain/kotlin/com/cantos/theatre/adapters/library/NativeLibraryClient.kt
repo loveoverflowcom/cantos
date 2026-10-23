@@ -15,6 +15,7 @@ import com.cantos.theatre.adapters.library.wire.Receipt
 import com.cantos.theatre.adapters.library.wire.SavedRecord
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.ports.LocalLibraryIntent
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
@@ -33,7 +34,7 @@ class NativeLibraryClient(private val apiOrigin: ApiOrigin, private val http: Na
                 }
                 continuation.invokeOnCancellation { handle.cancel() }
             }
-        } ?: NativeHttpResponse(0, null, null, "timeout")
+        } ?: NativeHttpResponse(0, null, null, NativeHttpFailure.Timeout)
         val mutation = method != "GET"
         libraryResponseFailure(response, auth.session, mutation)?.let { return it }
         val raw = response.body ?: return LibraryResult.Failed("protocol", false, mutation)

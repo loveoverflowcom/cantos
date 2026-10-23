@@ -1,6 +1,7 @@
 package com.cantos.theatre.adapters.library
 
 import com.cantos.theatre.adapters.library.wire.LibraryError
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpResponse
 
 /** Pure boundary decision. Only null permits decoding an account-owned payload. */
@@ -10,8 +11,10 @@ internal fun libraryResponseFailure(
     mutation: Boolean,
 ): LibraryResult.Failed? {
     when (response.failure) {
-        "authority_changed" -> return LibraryResult.Failed("authority_changed", true, mutation)
-        "session_changed", "unauthenticated", "denied", "protocol" ->
+        NativeHttpFailure.AuthorityChanged ->
+            return LibraryResult.Failed(NativeHttpFailure.AuthorityChanged, true, mutation)
+        NativeHttpFailure.SessionChanged, NativeHttpFailure.Unauthenticated,
+        NativeHttpFailure.Denied, NativeHttpFailure.Protocol ->
             return LibraryResult.Failed(response.failure, false, mutation)
         null -> Unit
         else -> return LibraryResult.Failed("unavailable", true, mutation)

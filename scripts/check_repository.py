@@ -205,9 +205,6 @@ SQL_DDL_TARGET = re.compile(rf"\b(?:INDEX|TRIGGER)\b[^;]*?\b(ON)\s+(?:ONLY\s+)?{
 SQL_TABLE_DEFINITION = re.compile(r"\b(?:CREATE|ALTER|DROP)\s+(?:(?:TEMP|TEMPORARY|VIRTUAL|UNLOGGED)\s+)?\Z", re.IGNORECASE)
 # Each service owns one database file; attaching another would read across owners.
 SQL_ATTACH = re.compile(r"\bATTACH\s+(?:DATABASE\b|\\?['\"]|[?:$@])", re.IGNORECASE)
-# The PostgreSQL migration registry includes the whole schema, which creates every context's
-# tables; the native ownership inventory checks that schema instead.
-SCHEMA_REGISTRY = Path("platform/postgres/migrations.rs")
 # The Turso schema registry registers one DDL file per version straight under this directory.
 # `server.db` is one database, so its DDL declares the tables of several contexts and the foreign
 # keys between them, as the PostgreSQL schema did; queries over those tables still belong to
@@ -991,7 +988,7 @@ def check_api_architecture(root=ROOT):
             ):
                 errors.add(f"{API_SOURCE / relative}: HTTP must not execute SQL or open transactions")
         for offset, text, inline in strings:
-            if not inline and relative in {SCHEMA_REGISTRY, TURSO_SCHEMA_DDL / "mod.rs"}:
+            if not inline and relative == TURSO_SCHEMA_DDL / "mod.rs":
                 continue
             if attach := SQL_ATTACH.search(text):
                 errors.add(f"{API_SOURCE / relative}:{sql_line(content, offset, attach.start(), inline)}: "

@@ -336,6 +336,7 @@ supplies no database correctness or performance evidence.
 | Changed surface | Questions to weigh |
 |---|---|
 | pure domain rule | a type barrier? a deterministic regression with the exact error variant? exhaustive finite cases? a law with an independent oracle? |
+| string literal, closed vocabulary or path | a closed set spelled as `String` and matched across modules (a typo reaches the `else` arm)? producer and consumer naming one owner? test expectations still independent literals? a gate that skips or crashes on a retired input? secrets printed in assertion messages? |
 | typed error composition / translation | exact first failure or complete independent findings; refinement preserved; all closed variants mapped to exact HTTP/UI/recovery facts; cancellation and unknown-write outcomes distinguished? |
 | Kani harness or proof claim | production symbols actually reached; justified assumptions, input/unwind bounds, nonvacuous cover outcomes, stubs and limitations; actual selected/executed verifier output at this source/toolchain? |
 | state machine or reducer (job, release, playback) | reachable event sequences; cancel, retry, late completion; rejection leaving the whole state unchanged |

@@ -10,6 +10,7 @@ import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.ports.IdentitySignupAccepted
 import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.ports.IdentityV1Result
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
@@ -50,7 +51,7 @@ class NativeIdentityV1Client(
                 }
                 continuation.invokeOnCancellation { handle.cancel() }
             }
-        } ?: NativeHttpResponse(0, null, null, "timeout")
+        } ?: NativeHttpResponse(0, null, null, NativeHttpFailure.Timeout)
     }
 
     private fun failure(response: NativeHttpResponse, mutation: Boolean): IdentityV1Failure? = when {

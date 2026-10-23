@@ -1033,14 +1033,14 @@ fn grant() { tx.execute("INSERT INTO actors(id) VALUES($1)", &[]); }
             with self.subTest(path=path):
                 self.assertRejectedAt(path, content, reason)
 
-    def test_only_the_schema_registry_includes_the_whole_postgres_schema(self):
-        schema = self.root / "services/cantos-server/schema/0001_current.sql"
+    def test_only_the_turso_schema_registry_includes_the_whole_schema(self):
+        schema = self.root / checks.API_SOURCE / checks.TURSO_SCHEMA_DDL / "0001_sample.sql"
         schema.parent.mkdir(parents=True)
-        schema.write_text("CREATE TABLE public.scripts (id text);\n", encoding="utf-8")
-        include = 'const BASELINE: &str = include_str!("../../../schema/0001_current.sql");'
-        self.assertEqual(self.errors(checks.SCHEMA_REGISTRY.as_posix(), include), [])
-        self.assertRejectedAt("platform/bearer/postgres.rs",
-                              'const BASELINE: &str = include_str!("../../../schema/0001_current.sql");',
+        schema.write_text("CREATE TABLE scripts (id text);\n", encoding="utf-8")
+        registry = checks.TURSO_SCHEMA_DDL / "mod.rs"
+        self.assertEqual(self.errors(registry.as_posix(), 'const DDL: &str = include_str!("0001_sample.sql");'), [])
+        self.assertRejectedAt("platform/bearer/store.rs",
+                              'const DDL: &str = include_str!("../turso/0001_sample.sql");',
                               "SQL table scripts belongs to editorial")
 
     def test_registration_tables_are_platform_owned(self):

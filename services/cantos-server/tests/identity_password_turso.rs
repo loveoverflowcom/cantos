@@ -333,7 +333,7 @@ async fn web_and_native_credentials_of_one_account_resolve_to_the_same_actor() {
     let native = w.login_native(OWNER, PASSWORD).await;
     assert_eq!(web.status, StatusCode::OK);
     assert_eq!(native.status, StatusCode::OK, "{:?}", native.json);
-    assert_eq!(web.json["actor_id"], native.json["actor_id"]);
+    assert_eq!(web.field("actor_id"), native.field("actor_id"));
     assert_ne!(web.json["session_id"], native.json["session_id"]);
     // A second account is a different actor; nothing links by email.
     w.signup(OTHER, "another long password").await;
@@ -390,15 +390,15 @@ async fn native_bearer_session_renews_rotates_and_a_spent_refresh_revokes_the_fa
         )
         .await;
     assert_eq!(renewed.status, StatusCode::OK, "{:?}", renewed.json);
-    assert_eq!(renewed.json["session_id"], login.json["session_id"]);
-    assert_eq!(renewed.json["actor_id"], login.json["actor_id"]);
+    assert_eq!(renewed.field("session_id"), login.field("session_id"));
+    assert_eq!(renewed.field("actor_id"), login.field("actor_id"));
     assert_eq!(
-        renewed.json["absolute_expires_at"],
-        login.json["absolute_expires_at"]
+        renewed.field("absolute_expires_at"),
+        login.field("absolute_expires_at")
     );
     assert_eq!(
-        renewed.json["authenticated_at"],
-        login.json["authenticated_at"]
+        renewed.field("authenticated_at"),
+        login.field("authenticated_at")
     );
     let next_access = renewed.json["access_token"].as_str().unwrap().to_owned();
     assert_ne!(next_access, access);

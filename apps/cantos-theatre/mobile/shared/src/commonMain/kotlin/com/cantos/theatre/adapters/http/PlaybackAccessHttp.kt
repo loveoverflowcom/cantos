@@ -1,6 +1,7 @@
 package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.domain.playback.AudioIdentity
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
@@ -63,7 +64,7 @@ class PlaybackAccessHttp(
                 }
                 continuation.invokeOnCancellation { handle.cancel() }
             }
-        } ?: NativeHttpResponse(0, null, null, "timeout")
+        } ?: NativeHttpResponse(0, null, null, NativeHttpFailure.Timeout)
 
     private fun refusal(response: NativeHttpResponse): PlaybackAccessResult.Refused? = when {
         response.failure != null -> PlaybackAccessResult.Refused(PlaybackAccessFailure.Network)
