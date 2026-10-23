@@ -312,6 +312,7 @@ pub fn FormSubmit(
     blocked: Signal<bool>,
     children: Children,
     #[prop(optional)] icon: Option<ViewFn>,
+    #[prop(into, default = false.into())] busy: Signal<bool>,
 ) -> impl IntoView {
     let Ok(reason) = LocalizedReason::new(BlockReason::ContextReady) else {
         return view! { <ErrorState title=text(Key::ControlUnavailable, english.get_untracked())><p>{text(Key::PermissionHelp, english.get_untracked())}</p></ErrorState> }.into_any();
@@ -321,12 +322,18 @@ pub fn FormSubmit(
     let described_by = reason_id.clone();
     view! {
         <div class="cui-button-field">
-            <button id=id class="cui-button" data-variant="tonal" type="submit" disabled=move || blocked.get()
-                aria-describedby=move || blocked.get().then(|| described_by.clone())>
-                {icon.map(|icon| view! { <span class="cui-button-icon" aria-hidden="true">{icon.run()}</span> })}
+            <button id=id class="cui-button" data-variant="tonal" type="submit" disabled=move || blocked.get() || busy.get()
+                aria-busy=move || busy.get().then_some("true")
+                aria-describedby=move || (blocked.get() || busy.get()).then(|| described_by.clone())>
+                {move || if busy.get() {
+                    Some(view! { <span class="cui-button-icon" aria-hidden="true"><span class="cui-action-progress"></span></span> }.into_any())
+                } else { icon.clone().map(|icon| view! { <span class="cui-button-icon" aria-hidden="true">{icon.run()}</span> }.into_any()) }}
                 <span class="cui-control-label">{children()}</span>
             </button>
-            <span id=reason_id class="cui-button-reason" hidden=move || !blocked.get()>{move || reason.with_value(|r| r.get(english.get()).as_str().to_owned())}</span>
+            <span id=reason_id class="cui-button-reason" hidden=move || !blocked.get() && !busy.get()
+                role=move || busy.get().then_some("status")>{move || if busy.get() {
+                    BlockReason::Busy.text(english.get()).to_owned()
+                } else { reason.with_value(|r| r.get(english.get()).as_str().to_owned()) }}</span>
         </div>
     }.into_any()
 }
@@ -421,7 +428,7 @@ pub fn DiscardDraftDialog(
         on_close_request=Callback::new(move |_| open.set(false)) on_error=on_error
         actions=move || view! {
             <Button id=cancel_id variant=ButtonVariant::Secondary on_press=Callback::new(move |_| open.set(false))>{cancel}</Button>
-            <ActionButton id=confirm_id english=english variant=ButtonVariant::Danger blocked=blocked reason=reason
+            <ActionButton id=confirm_id english=english icon=IconName::DeleteOutline variant=ButtonVariant::Danger blocked=blocked reason=reason
                 on_press=Callback::new(move |_| confirm_discard_request(blocked.get_untracked(), open, on_confirm))>{confirm}</ActionButton>
         }><p>{context}</p></Dialog> }
     }
@@ -492,7 +499,7 @@ pub fn DelegationRevokeDialog(
                         on_press=Callback::new(move |_| open.set(false))>
                         {move || text(Key::DialogKeep, english.get())}
                     </Button>
-                    <ActionButton id="delegation-revoke-confirm" english=english variant=ButtonVariant::Danger
+                    <ActionButton id="delegation-revoke-confirm" english=english icon=IconName::Close variant=ButtonVariant::Danger
                         blocked=blocked on_press=on_confirm>
                         {move || text(Key::DialogConfirm, english.get())}
                     </ActionButton>

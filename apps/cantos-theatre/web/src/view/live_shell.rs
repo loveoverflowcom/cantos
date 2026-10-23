@@ -987,7 +987,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                             {move || if !configuration_valid {
                                 view! { <LiveRecovery locale heading=Key::ErrorDialogTitle help=Key::ErrorConfiguration/> }.into_any()
                             } else { match nav.route.get() {
-                                Route::Auth(auth) => view! { <AuthPage state=state.read_only() signup locale route=auth account_created preview_icons=preview
+                                Route::Auth(auth) => view! { <AuthPage state=state.read_only() signup locale route=auth account_created
                                     on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
                                     on_register on_login=on_login_submit
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })

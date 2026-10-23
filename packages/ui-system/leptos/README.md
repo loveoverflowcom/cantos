@@ -312,7 +312,11 @@ The opt-in `ButtonVariant::AuthPrimary`, `AuthSecondary` and `AuthOutlined` reus
 non-submit Button and its controlled loading/disabled reasons and synthetic-event guard.
 Only these variants use the canonical auth CTA dimensions, capsule shape and interruptible
 pressed radius. The leading primary icon is decorative, with one visible text label. The
-outlined variant uses the fractional auth outline role; regular secondary boundaries and the
+23 October anatomy centers the icon and intrinsic label as one group, wraps only the label
+and uses no icon bubble, including blocked/loading states. Optional `SelectOption::with_icon`
+uses the existing registry; iconless options reserve a leading slot only when a sibling uses
+one. Selected checks and disclosure/progress remain separate. Native options retain text.
+The outlined variant uses the fractional auth outline role; regular secondary boundaries and the
 existing focus width remain unchanged. The CSS transition is not a native Material spring.
 Reduced motion removes that transition without delaying intent delivery.
 

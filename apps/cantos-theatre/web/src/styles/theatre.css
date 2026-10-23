@@ -377,7 +377,7 @@ body { margin: 0; }
   .theatre-live-app .theatre-mini-player .theatre-time { grid-row: auto; }
   .theatre-live-app .theatre-mini-player .theatre-transport { grid-column: 1; grid-row: auto; justify-self: start; }
 }
-.theatre-account-theme select, .theatre-listen-speed select {
+.theatre-listen-speed select {
   min-block-size: var(--cantos-size-control); max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-md);
   font: inherit; color: var(--cantos-color-on-surface);

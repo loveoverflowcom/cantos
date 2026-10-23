@@ -17,6 +17,8 @@ pub struct SelectOption {
     pub label: String,
     pub disabled: bool,
     pub lang: Option<String>,
+    /// Optional decorative semantic glyph from the shared registry; never part of the value.
+    pub icon: Option<IconName>,
 }
 
 impl SelectOption {
@@ -26,6 +28,14 @@ impl SelectOption {
             label: label.into(),
             disabled: false,
             lang: None,
+            icon: None,
+        }
+    }
+
+    pub fn with_icon(self, icon: IconName) -> Self {
+        Self {
+            icon: Some(icon),
+            ..self
         }
     }
 }
@@ -86,6 +96,15 @@ pub(super) fn MenuSelect(
             .find(|option| option.value == value.get())
             .and_then(|option| option.lang)
     });
+    let has_icons =
+        Signal::derive(move || options.get().iter().any(|option| option.icon.is_some()));
+    let current_icon = Signal::derive(move || {
+        options
+            .get()
+            .into_iter()
+            .find(|option| option.value == value.get())
+            .and_then(|option| option.icon)
+    });
     let dispatch = Callback::new(move |intent| {
         if !state.get_untracked().accepts_input() {
             return;
@@ -132,6 +151,9 @@ pub(super) fn MenuSelect(
                                 if value.get_untracked() != clicked_value { on_input.run(clicked_value.clone()); }
                             }
                         }>
+                        <Show when=move || has_icons.get()>
+                            <span class="cui-select-leading" aria-hidden="true">{option.icon.map(|name| view! { <Icon name/> })}</span>
+                        </Show>
                         <span class="cui-select-option-label">{option.label}</span>
                         <span class="cui-select-option-check" aria-hidden="true"><Icon name=IconName::Check/></span>
                     </div>
@@ -222,10 +244,19 @@ pub(super) fn MenuSelect(
                             }
                         }
                     }>
-                    <span id=value_id lang=move || current_lang.get()>{move || current_label.get()}</span>
-                    <Icon name=IconName::ExpandMore/>
+                    <Show when=move || has_icons.get()>
+                        <span class="cui-select-leading" aria-hidden="true">{move || current_icon.get().map(|name| view! { <Icon name/> })}</span>
+                    </Show>
+                    <span id=value_id class="cui-select-value" lang=move || current_lang.get()>{move || current_label.get()}</span>
+                    {move || if state.get().is_loading() {
+                        view! { <span class="cui-action-progress" aria-hidden="true"></span> }.into_any()
+                    } else { view! { <Icon name=IconName::ExpandMore/> }.into_any() }}
                 </button>
-                <span class="cui-select-native-indicator" hidden=move || enhanced.get()><Icon name=IconName::ExpandMore/></span>
+                <span class="cui-select-native-indicator" hidden=move || enhanced.get()>
+                    {move || if state.get().is_loading() {
+                        view! { <span class="cui-action-progress" aria-hidden="true"></span> }.into_any()
+                    } else { view! { <Icon name=IconName::ExpandMore/> }.into_any() }}
+                </span>
             </div>
             {popup}
             <FieldMessages id help error reason/>

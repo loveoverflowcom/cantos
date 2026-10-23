@@ -191,7 +191,6 @@ fun LoginScreen(
     account: AccountView,
     nothingSaved: Boolean,
     onIntent: (AuthIntent) -> Unit,
-    previewActionIcons: Boolean = false,
 ) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
@@ -210,23 +209,23 @@ fun LoginScreen(
             if (account.offersRegistration()) Button(
                 copy.text(AuthText.CreateAccount), { onIntent(AuthIntent.OpenRegister) },
                 variant = ButtonVariant.AuthSecondary,
-                icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenRegister) else null,
+                icon = authActionIcon(AuthIntent.OpenRegister),
                 controlModifier = Modifier.fillMaxWidth().testTag("login-create"),
             )
             when (account) {
                 AccountView.Pending -> Button(
                     copy.text(AuthText.CancelLogin), { onIntent(AuthIntent.CancelLogin) },
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.CancelLogin) else null,
+                    icon = authActionIcon(AuthIntent.CancelLogin),
                     variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-cancel"),
                 )
                 AccountView.CleanupRequired -> Button(
                     copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.RetryCleanup) else null,
+                    icon = authActionIcon(AuthIntent.RetryCleanup),
                     variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
                 )
                 AccountView.SignedOut, is AccountView.Failed -> Button(
                     copy.text(AuthText.RestoreSession), { onIntent(AuthIntent.RestoreSession) },
-                    icon = if (previewActionIcons) authActionIcon(AuthIntent.RestoreSession) else null,
+                    icon = authActionIcon(AuthIntent.RestoreSession),
                     variant = ButtonVariant.Text, controlModifier = Modifier.fillMaxWidth().testTag("auth-restore"),
                 )
                 AccountView.SignedIn, AccountView.Unavailable -> Unit
@@ -238,7 +237,7 @@ fun LoginScreen(
 
 /** Production Register renders the enrollment owner; an absent owner remains explained. */
 @Composable
-fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit, previewActionIcons: Boolean = false,
+fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit,
                    registration: RegistrationState? = null, onRegistration: (RegistrationIntent) -> Unit = {}) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
@@ -252,12 +251,12 @@ fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit, previewA
             Button(
                 copy.text(AuthText.ReturnLogin), { onIntent(AuthIntent.OpenLogin) },
                 variant = if (registration == null) ButtonVariant.AuthPrimary else ButtonVariant.Text,
-                icon = if (previewActionIcons || registration != null) authActionIcon(AuthIntent.OpenLogin) else "arrow_back",
+                icon = authActionIcon(AuthIntent.OpenLogin),
                 controlModifier = Modifier.fillMaxWidth().testTag("register-login"),
             )
             Button(
                 copy.text(AuthText.RegisterLater), { onIntent(AuthIntent.OpenHome) },
-                icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenHome) else null,
+                icon = authActionIcon(AuthIntent.OpenHome),
                 variant = if (registration == null) ButtonVariant.AuthOutlined else ButtonVariant.Text,
                 controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
             )

@@ -1,0 +1,31 @@
+{
+  "component_id": "badge",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex root \u2014 23 October 2026, local in-app browser review",
+  "reference": "23 October exported Button/Select reference images and existing canonical component contracts; scoped observations in docs/evidence/ui-parity-402.md. No matched-pixel, screen-reader or device acceptance.",
+  "tokens_sha256": "25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741",
+  "source_sha256": "6b059c2ae9fdce317f160733c597ff5bb942cad8863714abe1aaaaa58f520de0",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview leptos verify",
+      "artifact": "docs/evidence/ui-parity-402.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview leptos run; CUA pointer/keyboard, read-only DOM assertions and opened captures; see ui-parity-402.md",
+      "artifact": "docs/evidence/ui-parity-402.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview leptos run; CUA pointer/keyboard, read-only DOM assertions and opened captures; see ui-parity-402.md",
+      "artifact": "docs/evidence/ui-parity-402.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview leptos run; CUA pointer/keyboard, read-only DOM assertions and opened captures; see ui-parity-402.md",
+      "artifact": "docs/evidence/ui-parity-402.md"
+    }
+  }
+}

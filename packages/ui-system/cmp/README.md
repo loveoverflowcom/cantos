@@ -401,9 +401,9 @@ implementation or a replacement for ordinary listening/editor shapes:
   measured capsule to the 16 dp role with the interruptible 220 ms token tween. Reduced motion
   makes the tween immediate; this is not a native M3 spring claim. An optional native
   `interactionSource` supports actual press specimens without adding a synthetic state prop.
-  Both overloads accept a decorative `icon` name; only `AuthPrimary` wraps it in the paired
-  circle. Disabled/loading circles use the blocked button's foreground/background pair rather
-  than retaining enabled primary colors. The text/control supplies the sole accessible name.
+  Both overloads accept a decorative registry `icon` name. The 23 October anatomy centers the
+  icon and label together without a circle; loading uses the separate progress cue. The
+  text/control supplies the sole accessible name.
 - `TextFieldVariant.AuthTonal` is available on both raw-string and `TextFieldValue` overloads.
   The 56 dp minimum and 20 dp corner do not impose a fixed text height. Functional error/focus
   boundaries surround the native field only; help/error/blocking text remains outside their

@@ -255,9 +255,6 @@ pub(crate) fn SignupPanel(
     /// Register's contextual Back already returns to sign-in, including local cleanup.
     #[prop(optional)]
     login_via_back: bool,
-    /// New icon mappings stay in the explicit no-network diagnostic until shared admission.
-    #[prop(optional)]
-    preview_icons: bool,
 ) -> impl IntoView {
     let email = EmailFieldBindings::new(state, locale);
     let secret = PasswordBindings::new(state, locale);
@@ -333,7 +330,7 @@ pub(crate) fn SignupPanel(
                         } else { Some(ButtonState::Enabled) };
                         availability.map(|availability| view! {
                             <Button id="theatre-signup-submit" variant=ButtonVariant::AuthPrimary state=availability
-                                nostrip:icon=preview_icons.then_some(IconName::Mail)
+                                icon=IconName::Mail
                                 on_press=submit_press>{label(locale, CopyKey::SignupSendEmail)}</Button>
                         })
                     }}
@@ -371,7 +368,7 @@ pub(crate) fn SignupPanel(
                         on_change=Callback::new(move |value| state.update(|current| current.set_confirmed(value)))/>
                     {move || confirm_state().map(|availability| view! {
                         <Button id="theatre-signup-confirm" variant=ButtonVariant::AuthPrimary state=availability
-                            nostrip:icon=preview_icons.then_some(IconName::PersonAdd)
+                            icon=IconName::PersonAdd
                             on_press=confirm_press>{label(locale, CopyKey::SignupCreate)}</Button>
                     })}
                 </form>
@@ -379,12 +376,12 @@ pub(crate) fn SignupPanel(
             <div class="theatre-auth-actions">
                 <Show when=move || matches!(state.get().phase(), SignupPhase::CompleteRetry(_))>
                     <Button id="theatre-signup-retry" variant=ButtonVariant::AuthPrimary
-                        nostrip:icon=preview_icons.then_some(IconName::Refresh)
+                        icon=IconName::Refresh
                         on_press=retry_press>{label(locale, CopyKey::SignupRetrySame)}</Button>
                 </Show>
                 <Show when=move || state.get().phase() == SignupPhase::CompleteRefused(CompletionFailure::Invalid)>
                     <Button id="theatre-signup-choose-password" variant=ButtonVariant::AuthPrimary
-                        nostrip:icon=preview_icons.then_some(IconName::Refresh)
+                        icon=IconName::Refresh
                         on_press=choose_press>{label(locale, CopyKey::SignupChoosePassword)}</Button>
                 </Show>
                 <Show when=move || {
@@ -394,12 +391,12 @@ pub(crate) fn SignupPanel(
                         && !show_login(&state.get())
                 }>
                     <Button id="theatre-signup-new-request" variant=ButtonVariant::AuthPrimary
-                        nostrip:icon=preview_icons.then_some(IconName::Refresh)
+                        icon=IconName::Refresh
                         on_press=new_request_press>{label(locale, CopyKey::SignupNewRequest)}</Button>
                 </Show>
                 <Show when=move || !login_via_back && show_login(&state.get())>
                     <Button id="theatre-signup-login" variant=ButtonVariant::AuthPrimary
-                        nostrip:icon=preview_icons.then_some(IconName::Login)
+                        icon=IconName::Login
                         on_press=login_press>{label(locale, CopyKey::ReturnLogin)}</Button>
                 </Show>
             </div>
@@ -538,20 +535,15 @@ mod tests {
     }
 
     fn render(initial: SignupState, language: Locale) -> String {
-        render_options(initial, language, false, false)
+        render_options(initial, language, false)
     }
 
-    fn render_options(
-        initial: SignupState,
-        language: Locale,
-        login_via_back: bool,
-        preview_icons: bool,
-    ) -> String {
+    fn render_options(initial: SignupState, language: Locale, login_via_back: bool) -> String {
         Owner::new().with(|| {
             let state = RwSignal::new(initial);
             let locale = RwSignal::new(language);
             let noop = Callback::new(|()| {});
-            view! { <SignupPanel state locale login_via_back preview_icons on_submit=noop on_confirm=noop on_retry=noop on_new_request=noop on_login=noop/> }.to_html()
+            view! { <SignupPanel state locale login_via_back on_submit=noop on_confirm=noop on_retry=noop on_new_request=noop on_login=noop/> }.to_html()
         })
     }
 
@@ -661,7 +653,7 @@ mod tests {
         for (state, primary, focus) in cases {
             for locale in [Locale::Vietnamese, Locale::English] {
                 for login_via_back in [false, true] {
-                    let html = render_options(state.clone(), locale, login_via_back, true);
+                    let html = render_options(state.clone(), locale, login_via_back);
                     let expected = if primary == Some("login") && login_via_back {
                         None
                     } else {

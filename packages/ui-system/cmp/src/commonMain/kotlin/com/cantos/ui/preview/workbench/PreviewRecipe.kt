@@ -52,6 +52,8 @@ data class PreviewRecipe private constructor(
 
 /** Fixed original sample strings. Export encodes IDs from this table, never free-form typed content. */
 object SyntheticPreviewText {
+    const val narratorVi = "Người dẫn chuyện"
+    const val characterNameVi = "Nguyễn Thị Minh Phương"
     const val titleVi = "Ánh đèn cuối sân khấu"
     const val dialogueVi = "Người dẫn chuyện: Ngày mai, mình có diễn tiếp không?\nỖ, Ữ, Nguyễn Thị Minh Phương"
     const val richVi = "Ánh đèn cuối sân khấu · Ỗ, Ữ"

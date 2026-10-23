@@ -35,6 +35,9 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
 - [#221](https://github.com/loveoverflowcom/cantos/issues/221), [#222](https://github.com/loveoverflowcom/cantos/issues/222),
   [#223](https://github.com/loveoverflowcom/cantos/issues/223): renderer qualification and bounded
   adoption. Preserve qualification provenance instead of refreshing hashes to hide drift.
+  [#402](https://github.com/loveoverflowcom/cantos/issues/402) integrates the 23 October control
+  delta through those existing owners; its [local evidence](../evidence/ui-parity-402.md) keeps
+  product/browser/device acceptance and remaining consumer work separate.
 
 Consult domain work items through the [queue index](README.md) when those boundaries are selected;
 do not copy all GitHub issues into this file. Provider-only enrollment plans and historical

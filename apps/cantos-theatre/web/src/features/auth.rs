@@ -110,14 +110,13 @@ pub(crate) fn AuthActions(
     scope: &'static str,
     on_login: Callback<()>,
     on_register: Callback<()>,
-    #[prop(optional)] preview_icons: bool,
 ) -> impl IntoView {
     let availability = auth_action_state(state, locale);
     view! {
         <div class="theatre-auth-actions">
             {move || availability.get().map(|availability| view! {
                 <Button id=format!("{scope}-login") variant=ButtonVariant::AuthPrimary
-                    icon=if preview_icons { IconName::Login } else { IconName::ArrowForward }
+                    icon=IconName::Login
                     state=availability focus_on_press=true
                     on_press=Callback::new(move |_| on_login.run(()))>
                     {label(locale, CopyKey::LoginSubmit)}
@@ -125,7 +124,7 @@ pub(crate) fn AuthActions(
             })}
             {move || availability.get().map(|availability| view! {
                 <Button id=format!("{scope}-register") variant=ButtonVariant::AuthSecondary
-                    nostrip:icon=preview_icons.then_some(IconName::PersonAdd)
+                    icon=IconName::PersonAdd
                     state=availability focus_on_press=true
                     on_press=Callback::new(move |_| on_register.run(()))>
                     {label(locale, CopyKey::CreateAccount)}
@@ -142,21 +141,20 @@ pub(crate) fn SessionRecovery(
     scope: &'static str,
     on_refresh: Callback<()>,
     on_logout: Callback<()>,
-    #[prop(optional)] preview_icons: bool,
 ) -> impl IntoView {
     let ui = account_ui(state);
     view! {
         <>
             <Show when=move || matches!(ui.get().phase, SessionPhase::Failed(_))>
                 <Button id=format!("{scope}-refresh") variant=ButtonVariant::AuthSecondary
-                    nostrip:icon=preview_icons.then_some(IconName::Refresh)
+                    icon=IconName::Refresh
                     on_press=Callback::new(move |_| on_refresh.run(()))>
                     {move || messages::text(Key::PublicRetry, locale.get())}
                 </Button>
             </Show>
             <Show when=move || ui.get().can_retry_logout>
                 <Button id=format!("{scope}-logout-retry") variant=ButtonVariant::AuthSecondary
-                    nostrip:icon=preview_icons.then_some(IconName::Refresh)
+                    icon=IconName::Refresh
                     on_press=Callback::new(move |_| on_logout.run(()))>
                     {move || messages::text(Key::AccountLogoutRetry, locale.get())}
                 </Button>
@@ -222,7 +220,7 @@ fn LoginForm(
                 state=field_state
                 on_input=Callback::new(move |value| password.set(value))/>
             {move || availability.get().map(|availability| view! {
-                <Button id="theatre-auth-login" variant=ButtonVariant::AuthPrimary state=availability
+                <Button id="theatre-auth-login" variant=ButtonVariant::AuthPrimary icon=IconName::Login state=availability
                     on_press=Callback::new(move |_| submit())>
                     {move || auth_copy::text(
                         if ui.get().phase == SessionPhase::Checking { CopyKey::LoginSubmitting } else { CopyKey::LoginSubmit },
@@ -252,10 +250,6 @@ pub(crate) fn AuthPage(
     on_signup_retry: Callback<()>,
     on_signup_new: Callback<()>,
     on_signup_login: Callback<()>,
-    /// Enabled only by the existing explicit auth-preview composition root. This is not
-    /// shared icon admission or a live fallback when a dependency is unavailable.
-    #[prop(optional)]
-    preview_icons: bool,
 ) -> impl IntoView {
     let ui = account_ui(state);
     let availability = auth_action_state(state, locale);
@@ -312,7 +306,7 @@ pub(crate) fn AuthPage(
                                 <LoginForm state locale availability on_submit=on_login/>
                                 {move || availability.get().map(|availability| view! {
                                     <Button id="theatre-auth-register" variant=ButtonVariant::AuthSecondary
-                                        nostrip:icon=preview_icons.then_some(IconName::PersonAdd)
+                                        icon=IconName::PersonAdd
                                         state=availability focus_on_press=true
                                         on_press=Callback::new(move |_| on_register.run(()))>
                                         {label(locale, CopyKey::CreateAccount)}
@@ -329,11 +323,11 @@ pub(crate) fn AuthPage(
                         view! {
                             <SignupPanel state=signup locale on_submit=on_signup_submit on_confirm=on_signup_confirm
                                 on_retry=on_signup_retry on_new_request=on_signup_new on_login=on_signup_login
-                                login_via_back=true preview_icons/>
+                                login_via_back=true/>
                         }.into_any()
                     }}
                     <Show when=move || is_login || ui.get().phase == SessionPhase::LogoutPending>
-                        <SessionRecovery state locale scope="theatre-auth" on_refresh on_logout preview_icons/>
+                        <SessionRecovery state locale scope="theatre-auth" on_refresh on_logout/>
                     </Show>
                 </div>
             </div>
@@ -448,14 +442,7 @@ mod tests {
     }
 
     fn render(route: AuthRoute, initial: AccountViewState, language: Locale) -> String {
-        render_with_signup(
-            route,
-            initial,
-            language,
-            SignupState::default(),
-            false,
-            false,
-        )
+        render_with_signup(route, initial, language, SignupState::default(), false)
     }
 
     fn render_with_signup(
@@ -464,7 +451,6 @@ mod tests {
         language: Locale,
         enrollment: SignupState,
         created: bool,
-        preview_icons: bool,
     ) -> String {
         Owner::new().with(|| {
             let state = RwSignal::new(initial);
@@ -473,7 +459,7 @@ mod tests {
             let account_created = RwSignal::new(created);
             let noop = Callback::new(|()| {});
             let login = Callback::new(|_: (String, String)| {});
-            view! { <AuthPage state=state.read_only() signup locale route account_created preview_icons on_back=noop on_register=noop on_login=login
+            view! { <AuthPage state=state.read_only() signup locale route account_created on_back=noop on_register=noop on_login=login
             on_home=noop on_refresh=noop on_logout=noop
             on_signup_submit=noop on_signup_confirm=noop on_signup_retry=noop on_signup_new=noop on_signup_login=noop/> }
             .to_html()
@@ -675,7 +661,6 @@ mod tests {
                 language,
                 SignupState::default(),
                 true,
-                false,
             );
             assert!(with.contains("id=\"theatre-auth-created\""));
             assert!(with.contains(auth_copy::text(CopyKey::AccountCreatedNotice, language)));
@@ -691,53 +676,50 @@ mod tests {
     fn registration_has_one_contextual_back_and_a_named_home_escape_in_every_origin() {
         for language in [Locale::Vietnamese, Locale::English] {
             for origin in ORIGINS {
-                for preview_icons in [false, true] {
-                    let html = render_with_signup(
-                        AuthRoute::register(origin),
-                        guest(),
-                        language,
-                        SignupState::default(),
-                        false,
-                        preview_icons,
-                    );
-                    assert_eq!(
-                        native_button_name(&html, "theatre-auth-back"),
-                        auth_copy::text(CopyKey::ReturnLogin, language)
-                    );
-                    assert!(html.contains("id=\"theatre-auth-home\""));
-                    assert!(html.contains("href=\"#discover\""));
-                    assert!(html.contains(&format!(
-                        "aria-label=\"{}\"",
-                        auth_copy::text(CopyKey::ReturnHome, language)
-                    )));
-                    for absent in [
-                        "theatre-register-back\"",
-                        "theatre-register-home\"",
-                        "theatre-signup-cancel\"",
-                        "theatre-signup-login\"",
-                        "theatre-login-form",
-                        "theatre-login-password",
-                    ] {
-                        assert!(!html.contains(absent), "{origin:?}: {absent}");
-                    }
-                    assert_eq!(html.matches("data-variant=\"auth-primary\"").count(), 1);
-                    let submit = html
-                        .split("id=\"theatre-signup-submit\"")
-                        .nth(1)
-                        .unwrap()
-                        .split("</button>")
-                        .next()
-                        .unwrap();
-                    let leading_icons: Vec<_> = submit
-                        .split("<span")
-                        .skip(1)
-                        .filter_map(|markup| markup.split_once('>').map(|(opening, _)| opening))
-                        .filter(|opening| opening.contains("cui-button-icon"))
-                        .collect();
-                    assert_eq!(leading_icons.len(), usize::from(preview_icons));
-                    for opening in leading_icons {
-                        assert!(opening.contains("aria-hidden=\"true\""));
-                    }
+                let html = render_with_signup(
+                    AuthRoute::register(origin),
+                    guest(),
+                    language,
+                    SignupState::default(),
+                    false,
+                );
+                assert_eq!(
+                    native_button_name(&html, "theatre-auth-back"),
+                    auth_copy::text(CopyKey::ReturnLogin, language)
+                );
+                assert!(html.contains("id=\"theatre-auth-home\""));
+                assert!(html.contains("href=\"#discover\""));
+                assert!(html.contains(&format!(
+                    "aria-label=\"{}\"",
+                    auth_copy::text(CopyKey::ReturnHome, language)
+                )));
+                for absent in [
+                    "theatre-register-back\"",
+                    "theatre-register-home\"",
+                    "theatre-signup-cancel\"",
+                    "theatre-signup-login\"",
+                    "theatre-login-form",
+                    "theatre-login-password",
+                ] {
+                    assert!(!html.contains(absent), "{origin:?}: {absent}");
+                }
+                assert_eq!(html.matches("data-variant=\"auth-primary\"").count(), 1);
+                let submit = html
+                    .split("id=\"theatre-signup-submit\"")
+                    .nth(1)
+                    .unwrap()
+                    .split("</button>")
+                    .next()
+                    .unwrap();
+                let leading_icons: Vec<_> = submit
+                    .split("<span")
+                    .skip(1)
+                    .filter_map(|markup| markup.split_once('>').map(|(opening, _)| opening))
+                    .filter(|opening| opening.contains("cui-button-icon"))
+                    .collect();
+                assert_eq!(leading_icons.len(), 1);
+                for opening in leading_icons {
+                    assert!(opening.contains("aria-hidden=\"true\""));
                 }
             }
         }
@@ -761,7 +743,6 @@ mod tests {
                 guest(),
                 language,
                 enrollment.clone(),
-                false,
                 false,
             );
             assert!(

@@ -53,7 +53,7 @@ class SelectAffordanceTest {
         var value by mutableStateOf<String?>("0")
         setContent {
             UiRoot {
-                Select("Nhân vật", listOf(SelectOption("0", "Người dẫn chuyện"), SelectOption("1", "Minh Phương")), value,
+                Select("Nhân vật", listOf(SelectOption("0", "Người dẫn chuyện", icon = "mic"), SelectOption("1", "Minh Phương", icon = "person")), value,
                     { calls += it; value = it }, expandedDescription = "Mở", collapsedDescription = "Đóng",
                     placeholder = "Chọn nhân vật", emptyDescription = "Chưa có nhân vật",
                     controlModifier = Modifier.focusRequester(focus).testTag("select-trigger"))
@@ -84,7 +84,7 @@ class SelectAffordanceTest {
         var calls = 0
         setContent {
             UiRoot {
-                Select("Nhân vật", listOf(SelectOption("0", longLabel)), "0", { calls += 1 }, state = state,
+                Select("Nhân vật", listOf(SelectOption("0", longLabel, icon = "mic")), "0", { calls += 1 }, state = state,
                     expandedDescription = "Mở", collapsedDescription = "Đóng", placeholder = "Chọn nhân vật",
                     emptyDescription = "Chưa có nhân vật", controlModifier = Modifier.testTag("select-trigger"))
             }
@@ -111,7 +111,7 @@ class SelectAffordanceTest {
     private fun capture(width: Int, theme: Theme, textScale: Float) = runDesktopComposeUiTest(width = width, height = 1000) {
         var state by mutableStateOf<ButtonState>(ButtonState.Enabled)
         var value by mutableStateOf<String?>("0")
-        val options = listOf(SelectOption("0", longLabel), SelectOption("1", "Narrator — Nguyễn Thị Minh Phương"),
+        val options = listOf(SelectOption("0", longLabel, icon = "mic"), SelectOption("1", "Narrator — Nguyễn Thị Minh Phương", icon = "person"),
             SelectOption("2", "Giọng chưa được duyệt", ButtonState.Disabled(DisabledReason.of("Thiếu quyền dùng giọng"))))
         setContent {
             Box(Modifier.requiredSize(width.dp, 1000.dp).testTag("select-root")) {

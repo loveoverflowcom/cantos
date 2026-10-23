@@ -143,6 +143,10 @@
     "timer": {
       "path": "src/image/timer/materialiconsoutlined/24px.svg",
       "sha256": "c6d72ae007dcf1b7bf061f3b18d08273cad881e5113d073297a0c034df475338"
+    },
+    "content_copy": {
+      "path": "src/content/content_copy/materialiconsoutlined/24px.svg",
+      "sha256": "a978f7983cb6c8abffb09a1c71081ef2a038003114bccc7a06c1026198b17888"
     }
   }
 }

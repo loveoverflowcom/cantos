@@ -23,7 +23,9 @@ use crate::{
     },
     messages::{self, text, Key, Locale},
 };
-use cantos_ui::{AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason};
+use cantos_ui::{
+    AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, IconName,
+};
 use leptos::prelude::*;
 
 pub(crate) const HEADING_ID: &str = "theatre-public-work-heading";
@@ -261,7 +263,7 @@ pub(crate) fn PublicWorkDetail(
                         <div class="theatre-public-state theatre-panel" role="status">
                             <h1 id=HEADING_ID tabindex="-1">{move || text(heading, locale.get())}</h1>
                             <p>{move || text(help, locale.get())}</p>
-                            <Button id="theatre-public-work-retry" variant=ButtonVariant::Tonal
+                            <Button id="theatre-public-work-retry" icon=IconName::Refresh variant=ButtonVariant::Tonal
                                 on_press=Callback::new(move |_| on_retry.run(()))>
                                 {move || text(Key::PublicRetry, locale.get())}
                             </Button>
@@ -322,7 +324,7 @@ fn WorkSaveControl(
             if controls.account.with(|a| a.phase()) != SessionPhase::SignedIn {
                 let guest_sr = title_for_guest.clone();
                 view! {
-                    <Button id="theatre-public-work-save-login" variant=ButtonVariant::Tonal
+                    <Button id="theatre-public-work-save-login" icon=IconName::Login variant=ButtonVariant::Tonal
                         on_press=Callback::new(move |_| controls.on_login_to_save.run(()))>
                         {move || text(Key::LiveSaveSignIn, locale.get())}
                         <span class="cui-sr-only">" "{guest_sr}</span>
@@ -369,7 +371,7 @@ fn WorkSaveControl(
                             {can_retry.then(|| {
                                 let retry_id = work_id_retry.clone();
                                 view! {
-                                    <Button id="theatre-public-work-save-retry" variant=ButtonVariant::Text
+                                    <Button id="theatre-public-work-save-retry" icon=IconName::Refresh variant=ButtonVariant::Text
                                         on_press=Callback::new(move |_| controls.on_retry_saved.run(retry_id.clone()))>
                                         {move || text(Key::PublicRetry, locale.get())}
                                     </Button>

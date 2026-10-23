@@ -87,6 +87,7 @@ import com.cantos.ui.Radio
 import com.cantos.ui.RangeField
 import com.cantos.ui.Select
 import com.cantos.ui.SelectOption
+import com.cantos.ui.preview.workbench.SyntheticPreviewText
 import com.cantos.ui.Space
 import com.cantos.ui.Stack
 import com.cantos.ui.StackDirection
@@ -598,8 +599,8 @@ internal fun ComponentExample(
         }
         PreviewExample.Select -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             val options = if (state == "empty-options") emptyList() else listOf(
-                SelectOption("narrator", "Người dẫn chuyện"),
-                SelectOption("minh-phuong", "Nguyễn Thị Minh Phương"),
+                SelectOption("narrator", SyntheticPreviewText.narratorVi, icon = "mic"),
+                SelectOption("minh-phuong", SyntheticPreviewText.characterNameVi, icon = "person"),
                 SelectOption("unavailable", "Người giữ đèn cuối sân khấu", ButtonState.Disabled(DisabledReason.of("Chưa có quyền dùng giọng này"))),
             ).let { if (sample.reverseOptions) it.reversed() else it }
             val availability = if (sample.interrupted) ButtonState.Loading(pendingReason) else buttonState

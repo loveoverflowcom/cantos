@@ -5,7 +5,9 @@ use crate::{
     signin::SignInForm,
     ui::FormSubmit,
 };
-use cantos_ui::{Announcement, DisabledReason, FieldState, Status, TextField, TextFieldKind};
+use cantos_ui::{
+    Announcement, DisabledReason, FieldState, Icon, IconName, Status, TextField, TextFieldKind,
+};
 use leptos::{ev::SubmitEvent, prelude::*};
 
 /// `id` namespaces the controls so the entry form and the in-workspace reauthentication form
@@ -61,6 +63,8 @@ pub fn SignInPanel(
                 kind=TextFieldKind::Password state=field_state required=true
                 autocomplete="current-password"/>
             <FormSubmit id=submit_id english=english
+                icon=ViewFn::from(|| view! { <Icon name=IconName::Login/> })
+                busy=submitting
                 blocked=Signal::derive(move || blocked.get() || submitting.get())>
                 {move || text(if submitting.get() { Key::Submitting } else { Key::Submit }, english.get())}
             </FormSubmit>
@@ -97,7 +101,33 @@ mod tests {
             assert!(html.contains("autocomplete=\"username\""), "{html}");
             assert!(html.contains("autocomplete=\"current-password\""), "{html}");
             assert!(html.contains("type=\"submit\""), "{html}");
+            assert_eq!(html.matches("class=\"cui-button-icon\"").count(), 1);
+            assert!(html.contains("aria-hidden=\"true\""), "{html}");
             assert!(html.contains(text(Key::Password, english)), "{html}");
+        }
+    }
+
+    #[test]
+    fn submitting_keeps_native_submit_and_label_but_replaces_login_icon_with_progress() {
+        for english in [false, true] {
+            let mut form = SignInForm::default();
+            form.set_email("owner@example.invalid".into());
+            form.set_password("password".into());
+            let _ = form.begin(None).unwrap();
+            let html = render(form, english, false, false);
+            let submit = html
+                .split("id=\"session-submit\"")
+                .nth(1)
+                .unwrap()
+                .split("</button>")
+                .next()
+                .unwrap();
+            assert!(submit.contains("type=\"submit\""), "{html}");
+            assert!(submit.contains("aria-busy=\"true\""), "{html}");
+            assert!(submit.contains("disabled"), "{html}");
+            assert!(submit.contains("cui-action-progress"), "{html}");
+            assert!(!submit.contains("<svg"), "{html}");
+            assert!(submit.contains(text(Key::Submitting, english)), "{html}");
         }
     }
 

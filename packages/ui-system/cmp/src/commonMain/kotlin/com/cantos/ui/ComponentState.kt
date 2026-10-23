@@ -84,9 +84,15 @@ enum class Space { None, Xs, Sm, Md, Lg }
 enum class Announcement { Off, Polite, Assertive }
 
 /** Stable option identity is distinct from localized display text and caller-owned selection. */
-data class SelectOption(val value: String, val label: String, val state: ButtonState = ButtonState.Enabled) {
+data class SelectOption(
+    val value: String,
+    val label: String,
+    val state: ButtonState = ButtonState.Enabled,
+    val icon: String? = null,
+) {
     init {
         require(value.isNotBlank()) { "Option values must be nonblank" }
         require(label.isNotBlank()) { "Option labels must be nonblank" }
+        icon?.let { com.cantos.ui.generated.CantosIcons.paths(it) }
     }
 }
