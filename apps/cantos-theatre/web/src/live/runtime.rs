@@ -1012,15 +1012,13 @@ fn credentials_lost(state: RwSignal<AccountViewState>) {
     };
     leptos::task::spawn_local(async move {
         let result = match crate::api_endpoint::auth() {
-            Ok(client) => client
-                .settled_cleanup()
-                .await
-                .map_err(super::account::auth_error),
+            Ok(client) => match client.settled_cleanup().await {
+                Ok(()) => super::account::session().await,
+                Err(error) => Err(super::account::auth_error(error)),
+            },
             Err(error) => Err(super::account::auth_error(error)),
         };
-        let _ = AccountWriter::new(state)
-            .finish_logout(issued, result)
-            .into_value();
+        finish_lookup(state, issued, result, 1).await;
     });
 }
 

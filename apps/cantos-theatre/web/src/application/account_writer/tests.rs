@@ -1,6 +1,7 @@
 use super::super::account_view::{Admitted, IntentRefusal};
 use super::super::library_sync::RecoveryMode;
 use super::*;
+use crate::application::account_view::SessionPhase;
 use std::{
     cell::RefCell,
     sync::{

@@ -3,7 +3,7 @@ use super::{
     account::{AccountError, AccountGeneration, AccountScope, RequestFence},
     account_view::{
         AccountFailure, AccountViewState, CleanupIntent, ExplicitProgress, JournalStorageFault,
-        LibraryCompletion, LibraryRequest, SessionCompletion, SessionPhase, SyncResult,
+        LibraryCompletion, LibraryRequest, SessionCompletion, SyncResult,
     },
     library::{LibraryPage, Section},
     library_sync::{
@@ -145,10 +145,7 @@ impl AccountWriter {
     }
     pub fn credentials_lost(self) -> Write<Option<AccountGeneration>> {
         self.write(AccountViewState::control_publication, |state| {
-            if state.phase() != SessionPhase::SignedIn {
-                return None;
-            }
-            state.begin_logout().ok()
+            state.begin_cookie_observation().ok()
         })
     }
     pub fn finish_session(
