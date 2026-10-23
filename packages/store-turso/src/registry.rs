@@ -275,6 +275,11 @@ pub fn plan_startup(
         });
     }
     let applied = present.applied.as_deref().ok_or(Refusal::HistoryMissing)?;
+    // Creation commits the marker and its first history row atomically. A marked file with
+    // no rows is damaged, not a fresh file or a valid suffix; never try baseline DDL on it.
+    if applied.is_empty() {
+        return Err(Refusal::HistoryDiverged { version: 1 });
+    }
     let known = registry.migrations.len();
     if applied.len() > known {
         return Err(Refusal::NewerThanBinary {
@@ -689,7 +694,7 @@ mod tests {
         );
         assert_eq!(
             plan_startup(&r, &present(Some(vec![])), Intent::Migrate),
-            Ok(Plan::Upgrade(&MIGRATIONS[..]))
+            Err(Refusal::HistoryDiverged { version: 1 })
         );
         assert_eq!(
             plan_startup(&r, &present(None), Intent::Migrate),

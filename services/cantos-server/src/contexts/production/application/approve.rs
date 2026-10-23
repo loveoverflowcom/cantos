@@ -4,7 +4,7 @@ use crate::contract::studio::{ApproveProductionRequest, ProductionApprovalRespon
 use uuid::Uuid;
 
 use super::super::domain::{check_approval, require_current_approval};
-use super::super::postgres::{self, encode};
+use super::super::turso::{self, encode};
 use super::{facts, production_actor, snapshot};
 use crate::contexts::editorial::Action;
 use crate::platform::store::{normalized_uuid, LockMode, Store, StoreError};
@@ -25,9 +25,7 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
-        if let Some(prior) =
-            postgres::approval_by_operation(&tx, &script, &actor, &operation).await?
-        {
+        if let Some(prior) = turso::approval_by_operation(&tx, &script, &actor, &operation).await? {
             if prior.request_bytes() != bytes || prior.snapshot_id() != id {
                 return Err(StoreError::OperationReused);
             }
@@ -35,7 +33,7 @@ impl Store {
             tx.commit().await?;
             return Ok(result);
         }
-        let row = postgres::find_snapshot(&tx, &id, &script)
+        let row = turso::find_snapshot(&tx, &id, &script)
             .await?
             .ok_or(StoreError::NotFound)?;
         let candidate = snapshot(&tx, &row, &facts).await?;
@@ -45,9 +43,9 @@ impl Store {
             candidate.approval.is_some(),
             &request.input_digest,
         )?;
-        postgres::insert_approval(
+        turso::insert_approval(
             &tx,
-            postgres::NewApproval {
+            turso::NewApproval {
                 id: &Uuid::new_v4().to_string(),
                 snapshot: &id,
                 script: &script,

@@ -7,7 +7,7 @@ use super::domain::{
     admit_edited_proposal, admit_output_with_minter, typed_digest, AdaptationRejection,
     SourceRejection, SubmissionRejection, TrustedBinding, PROPOSAL_DIGEST,
 };
-use super::postgres;
+use super::turso;
 use crate::contexts::editorial::{document as editorial_document, load_revision, RevisionFacts};
 use crate::contexts::ingestion::imported_source;
 use crate::platform::store::{StoreError, Tx};
@@ -75,7 +75,7 @@ async fn stored_proposal(
     source: &ImportResponse,
     binding: &TrustedBinding,
 ) -> Result<Option<AdaptationProposal>, StoreError> {
-    let Some((proposal, digest)) = postgres::proposal(tx, run).await? else {
+    let Some((proposal, digest)) = turso::proposal(tx, run).await? else {
         return Ok(None);
     };
     if typed_digest(PROPOSAL_DIGEST, &proposal).map_err(|_| StoreError::CorruptRevision)? != digest
@@ -91,7 +91,7 @@ async fn stored_proposal(
 
 /// The revision an acceptance of this run created, if it was accepted.
 async fn accepted_revision(tx: &Tx<'_>, run: &str) -> Result<Option<RevisionFacts>, StoreError> {
-    match postgres::acceptance_link(tx, run).await? {
+    match turso::acceptance_link(tx, run).await? {
         Some((script, revision)) => Ok(Some(load_revision(tx, &script, revision).await?)),
         None => Ok(None),
     }

@@ -10,7 +10,7 @@ use super::super::domain::{
     decide_rights_version, decide_settings_version, prepare_inputs, validate_rights_declaration,
     validate_settings,
 };
-use super::super::postgres::{self, encode};
+use super::super::turso::{self, encode};
 use super::{facts, production_actor};
 use crate::contexts::editorial::{
     ensure_evidence, load_revision, rights_cited_by_script, Action, EvidenceKind,
@@ -24,11 +24,11 @@ impl Store {
         script: &str,
     ) -> Result<ProductionStateResponse, StoreError> {
         let script = normalized_uuid(script)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
-        let snapshots = postgres::snapshot_history(&tx, &script).await?;
+        let snapshots = turso::snapshot_history(&tx, &script).await?;
         let result = ProductionStateResponse {
             settings: facts.settings,
             rights: facts.rights,
@@ -53,9 +53,7 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Write, LockMode::Update).await?;
-        if let Some(prior) =
-            postgres::settings_by_operation(&tx, &script, &actor, &operation).await?
-        {
+        if let Some(prior) = turso::settings_by_operation(&tx, &script, &actor, &operation).await? {
             if prior.request_bytes() != bytes {
                 return Err(StoreError::OperationReused);
             }
@@ -69,9 +67,9 @@ impl Store {
             request.expected_revision,
             request.expected_settings_version,
         )?)?;
-        postgres::insert_settings(
+        turso::insert_settings(
             &tx,
-            postgres::NewSettings {
+            turso::NewSettings {
                 script: &script,
                 version,
                 script_revision: checked_number(facts.head)?,
@@ -82,7 +80,7 @@ impl Store {
             },
         )
         .await?;
-        let result = postgres::load_settings(&tx, &script, version).await?;
+        let result = turso::load_settings(&tx, &script, version).await?;
         production_actor(&tx, token).await?;
         tx.commit().await?;
         Ok(result)
@@ -103,8 +101,7 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
-        if let Some(prior) = postgres::rights_by_operation(&tx, &script, &actor, &operation).await?
-        {
+        if let Some(prior) = turso::rights_by_operation(&tx, &script, &actor, &operation).await? {
             if prior.request_bytes() != bytes {
                 return Err(StoreError::OperationReused);
             }
@@ -145,9 +142,9 @@ impl Store {
             declaration: request.claim,
         };
         let claim_bytes = encode(&claim, 64 * 1024)?;
-        postgres::insert_rights(
+        turso::insert_rights(
             &tx,
-            postgres::NewRights {
+            turso::NewRights {
                 script: &script,
                 owner: &facts.owner,
                 record_id: &claim.declaration.record_id,
@@ -159,7 +156,7 @@ impl Store {
             },
         )
         .await?;
-        let result = postgres::load_rights(
+        let result = turso::load_rights(
             &tx,
             &script,
             &claim.declaration.record_id,
@@ -177,8 +174,8 @@ impl Store {
         script: &str,
     ) -> Result<ProductionPreviewResponse, StoreError> {
         let script = normalized_uuid(script)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
         let settings = facts
@@ -194,7 +191,7 @@ impl Store {
             settings,
             &facts.rights,
             facts.reviewed,
-            postgres::now(&tx).await?,
+            turso::now(&tx).await?,
         )
         .map_err(StoreError::InvalidRequestFields)?;
         tx.commit().await?;

@@ -2,7 +2,6 @@
 pub mod domain;
 
 mod application;
-mod postgres;
 mod storage;
 mod turso;
 

@@ -218,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn rights_successor_never_exceeds_the_postgres_storage_domain() {
+    fn rights_successor_never_exceeds_the_turso_storage_domain() {
         let subject = ProductionRightsSubject::Evidence {
             record_id: "voice-claim".into(),
         };

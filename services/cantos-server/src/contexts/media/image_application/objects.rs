@@ -10,8 +10,8 @@ use crate::contexts::media::{
         ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageError, StorageTargetId,
     },
     image_intake::VerifiedImage,
-    postgres::image::StoredImageAsset,
     storage::registry::StorageRegistry,
+    turso::image::StoredImageAsset,
 };
 use crate::platform::store::StoreError;
 

@@ -19,7 +19,7 @@ mod sql;
 mod tests;
 
 pub use session::token_hash;
-pub(crate) use session::{authenticate, session_token_registered};
+pub(crate) use session::{actor_active, authenticate, session_token_registered};
 pub(crate) use sql::{Conn, Tx};
 pub use sql::{Error, FromColumn, Param, Params, Row, RowIndex};
 
@@ -136,13 +136,4 @@ pub(crate) const RELEASE_OWNER_ACTIVE_FILTER: &str =
 pub(crate) enum LockMode {
     Share,
     Update,
-}
-
-impl LockMode {
-    pub(crate) fn sql(self) -> &'static str {
-        match self {
-            LockMode::Share => "SHARE",
-            LockMode::Update => "UPDATE",
-        }
-    }
 }

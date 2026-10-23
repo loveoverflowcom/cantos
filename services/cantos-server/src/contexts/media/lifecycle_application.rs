@@ -5,7 +5,7 @@ use super::{
         lifecycle::*,
         object_storage::{decide_owner_read, PrivateObjectRef},
     },
-    postgres::lifecycle as sql,
+    turso::lifecycle as sql,
 };
 use crate::contexts::{
     catalog::{
@@ -218,8 +218,8 @@ async fn finish_owner_snapshot(
     if let Some(location) = &location {
         storage(store)?.verify(location).await?;
     }
-    let mut client = store.connection().await?;
-    let tx = client.transaction().await?;
+    let client = store.connection().await?;
+    let tx = client.read().await?;
     let (s, _, current) = owner(&tx, token, unit, &reply.submission.id, LockMode::Share).await?;
     refresh_snapshot(&tx, &s, current, &mut reply, location.as_ref()).await?;
     authenticate(&tx, token).await?;
@@ -236,8 +236,8 @@ async fn finish_producer_snapshot(
     if let Some(location) = &location {
         storage(store)?.verify(location).await?;
     }
-    let mut client = store.connection().await?;
-    let tx = client.transaction().await?;
+    let client = store.connection().await?;
+    let tx = client.read().await?;
     let (s, current) = scoped(&tx, &reply.submission.id, bearer, LockMode::Share).await?;
     refresh_snapshot(&tx, &s, current, &mut reply, location.as_ref()).await?;
     scoped(&tx, &reply.submission.id, bearer, LockMode::Share).await?;
@@ -268,8 +268,8 @@ async fn verified_owner_rendition(
     unit: &str,
     id: &str,
 ) -> Result<(AudioRendition, PrivateObjectRef), StoreError> {
-    let mut client = store.connection().await?;
-    let tx = client.transaction().await?;
+    let client = store.connection().await?;
+    let tx = client.read().await?;
     let (s, _, _) = owner(&tx, token, unit, id, LockMode::Share).await?;
     let r = sql::rendition(&tx, &s).await?.ok_or(StoreError::NotFound)?;
     let location = sql::location(&tx, &r).await?;
@@ -288,8 +288,8 @@ async fn verified_producer_rendition(
     location: PrivateObjectRef,
 ) -> Result<dto::AudioRenditionDocument, StoreError> {
     storage(store)?.verify(&location).await?;
-    let mut client = store.connection().await?;
-    let tx = client.transaction().await?;
+    let client = store.connection().await?;
+    let tx = client.read().await?;
     let (locked, _) = scoped(&tx, &s.document().id, bearer, LockMode::Share).await?;
     if locked != *s {
         return Err(StoreError::CorruptRevision);
@@ -423,8 +423,8 @@ impl Store {
         id: &str,
     ) -> Result<dto::AudioSubmissionResponse, StoreError> {
         AudioSubmissionId::parse(id).map_err(invalid)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let (s, _, current) = owner(&tx, token, unit, id, LockMode::Share).await?;
         let (reply, location) = snapshot(&tx, s, current).await?;
         authenticate(&tx, token).await?;
@@ -444,8 +444,8 @@ impl Store {
         let unit = ContentUnitId::parse(unit).map_err(|_| StoreError::InvalidRequest)?;
         let submission = AudioSubmissionId::parse(submission).map_err(invalid)?;
         let rendition = AudioRenditionId::parse(rendition).map_err(invalid)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let (s, _, _) = owner(
             &tx,
             token,
@@ -475,8 +475,8 @@ impl Store {
         id: &str,
     ) -> Result<dto::AudioSubmissionResponse, StoreError> {
         AudioSubmissionId::parse(id).map_err(invalid)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let (s, current) = scoped(&tx, id, bearer, LockMode::Share).await?;
         let (reply, location) = snapshot(&tx, s, current).await?;
         scoped(&tx, id, bearer, LockMode::Share).await?;
@@ -525,8 +525,8 @@ impl Store {
         AudioSubmissionId::parse(id).map_err(invalid)?;
         let sha256 = format!("{:x}", Sha256::digest(&bytes));
         let length = bytes.len() as u64;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let (s, current) = scoped(&tx, id, bearer, LockMode::Share).await?;
         let settled = sql::rendition(&tx, &s).await?;
         let decision = decide_admission(
@@ -591,6 +591,24 @@ impl Store {
         .map_err(invalid)?;
         sql::insert_rendition(&tx, &r, &stored).await?;
         scoped(&tx, id, bearer, LockMode::Update).await?;
+        // The receipt is speculative until the final deadline fence. The transaction's fixed
+        // timestamp orders its facts, but must not extend a producer grant through SQL work.
+        let now = self
+            .database()
+            .now()
+            .map_err(|_| StoreError::Unavailable)?
+            .get()
+            / 1_000;
+        decide_admission(
+            &s,
+            now,
+            false,
+            current,
+            &r.document().verified_media.sha256,
+            r.document().verified_media.byte_length,
+            Some(&r),
+        )
+        .map_err(invalid)?;
         tx.commit().await?;
         Ok(r.document().clone())
     }
@@ -727,8 +745,8 @@ impl Store {
     ) -> Result<dto::ReleaseCandidateResponse, StoreError> {
         ReleaseCandidateId::parse(candidate).map_err(invalid)?;
         let (verified, location) = verified_owner_rendition(self, token, unit, id).await?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let (s, facts, current) = owner(&tx, token, unit, id, LockMode::Share).await?;
         let r = checked_rendition(&tx, &s, &verified, &location).await?;
         let candidate = sql::load_candidate(&tx, candidate, &r)

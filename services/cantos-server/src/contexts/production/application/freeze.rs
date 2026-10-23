@@ -6,7 +6,7 @@ use crate::contract::studio::{
 use uuid::Uuid;
 
 use super::super::domain::{check_freeze, check_input_identity, prepare_inputs};
-use super::super::postgres::{self, encode};
+use super::super::turso::{self, encode};
 use super::{facts, production_actor, snapshot};
 use crate::contexts::editorial::{load_revision, Action};
 use crate::platform::store::{checked_number, normalized_uuid, LockMode, Store, StoreError};
@@ -25,9 +25,7 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
-        if let Some(prior) =
-            postgres::snapshot_by_operation(&tx, &script, &actor, &operation).await?
-        {
+        if let Some(prior) = turso::snapshot_by_operation(&tx, &script, &actor, &operation).await? {
             if prior.request_bytes() != bytes {
                 return Err(StoreError::OperationReused);
             }
@@ -50,16 +48,16 @@ impl Store {
             settings,
             &facts.rights,
             facts.reviewed,
-            postgres::now(&tx).await?,
+            turso::now(&tx).await?,
         )
         .map_err(StoreError::InvalidRequestFields)?;
         let document = prepared.document();
         check_input_identity(&document.input_digest, &request.input_digest)?;
         let document_bytes = encode(&document, 4 * 1024 * 1024)?;
         let id = Uuid::new_v4().to_string();
-        postgres::insert_snapshot(
+        turso::insert_snapshot(
             &tx,
-            postgres::NewSnapshot {
+            turso::NewSnapshot {
                 id: &id,
                 script: &script,
                 owner: &facts.owner,
@@ -73,7 +71,7 @@ impl Store {
             },
         )
         .await?;
-        let row = postgres::load_snapshot(&tx, &id, &script).await?;
+        let row = turso::load_snapshot(&tx, &id, &script).await?;
         let result = snapshot(&tx, &row, &facts).await?;
         production_actor(&tx, token).await?;
         tx.commit().await?;
@@ -88,11 +86,11 @@ impl Store {
     ) -> Result<ProductionSnapshotResponse, StoreError> {
         let script = normalized_uuid(script)?;
         let id = normalized_uuid(id)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
-        let row = postgres::find_snapshot(&tx, &id, &script)
+        let row = turso::find_snapshot(&tx, &id, &script)
             .await?
             .ok_or(StoreError::NotFound)?;
         let result = snapshot(&tx, &row, &facts).await?;

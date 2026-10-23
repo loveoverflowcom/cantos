@@ -1,7 +1,7 @@
 //! Transactional Studio catalog commands and their durable outcome.
 use super::super::{
     domain::{plan_reorder, ContentUnit, NewContentUnit, NewWork, OwnerId, Work},
-    postgres,
+    turso,
 };
 use super::{
     authorize, current_actor, decode_outcome, links, require, rights, unit, work, CatalogCommand,
@@ -22,17 +22,17 @@ impl Store {
         if bytes.len() > 131072 {
             return Err(CatalogStoreError::Limit);
         }
-        let fingerprint = postgres::digest(&bytes);
+        let fingerprint = turso::digest(&bytes);
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
         // One bounded metadata lane makes all list epochs and permission changes atomic.
         // This intentionally simple initial implementation is assessed in the read inventory.
-        postgres::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx, LockMode::Update).await?;
         let actor = current_actor(&tx, token).await?;
         let (existing, access) = match &command {
             CatalogCommand::CreateWork { id, .. } => {
-                let existing = postgres::load_work(&tx, id.as_str(), LockMode::Update).await?;
+                let existing = turso::load_work(&tx, id.as_str(), LockMode::Update).await?;
                 let access = match &existing {
                     Some(work) => authorize(&tx, &actor, work, Action::Write).await?,
                     None => Access::Owner,
@@ -80,7 +80,7 @@ impl Store {
         // Every replay reauthorizes current access; recorded results grant no rights.
         authenticate(&tx, token).await?;
         if let Some((prior_fingerprint, result)) =
-            postgres::prior_operation(&tx, &actor, &operation).await?
+            turso::prior_operation(&tx, &actor, &operation).await?
         {
             if prior_fingerprint != fingerprint {
                 return Err(CatalogStoreError::OperationReused);
@@ -90,11 +90,11 @@ impl Store {
             tx.commit().await.map_err(StoreError::from)?;
             return Ok(outcome);
         }
-        let at = postgres::now(&tx).await?;
+        let at = turso::now(&tx).await?;
         let outcome = execute(&tx, &actor, command, existing, access, at).await?;
         let result = serde_json::to_vec(&outcome).map_err(|_| StoreError::CorruptRevision)?;
-        postgres::record_operation(&tx, &actor, &operation, &fingerprint, &result).await?;
-        postgres::bump_clock(&tx).await?;
+        turso::record_operation(&tx, &actor, &operation, &fingerprint, &result).await?;
+        turso::bump_clock(&tx).await?;
         authenticate(&tx, token).await?;
         tx.commit().await.map_err(StoreError::from)?;
         Ok(outcome)
@@ -121,7 +121,7 @@ async fn execute(
             at,
         })?;
         rights(tx, work.owner_id(), work.details()).await?;
-        postgres::save_work(tx, &work, actor, true).await?;
+        turso::save_work(tx, &work, actor, true).await?;
         return Ok(CatalogOutcome {
             work,
             units: Vec::new(),
@@ -172,14 +172,14 @@ async fn execute(
             ..
         } => {
             let updated = work.touch(expected_work_revision, at)?;
-            if let Some(existing_unit) = postgres::load_unit(tx, id.as_str()).await? {
+            if let Some(existing_unit) = turso::load_unit(tx, id.as_str()).await? {
                 return Err(if existing_unit.work_id() == work.id() {
                     CatalogStoreError::DuplicateId
                 } else {
                     StoreError::NotFound.into()
                 });
             }
-            let units = postgres::units_for_reorder(tx, work.id().as_str()).await?;
+            let units = turso::units_for_reorder(tx, work.id().as_str()).await?;
             if units.len() >= MAX_UNITS {
                 return Err(CatalogStoreError::Limit);
             }
@@ -201,7 +201,7 @@ async fn execute(
                 },
             )?;
             links(tx, work.owner_id(), unit.details()).await?;
-            postgres::save_unit(tx, &unit, actor, true).await?;
+            turso::save_unit(tx, &unit, actor, true).await?;
             changed_units.push(unit);
             updated
         }
@@ -216,7 +216,7 @@ async fn execute(
             let changed =
                 unit.edit(&work, expected_revision, details, at.max(unit.updated_at()))?;
             links(tx, work.owner_id(), changed.details()).await?;
-            postgres::save_unit(tx, &changed, actor, false).await?;
+            turso::save_unit(tx, &changed, actor, false).await?;
             changed_units.push(changed);
             updated
         }
@@ -232,7 +232,7 @@ async fn execute(
             let changed =
                 unit.edit(&work, expected_revision, details, at.max(unit.updated_at()))?;
             links(tx, work.owner_id(), changed.details()).await?;
-            postgres::save_unit(tx, &changed, actor, false).await?;
+            turso::save_unit(tx, &changed, actor, false).await?;
             changed_units.push(changed);
             updated
         }
@@ -244,7 +244,7 @@ async fn execute(
             let updated = work.touch(expected_work_revision, at)?;
             let unit = unit(tx, &id).await?;
             let changed = unit.archive(&work, expected_revision, at.max(unit.updated_at()))?;
-            postgres::save_unit(tx, &changed, actor, false).await?;
+            turso::save_unit(tx, &changed, actor, false).await?;
             changed_units.push(changed);
             updated
         }
@@ -254,11 +254,12 @@ async fn execute(
             ..
         } => {
             let updated = work.touch(expected_revision, at)?;
-            let units = postgres::units_for_reorder(tx, work.id().as_str()).await?;
+            let units = turso::units_for_reorder(tx, work.id().as_str()).await?;
             if units.len() > MAX_UNITS {
                 return Err(CatalogStoreError::Limit);
             }
             let plan = plan_reorder(&work, &units, &ordered)?;
+            turso::stage_reorder(tx, work.id().as_str()).await?;
             for assignment in plan.assignments() {
                 let unit = units
                     .iter()
@@ -271,9 +272,10 @@ async fn execute(
                         assignment.position(),
                         at.max(unit.updated_at()),
                     )?;
-                    postgres::save_unit(tx, &changed, actor, false).await?;
+                    turso::save_unit(tx, &changed, actor, false).await?;
                 }
             }
+            turso::finish_reorder(tx, work.id().as_str()).await?;
             updated
         }
         CatalogCommand::SetMember {
@@ -286,10 +288,10 @@ async fn execute(
             if &actor_id == work.owner_id() {
                 return Err(StoreError::InvalidRequest.into());
             }
-            if role.is_some() && !postgres::lock_actor(tx, actor_id.as_str()).await? {
+            if role.is_some() && !turso::lock_actor(tx, actor_id.as_str()).await? {
                 return Err(StoreError::NotFound.into());
             }
-            postgres::set_member(
+            turso::set_member(
                 tx,
                 work.id().as_str(),
                 actor_id.as_str(),
@@ -299,7 +301,7 @@ async fn execute(
             updated
         }
     };
-    postgres::save_work(tx, &updated, actor, false).await?;
+    turso::save_work(tx, &updated, actor, false).await?;
     Ok(CatalogOutcome {
         work: updated,
         units: changed_units,

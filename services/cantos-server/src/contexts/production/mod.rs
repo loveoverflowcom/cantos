@@ -5,7 +5,7 @@
 //! Downstream of editorial (script access, accepted revisions, reviews and rights evidence).
 mod application;
 pub mod domain;
-mod postgres;
+mod turso;
 
 pub use domain::*;
 

@@ -125,3 +125,13 @@ impl Store {
         Ok(())
     }
 }
+
+/// Read current actor state inside the caller's writer unit or pinned read snapshot.
+/// Contexts never query the platform-owned actor table themselves.
+pub(crate) async fn actor_active(tx: &Tx<'_>, actor: &str) -> Result<bool, StoreError> {
+    tx.query_opt("SELECT active FROM actors WHERE id=?1", &[&actor])
+        .await?
+        .map(|row| row.try_get::<_, bool>(0).map_err(StoreError::from))
+        .transpose()
+        .map(|active| active.unwrap_or(false))
+}

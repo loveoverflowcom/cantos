@@ -14,8 +14,8 @@ use super::audio_intake::{
 };
 use super::domain::intake::{decide_prepare, IntentBinding, PrepareDecision};
 use super::domain::object_storage::{decide_owner_read, PrivateObjectRef};
-use super::postgres;
 use super::storage::registry::{RegistryStoredObject, StorageRegistry};
+use super::turso;
 use crate::contexts::catalog::domain::OwnerId;
 use crate::contexts::editorial::{authorize, find_revision, Action};
 use crate::platform::store::{
@@ -34,7 +34,7 @@ async fn owner(
 ) -> Result<(String, u64), StoreError> {
     let actor = authenticate(tx, token).await?;
     let (_, head) = authorize(tx, &actor, script, Action::Review, lock).await?;
-    if !postgres::actor_active(tx, &actor).await? {
+    if !turso::actor_active(tx, &actor).await? {
         return Err(StoreError::Unauthenticated);
     }
     Ok((actor, head))
@@ -69,13 +69,13 @@ async fn reauthorize_intent(
     store: &Store,
     token: &str,
     intent: &AudioIntentResponse,
-    accepted: Option<&postgres::StoredReceipt>,
+    accepted: Option<&turso::StoredReceipt>,
     require_current: bool,
 ) -> Result<(), StoreError> {
-    let mut client = store.connection().await?;
-    let tx = client.transaction().await?;
+    let client = store.connection().await?;
+    let tx = client.read().await?;
     let (actor, head) = owner(&tx, token, &intent.script_id, LockMode::Share).await?;
-    let locked = postgres::find_intent(&tx, &actor, &intent.script_id, &intent.id)
+    let locked = turso::find_intent(&tx, &actor, &intent.script_id, &intent.id)
         .await?
         .ok_or(StoreError::NotFound)?;
     if locked != *intent {
@@ -86,7 +86,7 @@ async fn reauthorize_intent(
         current(&locked, head)?;
     }
     if let Some(expected) = accepted {
-        let settled = postgres::receipt(&tx, &locked)
+        let settled = turso::receipt(&tx, &locked)
             .await?
             .ok_or(StoreError::CorruptRevision)?;
         if settled.receipt != expected.receipt || settled.location() != expected.location() {
@@ -103,7 +103,7 @@ async fn verified_receipt(
     store: &Store,
     token: &str,
     intent: &AudioIntentResponse,
-    accepted: postgres::StoredReceipt,
+    accepted: turso::StoredReceipt,
 ) -> Result<AudioReceiptResponse, StoreError> {
     storage(store)?.verify(accepted.location()).await?;
     reauthorize_intent(store, token, intent, Some(&accepted), true).await?;
@@ -167,10 +167,10 @@ impl Store {
     ) -> Result<PrivateObjectRef, StoreError> {
         let script = normalized_uuid(script)?;
         let id = normalized_uuid(id)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let (actor, _) = owner(&tx, token, &script, LockMode::Share).await?;
-        let intent = postgres::find_intent(&tx, &actor, &script, &id)
+        let intent = turso::find_intent(&tx, &actor, &script, &id)
             .await?
             .ok_or(StoreError::NotFound)?;
         let actor = OwnerId::parse(&actor).map_err(|_| StoreError::CorruptRevision)?;
@@ -178,7 +178,7 @@ impl Store {
             OwnerId::parse(&intent.created_by).map_err(|_| StoreError::CorruptRevision)?;
         decide_owner_read(&actor, &resource_owner).map_err(StoreError::Storage)?;
         bound_revision(&tx, &intent).await?;
-        let receipt = postgres::receipt(&tx, &intent)
+        let receipt = turso::receipt(&tx, &intent)
             .await?
             .ok_or(StoreError::NotFound)?;
         let object = receipt.location().clone();
@@ -210,7 +210,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let (actor, head) = owner(&tx, token, &script, LockMode::Update).await?;
-        let prior = postgres::by_operation(&tx, &actor, &operation).await?;
+        let prior = turso::by_operation(&tx, &actor, &operation).await?;
         let pinned = find_revision(&tx, &script, checked_number(head)?)
             .await?
             .ok_or(StoreError::CorruptRevision)?;
@@ -244,7 +244,7 @@ impl Store {
                 }]))
             }
         }
-        let result = postgres::insert_intent(
+        let result = turso::insert_intent(
             &tx,
             &actor,
             requested,
@@ -267,14 +267,14 @@ impl Store {
     ) -> Result<AudioIntentStatusResponse, StoreError> {
         let script = normalized_uuid(script)?;
         let id = normalized_uuid(id)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let (actor, _) = owner(&tx, token, &script, LockMode::Share).await?;
-        let intent = postgres::find_intent(&tx, &actor, &script, &id)
+        let intent = turso::find_intent(&tx, &actor, &script, &id)
             .await?
             .ok_or(StoreError::NotFound)?;
         bound_revision(&tx, &intent).await?;
-        let stored = postgres::receipt(&tx, &intent).await?;
+        let stored = turso::receipt(&tx, &intent).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
         drop(client);
@@ -304,17 +304,17 @@ impl Store {
         }
         let script = normalized_uuid(script)?;
         let id = normalized_uuid(id)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let (actor, head) = owner(&tx, token, &script, LockMode::Share).await?;
-        let intent = postgres::find_intent(&tx, &actor, &script, &id)
+        let intent = turso::find_intent(&tx, &actor, &script, &id)
             .await?
             .ok_or(StoreError::NotFound)?;
         bound_revision(&tx, &intent).await?;
         current(&intent, head)?;
         // A settled replay needs no decoder. Release SQL locks before storage verification,
         // then recheck the same immutable intent and current session/revision before returning.
-        if let Some(prior) = postgres::receipt(&tx, &intent).await? {
+        if let Some(prior) = turso::receipt(&tx, &intent).await? {
             let sha256 = format!("{:x}", Sha256::digest(&bytes));
             if prior.receipt.media.sha256 != sha256
                 || prior.receipt.media.byte_length != bytes.len() as u64
@@ -339,7 +339,7 @@ impl Store {
         if current_actor != actor {
             return Err(StoreError::Unauthenticated);
         }
-        let locked = postgres::find_intent(&tx, &current_actor, &script, &id)
+        let locked = turso::find_intent(&tx, &current_actor, &script, &id)
             .await?
             .ok_or(StoreError::NotFound)?;
         if locked != intent {
@@ -347,7 +347,7 @@ impl Store {
         }
         bound_revision(&tx, &locked).await?;
         current(&locked, head)?;
-        if let Some(prior) = postgres::receipt(&tx, &locked).await? {
+        if let Some(prior) = turso::receipt(&tx, &locked).await? {
             if prior.receipt.media != media || prior.location().key().as_str() != stored.object_key
             {
                 return Err(StoreError::OperationReused);
@@ -366,10 +366,10 @@ impl Store {
             profile_id: locked.profile_id,
             operation_id: locked.operation_id,
             accepted_by: current_actor,
-            accepted_at: postgres::now(&tx).await?,
+            accepted_at: turso::now(&tx).await?,
             media,
         };
-        postgres::insert_receipt(&tx, &receipt, &stored).await?;
+        turso::insert_receipt(&tx, &receipt, &stored).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
         Ok(receipt)

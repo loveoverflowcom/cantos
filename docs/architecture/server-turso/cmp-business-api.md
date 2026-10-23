@@ -1,5 +1,9 @@
 # CMP business API on `server.db` — slice record (#333)
 
+> This source-bound slice record describes the initial CMP closure. Subsequent migrations
+> 16–23 and the [remaining-PG retirement](remaining-pg-retirement.md) implement the business
+> adapters formerly deferred below. Operator seeding and production/device acceptance remain separate.
+
 **Status: implemented and file-backed tested for the routes below; not a completed Server port and
 not production acceptance.** This record distinguishes what is *implemented*, what is *tested and how*,
 and what is *not established*. It completes one slice of

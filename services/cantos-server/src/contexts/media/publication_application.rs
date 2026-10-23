@@ -8,9 +8,9 @@ use super::{
         publication::*,
     },
     lifecycle_application,
-    postgres::{lifecycle as lifecycle_sql, publication as sql},
     publication_delivery::*,
     publication_storage::FilesystemPublicationStorage,
+    turso::{lifecycle as lifecycle_sql, publication as sql},
 };
 use crate::contract::studio as dto;
 use crate::{
@@ -457,8 +457,8 @@ impl PublicationService {
         unit: &str,
         candidate: &str,
     ) -> Result<dto::PublicationReadinessResponse, PublicationStoreError> {
-        let mut client = self.store.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.store.connection().await?;
+        let tx = client.read().await?;
         let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
         let promotion = if self.promotion.is_some() {
             Some(PromotionAuthority::read(&tx, &initial).await?)
@@ -474,8 +474,8 @@ impl PublicationService {
             self.promotion.as_deref().zip(promotion.as_ref()),
         )
         .await?;
-        let mut client = self.store.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.store.connection().await?;
+        let tx = client.read().await?;
         let fresh = subject(&tx, token, unit, candidate, LockMode::Share).await?;
         recheck_observed_object(&initial, &fresh)?;
         let rights = sql::latest_clearance(&tx, &fresh.c).await?;
@@ -564,8 +564,8 @@ impl PublicationService {
         request: dto::RecordPublicationApprovalRequest,
     ) -> Result<dto::PublicationApprovalDocument, PublicationStoreError> {
         normalized_uuid(&request.operation_id)?;
-        let mut client = self.store.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.store.connection().await?;
+        let tx = client.read().await?;
         let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
         let actor = initial.content.work.owner_id().as_str();
         if let Some(prior) =
@@ -647,8 +647,8 @@ impl PublicationService {
     ) -> Result<dto::ActiveAudioReleaseResponse, PublicationStoreError> {
         normalized_uuid(&request.operation_id)?;
         let digest = request_digest(&(unit, candidate, &request))?;
-        let mut client = self.store.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.store.connection().await?;
+        let tx = client.read().await?;
         let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
         // Replays are durable receipts, never a second activation, even if later rights change.
         if let Some(prior) = sql::prior(
@@ -738,8 +738,8 @@ impl PublicationService {
         unit: &str,
     ) -> Result<dto::ActiveAudioReleaseResponse, PublicationStoreError> {
         let unit_id = ContentUnitId::parse(unit).map_err(|_| PublicationError::InvalidId)?;
-        let mut client = self.store.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.store.connection().await?;
+        let tx = client.read().await?;
         let content =
             catalog::production_content(&tx, Some(token), None, &unit_id, LockMode::Share)
                 .await
@@ -765,8 +765,8 @@ impl PublicationService {
         tx.commit().await?;
         drop(client);
         let observations = observe(&self.store, self.delivery.as_ref(), &initial, None).await?;
-        let mut client = self.store.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.store.connection().await?;
+        let tx = client.read().await?;
         let fresh = subject(&tx, token, unit, &candidate, LockMode::Share).await?;
         recheck_observed_object(&initial, &fresh)?;
         let current =

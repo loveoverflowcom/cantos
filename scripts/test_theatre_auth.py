@@ -23,7 +23,14 @@ import time
 
 # -I prevents inherited Python configuration; this is the repository-owned module path.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_postgres import free_port
+
+
+def free_port():
+    """Loopback fixture helper for the retained, separately retired auth harness."""
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST = ("platform::theatre_registration::firebase_enrollment::emulator_tests::"

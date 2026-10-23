@@ -1,5 +1,10 @@
 # Media / Production legacy PostgreSQL oracle retirement ledger
 
+> Historical, source-bound inventory at `12fb751ec71e20233fe4caaee35e4544fe4a0d4b`.
+> Its recommendations and environment observations describe that revision, not the current
+> checkout. Current retirement dispositions, real native test boundaries and limitations are in
+> [the native retirement record](remaining-pg-retirement.md) and [exact mapping](remaining-pg-oracles.json).
+
 Appendix to the [retained-oracle coverage ledger](legacy-test-oracles.md). Native mappings are source-only, not fresh behavioral acceptance.
 
 

@@ -21,7 +21,7 @@ use crate::contexts::{
                 ImageIntent, ImagePrepareDecision,
             },
         },
-        postgres::image::StoredImageIntent,
+        turso::image::StoredImageIntent,
     },
 };
 

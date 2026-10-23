@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::{authorize, current_actor, unit, work, CatalogStoreError};
 use crate::contexts::catalog::{
     domain::{content::*, CatalogError, ContentUnit, ContentUnitId, Lifecycle, OwnerId, Work},
-    postgres,
+    turso,
 };
 use crate::contexts::editorial::{self, permits, Action};
 use crate::contexts::ingestion;
@@ -88,7 +88,7 @@ pub(super) fn fingerprint_append<T: Serialize>(
     {
         return Err(CatalogError::InvalidRevision.into());
     }
-    Ok((operation, postgres::digest(&bytes)))
+    Ok((operation, turso::digest(&bytes)))
 }
 
 /// Shared append decision and effects. The caller has authenticated, taken the Catalog clock
@@ -104,11 +104,9 @@ pub(super) async fn append_authorized(
     command: AppendContent,
 ) -> Result<Appended, CatalogStoreError> {
     let actor = writer.actor;
-    let current = postgres::content::load(tx, unit.id().as_str(), None).await?;
+    let current = turso::content::load(tx, unit.id().as_str(), None).await?;
     // Rights changes retain Catalog's owner-only policy, including retry after later edits.
-    if let Some((prior_fingerprint, bytes)) =
-        postgres::prior_operation(tx, actor, operation).await?
-    {
+    if let Some((prior_fingerprint, bytes)) = turso::prior_operation(tx, actor, operation).await? {
         if prior_fingerprint != fingerprint {
             return Err(CatalogStoreError::OperationReused);
         }
@@ -117,7 +115,7 @@ pub(super) async fn append_authorized(
         let reply = receipt.reply;
         let pinned =
             wire::restore(reply.content.clone()).map_err(|_| StoreError::CorruptRevision)?;
-        let stored = postgres::content::load(tx, unit.id().as_str(), Some(pinned.id().as_str()))
+        let stored = turso::content::load(tx, unit.id().as_str(), Some(pinned.id().as_str()))
             .await?
             .ok_or(StoreError::CorruptRevision)?;
         if pinned != stored
@@ -144,7 +142,7 @@ pub(super) async fn append_authorized(
     if owner_required && !writer.may_change_rights {
         return Err(StoreError::Forbidden.into());
     }
-    let at = postgres::now(tx)
+    let at = turso::now(tx)
         .await?
         .max(work.updated_at())
         .max(current.as_ref().map_or(0, ContentRevision::recorded_at));
@@ -156,7 +154,7 @@ pub(super) async fn append_authorized(
         current.as_ref().map_or(0, ContentRevision::revision),
         command.expected_revision,
     )?;
-    if let Some(existing_unit) = postgres::content::unit_for_id(tx, command.id.as_str()).await? {
+    if let Some(existing_unit) = turso::content::unit_for_id(tx, command.id.as_str()).await? {
         return Err(if existing_unit == unit.id().as_str() {
             CatalogStoreError::DuplicateId
         } else {
@@ -174,8 +172,8 @@ pub(super) async fn append_authorized(
         recorded_at: at,
     })
     .map_err(wire::content_error)?;
-    postgres::content::save(tx, &content).await?;
-    postgres::save_work(tx, &updated, actor, false).await?;
+    turso::content::save(tx, &content).await?;
+    turso::save_work(tx, &updated, actor, false).await?;
     let reply = AppendContentResponse {
         content: wire::response(&content)?,
         work_revision: updated.revision(),
@@ -185,8 +183,8 @@ pub(super) async fn append_authorized(
         owner_required,
     })
     .map_err(|_| StoreError::CorruptRevision)?;
-    postgres::record_operation(tx, actor, operation, fingerprint, &result).await?;
-    postgres::bump_clock(tx).await?;
+    turso::record_operation(tx, actor, operation, fingerprint, &result).await?;
+    turso::bump_clock(tx).await?;
     Ok(Appended::Created(reply))
 }
 
@@ -203,7 +201,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        postgres::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx, LockMode::Update).await?;
         let actor = current_actor(&tx, token).await?;
         let unit = unit(&tx, &command.unit_id).await?;
         let work = work(&tx, unit.work_id(), LockMode::Update).await?;
@@ -228,15 +226,14 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let actor = current_actor(&tx, token).await?;
         let unit = unit(&tx, id).await?;
         let work = work(&tx, unit.work_id(), LockMode::Share).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
-        let value =
-            postgres::content::load(&tx, id.as_str(), revision.map(ContentRevisionId::as_str))
-                .await?
-                .ok_or(StoreError::NotFound)?;
+        let value = turso::content::load(&tx, id.as_str(), revision.map(ContentRevisionId::as_str))
+            .await?
+            .ok_or(StoreError::NotFound)?;
         authenticate(&tx, token).await?;
         tx.commit().await.map_err(StoreError::from)?;
         Ok(value)
@@ -256,7 +253,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let actor = current_actor(&tx, token).await?;
         let unit = unit(&tx, id).await?;
         let work = work(&tx, unit.work_id(), LockMode::Share).await?;
@@ -275,7 +272,7 @@ pub(super) async fn history_page(
     after: u64,
     limit: i64,
 ) -> Result<ContentHistoryResponse, CatalogStoreError> {
-    let mut values = postgres::content::history(tx, id.as_str(), after, limit + 1).await?;
+    let mut values = turso::content::history(tx, id.as_str(), after, limit + 1).await?;
     let more = values.len() > limit as usize;
     values.truncate(limit as usize);
     let next_after = if more {

@@ -1,11 +1,10 @@
 # Catalog on `server.db`: the CMP business API closure (migrations 12–13)
 
-Scope: only what the CMP business API slice of [#333](https://github.com/loveoverflowcom/cantos/issues/333)
-needs from Catalog and Production. It is **not** the Catalog context port: the Studio write path
-(`catalog/postgres.rs`, delegation, members, operations, the reorder) still carries PostgreSQL SQL
-and is not served by this slice. The reserved placeholder version 5 (`server_catalog`) is unchanged;
-its checksum stays registered and these tables arrive in appended versions. See the
-[slice record](cmp-business-api.md) for routes, evidence and what remains.
+This record describes the initial CMP closure (versions 12–13). The subsequent
+[Studio port](remaining-pg-retirement.md) appends v17 for members, operations, clock and delegation,
+plus v21 producer grants. The current native Catalog adapter serves Studio writes, authorization,
+content and two-phase reorder. Version 5 remains an immutable placeholder. The initial slice
+scope below is historical and does not delimit the current implementation.
 
 | Version | Name | Tables |
 | --- | --- | --- |

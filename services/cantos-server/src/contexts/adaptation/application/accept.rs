@@ -3,7 +3,7 @@
 use crate::contract::studio::{AcceptAdaptationRequest, FieldIssue, RevisionResponse};
 
 use super::super::domain::{admit_edited_proposal, decide_acceptance, AcceptanceDecision};
-use super::super::postgres::{self, ActorLock};
+use super::super::turso;
 use super::context::context_in_transaction;
 use crate::contexts::editorial::{
     append_revision, document as editorial_document, RevisionOperation,
@@ -29,7 +29,6 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
-        postgres::lock_actor(&tx, ActorLock::Accept, &actor).await?;
         let (response, context) = context_in_transaction(&tx, &actor, id).await?;
         let binding = context.binding(id);
         let status = response.status;
@@ -38,7 +37,7 @@ impl Store {
         let source = context.source;
         let accepted_revision = response.accepted_revision;
         authenticate(&tx, token).await?;
-        let prior = postgres::acceptance_by_operation(&tx, &actor, &request.operation_id).await?;
+        let prior = turso::acceptance_by_operation(&tx, &actor, &request.operation_id).await?;
         let prior = prior.as_ref().map(|(run, prior)| (run.as_str(), prior));
         match decide_acceptance(id, &request, prior, status, expected_revision) {
             AcceptanceDecision::Replay => {
@@ -66,9 +65,9 @@ impl Store {
             &content,
         )
         .await?;
-        postgres::insert_acceptance(
+        turso::insert_acceptance(
             &tx,
-            postgres::NewAcceptance {
+            turso::NewAcceptance {
                 id,
                 actor: &actor,
                 request: &request,
@@ -77,7 +76,7 @@ impl Store {
             },
         )
         .await?;
-        postgres::mark_accepted(&tx, id).await?;
+        turso::mark_accepted(&tx, id).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
         Ok(editorial_document::revision(saved))

@@ -90,6 +90,17 @@ impl ServerFixture {
         self.store = Some(Store::from_database(database));
     }
 
+    /// Hold the real serialized writer for an explicit interleaving. Tests poll a production
+    /// future to Pending, commit/roll back this unit, then assert the queued decision and rows.
+    pub async fn writer(&self) -> cantos_store_turso::WriteTransaction<'_> {
+        self.store()
+            .database()
+            .owner()
+            .begin_write()
+            .await
+            .expect("fixture writer is acquired")
+    }
+
     /// Run fixture SQL in one committed write unit; returns the affected row count.
     pub async fn exec(&self, sql: &str, params: Params<'_>) -> Result<u64, StoreError> {
         let mut conn = self.store().connection().await?;
@@ -207,3 +218,36 @@ pub fn detached_store() -> Store {
     .join()
     .expect("the fixture thread finishes")
 }
+
+/// Native test statements, with constraint/guard errors intact for independent barrier oracles.
+#[cfg(test)]
+pub(crate) trait FixtureSql {
+    async fn execute(
+        &self,
+        sql: &str,
+        params: Params<'_>,
+    ) -> Result<u64, crate::platform::store::Error>;
+    async fn query_one(&self, sql: &str, params: Params<'_>) -> Result<Row, StoreError>;
+    async fn batch_execute(&self, sql: &str) -> Result<u64, crate::platform::store::Error>;
+}
+#[cfg(test)]
+impl FixtureSql for ServerFixture {
+    async fn execute(
+        &self,
+        sql: &str,
+        params: Params<'_>,
+    ) -> Result<u64, crate::platform::store::Error> {
+        self.try_exec(sql, params).await
+    }
+    async fn query_one(&self, sql: &str, params: Params<'_>) -> Result<Row, StoreError> {
+        let mut rows = self.rows(sql, params).await?;
+        assert_eq!(rows.len(), 1);
+        Ok(rows.remove(0))
+    }
+    async fn batch_execute(&self, sql: &str) -> Result<u64, crate::platform::store::Error> {
+        self.try_exec(sql, &[]).await
+    }
+}
+
+#[cfg(test)]
+mod port_ack_tests;

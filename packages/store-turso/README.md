@@ -60,6 +60,10 @@ remain fixed infrastructure conventions. They are not service identities. Making
 configurable would expand format/error compatibility work without a current consumer need;
 any future format change needs a separate migration design.
 
+A marked file with an empty history is corrupt/diverged, including under `Intent::Migrate`:
+creation writes the marker and first history row atomically, so migration must never rebuild a
+missing registry. Native history refusal tests exercise both intents without altering file bytes.
+
 ## What it provides
 
 | Owner | Guarantee | Evidence |
