@@ -177,9 +177,16 @@ class RegistryContracts(unittest.TestCase):
 
     def test_release_builds_carry_no_observer_or_test_dependency(self):
         identity = tomllib.loads((ROOT / "services/cantos-identity/Cargo.toml").read_text())
+        features = identity["features"]
         for name in ("serde", "serde_json"):
-            self.assertNotIn(name, identity["dependencies"])
             self.assertIn(name, identity["dev-dependencies"])
+            # The executable's Firebase adapter may use JSON; the default/Kani pure core and
+            # the persistence shell must never link it.
+            if name in identity["dependencies"]:
+                self.assertIs(identity["dependencies"][name].get("optional"), True, name)
+                self.assertEqual([feature for feature, enabled in features.items() if "dep:" + name in enabled],
+                                 ["service"], name)
+                self.assertNotIn("service", features.get("default", []) + features["persistence"])
         for relative, parent in (("services/cantos-identity/src/lib.rs", "mod quint_conformance_tests;"),
                                  ("services/cantos-server/src/platform/identity_auth/decision.rs", "mod quint_conformance_tests;")):
             lines = (ROOT / relative).read_text().splitlines()
