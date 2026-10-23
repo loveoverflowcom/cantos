@@ -107,9 +107,13 @@ class LibraryPresentationUiTest {
         }
         // Empty after a successful read.
         render(library(), events) {
-            onNodeWithText(copy.text(CopyKey.NoContinue)).performScrollTo().assertIsDisplayed()
-            onNodeWithText(copy.text(CopyKey.NoSaved)).assertExists()
-            onNodeWithText(copy.text(CopyKey.NoHistory)).assertExists()
+            onNodeWithTag("library-empty-hero").performScrollTo().assertIsDisplayed()
+            onNodeWithText(copy.text(CopyKey.LibraryEmpty)).assertExists()
+            onNodeWithTag("library-continue-empty").assertExists()
+            onNodeWithTag("library-saved-empty").assertExists()
+            onNodeWithTag("library-history-empty").assertExists()
+            assertEquals(1, onAllNodesWithTag("library-empty-discover").fetchSemanticsNodes().size)
+            onNodeWithTag("history-all").assertDoesNotExist()
             assertEquals(0, onAllNodesWithTag("library-continue-loading").fetchSemanticsNodes().size)
         }
         // A failed first read is an error with its section's retry, not an empty list.

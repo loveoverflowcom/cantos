@@ -289,7 +289,7 @@ class CantosTheatreAppTest {
             onNodeWithTag("library-sync").assertExists()
             onNodeWithText("Đăng nhập để lưu và đồng bộ tủ sách, lịch sử và điểm nghe.").assertExists()
             onNodeWithTag("library-continue").assertExists()
-            onNodeWithText("Chưa có câu chuyện để nghe tiếp").assertExists()
+            onNodeWithTag("library-empty-hero").assertExists()
         }
     }
 

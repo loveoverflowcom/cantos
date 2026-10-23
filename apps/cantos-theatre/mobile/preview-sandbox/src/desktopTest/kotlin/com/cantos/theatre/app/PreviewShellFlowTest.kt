@@ -152,12 +152,16 @@ class PreviewShellFlowTest {
         waitUntil(timeoutMillis = 5_000) { PreviewWorkIds.SonHa in owners.projection().savedWorks }
         onNodeWithTag("nav-library").performClick()
         onNodeWithTag("library-saved").performScrollTo()
+        onNodeWithTag("library-empty-hero").assertDoesNotExist()
+        onNodeWithTag("library-saved-empty").assertDoesNotExist()
         onNodeWithTag("work-$sonHa").assertExists()
         onNodeWithTag("work-$denKhua").assertDoesNotExist()
         onNodeWithTag("work-$sonHa").performScrollTo().performClick()
         onNodeWithTag("save-work").performScrollTo().performClick()
         waitUntil(timeoutMillis = 5_000) { PreviewWorkIds.SonHa !in owners.projection().savedWorks }
         assertTrue(owners.libraryApi.mutations >= 2, "each change reached the remote Library through the real outbox")
+        onNodeWithTag("nav-library").performClick()
+        untilTag("library-empty-hero")
     }
 
     @Test
@@ -267,6 +271,8 @@ class PreviewShellFlowTest {
         onNodeWithTag("history-clear").performClick()
         onNodeWithTag("history-confirm").performClick()
         waitUntil(timeoutMillis = 5_000) { owners.shell.library.value.history.isEmpty() }
+        untilTag("history-empty")
+        onNodeWithTag("history-clear").assertDoesNotExist()
         assertTrue(owners.shell.library.value.continueListening.isNotEmpty(), "positions are kept")
         assertTrue(owners.shell.library.value.saved.any { it.saved }, "saved works are kept")
     }
