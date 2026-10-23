@@ -13,7 +13,7 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 
 | Capability | Records and limits |
 | --- | --- |
-| Catalog/Studio consumers | [API](studio-catalog-api.md), [browser follow-up](live-client-browser-acceptance.md), [finding recheck](live-client-finding-fixes.md); #66 completion and remaining QA live in GitHub |
+| Catalog/Studio consumers | [API](studio-catalog-api.md), [browser follow-up](live-client-browser-acceptance.md), [finding recheck](live-client-finding-fixes.md), [combined CMS](studio-cms-editorial-20261023.md), [bounded navigation follow-on](studio-cms-navigation-20261023.md); #66 completion and remaining QA live in GitHub |
 | Brief/private audio | [Brief](production-brief.md), [Audio Lifecycle](audio-lifecycle.md); technical admission is not rights/listening approval |
 | Private storage/artwork | [Storage](provider-independent-storage.md), [provider blocker](longvan-s3-acceptance.md), [artwork](private-work-artwork.md), [Studio UI](studio-private-artwork-ui.md); keep real-provider and fixture/browser acceptance separate |
 | Publication/delivery | [Core](publication-core.md), [Range transport](playback-range-transport.md), [origin delivery](public-media-delivery-core.md); composition-gated cores are not live playback |

@@ -86,6 +86,7 @@ pub fn Dashboard(
     on_continue: Callback<()>,
     on_audio: Callback<()>,
     on_refresh: Callback<()>,
+    on_previous: Callback<()>,
     on_next: Callback<()>,
     on_pick: Callback<String>,
 ) -> impl IntoView {
@@ -112,10 +113,10 @@ pub fn Dashboard(
                 </Surface>
                 <Surface class="dashboard-works">
                     <section aria-labelledby="dashboard-works-title">
-                        <div class="dashboard-heading"><h3 id="dashboard-works-title">{move || text(Key::Works, english.get())}</h3>
+                        <div class="dashboard-heading"><h3 id="dashboard-works-title" tabindex="-1">{move || text(Key::Works, english.get())}</h3>
                             <ActionButton id="dashboard-refresh" english=english variant=ButtonVariant::Text blocked=blocked on_press=Callback::new(move |_| on_refresh.run(()))>{move || text(Key::Refresh, english.get())}</ActionButton></div>
                         <p class="help">{move || text(Key::PageHelp, english.get())}</p>
-                        <div class="dashboard-status">
+                        <div id="dashboard-status" class="dashboard-status" tabindex="-1">
                             <Show when=move || query.with(|q| q.read == CatalogRead::NotRead)><p role="status" aria-live="polite">{move || text(Key::NotRead, english.get())}</p></Show>
                             <Show when=move || query.with(|q| q.read == CatalogRead::Loading)><p role="status" aria-live="polite">{move || text(Key::Loading, english.get())}</p></Show>
                             <Show when=move || query.with(|q| matches!(q.read, CatalogRead::Failed(_)))>
@@ -140,7 +141,8 @@ pub fn Dashboard(
                         <Show when=move || query.with(|q| q.read == CatalogRead::Ready)>
                             <p class="help">{move || text(if facts.with(|f| f.works_next.is_some()) { Key::More } else { Key::End }, english.get())}</p>
                         </Show>
-                        <Show when=move ||facts.with(|f|f.works_next.is_some())><ActionButton id="dashboard-next" english=english variant=ButtonVariant::Tonal blocked=Signal::derive(move || blocked.get() || facts.with(|f| f.works_next.is_none())) on_press=Callback::new(move |_| on_next.run(()))>{move || text(Key::Next, english.get())}</ActionButton></Show>
+                        <div class="toolbar"><ActionButton id="dashboard-previous" english=english reason=BlockReason::PageNavigation variant=ButtonVariant::Tonal blocked=Signal::derive(move || blocked.get() || facts.with(|f| f.pages.previous_works().is_none())) on_press=Callback::new(move |_| on_previous.run(()))>{move || text(Key::Previous, english.get())}</ActionButton>
+                        <Show when=move ||facts.with(|f|f.works_next.is_some())><ActionButton id="dashboard-next" english=english reason=BlockReason::PageNavigation variant=ButtonVariant::Tonal blocked=Signal::derive(move || blocked.get() || facts.with(|f| f.works_next.is_none())) on_press=Callback::new(move |_| on_next.run(()))>{move || text(Key::Next, english.get())}</ActionButton></Show></div>
                     </section>
                 </Surface>
                 <Surface class="dashboard-audio">
@@ -196,7 +198,7 @@ mod tests {
                 let empty = read == CatalogRead::Ready;
                 let query = RwSignal::new(DashboardQuery { context: Some(("alice".into(), 1)), read });
                 let html = view! { <Dashboard facts=facts query=query english=english blocked=Signal::derive(|| false) session_pending=Signal::derive(|| false)
-                    on_new_work=noop on_import=noop on_editor=noop on_continue=noop on_audio=noop on_refresh=noop on_next=noop on_pick=Callback::new(|_: String| {})/> }.to_html();
+                    on_new_work=noop on_import=noop on_editor=noop on_continue=noop on_audio=noop on_refresh=noop on_previous=noop on_next=noop on_pick=Callback::new(|_: String| {})/> }.to_html();
                 assert_eq!(html.contains(text(Key::EmptyTitle, false)), empty, "{html}");
                 assert!(!html.contains("Tổng số"));
                 assert!(html.contains(text(Key::PageHelp, false)));
@@ -236,7 +238,7 @@ mod tests {
             let intent = Callback::new(move |()| dispatches.update(|count| *count += 1));
             let html = view! { <Dashboard facts=facts query=query english=Signal::stored(false)
                 blocked=Signal::derive(|| true) session_pending=Signal::derive(|| false)
-                on_new_work=intent on_import=intent on_editor=intent on_continue=intent on_audio=intent on_refresh=intent on_next=intent
+                on_new_work=intent on_import=intent on_editor=intent on_continue=intent on_audio=intent on_refresh=intent on_previous=intent on_next=intent
                 on_pick=Callback::new(move |_: String| dispatches.update(|count| *count += 1))/> }.to_html();
             let disabled = |id: &str| {
                 html.split(&format!("id=\"{id}\""))
@@ -273,7 +275,7 @@ mod tests {
                 english.set(en);
                 let html = view! { <Dashboard facts=facts query=RwSignal::new(DashboardQuery::default())
                     english=Signal::derive(move ||english.get()) blocked=Signal::derive(||false) session_pending=Signal::derive(||false)
-                    on_new_work=noop on_import=noop on_editor=noop on_continue=noop on_audio=noop on_refresh=noop on_next=noop on_pick=Callback::new(|_:String|{})/> }.to_html();
+                    on_new_work=noop on_import=noop on_editor=noop on_continue=noop on_audio=noop on_refresh=noop on_previous=noop on_next=noop on_pick=Callback::new(|_:String|{})/> }.to_html();
                 assert!(html.contains("<span lang=\"vi-VN\">Lời hẹn {time}</span>"), "{html}");
                 assert!(html.contains(text(Key::UnknownLifecycle, en)), "{html}");
                 assert!(!html.contains("future_status"), "{html}");

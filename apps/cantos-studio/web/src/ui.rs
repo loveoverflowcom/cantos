@@ -208,6 +208,7 @@ pub enum BlockReason {
     #[default]
     Busy,
     ContextReady,
+    PageNavigation,
     SaveReview,
     Pending,
     ReadOnly,
@@ -226,6 +227,9 @@ impl BlockReason {
             Self::Artwork(key) => crate::live::artwork::copy::text(key, english),
             Self::Busy => copy.busy,
             Self::ContextReady => text(Key::ControlBlocked, english),
+            Self::PageNavigation => {
+                crate::live::copy::text(crate::live::copy::Key::PageUnavailable, english)
+            }
             Self::SaveReview => text(Key::ValidateFirst, english),
             Self::Pending => copy.pending,
             Self::ReadOnly => text(Key::ControlReadOnly, english),

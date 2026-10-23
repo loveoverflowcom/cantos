@@ -23,6 +23,8 @@ pub mod catalog_controls;
 pub mod drafts;
 mod facts;
 pub use facts::Facts;
+mod pages;
+pub use pages::ReadPages;
 
 pub mod delegation;
 

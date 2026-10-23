@@ -211,6 +211,11 @@ impl RequestState {
     pub fn accepts(&self, ticket: Ticket) -> bool {
         ticket.0 == self.generation && matches!(self.exchange, Exchange::Pending { .. })
     }
+    /// A deferred UI effect belongs only to this settled request, never a later one.
+    pub fn settled(&self, ticket: Ticket) -> bool {
+        ticket.0 == self.generation
+            && matches!(self.exchange, Exchange::Ready(_) | Exchange::Failed(_))
+    }
     pub fn finish(&self, ticket: Ticket, result: Result<Reply, ClientError>) -> Self {
         if !self.accepts(ticket) {
             return self.clone();

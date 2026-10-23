@@ -14,6 +14,7 @@ pub struct Facts {
     pub content_head: Option<ContentRevisionResponse>,
     pub content_base: Option<u64>,
     pub history: Option<ContentHistoryResponse>,
+    pub pages: super::ReadPages,
     pub brief: Option<ProductionBriefResponse>,
     pub submission: Option<AudioSubmissionResponse>,
     pub candidate: Option<ReleaseCandidateResponse>,
@@ -35,7 +36,18 @@ impl Facts {
             }
             _ => None,
         };
+        let mut pages = self.pages.clone();
+        pages.acknowledge(command, &reply);
+        let paged_read = matches!(
+            (command, &reply),
+            (Command::Works { .. }, Reply::Works(_))
+                | (Command::Units { .. }, Reply::Units(_))
+                | (Command::ContentHistory { .. }, Reply::History(_))
+        );
         let mut next = self.apply(reply);
+        if paged_read {
+            next.pages = pages;
+        }
         if let Some((is_current_read, response)) = publication_reply {
             if is_current_read {
                 next.publication.active = Some(*response);
@@ -94,6 +106,7 @@ impl Facts {
         self.content_head = None;
         self.content_base = Some(0);
         self.history = None;
+        self.pages.clear_history();
         self.brief = None;
         self.submission = None;
         self.candidate = None;
@@ -145,6 +158,7 @@ impl Facts {
                     next = Self {
                         works: next.works,
                         works_next: next.works_next,
+                        pages: next.pages.for_work(),
                         ..Self::default()
                     };
                 }

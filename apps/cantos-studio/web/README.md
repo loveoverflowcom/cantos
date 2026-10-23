@@ -327,12 +327,14 @@ Opus mono20/24/32/40 profile, then prepares a private submission, reads bounded 
 SHA-256 in-browser and PUTs octet-stream using the separate upload bearer with
 `credentials: omit` (the producer capability, unchanged by the cookie migration). The token stays in browser memory and is never put in result JSON or
 storage. The current prepared file must match the expected size/hash; server byte inspection
-remains authoritative. No encoding or playback preview runs here.
+remains authoritative. An owner-only preview verifies the exact rendition's hash, size and
+subject before using a transient Blob URL for native browser playback. Encoding remains external.
 
 Owner status, upload revocation, exact QC/rights/editorial review and private candidate
 creation/read show real lifecycle facts/blockers. Review consent is bound to immutable
 rendition/checksum plus the submitted decision/notes/evidence. A successful candidate is never
-publication; `public_delivery_not_implemented` remains visible. Review records do not prove
+publication; unavailable delivery remains an explicit blocker when the existing publication
+adapter is not configured. Review records do not prove
 listening or rights quality by themselves.
 
 Every write keeps one immutable request/operation snapshot. Network/body loss or cancellation
@@ -347,6 +349,14 @@ Work title/synopsis edits, explicit metadata reads/reloads, confirmed Work/unit 
 and unit ordering reuse the existing Catalog commands. Ordering is available only for a known
 complete first unit page; it never submits a partial active set. Refresh the list after a reorder.
 Dirty Work and unit metadata retain their original revision guards until explicit reload.
+
+Work and unit lists and Content history have explicit Previous/Next navigation over bounded
+pages. Refresh starts again at the first page; only acknowledged reads move the page position.
+Failed or cancelled reads retain the last accepted page. Paging does not change the selected
+Work/unit, the Content append base, the saved current head or any unsaved draft. A page count is
+never presented as a total, and paging never makes a partial unit set eligible for ordering.
+The [navigation evidence](../../../docs/evidence/studio-cms-navigation-20261023.md) records the
+follow-on's actual browser and native checks separately from the earlier CMS journey.
 
 Creation forms and selected-unit editing have separate state. Metadata and content drafts stay
 bound to their unit in browser memory across Work/unit and pane navigation. Current-head reads

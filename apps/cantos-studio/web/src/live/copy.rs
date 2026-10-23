@@ -1,4 +1,14 @@
 //! Visible and accessible copy belongs to the app, in both supported locales.
+/// Locale-neutral revision notation preserves the caller's exact title or kind label.
+pub fn labelled_revision(label: &str, revision: u64) -> String {
+    format!("{label} · r{revision}")
+}
+
+/// Locale-neutral history identity; never abbreviate the immutable revision ID.
+pub fn revision_identity(revision: u64, id: &str) -> String {
+    format!("r{revision} · {id}")
+}
+
 /// Locale-neutral notation for an immutable Script export, owned with visible Studio copy.
 pub fn script_binding(script: &crate::contract::CatalogScriptRef) -> String {
     format!(
@@ -132,6 +142,12 @@ pub enum Key {
     Help,
     Refresh,
     Next,
+    Previous,
+    HistoryPageHelp,
+    PageUnavailable,
+    WorkResults,
+    UnitResults,
+    HistoryResults,
     Title,
     Kind,
     Rights,
@@ -346,6 +362,14 @@ pub fn text(key: Key, en: bool) -> &'static str {
         (Key::Pane,true)=>"Content & audio",(Key::Pane,false)=>"Nội dung & âm thanh",
         (Key::Help,true)=>"Private Studio workspace. Stored content, briefs and audio reviews are immutable. Publication requires separate server confirmation.",(Key::Help,false)=>"Không gian Studio riêng tư. Nội dung, chỉ dẫn và đánh giá đã lưu là bất biến. Phát hành cần xác nhận riêng từ server.",
         (Key::Refresh,true)=>"Refresh works",(Key::Refresh,false)=>"Tải tác phẩm",
+        (Key::Previous, true) => "Previous page", (Key::Previous, false) => "Trang trước",
+        (Key::WorkResults, true) => "Works on this page", (Key::WorkResults, false) => "Tác phẩm trên trang này",
+        (Key::UnitResults, true) => "Chapters or episodes on this page", (Key::UnitResults, false) => "Chương hoặc tập trên trang này",
+        (Key::HistoryResults, true) => "Saved content revisions on this page", (Key::HistoryResults, false) => "Phiên bản nội dung đã lưu trên trang này",
+        (Key::HistoryPageHelp, true) => "History shows up to 20 saved revisions per page. Reading a page or an exact revision keeps your draft and current save base. Read history again to return to the first page.",
+        (Key::PageUnavailable, true) => "No page is available in this direction, or a request is pending. Refresh returns to the first page when the workspace is available.",
+        (Key::PageUnavailable, false) => "Chưa có trang theo hướng này, hoặc yêu cầu còn đang chờ. Tải lại để về trang đầu khi không gian làm việc khả dụng.",
+        (Key::HistoryPageHelp, false) => "Lịch sử hiển thị tối đa 20 phiên bản đã lưu mỗi trang. Đọc trang hoặc phiên bản không thay bản nháp hay mốc lưu hiện tại. Đọc lại lịch sử để về trang đầu.",
         (Key::Next,true)=>"Next page",(Key::Next,false)=>"Trang tiếp",
         (Key::Title,true)=>"Title",(Key::Title,false)=>"Tiêu đề",
         (Key::Kind,true)=>"Work type",(Key::Kind,false)=>"Loại tác phẩm",
@@ -494,6 +518,12 @@ mod tests {
             Key::Help,
             Key::Refresh,
             Key::Next,
+            Key::Previous,
+            Key::HistoryPageHelp,
+            Key::PageUnavailable,
+            Key::WorkResults,
+            Key::UnitResults,
+            Key::HistoryResults,
             Key::Title,
             Key::Kind,
             Key::Rights,
