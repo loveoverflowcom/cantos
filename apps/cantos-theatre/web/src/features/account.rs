@@ -1,7 +1,7 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
 use super::common::*;
 use super::{
-    account_ui::{account_ui, AccountUi},
+    account_ui::{account_ui, session_tone, AccountUi},
     auth::{label, AuthActions, SessionRecovery},
     auth_copy::CopyKey,
 };
@@ -167,7 +167,9 @@ pub(crate) fn LiveAccount(
                 <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
                     <span class="theatre-avatar" data-size="large" aria-hidden="true"><PersonGlyph/></span>
                     <h2>{profile_heading(ui, locale)}</h2>
-                    <p id="theatre-live-account-status" role="status" aria-live="polite">
+                    <p id="theatre-live-account-status" class="theatre-auth-feedback"
+                        data-tone=move || session_tone(ui.get().phase).as_str()
+                        role="status" aria-live="polite" aria-atomic="true">
                         {profile_status(ui, locale)}
                     </p>
                     <p>{move || super::auth_copy::text(
@@ -179,15 +181,6 @@ pub(crate) fn LiveAccount(
                         <a class="theatre-action theatre-account-library-link" href="#library">{label(locale, CopyKey::OpenLibrary)}</a>
                     </Show>
                     <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
-                    <Show when=move || {
-                            let current = ui.get();
-                            !matches!(current.phase, SessionPhase::Idle | SessionPhase::Checking | SessionPhase::LogoutPending | SessionPhase::Failed(_))
-                    }>
-                        <Button id="theatre-account-refresh-current" variant=ButtonVariant::Text
-                            on_press=Callback::new(move |_| on_refresh.run(()))>
-                            {move || messages::text(Key::AccountRefresh, locale.get())}
-                        </Button>
-                    </Show>
                 </Surface>
                 <div class="theatre-account-content">
                     <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
@@ -240,6 +233,26 @@ pub(crate) fn LiveAccount(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn healthy_accounts_have_no_manual_refresh_or_empty_recovery() {
+        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
+        Owner::new().with(|| {
+            for language in [Locale::Vietnamese, Locale::English] {
+                let state = RwSignal::new(AccountViewState::default());
+                let locale = RwSignal::new(language);
+                guest(state).unwrap();
+                for signed in [false, true] {
+                    if signed {
+                        signed_in(state, PreviewActor::A).unwrap();
+                    }
+                    let html = render_live(state.read_only(), locale);
+                    assert!(!html.contains("theatre-account-refresh-current"));
+                    assert!(!html.contains("theatre-account-recovery"));
+                }
+            }
+        });
+    }
 
     fn render_live(state: ReadSignal<AccountViewState>, locale: RwSignal<Locale>) -> String {
         let theme = RwSignal::new(Theme::System);
