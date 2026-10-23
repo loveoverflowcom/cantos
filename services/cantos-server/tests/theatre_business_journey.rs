@@ -1117,3 +1117,95 @@ async fn cmp_authorized_library_against_real_identity_and_http() {
         1
     );
 }
+
+/// The opt-in live Desktop Preview composition (`LiveEnrollmentOwners`: shell, real Identity login, authorized
+/// Library, real public catalog) over the real Server and Identity process. Explicit: it needs the installed
+/// Gradle/JDK and the real `cantos-identity` executable. The preview's audio stays unavailable by design, secure
+/// storage is in memory and the Library store is an in-memory SQLDelight database; no GUI window is driven.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires installed Gradle/JDK and the real cantos-identity executable"]
+async fn cmp_live_desktop_preview_against_real_identity_and_http() {
+    use std::{process::Stdio, time::Duration};
+
+    let run = RunDir::new();
+    let sink = SmtpSink::start().await;
+    let env = IdentityEnv::new(&run, sink.port);
+    env.migrate().await;
+    let identity = env.serve().await;
+    let fixture = ServerFixture::new().await;
+    let work = world(&fixture).await;
+    let a = audio(&work, &work.units[0]);
+    let host = compose(&fixture, &env);
+    let alice = enroll(&host, &sink, OWNER, 1).await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            host.router
+                .into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+    });
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let gradle = std::env::var("CANTOS_TEST_GRADLE").unwrap_or_else(|_| "gradle".into());
+    let output = tokio::process::Command::new(gradle)
+        .current_dir(&root)
+        .args([
+            "--project-dir",
+            "apps/cantos-theatre/mobile",
+            "--no-daemon",
+            "-Dorg.gradle.java.installations.auto-download=false",
+            "--max-workers",
+            "2",
+            "-Pkotlin.compiler.execution.strategy=in-process",
+            "--no-configuration-cache",
+            "-i",
+            ":preview-sandbox:desktopTest",
+            "--rerun",
+            "--tests",
+            "com.cantos.theatre.app.LiveDesktopPreviewRealServerTest",
+        ])
+        .env(
+            "CANTOS_AUTHORIZED_API_ORIGIN",
+            format!("http://127.0.0.1:{port}"),
+        )
+        .env("CANTOS_LIVE_AUDIO", serde_json::to_string(&a).unwrap())
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let output = tokio::time::timeout(Duration::from_secs(300), output)
+        .await
+        .expect("the live Desktop Preview test completed")
+        .expect("Gradle started");
+    server.abort();
+    identity.terminate().await;
+    let log = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "{log}\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        log.lines()
+            .any(|line| line.contains("LIVE-DESKTOP-PREVIEW-OK")),
+        "the explicit live Desktop Preview test was skipped: {log}"
+    );
+    println!("LIVE-DESKTOP-PREVIEW-OK");
+    assert_eq!(
+        fixture
+            .count(
+                "SELECT count(*) FROM listener_saved WHERE listener_id=?1 AND saved=1",
+                &[&alice.actor]
+            )
+            .await,
+        1
+    );
+    assert_eq!(fixture.bookmark_rows(&alice.actor, false).await, 1);
+    assert_eq!(
+        fixture
+            .bookmark_anomalies(&alice.actor, &a.publication_id)
+            .await,
+        (0, 0)
+    );
+}

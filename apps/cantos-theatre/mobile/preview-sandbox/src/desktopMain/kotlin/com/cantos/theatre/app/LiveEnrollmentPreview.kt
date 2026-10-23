@@ -7,12 +7,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.http.JvmCatalogTransport
+import com.cantos.theatre.adapters.http.NativeAuthorizedHttpPort
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
 import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
+import com.cantos.theatre.adapters.library.AccountCatalogCache
+import com.cantos.theatre.adapters.library.NativeLibraryClient
+import com.cantos.theatre.adapters.library.nativeLibraryController
+import com.cantos.theatre.adapters.preview.previewLibraryStore
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.UiPreferences
 import com.cantos.theatre.application.catalog.PublicCatalogController
+import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.preferences.PreferencesController
@@ -23,6 +29,7 @@ import com.cantos.theatre.domain.playback.PlaybackObservation
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.CredentialRead
 import com.cantos.theatre.ports.CredentialStore
+import com.cantos.theatre.ports.LibraryLocalPort
 import com.cantos.theatre.ports.LogoutBarrier
 import com.cantos.theatre.ports.LogoutBarrierRead
 import com.cantos.theatre.ports.NativeHttpPort
@@ -47,7 +54,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 /** Desktop adapter only. Exact configured origin, bounded bytes, no ambient cookies/redirects. */
-class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: ApiOrigin) : NativeHttpPort {
+class PreviewNativeHttp(
+    private val scope: CoroutineScope,
+    private val origin: ApiOrigin,
+    /** The one connection factory; tests substitute a connection that misbehaves the way the JDK's can. */
+    private val open: (URI) -> HttpURLConnection = { it.toURL().openConnection() as HttpURLConnection },
+) : NativeHttpPort {
     override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
         val active = AtomicReference<HttpURLConnection?>()
         val job = scope.launch(Dispatchers.IO) {
@@ -57,7 +69,7 @@ class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: A
                 if (uri.scheme != base.scheme || uri.rawAuthority != base.rawAuthority || uri.rawUserInfo != null ||
                     uri.rawFragment != null || CookieHandler.getDefault() != null) NativeHttpResponse(0, null, null, "configuration")
                 else {
-                    val connection = uri.toURL().openConnection() as HttpURLConnection
+                    val connection = open(uri)
                     active.set(connection)
                     coroutineContext.ensureActive()
                     connection.instanceFollowRedirects = false
@@ -96,22 +108,36 @@ class PreviewNativeHttp(private val scope: CoroutineScope, private val origin: A
               catch (_: IOException) { NativeHttpResponse(0, null, null, "transport") }
               catch (_: SecurityException) { NativeHttpResponse(0, null, null, "denied") }
               catch (_: IllegalArgumentException) { NativeHttpResponse(0, null, null, "protocol") }
+              catch (_: java.net.URISyntaxException) { NativeHttpResponse(0, null, null, "protocol") }
+              // `disconnect()` from `cancel()` can race a blocked read; the JDK then fails with an unchecked exception
+              // of its own (for example `NullPointerException: this.http is null`). Cancelled work delivers nothing;
+              // anything else is a transport failure. It must never escape into the shared composition scope.
+              catch (_: RuntimeException) { coroutineContext.ensureActive(); NativeHttpResponse(0, null, null, "transport") }
               finally { active.getAndSet(null)?.disconnect() }
             completion(response)
         }
-        return object : NativeRequestHandle { override fun cancel() { active.getAndSet(null)?.disconnect(); job.cancel() } }
+        // Cancel the job first: a read that fails because of the disconnect must already see its own cancellation.
+        return object : NativeRequestHandle { override fun cancel() { job.cancel(); active.getAndSet(null)?.disconnect() } }
     }
 }
 
-/** Real v1 transport by default; injectable HTTP/clock are external test ports, never a fallback. */
+/**
+ * Real v1 transport by default; injectable HTTP/clock are external test ports, never a fallback.
+ * Library composition is the one the Android and iOS hosts build: account-leased
+ * [NativeAuthorizedHttpPort] → [NativeLibraryClient] → [nativeLibraryController] over the production
+ * SQLDelight store. [store] is in-memory by default, so it is neither disk persistence nor
+ * process-death evidence; it is closed with the runtime.
+ */
 class LiveEnrollmentOwners(
     scope: CoroutineScope,
     private val origin: ApiOrigin,
     http: NativeHttpPort = PreviewNativeHttp(scope, origin),
+    store: LibraryLocalPort = previewLibraryStore(),
     now: () -> Long = { System.currentTimeMillis() / 1000 },
 ) {
     private var credential: String? = null
     private var logoutPending = false
+    private var accountScope: String? = null
     private val api = com.cantos.theatre.adapters.http.NativeIdentityV1Client(origin, http, now)
     val account = NativeAccountController(scope, api,
         SecureNativeCredentialJournal(object : CredentialStore {
@@ -124,9 +150,23 @@ class LiveEnrollmentOwners(
             override fun clear(): CredentialFailure? { logoutPending = false; return null }
         }, now)
     val registration = RegistrationController(scope, api)
-    private val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport()))
+    /** Account-scoped catalog cache over the same Library database, as the native hosts build it. */
+    val cache = AccountCatalogCache(store) { accountScope }
+    private val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport(), cache), { cache.invalidate() })
+        .also { it.dispatch(PublicCatalogIntent.Start) }
+    private val authorizedHttp = NativeAuthorizedHttpPort(scope, origin, account, http)
+    val library = nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), store,
+        { UUID.randomUUID().toString() }, onSessionInvalidated = { expected -> account.revalidate(expected) },
+        ownsAuthorization = { owner -> account.belongsToCurrent(owner.bearer, owner.session) &&
+            account.verifiedSession.value?.session?.actor == owner.account },
+        nowMs = { now() * 1000 })
     private val runtime = NativeSessionRuntime(scope, { UnavailableDesktopAudio() }, PlaybackAccessHttp(origin, http) { now() * 1000 },
-        account, null, { UUID.randomUUID().toString() }, { now() * 1000 })
+        account, library, { UUID.randomUUID().toString() }, { now() * 1000 }, onAccountChanged = { actor ->
+            if (actor != accountScope) {
+                accountScope = actor
+                catalog.dispatch(PublicCatalogIntent.AccountChanged)
+            }
+        })
     val shell = TheatreShell(scope, catalog, runtime, PreferencesController(), registration = registration)
         .also { it.openRegister() }
     fun close() { shell.close(); registration.close(); runtime.close(); catalog.close(); credential = null }
@@ -146,12 +186,20 @@ private class UnavailableDesktopAudio : StreamingMediaEngine {
     override fun close() = Unit
 }
 
+/**
+ * The one admission of `CANTOS_THEATRE_PREVIEW_API_ORIGIN`: the Android debug host's origin owner, so HTTPS or an
+ * explicit loopback `http` origin is admitted and anything else is a typed refusal. A refusal mounts no owner and
+ * dispatches no request; it never falls back to production or the offline recipes.
+ */
+internal fun selectLivePreviewOrigin(raw: String): HostOrigin =
+    hostOrigin(com.cantos.theatre.adapters.http.selectCatalogOrigin(raw, allowLoopbackHttp = true))
+
 @Composable
 fun LiveEnrollmentPreview(origin: ApiOrigin) {
     val scope = rememberCoroutineScope()
     val owners = remember(origin) { LiveEnrollmentOwners(scope, origin) }
     DisposableEffect(owners) { onDispose { owners.close() } }
     CantosTheme(UiPreferences()) {
-        CantosTheatreApp(owners.shell)
+        CantosTheatreApp(owners.shell, cache = owners.cache)
     }
 }
