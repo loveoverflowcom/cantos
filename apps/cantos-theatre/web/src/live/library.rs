@@ -23,7 +23,8 @@ pub fn rate_limited(status: u16, retry_after: Option<&str>) -> Option<AccountFai
 /// The session the API echoes on every admitted answer. `Lease::receive` drops the local session
 /// when it names another one; the decoders below still require it to name this one exactly.
 #[cfg(target_arch = "wasm32")]
-const SESSION_HEADER: &str = "x-cantos-theatre-session";
+const SESSION_HEADER: &str =
+    cantos_web_auth::core::session_header(cantos_web_auth::Surface::Theatre);
 
 pub fn check_response(
     status: u16,

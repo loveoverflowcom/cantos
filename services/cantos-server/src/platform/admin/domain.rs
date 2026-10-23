@@ -47,14 +47,38 @@ pub enum AdminError {
     CorruptRecord,
 }
 
+/// The audited outcome of an admin request. The stored spellings are pinned by the
+/// `CHECK(outcome IN (...))` in `platform/turso/admin_audit.sql`; a misspelling there would abort
+/// the audit insert, and with it the whole admin action, at runtime.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum AuditOutcome {
+    Allowed,
+    Denied,
+    Replayed,
+    Conflict,
+    Unavailable,
+}
+
+impl AuditOutcome {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Allowed => "allowed",
+            Self::Denied => "denied",
+            Self::Replayed => "replayed",
+            Self::Conflict => "conflict",
+            Self::Unavailable => "unavailable",
+        }
+    }
+}
+
 impl AdminError {
-    pub(super) fn audit_outcome(self) -> &'static str {
+    pub(super) fn audit_outcome(self) -> AuditOutcome {
         match self {
             Self::Configuration
             | Self::ProviderUnavailable
             | Self::AuditUnavailable
             | Self::Unavailable
-            | Self::CorruptRecord => "unavailable",
+            | Self::CorruptRecord => AuditOutcome::Unavailable,
             Self::Credential
             | Self::MissingRole
             | Self::UnknownRole
@@ -64,8 +88,8 @@ impl AdminError {
             | Self::Revoked
             | Self::Forbidden
             | Self::InvalidRequest
-            | Self::TargetMissing => "denied",
-            Self::OperationReused => "conflict",
+            | Self::TargetMissing => AuditOutcome::Denied,
+            Self::OperationReused => AuditOutcome::Conflict,
         }
     }
 }

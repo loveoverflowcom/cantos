@@ -204,7 +204,8 @@ async fn start_session(
             // The cookie is scoped to the mount so a Studio session is never sent to Theatre or
             // Admin routes.
             let cookie = format!(
-                "cantos_session={}; HttpOnly; SameSite=Strict; Path={}",
+                "{}={}; HttpOnly; SameSite=Strict; Path={}",
+                admission::DEV_COOKIE,
                 request.token,
                 mount.cookie_path()
             );
@@ -213,7 +214,8 @@ async fn start_session(
                     // Retire only the other known Studio mount. Otherwise a browser sends both
                     // same-name cookies at /studio and the fail-closed parser rejects the session.
                     let retired = format!(
-                        "cantos_session=; HttpOnly; SameSite=Strict; Path={}; Max-Age=0",
+                        "{}=; HttpOnly; SameSite=Strict; Path={}; Max-Age=0",
+                        admission::DEV_COOKIE,
                         mount.other_cookie_path()
                     );
                     let Ok(retired) = HeaderValue::from_str(&retired) else {
@@ -271,7 +273,8 @@ async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: M
                 return response;
             }
             let cookie = format!(
-                "cantos_session=; HttpOnly; SameSite=Strict; Path={}; Max-Age=0",
+                "{}=; HttpOnly; SameSite=Strict; Path={}; Max-Age=0",
+                admission::DEV_COOKIE,
                 mount.cookie_path()
             );
             if let Ok(value) = HeaderValue::from_str(&cookie) {

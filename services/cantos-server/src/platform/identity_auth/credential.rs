@@ -19,6 +19,13 @@ pub enum Channel {
 }
 
 impl Channel {
+    /// Every channel, so lookups by tag or stored name cannot forget a variant.
+    pub(crate) const ALL: [Channel; 3] = [
+        Channel::Web(Surface::Theatre),
+        Channel::Web(Surface::Studio),
+        Channel::Native,
+    ];
+
     pub fn surface(self) -> Surface {
         match self {
             Self::Web(surface) => surface,
@@ -63,13 +70,7 @@ pub fn secret(value: &str) -> bool {
 
 /// Which channel an access value claims, by exact tag plus exact secret syntax.
 pub fn access_channel(value: &str) -> Option<Channel> {
-    [
-        Channel::Web(Surface::Theatre),
-        Channel::Web(Surface::Studio),
-        Channel::Native,
-    ]
-    .into_iter()
-    .find(|channel| {
+    Channel::ALL.into_iter().find(|channel| {
         value
             .strip_prefix(channel.access_prefix())
             .is_some_and(secret)

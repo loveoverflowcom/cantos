@@ -61,7 +61,7 @@ impl AdminService {
                     None,
                     Action::RevokeAccess,
                     None,
-                    "denied",
+                    domain::AuditOutcome::Denied,
                     correlation,
                 )
                 .await?;

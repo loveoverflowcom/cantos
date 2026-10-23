@@ -2,7 +2,7 @@
 //! Native proof material is encrypted at rest and never sent to Firebase or a browser.
 
 use crate::{
-    config::ConfigError,
+    config::{ConfigError, MailProvider},
     domain::{email::EmailAddress, ids::OperationId, mailbox_proof::ProofId},
     persistence::{ProofCommandId, ProofSecret},
 };
@@ -108,7 +108,7 @@ fn safe_action(handler: &str, origin: &str, local: bool) -> bool {
 impl Config {
     /// All syntax and project/handler approvals are checked before opening either secret file.
     pub fn load(
-        provider: &str,
+        provider: MailProvider,
         local: bool,
         mut lookup: impl FnMut(&str) -> Option<String>,
     ) -> Result<Self, ConfigError> {
@@ -124,7 +124,7 @@ impl Config {
             &mut lookup,
             "CANTOS_IDENTITY_FIREBASE_ENVELOPE_KEY_FILE",
         )?);
-        let emulator = provider == "firebase-emulator";
+        let emulator = provider == MailProvider::FirebaseEmulator;
         if !project_valid(&project)
             || !safe_action(&action_handler, &origin, emulator)
             || !key_path.is_absolute()
@@ -868,7 +868,7 @@ mod tests {
             let mut values = base.clone();
             values.insert(name, "127.0.0.1:9099");
             assert_eq!(
-                load(&values, "firebase", false).unwrap_err(),
+                load(&values, MailProvider::Firebase, false).unwrap_err(),
                 ConfigError::Invalid(name)
             );
         }
@@ -881,12 +881,12 @@ mod tests {
             let mut values = base.clone();
             values.remove(name);
             assert_eq!(
-                load(&values, "firebase", false).unwrap_err(),
+                load(&values, MailProvider::Firebase, false).unwrap_err(),
                 ConfigError::Missing(name)
             );
         }
         assert_eq!(
-            load(&base, "firebase", false).unwrap_err(),
+            load(&base, MailProvider::Firebase, false).unwrap_err(),
             ConfigError::Invalid("CANTOS_IDENTITY_FIREBASE_ENVELOPE_KEY_FILE")
         );
         let mut local = base.clone();
@@ -915,12 +915,12 @@ mod tests {
             let mut values = local.clone();
             values.insert(name, "inherited-unit-value");
             assert_eq!(
-                load(&values, "firebase-emulator", true).unwrap_err(),
+                load(&values, MailProvider::FirebaseEmulator, true).unwrap_err(),
                 ConfigError::Invalid(name)
             );
         }
         assert_eq!(
-            load(&local, "firebase-emulator", false).unwrap_err(),
+            load(&local, MailProvider::FirebaseEmulator, false).unwrap_err(),
             ConfigError::Invalid("CANTOS_IDENTITY_MAIL_PROVIDER")
         );
     }
