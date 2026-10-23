@@ -1,4 +1,4 @@
-# Studio CMS Catalog and Editorial checkpoint
+# Studio CMS Editorial, audio and publication evidence
 
 Source-bound Part 1 evidence on macOS arm64, Rust 1.98.1 and Trunk 0.21.14. This records
 local implementation and acceptance, not production provisioning or release approval.
@@ -292,7 +292,7 @@ Checkpoint commands actually executed with Rust1.98.1:
 - The real native creator/origin regression command above: PASS1 test.
 - Independent combined `cantos-code-review`: source-reviewed, findings fixed (new-unit discard,
   cross-unit projection clearing, local confirmation cancellation and preview no-op publication).
-  The final narrow style/copy delta receives a separate incremental source pass.
+  The final narrow style/copy delta and the evidence limits also received independent incremental source review with no actionable findings.
 
 Final HANDOFF command, using the same pinned base:
 
@@ -305,3 +305,51 @@ Part1 baseline macOS repository failures remain separate from new regressions. R
 merge protection and production acceptance retain their gates. No merge, deployment, real mail,
 provider/TTS call or issue closure is part of this execution. The parent coordinates any later
 user-authorized merge only after reviewing the actual handoff evidence.
+
+
+### Final combined gate ledger
+
+The unskipped handoff preflight is **FAIL**, not clean acceptance. After correcting seven new
+copy-owner scanner findings, repository structural/localization validation passed (1,049 text
+files, 20 skills). Its Python suite ran 1,039 tests: 2 failures and 15 skips. Both failures match
+the retained clean-base reproduction, and both test-file SHA-256s still equal the pinned base:
+
+- `test_journal_metadata_must_also_bind_the_exact_attempt`: GNU `sed -i` syntax on BSD sed.
+- `test_nested_operations_reuse_the_same_lock_descriptor`: absent `flock`.
+
+A continuation explicitly skipped `repository`, retaining that failure. Native lint then caught
+one WASM/test-only import; it was cfg-scoped and the native gates passed. WASM lint subsequently
+caught two redundant closures introduced by the copy extraction; replacing them with the same
+function references completed Web lint/build. These were source repairs, not suppressed checks.
+No state, contract or displayed output changed in those lint repairs.
+
+| Gate / layer | Actual result | Evidence / limits |
+| --- | --- | --- |
+| Repository | FAIL | The unchanged macOS pair above; structural/localization checks PASS. Clean-base log retained at `/tmp/cantos-studio-baseline-macos-20261023.log`. |
+| Rust format | PASS | Final formatting and whitespace checks. |
+| Native Rust lint | PASS | Server and Studio, all targets, warnings denied. |
+| Native Rust tests | PASS | 1,604 passed, 0 failed, 11 existing ignored across the selected Server/Studio invocations; includes Studio345 +2 doctests, Server708 unit +25 doctests, Catalog HTTP61, real Identity password17. Ignored cases are not acceptance evidence. |
+| WAV reference | PASS | Independent WAV oracle against actual inspection binary. |
+| Audio inspection | PASS | 2 explicit ignored tests executed with actual FFmpeg/ffprobe; synthetic signals, no quality claim. |
+| Studio Web lint/build | PASS | WASM all-target lint including shared preview feature, then actual Trunk build. |
+| Contract suite | PASS | All five printed suite gates PASS: independent Script IR/Protobuf references, generated consumer binding drift, service/client fixtures, WAV reference and actual audio inspection. Client fixtures: Studio23, Theatre5, WebAuth4. |
+| Independent combined review | PASS, source-reviewed | Part1 +Part2, incremental copy/style/cfg review and evidence review; no remaining actionable findings. No test or runtime claim from source review. |
+| Remote CI | NOT_RUN / not checked | No polling, dispatch, rerun or merge. |
+
+The final continuation commands reuse passed native/media inputs; every explicit skip remains
+`NOT_RUN` in its printed summary. The earlier failed summaries remain in the ignored logs.
+The last continuation is not a green aggregate for the repository failure.
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only --base 4a52935a598b0f53ec659bf8fb45d1730cc87e8a --skip repository
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only --base 4a52935a598b0f53ec659bf8fb45d1730cc87e8a --skip repository --skip rust-lint --skip rust-tests --skip wav-reference --skip audio-inspection
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask verify contracts
+```
+
+Logs are `preflight-copy-repaired.log`, `preflight-available-gates-final.log`,
+`preflight-web-completion.log` and `contracts-final.log` under the ignored Part2 run directory.
+Final documentation/PR packaging does not change the compiled inputs or repeat these campaigns.
+The only later code delta from the passed native run is the two equivalent, WASM-only function
+reference replacements, covered by the passed final Web lint/build and consumer contract tests.
+
+Final disk observation after these builds: about 5.3 GiB free. No target-wide/cache cleanup, user-data deletion or fixture-file deletion was performed in Part2. Verify available disk before a later build; retained native data stays with its actual owners.
