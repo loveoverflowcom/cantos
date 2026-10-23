@@ -9,7 +9,6 @@ pub use image_application::{
     ArtworkApplicationError, ArtworkReceipt, ArtworkService, ImageByteStream, ImageObjectError,
     ImageUploadTicket, PrivateImagePreview,
 };
-mod postgres;
 mod process;
 pub mod public_media;
 pub mod storage;

@@ -187,3 +187,7 @@ fn verification_error(error: StorageError) -> StoreError {
 #[cfg(test)]
 #[path = "registry_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../test_support/media_intake_tests.rs"]
+mod legacy_intake_tests;

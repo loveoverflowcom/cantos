@@ -6,7 +6,7 @@
 //! and the revision an acceptance appends).
 mod application;
 pub mod domain;
-mod postgres;
+mod turso;
 
 pub use application::admit_output;
 pub use domain::*;

@@ -1,49 +1,32 @@
 # Cantos API — Editorial and External Audio Authority
 
-> **Incomplete native checkpoint.** `Store`, `cantos-migrate`, `cantos-operator` and the host now
-> use `CANTOS_SERVER_DATABASE` (a local Turso file), never `DATABASE_URL`. Schema exists for
-> actors, Identity sessions, development sessions and the CMP business API closure (catalog
-> revisions, production briefs, the external-audio release chain and the Listener Library:
-> appended versions 12–15, see the [slice record](../../docs/architecture/server-turso/cmp-business-api.md)).
-> [Editorial and Ingestion](../../docs/architecture/server-turso/editorial-ingestion.md) append
-> version 16 for Script IR save/read/history/review and private manuscript import/source APIs.
-> Theatre discovery, manifests, playback authorization, origin media and the Library are served from
-> it. Remaining business write adapters (Catalog, Adaptation, Production, publication writes,
-> artwork) still contain PostgreSQL SQL and will fail against the missing tables; their former
-> integration tests are retained outside Cargo discovery in `legacy-pg-tests/`. The capability descriptions and PG
-> operating instructions below describe the pre-port baseline, not working native acceptance.
-> Provider authentication is removed; native Identity v1 is the remaining auth owner, and
-> Admin has no verifier and denies admission. Follow the [checkpoint boundary](../../docs/architecture/server-turso-porting.md#checkpoint-boundary)
-> before using any command. This checkpoint is not deployable.
+> **Native business port; production acceptance pending.** `Store`, `cantos-migrate`,
+> `cantos-operator` and the host use `CANTOS_SERVER_DATABASE` (`server.db`), never `DATABASE_URL`.
+> Appended migrations 12–23 now cover all 69 Server-owned business tables, development sessions
+> and infrastructure history. Studio Catalog, Adaptation, Production, Media/artwork, Admin audit
+> and publication adapters execute native SQL. See the [checkpoint](../../docs/architecture/server-turso-porting.md#checkpoint-boundary)
+> and [17-file/183-oracle retirement](../../docs/architecture/server-turso/remaining-pg-retirement.md).
+> Native Identity v1 owns authentication; production Admin still has no verifier and denies
+> admission. Local tests do not establish host activation, PG data conversion or browser/device acceptance.
 
 ## Current source
 
 The Server is one Rust/Axum listener for Studio/Theatre/Admin, exclusively owning Turso
-`server.db`. `platform/store` exposes the checked statement/row/error facade;
-`platform/turso` owns the migration registry over `cantos-store-turso`. Actors, native Identity
-sessions and development sessions exist; business migration slots and context SQL remain
-incomplete. `legacy-pg-tests` preserves assertions outside Cargo discovery for deliberate porting.
-No registered migration may be edited, including comments/names/checksums.
-The [oracle coverage ledger](../../docs/architecture/server-turso/legacy-test-oracles.md)
-inventories the 17 retained files / 183 tests and maps the six removed paths / 68 original
-tests to native business assertions and explicit PG-mechanism retirements. Revision/Import,
-Actor and real/scripted Identity HTTP replacements run under ordinary Cargo discovery. The direct PostgreSQL runner now refuses before setup;
-its historical targets are not active test commands.
+`server.db`. `platform/store` provides checked statements, rows and errors; `platform/turso`
+owns the append-only registry over `cantos-store-turso`. Pure reads use pinned snapshots and
+mutations use the bounded serialized writer. No registered migration may be edited.
+The merged PR #395 retired six files / 68 tests; the final 17 files / 183 tests are retired here with [explicit dispositions](../../docs/architecture/server-turso/remaining-pg-oracles.json).
+The direct PostgreSQL runner refuses before setup and no longer retains unreachable orchestration.
+Retained PG operating material below is historical recovery input, not a runnable native workflow.
 
 ### Module map
 
 - `contexts/*/domain`: pure immutable decisions/types.
 - `contexts/*/application*`: use cases, current authority and transaction coordination.
-- Context persistence adapters: SQL and checked hydration; some retain `postgres` names/SQL
-  pending port. The filename is not evidence of a working PostgreSQL runtime or native parity.
-- `platform/identity`, `platform/identity_auth`, `platform/bearer`: actor binding, the Server's own
-  generated Identity RPC client (`identity_auth/rpc`, with `validate_fact`), native sessions and
-  shared SessionPolicy/rotation decisions.
-- `adapters/inbound/http`: separate surface routers, wire mapping and error projection.
-- `contract`: the Server's own Rust representation of the contracts it publishes (per surface,
-  JSON/MessagePack `codec`, Studio Protobuf edge codec, `routes`), a wire leaf. The canonical
-  schemas, protos and fixtures are in [`contracts/`](contracts/README.md); clients keep their own
-  copies and never import this module ([ADR 0046](../../docs/decisions/0046-service-owned-contracts.md)).
+- Context persistence adapters (`turso`): native SQL and checked hydration over the single owner.
+- `platform/identity`, `platform/identity_auth`, `platform/bearer`: actor binding, private RPC,
+  native sessions and shared SessionPolicy/rotation decisions.
+- `adapters/inbound/http`: separate surface routers, wire DTOs and error projection.
 - `platform/store`, `platform/turso`: one file owner, readers/writer and explicit migrations.
 
 The [Identity v1 contract](contracts/auth/identity-auth/v1/README.md) owns email/password,

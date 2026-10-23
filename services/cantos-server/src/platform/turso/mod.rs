@@ -1,6 +1,6 @@
 //! The one Server schema registry over the shared `cantos-store-turso` owner. Foundation,
-//! native sessions, the CMP business API closure and Editorial/Ingestion are implemented;
-//! the remaining context write paths still need their #333 schema and adapter ports.
+//! native sessions and all Server-owned business contexts have native DDL and adapters;
+//! production conversion, process/browser/device qualification and cutover remain separate.
 //!
 //! Context adapters receive a [`ServerDatabase`] and share its serialized writer and readers.
 //! SQL stays in each owner's persistence adapter; this module holds no business query.
@@ -22,7 +22,7 @@ pub const SERVER_EPOCH: u32 = 1;
 
 /// Each reviewed slice appends a version; an applied version is never edited, so a candidate
 /// file built by an older head is refused as diverged instead of adopted.
-pub(crate) const MIGRATIONS: [Migration; 16] = [
+pub(crate) const MIGRATIONS: [Migration; 23] = [
     Migration {
         version: 1,
         name: "server_actor_registry",
@@ -105,6 +105,41 @@ pub(crate) const MIGRATIONS: [Migration; 16] = [
         version: 16,
         name: "server_editorial_ingestion",
         sql: include_str!("editorial_ingestion.sql"),
+    },
+    Migration {
+        version: 17,
+        name: "server_catalog_studio",
+        sql: include_str!("catalog_studio.sql"),
+    },
+    Migration {
+        version: 18,
+        name: "server_adaptation_contexts",
+        sql: include_str!("adaptation_contexts.sql"),
+    },
+    Migration {
+        version: 19,
+        name: "server_production_snapshots",
+        sql: include_str!("production_snapshots.sql"),
+    },
+    Migration {
+        version: 20,
+        name: "server_private_media",
+        sql: include_str!("private_media.sql"),
+    },
+    Migration {
+        version: 21,
+        name: "server_producer_grants",
+        sql: include_str!("producer_grants.sql"),
+    },
+    Migration {
+        version: 22,
+        name: "server_admin_audit",
+        sql: include_str!("admin_audit.sql"),
+    },
+    Migration {
+        version: 23,
+        name: "server_publication_receipts",
+        sql: include_str!("publication_receipts.sql"),
     },
 ];
 

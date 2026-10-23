@@ -1,7 +1,7 @@
 //! Authorized Studio catalog reads, deterministic pages and revision history.
 use super::super::{
     domain::{ContentUnit, ContentUnitId, Work, WorkId},
-    postgres,
+    turso,
 };
 use super::{
     authorize, current_actor, cursor_after, page_limit, unit, work, CatalogCursor, CatalogPage,
@@ -12,10 +12,10 @@ use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, Sto
 
 impl Store {
     pub async fn catalog_work(&self, token: &str, id: &WorkId) -> Result<Work, CatalogStoreError> {
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let actor = current_actor(&tx, token).await?;
         let work = work(&tx, id, LockMode::Share).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
@@ -28,10 +28,10 @@ impl Store {
         token: &str,
         id: &ContentUnitId,
     ) -> Result<ContentUnit, CatalogStoreError> {
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let actor = current_actor(&tx, token).await?;
         let unit = unit(&tx, id).await?;
         let work = work(&tx, unit.work_id(), LockMode::Share).await?;
@@ -49,18 +49,17 @@ impl Store {
         cursor: Option<&CatalogCursor>,
     ) -> Result<CatalogPage<Work>, CatalogStoreError> {
         let limit = page_limit(limit)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        let epoch = postgres::lock_clock(&tx, LockMode::Share).await?;
+        let epoch = turso::lock_clock(&tx, LockMode::Share).await?;
         let actor = current_actor(&tx, token).await?;
         let scope = format!("works:{actor}:{include_archived}");
         let after = cursor_after(cursor, &scope, epoch)?;
         if let Some(after) = after {
             normalized_uuid(after).map_err(|_| CatalogStoreError::InvalidCursor)?;
         }
-        let mut items =
-            postgres::list_works(&tx, &actor, after, include_archived, limit + 1).await?;
+        let mut items = turso::list_works(&tx, &actor, after, include_archived, limit + 1).await?;
         for work in &items {
             authorize(&tx, &actor, work, Action::Read).await?;
         }
@@ -89,10 +88,10 @@ impl Store {
         cursor: Option<&CatalogCursor>,
     ) -> Result<CatalogPage<ContentUnit>, CatalogStoreError> {
         let limit = page_limit(limit)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        let epoch = postgres::lock_clock(&tx, LockMode::Share).await?;
+        let epoch = turso::lock_clock(&tx, LockMode::Share).await?;
         let actor = current_actor(&tx, token).await?;
         let work = work(&tx, id, LockMode::Share).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
@@ -111,10 +110,10 @@ impl Store {
         cursor: Option<&CatalogCursor>,
     ) -> Result<CatalogPage<Work>, CatalogStoreError> {
         let limit = page_limit(limit)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        let epoch = postgres::lock_clock(&tx, LockMode::Share).await?;
+        let epoch = turso::lock_clock(&tx, LockMode::Share).await?;
         let actor = current_actor(&tx, token).await?;
         let work = work(&tx, id, LockMode::Share).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
@@ -130,7 +129,7 @@ impl Store {
         if after > i64::MAX as u64 {
             return Err(CatalogStoreError::InvalidCursor);
         }
-        let mut items = postgres::work_history(&tx, id.as_str(), after, limit + 1).await?;
+        let mut items = turso::work_history(&tx, id.as_str(), after, limit + 1).await?;
         let more = items.len() > limit as usize;
         items.truncate(limit as usize);
         let next = if more {
@@ -174,8 +173,7 @@ pub(super) async fn units_page(
             Ok((position, id))
         })
         .transpose()?;
-    let mut items =
-        postgres::list_units(tx, id.as_str(), after, include_archived, limit + 1).await?;
+    let mut items = turso::list_units(tx, id.as_str(), after, include_archived, limit + 1).await?;
     let more = items.len() > limit as usize;
     items.truncate(limit as usize);
     let next = if more {

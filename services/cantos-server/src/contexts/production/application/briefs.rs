@@ -1,5 +1,5 @@
 //! External Brief use cases. The shell obtains locked facts, then calls deterministic rules.
-use super::super::{domain::brief::*, postgres::briefs as sql};
+use super::super::{domain::brief::*, turso::briefs as sql};
 use crate::contexts::catalog::{
     self,
     domain::{
@@ -279,8 +279,8 @@ impl Store {
     ) -> Result<dto::ProductionBriefResponse, StoreError> {
         let unit = unit(unit_id)?;
         checked_version(version)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         authenticate(&tx, token).await?;
         let facts = catalog::production_content(&tx, Some(token), None, &unit, LockMode::Share)
             .await
@@ -427,8 +427,8 @@ impl Store {
         let unit = unit(unit_id)?;
         checked_version(version)?;
         let hash = producer_hash(bearer)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let grant = sql::by_token(&tx, &hash)
             .await?
             .ok_or(StoreError::Unauthenticated)?;

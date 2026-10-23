@@ -4,7 +4,7 @@
 use super::{current_actor, work, CatalogStoreError};
 use crate::contexts::catalog::{
     domain::{OwnerId, Revision, Work, WorkId},
-    postgres,
+    turso,
 };
 use crate::platform::store::{authenticate, LockMode, StoreError, Tx};
 
@@ -22,7 +22,7 @@ pub(crate) async fn owner_work(
     lock: LockMode,
 ) -> Result<OwnerWork, CatalogStoreError> {
     authenticate(tx, token).await?;
-    postgres::lock_clock(tx, lock).await?;
+    turso::lock_clock(tx, lock).await?;
     let actor = current_actor(tx, token).await?;
     let work = work(tx, id, lock).await?;
     if actor != work.owner_id().as_str() {
@@ -44,7 +44,7 @@ pub(crate) async fn owner_work_revision(
 ) -> Result<OwnerWork, CatalogStoreError> {
     let mut owner = owner_work(tx, token, id, LockMode::Share).await?;
     if let Some(revision) = requested {
-        owner.work = postgres::load_work_revision(tx, id.as_str(), revision)
+        owner.work = turso::load_work_revision(tx, id.as_str(), revision)
             .await?
             .ok_or(StoreError::NotFound)?;
         if owner.work.owner_id() != &owner.actor {
@@ -69,14 +69,14 @@ pub(crate) async fn advance_owner_work(
     // Same authoritative monotonic timestamp policy as Catalog command dispatch.
     let at = at.max(owner.work.updated_at());
     let touched = owner.work.touch(expected.get(), at)?;
-    postgres::save_work(tx, &touched, owner.actor.as_str(), false).await?;
-    postgres::bump_clock(tx).await?;
+    turso::save_work(tx, &touched, owner.actor.as_str(), false).await?;
+    turso::bump_clock(tx).await?;
     recheck_owner_work(tx, token, &owner).await?;
     Ok(touched)
 }
 
 pub(crate) async fn owner_work_now(tx: &Tx<'_>) -> Result<i64, CatalogStoreError> {
-    let now = postgres::now(tx).await?;
+    let now = turso::now(tx).await?;
     if now < 0 {
         return Err(StoreError::CorruptRevision.into());
     }

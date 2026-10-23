@@ -16,7 +16,7 @@ pub use domain::{
 };
 pub(crate) use facts::{ReviewFacts, RevisionFacts, RevisionHistory, RevisionOperation};
 pub(crate) use turso::{
-    ensure_evidence, evidence_exists, find_revision, load_revision, owned_revision,
+    ensure_evidence, evidence_exists, find_revision, load_revision, member_role, owned_revision,
     register_evidence, reviewed_by_active_owner, rights_cited_by_script, script_exists,
     source_cited_by_script,
 };

@@ -16,7 +16,7 @@ use super::{
         },
     },
     image_intake::{ImageAdmission, ImageIntakeError, VerifiedImage},
-    postgres::image::StoredImageAsset,
+    turso::image::StoredImageAsset,
 };
 use crate::{
     contexts::catalog::{
@@ -27,7 +27,7 @@ use crate::{
 };
 
 mod objects;
-mod postgres;
+mod turso;
 
 #[derive(Debug)]
 pub enum ArtworkApplicationError {
@@ -132,7 +132,7 @@ impl OwnerWorkScope {
 
 pub(super) struct AdmissionContext {
     pub work: Work,
-    pub intent: super::postgres::image::StoredImageIntent,
+    pub intent: super::turso::image::StoredImageIntent,
     pub asset: Option<StoredImageAsset>,
     pub now: i64,
 }
@@ -214,7 +214,7 @@ impl ArtworkService {
     pub fn new(store: Store) -> Self {
         let objects = objects::SharedImageObjects::new(store.media_storage.clone());
         Self {
-            repository: Arc::new(postgres::PgArtworkRepository(store)),
+            repository: Arc::new(turso::TursoArtworkRepository(store)),
             objects: Arc::new(objects),
         }
     }

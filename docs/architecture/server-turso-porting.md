@@ -8,23 +8,21 @@ no dual write, no compatibility shim at the end.
 
 ## Checkpoint boundary
 
-This is an implementation guide for an incomplete Draft checkpoint, not a completed Server
-port or acceptance record. `Store` and all binaries use the embedded owner. Actual DDL covers
-actors, native Identity sessions, development sessions and the
-[CMP business API closure](server-turso/cmp-business-api.md) (appended versions 12–15: catalog
-revisions, production briefs, the external-audio release chain with its listener index, and the
-Listener Library), plus [Editorial/Ingestion](server-turso/editorial-ingestion.md) (version 16:
-Script IR revisions, evidence, reviews and source/import receipts). Registered context slices
-4–11 still contain comments, not business tables.
-Context adapters outside these ports still execute PostgreSQL-specific queries through the
-statement facade. Successful compilation or an empty migration does not make those operations work.
+The Server runtime and its business persistence adapters now use the embedded owner. Actual DDL
+covers all **69 Server-owned business tables** from `native-table-ownership.json`, plus development
+sessions and infrastructure history. Versions 12–16 provide the CMP closure and Editorial/Ingestion;
+appended **17–23** add Studio Catalog/delegation, Adaptation, Production settings/rights/snapshots,
+private media/artwork, producer grants, Admin audit/revocation and publication receipts. Registered
+placeholder versions 4–11 remain immutable comments. The [remaining-PG retirement record](server-turso/remaining-pg-retirement.md)
+and [183-entry mapping](server-turso/remaining-pg-oracles.json) describe executed native boundaries.
+This is source and local behavioral evidence, not completed production or data-conversion acceptance.
 
-- Source retirement is partial: provider auth and PG drivers are removed from the Server build,
-  while PostgreSQL schema, business queries, legacy test oracles, scripts and operating assets
-  remain. Retain them as migration inputs until the replacement is reviewed.
-- Buildability is measured independently by Rust lint/tests. Native Revision/Import, Actor and real/scripted Identity HTTP tests have replaced six old
-  paths / 68 original tests. The other 17 files / 183 tests in `legacy-pg-tests/` remain
-  unmatched migration oracles and do not run through Cargo discovery.
+- Provider authentication/PG drivers and PostgreSQL-shaped business adapters are removed from the
+  Server build. Retained PostgreSQL schema/checksum history and operating assets remain recovery
+  inputs. No runtime fallback, dual write or SQL dialect shim exists.
+- Seventeen archived files / 183 tests are retired here after the merged
+  [PR #395](https://github.com/loveoverflowcom/cantos/pull/395) retired six files / 68 tests.
+  No Rust file remains in the archived tree; native replacements run in ordinary Cargo discovery.
 - `cargo xtask run` plans explicit migrations, Identity startup and one Server. Its orchestration
   tests use recording runners; they do not establish a two-process authentication journey.
   `cargo xtask seed theatre` refuses before effects while the `catalog_http` seeder is absent.
@@ -44,20 +42,19 @@ No queue ordering change is needed: context porting remains the next dependency.
 | Piece | Where | Notes |
 |---|---|---|
 | shared owner, registry, serialized writer, readers, clock, backup | `packages/store-turso` | exact pin `turso =0.8.3`; read `README.md`, `docs/evidence/turso-capability-report.md` (48 probes: what works, what needs a substitute) |
-| Server registry | `services/cantos-server/src/platform/turso/mod.rs` (`MIGRATIONS`, DDL in sibling `*.sql`) | append at the next free version after the fetched registry; never edit a registered version, including the placeholders (1–3 foundation, 12–15 CMP closure, 16 Editorial/Ingestion) |
+| Server registry | `services/cantos-server/src/platform/turso/mod.rs` (`MIGRATIONS`, DDL in sibling `*.sql`) | append at the next free version after the fetched registry; never edit a registered version, including the placeholders (1–3 foundation, 12–15 CMP closure, 16 Editorial/Ingestion, 17–23 remaining business contexts) |
 | statement facade | `src/platform/store/sql.rs` (+ `mod.rs`) | `Conn` (from `store.connection()`), `Tx` (`conn.transaction()` = write unit; `conn.read()` = pinned read snapshot), PG-shaped `query/query_opt/query_one/execute/commit/rollback`, `Row::try_get/get` with checked column types, `Param` impls (`&str`, `String`, `i64/i32/..`, `bool`, `Vec<u8>/&[u8]`, `Option<T>`, `Vec<String>`/`Vec<i64>` as a JSON array for `json_each`), `tx.now_micros()` / `tx.now_seconds()` (trusted clock, SQL never reads the wall clock), typed `Error` (`guard()`, `constraint()`, `is_integrity_violation()`, `outcome_unknown()`) |
 | admission in the business unit | `platform::store::authenticate(&tx, token)` | Studio `ci1_` Identity cookie or development token, re-admitted in the SAME unit as the write |
 | file-backed test fixture | `src/test_support.rs` (`ServerFixture`) | `new()`, `store()`, `restart()`, `exec`, `rows`, `count`, `seed_actors`, `seed_development_session`, `studio_caller`; enabled for tests by the package's self dev-dependency |
 | existing worked examples | `src/platform/identity/turso.rs`, `src/platform/identity_auth/turso.rs`, `docs/architecture/server-turso-schema.md` (mapping tables: source rule → Turso mechanism → test) | copy this style of reasoning |
 
 PostgreSQL source of truth for your tables, constraints, functions and triggers:
-`services/cantos-server/schema/0001_current.sql` (+ `0002`/`0003`/`0004`). Your context's adapter
-today is `src/contexts/<ctx>/postgres*.rs` (name varies). PG-era integration tests were moved to
+`services/cantos-server/schema/0001_current.sql` (+ `0002`/`0003`/`0004`). The pinned PostgreSQL adapter history is the behavioral comparison source; current adapters
+are `src/contexts/<ctx>/turso*.rs` (name varies). PG-era integration tests were moved to
 `services/cantos-server/legacy-pg-tests/**` (if present): they are your regression oracles.
 The [coverage ledger](server-turso/legacy-test-oracles.md) inventories all retained files,
 assertions and partial native mappings. It establishes no whole-file parity. The direct
-`scripts/test_postgres.py` entrypoint refuses before setup; its historical implementation is
-porting input, not a runnable gate. Keep unmatched oracles until the owning native boundary runs.
+`scripts/test_postgres.py` entrypoint refuses before setup; its unreachable historical implementation is removed. Keep unmatched oracles until the owning native boundary runs.
 
 ## 1. Rules that never bend
 
@@ -187,7 +184,7 @@ never `unwrap_or_default` a column. `i32/i16/u32` decode through checked narrowi
 
 The original allocation was: 4 editorial+ingestion, 5 catalog, 6 admin,
 7 adaptation, 8 production, 9 media artwork/images, 10 media audio (intake, lifecycle, publication, release views),
-11 listening. Those versions are now immutable registered placeholders. Versions 12–16 append
+11 listening. Those versions are now immutable registered placeholders. Versions 12–23 append
 the implemented ports above; new work selects the next free version at its fetched HEAD in FK
 dependency order. Never fill a placeholder or reuse another port's version. Touch only your
 context's files plus the small shared places

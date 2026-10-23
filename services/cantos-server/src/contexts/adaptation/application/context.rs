@@ -11,7 +11,7 @@ use super::super::domain::{
     rights_record_id, typed_digest, validate_caller_generation, CancellationDecision,
     FrozenContext, CONTRACT_VERSION, INPUT_C1_DIGEST, OUTPUT_SCHEMA, PROMPT_VERSION,
 };
-use super::super::postgres::{self, ActorLock};
+use super::super::turso;
 use super::{accepted_revision, check_pinned_source, stored_proposal};
 use crate::contexts::editorial::{
     authorize, document as editorial_document, load_revision, register_evidence, script_exists,
@@ -29,7 +29,7 @@ pub(super) async fn context_in_transaction(
     actor: &str,
     id: &str,
 ) -> Result<(AdaptationContextResponse, FrozenContext), StoreError> {
-    let row = postgres::lock_run(tx, actor, id)
+    let row = turso::lock_run(tx, actor, id)
         .await?
         .ok_or(StoreError::NotFound)?;
     if row.input_version() != "c1" {
@@ -46,7 +46,7 @@ pub(super) async fn context_in_transaction(
     {
         return Err(StoreError::CorruptRevision);
     }
-    let latest_submission = postgres::latest_submission(tx, id).await?;
+    let latest_submission = turso::latest_submission(tx, id).await?;
     if let Some(submission) = &latest_submission {
         if submission.context_digest != row.input_digest()
             || !validate_caller_generation(&submission.generation, &context.prompt_version)
@@ -71,8 +71,8 @@ pub(super) async fn context_in_transaction(
     let response = AdaptationContextResponse {
         id: id.into(),
         created_by: actor.into(),
-        recorded_at: row.recorded_at(),
-        updated_at: row.updated_at(),
+        recorded_at: row.recorded_at()?,
+        updated_at: row.updated_at()?,
         request: context.request.clone(),
         context_version: context.context_version.clone(),
         context_digest: row.input_digest(),
@@ -138,10 +138,9 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
-        postgres::lock_actor(&tx, ActorLock::Context, &actor).await?;
         authenticate(&tx, token).await?;
         if let Some((prior, version)) =
-            postgres::run_by_operation(&tx, &actor, &request.operation_id).await?
+            turso::run_by_operation(&tx, &actor, &request.operation_id).await?
         {
             if version != "c1" {
                 return Err(StoreError::OperationReused);
@@ -196,9 +195,9 @@ impl Store {
         let digest =
             typed_digest(INPUT_C1_DIGEST, &context).map_err(|_| StoreError::CorruptRevision)?;
         let json = serde_json::to_string(&context).map_err(|_| StoreError::Unavailable)?;
-        postgres::insert_context_run(
+        turso::insert_context_run(
             &tx,
-            postgres::NewContextRun {
+            turso::NewContextRun {
                 id: &id,
                 actor: &actor,
                 operation: &request.operation_id,
@@ -221,8 +220,8 @@ impl Store {
         id: &str,
     ) -> Result<AdaptationContextResponse, StoreError> {
         normalized_uuid(id)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
         let (response, _) = context_in_transaction(&tx, &actor, id).await?;
         authenticate(&tx, token).await?;
@@ -236,8 +235,8 @@ impl Store {
         id: &str,
     ) -> Result<AdaptationReviewResponse, StoreError> {
         normalized_uuid(id)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
         let (context, _) = context_in_transaction(&tx, &actor, id).await?;
         let response = AdaptationReviewResponse::Caller {
@@ -260,19 +259,18 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
-        postgres::lock_actor(&tx, ActorLock::Cancel, &actor).await?;
         let (response, _) = context_in_transaction(&tx, &actor, id).await?;
         authenticate(&tx, token).await?;
-        let prior = postgres::cancellation(&tx, &actor, &request.operation_id).await?;
+        let prior = turso::cancellation(&tx, &actor, &request.operation_id).await?;
         match decide_cancellation(id, prior.as_deref(), response.status) {
             CancellationDecision::Replay => {}
             CancellationDecision::OperationReused => return Err(StoreError::OperationReused),
             CancellationDecision::Refused => return Err(StoreError::InvalidRequest),
             CancellationDecision::Cancel { transition } => {
                 if transition {
-                    postgres::cancel_context(&tx, id).await?;
+                    turso::cancel_context(&tx, id).await?;
                 }
-                postgres::insert_cancellation(&tx, &actor, &request.operation_id, id).await?;
+                turso::insert_cancellation(&tx, &actor, &request.operation_id, id).await?;
             }
         }
         let (response, _) = context_in_transaction(&tx, &actor, id).await?;

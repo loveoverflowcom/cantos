@@ -6,7 +6,7 @@ use crate::contract::studio::{
 };
 
 use super::domain::{evaluate_for_owner, CommandRejection};
-use super::postgres::{self, SnapshotRow};
+use super::turso::{self, SnapshotRow};
 use crate::contexts::editorial::{
     authorize, find_revision, permits, reviewed_by_active_owner, Access, Action,
 };
@@ -33,7 +33,7 @@ impl From<CommandRejection> for StoreError {
 /// The session lock already prevents concurrent revocation; active actor changes must wait too.
 pub(crate) async fn production_actor(tx: &Tx<'_>, token: &str) -> Result<String, StoreError> {
     let actor = authenticate(tx, token).await?;
-    if !postgres::lock_actor_active(tx, &actor).await? {
+    if !turso::lock_actor_active(tx, &actor).await? {
         return Err(StoreError::Unauthenticated);
     }
     Ok(actor)
@@ -66,7 +66,7 @@ pub(super) async fn facts(
     // All production writes lock this row before rights/settings rows. Reads share the same order.
     let (owner, head) = authorize(tx, actor, script, action, lock).await?;
     if actor != owner {
-        let access = match postgres::lock_member_role(tx, script, actor).await? {
+        let access = match turso::lock_member_role(tx, script, actor).await? {
             Some(role) => Access::from_member_role(&role).ok_or(StoreError::CorruptRevision)?,
             None => return Err(StoreError::NotFound),
         };
@@ -74,10 +74,10 @@ pub(super) async fn facts(
             return Err(StoreError::Forbidden);
         }
     }
-    let owner_active = postgres::lock_actor_active(tx, &owner).await?;
+    let owner_active = turso::lock_actor_active(tx, &owner).await?;
     Ok(Facts {
-        settings: postgres::current_settings(tx, script).await?,
-        rights: postgres::current_rights(tx, script, &owner).await?,
+        settings: turso::current_settings(tx, script).await?,
+        rights: turso::current_rights(tx, script, &owner).await?,
         reviewed: owner_active
             && reviewed_by_active_owner(tx, script, checked_number(head)?, &owner).await?,
         owner,
@@ -104,10 +104,9 @@ pub(super) async fn snapshot(
         .await?
         .ok_or(StoreError::CorruptRevision)?;
     let pinned_revision = crate::contexts::editorial::document::revision(pinned_revision);
-    let pinned_settings =
-        postgres::find_settings(tx, &script, checked_number(doc.settings.version)?)
-            .await?
-            .ok_or(StoreError::CorruptRevision)?;
+    let pinned_settings = turso::find_settings(tx, &script, checked_number(doc.settings.version)?)
+        .await?
+        .ok_or(StoreError::CorruptRevision)?;
     let record_ids: Vec<_> = doc
         .rights
         .iter()
@@ -119,13 +118,13 @@ pub(super) async fn snapshot(
         .map(|claim| checked_number(claim.claim.version))
         .collect::<Result<_, _>>()?;
     let pinned_rights =
-        postgres::pinned_rights(tx, &script, &doc.owner_id, &record_ids, &versions).await?;
+        turso::pinned_rights(tx, &script, &doc.owner_id, &record_ids, &versions).await?;
     if pinned_rights.len() != doc.rights.len() {
         return Err(StoreError::CorruptRevision);
     }
     super::domain::admit_frozen_document(&doc, &pinned_revision, &pinned_settings, &pinned_rights)
         .map_err(|_| StoreError::CorruptRevision)?;
-    let approval = postgres::approval_for(tx, &id, &script).await?;
+    let approval = turso::approval_for(tx, &id, &script).await?;
     if approval
         .as_ref()
         .is_some_and(|approval| approval.input_digest != doc.input_digest)
@@ -140,13 +139,13 @@ pub(super) async fn snapshot(
         &facts.rights,
         facts.reviewed,
         approval.as_ref(),
-        postgres::now(tx).await?,
+        turso::now(tx).await?,
     );
     Ok(ProductionSnapshotResponse {
         id,
         script_id: script,
         created_by: row.created_by(),
-        recorded_at: row.recorded_at(),
+        recorded_at: row.recorded_at()?,
         operation_id,
         document: doc,
         approval,

@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::super::domain::{check_submission, validate_caller_generation};
-use super::super::postgres::{self, ActorLock};
+use super::super::turso;
 use super::admit_output;
 use super::context::{context_in_transaction, current_base};
 use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError};
@@ -31,11 +31,10 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
-        postgres::lock_actor(&tx, ActorLock::Submit, &actor).await?;
         let (response, context) = context_in_transaction(&tx, &actor, id).await?;
         authenticate(&tx, token).await?;
         if let Some((receipt, prior)) =
-            postgres::submission_by_operation(&tx, &actor, &request.operation_id).await?
+            turso::submission_by_operation(&tx, &actor, &request.operation_id).await?
         {
             if receipt.run_id != id || prior != request {
                 return Err(StoreError::OperationReused);
@@ -75,7 +74,7 @@ impl Store {
                 Some(super::document::problem(error)),
             ),
         };
-        let submitted_at = postgres::submission_time(&tx).await?;
+        let submitted_at = turso::submission_time(&tx).await?;
         let receipt = AdaptationSubmissionReceipt {
             id: Uuid::new_v4().to_string(),
             run_id: id.into(),
@@ -89,10 +88,10 @@ impl Store {
             problem,
             proposal: proposal.clone(),
         };
-        let number = postgres::next_submission_number(&tx, id).await?;
-        postgres::insert_submission(
+        let number = turso::next_submission_number(&tx, id).await?;
+        turso::insert_submission(
             &tx,
-            postgres::NewSubmission {
+            turso::NewSubmission {
                 id,
                 actor: &actor,
                 number,
@@ -102,8 +101,8 @@ impl Store {
         )
         .await?;
         if let Some(proposal) = proposal {
-            postgres::insert_proposal(&tx, id, &proposal).await?;
-            if !postgres::mark_proposal_received(&tx, id).await? {
+            turso::insert_proposal(&tx, id, &proposal).await?;
+            if !turso::mark_proposal_received(&tx, id).await? {
                 return Err(StoreError::ProposalAlreadySubmitted);
             }
         }

@@ -1,5 +1,9 @@
 # Content PostgreSQL oracle inventory
 
+> Source-bound record of the earlier six-file retirement (#395). The remaining 17 files are now
+> retired by [the native port](remaining-pg-retirement.md), with an [exact 183-test mapping](remaining-pg-oracles.json).
+> Historical environment/NEEDS_PORT observations below apply only to their pinned source.
+
 Appendix to the [retained-oracle coverage ledger](legacy-test-oracles.md). Retained rows keep the original source-only audit; the removed Editorial/Ingestion rows below name executed native replacements at the `84eea4c3` base plus this change.
 
 

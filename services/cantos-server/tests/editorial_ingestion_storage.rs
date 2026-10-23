@@ -46,6 +46,7 @@ async fn values(owner: &OwnedDatabase, sql: &str) -> Vec<Vec<Value>> {
 async fn version_fifteen_upgrades_by_suffix_and_preserves_existing_business_rows() {
     let run = TestRun::new("server-editorial-upgrade");
     let path = run.path("server.db");
+    let latest = registry().unwrap().migrations().last().unwrap().version;
     let v15 = Registry::new(
         SERVER_APPLICATION_ID,
         SERVER_EPOCH,
@@ -88,7 +89,7 @@ async fn version_fifteen_upgrades_by_suffix_and_preserves_existing_business_rows
         refused(&path, Intent::Serve).await,
         ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
             applied: 15,
-            latest: 16
+            latest
         }))
     );
     drop(open(&path, Intent::Migrate).await.unwrap());
@@ -113,9 +114,9 @@ async fn version_fifteen_upgrades_by_suffix_and_preserves_existing_business_rows
     assert!(matches!(
         OwnedDatabase::open(OpenRequest::new(&path, v15, Intent::Serve, clock())).await,
         Err(OpenError::Refused(Refusal::NewerThanBinary {
-            applied: 16,
+            applied,
             known: 15
-        }))
+        })) if applied==latest
     ));
 }
 

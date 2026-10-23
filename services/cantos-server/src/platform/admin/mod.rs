@@ -5,7 +5,7 @@
 //! no verifier in the [`Store`], every Admin route answers the route group's unavailable error.
 //! An Identity v1 password session, a Studio or a Theatre credential is never Admin authority.
 mod domain;
-mod postgres;
+mod turso;
 use crate::contract::admin::{CapabilityResponse, RevokeAccessResponse};
 use crate::platform::store::Store;
 pub use domain::{map_groups, Action, AdminError, Role, RoleEvidence};
@@ -40,7 +40,7 @@ impl AdminService {
         let proof = self
             .authenticate(store, token, Action::Capabilities, None, correlation)
             .await?;
-        postgres::capabilities(store, proof, correlation).await
+        turso::capabilities(store, proof, correlation).await
     }
     pub async fn revoke_access(
         &self,
@@ -56,7 +56,7 @@ impl AdminService {
         let (target, operation) = match (target, operation) {
             (Ok(t), Ok(o)) if !o.is_nil() => (t, o),
             _ => {
-                postgres::deny(
+                turso::deny(
                     store,
                     None,
                     Action::RevokeAccess,
@@ -77,7 +77,7 @@ impl AdminService {
                 correlation,
             )
             .await?;
-        postgres::revoke(store, proof, target, operation, correlation).await
+        turso::revoke(store, proof, target, operation, correlation).await
     }
     async fn authenticate(
         &self,
@@ -94,7 +94,7 @@ impl AdminService {
         match result {
             Ok(proof) => Ok(proof),
             Err(error) => {
-                postgres::deny(
+                turso::deny(
                     store,
                     None,
                     action,

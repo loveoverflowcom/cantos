@@ -7,7 +7,7 @@ use super::domain::{
     CatalogError, ContentUnit, ContentUnitId, ContentUnitKind, OwnerId, UnitDetails, UnitPatch,
     Work, WorkDetails, WorkId, WorkKind, WorkPatch,
 };
-use super::postgres;
+use super::turso;
 use crate::contexts::editorial::{self, permits, Access, Action};
 use crate::contexts::ingestion;
 use crate::platform::store::{authenticate, LockMode, StoreError, Tx};
@@ -169,7 +169,7 @@ pub(super) async fn authorize(
     let access = if work.owner_id().as_str() == actor {
         Access::Owner
     } else {
-        match postgres::member_role(tx, work.id().as_str(), actor).await? {
+        match turso::member_role(tx, work.id().as_str(), actor).await? {
             Some(role) => Access::from_member_role(&role).ok_or(StoreError::CorruptRevision)?,
             None => Access::None,
         }
@@ -182,7 +182,7 @@ pub(super) async fn authorize(
 }
 pub(super) async fn current_actor(tx: &Tx<'_>, token: &str) -> Result<String, CatalogStoreError> {
     let actor = authenticate(tx, token).await?;
-    if !postgres::lock_actor(tx, &actor).await? {
+    if !turso::lock_actor(tx, &actor).await? {
         return Err(StoreError::Unauthenticated.into());
     }
     // The actor lock can wait, and time-based expiry is not held by a row lock.
@@ -194,7 +194,7 @@ pub(super) async fn work(
     id: &WorkId,
     lock: LockMode,
 ) -> Result<Work, CatalogStoreError> {
-    postgres::load_work(tx, id.as_str(), lock)
+    turso::load_work(tx, id.as_str(), lock)
         .await?
         .ok_or_else(|| StoreError::NotFound.into())
 }
@@ -202,7 +202,7 @@ pub(super) async fn unit(
     tx: &Tx<'_>,
     id: &ContentUnitId,
 ) -> Result<ContentUnit, CatalogStoreError> {
-    postgres::load_unit(tx, id.as_str())
+    turso::load_unit(tx, id.as_str())
         .await?
         .ok_or_else(|| StoreError::NotFound.into())
 }
@@ -259,7 +259,7 @@ pub(super) async fn links(
 }
 pub(super) fn decode_outcome(bytes: &[u8]) -> Result<CatalogOutcome, CatalogStoreError> {
     let value: Value = serde_json::from_slice(bytes).map_err(|_| StoreError::CorruptRevision)?;
-    let work = postgres::decode_work(
+    let work = turso::decode_work(
         &serde_json::to_vec(&value["work"]).map_err(|_| StoreError::CorruptRevision)?,
     )?;
     let units = value["units"]
@@ -268,7 +268,7 @@ pub(super) fn decode_outcome(bytes: &[u8]) -> Result<CatalogOutcome, CatalogStor
         .iter()
         .map(|value| {
             let bytes = serde_json::to_vec(value).map_err(|_| StoreError::CorruptRevision)?;
-            let unit = postgres::decode_unit(&bytes, work.kind())?;
+            let unit = turso::decode_unit(&bytes, work.kind())?;
             if unit.work_id() != work.id() {
                 return Err(StoreError::CorruptRevision);
             }

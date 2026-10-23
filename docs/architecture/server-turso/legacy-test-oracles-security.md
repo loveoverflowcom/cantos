@@ -1,5 +1,9 @@
 # Security and schema PostgreSQL oracle inventory
 
+> Source-bound record of the earlier six-file retirement (#395). The remaining 17 files are now
+> retired by [the native port](remaining-pg-retirement.md), with an [exact 183-test mapping](remaining-pg-oracles.json).
+> Historical environment/NEEDS_PORT observations below apply only to their pinned source.
+
 Appendix to the [retained-oracle coverage ledger](legacy-test-oracles.md). Admin/schema rows retain source-only status; the retired auth/actor rows below map to executed native files and HTTP tests at base `84eea4c3` plus this change.
 
 

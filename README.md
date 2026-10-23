@@ -27,17 +27,17 @@ Identity sessions and development sessions. Identity has mailbox signup, Argon2i
 authentication and authenticated private UDS RPC. It returns facts, never application sessions.
 Web cookie and native Bearer consumers exist; browser/device acceptance is separate.
 
-**This branch is an incomplete migration checkpoint, suitable for Draft review.** Business
-context SQL is still PostgreSQL-shaped and registered business migration slots are incomplete.
-Opening the embedded owner does not make those routes functional or establish HTTP parity.
-Provider authentication has been removed; Admin fails closed. Legacy schema, invariant mappings,
-`legacy-pg-tests`, recovery assets and source-bound evidence remain migration inputs. They are
-not runnable native workflows. No native host activation, data conversion, restore, full browser/
-device acceptance or performance improvement follows from source retirement.
+**Native business adapters now use Turso; production acceptance remains pending.** Appended
+migrations 12–23 cover all 69 Server-owned business tables. The [retirement record](docs/architecture/server-turso/remaining-pg-retirement.md)
+maps 17 removed files / 183 legacy PG tests to actual native boundaries and retired mechanisms;
+the earlier six files / 68 tests were retired by the merged PR #395. No archived Rust oracle remains. Provider authentication is removed and
+Admin fails closed. Retained PostgreSQL schema/checksum history and recovery assets remain
+migration inputs. Host activation, data conversion, restore and full browser/device acceptance
+remain separate.
 
 Script IR and domain/application cores cover Editorial, Ingestion, Adaptation, Catalog,
 Content, Production Brief, Media/Publication and Listening/Library. Their contracts and prior
-PostgreSQL evidence describe behavior to preserve during the port, not current Turso acceptance.
+PostgreSQL evidence describe behavior to preserve during the port, not production acceptance.
 Private filesystem/S3 adapters retain immutable original-target resolution and scoped access.
 Publication requires rights, QC and approval; private media never implies public delivery.
 

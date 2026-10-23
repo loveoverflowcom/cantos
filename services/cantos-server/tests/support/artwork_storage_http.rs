@@ -1,4 +1,4 @@
-//! Real loopback transport for the disposable PostgreSQL/private-filesystem artwork tests.
+//! Real loopback transport for file-backed Turso/private-filesystem artwork tests.
 //! No listener, database, identity provider or storage process is started by ordinary tests.
 use std::time::Duration;
 
@@ -12,14 +12,21 @@ pub struct HttpHost {
     pub client: Client,
     pub base: String,
     task: JoinHandle<()>,
+    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
 impl HttpHost {
     pub async fn start(app: Router) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
+        let (shutdown, stopping) = tokio::sync::oneshot::channel();
         let task = tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
+            axum::serve(listener, app)
+                .with_graceful_shutdown(async {
+                    let _ = stopping.await;
+                })
+                .await
+                .unwrap();
         });
         Self {
             client: Client::builder()
@@ -30,9 +37,16 @@ impl HttpHost {
                 .unwrap(),
             base,
             task,
+            shutdown: Some(shutdown),
         }
     }
 
+    pub async fn stop(mut self) {
+        if let Some(shutdown) = self.shutdown.take() {
+            let _ = shutdown.send(());
+        }
+        (&mut self.task).await.unwrap();
+    }
     pub async fn json<T: Serialize>(
         &self,
         method: &str,

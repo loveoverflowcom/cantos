@@ -5,7 +5,7 @@ use crate::contexts::catalog::{
         content::{ContentRevision, ContentRevisionId},
         ContentUnit, ContentUnitId, OwnerId, Work,
     },
-    postgres,
+    turso,
 };
 use crate::contexts::editorial::{Access, Action};
 use crate::platform::store::{LockMode, StoreError, Tx};
@@ -25,12 +25,12 @@ pub(crate) async fn production_content(
     id: &ContentUnitId,
     lock: LockMode,
 ) -> Result<ProductionContent, CatalogStoreError> {
-    postgres::lock_clock(tx, lock).await?;
+    turso::lock_clock(tx, lock).await?;
     let actor = if let Some(token) = token {
         current_actor(tx, token).await?
     } else {
         let owner = expected_owner.ok_or(StoreError::Unauthenticated)?;
-        if !postgres::lock_actor(tx, owner.as_str()).await? {
+        if !turso::lock_actor(tx, owner.as_str()).await? {
             return Err(StoreError::Unauthenticated.into());
         }
         owner.as_str().into()
@@ -41,7 +41,7 @@ pub(crate) async fn production_content(
         return Err(StoreError::NotFound.into());
     }
     require(Access::Owner, Action::Review)?;
-    let head = postgres::content::load(tx, id.as_str(), None)
+    let head = turso::content::load(tx, id.as_str(), None)
         .await?
         .ok_or(StoreError::NotFound)?;
     Ok(ProductionContent { work, unit, head })
@@ -51,7 +51,7 @@ pub(crate) async fn pinned_content(
     unit: &ContentUnitId,
     id: &ContentRevisionId,
 ) -> Result<ContentRevision, CatalogStoreError> {
-    postgres::content::load(tx, unit.as_str(), Some(id.as_str()))
+    turso::content::load(tx, unit.as_str(), Some(id.as_str()))
         .await?
         .ok_or_else(|| StoreError::NotFound.into())
 }

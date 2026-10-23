@@ -21,7 +21,7 @@ use crate::contexts::catalog::{
         },
         CatalogError, ContentUnit, ContentUnitId, Lifecycle, OwnerId, Work, WorkId,
     },
-    postgres::{self, delegation as sql},
+    turso::{self, delegation as sql},
 };
 use crate::contexts::editorial::{Access, Action};
 use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
@@ -103,7 +103,7 @@ async fn current_facts(tx: &Tx<'_>, record: &sql::GrantRecord) -> Result<Current
     let grantor_active = sql::actor_active(tx, record.grant.grantor()).await?;
     let delegate_active = sql::actor_active(tx, record.grant.delegate()).await?;
     Ok(CurrentFacts {
-        now: postgres::now(tx).await?,
+        now: turso::now(tx).await?,
         revoked: record.revoked_at.is_some(),
         grantor_active,
         delegate_active,
@@ -163,7 +163,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        postgres::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx, LockMode::Update).await?;
         let actor = current_actor(&tx, token).await?;
         let work = work(&tx, &request.work_id, LockMode::Share).await?;
         owner_only(&tx, &actor, &work).await?;
@@ -196,7 +196,7 @@ impl Store {
             )])
             .into());
         }
-        let now = postgres::now(&tx).await?;
+        let now = turso::now(&tx).await?;
         let grant = DelegationGrant::issue(request, grantor, now).map_err(issue_error)?;
         sql::insert(
             &tx,
@@ -230,10 +230,10 @@ impl Store {
                 DelegationGrantId::parse(value).map_err(|_| CatalogStoreError::InvalidCursor)
             })
             .transpose()?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let actor = current_actor(&tx, token).await?;
         let work = work(&tx, work_id, LockMode::Share).await?;
         owner_only(&tx, &actor, &work).await?;
@@ -269,7 +269,7 @@ impl Store {
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
         // The same exclusive fence every delegated request shares, so no admission straddles it.
-        postgres::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx, LockMode::Update).await?;
         let actor = current_actor(&tx, token).await?;
         let work = work(&tx, work_id, LockMode::Share).await?;
         owner_only(&tx, &actor, &work).await?;
@@ -277,7 +277,7 @@ impl Store {
             .await?
             .filter(|record| record.grant.work_id() == work_id)
             .ok_or(StoreError::NotFound)?;
-        sql::revoke(&tx, record.grant.id(), &actor, postgres::now(&tx).await?).await?;
+        sql::revoke(&tx, record.grant.id(), &actor, turso::now(&tx).await?).await?;
         authenticate(&tx, token).await?;
         tx.commit().await.map_err(StoreError::from)?;
         Ok(())
@@ -288,9 +288,9 @@ impl Store {
         &self,
         secret: &DelegationSecret,
     ) -> Result<DelegationView, CatalogStoreError> {
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
         let work = work(&tx, grant.work_id(), LockMode::Share).await?;
         grant.admit_work(&facts, &work).map_err(denied)?;
@@ -307,9 +307,9 @@ impl Store {
         secret: &DelegationSecret,
         id: &WorkId,
     ) -> Result<Work, CatalogStoreError> {
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
         let work = work(&tx, id, LockMode::Share).await?;
         grant
@@ -329,9 +329,9 @@ impl Store {
         cursor: Option<&CatalogCursor>,
     ) -> Result<CatalogPage<ContentUnit>, CatalogStoreError> {
         let limit = page_limit(limit)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
-        let epoch = postgres::lock_clock(&tx, LockMode::Share).await?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
+        let epoch = turso::lock_clock(&tx, LockMode::Share).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
         let work = work(&tx, id, LockMode::Share).await?;
         grant
@@ -354,9 +354,9 @@ impl Store {
         secret: &DelegationSecret,
         id: &ContentUnitId,
     ) -> Result<ContentUnit, CatalogStoreError> {
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
         let (unit, work) = unit_and_work(&tx, id, LockMode::Share).await?;
         grant
@@ -373,18 +373,17 @@ impl Store {
         id: &ContentUnitId,
         revision: Option<&ContentRevisionId>,
     ) -> Result<ContentRevision, CatalogStoreError> {
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
         let (_, work) = unit_and_work(&tx, id, LockMode::Share).await?;
         grant
             .authorize(&facts, &work, DelegatedAction::ContentRead)
             .map_err(denied)?;
-        let value =
-            postgres::content::load(&tx, id.as_str(), revision.map(ContentRevisionId::as_str))
-                .await?
-                .ok_or(StoreError::NotFound)?;
+        let value = turso::content::load(&tx, id.as_str(), revision.map(ContentRevisionId::as_str))
+            .await?
+            .ok_or(StoreError::NotFound)?;
         recheck(&tx, secret, &grant, &work).await?;
         tx.commit().await.map_err(StoreError::from)?;
         Ok(value)
@@ -401,9 +400,9 @@ impl Store {
         if after > i64::MAX as u64 {
             return Err(StoreError::InvalidRequest.into());
         }
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await.map_err(StoreError::from)?;
-        postgres::lock_clock(&tx, LockMode::Share).await?;
+        let client = self.connection().await?;
+        let tx = client.read().await.map_err(StoreError::from)?;
+        turso::lock_clock(&tx, LockMode::Share).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
         let (_, work) = unit_and_work(&tx, id, LockMode::Share).await?;
         grant
@@ -424,7 +423,7 @@ impl Store {
     ) -> Result<dto::AppendContentResponse, CatalogStoreError> {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
-        postgres::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx, LockMode::Update).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
         // The grant is part of the replay identity: another grant cannot replay this receipt.
         let (operation, fingerprint) = fingerprint_append(
