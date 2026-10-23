@@ -29,7 +29,7 @@ use crate::{
             turso::{artwork as sql, image as image_sql},
         },
     },
-    platform::store::{LockMode, Store, StoreError, Tx},
+    platform::store::{Store, StoreError, Tx},
 };
 
 #[derive(Clone)]
@@ -218,7 +218,7 @@ async fn prepare(
 ) -> Result<ArtworkReceipt<dto::ImageIntentDocument>, ArtworkApplicationError> {
     let mut connection = store.connection().await?;
     let tx = connection.transaction().await.map_err(StoreError::from)?;
-    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id, LockMode::Update).await?;
+    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id).await?;
     let fingerprint = request.fingerprint(owner.work.id())?;
     let prior = sql::prior_operation(&tx, &owner.actor, request.operation_id()).await?;
     let existing = image_sql::load_intent(&tx, &owner.actor, owner.work.id(), request.id()).await?;
@@ -286,7 +286,7 @@ async fn intent(
 ) -> Result<dto::ImageIntentResponse, ArtworkApplicationError> {
     let connection = store.connection().await?;
     let tx = connection.read().await.map_err(StoreError::from)?;
-    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id, LockMode::Share).await?;
+    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id).await?;
     let stored = scoped_intent(&tx, &owner, id).await?;
     let asset = image_sql::load_asset(&tx, &stored.intent).await?;
     let now = catalog::owner_work_now(&tx).await?;
@@ -311,7 +311,7 @@ async fn admission_context(
 ) -> Result<AdmissionContext, ArtworkApplicationError> {
     let connection = store.connection().await?;
     let tx = connection.read().await.map_err(StoreError::from)?;
-    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id, LockMode::Share).await?;
+    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id).await?;
     let intent = scoped_intent(&tx, &owner, id).await?;
     let asset = image_sql::load_asset(&tx, &intent.intent).await?;
     let now = catalog::owner_work_now(&tx).await?;
@@ -349,7 +349,7 @@ async fn finalize(
 ) -> Result<ArtworkReceipt<dto::ImageAssetDocument>, ArtworkApplicationError> {
     let mut connection = store.connection().await?;
     let tx = connection.transaction().await.map_err(StoreError::from)?;
-    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id, LockMode::Update).await?;
+    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id).await?;
     let intent = scoped_intent(&tx, &owner, id).await?;
     let asset = image_sql::load_asset(&tx, &intent.intent).await?;
     let now = catalog::owner_work_now(&tx).await?;
@@ -407,7 +407,7 @@ async fn asset(
 ) -> Result<image_sql::StoredImageAsset, ArtworkApplicationError> {
     let connection = store.connection().await?;
     let tx = connection.read().await.map_err(StoreError::from)?;
-    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id, LockMode::Share).await?;
+    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id).await?;
     let stored = image_sql::load_asset_by_id(&tx, &owner.actor, owner.work.id(), id)
         .await?
         .ok_or(StoreError::NotFound)?;
@@ -443,7 +443,7 @@ async fn artwork_context(
 ) -> Result<ArtworkContext, ArtworkApplicationError> {
     let connection = store.connection().await?;
     let tx = connection.read().await.map_err(StoreError::from)?;
-    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id, LockMode::Share).await?;
+    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id).await?;
     let replay = prior_artwork(&tx, &scope.token, &owner, request).await?;
     let asset = if replay.is_some() {
         None
@@ -481,7 +481,7 @@ async fn set_artwork(
 ) -> Result<ArtworkReceipt<dto::WorkArtworkResponse>, ArtworkApplicationError> {
     let mut connection = store.connection().await?;
     let tx = connection.transaction().await.map_err(StoreError::from)?;
-    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id, LockMode::Update).await?;
+    let owner = catalog::owner_work(&tx, &scope.token, &scope.work_id).await?;
     if let Some(replay) = prior_artwork(&tx, &scope.token, &owner, request).await? {
         catalog::recheck_owner_work(&tx, &scope.token, &owner).await?;
         tx.commit().await.map_err(StoreError::from)?;

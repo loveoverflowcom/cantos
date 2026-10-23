@@ -3,7 +3,7 @@
 use crate::platform::store::Row;
 
 use super::domain::{ContentUnit, Revision, Work};
-use crate::platform::store::{checked_number, LockMode, StoreError, Tx};
+use crate::platform::store::{checked_number, StoreError, Tx};
 
 use super::storage;
 pub(super) use super::storage::{decode_unit, decode_work, digest};
@@ -72,7 +72,7 @@ fn decode_unit_row(row: &Row) -> Result<ContentUnit, StoreError> {
 }
 
 /// The clock is the initial catalog mutation fence and the epoch of paginated reads.
-pub(super) async fn lock_clock(tx: &Tx<'_>, _lock: LockMode) -> Result<u64, StoreError> {
+pub(super) async fn lock_clock(tx: &Tx<'_>) -> Result<u64, StoreError> {
     let query = "SELECT revision FROM catalog_clock WHERE singleton=1";
     let row = tx.query_one(query, &[]).await?;
     u64::try_from(corrupt(row.try_get::<_, i64>(0))?).map_err(|_| StoreError::CorruptRevision)
@@ -97,11 +97,7 @@ pub(super) async fn lock_actor(tx: &Tx<'_>, actor: &str) -> Result<bool, StoreEr
     crate::platform::store::actor_active(tx, actor).await
 }
 
-pub(super) async fn load_work(
-    tx: &Tx<'_>,
-    id: &str,
-    _lock: LockMode,
-) -> Result<Option<Work>, StoreError> {
+pub(super) async fn load_work(tx: &Tx<'_>, id: &str) -> Result<Option<Work>, StoreError> {
     let query = format!("SELECT {WORK_COLUMNS} FROM catalog_works w LEFT JOIN catalog_work_revisions r ON r.work_id=w.id AND r.revision=w.head_revision WHERE w.id=?1");
     tx.query_opt(&query, &[&id])
         .await?

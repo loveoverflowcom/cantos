@@ -8,18 +8,17 @@ use super::domain::{
 };
 use super::turso;
 use crate::platform::store::{
-    authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
+    authenticate, checked_number, normalized_uuid, Store, StoreError, Tx,
 };
 use crate::script_ir::{read_script, ScriptContent};
 
 /// Current script access inside the caller's unit. A write owns the serialized writer; a read
-/// pins one snapshot. The lock argument remains for not-yet-ported consumers only.
+/// pins one snapshot.
 pub(crate) async fn authorize(
     tx: &Tx<'_>,
     actor: &str,
     script: &str,
     action: Action,
-    _lock: LockMode,
 ) -> Result<(String, u64), StoreError> {
     let (owner, head) = turso::script(tx, script)
         .await?
@@ -61,7 +60,7 @@ pub(crate) async fn append_revision(
     // The serialized writer orders first saves and subsequent guarded head advances.
     // A failed/stale/unauthorized first save rolls this provisional script back too.
     turso::create_script(tx, script, actor).await?;
-    let (owner, head) = authorize(tx, actor, script, Action::Write, LockMode::Update).await?;
+    let (owner, head) = authorize(tx, actor, script, Action::Write).await?;
     let prior = turso::accepted_operation(tx, script, actor, &operation).await?;
     let prior_export = prior
         .as_ref()
@@ -127,7 +126,7 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
-        let (_, head) = authorize(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
+        let (_, head) = authorize(&tx, &actor, &script, Action::Read).await?;
         let revision = checked_number(revision.unwrap_or(head))?;
         let response = turso::find_revision(&tx, &script, revision)
             .await?
@@ -175,7 +174,7 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
-        let (_, head) = authorize(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
+        let (_, head) = authorize(&tx, &actor, &script, Action::Read).await?;
         let revisions = turso::revisions_after(&tx, &script, after, limit).await?;
         let last = revisions.last().map(|revision| revision.revision);
         let reviews = match last {
@@ -210,7 +209,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
-        let (_, head) = authorize(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
+        let (_, head) = authorize(&tx, &actor, &script, Action::Review).await?;
         let prior_revision = turso::review_operation(&tx, &script, &actor, &operation).await?;
         let existing = turso::review_exists(&tx, &script, revision).await?;
         match decide_review(head, requested_revision, prior_revision, existing) {

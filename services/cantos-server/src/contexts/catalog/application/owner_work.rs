@@ -6,7 +6,7 @@ use crate::contexts::catalog::{
     domain::{OwnerId, Revision, Work, WorkId},
     turso,
 };
-use crate::platform::store::{authenticate, LockMode, StoreError, Tx};
+use crate::platform::store::{authenticate, StoreError, Tx};
 
 pub(crate) struct OwnerWork {
     pub work: Work,
@@ -19,12 +19,11 @@ pub(crate) async fn owner_work(
     tx: &Tx<'_>,
     token: &str,
     id: &WorkId,
-    lock: LockMode,
 ) -> Result<OwnerWork, CatalogStoreError> {
     authenticate(tx, token).await?;
-    turso::lock_clock(tx, lock).await?;
+    turso::lock_clock(tx).await?;
     let actor = current_actor(tx, token).await?;
-    let work = work(tx, id, lock).await?;
+    let work = work(tx, id).await?;
     if actor != work.owner_id().as_str() {
         return Err(StoreError::NotFound.into());
     }
@@ -42,7 +41,7 @@ pub(crate) async fn owner_work_revision(
     id: &WorkId,
     requested: Option<Revision>,
 ) -> Result<OwnerWork, CatalogStoreError> {
-    let mut owner = owner_work(tx, token, id, LockMode::Share).await?;
+    let mut owner = owner_work(tx, token, id).await?;
     if let Some(revision) = requested {
         owner.work = turso::load_work_revision(tx, id.as_str(), revision)
             .await?
@@ -65,7 +64,7 @@ pub(crate) async fn advance_owner_work(
     expected: Revision,
     at: i64,
 ) -> Result<Work, CatalogStoreError> {
-    let owner = owner_work(tx, token, id, LockMode::Update).await?;
+    let owner = owner_work(tx, token, id).await?;
     // Same authoritative monotonic timestamp policy as Catalog command dispatch.
     let at = at.max(owner.work.updated_at());
     let touched = owner.work.touch(expected.get(), at)?;

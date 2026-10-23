@@ -80,8 +80,8 @@ Read-only head/history/import/linked-source use cases now use `conn.read()` for 
 snapshot. A read can finish against its admitted snapshot while an uncommitted writer waits;
 the next read observes committed revocation. The test
 `pinned_editorial_reads_do_not_wait_for_or_observe_an_uncommitted_writer` exercises both outcomes.
-The existing `authorize` LockMode argument remains only for source compatibility with unported
-consumers; the Turso adapter issues no PostgreSQL lock SQL.
+`authorize` takes no lock mode: every consumer is ported, the PostgreSQL-era `LockMode` argument
+was removed, and the Turso adapter issues no PostgreSQL lock SQL.
 
 Cross-context facts stay with their owner: Editorial resolves a source citation before Ingestion
 reads the source, and the platform actor helper checks whether an editorial reviewer is active.

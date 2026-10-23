@@ -19,7 +19,7 @@ use crate::contexts::media::{
     },
     turso::image::{insert_asset, insert_intent, load_asset_by_id, load_intent},
 };
-use crate::platform::store::{LockMode, Store, StoreError};
+use crate::platform::store::{Store, StoreError};
 
 const ALICE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const BOB: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -60,9 +60,7 @@ impl Harness {
     async fn image(&self, work: &Work) -> ImageAsset {
         let mut client = self.store.connection().await.unwrap();
         let tx = client.transaction().await.unwrap();
-        let owner = owner_work(&tx, ALICE, work.id(), LockMode::Update)
-            .await
-            .unwrap();
+        let owner = owner_work(&tx, ALICE, work.id()).await.unwrap();
         let now = owner_work_now(&tx).await.unwrap();
         let request = PrepareImage::admit(&dto::CreateImageIntentRequest {
             operation_id: Uuid::new_v4().to_string(),
@@ -123,9 +121,7 @@ impl Harness {
         .unwrap();
         let mut client = self.store.connection().await.unwrap();
         let tx = client.transaction().await.unwrap();
-        let owner = owner_work(&tx, ALICE, work.id(), LockMode::Update)
-            .await
-            .unwrap();
+        let owner = owner_work(&tx, ALICE, work.id()).await.unwrap();
         let now = owner_work_now(&tx).await.unwrap();
         let ArtworkDecision::Apply(mutation) =
             decide_artwork_change(&owner.work, &request, asset, None, now).unwrap()
@@ -197,7 +193,7 @@ async fn owner_facade_restores_exact_old_lifecycle_and_denies_members_and_future
     let mut client = h.store.connection().await.unwrap();
     let tx = client.transaction().await.unwrap();
     assert!(matches!(
-        owner_work(&tx, BOB, initial.id(), LockMode::Share).await,
+        owner_work(&tx, BOB, initial.id()).await,
         Err(CatalogStoreError::Storage(StoreError::NotFound))
     ));
     let old = owner_work_revision(&tx, ALICE, initial.id(), Some(Revision::new(1).unwrap()))
@@ -286,9 +282,7 @@ async fn rollback_discards_work_snapshot_head_epoch_change_and_operation_togethe
     .unwrap();
     let mut client = h.store.connection().await.unwrap();
     let tx = client.transaction().await.unwrap();
-    let owner = owner_work(&tx, ALICE, initial.id(), LockMode::Update)
-        .await
-        .unwrap();
+    let owner = owner_work(&tx, ALICE, initial.id()).await.unwrap();
     let now = owner_work_now(&tx).await.unwrap();
     let ArtworkDecision::Apply(mutation) =
         decide_artwork_change(&owner.work, &request, None, None, now).unwrap()
@@ -343,9 +337,7 @@ async fn checked_asset_restore_rejects_validly_typed_column_document_disagreemen
         .unwrap();
     let mut client = h.store.connection().await.unwrap();
     let tx = client.transaction().await.unwrap();
-    let owner = owner_work(&tx, ALICE, work.id(), LockMode::Share)
-        .await
-        .unwrap();
+    let owner = owner_work(&tx, ALICE, work.id()).await.unwrap();
     assert!(matches!(
         load_asset_by_id(&tx, &owner.actor, work.id(), asset.id()).await,
         Err(StoreError::CorruptRevision)
@@ -437,9 +429,7 @@ async fn checked_operation_replay_preserves_original_bytes_and_rejects_rechecksu
     let asset = h.image(&work).await;
     let mut client = h.store.connection().await.unwrap();
     let tx = client.transaction().await.unwrap();
-    let owner = owner_work(&tx, ALICE, work.id(), LockMode::Share)
-        .await
-        .unwrap();
+    let owner = owner_work(&tx, ALICE, work.id()).await.unwrap();
     let intent = load_intent(&tx, &owner.actor, work.id(), asset.intent_id())
         .await
         .unwrap()
@@ -527,7 +517,7 @@ async fn artwork_and_catalog_edit_race_accepts_one_cas_and_never_half_advances_a
         let mut client = artwork_store.connection().await.unwrap();
         let tx = client.transaction().await.unwrap();
         artwork_barrier.wait().await;
-        let owner = owner_work(&tx, ALICE, artwork_work.id(), LockMode::Update).await?;
+        let owner = owner_work(&tx, ALICE, artwork_work.id()).await?;
         let now = owner_work_now(&tx).await?;
         let touched = advance_owner_work(
             &tx,

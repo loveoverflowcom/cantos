@@ -23,7 +23,7 @@ use crate::{
         editorial,
         production::domain::brief::fingerprint,
     },
-    platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx},
+    platform::store::{authenticate, normalized_uuid, Store, StoreError, Tx},
 };
 use std::sync::{Arc, LazyLock};
 use tokio::sync::Semaphore;
@@ -113,14 +113,12 @@ async fn subject(
     token: &str,
     unit: &str,
     candidate: &str,
-    lock: LockMode,
 ) -> Result<Subject, PublicationStoreError> {
     ReleaseCandidateId::parse(candidate).map_err(|_| PublicationError::InvalidId)?;
     let submission = lifecycle_sql::candidate_submission(tx, candidate)
         .await?
         .ok_or(StoreError::NotFound)?;
-    let (s, content, current) =
-        lifecycle_application::owner(tx, token, unit, &submission, lock).await?;
+    let (s, content, current) = lifecycle_application::owner(tx, token, unit, &submission).await?;
     let r = lifecycle_sql::rendition(tx, &s)
         .await?
         .ok_or(StoreError::CorruptRevision)?;
@@ -459,7 +457,7 @@ impl PublicationService {
     ) -> Result<dto::PublicationReadinessResponse, PublicationStoreError> {
         let client = self.store.connection().await?;
         let tx = client.read().await?;
-        let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
+        let initial = subject(&tx, token, unit, candidate).await?;
         let promotion = if self.promotion.is_some() {
             Some(PromotionAuthority::read(&tx, &initial).await?)
         } else {
@@ -476,7 +474,7 @@ impl PublicationService {
         .await?;
         let client = self.store.connection().await?;
         let tx = client.read().await?;
-        let fresh = subject(&tx, token, unit, candidate, LockMode::Share).await?;
+        let fresh = subject(&tx, token, unit, candidate).await?;
         recheck_observed_object(&initial, &fresh)?;
         let rights = sql::latest_clearance(&tx, &fresh.c).await?;
         let approval = sql::latest_approval(&tx, &fresh.c).await?;
@@ -513,7 +511,7 @@ impl PublicationService {
         request.evidence_refs.sort();
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
-        let s = subject(&tx, token, unit, candidate, LockMode::Update).await?;
+        let s = subject(&tx, token, unit, candidate).await?;
         let actor = s.content.work.owner_id().as_str();
         if let Some(prior) = sql::prior_clearance(&tx, actor, &request.operation_id, &s.c).await? {
             if prior.document().request != request {
@@ -566,7 +564,7 @@ impl PublicationService {
         normalized_uuid(&request.operation_id)?;
         let client = self.store.connection().await?;
         let tx = client.read().await?;
-        let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
+        let initial = subject(&tx, token, unit, candidate).await?;
         let actor = initial.content.work.owner_id().as_str();
         if let Some(prior) =
             sql::prior_approval(&tx, actor, &request.operation_id, &initial.c).await?
@@ -588,7 +586,7 @@ impl PublicationService {
         };
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
-        let s = subject(&tx, token, unit, candidate, LockMode::Update).await?;
+        let s = subject(&tx, token, unit, candidate).await?;
         recheck_observed_object(&initial, &s)?;
         let actor = s.content.work.owner_id().as_str();
         if let Some(prior) = sql::prior_approval(&tx, actor, &request.operation_id, &s.c).await? {
@@ -649,7 +647,7 @@ impl PublicationService {
         let digest = request_digest(&(unit, candidate, &request))?;
         let client = self.store.connection().await?;
         let tx = client.read().await?;
-        let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
+        let initial = subject(&tx, token, unit, candidate).await?;
         // Replays are durable receipts, never a second activation, even if later rights change.
         if let Some(prior) = sql::prior(
             &tx,
@@ -686,7 +684,7 @@ impl PublicationService {
         .await?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
-        let fresh = subject(&tx, token, unit, candidate, LockMode::Update).await?;
+        let fresh = subject(&tx, token, unit, candidate).await?;
         let actor = fresh.content.work.owner_id().as_str();
         recheck_observed_object(&initial, &fresh)?;
         if let Some(prior) = sql::prior(&tx, actor, &request.operation_id, "publish").await? {
@@ -740,13 +738,12 @@ impl PublicationService {
         let unit_id = ContentUnitId::parse(unit).map_err(|_| PublicationError::InvalidId)?;
         let client = self.store.connection().await?;
         let tx = client.read().await?;
-        let content =
-            catalog::production_content(&tx, Some(token), None, &unit_id, LockMode::Share)
-                .await
-                .map_err(|e| match e {
-                    catalog::CatalogStoreError::Storage(e) => e,
-                    _ => StoreError::CorruptRevision,
-                })?;
+        let content = catalog::production_content(&tx, Some(token), None, &unit_id)
+            .await
+            .map_err(|e| match e {
+                catalog::CatalogStoreError::Storage(e) => e,
+                _ => StoreError::CorruptRevision,
+            })?;
         let actor = content.work.owner_id().as_str();
         let pointer = sql::pointer(&tx, unit, actor, false).await?;
         let Some(id) = &pointer.active else {
@@ -760,14 +757,14 @@ impl PublicationService {
         let candidate = sql::release_candidate(&tx, id, unit, actor)
             .await?
             .ok_or(StoreError::CorruptRevision)?;
-        let initial = subject(&tx, token, unit, &candidate, LockMode::Share).await?;
+        let initial = subject(&tx, token, unit, &candidate).await?;
         let release = bound_release(&tx, id, &initial).await?;
         tx.commit().await?;
         drop(client);
         let observations = observe(&self.store, self.delivery.as_ref(), &initial, None).await?;
         let client = self.store.connection().await?;
         let tx = client.read().await?;
-        let fresh = subject(&tx, token, unit, &candidate, LockMode::Share).await?;
+        let fresh = subject(&tx, token, unit, &candidate).await?;
         recheck_observed_object(&initial, &fresh)?;
         let current =
             sql::pointer(&tx, unit, fresh.content.work.owner_id().as_str(), false).await?;
@@ -821,13 +818,12 @@ impl PublicationService {
         let unit_id = ContentUnitId::parse(unit).map_err(|_| PublicationError::InvalidId)?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
-        let content =
-            catalog::production_content(&tx, Some(token), None, &unit_id, LockMode::Update)
-                .await
-                .map_err(|e| match e {
-                    catalog::CatalogStoreError::Storage(e) => e,
-                    _ => StoreError::CorruptRevision,
-                })?;
+        let content = catalog::production_content(&tx, Some(token), None, &unit_id)
+            .await
+            .map_err(|e| match e {
+                catalog::CatalogStoreError::Storage(e) => e,
+                _ => StoreError::CorruptRevision,
+            })?;
         let actor = content.work.owner_id().as_str();
         if let Some(prior) = sql::prior(&tx, actor, &request.operation_id, "withdraw").await? {
             if prior.request_digest != digest || prior.unit != unit {

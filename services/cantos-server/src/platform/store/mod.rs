@@ -129,11 +129,3 @@ pub(crate) async fn active_actors(
 /// the listener.
 pub(crate) const RELEASE_OWNER_ACTIVE_FILTER: &str =
     "EXISTS(SELECT 1 FROM actors owner_actor WHERE owner_actor.id=rel.owner_id AND owner_actor.active=1)";
-
-/// Row locks taken by PostgreSQL-era SQL. The serialized writer orders every unit now, so a
-/// context's port removes its `FOR {SHARE|UPDATE}` clauses and this type with them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum LockMode {
-    Share,
-    Update,
-}

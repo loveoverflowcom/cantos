@@ -142,7 +142,8 @@ never `unwrap_or_default` a column. `i32/i16/u32` decode through checked narrowi
 3. Migration: `src/platform/turso/<context>.sql` at your assigned version; register in `MIGRATIONS`.
    Fail-closed CHECKs, FKs, guards, indexes with the same predicates as PG (add only what is needed).
 4. Adapter: rewrite SQL in your context's persistence adapter; rename the adapter module from `postgres`
-   to `turso` (file `turso.rs` / `turso/` dir) and fix imports; remove `LockMode` usage and all `FOR …`.
+   to `turso` (file `turso.rs` / `turso/` dir) and fix imports; remove all `FOR …` (the PostgreSQL-era
+   `LockMode` argument no longer exists).
    Keep function signatures/decisions where possible so application code changes stay small.
 5. Application: restructure units only where required by rule 4 (no I/O in a unit, no nested units),
    replace `clock_timestamp()` style time by `tx.now_micros()`, keep session admission in the unit.

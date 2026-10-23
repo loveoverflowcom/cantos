@@ -19,7 +19,7 @@ use crate::contexts::editorial::{
 };
 use crate::contexts::ingestion::imported_source;
 use crate::platform::store::{
-    authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
+    authenticate, checked_number, normalized_uuid, Store, StoreError, Tx,
 };
 
 /// Loads one caller context under its row lock and re-checks every stored relation: pinned
@@ -108,7 +108,7 @@ pub(super) async fn current_base(
             Err(StoreError::NotFound)
         };
     }
-    let (owner, head) = authorize(tx, actor, script, Action::Review, LockMode::Update).await?;
+    let (owner, head) = authorize(tx, actor, script, Action::Review).await?;
     if owner != actor {
         return Err(StoreError::Forbidden);
     }

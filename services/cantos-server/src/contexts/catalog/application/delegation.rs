@@ -24,7 +24,7 @@ use crate::contexts::catalog::{
     turso::{self, delegation as sql},
 };
 use crate::contexts::editorial::{Access, Action};
-use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError, Tx};
 
 /// A grant with its current revocation state, for the owner's management views.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -140,10 +140,9 @@ async fn recheck(
 async fn unit_and_work(
     tx: &Tx<'_>,
     id: &ContentUnitId,
-    lock: LockMode,
 ) -> Result<(ContentUnit, Work), CatalogStoreError> {
     let unit = unit(tx, id).await?;
-    let work = work(tx, unit.work_id(), lock).await?;
+    let work = work(tx, unit.work_id()).await?;
     Ok((unit, work))
 }
 
@@ -163,9 +162,9 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        turso::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
-        let work = work(&tx, &request.work_id, LockMode::Share).await?;
+        let work = work(&tx, &request.work_id).await?;
         owner_only(&tx, &actor, &work).await?;
         if let Some(prior) = sql::by_operation(&tx, &actor, &operation).await? {
             if prior.request_digest != request_digest {
@@ -233,9 +232,9 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
-        let work = work(&tx, work_id, LockMode::Share).await?;
+        let work = work(&tx, work_id).await?;
         owner_only(&tx, &actor, &work).await?;
         let mut items = sql::list(
             &tx,
@@ -269,9 +268,9 @@ impl Store {
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
         // The same exclusive fence every delegated request shares, so no admission straddles it.
-        turso::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx).await?;
         let actor = current_actor(&tx, token).await?;
-        let work = work(&tx, work_id, LockMode::Share).await?;
+        let work = work(&tx, work_id).await?;
         owner_only(&tx, &actor, &work).await?;
         let record = sql::by_id(&tx, grant_id)
             .await?
@@ -290,9 +289,9 @@ impl Store {
     ) -> Result<DelegationView, CatalogStoreError> {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
-        let work = work(&tx, grant.work_id(), LockMode::Share).await?;
+        let work = work(&tx, grant.work_id()).await?;
         grant.admit_work(&facts, &work).map_err(denied)?;
         recheck(&tx, secret, &grant, &work).await?;
         tx.commit().await.map_err(StoreError::from)?;
@@ -309,9 +308,9 @@ impl Store {
     ) -> Result<Work, CatalogStoreError> {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
-        let work = work(&tx, id, LockMode::Share).await?;
+        let work = work(&tx, id).await?;
         grant
             .authorize(&facts, &work, DelegatedAction::WorkRead)
             .map_err(denied)?;
@@ -331,9 +330,9 @@ impl Store {
         let limit = page_limit(limit)?;
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
-        let epoch = turso::lock_clock(&tx, LockMode::Share).await?;
+        let epoch = turso::lock_clock(&tx).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
-        let work = work(&tx, id, LockMode::Share).await?;
+        let work = work(&tx, id).await?;
         grant
             .authorize(&facts, &work, DelegatedAction::WorkRead)
             .map_err(denied)?;
@@ -356,9 +355,9 @@ impl Store {
     ) -> Result<ContentUnit, CatalogStoreError> {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
-        let (unit, work) = unit_and_work(&tx, id, LockMode::Share).await?;
+        let (unit, work) = unit_and_work(&tx, id).await?;
         grant
             .authorize(&facts, &work, DelegatedAction::WorkRead)
             .map_err(denied)?;
@@ -375,9 +374,9 @@ impl Store {
     ) -> Result<ContentRevision, CatalogStoreError> {
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
-        let (_, work) = unit_and_work(&tx, id, LockMode::Share).await?;
+        let (_, work) = unit_and_work(&tx, id).await?;
         grant
             .authorize(&facts, &work, DelegatedAction::ContentRead)
             .map_err(denied)?;
@@ -402,9 +401,9 @@ impl Store {
         }
         let client = self.connection().await?;
         let tx = client.read().await.map_err(StoreError::from)?;
-        turso::lock_clock(&tx, LockMode::Share).await?;
+        turso::lock_clock(&tx).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
-        let (_, work) = unit_and_work(&tx, id, LockMode::Share).await?;
+        let (_, work) = unit_and_work(&tx, id).await?;
         grant
             .authorize(&facts, &work, DelegatedAction::ContentRead)
             .map_err(denied)?;
@@ -423,7 +422,7 @@ impl Store {
     ) -> Result<dto::AppendContentResponse, CatalogStoreError> {
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
-        turso::lock_clock(&tx, LockMode::Update).await?;
+        turso::lock_clock(&tx).await?;
         let (grant, facts) = admitted(&tx, secret).await?;
         // The grant is part of the replay identity: another grant cannot replay this receipt.
         let (operation, fingerprint) = fingerprint_append(
@@ -431,7 +430,7 @@ impl Store {
             &("delegated_append_content_v1", grant.id().as_str(), &command),
             &command,
         )?;
-        let (unit, work) = unit_and_work(&tx, &command.unit_id, LockMode::Update).await?;
+        let (unit, work) = unit_and_work(&tx, &command.unit_id).await?;
         let permit = grant
             .authorize(&facts, &work, DelegatedAction::ContentWrite)
             .map_err(denied)?;

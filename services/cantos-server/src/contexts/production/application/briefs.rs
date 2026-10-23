@@ -10,7 +10,7 @@ use crate::contexts::catalog::{
 };
 use crate::contexts::{editorial, ingestion};
 use crate::contract::studio as dto;
-use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
+use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError, Tx};
 use sha2::{Digest, Sha256};
 
 fn catalog_error(error: CatalogStoreError) -> StoreError {
@@ -205,7 +205,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         authenticate(&tx, token).await?;
-        let facts = catalog::production_content(&tx, Some(token), None, &unit, LockMode::Update)
+        let facts = catalog::production_content(&tx, Some(token), None, &unit)
             .await
             .map_err(catalog_error)?;
         let owner = facts.work.owner_id().as_str();
@@ -282,7 +282,7 @@ impl Store {
         let client = self.connection().await?;
         let tx = client.read().await?;
         authenticate(&tx, token).await?;
-        let facts = catalog::production_content(&tx, Some(token), None, &unit, LockMode::Share)
+        let facts = catalog::production_content(&tx, Some(token), None, &unit)
             .await
             .map_err(catalog_error)?;
         let brief = sql::load(&tx, unit_id, version)
@@ -323,7 +323,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         authenticate(&tx, token).await?;
-        let facts = catalog::production_content(&tx, Some(token), None, &unit, LockMode::Update)
+        let facts = catalog::production_content(&tx, Some(token), None, &unit)
             .await
             .map_err(catalog_error)?;
         let owner = facts.work.owner_id().as_str();
@@ -404,7 +404,7 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         authenticate(&tx, token).await?;
-        let facts = catalog::production_content(&tx, Some(token), None, &unit, LockMode::Update)
+        let facts = catalog::production_content(&tx, Some(token), None, &unit)
             .await
             .map_err(catalog_error)?;
         let grant = sql::by_id(&tx, grant_id)
@@ -436,7 +436,7 @@ impl Store {
             return Err(StoreError::NotFound);
         }
         let owner = OwnerId::parse(&grant.owner).map_err(|_| StoreError::CorruptRevision)?;
-        let facts = catalog::production_content(&tx, None, Some(&owner), &unit, LockMode::Share)
+        let facts = catalog::production_content(&tx, None, Some(&owner), &unit)
             .await
             .map_err(catalog_error)?;
         let brief = sql::load(&tx, unit_id, version)
@@ -466,11 +466,10 @@ pub(crate) async fn audio_brief(
     expected_owner: Option<&OwnerId>,
     unit_id: &str,
     version: u64,
-    lock: LockMode,
 ) -> Result<(ProductionContent, ProductionBrief, bool), StoreError> {
     let id = unit(unit_id)?;
     checked_version(version)?;
-    let facts = catalog::production_content(tx, token, expected_owner, &id, lock)
+    let facts = catalog::production_content(tx, token, expected_owner, &id)
         .await
         .map_err(catalog_error)?;
     let brief = sql::load(tx, unit_id, version)
