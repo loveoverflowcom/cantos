@@ -1,5 +1,5 @@
 //! Pure acknowledgement projection; changing a parent clears every dependent snapshot.
-use super::Reply;
+use super::{Command, Reply};
 use crate::contract::*;
 #[derive(Clone, Default)]
 pub struct Facts {
@@ -10,6 +10,8 @@ pub struct Facts {
     pub units_next: Option<String>,
     pub unit: Option<CatalogContentUnit>,
     pub content: Option<ContentRevisionResponse>,
+    /// Current-head authority is separate from a historical inspection.
+    pub content_head: Option<ContentRevisionResponse>,
     pub content_base: Option<u64>,
     pub history: Option<ContentHistoryResponse>,
     pub brief: Option<ProductionBriefResponse>,
@@ -17,6 +19,36 @@ pub struct Facts {
     pub candidate: Option<ReleaseCandidateResponse>,
 }
 impl Facts {
+    /// Only a head read or an append receipt advances the current-content projection.
+    pub fn apply_command(&self, command: &Command, reply: Reply) -> Self {
+        let head = match (command, &reply) {
+            (Command::ContentHead { .. }, Reply::Content(content)) => Some(content.clone()),
+            _ => None,
+        };
+        let mut next = self.apply(reply);
+        if let Some(head) = head {
+            next.content_base = Some(head.revision);
+            next.content_head = Some(head);
+            next.brief = None;
+            next.submission = None;
+            next.candidate = None;
+        }
+        next
+    }
+    pub fn editor_script(&self) -> Option<CatalogScriptRef> {
+        let unit = self.unit.as_ref()?;
+        if let Some(head) = self
+            .content_head
+            .as_ref()
+            .filter(|head| head.unit_id == unit.id)
+        {
+            if let ContentBody::Script { script, .. } = &head.details.body {
+                return Some(script.clone());
+            }
+        }
+        unit.details.script.clone()
+    }
+
     pub fn apply(&self, reply: Reply) -> Self {
         let mut next = self.clone();
         match reply {
@@ -26,6 +58,11 @@ impl Facts {
             }
             Reply::Work(work) => next.work = Some(work),
             Reply::Units(page) => {
+                if let Some(current) = &next.unit {
+                    if let Some(observed) = page.items.iter().find(|unit| unit.id == current.id) {
+                        next.unit = Some(observed.clone());
+                    }
+                }
                 next.units = page.items;
                 next.units_next = page.next_cursor;
             }
@@ -54,13 +91,7 @@ impl Facts {
                     }
                 }
             }
-            Reply::Content(content) => {
-                next.content_base = Some(content.revision);
-                next.content = Some(content);
-                next.brief = None;
-                next.submission = None;
-                next.candidate = None;
-            }
+            Reply::Content(content) => next.content = Some(content),
             Reply::ContentSaved(saved) => {
                 if let Some(work) = &mut next.work {
                     work.revision = saved.work_revision;
@@ -69,6 +100,7 @@ impl Facts {
                     }
                 }
                 next.content_base = Some(saved.content.revision);
+                next.content_head = Some(saved.content.clone());
                 next.content = Some(saved.content);
                 next.brief = None;
                 next.submission = None;

@@ -796,3 +796,81 @@ fn identity_failures_project_onto_commands_without_signing_out_by_accident() {
         );
     }
 }
+
+#[test]
+fn historical_content_never_rewinds_the_head_or_editor_binding() {
+    let content = |id: &str, revision: u64, script: &str| ContentRevisionResponse {
+        id: id.into(),
+        work_id: ID.into(),
+        unit_id: ID.into(),
+        revision,
+        details: ContentDetails {
+            language: "vi-VN".into(),
+            body: ContentBody::Script {
+                script: CatalogScriptRef {
+                    id: script.into(),
+                    revision,
+                    export_digest: "digest".into(),
+                },
+                source: None,
+            },
+            rights_refs: vec![],
+            provenance_note: "Tác giả".into(),
+        },
+        content_digest: "digest".into(),
+        revision_digest: "digest".into(),
+        recorded_by: "alice".into(),
+        recorded_at: 0,
+    };
+    let unit = CatalogContentUnit {
+        id: ID.into(),
+        work_id: ID.into(),
+        kind: "chapter".into(),
+        details: UnitDetailsDto {
+            title: "Chương một".into(),
+            description: String::new(),
+            source: None,
+            script: None,
+            content_digest: None,
+        },
+        position: 0,
+        lifecycle: "draft".into(),
+        revision: 1,
+        created_at: 0,
+        updated_at: 0,
+    };
+    let facts = Facts {
+        unit: Some(unit),
+        ..Facts::default()
+    };
+    let head = content("head", 4, "current-script");
+    let current = facts.apply_command(
+        &Command::ContentHead { unit: ID.into() },
+        Reply::Content(head.clone()),
+    );
+    assert_eq!(current.content_base, Some(4));
+    assert_eq!(
+        current
+            .editor_script()
+            .as_ref()
+            .map(|script| script.id.as_str()),
+        Some("current-script")
+    );
+    let inspected = current.apply_command(
+        &Command::ContentRevision {
+            unit: ID.into(),
+            revision: "old".into(),
+        },
+        Reply::Content(content("old", 1, "historical-script")),
+    );
+    assert_eq!(inspected.content.as_ref().unwrap().revision, 1);
+    assert_eq!(inspected.content_base, Some(4));
+    assert_eq!(inspected.content_head, Some(head));
+    assert_eq!(
+        inspected
+            .editor_script()
+            .as_ref()
+            .map(|script| script.id.as_str()),
+        Some("current-script")
+    );
+}

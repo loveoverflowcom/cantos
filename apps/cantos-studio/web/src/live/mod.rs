@@ -19,6 +19,8 @@ mod dashboard_copy;
 mod consent;
 pub use consent::ReviewConsent;
 
+pub mod catalog_controls;
+pub mod drafts;
 mod facts;
 pub use facts::Facts;
 

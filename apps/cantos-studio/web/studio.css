@@ -158,6 +158,9 @@ body { margin: 0; }
 /* App-local content workspace: tonal containment, no decorative section borders. */
 .studio-shell .live-section, .studio-shell .live-status { margin-block: var(--cantos-space-section); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
 .studio-shell .live-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--cantos-space-md); }
+/* Native fieldsets otherwise retain an unbreakable binding digest as their minimum width. */
+.studio-shell .live-content-fields { min-inline-size: 0; inline-size: 100%; max-inline-size: 100%; margin: 0; padding: 0; border: 0; }
+.studio-shell .live-content-fields :where(legend, p, code) { max-inline-size: 100%; overflow-wrap: anywhere; }
 .studio-shell .live-field { min-width: 0; }
 .studio-shell .live-field input, .studio-shell .live-field select { width: 100%; }
 .studio-shell .live-field textarea { min-height: 7rem; }

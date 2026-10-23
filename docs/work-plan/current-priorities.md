@@ -20,6 +20,12 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
 
 ## Independent product work
 
+- Studio CMS continuation: reuse the same feature branch and Draft PR for the separately
+  scoped production/review half, then run one combined preflight. Preserve the
+  [Catalog/Editorial draft and receipt boundary](../evidence/studio-cms-editorial-20261023.md).
+  [ADR 0047](../decisions/0047-studio-roster-provisioning.md) remains a proposal; local fixture
+  admission cannot accept production Studio provisioning.
+
 - The owner-selected [Firebase verification bridge](../architecture/firebase-verification.md)
   now has sealed native proof custody, effect fences and an owned RPC action alternative.
   Next accept provider-safe expired enrollment recovery, the full dispatch/commit crash matrix

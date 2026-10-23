@@ -1279,3 +1279,298 @@ async fn an_identity_earned_studio_session_writes_a_revision_that_survives_resta
     assert_eq!(after.status, StatusCode::UNAUTHORIZED);
     assert_eq!(stored(&w).await, 1);
 }
+
+/// Catalog identity, managed content and Editorial share the actor earned through Identity.
+/// The roster below belongs only to this disposable fixture, never a provisioning path.
+#[tokio::test]
+async fn identity_studio_catalog_content_and_script_receipts_survive_restart_without_cross_actor_access(
+) {
+    use cantos_server::{
+        contract::studio::RevisionResponse, platform::operator, script_ir::read_script,
+        test_support::editorial::FIXTURE,
+    };
+    let operation = || uuid::Uuid::new_v4().to_string();
+    let mut w = World::start(STUDIO_ORIGIN).await;
+    w.signup(OWNER, PASSWORD).await;
+    w.signup(OTHER, PASSWORD).await;
+    let owner_theatre = w.login_web("theatre", OWNER, PASSWORD).await;
+    let other_theatre = w.login_web("theatre", OTHER, PASSWORD).await;
+    let subjects = [
+        w.subject_of(owner_theatre.field("session_id").as_str().unwrap())
+            .await,
+        w.subject_of(other_theatre.field("session_id").as_str().unwrap())
+            .await,
+    ];
+    w.restart_server(&subjects);
+    let owner_login = w.login_web("studio", OWNER, PASSWORD).await;
+    let other_login = w.login_web("studio", OTHER, PASSWORD).await;
+    assert_eq!(owner_login.status, StatusCode::OK);
+    assert_eq!(other_login.status, StatusCode::OK);
+    let actor = owner_login.field("actor_id").as_str().unwrap();
+    assert_ne!(owner_login.field("actor_id"), other_login.field("actor_id"));
+    let session = owner_login.field("session_id").as_str().unwrap();
+    let (name, secret) = owner_login.cookie();
+    let cookie = cookie_header(&name, &secret);
+    let (other_name, other_secret) = other_login.cookie();
+    let other_cookie = cookie_header(&other_name, &other_secret);
+    let headers = [
+        ("origin", STUDIO_ORIGIN),
+        ("cookie", cookie.as_str()),
+        ("x-cantos-studio-session", session),
+    ];
+    let other_headers = [
+        ("origin", STUDIO_ORIGIN),
+        ("cookie", other_cookie.as_str()),
+        (
+            "x-cantos-studio-session",
+            other_login.field("session_id").as_str().unwrap(),
+        ),
+    ];
+    let work_id = operation();
+    let work_path = format!("{STUDIO}/works/{work_id}");
+    let work_request = json!({
+        "operation_id": operation(), "id": work_id, "kind": "story",
+        "details": {
+            "title": "Ánh đèn cuối sân khấu", "synopsis": "Một hành trình biên tập riêng tư.",
+            "language": "vi-VN", "visibility": "private", "rights_refs": [],
+        },
+    });
+    let work = w
+        .app
+        .post(&format!("{STUDIO}/works"), &headers, work_request.clone())
+        .await;
+    assert_eq!(work.status, StatusCode::CREATED, "{:?}", work.json);
+    assert_eq!(work.field("work")["owner_id"], actor);
+    assert_eq!(work.field("work")["revision"], 1);
+    let unit_id = operation();
+    let units_path = format!("{work_path}/content-units");
+    let unit_path = format!("{STUDIO}/content-units/{unit_id}");
+    let unit_request = json!({
+        "operation_id": operation(), "id": unit_id, "kind": "chapter",
+        "expected_work_revision": 1,
+        "details": {"title": "Chương một — Người kể trở về", "description": "Bản biên tập thử nghiệm."},
+    });
+    let unit = w
+        .app
+        .post(&units_path, &headers, unit_request.clone())
+        .await;
+    assert_eq!(unit.status, StatusCode::CREATED, "{:?}", unit.json);
+    assert_eq!(unit.field("work")["revision"], 2);
+    assert_eq!(unit.field("units")[0]["work_id"], work_id);
+    assert_eq!(unit.field("units")[0]["revision"], 1);
+    let content_path = format!("{unit_path}/content/revisions");
+    let text_request = json!({
+        "operation_id": operation(), "id": operation(),
+        "expected_revision": 0, "expected_work_revision": 2,
+        "details": {
+            "language": "vi-VN",
+            "body": {"kind": "text", "text": "Người kể chuyện\r\nÁnh đèn.", "source": null},
+            "rights_refs": [], "provenance_note": "Repository-authored disposable fixture; no publication clearance",
+        },
+    });
+    let text = w
+        .app
+        .post(&content_path, &headers, text_request.clone())
+        .await;
+    assert_eq!(text.status, StatusCode::CREATED, "{:?}", text.json);
+    assert_eq!(text.field("work_revision"), 3);
+    assert_eq!(text.field("content")["revision"], 1);
+    assert_eq!(text.field("content")["recorded_by"], actor);
+    assert_eq!(
+        text.field("content")["details"]["body"]["text"],
+        "Người kể chuyện\nÁnh đèn."
+    );
+
+    // Use the existing operator boundary for the fixture's declared evidence, not a session seed.
+    for (kind, id) in read_script(FIXTURE.as_bytes()).unwrap().evidence_refs() {
+        operator::register_evidence(w.db.admin.store(), actor, kind, id, "synthetic fixture")
+            .await
+            .unwrap();
+    }
+    let script_id = operation();
+    let script_path = format!("{STUDIO}/scripts/{script_id}");
+    let revisions_path = format!("{script_path}/revisions");
+    let preview = w
+        .app
+        .post(
+            &format!("{STUDIO}/validation"),
+            &headers,
+            json!({"script_json": FIXTURE}),
+        )
+        .await;
+    assert_eq!(preview.status, StatusCode::OK, "{:?}", preview.json);
+    assert_eq!(preview.json, json!({"issues": []}));
+    let script_request = json!({
+        "operation_id": operation(), "expected_revision": 0, "script_json": FIXTURE,
+    });
+    let script = w
+        .app
+        .post(&revisions_path, &headers, script_request.clone())
+        .await;
+    assert_eq!(script.status, StatusCode::OK, "{:?}", script.json);
+    assert_eq!(script.field("revision"), 1);
+    assert_eq!(script.field("accepted_by"), actor);
+    // The hand-authored wire golden supplies an independent exact byte and digest oracle.
+    let golden: RevisionResponse = serde_json::from_str(include_str!(
+        "../contracts/studio/editorial/v1/fixtures/revision.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        script.field("script_json").as_str().unwrap().as_bytes(),
+        golden.script_json.as_bytes()
+    );
+    assert_eq!(
+        script.field("export_digest").as_str(),
+        Some(golden.export_digest.as_str())
+    );
+    assert_eq!(
+        script.field("content_digest").as_str(),
+        Some(golden.content_digest.as_str())
+    );
+    let script_content_request = json!({
+        "operation_id": operation(), "id": operation(),
+        "expected_revision": 1, "expected_work_revision": 3,
+        "details": {
+            "language": "vi-VN", "rights_refs": [],
+            "provenance_note": "Private editorial fixture; no production or publication approval",
+            "body": {
+                "kind": "script", "source": null,
+                "script": {"id": script_id, "revision": 1, "export_digest": golden.export_digest},
+            },
+        },
+    });
+    let linked = w
+        .app
+        .post(&content_path, &headers, script_content_request.clone())
+        .await;
+    assert_eq!(linked.status, StatusCode::CREATED, "{:?}", linked.json);
+    assert_eq!(linked.field("work_revision"), 4);
+    assert_eq!(linked.field("content")["revision"], 2);
+    assert_eq!(linked.field("content")["unit_id"], unit_id);
+    assert_eq!(linked.field("content")["recorded_by"], actor);
+    assert_eq!(
+        linked.field("content")["details"]["body"]["script"]["export_digest"],
+        golden.export_digest
+    );
+    let content_head = format!("{unit_path}/content/head");
+    let script_head = format!("{script_path}/head");
+
+    // A valid second Studio account is still a stranger to each owner's private object.
+    for path in [&work_path, &unit_path, &content_head, &script_head] {
+        let denied = w.app.get(path, &other_headers).await;
+        assert_eq!(
+            denied.status,
+            StatusCode::NOT_FOUND,
+            "{path}: {:?}",
+            denied.json
+        );
+        assert_eq!(denied.field("code"), "not_found");
+    }
+    let mut foreign_append = script_content_request.clone();
+    foreign_append["operation_id"] = json!(operation());
+    foreign_append["id"] = json!(operation());
+    foreign_append["expected_revision"] = json!(2);
+    foreign_append["expected_work_revision"] = json!(4);
+    let denied = w
+        .app
+        .post(&content_path, &other_headers, foreign_append)
+        .await;
+    assert_eq!(denied.status, StatusCode::NOT_FOUND);
+    assert_eq!(denied.field("code"), "not_found");
+    assert_eq!(
+        w.db.admin
+            .count("SELECT count(*) FROM catalog_content_revisions", &[])
+            .await,
+        2
+    );
+    assert_eq!(
+        w.db.admin
+            .count("SELECT count(*) FROM script_revisions", &[])
+            .await,
+        1
+    );
+    assert_eq!(
+        w.db.admin
+            .count("SELECT count(*) FROM catalog_operations", &[])
+            .await,
+        4
+    );
+
+    // Reopen the authoritative file; retain the original requests for lost-response reconciliation.
+    w.app.release();
+    w.db.admin.restart().await;
+    w.restart_server(&subjects);
+    let reread_work = w.app.get(&work_path, &headers).await;
+    assert_eq!(reread_work.status, StatusCode::OK);
+    assert_eq!(reread_work.field("revision"), 4);
+    let reread_content = w.app.get(&content_head, &headers).await;
+    assert_eq!(reread_content.status, StatusCode::OK);
+    assert_eq!(reread_content.json, linked.field("content").clone());
+    let reread_script = w.app.get(&script_head, &headers).await;
+    assert_eq!(reread_script.status, StatusCode::OK);
+    assert_eq!(reread_script.json, script.json);
+    let text_id = text.field("content")["id"].as_str().unwrap();
+    let pinned_text = w
+        .app
+        .get(&format!("{content_path}/{text_id}"), &headers)
+        .await;
+    assert_eq!(pinned_text.status, StatusCode::OK);
+    assert_eq!(pinned_text.json, text.field("content").clone());
+    let history = w
+        .app
+        .get(&format!("{unit_path}/content/history"), &headers)
+        .await;
+    assert_eq!(history.status, StatusCode::OK);
+    let revisions = history.field("revisions").as_array().unwrap();
+    assert_eq!(revisions.len(), 2);
+    assert_eq!(revisions[0]["id"], text.field("content")["id"]);
+    assert_eq!(revisions[1]["id"], linked.field("content")["id"]);
+    assert_eq!(history.field("next_after"), &serde_json::Value::Null);
+    for (path, request, original) in [
+        (format!("{STUDIO}/works"), work_request, &work),
+        (units_path, unit_request, &unit),
+        (content_path.clone(), text_request, &text),
+        (content_path.clone(), script_content_request, &linked),
+        (revisions_path, script_request, &script),
+    ] {
+        let replay = w.app.post(&path, &headers, request).await;
+        assert_eq!(replay.status, original.status, "{path}: {:?}", replay.json);
+        assert_eq!(replay.json, original.json);
+    }
+    assert_eq!(
+        w.db.admin
+            .count("SELECT count(*) FROM catalog_content_revisions", &[])
+            .await,
+        2
+    );
+    assert_eq!(
+        w.db.admin
+            .count("SELECT count(*) FROM script_revisions", &[])
+            .await,
+        1
+    );
+    assert_eq!(
+        w.db.admin
+            .count("SELECT count(*) FROM catalog_operations", &[])
+            .await,
+        4
+    );
+
+    // The old account's cookie is revoked; the new account never receives the private draft.
+    let logout = w
+        .app
+        .send(
+            Method::DELETE,
+            &format!("{STUDIO}/identity/session"),
+            &headers,
+            None,
+        )
+        .await;
+    assert_eq!(logout.status, StatusCode::NO_CONTENT);
+    for path in [&work_path, &unit_path, &content_head, &script_head] {
+        let old_account = w.app.get(path, &headers).await;
+        assert_eq!(old_account.status, StatusCode::UNAUTHORIZED);
+        let new_account = w.app.get(path, &other_headers).await;
+        assert_eq!(new_account.status, StatusCode::NOT_FOUND);
+    }
+}

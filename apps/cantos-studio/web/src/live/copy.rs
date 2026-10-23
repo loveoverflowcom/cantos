@@ -1,4 +1,12 @@
 //! Visible and accessible copy belongs to the app, in both supported locales.
+/// Locale-neutral notation for an immutable Script export, owned with visible Studio copy.
+pub fn script_binding(script: &crate::contract::CatalogScriptRef) -> String {
+    format!(
+        "{} · r{} · {}",
+        script.id, script.revision, script.export_digest
+    )
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
     Pane,
@@ -14,6 +22,27 @@ pub enum Key {
     CreateUnit,
     Unit,
     SaveMetadata,
+    EditWork,
+    ReadWork,
+    ReloadWorkMetadata,
+    ReloadWorkConfirm,
+    ReloadMetadata,
+    UnsavedDrafts,
+    SelectedUnitMetadata,
+    Source,
+    Script,
+    OpenEditor,
+    EditorScript,
+    ScriptBindingHelp,
+    ArchiveWork,
+    ArchiveUnit,
+    ArchiveWorkConfirm,
+    ArchiveUnitConfirm,
+    ArchiveHelp,
+    RefreshUnits,
+    MoveEarlier,
+    MoveLater,
+    ReorderHelp,
     Content,
     Body,
     Text,
@@ -93,6 +122,27 @@ pub enum Key {
 }
 pub fn text(key: Key, en: bool) -> &'static str {
     match (key,en) {
+        (Key::UnsavedDrafts, false) => "Có thay đổi chưa lưu trong các chương / tập.", (Key::UnsavedDrafts, true) => "There are unsaved chapter / episode changes.",
+        (Key::SelectedUnitMetadata, false) => "Thông tin chương / tập đã chọn", (Key::SelectedUnitMetadata, true) => "Selected chapter / episode metadata",
+        (Key::Source, false) => "Nguồn bản thảo", (Key::Source, true) => "Preserved source",
+        (Key::Script, false) => "Script IR", (Key::Script, true) => "Script IR",
+        (Key::OpenEditor, false) => "Mở trình biên tập", (Key::OpenEditor, true) => "Open editor",
+        (Key::EditorScript, false) => "Ghim bản Script IR đã lưu trong trình biên tập", (Key::EditorScript, true) => "Pin the saved Script IR from the editor",
+        (Key::ScriptBindingHelp, false) => "Liên kết chính xác bản đã lưu; không tự chuyển sang bản mới nhất.", (Key::ScriptBindingHelp, true) => "Pins this exact saved revision; it never follows the latest revision.",
+        (Key::ReloadMetadata, false) => "Nạp lại thông tin chương / tập đã chọn", (Key::ReloadMetadata, true) => "Reload selected chapter / episode metadata",
+        (Key::ReloadWorkMetadata, false) => "Dùng thông tin tác phẩm vừa đọc", (Key::ReloadWorkMetadata, true) => "Use last-read work metadata",
+        (Key::ReloadWorkConfirm, false) => "Bỏ thay đổi tiêu đề và mô tả để dùng đúng thông tin tác phẩm này? Các bản nháp khác vẫn được giữ.", (Key::ReloadWorkConfirm, true) => "Discard title and synopsis changes and use this exact work metadata? Other drafts are retained.",
+        (Key::ReadWork, false) => "Đọc lại tác phẩm đã chọn", (Key::ReadWork, true) => "Refresh selected work",
+        (Key::EditWork, false) => "Sửa tác phẩm", (Key::EditWork, true) => "Edit work",
+        (Key::ArchiveWork, false) => "Lưu trữ tác phẩm", (Key::ArchiveWork, true) => "Archive work",
+        (Key::ArchiveUnit, false) => "Lưu trữ chương / tập", (Key::ArchiveUnit, true) => "Archive chapter / episode",
+        (Key::ArchiveWorkConfirm, false) => "Lưu trữ tác phẩm này? Nội dung và lịch sử được giữ; hiện chưa thể khôi phục.", (Key::ArchiveWorkConfirm, true) => "Archive this work? Content and history are retained; restore is currently unavailable.",
+        (Key::ArchiveUnitConfirm, false) => "Lưu trữ chương / tập này? Nội dung và lịch sử được giữ; hiện chưa thể khôi phục.", (Key::ArchiveUnitConfirm, true) => "Archive this chapter / episode? Content and history are retained; restore is currently unavailable.",
+        (Key::ArchiveHelp, false) => "Lưu hoặc chủ động bỏ mọi thay đổi trước khi lưu trữ. Lưu trữ giữ nguyên lịch sử; hiện chưa thể khôi phục.", (Key::ArchiveHelp, true) => "Save or explicitly discard all changes before archiving. History is retained; restore is currently unavailable.",
+        (Key::RefreshUnits, false) => "Tải lại danh sách chương / tập", (Key::RefreshUnits, true) => "Refresh chapters / episodes",
+        (Key::MoveEarlier, false) => "Chuyển lên một vị trí", (Key::MoveEarlier, true) => "Move one position earlier",
+        (Key::MoveLater, false) => "Chuyển xuống một vị trí", (Key::MoveLater, true) => "Move one position later",
+        (Key::ReorderHelp, false) => "Chỉ sắp xếp khi toàn bộ chương / tập đang hoạt động có trong trang đầu. Sau khi sắp xếp, tải lại danh sách để đọc thứ tự đã lưu.", (Key::ReorderHelp, true) => "Reordering requires every active chapter / episode in the first page. After reordering, refresh the list to read the saved order.",
         (Key::FileReadFailed, false) => "Không đọc được tệp; kiểm tra kích thước và thử lại.", (Key::FileReadFailed, true) => "Could not read the file; check size and try again.",
         (Key::Reconcile, false) => "Đối chiếu đúng biên nhận riêng tư", (Key::Reconcile, true) => "Reconcile exact private receipt",
         (Key::ReviewQc, false) => "QC", (Key::ReviewQc, true) => "QC",
@@ -414,6 +464,19 @@ mod tests {
                 assert!(!message.contains("987654321"));
             }
         }
+    }
+
+    #[test]
+    fn script_binding_preserves_exact_identifiers_without_expanding_inserted_braces() {
+        let script = crate::contract::CatalogScriptRef {
+            id: "script-{revision}".into(),
+            revision: 7,
+            export_digest: "sir-e1:sha256:abc".into(),
+        };
+        assert_eq!(
+            script_binding(&script),
+            "script-{revision} · r7 · sir-e1:sha256:abc"
+        );
     }
 
     #[test]
