@@ -143,3 +143,165 @@ reconstructing this disposable environment and never paste it into a report. The
 creates a fresh fixture rather than reopening the old run; the retained old DB/WAL remains
 evidence and can be reused only through its actual owner/configuration. No build output or
 fixture secret is committed. Final checkpoint disk had about 15 GiB free after rebuilding.
+
+
+## Part 2: Production Brief, private audio and publication
+
+This continuation uses the same branch and Draft PR #410, preserving Part 1 commit `2045e159`.
+A fresh fetch confirmed `origin/develop` and merge-base remain
+`4a52935a598b0f53ec659bf8fb45d1730cc87e8a`; no PR #409 release changes were imported.
+The Mac had about 15 GiB free before the build. No data/cache cleanup was required.
+
+Contract intake: `CANTOS_PROMPT_INPUT_V1`, TASK work-item; read/review/edit/tests/commit/push and
+updating the single Draft PR are authorized. No merge, deployment, production roster, real mail,
+provider call or issue closure. ADR 0047 remains Proposed. No new ADR was needed: this consumes
+existing stable service-owned contracts and adapters. The client owns its own raw representations.
+
+### Changed claims and owners
+
+| Claim / invariant | Failure mode | Owner / cheapest oracle | Evidence |
+| --- | --- | --- | --- |
+| Brief uses saved current Content, including Script/Source | Historical inspection or dirty text silently changes producer input | `brief_controls` pure tests; Server revalidates exact bindings | Source-reviewed; checkpoint Studio tests PASS; final gate record in PR #410 |
+| Prepare preserves exact Brief rights and upload subject | Editable fields/wrong selected submission move authority | `brief_controls` and `Command` correlation tests | Source-reviewed; checkpoint Studio tests PASS; final gate record in PR #410 |
+| Explicit rights/approval/publication actions use current candidate and pointer | A different candidate or stale pointer is acknowledged | Client DTO/command/confirmation/form tests; native HTTP | Source-reviewed; checkpoint Studio tests PASS; final gate record in PR #410 |
+| Original publish receipt is separate from current active pointer | A replay after withdrawal falsely announces active publication | `Facts::apply_command`, exact replay tests | Source-reviewed; checkpoint Studio tests PASS; final gate record in PR #410 |
+| Actual bytes precede public pointer | Staged or corrupt media becomes listener visible | Production Turso/HTTP/private+publication filesystem chain | PASS scoped regression below |
+| Private preview uses owner authority and exact bytes | Producer token or stale owner exposes private audio | Client exact subject/integrity checks; existing native preview checks | Source-reviewed; checkpoint Studio tests PASS; final gate record in PR #410 |
+
+The Web-owned compositions reuse `ActionButton`, native labeled fields/selects/details and token
+styles, with low-to-medium intensity for review/publication. No shared component, design token,
+service, registered SQL, server DTO, auth policy or publication rule changed. vi-VN/en copy stays
+in `live/copy.rs`. The queue now points to acceptance of the integrated path; GitHub retains
+execution/issue status.
+
+### Native chain already executed
+
+`RUSTUP_TOOLCHAIN=1.98.1 cargo test --locked -p cantos-server --test catalog_http_turso creator_intake_to_explicit_publication`
+passed one new regression over real run-owned Turso, actual ffprobe/FFmpeg-inspected synthetic
+Opus bytes, private filesystem readback and the existing real filesystem origin adapter. It
+checks exact Content/Brief/intake identity, an unread handler acknowledgement then reopen/replay,
+other-owner denial, private draft absence from Theatre, named QC/rights/editorial reviews,
+clearance/approval, default delivery refusal, readiness staging without discovery, explicit
+publish, Theatre discovery/manifest/grant and full/range bytes, reopen, exact original publish
+receipt and withdrawal. Private bytes remain available to the authorized owner after withdrawal.
+
+Its authority is explicitly synthetic development authority. Reopen reconstructs the router/file;
+it is not an OS-process restart. Abandoning a handler response is not injected network loss.
+The HTTPS origin is a routing identity with in-process request dispatch, not actual TLS or CDN
+acceptance. The signal is test-only, with no speech, provider, human listening or quality claim.
+An initial new-test assertion expected an old state on prepare replay; the actual contract
+preserves immutable submission identity and projects current admitted state. The assertion was
+corrected before PASS; no product source changed for that expectation.
+
+Full local logs and fixture helpers are ignored under
+`artifacts/agent-runs/studio-cms-part2-20261023/`. Browser fixtures use fresh disposable files,
+separate owner-only private/publication directories, local SMTP, the real Identity executable,
+and a private random playback key. No secret, fixture DB or generated media is committed.
+
+
+### Browser and actual process boundary
+
+The Part 2 browser fixture used fresh real Server/Identity binaries from the unchanged backend
+source, disposable Turso files, real Identity UDS/Argon2id and a loopback SMTP sink. The synthetic
+Studio roster is fixture-only. Studio was served on `http://127.0.0.1:8083` through the existing
+Trunk proxy to `18080`; the private and publication roots and playback key were explicit. The
+configured HTTPS media origin `https://api.example` was only a routing identity: public media
+requests below were dispatched to the real loopback Server, with no TLS/CDN claim.
+
+Executed with native Chrome controls after an in-app-browser confirmation limitation:
+
+1. Identity login, Work/unit creation and Content r1 save. Chrome independently restored the
+   saved records. Separate catalog visibility confirmation: Cancel preserved input/status;
+   confirming the exact Work r3 changed only visibility to public (r4).
+2. Brief v1 froze exact Content r1 with explicit `opus-mono-24-v1`, guidance, attribution and QA
+   declarations. UI displayed current freshness plus exact `cc-r1` and `pb-r1` pins.
+3. A generated one-second synthetic tone (3,300 bytes) was selected through the native file
+   picker, prepared and uploaded through the existing producer-bearer path. UI showed admitted
+   private bytes, rendition/profile/length/duration and SHA-256
+   `77074ff964c8002bcb161ae48d927bedcb2fc88b37f47ad473ab319bffa5870f`.
+4. Explicit private preview fetched and hashed actual bytes under the owner cookie/fence. Native
+   media controls moved play → pause → ended at 0:01/0:01. This is renderer playback behavior,
+   not human-listened quality, narration fidelity or codec acceptance on other devices.
+5. Separate QC, rights and editorial reviews used the exact rendition and named synthetic
+   evidence. Changing a decision invalidated its prior checkbox. Candidate creation stayed
+   private; readiness separately listed missing distribution rights, approval and delivery.
+6. Distribution clearance was confirmed and acknowledged, invalidating cached readiness.
+   The owner session became unconfirmed during the later approval confirmation. Same-owner
+   sign-in restored form text; current readiness still reported `approval_missing`. Recovery
+   replayed the exact original operation `c20700e9-cfc9-4baa-ac18-8d9618543603` and request
+   through the real local HTTP owner; it returned201 and readiness became blocker-free.
+   This approval recovery is HTTP evidence, not a completed browser-only approval mutation.
+7. Browser readiness refresh displayed no blockers. An explicit confirmation named the exact
+   candidate/Content/Brief/rendition and expected pointer0/none. Publish returned an immutable
+   receipt; the UI still required a separate active GET, which observed pointer1 and release
+   `a25f89dc-306d-4c10-8711-7c8ae8d6b552`, manifest
+   `rm-r1:sha256:16dc77dc89016019f4cfaaf9abb9e14d702f95608d4941ac10c13d5709381c4e`.
+8. Independent actual anonymous Theatre HTTP observed one Work, that release/manifest, a grant,
+   the exact3,300 bytes/hash, and `206 Content-Range: bytes 0-31/3300`. Only the owned Server
+   process was restarted on the same file/key/roots; browser active GET still observed the
+   same release/pointer. This is actual process restart, separate from router reconstruction.
+9. Explicit browser withdrawal named the exact release/manifest/pointer1. Its receipt remained
+   separate from a new active GET, which confirmed no active release. Anonymous Theatre then
+   returned no Works and a new playback grant returned404. History/private files were retained.
+10. With an unsaved publication note, creating a second unit asked for discard confirmation.
+    Cancel preserved unit one and the exact note. Confirmation selected unit two with empty
+    submission/candidate IDs, no prior Brief/audio/status and no publication observation.
+
+Opened desktop Chrome captures covered exact status, preview controls and active-pointer read.
+A DevTools responsive320×720 light capture exposed native audio and long identifier overflow.
+A scoped Studio style correction was compiled by Trunk; the final same-scenario visual recheck
+is **NOT_RUN** (the bounded browser lane ended during session/password prompt recovery). No
+post-fix visual acceptance, dark-theme matrix, 200% text/zoom, OS Vietnamese IME, screen reader,
+keyboard traversal of every new action or motion recording is claimed. The existing token/focus
+styles are reused; those broader acceptance items remain open.
+
+The in-app browser could read pages but its native confirmation became inaccessible; the
+interrupted visibility attempt was independently reconciled as uncommitted before Chrome
+continuation. No uncertain mutation was blindly replayed with a new operation. A transient host
+disconnection also removed browser/execution tools; reconnect confirmed the same dirty tree,
+15GiB free and retained fixture files. No cache/data cleanup or remote/production action occurred.
+The task-owned Chrome tab and Trunk/Server/Identity/SMTP fixtures were stopped; disposable
+files and sanitized readback records remain in the ignored Part2 evidence directory. Temporary
+in-app tabs were not retained as deliverables.
+
+### Combined capability and verification boundary
+
+| Capability | Implemented / wired | Actual evidence / remaining boundary |
+| --- | --- | --- |
+| Part1 Catalog/Editorial drafts, CAS and exact Script handoff | Preserved | Part1 evidence above; independent combined source review |
+| Saved current Content → exact immutable Brief | Yes, all existing body modes | Pure binding tests; native HTTP chain; browser Text r1/Brief v1; Script/Source renderer journey separate |
+| Private prepare/upload and exact rendition receipt | Yes, existing API reused | Real native HTTP/filesystem and browser actual bytes; producer cookie isolation retained |
+| Exact owner private preview | Yes | Bounded client bytes/hash/subject tests; actual browser fetch and native playback of synthetic tone |
+| Named QC/rights/editorial review and candidate | Yes | Real native HTTP and browser named decisions; claims never imply legal/listening verification |
+| Distribution clearance and separate publication approval | Yes | Client/native tests, browser clearance; approval HTTP exact-operation recovery as disclosed |
+| Readiness → explicit publish → authoritative current pointer | Yes | Native filesystem origin chain; browser publish/receipt/current GET; actual Server restart |
+| Anonymous Theatre discovery/full/range media | Existing native owner reused | Actual loopback HTTP and filesystem bytes for browser-created fixture; no deployed TLS/CDN or native-device claim |
+| Explicit withdrawal / no automatic fallback | Yes | Native tests and browser receipt/current empty read; anonymous absence/grant404 |
+| Production Studio provisioning | Proposed ADR0047 only | Owner decision still required; fixture authority cannot qualify production |
+| Final combined preflight | Handoff command below | Exact results recorded in PR410; no clean-aggregate claim from focused tests |
+
+Checkpoint commands actually executed with Rust1.98.1:
+
+- `cargo test --locked -p cantos-studio`: PASS340 tests +2 compile-fail doctests at that checkpoint.
+  Later created-unit/no-op cleanup regressions belong to the final handoff campaign.
+- `cargo clippy --locked -p cantos-studio --all-targets --target wasm32-unknown-unknown -- -D warnings`:
+  PASS after fixing a new component visibility lint and clone-on-Copy test warnings.
+- `trunk serve --config artifacts/agent-runs/studio-cms-part2-20261023/Trunk.browser-fixture.toml --locked`
+  from Studio Web with `NO_COLOR=true`: PASS compilation, including the final CSS correction;
+  browser results are separately scoped above.
+- The real native creator/origin regression command above: PASS1 test.
+- Independent combined `cantos-code-review`: source-reviewed, findings fixed (new-unit discard,
+  cross-unit projection clearing, local confirmation cancellation and preview no-op publication).
+  The final narrow style/copy delta receives a separate incremental source pass.
+
+Final HANDOFF command, using the same pinned base:
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only --base 4a52935a598b0f53ec659bf8fb45d1730cc87e8a
+```
+
+The aggregate result and any available-gate continuation are reported verbatim in PR410. The
+Part1 baseline macOS repository failures remain separate from new regressions. Required checks,
+merge protection and production acceptance retain their gates. No merge, deployment, real mail,
+provider/TTS call or issue closure is part of this execution. The parent coordinates any later
+user-authorized merge only after reviewing the actual handoff evidence.

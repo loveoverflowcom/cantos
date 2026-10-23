@@ -160,7 +160,7 @@ fn context(facts: RwSignal<Facts>) -> Result<(CatalogWork, CatalogContentUnit), 
     })
 }
 #[component]
-fn Field(
+pub(super) fn Field(
     id: &'static str,
     label: Key,
     value: RwSignal<String>,
@@ -173,7 +173,7 @@ fn Field(
     </div>}
 }
 #[component]
-fn SelectField(
+pub(super) fn SelectField(
     id: &'static str,
     label: Key,
     value: RwSignal<String>,
@@ -227,7 +227,7 @@ pub fn ContentWorkspace(
     let file_generation = RwSignal::new(0u64);
     let file_busy = RwSignal::new(false);
     let file_error = RwSignal::new(false);
-    let credential = RwSignal::new(None::<UploadCredential>);
+    let credential = RwSignal::new(None::<super::brief_controls::LocalUploadPermission>);
     let title = RwSignal::new(String::new());
     let synopsis = RwSignal::new(String::new());
     let rights = RwSignal::new(String::new());
@@ -242,6 +242,7 @@ pub fn ContentWorkspace(
     let content_rights = RwSignal::new(String::new());
     let drafts = RwSignal::new(super::drafts::AuthoringDrafts::default());
     let ancillary_dirty = RwSignal::new(false);
+    let publication_dirty = RwSignal::new(false);
     let catalog_dirty = RwSignal::new(false);
     let units_complete = RwSignal::new(false);
     let replace_head = StoredValue::new(None::<(String, super::drafts::ContentForm)>);
@@ -259,6 +260,7 @@ pub fn ContentWorkspace(
     let naming = RwSignal::new(String::new());
     let qa = RwSignal::new(String::new());
     let producer = RwSignal::new(String::new());
+    let producer_provenance = RwSignal::new(String::new());
     let method = RwSignal::new(String::new());
     let quality = RwSignal::new(String::new());
     let submission_id = RwSignal::new(String::new());
@@ -367,7 +369,14 @@ pub fn ContentWorkspace(
                             let _ = submission_id.try_set(submission.submission.id.clone());
                             if let Command::Prepare { request, .. } = &command {
                                 let _ = credential.try_set(
-                                    UploadCredential::new(request.upload_token.clone()).ok(),
+                                    UploadCredential::new(request.upload_token.clone())
+                                        .ok()
+                                        .map(|token| {
+                                            super::brief_controls::LocalUploadPermission::new(
+                                                request.id.clone(),
+                                                token,
+                                            )
+                                        }),
                                 );
                             }
                         }
@@ -381,19 +390,23 @@ pub fn ContentWorkspace(
                             Command::CreateUnit { request, .. } => Some(request.id.clone()),
                             _ => None,
                         };
-                        let _ = facts.try_update(|f| {
-                            *f = f.apply_command(&command, reply);
-                            if let Some(id) = &created {
-                                f.unit = f.units.iter().find(|unit| &unit.id == id).cloned();
-                                f.content = None;
-                                f.content_head = None;
-                                f.content_base = Some(0);
-                                f.history = None;
-                            }
-                        });
-                        if let Some(unit) =
-                            created.and_then(|_| facts.with_untracked(|f| f.unit.clone()))
+                        let opened_created_unit = facts
+                            .try_update(|f| {
+                                *f = f.apply_command(&command, reply);
+                                created.as_ref().is_some_and(|id| f.select_created_unit(id))
+                            })
+                            .unwrap_or(false);
+                        if let Some(unit) = opened_created_unit
+                            .then(|| facts.with_untracked(|f| f.unit.clone()))
+                            .flatten()
                         {
+                            brief_version.set("0".into());
+                            submission_id.set(String::new());
+                            candidate_id.set(String::new());
+                            credential.set(None);
+                            consent.set(None);
+                            file.set(None);
+                            file_error.set(false);
                             let (metadata, content) = drafts
                                 .try_update(|drafts| drafts.open_unit(&unit))
                                 .unwrap_or_default();
@@ -461,6 +474,7 @@ pub fn ContentWorkspace(
                 facts.set(Facts::default());
                 drafts.set(super::drafts::AuthoringDrafts::default());
                 ancillary_dirty.set(false);
+                publication_dirty.set(false);
                 catalog_dirty.set(false);
                 units_complete.set(false);
                 replace_head.set_value(None);
@@ -485,6 +499,7 @@ pub fn ContentWorkspace(
                     naming,
                     qa,
                     producer,
+                    producer_provenance,
                     method,
                     quality,
                     submission_id,
@@ -531,6 +546,7 @@ pub fn ContentWorkspace(
     Effect::new(move |_| {
         dirty.set(
             ancillary_dirty.get()
+                || publication_dirty.get()
                 || catalog_dirty.get()
                 || drafts.with(super::drafts::AuthoringDrafts::has_unsaved),
         )
@@ -580,7 +596,9 @@ pub fn ContentWorkspace(
         if facts.with_untracked(|f| f.work.as_ref().is_some_and(|work| work.id == id)) {
             return;
         }
-        if (ancillary_dirty.get_untracked() || catalog_dirty.get_untracked())
+        if (ancillary_dirty.get_untracked()
+            || catalog_dirty.get_untracked()
+            || publication_dirty.get_untracked())
             && !crate::view::confirm_discard(english.get_untracked())
         {
             return;
@@ -628,6 +646,11 @@ pub fn ContentWorkspace(
         if facts.with_untracked(|f| f.unit.as_ref().is_some_and(|unit| unit.id == id)) {
             return;
         }
+        if (ancillary_dirty.get_untracked() || publication_dirty.get_untracked())
+            && !crate::view::confirm_discard(english.get_untracked())
+        {
+            return;
+        }
         replace_head.set_value(None);
         cancel_request.run(());
         file.set(None);
@@ -661,6 +684,7 @@ pub fn ContentWorkspace(
             f.brief = None;
             f.submission = None;
             f.candidate = None;
+            f.clear_publication();
         });
         credential.set(None);
         consent.set(None);
@@ -753,6 +777,7 @@ pub fn ContentWorkspace(
             }
             // These forms have their own draft ownership and contribute their own dirty flag.
             "live-edit-work-title" | "live-edit-work-synopsis" => {}
+            id if id.starts_with("live-publication-") => {}
             _ => ancillary_dirty.set(true),
         }
     });
@@ -803,7 +828,7 @@ pub fn ContentWorkspace(
             <Field id="live-rights" label=Key::Rights value=rights english=english/>
         </div><ActionButton id="live-create-work" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
             if blocked.get_untracked() { return; }
-            if (ancillary_dirty.get_untracked() || catalog_dirty.get_untracked()) && !crate::view::confirm_discard(english.get_untracked()) { return; }
+            if (ancillary_dirty.get_untracked() || catalog_dirty.get_untracked() || publication_dirty.get_untracked()) && !crate::view::confirm_discard(english.get_untracked()) { return; }
             dispatch.build((||Ok(Command::CreateWork(CreateWorkRequest {operation_id:uuid()?,id:uuid()?,kind:kind.get_untracked(),details:WorkDetailsDto {title:title.get_untracked(),synopsis:synopsis.get_untracked(),language:"vi-VN".into(),visibility:"private".into(),rights_refs:refs(rights.get_untracked())}})))());
         })>{move ||text(Key::CreateWork,english.get())}</ActionButton></details>
         <Show when=move ||facts.with(|f|f.work.is_some())>
@@ -811,7 +836,11 @@ pub fn ContentWorkspace(
             <ul class="live-list">{move ||facts.with(|f|f.units.clone()).into_iter().map(|u| {let id=u.id.clone();view! {<li><button type="button" class="cui-button" disabled=move ||blocked.get() on:click=move |_|pick_unit.run(id.clone())><span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{u.details.title}</span><small>{move ||format!("{} · r{}",copy::unit_kind(&u.kind,english.get()),u.revision)}</small></button></li>}}).collect_view()}</ul>
             <ActionButton id="live-units-next" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.units_next.is_none())) on_press=Callback::new(move |_| {if let Some(work)=facts.with_untracked(|f|f.work.clone()) {dispatch.send(Command::Units {work:work.id,cursor:facts.with_untracked(|f|f.units_next.clone())});}})>{move ||text(Key::Next,english.get())}</ActionButton>
             <details><summary>{move ||text(Key::CreateUnit,english.get())}</summary><Field id="live-unit-title" label=Key::Title value=new_unit_title english=english/><Field id="live-unit-description" label=Key::Synopsis value=new_unit_description english=english multiline=true/>
-                <ActionButton id="live-create-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((|| {let w=facts.with_untracked(|f|f.work.clone()).ok_or(ClientError::InvalidInput)?;Ok(Command::CreateUnit {work:w.id,request:CreateContentUnitRequest {operation_id:uuid()?,id:uuid()?,kind:if w.kind=="podcast" {"episode"}else {"chapter"}.into(),expected_work_revision:w.revision,details:UnitDetailsDto {title:new_unit_title.get_untracked(),description:new_unit_description.get_untracked(),source:None,script:None,content_digest:None}}})})()))>{move ||text(Key::CreateUnit,english.get())}</ActionButton>
+                <ActionButton id="live-create-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+                    if blocked.get_untracked() { return; }
+                    if (ancillary_dirty.get_untracked() || catalog_dirty.get_untracked() || publication_dirty.get_untracked()) && !crate::view::confirm_discard(english.get_untracked()) { return; }
+                    dispatch.build((|| {let w=facts.with_untracked(|f|f.work.clone()).ok_or(ClientError::InvalidInput)?;Ok(Command::CreateUnit {work:w.id,request:CreateContentUnitRequest {operation_id:uuid()?,id:uuid()?,kind:if w.kind=="podcast" {"episode"}else {"chapter"}.into(),expected_work_revision:w.revision,details:UnitDetailsDto {title:new_unit_title.get_untracked(),description:new_unit_description.get_untracked(),source:None,script:None,content_digest:None}}})})());
+                })>{move ||text(Key::CreateUnit,english.get())}</ActionButton>
             </details>
             <super::catalog_controls::WorkControls facts=facts dispatch=dispatch english=english blocked=blocked unsaved=Signal::derive(move ||dirty.get()) dirty=catalog_dirty/>
         </Show>
@@ -854,25 +883,32 @@ pub fn ContentWorkspace(
                 <Field id="live-brief-version" label=Key::Version value=brief_version english=english/><Field id="live-direction" label=Key::Notes value=notes english=english multiline=true/>
                 <SelectField id="live-profile" label=Key::Profile value=profile english=english><option value="">{move ||text(Key::SelectProfile,english.get())}</option>{[20,24,32,40].map(|rate|view! {<option value=format!("opus-mono-{rate}-v1")>{format!("Ogg Opus mono · {rate} kbps")}</option>}).collect_view()}</SelectField>
                 <Field id="live-use" label=Key::Use value=use_note english=english/><Field id="live-attribution" label=Key::Attribution value=attribution english=english/><Field id="live-naming" label=Key::Naming value=naming english=english/><Field id="live-qa" label=Key::Qa value=qa english=english multiline=true/>
-            </div><div class="toolbar"><ActionButton id="live-create-brief" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.content.is_none())||!valid_profile(&profile.get())) on_press=Callback::new(move |_|dispatch.build((|| {let(_,u)=context(facts)?;let c=facts.with_untracked(|f|f.content.clone()).ok_or(ClientError::InvalidInput)?;let mode=match c.details.body {ContentBody::Recording {}=>ProductionMode::Recording,ContentBody::Text {..}=>ProductionMode::Narration,_=>return Err(ClientError::InvalidInput)};Ok(Command::CreateBrief {unit:u.id,request:CreateProductionBriefRequest {operation_id:uuid()?,id:uuid()?,expected_version:brief_version.get_untracked().parse().map_err(|_|ClientError::InvalidInput)?,content_revision_id:c.id,content_revision_digest:c.revision_digest,guidance:BriefGuidance {editorial:EditorialIntent {mode,notes:notes.get_untracked()},voice:None,sound_design:None,required_capabilities:vec![if mode==ProductionMode::Recording {ProducerCapability::Recording}else {ProducerCapability::Narration},ProducerCapability::OggOpusMono],delivery:DeliveryConstraints {profile_id:profile.get_untracked(),permitted_use:use_note.get_untracked(),attribution:attribution.get_untracked(),naming:naming.get_untracked(),qa_instructions:qa.get_untracked()}}}})})()))>{move ||text(Key::CreateBrief,english.get())}</ActionButton>
+            </div><div class="toolbar"><ActionButton id="live-create-brief" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|super::brief_controls::brief_content(f,drafts.with(|d|d.content_dirty(&f.unit_id()))).is_none())||!valid_profile(&profile.get())) on_press=Callback::new(move |_|dispatch.build((|| {let(_,u)=context(facts)?;let c=facts.with_untracked(|f|super::brief_controls::brief_content(f,drafts.with_untracked(|d|d.content_dirty(&f.unit_id()))).cloned()).ok_or(ClientError::InvalidInput)?;let(mode,capability)=super::brief_controls::production_mode(&c.details.body);Ok(Command::CreateBrief {unit:u.id,request:CreateProductionBriefRequest {operation_id:uuid()?,id:uuid()?,expected_version:brief_version.get_untracked().parse().map_err(|_|ClientError::InvalidInput)?,content_revision_id:c.id,content_revision_digest:c.revision_digest,guidance:BriefGuidance {editorial:EditorialIntent {mode,notes:notes.get_untracked()},voice:None,sound_design:None,required_capabilities:vec![capability,ProducerCapability::OggOpusMono],delivery:DeliveryConstraints {profile_id:profile.get_untracked(),permitted_use:use_note.get_untracked(),attribution:attribution.get_untracked(),naming:naming.get_untracked(),qa_instructions:qa.get_untracked()}}}})})()))>{move ||text(Key::CreateBrief,english.get())}</ActionButton>
                 <ActionButton id="live-read-brief" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build(brief_version.get_untracked().parse().map(|version|Command::Brief {unit:facts.with_untracked(Facts::unit_id),version}).map_err(|_|ClientError::InvalidInput)))>{move ||text(Key::ReadBrief,english.get())}</ActionButton></div>
-                <pre>{move ||facts.with(|f|f.brief.as_ref().and_then(|b|serde_json::to_string_pretty(b).ok()).unwrap_or_default())}</pre>
+                <p class="help">{move ||text(Key::BriefHeadHelp,english.get())}</p>
+                <p><code>{move ||facts.with(|f|f.content_head.as_ref().map(|c|copy::content_binding(c)).unwrap_or_default())}</code></p>
+                <super::brief_controls::BriefDocument brief=Signal::derive(move ||facts.with(|f|f.brief.clone())) english=english blocked=blocked/>
             </section>
             <section id="live-audio-section" class="live-section" tabindex="-1" aria-labelledby="live-audio-title"><h3 id="live-audio-title">{move ||text(Key::Audio,english.get())}</h3><label for="live-audio-file">{move ||text(Key::File,english.get())}</label>
                 <input id="live-audio-file" type="file" accept=".ogg,audio/ogg" disabled=move ||blocked.get() on:change=move |event| {
-                    file.set(None);credential.set(None);file_error.set(false);let Some(generation)=file_generation.get_untracked().checked_add(1) else {dispatch.input_error();return;};file_generation.set(generation);
+                    file.set(None);file_error.set(false);let Some(generation)=file_generation.get_untracked().checked_add(1) else {dispatch.input_error();return;};file_generation.set(generation);
                     let actor_snapshot=actor.get_untracked();let unit_snapshot=facts.with_untracked(Facts::unit_id);
                     let selected=event.target().and_then(|t|t.dyn_into::<web_sys::HtmlInputElement>().ok()).and_then(|i|i.files()).and_then(|f|f.get(0));
                     if let Some(selected)=selected {file_busy.set(true);spawn_local(async move {let result=browser::read_audio(selected).await;if file_generation.try_get_untracked()==Some(generation)&&actor.try_get_untracked()==Some(actor_snapshot)&&facts.try_with_untracked(Facts::unit_id)==Some(unit_snapshot) {let _=file_busy.try_set(false);match result {Ok(value)=>{let _=file.try_set(Some(value));},Err(_)=>{let _=file_error.try_set(true);}}}});}
                 }/>
-                <p>{move ||if file.with(|f|f.is_some()) {text(Key::FileReady,english.get())}else {""}}</p><div class="live-grid"><Field id="live-producer" label=Key::Producer value=producer english=english/><Field id="live-method" label=Key::Method value=method english=english/><Field id="live-quality" label=Key::Quality value=quality english=english multiline=true/></div>
-                <ActionButton id="live-prepare" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||file.with(|f|f.is_none())||facts.with(|f|f.brief.as_ref().is_none_or(|b|b.freshness!=BriefFreshness::Current))) on_press=Callback::new(move |_|dispatch.build((|| {let(_,u)=context(facts)?;let b=facts.with_untracked(|f|f.brief.clone()).ok_or(ClientError::InvalidInput)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;let expires_at=(js_sys::Date::now() as i64).checked_add(3_600_000).ok_or(ClientError::InvalidInput)?;Ok(Command::Prepare {unit:u.id.clone(),request:CreateAudioSubmissionRequest {operation_id:uuid()?,id:uuid()?,binding:AudioBinding {work_id:b.brief.work.id,unit_id:u.id,content_revision_id:b.brief.content.id,content_revision_digest:b.brief.content.revision_digest,brief_id:b.brief.id,brief_version:b.brief.version,brief_digest:b.brief.digest,profile_id:b.brief.guidance.delivery.profile_id},expected_sha256:sha,expected_byte_length:bytes.len() as u64,declarations:ProducerDeclarations {producer:producer.get_untracked(),method:method.get_untracked(),provenance:provenance.get_untracked(),rights_refs:refs(content_rights.get_untracked()),quality_report:quality.get_untracked()},upload_token:browser::upload_token()?,expires_at}})})()))>{move ||text(Key::Prepare,english.get())}</ActionButton>
+                <p>{move ||if file.with(|f|f.is_some()) {text(Key::FileReady,english.get())}else {""}}</p><div class="live-grid"><Field id="live-producer" label=Key::Producer value=producer english=english/><Field id="live-method" label=Key::Method value=method english=english/><Field id="live-producer-provenance" label=Key::ProducerProvenance value=producer_provenance english=english multiline=true/><Field id="live-quality" label=Key::Quality value=quality english=english multiline=true/></div>
+                <ActionButton id="live-prepare" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||file.with(|f|f.is_none())||facts.with(|f|f.brief.as_ref().is_none_or(|b|b.freshness!=BriefFreshness::Current))) on_press=Callback::new(move |_|dispatch.build((|| {let(w,u)=context(facts)?;let b=facts.with_untracked(|f|f.brief.clone()).ok_or(ClientError::InvalidInput)?;let binding=super::brief_controls::submission_binding(&b,&w.id,&u.id)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;let expires_at=(js_sys::Date::now() as i64).checked_add(3_600_000).ok_or(ClientError::InvalidInput)?;Ok(Command::Prepare {unit:u.id.clone(),request:CreateAudioSubmissionRequest {operation_id:uuid()?,id:uuid()?,binding,expected_sha256:sha,expected_byte_length:bytes.len() as u64,declarations:ProducerDeclarations {producer:producer.get_untracked(),method:method.get_untracked(),provenance:producer_provenance.get_untracked(),rights_refs:b.brief.work.rights_refs.clone(),quality_report:quality.get_untracked()},upload_token:browser::upload_token()?,expires_at}})})()))>{move ||text(Key::Prepare,english.get())}</ActionButton>
                 <Field id="live-submission-id" label=Key::Submission value=submission_id english=english/>
                 <div class="toolbar"><ActionButton id="live-read-submission" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::Submission {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()}))>{move ||text(Key::ReadSubmission,english.get())}</ActionButton>
-                <ActionButton id="live-upload" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||credential.with(|c|c.is_none())||file.with(|f|f.is_none())||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes))) on_press=Callback::new(move |_|dispatch.build((|| {let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;if sha!=s.submission.expected_sha256 || bytes.len() as u64!=s.submission.expected_byte_length {return Err(ClientError::InvalidInput)};Ok(Command::Upload {binding:s.submission.binding,sha256:sha,submission:s.submission.id,credential:credential.get_untracked().ok_or(ClientError::InvalidInput)?,bytes})})()))>{move ||text(Key::Upload,english.get())}</ActionButton>
+                <ActionButton id="live-upload" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|credential.with(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).is_none())))||file.with(|f|f.is_none())||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes))) on_press=Callback::new(move |_|dispatch.build((|| {let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;if sha!=s.submission.expected_sha256 || bytes.len() as u64!=s.submission.expected_byte_length {return Err(ClientError::InvalidInput)};Ok(Command::Upload {binding:s.submission.binding,sha256:sha,submission:s.submission.id.clone(),credential:credential.with_untracked(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).cloned()).ok_or(ClientError::InvalidInput)?,bytes})})()))>{move ||text(Key::Upload,english.get())}</ActionButton>
                 <ActionButton id="live-revoke" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {if crate::view::confirm_discard(english.get_untracked()) {dispatch.send(Command::Revoke {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()});}})>{move ||text(Key::Revoke,english.get())}</ActionButton></div>
-                <pre>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|serde_json::to_string_pretty(s).ok()).unwrap_or_default())}</pre>
+                <p role="status">{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_state(s.state,english.get())).unwrap_or_default())}</p>
+                <p class="help" hidden=move ||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes||credential.with(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).is_some())))>{move ||text(Key::CredentialMissing,english.get())}</p>
+                <p><code>{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_binding(&s.submission)).unwrap_or_default())}</code></p>
+                <p><code>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|s.rendition.as_ref()).map(|r|copy::rendition_summary(r)).unwrap_or_default())}</code></p>
+                <details><summary>{move ||text(Key::InspectDocument,english.get())}</summary><pre>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|serde_json::to_string_pretty(s).ok()).unwrap_or_default())}</pre></details>
             </section>
+            <super::audio_preview::AudioPreview facts=facts dispatch=dispatch actor=actor active=active session_pending=session_pending english=english blocked=blocked/>
             <section class="live-section"><h3>{move ||text(Key::Review,english.get())}</h3><div class="live-grid">
                 <SelectField id="live-review-kind" label=Key::ReviewKind value=review_kind english=english><option value="qc">{move ||copy::review_kind(AudioReviewKind::Qc,english.get())}</option><option value="rights">{move ||copy::review_kind(AudioReviewKind::Rights,english.get())}</option><option value="editorial">{move ||copy::review_kind(AudioReviewKind::Editorial,english.get())}</option></SelectField>
                 <SelectField id="live-decision" label=Key::Decision value=decision english=english><option value="rejected">{move ||copy::review_decision(AudioReviewDecision::Rejected,english.get())}</option><option value="approved">{move ||copy::review_decision(AudioReviewDecision::Approved,english.get())}</option><option value="withdrawn">{move ||copy::review_decision(AudioReviewDecision::Withdrawn,english.get())}</option></SelectField>
@@ -881,8 +917,12 @@ pub fn ContentWorkspace(
                 <ActionButton id="live-review" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||!confirmed.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|dispatch.build((|| {let current=current_review.get_untracked().ok_or(ClientError::InvalidInput)?;if !consent.with_untracked(|c|c.as_ref().is_some_and(|c|c.authorizes(&current))) {return Err(ClientError::InvalidInput)};Ok(Command::Review {unit:current.unit.clone(),submission:current.submission.clone(),request:current.request(uuid()?)})})()))>{move ||text(Key::Review,english.get())}</ActionButton>
                 <ActionButton id="live-candidate" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|dispatch.build((|| {let(_,u)=context(facts)?;let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let r=s.rendition.ok_or(ClientError::InvalidInput)?;Ok(Command::Candidate {unit:u.id,submission:s.submission.id,request:CreateReleaseCandidateRequest {operation_id:uuid()?,rendition_digest:r.digest}})})()))>{move ||text(Key::CreateCandidate,english.get())}</ActionButton>
                 <Field id="live-candidate-id" label=Key::Candidate value=candidate_id english=english/><ActionButton id="live-read-candidate" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::CandidateRead {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked(),candidate:candidate_id.get_untracked()}))>{move ||text(Key::ReadCandidate,english.get())}</ActionButton>
-                <p>{move ||text(Key::Private,english.get())}</p><pre>{move ||facts.with(|f|f.candidate.as_ref().and_then(|c|serde_json::to_string_pretty(c).ok()).unwrap_or_default())}</pre>
+                <p>{move ||text(Key::Private,english.get())}</p>
+                <ul>{move ||facts.with(|f|f.candidate.as_ref().map(|c|c.blockers.clone()).unwrap_or_default()).into_iter().map(|blocker|view!{<li>{move ||copy::audio_blocker(blocker,english.get())}</li>}).collect_view()}</ul>
+                <p><code>{move ||facts.with(|f|f.candidate.as_ref().map(|c|copy::candidate_binding(&c.candidate)).unwrap_or_default())}</code></p>
+                <details><summary>{move ||text(Key::InspectDocument,english.get())}</summary><pre>{move ||facts.with(|f|f.candidate.as_ref().and_then(|c|serde_json::to_string_pretty(c).ok()).unwrap_or_default())}</pre></details>
             </section>
+            <super::publication::PublicationPanel facts=facts dispatch=dispatch english=english blocked=blocked dirty=publication_dirty/>
         </Show>
         </div>
     </section>}

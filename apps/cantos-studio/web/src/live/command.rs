@@ -251,6 +251,36 @@ pub enum Command {
         submission: String,
         candidate: String,
     },
+    PreviewAudio {
+        subject: super::audio_preview::Subject,
+    },
+    Readiness {
+        unit: String,
+        candidate: String,
+        candidate_digest: String,
+    },
+    RecordDistributionRights {
+        unit: String,
+        candidate: String,
+        request: RecordDistributionRightsRequest,
+    },
+    RecordPublicationApproval {
+        unit: String,
+        candidate: String,
+        request: RecordPublicationApprovalRequest,
+    },
+    Publish {
+        unit: String,
+        candidate: String,
+        request: PublishAudioReleaseRequest,
+    },
+    ActiveRelease {
+        unit: String,
+    },
+    Withdraw {
+        unit: String,
+        request: WithdrawAudioReleaseRequest,
+    },
     ProducerStatus {
         submission: String,
         credential: UploadCredential,
@@ -310,6 +340,12 @@ pub enum Reply {
     Rendition(Box<AudioRenditionDocument>),
     Review(AudioReviewDocument),
     Candidate(ReleaseCandidateResponse),
+    AudioPreview(super::audio_preview::VerifiedAudio),
+    Readiness(Box<PublicationReadinessResponse>),
+    DistributionRights(DistributionClearanceDocument),
+    PublicationApproval(PublicationApprovalDocument),
+    ActiveRelease(Box<ActiveAudioReleaseResponse>),
+    Withdrawal(AudioReleaseWithdrawalResponse),
     Revoked,
     Artwork(WorkArtworkResponse),
     ImagePrepared(ImageIntentDocument),
@@ -389,6 +425,46 @@ impl Command {
                 submission_path(unit, submission)?,
                 id(candidate)?
             ),
+            Self::PreviewAudio { subject } => {
+                if !subject.valid() {
+                    return Err(ClientError::InvalidInput);
+                }
+                format!(
+                    "{}/renditions/{}/bytes",
+                    submission_path(&subject.binding.unit_id, &subject.submission)?,
+                    id(&subject.rendition)?
+                )
+            }
+            Self::Readiness {
+                unit, candidate, ..
+            } => format!(
+                "{}/release-candidates/{}/readiness",
+                unit_path(unit)?,
+                id(candidate)?
+            ),
+            Self::RecordDistributionRights {
+                unit, candidate, ..
+            } => format!(
+                "{}/release-candidates/{}/distribution-rights",
+                unit_path(unit)?,
+                id(candidate)?
+            ),
+            Self::RecordPublicationApproval {
+                unit, candidate, ..
+            } => format!(
+                "{}/release-candidates/{}/publication-approvals",
+                unit_path(unit)?,
+                id(candidate)?
+            ),
+            Self::Publish {
+                unit, candidate, ..
+            } => format!(
+                "{}/release-candidates/{}/publish",
+                unit_path(unit)?,
+                id(candidate)?
+            ),
+            Self::ActiveRelease { unit } => format!("{}/publication/active", unit_path(unit)?),
+            Self::Withdraw { unit, .. } => format!("{}/publication/withdraw", unit_path(unit)?),
             Self::ProducerStatus { submission, .. } => {
                 format!("{base}/producer/audio-submissions/{}", id(submission)?)
             }
@@ -460,6 +536,10 @@ impl Command {
             | Self::Prepare { .. }
             | Self::Review { .. }
             | Self::Candidate { .. }
+            | Self::RecordDistributionRights { .. }
+            | Self::RecordPublicationApproval { .. }
+            | Self::Publish { .. }
+            | Self::Withdraw { .. }
             | Self::IssueDelegation { .. }
             | Self::PrepareImage { .. } => "POST",
             _ => "GET",
@@ -507,6 +587,10 @@ impl Command {
             Self::Prepare { request, .. } => encode(request),
             Self::Review { request, .. } => encode(request),
             Self::Candidate { request, .. } => encode(request),
+            Self::RecordDistributionRights { request, .. } => encode(request),
+            Self::RecordPublicationApproval { request, .. } => encode(request),
+            Self::Publish { request, .. } => encode(request),
+            Self::Withdraw { request, .. } => encode(request),
             Self::IssueDelegation { request, .. } => encode(request),
             Self::PrepareImage { request, .. } => encode(request),
             Self::SetArtwork { request, .. } => encode(request),
@@ -514,16 +598,21 @@ impl Command {
         }
     }
     pub fn decode(&self, status: u16, body: &[u8]) -> Result<Reply, ClientError> {
-        let artwork_status = match self {
-            Self::PrepareImage { .. } => Some(201),
+        let exact_status = match self {
+            Self::RecordDistributionRights { .. }
+            | Self::RecordPublicationApproval { .. }
+            | Self::Publish { .. }
+            | Self::PrepareImage { .. } => Some(201),
+            Self::Readiness { .. } | Self::ActiveRelease { .. } | Self::Withdraw { .. } => {
+                Some(200)
+            }
             Self::Artwork { .. }
             | Self::SetArtwork { .. }
             | Self::ImageIntent { .. }
             | Self::UploadImage { .. } => Some(200),
             _ => None,
         };
-        if (200..300).contains(&status) && artwork_status.is_some_and(|expected| expected != status)
-        {
+        if (200..300).contains(&status) && exact_status.is_some_and(|expected| expected != status) {
             return Err(ClientError::Protocol { status });
         }
         if self.expects_no_content() && (200..300).contains(&status) {
@@ -566,6 +655,18 @@ impl Command {
             Self::Candidate { .. } | Self::CandidateRead { .. } => {
                 Reply::Candidate(parse(body, status)?)
             }
+            Self::PreviewAudio { .. } => return Err(ClientError::Protocol { status }),
+            Self::Readiness { .. } => Reply::Readiness(Box::new(parse(body, status)?)),
+            Self::RecordDistributionRights { .. } => {
+                Reply::DistributionRights(parse(body, status)?)
+            }
+            Self::RecordPublicationApproval { .. } => {
+                Reply::PublicationApproval(parse(body, status)?)
+            }
+            Self::Publish { .. } | Self::ActiveRelease { .. } => {
+                Reply::ActiveRelease(Box::new(parse(body, status)?))
+            }
+            Self::Withdraw { .. } => Reply::Withdrawal(parse(body, status)?),
             Self::Revoke { .. } | Self::RevokeDelegation { .. } => Reply::Revoked,
             Self::Artwork { .. } | Self::SetArtwork { .. } => Reply::Artwork(parse(body, status)?),
             Self::PrepareImage { .. } => Reply::ImagePrepared(parse(body, status)?),
@@ -647,6 +748,46 @@ impl Command {
                 unit, candidate, ..
             } => matches!(reply, Reply::Candidate(result)
                 if result.candidate.binding.unit_id == *unit && result.candidate.id == *candidate),
+            Self::PreviewAudio { subject } => {
+                matches!(reply, Reply::AudioPreview(result) if result.answers(subject))
+            }
+            Self::Readiness {
+                candidate,
+                candidate_digest,
+                ..
+            } => matches!(reply, Reply::Readiness(result)
+                if result.candidate_id == *candidate
+                    && result.candidate_digest == *candidate_digest
+                    && consistent_readiness(result)),
+            Self::RecordDistributionRights {
+                candidate, request, ..
+            } => matches!(reply, Reply::DistributionRights(result)
+                if result.candidate_id == *candidate
+                    && consistent_clearance(result)
+                    && normalized_rights(&result.request) == normalized_rights(request)),
+            Self::RecordPublicationApproval {
+                candidate, request, ..
+            } => matches!(reply, Reply::PublicationApproval(result)
+                if result.candidate_id == *candidate && result.request == *request
+                    && consistent_approval(result)),
+            Self::Publish {
+                unit,
+                candidate,
+                request,
+            } => matches!(reply, Reply::ActiveRelease(result)
+                if request.expected_pointer_version.checked_add(1) == Some(result.pointer_version)
+                    && result.release.as_ref().is_some_and(|release|
+                        consistent_release(unit, release)
+                            && release.manifest.candidate_id == *candidate
+                            && release.manifest.candidate_digest == request.candidate_digest
+                            && release.supersedes == request.expected_active_release_id)),
+            Self::ActiveRelease { unit } => matches!(reply, Reply::ActiveRelease(result)
+                if result.release.as_ref().is_none_or(|release|
+                    result.pointer_version > 0 && consistent_release(unit, release))),
+            Self::Withdraw { request, .. } => matches!(reply, Reply::Withdrawal(result)
+                if result.withdrawn_release_id == request.release_id
+                    && (result.pointer_version == request.expected_pointer_version
+                        || request.expected_pointer_version.checked_add(1) == Some(result.pointer_version))),
             Self::Revoke { .. } | Self::RevokeDelegation { .. } => matches!(reply, Reply::Revoked),
             Self::Artwork { work } => {
                 matches!(reply, Reply::Artwork(r) if r.work_id == *work && r.work_revision > 0)
@@ -735,6 +876,19 @@ impl Reply {
             (Command::Candidate { .. }, Self::Candidate(reply)) => {
                 reply.candidate.created_by == actor
             }
+            (Command::PreviewAudio { .. }, Self::AudioPreview(reply)) => {
+                reply.subject().owner == actor
+            }
+            (Command::RecordDistributionRights { .. }, Self::DistributionRights(reply)) => {
+                reply.actor_id == actor
+            }
+            (Command::RecordPublicationApproval { .. }, Self::PublicationApproval(reply)) => {
+                reply.actor_id == actor
+            }
+            (Command::Publish { .. }, Self::ActiveRelease(reply)) => reply
+                .release
+                .as_ref()
+                .is_some_and(|release| release.published_by == actor),
             // The grantor is always the authenticated owner, never a request field.
             (Command::IssueDelegation { .. }, Self::DelegationIssued(issued)) => {
                 issued.grant.grantor_id == actor
@@ -836,4 +990,69 @@ impl Command {
             _ => false,
         }
     }
+}
+
+// These checks correlate server facts to the submitted question. They neither recompute domain
+// fingerprints nor decide rights, approval or delivery eligibility in the client.
+fn normalized_rights(request: &RecordDistributionRightsRequest) -> RecordDistributionRightsRequest {
+    let mut normalized = request.clone();
+    normalized.rights_refs.sort();
+    normalized.evidence_refs.sort();
+    normalized
+}
+fn consistent_clearance(record: &DistributionClearanceDocument) -> bool {
+    record.sequence > 0
+        && record.recorded_at >= 0
+        && id(&record.id).is_ok()
+        && id(&record.candidate_id).is_ok()
+        && id(&record.request.operation_id).is_ok()
+        && !record.actor_id.is_empty()
+        && !record.digest.is_empty()
+}
+fn consistent_approval(record: &PublicationApprovalDocument) -> bool {
+    record.sequence > 0
+        && record.recorded_at >= 0
+        && id(&record.id).is_ok()
+        && id(&record.candidate_id).is_ok()
+        && id(&record.request.operation_id).is_ok()
+        && !record.actor_id.is_empty()
+        && !record.digest.is_empty()
+}
+fn consistent_readiness(result: &PublicationReadinessResponse) -> bool {
+    result
+        .active_release_id
+        .as_ref()
+        .is_none_or(|release| result.pointer_version > 0 && id(release).is_ok())
+        && result.clearance.as_ref().is_none_or(|record| {
+            consistent_clearance(record)
+                && record.candidate_id == result.candidate_id
+                && record.request.candidate_digest == result.candidate_digest
+        })
+        && result.approval.as_ref().is_none_or(|record| {
+            consistent_approval(record)
+                && record.candidate_id == result.candidate_id
+                && record.request.candidate_digest == result.candidate_digest
+        })
+}
+fn consistent_release(unit: &str, release: &AudioReleaseDocument) -> bool {
+    let manifest = &release.manifest;
+    id(&release.id).is_ok()
+        && release.published_at >= 0
+        && !release.published_by.is_empty()
+        && !release.digest.is_empty()
+        && !manifest.digest.is_empty()
+        && manifest.unit_id == unit
+        && manifest.binding.unit_id == unit
+        && manifest.work_id == manifest.binding.work_id
+        && manifest.media.profile_id == manifest.binding.profile_id
+        && manifest.candidate_id == manifest.distribution_clearance.candidate_id
+        && manifest.candidate_id == manifest.publication_approval.candidate_id
+        && manifest.candidate_digest == manifest.distribution_clearance.request.candidate_digest
+        && manifest.candidate_digest == manifest.publication_approval.request.candidate_digest
+        && manifest.publication_approval.request.clearance_digest
+            == manifest.distribution_clearance.digest
+        && release.published_by == manifest.distribution_clearance.actor_id
+        && release.published_by == manifest.publication_approval.actor_id
+        && consistent_clearance(&manifest.distribution_clearance)
+        && consistent_approval(&manifest.publication_approval)
 }

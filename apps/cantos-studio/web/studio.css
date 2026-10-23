@@ -280,3 +280,7 @@ body { margin: 0; }
   .studio-shell .workspace-nav-compact { display: block; min-inline-size: 0; inline-size: 100%; }
   .studio-shell .studio-workbench > .workspace-nav { padding: var(--cantos-space-sm); }
 }
+
+/* Exact production identifiers and native media controls stay inside narrow Studio sections. */
+.studio-shell .live-section :where(p, code) { min-inline-size: 0; max-inline-size: 100%; overflow-wrap: anywhere; }
+.studio-shell .live-section audio { display: block; inline-size: 100%; max-inline-size: 100%; }

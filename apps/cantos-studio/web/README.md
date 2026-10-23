@@ -480,3 +480,30 @@ base `services/cantos-server/src/adapters/inbound/http/cors.rs` does not, so the
 absent and the owner holds for its conservative 30 s default instead of the Server's value (API
 owner follow-up; same-origin proxies are unaffected). Cross-tab cookie ordering and logout-while-busy
 have host tests only: no browser, Web Locks or real Server/Identity acceptance exists.
+
+
+## Content to publication
+
+The Content & audio workspace uses the saved current Content head for a new Brief; historical
+inspection cannot retarget it, and local Content edits must be saved first. Text/Source,
+Recording and exact Script inputs map to their existing explicit production modes. Briefs expose
+exact Content/Brief digests and freshness, a private copy action and the immutable stored document.
+Prepare uses that Brief's exact Work/unit/revision/profile and rights set, with separate producer
+provenance. A retained upload capability belongs only to its acknowledged submission; reselecting
+a file cannot move it to another submission. Producer requests still omit the Studio cookie.
+
+The publication composition consumes the existing [Publication v1](../../../services/cantos-server/contracts/studio/publication/v1/README.md)
+through the shared request/session owner. Readiness, distribution clearance, publication approval,
+explicit publish, active-release read and withdrawal are separate actions. Confirmations identify
+the exact unit/candidate/revision/rendition and pointer. A publish receipt acknowledges its original
+operation; a later explicit active-release GET observes current state. Unknown writes retain the
+same operation and request for retry, including after reauthentication, and never use an active
+lookup as proof that an unknown publish committed.
+
+Work catalog visibility is a separate revision-guarded metadata edit. Set it deliberately before
+creating a candidate; changing metadata invalidates readiness. Public visibility alone neither
+publishes audio nor reveals private drafts. Readiness displays every server blocker, including
+unavailable delivery when the host has not explicitly configured its existing publication adapter.
+Registered rights/evidence and named owner reviews are claims, not legal verification or a claim
+that a human listened. [Combined CMS evidence](../../../docs/evidence/studio-cms-editorial-20261023.md)
+records the actual local/native/browser boundaries and remaining production acceptance.
