@@ -353,3 +353,58 @@ The only later code delta from the passed native run is the two equivalent, WASM
 reference replacements, covered by the passed final Web lint/build and consumer contract tests.
 
 Final disk observation after these builds: about 5.3 GiB free. No target-wide/cache cleanup, user-data deletion or fixture-file deletion was performed in Part2. Verify available disk before a later build; retained native data stays with its actual owners.
+
+## Pre-merge P2 repair: ancillary form protection
+
+The parent identified a caller regression at handoff head `9487b755`: the workspace catch-all
+input handler and the Artwork/Delegation panels shared a true-only `ancillary_dirty` latch.
+Lookup input or editing/reverting Brief notes could permanently block the newly added Catalog
+archive/reorder controls. Source tracing confirmed the parent report. Extracting the existing
+latch decision into the native-testable owner reproduced three failing assertions before the
+snapshot repair; no browser reproduction or acceptance was added during this bounded repair.
+
+The workspace now compares exact unit-bound Brief, producer and review forms with their own
+acknowledged baselines. Lookup controls and child-panel events cannot create a production write
+draft. Only the original operation's correlated acknowledgement settles its submitted section;
+later typing, other sections, other-unit drafts and unrelated authoring drafts survive. Explicit
+navigation discard checks the confirmed current snapshot. The current rendition's consent
+projection is synchronized separately and cannot silently acknowledge review text.
+
+Artwork and Delegation report independent current dirty flags. Reverting/discarding actual
+local changes or dismissing a show-once secret releases only that panel's protection. Exact
+submitted snapshots protect later typing and replacement files. Work-owned child drafts remain
+owned by the Work across unit switches; unresolved requests retain their original guards.
+
+An exact acknowledged audio Upload consumes only the selected file generation/hash/length,
+including existing owner-receipt reconciliation. A later file choice stays protected. Consuming
+the accepted selection prevents a later read that clears cached submission facts from falsely
+making those already-admitted bytes unsaved again. This is client cleanup, not new admission or
+publication authority; no canonical contract, HTTP handler, policy, schema or storage changed.
+
+| Repair evidence | Result / scope |
+| --- | --- |
+| Pure legacy-latch extraction | FAIL before repair: 3 expected regressions; retained log `ancillary-regression-before.log`. |
+| Studio suite | PASS: `RUSTUP_TOOLCHAIN=1.98.1 cargo test --locked -p cantos-studio`: 356 tests +2 doctests, including 11 added ancillary/child regressions. Final log `ancillary-studio-final.log`. |
+| Native lint | PASS: `RUSTUP_TOOLCHAIN=1.98.1 cargo clippy --locked -p cantos-studio --all-targets -- -D warnings`; `ancillary-native-lint.log`. |
+| Formatting and Studio Web | PASS: changed-only continuation below, final WASM lint and Trunk build; `ancillary-preflight-web.log`. |
+| Independent repair source review | PASS, source-reviewed: full delta against `9487b755`, then consent-effect increment; no actionable findings. |
+| Browser / real-I/O repair acceptance | NOT_RUN: this is a bounded client-state repair. Earlier real-service observations remain historical evidence, not a renderer pass for this new source. |
+
+The continuation used the same pinned base and explicit reuse of unchanged Server/media gates:
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only --base 4a52935a598b0f53ec659bf8fb45d1730cc87e8a --skip repository --skip rust-lint --skip rust-tests --skip wav-reference --skip audio-inspection
+```
+
+It printed `PASS` for rust-format, Studio web-lint and web-build, with five explicitly skipped
+`NOT_RUN` steps. The affected Studio native tests/lint were run separately above; Server,
+canonical contract and media inputs did not change. The previous unskipped repository result
+remains **FAIL** for the two reproduced macOS baseline failures, not green aggregate acceptance.
+Static repository/localization hygiene is checked again for this final delta; no broad rebuild,
+target deletion, production write, merge or deployment is part of the repair. Final observed
+free disk before packaging was about5.1GiB; existing data and fixtures were preserved.
+
+Remaining targeted renderer check: in a real authorized Studio session, edit/erase a lookup ID
+and edit/revert Brief notes; observe archive/reorder release their dirty guard. Genuine unsaved
+Brief/review/Artwork/Delegation work and unresolved writes must continue blocking destructive
+Catalog actions. Save/discard/dismiss each exact owner and verify unrelated drafts remain.

@@ -32,3 +32,5 @@ pub mod publication;
 mod publication_commands_tests;
 
 pub mod audio_preview;
+
+pub mod ancillary;

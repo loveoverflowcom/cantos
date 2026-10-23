@@ -173,6 +173,18 @@ impl Default for IssueDraft {
 }
 
 impl IssueDraft {
+    /// A current draft or still-visible show-once secret needs navigation protection.
+    pub fn is_dirty(&self, has_secret: bool) -> bool {
+        has_secret || *self != Self::default()
+    }
+    pub fn acknowledge_issue(&mut self, submitted: &Self) -> bool {
+        if self == submitted {
+            *self = Self::default();
+            true
+        } else {
+            false
+        }
+    }
     /// Toggle one action, keeping canonical order and no duplicates.
     pub fn with_action(&self, action: DelegationAction, selected: bool) -> Self {
         let actions = ACTIONS

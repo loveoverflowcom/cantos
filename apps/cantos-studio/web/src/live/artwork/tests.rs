@@ -824,3 +824,28 @@ fn artwork_locale_projection_updates_labels_errors_and_accessible_names_without_
         }
     });
 }
+
+#[test]
+fn ancillary_artwork_edits_revert_and_exact_selection_acknowledgement_preserves_later_input() {
+    let mut current = Draft::default();
+    assert!(!current.is_dirty(false));
+    current.alt = "Bìa mới".into();
+    assert!(current.is_dirty(false));
+    current.alt.clear();
+    assert!(!current.is_dirty(false));
+    assert!(current.is_dirty(true));
+    current.provenance = "Original fixture".into();
+    current.rights = "rights_1".into();
+    current.alt = "Bìa mới".into();
+    let submitted = current.clone();
+    current.alt = "Later alternative".into();
+    let later = current.clone();
+    assert!(!current.acknowledge_selection(&submitted, true));
+    assert_eq!(current, later);
+    current = submitted.clone();
+    assert!(!current.acknowledge_selection(&submitted, false));
+    assert_eq!(current, submitted);
+    assert!(current.acknowledge_selection(&submitted, true));
+    assert_eq!(current, Draft::default());
+    assert!(!current.is_dirty(false));
+}

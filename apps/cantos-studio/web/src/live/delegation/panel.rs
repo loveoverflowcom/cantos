@@ -106,6 +106,7 @@ pub fn DelegationPanel(
     let state = RwSignal::new(RequestState::default());
     let grants = RwSignal::new(Grants::default());
     let draft = RwSignal::new(IssueDraft::default());
+    let submitted_issue = StoredValue::new(None::<(String, IssueDraft)>);
     let issue_problems = RwSignal::new(Vec::<Problem>::new());
     let copy_state = RwSignal::new(CopyState::Idle);
     let revoke_target = RwSignal::new(None::<DelegationGrantResponse>);
@@ -140,13 +141,28 @@ pub fn DelegationPanel(
             move |(command, reply): (Command, Result<Reply, ClientError>)| match reply {
                 Ok(reply) => {
                     let focus = match (&command, &reply) {
-                        (Command::IssueDelegation { .. }, Reply::DelegationIssued(issued)) => {
-                            let _ = draft.try_set(IssueDraft::default());
+                        (
+                            Command::IssueDelegation { request, .. },
+                            Reply::DelegationIssued(issued),
+                        ) => {
+                            let submitted = submitted_issue
+                                .try_update_value(|snapshot| {
+                                    if snapshot.as_ref().is_some_and(|(operation, _)| {
+                                        operation == &request.operation_id
+                                    }) {
+                                        snapshot.take().map(|(_, draft)| draft)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .flatten();
+                            if let Some(submitted) = submitted {
+                                let _ = draft
+                                    .try_update(|current| current.acknowledge_issue(&submitted));
+                            }
                             let _ = issue_problems.try_set(vec![]);
                             Some(if issued.token.is_some() {
                                 let _ = copy_state.try_set(CopyState::Idle);
-                                // A visible unsaved secret is protected by the unload prompt.
-                                let _ = dirty.try_set(true);
                                 REVEAL_HEADING.to_owned()
                             } else {
                                 UNRECOVERABLE_HEADING.to_owned()
@@ -210,6 +226,7 @@ pub fn DelegationPanel(
             });
             grants.set(Grants::for_work(&target));
             draft.set(IssueDraft::default());
+            submitted_issue.set_value(None);
             issue_problems.set(vec![]);
             copy_state.set(CopyState::Idle);
             revoke_open.set(false);
@@ -229,6 +246,8 @@ pub fn DelegationPanel(
         let activity = state.with(request_activity);
         busy.set(activity.busy);
         unresolved.set(activity.unresolved);
+        dirty
+            .set(draft.with(|draft| draft.is_dirty(grants.with(|grants| grants.reveal.is_some()))));
     });
     // Keep this panel mounted with the workspace: context changes reset its facts while its
     // reactive controls retain a stable owner. Cleanup performs only the local abort effect.
@@ -252,10 +271,9 @@ pub fn DelegationPanel(
         let draft = draft.get_untracked();
         issue_problems.set(vec![]);
         dispatch.build((|| {
-            Ok(Command::IssueDelegation {
-                work,
-                request: draft.request(uuid()?, uuid()?, now_ms())?,
-            })
+            let request = draft.request(uuid()?, uuid()?, now_ms())?;
+            submitted_issue.set_value(Some((request.operation_id.clone(), draft.clone())));
+            Ok(Command::IssueDelegation { work, request })
         })());
     });
     let open_revoke = Callback::new(move |grant: DelegationGrantResponse| {

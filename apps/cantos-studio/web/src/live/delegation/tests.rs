@@ -909,3 +909,26 @@ fn lost_focus_returns_to_the_field_retry_or_status_that_explains_the_outcome() {
         assert!(html.contains(&format!("id=\"{id}\"")), "{id}");
     }
 }
+
+#[test]
+fn ancillary_delegation_edits_revert_and_secret_dismissal_leave_only_actual_unsaved_input() {
+    let mut current = IssueDraft::default();
+    assert!(!current.is_dirty(false));
+    current.delegate = "producer".into();
+    assert!(current.is_dirty(false));
+    current.delegate.clear();
+    assert!(!current.is_dirty(false));
+    assert!(current.is_dirty(true));
+    current.delegate = "producer".into();
+    let submitted = current.clone();
+    current.lifetime = Lifetime::TwoWeeks;
+    let later = current.clone();
+    assert!(!current.acknowledge_issue(&submitted));
+    assert_eq!(current, later);
+    assert!(current.is_dirty(false));
+    current = submitted.clone();
+    assert!(current.acknowledge_issue(&submitted));
+    assert_eq!(current, IssueDraft::default());
+    assert!(current.is_dirty(true));
+    assert!(!current.is_dirty(false));
+}
