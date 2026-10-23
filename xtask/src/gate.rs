@@ -12,10 +12,10 @@ use crate::{
     cli::VerifySuite,
     command::CommandSpec,
     config::{
-        App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_PACKAGE, IDENTITY_PERSISTENCE_FEATURE,
-        IDENTITY_SERVICE_FEATURE, PROTO_CODEGEN_MANIFEST, STUDIO_WEB_PACKAGE,
-        THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN, TURSO_STORE_PACKAGE,
-        TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET, WEB_AUTH_PACKAGE,
+        App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_BIN, IDENTITY_BINARY_VARIABLE, IDENTITY_PACKAGE,
+        IDENTITY_PERSISTENCE_FEATURE, IDENTITY_SERVICE_FEATURE, PROTO_CODEGEN_MANIFEST,
+        STUDIO_WEB_PACKAGE, THEATRE_PREVIEW_FEATURE, THEATRE_WEB_PACKAGE, TURSO_CAPABILITY_BIN,
+        TURSO_STORE_PACKAGE, TURSO_TESTING_FEATURE, UI_PACKAGE, WASM_TARGET, WEB_AUTH_PACKAGE,
     },
     kani::{self, Kernel},
     pipeline::Step,
@@ -79,6 +79,13 @@ impl Scope {
             vec!["--features".into(), THEATRE_PREVIEW_FEATURE.into()]
         } else {
             Vec::new()
+        }
+    }
+
+    fn includes(&self, package: &str) -> bool {
+        match self {
+            Scope::Workspace => true,
+            Scope::Packages(packages) => packages.contains(package),
         }
     }
 
@@ -318,10 +325,39 @@ impl Gate {
                 .args(scope.cargo_args())
                 .args(scope.theatre_preview_args())
                 .args(["--all-targets", "--locked", "--", "-D", "warnings"])],
-            Gate::RustTests(scope) => vec![cargo(&["test"])
-                .args(scope.cargo_args())
-                .args(scope.theatre_preview_args())
-                .args(["--locked"])],
+            Gate::RustTests(scope) => {
+                let tests = cargo(&["test"])
+                    .args(scope.cargo_args())
+                    .args(scope.theatre_preview_args())
+                    .args(["--locked"]);
+                if !scope.includes(API_PACKAGE) {
+                    return vec![tests];
+                }
+                // The Server's candidate journey never builds Identity: build the exact service
+                // executable first and hand every real-Identity journey that one artifact.
+                vec![
+                    cargo(&[
+                        "build",
+                        "--locked",
+                        "-p",
+                        IDENTITY_PACKAGE,
+                        "--features",
+                        IDENTITY_SERVICE_FEATURE,
+                        "--bin",
+                        IDENTITY_BIN,
+                        "--target-dir",
+                        "target",
+                    ]),
+                    tests.env(
+                        IDENTITY_BINARY_VARIABLE,
+                        workspace
+                            .path("target/debug")
+                            .join(IDENTITY_BIN)
+                            .display()
+                            .to_string(),
+                    ),
+                ]
+            }
             Gate::ForgeFunctions => vec![
                 cargo(&[
                     "build",
@@ -922,15 +958,43 @@ mod tests {
 
     #[test]
     fn package_scopes_are_explicit_and_sorted() {
-        let scope = Scope::Packages(["xtask".into(), "cantos-server".into()].into());
+        let scope = Scope::Packages(["xtask".into(), "cantos-forge".into()].into());
         assert_eq!(
             lines(&Gate::RustTests(scope.clone())),
-            ["cargo test -p cantos-server -p xtask --locked"]
+            ["cargo test -p cantos-forge -p xtask --locked"]
         );
         assert_eq!(
             Gate::RustLint(scope).name(),
-            "rust-lint (cantos-server, xtask)"
+            "rust-lint (cantos-forge, xtask)"
         );
+    }
+
+    #[test]
+    fn server_tests_receive_the_identity_executable_built_first() {
+        let workspace = workspace();
+        let binary = workspace.root().join("target/debug/cantos-identity");
+        let build = "cargo build --locked -p cantos-identity --features service --bin cantos-identity --target-dir target";
+        for (scope, tests) in [
+            (
+                Scope::Workspace,
+                "cargo test --workspace --features cantos-theatre/preview --locked",
+            ),
+            (
+                Scope::Packages(["cantos-server".into(), "xtask".into()].into()),
+                "cargo test -p cantos-server -p xtask --locked",
+            ),
+        ] {
+            assert_eq!(
+                lines(&Gate::RustTests(scope)),
+                [
+                    build.to_owned(),
+                    format!("CANTOS_TEST_IDENTITY_BINARY={} {tests}", binary.display()),
+                ]
+            );
+        }
+        // Without the Server, nothing builds Identity or names an executable.
+        let without = Gate::RustTests(Scope::Packages(["cantos-identity".into()].into()));
+        assert_eq!(lines(&without), ["cargo test -p cantos-identity --locked"]);
     }
 
     #[test]
