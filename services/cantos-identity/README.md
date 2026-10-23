@@ -280,6 +280,34 @@ most ten seconds, then removes only the socket inode this run created. An existi
 replaced only when it is a socket that nobody answers on. One owner per database file is enforced by
 the shared store.
 
+### Production mail through Resend (SMTP)
+
+Resend is reached through the existing SMTP adapter; no Resend SDK, `RESEND_*` variable or new code
+path exists. Set `CANTOS_IDENTITY_MAIL_PROVIDER=smtp` (the image defaults to `disabled`, which rejects SMTP settings) and:
+
+| Variable | Value |
+| --- | --- |
+| `CANTOS_IDENTITY_SMTP_HOST` | `smtp.resend.com` |
+| `CANTOS_IDENTITY_SMTP_PORT` / `TLS` | `465` with `implicit`, or `587` with `starttls` |
+| `CANTOS_IDENTITY_SMTP_USERNAME` | `resend` |
+| `CANTOS_IDENTITY_SMTP_PASSWORD` | a Resend API key, injected as a runtime secret, never in Git, an image or chat |
+| `CANTOS_IDENTITY_SMTP_FROM` | an address on a domain verified in Resend, e.g. `no-reply@mail.cantos.cc` |
+| `CANTOS_IDENTITY_SIGNUP_LINK_BASE` | the `https` Theatre origin, e.g. `https://cantos.cc/` |
+
+The container needs outbound network: `Network=none` (the current test-host unit) cannot reach the relay, and
+`Network=pasta` is refused by rootful Podman. The test host moved Identity to the existing bridge
+network (`Network=cantos.network`), the same one the Server uses; the socket and database mounts do not change.
+
+Verify the sending domain first (Resend Domains: SPF/DKIM records in DNS); `onboarding@resend.dev`
+only reaches the account owner and is not a production sender. Use a sending-only key scoped to that
+domain. Firebase is not involved: Firebase refused the custom action URL for `cantos-a348b` with
+`EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED` (HTTP 400, 2026-10-23), and Cantos cannot consume the
+default-handler action code, so the Firebase provider is not used for this deployment.
+
+Acceptance is still pending (see the `ACCEPTANCE-PENDING(production mail)` note in `mail.rs`):
+no real relay, credential, DKIM alignment or mailbox delivery has been exercised, and the `rustls`
+advisory check above must be re-run on the current lock before accepting `implicit`/`starttls`.
+
 ## Policy values and decisions
 
 | Value | Setting | Why / test | Review |
