@@ -17,8 +17,9 @@ grants, settings, snapshots, approvals and rights claims are not part of any CMP
 
 ## Mapping
 
-Tests are in `src/platform/turso/business_tests.rs` (barriers, reached with raw SQL) and the named
-adapter suites.
+Raw-SQL barriers are in `tests/server_turso_barriers.rs`; registry upgrade/refusal tests are in
+`src/platform/turso/business_tests.rs`. The named adapter suites cover the listener read side,
+not the retained Studio write oracles (see the [coverage ledger](legacy-test-oracles.md)).
 
 | Source rule (PostgreSQL object / adapter behavior) | Turso mechanism | Test |
 | --- | --- | --- |

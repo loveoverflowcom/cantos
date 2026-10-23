@@ -1,4 +1,4 @@
-"""Runner safety and fail-closed guards; process/HTTP doubles are not PG evidence."""
+"""Retired CLI and historical runner safety; doubles are not PG/native evidence."""
 import contextlib
 import io
 import json
@@ -15,6 +15,49 @@ import serve_studio
 
 
 class PostgresRunnerTests(unittest.TestCase):
+    def test_retired_entrypoint_refuses_all_old_arguments_before_effects(self):
+        arguments = ([], ["--keep"], ["--suite", "schema"],
+                     ["--suite", "theatre-firebase", "--keep"], ["--help"],
+                     ["--suite", "unregistered"])
+        for argv in arguments:
+            with self.subTest(argv=argv), \
+                    patch.object(sys, "argv", ["test_postgres.py", *argv]), \
+                    patch.object(runner, "parse_args", side_effect=AssertionError(
+                        "retired CLI reached the historical argument parser")) as parse, \
+                    patch.object(runner.shutil, "which") as probe, \
+                    patch.object(Path, "mkdir") as mkdir, \
+                    patch.object(runner, "free_port") as port, \
+                    patch.object(runner, "run") as run, \
+                    patch.object(runner.subprocess, "Popen") as spawn, \
+                    patch.object(runner, "write_ownership") as write, \
+                    contextlib.redirect_stderr(io.StringIO()) as error:
+                with self.assertRaises(SystemExit) as refused:
+                    runner.main()
+                self.assertEqual(refused.exception.code, 2)
+                self.assertIn("retired", error.getvalue())
+                self.assertIn("#333", error.getvalue())
+                self.assertIn("cargo xtask verify turso", error.getvalue())
+                for effect in (parse, probe, mkdir, port, run, spawn, write):
+                    effect.assert_not_called()
+
+    def test_real_retired_cli_refuses_even_with_optimized_python_and_inherited_pg_inputs(self):
+        arguments = ([], ["--keep"], ["--suite", "schema"],
+                     ["--suite", "theatre-firebase", "--keep"], ["--help"])
+        for optimized in ([], ["-O"]):
+            for argv in arguments:
+                with self.subTest(optimized=optimized, argv=argv):
+                    result = subprocess.run(
+                        [sys.executable, *optimized, str(Path(runner.__file__)), *argv],
+                        env={"PATH": "", "DATABASE_URL": "postgresql://private.invalid/live",
+                             "CANTOS_TEST_CLUSTER_URL": "private", "PGHOST": "private.invalid",
+                             "PYTHONDONTWRITEBYTECODE": "1"},
+                        text=True, capture_output=True, timeout=5)
+                    self.assertEqual(result.returncode, 2, result.stderr)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn("test_postgres.py is retired", result.stderr)
+                    self.assertNotIn("private.invalid", result.stderr)
+                    self.assertNotIn("Traceback", result.stderr)
+
     def test_real_child_timeout_preserves_partial_output_and_stays_failed(self):
         actual_run = subprocess.run
 
@@ -53,7 +96,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     patch.object(runner.shutil, "which") as probe:
                 with patch.object(sys, "argv", ["test_postgres.py", *arguments]), \
                         self.assertRaises(SystemExit):
-                    runner.main()
+                    runner._legacy_main()
                 probe.assert_not_called()
 
     def test_scoped_sql_owns_fresh_cluster_environment_filters_and_stop(self):
@@ -75,7 +118,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     patch.object(runner, "run", side_effect=execute), \
                     patch.object(runner.subprocess, "Popen") as host, \
                     contextlib.redirect_stdout(io.StringIO()) as output:
-                runner.main()
+                runner._legacy_main()
             self.assertEqual([command[0] for command, _, _ in commands],
                              ["initdb", "pg_ctl", "psql", "cargo", "cargo", "pg_ctl"])
             cluster = Path(commands[0][0][2]).parent
@@ -124,7 +167,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     patch.object(runner, "reap_completed_databases") as reap, \
                     patch.object(runner.subprocess, "Popen") as host, \
                     contextlib.redirect_stdout(io.StringIO()) as output:
-                runner.main()
+                runner._legacy_main()
             self.assertEqual([call.args[0] for call in probe.call_args_list],
                              ["initdb", "pg_ctl", "psql", "cargo"])
             self.assertEqual([command[0] for command, _, _ in commands],
@@ -205,7 +248,7 @@ class PostgresRunnerTests(unittest.TestCase):
                         patch.object(runner, "free_port", return_value=12345), \
                         patch.object(runner, "run", side_effect=execute), \
                         self.assertRaises(type(failure)):
-                    runner.main()
+                    runner._legacy_main()
                 self.assertEqual(commands[-1][0], "pg_ctl")
                 self.assertEqual(commands[-1][-4:], ["-m", "fast", "-w", "stop"])
                 self.assertFalse((Path(directory) / "theatre-firebase" / "run.json").exists())
@@ -233,7 +276,7 @@ class PostgresRunnerTests(unittest.TestCase):
                         patch.object(runner, "free_port", return_value=12345), \
                         patch.object(runner, "run", side_effect=execute), \
                         self.assertRaises(type(failure)):
-                    runner.main()
+                    runner._legacy_main()
                 self.assertEqual(commands[-1][0], "pg_ctl")
                 self.assertEqual(commands[-1][-4:], ["-m", "fast", "-w", "stop"])
                 self.assertFalse((Path(directory) / "schema" / "run.json").exists())
@@ -299,7 +342,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     patch.object(runner,"reap_completed_databases"), \
                     contextlib.redirect_stdout(io.StringIO()), \
                     self.assertRaisesRegex(RuntimeError,"synthetic narrow failure"):
-                runner.main()
+                runner._legacy_main()
             ownership=json.loads((evidence/"retained-cluster.json").read_text())
             self.assertEqual(ownership["scope"],"schema")
             self.assertEqual((ownership["gate_status"],ownership["full_gate_status"]),("FAIL","NOT_RUN"))
@@ -348,7 +391,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     patch.object(runner, "run", side_effect=execute), \
                     patch.object(runner, "reap_completed_databases"), \
                     self.assertRaisesRegex(RuntimeError, "stop synthetic full suite"):
-                runner.main()
+                runner._legacy_main()
             self.assertEqual([command[5] for command in commands if command[0] == "cargo"],
                              ["schema_postgres", "bearer_postgres", "production_grants_postgres", "admin_postgres"])
             self.assertEqual(commands[-1][-4:], ["-m", "fast", "-w", "stop"])
@@ -592,8 +635,8 @@ class PostgresRunnerTests(unittest.TestCase):
     def test_optimized_python_refuses_before_cluster_or_host_start(self):
         result = subprocess.run([sys.executable, "-O", str(Path(runner.__file__)), "--help"],
                                 text=True, capture_output=True, timeout=10)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("PostgreSQL assertions are required; run Python without -O", result.stderr)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("test_postgres.py is retired", result.stderr)
         self.assertNotIn("PASS:", result.stdout)
 
     def test_inherited_pg_and_host_configuration_cannot_escape_the_disposable_cluster(self):
