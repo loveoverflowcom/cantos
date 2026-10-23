@@ -17,10 +17,10 @@ use crate::contexts::{
         domain::brief::{fingerprint, ProductionBrief},
     },
 };
+use crate::contract::studio as dto;
 use crate::platform::store::{
     authenticate, normalized_uuid, session_token_registered, LockMode, Store, StoreError, Tx,
 };
-use cantos_contracts as dto;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 

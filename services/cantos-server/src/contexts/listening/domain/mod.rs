@@ -1,9 +1,9 @@
 //! Pure revisioned listener registers. No Axum, SQL, runtime, clocks or authentication effects.
+use crate::contract::theatre::library as dto;
 use crate::{
     contexts::catalog::domain::{ContentUnitId, WorkId},
     platform::{identity::domain::ActorId, ids::canonical_uuid},
 };
-use cantos_contracts::listener_library as dto;
 pub mod bookmark;
 pub(crate) mod projection;
 pub mod reconcile;

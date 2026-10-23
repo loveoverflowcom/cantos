@@ -5,7 +5,7 @@ use std::convert::identity;
 #[test]
 fn revision_entrypoints_share_the_same_retry_policy_and_types() {
     let script = cantos_server::script_ir::read_script(include_bytes!(
-        "../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
     ))
     .unwrap();
     let export = script.export_bytes();

@@ -6,7 +6,7 @@ use crate::application::{
     library::{LibraryPage, Section},
     library_sync::CommandError,
 };
-use cantos_contracts::listener_library::{
+use crate::contract::library::{
     self as dto, AudioIdentity, AudioPresentation, HistoryState, MutationState, ProgressKind,
     ProgressRecord, Receipt, ResumeStatus, SavedRecord, WorkPresentation, WriteOutcome,
 };
@@ -989,12 +989,12 @@ mod presentation_tests {
     use super::*;
     fn fixture(section: Section, unavailable: bool) -> &'static [u8] {
         match (section, unavailable) {
-            (Section::Continue, false) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue.json"),
-            (Section::Continue, true) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue_unavailable.json"),
-            (Section::Saved, false) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json"),
-            (Section::Saved, true) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved_unavailable.json"),
-            (Section::History, false) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_history.json"),
-            (Section::History, true) => include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_history_unavailable.json"),
+            (Section::Continue, false) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue.json"),
+            (Section::Continue, true) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue_unavailable.json"),
+            (Section::Saved, false) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json"),
+            (Section::Saved, true) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved_unavailable.json"),
+            (Section::History, false) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_history.json"),
+            (Section::History, true) => include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_history_unavailable.json"),
         }
     }
     #[test]

@@ -1,6 +1,6 @@
 //! Owner-session private audio intake. Inspection and new object writes finish outside any
 //! database transaction; the final transaction rechecks the session, owner and exact revision.
-use cantos_contracts::{
+use crate::contract::studio::{
     AudioIntentResponse, AudioIntentStatusResponse, AudioMediaMetadata, AudioReceiptResponse,
     CreateAudioIntentRequest, FieldIssue,
 };

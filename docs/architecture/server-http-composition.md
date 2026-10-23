@@ -17,7 +17,7 @@ is separate from full HTTP and deployed acceptance.
 | Studio/Theatre `/identity/*` | First-party mailbox/password/fresh-fact and session lifecycle | Purpose-specific routes/cookie names, mixed/duplicate credential rejection, origin and unknown-outcome fences |
 | `/api/v1/admin/*` | Dedicated capability/audit boundary; current verifier absent, fail-closed | Optional own origin never grants authority; no Studio/Theatre credential reuse |
 
-Use [Identity auth v1](../../packages/contracts/identity-auth-v1.md) for exact endpoints,
+Use [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) for exact endpoints,
 wire errors, cookie/Bearer syntax and freshness. Removed `/auth/*` provider/OIDC/Firebase setup
 and callback routes are not another supported sign-in path. Keep receipt/replay/revoke rules.
 

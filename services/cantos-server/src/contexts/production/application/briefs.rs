@@ -9,8 +9,8 @@ use crate::contexts::catalog::{
     CatalogStoreError, ProductionContent,
 };
 use crate::contexts::{editorial, ingestion};
+use crate::contract::studio as dto;
 use crate::platform::store::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
-use cantos_contracts as dto;
 use sha2::{Digest, Sha256};
 
 fn catalog_error(error: CatalogStoreError) -> StoreError {

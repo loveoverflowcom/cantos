@@ -1,8 +1,9 @@
 # Cantos Web session owner (Identity v1 cookies)
 
-`cantos-web-auth` is consumed by **both** Leptos Web apps. It imports contracts, never app or
-service code. Studio and Theatre keep separate document-scoped owners, API prefixes and cookies.
-[Identity auth v1](../contracts/identity-auth-v1.md) owns the server wire, lifetimes and error
+`cantos-web-auth` is consumed by **both** Leptos Web apps. It imports neither app nor service
+code and keeps its own representation of the session wire it consumes ([ADR 0046](../../docs/decisions/0046-service-owned-contracts.md)).
+Studio and Theatre keep separate document-scoped owners, API prefixes and cookies.
+The Server-owned [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) owns the server wire, lifetimes and error
 semantics; [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md) and
 [ADR 0045](../../docs/decisions/0045-v1-email-password-sign-in.md) own the topology and factor
 scope. This package selects no issuer and grants no permission: a session proves a login, never
@@ -15,6 +16,8 @@ is no Bearer or provider fallback. Native Bearer belongs to CMP, not to this pac
 
 | Module | Owns | Runs on |
 | --- | --- | --- |
+| `address` | browser API addressing: surface prefixes, `api_url`, default Theatre origin | host + WASM |
+| `wire` | this package's own `Session`/`Login` shapes of Identity auth v1, tested against the Server-owned schema/fixture | host + WASM |
 | `core` | pure decisions: admission, intent `Ticket`, use/renew/re-read edges, monotonic `Clock`, `RateGate`, status projection, `credentialed_target` | host + WASM |
 | `owner` | the session owner (`Client`, `Lease`) written against a small `Port` (clock, one HTTP attempt, a cross-tab lock, a view event, a cross-tab signal) | host + WASM |
 | `serial` | FIFO async mutex that orders this document's cookie-changing exchanges | host + WASM |
@@ -109,14 +112,16 @@ adapter itself is untested on the host.
 
 These are reviewed choices, not leftovers; revisit one only when its condition changes.
 
-- **Two named surfaces, not a generic scope config.** `Surface` is the contract's `WebSurface`, and
+- **Two named surfaces, not a generic scope config.** `Surface` is `address::WebSurface`, and
   the fence header, invalidation event, lock and channel names are fixed per surface. Studio and
   Theatre are the only consumers; a configurable scope would turn cookie path, header and lock
   isolation into caller-supplied strings that must then be validated. Revisit with a third real
   Web consumer.
-- **Contract DTOs, not a private wire copy.** The package implements Identity auth v1, so it reads
-  `Session`/`Login` and `api_url` from `cantos-contracts`; a duplicate DTO could drift from the
-  Server silently. Apps project `SessionView` into their own account types.
+- **Its own wire representation, checked against the owner.** The package implements Identity
+  auth v1 with its own `wire::{Session, Login}`; tests compare them with the Server-owned schema and
+  canonical session fixture, so drift fails here instead of passing silently. `address` owns the
+  browser API addressing (`api_url`, surface prefixes, default Theatre origin): client transport
+  policy, not a contract. Apps project `SessionView` into their own account types.
 - **One owner per surface and document.** `browser::client` keeps a document-lifetime owner per
   surface: the serial queue, cross-tab lock, 429 gate, renewal flight and cleanup queue are only
   correct when every request of that surface shares them. Applications never construct a second

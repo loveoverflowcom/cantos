@@ -1,6 +1,6 @@
 //! Compatibility facade for the existing Studio Store API. Internal use cases and SQL use
 //! Editorial facts; only this adapter constructs revision/history/review HTTP DTOs.
-use cantos_contracts::{
+use crate::contract::studio::{
     HistoryResponse, ReviewRequest, ReviewResponse, RevisionResponse, RevisionSummary,
     SaveRevisionRequest,
 };

@@ -63,7 +63,7 @@ porting input, not a runnable gate. Keep unmatched oracles until the owning nati
 
 1. Same meaning: IDs, revision numbers, digests/hashes, immutable history, idempotent operation
    receipts, authorization decisions, error mapping and HTTP outputs do not change. Do not edit
-   public contracts (`packages/contracts`) or HTTP handlers' wire behavior.
+   public contracts (`services/cantos-server/contracts`) or HTTP handlers' wire behavior.
 2. Every PG constraint/trigger/function for your tables has a Turso mechanism AND a test that
    reaches it, recorded in a mapping table (section 6). A rule that cannot be expressed in SQL moves
    to the writing transaction (decision from facts read in the same unit) and gets a test. Never drop

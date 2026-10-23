@@ -1,5 +1,5 @@
 //! A sign-in is not authenticated until the API admits the browser's owner cookie session.
-use cantos_contracts::{ApiError, ErrorCode, FieldIssue};
+use crate::contract::{ApiError, ErrorCode, FieldIssue};
 use cantos_web_auth::Failure;
 
 /// A noncredential server correlation UUID, captured immutably for one HTTP attempt.
@@ -412,7 +412,7 @@ mod tests {
         let for_b = after.signed_in("bob".into());
         assert!(!for_b.can_edit());
         assert_eq!(for_b.draft(), "private A draft");
-        let late = cantos_contracts::RevisionResponse {
+        let late = crate::contract::RevisionResponse {
             script_id: "script".into(),
             revision: 1,
             accepted_by: "alice".into(),

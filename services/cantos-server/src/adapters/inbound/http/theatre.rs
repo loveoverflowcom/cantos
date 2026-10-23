@@ -1,6 +1,7 @@
 //! Public anonymous Theatre reads and playback authorization. No Studio session/cookie reuse.
 use super::{audio_transport, AppState};
 use crate::contexts::media::{ListenerError, ListenerService};
+use crate::contract::theatre::discovery as dto;
 use axum::{
     body::Body,
     extract::{rejection::PathRejection, DefaultBodyLimit, Extension, Path, Query},
@@ -9,7 +10,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use cantos_contracts::theatre as dto;
 use serde::Deserialize;
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

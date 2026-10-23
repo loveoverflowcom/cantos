@@ -6,7 +6,7 @@ retain the results and blockers of their original snapshots.
 Review boundary: separate opt-in Web BFF→actual sealed Library identity, Web/CMP account lifecycle
 cores and native OS/protocol groundwork. Native resource IO is **incomplete/fail closed**, not
 accepted from device absence. [Architecture](../architecture/theatre-identity.md),
-[contract](../../packages/contracts/theatre-identity-v1.md) and
+[contract](../../services/cantos-server/contracts/theatre/identity/v1/README.md) and
 [successor handoff](../work-plan/theatre-identity-handoff.md) own implementation versus deferred scope.
 No real provider/client/grant/secret/TLS/network/container/account was provisioned or activated.
 

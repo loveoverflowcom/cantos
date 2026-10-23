@@ -1,7 +1,7 @@
 //! Immutable upload intents and acceptance receipts. PostgreSQL owns their binding and status;
 //! verified private object bytes remain outside the database.
+use crate::contract::studio::{AudioIntentResponse, AudioReceiptResponse};
 use crate::platform::store::Row;
-use cantos_contracts::{AudioIntentResponse, AudioReceiptResponse};
 use sha2::{Digest, Sha256};
 
 use super::audio_intake::DeliveryProfile;

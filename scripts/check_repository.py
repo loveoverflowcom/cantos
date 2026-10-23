@@ -36,7 +36,7 @@ REQUIRED = (
     "docs/design/ui-system.md",
     "docs/work-plan/README.md",
     "templates/README.md",
-    "packages/contracts/examples/episode-draft.json",
+    "services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json",
     "docs/architecture/repository-layout.md",
     "docs/decisions/0009-monorepo-layout.md",
     "apps/README.md",
@@ -90,15 +90,26 @@ CONTEXT_UPSTREAM = {
 POSTGRES_DRIVERS = {"deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel"}
 TURSO_DRIVERS = {"turso", "turso_core", "cantos_store_turso", "libsql", "rusqlite"}
 PERSISTENCE_DRIVERS = POSTGRES_DRIVERS | TURSO_DRIVERS
-# The generated private Identity RPC contract and its transport runtime. In the Server only the
-# platform Identity adapter names them; pure domains, contexts, HTTP and composition do not.
-RPC_RUNTIME = {"cantos_identity_rpc", "tonic", "prost", "tonic_prost"}
+# The private Identity RPC transport runtime. Identity owns `cantos.identity.v1`; the Server
+# generates its own client binding into the platform Identity adapter (`IDENTITY_RPC_CLIENT`),
+# and only that adapter names the runtime or the binding.
+RPC_RUNTIME = {"tonic", "tonic_prost"}
 IDENTITY_RPC_ADAPTER = ("platform", "identity_auth")
+IDENTITY_RPC_CLIENT = ("platform", "identity_auth", "rpc")
+# prost encodes the Identity client binding and the Server's Studio Protobuf pilot edge codec.
+PROST = "prost"
+# The Server's own representation of the HTTP contracts it publishes. It is a leaf: canonical
+# schemas live in services/cantos-server/contracts and no client imports this module.
+SERVER_CONTRACT = "contract"
+STUDIO_PROTOBUF_CODEC = (SERVER_CONTRACT, "studio", "protobuf")
+SERVER_CONTRACT_FORBIDDEN = {"contexts", "adapters", "application", "platform", "script_ir"}
+# The retired central contract crate; canonical contracts belong to their defining service.
+RETIRED_CONTRACT_PACKAGE = Path("packages/contracts")
 DOMAIN_EXTERNAL = PERSISTENCE_DRIVERS | {
     "axum", "reqwest", "hyper", "tokio", "tower", "tower_http", "leptos", "rand", "getrandom",
 }
 # Crates the source checks recognize by name; a manifest or `extern crate` rename would hide them.
-GUARDED_CRATES = DOMAIN_EXTERNAL | RPC_RUNTIME | {"cantos_identity", "cantos_server", "cantos_contracts"}
+GUARDED_CRATES = DOMAIN_EXTERNAL | RPC_RUNTIME | {PROST, "cantos_identity", "cantos_server"}
 DOMAIN_STD_EFFECTS = {
     ("std", "fs"), ("std", "net"), ("std", "process"), ("std", "env"),
     ("std", "thread"), ("std", "time"), ("std", "os"),
@@ -752,7 +763,7 @@ def adapter_backend(path):
 
 def pure_dependency_error(path):
     """Return why a pure domain must not name `path`; shared by the Server and Identity checks."""
-    if path[0] in RPC_RUNTIME:
+    if path[0] in RPC_RUNTIME or path[0] == PROST or path[:3] == IDENTITY_RPC_CLIENT:
         return "pure domain must not depend on generated RPC DTOs or their runtime; map them in the RPC adapter"
     if path[0] in DOMAIN_EXTERNAL or path[:2] in DOMAIN_STD_EFFECTS or path[-1] in {
         "new_v4", "new_v7", "now_v7", "thread_rng", "random",
@@ -764,17 +775,22 @@ def pure_dependency_error(path):
 
 
 def dependency_error(path, owner, domain, http, listener_pg_test=False, application_glue=False,
-                     adapter=None, rpc_adapter=False):
+                     adapter=None, rpc_adapter=False, contract=False, studio_protobuf=False):
     """Return the boundary violated by one path, or None for an admitted dependency.
 
     `adapter` is the backend of the context-owned persistence adapter holding the file, if any;
-    `rpc_adapter` marks the platform Identity adapter that owns the generated RPC contract.
+    `rpc_adapter` marks the platform Identity adapter that owns the generated RPC client;
+    `contract` marks the Server's own contract representation and `studio_protobuf` its
+    Studio Protobuf edge codec.
     """
     if not path:
         return None
     if path[0] == "cantos_identity":
-        return ("Server must reach Identity through the cantos_identity_rpc contract, "
-                "never the cantos-identity service crate")
+        return ("Server must reach Identity through its own generated client of Identity's "
+                "contract (platform::identity_auth::rpc), never the cantos-identity service crate")
+    if contract and path[0] in SERVER_CONTRACT_FORBIDDEN:
+        return ("the Server's contract representation is a wire leaf: it must not depend on "
+                "domain, application, adapters or platform code")
     if (owner or domain or http or application_glue) and path[0] == "<legacy>":
         return "context uses a legacy crate alias; name the owning context explicitly"
     if (owner or application_glue) and path[0] in {"interfaces", "adapters"} and not (listener_pg_test and path in {
@@ -792,14 +808,17 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
         if path[0] in {"interfaces", "adapters"}:
             return "pure domain must not depend on an interface"
         # Persisted canonical documents may live in contracts; listener read projections may not.
-        if path[:2] == ("cantos_contracts", "theatre"):
+        if path[:3] == (SERVER_CONTRACT, "theatre", "discovery"):
             return "pure domain must not build Theatre wire DTOs; project them in the application layer"
-        if owner in {"editorial", "adaptation"} and path[:2] in {
-            ("cantos_contracts", "FieldIssue"), ("cantos_contracts", "AdaptationProblem"),
+        if owner in {"editorial", "adaptation"} and path[:3] in {
+            (SERVER_CONTRACT, "studio", "FieldIssue"), (SERVER_CONTRACT, "studio", "AdaptationProblem"),
         }:
             return "pure diagnostics must use safe domain facts; project wire errors at the boundary"
-    if path[0] in RPC_RUNTIME and not rpc_adapter:
+    if (path[0] in RPC_RUNTIME or path[:3] == IDENTITY_RPC_CLIENT) and not rpc_adapter:
         return "generated Identity RPC DTOs and their runtime stay in the platform Identity adapter"
+    if path[0] == PROST and not (rpc_adapter or studio_protobuf):
+        return ("prost stays in the generated Identity RPC client and the Studio Protobuf edge "
+                "codec (contract::studio::protobuf)")
     backend = persistence_backend(path)
     # Legacy PostgreSQL transactions still cross context application code through
     # platform::postgres; the Turso port must not repeat that by naming the engine directly.
@@ -945,7 +964,9 @@ def check_api_architecture(root=ROOT):
                 },
                 application_glue=relative == Path("application.rs"),
                 adapter=adapter,
-                rpc_adapter=len(parts) > 1 and (parts[0], Path(parts[1]).stem) == IDENTITY_RPC_ADAPTER)
+                rpc_adapter=len(parts) > 1 and (parts[0], Path(parts[1]).stem) == IDENTITY_RPC_ADAPTER,
+                contract=module[:1] == (SERVER_CONTRACT,),
+                studio_protobuf=module[:3] == STUDIO_PROTOBUF_CODEC)
             if parts[0] == "platform" and path[0] == "contexts":
                 error = "platform must not depend on a business context"
             if error:
@@ -1051,7 +1072,8 @@ def check_identity_architecture(root=ROOT):
                 error = pure_dependency_error(path) or (
                     "Identity domain must not depend on its adapters or application"
                     if path[0] in outer else None)
-            elif path[0] in RPC_RUNTIME and module not in IDENTITY_RPC_MODULES:
+            elif (path[0] in RPC_RUNTIME or path[0] == PROST or path[:2] == ("rpc", "generated")) \
+                    and module not in IDENTITY_RPC_MODULES:
                 error = ("generated RPC DTOs and their runtime stay in Identity's RPC adapter "
                          "and process composition")
             else:
@@ -1111,7 +1133,8 @@ def check_manifest_boundaries(root=ROOT):
 
     Shared packages depend on no service or app, apps reach services over HTTP, a service uses
     another service only from tests, only the shared store owner depends on the Turso engine,
-    and no crate the source checks look for is renamed out of their sight. Path dependencies
+    no crate the source checks look for is renamed out of their sight, and the retired central
+    contract package does not return (each service owns its canonical contracts). Path dependencies
     (including inherited workspace ones) are resolved; the compiler enforces that undeclared
     crates are unreachable. This is static dependency evidence, not process/database isolation.
     """
@@ -1123,6 +1146,9 @@ def check_manifest_boundaries(root=ROOT):
     members = [Path(member) for member in workspace.get("workspace", {}).get("members", [])]
     inherited = workspace.get("workspace", {}).get("dependencies", {})
     errors = []
+    if (root / RETIRED_CONTRACT_PACKAGE).exists():
+        errors.append(f"{RETIRED_CONTRACT_PACKAGE}: retired central contract package; canonical "
+                      "contracts belong to their defining service (ADR 0046)")
     if not any(member.parts[:1] == ("packages",) for member in members):
         errors.append(f"{WORKSPACE_MANIFEST}: no packages/ members, so the dependency-direction "
                       "guard would pass vacuously")
@@ -1151,8 +1177,9 @@ def check_manifest_boundaries(root=ROOT):
                               "or another app's code")
             elif layer == "services" and (reached == "apps" or (
                 reached == "services" and not section.endswith("dev-dependencies"))):
-                errors.append(f"{where}: a service reaches another service through its contract "
-                              "package; implementation crates are test-only dev-dependencies")
+                errors.append(f"{where}: a service reaches another service through its own "
+                              "generated client of the owner's contract; implementation crates "
+                              "are test-only dev-dependencies")
     return errors
 
 

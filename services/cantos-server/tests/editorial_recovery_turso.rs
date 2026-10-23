@@ -1,9 +1,9 @@
 //! Native replacement for the Revision/Import runner's process-restart oracles. Real loopback
 //! HTTP and the actual Server executable own one file at a time. Development Studio sessions
 //! are explicit synthetic credentials; this does not establish Identity/browser acceptance.
-use cantos_contracts::{
-    wire::{decode_pilot, encode_pilot, WireFormat},
-    ImportFormat, ImportResponse, RevisionResponse,
+use cantos_server::contract::{
+    codec::{decode_pilot, encode_pilot, WireFormat},
+    studio::{ImportFormat, ImportResponse, RevisionResponse},
 };
 use cantos_server::{
     platform::turso::registry,

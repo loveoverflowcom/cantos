@@ -94,8 +94,8 @@ impl ProbeState {
 }
 pub fn classify(status: u16, body: &[u8]) -> ProbePhase {
     match status {
-        404 if serde_json::from_slice::<cantos_contracts::ApiError>(body).is_ok_and(|e| {
-            e.code == cantos_contracts::ErrorCode::NotFound
+        404 if serde_json::from_slice::<crate::contract::ApiError>(body).is_ok_and(|e| {
+            e.code == crate::contract::ErrorCode::NotFound
                 && e.current_revision.is_none()
                 && e.issues.is_empty()
         }) =>
@@ -247,7 +247,7 @@ mod compatibility {
     #[test]
     fn canonical_shared_error_fixtures_agree_with_kotlin() {
         let cases: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/client-boundary/v1/probe-cases.json"
+            "../../../../../apps/cantos-theatre/conformance/client-boundary/v1/probe-cases.json"
         ))
         .unwrap();
         let cases = cases["cases"].as_array().unwrap();

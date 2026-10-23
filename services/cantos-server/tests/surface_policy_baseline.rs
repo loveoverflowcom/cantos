@@ -7,7 +7,7 @@ use axum::{
     response::Response,
     Router,
 };
-use cantos_contracts::web_api::WebSurface;
+use cantos_server::adapters::inbound::http::WebSurface;
 use cantos_server::adapters::inbound::http::{api_router, with_browser_cors, AppState};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};

@@ -9,7 +9,7 @@ pub mod platform;
 pub mod preview;
 #[cfg(test)]
 mod tests;
-use cantos_contracts::*;
+use crate::contract::*;
 use std::{collections::BTreeSet, sync::Arc};
 
 pub const MAX_BYTES: u64 = 8 * 1024 * 1024;

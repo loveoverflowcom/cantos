@@ -300,7 +300,7 @@ identify the actual public bytes, not a clean source revision when the build was
 
 Static Hosting does not proxy to an external VPS. [#295](https://github.com/loveoverflowcom/cantos/issues/295)
 selects API-issued HttpOnly/Secure cookies for Web on the custom domains; the coordinated API/Web
-migration and browser acceptance remain pending. Native retains [Bearer v1](../../packages/contracts/bearer-v1.md).
+migration and browser acceptance remain pending. Native retains [Bearer v1](../../services/cantos-server/contracts/auth/bearer/v1/README.md).
 Raw `web.app`/preview origins need a separately declared and qualified topology. Exact-origin
 credentialed CORS, CSRF and the restricted identity gateway remain required; wildcard CORS,
 token-in-localStorage or weakened cookie policy is no substitute. Initial email-action HTML needs no-store/no-referrer on Hosting itself

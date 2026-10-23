@@ -1,5 +1,5 @@
 //! Typed resources for live and mock listener surfaces; story fixtures retain their language.
-use cantos_contracts::theatre::WorkKind;
+use crate::contract::discovery::WorkKind;
 
 #[cfg(feature = "preview")]
 use crate::core::catalog::Genre;

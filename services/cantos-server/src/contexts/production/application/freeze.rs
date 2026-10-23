@@ -1,6 +1,6 @@
 //! Freezing preserves the exact previewed inputs as an immutable snapshot. Pending or missing
 //! rights can be frozen and inspected, never approved.
-use cantos_contracts::{
+use crate::contract::studio::{
     FreezeProductionRequest, ProductionEligibility, ProductionSnapshotResponse,
 };
 use uuid::Uuid;

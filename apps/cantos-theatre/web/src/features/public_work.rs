@@ -1,6 +1,10 @@
 //! Live public Work detail. Server text only: no cover art, genre, credit or count. The Listen
 //! control and each unit's control only express an intent; the root resolves the exact release
 //! and owns the one player. Opening this page never plays anything.
+use crate::contract::{
+    discovery::{PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind},
+    library::{AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation},
+};
 use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
@@ -18,12 +22,6 @@ use crate::{
         common::clock,
     },
     messages::{self, text, Key, Locale},
-};
-use cantos_contracts::{
-    listener_library::{
-        AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
-    },
-    theatre::{PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind},
 };
 use cantos_ui::{AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason};
 use leptos::prelude::*;
@@ -754,25 +752,25 @@ fn UnitRow(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::discovery::{PresentedUnitPage, PresentedWorkPage};
     use crate::{
         application::public_work::{CatalogReadError, Step},
         core::public_ids::PublicWorkId,
         infrastructure::inert_media::InertMedia,
     };
-    use cantos_contracts::theatre::{PresentedUnitPage, PresentedWorkPage};
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
 
     fn fixture_work() -> PresentedWorkSummary {
         let page: PresentedWorkPage = serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_works.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
         ))
         .unwrap();
         page.items.into_iter().next().unwrap()
     }
     fn fixture_units() -> PresentedUnitPage {
         serde_json::from_str(include_str!(
-            "../../../../../packages/contracts/fixtures/theatre/discovery/v1/presented_units.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_units.json"
         ))
         .unwrap()
     }
@@ -793,10 +791,10 @@ mod tests {
     }
     fn fixture_manifest(
         row: &PresentedUnitSummary,
-    ) -> cantos_contracts::theatre::PublicationManifest {
-        let mut manifest: cantos_contracts::theatre::PublicationManifest =
+    ) -> crate::contract::discovery::PublicationManifest {
+        let mut manifest: crate::contract::discovery::PublicationManifest =
             serde_json::from_str(include_str!(
-                "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+                "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
             ))
             .unwrap();
         manifest.work_id = WORK.into();
@@ -1479,7 +1477,7 @@ mod tests {
             account_view::{AccountViewState, SessionCompletion},
             library_sync::ResumeAttemptState,
         };
-        use cantos_contracts::listener_library::{
+        use crate::contract::library::{
             AudioIdentity, Completion, ProgressKind, ProgressRecord, SavedRecord,
         };
 

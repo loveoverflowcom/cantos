@@ -6,6 +6,7 @@ use crate::contexts::listening::{
     },
     LibraryError, LibraryService,
 };
+use crate::contract::theatre::library as dto;
 use axum::{
     extract::{Extension, Path, Query},
     http::{header, HeaderMap, StatusCode},
@@ -13,7 +14,6 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
-use cantos_contracts::listener_library as dto;
 use serde::Deserialize;
 use std::sync::Arc;
 pub(super) fn routes() -> Router<AppState> {

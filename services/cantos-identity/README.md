@@ -19,9 +19,9 @@ password path that ADR 0045 enabled.
   consumer; network mode. First-party Web/CMP consumers exist, with browser/device acceptance
   separate. The Server consumer (private client, fresh security-state reads, sessions and ActorId
   binding on Turso) is the
-  [Identity auth v1 contract](../../packages/contracts/identity-auth-v1.md).
+  [Identity auth v1 contract](../cantos-server/contracts/auth/identity-auth/v1/README.md).
 * The end point is an **authentication fact** of Identity. It is neither an application session nor
-  authorization of any resource. See the [RPC contract](../../packages/contracts/identity-rpc-v1.md).
+  authorization of any resource. See the [RPC contract](contracts/identity/v1/README.md).
 
 ## Implemented boundary
 
@@ -34,7 +34,7 @@ password path that ADR 0045 enabled.
 
 `Purpose` has separate Theatre and Studio cases. `Assurance` is categorical, with no ordering
 or arithmetic. The Theatre password path admits `Password`. Studio admits `Password` too (the
-[#335 v1 decision](../../packages/contracts/identity-auth-v1.md#owner-decision-recorded-here-v1-scope-amendment);
+[#335 v1 decision](../cantos-server/contracts/auth/identity-auth/v1/README.md#owner-decision-recorded-here-v1-scope-amendment);
 Identity keeps no Studio roster, which is the Server's) and the deferred D3 `UserVerifiedPasskey`
 path. A passkey without user verification, mailbox proof or one recovery code cannot complete
 either login path. A future additional path requires an explicit policy change;
@@ -124,7 +124,7 @@ its service-owned `IDENTITY_APPLICATION_ID` (`CNTI`, `0x434E5449`), its own chec
 migrations and the same exclusive file lease, serialized writer, trusted clock and commit-outcome types; it adds no engine wrapper,
 cross-service file access or second database owner.
 
-The [storage contract](../../packages/contracts/identity-security-store-v1.md) owns the exact
+The [storage contract](docs/security-store-v1.md) owns the exact
 scope and compatibility rules. The schema has instance metadata, checked subject/security state,
 ordered events and immutable operation receipts. `Intent::Migrate` may initialize a fresh random
 instance epoch only when every service table is empty; `Serve` refuses missing metadata and
@@ -162,7 +162,7 @@ true ENOSPC, browser/device, footprint and actual D1 Kani proof evidence.
 
 ## File-backed mailbox proofs
 
-The [internal mailbox storage contract](../../packages/contracts/identity-mailbox-store-v1.md)
+The [internal mailbox storage contract](docs/mailbox-store-v1.md)
 adds migration 2 to the same epoch-1 registry and shared owner. It retains migration 1 unchanged.
 Its immutable issue history preserves locator/digest uniqueness; a workflow stores its complete
 original binding/current proof, and a separate command namespace binds immutable receipts.
@@ -310,7 +310,7 @@ cargo clippy --locked -p cantos-identity --all-targets -- -D warnings
 cargo test --locked -p cantos-identity --features persistence
 cargo test --locked -p cantos-identity --features service
 cargo clippy --locked -p cantos-identity --features service --all-targets -- -D warnings
-cargo test --locked -p cantos-identity-rpc
+cargo run --locked --manifest-path tools/proto-codegen/Cargo.toml -- --check
 cargo xtask verify turso
 cargo xtask preflight --changed-only --base origin/refactor/cantos-native-turso
 ```

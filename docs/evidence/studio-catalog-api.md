@@ -41,7 +41,7 @@ admit domain values. Settled snapshots/receipts remain append-only.
 
 ## Decisions and compatibility
 
-The complete [wire contract](../../packages/contracts/catalog-v1.md) documents twelve method/path
+The complete [wire contract](../../services/cantos-server/contracts/studio/catalog/v1/README.md) documents twelve method/path
 combinations exclusively under `/api/v1/studio`. Success is `201` for creates including exact
 replays, `200` for reads and other mutations. DELETE means archive and carries an explicit
 operation/revision JSON body. Empty PATCH and required-field null are rejected. Shared literal

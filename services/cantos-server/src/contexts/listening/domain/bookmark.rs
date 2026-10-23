@@ -1,7 +1,7 @@
 //! Release-bound bookmarks: immutable `(id, exact audio, position)` values with a final tombstone.
 //! Pure decisions only; ownership, the public-audio admission and storage belong to the shell.
 use super::{AudioIdentity, BookmarkId, DomainError, Intent, Revision};
-use cantos_contracts::listener_library as dto;
+use crate::contract::theatre::library as dto;
 
 /// A create intent. The ID is client-minted so a retry names the same bookmark; the account is
 /// never a field. The position is already within the identity's verified duration.

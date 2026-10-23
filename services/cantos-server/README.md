@@ -36,12 +36,17 @@ its historical targets are not active test commands.
 - `contexts/*/application*`: use cases, current authority and transaction coordination.
 - Context persistence adapters: SQL and checked hydration; some retain `postgres` names/SQL
   pending port. The filename is not evidence of a working PostgreSQL runtime or native parity.
-- `platform/identity`, `platform/identity_auth`, `platform/bearer`: actor binding, private RPC,
-  native sessions and shared SessionPolicy/rotation decisions.
-- `adapters/inbound/http`: separate surface routers, wire DTOs and error projection.
+- `platform/identity`, `platform/identity_auth`, `platform/bearer`: actor binding, the Server's own
+  generated Identity RPC client (`identity_auth/rpc`, with `validate_fact`), native sessions and
+  shared SessionPolicy/rotation decisions.
+- `adapters/inbound/http`: separate surface routers, wire mapping and error projection.
+- `contract`: the Server's own Rust representation of the contracts it publishes (per surface,
+  JSON/MessagePack `codec`, Studio Protobuf edge codec, `routes`), a wire leaf. The canonical
+  schemas, protos and fixtures are in [`contracts/`](contracts/README.md); clients keep their own
+  copies and never import this module ([ADR 0046](../../docs/decisions/0046-service-owned-contracts.md)).
 - `platform/store`, `platform/turso`: one file owner, readers/writer and explicit migrations.
 
-The [Identity v1 contract](../../packages/contracts/identity-auth-v1.md) owns email/password,
+The [Identity v1 contract](contracts/auth/identity-auth/v1/README.md) owns email/password,
 Web cookie and CMP/native Bearer behavior. Identity returns fresh facts; the Server binds actor,
 purpose and session. Keep exact origins, CSRF, replay/revocation/absolute lifetimes, atomic receipts
 and late authority rechecks. Provider enrollment/OIDC adapters are removed. Admin has no native
@@ -197,7 +202,7 @@ late-result fencing; pure model/tests alone do not accept device secure storage 
 
 ## Firebase mailbox enrollment
 
-Retired with provider authentication. [Historical contract](../../packages/contracts/theatre-identity-v1.md)
+Retired with provider authentication. [Historical contract](contracts/theatre/identity/v1/README.md)
 keeps the stable source trail; current mailbox proof is Identity-owned. Firebase Hosting,
 Functions and App Distribution are independent and remain supported within their own scope.
 
@@ -206,5 +211,5 @@ Functions and App Distribution are independent and remain supported within their
 Configure explicit Studio/Theatre origins; each router keeps its own CORS/CSRF/purpose policy.
 Preflight does not authenticate. Native Bearer requests follow their cookie-free contract.
 The [composition contract](../../docs/architecture/server-http-composition.md) and
-[Identity auth v1](../../packages/contracts/identity-auth-v1.md) own behavior. Static delivery,
+[Identity auth v1](contracts/auth/identity-auth/v1/README.md) own behavior. Static delivery,
 browser acceptance and deployed-state observation require separate evidence.

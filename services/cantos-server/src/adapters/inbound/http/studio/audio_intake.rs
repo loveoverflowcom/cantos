@@ -1,5 +1,6 @@
 //! Current Studio owner-session intake only. External producers never receive or reuse cookies.
 use super::StudioPath as AudioPath;
+use crate::contract::studio::{CreateAudioIntentRequest, ErrorCode};
 use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, Request, State},
@@ -9,7 +10,6 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
-use cantos_contracts::{CreateAudioIntentRequest, ErrorCode};
 use tokio::sync::Semaphore;
 
 use crate::adapters::inbound::http::{

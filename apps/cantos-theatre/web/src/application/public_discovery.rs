@@ -8,7 +8,7 @@
 //! cursor is opaque and bound to its query, an empty page with a cursor is not the end, a
 //! failed page is retried with the same cursor, and `invalid_cursor` needs a fresh walk that is
 //! never merged into the old snapshot. The list ends only with `next_cursor: null`.
-use cantos_contracts::theatre::{PresentedWorkPage, PresentedWorkSummary, WorkKind};
+use crate::contract::discovery::{PresentedWorkPage, PresentedWorkSummary, WorkKind};
 use std::collections::BTreeSet;
 
 /// The same bound drives the anonymous request, decoder and public page notice.

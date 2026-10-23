@@ -24,7 +24,7 @@ The [v1 amendment](../../../../docs/architecture/native-turso-refactor.md#owner-
 owns selected login factors and Web/native transport; the
 [shared Web auth owner](../../../../packages/web-auth/README.md) implements the **cookie** client
 (email/password, HttpOnly cookie, session fence, idle renewal). The Server's
-[Identity auth v1](../../../../packages/contracts/identity-auth-v1.md) endpoints issue the cookies;
+[Identity auth v1](../../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) endpoints issue the cookies;
 browser and real Server/Identity acceptance remain pending.
 
 When changing it, trace session issuance/restore/revoke and every fetch, XHR, private-byte and
@@ -63,8 +63,8 @@ port (trait)         capability the screen needs, provided through Leptos contex
     ↓
 HTTP adapter         URLs, contract DTOs, representation (wire codec), status → typed PortError
     ↓
-contract types       cantos-contracts raw DTOs shared with the server and checked against the
-                     packages/contracts fixtures; never hand-copied into the client
+contract types       the app's own raw DTOs (src/contract) checked against the Server-owned
+                     fixtures; never imported from the Server crate (ADR 0046)
 ```
 
 | Layer | Owns | Must not own |
@@ -246,8 +246,8 @@ browser. It must not pull in `tokio`, SQL clients, Axum, provider SDKs or object
 
 | Rule | Oracle | Status |
 |---|---|---|
-| Web depends on pure core crates and `cantos-contracts` only, never on backend application or infrastructure crates | manifest review; `cargo tree --target wasm32-unknown-unknown -e normal` shows no server-only crate (proposed check) | manual until a dependency check exists |
-| DTOs live in the adapter and map to view-model types | host tests decode the shared `packages/contracts/` fixtures (Studio `wire.rs`, adaptation tests) | partial; see [`packages/contracts/README.md`](../../../../packages/contracts/README.md) |
+| Web depends on pure core crates and its own `contract` module only, never on a service crate | manifest review; `cargo tree --target wasm32-unknown-unknown -e normal` shows no server-only crate (proposed check) | manual until a dependency check exists |
+| DTOs live in the adapter and map to view-model types | host tests decode the Server-owned fixtures (`contract::conformance_tests`, Studio `wire.rs`, adaptation tests) | partial; see [`services/cantos-server/contracts/README.md`](../../../../services/cantos-server/contracts/README.md) |
 | A new crate needs a consumer and a reason to change of its own | review against [decision 0001](../../../../docs/decisions/0001-modular-monolith.md) | always |
 
 Shared DTOs follow the foundation's [`http-api-boundary.md`](../../cantos-engineering/references/http-api-boundary.md);

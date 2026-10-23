@@ -60,12 +60,12 @@ model and assertions also need independent requirement review and sensitive cont
 
 ## Golden fixtures and reference data
 
-- Golden Script IR files, manifests and fingerprints under `packages/contracts/` (or a test fixture
+- Golden Script IR files, manifests and fingerprints under the owning service's `contracts/` (or a test fixture
   directory) are reviewed artifacts: changing one is a deliberate, explained diff.
 - Recorded provider responses are fixtures for adapter contract tests. Redact credentials and
   private content before committing; never commit generated audio.
 - Original or permitted sample content only, with rights recorded as in the existing
-  [episode fixture](../../../../packages/contracts/examples/episode-draft.json).
+  [episode fixture](../../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json).
 
 ## Bounded exhaustive loops
 

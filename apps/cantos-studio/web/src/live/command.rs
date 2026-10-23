@@ -1,6 +1,6 @@
 //! Concrete route plans reuse the server's raw DTOs. No domain policy is decided here.
 use super::{artwork, delegation::IssuedGrant};
-use cantos_contracts::*;
+use crate::contract::*;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
 

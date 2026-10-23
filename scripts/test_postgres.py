@@ -416,7 +416,7 @@ def assert_adaptation_delta(before, after, **changes):
 
 def adaptation_before_restart(env, port, token, app_url):
     """Synthetic caller-created output crosses the actual CLI, socket, host and PostgreSQL."""
-    original = (ROOT / "packages/contracts/fixtures/adaptation/source-vi.txt").read_bytes()
+    original = (ROOT / "services/cantos-server/contracts/studio/adaptation/v1/fixtures/source-vi.txt").read_bytes()
     import_request = {
         "metadata": {"operation_id": str(uuid.uuid4()), "file_name": "adaptation-source-vi.txt",
                      "format": "txt", "reference": "original synthetic CLI recovery fixture",
@@ -451,7 +451,7 @@ def adaptation_before_restart(env, port, token, app_url):
     assert context["latest_submission"] is None
     assert context["accepted_revision"] is None
     assert json.loads(context["proposal_schema_json"]) == json.loads(
-        (ROOT / "packages/contracts/schema/adaptation/cantos-adaptation-1.schema.json").read_text())
+        (ROOT / "services/cantos-server/contracts/studio/adaptation/v1/cantos-adaptation-1.schema.json").read_text())
     prompt_source = json.loads(context["user_prompt"])["source"]
     assert prompt_source["id"] == source["id"]
     assert prompt_source["sha256"] == hashlib.sha256(original).hexdigest()
@@ -479,7 +479,7 @@ def adaptation_before_restart(env, port, token, app_url):
     assert_adaptation_delta(created, adaptation_snapshot(env, app_url), submissions=1)
 
     # This is repository-authored proposal data, never a synthetic service labelled as AI.
-    document = json.loads((ROOT / "packages/contracts/fixtures/adaptation/proposal-vi.json").read_text())
+    document = json.loads((ROOT / "services/cantos-server/contracts/studio/adaptation/v1/fixtures/proposal-vi.json").read_text())
     document["scenes"][0]["cues"].extend([
         {"kind": "music", "description": "Nhạc nền là đề xuất cần tác giả duyệt.",
          "line_index": 1, "edge": "start", "source_blocks": [1]},

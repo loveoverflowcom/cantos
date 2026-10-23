@@ -2,7 +2,7 @@
 //! overrides and the private planning budget. Structural admission precedes persistence.
 use std::collections::BTreeSet;
 
-use cantos_contracts::{FieldIssue, ProductionPronunciation, ProductionSettings};
+use crate::contract::studio::{FieldIssue, ProductionPronunciation, ProductionSettings};
 
 use super::catalog::production_catalog;
 use super::estimate::MAX_MONEY_MINOR;

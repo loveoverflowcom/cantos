@@ -1,6 +1,6 @@
 //! Acceptance turns a reviewed proposal into the next accepted script revision, keeping every
 //! trusted source, attempt and rights binding. It is the only path from a proposal to a head.
-use cantos_contracts::{AcceptAdaptationRequest, FieldIssue, RevisionResponse};
+use crate::contract::studio::{AcceptAdaptationRequest, FieldIssue, RevisionResponse};
 
 use super::super::domain::{admit_edited_proposal, decide_acceptance, AcceptanceDecision};
 use super::super::postgres::{self, ActorLock};

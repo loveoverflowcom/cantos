@@ -1,6 +1,7 @@
 //! Shared browser session owner for Identity v1 cookies. Studio and Theatre have independent
 //! instances/surfaces. Pure lifecycle decisions are host-testable; the browser never reads,
 //! stores or forwards the HttpOnly credential and only keeps nonsecret session facts in RAM.
+pub mod address;
 #[cfg(target_arch = "wasm32")]
 pub mod browser;
 pub mod core;
@@ -10,7 +11,8 @@ pub mod owner;
 mod refresh;
 #[cfg(any(target_arch = "wasm32", test))]
 mod serial;
-pub use cantos_contracts::web_api::WebSurface as Surface;
+pub mod wire;
+pub use address::WebSurface as Surface;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Failure {

@@ -4,7 +4,7 @@ Date: 15 October 2026. This record separates verified local UI behavior from def
 gates and platform acceptance. It extends the
 [API implementation evidence](work-scoped-delegation-implementation.md) for
 [ADR 0028](../decisions/0028-work-scoped-delegation.md) and the immutable
-[delegation v1 contract](../../packages/contracts/delegation-v1.md).
+[delegation v1 contract](../../services/cantos-server/contracts/studio/delegation/v1/README.md).
 
 ## Scope, invariant and ownership
 
@@ -17,7 +17,7 @@ see a credential belonging to a stale context.
 
 The Catalog backend remains the authority for ownership, actor availability, action admission,
 expiry and revocation. The client uses shared DTOs in
-[`api/src/delegation.rs`](../../packages/contracts/api/src/delegation.rs) and shared route
+[`api/src/delegation.rs`](../../services/cantos-server/src/contract/studio/delegation.rs) and shared route
 constants; it makes no API contract change. Studio uses only `/api/v1/studio/*` cookie routes,
 never a delegate bearer to manage grants. Theatre and Studio Mobile are outside this change.
 

@@ -5,7 +5,7 @@ adapters, durable target selection and owner-authorized audio reads. This docume
 the code boundary; the separate [evidence record](../evidence/provider-independent-storage.md)
 owns commands and actual results. No live-provider, publication or production-streaming
 acceptance is implied. See [ADR 0037](../decisions/0037-provider-independent-private-storage.md)
-and [Private content reads v1](../../packages/contracts/private-content-reads-v1.md).
+and [Private content reads v1](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md).
 
 ## Content authorities
 
@@ -71,7 +71,7 @@ For image PUT, owner-backed `Bytes` retains `Arc<VerifiedImage>` through every t
 clone; a separate owner survives actual readback. Cancelling the caller cannot release the
 image admission lane while a surviving encoded transport body still owns it. This is bounded
 ownership, not a hard decoder/process CPU or total-RSS guarantee. See the
-[artwork contract](../../packages/contracts/artwork-v1.md) and
+[artwork contract](../../services/cantos-server/contracts/studio/artwork/v1/README.md) and
 [current evidence](../evidence/private-work-artwork.md).
 
 ## Immutable location and integrity
@@ -226,7 +226,7 @@ Binary responses remain separate from JSON/MessagePack metadata. Full GET is `20
 satisfiable single closed/open/suffix range is `206` with exact interval length/Content-Range;
 an unsatisfiable range is `416` with `bytes */<length>`. Malformed/multiple/overflow byte ranges
 are `400`. Unknown units and mismatching If-Range use full delivery; HEAD ignores Range and
-has no body. The [read contract](../../packages/contracts/private-content-reads-v1.md) owns
+has no body. The [read contract](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md) owns
 the supported conditional subset and safe error responses.
 
 The API ETag is accepted SHA-256; responses are `audio/ogg`, uncompressed and `no-store`.

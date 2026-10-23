@@ -1,6 +1,6 @@
 //! Adaptation use cases. Each runs under a per-actor advisory lock and the run's row lock: load
 //! the frozen input and its current evidence, ask the pure adaptation rules, write the outcome.
-use cantos_contracts::{AdaptationProposal, ImportResponse};
+use crate::contract::studio::{AdaptationProposal, ImportResponse};
 use uuid::Uuid;
 
 use super::domain::{

@@ -56,7 +56,7 @@ side in the same change when it is in scope.
 
 Cantos implements Script IR, authenticated revisions, Studio and Theatre Web/CMP owners;
 inspect [the API guide](../../services/cantos-server/README.md),
-[contracts](../../packages/contracts/README.md) and code. Server and Identity compose separate embedded Turso owners; business porting remains incomplete.
+[contracts](../../services/cantos-server/contracts/README.md) and code. Server and Identity compose separate embedded Turso owners; business porting remains incomplete.
 The current decision and v1 auth scope live in the
 [native architecture amendment](../../docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration).
 The layout is `apps/cantos-theatre/{web,mobile}` (Theatre) and

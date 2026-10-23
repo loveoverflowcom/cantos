@@ -12,7 +12,7 @@ Product rules: the Import and Adapt rows of the
 [production pipeline](../../../../docs/product/production-pipeline.md#end-to-end-flow),
 [business rules 2, 9 and 10](../../../../docs/product/business-rules.md) and the
 [Script/editor scope, acceptance criteria and risks](../../../../docs/assurance/script-editor-acceptance.md).
-Inspect the current [adaptation contract](../../../../packages/contracts/adaptation-v1.md) and source.
+Inspect the current [adaptation contract](../../../../services/cantos-server/contracts/studio/adaptation/v1/README.md) and source.
 The caller-authored data pipeline exists; broader parser examples below are illustrative.
 [ADR 0018](../../../../docs/decisions/0018-external-audio-production.md) forbids inference in the
 API. Do not restore a provider port, disabled provider route or historical `a1` adapter.
@@ -130,7 +130,7 @@ Cantos exports a source/revision-bound context through authenticated tools. The 
 owns inference, provider configuration, attempts, cost and retries. The API validates a submitted
 proposal and its caller-declared generation metadata; it does not call a provider. Unknown usage
 or cost stays absent, and declarations are not platform attestations. Use the current
-[shared DTOs](../../../../packages/contracts/api/src/adaptations.rs) rather than inventing a
+[Server DTOs](../../../../services/cantos-server/src/contract/studio/adaptations.rs) rather than inventing a
 provider execution port.
 
 The output contract is **narrower than Script IR**: proposed scenes and lines with a speaker

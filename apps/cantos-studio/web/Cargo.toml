@@ -12,9 +12,13 @@ revision-protobuf = []
 
 [dependencies]
 cantos-web-auth = { path = "../../../packages/web-auth" }
-cantos-contracts = { path = "../../../packages/contracts/api" }
 serde_json = "=1.0.145"
-serde = "=1.0.228"
+serde = { version = "=1.0.228", features = ["derive"] }
+# Studio Web's own wire representations: MessagePack and the editorial Protobuf pilot binding
+# generated from the Server-owned proto by `tools/proto-codegen`.
+prost = { version = "=0.14.4", default-features = false, features = ["derive", "std"] }
+rmp = "=0.8.15"
+rmp-serde = "=1.3.1"
 cantos-ui = { path = "../../../packages/ui-system/leptos" }
 leptos = { version = "=0.7.8", default-features = false }
 

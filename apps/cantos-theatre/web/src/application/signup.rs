@@ -1,6 +1,6 @@
 //! RAM-only mailbox proof, chosen password and request fencing for Identity v1 signup. No state
 //! here authenticates a listener: completion creates an account and never a session.
-use cantos_contracts::identity_auth::{SignupComplete, SignupStatus};
+use crate::contract::identity_auth::{SignupComplete, SignupStatus};
 use std::fmt;
 
 pub const MIN_PASSWORD_CHARS: usize = 8;

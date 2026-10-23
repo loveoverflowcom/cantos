@@ -6,16 +6,16 @@ mod support;
 
 use std::{sync::Arc, time::Duration};
 
+use cantos_identity::rpc::generated::{
+    identity_server::Identity, AuthenticatePasswordRequest, ClientContext,
+    CompleteTheatreSignupRequest, GetSecurityStateRequest, Purpose, StartTheatreSignupRequest,
+};
 use cantos_identity::{
     application::{IdentityService, Limits, Settings},
     credentials::KdfPool,
     mail::{SignupLinkBase, UnconfiguredMailer},
     persistence::IdentityStore,
     rpc::{CallerPolicy, IdentityRpc, PolicyError},
-};
-use cantos_identity_rpc::{
-    identity_server::Identity, AuthenticatePasswordRequest, ClientContext,
-    CompleteTheatreSignupRequest, GetSecurityStateRequest, Purpose, StartTheatreSignupRequest,
 };
 use cantos_store_turso::{registry::Intent, testing::FixedClock};
 use tonic::{Code, Request};

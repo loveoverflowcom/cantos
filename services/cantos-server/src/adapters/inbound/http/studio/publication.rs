@@ -1,5 +1,6 @@
 //! Studio-only publication transport. No listener projection or storage URL crosses this API.
 use super::{catalog::CatalogBody, StudioPath};
+use crate::contract::studio as dto;
 use crate::{
     adapters::inbound::http::{
         errors::error_response as storage_error, errors::failure, studio::admission::cookie_token,
@@ -18,7 +19,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use cantos_contracts as dto;
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
         .route(

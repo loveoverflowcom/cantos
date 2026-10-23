@@ -232,7 +232,7 @@ Open product decisions — encode none of them until the owning doc records it:
 
 The two reducers agree because both pass one **reviewed corpus of data**, not because they
 share code. Implemented today: the mock corpus `theatre-mock-playback@1` in
-`packages/contracts/fixtures/theatre/playback/v1/` (index with SHA-256 per scenario, schema
+`apps/cantos-theatre/conformance/playback/v1/vectors/` (index with SHA-256 per scenario, schema
 `schema/theatre/playback/v1.schema.json`), run by Theatre Web `core/playback/vector_tests.rs` and
 the CMP `PlaybackVectorTest` (`shared` commonTest). It keys sources by synthetic demo fixtures, not publication IDs,
 and covers play/pause, buffering, interruption, invalid controls, preparing races, session

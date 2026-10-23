@@ -1,4 +1,5 @@
 //! Content Identity is only mounted through the current Studio Catalog JSON router.
+use crate::contract::studio::{AppendContentRequest, ErrorCode};
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
@@ -6,7 +7,6 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use cantos_contracts::{AppendContentRequest, ErrorCode};
 use serde::Deserialize;
 
 use super::super::{errors::error_response, studio::admission::cookie_token, AppState};

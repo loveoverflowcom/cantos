@@ -11,7 +11,9 @@
 //! fact age Fresh/Stale/Future -> 1 s old / one microsecond past the 30 s window / one past the
 //! 5 s tolerated skew (exact second boundaries stay in the native decision tests).
 use super::*;
-use cantos_identity_rpc::{validate_fact, AuthenticationFact, FactRejected, Purpose as RpcPurpose};
+use crate::platform::identity_auth::rpc::{
+    validate_fact, AuthenticationFact, FactRejected, Purpose as RpcPurpose,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -361,7 +363,7 @@ fn authentication_fact(fact: &FactAlias, fault: ObserverFault) -> Authentication
     AuthenticationFact {
         subject_id: vec![fact.subject.0; ID_BYTES],
         purpose: rpc_purpose(fact.purpose) as i32,
-        assurance: cantos_identity_rpc::Assurance::Password as i32,
+        assurance: crate::platform::identity_auth::rpc::Assurance::Password as i32,
         authenticated_at_unix_micros: authenticated_at,
         security_version: u64::from(fact.version.0),
         instance_epoch: vec![fact.epoch.0; ID_BYTES],

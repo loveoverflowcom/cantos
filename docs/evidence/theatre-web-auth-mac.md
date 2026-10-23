@@ -193,7 +193,7 @@ self-registration and only one or two securely provisioned Studio administrators
 self-signup/invitation/defer choice is settled. Pinned Kanidm **1.10.5** source has no accepted
 public signup operation: `/ui/enrol` handles an existing authenticated account's credential
 enrollment, while person creation needs authenticated management authority. The source audit
-and exact links are in the ADR and [contract](../../packages/contracts/theatre-identity-v1.md).
+and exact links are in the ADR and [contract](../../services/cantos-server/contracts/theatre/identity/v1/README.md).
 No live issuer settings were inspected or changed; this limitation is not live-provider evidence.
 
 Implemented invariant / owner:

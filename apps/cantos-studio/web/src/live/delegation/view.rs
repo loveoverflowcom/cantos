@@ -5,8 +5,8 @@ use super::{
     display_time, field_problem, grant_state, Field, GrantState, IssueDraft, Lifetime, Problem,
     Reveal, ACTIONS,
 };
+use crate::contract::{DelegationAction, DelegationGrantResponse};
 use crate::ui::{ActionButton, FormSubmit};
-use cantos_contracts::{DelegationAction, DelegationGrantResponse};
 use cantos_ui::ButtonVariant;
 use leptos::prelude::*;
 

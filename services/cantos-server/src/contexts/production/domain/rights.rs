@@ -2,7 +2,7 @@
 //! and its casting require, and the findings that block planning until each claim covers them.
 use std::collections::{BTreeMap, BTreeSet};
 
-use cantos_contracts::{
+use crate::contract::studio::{
     FieldIssue, ProductionBudget, ProductionFinding, ProductionFindingCode,
     ProductionRightsClaimResponse, ProductionRightsDeclaration, ProductionRightsStatus,
     ProductionRightsSubject, ProductionSettings,

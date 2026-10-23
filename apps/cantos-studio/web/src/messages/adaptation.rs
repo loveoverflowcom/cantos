@@ -1,5 +1,5 @@
 use crate::adaptation::ReviewStatus;
-use cantos_contracts::{
+use crate::contract::{
     AdaptationCost, AdaptationCurrency, AdaptationFindingCode, AdaptationStatus,
     AdaptationSubmissionStatus, AdaptationUsage,
 };
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn cost_uses_recorded_currency_minor_units_and_missing_cost_stays_unknown() {
-        use cantos_contracts::AdaptationCostBasis;
+        use crate::contract::AdaptationCostBasis;
         let usd = AdaptationCost {
             currency: AdaptationCurrency::USD,
             amount_minor: 123,

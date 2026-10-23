@@ -237,10 +237,10 @@ pub fn text(key: Key, english: bool) -> &'static str {
 }
 
 pub fn rights_status(
-    status: cantos_contracts::ProductionRightsStatus,
+    status: crate::contract::ProductionRightsStatus,
     english: bool,
 ) -> &'static str {
-    use cantos_contracts::ProductionRightsStatus;
+    use crate::contract::ProductionRightsStatus;
     text(
         match status {
             ProductionRightsStatus::Pending => Key::Pending,
@@ -251,8 +251,8 @@ pub fn rights_status(
     )
 }
 
-pub fn finding(code: cantos_contracts::ProductionFindingCode, english: bool) -> &'static str {
-    use cantos_contracts::ProductionFindingCode as F;
+pub fn finding(code: crate::contract::ProductionFindingCode, english: bool) -> &'static str {
+    use crate::contract::ProductionFindingCode as F;
     match (code, english) {
         (F::ScriptUnreviewed, true) => "Owner review of this accepted revision is missing.",
         (F::ScriptUnreviewed, false) => "Thiếu rà soát của chủ sở hữu cho bản đã chấp nhận này.",

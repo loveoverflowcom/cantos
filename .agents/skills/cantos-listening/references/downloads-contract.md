@@ -18,7 +18,7 @@ Streaming rights and offline rights are different: permission to publish does no
 redistribution ([`rights-and-provenance.md`](../../cantos-publication/references/rights-and-provenance.md)).
 Nothing here exists; every route, type and field is a **proposal**. The implemented Library
 (progress, Saved, History) and the `ListenerPublication` witness are the only listener pieces it
-can build on ([Library v1](../../../../packages/contracts/listener-library-v1.md)). Open decisions are listed in
+can build on ([Library v1](../../../../services/cantos-server/contracts/theatre/library/v1/README.md)). Open decisions are listed in
 § 10 and must be recorded before they are encoded.
 
 ## 1. What a download is
@@ -200,7 +200,7 @@ bytes that actually deliver.
 
 ## 9. Fixtures and vectors
 
-Commit under `packages/contracts/` (proposed): a manifest with two assets, a grant per `GrantState`, the
+Commit under `services/cantos-server/contracts/theatre/` (proposed): a manifest with two assets, a grant per `GrantState`, the
 denial table (one row per `DownloadDenial` with its error code) and the revalidation table of § 5.
 Rust and Kotlin decode and re-encode every fixture; regenerate-and-diff covers the schema. The
 client reducer's transition vectors (`reduce(entry, event)`) belong to the CMP skill and consume

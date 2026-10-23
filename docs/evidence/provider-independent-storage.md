@@ -175,7 +175,7 @@ originals (1 MiB) and Script IR exports (2 MiB) remain in PostgreSQL under their
 strict non-secret version-1 TOML and is mutually exclusive with it. Historical target IDs and
 locations must remain configured and stable. Changing the active write target performs no copy.
 See the [configuration example](../../services/cantos-server/config/storage.example.toml),
-[read routes and wire behavior](../../packages/contracts/private-content-reads-v1.md) and
+[read routes and wire behavior](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md) and
 [architecture/provider security matrix](../architecture/object-storage.md).
 
 The existing host still accepts only the reviewed local/development runtime with loopback

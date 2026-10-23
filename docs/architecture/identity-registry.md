@@ -4,7 +4,7 @@ The Server owns the provider-neutral actor registry under
 `services/cantos-server/src/platform/identity`: pure values/decisions, `IdentityRegistry`,
 `IdentityService` and `TursoIdentityRegistry`. It uses the same `server.db` serialized owner as
 native sessions. Registry lookup/linking never authenticates or creates resource authority;
-[Identity v1](../../packages/contracts/identity-auth-v1.md) owns fresh authentication facts and
+[Identity v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) owns fresh authentication facts and
 session issuance over private RPC. No Server read of `identity.db` or cross-DB transaction.
 
 ## Identity contract

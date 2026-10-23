@@ -2,7 +2,7 @@
 
 2026-10-13. **Domain/use-case/default-auth Router checks pass; actual account-sync, PostgreSQL,
 issuer and Web/CMP playback acceptance are pending.** Machine-readable [results](listener-library-progress-results.json)
-bind source and raw evidence hashes. [Contract](../../packages/contracts/listener-library-v1.md)
+bind source and raw evidence hashes. [Contract](../../services/cantos-server/contracts/theatre/library/v1/README.md)
 and [consumer/recovery handoff](../work-plan/listener-library-progress-handoff.md) own behavior.
 No broad issue is closed, no campaign PR is merged, and no CI completion is awaited.
 

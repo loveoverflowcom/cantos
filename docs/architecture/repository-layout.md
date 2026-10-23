@@ -48,6 +48,8 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
     web/                   Leptos CSR discovery/playback/Library (package cantos-theatre) LIVE CLIENT + MOCK
+      src/contract/        Theatre Web's own DTOs of the Server contracts it uses (ADR 0046)
+    conformance/           Theatre-owned client corpora (mock playback, boundary probes) for Web and Mobile
     mobile/                Kotlin Compose Multiplatform     (production adapters + isolated demo; acceptance pending)
       shared/              Production-safe UI/domain/application, ports and non-mock adapters
       preview-sandbox/     JVM-only Desktop Preview; shared TheatreShell and mock external ports
@@ -55,11 +57,15 @@ apps/
                            "Cantos", debug com.cantos.theatre.dev "Cantos Dev"; no flavors, no mock variant
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
+      src/contract/        Studio Web's own DTOs, codec and generated pilot Protobuf binding
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
   cantos-server/           Rust + Axum + embedded Turso (business port incomplete) (package cantos-server)  IMPLEMENTED
+    contracts/             Canonical Studio/Theatre/Admin/auth schemas, protos, fixtures by surface/module/version
+    src/contract/          The Server's own Rust representation of those contracts (a wire leaf)
   cantos-identity/         Security/proof core + file-backed state + `service` executable   Theatre signup/password (and Studio password) over private UDS RPC; NO passkey/recovery; Server sessions consume Turso
+    contracts/identity/v1/ Canonical private RPC proto and wire goldens (each side generates its own binding)
   manifest.toml            Typed native/external process inventory                  CONFIGURED
   kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
 infra/                     Deployment/runtime assets; no application domain logic
@@ -68,14 +74,14 @@ infra/                     Deployment/runtime assets; no application domain logi
   firebase/
     hosting/               Static Web Hosting policy and operator site-mapping example     CONFIG ONLY
     app-distribution/      Existing CLI-only operator inputs; no new config format         DOCUMENTED
-packages/
-  contracts/               Script IR/Studio/production schemas, fixtures, contract docs and
-    api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
-  web-auth/                Shared Identity v1 cookie-session owner + browser adapter for both Web apps IMPLEMENTED
+packages/                  No contract package: canonical contracts belong to their service (ADR 0046)
+  web-auth/                Shared Identity v1 cookie-session owner, its session wire and browser API addressing IMPLEMENTED
   store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (Identity persistence consumer; Server pending)
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
     cmp/                   Shared native controls and JVM desktop diagnostics              PREVIEW
+tools/
+  proto-codegen/           Pinned, isolated generator of every consumer-owned Protobuf binding (not a workspace member)
 xtask/                     cargo xtask: command orchestration (package xtask), not deployment assets
 .cargo/                    the `cargo xtask` alias
 docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scripts/ are xtask primitives
@@ -128,7 +134,7 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 | Context | Name |
 | --- | --- |
 | Listener app path, package and Trunk binary | `cantos-theatre` (`apps/cantos-theatre/{web,mobile}`) |
-| Listener API module, route group and DTOs | `theatre` (`/api/v1/theatre`, `cantos_contracts::theatre`) |
+| Listener API module, route group and DTOs | `theatre` (`/api/v1/theatre`, Server `contract::theatre`, canonical `services/cantos-server/contracts/theatre`) |
 | Creator app path, package, API route group | `cantos-studio`, `studio` (`/api/v1/studio`) |
 | Operations API module and route group | `admin` (`/api/v1/admin`) |
 | Shared backend | `cantos-server` |
@@ -202,8 +208,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   density and layout vary by task. No separate app token copy or Kotlin runtime is introduced.
 - **Kotlin code.** Theatre is the only mobile product. The shared `packages/ui-system/cmp`
   Gradle package and its Android preview host are component diagnostics, not Studio Mobile.
-  Shared contracts and semantic tokens may serve Theatre Mobile and Studio Web; extract further
-  libraries only for concrete consumers.
+  Service-owned contract schemas and shared semantic tokens may serve Theatre Mobile and Studio
+  Web as build inputs; each consumer keeps its own representation. Extract further libraries only
+  for concrete consumers.
   Within Theatre Mobile, `:preview-sandbox` depends on `:shared`; only the JVM Desktop Preview selects both
   explicitly. Android and iOS have no mock host. `:shared` has no reverse sandbox dependency or implicit mock fallback. The
   one Android application `:androidApp` consumes `:shared` and its injected production adapters
@@ -217,18 +224,18 @@ The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds 
 | Member | Package | Build target |
 | --- | --- | --- |
 | `services/cantos-server` | `cantos-server` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
-| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events, mailbox-proof lifecycles and bound receipts; opt-in `service` feature: the `cantos-identity` executable with Theatre signup, Argon2id password authentication and an OS-peer-authenticated private Unix-socket RPC ([contract](../../packages/contracts/identity-rpc-v1.md)); no Studio passkey, recovery or production composition (the Server consumer is Turso sessions, see Identity auth v1) |
+| `services/cantos-identity` | `cantos-identity` | dependency-free security-state/mailbox-proof core by default; optional [`persistence` file-backed store](../../services/cantos-identity/README.md#file-backed-security-state) for Identity epoch, subjects/security versions, Active→Disabled, ordered events, mailbox-proof lifecycles and bound receipts; opt-in `service` feature: the `cantos-identity` executable with Theatre signup, Argon2id password authentication and an OS-peer-authenticated private Unix-socket RPC ([contract](../../services/cantos-identity/contracts/identity/v1/README.md)); no Studio passkey, recovery or production composition (the Server consumer is Turso sessions, see Identity auth v1) |
 | `services/cantos-forge-functions` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
-| `packages/contracts/api` | `cantos-contracts` | native and WASM |
 | `packages/store-turso` | `cantos-store-turso` | native; file-backed tests, a capability-report binary behind the `testing` feature and `cargo xtask verify turso` |
 | `packages/web-auth` | `cantos-web-auth` | native core tests and WASM browser adapter |
 | `packages/ui-system/leptos` | `cantos-ui` | native string-render checks and WASM CSR |
 | `xtask` | `xtask` | native developer tool; never a dependency of another member |
 
-Package names follow their directories, except `cantos-contracts`, which was renamed from
-`cantos-api` so that two packages do not share a name. Binary names did not change.
+Package names follow their directories. The former `cantos-contracts` (renamed from `cantos-api`)
+and `cantos-identity-rpc` crates were retired by [ADR 0046](../decisions/0046-service-owned-contracts.md);
+`tools/proto-codegen` is an isolated tool, not a member. Binary names did not change.
 
 ## Build and verify per target
 
@@ -273,10 +280,10 @@ because they describe what was run at the time. Their links point to the current
 | `apps/server/` | `services/cantos-api/` |
 | `apps/web/` | `apps/cantos-studio/web/` |
 | `apps/mobile/` | `apps/cantos-theatre/mobile/` |
-| `contracts/` | `packages/contracts/` |
+| `contracts/` | `packages/contracts/` (since ADR 0046: `services/cantos-server/contracts/`, `services/cantos-identity/contracts/`, `apps/cantos-theatre/conformance/`) |
 | `contracts/design/studio-tokens-0.1.0.json` | `packages/ui-system/shared/legacy/studio-tokens-0.1.0.json` (via `packages/design-tokens`) |
 | package `cantos-server` | package `cantos-api` (binary `cantos-server` unchanged) |
-| package `cantos-api` | package `cantos-contracts` |
+| package `cantos-api` | package `cantos-contracts` (retired by ADR 0046: each consumer owns its representation) |
 | `services/cantos-api/` (package `cantos-api`) | `services/cantos-server/` (package `cantos-server`; #332, checkpoint 1/5 of #331) — the binary, routes and wire contracts are unchanged; see the [rename inventory](../../services/cantos-server/README.md#rename-from-cantos-api) for what intentionally keeps the old name |
 
 The subsequent [UI foundation migration](ui-system-migration.md) renames the token package and

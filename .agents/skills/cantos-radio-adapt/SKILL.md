@@ -27,7 +27,7 @@ It owns the adaptation workflow and handoff, and composes existing rule owners.
    [name-map template](../../../templates/story-name-map.yml).
 4. [`cantos-script-ir`](../cantos-script-ir/SKILL.md), its
    [import/adaptation reference](../cantos-script-ir/references/import-and-adaptation.md) and the
-   [actual contract](../../../packages/contracts/README.md): untrusted input, IDs and validation.
+   [actual contract](../../../services/cantos-server/contracts/README.md): untrusted input, IDs and validation.
 5. [`cantos-publication`](../cantos-publication/SKILL.md): provenance, applicable rights and the
    distinction between editorial review and permission to produce or publish.
 

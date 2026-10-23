@@ -45,7 +45,7 @@ declared rights/provenance, rather than just effective body equality.
 
 12. Uploads are private, scoped to one authorized work/content unit and capped in bytes and
     accepted MIME/container/codec according to a **versioned profile**.
-13. The implemented [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) uses a
+13. The implemented [Audio Lifecycle](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) uses a
     separate short-lived scoped bearer and bounded binary PUT through the API, which verifies
     stored bytes and performs admission/finalization. Direct object-store uploads remain part
     of the broader proposal, not a current route. Never trust a filename or declared digest alone.

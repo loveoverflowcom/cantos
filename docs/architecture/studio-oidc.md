@@ -1,6 +1,6 @@
 # Studio OIDC — retired
 
-Provider-only guidance is superseded by [Identity auth v1](../../packages/contracts/identity-auth-v1.md) and [private RPC v1](../../packages/contracts/identity-rpc-v1.md).
+Provider-only guidance is superseded by [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) and [private RPC v1](../../services/cantos-identity/contracts/identity/v1/README.md).
 Source retirement removed the OIDC/Firebase enrollment handlers, provider setup and callback
 exchange. The old commands/configuration are not supported native workflows. Original source-bound
 requirements and observations are retained in [pinned history](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/architecture/studio-oidc.md). They are not current

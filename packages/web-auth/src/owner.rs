@@ -5,6 +5,10 @@
 //! The HttpOnly credential is owned by the browser and never appears here. The owner keeps
 //! nonsecret session facts, fences intent, and serializes the exchanges that change the cookie.
 use crate::{
+    address::api_url,
+    wire::{Login, Session},
+};
+use crate::{
     core::{
         classify, classify_login, AccessAction, Clock, Lifecycle, RateGate, SessionView, Ticket,
     },
@@ -12,7 +16,6 @@ use crate::{
     serial::Serial,
     Failure, Surface,
 };
-use cantos_contracts::{bearer::Session, identity_auth::Login, web_api::api_url};
 use futures_util::FutureExt;
 use std::{
     cell::{Cell, RefCell},

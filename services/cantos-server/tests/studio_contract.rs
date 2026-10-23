@@ -1,4 +1,4 @@
-use cantos_contracts::RevisionResponse;
+use cantos_server::contract::studio::RevisionResponse;
 use cantos_server::script_ir::read_canonical_script;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -6,37 +6,37 @@ use sha2::{Digest, Sha256};
 #[test]
 fn studio_wire_fixtures_match_schema_and_independent_complete_export() {
     let schema: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/studio/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/editorial.schema.json"
     ))
     .unwrap();
     for (name, bytes) in [
         (
             "Revision",
-            include_str!("../../../packages/contracts/fixtures/studio/v1/revision.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/revision.json"),
         ),
         (
             "ApiError",
-            include_str!("../../../packages/contracts/fixtures/studio/v1/stale-revision.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/stale-revision.json"),
         ),
         (
             "History",
-            include_str!("../../../packages/contracts/fixtures/studio/v1/history.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/history.json"),
         ),
         (
             "Review",
-            include_str!("../../../packages/contracts/fixtures/studio/v1/review.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/review.json"),
         ),
         (
             "ScriptValidation",
-            include_str!("../../../packages/contracts/fixtures/studio/v1/validation.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/validation.json"),
         ),
         (
             "SaveRevision",
-            include_str!("../../../packages/contracts/fixtures/studio/v1/save-revision.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/save-revision.json"),
         ),
         (
             "ValidateScript",
-            include_str!("../../../packages/contracts/fixtures/studio/v1/validate-script.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/validate-script.json"),
         ),
     ] {
         let schema = json!({"$ref":format!("#/$defs/{name}"),"$defs":schema["$defs"]});
@@ -46,7 +46,7 @@ fn studio_wire_fixtures_match_schema_and_independent_complete_export() {
             .unwrap();
     }
     let revision: RevisionResponse = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/studio/v1/revision.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/revision.json"
     ))
     .unwrap();
     let content = read_canonical_script(revision.script_json.as_bytes()).unwrap();
@@ -66,7 +66,7 @@ fn studio_wire_fixtures_match_schema_and_independent_complete_export() {
 #[test]
 fn draft_validation_request_schema_refuses_extra_authority_fields_and_invalid_types() {
     let document: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/studio/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/editorial.schema.json"
     ))
     .unwrap();
     let schema = json!({"$ref":"#/$defs/ValidateScript","$defs":document["$defs"]});
@@ -86,15 +86,15 @@ fn draft_validation_request_schema_refuses_extra_authority_fields_and_invalid_ty
 #[test]
 fn catalog_literal_acceptance_and_rejection_fixtures_match_the_schema() {
     let document: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/catalog/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/catalog/v1/catalog.schema.json"
     ))
     .unwrap();
     let cases: Vec<Value> = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/catalog/v1/cases.json"
+        "../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/cases.json"
     ))
     .unwrap();
     let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/contracts/fixtures/catalog/v1");
+        .join("../../services/cantos-server/contracts/studio/catalog/v1/fixtures");
     for case in cases {
         let name = case["type"].as_str().unwrap();
         let schema = json!({"$ref":format!("#/$defs/{name}"),"$defs":document["$defs"]});
@@ -111,18 +111,18 @@ fn catalog_literal_acceptance_and_rejection_fixtures_match_the_schema() {
 }
 #[test]
 fn content_identity_literal_contracts_and_independent_digests_match_admission() {
-    use cantos_contracts::{AppendContentRequest, ContentRevisionResponse};
     use cantos_server::contexts::catalog::content::wire;
+    use cantos_server::contract::studio::{AppendContentRequest, ContentRevisionResponse};
     let root: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/content/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/content/v1/content.schema.json"
     ))
     .unwrap();
     let cases: Vec<Value> = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/content/v1/cases.json"
+        "../../../services/cantos-server/contracts/studio/content/v1/fixtures/cases.json"
     ))
     .unwrap();
     let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/contracts/fixtures/content/v1");
+        .join("../../services/cantos-server/contracts/studio/content/v1/fixtures");
     for case in cases {
         let value: Value = serde_json::from_slice(
             &std::fs::read(directory.join(case["file"].as_str().unwrap())).unwrap(),
@@ -145,7 +145,7 @@ fn content_identity_literal_contracts_and_independent_digests_match_admission() 
                 };
                 assert_eq!(
                     issues,
-                    vec![cantos_contracts::FieldIssue {
+                    vec![cantos_server::contract::studio::FieldIssue {
                         path: "details.body.script.revision".into(),
                         rule: "invalid_revision".into()
                     }]

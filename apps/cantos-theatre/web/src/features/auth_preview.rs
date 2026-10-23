@@ -48,7 +48,7 @@ fn finish_fixture(
     )? {
         SessionCompletion::Authenticated(_) => {
             use crate::application::library::{LibraryPage, Section};
-            use cantos_contracts::listener_library::{
+            use crate::contract::library::{
                 HistoryState, PresentedContinuePage, PresentedHistoryPage, PresentedSavedPage,
             };
             for section in Section::ALL {

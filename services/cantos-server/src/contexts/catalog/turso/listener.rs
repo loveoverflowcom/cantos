@@ -18,7 +18,7 @@ pub(crate) struct ListenerMetadata {
     pub unit: ContentUnit,
     pub current_work: Work,
     pub current_unit: ContentUnit,
-    pub content: cantos_contracts::ContentRevisionResponse,
+    pub content: crate::contract::studio::ContentRevisionResponse,
 }
 /// One bounded join over the requested releases' pinned revisions, their current heads and their
 /// content revision; the request batch is a JSON array read by `json_each`, never spliced.
@@ -80,7 +80,7 @@ pub(crate) async fn listener_metadata(
             if bytes.len() > 131072 {
                 return Err(StoreError::CorruptRevision);
             }
-            let content: cantos_contracts::ContentRevisionResponse =
+            let content: crate::contract::studio::ContentRevisionResponse =
                 serde_json::from_slice(&bytes).map_err(|_| StoreError::CorruptRevision)?;
             let get = |key: &str| {
                 r.try_get::<_, String>(key)

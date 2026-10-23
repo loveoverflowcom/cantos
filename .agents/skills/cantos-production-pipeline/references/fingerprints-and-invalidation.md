@@ -11,7 +11,7 @@
 > mutation. Use when a cache key, an effective synthesis input, a reuse rule, an invalidation
 > reason or "why did this line regenerate?" is involved.
 
-> **Implemented subset.** The bounded [clip reuse v1 contract](../../../../packages/contracts/clip-reuse-v1.md) implements
+> **Implemented subset.** The bounded [clip reuse v1 contract](../../../../services/cantos-server/contracts/historical/clip-reuse-v1.md) implements
 > sections 2, 4 and 5 for dialogue speech only, with these deliberate differences from the sketches below: the
 > fingerprint is `speech-v1` over `ResolvedSynthesisInput` (no separate voice-profile or model-revision types; the
 > exact `model_id` is the pin, and an unpinned model has no fingerprint); reuse also requires the same *producer*

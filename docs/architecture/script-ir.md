@@ -1,9 +1,9 @@
 # Versioned Script IR
 
-Script IR `0.1.0` has an implemented [JSON Schema, reader and semantic contract](../../packages/contracts/README.md)
+Script IR `0.1.0` has an implemented [JSON Schema, reader and semantic contract](../../services/cantos-server/contracts/README.md)
 with [local test evidence](../evidence/script-ir-contract.md). The
 [policy ADR](../decisions/0002-script-ir-contract.md) remains proposed for production adoption.
-The unchanged [example](../../packages/contracts/examples/episode-draft.json) is historical illustrative
+The unchanged [example](../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json) is historical illustrative
 `0.1.0-draft` JSON, explicitly unsupported by this reader; it is not a Narrative Forge format.
 
 ## Purpose
@@ -32,7 +32,7 @@ production input gate, not a Script IR validation claim.
 
 Treat imported/AI-adapted content as editable drafts. Accepting a script produces an immutable revision and content digest. Provider requests and approvals reference that revision, not a mutable "latest" row. An edit produces a new revision and invalidates only dependent render/QC/approval artifacts.
 
-The [contract](../../packages/contracts/README.md) specifies canonical content/export/speech encodings,
+The [contract](../../services/cantos-server/contracts/README.md) specifies canonical content/export/speech encodings,
 tagged SHA-256 digests and the exact read/write set `{0.1.0}`. Schema compatibility and semantic
 compatibility both matter: accepting a new field must not silently discard performance meaning.
 Reject unsupported versions with an actionable error; future explicit converters must preserve
@@ -47,7 +47,7 @@ review of an already reviewed revision returns its original immutable fact after
 Private source reads follow current script access and source evidence links. Storage acceptance,
 editorial review, rights clearance and production/publication approval remain distinct gates.
 
-[Production inputs v1](../../packages/contracts/production-v1.md) keeps casting/performance/pronunciation
+[Production inputs v1](../../services/cantos-server/contracts/studio/production/v1/README.md) keeps casting/performance/pronunciation
 outside the unchanged Script IR contract. A frozen planning candidate pins the complete
 accepted revision/export/c1/e1, reference-only resolved lines, required rights claim versions and
 budget/rate policy under `production-p1`. That scope includes evidence c1 deliberately excludes;
@@ -63,7 +63,7 @@ controls, voice profile and output profile. Script revision IDs alone are neithe
 cache keys nor a reason to redo unchanged speech, and rights/tenant authorization is checked
 separately before reuse. A producer may keep such a cache; Cantos only marks a submission stale
 when its brief or revision changes. The removed `speech-v1` fingerprint and vectors remain
-readable in [the historical clip reuse contract](../../packages/contracts/clip-reuse-v1.md).
+readable in [the historical clip reuse contract](../../services/cantos-server/contracts/historical/clip-reuse-v1.md).
 
 Producer-side mix identity additionally includes ordered speech assets, timing, cue assets, gain/ducking instructions and mixing-tool/profile revisions. Episode identity covers scene order, transitions and mastering/rendition settings. Changing a mix does not imply changing speech.
 

@@ -46,7 +46,7 @@ rewritten to fit Catalog. References validate the Work **owner**, not just scrip
 UUID identity, sequence, effective content digest and full revision digest are different values.
 Metadata history and content sequence have independent counters. A content append advances the
 Work guard/epoch atomically but leaves unit metadata snapshots unchanged. Text normalization and
-digest schemes are defined by [Content Identity v1](../../packages/contracts/content-v1.md).
+digest schemes are defined by [Content Identity v1](../../services/cantos-server/contracts/studio/content/v1/README.md).
 Recording content asserts no accepted audio. Imported/adapted/generated attribution and rights
 references remain declarations, never clearance or model-quality evidence.
 

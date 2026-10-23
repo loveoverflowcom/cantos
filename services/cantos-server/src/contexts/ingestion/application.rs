@@ -1,6 +1,6 @@
 //! Ingestion use cases: record an import receipt once per operation and read it back to its
 //! owner, plus the legacy text view of a source cited by a script.
-use cantos_contracts::{ImportRequest, ImportResponse, SourceResponse};
+use crate::contract::studio::{ImportRequest, ImportResponse, SourceResponse};
 use uuid::Uuid;
 
 use super::domain::extraction::extract;

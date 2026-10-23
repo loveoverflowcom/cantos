@@ -9,7 +9,7 @@ use serde_json::Value;
 const CONTRACT: &str = "theatre-mock-playback@1";
 const INDEX: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../../packages/contracts/fixtures/theatre/playback/v1/index.json"
+    "/../../../apps/cantos-theatre/conformance/playback/v1/vectors/index.json"
 ));
 
 struct EmbeddedVector {
@@ -25,7 +25,7 @@ macro_rules! embedded_vector {
             name: concat!($name, ".json"),
             json: include_str!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../../packages/contracts/fixtures/theatre/playback/v1/",
+                "/../../../apps/cantos-theatre/conformance/playback/v1/vectors/",
                 $name,
                 ".json"
             )),
@@ -579,7 +579,7 @@ fn reviewed_index_hashes_and_embedded_bytes_have_no_unnoticed_drift() {
 #[test]
 fn every_repository_vector_is_listed_and_embedded() {
     let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../packages/contracts/fixtures/theatre/playback/v1");
+        .join("../../../apps/cantos-theatre/conformance/playback/v1/vectors");
     let mut actual = std::fs::read_dir(directory)
         .unwrap()
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())

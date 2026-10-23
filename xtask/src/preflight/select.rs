@@ -13,8 +13,8 @@ use std::collections::BTreeSet;
 
 use crate::{
     config::{
-        App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_PACKAGE, TURSO_STORE_PACKAGE, UI_CMP_DIR,
-        UI_PACKAGE,
+        App, API_PACKAGE, FORGE_PACKAGE, IDENTITY_PACKAGE, STUDIO_WEB_PACKAGE, THEATRE_WEB_PACKAGE,
+        TURSO_STORE_PACKAGE, UI_CMP_DIR, UI_PACKAGE, WEB_AUTH_PACKAGE,
     },
     gate::{self, Gate, Scope},
 };
@@ -54,11 +54,36 @@ const SHARED_RUST_INPUTS: [&str; 8] = [
 const VERIFICATION_TOOLING: [&str; 3] = [".cargo", "xtask", ".github/workflows"];
 const DOCUMENT_TREES: [&str; 5] = ["docs", "templates", ".agents", ".claude", ".github"];
 const REPOSITORY_FILES: [&str; 3] = [".editorconfig", ".gitignore", ".env.example"];
-const CONTRACTS: &str = "packages/contracts";
-const CONTRACTS_PACKAGE: &str = "cantos-contracts";
+/// Canonical schemas, `.proto` files and fixtures of the contracts the Server publishes. Its
+/// clients read them as build/test inputs, so a change reaches every consumer of its surface.
+const SERVER_CONTRACTS: &str = "services/cantos-server/contracts";
+/// Identity's private RPC proto and wire goldens; the Server's client binding reads them too.
+const IDENTITY_CONTRACTS: &str = "services/cantos-identity/contracts";
+/// Theatre client conformance corpora shared by Theatre Web and Theatre Mobile.
+const THEATRE_CONFORMANCE: &str = "apps/cantos-theatre/conformance";
+const PROTO_CODEGEN: &str = "tools/proto-codegen";
+/// Consumer-owned bindings written by `tools/proto-codegen` (its `JOBS`), drift-checked by
+/// `protobuf-reference`. A test keeps this list equal to the generator's outputs.
+const GENERATED_PROTOBUF_BINDINGS: [&str; 7] = [
+    "services/cantos-server/src/contract/studio/protobuf/generated.rs",
+    "services/cantos-server/src/contract/studio/protobuf/generated_artwork.rs",
+    "apps/cantos-studio/web/src/contract/protobuf/generated.rs",
+    "services/cantos-identity/src/rpc/generated.rs",
+    "services/cantos-identity/tests/support/rpc_client.rs",
+    "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
+    "services/cantos-server/tests/support/identity_rpc_peer.rs",
+];
+/// Hand-written Studio Protobuf edge codecs and their corpus tests, in each consumer.
+const STUDIO_PROTOBUF_CODECS: [&str; 5] = [
+    "services/cantos-server/src/contract/studio/protobuf",
+    "apps/cantos-studio/web/src/contract/protobuf",
+    "apps/cantos-studio/web/src/wire/protobuf_tests.rs",
+    "services/cantos-server/tests/contract_conformance/protobuf_wire.rs",
+    "services/cantos-server/tests/contract_conformance/artwork_wire.rs",
+];
 const SCRIPT_IR_SOURCES: &str = "services/cantos-server/src/script_ir";
 const SCRIPT_IR_TESTS: &str = "services/cantos-server/tests/script_ir.rs";
-const SCRIPT_IR_FIXTURES: &str = "packages/contracts/fixtures/script-ir";
+const SCRIPT_IR_FIXTURES: &str = "services/cantos-server/contracts/studio/script-ir";
 
 pub fn within(path: &str, dir: &str) -> bool {
     path == dir
@@ -297,8 +322,8 @@ fn conformance_input(path: &str) -> bool {
         "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
         "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
         "services/cantos-server/src/contexts/production/domain/brief.rs",
-        "packages/contracts/api/src/audio_lifecycle.rs",
-        "packages/contracts/api/src/audio_intake.rs",
+        "services/cantos-server/src/contract/studio/audio_lifecycle.rs",
+        "services/cantos-server/src/contract/studio/audio_intake.rs",
         crate::behavior::MAILBOX_OBSERVER,
         crate::behavior::ADMISSION_OBSERVER,
         // Native Identity auth: the production seams the observers call (`validate_fact` included),
@@ -309,8 +334,8 @@ fn conformance_input(path: &str) -> bool {
         "services/cantos-identity/src/domain/security_version.rs",
         "services/cantos-identity/src/domain/admission.rs",
         "services/cantos-server/src/platform/identity_auth/decision.rs",
-        "packages/contracts/identity-rpc/src/lib.rs",
-        "packages/contracts/identity-rpc/src/generated.rs",
+        "services/cantos-server/src/platform/identity_auth/rpc.rs",
+        "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
     ]
     .contains(&path)
 }
@@ -336,32 +361,58 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
             setup: false,
             conformance: false,
         });
-    } else if within(path, "packages/contracts/identity-rpc") {
-        // The Identity RPC contract is its own Cargo member and shares no file with the
-        // Studio/Theatre contracts crate, so it selects only itself and its dependents.
-        if !is_doc {
-            if let Some(package) = graph.owner(path) {
-                impact.packages.insert(package.name.clone());
-            }
-        }
-    } else if within(path, CONTRACTS) {
-        // Fixtures (Markdown manuscripts included) and schemas are read by Rust tests.
-        if is_doc && !within(path, "packages/contracts/fixtures") {
+    } else if within(path, SERVER_CONTRACTS) {
+        // Fixtures (Markdown manuscripts included) and schemas are read by Rust and Kotlin tests;
+        // contract documents are covered by the repository gate.
+        if is_doc && !path.contains("/fixtures/") {
             return;
         }
-        impact.packages.insert(CONTRACTS_PACKAGE.to_owned());
-        if within(path, "packages/contracts/protobuf")
-            || within(path, "packages/contracts/fixtures/protobuf")
-            || within(path, "packages/contracts/fixtures/artwork")
-            || within(path, "packages/contracts/api/src/protobuf")
-            || path == "packages/contracts/api/tests/protobuf_wire.rs"
-            || path == "packages/contracts/api/tests/artwork_wire.rs"
+        impact.packages.insert(API_PACKAGE.to_owned());
+        let surface = path[SERVER_CONTRACTS.len()..].split('/').nth(1);
+        if surface == Some("studio") {
+            impact.packages.insert(STUDIO_WEB_PACKAGE.to_owned());
+        }
+        if matches!(surface, Some("theatre" | "auth")) {
+            impact.packages.insert(THEATRE_WEB_PACKAGE.to_owned());
+            impact.gates.insert(Gate::TheatreCmpPreview);
+        }
+        if surface == Some("auth") {
+            impact.packages.insert(WEB_AUTH_PACKAGE.to_owned());
+        }
+        if path.ends_with(".proto")
+            || within(
+                path,
+                "services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf",
+            )
+            || within(
+                path,
+                "services/cantos-server/contracts/studio/artwork/v1/fixtures",
+            )
         {
             impact.gates.insert(Gate::ProtobufReference);
             impact.gates.insert(Gate::TheatreCmpPreview);
         }
         if within(path, SCRIPT_IR_FIXTURES) {
             impact.gates.insert(Gate::ScriptIrReference);
+        }
+    } else if within(path, IDENTITY_CONTRACTS) {
+        // The proto and goldens are read by Identity's server binding and the Server's client.
+        if is_doc && !path.contains("/fixtures/") {
+            return;
+        }
+        impact.packages.insert(IDENTITY_PACKAGE.to_owned());
+        impact.packages.insert(API_PACKAGE.to_owned());
+        if path.ends_with(".proto") {
+            impact.gates.insert(Gate::ProtobufReference);
+        }
+    } else if within(path, THEATRE_CONFORMANCE) {
+        if !is_doc {
+            impact.packages.insert(THEATRE_WEB_PACKAGE.to_owned());
+            impact.gates.insert(Gate::TheatreCmpPreview);
+        }
+    } else if within(path, PROTO_CODEGEN) {
+        if !is_doc {
+            impact.gates.insert(Gate::ProtobufReference);
         }
     } else if within(path, UI_CMP_DIR) {
         // Kotlin is not a Cargo member. Its gate must not depend on metadata or reverse Rust deps.
@@ -385,6 +436,16 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
     } else if let Some(package) = graph.owner(path) {
         if path != format!("{}/README.md", package.dir) {
             impact.packages.insert(package.name.clone());
+        }
+        if GENERATED_PROTOBUF_BINDINGS.contains(&path) {
+            impact.gates.insert(Gate::ProtobufReference);
+        }
+        if STUDIO_PROTOBUF_CODECS
+            .iter()
+            .any(|codec| within(path, codec))
+        {
+            impact.gates.insert(Gate::ProtobufReference);
+            impact.gates.insert(Gate::TheatreCmpPreview);
         }
         if within(path, SCRIPT_IR_SOURCES) || path == SCRIPT_IR_TESTS {
             impact.gates.insert(Gate::Mutation);
@@ -436,7 +497,8 @@ fn classify_script(script: &str, impact: &mut Impact) {
         "reference_protobuf.py" => {
             impact.gates.insert(Gate::ProtobufReference);
             impact.gates.insert(Gate::TheatreCmpPreview);
-            impact.packages.insert(CONTRACTS_PACKAGE.to_owned());
+            impact.packages.insert(API_PACKAGE.to_owned());
+            impact.packages.insert(STUDIO_WEB_PACKAGE.to_owned());
         }
         _ if within(script, "protobuf-oracle") => {
             impact.gates.insert(Gate::ProtobufReference);
@@ -488,7 +550,7 @@ mod tests {
             "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
             "services/cantos-server/src/platform/identity_auth/decision.rs",
             crate::behavior::ADMISSION_OBSERVER,
-            "packages/contracts/identity-rpc/src/generated.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
             "services/cantos-identity/src/lib.rs",
             "services/cantos-identity/src/domain/mailbox_proof.rs",
             "services/cantos-identity/src/domain/ids.rs",
@@ -597,7 +659,8 @@ mod tests {
             "docs/architecture/overview.md",
             ".agents/skills/cantos-engineering/SKILL.md",
             "services/cantos-server/README.md",
-            "packages/contracts/adaptation-v1.md",
+            "services/cantos-server/contracts/studio/adaptation/v1/README.md",
+            "services/cantos-identity/contracts/identity/v1/README.md",
             "packages/ui-system/README.md",
             ".github/pull_request_template.md",
             "docs/evidence/casting-production-read-results.json",
@@ -626,21 +689,78 @@ mod tests {
     }
 
     #[test]
-    fn contract_changes_reach_every_dependent_package() {
-        let selection = pick(&["packages/contracts/api/src/production.rs"]);
+    fn a_consumer_representation_selects_only_its_owner() {
+        // The Server's own Rust representation is server code; no client imports it.
+        let server = pick(&["services/cantos-server/src/contract/studio/production.rs"]);
         assert_eq!(
-            names(&selection),
+            names(&server),
             [
                 "repository",
                 "rust-format",
-                "rust-lint (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
-                "rust-tests (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
+                "rust-lint (cantos-server)",
+                "rust-tests (cantos-server)",
                 "wav-reference",
                 "audio-inspection",
-                "web-lint (cantos-studio, cantos-theatre)",
-                "web-build (cantos-studio)",
-                "web-build (cantos-theatre)",
             ]
+        );
+        let studio = pick(&["apps/cantos-studio/web/src/contract/production.rs"]);
+        assert_eq!(
+            names(&studio),
+            [
+                "repository",
+                "rust-format",
+                "rust-lint (cantos-studio)",
+                "rust-tests (cantos-studio)",
+                "web-lint (cantos-studio)",
+                "web-build (cantos-studio)",
+            ]
+        );
+    }
+
+    #[test]
+    fn canonical_contract_changes_reach_the_owner_and_every_consumer_of_the_surface() {
+        let studio =
+            pick(&["services/cantos-server/contracts/studio/production/v1/production.schema.json"]);
+        assert_eq!(
+            names(&studio),
+            [
+                "repository",
+                "rust-format",
+                "rust-lint (cantos-server, cantos-studio)",
+                "rust-tests (cantos-server, cantos-studio)",
+                "wav-reference",
+                "audio-inspection",
+                "web-lint (cantos-studio)",
+                "web-build (cantos-studio)",
+            ]
+        );
+        for path in [
+            "services/cantos-server/contracts/theatre/library/v1/fixtures/saved.json",
+            "services/cantos-server/contracts/auth/bearer/v1/fixtures/session.json",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert!(selection.affected.contains("cantos-server"), "{path}");
+            assert!(selection.affected.contains("cantos-theatre"), "{path}");
+            assert!(selection.gates.contains(&Gate::TheatreCmpPreview), "{path}");
+        }
+        let auth = pick(&[
+            "services/cantos-server/contracts/auth/identity-auth/v1/identity-auth.schema.json",
+        ]);
+        assert!(auth.affected.contains("cantos-web-auth"));
+        let admin =
+            pick(&["services/cantos-server/contracts/admin/access/v1/fixtures/capability.json"]);
+        assert_eq!(admin.affected, [API_PACKAGE.to_owned()].into());
+        let conformance = pick(&["apps/cantos-theatre/conformance/playback/v1/vectors/index.json"]);
+        assert_eq!(conformance.broadened, None);
+        assert_eq!(
+            conformance.affected,
+            [THEATRE_WEB_PACKAGE.to_owned()].into()
+        );
+        assert!(conformance.gates.contains(&Gate::TheatreCmpPreview));
+        assert_eq!(
+            names(&pick(&["services/cantos-server/contracts/README.md"])),
+            ["repository", "rust-format"]
         );
     }
 
@@ -663,10 +783,12 @@ mod tests {
 
     #[test]
     fn script_ir_fixtures_and_markdown_manuscripts_are_contract_inputs() {
-        let selection = pick(&["packages/contracts/fixtures/script-ir/0.1.0/cases.json"]);
+        let selection =
+            pick(&["services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/cases.json"]);
         assert!(selection.gates.contains(&Gate::ScriptIrReference));
         assert!(selection.affected.contains("cantos-server"));
-        let manuscript = pick(&["packages/contracts/fixtures/manuscript/chapter-vi.md"]);
+        let manuscript =
+            pick(&["services/cantos-server/contracts/studio/manuscript/v1/fixtures/chapter-vi.md"]);
         assert!(manuscript.affected.contains("cantos-server"));
         assert!(!manuscript.gates.contains(&Gate::ScriptIrReference));
     }
@@ -755,42 +877,70 @@ mod tests {
     }
 
     #[test]
-    fn identity_rpc_contract_inputs_select_it_and_identity_with_the_turso_gate() {
+    fn identity_rpc_contract_inputs_select_both_sides_with_the_turso_gate() {
         for path in [
-            "packages/contracts/identity-rpc/src/lib.rs",
-            "packages/contracts/identity-rpc/src/generated.rs",
-            "packages/contracts/identity-rpc/Cargo.toml",
-            "packages/contracts/identity-rpc/tests/wire.rs",
-            "packages/contracts/identity-rpc/identity_v1.proto",
+            "services/cantos-identity/contracts/identity/v1/identity.proto",
+            "services/cantos-identity/contracts/identity/v1/fixtures/wire-goldens.json",
+            "services/cantos-identity/src/rpc/generated.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
         ] {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
-            // `validate_fact` in lib.rs is a production seam of the session-admission observer,
-            // and the generated wire types are the facts and reads it decodes.
-            let behavior: &[&str] = if path.ends_with("identity-rpc/src/lib.rs")
-                || path.ends_with("identity-rpc/src/generated.rs")
-            {
-                &["behavior"]
-            } else {
-                &[]
-            };
-            let expected: Vec<&str> = ["repository"]
-                .into_iter()
-                .chain(behavior.iter().copied())
-                .chain([
-                    "rust-format",
-                    "rust-lint (cantos-identity, cantos-identity-rpc, cantos-server)",
-                    "rust-tests (cantos-identity, cantos-identity-rpc, cantos-server)",
-                    "turso",
-                    "wav-reference",
-                    "audio-inspection",
-                ])
-                .collect();
-            assert_eq!(names(&selection), expected, "{path}");
+            // Identity's own binding is Identity code; the shared proto and goldens reach both.
+            let server = !path.starts_with("services/cantos-identity/src/");
+            assert_eq!(
+                selection.affected.contains("cantos-server"),
+                server,
+                "{path}"
+            );
+            assert_eq!(
+                selection.gates.contains(&Gate::WavReference),
+                server,
+                "{path}"
+            );
+            if !path.starts_with("services/cantos-server/") {
+                assert!(selection.affected.contains("cantos-identity"), "{path}");
+                assert!(selection.gates.contains(&Gate::Turso), "{path}");
+            }
+            // `validate_fact` and the Server's client binding are production seams of the
+            // session-admission observer.
+            let observed =
+                path.starts_with("services/cantos-server/src/platform/identity_auth/rpc");
+            assert_eq!(
+                selection
+                    .gates
+                    .iter()
+                    .any(|gate| matches!(gate, Gate::Behavior { .. })),
+                observed,
+                "{path}"
+            );
+            let generated = path.ends_with(".proto") || path.ends_with("generated.rs");
+            assert_eq!(
+                selection.gates.contains(&Gate::ProtobufReference),
+                generated,
+                "{path}"
+            );
         }
         // Its prose contract is a document: repository gate only.
-        let document = pick(&["packages/contracts/identity-rpc-v1.md"]);
+        let document = pick(&["services/cantos-identity/contracts/identity/v1/README.md"]);
         assert_eq!(names(&document), ["repository", "rust-format"]);
+    }
+
+    #[test]
+    fn generated_binding_list_matches_the_generator_jobs() {
+        let workspace = crate::workspace::Workspace::discover().unwrap();
+        let source =
+            std::fs::read_to_string(workspace.path("tools/proto-codegen/src/main.rs")).unwrap();
+        let outputs: BTreeSet<&str> = source
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("out: \""))
+            .filter_map(|line| line.strip_suffix("\","))
+            .collect();
+        assert_eq!(outputs, GENERATED_PROTOBUF_BINDINGS.into_iter().collect());
+        for path in GENERATED_PROTOBUF_BINDINGS {
+            assert!(workspace.path(path).is_file(), "{path}");
+        }
     }
 
     #[test]
@@ -859,17 +1009,19 @@ mod tests {
         for path in [
             "services/cantos-server/src/contexts/media/audio_intake.rs",
             "services/cantos-server/tests/audio_intake.rs",
-            "packages/contracts/api/src/audio_intake.rs",
-            "packages/contracts/schema/audio-intake/v1.schema.json",
-            "packages/contracts/fixtures/audio-intake/v1/receipt-response.json",
+            "services/cantos-server/src/contract/studio/audio_intake.rs",
+            "services/cantos-server/contracts/studio/audio-intake/v1/audio-intake.schema.json",
+            "services/cantos-server/contracts/studio/audio-intake/v1/fixtures/receipt-response.json",
         ] {
             let selection = pick(&[path]);
             assert!(selection.gates.contains(&Gate::AudioInspection), "{path}");
             assert_eq!(selection.broadened, None, "{path}");
         }
-        assert!(!pick(&["packages/contracts/studio-audio-intake-v1.md"])
-            .gates
-            .contains(&Gate::AudioInspection));
+        assert!(
+            !pick(&["services/cantos-server/contracts/studio/audio-intake/v1/README.md"])
+                .gates
+                .contains(&Gate::AudioInspection)
+        );
         assert!(!pick(&["apps/cantos-theatre/web/src/lib.rs"])
             .gates
             .contains(&Gate::AudioInspection));
@@ -878,26 +1030,37 @@ mod tests {
     #[test]
     fn protobuf_inputs_select_drift_goldens_and_both_language_consumers() {
         for path in [
-            "packages/contracts/protobuf/studio_v1.proto",
-            "packages/contracts/protobuf/artwork_v1.proto",
-            "packages/contracts/fixtures/protobuf/v1/goldens.json",
-            "packages/contracts/fixtures/protobuf/v1/hostile.json",
-            "packages/contracts/fixtures/artwork/v1/goldens.json",
-            "packages/contracts/fixtures/artwork/v1/hostile.json",
-            "packages/contracts/api/src/protobuf/generated.rs",
-            "packages/contracts/api/src/protobuf/generated_artwork.rs",
-            "packages/contracts/api/tests/artwork_wire.rs",
+            "services/cantos-server/contracts/studio/editorial/v1/editorial.proto",
+            "services/cantos-server/contracts/studio/artwork/v1/artwork.proto",
+            "services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf/goldens.json",
+            "services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf/hostile.json",
+            "services/cantos-server/contracts/studio/artwork/v1/fixtures/goldens.json",
+            "services/cantos-server/contracts/studio/artwork/v1/fixtures/hostile.json",
+            "services/cantos-server/src/contract/studio/protobuf/generated.rs",
+            "services/cantos-server/src/contract/studio/protobuf/generated_artwork.rs",
+            "services/cantos-server/tests/contract_conformance/artwork_wire.rs",
+            "apps/cantos-studio/web/src/contract/protobuf/generated.rs",
             "scripts/reference_protobuf.py",
         ] {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
             assert!(selection.gates.contains(&Gate::ProtobufReference), "{path}");
             assert!(selection.gates.contains(&Gate::TheatreCmpPreview), "{path}");
-            assert!(selection.affected.contains(CONTRACTS_PACKAGE), "{path}");
+            assert!(
+                selection.affected.contains(API_PACKAGE)
+                    || selection.affected.contains(STUDIO_WEB_PACKAGE),
+                "{path}"
+            );
         }
-        let oracle = pick(&["scripts/protobuf-oracle/rust/build.rs"]);
-        assert_eq!(oracle.broadened, None);
-        assert!(oracle.gates.contains(&Gate::ProtobufReference));
+        for path in [
+            "scripts/protobuf-oracle/rust/build.rs",
+            "tools/proto-codegen/src/main.rs",
+            "tools/proto-codegen/Cargo.lock",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert!(selection.gates.contains(&Gate::ProtobufReference), "{path}");
+        }
     }
 
     #[test]
@@ -1151,16 +1314,18 @@ mod tests {
     }
 
     #[test]
-    fn local_contract_changes_reach_every_dependent_through_the_graph() {
-        let selection = local(&["packages/contracts/api/src/production.rs"]);
+    fn local_contract_changes_reach_the_owner_and_the_surface_consumers() {
+        let selection = local(&[
+            "services/cantos-server/contracts/studio/production/v1/production.schema.json",
+        ]);
         assert_eq!(
             names(&selection),
             [
                 "repository-static",
                 "rust-format",
-                "rust-lint (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
-                "rust-tests (cantos-contracts, cantos-server, cantos-studio, cantos-theatre, cantos-web-auth)",
-                "web-lint (cantos-studio, cantos-theatre)",
+                "rust-lint (cantos-server, cantos-studio)",
+                "rust-tests (cantos-server, cantos-studio)",
+                "web-lint (cantos-studio)",
             ]
         );
     }
@@ -1174,8 +1339,8 @@ mod tests {
                 "cantos-identity, cantos-server, cantos-store-turso",
             ),
             (
-                "packages/contracts/identity-rpc/src/lib.rs",
-                "cantos-identity, cantos-identity-rpc, cantos-server",
+                "services/cantos-identity/contracts/identity/v1/identity.proto",
+                "cantos-identity, cantos-server",
             ),
         ] {
             let selection = local(&[path]);
@@ -1191,8 +1356,11 @@ mod tests {
                 "{path}"
             );
             let mut expected = vec!["repository"];
-            if path != "packages/store-turso/src/lib.rs" {
+            if path == "services/cantos-identity/src/lib.rs" {
                 expected.push("behavior");
+            }
+            if path.ends_with(".proto") {
+                expected.push("protobuf-reference");
             }
             expected.push("turso");
             if packages.contains("cantos-server") {
@@ -1324,8 +1492,9 @@ mod tests {
     #[test]
     fn local_plans_never_contain_a_campaign_gate() {
         let all = [
-            "packages/contracts/protobuf/studio_v1.proto",
-            "packages/contracts/fixtures/script-ir/0.1.0/cases.json",
+            "services/cantos-server/contracts/studio/editorial/v1/editorial.proto",
+            "services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/cases.json",
+            "tools/proto-codegen/src/main.rs",
             "specs/behavior/catalog.json",
             crate::behavior::OBSERVER,
             "packages/ui-system/shared/tokens.json",

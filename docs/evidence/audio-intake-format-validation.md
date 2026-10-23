@@ -13,7 +13,7 @@
 - Request: [#64](https://github.com/loveoverflowcom/cantos/issues/64), narrowed by the current
   owner request to explicit selection among **four Opus 20/24/32/40 kbps profiles**, with
   actual-byte format admission before storage. AAC acceptance and implicit defaults are excluded.
-- Implementation contract: [Studio owner audio intake v1](../../packages/contracts/studio-audio-intake-v1.md).
+- Implementation contract: [Studio owner audio intake v1](../../services/cantos-server/contracts/studio/audio-intake/v1/README.md).
 
 ## Invariant and boundary
 

@@ -11,7 +11,7 @@
 > unimplemented. The [worker runbook](docs/deployment/forge-worker.md) separates local source
 > from deployed packaging and live acceptance.
 > See [current decision](docs/decisions/0018-external-audio-production.md) and
-> [proposed, not-yet-implemented handoff](packages/contracts/external-audio-handoff-v1.md).
+> [proposed, not-yet-implemented handoff](services/cantos-server/contracts/producer/handoff/v1/README.md).
 
 ## Scope and source of truth
 
@@ -36,7 +36,9 @@ metadata in `server.db`; `services/cantos-identity` owns credentials/security in
 and returns facts over authenticated private RPC. `services/manifest.toml` is the process inventory.
 `services/cantos-forge-functions` is the external producer CLI/finite worker; real provider,
 Functions/Drive execution and API handoff remain separate #203 gates. `packages/` imports neither
-apps nor services. Apps call HTTP, never import service code or each other. `infra/` owns assets;
+apps nor services. Apps call HTTP, never import service code or each other. Each service owns its
+canonical contracts (`services/*/contracts/<surface>/<module>/<version>`) and each consumer keeps
+its own representation; there is no shared contract crate ([ADR 0046](docs/decisions/0046-service-owned-contracts.md)). `infra/` owns assets;
 `xtask/` owns commands. [Layout](docs/architecture/repository-layout.md) owns detailed placement.
 
 Technical names remain `cantos-theatre`/`theatre`; listeners see **Cantos**, creators **Cantos Studio**.
@@ -53,12 +55,12 @@ separate from user sessions; never use a Studio credential for Theatre, Admin or
 events, mailbox-proof lifecycles and bound receipts. Proof confirmation grants no setup or login
 authority. Its opt-in `service` feature builds the `cantos-identity` executable: Theatre signup with
 a mailbox proof, Argon2id passwords and `AuthenticatePassword` over an OS-peer-authenticated private
-Unix-socket RPC ([draft contract](packages/contracts/identity-rpc-v1.md)); the result is an
+Unix-socket RPC ([draft contract](services/cantos-identity/contracts/identity/v1/README.md)); the result is an
 authentication fact, never a session. The [v1 owner amendment](docs/architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration)
 and [ADR 0045](docs/decisions/0045-v1-email-password-sign-in.md) own factor scope and parallel integration.
 Studio passkeys, recovery and restore rotation remain deferred. Web cookie and CMP/native
 Bearer consumers exist; full browser/device acceptance is separate. The Server consumer
-(Turso sessions, v1 email/password) is [Identity auth v1](packages/contracts/identity-auth-v1.md). Checked snapshots and a
+(Turso sessions, v1 email/password) is [Identity auth v1](services/cantos-server/contracts/auth/identity-auth/v1/README.md). Checked snapshots and a
 passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
 #331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.
 
@@ -155,7 +157,7 @@ files only. [ADR 0041](docs/decisions/0041-direct-hosting-api-boundary.md) selec
 with an explicit API origin and exact per-surface CORS; installed legacy proxies are transitional.
 The [#295 owner amendment](https://github.com/loveoverflowcom/cantos/issues/295) selects
 HttpOnly/Secure Web cookies on the custom domains; both Web apps now consume the
-[Identity auth v1](packages/contracts/identity-auth-v1.md) cookie endpoints through
+[Identity auth v1](services/cantos-server/contracts/auth/identity-auth/v1/README.md) cookie endpoints through
 [`packages/web-auth`](packages/web-auth/README.md) (email/password, no OIDC popup or Bearer fallback),
 while browser and real Server/Identity acceptance remain pending. Native keeps its opaque Bearer.
 Exact-origin CORS, CSRF and separate surface authority remain required.
@@ -231,10 +233,10 @@ run their standalone equivalents again when covered by that handoff run.
 | Release artifact contract / CI promotion | `cargo xtask release self-test` for focused contract, DAG and mocked-adapter regressions; Python tests are included in the repository gate and Rust CLI/deploy tests in the Rust gate. Real CI/build/activate acceptance remains separate. |
 | Repository hygiene (documents, skills, scripts) | `repository` gate, included in handoff preflight; `cargo xtask verify repository` for a focused hygiene check when needed |
 | Completed handoff or a pull request | `cargo xtask preflight --changed-only` on the final diff, or cite a still-valid run covering it (broadens to every gate when impact is uncertain) |
-| Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
+| Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` (Server and client conformance, independent goldens and the `tools/proto-codegen` drift check of every consumer's binding) |
 | Identity pure security core | Existing `rust` gate includes `cantos-identity`; metadata-based preflight selects its lint/tests. Focused primitive: `cargo test --locked -p cantos-identity`. Optional `verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof` needs actual D1 Ubuntu x86_64 evidence; macOS tests are not Kani evidence. |
 | Forge worker/process boundary | `cargo xtask verify forge` (Rust producer plus Node wrapper tests; no provider or cloud calls) |
-| Embedded Turso foundation and Identity security persistence | `cargo xtask verify turso` (Identity `persistence` clippy/tests, shared-store file-backed tests and engine capability report; no server, container or cloud service). Also lints and tests the `service` feature (the executable, real Turso files, real Argon2id, a run-owned loopback SMTP sink) and `cantos-identity-rpc`, and lints ordinary `cantos-server` targets (the real Identity journey requires a prebuilt Identity executable). Focused primitives: `cargo test --locked -p cantos-identity --features persistence`, `cargo test --locked -p cantos-identity --features service`. |
+| Embedded Turso foundation and Identity security persistence | `cargo xtask verify turso` (Identity `persistence` clippy/tests, shared-store file-backed tests and engine capability report; no server, container or cloud service). Also lints and tests the `service` feature (the executable, real Turso files, real Argon2id, a run-owned loopback SMTP sink) with Identity's own RPC server binding, and lints ordinary `cantos-server` targets (the real Identity journey requires a prebuilt Identity executable). Focused primitives: `cargo test --locked -p cantos-identity --features persistence`, `cargo test --locked -p cantos-identity --features service`. |
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observers: private audio admission and the native Identity mailbox-proof and session-admission capabilities, with a disclosed synthetic shell; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |

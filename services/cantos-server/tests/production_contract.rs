@@ -1,10 +1,10 @@
-use cantos_contracts::{
-    ProductionSettingsResponse, RevisionResponse, SaveProductionRightsRequest,
-    SaveProductionSettingsRequest,
-};
 use cantos_server::contexts::production::{
     admit_frozen_document, prepare_inputs, production_catalog, production_input_digest,
     validate_rights_declaration, validate_settings,
+};
+use cantos_server::contract::studio::{
+    ProductionSettingsResponse, RevisionResponse, SaveProductionRightsRequest,
+    SaveProductionSettingsRequest,
 };
 use cantos_server::script_ir::read_script;
 use serde_json::{json, Value};
@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 #[test]
 fn production_requests_match_schema_raw_dtos_and_pure_admission() {
     let schema: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/production/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/production/v1/production.schema.json"
     ))
     .unwrap();
     assert!(jsonschema::draft202012::meta::is_valid(&schema));
@@ -21,12 +21,12 @@ fn production_requests_match_schema_raw_dtos_and_pure_admission() {
         (
             "SaveProductionSettingsRequest",
             include_str!(
-                "../../../packages/contracts/fixtures/production/v1/settings-request.json"
+                "../../../services/cantos-server/contracts/studio/production/v1/fixtures/settings-request.json"
             ),
         ),
         (
             "SaveProductionRightsRequest",
-            include_str!("../../../packages/contracts/fixtures/production/v1/rights-request.json"),
+            include_str!("../../../services/cantos-server/contracts/studio/production/v1/fixtures/rights-request.json"),
         ),
     ] {
         let selected = json!({"$ref":format!("#/$defs/{definition}"),"$defs":schema["$defs"]});
@@ -38,12 +38,12 @@ fn production_requests_match_schema_raw_dtos_and_pure_admission() {
         assert!(!validator.is_valid(&fabricated));
     }
     let settings: SaveProductionSettingsRequest = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/production/v1/settings-request.json"
+        "../../../services/cantos-server/contracts/studio/production/v1/fixtures/settings-request.json"
     ))
     .unwrap();
     validate_settings(&settings.settings).unwrap();
     let rights: SaveProductionRightsRequest = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/production/v1/rights-request.json"
+        "../../../services/cantos-server/contracts/studio/production/v1/fixtures/rights-request.json"
     ))
     .unwrap();
     validate_rights_declaration(&rights.claim).unwrap();
@@ -52,7 +52,7 @@ fn production_requests_match_schema_raw_dtos_and_pure_admission() {
 #[test]
 fn prepared_responses_preserve_large_admitted_script_ir_pronunciation_with_separate_bounds() {
     let mut raw: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
     ))
     .unwrap();
     raw["episode"]["acts"][0]["scenes"][0]["dialogues"][0]["pronunciation_overrides"] = json!([
@@ -73,7 +73,7 @@ fn prepared_responses_preserve_large_admitted_script_ir_pronunciation_with_separ
         script_json,
     };
     let request: SaveProductionSettingsRequest = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/production/v1/settings-request.json"
+        "../../../services/cantos-server/contracts/studio/production/v1/fixtures/settings-request.json"
     ))
     .unwrap();
     let settings = ProductionSettingsResponse {
@@ -97,7 +97,7 @@ fn prepared_responses_preserve_large_admitted_script_ir_pronunciation_with_separ
     assert!(preview.resolved[0].text.starts_with(&"a".repeat(600)));
 
     let document: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/production/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/production/v1/production.schema.json"
     ))
     .unwrap();
     for (definition, response) in [
@@ -118,15 +118,15 @@ fn prepared_responses_preserve_large_admitted_script_ir_pronunciation_with_separ
     }
     // Character presets keep their smaller independent request limit.
     let mut invalid_preset = settings.settings;
-    invalid_preset.bindings[0]
-        .pronunciation
-        .push(cantos_contracts::ProductionPronunciation {
+    invalid_preset.bindings[0].pronunciation.push(
+        cantos_server::contract::studio::ProductionPronunciation {
             surface: "Ánh".into(),
             replacement: "a".repeat(600),
-        });
+        },
+    );
     assert_eq!(
         validate_settings(&invalid_preset),
-        Err(vec![cantos_contracts::FieldIssue {
+        Err(vec![cantos_server::contract::studio::FieldIssue {
             path: "bindings[0].pronunciation[0].replacement".into(),
             rule: "text_length_or_normalization".into(),
         }])
@@ -135,7 +135,7 @@ fn prepared_responses_preserve_large_admitted_script_ir_pronunciation_with_separ
 
 fn schema_validator(definition: &str) -> jsonschema::Validator {
     let document: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/production/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/production/v1/production.schema.json"
     ))
     .unwrap();
     let schema = json!({"$ref":format!("#/$defs/{definition}"),"$defs":document["$defs"]});
@@ -149,7 +149,7 @@ fn every_implemented_catalog_identity_round_trips_through_the_published_schema()
         .validate(&catalog)
         .unwrap();
     let mut request: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/production/v1/settings-request.json"
+        "../../../services/cantos-server/contracts/studio/production/v1/fixtures/settings-request.json"
     ))
     .unwrap();
     let bindings = request["settings"]["bindings"].as_array_mut().unwrap();
@@ -178,7 +178,7 @@ fn every_implemented_catalog_identity_round_trips_through_the_published_schema()
     let request: SaveProductionSettingsRequest = serde_json::from_value(request).unwrap();
     validate_settings(&request.settings).unwrap();
     let script = read_script(include_bytes!(
-        "../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        "../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
     ))
     .unwrap();
     let script_json = String::from_utf8(script.export_bytes()).unwrap();
@@ -242,7 +242,7 @@ fn every_implemented_catalog_identity_round_trips_through_the_published_schema()
 #[test]
 fn published_catalog_fixture_is_the_served_catalog() {
     let fixture: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/production/v1/catalog-response.json"
+        "../../../services/cantos-server/contracts/studio/production/v1/fixtures/catalog-response.json"
     ))
     .unwrap();
     assert_eq!(serde_json::to_value(production_catalog()).unwrap(), fixture);

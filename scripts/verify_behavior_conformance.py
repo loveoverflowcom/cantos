@@ -534,8 +534,9 @@ AUDIO = Adapter(
     variables=("state", "before", "last", "outcome"), decode=decode_trace, compare=compare,
     faults=(("fault-ignore-revocation", "ignore-revocation", ("run.revoke-during-inspection", "run.revoked-replay"),
              "revocation input adapter defect escaped original trace assertions"),),
-    source_roots=("services/cantos-server", "packages/contracts/api"),
-    extra_inputs=(("packages/contracts/fixtures/briefs", "*.json"), ("packages/contracts/schema", "*.json")),
+    source_roots=("services/cantos-server",),
+    extra_inputs=(("services/cantos-server/contracts/studio/briefs/v1/fixtures", "*.json"),
+                  ("services/cantos-server/contracts", "*.schema.json")),
     symbols=("decide_admission", "submission_state", "AudioSubmission::create", "AudioRendition::create"),
     shell=("Complete(false) and Abandon harness effects", "synthetic verified-media metadata", "external authority facts"))
 

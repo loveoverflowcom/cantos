@@ -2,7 +2,7 @@
 //! instructions. These are data, not adapters: no process, SDK, network or file access lives
 //! here, and Cantos dispatches no synthesis. An external producer follows the instruction
 //! contract a frozen line records; casting never asks a provider what it supports.
-use cantos_contracts::{ProductionCapability, ProductionCatalogResponse};
+use crate::contract::studio::{ProductionCapability, ProductionCatalogResponse};
 
 pub mod google;
 pub mod local;

@@ -13,7 +13,7 @@ Its boundary takes precedence over legacy operating instructions while the conte
 | --- | --- |
 | Product, architecture, design and production guidance | Current requirements within the stated scope; a proposed section still needs its own decision |
 | [ADR index](decisions/README.md) | Decision status, scope and supersession; accepted policy, implemented code and verified behavior are separate facts |
-| [Versioned contracts](../packages/contracts/README.md) and actual source | Exact API/schema compatibility and implementation; do not infer routes from a proposal |
+| [Versioned contracts](../services/cantos-server/contracts/README.md) and actual source | Exact API/schema compatibility and implementation; do not infer routes from a proposal |
 | [Executable behavior](../specs/behavior/README.md) | Catalog lifecycle and accepted model expectations; draft/model-only PASS does not prove application conformance |
 | [Current priorities](work-plan/current-priorities.md) | Recommended order, dependencies and unresolved decision gates; never a second issue tracker |
 | [Evidence](evidence/README.md) | Results tied to named source/tool/environment; old PASS or NOT_RUN is not the status of today's code |
@@ -31,21 +31,21 @@ then the [native architecture](architecture/native-turso-refactor.md) and [retai
 The offline contract verifier is separate from publish, native qualification and live activation.
 For first-party v1 auth and parallel migration, start with the
 [native owner amendment](architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration),
-then [Identity auth v1](../packages/contracts/identity-auth-v1.md) and the [private RPC](../packages/contracts/identity-rpc-v1.md). Older provider guides are retired history, not supported workflows.
+then [Identity auth v1](../services/cantos-server/contracts/auth/identity-auth/v1/README.md) and the [private RPC](../services/cantos-identity/contracts/identity/v1/README.md). Older provider guides are retired history, not supported workflows.
 
 | Goal | Start here |
 | --- | --- |
 | Product scope and invariants | [Brief](product/brief.md), [business rules](product/business-rules.md), [production pipeline](product/production-pipeline.md) |
 | Runtime boundaries and repository ownership | [Overview](architecture/overview.md), [API contexts](architecture/api-contexts.md), [single-listener Server composition](architecture/server-http-composition.md), [layout and platform matrix](architecture/repository-layout.md), [services](../services/README.md), [infra assets](../infra/README.md) |
 | Persistence and remaining business port | [Shared store](../packages/store-turso/README.md), [readiness](architecture/native-persistence-readiness.md), [porting guide](architecture/server-turso-porting.md#checkpoint-boundary); PG schema/cutover material is historical migration input |
-| Catalog, content, briefs and private audio | [Contract index](../packages/contracts/README.md), [API service guide](../services/cantos-server/README.md), [live client matrix](work-plan/live-client-api-matrix.md) |
-| Private storage and owner artwork | [Object storage](architecture/object-storage.md), [artwork contract](../packages/contracts/artwork-v1.md); public cover remains gated by [ADR 0033](decisions/0033-release-pinned-public-cover.md) |
-| Publication and listener delivery | [Publication contract](../packages/contracts/publication-v1.md), [delivery evidence gates](decisions/0038-publication-streaming-evidence-gates.md), [origin-mode proposal](decisions/0032-theatre-origin-playback-delivery.md), [catalog state handoff](work-plan/theatre-catalog-state-handoff.md) |
-| Identity and account activation | [Identity v1](../packages/contracts/identity-auth-v1.md), [RPC](../packages/contracts/identity-rpc-v1.md), [registry](architecture/identity-registry.md), [Identity service](../services/cantos-identity/README.md); Web cookie/native Bearer, browser/device acceptance separate |
+| Catalog, content, briefs and private audio | [Contract index](../services/cantos-server/contracts/README.md), [API service guide](../services/cantos-server/README.md), [live client matrix](work-plan/live-client-api-matrix.md) |
+| Private storage and owner artwork | [Object storage](architecture/object-storage.md), [artwork contract](../services/cantos-server/contracts/studio/artwork/v1/README.md); public cover remains gated by [ADR 0033](decisions/0033-release-pinned-public-cover.md) |
+| Publication and listener delivery | [Publication contract](../services/cantos-server/contracts/studio/publication/v1/README.md), [delivery evidence gates](decisions/0038-publication-streaming-evidence-gates.md), [origin-mode proposal](decisions/0032-theatre-origin-playback-delivery.md), [catalog state handoff](work-plan/theatre-catalog-state-handoff.md) |
+| Identity and account activation | [Identity v1](../services/cantos-server/contracts/auth/identity-auth/v1/README.md), [RPC](../services/cantos-identity/contracts/identity/v1/README.md), [registry](architecture/identity-registry.md), [Identity service](../services/cantos-identity/README.md); Web cookie/native Bearer, browser/device acceptance separate |
 | Producer tools and private drafts | [Forge ADR](decisions/0022-cantos-forge-producer-cli.md), [Forge implemented commands](../services/cantos-forge-functions/README.md), [worker acceptance](deployment/forge-worker.md), [story workspace](production/story-workspace.md) |
 | Script/editor and production craft | [Script IR](architecture/script-ir.md), [editor acceptance](assurance/script-editor-acceptance.md), [radio score](production/radio-score.md), [craft](production/audio-drama-craft.md), [listening protocol](production/listening-review-protocol.md) |
 | Web/CMP UI | [UI system](design/ui-system.md), [shared preview catalog](../packages/ui-system/README.md), [mobile architecture](architecture/mobile.md), [UI migration](architecture/ui-system-migration.md) |
-| Wire transport | [Wire codec](architecture/wire-codec.md), [Protobuf policy](../packages/contracts/protobuf/README.md); JSON default and existing MessagePack compatibility remain scoped |
+| Wire transport | [Wire codec](architecture/wire-codec.md), [Protobuf policy](../services/cantos-server/contracts/studio/editorial/v1/protobuf.md); JSON default and existing MessagePack compatibility remain scoped |
 | Local checks and deployment | [xtask](../xtask/README.md), [seeded Theatre catalog runbook](deployment/theatre-seeded-catalog.md), [retained legacy topology/runbook](deployment/vps-production.md), [Hosting tooling](deployment/firebase-hosting.md), [Cloudflare Pages publisher](deployment/cloudflare-pages.md), [CircleCI artifact builds](deployment/circleci-builds.md) |
 | Cloudflare Web transition | [Rollout/recovery and offline report](deployment/cloudflare-rollout.md); #277/#278 own promotion/publishing prerequisites, #280 owns live acceptance and Hosting-only retirement. Source preparation is independent of operator execution. |
 

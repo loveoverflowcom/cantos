@@ -33,9 +33,9 @@ an explicit, nonsecret build input `CANTOS_API_ORIGIN`; absence preserves the lo
 An invalid origin or cross-surface path fails closed. The implementation reuses locked `url`
 2.5.8 to refuse silently normalized origins, userinfo, paths, queries and fragments. Fetch/XHR and
 login navigation go to Cantos API, never to a client-configured identity provider. Current
-implemented native consumer uses [Bearer v1](../../packages/contracts/bearer-v1.md); the Web apps
+implemented native consumer uses [Bearer v1](../../services/cantos-server/contracts/auth/bearer/v1/README.md); the Web apps
 no longer do. Both Web apps send `credentials: include` with the session fence to the
-[Identity auth v1](../../packages/contracts/identity-auth-v1.md) cookie endpoints
+[Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) cookie endpoints
 (#295, [web-auth](../../packages/web-auth/README.md)); browser and real API acceptance are pending.
 Provider artifacts stay in the API; mixed credentials remain refused by the server.
 
@@ -59,7 +59,7 @@ its distinct public OIDC client and exact system-browser redirect.
 On 2026-10-19 the [owner selected #295](https://github.com/loveoverflowcom/cantos/issues/295):
 Theatre Web at `https://cantos.cc` and Studio Web at `https://studio.cantos.cc` use API-issued
 HttpOnly/Secure cookies with `https://api.cantos.cc`. This supersedes only #253's mandatory
-RAM-only Web Bearer direction. The API cookie policy is [Identity auth v1](../../packages/contracts/identity-auth-v1.md)
+RAM-only Web Bearer direction. The API cookie policy is [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
 and the Web client migration is implemented in source; browser acceptance is pending. This decision
 does not report deployed cookies or undo existing session authority, revocation and account
 fences. CMP/native retains Bearer and secure storage.

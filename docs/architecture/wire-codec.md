@@ -8,19 +8,22 @@ idempotency, digests, PostgreSQL rows and object/audio storage retain their exis
 [ADR 0023](../decisions/0023-versioned-protobuf-wire.md) transitions the binary preference from
 [ADR 0013](../decisions/0013-optional-messagepack-wire.md). The latter and its
 [historical measurements](../evidence/messagepack-wire.md) remain intact. The versioned
-[protocol policy](../../packages/contracts/protobuf/README.md) owns the exact field/presence,
+[protocol policy](../../services/cantos-server/contracts/studio/editorial/v1/protobuf.md) owns the exact field/presence,
 media-type/parameter, limits and admission tables; do not infer an additional route or DTO.
 The [integration evidence](../evidence/protobuf-wire-migration.md) separates implemented,
 executed and deferred acceptance.
 
 ## Owning boundaries
 
-- Existing Serde DTOs: [cantos-contracts](../../packages/contracts/api/src/lib.rs).
-- Protobuf authority: [studio_v1.proto](../../packages/contracts/protobuf/studio_v1.proto),
+- Existing Serde DTOs: each consumer's own copy — the Server's [`contract::studio`](../../services/cantos-server/src/contract/studio/mod.rs)
+  and Studio Web's [`contract`](../../apps/cantos-studio/web/src/contract/mod.rs) ([ADR 0046](../decisions/0046-service-owned-contracts.md)).
+- Protobuf authority: [editorial.proto](../../services/cantos-server/contracts/studio/editorial/v1/editorial.proto),
   namespace `cantos.studio.wire.v1`, proto2 optional wire scalars with required application admission.
-- Private generated prost values, exhaustive fallible adapters and bounded prescan:
-  [protobuf](../../packages/contracts/api/src/protobuf/mod.rs).
-- JSON/MessagePack helpers and media parsing: [wire](../../packages/contracts/api/src/wire.rs).
+- Private generated prost values, exhaustive fallible adapters and bounded prescan, per consumer:
+  [Server](../../services/cantos-server/src/contract/studio/protobuf/mod.rs),
+  [Studio Web](../../apps/cantos-studio/web/src/contract/protobuf/mod.rs); both bindings are
+  `tools/proto-codegen` outputs checked by `--check`.
+- JSON/MessagePack helpers and media parsing: [wire](../../services/cantos-server/src/contract/codec.rs).
   Generic Serde encode/decode refuse Protobuf; only the four `ProtobufDto` roots use pilot helpers.
 - HTTP negotiation/extractors: [http/wire.rs](../../services/cantos-server/src/adapters/inbound/http/wire.rs).
 - Studio request/actual-response decoding:
@@ -33,7 +36,7 @@ executed and deferred acceptance.
 The pilot remains `GET scripts/{id}/head`, `GET scripts/{id}/revisions/{revision}`,
 `POST scripts/{id}/revisions` and `POST validation`, mounted under `/api/v1/studio` and the
 existing deprecated `/api/v1` alias. Other existing Studio/listener routes remain JSON. The separate new
-[private-artwork metadata contract](../../packages/contracts/artwork-v1.md) adds opt-in Protobuf
+[private-artwork metadata contract](../../services/cantos-server/contracts/studio/artwork/v1/README.md) adds opt-in Protobuf
 only for its new roots; encoded image bytes stay outside metadata messages. No existing auth,
 storage, audio, Admin, Theatre or Studio Mobile transport is migrated.
 
@@ -77,7 +80,7 @@ server negotiation within the same request, not a second write.
 ## Verification through the existing command surface
 
 `cargo xtask verify contracts` runs the independent Python golden encoder, pinned isolated
-prost/protoc schema drift oracle, contract/runtime tests, Script IR/WAV references and real
+prost/protoc schema drift oracle, the per-consumer binding drift check, contract/runtime tests, Script IR/WAV references and real
 owned Opus inspection. `protobuf-reference` is also in full preflight and the existing Rust CI
 job; no paid/new CI lane is introduced. Cargo tracks the external `.proto` before generation,
 so cached builds cannot silently retain a prior schema.
@@ -93,7 +96,7 @@ are independent measurements. Format choice establishes no blanket speedup.
 
 ## New private Work artwork metadata
 
-[Artwork v1](../../packages/contracts/artwork-v1.md) uses separate `cantos.studio.artwork.v1`
+[Artwork v1](../../services/cantos-server/contracts/studio/artwork/v1/README.md) uses separate `cantos.studio.artwork.v1`
 messages, generated private values and exhaustive adapters. New artwork metadata uses JSON by
 default and opt-in Protobuf, with a 32 KiB envelope, depth 4, 256 field occurrences and 64 rights
 references. It never enables MessagePack, changes the four legacy pilot roots, or puts PNG/JPEG

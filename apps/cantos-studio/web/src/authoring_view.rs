@@ -1,4 +1,5 @@
 //! Native, buffered fields over the lossless authoring core. Backend gates stay in the shell.
+use crate::contract::FieldIssue;
 use crate::{
     authoring::{
         AuthoringError, ChangeKind, Document, Field, History, InputActivity, PronunciationField,
@@ -9,7 +10,6 @@ use crate::{
         validation_rule, ItemAction,
     },
 };
-use cantos_contracts::FieldIssue;
 use cantos_ui::{FieldError, FieldLabel, Icon, IconName};
 use leptos::context::Provider;
 use leptos::prelude::*;

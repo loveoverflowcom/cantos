@@ -1,5 +1,5 @@
 //! Explicit review consent is tied to every immutable subject and submitted evidence field.
-use cantos_contracts::{AudioReviewDecision, AudioReviewKind, CreateAudioReviewRequest};
+use crate::contract::{AudioReviewDecision, AudioReviewKind, CreateAudioReviewRequest};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReviewConsent {
     pub unit: String,

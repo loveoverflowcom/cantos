@@ -1,6 +1,6 @@
 //! Rules for an import receipt: admissible metadata, the stored text projection and the digest
 //! that binds the original bytes, metadata and extraction outcome.
-use cantos_contracts::{FieldIssue, ImportMetadata, ImportOutcome, ImportRequest};
+use crate::contract::studio::{FieldIssue, ImportMetadata, ImportOutcome, ImportRequest};
 use sha2::{Digest, Sha256};
 
 use crate::platform::ids::canonical_uuid;
@@ -146,7 +146,7 @@ pub fn legacy_source_intact(original_text: &str, bytes: Option<&[u8]>, sha256: &
 
 #[cfg(test)]
 mod tests {
-    use cantos_contracts::{ImportFormat, ImportMetadata};
+    use crate::contract::studio::{ImportFormat, ImportMetadata};
 
     use super::{field_issue, legacy_source_intact, metadata_issues, sha256_hex};
 
@@ -194,7 +194,7 @@ mod admission_tests {
     use proptest::prelude::*;
 
     use super::*;
-    use cantos_contracts::ImportFormat;
+    use crate::contract::studio::ImportFormat;
 
     fn request(bytes: Vec<u8>) -> ImportRequest {
         ImportRequest {

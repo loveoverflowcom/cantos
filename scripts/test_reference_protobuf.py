@@ -38,7 +38,7 @@ class ProtobufReferenceTests(unittest.TestCase):
             with self.assertRaises(ValueError): varint(value)
 
     def test_schema_field_numbers_match_reviewed_oracle(self):
-        schema=(ROOT/'packages/contracts/protobuf/studio_v1.proto').read_text()
+        schema=(ROOT/'services/cantos-server/contracts/studio/editorial/v1/editorial.proto').read_text()
         messages=re.findall(r'message\s+(\w+)\s*\{(.*?)\}',schema,re.S)
         self.assertEqual({name for name,_ in messages},set(FIELDS))
         for name,body in messages:
@@ -49,7 +49,7 @@ class ProtobufReferenceTests(unittest.TestCase):
             self.assertIn('reserved ',body)
 
     def test_artwork_schema_matches_independently_reviewed_fields_enums_and_oneof(self):
-        schema = (ROOT/'packages/contracts/protobuf/artwork_v1.proto').read_text()
+        schema = (ROOT/'services/cantos-server/contracts/studio/artwork/v1/artwork.proto').read_text()
         self.assertIn('syntax = "proto2";', schema)
         self.assertIn('package cantos.studio.artwork.v1;', schema)
         messages = schema_messages(schema)
@@ -71,11 +71,17 @@ class ProtobufReferenceTests(unittest.TestCase):
 
     def test_external_schemas_are_registered_for_warm_cargo_regeneration(self):
         build = (ROOT/'scripts/protobuf-oracle/rust/build.rs').read_text()
-        for name in ('studio_v1.proto', 'artwork_v1.proto'):
-            self.assertIn(f'println!("cargo:rerun-if-changed=../../../packages/contracts/protobuf/{name}");', build)
+        for module in ('editorial', 'artwork'):
+            directory = f'../../../services/cantos-server/contracts/studio/{module}/v1'
+            self.assertIn(f'"{directory}"', build)
+            self.assertIn(f'println!("cargo:rerun-if-changed={{{module.upper()}}}/{module}.proto");', build)
+            self.assertTrue((ROOT/'scripts/protobuf-oracle/rust'/directory/f'{module}.proto').is_file())
         main = (ROOT/'scripts/protobuf-oracle/rust/src/main.rs').read_text()
         self.assertIn('generated_artwork.rs', main)
         self.assertIn('cantos.studio.artwork.v1.rs', main)
+        # Every consumer's checked-in binding is compared with the oracle's fresh generation.
+        self.assertIn('services/cantos-server/src/contract/studio/protobuf/generated.rs', main)
+        self.assertIn('apps/cantos-studio/web/src/contract/protobuf/generated.rs', main)
 
     def test_every_reviewed_pilot_golden_matches_independent_wire_spec(self):
         corpus=json.loads((DIRECTORY/'goldens.json').read_text())

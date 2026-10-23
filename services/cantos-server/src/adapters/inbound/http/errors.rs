@@ -1,4 +1,5 @@
 //! Exhaustive application/storage outcome projection onto the retained JSON error contract.
+use crate::contract::studio::{ApiError, ErrorCode};
 use crate::{
     application::StoreError,
     contexts::{editorial::domain::diagnostics::validation_issues, media::read::StorageError},
@@ -8,7 +9,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use cantos_contracts::{ApiError, ErrorCode};
 
 pub(super) fn failure(code: ErrorCode, status: StatusCode) -> Response {
     (
@@ -97,7 +97,7 @@ pub(super) fn error_response(error: StoreError) -> Response {
             StatusCode::UNPROCESSABLE_ENTITY,
             ErrorCode::AudioRejected,
             None,
-            vec![cantos_contracts::FieldIssue {
+            vec![crate::contract::studio::FieldIssue {
                 path: "audio".into(),
                 rule: rule.into(),
             }],
@@ -106,7 +106,7 @@ pub(super) fn error_response(error: StoreError) -> Response {
             StatusCode::SERVICE_UNAVAILABLE,
             ErrorCode::Unavailable,
             None,
-            vec![cantos_contracts::FieldIssue {
+            vec![crate::contract::studio::FieldIssue {
                 path: "audio".into(),
                 rule: rule.into(),
             }],

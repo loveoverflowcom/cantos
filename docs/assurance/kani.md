@@ -43,7 +43,7 @@ The current caller audit confirms the probe guards have no production runtime co
 registering them or adding covers would spend verification effort on an unwired kernel.
 Retain `Mode`, all production probe types/methods and `classify`, ordinary transition/exhaustion
 and compile-fail tests, and
-[`client-boundary/v1/probe-cases.json`](../../packages/contracts/fixtures/client-boundary/v1/probe-cases.json),
+[`client-boundary/v1/probe-cases.json`](../../apps/cantos-theatre/conformance/client-boundary/v1/probe-cases.json),
 which is also consumed by the Kotlin fixture generator. The historical
 [NOT_RUN record](../evidence/live-client-integration.md#kani-boundary) remains explicit.
 No duplicate kernel, production behavior change or new proof is introduced; source revert is

@@ -9,7 +9,7 @@ use super::library_sync::{
 };
 pub use super::library_sync::{AccountSyncJournal, LibrarySyncState};
 use super::player_session::PlaybackObservation;
-use cantos_contracts::listener_library::{
+use crate::contract::library::{
     AudioIdentity, AudioPresentation, HistoryState, ProgressKind, ProgressRecord, Receipt,
     ResumeStatus, SavedRecord, WorkPresentation,
 };
@@ -901,7 +901,7 @@ mod tests {
         ));
     }
     fn page() -> LibraryPage {
-        crate::live::library::decode_page(Section::Saved, include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json")).unwrap()
+        crate::live::library::decode_page(Section::Saved, include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json")).unwrap()
     }
     #[test]
     fn old_account_storage_failures_cannot_block_a_new_account_or_overwrite_its_journal() {
@@ -1084,16 +1084,16 @@ mod tests {
     #[test]
     fn initial_history_page_releases_one_waiting_engine_start_and_ignores_replays() {
         use super::super::library_sync::MutationPayload;
+        use crate::contract::library::{HistoryState, PresentedHistoryPage};
         use crate::core::{
             playback::{CallbackIdentity, Source},
             public_ids::PublicWorkId,
             public_track::{PinnedRelease, ReleaseRequest},
         };
-        use cantos_contracts::listener_library::{HistoryState, PresentedHistoryPage};
 
-        let manifest: cantos_contracts::theatre::PublicationManifest =
+        let manifest: crate::contract::discovery::PublicationManifest =
             serde_json::from_str(include_str!(
-                "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+                "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
             ))
             .unwrap();
         let release = PinnedRelease::admit(

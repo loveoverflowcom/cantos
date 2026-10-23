@@ -24,9 +24,9 @@ before changing scope; never add Studio Mobile.
 | one work item or PR | [`cantos-work-item`](../../cantos-work-item/SKILL.md), [work queue](../../../../docs/work-plan/README.md), the live issue |
 | review or failure | [`cantos-code-review`](../../cantos-code-review/SKILL.md), [`cantos-diagnostics`](../../cantos-diagnostics/SKILL.md) |
 | native Turso and Identity | [native refactor record](../../../../docs/architecture/native-turso-refactor.md), `services/cantos-server`, `services/cantos-identity`, their manifests |
-| auth client and RPC | [Identity auth v1](../../../../packages/contracts/identity-auth-v1.md), [Identity RPC v1](../../../../packages/contracts/identity-rpc-v1.md), [`packages/web-auth`](../../../../packages/web-auth/README.md) |
+| auth client and RPC | [Identity auth v1](../../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md), [Identity RPC v1](../../../../services/cantos-identity/contracts/identity/v1/README.md), [`packages/web-auth`](../../../../packages/web-auth/README.md) |
 | Web | [`cantos-leptos-web`](../../cantos-leptos-web/SKILL.md), [`cantos-ui-design`](../../cantos-ui-design/SKILL.md), `apps/cantos-{theatre,studio}/web` |
-| CMP | [`cantos-cmp-mobile`](../../cantos-cmp-mobile/SKILL.md), [Theatre Mobile guide](../../../../apps/cantos-theatre/mobile/README.md), `packages/contracts` |
+| CMP | [`cantos-cmp-mobile`](../../cantos-cmp-mobile/SKILL.md), [Theatre Mobile guide](../../../../apps/cantos-theatre/mobile/README.md), `services/cantos-server/contracts`, `apps/cantos-theatre/conformance` |
 | Quint and stateful behavior | [`cantos-behavior`](../../cantos-behavior/SKILL.md), [`specs/behavior`](../../../../specs/behavior/README.md), registered capability and conformance observer |
 | tests and toolchain | [`xtask/README.md`](../../../../xtask/README.md), workspace/package manifests, the toolchain pin, the actual tests |
 | infrastructure and deployment | [`infra/`](../../../../infra/README.md), [service inventory](../../../../services/README.md), the current runbook and the scope's issue |

@@ -74,7 +74,7 @@ exists; reviewers check the fields above by hand.
 
 ## Fixtures
 
-- Prefer the original content of the [example episode](../../../../packages/contracts/examples/episode-draft.json)
+- Prefer the original content of the [example episode](../../../../services/cantos-server/contracts/studio/script-ir/examples/episode-draft.json)
   (`Ánh đèn cuối sân khấu`, `Một lời hẹn`, `Người dẫn chuyện`, An, Minh) and extend it with
   original stress text: long names, stacked diacritics, long titles, empty libraries.
 - Seed data only through the app's official flows or a seed the repository provides; never edit

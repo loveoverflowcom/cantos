@@ -3,6 +3,7 @@
 //! This is the Khám phá screen: the hero, the search/filter form and the public Work list. The
 //! list is only a projection of [`PublicDiscoveryState`]; every search, retry and continuation is
 //! a callback the shell turns into a request, so nothing here parses a cursor or fetches.
+use crate::contract::discovery::{PresentedWorkSummary, WorkKind};
 use crate::{
     app::routes::Route,
     application::public_discovery::{
@@ -17,7 +18,6 @@ use crate::{
     },
     messages::{self, text, Key, Locale},
 };
-use cantos_contracts::theatre::{PresentedWorkSummary, WorkKind};
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, DisabledReason, IconName, Select, SelectDensity,
     SelectLabelPlacement, TextField, TextFieldKind,
@@ -486,7 +486,7 @@ pub(crate) fn PublicHome(
 mod tests {
     use super::*;
     use crate::application::public_discovery::DiscoveryReadError;
-    use cantos_contracts::theatre::PresentedWorkPage;
+    use crate::contract::discovery::PresentedWorkPage;
 
     fn render_with(state: PublicDiscoveryState, applied: DiscoveryQuery, locale: Locale) -> String {
         Owner::new().with(|| {

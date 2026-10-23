@@ -41,7 +41,7 @@ renewal and same-family rotation/revalidation are covered afterward. This is act
 JVM evidence; native sleep/suspend and secure-store/process-death behavior remain unaccepted.
 
 Native signup accepts email only, calls `/native/identity/signup` once and displays generic
-check-mail guidance. The [Web completion contract](../../packages/contracts/identity-auth-v1.md#email-link-and-signup)
+check-mail guidance. The [Web completion contract](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup)
 is implemented by the backend but its Theatre Web frontend is absent. New-account onboarding is
 **unaccepted** until Web proof/password completion is implemented and browser-tested; then the
 listener explicitly logs in in CMP. No polling, app-resume login, native proof import or native

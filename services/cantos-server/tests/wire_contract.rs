@@ -6,9 +6,9 @@ use axum::{
     http::{header, Request, StatusCode},
     Router,
 };
-use cantos_contracts::{
-    wire::{decode, decode_pilot, encode_pilot, WireFormat},
-    RevisionResponse, SaveRevisionRequest, ValidateScriptRequest,
+use cantos_server::contract::{
+    codec::{decode, decode_pilot, encode_pilot, WireFormat},
+    studio::{RevisionResponse, SaveRevisionRequest, ValidateScriptRequest},
 };
 use cantos_server::{
     adapters::inbound::http::{router, AppState},
@@ -21,10 +21,12 @@ use tower::ServiceExt;
 
 const ORIGIN: &str = "http://127.0.0.1:8080";
 const SCRIPT: &str = "ad04abb5-bba0-4240-b211-3ed2aa179999";
-const PROTOBUF_GOLDENS: &str =
-    include_str!("../../../packages/contracts/fixtures/protobuf/v1/goldens.json");
-const GOLDENS: &str =
-    include_str!("../../../packages/contracts/fixtures/studio/v1/msgpack-goldens.json");
+const PROTOBUF_GOLDENS: &str = include_str!(
+    "../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf/goldens.json"
+);
+const GOLDENS: &str = include_str!(
+    "../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/msgpack-goldens.json"
+);
 
 fn app() -> Router {
     let state = AppState {
@@ -36,7 +38,7 @@ fn app() -> Router {
 
 fn save_body(format: WireFormat) -> Vec<u8> {
     let request: SaveRevisionRequest = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/studio/v1/save-revision.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/save-revision.json"
     ))
     .unwrap();
     encode_pilot(format, &request).unwrap()
@@ -44,7 +46,7 @@ fn save_body(format: WireFormat) -> Vec<u8> {
 
 fn validate_body(format: WireFormat) -> Vec<u8> {
     let request: ValidateScriptRequest = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/studio/v1/validate-script.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/validate-script.json"
     ))
     .unwrap();
     encode_pilot(format, &request).unwrap()
@@ -115,7 +117,7 @@ fn assert_api_error(exchange: &Exchange, status: StatusCode, code: &str) {
         json!({"code": code, "current_revision": null, "issues": []})
     );
     let schema: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/studio/v1.schema.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/editorial.schema.json"
     ))
     .unwrap();
     let schema = json!({"$ref": "#/$defs/ApiError", "$defs": schema["$defs"]});
@@ -210,7 +212,7 @@ fn canonical_export_bytes_and_both_digests_survive_the_msgpack_representation() 
     let from_msgpack: RevisionResponse =
         decode(WireFormat::MessagePack, &golden("Revision")).unwrap();
     let from_json: RevisionResponse = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/studio/v1/revision.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/revision.json"
     ))
     .unwrap();
     assert_eq!(
@@ -268,7 +270,7 @@ fn a_draft_with_vietnamese_and_special_characters_admits_identically_from_either
 #[test]
 fn protobuf_retains_exact_canonical_export_and_digest_facts() {
     let json: RevisionResponse = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/studio/v1/revision.json"
+        "../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/revision.json"
     ))
     .unwrap();
     let bytes = protobuf_golden("revision");

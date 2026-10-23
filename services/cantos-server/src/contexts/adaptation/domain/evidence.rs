@@ -1,7 +1,7 @@
 //! Admission of source/binding facts and retention of those bindings in edited proposals.
 //! Current ownership, registry integrity and authorization remain application/SQL checks.
 use super::AdaptationRejection;
-use cantos_contracts::ImportResponse;
+use crate::contract::studio::ImportResponse;
 use serde_json::{json, Value};
 
 use super::{array, problem, script_problem};

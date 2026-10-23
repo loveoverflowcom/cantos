@@ -1245,7 +1245,7 @@ impl<'de> Deserialize<'de> for UniqueValue {
 mod tests {
     use super::*;
     const FIXTURE: &str = include_str!(
-        "../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        "../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
     );
 
     fn document() -> Document {
@@ -1288,7 +1288,7 @@ mod tests {
         for fixture in [
             FIXTURE,
             include_str!(
-                "../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/provenance.json"
+                "../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/provenance.json"
             ),
         ] {
             let document = Document::parse(fixture).unwrap();
@@ -1572,7 +1572,7 @@ mod tests {
     fn diagnostic_paths_match_current_backend_fixtures_and_follow_reordered_rows() {
         let original = document();
         let cases: Value = serde_json::from_str(include_str!(
-            "../../../../packages/contracts/fixtures/script-ir/0.1.0/cases.json"
+            "../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/cases.json"
         ))
         .unwrap();
         // The committed backend oracle contains these exact semantic paths.

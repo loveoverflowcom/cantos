@@ -1,5 +1,5 @@
 use super::*;
-use cantos_identity_rpc::{Assurance, Purpose};
+use crate::platform::identity_auth::rpc::{Assurance, Purpose};
 
 fn subject(n: u8) -> Subject {
     Subject::from_bytes([n; 16]).unwrap()

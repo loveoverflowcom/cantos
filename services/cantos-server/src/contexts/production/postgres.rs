@@ -1,11 +1,11 @@
 //! Production tables: versioned settings and rights claims, frozen snapshots and approvals, all
 //! append-only. Every decoder re-checks stored bytes against the pure admission rules.
-use crate::platform::store::Row;
-use cantos_contracts::{
+use crate::contract::studio::{
     FrozenProductionDocument, ProductionApprovalResponse, ProductionRightsClaim,
     ProductionRightsClaimResponse, ProductionSettings, ProductionSettingsResponse,
     ProductionSnapshotSummary,
 };
+use crate::platform::store::Row;
 use serde::{de::DeserializeOwned, Serialize};
 
 use super::domain::{

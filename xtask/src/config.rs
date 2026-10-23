@@ -37,7 +37,6 @@ pub const IDENTITY_PACKAGE: &str = "cantos-identity";
 pub const IDENTITY_PERSISTENCE_FEATURE: &str = "persistence";
 /// Credentials, mail, private RPC and the `cantos-identity` executable (never in the pure core).
 pub const IDENTITY_SERVICE_FEATURE: &str = "service";
-pub const IDENTITY_RPC_PACKAGE: &str = "cantos-identity-rpc";
 /// Feature that exposes only run-owned temp directories and a deterministic clock; never a runtime build.
 pub const TURSO_TESTING_FEATURE: &str = "testing";
 pub const TURSO_CAPABILITY_BIN: &str = "cantos-turso-capability";
@@ -46,6 +45,10 @@ pub const UI_PACKAGE: &str = "cantos-ui";
 /// Production, release and deploy builds never enable it; tests, lint and `TRUNK_BUILD_FEATURES`
 /// development runs do.
 pub const THEATRE_WEB_PACKAGE: &str = "cantos-theatre";
+pub const STUDIO_WEB_PACKAGE: &str = "cantos-studio";
+pub const WEB_AUTH_PACKAGE: &str = "cantos-web-auth";
+/// Pinned, isolated generator of every consumer-owned Protobuf binding; never a workspace member.
+pub const PROTO_CODEGEN_MANIFEST: &str = "tools/proto-codegen/Cargo.toml";
 pub const THEATRE_PREVIEW_FEATURE: &str = "cantos-theatre/preview";
 pub const API_SERVER_BIN: &str = "cantos-server";
 pub const API_PORT: u16 = 8080;
@@ -180,7 +183,7 @@ mod tests {
             "services/cantos-forge-functions/Cargo.toml",
             "apps/cantos-studio/web/Cargo.toml",
             "apps/cantos-theatre/web/Cargo.toml",
-            "packages/contracts/api/Cargo.toml",
+            "packages/web-auth/Cargo.toml",
             "packages/ui-system/leptos/Cargo.toml",
             "xtask/Cargo.toml",
         ] {

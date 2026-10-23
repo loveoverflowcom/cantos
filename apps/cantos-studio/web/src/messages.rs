@@ -287,8 +287,8 @@ pub fn import_copy(english: bool) -> ImportCopy {
 }
 
 pub fn import_status(value: &crate::import::ImportStatus, english: bool) -> &'static str {
+    use crate::contract::ErrorCode;
     use crate::import::ImportStatus;
-    use cantos_contracts::ErrorCode;
     match (value, english) {
         (ImportStatus::Error(ErrorCode::StaleProductionInputs), true) => "Production input scope changed; import selection is preserved.",
         (ImportStatus::Error(ErrorCode::StaleProductionInputs), false) => "Phạm vi đầu vào sản xuất đã đổi; tệp nhập được giữ.",
@@ -336,18 +336,18 @@ pub fn import_status(value: &crate::import::ImportStatus, english: bool) -> &'st
     }
 }
 
-pub fn import_format(format: cantos_contracts::ImportFormat, english: bool) -> &'static str {
+pub fn import_format(format: crate::contract::ImportFormat, english: bool) -> &'static str {
     let copy = import_copy(english);
     match format {
-        cantos_contracts::ImportFormat::Txt => copy.txt,
-        cantos_contracts::ImportFormat::Markdown => copy.markdown,
-        cantos_contracts::ImportFormat::Docx => copy.docx,
-        cantos_contracts::ImportFormat::ScriptIr => copy.script_ir,
+        crate::contract::ImportFormat::Txt => copy.txt,
+        crate::contract::ImportFormat::Markdown => copy.markdown,
+        crate::contract::ImportFormat::Docx => copy.docx,
+        crate::contract::ImportFormat::ScriptIr => copy.script_ir,
     }
 }
 
-pub fn import_kind(kind: cantos_contracts::ImportBlockKind, english: bool) -> &'static str {
-    use cantos_contracts::ImportBlockKind;
+pub fn import_kind(kind: crate::contract::ImportBlockKind, english: bool) -> &'static str {
+    use crate::contract::ImportBlockKind;
     match (kind, english) {
         (ImportBlockKind::Paragraph, true) => "Paragraph",
         (ImportBlockKind::Paragraph, false) => "Đoạn văn",
@@ -439,8 +439,8 @@ pub fn import_diagnostic(code: &str, english: bool) -> &'static str {
     }
 }
 
-pub fn import_cue(kind: cantos_contracts::ImportCueKind, english: bool) -> &'static str {
-    use cantos_contracts::ImportCueKind;
+pub fn import_cue(kind: crate::contract::ImportCueKind, english: bool) -> &'static str {
+    use crate::contract::ImportCueKind;
     match (kind, english) {
         (ImportCueKind::Ambience, true) => "Ambience",
         (ImportCueKind::Ambience, false) => "Âm thanh môi trường",
@@ -454,8 +454,8 @@ pub fn import_cue(kind: cantos_contracts::ImportCueKind, english: bool) -> &'sta
 #[cfg(test)]
 mod import_tests {
     use super::{import_copy, import_diagnostic, import_kind, import_status};
+    use crate::contract::{ErrorCode, ImportBlockKind};
     use crate::import::ImportStatus;
-    use cantos_contracts::{ErrorCode, ImportBlockKind};
 
     #[test]
     fn import_states_and_identity_ambiguity_have_both_locales() {

@@ -1,7 +1,7 @@
 //! Pure decisions for adaptation commands. The shell loads the facts under the run lock, asks
 //! here, then writes exactly what the decision says.
 use crate::contexts::editorial::domain::diagnostics::SafeDiagnostic;
-use cantos_contracts::{
+use crate::contract::studio::{
     AcceptAdaptationRequest, AdaptationContextRequest, AdaptationStatus, ImportOutcome,
     ImportResponse,
 };
@@ -151,7 +151,7 @@ pub fn decide_cancellation(
 
 #[cfg(test)]
 mod tests {
-    use cantos_contracts::{
+    use crate::contract::studio::{
         AcceptAdaptationRequest, AdaptationStatus, Extraction, ImportFormat, ImportMetadata,
         ImportProblem,
     };

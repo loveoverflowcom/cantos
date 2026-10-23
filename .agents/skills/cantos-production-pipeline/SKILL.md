@@ -36,7 +36,7 @@ app-data persistence, Gemini/encoder or deployed acceptance.
 
 ## Working order
 
-1. Read the [proposed handoff contract](../../../packages/contracts/external-audio-handoff-v1.md)
+1. Read the [proposed handoff contract](../../../services/cantos-server/contracts/producer/handoff/v1/README.md)
    and the relevant issue. Distinguish **proposed** DTOs/routes from implemented contracts.
 2. Model immutable `Work`, `ContentUnit`, `ProductionBrief`, `AudioSubmission`,
    `AudioRendition`, `AudioReview` and `Release` identities and legal transitions.

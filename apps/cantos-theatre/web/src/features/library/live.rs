@@ -1,4 +1,7 @@
 //! Web-owned Library composition over the full presented read model, separate from demo data.
+use crate::contract::library::{
+    AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
+};
 use crate::{
     app::routes::Route,
     application::{
@@ -11,9 +14,6 @@ use crate::{
     },
     core::public_ids::PublicWorkId,
     messages::{self, Key, Locale},
-};
-use cantos_contracts::listener_library::{
-    AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
 };
 use cantos_ui::{Button, ButtonState, ButtonVariant, DisabledReason};
 use leptos::prelude::*;
@@ -310,9 +310,9 @@ mod tests {
     }
     pub(super) fn populate(s: &mut AccountViewState) {
         for (section, body) in [
-            (Section::Continue, include_bytes!("../../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue.json").as_slice()),
-            (Section::Saved, include_bytes!("../../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json").as_slice()),
-            (Section::History, include_bytes!("../../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_history.json").as_slice()),
+            (Section::Continue, include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue.json").as_slice()),
+            (Section::Saved, include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json").as_slice()),
+            (Section::History, include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_history.json").as_slice()),
         ] {
             let request = s.begin_library(section, false).unwrap();
             s.finish_page(&request, crate::live::library::decode_page(section, body)).unwrap();
@@ -364,7 +364,7 @@ mod tests {
     fn null_and_replaced_rows_never_borrow_other_metadata_and_failures_stay_section_local() {
         let mut s = signed_in();
         let request = s.begin_library(Section::Continue, false).unwrap();
-        let mut page: cantos_contracts::listener_library::PresentedContinuePage = serde_json::from_slice(include_bytes!("../../../../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue_unavailable.json")).unwrap();
+        let mut page: crate::contract::library::PresentedContinuePage = serde_json::from_slice(include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue_unavailable.json")).unwrap();
         page.items[0].resume = ResumeStatus::ReleaseReplaced;
         s.finish_page(
             &request,
@@ -378,8 +378,8 @@ mod tests {
         s.finish_page(
             &history,
             Ok(crate::application::library::LibraryPage::History(
-                cantos_contracts::listener_library::PresentedHistoryPage {
-                    state: cantos_contracts::listener_library::HistoryState {
+                crate::contract::library::PresentedHistoryPage {
+                    state: crate::contract::library::HistoryState {
                         epoch: 0,
                         revision: 0,
                     },

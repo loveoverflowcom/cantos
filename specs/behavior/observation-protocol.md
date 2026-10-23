@@ -176,7 +176,7 @@ rejects a label that disagrees with the counters and a report that never exercis
 | Capability | Real production symbols called | Synthetic shell (no production symbol decides it) |
 | --- | --- | --- |
 | mailbox proof | `ProofId::from_bytes`, `ProofTime::new`, `ProofBinding::new`, `MailboxProof::{issue, plan_confirmation, plan_cancellation, plan_replacement}`, `ProofTransition::{expected, next}` | store epoch check, receipt replay (`Replayed`/`OperationReused`), unknown-operation lookup, secret-class (digest) check, lifetime-unique locator set (`LocatorNotUnique`), the held plan, compare-and-replace against the current snapshot (`StaleSnapshot`), commit fate (`Commit`, `Reject`, `UnknownApplied`, `UnknownLost`), the account counter and the constant no-authority projection |
-| session admission | `validate_fact` (identity-rpc), `SecurityState::from_response`, `decide_issue`, `decide_admission` | Studio roster membership, the single session slot and generation, an unreachable or absent Identity read, the requested-versus-committed revocation write and logout, the Identity record and roster as input facts |
+| session admission | `validate_fact` (Server Identity client `platform::identity_auth::rpc`), `SecurityState::from_response`, `decide_issue`, `decide_admission` | Studio roster membership, the single session slot and generation, an unreachable or absent Identity read, the requested-versus-committed revocation write and logout, the Identity record and roster as input facts |
 
 The synthetic commit is a value replacement in memory. It is not a Turso or PostgreSQL transaction and it
 never claims a durable receipt, a session, an authentication fact or a Studio/Admin authority: the core

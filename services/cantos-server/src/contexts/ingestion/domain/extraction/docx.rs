@@ -2,7 +2,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Cursor, Read};
 
-use cantos_contracts::{Extraction, ImportBlockKind, ImportProblem};
+use crate::contract::studio::{Extraction, ImportBlockKind, ImportProblem};
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::name::ResolveResult;
 use quick_xml::NsReader;

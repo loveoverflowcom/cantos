@@ -72,7 +72,7 @@ needs a matching receipt before deploy/rollback. This establishes observed confi
 not a successful browser session or equality of provider-redacted signing-key bytes. See the
 [migration procedure and cookie/domain gate](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#direct-hosting--api-configuration).
 
-For the [#253 Bearer migration](../../packages/contracts/bearer-v1.md), reconciliation derives
+For the [#253 Bearer migration](../../services/cantos-server/contracts/auth/bearer/v1/README.md), reconciliation derives
 two exact callbacks for each existing Web client from its validated API origin:
 `/api/v1/{studio|theatre}/auth/callback` and `/api/v1/{studio|theatre}/auth/bearer/callback`.
 The six browser inputs are unchanged; callers cannot supply additional callback URLs. Readback

@@ -7,13 +7,14 @@ fn brief_error(error: StoreError) -> Response {
     match error {
         StoreError::InvalidRequestFields(issues) => super::catalog::failure(
             StatusCode::UNPROCESSABLE_ENTITY,
-            cantos_contracts::ErrorCode::InvalidRequest,
+            crate::contract::studio::ErrorCode::InvalidRequest,
             None,
             issues,
         ),
         error => error_response(error),
     }
 }
+use crate::contract::studio::{CreateProducerGrantRequest, CreateProductionBriefRequest};
 use axum::{
     extract::{Path, State},
     http::{header, HeaderMap, StatusCode},
@@ -22,7 +23,6 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
-use cantos_contracts::{CreateProducerGrantRequest, CreateProductionBriefRequest};
 
 pub(super) fn owner_routes() -> Router<AppState> {
     Router::new()
@@ -49,7 +49,7 @@ pub(super) fn producer_routes() -> Router<AppState> {
         .method_not_allowed_fallback(|| async {
             super::catalog::failure(
                 StatusCode::METHOD_NOT_ALLOWED,
-                cantos_contracts::ErrorCode::InvalidRequest,
+                crate::contract::studio::ErrorCode::InvalidRequest,
                 None,
                 vec![],
             )

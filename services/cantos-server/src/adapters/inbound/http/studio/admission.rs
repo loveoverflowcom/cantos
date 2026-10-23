@@ -5,13 +5,13 @@ use super::super::{
     AppState,
 };
 use crate::application::{Store, StoreError};
+use crate::contract::studio::ErrorCode;
 use axum::{
     extract::{Request, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
     middleware::Next,
     response::Response,
 };
-use cantos_contracts::ErrorCode;
 
 pub(in crate::adapters::inbound::http) fn cookie_token(
     headers: &HeaderMap,

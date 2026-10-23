@@ -19,7 +19,7 @@ pub use assembly::{
     router_with_private_artwork, router_with_public_media, router_with_publication_delivery,
     router_with_theatre_delivery, server_router,
 };
-pub use cors::with_browser_cors;
+pub use cors::{with_browser_cors, WebSurface};
 pub use state::AppState;
 
 #[cfg(test)]

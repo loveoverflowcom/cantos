@@ -1,7 +1,7 @@
 //! Production use cases. Each locks the script, then the acting and owning actors, then
 //! settings and rights, in that order, reads the current facts and asks the pure production
 //! rules before writing. Locks are never held across synthesis.
-use cantos_contracts::{
+use crate::contract::studio::{
     ProductionRightsClaimResponse, ProductionSettingsResponse, ProductionSnapshotResponse,
 };
 

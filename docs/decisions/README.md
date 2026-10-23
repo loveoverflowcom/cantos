@@ -18,7 +18,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0006 — Host-owned adaptation](0006-ai-script-adaptation.md) | Proposed adoption; implemented | Host inference, API proposal/review only |
 | [0007 — Casting inputs](0007-casting-production-inputs.md) | Proposed adoption; implemented planning | Rights/guidance/approval metadata, no synthesis |
 | [0008 — Local TTS inspection](0008-local-tts-inspection.md) | Historical; superseded by 0018 for backend | Original local experiment only |
-| [0009 — Monorepo layout](0009-monorepo-layout.md) | Accepted | Current platform matrix overrides old Studio Mobile reservation |
+| [0009 — Monorepo layout](0009-monorepo-layout.md) | Accepted | Current platform matrix overrides old Studio Mobile reservation; contract placement superseded by 0046 |
 | [0010 — Neural TTS research](0010-local-neural-tts-research.md) | Historical; superseded by 0018 for backend | Retained research only |
 | [0011 — Google TTS adapter](0011-google-cloud-tts-adapter.md) | Historical; superseded by 0018 for backend | No live backend provider capability |
 | [0012 — xtask](0012-xtask-command-surface.md) | Accepted | One repository command surface |
@@ -32,7 +32,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0020 — Private audio intake](0020-studio-private-audio-intake.md) | Accepted development scope | Explicit Opus envelopes; production/listening acceptance separate |
 | [0021 — Podman services](0021-podman-service-runtime.md) | Accepted legacy; native dev/test dependency superseded | #348 selects OCI/Quadlet production packaging for two native executables; publish/host/native acceptance remain separate |
 | [0022 — Cantos Forge](0022-cantos-forge-producer-cli.md) | Accepted owner direction | Relocated local CLI, attempt core/store and finite worker boundary exist; Studio-controlled local/Functions + private Drive app-data execution pending |
-| [0023 — Protobuf wire](0023-versioned-protobuf-wire.md) | Implemented opt-in pilot | JSON default; activation/full #97 acceptance deferred |
+| [0023 — Protobuf wire](0023-versioned-protobuf-wire.md) | Implemented opt-in pilot | JSON default; activation/full #97 acceptance deferred; prost pin and binding ownership amended by 0046 |
 | [0024 — Studio OIDC](0024-studio-oidc-bff.md) | Proposed production adoption; implemented slice | Live issuer/admission acceptance separate |
 | [0025 — Actor identity root](0025-actor-identity-root.md) | Proposed; listener slice implemented | Studio migration slices pending |
 | [0026 — Mobile storage sandbox](0026-theatre-mobile-local-storage-sandbox.md) | Proposed; bounded sandbox implemented | No production SQLDelight/Okio/durable sync adoption implied |
@@ -53,6 +53,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 
 | [0041 — Direct Hosting/API boundary](0041-direct-hosting-api-boundary.md) | Accepted owner direction; #295 Web-cookie migration pending | Direct static Web → explicit API origin and exact surface CORS; Web cookies on custom domains selected, native Bearer retained; gateway/browser/device acceptance separate |
 | [0043 — Cloudflare Pages Direct Upload](0043-cloudflare-pages-direct-upload.md) | Proposed (owner requested Pages); publisher implemented | Pages Direct Upload only, artifact-consuming `deploy cloudflare`; no Worker/Functions; real account/browser acceptance and cutover pending |
+| [0046 — Service-owned contracts](0046-service-owned-contracts.md) | Accepted owner request; source migration implemented | Canonical schemas/protos/fixtures per service and module, consumer-owned Rust/Kotlin representations and per-consumer Protobuf codegen; supersedes 0009's `packages/contracts` and 0023's prost 0.13.5 pin; no wire/runtime acceptance changed |
 
 ## ID allocation and historical references
 
@@ -78,4 +79,4 @@ Do not recycle old numbers or renumber unrelated accepted decisions.
 
 - [ADR0045: v1 email/password sign-in for Theatre and Studio](0045-v1-email-password-sign-in.md) — accepted #335 v1 scope; Studio passkey/recovery deferred.
 
-ADR 0041/#253's Web Bearer direction is superseded by #295 and [Identity auth v1](../../packages/contracts/identity-auth-v1.md): Web cookie with exact-origin/CSRF; CMP/native retains Bearer. Provider-only ADRs 0016/0034/0036/0040/0044 are historical within that scope; current mailbox/password behavior follows ADR 0045. Provisioned-only Studio and no registration-issued role remain required.
+ADR 0041/#253's Web Bearer direction is superseded by #295 and [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md): Web cookie with exact-origin/CSRF; CMP/native retains Bearer. Provider-only ADRs 0016/0034/0036/0040/0044 are historical within that scope; current mailbox/password behavior follows ADR 0045. Provisioned-only Studio and no registration-issued role remain required.

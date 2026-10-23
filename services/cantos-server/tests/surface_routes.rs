@@ -5,8 +5,8 @@ use axum::{
     http::{header, Request, StatusCode},
     Router,
 };
-use cantos_contracts::routes::{ADMIN_BASE, API_BASE, STUDIO_BASE, THEATRE_BASE};
 use cantos_server::adapters::inbound::http::{router, AppState};
+use cantos_server::contract::routes::{ADMIN_BASE, API_BASE, STUDIO_BASE, THEATRE_BASE};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;

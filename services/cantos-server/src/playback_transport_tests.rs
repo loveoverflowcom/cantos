@@ -3,6 +3,7 @@
 //! production `/media/{grant}` route and the shared HTTP byte transport. Publication/SQL
 //! eligibility and publication-class object storage are named test doubles, never
 //! PrivateStorage; the bytes are arbitrary transport bytes, not a claimed playable Opus file.
+use crate::contract::theatre::discovery::PlaybackAuthorization;
 use crate::{
     adapters::inbound::http::playback_contract_router,
     contexts::media::{
@@ -23,7 +24,6 @@ use axum::{
     Router,
 };
 use bytes::Bytes;
-use cantos_contracts::theatre::PlaybackAuthorization;
 use http_body_util::BodyExt;
 use sha2::{Digest, Sha256};
 use std::sync::{

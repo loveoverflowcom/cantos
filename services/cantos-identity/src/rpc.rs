@@ -11,12 +11,24 @@ compile_error!(
 
 use std::{collections::BTreeSet, net::IpAddr, sync::Arc};
 
-use cantos_identity_rpc::{
+/// Identity's own server-side binding of the `cantos.identity.v1` contract it owns
+/// (`contracts/identity/v1/identity.proto`), regenerated and drift-checked by
+/// `tools/proto-codegen`. Callers generate their own client from the same proto.
+#[allow(clippy::all, clippy::pedantic)]
+#[rustfmt::skip]
+pub mod generated;
+
+/// Largest request or response this service accepts or sends. Every field is bounded far below.
+pub const MAX_MESSAGE_BYTES: usize = 8 * 1024;
+/// Longest textual IPv6 address a caller may assert for its end user.
+pub const MAX_CLIENT_IP_BYTES: usize = 45;
+
+use generated::{
     identity_server::Identity, AccountState as WireState, Assurance as WireAssurance,
     AuthenticatePasswordRequest, AuthenticatePasswordResponse, AuthenticationFact, ClientContext,
     CompleteTheatreSignupRequest, CompleteTheatreSignupResponse, GetSecurityStateRequest,
     GetSecurityStateResponse, Purpose as WirePurpose, SetupOutcome, StartTheatreSignupRequest,
-    StartTheatreSignupResponse, MAX_CLIENT_IP_BYTES,
+    StartTheatreSignupResponse,
 };
 use tonic::{
     metadata::MetadataValue, transport::server::UdsConnectInfo, Code, Request, Response, Status,
@@ -33,6 +45,24 @@ use crate::{
     persistence::ProofCommandId,
     policy::{MAX_CALLER_UIDS, PROOF_TTL_SECONDS},
 };
+
+impl std::fmt::Debug for generated::StartTheatreSignupRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("StartTheatreSignupRequest([REDACTED])")
+    }
+}
+
+impl std::fmt::Debug for generated::CompleteTheatreSignupRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CompleteTheatreSignupRequest([REDACTED])")
+    }
+}
+
+impl std::fmt::Debug for generated::AuthenticatePasswordRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("AuthenticatePasswordRequest([REDACTED])")
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {

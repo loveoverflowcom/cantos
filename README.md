@@ -13,8 +13,8 @@ and [Forge ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md) own that 
    and [native decision](docs/architecture/native-turso-refactor.md).
 2. Read the [Server checkpoint](docs/architecture/server-turso-porting.md#checkpoint-boundary),
    [Identity](services/cantos-identity/README.md) and [shared store](packages/store-turso/README.md).
-3. Read [Identity auth v1](packages/contracts/identity-auth-v1.md) and
-   [private RPC v1](packages/contracts/identity-rpc-v1.md): Web cookie, CMP/native Bearer,
+3. Read [Identity auth v1](services/cantos-server/contracts/auth/identity-auth/v1/README.md) and
+   [private RPC v1](services/cantos-identity/contracts/identity/v1/README.md): Web cookie, CMP/native Bearer,
    distinct purpose/origin/actor authority, fresh security-state checks and bounded receipts.
 4. Use [xtask](xtask/README.md) for implemented commands and the
    [short work queue](docs/work-plan/current-priorities.md) for remaining review boundaries.
@@ -55,7 +55,7 @@ Incremental engines are DEFER; DBSP's implementation/feature/gate are retired.
 | `services/cantos-forge-functions` | External producer library/CLI/finite worker; live provider/Functions/Drive execution remains separate #203 work |
 | `apps/cantos-studio/web` | Creator Leptos UI; no Studio mobile target |
 | `apps/cantos-theatre/{web,mobile}` | Listener Leptos/CMP clients, native playback; isolated opt-in previews |
-| `packages/` | Shared contracts, store primitives and design tokens; imports neither apps nor services |
+| `packages/` | Shared store primitives, Web session owner and design tokens; imports neither apps nor services (contracts belong to their service) |
 | `infra/` | Edge, Hosting, OCI/Quadlet and deployment policy/assets; no domain implementation |
 | `xtask/` | Canonical developer orchestration |
 | `.agents/skills/` | Canonical method; `.claude/skills` symlinks and `CLAUDE.md` import share it |

@@ -1,5 +1,5 @@
 //! Pure host-proposal review state; only human acceptance dispatches a mutation.
-use cantos_contracts::{
+use crate::contract::{
     AcceptAdaptationRequest, AdaptationProposal, AdaptationReviewResponse, AdaptationStatus,
     ApiError, ErrorCode, FieldIssue, ImportOutcome, ImportResponse, RevisionResponse,
 };

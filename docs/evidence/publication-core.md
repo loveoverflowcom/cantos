@@ -1,6 +1,6 @@
 # Publication core: verification and acceptance ledger
 
-Boundary: [Publication v1](../../packages/contracts/publication-v1.md),
+Boundary: [Publication v1](../../services/cantos-server/contracts/studio/publication/v1/README.md),
 [external production ADR0018](../decisions/0018-external-audio-production.md), and
 [successor handoff](../archive/handoffs/publication-discovery-handoff.md). This is PR1 of
 Publication → Discovery/Playback → Library/Progress. Related #9/#10/#11 remain open.

@@ -16,7 +16,7 @@ A static release bundle of this app can be published to Firebase Hosting with th
 the explicit Cantos API origin. Catalog and authentication require separate API deployment and
 browser acceptance; [#295](https://github.com/loveoverflowcom/cantos/issues/295) selects API-issued
 HttpOnly cookies on the custom domains, and this source now consumes the
-[Identity v1 contract](../../../packages/contracts/identity-auth-v1.md) that way (no Bearer/OIDC
+[Identity v1 contract](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) that way (no Bearer/OIDC
 fallback). That consumer has run against no backend or browser yet; static delivery establishes
 no playback.
 The preferred shorter site `cantos.web.app` is conditional on verified allocation; the technical
@@ -265,7 +265,7 @@ This is session-only validation, with synthetic episode identity and no publicat
 ### Shared mock semantics
 
 The independent Rust and Kotlin reducers share **data**, not runtime code:
-[`theatre-mock-playback@1`](../../../packages/contracts/fixtures/theatre/playback/v1/README.md).
+[`theatre-mock-playback@1`](../conformance/playback/v1/vectors/README.md).
 Its schema/index and seven hand-authored vectors specify full state, derived status and ordered
 effects for play/pause, buffering, interruption, stale responses, restore, preparation races and
 invalid controls. The native Rust harness embeds the exact corpus, rejects unknown versions,
@@ -594,7 +594,7 @@ a successful local build is not deployed-user acceptance.
 
 ## Default API and error recovery (#298)
 
-Theatre Web follows [client error presentation v1](../../../packages/contracts/client-error-presentation-v1.md):
+Theatre Web follows [client error presentation v1](../conformance/client-error-presentation-v1.md):
 an omitted `CANTOS_API_ORIGIN` selects `https://api.cantos.cc`; explicit invalid/empty input fails
 before network. Local `xtask run|app` injects a loopback API origin explicitly. Build commands keep
 the production default unless an explicit override is supplied. This does not change Studio.

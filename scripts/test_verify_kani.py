@@ -965,16 +965,14 @@ class VerifyAdapterTest(unittest.TestCase):
         (self.checkout / self.transitive_source).write_text(
             "// Separate transitive API input.\n", encoding="utf-8"
         )
-        self.contract_source = Path("packages/contracts/api/src/lib.rs")
+        self.contract_source = Path("services/cantos-server/contracts/studio/script-ir/0.1.0/README.md")
         (self.checkout / self.contract_source).parent.mkdir(parents=True)
         (self.checkout / self.contract_source).write_text(
-            "// Separate contracts input.\n", encoding="utf-8"
+            "Separate canonical contract input.\n", encoding="utf-8"
         )
         for relative in (
-            "packages/contracts/api/Cargo.toml",
-            "packages/contracts/api/build.rs",
             "services/cantos-server/build.rs",
-            "packages/contracts/schema/script-ir.schema.json",
+            "services/cantos-server/contracts/studio/script-ir/0.1.0/script-ir.schema.json",
             "scripts/verify_kani.py",
             "xtask/src/kani.rs",
         ):
@@ -1105,13 +1103,11 @@ class VerifyAdapterTest(unittest.TestCase):
             sorted([
                 ".cargo/config.toml",
                 "Cargo.toml",
-                "packages/contracts/api/Cargo.toml",
-                "packages/contracts/api/build.rs",
-                "packages/contracts/api/src/lib.rs",
-                "packages/contracts/schema/script-ir.schema.json",
                 "scripts/verify_kani.py",
                 "services/cantos-server/Cargo.toml",
                 "services/cantos-server/build.rs",
+                "services/cantos-server/contracts/studio/script-ir/0.1.0/README.md",
+                "services/cantos-server/contracts/studio/script-ir/0.1.0/script-ir.schema.json",
                 "services/cantos-server/src/contexts/catalog/domain/revision.rs",
                 "services/cantos-server/src/contexts/catalog/domain/snapshot.rs",
                 "xtask/src/kani.rs",
@@ -1521,13 +1517,10 @@ class PackageModelInputsTest(unittest.TestCase):
     API_INPUTS = (
         ".cargo/config.toml",
         "Cargo.toml",
-        "packages/contracts/api/Cargo.toml",
-        "packages/contracts/api/build.rs",
-        "packages/contracts/api/src/lib.rs",
-        "packages/contracts/schema/script-ir.schema.json",
         "scripts/verify_kani.py",
         "services/cantos-server/Cargo.toml",
         "services/cantos-server/build.rs",
+        "services/cantos-server/contracts/studio/script-ir/0.1.0/script-ir.schema.json",
         "services/cantos-server/src/contexts/media/domain/image.rs",
         "services/cantos-server/src/lib.rs",
         "xtask/src/kani.rs",
@@ -1620,7 +1613,7 @@ class PackageModelInputsTest(unittest.TestCase):
     def test_a_package_digest_changes_only_with_its_own_inputs(self):
         api, forge = self.digests("cantos-server"), self.digests("cantos-forge")
         self.write("services/cantos-server/src/lib.rs", "changed\n")
-        self.write("packages/contracts/api/src/new.rs", "new\n")
+        self.write("services/cantos-server/contracts/studio/new/v1/new.schema.json", "{}\n")
         self.assertNotEqual(self.digests("cantos-server"), api)
         self.assertEqual(self.digests("cantos-forge"), forge)
         api = self.digests("cantos-server")

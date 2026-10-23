@@ -34,9 +34,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonNull
 
 /*
- * Hand-written Theatre Discovery v1 wire DTOs. They mirror `packages/contracts/api/src/theatre.rs`
- * and `schema/theatre/discovery/v1.schema.json` field for field and are **drift-checked** against
- * that schema and the shared fixtures in `PublicCatalogWireDriftTest`; they are not generated.
+ * Hand-written Theatre Discovery v1 wire DTOs owned by this client. They mirror the Server-owned
+ * `services/cantos-server/contracts/theatre/discovery/v1/discovery.schema.json` field for field
+ * and are **drift-checked** against that schema and its fixtures in `PublicCatalogWireDriftTest`;
+ * they are not generated.
  * Every object is strict like the Rust `deny_unknown_fields`: unknown keys, missing keys
  * (including a missing nullable `next_cursor`), wrong JSON types and unknown enum values fail.
  */

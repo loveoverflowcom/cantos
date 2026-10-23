@@ -1,4 +1,5 @@
 use super::*;
+use crate::contract::library::*;
 use crate::{
     application::library_sync::*,
     core::{
@@ -7,21 +8,20 @@ use crate::{
         public_track::{PinnedRelease, ReleaseRequest},
     },
 };
-use cantos_contracts::listener_library::*;
 
 fn page(section: Section) -> LibraryPage {
     let bytes: &[u8] = match section {
-        Section::Continue => include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_continue.json")),
-        Section::Saved => include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_saved.json")),
-        Section::History => include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/contracts/fixtures/theatre/library/v1/presentation/presented_history.json")),
+        Section::Continue => include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue.json")),
+        Section::Saved => include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json")),
+        Section::History => include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_history.json")),
     };
     crate::live::library::decode_page(section, bytes).unwrap()
 }
 fn source() -> Source {
-    let mut manifest: cantos_contracts::theatre::PublicationManifest =
+    let mut manifest: crate::contract::discovery::PublicationManifest =
         serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+            "/../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
         )))
         .unwrap();
     manifest.duration_ms = 120_000; // synthetic long release for throttle/seek coverage

@@ -4,10 +4,8 @@
 //! Decoding is pure and strict over the shared DTOs.
 use super::public_work::{classify_error, is_json};
 use crate::application::{media_driver::AuthorizationError, public_work::CatalogReadError};
-use cantos_contracts::{
-    routes::THEATRE_BASE,
-    theatre::{PlaybackAuthorization, PublicationManifest},
-};
+use crate::contract::discovery::{PlaybackAuthorization, PublicationManifest};
+use cantos_web_auth::address::THEATRE_BASE;
 use uuid::Uuid;
 
 /// Both answers are small; a body beyond this is not the contract's.
@@ -151,19 +149,19 @@ mod tests {
     use super::*;
 
     const MANIFEST: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
     );
     const NOT_FOUND: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/not_found.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/not_found.json"
     );
     const UNAVAILABLE: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/unavailable.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/unavailable.json"
     );
     const RENDITION_UNAVAILABLE: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/rendition_unavailable.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/rendition_unavailable.json"
     );
     const INVALID_REQUEST: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/invalid_request.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/invalid_request.json"
     );
     const JSON: Option<&str> = Some("application/json; charset=utf-8");
     const PUBLICATION: &str = "80000000-0000-4000-8000-000000000008";

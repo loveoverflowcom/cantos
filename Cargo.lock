@@ -548,19 +548,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbad30e4b4c14a39e3cc8aed085a12a327257c316619c93581e017bc52be591"
 
 [[package]]
-name = "cantos-contracts"
-version = "0.1.0"
-dependencies = [
- "jsonschema",
- "prost 0.13.5",
- "rmp",
- "rmp-serde",
- "serde",
- "serde_json",
- "url",
-]
-
-[[package]]
 name = "cantos-forge"
 version = "0.1.0"
 dependencies = [
@@ -578,13 +565,12 @@ name = "cantos-identity"
 version = "0.1.0"
 dependencies = [
  "argon2",
- "cantos-identity-rpc",
  "cantos-store-turso",
  "getrandom 0.3.4",
  "hyper-util",
  "lettre",
  "libc",
- "prost 0.14.4",
+ "prost",
  "serde",
  "serde_json",
  "sha2",
@@ -598,24 +584,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "cantos-identity-rpc"
-version = "0.1.0"
-dependencies = [
- "prost 0.14.4",
- "tonic",
- "tonic-prost",
-]
-
-[[package]]
 name = "cantos-server"
 version = "0.1.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
  "bytes",
- "cantos-contracts",
  "cantos-identity",
- "cantos-identity-rpc",
  "cantos-server",
  "cantos-store-turso",
  "chrono",
@@ -630,9 +605,12 @@ dependencies = [
  "lettre",
  "libc",
  "proptest",
+ "prost",
  "quick-xml",
  "reqwest",
  "ring",
+ "rmp",
+ "rmp-serde",
  "serde",
  "serde_json",
  "sha2",
@@ -641,6 +619,7 @@ dependencies = [
  "tokio-util",
  "toml",
  "tonic",
+ "tonic-prost",
  "tower",
  "tower-http",
  "unicode-normalization",
@@ -663,12 +642,14 @@ dependencies = [
 name = "cantos-studio"
 version = "0.1.0"
 dependencies = [
- "cantos-contracts",
  "cantos-ui",
  "cantos-web-auth",
  "gloo-net",
  "js-sys",
  "leptos",
+ "prost",
+ "rmp",
+ "rmp-serde",
  "serde",
  "serde_json",
  "wasm-bindgen",
@@ -680,11 +661,11 @@ dependencies = [
 name = "cantos-theatre"
 version = "0.1.0"
 dependencies = [
- "cantos-contracts",
  "cantos-ui",
  "cantos-web-auth",
  "gloo-net",
  "leptos",
+ "serde",
  "serde_json",
  "url",
  "uuid",
@@ -703,10 +684,10 @@ dependencies = [
 name = "cantos-web-auth"
 version = "0.1.0"
 dependencies = [
- "cantos-contracts",
  "futures-util",
  "gloo-net",
  "js-sys",
+ "jsonschema",
  "serde",
  "serde_json",
  "url",
@@ -2911,35 +2892,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2796faa41db3ec313a31f7624d9286acf277b52de526150b7e69f3debf891ee5"
-dependencies = [
- "bytes",
- "prost-derive 0.13.5",
-]
-
-[[package]]
-name = "prost"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "528ac67416ff8646872a3c02cad9cc4ee5dc9f9540c9b10771855c95cb2e5ae1"
 dependencies = [
  "bytes",
- "prost-derive 0.14.4",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
-dependencies = [
- "anyhow",
- "itertools 0.14.0",
- "proc-macro2",
- "quote",
- "syn 2.0.119",
+ "prost-derive",
 ]
 
 [[package]]
@@ -4264,7 +4222,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a55376a0bbaa4975a3f10d009ad763d8f4108f067c7c2e74f3001fb49778d309"
 dependencies = [
  "bytes",
- "prost 0.14.4",
+ "prost",
  "tonic",
 ]
 
@@ -4570,7 +4528,7 @@ dependencies = [
  "genawaiter",
  "http",
  "libc",
- "prost 0.14.4",
+ "prost",
  "roaring",
  "serde",
  "serde_json",

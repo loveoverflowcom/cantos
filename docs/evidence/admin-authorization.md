@@ -4,7 +4,7 @@ Current resumed status is in the [14 October appendix](#resumed-integrated-revie
 retain their historical source, counts, hashes and blockers.
 
 Evidence for the bounded [Admin policy](../architecture/admin-authorization.md) and
-[wire contract](../../packages/contracts/admin-v1.md). Final command results are recorded below
+[wire contract](../../services/cantos-server/contracts/admin/access/v1/README.md). Final command results are recorded below
 only after execution. Live Kanidm/custom current-group semantics, Admin login/UI, provider/device
 acceptance and production activation are NOT_RUN. No paid service, live credentials, rights,
 TLS bypass, Podman bootstrap or account security setting is used.

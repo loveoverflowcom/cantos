@@ -22,7 +22,7 @@ explicit zero remain distinct through save/reopen. The backend alone admits sett
 inherited Script IR delivery, freezes inputs and grants exact owner approval.
 
 The product owners are [business rules 6–9](../product/business-rules.md#casting-and-performance),
-the [production v1 contract](../../packages/contracts/production-v1.md) and
+the [production v1 contract](../../services/cantos-server/contracts/studio/production/v1/README.md) and
 [work item 020](../work-plan/020-cast-and-generate-dialogue.md). The pure Studio
 [`production.rs`](../../apps/cantos-studio/web/src/production.rs) owns exact capability lookup,
 provider selection and the advisory `CastingControl` report. The

@@ -307,12 +307,10 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
             path.as_str(),
             "services/cantos-server/Cargo.toml"
                 | "services/cantos-server/build.rs"
-                | "packages/contracts/api/build.rs"
                 | "services/cantos-server/src/lib.rs"
                 | "services/cantos-server/src/contexts/mod.rs"
-                | "packages/contracts/api/Cargo.toml"
-        ) || path.starts_with("packages/contracts/api/src/")
-            || path.starts_with("packages/contracts/schema/")
+        ) || path.starts_with("services/cantos-server/src/contract/")
+            || path.starts_with("services/cantos-server/contracts/")
         {
             selected.extend(Kernel::in_package(Package::Api));
         }
@@ -842,10 +840,8 @@ mod tests {
         for path in [
             "services/cantos-server/Cargo.toml",
             "services/cantos-server/build.rs",
-            "packages/contracts/api/build.rs",
-            "packages/contracts/api/Cargo.toml",
-            "packages/contracts/api/src/lib.rs",
-            "packages/contracts/schema/script-ir.schema.json",
+            "services/cantos-server/src/contract/studio/mod.rs",
+            "services/cantos-server/contracts/studio/script-ir/0.1.0/script-ir.schema.json",
             "services/cantos-server/src/lib.rs",
             "services/cantos-server/src/contexts/mod.rs",
         ] {
@@ -1163,9 +1159,8 @@ mod tests {
             "services/cantos-server/src/contexts/media/domain/mod.rs",
             "services/cantos-server/src/contexts/catalog/domain/error.rs",
             "services/cantos-server/src/contexts/listening/domain/mod.rs",
-            "packages/contracts/api/Cargo.toml",
-            "packages/contracts/api/src/lib.rs",
-            "packages/contracts/schema/script-ir.schema.json",
+            "services/cantos-server/src/contract/studio/mod.rs",
+            "services/cantos-server/contracts/studio/script-ir/0.1.0/script-ir.schema.json",
         ];
         for path in api_paths {
             assert!(

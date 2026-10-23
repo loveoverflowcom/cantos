@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn a_search_lives_in_the_discovery_link_and_round_trips_through_history() {
-        use cantos_contracts::theatre::WorkKind;
+        use crate::contract::discovery::WorkKind;
         let query = DiscoveryQuery::new("Ánh đèn & ma", Some(WorkKind::Story), "vi-VN").unwrap();
         for route in [Route::Discover, Route::Explore] {
             let hash = route.discovery_hash(&query);

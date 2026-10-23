@@ -3,7 +3,7 @@
 //! Caller-owned contexts bind the exact source, base revision and server-minted evidence IDs.
 //! These snapshots are not authorization witnesses; transaction-time source/base/access checks
 //! remain required.
-use cantos_contracts::{AdaptationContextRequest, ImportResponse, RevisionResponse};
+use crate::contract::studio::{AdaptationContextRequest, ImportResponse, RevisionResponse};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

@@ -1,6 +1,6 @@
 //! Engine-level Editorial/Ingestion barriers and v15→v16 compatibility. Raw SQL reaches
 //! each CHECK/FK/guard independently of the adapter on real run-owned files.
-use cantos_contracts::ReviewRequest;
+use cantos_server::contract::studio::ReviewRequest;
 use cantos_server::{
     platform::{
         store::StoreError,
@@ -575,7 +575,7 @@ async fn review_keys_times_and_all_reference_targets_are_checked_by_the_engine()
 async fn corrupt_failed_extraction_receipt_is_never_retrieved_as_an_accepted_import() {
     let fixture = fixture().await;
     let mut input = import();
-    input.metadata.format = cantos_contracts::ImportFormat::Docx;
+    input.metadata.format = cantos_server::contract::studio::ImportFormat::Docx;
     input.original_bytes = b"PK\x01".to_vec();
     let receipt = fixture
         .store()

@@ -1,4 +1,3 @@
-use cantos_contracts as dto;
 use cantos_server::contexts::{
     catalog::{
         content::wire,
@@ -6,6 +5,7 @@ use cantos_server::contexts::{
     },
     production::domain::brief::*,
 };
+use cantos_server::contract::studio as dto;
 
 const WORK: &str = "10000000-0000-4000-8000-000000000001";
 const UNIT: &str = "20000000-0000-4000-8000-000000000002";
@@ -123,7 +123,7 @@ fn prose_and_recording_require_no_script_cast_or_provider() {
 #[test]
 fn canonical_document_matches_independent_python_literal_digest() {
     let expected: dto::ProductionBriefDocument = serde_json::from_str(include_str!(
-        "../../../packages/contracts/fixtures/briefs/v1/narration-document.json"
+        "../../../services/cantos-server/contracts/studio/briefs/v1/fixtures/narration-document.json"
     ))
     .unwrap();
     assert_eq!(brief().document(), &expected);

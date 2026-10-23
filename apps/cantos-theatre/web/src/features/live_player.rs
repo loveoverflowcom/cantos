@@ -5,6 +5,7 @@ use super::{
     common::{clock, icon},
     player_timeline::{PlayerPanel, PlayerTimeline, TimelineCopy},
 };
+use crate::contract::library::Completion;
 use crate::{
     app::routes::Route,
     application::{
@@ -16,7 +17,6 @@ use crate::{
     core::playback::{Event, Intent, Status},
     messages::{self, Key, Locale},
 };
-use cantos_contracts::listener_library::Completion;
 use leptos::prelude::*;
 
 const ICON_PLAY: &str = "play_arrow";
@@ -773,7 +773,7 @@ mod tests {
             account_view::{AccountViewState, SessionCompletion},
             library_sync::audio_identity_from_source,
         };
-        use cantos_contracts::listener_library::{
+        use crate::contract::library::{
             Completion, MutationState, ProgressKind, ProgressRecord, Receipt, Resolution,
             WriteOutcome,
         };

@@ -83,7 +83,7 @@ Migration `0007_durable_jobs.sql` adds immutable run scope, jobs, dialogue steps
 unique dispatch markers, observations, budget/reservation/settlement history, controls and owner
 resolution records. Triggers/constraints preserve scope, append-only facts, valid transitions,
 monotonic fences and write-once selected attempts. The
-[development contract](../../packages/contracts/durable-jobs-v1.md) records concrete commands,
+[development contract](../../services/cantos-server/contracts/historical/durable-jobs-v1.md) records concrete commands,
 states, bounds and the local private filesystem boundary.
 
 The functional core explicitly models `queued`, `running`, `completed`, `failed`, `paused`,

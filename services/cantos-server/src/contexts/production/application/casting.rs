@@ -1,6 +1,6 @@
 //! Casting state: read settings, rights and snapshot history, record new settings or rights
 //! claim versions, and preview the inputs current facts would freeze.
-use cantos_contracts::{
+use crate::contract::studio::{
     ProductionPreviewResponse, ProductionRightsClaim, ProductionRightsClaimResponse,
     ProductionRightsSubject, ProductionSettingsResponse, ProductionStateResponse,
     SaveProductionRightsRequest, SaveProductionSettingsRequest,

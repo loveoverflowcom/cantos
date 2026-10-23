@@ -1,6 +1,6 @@
 //! Pure decisions behind each production command. The shell reads the facts under the script
 //! lock, asks here, and writes only what the decision allows.
-use cantos_contracts::{
+use crate::contract::studio::{
     FieldIssue, ProductionEligibility, ProductionFinding, ProductionRightsSubject,
     ProductionSettingsResponse,
 };
@@ -138,7 +138,7 @@ pub fn blocking_issues(findings: &[ProductionFinding]) -> Vec<FieldIssue> {
 
 #[cfg(test)]
 mod tests {
-    use cantos_contracts::{ProductionFindingCode, ProductionSettings};
+    use crate::contract::studio::{ProductionFindingCode, ProductionSettings};
 
     use super::*;
 
@@ -250,8 +250,8 @@ mod tests {
             recorded_at: "2026-10-12T00:00:00.000000Z".into(),
             settings: ProductionSettings {
                 bindings: vec![],
-                budget: cantos_contracts::ProductionBudget {
-                    currency: cantos_contracts::ProductionCurrency::VND,
+                budget: crate::contract::studio::ProductionBudget {
+                    currency: crate::contract::studio::ProductionCurrency::VND,
                     limit_minor: 0,
                     scope: "private".into(),
                     territory: "private-planning".into(),

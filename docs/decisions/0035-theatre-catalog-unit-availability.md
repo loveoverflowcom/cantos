@@ -10,8 +10,8 @@
   (Web W01–W03) and [#159](https://github.com/loveoverflowcom/cantos/issues/159) (CMP M01–M06);
   [#12](https://github.com/loveoverflowcom/cantos/issues/12)/[#35](https://github.com/loveoverflowcom/cantos/issues/35)
   (Listening/Library); [ADR 0030](0030-release-safe-public-metadata.md) (P1 metadata gate)
-- Supersedes / superseded by: N/A. Builds on the [Theatre Discovery v1 contract](../../packages/contracts/theatre-discovery-v1.md)
-  and the [Library resume status](../../packages/contracts/listener-library-v1.md#resume-and-changed-access)
+- Supersedes / superseded by: N/A. Builds on the [Theatre Discovery v1 contract](../../services/cantos-server/contracts/theatre/discovery/v1/README.md)
+  and the [Library resume status](../../services/cantos-server/contracts/theatre/library/v1/README.md#resume-and-changed-access)
 
 ## Context
 

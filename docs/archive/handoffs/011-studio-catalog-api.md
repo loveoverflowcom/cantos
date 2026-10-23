@@ -10,7 +10,7 @@
 Deliver the complete authenticated Studio catalog HTTP API on the same
 `feat/studio-catalog-api` branch and draft PR as the internal foundation. The internal
 Catalog domain, transactional application commands/queries and additive migration are
-implemented in session 1. Session 2 implements [JSON routes and shared contracts](../../../packages/contracts/catalog-v1.md),
+implemented in session 1. Session 2 implements [JSON routes and shared contracts](../../../services/cantos-server/contracts/studio/catalog/v1/README.md),
 with [separate HTTP evidence](../../evidence/studio-catalog-api.md). GitHub [#66](https://github.com/loveoverflowcom/cantos/issues/66)
 owns execution and acceptance status; its Studio Web criteria remain outside this backend PR.
 

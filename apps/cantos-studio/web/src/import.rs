@@ -1,5 +1,5 @@
 //! Import presentation state. Original bytes and retry identity stay separate from extraction.
-use cantos_contracts::{
+use crate::contract::{
     ApiError, ErrorCode, FieldIssue, ImportFormat, ImportMetadata, ImportRequest, ImportResponse,
 };
 
@@ -379,7 +379,7 @@ pub use browser::ManuscriptImport;
 #[cfg(test)]
 mod tests {
     use super::{ImportEditor, ImportStatus, MAX_FILE_BYTES};
-    use cantos_contracts::{ApiError, ErrorCode, Extraction, ImportOutcome, ImportResponse};
+    use crate::contract::{ApiError, ErrorCode, Extraction, ImportOutcome, ImportResponse};
 
     fn ready() -> ImportEditor {
         let actor = ImportEditor::default().signed_in_as("alice".into());
@@ -676,7 +676,7 @@ mod tests {
     fn metadata_diagnostics_are_retained_with_the_file_until_a_new_request_is_prepared() {
         let (saving, _) = ready().start_import("operation".into()).unwrap();
         let mut invalid = error(ErrorCode::InvalidRequest);
-        invalid.issues.push(cantos_contracts::FieldIssue {
+        invalid.issues.push(crate::contract::FieldIssue {
             path: "/metadata/reference".into(),
             rule: "byte_length".into(),
         });
@@ -712,7 +712,7 @@ mod source_id_tests {
 
     #[test]
     fn empty_first_page_does_not_hide_a_warning_on_the_next_page() {
-        let warning = cantos_contracts::ImportWarning {
+        let warning = crate::contract::ImportWarning {
             code: "speaker_unknown".into(),
             block: Some(150),
         };

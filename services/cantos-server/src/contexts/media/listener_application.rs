@@ -14,11 +14,11 @@ use super::{
     },
     turso::listener::{ReadItem, TursoRead},
 };
+use crate::contract::theatre::discovery as dto;
 use crate::platform::{
     ids::canonical_uuid,
     store::{Store, StoreError},
 };
-use cantos_contracts::theatre as dto;
 use std::{
     future::Future,
     pin::Pin,

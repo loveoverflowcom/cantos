@@ -1,5 +1,5 @@
 //! Freeze safe domain refusals into the unchanged versioned submission receipt contract.
-use cantos_contracts::AdaptationProblem;
+use crate::contract::studio::AdaptationProblem;
 
 use super::super::domain::AdaptationRejection;
 use crate::contexts::editorial::document::issues;

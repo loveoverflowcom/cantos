@@ -195,7 +195,7 @@ boundary.
 
 The fixture-only commit `56bb39bcd769befd8385e7cb963b7ff4930f3c89` was explicitly approved and
 cherry-picked as `1b8e56a980e095bc1d1346b95f0f975344082327`; no Web implementation is imported.
-[Contract/data](../../../../packages/contracts/fixtures/theatre/playback/v1/README.md) is
+[Contract/data](../../conformance/playback/v1/vectors/README.md) is
 `theatre-mock-playback@1`, vector_format 1. Its seven vectors contain 51 hand-authored steps.
 
 - index SHA-256: `108503bdcceb36fe6351b1d320075d974615f7dc0ea560582bbe19c2da2b0485`

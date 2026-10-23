@@ -3,6 +3,7 @@ use crate::application::error_writer::update_errors;
 use crate::application::errors::{
     ErrorAction, ErrorCenter, ErrorKind, ErrorNotice, ErrorOperation,
 };
+use crate::contract::library::{AudioPresentation, WorkPresentation};
 use crate::{
     app::{live_navigation::LiveNavigation, routes::Route},
     application::{
@@ -28,7 +29,6 @@ use crate::{
     messages::{self, Key, Locale},
     platform::{self, auth_browser, signup_browser},
 };
-use cantos_contracts::listener_library::{AudioPresentation, WorkPresentation};
 use cantos_ui::{
     AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, Select, SelectDensity,
     SelectLabelPlacement, SelectOption, Theme,
@@ -187,7 +187,7 @@ fn seed_preview(state: RwSignal<AccountViewState>, discovery: RwSignal<PublicDis
         if let Some(issued) = s.begin(DiscoveryQuery::default()) {
             s.finish(
                 &issued,
-                Ok(cantos_contracts::theatre::PresentedWorkPage {
+                Ok(crate::contract::discovery::PresentedWorkPage {
                     items: vec![],
                     next_cursor: None,
                 }),

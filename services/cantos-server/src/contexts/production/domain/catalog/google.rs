@@ -2,7 +2,7 @@
 //! producer follows; Cantos has no network dependency or dispatch. The voice list and control
 //! ranges were read from Google's documentation on [`CAPABILITIES_VERIFIED_ON`]; they are not
 //! evidence that a voice is enabled for an account.
-use cantos_contracts::ProductionCapability;
+use crate::contract::studio::ProductionCapability;
 use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
 

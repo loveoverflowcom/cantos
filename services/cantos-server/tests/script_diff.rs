@@ -1597,7 +1597,7 @@ fn cli_exits_one_for_versions_of_different_work_adaptation_or_episode() {
 #[test]
 fn committed_fixtures_that_differ_only_in_provenance_report_metadata_changes() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/contracts/fixtures/script-ir/0.1.0/accept");
+        .join("../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept");
     let output = run_pair(&root.join("two-scenes.json"), &root.join("provenance.json"));
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();

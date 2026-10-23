@@ -26,8 +26,8 @@ sqldelight {
 val generatedLibraryMain = layout.buildDirectory.dir("generated/libraryWire/commonMain/kotlin")
 val generatedLibraryTests = layout.buildDirectory.dir("generated/libraryWire/commonTest/kotlin")
 val generateLibraryWire = tasks.register<Exec>("generateLibraryWire") {
-    val schema = rootProject.file("../../../packages/contracts/schema/theatre/library/v1.schema.json")
-    val fixtures = rootProject.file("../../../packages/contracts/fixtures/theatre/library/v1")
+    val schema = rootProject.file("../../../services/cantos-server/contracts/theatre/library/v1/library.schema.json")
+    val fixtures = rootProject.file("../../../services/cantos-server/contracts/theatre/library/v1/fixtures")
     val generator = rootProject.file("tooling/generate_library_wire.py")
     inputs.files(schema, generator, fileTree(fixtures) { include("*.json", "presentation/*.json") })
     outputs.dirs(generatedLibraryMain, generatedLibraryTests)
@@ -38,7 +38,7 @@ val generateLibraryWire = tasks.register<Exec>("generateLibraryWire") {
 
 val generatedIdentityMain = layout.buildDirectory.dir("generated/identityV1Wire/commonMain/kotlin")
 val generateIdentityV1Wire = tasks.register<Exec>("generateIdentityV1Wire") {
-    val schema = rootProject.file("../../../packages/contracts/schemas/identity-auth-v1.schema.json")
+    val schema = rootProject.file("../../../services/cantos-server/contracts/auth/identity-auth/v1/identity-auth.schema.json")
     val generator = rootProject.file("tooling/generate_identity_v1_wire.py")
     inputs.files(schema, generator)
     outputs.dir(generatedIdentityMain)
@@ -48,7 +48,7 @@ val generateIdentityV1Wire = tasks.register<Exec>("generateIdentityV1Wire") {
 
 // Tests consume the one reviewed corpus, including Native test sources when that target is
 // available. These generated strings preserve input bytes; they never generate expectations.
-val playbackCorpus = rootProject.file("../../../packages/contracts/fixtures/theatre/playback/v1")
+val playbackCorpus = rootProject.file("../../../apps/cantos-theatre/conformance/playback/v1/vectors")
 val generatedPlaybackDirectory = layout.buildDirectory.dir("generated/playbackVectors/commonTest/kotlin")
 val generatePlaybackVectors = tasks.register("generatePlaybackVectors") {
     inputs.files(fileTree(playbackCorpus) { include("*.json") })
@@ -119,13 +119,14 @@ val generatePlaybackVectors = tasks.register("generatePlaybackVectors") {
 }
 
 
-// Theatre Discovery v1: embed the shared strict schema and every original fixture byte-for-byte
-// for the hand-written DTO drift check. Test-only input; it generates no wire type or expectation.
-val discoveryContract = rootProject.file("../../../packages/contracts")
+// Theatre Discovery v1: embed the Server-owned strict schema and every original fixture
+// byte-for-byte for the hand-written DTO drift check. Test-only input; it generates no wire type
+// or expectation.
+val discoveryContract = rootProject.file("../../../services/cantos-server/contracts/theatre/discovery/v1")
 val generatedDiscoveryDirectory = layout.buildDirectory.dir("generated/discoveryCorpus/commonTest/kotlin")
 val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
-    val fixtures = discoveryContract.resolve("fixtures/theatre/discovery/v1")
-    val schema = discoveryContract.resolve("schema/theatre/discovery/v1.schema.json")
+    val fixtures = discoveryContract.resolve("fixtures")
+    val schema = discoveryContract.resolve("discovery.schema.json")
     inputs.files(fileTree(fixtures) { include("*.json") })
     inputs.file(schema)
     outputs.dir(generatedDiscoveryDirectory)
@@ -159,7 +160,7 @@ val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
         )
         output.parentFile.mkdirs()
         output.writeText(buildString {
-            appendLine("// Generated from packages/contracts (Theatre Discovery v1). Do not edit.")
+            appendLine("// Generated from services/cantos-server/contracts/theatre/discovery/v1. Do not edit.")
             appendLine("package com.cantos.theatre.adapters.http")
             appendLine("internal object CanonicalDiscoveryCorpus {")
             appendLine("    val schemaJson: String = ${quoted(utf8(schema))}")
@@ -192,15 +193,15 @@ val generateMembershipVectors = tasks.register("generateMembershipVectors") {
 }
 
 val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVectors") {
-    val fixture = rootProject.file("../../../packages/contracts/fixtures/client-boundary/v1/probe-cases.json")
-    val nativeSessionFixture = rootProject.file("../../../packages/contracts/fixtures/theatre-identity/v1/native-session.json")
+    val fixture = rootProject.file("../../../apps/cantos-theatre/conformance/client-boundary/v1/probe-cases.json")
+    val nativeSessionFixture = rootProject.file("../../../services/cantos-server/contracts/theatre/identity/v1/fixtures/native-session.json")
     // Reviewed canonical bytes; update only with an intentional shared contract-fixture change.
     val nativeSessionSha256 = "bb457e56dcf34c603c73614bdb48238fb438a0e59cbfa9d0cb00fc8a376dd086"
     val bearerFixtureHashes = mapOf(
         "token-pair.json" to "e1807a6bb241721618be6551776e1caaf76c8120c8cc6dd7c08a7d970dabf83f",
         "session.json" to "d6cf5b3fa079d0d75cbe9353a90f036b47bd88edebd5b52964c2296e874cd101",
     )
-    val bearerFixtures = rootProject.file("../../../packages/contracts/fixtures/bearer/v1")
+    val bearerFixtures = rootProject.file("../../../services/cantos-server/contracts/auth/bearer/v1/fixtures")
     val outputDirectory = layout.buildDirectory.dir("generated/client-boundary/commonTest")
     inputs.file(fixture)
     inputs.file(nativeSessionFixture)
@@ -246,7 +247,7 @@ val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVector
 // Embed the shared independent corpus for every configured test target. Python is a primitive
 // of the existing Gradle/xtask verification route, not another repository command surface.
 // The Studio pilot codec it exercises is fixture-only too: commonTest, never shipping code.
-val protobufCorpus = rootProject.file("../../../packages/contracts/fixtures/protobuf/v1")
+val protobufCorpus = rootProject.file("../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf")
 val generatedProtobufDirectory = layout.buildDirectory.dir("generated/protobufVectors/commonTest/kotlin")
 val generateProtobufVectors = tasks.register<Exec>("generateProtobufVectors") {
     val generator = rootProject.file("tooling/embed_protobuf_fixtures.py")
@@ -266,7 +267,7 @@ val generateProtobufVectors = tasks.register<Exec>("generateProtobufVectors") {
 }
 
 // Artwork stays fixture-only in commonTest: no mobile route or shipping serializer.
-val artworkCorpus = rootProject.file("../../../packages/contracts/fixtures/artwork/v1")
+val artworkCorpus = rootProject.file("../../../services/cantos-server/contracts/studio/artwork/v1/fixtures")
 val generatedArtworkDirectory = layout.buildDirectory.dir("generated/artworkVectors/commonTest/kotlin")
 val generateArtworkVectors = tasks.register<Exec>("generateArtworkVectors") {
     val generator = rootProject.file("tooling/embed_artwork_fixtures.py")

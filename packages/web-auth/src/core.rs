@@ -1,8 +1,8 @@
 //! Pure Identity v1 Web session decisions. No credential exists here: the cookie is HttpOnly and
 //! owned by the browser. This module admits nonsecret session facts, fences intent and decides
 //! when to use, renew or re-read the session. Server lifetimes (idle/absolute) stay authoritative.
+use crate::wire::Session;
 use crate::{Failure, Surface};
-use cantos_contracts::bearer::Session;
 
 /// Renew the cookie's idle deadline once this few seconds remain (contract: renew before idle).
 pub const RENEW_MARGIN: u64 = 90;

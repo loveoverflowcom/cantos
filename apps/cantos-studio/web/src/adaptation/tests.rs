@@ -1,5 +1,5 @@
 use super::*;
-use cantos_contracts::{
+use crate::contract::{
     AdaptationContextRequest, AdaptationContextResponse, AdaptationSubmissionReceipt,
     AdaptationSubmissionStatus, CallerGenerationMetadata, Extraction, ImportBlock, ImportBlockKind,
     ImportMetadata,
@@ -20,7 +20,7 @@ fn source() -> ImportResponse {
         metadata: ImportMetadata {
             operation_id: "import-op".into(),
             file_name: "Mưa cuối sân khấu.txt".into(),
-            format: cantos_contracts::ImportFormat::Txt,
+            format: crate::contract::ImportFormat::Txt,
             reference: "Original synthetic chapter".into(),
             rights_holder: None,
             permission_evidence: None,
@@ -415,7 +415,7 @@ fn refreshing_after_acceptance_loads_the_canonical_export_only_when_clean() {
 #[test]
 fn a_proposal_read_preserves_clean_reducer_rows_until_native_text_is_committed() {
     let original = include_str!(
-        "../../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        "../../../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json"
     );
     let mut initial_response = caller();
     let AdaptationReviewResponse::Caller { context } = &mut initial_response;

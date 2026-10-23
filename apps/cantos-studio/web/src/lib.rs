@@ -2,6 +2,7 @@ pub mod adaptation;
 #[cfg(target_arch = "wasm32")]
 mod api_endpoint;
 pub mod authoring;
+pub mod contract;
 pub mod editor;
 pub mod entry;
 pub mod import;

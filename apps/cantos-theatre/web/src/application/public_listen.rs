@@ -5,6 +5,7 @@
 //! Each intent carries a ticket. A newer intent supersedes an older one, and a manifest answer
 //! for a superseded ticket is dropped, so a slow response cannot replace what the listener
 //! chose since.
+use crate::contract::discovery::PublicationManifest;
 use crate::{
     application::public_work::CatalogReadError,
     core::{
@@ -12,7 +13,6 @@ use crate::{
         public_track::{ManifestRejection, PinnedRelease, PublicTrack, ReleaseRequest},
     },
 };
-use cantos_contracts::theatre::PublicationManifest;
 use uuid::Uuid;
 
 /// What the listener sees while a release is being resolved or after it could not be.
@@ -203,7 +203,7 @@ mod tests {
     use crate::core::public_ids::PublicWorkId;
 
     const MANIFEST: &str = include_str!(
-        "../../../../../packages/contracts/fixtures/theatre/discovery/v1/manifest.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
     );
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const UNIT: &str = "20000000-0000-4000-8000-000000000002";

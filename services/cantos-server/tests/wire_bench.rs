@@ -13,11 +13,13 @@
 //! so the same payloads can be decoded and encoded inside a WASM build in a browser.
 use std::{fmt::Debug, hint::black_box, io::Write, path::PathBuf, time::Instant};
 
-use cantos_contracts::{
-    protobuf::ProtobufDto,
-    wire::{decode, decode_pilot, encode, encode_pilot, WireFormat},
-    HistoryResponse, ReviewResponse, RevisionResponse, RevisionSummary, SaveRevisionRequest,
-    ValidateScriptRequest,
+use cantos_server::contract::{
+    codec::{decode, decode_pilot, encode, encode_pilot, WireFormat},
+    studio::protobuf::ProtobufDto,
+    studio::{
+        HistoryResponse, ReviewResponse, RevisionResponse, RevisionSummary, SaveRevisionRequest,
+        ValidateScriptRequest,
+    },
 };
 use cantos_server::script_ir::read_script;
 use flate2::{write::GzEncoder, Compression};
@@ -25,7 +27,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 
 const FIXTURE: &str =
-    include_str!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
+    include_str!("../../../services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json");
 
 /// Vietnamese lines with the characters JSON must escape and MessagePack carries raw.
 const LINES: [&str; 6] = [

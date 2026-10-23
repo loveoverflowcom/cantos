@@ -158,7 +158,7 @@ before starting a new request. Proof and password completion belong on Web, foll
 CMP login. There is no link import, verified polling, resume-triggered login or password
 collection before proof in the native v1 flow; opening the mail never creates a session.
 
-The [Web completion contract](../../../packages/contracts/identity-auth-v1.md#email-link-and-signup)
+The [Web completion contract](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup)
 is owned by the API and Web work. The Theatre Web completion page is merged
 ([#378](https://github.com/loveoverflowcom/cantos/pull/378)), but end-to-end new-account onboarding
 stays **unaccepted** until that page is browser-verified against a real Server and Identity.
@@ -286,7 +286,7 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   acknowledged; opening a page creates none.
 - Mini/full player: bounded manual seek, speed, a sleep timer that pauses the real player and the
   episode queue.
-- **Release-bound bookmarks** ([Library v1.2](../../../packages/contracts/listener-library-v1.md#release-bound-bookmarks-v120), #299).
+- **Release-bound bookmarks** ([Library v1.2](../../../services/cantos-server/contracts/theatre/library/v1/README.md#release-bound-bookmarks-v120), #299).
   The player's *Bookmark this moment* control takes the exact audio identity and the position from **one
   snapshot of the player owner**, records both in the existing SQLite store with its outbox intent in one local
   transaction, and shows the row at once as pending (offline when the last attempt could not be delivered, failed
@@ -341,7 +341,7 @@ The shared module directly compiles the canonical `packages/ui-system/cmp` sourc
 as the isolated Android preview does, excluding its `com/cantos/ui/preview/**` diagnostics.
 Shell screens use its theme/tokens; Membership composes the six reviewed shared APIs described
 above. No package source, palette, registry or qualification is copied/changed. The explicitly approved shared
-[mock playback corpus](../../../packages/contracts/fixtures/theatre/playback/v1/README.md)
+[mock playback corpus](../conformance/playback/v1/vectors/README.md)
 is imported unchanged for tests; it is not a listener API DTO. Shell compositions use stable
 native Material controls and official outlined icons; no reusable Cantos primitive is introduced.
 The current [preview catalog](../../../packages/ui-system/shared/preview-catalog.json) owns
@@ -635,7 +635,7 @@ playback-quality or production-acceptance evidence.
 ## Live public catalog
 
 Production-safe code in `:shared` reads the anonymous Theatre Discovery v1 catalog
-([contract](../../../packages/contracts/theatre-discovery-v1.md), [ADR 0035](../../../docs/decisions/0035-theatre-catalog-unit-availability.md)):
+([contract](../../../services/cantos-server/contracts/theatre/discovery/v1/README.md), [ADR 0035](../../../docs/decisions/0035-theatre-catalog-unit-availability.md)):
 work list → work detail → chapter/episode list, keyed only by the server's UUIDs.
 
 - `domain/catalog/PublicCatalog.kt`: validated `PublicWorkId`/`PublicUnitId`/`PublicationId`/
@@ -748,7 +748,7 @@ the reviewed Theatre backend contract before probe wiring. This legacy probe is 
 the implemented iOS public-catalog transport above.
 
 `cargo xtask theatre-preview verify` compiles the common/JVM code, executes the shared
-[error fixtures](../../../packages/contracts/fixtures/client-boundary/v1/README.md), exercises
+[error fixtures](../conformance/client-boundary/v1/README.md), exercises
 noncooperative late responses and drives the JVM adapter against a fresh local HTTP server.
 These are common/JVM and mocked HTTP integration evidence, not Android/iOS device or playback
 acceptance. See the [client handoff](../../../docs/work-plan/live-client-api-matrix.md).
@@ -816,7 +816,7 @@ The [Android release/distribution runbook](docs/firebase-distribution.md) owns R
 audit pairing, exact staged APK/mapping hashes and the explicit development/production policies.
 Device and live Firebase acceptance remain independent of source/build/audit results.
 
-The [client error contract](../../../packages/contracts/client-error-presentation-v1.md) also
+The [client error contract](../conformance/client-error-presentation-v1.md) also
 owns the paired Web/CMP taxonomy and safe actions. Catalog 401/403 and HTTP/JVM deadlines survive
 as typed diagnostics into the shared shell ErrorCenter. Unknown Library outcomes keep their
 existing receipt owner and never gain a generic modal Retry. Native identity configuration

@@ -6,8 +6,8 @@ use crate::contexts::catalog::domain::{
 use crate::contexts::production::domain::brief::{
     fingerprint, BriefDigest, ProductionBrief, ProductionBriefId,
 };
+use crate::contract::studio as dto;
 use crate::platform::ids::canonical_uuid;
-use cantos_contracts as dto;
 use serde::Serialize;
 use std::collections::BTreeSet;
 

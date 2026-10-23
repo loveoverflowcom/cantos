@@ -21,7 +21,7 @@ existed, so the failure was orchestration and readiness. The previous xtask clai
 listener API existed was stale.
 
 Owning contracts remain [xtask](../../xtask/README.md#run-and-app),
-[Discovery v1](../../packages/contracts/theatre-discovery-v1.md),
+[Discovery v1](../../services/cantos-server/contracts/theatre/discovery/v1/README.md),
 [API contexts](../architecture/api-contexts.md) and the
 [Web mode/runbook](../../apps/cantos-theatre/web/README.md#build-run-and-checks).
 No domain, schema, migration, listener DTO, session policy, provider, media adapter or

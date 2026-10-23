@@ -1,5 +1,5 @@
 //! Host evidence for the real pilot adapter; browser fetch/cancellation is a separate gate.
-use cantos_contracts::{
+use crate::contract::{
     FieldIssue, RevisionResponse, SaveRevisionRequest, ScriptValidationResponse,
     ValidateScriptRequest,
 };
@@ -10,18 +10,18 @@ use crate::editor::{Editor, Status};
 
 fn revision() -> RevisionResponse {
     serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/studio/v1/revision.json"
+        "../../../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/revision.json"
     ))
     .unwrap()
 }
 
 fn stale() -> &'static [u8] {
-    include_bytes!("../../../../../packages/contracts/fixtures/studio/v1/stale-revision.json")
+    include_bytes!("../../../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/stale-revision.json")
 }
 
 fn golden_cases() -> Vec<Value> {
     serde_json::from_str::<Value>(include_str!(
-        "../../../../../packages/contracts/fixtures/protobuf/v1/goldens.json"
+        "../../../../../services/cantos-server/contracts/studio/editorial/v1/fixtures/protobuf/goldens.json"
     ))
     .unwrap()["cases"]
         .as_array()

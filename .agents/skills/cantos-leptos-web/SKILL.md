@@ -68,7 +68,7 @@ the browser renders and drives it, the owner decides what is true.
   implements them; a library becomes a dependency only through a recorded decision
   ([`templates/adr.md`](../../../templates/adr.md)) and a pinned, verified version.
 - **One API group per client.** The Studio client calls only `/api/v1/studio/*` (base from
-  `cantos_contracts::routes::STUDIO_BASE`); the Theatre client calls only `/api/v1/theatre/*`.
+  its own `contract::routes::STUDIO_BASE`); the Theatre client calls only `/api/v1/theatre/*`.
   Neither calls the legacy unprefixed `/api/v1/*` paths or the other group.
 - **Forge has a separate client boundary.** Accepted [ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md)
   selects a Studio workspace backed by a separate producer. Follow the
@@ -116,8 +116,8 @@ Keep existing gallery fixtures and controlled state; source/string-render tests 
 
 How the foundation lands in the browser:
 
-- **Decoupling.** Web depends on pure core crates and the shared `cantos-contracts` DTOs, never on
-  backend application or infrastructure crates, provider SDKs or Narrative Forge types.
+- **Decoupling.** Web depends on pure core crates and its own `contract` DTOs (checked against the
+  Server-owned fixtures), never on any service crate, provider SDK or Narrative Forge type.
 - **Immutability.** Transitions never mutate borrowed input and keep rejection, no-op and
   effects distinct ([transition semantics](../cantos-engineering/references/functional-core.md#transition-semantics));
   a by-value reducer returns the original state on rejection; a save snapshot is an
@@ -166,7 +166,7 @@ these Web specifics:
               the claim and its failure mode
               lookup component ID/API/variant/state; reuse/extend or declare + preview missing kind
 2  core       a durable decision? → its owner's pure crate with plain #[test] first
-3  boundary   port provided through context; HTTP adapter over cantos-contracts DTOs, with the
+3  boundary   port provided through context; HTTP adapter over the app's own contract DTOs, with the
               representation fixed by the client's codec constant; typed PortError
 4  async      resource/action states, request key, duplicate-submit policy, retry decision
 5  preview    semantic HTML, controlled values/intents, locale keys, token classes and injected preferences

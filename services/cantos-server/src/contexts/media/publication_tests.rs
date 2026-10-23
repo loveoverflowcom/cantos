@@ -29,7 +29,7 @@ fn brief() -> ProductionBrief {
     })
     .unwrap();
     let request: dto::CreateProductionBriefRequest = serde_json::from_str(include_str!(
-        "../../../../../packages/contracts/fixtures/briefs/v1/create-recording.json"
+        "../../../../../services/cantos-server/contracts/studio/briefs/v1/fixtures/create-recording.json"
     ))
     .unwrap();
     ProductionBrief::admit(

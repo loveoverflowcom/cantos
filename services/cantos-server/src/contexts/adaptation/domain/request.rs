@@ -1,6 +1,6 @@
 //! The exported adaptation request: bounded, inert source data and fixed instructions.
 use super::AdaptationRejection;
-use cantos_contracts::ImportResponse;
+use crate::contract::studio::ImportResponse;
 use serde_json::{json, Value};
 
 use super::{array, extracted, problem, script_problem};
@@ -11,7 +11,7 @@ pub const PROMPT_VERSION: &str = "cantos-radio-adapt-1";
 pub const MAX_SOURCE_CONTEXT_BYTES: usize = 24 * 1024;
 pub const MAX_REQUEST_BYTES: usize = 96 * 1024;
 pub const OUTPUT_SCHEMA: &str = include_str!(
-    "../../../../../../packages/contracts/schema/adaptation/cantos-adaptation-1.schema.json"
+    "../../../../../../services/cantos-server/contracts/studio/adaptation/v1/cantos-adaptation-1.schema.json"
 );
 
 /// Exported instructions and inert source data; Cantos does not execute inference.

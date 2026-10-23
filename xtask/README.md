@@ -411,12 +411,12 @@ same catalog in [`gate.rs`](src/gate.rs).
 | --- | --- | --- |
 | `repository` | typed `services validate`; `scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | cargo, python3, git |
 | `rust-format` | `cargo fmt --all -- --check` | rustfmt |
-| `protobuf-reference` | independent Python goldens + pinned isolated prost/protoc exact generated-schema drift oracle + its clippy | cargo, python3, clippy |
+| `protobuf-reference` | independent Python goldens + pinned isolated prost/protoc exact generated-schema drift oracle (both Studio pilot bindings) + its clippy + `tools/proto-codegen --check` over every consumer-owned Protobuf binding (Studio pilot/artwork, Identity RPC server/client and test peers) | cargo, python3, clippy |
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> [--features cantos-theatre/preview] --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> [--features cantos-theatre/preview] --locked` | cargo |
 | `forge-functions` | `cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target`, then `node --test test/boundary.test.mjs test/native-worker.test.mjs` in `services/cantos-forge-functions/firebase` | cargo, installed stable Node.js 22+ |
-| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-server` Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets | cargo |
+| `contract-tests` | `cantos-server` `contract_conformance` (its own representation against the schemas/fixtures it owns), Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets; then each client's own representation (`cantos-studio`, `cantos-theatre`, `cantos-web-auth` lib tests filtered to `contract::`/`wire::`) | cargo |
 | `wav-reference` | `cargo build -p cantos-server --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
 | `audio-inspection` | `cargo test -p cantos-server --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
 | `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview,cantos-theatre/preview --locked -- -D warnings`, then the production lane `cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings` | clippy, wasm32 target |
@@ -488,8 +488,8 @@ runtime. This prerequisite is independent of the exact Node/npm pins for Quint.
 
 `verify turso` first lints/tests the `cantos-identity` service's opt-in `persistence` feature
 against run-owned real files, then checks the embedded foundation in `packages/store-turso` and
-prints its engine capability report. It also lints/tests Identity's `service` feature and
-`cantos-identity-rpc`, and lints ordinary `cantos-server` targets. The former `turso-candidate`
+prints its engine capability report. It also lints/tests Identity's `service` feature (including
+its own RPC server binding and wire-golden tests), and lints ordinary `cantos-server` targets. The former `turso-candidate`
 feature no longer exists; the real Identity journey still requires a prebuilt executable.
 The foundation commands enable its `testing` feature
 (run-owned temporary directories and a deterministic clock), then run the
@@ -562,8 +562,14 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 - `repository` and `rust-format` always run.
 - A path inside a Cargo package selects that package and, through `cargo metadata`, every package
   that depends on it (`rust-lint`/`rust-tests` with `-p`). A package's top-level `README.md` is a
-  document. All of `packages/contracts` (fixtures, schemas, examples and the DTO crate) is an input
-  of `cantos-contracts` and its dependents; only its non-fixture Markdown is documentation.
+  document. Canonical contracts are build inputs of their consumers: a non-document path under
+  `services/cantos-server/contracts/` selects `cantos-server` plus that surface's clients
+  (`studio/` → Studio Web; `theatre/`, `auth/` → Theatre Web and `theatre-cmp-preview`; `auth/` also
+  `cantos-web-auth`), `.proto` and Protobuf fixtures add `protobuf-reference`, and Script IR fixtures
+  `script-ir-reference`. `services/cantos-identity/contracts/` selects Identity and the Server;
+  `apps/cantos-theatre/conformance/` selects Theatre Web and `theatre-cmp-preview`;
+  `tools/proto-codegen` and every generated binding it writes select `protobuf-reference`. Only
+  non-fixture Markdown is documentation.
 - An affected Web package selects `web-lint`/`web-build` for that client. Shared
   `packages/ui-system` tokens, icons, Leptos components and their generators affect `cantos-ui`,
   both Web consumers and `ui-preview`; shared semantic inputs and generators also select
@@ -730,8 +736,9 @@ before reaping the leader.
 
 Fresh raw output and metadata are retained under ignored `artifacts/agent-runs/kani-*/` with Git
 revision and sanitized dirty/diff hashes, source/configuration identities, the package and
-before/after lock and model digests. Model binding for an API kernel covers all API source,
-contracts API source/schema inputs, their manifests/build scripts, root Cargo/.cargo settings and
+before/after lock and model digests. Model binding for an API kernel covers all API source
+(including its own `src/contract` representation), the Server-owned canonical contracts, its
+manifest/build script, root Cargo/.cargo settings and
 the primitive/registry, including created/deleted files. For the Forge kernel it covers all
 `services/cantos-forge-functions/src` files, the Forge manifest, root Cargo/.cargo settings and the
 primitive/registry, and no API or contracts source (the Forge manifest depends only on external
@@ -1166,5 +1173,5 @@ to qualify a native host. The archived fixture assertions remain #333 porting in
 
 Retired with provider authentication. `cargo xtask kanidm` refuses before metadata requests,
 probes, account/bootstrap operations or writes. Current auth uses
-[Identity v1](../packages/contracts/identity-auth-v1.md); Studio roster admission remains distinct
+[Identity v1](../services/cantos-server/contracts/auth/identity-auth/v1/README.md); Studio roster admission remains distinct
 from password authentication, and Admin fails closed without its verifier.

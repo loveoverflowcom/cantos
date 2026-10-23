@@ -1,14 +1,14 @@
 //! Thin caller-authored adaptation routes; transaction work belongs to the store.
+use crate::contract::studio::{
+    AcceptAdaptationRequest, AdaptationContextRequest, CancelAdaptationRequest, ErrorCode,
+    SubmitAdaptationProposalRequest,
+};
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
-};
-use cantos_contracts::{
-    AcceptAdaptationRequest, AdaptationContextRequest, CancelAdaptationRequest, ErrorCode,
-    SubmitAdaptationProposalRequest,
 };
 
 use crate::adapters::inbound::http::{

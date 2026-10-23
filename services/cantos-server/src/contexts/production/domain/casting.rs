@@ -3,7 +3,7 @@
 //! it is frozen for. An external producer synthesizes it; Cantos never does.
 use std::collections::{BTreeMap, BTreeSet};
 
-use cantos_contracts::{
+use crate::contract::studio::{
     FieldIssue, ProductionSettings, ResolvedPronunciation, ResolvedSynthesisInput,
     SynthesisPerformance,
 };

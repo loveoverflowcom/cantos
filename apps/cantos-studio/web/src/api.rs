@@ -1,7 +1,7 @@
 //! Studio owner transport: the API-issued HttpOnly cookie session (`credentials: include`) plus
 //! the session fence on every owner request. The cookie is never read, stored or forwarded here.
-use cantos_contracts::protobuf::ProtobufDto;
-use cantos_contracts::{
+use crate::contract::protobuf::ProtobufDto;
+use crate::contract::{
     AcceptAdaptationRequest, AdaptationReviewResponse, ApiError, ApproveProductionRequest,
     ErrorCode, FreezeProductionRequest, HistoryResponse, ImportRequest, ImportResponse,
     ProductionApprovalResponse, ProductionCatalogResponse, ProductionPreviewResponse,

@@ -12,7 +12,7 @@ def quoted(value):
 
 
 lines = [
-    '// Generated from packages/contracts/schemas/identity-auth-v1.schema.json. Do not edit.',
+    '// Generated from services/cantos-server/contracts/auth/identity-auth/v1/identity-auth.schema.json. Do not edit.',
     'package com.cantos.theatre.adapters.http.identityv1wire',
     '',
     'import kotlinx.serialization.Serializable',

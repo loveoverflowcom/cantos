@@ -4,7 +4,7 @@ Current requirements for maintaining the existing Script IR/import/editor bounda
 an acceptance reference, not a request to reimplement completed #1/#4 or a claim of fresh runtime
 verification. The [original 010 delivery plan](../archive/superseded-plans/010-import-and-edit-script.md)
 is historical. Actual compatibility belongs to [Script IR](../architecture/script-ir.md) and
-the [versioned contracts](../../packages/contracts/README.md).
+the [versioned contracts](../../services/cantos-server/contracts/README.md).
 
 ## Scope
 

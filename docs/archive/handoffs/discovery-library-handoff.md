@@ -5,7 +5,7 @@
 > describe the original session and are not current execution instructions. Use the
 > [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
 
-The [Theatre contract](../../../packages/contracts/theatre-discovery-v1.md) establishes stable Work,
+The [Theatre contract](../../../services/cantos-server/contracts/theatre/discovery/v1/README.md) establishes stable Work,
 ContentUnit and immutable publication/rendition/checksum identity. It does not establish a
 listener account, library, progress, history, bookmark, offline grant or production media URL.
 

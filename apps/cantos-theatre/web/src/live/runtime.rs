@@ -1,4 +1,7 @@
 //! Leptos/browser shell for the pure listener account and library sync owners.
+use crate::contract::library::{
+    AudioIdentity, AudioPresentation, Receipt, ResumeStatus, WorkPresentation,
+};
 use crate::{
     application::{
         account::{AccountGeneration, RequestFence},
@@ -22,9 +25,6 @@ use crate::{
         public_ids::PublicWorkId,
         public_track::{PinnedRelease, ReleaseRequest},
     },
-};
-use cantos_contracts::listener_library::{
-    AudioIdentity, AudioPresentation, Receipt, ResumeStatus, WorkPresentation,
 };
 use leptos::prelude::*;
 use web_sys::wasm_bindgen::{closure::Closure, JsCast};
@@ -122,7 +122,7 @@ fn presentation_from_now_playing(
             work_id: track.work().to_string(),
             publication_id: track.publication().to_string(),
             title: facts.label().work_title.clone(),
-            kind: cantos_contracts::theatre::WorkKind::Story,
+            kind: crate::contract::discovery::WorkKind::Story,
             language: facts.label().language.clone(),
         },
         unit_id: track.unit().to_string(),

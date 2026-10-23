@@ -3,6 +3,14 @@
 //! Mounted at `/api/v1/studio`. The same routes stay reachable at the pre-split `/api/v1/*` paths
 //! as a deprecated compatibility alias that shares these handlers, so behavior cannot diverge.
 //! Nothing here serves listeners; Theatre and Admin have their own modules and permission context.
+use crate::contract::{
+    codec::WireFormat,
+    routes,
+    studio::{
+        ErrorCode, ReviewRequest, SaveRevisionRequest, ScriptValidationResponse, SessionRequest,
+        SessionResponse, ValidateScriptRequest,
+    },
+};
 use axum::{
     extract::{Path, Query, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
@@ -10,10 +18,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
-};
-use cantos_contracts::{
-    routes, wire::WireFormat, ErrorCode, ReviewRequest, SaveRevisionRequest,
-    ScriptValidationResponse, SessionRequest, SessionResponse, ValidateScriptRequest,
 };
 
 use super::wire::{respond, Accepts, WireBody};

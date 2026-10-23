@@ -11,12 +11,12 @@ user on 2026-10-16 (no separate Product, Listening or Publication owner sign-off
 Original baseline: `develop@43db968`, re-read after the issue's `a079e72` survey.
 The PostgreSQL walk follow-up starts from `develop@64b5a60`; it exercises the accepted policy
 without changing the DTO, schema, routes, SQL or deployment composition. Sources:
-[Theatre DTOs](../../packages/contracts/api/src/theatre.rs), [routes](../../services/cantos-server/src/adapters/inbound/http/theatre.rs),
+[Theatre DTOs](../../services/cantos-server/src/contract/theatre/discovery.rs), [routes](../../services/cantos-server/src/adapters/inbound/http/theatre.rs),
 [application](../../services/cantos-server/src/contexts/media/listener_application.rs),
 [projection](../../services/cantos-server/src/contexts/media/listener_projection.rs),
 [Turso reader](../../services/cantos-server/src/contexts/media/turso/listener.rs),
 [cursor vault](../../services/cantos-server/src/contexts/media/listener_cursor.rs) and the
-[Discovery v1 contract](../../packages/contracts/theatre-discovery-v1.md). Nothing below is a
+[Discovery v1 contract](../../services/cantos-server/contracts/theatre/discovery/v1/README.md). Nothing below is a
 provider, device or browser observation.
 
 ## How to read the tables
@@ -25,7 +25,7 @@ provider, device or browser observation.
 | --- | --- |
 | **UI** | Client-only state. The server never sees or decides it. |
 | **Catalog** | Anonymous public projection (`/api/v1/theatre/works…`). Current eligibility is re-read on every page. |
-| **Listening** | Listener-authenticated Library/Progress ([contract](../../packages/contracts/listener-library-v1.md)); absent for a guest. |
+| **Listening** | Listener-authenticated Library/Progress ([contract](../../services/cantos-server/contracts/theatre/library/v1/README.md)); absent for a guest. |
 | **Delivery** | Playback authorization and media bytes ([ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md), composition-gated). |
 
 `P0` = supported by existing wire. `Gap` = a named gap below. `Deferred` = owned elsewhere.

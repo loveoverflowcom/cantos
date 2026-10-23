@@ -31,7 +31,7 @@ Paths are relative to `services/cantos-server/` unless stated otherwise.
 - **HL** = `tests/theatre_business_journey.rs:logout_ends_the_session_and_a_later_write_changes_nothing`.
 - **P** = `tests/theatre_business_process.rs:the_server_binary_serves_the_cmp_slice_over_loopback_and_a_second_process_reads_the_same_outcomes`.
 - **A** = `src/platform/admin/tests.rs`.
-- **W** = repository-root `packages/contracts/identity-rpc/tests/wire.rs`.
+- **W** = repository-root `services/cantos-identity/tests/rpc_wire.rs`.
 - **U** = repository-root `packages/store-turso/tests/owned_database.rs`.
 
 “Partial” below means source counterparts exist, but not sufficient to delete the complete legacy test or file. All execution remains **NOT_RUN**. Test locations in the following sections are under `legacy-pg-tests/tests/`.

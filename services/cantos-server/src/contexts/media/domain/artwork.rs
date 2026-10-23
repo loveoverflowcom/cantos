@@ -3,7 +3,7 @@
 //! atomically persists the plan with Catalog's touched snapshot and the operation receipt.
 use std::collections::BTreeSet;
 
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::contexts::catalog::domain::{CatalogError, OwnerId, Revision, Work, WorkId};

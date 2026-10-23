@@ -1,5 +1,5 @@
 //! Raw Content Identity transport admission; storage uses the same constructors.
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 
 use super::CatalogStoreError;
 use crate::contexts::catalog::domain::{

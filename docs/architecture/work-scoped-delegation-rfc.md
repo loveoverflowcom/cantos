@@ -2,7 +2,7 @@
 
 - Status: Research comparison. On 15 October 2026 the owner selected **direction A** for a first
   Catalog slice, recorded in [ADR 0028](../decisions/0028-work-scoped-delegation.md) and
-  implemented by the [delegation v1 contract](../../packages/contracts/delegation-v1.md). Every
+  implemented by the [delegation v1 contract](../../services/cantos-server/contracts/studio/delegation/v1/README.md). Every
   question that ADR does not answer stays **decision pending** here; this document itself is
   not an implementation contract.
 - Issue: [#113](https://github.com/loveoverflowcom/cantos/issues/113).
@@ -45,8 +45,8 @@ as the record of why A fits today and when B/C should be reconsidered.
 | Platform Admin | [Admin API](admin-authorization.md), dedicated ES256 resource token, live introspection, narrow local Admin block and required audit | Work ownership, general ACL, root token or global logout |
 | Catalog | [Catalog application](../../services/cantos-server/src/contexts/catalog/application/mod.rs), owner/member policy and transaction-time fences | Independent Editorial or Ingestion rights |
 | Editorial / Ingestion | [Script authorization](../../services/cantos-server/src/contexts/editorial/application.rs) and [source access](../../services/cantos-server/src/contexts/ingestion/application.rs) | A Catalog link alone does not reveal unrelated private script/source bytes |
-| Producer read | [Brief contract](../../packages/contracts/production-brief-v1.md), exact immutable read-only Brief, at most 24h, domain-separated lookup | Upload, owner, reviewer or publisher |
-| Producer upload | [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md), exact prepared submission, at most 24h, revocable and actual-byte inspected | QC/release, private owner preview or another submission |
+| Producer read | [Brief contract](../../services/cantos-server/contracts/studio/briefs/v1/README.md), exact immutable read-only Brief, at most 24h, domain-separated lookup | Upload, owner, reviewer or publisher |
+| Producer upload | [Audio Lifecycle](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md), exact prepared submission, at most 24h, revocable and actual-byte inspected | QC/release, private owner preview or another submission |
 | Media object access | [Private storage](object-storage.md), exact recorded target/key/hash/size through authorized metadata | Work permission from a key prefix; direct presigned writes |
 
 Current producer contracts require caller-supplied 32 random bytes represented as 64 lowercase

@@ -3,7 +3,7 @@
 Baseline: `develop` at `b620109d93f7ced11628ce380c282ccf7a9c351c`, after Catalog PR68.
 One outcome: immutable content beneath Catalog identity, including non-scripted prose/recording
 units. [ADR 0019](../decisions/0019-content-identity.md) and
-[Content Identity v1](../../packages/contracts/content-v1.md) own semantics.
+[Content Identity v1](../../services/cantos-server/contracts/studio/content/v1/README.md) own semantics.
 
 ## Claim / oracle ledger
 

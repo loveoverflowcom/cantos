@@ -3,7 +3,7 @@
 //! request takes the Catalog clock first, resolves the grant and current actor facts under it,
 //! asks the pure grant for a permit and re-resolves everything before commit. Revocation takes
 //! the clock for update, so it is effective for every request admitted after it commits.
-use cantos_contracts as dto;
+use crate::contract::studio as dto;
 
 use super::content::{
     append_authorized, fingerprint_append, history_page, AppendContent, Appended, ContentWriter,
