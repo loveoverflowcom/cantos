@@ -22,7 +22,7 @@ PLATFORM = "linux/amd64"
 ACTIONS_ENV = {"GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": "loveoverflowcom/cantos",
                "GITHUB_WORKFLOW_REF": "loveoverflowcom/cantos/.github/workflows/native-oci-publish.yml@refs/heads/main",
                "GITHUB_WORKFLOW_SHA": "e" * 40, "GITHUB_RUN_ID": "77", "GITHUB_RUN_ATTEMPT": "1",
-               "GITHUB_JOB": "publish"}
+               "GITHUB_JOB": "publish", "GITHUB_EVENT_NAME": "workflow_dispatch"}
 
 
 def native_amd64_host():
@@ -42,6 +42,7 @@ def repository(root):
                                               "identity_schema": "identity-v1",
                                               "security_state": "security-v1"}).encode(),
              "scripts/release_oci_build.py": b"#", "scripts/release_oci.py": b"#",
+             "scripts/release_oci_registry.py": b"#", ".github/workflows/native-oci-publish.yml": b"#",
              "infra/oci/cantos-server/Containerfile": b"FROM scratch\n",
              "infra/oci/cantos-identity/Containerfile": b"FROM scratch\n",
              "infra/vps/bin/cantos-vps": b"#!/bin/sh\n", "infra/vps/quadlet/cantos-edge.container": b"[Container]\n",
@@ -115,10 +116,11 @@ class ProducerContract(unittest.TestCase):
             self.assertEqual({e.name: e.mode for e in archive}["infra/vps/bin/cantos-vps"], 0o755)
 
     def test_actions_identity_must_match_repository_source_and_workflow(self):
-        env = {**ACTIONS_ENV, "GITHUB_SHA": self.sha}
+        env = {**ACTIONS_ENV, "GITHUB_SHA": self.sha, "GITHUB_WORKFLOW_SHA": self.sha}
         self.assertEqual(build.producer_identity("github-actions", env, self.sha)["workflow_path"],
                          ".github/workflows/native-oci-publish.yml")
-        for change in ({"GITHUB_SHA": "d" * 40}, {"GITHUB_REPOSITORY": "other/cantos"},
+        for change in ({"GITHUB_SHA": "d" * 40}, {"GITHUB_WORKFLOW_SHA": "d" * 40},
+                       {"GITHUB_RUN_ATTEMPT": "2"}, {"GITHUB_EVENT_NAME": "push"}, {"GITHUB_REPOSITORY": "other/cantos"},
                        {"GITHUB_WORKFLOW_REF": "loveoverflowcom/cantos/other.yml@refs/heads/main"},
                        {"GITHUB_RUN_ID": "0"}, {"GITHUB_ACTIONS": "false"}):
             with self.assertRaises(ValueError):
@@ -172,6 +174,9 @@ class Shell(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.calls = []
         self.config = build.configuration_identity(self.root, self.sha, PLATFORM)
+        self.authfile = Path(self.temporary.name) / "auth.json"
+        self.authfile.write_text('{"auths":{"ghcr.io":{"auth":"dXNlcjpmaXh0dXJl"}}}')
+        self.authfile.chmod(0o600)
 
     def fake(self, push_digest=None):
         real = build.sh
@@ -188,6 +193,7 @@ class Shell(unittest.TestCase):
                                "org.opencontainers.image.revision": self.sha,
                                "io.cantos.release.configuration": self.config, "io.cantos.binary": service}}}])
             if argv[0] == "podman" and argv[1] == "push":
+                self.assertEqual(argv[-2], "sha256:" + "b" * 64, "push the inspected immutable image ID, not its local tag")
                 self.calls.append(("push", argv[-1]))
                 if push_digest is None:
                     raise ValueError("command failed: podman push")
@@ -218,15 +224,18 @@ class Shell(unittest.TestCase):
             return result
         with patch.object(build, "sh", dirtying), native_amd64_host():
             with self.assertRaisesRegex(ValueError, "clean"):
-                build.produce(self.root, self.args(True, Path("auth.json")))
+                build.produce(self.root, self.args(True, self.authfile))
         self.assertNotIn("push", [c[0] for c in self.calls])
 
     def test_failed_push_stops_without_a_manifest_and_never_retries(self):
         with patch.object(build, "sh", self.fake(None)), native_amd64_host():
             with self.assertRaises(ValueError):
-                build.produce(self.root, self.args(True, Path("auth.json")))
+                build.produce(self.root, self.args(True, self.authfile))
         self.assertEqual([c[0] for c in self.calls].count("push"), 1)
-        self.assertFalse((self.root / "out").exists())
+        journals = list((self.root / "out").rglob("publish-attempt.json"))
+        self.assertEqual(len(journals), 1)
+        self.assertEqual(json.loads(journals[0].read_text())["images"]["cantos-server"]["state"], "unknown")
+        self.assertFalse(list((self.root / "out").rglob("manifest.json")))
 
     def test_publish_pushes_the_pair_by_tag_then_records_digest_refs_after_readback(self):
         digest = "sha256:" + "9" * 64
@@ -234,7 +243,7 @@ class Shell(unittest.TestCase):
                                                           "gates": {**plan["gates"], "registry-access": "PASS"}}
         with patch.object(build, "sh", self.fake(digest)), native_amd64_host(), \
                 patch("release_oci_registry.observe", observe):
-            result = build.produce(self.root, self.args(True, Path("auth.json")))
+            result = build.produce(self.root, self.args(True, self.authfile))
         self.assertEqual(result["operation"], "CANDIDATE")
         self.assertFalse(result["release_eligible"])
         self.assertEqual(result["gates"]["native-qualification"], "NOT_RUN")

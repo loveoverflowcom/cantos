@@ -130,6 +130,13 @@ fn run_request(workspace: &Workspace, raw: &Raw, tools: &dyn ToolProbe) -> Resul
     };
     if request.dry_run {
         print!("{}", plan_text(workspace, &request));
+        let destination = match local_mapping(workspace, &request) {
+            Ok(destination) => destination,
+            Err(why) => return Ok(crate::refuse(crate::build::Refusal::Usage(why))),
+        };
+        if let Err(why) = request::agree(&request, &destination) {
+            return Ok(crate::refuse(crate::build::Refusal::Usage(why.to_string())));
+        }
         return Ok(ExitCode::SUCCESS);
     }
     let mut capture = SystemCapture::new()?;
@@ -228,12 +235,36 @@ mod tests {
 
     #[test]
     fn the_dry_run_probes_nothing_starts_nothing_and_writes_nothing() {
-        let workspace = Workspace::discover().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "cantos-pages-plan-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        std::fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+        std::fs::create_dir_all(root.join("infra/cloudflare")).unwrap();
+        std::fs::write(root.join("infra/cloudflare/projects.json"), r#"{"schema_version":1,"accounts":{"8339afe44b4e8cd2b633a38a77f1db41":{"studio":{"project":"cantos-studio","production_branch":"main"},"theatre":{"project":"cantos-theatre","production_branch":"main"}}}}"#).unwrap();
+        let workspace = Workspace::fixture(&root).unwrap();
         let before = workspace.path("artifacts/cloudflare").exists();
         let code = run_request(&workspace, &raw(), &NoProbe).unwrap();
         assert_eq!(code, ExitCode::SUCCESS);
         assert_eq!(workspace.path("artifacts/cloudflare").exists(), before);
         assert!(!workspace.path("artifacts/cloudflare/RUN-ID").exists());
+        let mut mismatch = raw();
+        mismatch.branch = "main".into();
+        assert_ne!(
+            run_request(&workspace, &mismatch, &NoProbe).unwrap(),
+            ExitCode::SUCCESS
+        );
+        std::fs::remove_file(root.join("infra/cloudflare/projects.json")).unwrap();
+        assert_ne!(
+            run_request(&workspace, &raw(), &NoProbe).unwrap(),
+            ExitCode::SUCCESS
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

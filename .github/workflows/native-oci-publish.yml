@@ -23,6 +23,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 90
     steps:
       - name: Check out the exact commit
@@ -43,12 +46,14 @@ jobs:
             --authfile "$RUNNER_TEMP/ghcr-auth.json"
       - name: Build, publish and read back the pair
         run: |
+          set -Eeuo pipefail
           cargo xtask release oci-build --platform linux/amd64 --producer github-actions \
             --publish --authfile "$RUNNER_TEMP/ghcr-auth.json" | tee "$RUNNER_TEMP/oci-build-result.json"
       - name: Remove the authfile
         if: always()
         run: rm -f "$RUNNER_TEMP/ghcr-auth.json"
-      - name: Keep the unadmitted candidate records
+      - name: Keep candidate and interrupted publication records
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: native-oci-candidate-${{ github.sha }}

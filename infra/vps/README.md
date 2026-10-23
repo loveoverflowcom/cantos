@@ -3,9 +3,10 @@
 [#348](https://github.com/loveoverflowcom/cantos/issues/348) selects two native Rust executables
 packaged as GHCR images and supervised by Podman Quadlet. The
 [offline OCI contract](../../docs/deployment/native-oci-release.md) is the first release-owner
-slice; publishers and the native host consumer remain pending. The assets below are retained
+slice; candidate producers and an offline declared inventory plan exist, while native host
+rendering/activation and live qualification remain pending. The assets below are retained
 legacy runtime/recovery owners, not an implementation of the native target or host inventory.
-Do not activate refactor HEAD, retire PG/Kanidm or change runtime principal from source evidence.
+New source work targets `develop` after PR #400. Do not activate unqualified HEAD, retire PG/Kanidm or change runtime principal from source evidence.
 
 The [Firebase verification amendment](../../docs/architecture/firebase-verification.md#production-configuration-images-and-vps)
 defines the implemented adapter's runtime inputs and unresolved recovery/acceptance limits.

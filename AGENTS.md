@@ -62,7 +62,8 @@ Studio passkeys, recovery and restore rotation remain deferred. Web cookie and C
 Bearer consumers exist; full browser/device acceptance is separate. The Server consumer
 (Turso sessions, v1 email/password) is [Identity auth v1](services/cantos-server/contracts/auth/identity-auth/v1/README.md). Checked snapshots and a
 passed completion decision or mailbox transition plan are not authentication facts. New persistence/auth work for
-#331–#336 branches from and targets `refactor/cantos-native-turso`, as specified by those issues.
+#331–#336 branches from latest `origin/develop` and targets `develop` after PR #400; the retired
+refactor branch and pinned earlier observations are historical context.
 
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 `apps/cantos-studio/mobile` may retain a scope notice only; never add it to workspace/Gradle,
@@ -185,25 +186,17 @@ account, project, branch, environment and artifact. Creating the token, projects
 cutover are operator steps; agents never create credentials. Source-bound preview observations
 are recorded in the runbook; production/domain cutover acceptance remains separate.
 
-Production API deployment to the VPS is the explicit, opt-in
-`cargo xtask deploy vps cantos-server --host USER@HOST [--bootstrap|--rollback|--status|--cutover-epoch2]`
-([contract](xtask/README.md#deploy-vps), [runbook](docs/deployment/vps-production.md)). It builds the
-image locally from committed `HEAD`, then the uploaded `infra/vps/bin/cantos-vps` backs up, migrates,
-grants, switches and health-gates with automatic switch-back. It is a remote write: `--dry-run` shows
-the plan, and an agent runs it only on the user's explicit request naming the host.
-The separate `--upgrade-epoch2-prefix` lane preserves an epoch-2 database and upgrades a restored
-sibling by the candidate's exact additive registry suffix (`[1]`→`[1,2]`, `[1,2]`→`[1,2,3]`); read its [operator/recovery runbook](docs/deployment/postgres-prefix-upgrade.md).
-It requires separately explicit operator authority and a native Linux x86_64/17.11 rehearsal;
-ordinary deploy checks remain strict.
-`cantos-vps identity` is operator-run: the operator may explicitly delegate it to an AI agent
-for a named host and accounts, including Kanidm account creation, OAuth2 client/group setup and
-credential-reset issuance. Once authorized, the agent may complete that scope without repeated
-confirmation. Deployment authorization alone does not authorize identity changes. Keep secrets
-and one-time credential links out of chat, agent logs and Git; the operator completes personal
-password/passkey setup in their own interactive session. CircleCI (`.circleci/config.yml`) only
-offers a manual pipeline that calls the deployment commands.
-The existing-client `identity --reconcile-existing` lane has no account/reset path; its exact
-callback readback, preservation checks and cutover recovery follow the same runbook.
+`cargo xtask deploy vps` and legacy `api`/`all` release routes are retired refusals, including
+CircleCI selections; no current workflow receives the old VPS context. The
+[native OCI contract](docs/deployment/native-oci-release.md) owns candidate publication,
+qualification/admission and the optional digest-pinned, operator-declared host inventory plan.
+The plan is offline and never locks, pulls, activates, restores or changes a host. Native
+Quadlet rendering/activation, health/reboot and recovery acceptance remain separate #348 work.
+The [historical VPS runbook](docs/deployment/vps-production.md) and
+[PostgreSQL prefix-upgrade recovery record](docs/deployment/postgres-prefix-upgrade.md) retain
+legacy recovery context; they are not current release instructions. Preserve their historical
+schema/checksum evidence and all real host/database/WAL/media resources. Deployment authority
+never grants identity or cleanup authority; keep credentials and one-time links out of logs/Git.
 
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
@@ -278,12 +271,15 @@ Ordinary tests/builds do not start the emulator; the explicit ignored boundary t
 For [#348](https://github.com/loveoverflowcom/cantos/issues/348), production distribution is
 GHCR registry digests plus Podman Quadlet for the two native executables. This supersedes only
 the native refactor's production no-container clause; native dev/E2E/Turso/Kani remain
-container-independent. Target `refactor/cantos-native-turso`. The implemented
+container-independent. Target latest `develop` after PR #400. The implemented
 [`release oci-verify`](docs/deployment/native-oci-release.md) is offline and plan-only;
 its Python tests run in release self-test/repository and its CLI tests in the Rust gate.
 Explicit `--registry-readback` adds scoped GHCR manifest/config observation; dry-run remains
 offline, with no authfile access, and neither mode establishes native/image-pair acceptance.
-The local/Actions producer (`release oci-build`, unadmitted candidate only) exists. Actual
+The local/Actions producer (`release oci-build`, unadmitted candidate only) retains a sanitized
+publish-attempt journal before remote writes; failed/unknown publication requires reconciliation.
+`release oci-verify --host-inventory PATH --host-inventory-digest SHA256` adds an offline declared
+readiness plan, never activation authority. Actual
 publish/admission and host activation require separate evidence. `deploy vps` is a retired
 refusal. Preserve legacy runtime/principals, PG/Kanidm/ingress and recovery until real native
 acceptance and separately authorized cutover; missing inventory is `UNKNOWN`, never permission

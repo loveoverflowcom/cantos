@@ -38,6 +38,8 @@ production branch, bindings or billing, rolls back, or deletes a deployment.
 The mapping *account → app → project + production branch* is yours: `infra/cloudflare/projects.json`
 (ignored by Git; start from `projects.example.json`). Production on a non-production branch, and
 preview on the production branch (which Pages would publish live), are refused before extraction.
+The offline `--dry-run` returns a failing status for a missing or disagreeing mapping while still
+probing no tool, reading no credential and writing nothing.
 Theatre and Studio must be different projects. Project names are global `*.pages.dev` labels: verify
 availability when creating; do not assume `cantos-*` is free.
 
@@ -182,13 +184,18 @@ set these as project-level variables. The packaging job has no context. The publ
 artifact's exact source SHA through `release checkout`, validates the per-app v2 request/inventory
 and actual archive bytes, and refuses if `origin/develop` has moved. The explicit `api-origin`
 parameter reaches the credential-free producer. The publisher requires Node.js 22+, installs
-Wrangler from the lockfile and runs the dry run then the real command. Each app has a separate
+Wrangler from the lockfile with the token removed from the install subprocess. The existing release
+owner runs the strict dry run, persists a source/destination/job-bound intent, then invokes the
+existing publisher once after CI has transferred that intent. Each app has a separate
 workspace subtree to prevent additive workspace collisions. Context jobs have native repository
 and develop/config filters before execution; account restrictions still require operator setup.
-The Pages lane retains its own per-app approvals and provider receipts. It does not use #277's
-Firebase/VPS `release promote` coordinator, durable CI publisher intents or combined API/Web
-ordering/reporting; `component=all` selects an independent API workflow. An uncertain Pages job
-loss still requires operator reconciliation before any rerun. Real CI execution remains NOT_RUN.
+The Pages lane retains per-app approvals and provider receipts. `release pages-intent` binds the
+exact v2 artifact, account/project/branch/environment and publisher job; CI persists it before
+`release pages-promote` calls the existing Pages publisher. A rerun job, existing attempt, wrong
+source/digest/component, stale develop or changed mapping refuses. Per-app outcomes preserve known
+remote identity separately from command/smoke failure. There is no combined API/Web activation:
+legacy `api`/`all` requests fail without credentials, and `all` starts no Pages job. An uncertain
+job loss still requires provider reconciliation before a new pipeline. Real CI execution remains NOT_RUN.
 
 ## Acceptance status
 

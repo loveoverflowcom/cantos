@@ -20,24 +20,29 @@ def run(root, argv, *, capture=False, env=None):
     return release_build.run(root, argv, capture=capture, env=env)
 
 
+def refuse_legacy(component):
+    contract.require(component not in ("api", "all"),
+                     "legacy api/all release is retired; use native OCI or explicit Web components")
+
+
 def components(component, build_only):
-    choices = {"api": ["api"], "theatre-web": ["theatre-web"], "studio-web": ["studio-web"],
-               "web": ["theatre-web", "studio-web"], "all": ["api", "theatre-web", "studio-web"]}
+    refuse_legacy(component)
+    choices = {"theatre-web": ["theatre-web"], "studio-web": ["studio-web"],
+               "web": ["theatre-web", "studio-web"]}
     if build_only:
         choices["android"] = ["android"]
-        choices["all"] += ["android"]
     contract.require(component in choices, "invalid component selection")
     return choices[component]
 
 
 def resolve(root, target, component, origin, build_only):
     contract.require(bool(target) != build_only, "use build-only with an empty target, or a release target without build-only")
+    selected = components(component, build_only)
     checkout_sha = release_build.source_revision(root)
     config_sha = contract.config_identity()
     producer = contract.ci_identity()
     contract.require(os.environ.get("CIRCLE_BRANCH") == "develop" and os.environ.get("CIRCLE_SHA1") == checkout_sha,
                      "release requests require the reviewed develop config revision")
-    selected = components(component, build_only)
     origin = contract.api_origin(origin)
     fetch(root)
     run(root, ["git", "merge-base", "--is-ancestor", config_sha, "refs/remotes/origin/develop"])
@@ -144,7 +149,9 @@ def assert_fresh(root, request):
 
 
 def promotion_input(root, transfer, component):
+    refuse_legacy(component)
     request_path, request = request_from(transfer)
+    contract.require("api" not in request["components"], "legacy API transfer is retired")
     contract.require(not request["build_only"] and component in request["components"] and component != "android",
                      "component was not approved for promotion")
     release_build.source_revision(root, request)
@@ -234,6 +241,88 @@ def promote(root, transfer, component):
         contract.write_new(outcome_dir / "outcome.json", outcome)
 
 
+def pages_argv(component, manifest, destination):
+    contract.require(component in ("theatre-web", "studio-web"), "one Web component required")
+    contract.require(set(destination) == {"account", "project", "branch", "environment"},
+                     "exact Pages destination required")
+    return ["cargo", "xtask", "deploy", "cloudflare", "cantos-" + component[:-4], "--web",
+            *[part for key in ("account", "project", "branch", "environment")
+              for part in ("--" + key, destination[key])], "--artifact", str(manifest.parent)]
+
+
+def pages_intent(root, transfer, component):
+    """Bind a reviewed same-workflow Web artifact and explicit destination before workspace persistence."""
+    _, request, item, manifest = promotion_input(root, transfer, component)
+    directory = transfer / "intents" / component
+    contract.require(not directory.exists(), "component intent already exists; reconcile before a new pipeline")
+    # Nonsecret operator mapping stays in infra; the deploy owner checks its exact app/branch policy.
+    branch = os.environ["CLOUDFLARE_PRODUCTION_BRANCH"]
+    environment = os.environ["WEB_ENVIRONMENT"]
+    selected_branch = os.environ.get("WEB_BRANCH") or (branch if environment == "production" else "")
+    projects = {app: os.environ["CLOUDFLARE_" + app.upper() + "_PROJECT"] for app in ("theatre", "studio")}
+    destination = {"account": os.environ["CLOUDFLARE_ACCOUNT_ID"], "project": projects[component[:-4]],
+                   "branch": selected_branch, "environment": environment}
+    mapping = {"schema_version": 1, "accounts": {destination["account"]: {
+        app: {"project": project, "production_branch": branch} for app, project in projects.items()}}}
+    path = root / "infra/cloudflare/projects.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Never overwrite an operator's existing mapping, even inside CI.
+    if path.exists():
+        contract.require(contract.read_json(path) == mapping, "existing Pages mapping differs from intent")
+    else:
+        contract.write_new(path, mapping)
+    argv = pages_argv(component, manifest, destination)
+    run(root, [*argv, "--dry-run"])
+    directory.mkdir(parents=True, mode=0o700)
+    contract.write_new(directory / "intent.json", {"schema_version": 1, "provider": "cloudflare",
+        "request_sha256": contract.fingerprint(request), "manifest_sha256": item["digest"],
+        "publisher": contract.ci_identity(), "component": component, "destination": destination})
+    print("Prepared Pages intent; persist it to this workflow before promotion")
+
+
+def pages_promote(root, transfer, component):
+    """Invoke the existing Pages publisher once; a rerun must reconcile its earlier job's intent."""
+    _, request, item, manifest = promotion_input(root, transfer, component)
+    planned = contract.read_json(transfer / "intents" / component / "intent.json")
+    destination = planned.get("destination", {})
+    contract.require(planned == {"schema_version": 1, "provider": "cloudflare",
+        "request_sha256": contract.fingerprint(request), "manifest_sha256": item["digest"],
+        "publisher": contract.ci_identity(), "component": component, "destination": destination},
+        "foreign or rerun Pages intent; reconcile before a new pipeline")
+    argv = pages_argv(component, manifest, destination)
+    outcome_dir = transfer / "outcomes" / component
+    contract.require(not outcome_dir.exists(), "Pages promotion already attempted; reconcile before a new pipeline")
+    outcome_dir.mkdir(parents=True, mode=0o700)
+    outcome = {"schema_version": 1, "provider": "cloudflare", "component": component,
+               "requested_sha": request["source_sha"], "manifest_sha256": item["digest"],
+               "pipeline": request["producer"], "publisher": contract.ci_identity(), "destination": destination,
+               "outcome": "unknown", "smoke": "NOT_RUN", "command_status": "FAIL", "remote_identity": None}
+    # A crash leaves a durable unknown marker; no subsequent invocation can repeat the write.
+    contract.write_new(outcome_dir / "attempt.json", outcome)
+    before = set((root / "artifacts/cloudflare").glob("*/receipt.json"))
+    try:
+        run(root, argv)
+        outcome["command_status"] = "PASS"
+    finally:
+        receipts = set((root / "artifacts/cloudflare").glob("*/receipt.json")) - before
+        if len(receipts) == 1:
+            receipt = contract.read_json(receipts.pop())
+            artifact = receipt.get("artifact") or {}
+            if (receipt.get("app") == "cantos-" + component[:-4] and
+                    all(receipt.get(key) == value for key, value in destination.items()) and
+                    artifact.get("source_sha") == request["source_sha"] and
+                    artifact.get("manifest_sha256") == item["digest"]):
+                outcome["pages_receipt"] = receipt
+                outcome["remote_identity"] = receipt.get("remote")
+                outcome["outcome"] = (receipt.get("remote") or {}).get("state", "unknown")
+                outcome["smoke"] = (receipt.get("smoke") or {}).get("state", "NOT_RUN").upper()
+            else:
+                outcome["receipt_status"] = "FOREIGN_OR_INCOMPLETE"
+        contract.write_new(outcome_dir / "outcome.json", outcome)
+    contract.require(outcome["outcome"] == "confirmed" and outcome["smoke"] == "PASS",
+                     "Pages outcome or smoke unconfirmed; reconcile before a new pipeline")
+
+
 def report(transfer):
     _, request = request_from(transfer)
     rows = {}
@@ -300,57 +389,7 @@ def inspect_docker_archive(raw, image, revision):
 
 
 def deploy_api(root, args):
-    contract.require(re.fullmatch(r"[a-z0-9_][a-z0-9_-]{0,31}@[A-Za-z0-9][A-Za-z0-9.-]{0,252}", args.host), "explicit user@host required")
-    contract.require(args.api_origin, "artifact deploy requires --smoke-origin for a public health receipt")
-    contract.api_origin(args.api_origin)
-    manifest = validated(args, "api", None)
-    if args.dry_run:
-        print("NOT_RUN artifact deploy: validate image/runtime -> inventory Linux amd64 -> upload/hash -> load/inspect -> install matching runtime -> backup/migrate/grants/switch/health -> smoke. No build or remote effect.")
-        return
-    run_dir = root / "artifacts/vps-release" / uuid.uuid4().hex
-    run_dir.mkdir(parents=True, mode=0o700)
-    receipt = {"requested_sha": args.release_sha, "manifest_sha256": args.release_digest,
-               "host": args.host, "image_id": None, "activation": "NOT_RUN", "smoke": "NOT_RUN", "stages": []}
-    def stage(name, argv, *, capture=False):
-        receipt["stages"].append({"name": name, "outcome": "unknown"})
-        result = run(root, argv, capture=capture)
-        receipt["stages"][-1]["outcome"] = "completed"
-        return result
-    ssh = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", args.host]
-    scp = ["scp", "-q", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes"]
-    try:
-        # Snapshot exact verified files before any network mutation; source input cannot race upload.
-        for record in manifest["artifacts"]:
-            contract.copy_verified(args.release_manifest.parent / record["path"], run_dir / record["path"], record)
-        image = contract.read_json(run_dir / "image.json")
-        receipt["image_id"] = image["id"]
-        inspect_image(root, run_dir / "cantos-api.tar.zst", image, args.release_sha, run_dir)
-        contract.extract(run_dir / "runtime.tar", run_dir / "tree", runtime=True)
-        contract.require((run_dir / "tree/REVISION").read_text().strip() == args.release_sha, "runtime revision mismatch")
-        observed = stage("host platform", ssh + ["uname -sm"], capture=True)
-        contract.require(observed == "Linux x86_64", "VPS must be Linux x86_64")
-        incoming = "/root/cantos-services/incoming/" + args.release_sha + "/" + run_dir.name
-        receipt["incoming"] = incoming
-        stage("upload directory", ssh + ["umask 077; mkdir -p /root/cantos-services/incoming/" + args.release_sha + "; mkdir " + incoming])
-        checks = "".join(contract.file_record(run_dir / name, run_dir)["sha256"] + "  " + name + "\n"
-                         for name in ("cantos-api.tar.zst", "runtime.tar"))
-        (run_dir / "SHA256SUMS").write_text(checks)
-        stage("upload", scp + [str(run_dir / n) for n in ("cantos-api.tar.zst", "runtime.tar", "SHA256SUMS")] + [args.host + ":" + incoming + "/"])
-        # Matching host script locks load + inspect + install + deploy as one operation.
-        remote = ("bash -Eeuo pipefail -c 'cd " + incoming + "; sha256sum --check --strict SHA256SUMS; "
-                  "mkdir tree; tar -xf runtime.tar -C tree; "
-                  "./tree/infra/vps/bin/cantos-vps promote " + args.release_sha + " \"$PWD/tree\" " + image["id"] + "'")
-        receipt["activation"] = "unknown"
-        stage("load/install/activate", ssh + [remote])
-        receipt["activation"] = "activated"
-        stage("public smoke", ["curl", "--proto", "=https", "-fsS", "--max-time", "20", "-o", "/dev/null",
-                               args.api_origin + "/api/v1/theatre/works"])
-        receipt["smoke"] = "PASS"
-    finally:
-        contract.write_new(run_dir / "receipt.json", receipt)
-        print("API component receipt: " + str(run_dir / "receipt.json"))
-        if receipt["activation"] == "unknown":
-            print("Remote result unknown: run cargo xtask deploy vps cantos-server --host " + args.host + " --status and inspect retained incoming state before retrying.")
+    raise ValueError("legacy VPS API deployment is retired; native host activation is not implemented")
 
 
 def main():
@@ -361,10 +400,10 @@ def main():
     prepare_parser.add_argument("--build-only", action="store_true")
     prepare_parser.add_argument("--component", required=True)
     prepare_parser.add_argument("--api-origin", required=True)
-    for name in ("checkout", "intent", "promote", "report"):
+    for name in ("checkout", "intent", "promote", "report", "pages-intent", "pages-promote"):
         child = actions.add_parser(name)
         child.add_argument("--transfer", type=Path, required=True)
-        if name in ("intent", "promote"):
+        if name in ("intent", "promote", "pages-intent", "pages-promote"):
             child.add_argument("--component", required=True)
     prepare_parser.add_argument("--transfer", type=Path, required=True)
     for name in ("extract", "deploy-api"):
@@ -391,6 +430,10 @@ def main():
         promote(root, args.transfer, args.component)
     elif args.action == "intent":
         intent(root, args.transfer, args.component)
+    elif args.action == "pages-intent":
+        pages_intent(root, args.transfer, args.component)
+    elif args.action == "pages-promote":
+        pages_promote(root, args.transfer, args.component)
     elif args.action == "report":
         report(args.transfer)
     elif args.action == "extract":

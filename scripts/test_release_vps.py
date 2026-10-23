@@ -111,7 +111,7 @@ class VpsTests(unittest.TestCase):
                 contract.extract(args.release_manifest.parent / "runtime.tar", root / "tree", runtime=True)
             self.assertFalse((root / "tree").exists())
             with patch.object(release, "run") as run:
-                with self.assertRaisesRegex(ValueError, "runtime entrypoint must be executable"):
+                with self.assertRaisesRegex(ValueError, "retired"):
                     release.deploy_api(root, args)
                 run.assert_not_called()
 
@@ -147,78 +147,15 @@ class VpsTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, reason):
                         release.inspect_docker_archive(path, image, SHA)
 
-    @patch.object(release, "inspect_image")
-    def test_verified_snapshot_and_host_inventory_precede_upload_and_only_matching_runtime_activates(self, inspect):
+    def test_retired_executor_refuses_before_any_command_or_output(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            args = api_fixture(root)
-            commands = []
-            def fake_run(root, argv, **kwargs):
-                commands.append(argv)
-                return "Linux x86_64" if argv[0] == "ssh" and argv[-1] == "uname -sm" else None
-            with patch.object(release, "run", side_effect=fake_run):
-                release.deploy_api(root, args)
-            self.assertEqual(commands[0][-1], "uname -sm")
-            load = next(c[-1] for c in commands if c[0] == "ssh" and "cantos-vps promote" in c[-1])
-            self.assertIn("sha256sum --check --strict SHA256SUMS", load)
-            self.assertIn('./tree/infra/vps/bin/cantos-vps promote ' + SHA + ' "$PWD/tree" sha256:', load)
-            self.assertNotIn("/usr/local/sbin/cantos-vps deploy", load)
-            self.assertFalse(any(c[0] in ("cargo", "trunk", "podman") for c in commands))
-            self.assertNotIn("bootstrap", load)
-            self.assertNotIn("cutover", load)
-            self.assertNotIn("identity", load)
-            receipt = contract.read_json(next(root.glob("artifacts/vps-release/*/receipt.json")))
-            self.assertEqual(receipt["activation"], "activated")
-            self.assertEqual(receipt["smoke"], "PASS")
-            inspect.assert_called_once()
-
-    @patch.object(release, "inspect_image")
-    def test_wrong_platform_blocks_every_remote_write(self, inspect):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            args = api_fixture(root)
-            with patch.object(release, "run", return_value="Linux aarch64") as run:
-                with self.assertRaisesRegex(ValueError, "Linux x86_64"):
-                    release.deploy_api(root, args)
-                self.assertEqual(run.call_count, 1)
-                self.assertEqual(run.call_args.args[1][-1], "uname -sm")
-            receipt = contract.read_json(next(root.glob("artifacts/vps-release/*/receipt.json")))
-            self.assertEqual(receipt["activation"], "NOT_RUN")
-
-    @patch.object(release, "inspect_image")
-    def test_lost_activation_response_is_retained_as_unknown_and_never_retried(self, inspect):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            args = api_fixture(root)
-            def fake_run(root, argv, **kwargs):
-                if argv[-1] == "uname -sm":
-                    return "Linux x86_64"
-                if argv[0] == "ssh" and "cantos-vps promote" in argv[-1]:
-                    raise subprocess.CalledProcessError(255, "ssh")
-            with patch.object(release, "run", side_effect=fake_run) as run:
-                with self.assertRaises(subprocess.CalledProcessError):
-                    release.deploy_api(root, args)
-                self.assertEqual(sum("cantos-vps promote" in c.args[1][-1] for c in run.call_args_list), 1)
-                self.assertFalse(any(c.args[1][0] == "curl" for c in run.call_args_list))
-            receipt = contract.read_json(next(root.glob("artifacts/vps-release/*/receipt.json")))
-            self.assertEqual(receipt["activation"], "unknown")
-            self.assertEqual(receipt["smoke"], "NOT_RUN")
-
-    def test_corrupt_input_and_dry_run_never_write_to_vps(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            args = api_fixture(root)
-            args.dry_run = True
-            with patch.object(release, "run") as run:
-                release.deploy_api(root, args)
-                run.assert_not_called()
-
-            self.assertFalse((root / "artifacts").exists())
-            (args.release_manifest.parent / "cantos-api.tar.zst").write_bytes(b"changed")
-            with patch.object(release, "run") as run:
-                with self.assertRaisesRegex(ValueError, "bytes/hash"):
-                    release.deploy_api(root, args)
-                run.assert_not_called()
+            for dry_run in (False, True):
+                with patch.object(release, "run") as run:
+                    with self.assertRaisesRegex(ValueError, "retired"):
+                        release.deploy_api(root, argparse.Namespace(dry_run=dry_run))
+                    run.assert_not_called()
+            self.assertEqual(list(root.iterdir()), [])
 
 
 @unittest.skipUnless(shutil.which("flock"), "Linux host flock required for actual lock evidence")

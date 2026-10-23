@@ -21,7 +21,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 10001 cantos-server \
  && useradd --system --uid 10001 --gid cantos-server --home-dir /nonexistent --shell /usr/sbin/nologin cantos-server
-# cantos-migrate stays until the Server owns an embedded Turso database (#336).
+# cantos-migrate explicitly creates/upgrades server.db; serve never migrates at startup.
 COPY --from=build /out/cantos-server /out/cantos-migrate /usr/local/bin/
 ARG CANTOS_REVISION
 ARG CANTOS_CONFIGURATION

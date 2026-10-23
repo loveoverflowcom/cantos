@@ -72,6 +72,12 @@ def bind(root):
     evidence_path = args.manifest.parent / "evidence.json"
     evidence = contract.read_json(evidence_path)
     evidence["images"] = manifest["images"]
+    for gate in oci.GATES:
+        record_path = evidence_path.parent / "gate-records" / (gate + ".json")
+        record = contract.read_json(record_path)
+        record["images"] = manifest["images"]
+        record_path.write_bytes(raw(record))
+        evidence["gates"][gate]["record_sha256"] = contract.file_record(record_path, record_path.parent)["sha256"]
     evidence_path.write_bytes(raw(evidence))
     manifest["evidence"] = contract.file_record(evidence_path, evidence_path.parent)
     args.manifest.write_bytes(raw(manifest))
