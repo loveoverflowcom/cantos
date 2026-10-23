@@ -101,11 +101,19 @@ fn all_empty(state: &AccountViewState) -> bool {
         .all(|section| section_ui(state, section).is_some_and(|ui| ui.is_empty()))
 }
 
-// A page-wide refresh keeps focus on its stable trigger; local paging still focuses its status.
-fn refresh_library(on_page: Callback<(Section, bool, bool)>) {
-    for section in Section::ALL {
-        on_page.run((section, true, false));
-    }
+fn library_loading(state: &AccountViewState) -> bool {
+    state.library().is_some_and(|library| {
+        Section::ALL
+            .into_iter()
+            .any(|section| library.phase(section) == PagePhase::Loading)
+    })
+}
+
+// Compute the batch before dispatch so the state borrow ends before the shell publishes Loading.
+// A pending refresh remains focusable; this guard, rather than native disabled, suppresses repeats.
+fn refresh_intents(state: &AccountViewState) -> Option<[(Section, bool, bool); 3]> {
+    (state.phase() == SessionPhase::SignedIn && !library_loading(state))
+        .then(|| Section::ALL.map(|section| (section, true, false)))
 }
 
 fn section_ui(state: &AccountViewState, section: Section) -> Option<SectionUi> {
@@ -318,22 +326,7 @@ pub(crate) fn LiveLibrary(
 ) -> impl IntoView {
     let phase = Memo::new(move |_| state.with(AccountViewState::phase));
     let all_empty = Memo::new(move |_| state.with(all_empty));
-    let refresh_state = Signal::derive(move || {
-        let loading = state.with(|s| {
-            s.library().is_some_and(|library| {
-                Section::ALL
-                    .into_iter()
-                    .any(|section| library.phase(section) == PagePhase::Loading)
-            })
-        });
-        if loading {
-            DisabledReason::new(messages::text(Key::LiveLibraryRefreshing, locale.get()))
-                .map(ButtonState::Loading)
-                .unwrap_or_default()
-        } else {
-            ButtonState::Enabled
-        }
-    });
+    let refreshing = Memo::new(move |_| state.with(library_loading));
     view! {
         <section id="library" aria-labelledby="theatre-live-library-heading">
             <h1 id="theatre-live-library-heading">{move || messages::text(Key::Library, locale.get())}</h1>
@@ -347,10 +340,23 @@ pub(crate) fn LiveLibrary(
             }>
                 <div class="theatre-library-tools">
                     <p class="theatre-muted">{move || messages::text(Key::LibraryDeck, locale.get())}</p>
-                    <Button id="theatre-library-refresh" variant=ButtonVariant::Text state=refresh_state
-                        on_press=Callback::new(move |_| refresh_library(on_page))>
-                        {move || messages::text(Key::LiveLibraryRefresh, locale.get())}
-                    </Button>
+                    <div>
+                        <button id="theatre-library-refresh" type="button" class="theatre-action theatre-action-text"
+                            aria-disabled=move || refreshing.get().to_string()
+                            aria-busy=move || refreshing.get().then_some("true")
+                            aria-describedby=move || refreshing.get().then_some("theatre-library-refresh-status")
+                            on:click=move |_| {
+                                let intents = state.with_untracked(refresh_intents);
+                                if let Some(intents) = intents {
+                                    for intent in intents { on_page.run(intent); }
+                                }
+                            }>
+                            <span class="cui-control-label">{move || messages::text(Key::LiveLibraryRefresh, locale.get())}</span>
+                        </button>
+                        <p id="theatre-library-refresh-status" class="theatre-muted theatre-hint" role="status">
+                            {move || refreshing.get().then(|| messages::text(Key::LiveLibraryRefreshing, locale.get()))}
+                        </p>
+                    </div>
                 </div>
                 <Show when=move || !all_empty.get()>
                     <p class="theatre-muted">{move || messages::text(Key::LiveLibraryPageHelp, locale.get())}</p>

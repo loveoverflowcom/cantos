@@ -121,7 +121,9 @@ links to Discover and the section explanations form a compact responsive group. 
 sections keep their own Discover link. An empty page with a cursor still offers Load more;
 loading, errors and retained rows never become empty success. The shared `EmptyState` remains
 unchanged: its fixed book glyph is not a contextual Library contract. Page-wide refresh keeps
-focus on its stable trigger; section retries/paging keep the existing status focus target.
+focus by retaining a native focusable trigger with `aria-disabled`/`aria-busy` and an associated
+pending status. Its current-state intent guard rejects repeats; no completion effect restores or
+steals focus moved by the listener. Section retries/paging keep the existing status focus target.
 
 For a signed-in listener ([#272](https://github.com/loveoverflowcom/cantos/issues/272)), live
 Work detail, **Của tôi** and `#player` synchronize Saved Works, exact-release progress, history

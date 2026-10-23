@@ -159,25 +159,51 @@ fn retained_rows_survive_next_page_loading_and_failure_without_empty_feedback() 
 }
 
 #[test]
-fn refresh_dispatches_one_explicit_restart_per_independent_section() {
-    use std::sync::{Arc, Mutex};
-    Owner::new().with(|| {
-        let observed = Arc::new(Mutex::new(Vec::new()));
-        let sink = observed.clone();
-        refresh_library(Callback::new(move |intent| {
-            sink.lock().unwrap().push(intent)
-        }));
-        assert_eq!(
-            *observed.lock().unwrap(),
-            vec![
-                (Section::Continue, true, false),
-                (Section::Saved, true, false),
-                (Section::History, true, false)
-            ]
+fn refresh_plans_one_restart_per_section_and_refuses_pending_or_signed_out() {
+    let mut state = ready_empty();
+    assert_eq!(
+        refresh_intents(&state),
+        Some([
+            (Section::Continue, true, false),
+            (Section::Saved, true, false),
+            (Section::History, true, false),
+        ])
+    );
+    let request = state.begin_library(Section::Saved, true).unwrap();
+    assert_eq!(refresh_intents(&state), None);
+    state
+        .finish_page(&request, Ok(empty_page(Section::Saved, false)))
+        .unwrap();
+    assert!(refresh_intents(&state).is_some());
+    state.begin_logout().unwrap();
+    assert_eq!(refresh_intents(&state), None);
+    assert_eq!(refresh_intents(&AccountViewState::default()), None);
+    assert_eq!(
+        crate::app::routes::Route::from_live_hash("#discover"),
+        crate::app::routes::Route::Discover
+    );
+}
+
+#[test]
+fn pending_refresh_is_focusable_and_exposes_its_busy_reason() {
+    let mut state = ready_empty();
+    state.begin_library(Section::Continue, true).unwrap();
+    for locale in Locale::ALL {
+        let html = render(state.clone(), locale);
+        let trigger = html
+            .split("id=\"theatre-library-refresh\"")
+            .nth(1)
+            .unwrap()
+            .split('>')
+            .next()
+            .unwrap();
+        assert!(
+            !trigger.contains(" disabled"),
+            "pending native disable would discard keyboard focus: {trigger}"
         );
-        assert_eq!(
-            crate::app::routes::Route::from_live_hash("#discover"),
-            crate::app::routes::Route::Discover
-        );
-    });
+        assert!(trigger.contains("aria-disabled=\"true\""));
+        assert!(trigger.contains("aria-busy=\"true\""));
+        assert!(trigger.contains("aria-describedby=\"theatre-library-refresh-status\""));
+        assert!(html.contains(messages::text(Key::LiveLibraryRefreshing, locale)));
+    }
 }
