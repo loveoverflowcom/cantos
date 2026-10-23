@@ -357,7 +357,7 @@ impl IdentityStore {
         finish(tx, result).await
     }
 
-    async fn begin_signup_in(
+    pub(super) async fn begin_signup_in(
         &self,
         tx: &WriteTransaction<'_>,
         command: ProofCommandId,

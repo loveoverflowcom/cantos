@@ -68,7 +68,9 @@ The [Firebase verification amendment](../../../../docs/architecture/firebase-ver
 changes the selected external email-action provider, not native authority. Inspect the distinct
 capabilities before adapting a transport; keep native proof secrets out of continuation URLs and
 require durable operation-bound provider-consumption evidence before native credential effects.
-The implemented emulator lifecycle is separate from the still-unimplemented native proof bridge.
+The implemented sealed-proof bridge and emulator lifecycle have separate evidence. Preserve its
+terminal expired-mailbox/uncertain-consume boundaries; do not infer safe provider invalidation or
+production recovery from local success.
 
 ## Private RPC and separated databases
 

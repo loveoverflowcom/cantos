@@ -40,6 +40,7 @@ fn complete(cmd: u8, link: &support::ParsedLink, password: &str) -> CompleteThea
         operation_id: link.operation.to_vec(),
         proof_id: link.proof.to_vec(),
         proof_secret: link.secret.to_vec(),
+        firebase_oob_code: String::new(),
         password: password.to_owned(),
         explicit_confirmation: true,
         client: ctx("203.0.113.5"),

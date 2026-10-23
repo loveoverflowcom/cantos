@@ -97,9 +97,10 @@ The corrected owner task of 23 October 2026 narrows the source-retirement decisi
 Firebase Authentication is selected again only for verification email/actions, with a supervised
 Auth Emulator in local Theatre `xtask run`. Native Identity + Turso remain authoritative and
 Firebase remains outside login/session issuance. PG/Kanidm/OIDC/provider login are not restored.
-Read the [technical findings, implemented guards and proposed bridge](firebase-verification.md):
-native Firebase signup and production delivery are NOT_IMPLEMENTED and fail closed. Local
-emulator readiness does not accept native signup, authentication or any deployed environment.
+Read the [implemented operation-bound protocol and recovery limits](firebase-verification.md).
+Identity uses encrypted native proof custody and durable provider-effect fences. The production
+adapter is source only; expired enrollment recovery and broader browser/device/deployed acceptance remain
+open. Emulator readiness alone establishes no authentication acceptance.
 
 ## Single-process HTTP review boundary
 

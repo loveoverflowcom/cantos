@@ -47,6 +47,10 @@ pub struct CompleteTheatreSignupRequest {
     pub explicit_confirmation: bool,
     #[prost(message, optional, tag = "7")]
     pub client: ::core::option::Option<ClientContext>,
+    /// Alternative to proof_secret: exact Firebase verification action. Never a login token.
+    /// Exactly one of proof_secret and firebase_oob_code must be present.
+    #[prost(string, tag = "8")]
+    pub firebase_oob_code: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CompleteTheatreSignupResponse {

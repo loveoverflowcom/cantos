@@ -246,11 +246,15 @@ AuthenticatePassword   ──►  read record ──► verify (bounded pool, no
 ## Executable
 
 The [Firebase verification target and bridge findings](../../docs/architecture/firebase-verification.md)
-supersede provider retirement only for email actions. The native bridge and production adapter
-are NOT_IMPLEMENTED. `CANTOS_IDENTITY_MAIL_PROVIDER=firebase|firebase-emulator` refuses startup
-without reading credentials or falling back. `disabled` rejects mixed SMTP inputs; omitted or
-explicit `smtp` keeps the existing adapter outside local run. SDK emulator overrides are refused.
-xtask local runs select disabled mail and derive the actual Theatre link origin. HTTP loopback
+supersede provider retirement only for email actions. A distinct verification port uses encrypted
+native proof custody, durable effect fences and runtime-keyed exact-request replay binding.
+`CANTOS_IDENTITY_MAIL_PROVIDER=firebase` requires explicit validated runtime credentials/project/
+HTTPS action configuration; `firebase-emulator` requires the local build/composition. Missing or
+mixed configuration fails closed without fallback. `disabled` rejects mixed SMTP inputs; omitted
+or explicit `smtp` keeps the existing adapter outside local run. SDK emulator overrides are refused.
+Theatre Web xtask runs select the owned emulator and actual Theatre link origin; other local
+targets keep mail disabled. Expired enrollment recovery, cross-browser/device and production acceptance
+remain open as documented in the verification owner. HTTP loopback
 links need both the explicit `local-development` build feature and
 `CANTOS_IDENTITY_LOCAL_DEVELOPMENT=1`; ordinary `service`/OCI builds reject that flag.
 

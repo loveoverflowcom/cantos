@@ -1,5 +1,5 @@
 //! Run-owned Auth Emulator lifecycle. No CLI, installer, credential discovery or cloud path.
-//! This prepares the external action boundary only: it does not implement native signup.
+//! Identity owns the separate native proof/credential protocol; emulator readiness is not auth.
 
 use std::{
     io::{BufRead, BufReader, Read},
@@ -111,6 +111,7 @@ pub struct Run {
     directory: PathBuf,
     pub address: SocketAddr,
     pub project: String,
+    pub key_file: PathBuf,
 }
 
 impl Drop for Run {
@@ -142,10 +143,25 @@ impl Run {
             &run_files::sha256_hex(directory.id.as_bytes())[..12]
         );
         let mut run = Self {
+            key_file: directory.path.join("proof-envelope.key"),
             directory: directory.path,
             address: SocketAddr::from(([127, 0, 0, 1], 1)),
             project,
         };
+        let mut key = [0u8; 32];
+        std::fs::File::open("/dev/urandom")
+            .and_then(|mut file| file.read_exact(&mut key))
+            .context("local envelope-key entropy unavailable")?;
+        run_files::write_private(
+            &run_files::RunDir {
+                id: directory.id,
+                path: run.directory.clone(),
+            },
+            "proof-envelope.key",
+            &key,
+        )
+        .map_err(anyhow::Error::msg)?;
+        key.fill(0);
         let mut command = Command::new(&installed.node);
         command
             .arg(workspace.path("infra/firebase/auth-emulator/launcher.cjs"))
@@ -285,6 +301,41 @@ mod tests {
             assert!(error.to_string().contains(name));
         }
         reject_inherited_configuration(["PATH".into(), MODULE_VARIABLE.into()]).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires prebuilt Identity Firebase integration-test executable and installed Auth Emulator; no build/install"]
+    fn native_identity_signup_uses_the_owned_emulator_and_real_private_rpc() {
+        let binary = std::env::var_os("CANTOS_TEST_FIREBASE_TEST_BINARY")
+            .map(PathBuf::from)
+            .expect(
+                "build the Identity Firebase test first, then pass its absolute executable path",
+            );
+        assert!(binary.is_absolute() && binary.is_file());
+        let workspace = Workspace::discover().unwrap();
+        let installed = Installed::inspect().unwrap();
+        let run;
+        let mut supervisor = Supervisor::new().unwrap();
+        run = Run::start(&workspace, &installed, &mut supervisor).unwrap();
+        let status = Command::new(binary)
+            .args([
+                "--exact",
+                "real_emulator_pending_proof_confirmation_password_login_and_restart",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env("CANTOS_TEST_FIREBASE_PROJECT", &run.project)
+            .env("CANTOS_TEST_FIREBASE_ENDPOINT", run.address.to_string())
+            .env("CANTOS_TEST_FIREBASE_KEY_FILE", &run.key_file)
+            .current_dir(workspace.root())
+            .status()
+            .unwrap();
+        supervisor.shutdown();
+        assert!(
+            status.success(),
+            "real Identity/Firebase RPC integration failed; no mock success was substituted"
+        );
     }
 
     #[test]

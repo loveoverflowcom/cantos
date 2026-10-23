@@ -332,11 +332,12 @@ The emulator has an empty environment, loopback ephemeral port, unique demo proj
 in-memory state and blocked outbound TCP/TLS. Its provider logs are suppressed. The console
 prints only its local developer action-inventory endpoint; never log the returned codes/links.
 
-**Native Firebase signup remains NOT_IMPLEMENTED.** Local runs select disabled mail, reject
-inherited Google/Firebase/SMTP configuration and use Theatre's actual loopback origin for the
-native link base. No pending proof or fake success is created while mail is disabled. The
-[findings and remaining security decisions](../docs/architecture/firebase-verification.md)
-describe the bridge required before a real local signup/password/login journey can pass.
+Theatre Web runs select the operation-bound Firebase emulator adapter, reject inherited
+Google/Firebase/SMTP configuration and use Theatre's actual loopback origin. Native Identity
+still owns proof consumption/passwords and returns no session on signup. The
+[protocol and acceptance limits](../docs/architecture/firebase-verification.md) distinguish the
+real Identity/RPC journey from full browser and production acceptance, and document the unresolved
+expired enrollment recovery boundary. Other local run targets keep mail disabled.
 The explicit boundary test uses the installed emulator (no native signup claim):
 
 ```sh

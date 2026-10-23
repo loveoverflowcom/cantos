@@ -273,7 +273,7 @@ async fn additive_migration_preserves_v1_subject_epoch_events_and_receipts() {
         Err(IdentityStoreError::Open(OpenError::Refused(
             Refusal::PendingMigrations {
                 applied: 1,
-                latest: 3
+                latest: 4
             }
         )))
     ));

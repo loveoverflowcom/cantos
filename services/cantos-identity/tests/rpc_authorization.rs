@@ -76,6 +76,7 @@ async fn every_method_refuses_a_request_without_a_peer_credential() {
                 operation_id: vec![1; 16],
                 proof_id: vec![1; 16],
                 proof_secret: vec![1; 32],
+                firebase_oob_code: String::new(),
                 password: "long enough password".into(),
                 explicit_confirmation: true,
                 client: client(),

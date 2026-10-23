@@ -1,6 +1,7 @@
 //! Identity-owned file-backed security state. This is internal storage, not a credential
 //! verifier, public provisioning API, AuthenticationFact or authorization boundary.
 
+pub mod firebase;
 pub mod proofs;
 mod rows;
 pub mod signup;
@@ -33,7 +34,7 @@ use rows::{decode_epoch, decode_event, decode_receipt, decode_subject, integer, 
 /// Persisted ASCII `CNTI` marker. Never change it for an existing database.
 pub const IDENTITY_APPLICATION_ID: i32 = 0x434E_5449;
 
-const MIGRATIONS: [Migration; 3] = [
+const MIGRATIONS: [Migration; 4] = [
     Migration {
         version: 1,
         name: "identity_security_state",
@@ -48,6 +49,11 @@ const MIGRATIONS: [Migration; 3] = [
         version: 3,
         name: "identity_signup_credentials",
         sql: include_str!("signup.sql"),
+    },
+    Migration {
+        version: 4,
+        name: "identity_firebase_verification",
+        sql: include_str!("firebase.sql"),
     },
 ];
 const RECEIPT_QUERY: &str = "SELECT operation_id,subject_id,kind,expected_version,committed_version,event_seq FROM operation_receipts WHERE operation_id=?1";

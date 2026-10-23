@@ -7,8 +7,7 @@
 //! executed here before anything serves. `app` starts only Web: Studio requires an existing
 //! API; Theatre warns when its catalog dependency is unavailable so explicit offline previews
 //! remain usable.
-//! Theatre `run --web` also owns an isolated installed Auth Emulator. Native proof bridging
-//! remains unimplemented; no cloud resource, database server, container or object store is provisioned.
+//! Theatre `run --web` also owns an isolated installed Auth Emulator. Native proof confirmation stays in Identity; no cloud resource, database server, container or object store is provisioned.
 
 use std::{io::IsTerminal, net::SocketAddr, process::ExitCode, time::Duration};
 
@@ -86,7 +85,7 @@ pub struct Service {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaunchPlan {
-    /// Theatre's local external verification boundary; native proof bridging remains pending.
+    /// Theatre's supervised local verification action provider.
     pub firebase_auth_emulator: bool,
     pub requirements: Vec<Requirement>,
     /// The development data directories xtask creates (0700) before anything runs.
@@ -474,10 +473,37 @@ pub fn launch(
         )?);
     }
     if let Some(emulator) = &emulator_run {
-        println!("Firebase Auth Emulator {version}: loopback {address}, project {project}.\n  Local developer action inventory: http://{address}/emulator/v1/projects/{project}/oobCodes\n  Native Firebase proof bridge is NOT_IMPLEMENTED; signup stays unavailable; no email is sent.",
+        println!("Firebase Auth Emulator {version}: loopback {address}, project {project}.\n  Local developer action inventory: http://{address}/emulator/v1/projects/{project}/oobCodes\n  Verification actions stay local; native password login remains a separate step.",
             version = auth_emulator::VERSION, address = emulator.address, project = emulator.project);
     }
     for service in &plan.services {
+        let mut command = service.command.clone();
+        if service.name == IDENTITY_BIN {
+            if let Some(emulator) = &emulator_run {
+                command
+                    .env
+                    .retain(|(name, _)| name != "CANTOS_IDENTITY_MAIL_PROVIDER");
+                command = command
+                    .env("CANTOS_IDENTITY_MAIL_PROVIDER", "firebase-emulator")
+                    .env("CANTOS_IDENTITY_FIREBASE_PROJECT", &emulator.project)
+                    .env(
+                        "CANTOS_IDENTITY_FIREBASE_EMULATOR_ENDPOINT",
+                        emulator.address.to_string(),
+                    )
+                    .env(
+                        "CANTOS_IDENTITY_FIREBASE_ENVELOPE_KEY_FILE",
+                        emulator.key_file.display().to_string(),
+                    )
+                    .env(
+                        "CANTOS_IDENTITY_FIREBASE_ACTION_ORIGIN",
+                        App::Theatre.web_origin(),
+                    )
+                    .env(
+                        "CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER",
+                        format!("{}/", App::Theatre.web_origin()),
+                    );
+            }
+        }
         let free = match &service.endpoint {
             Endpoint::Tcp(addr) => probe::port_is_free(*addr),
             Endpoint::Unix(path) => !probe::accepts_unix(path),
@@ -491,9 +517,9 @@ pub fn launch(
         println!(
             "\n==> start {}: {}",
             service.name,
-            service.command.display(workspace.root())
+            command.display(workspace.root())
         );
-        supervisor.spawn(&service.name, &service.command)?;
+        supervisor.spawn(&service.name, &command)?;
         let ready = supervisor
             .await_endpoint(&service.endpoint, &service.readiness, service.timeout)
             .with_context(|| readiness_hint(service))?;

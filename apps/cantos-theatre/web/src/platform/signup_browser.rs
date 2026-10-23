@@ -93,8 +93,12 @@ pub(crate) fn location_contains_proof() -> bool {
     if let Some(window) = web_sys::window() {
         return window
             .location()
-            .hash()
-            .is_ok_and(|hash| ProofLink::is_proof_fragment(&hash));
+            .search()
+            .is_ok_and(|query| ProofLink::is_firebase_query(&query))
+            || window
+                .location()
+                .hash()
+                .is_ok_and(|hash| ProofLink::is_proof_fragment(&hash));
     }
     false
 }
@@ -116,14 +120,28 @@ pub(crate) fn capture_link() -> Result<Option<ProofLink>, CaptureFailure> {
             .location()
             .hash()
             .map_err(|_| CaptureFailure::HistoryUnavailable)?;
-        if !ProofLink::is_proof_fragment(&hash) {
+        let query = window
+            .location()
+            .search()
+            .map_err(|_| CaptureFailure::HistoryUnavailable)?;
+        let native = ProofLink::is_proof_fragment(&hash);
+        let firebase = ProofLink::is_firebase_query(&query);
+        if !native && !firebase {
             return Ok(None);
         }
         let path = window
             .location()
             .pathname()
             .map_err(|_| CaptureFailure::HistoryUnavailable)?;
-        let link = ProofLink::from_fragment(&hash);
+        let origin = window
+            .location()
+            .origin()
+            .map_err(|_| CaptureFailure::HistoryUnavailable)?;
+        let link = match (native, firebase) {
+            (true, false) => ProofLink::from_fragment(&hash),
+            (false, true) => ProofLink::from_firebase_query(&query, &format!("{origin}{path}")),
+            _ => None,
+        };
         // This happens before navigation construction or any session/discovery IO. The URL is
         // scrubbed even when the link cannot be read, so no malformed proof stays in history.
         window
