@@ -67,21 +67,27 @@ services/
   cantos-identity/         Security/proof core + file-backed state + `service` executable   Theatre signup/password (and Studio password) over private UDS RPC; NO passkey/recovery; Server sessions consume Turso
     contracts/identity/v1/ Canonical private RPC proto and wire goldens (each side generates its own binding)
   manifest.toml            Typed native/external process inventory                  CONFIGURED
-  kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
 infra/                     Deployment/runtime assets; no application domain logic
-  vps/                     Production VPS image, Quadlet units, grants, host script         DEPLOYED
+  vps/                     Legacy PG/Kanidm/two-API VPS image, Quadlet units, grants, host script RETAINED
   edge/                    Public HTTPS edge (Caddy) and host DNS updater assets            DEPLOYED
+  oci/                     Native Server/Identity OCI image definitions (#348)              CONFIG ONLY
+  cloudflare/              Pages Direct Upload policy and pinned Wrangler lockfile (ADR 0043, proposed) CONFIG ONLY
   firebase/
     hosting/               Static Web Hosting policy and operator site-mapping example     CONFIG ONLY
     app-distribution/      Existing CLI-only operator inputs; no new config format         DOCUMENTED
+    auth-emulator/         Launcher primitive used by `cargo xtask run`; not a deploy input
 packages/                  No contract package: canonical contracts belong to their service (ADR 0046)
   web-auth/                Shared Identity v1 cookie-session owner, its session wire and browser API addressing IMPLEMENTED
-  store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (Identity persistence consumer; Server pending)
+  store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (Server and Identity persistence)
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
     cmp/                   Shared native controls and JVM desktop diagnostics              PREVIEW
+specs/
+  behavior/                Quint behavior catalog, models and named runs (ADR 0027, proposed; no capability accepted)
 tools/
   proto-codegen/           Pinned, isolated generator of every consumer-owned Protobuf binding (not a workspace member)
+  behavior/                Locked Node/npm install of the pinned Quint tool for `cargo xtask verify behavior`
+  visual-compare/          Optional pinned dependency for `cargo xtask visual-compare` (ADR 0029, proposed)
 xtask/                     cargo xtask: command orchestration (package xtask), not deployment assets
 .cargo/                    the `cargo xtask` alias
 docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scripts/ are xtask primitives
@@ -111,6 +117,9 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 - **CONFIG ONLY** describes tracked assets, not deployed state. The native process inventory
   registers Server + Identity and external storage. Provider OIDC/Firebase enrollment paths
   are retired; old issuer/mail/browser observations remain source-bound history.
+- **RETAINED** is a legacy runtime asset kept as a recovery/migration input until real native
+  acceptance and a separately authorized cutover; it is not a current setup or deploy path
+  ([VPS assets](../../infra/vps/README.md), [native OCI release](../deployment/native-oci-release.md)).
 
 - **FOUNDATION** is the [Cantos Forge](../../services/cantos-forge-functions/README.md) crate governed by
   accepted [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
@@ -182,14 +191,15 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 - **Firebase Hosting is configuration, not code.** `infra/firebase/hosting/` holds the tracked
   Hosting policy and a mapping example for the explicit, manual
   `cargo xtask deploy firebase` ([runbook](../deployment/firebase-hosting.md)). It serves only each
-  Web app's static bundle: the API, PostgreSQL, Kanidm and storage stay outside it. The VPS
+  Web app's static bundle: the Server, Identity and storage stay outside it. The VPS
   [edge](../../infra/edge/README.md) serves those bundles and the API on one origin per app
   ([ADR 0039](../decisions/0039-vps-production-runtime.md)).
 - **Infrastructure and command orchestration are separate.** [`infra/`](../../infra/README.md)
   owns deployment/runtime assets, including the edge configuration and Firebase Hosting policy.
   `xtask/` owns typed command planning, validation and explicit execution, not a second copy of
-  those assets. The current service inventory and PostgreSQL/Kanidm configuration remain under
-  `services/`; this mechanical boundary does not move application or producer code, provision a
+  those assets. The native process inventory (`services/manifest.toml`) remains under
+  `services/`; retained PostgreSQL/Kanidm assets live under `infra/vps/` as recovery inputs. This
+  mechanical boundary does not move application or producer code, provision a
   runtime or establish deployment acceptance. Add a Functions directory only with a concrete
   consumer and reviewed runtime decision under #203.
 - **Identity is a native owner.** `services/cantos-identity` owns one Turso file and private
@@ -257,10 +267,10 @@ cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```
 
-PostgreSQL and optional Kanidm use explicit `cargo xtask services` lifecycle commands, separate
-from native `run` and disposable database verification. See [services](../../services/README.md).
-Configured infrastructure is not a deployed identity provider. The opt-in Studio OIDC code has
-separate mocked/SQL evidence and unrun live-provider gates.
+`cargo xtask run` starts the native Server and Identity over private development files;
+`cargo xtask services list|validate` describe and check the process inventory. Container
+lifecycle, Kanidm and PostgreSQL verification commands are retired refusals
+([services](../../services/README.md), [xtask](../../xtask/README.md)).
 
 `cantos-server` serves `apps/cantos-studio/web/dist` by default for local development, through
 `CANTOS_WEB_DIST`. This is a development convenience for same-origin cookies, not a statement that

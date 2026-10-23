@@ -29,9 +29,10 @@ Their [inventory rows](inventory.md#draft-cantosidentitynative-mailbox-proof-334
 report two contract/implementation mismatches and a needs-decision case that no property constrains, and map
 the unchanged legacy `cantos.identity.bearer-lifecycle` scope.
 
-Two further **draft, model-only** capabilities describe proposed public media rules:
-`cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md))
-and `cantos.media.public-cover-projection` ([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)).
+Two further **draft, model-only** capabilities describe public media rules:
+`cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md),
+accepted for step-1 origin integration only) and `cantos.media.public-cover-projection`
+([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md), proposed).
 Neither has a registered Rust observer, so `--conformance` does not apply to them; their
 [inventory rows](inventory.md) separate implemented kernels from model assumptions.
 

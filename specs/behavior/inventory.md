@@ -34,7 +34,7 @@ observing a later clock is not its explicit `Expire` event.
 
 | Classification | Authority / fact | Model consequence |
 | --- | --- | --- |
-| Proposed, not accepted | [ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md#decision) recommends origin-mode Range delivery with sealed 120 s grants and per-fetch rechecks; [ADR 0038](../../docs/decisions/0038-publication-streaming-evidence-gates.md) keeps its evidence gates. | Lifecycle stays `draft`; a PASS is model-only and accepts nothing. |
+| Accepted for step-1 origin integration only | [ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md#decision) selects origin-mode Range delivery with sealed 120 s grants and per-fetch rechecks; deployed delivery/performance and native playback acceptance remain pending, and [ADR 0038](../../docs/decisions/0038-publication-streaming-evidence-gates.md) keeps its evidence gates. | Lifecycle stays `draft` until a capability review accepts it; a PASS is model-only and accepts nothing. |
 | Implemented, independently of this model | [Pure kernel](../../services/cantos-server/src/contexts/media/domain/playback_grant.rs) `grant_expiry`/`decide_media_fetch`; [application](../../services/cantos-server/src/contexts/media/listener_media.rs) admits before planning and again after object open; [authorization](../../services/cantos-server/src/contexts/media/listener_application.rs) re-resolves after sealing. Native example/property/tamper tests and the route mock integration stay authoritative for their boundaries. | `admit` and `issuedExpiry` mirror those seams; no Rust observer is registered (`--conformance` does not apply). |
 | Model assumption | One immutable publication (identity 1); another unit's release is identity 2. Time classes 0–6 with publishedAt=1, rightsUntil=5, TTL=2, including rollback. `authentic` abstracts the HMAC result; tokens, keys, URLs and bytes are not modeled. Eligibility loss (withdraw/revoke/supersede/owner disable) is one irreversible fact. | No hash, Range, header, SQL isolation, restart or concurrency claim; HTTP transport is native-tested. |
 | Model assumption | `Opening` is shell history between admission and the post-open recheck; `completeFetch` abstracts verified object bytes. | Covers withdrawal/expiry while the object opens; not lane bounds or body streaming. |
@@ -119,14 +119,16 @@ negative controls are unchanged; no native acceptance is inherited from the old 
 rotation, bounded authority, durable native cleanup, single-flight refresh and late-result/account
 isolation; concrete policy is in [Bearer v1](../../services/cantos-server/contracts/auth/bearer/v1/README.md). The API
 projection models one family, generations 0–3, active/expired authority and one immutable
-authentication timestamp. Independent Rust/API implementation mappings:
+authentication timestamp.
 
-| Stable run | Executable production-code oracle |
-| --- | --- |
-| `run.refresh` | `core::tests::access_is_short_and_refresh_never_exceeds_initial_authority`; `all_surfaces_issue_rotate_revoke_with_exact_scope_and_stable_session` |
-| `run.replay` | `core::tests::replay_revokes_and_logout_expiry_cannot_be_renewed`; `lost_response_and_simultaneous_refresh_revoke_every_generation` |
-| `run.logout` | `all_surfaces_issue_rotate_revoke_with_exact_scope_and_stable_session`; `cancelled_or_lost_exchange_cannot_restore_and_does_not_cancel_another_account` |
-| `run.expiry` | `expiry_disable_wrong_binding_provider_outage_and_recent_auth_fail_closed` |
+The Rust/API oracle tests previously mapped here to `run.refresh`, `run.replay`, `run.logout` and
+`run.expiry` no longer exist: the SessionPolicy reconciliation (dfe5697f) and the provider
+authentication retirement (cf4fa221) removed them. The remaining pure-core tests in
+[`bearer::core`](../../services/cantos-server/src/platform/bearer/core.rs) cover issuance
+deadlines, inactive/replay/expiry precedence and rotation without rebasing the absolute
+deadline; Identity-auth session tests exercise the reused `rotate`. A run-by-run remap is
+**pending owner review**. Until then, no API run claims a named Rust oracle, and model runs
+remain model-only evidence.
 
 Web is no longer a consumer of the Bearer refresh-family lifecycle: it holds an HttpOnly cookie
 session that renews in place. `cantos-web-auth` core/owner/refresh tests cover the Web session's
@@ -233,7 +235,7 @@ Independent native oracles, under the same caveat: they do not consume model tra
 
 The two native capabilities above **do not replace** any Bearer lifecycle ID, and its meaning is
 unchanged. Its consumers are live: [`bearer::core`](../../services/cantos-server/src/platform/bearer/core.rs)
-(whose `rotate` the Identity-auth native refresh also reuses), `bearer_postgres` and the Theatre
+(whose `rotate` the Identity-auth native refresh also reuses) and the Theatre
 Mobile `NativeAccountController`/`NativeCredentialJournal`, so it is not deprecated. Mapping:
 rotation, replay, logout and expiry of a refresh family stay in `bearer-lifecycle`;
 the security-state recheck that runs *before* rotation, and mailbox proof consumption, are the

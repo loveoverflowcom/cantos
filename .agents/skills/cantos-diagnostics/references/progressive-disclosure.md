@@ -99,7 +99,7 @@ cargo test -p cantos-server --lib contexts::catalog::storage::tests::work_restor
 cargo test -p cantos-server --test brief_domain prose_and_recording_require_no_script_cast_or_provider -- --exact
 ```
 
-Retained `legacy-pg-tests` are historical porting oracles outside Cargo discovery. The old
+The former `legacy-pg-tests` porting oracles are ported or retired (no file remains). The old
 `postgres` gate refuses. Run only implemented native/file-backed targets; report an unported
 assertion as a #333/#335 gap, never substitute an inherited DB or a mock success.
 

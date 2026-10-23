@@ -13,9 +13,11 @@ or redb. Media bytes remain in approved private/object storage. Other tasks must
 actual implemented storage/decision rather than assuming this refactor has already landed.
 
 The Server registry is `services/cantos-server/src/platform/turso/mod.rs`; Identity has its own
-registry. Retained `services/cantos-server/schema` SQL and `legacy-pg-tests` are historical porting
-inputs. The removed PG migrator is not a current owner. Do not rewrite registered SQL/checksums,
-silently adopt an existing file/database or reset data to obtain a pass.
+registry. Retained `services/cantos-server/schema` SQL is a historical porting input; the former
+`legacy-pg-tests` oracles are ported or retired
+([record](../../../../docs/architecture/server-turso/remaining-pg-retirement.md)). The removed PG
+migrator is not a current owner. Do not rewrite registered SQL/checksums, silently adopt an
+existing file/database or reset data to obtain a pass.
 External upload recovery belongs to the [production owner](../../cantos-production-pipeline/references/durable-jobs.md);
 backend synthesis/provider jobs remain retired under ADR 0018.
 

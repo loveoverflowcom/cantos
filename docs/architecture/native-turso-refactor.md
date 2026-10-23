@@ -18,7 +18,8 @@ schema/SQL gap. A successful file open/build does not establish HTTP parity or n
 The original baseline `develop@cccb547c08585e1266e26b2b07ead3a2c887697e` used `services/cantos-api`,
 PostgreSQL, Kanidm and two API processes. That is history, not current source or fresh deployed
 observation. Current canonical source is `services/cantos-server`; retained PG schema, checksum
-history and `legacy-pg-tests` supply porting oracles. Registered migrations remain immutable.
+history and the [ported/retired oracle record](server-turso/remaining-pg-retirement.md) of the former
+`legacy-pg-tests` supply porting oracles. Registered migrations remain immutable.
 
 [`packages/store-turso`](../../packages/store-turso/README.md) supplies exclusive ownership,
 checksummed registries, serialized writers, pinned readers, typed commit uncertainty and verified
