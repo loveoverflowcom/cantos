@@ -5,8 +5,8 @@ separate acceptance.** Follow the [Cloudflare rollout/recovery runbook](cloudfla
 for #278/#280. This change retains the Firebase static publisher; it does not implement a
 Cloudflare promotion adapter for the combined DAG, submit a pipeline, provision contexts, accept terms or purchase credits.
 The separate opt-in [Pages lane](cloudflare-pages.md#circleci-opt-in) retains per-app approvals
-and consumes the shared manifest-v2 producer; it does not claim the combined DAG's ordering or
-durable CI publisher-intent contract. `web-provider` defaults to `firebase`; selecting
+and consumes the shared manifest-v2 producer with persisted exact-job Pages intents. It remains
+independent of API activation and of the Firebase combined Web report. `web-provider` defaults to `firebase`; selecting
 `cloudflare` routes Web jobs exclusively to that separate lane.
 
 ## Request and trust boundary
@@ -16,13 +16,16 @@ credits and permissions. Default pushes/PRs select no CircleCI jobs. GitHub chec
 
 | Request | Parameters | Effect |
 | --- | --- | --- |
-| Build only | `build=true`, empty `target`, `build-component=api|theatre-web|studio-web|android|all` | One preparation job, no production context or publish |
-| Release | `build=false`, nonempty `target`, `component=api|theatre-web|studio-web|web|all` | Prepare → one approval → selected deploy jobs → component report |
+| Build only | `build=true`, empty `target`, `build-component=theatre-web|studio-web|android` | One preparation job, no production context or publish |
+| Release | `build=false`, nonempty `target`, `component=theatre-web|studio-web|web` | Prepare → one approval → selected deploy jobs → component report |
 | Conflicting | `build=true` and nonempty `target` | Explicit failing job; never a successful no-op |
 
 `api-origin` is a public exact HTTPS origin (default `https://api.cantos.cc`). Web build bytes
 and configuration identity include it. Android retains its existing fixed production origin;
-release `all` means API + both Web apps, while build-only `all` also includes unsigned Android.
+legacy `api` and `all` selections now fail in a credential-free refusal job. Their selectors
+remain recognized for safe backward compatibility, but start no Web or VPS publication.
+`release prepare --component api|all`, direct legacy API packaging/deployment primitives and
+`deploy vps` also refuse before source work, network access or output writes.
 Select one target for the first bounded acceptance run. Android signing/distribution is unchanged.
 
 The credential-free preparation job calls `cargo xtask release prepare --component COMPONENT
@@ -45,7 +48,7 @@ as release storage are unsupported.
 
 ## Build once and transfer
 
-Preparation runs `cargo xtask ci --job repository` once, Rust if API is selected, and Web once
+Preparation runs `cargo xtask ci --job repository` once and Web once
 if either Web app is selected. A failed required gate stops packaging. It never suppresses
 qualification failures. Verification compilation is independent of the release build.
 
@@ -70,7 +73,7 @@ Rust pin, packager/validator, and relevant Containerfile or Web Trunk/Hosting po
 
 | Component | Exact output |
 | --- | --- |
-| API | `cantos-api.tar.zst`, `image.json`, `runtime.tar`; matching committed VPS assets, edge policy, legacy schema manifest and `REVISION`, plus Linux amd64 image ID/source/schema epoch |
+| Native OCI pair | Separate opt-in [OCI producer](native-oci-release.md); not a CircleCI API archive or activation lane |
 | Web | One component-specific `.tar.gz`; regular allow-listed static assets, including `index.html`; the existing Hosting bundle validator additionally checks app identity, references and integrity pins |
 | Android | Unsigned optimized APK/AAB, isolated unsigned unshrunk release audit APK/AAB, both isolation/dependency/pre-shrink reports, bound `mapping.txt` and `release-evidence.json`, application ID `com.cantos.theatre`, production versionCode/versionName; no device/login acceptance |
 
@@ -93,9 +96,10 @@ Only one release workflow is selected for a request. Native CircleCI expression 
 every production-context job to this repository and `develop` for both checkout and config
 source, before checkout code can execute with secrets. This complements the separately required
 account context restrictions; a check inside a compiled helper is too late for untrusted source.
-All selected artifacts are built before
-one `approve-production` gate. Selected API activation/health precedes Theatre Web, then Studio
-Web. Web-only requests have no VPS/Android job and use a read-only API readiness probe.
+Firebase's selected Web artifacts are built before one `approve-production` gate; Theatre then
+Studio use independent receipts and a read-only API readiness probe. Pages keeps per-app approvals.
+No workflow attaches the old VPS context or selects API activation. No API deployment is implied by
+publishing compatible static Web bytes.
 Per-component serial groups retain CircleCI pipeline-order protection. Additionally, every
 promotion fetches and **requires the resolved release SHA still equal current `origin/develop`**;
 if the branch moved, inspect the old artifacts but prepare/approve a fresh pipeline for live
@@ -114,14 +118,23 @@ They then call `cargo xtask release promote --transfer PATH --component COMPONEN
 exact manifest/digest/source/request inputs to the existing deploy owner. No Trunk/API image
 rebuild occurs. No deploy binary is restored from `target/debug` or a dependency cache.
 
-VPS promotion validates actual image config/layers, platform/schema and matching runtime;
-checks the host's Linux x86_64 inventory; uploads a verified snapshot with transfer hashes; then
-uses the artifact's own `cantos-vps promote REVISION TREE IMAGE_ID`. One host lock covers load,
-ID/platform/revision/schema checks, matching runtime install and the existing deploy protocol:
-backup → schema/migration/grants → image switch → health → switch-back when applicable.
-See the [VPS runbook](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#verified-artifact-promotion).
-Image rollback never rolls back migrations. Bootstrap, identity, epoch cutover and restore
-remain separate operator operations.
+Native host activation is not implemented by this lane. The [historical VPS promotion
+runbook](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#verified-artifact-promotion)
+retains recovery semantics; it is not executable release guidance for this source.
+
+Pages uses `release pages-intent` and `release pages-promote` with a per-app transfer directory.
+The first validates source/freshness and the actual v2 archive, resolves nonsecret destination
+inputs, refuses drift in an existing `infra/cloudflare/projects.json`, runs the deploy owner's
+strict offline plan and records exact account/project/branch/environment plus request/manifest
+identity and publisher job identity. CI persists this intent **before** invoking promotion.
+Promotion rechecks source/freshness, consumes that pinned destination and invokes only the existing
+`deploy cloudflare` owner once. Ambient destination inputs cannot silently retarget it. Rerun jobs
+with a different identity or an existing attempt refuse before publishing. A missing/lost receipt
+stays unknown; a known deployment plus failed smoke/command remains known. Sanitized per-app
+outcomes are persisted to the workflow and existing provider receipts are stored in the publisher's
+`run.teardown` after failure/cancellation when the executor supports it. Ordinary `store_artifacts`
+steps do not accept `when`; see the [configuration reference](https://circleci.com/docs/reference/configuration-reference/#the-teardown-attribute).
+An executor loss may prevent final artifact upload; reconcile the provider before a new pipeline.
 
 `cargo xtask release report --transfer PATH` consumes independent component receipts even when
 dependencies fail or are not run (`terminal` DAG dependencies). It records requested SHA,
@@ -138,12 +151,11 @@ No command retries all writes. Browser/identity/media acceptance always remains 
   authority, plan credits/concurrency, workspace/artifact access and retention before execution.
   Integrations without actual config-source metadata are unsupported by this lane; do not
   substitute caller parameters or label the checkout SHA as config evidence.
-- Provision **separate**, project-restricted `production-vps` and `production-web` contexts only
-  through authorized operator work. Enforce `develop` and allowed actor/security-group/expression
-  restrictions actually supported by the account/integration. Missing restriction is a blocker;
-  context names in YAML are not evidence those controls exist.
-- VPS context: explicit `VPS_HOST`, `VPS_USER`, dedicated `VPS_SSH_PRIVATE_KEY`, and independently
-  checked `VPS_KNOWN_HOSTS`. BatchMode and strict host-key verification remain mandatory.
+- Provision project-restricted `production-web` (Firebase) and `cloudflare-web` contexts only
+  through separately authorized operator work. Enforce reviewed `develop`/repository and allowed
+  actor restrictions supported by the account. No current workflow receives `production-vps`;
+  source retirement never deletes a real context or credential. Missing account restrictions block
+  acceptance; names/filters in YAML are not evidence those controls exist.
 - Web context: `FIREBASE_PROJECT`, `FIREBASE_THEATRE_SITE`, `FIREBASE_STUDIO_SITE` and a scoped
   `FIREBASE_SERVICE_ACCOUNT_JSON`. Credentials and ignored mapping are outside artifact storage;
   teardown removes keys. Never retain raw Firebase debug logs as shared artifacts.

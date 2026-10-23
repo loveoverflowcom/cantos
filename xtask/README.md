@@ -156,13 +156,13 @@ The self-test also runs focused xtask lint/tests. These commands add no ordinary
 The explicit same-workflow CircleCI surface is:
 
 ```sh
-cargo xtask release prepare --component api|theatre-web|studio-web|web|all \
+cargo xtask release prepare --component theatre-web|studio-web|web \
   --target REF --api-origin https://api.example.org --transfer artifacts/release-transfer
-# Build only: replace --target with --build-only (also accepts android/all including Android).
+# Build only: replace --target with --build-only (also accepts android).
 cargo xtask release checkout --transfer artifacts/release-transfer
-cargo xtask release intent --transfer artifacts/release-transfer --component api|theatre-web|studio-web
+cargo xtask release intent --transfer artifacts/release-transfer --component theatre-web|studio-web
 # CircleCI must persist the component intent to its workspace before the next command.
-cargo xtask release promote --transfer artifacts/release-transfer --component api|theatre-web|studio-web
+cargo xtask release promote --transfer artifacts/release-transfer --component theatre-web|studio-web
 cargo xtask release report --transfer artifacts/release-transfer
 ```
 
@@ -173,7 +173,7 @@ archive/provenance validation, config/checkout/release revisions, expiry, strict
 freshness, context prerequisites, additive-workspace rerun refusal and component receipts.
 Cross-pipeline promotion is unsupported. No cache supplies a release or a deploy binary.
 
-Both `deploy vps cantos-server` and `deploy firebase APP --web --project ID --channel CHANNEL`
+`deploy firebase APP --web --project ID --channel CHANNEL`
 accept `--release-manifest PATH --release-digest SHA256 --release-sha FULL_SHA`, together with
 `--release-request PATH` in CircleCI or `--local-artifact` outside CI. The latter is the operator's
 explicit acknowledgement of independently verified local provenance, not proof supplied by a
@@ -242,8 +242,11 @@ exercises deterministic fake extraction/HTTP boundaries.
 
 `cargo xtask release oci-verify --manifest PATH --manifest-digest SHA256 --source-sha FULL_SHA
 --configuration-digest SHA256 --platform linux/amd64|linux/arm64 --admission PATH
---admission-digest SHA256 [--registry-readback [--authfile PATH]] [--dry-run]` validates an explicitly admitted existing image pair,
-producer evidence declarations and the checksummed/source-bound host bundle offline.
+--admission-digest SHA256 [--host-inventory PATH --host-inventory-digest SHA256]
+[--registry-readback [--authfile PATH]] [--dry-run]` validates an explicitly admitted existing image pair,
+producer evidence and actual hash-bound qualification record files, plus the checksummed/source-bound
+host bundle offline. Optional host inventory adds only an operator-declared plan with separate
+platform/schema/ownership/freshness/operation blockers; even consistent input grants no activation.
 By default it prints `PLAN_ONLY`; registry access, native qualification, activation and cleanup
 remain `NOT_RUN`. Explicit `--registry-readback` observes exact GHCR manifest/config bytes only,
 with a sanitized `OBSERVED` result and `release_eligible=false`; it never pulls layers or accepts
@@ -262,7 +265,24 @@ host and, only with `--publish`, pushes it to GHCR and writes an **unadmitted** 
 
 These are preparatory PR A slices of #348; a real registry publish and
 exact-image fixture acceptance remain required before PR B's native VPS activation. The existing `deploy vps`
-executor still belongs to the legacy archive lane; it does not consume this contract.
+command and legacy `api`/`all` release selectors are retired refusals; they do not consume this contract.
+
+The opt-in Pages CI lane reuses the existing `deploy cloudflare` publisher through:
+
+```sh
+cargo xtask release pages-intent --transfer artifacts/cloudflare-transfer/theatre-web --component theatre-web
+# CI must persist intents/theatre-web before the next command.
+cargo xtask release pages-promote --transfer artifacts/cloudflare-transfer/theatre-web --component theatre-web
+```
+
+`pages-intent` consumes only a trusted same-workflow v2 request/inventory. Nonsecret operator inputs
+are `CLOUDFLARE_ACCOUNT_ID`, both `CLOUDFLARE_THEATRE_PROJECT`/`CLOUDFLARE_STUDIO_PROJECT`,
+`CLOUDFLARE_PRODUCTION_BRANCH`, `WEB_ENVIRONMENT` and `WEB_BRANCH` (required for preview; production
+may use the declared production branch). The deploy owner validates the exact mapping/intent.
+`pages-promote` pins destination/source/artifact to that job, revalidates freshness, refuses reruns
+and invokes the existing publisher once. Outcomes retain unknown or confirmed remote state
+independently from command/smoke status. Neither command runs in ordinary gates/CI. Real pipeline,
+provider, browser and cutover acceptance remain separate; see the [Pages runbook](../docs/deployment/cloudflare-pages.md#circleci-opt-in).
 
 ### Optional Web release inventory
 
@@ -1065,7 +1085,7 @@ Free 20,000-file and 25 MiB per-asset limits are enforced on decoded sizes), and
 (`production`|`preview`) and `--artifact` are required and never defaulted. The private mapping
 `infra/cloudflare/projects.json` (ignored by Git; `projects.example.json`) must name the same
 account → app → project and a production branch; production requires that branch and preview refuses
-it. The wrong account, project, app or branch stops before extraction or upload.
+it. Missing/disagreeing mapping also returns failure in dry-run without probing or writing. The wrong account, project, app or branch stops before extraction or upload.
 
 **Wrangler.** The pinned release (4.151.2, Node 22+) is run from `infra/cloudflare/wrangler/node_modules/.bin`;
 no `npx`, global install, login or implicit download. Every invocation gets the run directory as its

@@ -127,7 +127,7 @@ class ReleaseBuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             with self.assertRaisesRegex(ValueError, "changed during"):
-                release.package(root, "api")
+                release.package(root, "android")
             self.assertEqual(list(root.rglob("manifest.json")), [])
 
     @patch.object(contract, "configuration", return_value={"component": "android", "api_origin": "https://api.cantos.cc", "profile": "release"})
@@ -175,7 +175,8 @@ class ReleaseBuildTests(unittest.TestCase):
     def test_dry_run_writes_nothing_and_executes_nothing(self, run):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            release.package(root, "api", dry_run=True)
+            with self.assertRaisesRegex(ValueError, "retired"):
+                release.package(root, "api", dry_run=True)
             self.assertEqual(list(root.iterdir()), [])
             run.assert_not_called()
 

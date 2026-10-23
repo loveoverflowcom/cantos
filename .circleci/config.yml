@@ -16,7 +16,7 @@
         "all"
       ],
       "default": "all",
-      "description": "Artifact component(s); no deploy or distribution."
+      "description": "Explicit build component. Legacy api/all requests fail; native images use release oci-build."
     },
     "target": {
       "type": "string",
@@ -33,7 +33,7 @@
         "all"
       ],
       "default": "api",
-      "description": "What to deploy."
+      "description": "Explicit Web component. Legacy api/all requests fail without production contexts."
     },
     "api-origin": {
       "type": "string",
@@ -136,29 +136,6 @@
           "run": {
             "name": "Validate workspace provenance; checkout the single resolved SHA",
             "command": "cargo xtask release checkout --transfer artifacts/release-transfer"
-          }
-        }
-      ]
-    },
-    "ssh-context": {
-      "steps": [
-        {
-          "require-env": {
-            "names": "VPS_HOST VPS_USER VPS_SSH_PRIVATE_KEY VPS_KNOWN_HOSTS"
-          }
-        },
-        {
-          "run": {
-            "name": "Configure the production SSH identity",
-            "command": "set -Eeuo pipefail\ninstall -d -m 0700 ~/.ssh\nprintf '%s\\n' \"${VPS_SSH_PRIVATE_KEY}\" > ~/.ssh/cantos_deploy\nchmod 0600 ~/.ssh/cantos_deploy\nprintf '%s\\n' \"${VPS_KNOWN_HOSTS}\" > ~/.ssh/known_hosts\nchmod 0600 ~/.ssh/known_hosts\nprintf 'Host %s\\n  IdentityFile ~/.ssh/cantos_deploy\\n  IdentitiesOnly yes\\n  StrictHostKeyChecking yes\\n' \\\n  \"${VPS_HOST}\" > ~/.ssh/config\nchmod 0600 ~/.ssh/config\n",
-            "teardown": [
-              {
-                "run": {
-                  "name": "Remove deployment credentials",
-                  "command": "rm -f ~/.ssh/cantos_deploy"
-                }
-              }
-            ]
           }
         }
       ]
@@ -467,73 +444,6 @@
         }
       ]
     },
-    "deploy-api": {
-      "machine": {
-        "image": "ubuntu-2404:current"
-      },
-      "resource_class": "medium",
-      "environment": {
-        "CANTOS_PIPELINE_ID": "<< pipeline.id >>",
-        "CANTOS_PIPELINE_NUMBER": "<< pipeline.number >>",
-        "CANTOS_CONFIG_SHA": "<< pipeline.config.sha >>",
-        "CANTOS_CONFIG_REPOSITORY": "<< pipeline.config.repository.url >>",
-        "CANTOS_CONFIG_REF": "<< pipeline.config.ref >>"
-      },
-      "steps": [
-        "checkout",
-        "install-build-rust",
-        "release-checkout",
-        "ssh-context",
-        {
-          "run": {
-            "name": "Install image inspection tools (no product build)",
-            "command": "sudo apt-get update -qq\nsudo apt-get install -y -qq zstd"
-          }
-        },
-        {
-          "run": {
-            "name": "Bind intent to this job execution before any remote write",
-            "command": "cargo xtask release intent --transfer artifacts/release-transfer --component api"
-          }
-        },
-        {
-          "persist_to_workspace": {
-            "root": ".",
-            "paths": [
-              "artifacts/release-transfer/intents/api"
-            ]
-          }
-        },
-        {
-          "run": {
-            "name": "Promote verified API artifact; health-gate existing host protocol",
-            "no_output_timeout": "30m",
-            "command": "cargo xtask release promote --transfer artifacts/release-transfer --component api",
-            "teardown": [
-              {
-                "run": {
-                  "name": "Retain component outcome even on failure",
-                  "command": "mkdir -p artifacts/release-transfer/outcomes/api"
-                }
-              },
-              {
-                "persist_to_workspace": {
-                  "root": ".",
-                  "paths": [
-                    "artifacts/release-transfer/outcomes/api"
-                  ]
-                }
-              }
-            ]
-          }
-        },
-        {
-          "store_artifacts": {
-            "path": "artifacts/release-transfer/outcomes/api"
-          }
-        }
-      ]
-    },
     "deploy-theatre-web": {
       "machine": {
         "image": "ubuntu-2404:current"
@@ -797,48 +707,67 @@
         },
         {
           "run": {
-            "name": "Validate exact manifest v2 bytes and current develop freshness",
-            "command": "set -Eeuo pipefail\npython3 - \\<<'EOF'\nimport os, sys\nfrom pathlib import Path\nsys.path.insert(0, 'scripts')\nimport release_pipeline as release\nroot = Path.cwd()\ntransfer = root / 'artifacts/cloudflare-transfer/<< parameters.component >>'\n_, request, _, manifest = release.promotion_input(root, transfer, '<< parameters.component >>')\nwith open(os.environ['BASH_ENV'], 'a') as handle:\n    handle.write('export CANTOS_RELEASE_DIR=' + str(manifest.parent) + '\\n')\nEOF\n"
-          }
-        },
-        {
-          "run": {
             "name": "Require a Node.js supported by the pinned Wrangler",
             "command": "set -Eeuo pipefail\nmajor=\"$(node --version | sed -E 's/^v([0-9]+).*/\\1/')\"\n[[ \"$major\" -ge 22 ]] || { echo \"Node.js 22 or newer is required.\" >&2; exit 1; }\n"
           }
         },
         {
           "run": {
-            "name": "Provide the destination mapping outside Git",
-            "environment": {
-              "WEB_ENVIRONMENT": "<< pipeline.parameters.web-environment >>",
-              "WEB_BRANCH": "<< pipeline.parameters.web-branch >>"
-            },
-            "command": "set -Eeuo pipefail\numask 077\n# infra/cloudflare/projects.json is ignored by Git; xtask reads it as strict JSON.\npython3 - \\<<'EOF'\nimport json, os\nbranch = os.environ[\"CLOUDFLARE_PRODUCTION_BRANCH\"]\nmapping = {\"schema_version\": 1, \"accounts\": {os.environ[\"CLOUDFLARE_ACCOUNT_ID\"]: {\n    \"theatre\": {\"project\": os.environ[\"CLOUDFLARE_THEATRE_PROJECT\"], \"production_branch\": branch},\n    \"studio\": {\"project\": os.environ[\"CLOUDFLARE_STUDIO_PROJECT\"], \"production_branch\": branch}}}}\nwith open(\"infra/cloudflare/projects.json\", \"w\") as handle:\n    json.dump(mapping, handle)\nEOF\n"
-          }
-        },
-        {
-          "run": {
             "name": "Install the pinned Wrangler from the lockfile (no implicit download, no global install)",
-            "command": "npm ci --ignore-scripts --prefix infra/cloudflare/wrangler"
+            "command": "env -u CLOUDFLARE_API_TOKEN npm ci --ignore-scripts --prefix infra/cloudflare/wrangler"
           }
         },
         {
           "run": {
-            "name": "Publish << parameters.app >> to Cloudflare Pages",
-            "no_output_timeout": "30m",
+            "name": "Bind exact source and Pages destination before publishing",
             "environment": {
               "WEB_ENVIRONMENT": "<< pipeline.parameters.web-environment >>",
               "WEB_BRANCH": "<< pipeline.parameters.web-branch >>"
             },
-            "command": "set -Eeuo pipefail\ncase \"<< parameters.app >>\" in\n  cantos-theatre) project=\"${CLOUDFLARE_THEATRE_PROJECT}\" ;;\n  cantos-studio) project=\"${CLOUDFLARE_STUDIO_PROJECT}\" ;;\nesac\nbranch=\"${WEB_BRANCH:-}\"\nif [[ -z \"$branch\" && \"${WEB_ENVIRONMENT}\" == production ]]; then\n  branch=\"${CLOUDFLARE_PRODUCTION_BRANCH}\"\nfi\n[[ -n \"$branch\" ]] || { echo \"Enter web-branch for a preview.\" >&2; exit 1; }\nargs=(deploy cloudflare << parameters.app >> --web\n  --account \"${CLOUDFLARE_ACCOUNT_ID}\" --project \"$project\"\n  --branch \"$branch\" --environment \"${WEB_ENVIRONMENT}\"\n  --artifact \"${CANTOS_RELEASE_DIR}\")\ncargo xtask \"${args[@]}\" --dry-run\ncargo xtask \"${args[@]}\"\n"
+            "command": "cargo xtask release pages-intent --transfer artifacts/cloudflare-transfer/<< parameters.component >> --component << parameters.component >>"
           }
         },
         {
-          "store_artifacts": {
-            "when": "always",
-            "path": "artifacts/cloudflare",
-            "destination": "pages-run-records"
+          "persist_to_workspace": {
+            "root": ".",
+            "paths": [
+              "artifacts/cloudflare-transfer/<< parameters.component >>/intents/<< parameters.component >>"
+            ]
+          }
+        },
+        {
+          "run": {
+            "name": "Publish once using the persisted Pages intent",
+            "no_output_timeout": "30m",
+            "command": "cargo xtask release pages-promote --transfer artifacts/cloudflare-transfer/<< parameters.component >> --component << parameters.component >>",
+            "teardown": [
+              {
+                "run": {
+                  "name": "Keep run-owned outcome paths after failure or cancellation",
+                  "command": "mkdir -p artifacts/cloudflare-transfer/<< parameters.component >>/outcomes/<< parameters.component >> artifacts/cloudflare"
+                }
+              },
+              {
+                "persist_to_workspace": {
+                  "root": ".",
+                  "paths": [
+                    "artifacts/cloudflare-transfer/<< parameters.component >>/outcomes/<< parameters.component >>"
+                  ]
+                }
+              },
+              {
+                "store_artifacts": {
+                  "path": "artifacts/cloudflare-transfer/<< parameters.component >>/outcomes",
+                  "destination": "pages-outcomes"
+                }
+              },
+              {
+                "store_artifacts": {
+                  "path": "artifacts/cloudflare",
+                  "destination": "pages-run-records"
+                }
+              }
+            ]
           }
         }
       ],
@@ -849,6 +778,21 @@
         "CANTOS_CONFIG_REPOSITORY": "<< pipeline.config.repository.url >>",
         "CANTOS_CONFIG_REF": "<< pipeline.config.ref >>"
       }
+    },
+    "reject-retired-release": {
+      "docker": [
+        {
+          "image": "cimg/base:stable"
+        }
+      ],
+      "steps": [
+        {
+          "run": {
+            "name": "Refuse retired legacy API/aggregate release",
+            "command": "echo \"Legacy api/all release is retired. Select an explicit Web component; native images use cargo xtask release oci-build. No VPS activation is available.\" >&2\nexit 1\n"
+          }
+        }
+      ]
     }
   },
   "workflows": {
@@ -899,40 +843,7 @@
         ]
       },
       "jobs": [
-        {
-          "prepare-release": {
-            "component": "api"
-          }
-        },
-        {
-          "approve-production": {
-            "type": "approval",
-            "requires": [
-              "prepare-release"
-            ]
-          }
-        },
-        {
-          "deploy-api": {
-            "requires": [
-              "approve-production"
-            ],
-            "context": [
-              "production-vps"
-            ],
-            "serial-group": "<< pipeline.project.slug >>/production-api",
-            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
-          }
-        },
-        {
-          "release-report": {
-            "requires": [
-              {
-                "deploy-api": "terminal"
-              }
-            ]
-          }
-        }
+        "reject-retired-release"
       ]
     },
     "release-theatre-web": {
@@ -1146,70 +1057,7 @@
         ]
       },
       "jobs": [
-        {
-          "prepare-release": {
-            "component": "all"
-          }
-        },
-        {
-          "approve-production": {
-            "type": "approval",
-            "requires": [
-              "prepare-release"
-            ]
-          }
-        },
-        {
-          "deploy-api": {
-            "requires": [
-              "approve-production"
-            ],
-            "context": [
-              "production-vps"
-            ],
-            "serial-group": "<< pipeline.project.slug >>/production-api",
-            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
-          }
-        },
-        {
-          "deploy-theatre-web": {
-            "requires": [
-              "deploy-api"
-            ],
-            "context": [
-              "production-web"
-            ],
-            "serial-group": "<< pipeline.project.slug >>/production-theatre-web",
-            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
-          }
-        },
-        {
-          "deploy-studio-web": {
-            "requires": [
-              "deploy-theatre-web"
-            ],
-            "context": [
-              "production-web"
-            ],
-            "serial-group": "<< pipeline.project.slug >>/production-studio-web",
-            "filters": "pipeline.git.branch == \"develop\" and (pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.git.repo_url == \"https://github.com/loveoverflowcom/cantos.git\") and pipeline.config.ref == \"refs/heads/develop\" and (pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos\" or pipeline.config.repository.url == \"https://github.com/loveoverflowcom/cantos.git\")"
-          }
-        },
-        {
-          "release-report": {
-            "requires": [
-              {
-                "deploy-api": "terminal"
-              },
-              {
-                "deploy-theatre-web": "terminal"
-              },
-              {
-                "deploy-studio-web": "terminal"
-              }
-            ]
-          }
-        }
+        "reject-retired-release"
       ]
     },
     "build-api": {
@@ -1228,13 +1076,7 @@
         ]
       },
       "jobs": [
-        {
-          "prepare-release": {
-            "component": "api",
-            "build-only": true,
-            "android": false
-          }
-        }
+        "reject-retired-release"
       ]
     },
     "build-theatre-web": {
@@ -1328,13 +1170,7 @@
         ]
       },
       "jobs": [
-        {
-          "prepare-android": {
-            "component": "all",
-            "build-only": true,
-            "android": true
-          }
-        }
+        "reject-retired-release"
       ]
     },
     "release-cloudflare-theatre-web": {
@@ -1361,12 +1197,6 @@
               {
                 "equal": [
                   "web",
-                  "<< pipeline.parameters.component >>"
-                ]
-              },
-              {
-                "equal": [
-                  "all",
                   "<< pipeline.parameters.component >>"
                 ]
               }
@@ -1430,12 +1260,6 @@
               {
                 "equal": [
                   "web",
-                  "<< pipeline.parameters.component >>"
-                ]
-              },
-              {
-                "equal": [
-                  "all",
                   "<< pipeline.parameters.component >>"
                 ]
               }

@@ -92,8 +92,13 @@ This is not a signature/key-management system and cannot prove who approved a fi
 `platform`, complete `images`, `producer` and `gates`. Each named gate has `status=PASS` and a
 `record_sha256` identifying the immutable producer record: `native-isolation`, `native-e2e`,
 `migration-restore`, `image-pair`. The operator must review those records before admission.
-The verifier checks their binding and declarations; it neither retrieves nor executes those
-tests and cannot infer their truth. Synthetic tests of this parser are not native evidence.
+The verifier now requires the actual bounded regular `gate-records/GATE.json` file for each
+`record_sha256`, and checks its bytes plus `gate`, `status=PASS`, `source_sha`,
+`configuration_sha256`, `platform` and complete `images` against the manifest. Other record
+fields can carry the producer's command, environment and evidence references for operator review.
+Previously admitted declarations without these records must be completed and re-admitted; a
+hash string alone no longer passes. The verifier never executes those tests or authenticates
+who wrote them. Operator review remains necessary; synthetic fixtures are never production PASS.
 
 Output reports only `offline-contract=PASS`. `registry-access`, `native-qualification`,
 `activation` and `cleanup` remain `NOT_RUN`, with operation `PLAN_ONLY`. It is not `PREPARED`,
@@ -114,9 +119,9 @@ workflow (`workflow_dispatch` only; it never runs on push/PR and never deploys).
 | Preflight | Linux host that natively matches `--platform` (no emulation, no VPS build), full HEAD SHA, clean tracked **and** untracked tree |
 | Build | `git archive` of that commit; [`infra/oci/*/Containerfile`](../../infra/oci) with digest-pinned bases; `--format oci`; revision and configuration identity as required build arguments |
 | Local image check | Before any push: platform, source/revision/configuration/binary labels, numeric non-root `User`, exact entrypoint with no `Cmd`, no credential-named environment |
-| Publish | Only with `--publish --authfile PATH` (private, current-user-owned, no helper, never implicit). One `podman push --digestfile` per image to a `sha-<commit>` tag; **a failed push is never retried** because the registry may have changed: reconcile first |
+| Publish | Only with `--publish --authfile PATH` (private, current-user-owned, no helper, never implicit). A private validated snapshot outside the build context is checked before building and used only at the publisher boundary. One `podman push --digestfile` of the inspected immutable local image ID per service (never a moving local tag) to a `sha-<commit>` tag; **a failed push is never retried** because the registry may have changed: reconcile first |
 | Readback | The registry digest from the digestfile becomes `ghcr.io/loveoverflowcom/SERVICE@sha256:…`; the existing manifest/config readback must pass, so the config digest is the OCI config, never the image ID of another format |
-| Candidate | `manifest.json`, `runtime.tar` (committed host assets with Git modes, deterministic) and `evidence.json` plus `gate-records/*.json`, written once under `artifacts/release-build/oci/SHA/CONFIG/ATTEMPT/` and re-verified against `release_oci` |
+| Candidate | `manifest.json`, `runtime.tar` (committed host assets with Git modes, deterministic) and `evidence.json` plus `gate-records/*.json`, written once under `artifacts/release-build/oci/SHA/CONFIG/ATTEMPT/candidate/` and re-verified against `release_oci` |
 
 Without `--publish` the command builds and checks locally, prints `BUILD_ONLY` and writes nothing.
 The **candidate is never eligible**: all four gates (`native-isolation`, `native-e2e`,
@@ -126,14 +131,80 @@ producer. Nothing a producer writes is an admission, and labels or a pushed tag 
 
 `infra/oci/compatibility.json` holds the declared RPC, Server schema, Identity schema and
 security-state identifiers; the Turso version is read from the locked `Cargo.lock`. They are
-declarations of this commit, not tested rollback authority. The Server image keeps
-`cantos-migrate` while it still owns a PostgreSQL schema. Server runs as UID/GID 10001 and Identity
+declarations of this commit, not tested rollback authority. Server's declaration is
+`server-turso-epoch-1-v23`; `cantos-migrate` operates on `server.db`, and serving never migrates at startup. Server runs as UID/GID 10001 and Identity
 as 10002 so a bind-mounted database directory belongs to exactly one service; mounts, sockets and
 Quadlet units are PR B.
 
 Evidence: unit regressions run on real Git/tar data with a named command double for Podman
 (`mock-integration-tested`). A real local build of both images was run once and matched the
 readback contract; **no GHCR push, Actions run or image-pair fixture has been executed**.
+
+### Publication uncertainty and workflow provenance
+
+Before the first push, the producer creates a private attempt directory and atomically writes
+`publish-attempt.json`; the file and directory are fsynced before each remote write. Each service
+starts `not_started`, moves to `unknown` before its one push, then `confirmed` only after a valid
+registry digest is read. The journal retains both config digests, exact tags, source/config/platform
+and producer identity, with no credential path, token or remote body. A crash or second-push failure
+preserves the first digest. Readback starts `unknown`; failure retains the unadmitted candidate and
+both published digests. There is no resume/retry command. Reconcile exact digests and registry state
+before deciding on a new explicitly authorized attempt; a mutable SHA tag is only a lookup hint.
+A failure before the journal directory exists means no push began in this invocation.
+
+Build subprocesses receive an allow-list of process/runtime locations, excluding provider tokens,
+ambient registry-auth overrides and CI credentials. The validated publisher authfile is snapshotted
+outside the source context and deleted with the private temporary directory. This does not inspect
+image layers or prove the host's Podman configuration safe; layer/secret qualification remains open.
+
+Actions requires a manual `workflow_dispatch`, source SHA equal to both checkout and workflow SHA,
+and `run_attempt=1`. A rerun refuses; reconcile before a new dispatch. The workflow explicitly uses
+Bash with `pipefail`, so a failing producer piped through `tee` fails the step. Candidate and attempt
+artifacts are retained with `always()`, and authfile cleanup also runs with `always()`. Runner loss
+can still prevent artifact upload; missing records mean UNKNOWN, never an automatic retry.
+
+## Offline host inventory plan
+
+Add `--host-inventory PATH --host-inventory-digest SHA256` to `release oci-verify`. Both flags are
+required together. The same admission, source-bound bundle and qualification-record checks run
+first. This optional local JSON input is **operator-declared**, not a host observation, SSH inventory,
+activation token or deployment receipt. The command reads no lock/journal on a host and creates no
+native Quadlet. The source bundle still contains retained legacy recovery assets; the native renderer
+and activation consumer must be implemented and qualified independently.
+
+Inventory schema 1 accepts exactly these fields (missing/unknown fields refuse):
+
+| Field | Required value |
+| --- | --- |
+| `schema_version`, `host_id`, `observed_at` | `1`, bounded nonsecret host alias, integer Unix seconds within the preceding 24 hours; future/stale records refuse |
+| `state`, `platform`, `cgroup_version` | `UNKNOWN`, `NEW`, `LEGACY` or `NATIVE_READY`; exact OCI platform; integer `2` for a compatible plan |
+| `services` | Exactly `cantos-server` and `cantos-identity`; each has `runtime_mode` (`rootful`/`rootless`), `principal`, nonsecret `image_store` identity, `quadlet_scope` (`system`/`user`) and absolute canonical `database_directory` |
+| `socket_directory` | A narrow absolute canonical shared UDS directory, separate from both non-overlapping DB directories |
+| `journal`, `lock` | `UNKNOWN`/`IDLE`/`IN_PROGRESS`/`RECOVERY_REQUIRED`; `UNKNOWN`/`AVAILABLE`/`HELD`; only idle + available permits further review |
+| `current_manifest_sha256`, `previous_manifest_sha256` | Full digests or JSON null; native-ready requires a known current release; no pointer is changed |
+| `compatibility` | Exact manifest compatibility object; mismatch blocks planning rather than authorizing migration |
+
+Rootful requires principal `root` and system scope; rootless requires a named non-root principal
+and user scope. Each service retains its declared mode/principal/store. The plan pairs those facts
+with its exact registry digest; it does not infer UID mappings or grant permission to chown data.
+UNKNOWN blocks preparation; LEGACY requires separate cutover/native-recovery acceptance; NEW requires
+explicit bootstrap and data-tier approval. Platform/cgroup/schema/current-release/operation blockers
+are reported separately. Even a consistent declared snapshot returns `REVIEW_REQUIRED`,
+`release_eligible=false`, activation/cleanup `NOT_RUN`. Fresh authenticated inventory, version/capacity,
+UID/UDS isolation, native bundle renderer, lock/generation, recovery and separate authority remain.
+
+## Release lane design directions
+
+| Direction | Benefits and testability | Blast radius / compatibility | Unresolved decisions |
+| --- | --- | --- | --- |
+| A. Extend the existing separate release owners (selected) | Small deterministic cores and command/HTTP doubles; reuse OCI verifier/producer and the single Pages publisher | Changes stay within each provider lane; old API/aggregate selectors explicitly refuse, Web/Firebase remain separate | Real provider qualification and native host consumer |
+| B. Add a cross-provider xtask coordinator | Central dependency/artifact identity and common reporting | Couples approvals, leases and partial outcomes across GHCR/VPS/Pages; requires a new migration contract | Whether cross-provider atomicity or ordering is actually needed |
+| C. Sequential qualification checkpoints | Accept GHCR exact-image evidence first, then native host rehearsal; test Pages independently | Lowest activation risk, slower complete rollout; no replacement publisher | Operator evidence and capacity for each checkpoint |
+
+Use A for this bounded implementation and C for acceptance ordering. Existing `release` helpers
+own Pages CI intent/freshness while the existing deploy owner remains the only publisher. No new
+cross-provider coordinator, generic plugin system or deployment engine is introduced. This is a
+scoped implementation choice; native cutover/rollback policy remains deferred to #348/#336.
 
 ## Dependency-correct next slices
 

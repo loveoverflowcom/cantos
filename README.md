@@ -95,7 +95,9 @@ Verify focused changes during development, then hand off the final diff once. Re
 PASS/FAIL/NOT_RUN/UNSUPPORTED with independent model, file, HTTP, browser/device and deployed
 states. Historical PASS cannot qualify today's implementation.
 
-Production OCI build/admission is described in the [release contract](docs/deployment/native-oci-release.md).
+Production OCI build/admission, publication recovery records and offline host preparation are
+described in the [release contract](docs/deployment/native-oci-release.md). Native activation stays
+deferred; legacy API/aggregate release routes refuse. New work targets `develop` after PR #400.
 [Retained VPS records](docs/deployment/vps-production.md) describe legacy operations, not an
 available native activation command. No merge, deploy, VPS operation or data retirement follows
 from documentation cleanup. Preserve DB/WAL, backups, media, accounts and other tasks' outputs.

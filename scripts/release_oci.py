@@ -9,11 +9,12 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import tarfile
 import tempfile
+import time
 
 import release_artifact as contract
 
@@ -211,6 +212,81 @@ def verify_evidence(path, manifest):
         fields(item, "status record_sha256", "gate status and immutable evidence record required")
         contract.require(item["status"] == "PASS", "producer gate did not PASS: " + gate)
         contract.digest(item["record_sha256"])
+        record = contract.read_json(path.parent / "gate-records" / (gate + ".json"), item["record_sha256"])
+        contract.require(isinstance(record, dict) and record.get("gate") == gate and record.get("status") == "PASS" and
+                         all(record.get(key) == manifest[key] for key in
+                             ("source_sha", "configuration_sha256", "platform", "images")),
+                         "qualification record release identity mismatch: " + gate)
+
+
+def host_plan(inventory, manifest, *, now):
+    """Pure, operator-declared inventory plan. It grants no host/lock/activation authority."""
+    fields(inventory, "schema_version host_id observed_at state platform cgroup_version services "
+           "socket_directory journal lock current_manifest_sha256 previous_manifest_sha256 compatibility",
+           "invalid host inventory fields")
+    contract.require(type(inventory["schema_version"]) is int and inventory["schema_version"] == 1,
+                     "unsupported host inventory")
+    identifier(inventory["host_id"])
+    contract.require(type(inventory["observed_at"]) is int and
+                     0 <= now - inventory["observed_at"] <= 86400, "inventory must be observed within 24 hours")
+    contract.require(inventory["state"] in ("UNKNOWN", "NEW", "LEGACY", "NATIVE_READY"), "invalid host state")
+    contract.require(inventory["platform"] in PLATFORMS, "invalid host platform")
+    contract.require(inventory["journal"] in ("UNKNOWN", "IDLE", "IN_PROGRESS", "RECOVERY_REQUIRED") and
+                     inventory["lock"] in ("UNKNOWN", "AVAILABLE", "HELD"), "invalid host operation state")
+    for key in ("current_manifest_sha256", "previous_manifest_sha256"):
+        if inventory[key] is not None:
+            contract.digest(inventory[key])
+    def directory(value):
+        contract.require(isinstance(value, str) and len(value) <= 200 and
+                         re.fullmatch(r"/[A-Za-z0-9_./-]+", value) and
+                         all(part not in ("", ".", "..") for part in value.split("/")[1:]),
+                         "canonical absolute nonsecret directory required")
+        return PurePosixPath(value)
+    socket = directory(inventory["socket_directory"])
+    fields(inventory["services"], " ".join(SERVICES), "exact host service ownership required")
+    owners, databases = {}, []
+    for service in SERVICES:
+        item = inventory["services"][service]
+        fields(item, "runtime_mode principal image_store quadlet_scope database_directory", "invalid service ownership")
+        contract.require(item["runtime_mode"] in ("rootful", "rootless"), "explicit runtime mode required")
+        identifier(item["principal"])
+        identifier(item["image_store"])
+        contract.require((item["runtime_mode"] == "rootful" and item["principal"] == "root" and
+                          item["quadlet_scope"] == "system") or
+                         (item["runtime_mode"] == "rootless" and item["principal"] != "root" and
+                          item["quadlet_scope"] == "user"), "runtime principal and Quadlet scope mismatch")
+        database = directory(item["database_directory"])
+        for other in [socket, *databases]:
+            contract.require(database != other and database not in other.parents and other not in database.parents,
+                             "database and socket directories must be separate and non-overlapping")
+        databases.append(database)
+        owners[service] = {**item, "image": manifest["images"][service]["ref"]}
+    blockers = []
+    if inventory["state"] == "UNKNOWN":
+        blockers.append("HOST_UNKNOWN")
+    elif inventory["state"] == "LEGACY":
+        blockers.append("EXPLICIT_CUTOVER_AND_NATIVE_RECOVERY_ACCEPTANCE_REQUIRED")
+    elif inventory["state"] == "NEW":
+        blockers.append("EXPLICIT_BOOTSTRAP_AND_DATA_TIER_APPROVAL_REQUIRED")
+    if inventory["platform"] != manifest["platform"]:
+        blockers.append("PLATFORM_MISMATCH")
+    if type(inventory["cgroup_version"]) is not int or inventory["cgroup_version"] != 2:
+        blockers.append("CGROUP_V2_REQUIRED")
+    if inventory["compatibility"] != manifest["compatibility"]:
+        blockers.append("SCHEMA_RPC_SECURITY_COMPATIBILITY_NOT_CONFIRMED")
+    if inventory["journal"] != "IDLE" or inventory["lock"] != "AVAILABLE":
+        blockers.append("RECONCILE_OPERATION_BEFORE_PREPARATION")
+    if inventory["state"] == "NATIVE_READY" and inventory["current_manifest_sha256"] is None:
+        blockers.append("CURRENT_RELEASE_UNKNOWN")
+    return {"host_id": inventory["host_id"], "inventory_kind": "OPERATOR_DECLARED",
+            "declared_host_state": inventory["state"], "readiness": "BLOCKED" if blockers else "REVIEW_REQUIRED",
+            "blockers": blockers, "services": owners, "socket_directory": str(socket),
+            "current_manifest_sha256": inventory["current_manifest_sha256"],
+            "previous_manifest_sha256": inventory["previous_manifest_sha256"],
+            "activation": "NOT_RUN", "cleanup": "NOT_RUN", "release_eligible": False,
+            "remaining": ["fresh authenticated host observation", "Podman/Quadlet version and UID mapping qualification",
+                          "capacity and image-store checks", "native bundle renderer and lock/generation consumer",
+                          "migration/health/reboot/recovery rehearsal", "separate operator activation authority"]}
 
 
 def verify(root, args):
@@ -226,6 +302,10 @@ def verify(root, args):
                          configuration_digest=args.configuration_digest, platform=args.platform)
     verify_bundle(root, args.manifest.parent / "runtime.tar", manifest)
     verify_evidence(args.manifest.parent / "evidence.json", manifest)
+    if getattr(args, "host_inventory", None) is not None:
+        contract.digest(args.host_inventory_digest)
+        inventory = contract.read_json(args.host_inventory, args.host_inventory_digest)
+        plan["host_plan"] = host_plan(inventory, manifest, now=time.time())
     return plan
 
 
@@ -250,7 +330,11 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--registry-readback", action="store_true")
     parser.add_argument("--authfile", type=Path)
+    parser.add_argument("--host-inventory", type=Path)
+    parser.add_argument("--host-inventory-digest")
     args = parser.parse_args()
+    if (args.host_inventory is None) != (args.host_inventory_digest is None):
+        parser.error("--host-inventory and --host-inventory-digest are required together")
     if args.authfile and not args.registry_readback:
         parser.error("--authfile requires --registry-readback")
     try:

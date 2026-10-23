@@ -94,34 +94,7 @@ def runtime_archive(context, destination):
 
 
 def build(root, target, sha, output, origin=API_ORIGIN):
-    if target == "api":
-        if platform.system() != "Linux" or platform.machine() != "x86_64":
-            raise ValueError("VPS image build requires Linux x86_64; no emulation or Mac Podman setup")
-        with tempfile.TemporaryDirectory(prefix="cantos-release-") as temporary:
-            work = Path(temporary)
-            context = work / "context"
-            context.mkdir()
-            run(root, ["git", "archive", "--format=tar", "-o", str(work / "source.tar"), sha])
-            run(root, ["tar", "-xf", str(work / "source.tar"), "-C", str(context)])
-            image = f"localhost/cantos-api:{sha}"
-            run(root, ["podman", "build", "--platform=linux/amd64", "--pull=missing",
-                       "-f", str(context / "infra/vps/image/Containerfile"),
-                       "--build-arg", f"CANTOS_REVISION={sha}", "-t", image, str(context)])
-            inspection = json.loads(run(root, ["podman", "image", "inspect", image], capture=True))[0]
-            if (inspection["Architecture"] != "amd64" or inspection["Os"] != "linux"
-                    or inspection["Labels"]["org.opencontainers.image.revision"] != sha):
-                raise ValueError("built image identity does not match requested source/platform")
-            run(root, ["podman", "save", "--format=docker-archive", "-o", str(work / "cantos-api.tar"), image])
-            run(root, ["zstd", "-q", "-T2", str(work / "cantos-api.tar"), "-o", str(output / "cantos-api.tar.zst")])
-            # Inspect output has no runtime env, mounts, credentials or account details.
-            if inspection["Labels"].get("io.cantos.schema-epoch") != "2":
-                raise ValueError("built image schema epoch mismatch")
-            (output / "image.json").write_text(json.dumps({"id": contract.image_id(inspection["Id"]),
-                "architecture": "amd64", "os": "linux", "source_sha": sha,
-                "schema_epoch": 2}, indent=2) + "\n")
-            (context / "REVISION").write_text(sha + "\n")
-            runtime_archive(context, output / "runtime.tar")
-        return {"name": tomllib.loads((root / "services/cantos-server/Cargo.toml").read_text())["package"]["version"]}
+    contract.require(target != "api", "legacy API image build is retired; use release oci-build")
     if target in ("theatre-web", "studio-web"):
         app = "cantos-" + target.removesuffix("-web")
         dist = root / "apps" / app / "web/dist"
@@ -155,6 +128,7 @@ def build(root, target, sha, output, origin=API_ORIGIN):
 
 
 def package(root, target, *, dry_run=False, origin=None, request=None, base=None):
+    contract.require(target != "api", "legacy API packaging is retired; use release oci-build")
     # Planning is useful in a dirty development checkout; execution refuses it.
     if dry_run:
         print(f"NOT_RUN release-build {target}: clean HEAD -> artifacts/release-build/{target}/<SHA>/<CONFIG>/<ATTEMPT>")

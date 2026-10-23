@@ -63,8 +63,8 @@ class CloudflareLane(unittest.TestCase):
     def test_publisher_validates_inventory_instead_of_guessing_the_old_sha_layout(self):
         command = commands('deploy-web-cloudflare')
         self.assertIn('cargo xtask release checkout --transfer artifacts/cloudflare-transfer/', command)
-        self.assertIn('release.promotion_input', command)
-        self.assertIn('str(manifest.parent)', command)
+        self.assertIn('cargo xtask release pages-intent', command)
+        self.assertIn('cargo xtask release pages-promote', command)
         self.assertNotIn('directories=(', command)
         self.assertIn('attach_workspace', text(JOBS['deploy-web-cloudflare']))
 
@@ -74,8 +74,7 @@ class CloudflareLane(unittest.TestCase):
                           'cargo xtask ci', 'npx', 'npm install', 'npm i '):
             self.assertNotIn(forbidden, command)
         self.assertIn('npm ci --ignore-scripts --prefix infra/cloudflare/wrangler', command)
-        self.assertIn('args=(deploy cloudflare << parameters.app >> --web', command)
-        self.assertIn('cargo xtask "${args[@]}" --dry-run', command)
+        self.assertIn('cargo xtask release pages-promote', command)
         self.assertIn('"$major" -ge 22', command)
 
     def test_pipeline_parameters_reach_shell_only_through_environment(self):
@@ -88,10 +87,33 @@ class CloudflareLane(unittest.TestCase):
         self.assertEqual(environment['WEB_ENVIRONMENT'], '<< pipeline.parameters.web-environment >>')
 
     def test_run_records_are_stored_without_credential_directories(self):
-        records = [s['store_artifacts'] for s in JOBS['deploy-web-cloudflare']['steps']
-                   if isinstance(s, dict) and 'store_artifacts' in s]
-        self.assertEqual(records, [{'when': 'always', 'path': 'artifacts/cloudflare',
-                                   'destination': 'pages-run-records'}])
+        publish = next(s['run'] for s in JOBS['deploy-web-cloudflare']['steps']
+                       if isinstance(s, dict) and 'release pages-promote' in s.get('run', {}).get('command', ''))
+        records = [s['store_artifacts'] for s in publish['teardown'] if 'store_artifacts' in s]
+        self.assertEqual(records, [
+            {'path': 'artifacts/cloudflare-transfer/<< parameters.component >>/outcomes',
+             'destination': 'pages-outcomes'},
+            {'path': 'artifacts/cloudflare', 'destination': 'pages-run-records'}])
+
+    def test_pages_intent_is_persisted_before_the_single_publisher_and_has_no_parameter_shell(self):
+        steps = JOBS['deploy-web-cloudflare']['steps']
+        intent = next(i for i, step in enumerate(steps) if 'release pages-intent' in text(step))
+        publish = next(i for i, step in enumerate(steps) if 'release pages-promote' in text(step))
+        self.assertIn('persist_to_workspace', steps[intent + 1])
+        self.assertEqual(publish, intent + 2)
+        self.assertIn('env -u CLOUDFLARE_API_TOKEN npm ci', commands('deploy-web-cloudflare'))
+
+    def test_artifact_steps_have_no_unsupported_when_and_receipts_survive_cancellation(self):
+        for job in JOBS.values():
+            for step in job['steps']:
+                if isinstance(step, dict) and 'store_artifacts' in step:
+                    self.assertNotIn('when', step['store_artifacts'])
+        publish = next(s['run'] for s in JOBS['deploy-web-cloudflare']['steps']
+                       if isinstance(s, dict) and 'release pages-promote' in s.get('run', {}).get('command', ''))
+        teardown = publish['teardown']
+        self.assertIn('persist_to_workspace', teardown[1])
+        self.assertEqual(teardown[1]['persist_to_workspace']['paths'], [
+            'artifacts/cloudflare-transfer/<< parameters.component >>/outcomes/<< parameters.component >>'])
 
 
 if __name__ == '__main__':

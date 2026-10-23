@@ -84,7 +84,7 @@ impl ReleaseArgs {
             Action::Prepare { component, .. }
                 | Action::Intent { component, .. }
                 | Action::Promote { component, .. }
-            if component == "api"
+            if component == "api" || component == "all"
         )
     }
 }
@@ -128,6 +128,20 @@ pub enum Action {
         #[arg(long)]
         transfer: PathBuf,
     },
+    /// Bind one verified same-workflow Pages artifact and destination before CI persistence.
+    PagesIntent {
+        #[arg(long)]
+        transfer: PathBuf,
+        #[arg(long, value_parser = ["theatre-web", "studio-web"])]
+        component: String,
+    },
+    /// Invoke the existing Pages publisher once using a persisted, exact-job intent.
+    PagesPromote {
+        #[arg(long)]
+        transfer: PathBuf,
+        #[arg(long, value_parser = ["theatre-web", "studio-web"])]
+        component: String,
+    },
     /// Run release contract, packaging, DAG and mocked promotion regressions.
     SelfTest,
     /// Verify an admitted native OCI pair offline; optionally read its exact GHCR metadata.
@@ -148,6 +162,11 @@ pub enum Action {
         admission: PathBuf,
         #[arg(long)]
         admission_digest: String,
+        /// Optional operator-declared inventory; an offline plan, never host activation authority.
+        #[arg(long, requires = "host_inventory_digest")]
+        host_inventory: Option<PathBuf>,
+        #[arg(long, requires = "host_inventory")]
+        host_inventory_digest: Option<String>,
         /// Same read-only plan; no SSH, registry access, subprocess build or output write.
         #[arg(long)]
         dry_run: bool,
@@ -198,12 +217,14 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         platform,
         admission,
         admission_digest,
+        host_inventory,
+        host_inventory_digest,
         dry_run,
         registry_readback,
         authfile,
     } = action
     {
-        let command = command
+        let mut command = command
             .args([
                 "scripts/release_oci.py".into(),
                 "--manifest".into(),
@@ -223,6 +244,14 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             ])
             .arg_if(*dry_run, "--dry-run")
             .arg_if(*registry_readback, "--registry-readback");
+        if let (Some(path), Some(digest)) = (host_inventory, host_inventory_digest) {
+            command = command.args([
+                "--host-inventory".into(),
+                path.display().to_string(),
+                "--host-inventory-digest".into(),
+                digest.clone(),
+            ]);
+        }
         return if let Some(path) = authfile {
             command.args(["--authfile".into(), path.display().to_string()])
         } else {
@@ -283,6 +312,25 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
                 "report"
             }
             .into(),
+            "--transfer".into(),
+            transfer.display().to_string(),
+        ]),
+        Action::PagesIntent {
+            transfer,
+            component,
+        }
+        | Action::PagesPromote {
+            transfer,
+            component,
+        } => command.args([
+            if matches!(action, Action::PagesIntent { .. }) {
+                "pages-intent"
+            } else {
+                "pages-promote"
+            }
+            .into(),
+            "--component".into(),
+            component.clone(),
             "--transfer".into(),
             transfer.display().to_string(),
         ]),
@@ -399,6 +447,16 @@ mod tests {
         assert!(Cli::try_parse_from(pins).is_ok());
         assert!(Cli::try_parse_from(&pins[..pins.len() - 2]).is_err());
         assert!(Cli::try_parse_from(pins.into_iter().chain(["--authfile", "auth.json"])).is_err());
+        assert!(
+            Cli::try_parse_from(pins.into_iter().chain(["--host-inventory", "host.json"])).is_err()
+        );
+        assert!(Cli::try_parse_from(pins.into_iter().chain([
+            "--host-inventory",
+            "host.json",
+            "--host-inventory-digest",
+            "digest"
+        ]))
+        .is_ok());
         assert!(Cli::try_parse_from(pins.into_iter().chain([
             "--registry-readback",
             "--authfile",
@@ -414,6 +472,8 @@ mod tests {
             platform: "linux/amd64".into(),
             admission: "admission.json".into(),
             admission_digest: "admission-digest".into(),
+            host_inventory: None,
+            host_inventory_digest: None,
             dry_run: true,
             registry_readback: false,
             authfile: None,
@@ -444,6 +504,61 @@ mod tests {
                 "auth.json"
             ]
         );
+    }
+
+    #[test]
+    fn pages_ci_commands_route_to_the_existing_release_owner_and_refuse_non_web_components() {
+        for (verb, action) in [
+            (
+                "pages-intent",
+                Action::PagesIntent {
+                    transfer: "t".into(),
+                    component: "theatre-web".into(),
+                },
+            ),
+            (
+                "pages-promote",
+                Action::PagesPromote {
+                    transfer: "t".into(),
+                    component: "theatre-web".into(),
+                },
+            ),
+        ] {
+            assert!(Cli::try_parse_from([
+                "xtask",
+                "release",
+                verb,
+                "--transfer",
+                "t",
+                "--component",
+                "theatre-web"
+            ])
+            .is_ok());
+            assert!(Cli::try_parse_from([
+                "xtask",
+                "release",
+                verb,
+                "--transfer",
+                "t",
+                "--component",
+                "api"
+            ])
+            .is_err());
+            let plan = command(&Workspace::discover().unwrap(), &action);
+            assert_eq!(plan.program, "python3");
+            assert_eq!(
+                plan.args,
+                [
+                    "scripts/release_pipeline.py",
+                    verb,
+                    "--component",
+                    "theatre-web",
+                    "--transfer",
+                    "t"
+                ]
+            );
+            assert!(plan.env.is_empty());
+        }
     }
 
     #[test]
@@ -552,6 +667,12 @@ mod tests {
                 Some(Retirement::LegacyApiRelease),
                 "{verb}"
             );
+            let aggregate: Vec<_> = line
+                .iter()
+                .map(|part| if *part == "api" { "all" } else { part })
+                .collect();
+            let cli = Cli::try_parse_from(&aggregate).unwrap();
+            assert_eq!(cli.command.retirement(), Some(Retirement::LegacyApiRelease));
             let web: Vec<_> = line
                 .iter()
                 .map(|part| if *part == "api" { "theatre-web" } else { part })

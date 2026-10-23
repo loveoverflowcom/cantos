@@ -62,9 +62,14 @@ def fixture(root, producer=PRODUCERS[0]):
                                    "entries": [{"path": name, "bytes": len(data), "mode": mode,
                                                 "sha256": hashlib.sha256(data).hexdigest()}
                                                for name, data, mode in members]}}
+    gate_records = release / "gate-records"
+    gate_records.mkdir()
+    for gate in oci.GATES:
+        contract.write_new(gate_records / (gate + ".json"), {"gate": gate, "status": "PASS",
+            **{key: manifest[key] for key in ("source_sha", "configuration_sha256", "platform", "images")}})
     evidence = {"schema_version": 1, **{key: manifest[key] for key in
                 ("source_sha", "configuration_sha256", "platform", "images", "producer")},
-                "gates": {gate: {"status": "PASS", "record_sha256": "e" * 64} for gate in oci.GATES}}
+                "gates": {gate: {"status": "PASS", "record_sha256": contract.file_record(gate_records / (gate + ".json"), gate_records)["sha256"]} for gate in oci.GATES}}
     contract.write_new(release / "evidence.json", evidence)
     manifest["evidence"] = contract.file_record(release / "evidence.json", release)
     path = release / "manifest.json"
@@ -96,7 +101,7 @@ class OciContractTests(unittest.TestCase):
                     self.assertEqual(argv[1:4], ["--no-lazy-fetch", "--no-optional-locks", "--no-replace-objects"])
                     self.assertIn(argv[4], ("cat-file", "ls-tree", "show"))
                     return real(argv, **kwargs)
-                before = {p.relative_to(Path(temporary)): p.read_bytes() for p in args.manifest.parent.iterdir()}
+                before = {p.relative_to(Path(temporary)): p.read_bytes() for p in args.manifest.parent.rglob("*") if p.is_file()}
                 with patch.object(oci.subprocess, "run", side_effect=git_only):
                     normal = oci.verify(source, args)
                     args.dry_run = True
@@ -106,7 +111,7 @@ class OciContractTests(unittest.TestCase):
                 self.assertEqual(normal["images"], {s: manifest["images"][s]["ref"] for s in oci.SERVICES})
                 self.assertEqual(normal["gates"], {"offline-contract": "PASS", "registry-access": "NOT_RUN",
                                                  "native-qualification": "NOT_RUN", "activation": "NOT_RUN", "cleanup": "NOT_RUN"})
-                self.assertEqual(before, {p.relative_to(Path(temporary)): p.read_bytes() for p in args.manifest.parent.iterdir()})
+                self.assertEqual(before, {p.relative_to(Path(temporary)): p.read_bytes() for p in args.manifest.parent.rglob("*") if p.is_file()})
 
     def test_admission_is_exact_and_does_not_come_from_a_hash_or_a_label(self):
         with tempfile.TemporaryDirectory() as temporary:

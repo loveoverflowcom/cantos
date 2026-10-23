@@ -1,8 +1,8 @@
 # Current priorities
 
 This is a short dependency queue, not a status board. GitHub owns assignments and execution;
-source and named evidence determine implemented and accepted scope. Re-fetch the native
-integration base before work. Reuse the [implemented foundation](../architecture/native-persistence-readiness.md)
+source and named evidence determine implemented and accepted scope. Re-fetch latest `origin/develop` before work; PR #400 merged the native
+integration branch. Reuse the [implemented foundation](../architecture/native-persistence-readiness.md)
 and the [checkpoint](../architecture/server-turso-porting.md#checkpoint-boundary).
 
 | Order | Owner | Next reviewable boundary | Acceptance dependency |
@@ -11,10 +11,10 @@ and the [checkpoint](../architecture/server-turso-porting.md#checkpoint-boundary
 | 2 | [#335](https://github.com/loveoverflowcom/cantos/issues/335) | Qualify actual Server/Identity HTTP and Web cookie/native Bearer journeys and rebind remaining provider-era policy tests | Existing RPC, actor/session foundation and first-party consumers; do not rebuild them or restore provider workflows |
 | 3 | [#336](https://github.com/loveoverflowcom/cantos/issues/336) | Accept two production binaries/two files, Linux isolation, D1 Kani, restore/migration rehearsal and comparable footprint | Independent core/model/file evidence stays separate from browser/device and deployed acceptance |
 | 4 | [#384](https://github.com/loveoverflowcom/cantos/issues/384) | Measure one ready consumer, optimize Turso SQL/index, then evaluate one selective cache | The measured module's native port and production representation, including `presentation=1`; incremental engines DEFER |
-| 5 | [#348](https://github.com/loveoverflowcom/cantos/issues/348) | Complete OCI pair/admission and explicit native activation/rollback consumer | Packaging source exists; native acceptance, production inventory and operator authorization precede host effects |
+| 5 | [#348](https://github.com/loveoverflowcom/cantos/issues/348) | Qualify exact OCI pair/admission and implement the native activation/rollback consumer after the offline inventory plan | Packaging source exists; native acceptance, production inventory and operator authorization precede host effects |
 
-Native work branches from and targets `refactor/cantos-native-turso`. The eventual integration
-PR to `develop` is separate. PostgreSQL/DBSP/Kanidm/emulator operation is not a prerequisite for
+New native and release work branches from latest `origin/develop` and targets `develop`.
+Earlier integration-branch SHAs/permalinks remain historical evidence, not active routing. PostgreSQL/DBSP/Kanidm/emulator operation is not a prerequisite for
 new native work; retained schema/tests/recovery assets are migration inputs. Default migration
 remains Tier B until real inventory and owner confirmation establish otherwise.
 

@@ -23,17 +23,25 @@ import uuid
 
 import release_artifact as contract
 import release_oci as oci
+import release_oci_registry as registry
 
 REGISTRY = "ghcr.io/loveoverflowcom/"
 CONTAINERFILE = "infra/oci/{}/Containerfile"
 COMPATIBILITY = "infra/oci/compatibility.json"
 POLICY = ("rust-toolchain.toml", "Cargo.lock", COMPATIBILITY, "scripts/release_oci_build.py",
-          "scripts/release_oci.py", *(CONTAINERFILE.format(s) for s in oci.SERVICES))
+          "scripts/release_oci.py", "scripts/release_oci_registry.py", ".github/workflows/native-oci-publish.yml",
+          *(CONTAINERFILE.format(s) for s in oci.SERVICES))
 MACHINES = {"x86_64": "linux/amd64", "aarch64": "linux/arm64"}
 GATE_REASON = "producer builds and publishes only; this gate has no execution here"
 
 
+# Only process/runtime locations, never provider tokens or ambient registry authentication.
+CHILD_ENV = ("PATH", "HOME", "TMPDIR", "XDG_RUNTIME_DIR", "XDG_CONFIG_HOME", "XDG_DATA_HOME",
+             "XDG_CACHE_HOME", "SSL_CERT_FILE", "SSL_CERT_DIR")
+
+
 def sh(root, argv, *, env=None):
+    env = {key: value for key, value in (os.environ if env is None else env).items() if key in CHILD_ENV}
     result = subprocess.run(argv, cwd=root, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             env=env, timeout=7200)
     # Never echo output: build logs and push errors can carry registry or credential detail.
@@ -42,8 +50,7 @@ def sh(root, argv, *, env=None):
 
 
 def git_bytes(root, sha, name):
-    return subprocess.run(["git", "show", sha + ":" + name], cwd=root, check=True,
-                          stdout=subprocess.PIPE).stdout
+    return oci.git(root, "show", sha + ":" + name)
 
 
 def compatibility(root, sha):
@@ -72,7 +79,9 @@ def producer_identity(kind, env, source_sha, build_id=None):
         return {"kind": "local", "build_id": oci.identifier(build_id)}
     contract.require(kind == "github-actions" and build_id is None, "unsupported producer kind")
     contract.require(env.get("GITHUB_ACTIONS") == "true" and env.get("GITHUB_REPOSITORY") == "loveoverflowcom/cantos"
-                     and env.get("GITHUB_SHA") == source_sha, "Actions identity differs from the built source")
+                     and env.get("GITHUB_SHA") == source_sha and env.get("GITHUB_WORKFLOW_SHA") == source_sha
+                     and env.get("GITHUB_RUN_ATTEMPT") == "1" and env.get("GITHUB_EVENT_NAME") == "workflow_dispatch",
+                     "Actions requires the exact source/workflow and a first manual attempt; reconcile reruns")
     ref = env.get("GITHUB_WORKFLOW_REF", "")
     match = re.fullmatch(r"loveoverflowcom/cantos/(\.github/workflows/[a-z0-9-]+\.ya?ml)@refs/.+", ref)
     contract.require(match is not None, "workflow reference must name a repository workflow")
@@ -196,12 +205,43 @@ def build_pair(root, sha, configuration, platform, work):
     return local
 
 
-def push(root, service, tag, sha, authfile, work):
+def push(root, service, image_id, sha, authfile, work):
     """Push once. A failure after bytes may have left the registry changed: reconcile, never retry."""
     digestfile = work / (service + ".digest")
     sh(root, ["podman", "push", "--format", "oci", "--authfile", str(authfile), "--digestfile", str(digestfile),
-              tag, "docker://" + REGISTRY + service + ":sha-" + sha])
+              image_id, "docker://" + REGISTRY + service + ":sha-" + sha])
     return "sha256:" + contract.digest(digestfile.read_text().strip().removeprefix("sha256:"))
+
+
+def private_attempt_directory(path):
+    """Persist each new directory entry, so a host crash cannot lose the pre-push fence."""
+    missing = []
+    for parent in (path, *path.parents):
+        contract.require(not parent.is_symlink(), "symlink in publication output path")
+        if not parent.exists():
+            missing.append(parent)
+    for parent in reversed(missing):
+        parent.mkdir(mode=0o700)
+        descriptor = os.open(parent.parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+
+def save_attempt(output, record):
+    """Atomically replace the run-owned journal; fsync intent before each possible remote write."""
+    temporary = output / "publish-attempt.next"
+    with temporary.open("xb") as stream:
+        stream.write(contract.canonical(record) + b"\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, output / "publish-attempt.json")
+    descriptor = os.open(output, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def produce(root, args, env=os.environ):
@@ -210,34 +250,60 @@ def produce(root, args, env=os.environ):
     configuration = configuration_identity(root, sha, args.platform)
     compat = compatibility(root, sha)
     members = host_members(root, sha)
+    if args.publish:
+        contract.require(args.authfile is not None, "explicit private authfile required")
+        registry.load_authfile(args.authfile)  # Refuse unsafe files/helpers before any build or push.
     with tempfile.TemporaryDirectory(prefix="cantos-oci-build-") as temporary:
         work = Path(temporary)
+        private_auth = None
+        if args.publish:
+            # A validated private snapshot, outside the source/build context, is used throughout.
+            private_auth = work / "auth.json"
+            record = {**contract.file_record(args.authfile, args.authfile.parent), "path": private_auth.name}
+            contract.copy_verified(args.authfile, private_auth, record, limit=registry.MAX_AUTH_BYTES)
+            private_auth.chmod(0o600)
+            registry.load_authfile(private_auth)
         local = build_pair(root, sha, configuration, args.platform, work)
-        # Nothing may reach the registry from a tree that moved or was dirtied while building.
         contract.require(preflight(root, args.platform) == sha, "source changed during the build")
         if not args.publish:
             return {"kind": "cantos-native-oci-build", "operation": "BUILD_ONLY", "source_sha": sha,
                     "configuration_sha256": configuration, "platform": args.platform,
                     "images": {s: {"config_digest": local[s][1]} for s in oci.SERVICES},
                     "gates": {"build": "PASS", "publish": "NOT_RUN", "registry-readback": "NOT_RUN"}}
+        output = root / args.output / sha / configuration / uuid.uuid4().hex
+        contract.require(not output.exists(), "fresh publication attempt required")
+        private_attempt_directory(output)
+        attempt = {"schema_version": 1, "kind": "cantos-native-oci-publish-attempt",
+                   "source_sha": sha, "configuration_sha256": configuration, "platform": args.platform,
+                   "producer": producer, "release_eligible": False, "registry_readback": "NOT_RUN",
+                   "images": {s: {"state": "not_started", "tag": REGISTRY + s + ":sha-" + sha,
+                                  "config_digest": local[s][1], "digest": None} for s in oci.SERVICES}}
+        save_attempt(output, attempt)
         images = {}
         for service in oci.SERVICES:
-            digest = push(root, service, local[service][0], sha, args.authfile, work)
+            attempt["images"][service]["state"] = "unknown"
+            save_attempt(output, attempt)  # A crash from here onward requires reconciliation, never replay.
+            digest = push(root, service, local[service][1], sha, private_auth, work)
+            attempt["images"][service].update(state="confirmed", digest=digest)
+            save_attempt(output, attempt)
             images[service] = {"ref": REGISTRY + service + "@" + digest, "config_digest": local[service][1]}
-    manifest, bundle, evidence, records = candidate(sha, configuration, args.platform, producer, compat,
-                                                    images, members)
-    # Self-check with the release owner's own contract before anything is written.
-    admission = {"schema_version": 1, "manifest_sha256": hashlib.sha256(contract.canonical(manifest) + b"\n").hexdigest(),
-                 "producer": producer}
-    plan = oci.manifest_plan(manifest, admission, manifest_digest=admission["manifest_sha256"], source_sha=sha,
-                             configuration_digest=configuration, platform=args.platform)
-    import release_oci_registry
-    observed = release_oci_registry.observe(manifest, plan, authfile=args.authfile)
-    output = root / args.output / sha / configuration / uuid.uuid4().hex
-    digest = write_candidate(output, manifest, bundle, evidence, records)
-    oci.verify_bundle(root, output / "runtime.tar", manifest)
+        manifest, bundle, evidence, records = candidate(sha, configuration, args.platform, producer, compat,
+                                                       images, members)
+        admission = {"schema_version": 1,
+                     "manifest_sha256": hashlib.sha256(contract.canonical(manifest) + b"\n").hexdigest(),
+                     "producer": producer}
+        plan = oci.manifest_plan(manifest, admission, manifest_digest=admission["manifest_sha256"], source_sha=sha,
+                                configuration_digest=configuration, platform=args.platform)
+        # Preserve both registry digests and the unadmitted candidate even when readback is unavailable.
+        digest = write_candidate(output / "candidate", manifest, bundle, evidence, records)
+        oci.verify_bundle(root, output / "candidate/runtime.tar", manifest)
+        attempt["registry_readback"] = "unknown"
+        save_attempt(output, attempt)
+        observed = registry.observe(manifest, plan, authfile=private_auth)
+        attempt["registry_readback"] = "PASS"
+        save_attempt(output, attempt)
     return {**observed, "kind": "cantos-native-oci-candidate", "operation": "CANDIDATE",
-            "manifest_sha256": digest, "output": str(output),
+            "manifest_sha256": digest, "output": str(output / "candidate"),
             "gates": {**observed["gates"], "publish": "PASS", "native-qualification": "NOT_RUN"}}
 
 
@@ -257,7 +323,8 @@ def main():
     try:
         result = produce(Path(__file__).resolve().parents[1], args)
     except Exception as error:  # noqa: BLE001 - report a safe class, never remote or credential text
-        parser.exit(1, "native OCI build refused: " + type(error).__name__ + ": " + str(error)[:200] + "\n")
+        parser.exit(1, "native OCI build refused: " + type(error).__name__ +
+                    "; inspect retained publish-attempt.json before retrying; remote outcome may be unknown\n")
     print(json.dumps(result, sort_keys=True))
 
 

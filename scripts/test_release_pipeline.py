@@ -60,7 +60,7 @@ class PipelineTests(unittest.TestCase):
         values = [None, None, SHA, None]
         with patch.object(release, "run", side_effect=values) as run, patch.object(subprocess, "run") as exists:
             exists.return_value.returncode = 0
-            req = release.resolve(ROOT, "some-branch", "all", ORIGIN, False)
+            req = release.resolve(ROOT, "some-branch", "web", ORIGIN, False)
             self.assertEqual(req["source_sha"], SHA)
             self.assertEqual(req["config_sha"], "b" * 40)
             self.assertEqual(sum("rev-parse" in c.args[1] for c in run.call_args_list), 1)
@@ -68,7 +68,7 @@ class PipelineTests(unittest.TestCase):
         with patch.object(release, "run", side_effect=[None, None, SHA, subprocess.CalledProcessError(1, "merge-base")]), patch.object(subprocess, "run") as exists:
             exists.return_value.returncode = 0
             with self.assertRaises(subprocess.CalledProcessError):
-                release.resolve(ROOT, "some-branch", "api", ORIGIN, False)
+                release.resolve(ROOT, "some-branch", "theatre-web", ORIGIN, False)
 
     def test_conflicting_or_empty_requests_fail_instead_of_successful_noop(self):
         for target, build in [("develop", True), (None, False), ("", False)]:
@@ -234,7 +234,7 @@ class CircleConfigTests(unittest.TestCase):
                                {"pipeline.config.repository.url": "https://github.com/foreign/cantos"}):
                     with self.subTest(change=change):
                         self.assertFalse(self.scheduler_allows(expression, change))
-        self.assertEqual(checked, 10)
+        self.assertEqual(checked, 6)
 
     def test_defaults_have_no_jobs_and_conflicting_request_has_one_failure_workflow(self):
         self.assertEqual(self.selected(), [])
@@ -250,7 +250,7 @@ class CircleConfigTests(unittest.TestCase):
             "theatre-web": ["release-cloudflare-theatre-web"],
             "studio-web": ["release-cloudflare-studio-web"],
             "web": ["release-cloudflare-theatre-web", "release-cloudflare-studio-web"],
-            "all": ["release-api", "release-cloudflare-theatre-web", "release-cloudflare-studio-web"],
+            "all": ["release-api"],
         }
         for component, workflows in expected.items():
             self.assertEqual(self.selected(target="develop", component=component,
@@ -258,16 +258,10 @@ class CircleConfigTests(unittest.TestCase):
         self.assertEqual(self.selected(build=True, target="develop",
                                        **{"web-provider": "cloudflare"}), ["invalid-request"])
 
-    def test_one_approval_after_build_and_api_health_blocks_both_web_writes(self):
-        jobs = self.config["workflows"]["release-all"]["jobs"]
-        graph = {next(iter(j)): next(iter(j.values())) for j in jobs}
-        self.assertEqual(graph["approve-production"], {"type": "approval", "requires": ["prepare-release"]})
-        self.assertEqual(graph["deploy-api"]["requires"], ["approve-production"])
-        self.assertEqual(graph["deploy-theatre-web"]["requires"], ["deploy-api"])
-        self.assertEqual(graph["deploy-studio-web"]["requires"], ["deploy-theatre-web"])
-        self.assertEqual(graph["release-report"]["requires"], [{"deploy-api": "terminal"}, {"deploy-theatre-web": "terminal"}, {"deploy-studio-web": "terminal"}])
-        for c in ("api", "theatre-web", "studio-web"):
-            self.assertIn("production-" + c, graph["deploy-" + c]["serial-group"])
+    def test_legacy_aggregate_has_no_approval_or_credentialed_jobs(self):
+        for name in ("release-api", "release-all", "build-api", "build-all"):
+            self.assertEqual(self.config["workflows"][name]["jobs"], ["reject-retired-release"])
+        self.assertNotIn("deploy-api", self.config["jobs"])
 
     def test_web_only_has_no_vps_job_and_contexts_are_separate_after_approval(self):
         for name, workflow in self.config["workflows"].items():
@@ -294,8 +288,6 @@ class CircleConfigTests(unittest.TestCase):
                 self.assertEqual(publish, prepare + 2)
         self.assertIn("persist_to_workspace", json.dumps(self.config["jobs"]["prepare-release"]))
         self.assertNotIn("production", json.dumps(self.config["jobs"]["prepare-release"]))
-        ssh = self.config["commands"]["ssh-context"]["steps"]
-        self.assertIn("require-env", ssh[0])
-        self.assertNotIn("apt-get", json.dumps(ssh))
+        self.assertNotIn("ssh-context", self.config["commands"])
         firebase = self.config["commands"]["firebase-context"]["steps"][1]["run"]["command"]
         self.assertIn("python3 - \\<<'EOF'", firebase)
