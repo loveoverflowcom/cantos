@@ -1,4 +1,4 @@
-//! Editorial use cases. Each runs in one transaction: authenticate, lock and load facts, ask the
+//! Editorial use cases. Each runs in one unit: authenticate and load coherent facts, ask the
 //! pure editorial rules, persist the outcome and commit.
 use super::{ReviewFacts, RevisionFacts, RevisionHistory, RevisionOperation};
 
@@ -6,28 +6,28 @@ use super::domain::{
     decide_review, decide_save, export_digest, permits, Access, Action, PriorOperation,
     ReviewDecision, SaveDecision,
 };
-use super::postgres;
+use super::turso;
 use crate::platform::store::{
     authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
 };
 use crate::script_ir::{read_script, ScriptContent};
 
-/// Script access for `actor`, with the script row locked in `lock` mode. Returns the owner and
-/// the current head revision. A stranger cannot learn that the script exists.
+/// Current script access inside the caller's unit. A write owns the serialized writer; a read
+/// pins one snapshot. The lock argument remains for not-yet-ported consumers only.
 pub(crate) async fn authorize(
     tx: &Tx<'_>,
     actor: &str,
     script: &str,
     action: Action,
-    lock: LockMode,
+    _lock: LockMode,
 ) -> Result<(String, u64), StoreError> {
-    let (owner, head) = postgres::lock_script(tx, script, lock)
+    let (owner, head) = turso::script(tx, script)
         .await?
         .ok_or(StoreError::NotFound)?;
     let access = if owner == actor {
         Access::Owner
     } else {
-        match postgres::member_role(tx, script, actor).await? {
+        match turso::member_role(tx, script, actor).await? {
             Some(role) => Access::from_member_role(&role).ok_or(StoreError::CorruptRevision)?,
             None => Access::None,
         }
@@ -58,12 +58,15 @@ pub(crate) async fn append_revision(
     let export = content.export_bytes();
     let digest = content.content_digest().to_string();
     let export_hash = export_digest(&export);
-    // Concurrent first saves contend on the unique ID, then the same locked head.
+    // The serialized writer orders first saves and subsequent guarded head advances.
     // A failed/stale/unauthorized first save rolls this provisional script back too.
-    postgres::create_script(tx, script, actor).await?;
+    turso::create_script(tx, script, actor).await?;
     let (owner, head) = authorize(tx, actor, script, Action::Write, LockMode::Update).await?;
-    let prior = postgres::accepted_operation(tx, script, actor, &operation).await?;
-    let prior_export = prior.as_ref().map(postgres::AcceptedOperation::export);
+    let prior = turso::accepted_operation(tx, script, actor, &operation).await?;
+    let prior_export = prior
+        .as_ref()
+        .map(turso::AcceptedOperation::export)
+        .transpose()?;
     let prior_summary = prior
         .as_ref()
         .zip(prior_export.as_deref())
@@ -84,14 +87,14 @@ pub(crate) async fn append_revision(
         SaveDecision::RevisionLimit => return Err(StoreError::InvalidRequest),
     };
     for (kind, id) in content.evidence_refs() {
-        if !postgres::evidence_exists(tx, &owner, kind, id).await? {
+        if !turso::evidence_exists(tx, &owner, kind, id).await? {
             return Err(StoreError::EvidenceUnavailable);
         }
     }
     let revision_number = checked_number(revision)?;
-    postgres::insert_revision(
+    turso::insert_revision(
         tx,
-        postgres::NewRevision {
+        turso::NewRevision {
             script,
             revision: revision_number,
             expected,
@@ -104,16 +107,16 @@ pub(crate) async fn append_revision(
     )
     .await?;
     for (kind, id) in content.evidence_refs() {
-        postgres::link_revision_evidence(tx, script, revision_number, &owner, kind, id).await?;
+        turso::link_revision_evidence(tx, script, revision_number, &owner, kind, id).await?;
     }
-    if !postgres::advance_head(tx, script, revision_number, expected).await? {
+    if !turso::advance_head(tx, script, revision_number, expected).await? {
         return Err(StoreError::StaleRevision(head));
     }
-    postgres::load_revision(tx, script, revision_number).await
+    turso::load_revision(tx, script, revision_number).await
 }
 
 impl Store {
-    /// Both head and historical reads reauthorize against current PostgreSQL facts.
+    /// Both head and historical reads reauthorize against current transactional facts.
     pub(crate) async fn load_editorial_revision(
         &self,
         token: &str,
@@ -121,12 +124,12 @@ impl Store {
         revision: Option<u64>,
     ) -> Result<RevisionFacts, StoreError> {
         let script = normalized_uuid(script)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
         let (_, head) = authorize(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
         let revision = checked_number(revision.unwrap_or(head))?;
-        let response = postgres::find_revision(&tx, &script, revision)
+        let response = turso::find_revision(&tx, &script, revision)
             .await?
             .ok_or(StoreError::NotFound)?;
         tx.commit().await?;
@@ -169,15 +172,15 @@ impl Store {
         let script = normalized_uuid(script)?;
         let after = checked_number(after)?;
         let limit = checked_number(limit)?;
-        let mut client = self.connection().await?;
-        let tx = client.transaction().await?;
+        let client = self.connection().await?;
+        let tx = client.read().await?;
         let actor = authenticate(&tx, token).await?;
         let (_, head) = authorize(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
-        let revisions = postgres::revisions_after(&tx, &script, after, limit).await?;
+        let revisions = turso::revisions_after(&tx, &script, after, limit).await?;
         let last = revisions.last().map(|revision| revision.revision);
         let reviews = match last {
             Some(last) => {
-                postgres::reviews_between(&tx, &script, after, checked_number(last)?).await?
+                turso::reviews_between(&tx, &script, after, checked_number(last)?).await?
             }
             None => Vec::new(),
         };
@@ -208,8 +211,8 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
         let (_, head) = authorize(&tx, &actor, &script, Action::Review, LockMode::Update).await?;
-        let prior_revision = postgres::review_operation(&tx, &script, &actor, &operation).await?;
-        let existing = postgres::review_exists(&tx, &script, revision).await?;
+        let prior_revision = turso::review_operation(&tx, &script, &actor, &operation).await?;
+        let existing = turso::review_exists(&tx, &script, revision).await?;
         match decide_review(head, requested_revision, prior_revision, existing) {
             ReviewDecision::OperationReused => return Err(StoreError::OperationReused),
             ReviewDecision::Stale { current_revision } => {
@@ -222,14 +225,14 @@ impl Store {
             }
             ReviewDecision::Create => {
                 // Never record a review for corrupted stored content.
-                postgres::load_revision(&tx, &script, revision).await?;
-                postgres::insert_review(&tx, &script, revision, &operation, &actor).await?;
+                turso::load_revision(&tx, &script, revision).await?;
+                turso::insert_review(&tx, &script, revision, &operation, &actor).await?;
             }
         }
         if prior_revision.is_none() {
-            postgres::insert_review_operation(&tx, &script, &actor, &operation, revision).await?;
+            turso::insert_review_operation(&tx, &script, &actor, &operation, revision).await?;
         }
-        let result = postgres::load_review(&tx, &script, revision).await?;
+        let result = turso::load_review(&tx, &script, revision).await?;
         tx.commit().await?;
         Ok(result)
     }

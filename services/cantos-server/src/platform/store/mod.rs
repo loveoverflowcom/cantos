@@ -95,6 +95,17 @@ pub(crate) fn normalized_uuid(id: &str) -> Result<String, StoreError> {
     canonical_uuid(id).ok_or(StoreError::InvalidRequest)
 }
 
+/// The existing wire timestamp: UTC with exactly six fractional digits. Persisted time is
+/// INTEGER microseconds; neither an engine clock nor a text SQL conversion is authoritative.
+pub(crate) fn utc_timestamp(micros: i64) -> Result<String, StoreError> {
+    use chrono::Datelike;
+
+    let at = chrono::DateTime::from_timestamp_micros(micros)
+        .filter(|at| micros >= 0 && at.year() <= 9999)
+        .ok_or(StoreError::CorruptRevision)?;
+    Ok(at.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string())
+}
+
 /// Batched current actor facts; no Studio session is consulted by the listener consumer.
 pub(crate) async fn active_actors(
     tx: &Tx<'_>,

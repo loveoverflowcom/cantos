@@ -75,7 +75,7 @@ async fn the_registry_of_eleven_upgrades_to_the_business_closure_without_rewriti
         refused(&path, Intent::Serve).await,
         ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
             applied: 11,
-            latest: 15,
+            latest: u32::try_from(MIGRATIONS.len()).unwrap(),
         }))
     );
     assert_eq!(bytes(&path), before);
@@ -90,7 +90,7 @@ async fn the_registry_of_eleven_upgrades_to_the_business_closure_without_rewriti
     // Versions 1-11 keep the exact name and checksum they were registered with.
     assert_eq!(after[..11], registered[..]);
     assert_eq!(
-        after[11..]
+        after[11..15]
             .iter()
             .map(|row| row[1].clone())
             .collect::<Vec<_>>(),
@@ -152,7 +152,7 @@ async fn the_registry_of_eleven_upgrades_to_the_business_closure_without_rewriti
 }
 
 #[tokio::test]
-async fn a_binary_of_eleven_refuses_the_file_of_fifteen_and_a_diverged_slice_is_never_adopted() {
+async fn a_binary_of_eleven_refuses_the_current_file_and_a_diverged_slice_is_never_adopted() {
     let run = TestRun::new("server-schema-business-refusals");
     let path = run.path("server.db");
     drop(open(&path, Intent::Migrate).await.unwrap());
@@ -161,10 +161,8 @@ async fn a_binary_of_eleven_refuses_the_file_of_fifteen_and_a_diverged_slice_is_
     let old = Registry::new(DatabaseKind::Server, SERVER_EPOCH, &MIGRATIONS[..11]).unwrap();
     for intent in [Intent::Serve, Intent::Migrate] {
         match OwnedDatabase::open(OpenRequest::new(&path, old, intent, clock())).await {
-            Err(OpenError::Refused(Refusal::NewerThanBinary {
-                applied: 15,
-                known: 11,
-            })) => {}
+            Err(OpenError::Refused(Refusal::NewerThanBinary { applied, known: 11 }))
+                if applied == u32::try_from(MIGRATIONS.len()).unwrap() => {}
             Err(other) => panic!("{other:?}"),
             Ok(_) => panic!("an older binary must not open a newer file"),
         }

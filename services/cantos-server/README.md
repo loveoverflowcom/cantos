@@ -5,8 +5,10 @@
 > actors, Identity sessions, development sessions and the CMP business API closure (catalog
 > revisions, production briefs, the external-audio release chain and the Listener Library:
 > appended versions 12–15, see the [slice record](../../docs/architecture/server-turso/cmp-business-api.md)).
+> [Editorial and Ingestion](../../docs/architecture/server-turso/editorial-ingestion.md) append
+> version 16 for Script IR save/read/history/review and private manuscript import/source APIs.
 > Theatre discovery, manifests, playback authorization, origin media and the Library are served from
-> it. Every other business adapter (Studio, Editorial, Adaptation, Production, publication writes,
+> it. Remaining business write adapters (Catalog, Adaptation, Production, publication writes,
 > artwork) still contains PostgreSQL SQL and will fail against the missing tables; their former
 > integration tests are retained outside Cargo discovery in `legacy-pg-tests/`. The capability descriptions and PG
 > operating instructions below describe the pre-port baseline, not working native acceptance.

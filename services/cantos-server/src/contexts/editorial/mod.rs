@@ -7,7 +7,7 @@ mod application;
 pub(crate) mod document;
 pub mod domain;
 mod facts;
-mod postgres;
+mod turso;
 
 pub(crate) use application::{append_revision, authorize};
 pub use domain::{
@@ -15,7 +15,8 @@ pub use domain::{
     PriorOperation, ReviewDecision, SaveDecision,
 };
 pub(crate) use facts::{ReviewFacts, RevisionFacts, RevisionHistory, RevisionOperation};
-pub(crate) use postgres::{
+pub(crate) use turso::{
     ensure_evidence, evidence_exists, find_revision, load_revision, owned_revision,
     register_evidence, reviewed_by_active_owner, rights_cited_by_script, script_exists,
+    source_cited_by_script,
 };

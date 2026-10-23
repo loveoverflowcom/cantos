@@ -13,8 +13,10 @@ port or acceptance record. `Store` and all binaries use the embedded owner. Actu
 actors, native Identity sessions, development sessions and the
 [CMP business API closure](server-turso/cmp-business-api.md) (appended versions 12–15: catalog
 revisions, production briefs, the external-audio release chain with its listener index, and the
-Listener Library); registered context slices 4–11 still contain comments, not business tables.
-Context adapters outside that closure still execute PostgreSQL-specific queries through the
+Listener Library), plus [Editorial/Ingestion](server-turso/editorial-ingestion.md) (version 16:
+Script IR revisions, evidence, reviews and source/import receipts). Registered context slices
+4–11 still contain comments, not business tables.
+Context adapters outside these ports still execute PostgreSQL-specific queries through the
 statement facade. Successful compilation or an empty migration does not make those operations work.
 
 - Source retirement is partial: provider auth and PG drivers are removed from the Server build,
@@ -42,7 +44,7 @@ No queue ordering change is needed: context porting remains the next dependency.
 | Piece | Where | Notes |
 |---|---|---|
 | shared owner, registry, serialized writer, readers, clock, backup | `packages/store-turso` | exact pin `turso =0.8.3`; read `README.md`, `docs/evidence/turso-capability-report.md` (48 probes: what works, what needs a substitute) |
-| Server registry | `services/cantos-server/src/platform/turso/mod.rs` (`MIGRATIONS`, DDL in sibling `*.sql`) | append ONE migration per context at your assigned version; never edit an applied version (versions 1 actors, 2 identity sessions, 3 development sessions exist) |
+| Server registry | `services/cantos-server/src/platform/turso/mod.rs` (`MIGRATIONS`, DDL in sibling `*.sql`) | append at the next free version after the fetched registry; never edit a registered version, including the placeholders (1–3 foundation, 12–15 CMP closure, 16 Editorial/Ingestion) |
 | statement facade | `src/platform/store/sql.rs` (+ `mod.rs`) | `Conn` (from `store.connection()`), `Tx` (`conn.transaction()` = write unit; `conn.read()` = pinned read snapshot), PG-shaped `query/query_opt/query_one/execute/commit/rollback`, `Row::try_get/get` with checked column types, `Param` impls (`&str`, `String`, `i64/i32/..`, `bool`, `Vec<u8>/&[u8]`, `Option<T>`, `Vec<String>`/`Vec<i64>` as a JSON array for `json_each`), `tx.now_micros()` / `tx.now_seconds()` (trusted clock, SQL never reads the wall clock), typed `Error` (`guard()`, `constraint()`, `is_integrity_violation()`, `outcome_unknown()`) |
 | admission in the business unit | `platform::store::authenticate(&tx, token)` | Studio `ci1_` Identity cookie or development token, re-admitted in the SAME unit as the write |
 | file-backed test fixture | `src/test_support.rs` (`ServerFixture`) | `new()`, `store()`, `restart()`, `exec`, `rows`, `count`, `seed_actors`, `seed_development_session`, `studio_caller`; enabled for tests by the package's self dev-dependency |
@@ -183,9 +185,12 @@ never `unwrap_or_default` a column. `i32/i16/u32` decode through checked narrowi
 
 ## 5. Ownership, version numbers, branches
 
-Migration versions (registry order = FK dependency order): 4 editorial+ingestion, 5 catalog, 6 admin,
+The original allocation was: 4 editorial+ingestion, 5 catalog, 6 admin,
 7 adaptation, 8 production, 9 media artwork/images, 10 media audio (intake, lifecycle, publication, release views),
-11 listening. Only add your own version. Touch only your context's files plus the small shared places
+11 listening. Those versions are now immutable registered placeholders. Versions 12–16 append
+the implemented ports above; new work selects the next free version at its fetched HEAD in FK
+dependency order. Never fill a placeholder or reuse another port's version. Touch only your
+context's files plus the small shared places
 named in your brief; for the shared places keep edits minimal/additive (e.g. one line in `MIGRATIONS`,
 one `mod` line in `platform/turso/mod.rs` for your schema test module). If you need a facade change
 (`platform/store/sql.rs`), keep it additive and mention it in your report.
