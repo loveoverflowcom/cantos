@@ -454,11 +454,17 @@ declarations become evidence only after the supported command executes and captu
 
 ### Live enrollment integration (#296)
 
-The separately selected live Desktop Preview mounts Identity v1 through the same
+The separately selected live Desktop Preview mounts Identity v1 and the durable Library through the same
 `CantosTheatreApp`, `TheatreShell`, `RegistrationController`, `NativeAccountController`, checked
-origin and client/journal protocol as the native hosts. It uses real HTTP by default,
-with transient RAM credentials/barrier and no browser callback, issuer, mocked fallback, native
-audio decoder or durable Library. Missing capabilities remain explained.
+origin and client/journal protocol as the native hosts. `LiveEnrollmentOwners` builds the composition
+the Android and iOS hosts build, only with different platform ports:
+`NativeAccountController` → `NativeAuthorizedHttpPort` → `NativeLibraryClient` →
+`nativeLibraryController` → `NativeSessionRuntime` → `TheatreShell`, with the account-scoped
+`AccountCatalogCache` over the same store. It uses real HTTP (`PreviewNativeHttp`: exact origin, bounded body, no
+redirect, no ambient cookie, cancellable), transient RAM credentials/barrier, an **in-memory SQLDelight
+store** (neither disk persistence nor process-death evidence), no browser callback, issuer, mocked
+fallback or native audio decoder: playback requests fail as unavailable instead of simulating audio.
+Missing capabilities remain explained.
 
 ```sh
 CANTOS_THEATRE_PREVIEW_API_ORIGIN=https://api.local.example \
@@ -472,6 +478,31 @@ cleartext origin is refused. Use an already owned isolated service fixture; the 
 no API, database, certificates or mail.
 Do not submit signup to a real-mail environment without separate recipient/operator authority.
 Web proof/password completion remains an unaccepted dependency described above.
+
+Escape is the shell's own Back in the offline window. It is installed on the window
+(`Window(onKeyEvent = PreviewBackKeys::onKeyEvent)`), not on a composable: a window with no focused control
+holds focus at the scene root, which never visits a descendant's key handler, so a handler inside the content
+stopped working after pointer-only navigation. The window's `onKeyEvent` only sees keys the content did not
+consume, so a focused control or dialog that handles Escape keeps it. The live window has no Escape binding.
+
+The live window has no desktop connectivity or foreground signal (`NativeSessionRuntime.networkRestored()` and
+`foregrounded()` are not called), so an exhausted retry episode there resumes only on the next Library action;
+Android and iOS register those signals.
+
+Evidence, kept separate by layer (record: [CMP Desktop Preview live acceptance](../../../docs/evidence/cmp-desktop-live-acceptance.md)):
+
+- `LiveLibraryPreviewTest`, `LiveDesktopUiTest`, `LivePreviewOriginTest` (`:preview-sandbox:desktopTest`): the live composition over a
+  **loopback protocol fixture** (stamped Identity v1 and Library routes, injected 401/503/lost response/oversized
+  body, a held response across logout). Mocked server evidence for the preview's wiring and transport, run by
+  `theatre-preview verify`.
+- `DesktopAcceptanceJourneyTest`: product controls driven by semantics only, no screenshot or window.
+- `DesktopWindowEscapeTest` (explicit: `CANTOS_PREVIEW_WINDOW_TESTS=1`, skipped headless): a short-lived real AWT
+  `ComposeWindow` with static content, proving that Escape reaches `Window.onKeyEvent` with nothing focused and
+  that a focused control that handles it keeps precedence. An AWT event, not an OS keystroke.
+- `cmp_live_desktop_preview_against_real_identity_and_http` (explicit, `--ignored`): `LiveEnrollmentOwners` in
+  `LiveDesktopPreviewRealServerTest` over the real Server, the real public catalog and the real Identity
+  process; the harness then reads the Server rows. Not part of any gate; needs Gradle/JDK and the built `cantos-identity`.
+  No window is driven and audio stays unavailable.
 
 Static captures use offline ports and never initiate network or mail. V1 controller/form/host
 fixtures test email-only signup, explicit login, generic failures, duplicate submit, Back and
