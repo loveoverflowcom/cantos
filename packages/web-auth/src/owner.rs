@@ -276,8 +276,12 @@ impl<P: Port> Client<P> {
     /// signal proves nothing about who the cookie now names: it only withdraws this document's
     /// authority, fences every lease and lets the views re-read the session from the API.
     pub fn external_change(&self) {
-        let ticket = self.0.lifecycle.borrow().ticket();
-        if self.forget(ticket).unwrap_or(false) {
+        // Even a guest may have a session read or login in flight. Fence that answer before
+        // notifying views, and wake guests too: a peer may just have logged in. Do not queue
+        // a revoke, since the ambient cookie belongs to the peer's current intent.
+        let invalidated = self.0.lifecycle.borrow_mut().invalidate().is_ok();
+        if invalidated {
+            self.0.renew.detach();
             self.0.port.lost(self.0.surface);
         }
     }

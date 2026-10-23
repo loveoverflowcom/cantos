@@ -158,10 +158,10 @@ async fn cors(State(policy): State<BrowserCors>, request: Request, next: Next) -
     );
     let exposed = match policy.surface {
         Surface::Studio => {
-            "x-cantos-studio-session, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
+            "x-cantos-studio-session, retry-after, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
         }
         Surface::Theatre => {
-            "x-cantos-theatre-session, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
+            "x-cantos-theatre-session, retry-after, etag, content-range, accept-ranges, content-length, cantos-provider-revocation"
         }
         Surface::Admin => "",
     };

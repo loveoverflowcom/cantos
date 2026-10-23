@@ -135,12 +135,14 @@ WASM lint: `cargo clippy -p cantos-web-auth --target wasm32-unknown-unknown --al
 -D warnings`. Ordinary gates are `cargo xtask verify rust`, `cargo xtask verify web`, then
 final-diff preflight.
 
-**Not verified** (`NOT_RUN`): `browser.rs` is compiled and linted for `wasm32` but has no
-browser execution: the Web Lock, `BroadcastChannel`, `fetch` deadline and view event are
-untested in a real browser. No browser, real Identity/Server, cross-site cookie, CORS/CSRF
-header, Studio roster, renewal-over-time or **multi-tab cookie-jar** acceptance exists, so the
-ordering above is design plus host-tested sequencing, not observed browser behavior. The former
-mocked-issuer `verify web-bearer` fixture served only the removed provider flow and was retired;
-it is not replaced by a mock that would pretend the real cookie wire works. Real acceptance needs
-the native Server + Identity pair and an installed browser (`wasm-bindgen-test` and a webdriver
-are not part of this repository).
+The [Mac native browser record](../../docs/evidence/web-identity-browser-mac.md) qualifies named
+Chromium journeys against real local Server/Identity files, including cookie retention, reload,
+peer login/logout and delayed account-switch responses. Peer cookie signals fence pending guest
+reads as well as admitted leases; Theatre supersedes its pending UI observation and re-reads the
+Server before displaying an account. The signal itself supplies no authority or cleanup target.
+
+That scoped HTTP development evidence does not qualify trusted HTTPS/Secure cookies, production
+origins, authorized Studio roster journeys or other browser engines. See the record's separate
+results and deferred checks. The removed mocked-issuer `verify web-bearer` lane remains retired;
+no mock replaces the native cookie wire. The one-off installed browser driver is not a registered
+repository/CI browser gate.

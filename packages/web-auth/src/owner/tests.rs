@@ -507,9 +507,33 @@ fn logout_cleanup_is_pinned_to_its_session_and_other_tabs_are_signalled_once_cle
 }
 
 #[test]
+fn a_peer_cookie_change_notifies_a_guest_without_adopting_authority() {
+    let world = World::new();
+    world.client.external_change();
+    assert_eq!(world.script.lost.get(), 1);
+    assert!(!world.client.has_session());
+    assert_eq!(world.count(), 0, "only a later API read may authenticate");
+    assert_eq!(world.script.announced.get(), 0, "no broadcast echo");
+}
+
+#[test]
+fn a_peer_cookie_change_fences_a_pending_guest_session_read() {
+    let world = World::new();
+    let client = world.client.clone();
+    let mut old = start(async move { client.read_session().await });
+    assert!(step(&mut old).is_pending());
+    world.client.external_change();
+    world.complete(0, Ok(session_reply(A1, 600)));
+    assert_eq!(done(&mut old), Err(Failure::Changed));
+    assert!(!world.client.has_session());
+    world.adopt(B2, 700);
+    assert_eq!(world.client.session().unwrap().session, B2);
+    assert_eq!(world.count(), 2);
+}
+
+#[test]
 fn a_signal_from_another_tab_withdraws_authority_without_proving_anything() {
     let world = World::new();
-    world.external_change_with_no_session();
     world.adopt(A1, 600);
     let client = world.client.clone();
     let mut access = start(async move { client.access(Some(A1)).await });
@@ -520,12 +544,6 @@ fn a_signal_from_another_tab_withdraws_authority_without_proving_anything() {
     assert_eq!(lease.check(), Err(Failure::Changed));
     // Nothing was sent: the views re-read through the authoritative path.
     assert_eq!(world.count(), 1);
-}
-impl World {
-    fn external_change_with_no_session(&self) {
-        self.client.external_change();
-        assert_eq!(self.script.lost.get(), 0);
-    }
 }
 
 #[test]

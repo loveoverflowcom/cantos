@@ -184,11 +184,16 @@ impl AccountViewState {
         self.cleanup_in_flight = false;
     }
     pub fn begin_refresh(&mut self) -> Result<AccountGeneration, AccountError> {
-        if self.account.logout_pending() {
-            return Err(AccountError::LogoutPending);
-        }
         if self.phase == SessionPhase::Checking {
             return Err(AccountError::RequestPending);
+        }
+        self.begin_cookie_observation()
+    }
+    /// A peer cookie change supersedes even an in-flight lookup. A signal grants no account:
+    /// clear private state and require a new server observation, preserving our own logout.
+    pub fn begin_cookie_observation(&mut self) -> Result<AccountGeneration, AccountError> {
+        if self.account.logout_pending() {
+            return Err(AccountError::LogoutPending);
         }
         if let Err(error) = self.account.leave() {
             if error == AccountError::Exhausted {
@@ -987,6 +992,36 @@ mod tests {
         assert!(s.finish_logout(retry, Ok(())));
         assert!(s.can_authenticate());
     }
+    #[test]
+    fn a_peer_cookie_observation_supersedes_a_pending_lookup_without_adopting_its_account() {
+        let mut s = AccountViewState::default();
+        let old = s.begin_refresh().unwrap();
+        let current = s.begin_cookie_observation().unwrap();
+        assert_ne!(old, current);
+        assert_eq!(s.phase(), SessionPhase::Checking);
+        assert!(s.actor().is_none());
+        assert!(s.library().is_none());
+        assert_eq!(
+            s.finish_session(old, Ok(scope("a", 1)), || uuid::Uuid::from_u128(100)
+                .to_string()),
+            Ok(SessionCompletion::Ignored)
+        );
+        assert_eq!(s.phase(), SessionPhase::Checking);
+        assert!(matches!(
+            s.finish_session(current, Ok(scope("b", 2)), || uuid::Uuid::from_u128(101)
+                .to_string()),
+            Ok(SessionCompletion::Authenticated(_))
+        ));
+        assert_eq!(s.actor(), Some("b"));
+        // A peer signal cannot cancel or reopen our own outstanding logout.
+        let cleanup = s.begin_logout().unwrap();
+        assert_eq!(
+            s.begin_cookie_observation(),
+            Err(AccountError::LogoutPending)
+        );
+        assert!(s.finish_logout(cleanup, Ok(())));
+    }
+
     #[test]
     fn duplicate_session_refresh_is_blocked_but_new_refresh_fences_pending_library_pages() {
         let mut s = AccountViewState::default();

@@ -548,9 +548,10 @@ existing behaviour.)
 **Verification boundary.** Host tests cover the proof parser and scrub predicate, explicit
 confirmation, same-request retry and fencing, the status projection, the per-class credential
 policy (including source guards against a Bearer header or a cookie on the anonymous adapters) and
-render compositions in both locales. No browser, backend or end-to-end run exists (`NOT_RUN`):
-cookie retention across the real origins, renewal timing, two-tab account switches, IME entry and
-the mail-link journey are unverified. The removed OIDC popup, PKCE callback, `ca1_`/`cr1_` handling,
+render compositions in both locales. The [native Mac browser record](../../../docs/evidence/web-identity-browser-mac.md)
+adds named Chromium journeys through the real local Server/Identity cookie path, including reload,
+peer login/logout and a delayed A response after B login. It retains separate HTTPS, Studio roster,
+other-engine, IME and mail-link UI gaps. The removed OIDC popup, PKCE callback, `ca1_`/`cr1_` handling,
 registration capability read and Firebase/idm setup flow have no fallback.
 
 The account view uses Vietnamese/English resources and distinguishes pending, guest, authenticated,
@@ -568,8 +569,10 @@ the session-correlated response header are checked before any private projection
 Account/session generation fences both success and failure; switching accounts never relabels an
 old intent. Session checks repeat on window focus and once per minute while an authenticated page
 is visible; request batches have a 15 second deadline and refresh refuses duplicate pending reads.
-The timer/listener are removed on unmount. These implemented paths still require actual browser,
-provider/device and production acceptance; source/fixture tests alone do not establish them.
+The timer/listener are removed on unmount. A peer cookie change supersedes a pending session lookup,
+clears private state and confirms the current account with the Server after pending cleanup settles;
+it cannot cancel our own outstanding logout. Browser evidence is scoped by the record above;
+device and production acceptance remain separate.
 
 Open `?mode=mock` explicitly for the existing isolated UI preview. An unknown mode never falls
 back to mock success. No Studio session, producer token, private submission or draft is available
