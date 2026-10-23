@@ -7,7 +7,8 @@
 //! executed here before anything serves. `app` starts only Web: Studio requires an existing
 //! API; Theatre warns when its catalog dependency is unavailable so explicit offline previews
 //! remain usable.
-//! Neither command provisions a database server, container, object storage or any provider.
+//! Theatre `run --web` also owns an isolated installed Auth Emulator. Native proof bridging
+//! remains unimplemented; no cloud resource, database server, container or object store is provisioned.
 
 use std::{io::IsTerminal, net::SocketAddr, process::ExitCode, time::Duration};
 
@@ -15,6 +16,7 @@ use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
 
 use crate::{
+    auth_emulator,
     build::{self, app_surface, Profile, Refusal, Surface},
     command::{CommandSpec, Runner},
     config::{loopback, App, API_PORT, API_SERVER_BIN, IDENTITY_BIN},
@@ -84,6 +86,8 @@ pub struct Service {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaunchPlan {
+    /// Theatre's local external verification boundary; native proof bridging remains pending.
+    pub firebase_auth_emulator: bool,
     pub requirements: Vec<Requirement>,
     /// The development data directories xtask creates (0700) before anything runs.
     pub composition: Option<Layout>,
@@ -132,7 +136,8 @@ pub fn native_prepare(workspace: &Workspace, layout: &Layout, profile: Profile) 
                 profile.label()
             ),
             &[Tool::Cargo],
-            vec![build::identity_binary(workspace, profile)],
+            vec![build::identity_binary(workspace, profile)
+                .args(["--features", "local-development"])],
         ),
         Step::new(
             "migrate server.db (cantos-migrate)",
@@ -155,10 +160,12 @@ fn native_services(
     profile: Profile,
     web_origin: Option<&str>,
 ) -> Result<Vec<Service>, Refusal> {
-    let signup_link = std::env::var("CANTOS_IDENTITY_SIGNUP_LINK_BASE").ok();
+    let signup_link = format!("{}/", App::Theatre.web_origin());
     let identity = Service {
         name: IDENTITY_BIN.into(),
-        command: native_dev::identity_serve(workspace, layout, profile, signup_link.as_deref()),
+        command: native_dev::identity_serve(workspace, layout, profile, Some(&signup_link))
+            .env("CANTOS_IDENTITY_LOCAL_DEVELOPMENT", "1")
+            .env("CANTOS_IDENTITY_MAIL_PROVIDER", "disabled"),
         tools: Vec::new(),
         endpoint: Endpoint::Unix(layout.socket.clone()),
         readiness: Readiness::Tcp,
@@ -238,6 +245,7 @@ pub fn plan_run(
             let profile = check_flags(options, true, false)?;
             let layout = Layout::for_current_user(workspace)?;
             Ok(LaunchPlan {
+                firebase_auth_emulator: false,
                 requirements: Vec::new(),
                 prepare: native_prepare(workspace, &layout, profile),
                 services: native_services(
@@ -287,6 +295,7 @@ fn run_web(
     }
     services.push(frontend);
     Ok(LaunchPlan {
+        firebase_auth_emulator: app == App::Theatre,
         requirements: Vec::new(),
         prepare: native_prepare(workspace, &layout, profile),
         composition: Some(layout),
@@ -306,6 +315,7 @@ pub fn plan_app(
             let profile = check_flags(options, false, true)?;
             let origin = App::Studio.web_origin();
             Ok(LaunchPlan {
+                firebase_auth_emulator: false,
                 requirements: vec![Requirement::Listening {
                     name: API_SERVER_BIN,
                     addr: api_addr(),
@@ -328,6 +338,7 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
     app_surface(App::Theatre, options.surface)?;
     let profile = check_flags(options, false, true)?;
     Ok(LaunchPlan {
+        firebase_auth_emulator: false,
         requirements: vec![Requirement::TheatreApi {
             addr: api_addr(),
             hint: "start `cargo xtask run cantos-server`, or use \
@@ -423,6 +434,16 @@ pub fn launch(
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
+    // All native local runs refuse ambient cloud/mail configuration, including Server-only.
+    if plan.composition.is_some() {
+        auth_emulator::reject_inherited_configuration(
+            std::env::vars_os().filter_map(|(name, _)| name.into_string().ok()),
+        )?;
+    }
+    let installed_emulator = plan
+        .firebase_auth_emulator
+        .then(auth_emulator::Installed::inspect)
+        .transpose()?;
     check_preconditions(plan, tools)?;
     if let Some(layout) = &plan.composition {
         native_dev::ensure_private_directories(layout)?;
@@ -442,7 +463,20 @@ pub fn launch(
         }
     }
 
+    // The run directory must drop after the supervisor, including on an early error.
+    let mut emulator_run = None;
     let mut supervisor = Supervisor::new()?;
+    if let Some(installed) = installed_emulator {
+        emulator_run = Some(auth_emulator::Run::start(
+            workspace,
+            &installed,
+            &mut supervisor,
+        )?);
+    }
+    if let Some(emulator) = &emulator_run {
+        println!("Firebase Auth Emulator {version}: loopback {address}, project {project}.\n  Local developer action inventory: http://{address}/emulator/v1/projects/{project}/oobCodes\n  Native Firebase proof bridge is NOT_IMPLEMENTED; signup stays unavailable; no email is sent.",
+            version = auth_emulator::VERSION, address = emulator.address, project = emulator.project);
+    }
     for service in &plan.services {
         let free = match &service.endpoint {
             Endpoint::Tcp(addr) => probe::port_is_free(*addr),
@@ -506,7 +540,7 @@ pub fn launch(
 
 fn readiness_hint(service: &Service) -> &'static str {
     if matches!(service.endpoint, Endpoint::Unix(_)) {
-        return "Identity startup failed: check its output, that `cantos-identity migrate` succeeded, and that no other process owns identity.db. No identity provider is used; no mail relay is configured unless CANTOS_IDENTITY_SMTP_* is exported.";
+        return "Identity startup failed: check its output, that `cantos-identity migrate` succeeded, and that no other process owns identity.db. Local mail is disabled until the Firebase/native proof bridge exists; inherited production mail configuration is refused.";
     }
     match service.readiness {
         Readiness::TheatreCatalog => "Theatre Server startup failed: check the Server output, that `cantos-migrate` succeeded, and that no other process (an operator command, an old Server) owns server.db. No database server or identity provider is provisioned; no mock fallback is selected.",
@@ -594,7 +628,7 @@ mod tests {
             [
                 "cargo build --locked -p cantos-server --bin cantos-server".to_owned(),
                 "cargo build --locked -p cantos-server --bin cantos-migrate".to_owned(),
-                "cargo build --locked -p cantos-identity --features service --bin cantos-identity"
+                "cargo build --locked -p cantos-identity --features service --bin cantos-identity --features local-development"
                     .to_owned(),
                 format!(
                     "CANTOS_SERVER_DATABASE={} target/debug/cantos-migrate",
@@ -653,6 +687,44 @@ mod tests {
             env_of(identity, "CANTOS_IDENTITY_SERVER_UIDS")
         );
         assert_eq!(plan.open, None);
+    }
+
+    #[test]
+    fn theatre_selects_local_emulator_and_disables_delivery_at_the_actual_theatre_origin() {
+        let plan = plan_run(
+            &workspace(),
+            RunTarget::CantosTheatre,
+            &web(LaunchOptions::default()),
+        )
+        .unwrap();
+        assert!(plan.firebase_auth_emulator);
+        let identity = plan
+            .services
+            .iter()
+            .find(|service| service.name == IDENTITY_BIN)
+            .unwrap();
+        assert_eq!(
+            env_of(identity, "CANTOS_IDENTITY_MAIL_PROVIDER").as_deref(),
+            Some("disabled")
+        );
+        assert_eq!(
+            env_of(identity, "CANTOS_IDENTITY_LOCAL_DEVELOPMENT").as_deref(),
+            Some("1")
+        );
+        assert_eq!(
+            env_of(identity, "CANTOS_IDENTITY_SIGNUP_LINK_BASE"),
+            Some(format!("{}/", App::Theatre.web_origin()))
+        );
+        let app = plan_app(
+            &workspace(),
+            AppTarget::CantosTheatre,
+            &web(LaunchOptions::default()),
+        )
+        .unwrap();
+        assert!(
+            !app.firebase_auth_emulator,
+            "frontend-only attachment owns no infrastructure"
+        );
     }
 
     #[test]
@@ -934,6 +1006,7 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         drop(listener);
         let plan = LaunchPlan {
+            firebase_auth_emulator: false,
             requirements: vec![Requirement::TheatreApi {
                 addr,
                 hint: "start the Server explicitly".into(),

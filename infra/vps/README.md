@@ -7,6 +7,13 @@ slice; publishers and the native host consumer remain pending. The assets below 
 legacy runtime/recovery owners, not an implementation of the native target or host inventory.
 Do not activate refactor HEAD, retire PG/Kanidm or change runtime principal from source evidence.
 
+The [Firebase verification amendment](../../docs/architecture/firebase-verification.md#production-images-and-vps)
+is preparation only: the native production adapter is NOT_IMPLEMENTED and provider selection
+fails closed. Future activation must bind project/credentials/HTTPS actions explicitly through
+operator-owned Podman secrets/read-only runtime files. Never add credentials to the image,
+Actions or this directory's nonsecret templates. Retained legacy Quadlets are not a native
+Identity activation mechanism; no runtime or secret configuration is changed by this PR.
+
 Tracked, nonsecret VPS runtime assets. [ADR 0039](../../docs/decisions/0039-vps-production-runtime.md)
 retains the runtime foundation; [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md)
 selects direct Hosting. Explicit per-surface origins/callbacks are validated by the host script;

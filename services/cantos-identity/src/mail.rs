@@ -102,6 +102,34 @@ fn hex(bytes: &[u8]) -> String {
 pub struct SignupLinkBase(String);
 
 impl SignupLinkBase {
+    /// A separate development constructor; ordinary/production parsing remains HTTPS-only.
+    /// This does not configure a transport or make a mailbox proof valid.
+    #[cfg(feature = "local-development")]
+    pub fn parse_development(text: &str) -> Result<Self, MailConfigError> {
+        if text.starts_with("https://") {
+            return Self::parse(text);
+        }
+        let after = text
+            .strip_prefix("http://")
+            .ok_or(MailConfigError::Invalid)?;
+        let authority = after.split('/').next().unwrap_or_default();
+        let loopback = authority
+            .parse::<std::net::SocketAddr>()
+            .is_ok_and(|address| address.ip().is_loopback() && address.port() != 0)
+            || authority.strip_prefix("localhost:").is_some_and(|port| {
+                port.parse::<u16>().is_ok_and(|port| port != 0)
+                    && port.bytes().all(|byte| byte.is_ascii_digit())
+            });
+        if !loopback
+            || text.len() > 512
+            || !text.bytes().all(|b| b.is_ascii_graphic())
+            || text.contains(['?', '#', '@', '\\'])
+        {
+            return Err(MailConfigError::Invalid);
+        }
+        Ok(Self(text.to_owned()))
+    }
+
     pub fn parse(text: &str) -> Result<Self, MailConfigError> {
         let after = text
             .strip_prefix("https://")
@@ -128,8 +156,6 @@ impl SignupLinkBase {
         }
     }
 
-    // ACCEPTANCE-PENDING(#335): no front end implements this link; the page that reads the
-    // fragment and sends the explicit confirmation through the Server does not exist yet.
     /// The secret rides in the URL fragment so a GET, prefetch or link scanner never sends it
     /// to any server: only the page's own script reads it and POSTs it on explicit action.
     pub fn link(&self, operation: OperationId, proof: ProofId, secret: &ProofSecret) -> String {
@@ -438,6 +464,38 @@ impl Mailer for SmtpMailer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(feature = "local-development")]
+    fn development_http_is_limited_to_loopback_with_an_explicit_nonzero_port() {
+        for link in [
+            "http://127.0.0.1:8082/",
+            "http://localhost:8082/",
+            "http://[::1]:8082/",
+        ] {
+            assert!(SignupLinkBase::parse_development(link).is_ok());
+            assert_eq!(
+                SignupLinkBase::parse(link).unwrap_err(),
+                MailConfigError::Invalid
+            );
+        }
+        for link in [
+            "http://example.test:8082/",
+            "http://127.0.0.1.example.test:8082/",
+            "http://localhost:0/",
+            "http://localhost/",
+            "http://user@localhost:8082/",
+            "http://127.0.0.1:8082/?continue=elsewhere",
+            "http://127.0.0.1:8082/#secret=x",
+            "http://127.0.0.1:8082/\\evil.test",
+            "http://[::]:8082/",
+        ] {
+            assert_eq!(
+                SignupLinkBase::parse_development(link).unwrap_err(),
+                MailConfigError::Invalid
+            );
+        }
+    }
 
     fn config(host: &str, tls: SmtpTls) -> Result<SmtpConfig, MailConfigError> {
         SmtpConfig::new(

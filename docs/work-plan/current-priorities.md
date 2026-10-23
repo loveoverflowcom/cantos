@@ -20,6 +20,12 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
 
 ## Independent product work
 
+- The owner-selected [Firebase verification bridge](../architecture/firebase-verification.md)
+  precedes Firebase-backed local/native signup acceptance: decide provider UID/resend lifecycle,
+  durable action consumption and lost-response reconciliation, then extend Identity's owned
+  proof/RPC contract. Emulator/config preparation alone does not close #242/#334/#335. This is
+  verification-only; provider login, PG and Kanidm remain retired.
+
 - [#203](https://github.com/loveoverflowcom/cantos/issues/203): trusted Forge invocation and
   provider/Drive/Functions execution; reuse the finite worker and attempt/recovery cores.
 - [#170](https://github.com/loveoverflowcom/cantos/issues/170), [#120](https://github.com/loveoverflowcom/cantos/issues/120):

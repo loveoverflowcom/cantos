@@ -23,6 +23,10 @@ and [Identity v1](cantos-server/contracts/auth/identity-auth/v1/README.md).
 ## Runtime policy
 
 `cargo xtask run` owns the two foreground native processes, private development files and socket.
+Theatre Web `run` also supervises a disposable local Auth Emulator under the
+[verification-provider amendment](../docs/architecture/firebase-verification.md); its native
+proof bridge remains unimplemented and local mail stays disabled. This fixture is not a
+production service or a mandatory native-test dependency.
 Migrations are explicit; serve refuses missing/unmigrated files. `services list|validate` inspects
 the inventory. Container lifecycle, Kanidm and PostgreSQL verification commands are retired
 refusals, not setup instructions. Native dev/E2E/Kani has no Podman dependency.

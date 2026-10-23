@@ -9,6 +9,8 @@ description = "Cantos native Identity: security-state kernels, credentials and t
 [features]
 # Opt-in service-owned persistence; the default/Kani core has no database dependency.
 persistence = ["dep:cantos-store-turso", "dep:getrandom", "dep:sha2", "dep:subtle", "dep:zeroize"]
+# Explicit xtask development composition only. OCI builds select `service` without this.
+local-development = ["service"]
 # Credentials, mail, private RPC and the `cantos-identity` executable. Never part of the default
 # pure core, so Kani and `cargo test -p cantos-identity` keep their dependency-free build.
 service = [

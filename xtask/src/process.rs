@@ -53,6 +53,16 @@ pub struct Supervisor {
 }
 
 impl Supervisor {
+    /// Adopt a directly spawned child already placed in its own process group. Used after the
+    /// Auth Emulator's bounded private readiness handshake, never for an existing process.
+    pub fn adopt(&mut self, name: &str, child: Child) {
+        self.children.push(Managed {
+            name: name.to_owned(),
+            child,
+            group_stopped: false,
+        });
+    }
+
     /// Installs the stop-signal handlers for the rest of this process's life.
     pub fn new() -> Result<Self> {
         let stop = Arc::new(AtomicBool::new(false));

@@ -245,6 +245,15 @@ AuthenticatePassword   ──►  read record ──► verify (bounded pool, no
 
 ## Executable
 
+The [Firebase verification target and bridge findings](../../docs/architecture/firebase-verification.md)
+supersede provider retirement only for email actions. The native bridge and production adapter
+are NOT_IMPLEMENTED. `CANTOS_IDENTITY_MAIL_PROVIDER=firebase|firebase-emulator` refuses startup
+without reading credentials or falling back. `disabled` rejects mixed SMTP inputs; omitted or
+explicit `smtp` keeps the existing adapter outside local run. SDK emulator overrides are refused.
+xtask local runs select disabled mail and derive the actual Theatre link origin. HTTP loopback
+links need both the explicit `local-development` build feature and
+`CANTOS_IDENTITY_LOCAL_DEVELOPMENT=1`; ordinary `service`/OCI builds reject that flag.
+
 `cantos-identity migrate` creates or upgrades `identity.db` and exits; `cantos-identity serve` never
 creates or migrates a database and refuses a missing, foreign, corrupt or older-schema file without
 touching it. Configuration is entirely environment variables, each required value explicit:
