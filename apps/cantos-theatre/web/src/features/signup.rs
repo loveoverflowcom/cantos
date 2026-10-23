@@ -12,7 +12,7 @@ use crate::{
 };
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, Checkbox, ChoiceState, DisabledReason, FieldState,
-    IconName, TextField, TextFieldKind, TextFieldVariant,
+    IconName, StatusTone, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -66,6 +66,28 @@ fn status_key(state: &SignupState, now_ms: u64) -> CopyKey {
         CopyKey::SignupRequestRateLimited
     } else {
         phase_key(state.phase())
+    }
+}
+
+fn status_tone(state: &SignupState, now_ms: u64) -> StatusTone {
+    if state.submit_wait_seconds(now_ms).is_some() {
+        return StatusTone::Warning;
+    }
+    match state.phase() {
+        SignupPhase::Editing | SignupPhase::AwaitingConfirmation => StatusTone::Neutral,
+        SignupPhase::Submitting
+        | SignupPhase::Completing
+        | SignupPhase::EmailAccepted
+        | SignupPhase::Completed(_) => StatusTone::Info,
+        SignupPhase::SubmitFailed(
+            SignupFailure::RateLimited(_) | SignupFailure::UnknownOutcome | SignupFailure::Protocol,
+        )
+        | SignupPhase::CompleteRetry(_) => StatusTone::Warning,
+        SignupPhase::SubmitFailed(
+            SignupFailure::InvalidEmail | SignupFailure::Unavailable | SignupFailure::NotConfigured,
+        )
+        | SignupPhase::CompleteRefused(_)
+        | SignupPhase::CaptureFailed => StatusTone::Error,
     }
 }
 
@@ -213,7 +235,7 @@ pub(crate) fn SignupLinkSafety(
         <Show when=move || !blocked.get() fallback=move || view! {
             <section class="theatre-auth-copy" aria-labelledby="theatre-signup-history-heading">
                 <h1 id="theatre-signup-history-heading">{label(locale, CopyKey::RegisterHeading)}</h1>
-                <p id="theatre-signup-history-status" role="alert">{label(locale, CopyKey::SignupHistoryBlocked)}</p>
+                <p id="theatre-signup-history-status" class="theatre-auth-feedback" data-tone="error" role="alert">{label(locale, CopyKey::SignupHistoryBlocked)}</p>
                 <Button id="theatre-signup-clear-link" variant=ButtonVariant::AuthPrimary
                     on_press=Callback::new(move |_| on_retry.run(()))>{label(locale, CopyKey::SignupClearLink)}</Button>
             </section>
@@ -286,9 +308,13 @@ pub(crate) fn SignupPanel(
     };
     view! {
         <div class="theatre-signup" node_ref=panel>
-            <p id="theatre-signup-status" tabindex="-1" role="status" aria-live="polite" aria-atomic="true">
-                {move || auth_copy::text(status_key(&state.get(), clock_ms()), locale.get())}
-            </p>
+            <Show when=move || state.get().phase() != SignupPhase::SubmitFailed(SignupFailure::InvalidEmail)>
+                <p id="theatre-signup-status" class="theatre-auth-feedback"
+                    data-tone=move || status_tone(&state.get(), clock_ms()).as_str()
+                    tabindex="-1" role="status" aria-live="polite" aria-atomic="true">
+                    {move || auth_copy::text(status_key(&state.get(), clock_ms()), locale.get())}
+                </p>
+            </Show>
             <Show when=email_form_visible>
                 <form class="theatre-auth-actions" on:submit=move |event| { event.prevent_default(); on_submit.run(()); }>
                     <TextField id="theatre-signup-email" kind=TextFieldKind::Email variant=TextFieldVariant::AuthTonal
@@ -435,6 +461,78 @@ mod tests {
     use crate::contract::identity_auth::SignupStatus;
 
     const PASSWORD: &str = "correct horse battery";
+
+    #[test]
+    fn signup_feedback_tones_preserve_uncertainty_and_inline_validation() {
+        let mut submitting = SignupState::default();
+        assert_eq!(status_tone(&submitting, 0), StatusTone::Neutral);
+        submitting.set_email("listener@example.invalid".to_owned());
+        let (issued, _) = submitting.begin_submit(0).unwrap();
+        assert_eq!(status_tone(&submitting, 0), StatusTone::Info);
+        let mut accepted = submitting.clone();
+        accepted.finish_submit(issued, Ok(()), 0);
+        assert_eq!(status_tone(&accepted, 0), StatusTone::Info);
+        for (failure, expected) in [
+            (SignupFailure::InvalidEmail, StatusTone::Error),
+            (SignupFailure::Unavailable, StatusTone::Error),
+            (SignupFailure::NotConfigured, StatusTone::Error),
+            (SignupFailure::RateLimited(5), StatusTone::Warning),
+            (SignupFailure::UnknownOutcome, StatusTone::Warning),
+            (SignupFailure::Protocol, StatusTone::Warning),
+        ] {
+            let mut state = submitting.clone();
+            assert!(state.finish_submit(issued, Err(failure), 0));
+            assert_eq!(status_tone(&state, 0), expected, "{failure:?}");
+            for locale in [Locale::Vietnamese, Locale::English] {
+                let html = render(state.clone(), locale);
+                if failure == SignupFailure::InvalidEmail {
+                    assert!(!html.contains("id=\"theatre-signup-status\""));
+                    assert!(html.contains("aria-invalid=\"true\""));
+                    assert_eq!(
+                        html.matches(auth_copy::text(CopyKey::SignupInvalidEmail, locale))
+                            .count(),
+                        1
+                    );
+                } else {
+                    assert!(html.contains(&format!("data-tone=\"{}\"", expected.as_str())));
+                    assert_eq!(html.matches("role=\"status\"").count(), 1);
+                }
+                if matches!(
+                    failure,
+                    SignupFailure::UnknownOutcome | SignupFailure::Protocol
+                ) {
+                    assert!(html.contains(auth_copy::text(CopyKey::SignupRequestUnknown, locale)));
+                }
+            }
+            if matches!(failure, SignupFailure::RateLimited(_)) {
+                state.set_email("another@example.invalid".into());
+                assert_eq!(state.phase(), SignupPhase::Editing);
+                assert_eq!(status_tone(&state, 0), StatusTone::Warning);
+            }
+        }
+        for (failure, expected) in [
+            (CompletionFailure::Invalid, StatusTone::Error),
+            (CompletionFailure::Refused, StatusTone::Error),
+            (CompletionFailure::Forbidden, StatusTone::Error),
+            (CompletionFailure::NotConfigured, StatusTone::Error),
+            (CompletionFailure::Unavailable, StatusTone::Warning),
+            (CompletionFailure::RateLimited(5), StatusTone::Warning),
+            (CompletionFailure::UnknownOutcome, StatusTone::Warning),
+        ] {
+            let (mut state, issued) = completing();
+            state.finish_complete(issued, Err(failure), 0);
+            assert_eq!(status_tone(&state, 0), expected, "{failure:?}");
+            for locale in [Locale::Vietnamese, Locale::English] {
+                let html = render(state.clone(), locale);
+                assert_eq!(html.matches("role=\"status\"").count(), 1);
+                assert!(html.contains(&format!("data-tone=\"{}\"", expected.as_str())));
+                if failure == CompletionFailure::UnknownOutcome {
+                    assert!(html.contains(auth_copy::text(CopyKey::SignupRetryHelp, locale)));
+                    assert_eq!(html.matches("id=\"theatre-signup-retry\"").count(), 1);
+                }
+            }
+        }
+    }
     fn secret() -> String {
         "de".repeat(32)
     }

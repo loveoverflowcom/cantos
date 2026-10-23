@@ -1,7 +1,7 @@
 //! Theatre auth presentation; the shell owns navigation and all identity effects.
 use super::{
     account::account_failure_key,
-    account_ui::{account_ui, AccountUi},
+    account_ui::{account_ui, session_tone, AccountUi},
     auth_copy::{self, CopyKey},
     signup::SignupPanel,
 };
@@ -15,8 +15,8 @@ use crate::{
 };
 use cantos_ui::{
     AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, FieldState,
-    IconName, Logo, LogoTone, LogoVariant, Space, Surface, SurfaceTone, SurfaceVariant, TextField,
-    TextFieldKind, TextFieldVariant,
+    IconName, Logo, LogoTone, LogoVariant, Space, StatusTone, Surface, SurfaceTone, SurfaceVariant,
+    TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -53,6 +53,14 @@ fn status_text(state: &AccountUi, locale: Locale) -> &'static str {
     match (state.phase, state.login_refusal) {
         (SessionPhase::Guest, Some(refusal)) => auth_copy::text(refusal_key(refusal), locale),
         _ => messages::text(blocked_login_key(state), locale),
+    }
+}
+
+fn status_tone(state: &AccountUi) -> StatusTone {
+    if state.phase == SessionPhase::Guest && state.login_refusal.is_some() {
+        StatusTone::Error
+    } else {
+        session_tone(state.phase)
     }
 }
 
@@ -138,12 +146,12 @@ pub(crate) fn SessionRecovery(
 ) -> impl IntoView {
     let ui = account_ui(state);
     view! {
-        <div class="theatre-account-recovery">
+        <>
             <Show when=move || matches!(ui.get().phase, SessionPhase::Failed(_))>
                 <Button id=format!("{scope}-refresh") variant=ButtonVariant::AuthSecondary
                     nostrip:icon=preview_icons.then_some(IconName::Refresh)
                     on_press=Callback::new(move |_| on_refresh.run(()))>
-                    {move || messages::text(Key::AccountRefresh, locale.get())}
+                    {move || messages::text(Key::PublicRetry, locale.get())}
                 </Button>
             </Show>
             <Show when=move || ui.get().can_retry_logout>
@@ -153,7 +161,7 @@ pub(crate) fn SessionRecovery(
                     {move || messages::text(Key::AccountLogoutRetry, locale.get())}
                 </Button>
             </Show>
-        </div>
+        </>
     }
 }
 
@@ -288,13 +296,17 @@ pub(crate) fn AuthPage(
                     <p class="theatre-eyebrow">{label(locale, if is_login { CopyKey::LoginEyebrow } else { CopyKey::RegisterEyebrow })}</p>
                     <h1 id="theatre-auth-heading">{label(locale, heading)}</h1>
                     <p class="theatre-muted">{label(locale, if is_login { CopyKey::LoginHelp } else { CopyKey::RegisterHelp })}</p>
-                    <p id="theatre-auth-status" role="status" aria-live="polite">
-                        {move || status_text(&ui.get(), locale.get())}
-                    </p>
+                    <Show when=move || is_login || ui.get().phase == SessionPhase::LogoutPending>
+                        <p id="theatre-auth-status" class="theatre-auth-feedback"
+                            data-tone=move || status_tone(&ui.get()).as_str()
+                            role="status" aria-live="polite" aria-atomic="true">
+                            {move || status_text(&ui.get(), locale.get())}
+                        </p>
+                    </Show>
                     {if is_login {
                         view! {
                             <Show when=move || account_created.get()>
-                                <p id="theatre-auth-created" role="status">{label(locale, CopyKey::AccountCreatedNotice)}</p>
+                                <p id="theatre-auth-created" class="theatre-auth-feedback" data-tone="info" role="status">{label(locale, CopyKey::AccountCreatedNotice)}</p>
                             </Show>
                             <Show when=move || ui.get().phase != SessionPhase::SignedIn>
                                 <LoginForm state locale availability on_submit=on_login/>
@@ -320,7 +332,9 @@ pub(crate) fn AuthPage(
                                 login_via_back=true preview_icons/>
                         }.into_any()
                     }}
-                    <SessionRecovery state locale scope="theatre-auth" on_refresh on_logout preview_icons/>
+                    <Show when=move || is_login || ui.get().phase == SessionPhase::LogoutPending>
+                        <SessionRecovery state locale scope="theatre-auth" on_refresh on_logout preview_icons/>
+                    </Show>
                 </div>
             </div>
         </section>
@@ -332,6 +346,80 @@ mod tests {
     use super::*;
     use crate::application::account_view::{AccountFailure, SessionCompletion};
     use crate::application::signup::ProofLink;
+
+    #[test]
+    fn failed_session_has_one_read_retry_and_registration_owns_its_feedback() {
+        for language in [Locale::Vietnamese, Locale::English] {
+            let mut failed = guest();
+            let issued = failed.begin_refresh().unwrap();
+            failed
+                .finish_session(issued, Err(AccountFailure::Unavailable), || {
+                    uuid::Uuid::from_u128(100).to_string()
+                })
+                .unwrap();
+            let html = render(
+                AuthRoute::login(ReturnDestination::Account),
+                failed.clone(),
+                language,
+            );
+            assert_eq!(html.matches("id=\"theatre-auth-refresh\"").count(), 1);
+            assert_eq!(
+                native_button_name(&html, "theatre-auth-refresh"),
+                messages::text(Key::PublicRetry, language)
+            );
+            assert!(html.contains("data-tone=\"error\""));
+            assert!(!html.contains("theatre-auth-logout-retry"));
+            for state in [guest(), failed] {
+                let register = render(
+                    AuthRoute::register(ReturnDestination::Account),
+                    state,
+                    language,
+                );
+                assert!(!register.contains("id=\"theatre-auth-status\""));
+                assert!(!register.contains("id=\"theatre-auth-refresh\""));
+                assert_eq!(register.matches("role=\"status\"").count(), 1);
+                assert!(register.contains("id=\"theatre-signup-status\""));
+                assert!(register.contains("data-tone=\"neutral\""));
+            }
+            let mut pending = guest();
+            let issued = pending.begin_logout().unwrap();
+            pending.finish_logout(issued, Err(AccountFailure::Unavailable));
+            for step in [AuthStep::Login, AuthStep::Register] {
+                let html = render(
+                    AuthRoute {
+                        step,
+                        origin: ReturnDestination::Account,
+                    },
+                    pending.clone(),
+                    language,
+                );
+                assert_eq!(html.matches("id=\"theatre-auth-logout-retry\"").count(), 1);
+                assert_eq!(
+                    native_button_name(&html, "theatre-auth-logout-retry"),
+                    messages::text(Key::AccountLogoutRetry, language)
+                );
+                assert!(!html.contains("id=\"theatre-auth-refresh\""));
+                assert!(html.contains("data-tone=\"warning\""));
+            }
+        }
+    }
+
+    #[test]
+    fn login_refusal_is_error_but_an_ordinary_guest_is_neutral() {
+        for (state, expected) in [
+            (guest(), "neutral"),
+            (refused(LoginRefusal::Credentials), "error"),
+            (refused(LoginRefusal::Invalid), "error"),
+        ] {
+            let html = render(
+                AuthRoute::login(ReturnDestination::Home),
+                state,
+                Locale::English,
+            );
+            assert!(html.contains(&format!("data-tone=\"{expected}\"")));
+            assert_eq!(html.matches("role=\"status\"").count(), 1);
+        }
+    }
 
     fn guest() -> AccountViewState {
         let mut state = AccountViewState::default();

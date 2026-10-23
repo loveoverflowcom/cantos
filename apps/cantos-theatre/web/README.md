@@ -75,6 +75,23 @@ request still carries its tag. The design reference was not re-rendered for this
 
 ## Scope and honest behavior
 
+Account has no manual session refresh while Guest or Signed-in. Automatic session checks,
+renewal and cookie/session fences remain with the runtime. A failed session read offers one
+contextual **Thử lại / Try again**; unresolved sign-out retains the separate **Finish signing out**
+action and cleanup barrier. Read recovery never repeats a sign-in or signup mutation.
+
+Auth/account/signup feedback projects typed facts through the shared `StatusTone` vocabulary:
+normal guests are neutral, loading and accepted signup receipts informational, rate limits and
+unknown outcomes warnings, and unavailable services or refused proofs errors. Invalid email
+uses the existing `TextField` field error once. Register owns its signup feedback and shows
+session feedback only for unresolved sign-out. Existing status/focus IDs and one caller-owned
+announcement per feedback region are retained.
+
+These are Web-owned live regions using canonical semantic roles from token version 0.6.0.
+The shared `Status`/`ErrorState` APIs lack both-renderer qualification for new Theatre import
+sites, so this composition does not import them or alter the admission baseline. Their future
+migration needs the existing qualification process; source registration is not runtime approval.
+
 The default entrypoint opens public Home without a login wall. It reads actual published work
 summaries anonymously, independently of session availability. Account opens through the avatar;
 Login and Create account are explicit secondary routes. The two primary destinations remain
