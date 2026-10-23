@@ -4,7 +4,7 @@
 use std::{sync::Arc, time::Duration};
 
 use cantos_store_turso::error::{ConstraintKind, GuardCode, OpenError, StoreFault};
-use cantos_store_turso::registry::{DatabaseKind, Intent, Migration, Refusal, Registry};
+use cantos_store_turso::registry::{Intent, Migration, Refusal, Registry};
 use cantos_store_turso::testing::{FixedClock, TestRun};
 use cantos_store_turso::{OpenRequest, OwnedDatabase, Value};
 
@@ -235,7 +235,7 @@ async fn additive_migration_preserves_v1_subject_epoch_events_and_receipts() {
     let epoch = InstanceEpoch::from_bytes(1_u128.to_be_bytes()).unwrap();
     let db = OwnedDatabase::open(OpenRequest::new(
         run.path("proofs.db"),
-        Registry::new(DatabaseKind::Identity, 1, &V1).unwrap(),
+        Registry::new(super::IDENTITY_APPLICATION_ID, 1, &V1).unwrap(),
         Intent::Migrate,
         clock.clone(),
     ))

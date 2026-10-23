@@ -20,7 +20,8 @@ mapping below retains the actual foundation guarantees and its unaccepted HTTP/r
 ## One registry, one owner
 
 [`platform::turso`](../../services/cantos-server/src/platform/turso/mod.rs) holds the only Server
-registry: `DatabaseKind::Server` (`application_id` `CNTS`), its own epoch 1 and checksummed history.
+registry: service-owned `SERVER_APPLICATION_ID` (`application_id` `CNTS`, `0x434E5453`), its own
+epoch 1 and checksummed history.
 PostgreSQL epochs, SQL and checksums are never replayed. `ServerDatabase::open` is the only way an
 adapter receives the owner, so a file opened with another registry cannot reach one. `Intent::Serve`
 never changes schema and refuses a missing, foreign, diverged, newer or other-epoch file, and a

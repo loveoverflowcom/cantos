@@ -8,13 +8,18 @@ use cantos_store_turso::{
     clock::Clock,
     error::{ConstraintKind, GuardCode, OpenError, StoreFault},
     params_from_iter,
-    registry::{DatabaseKind, Intent, Migration, Refusal, Registry},
+    registry::{Intent, Migration, Refusal, Registry},
     testing::{ledger_registry, FixedClock, TestRun},
     OpenRequest, OwnedDatabase, Value,
 };
 
-use super::{ServerDatabase, ServerDatabaseError, MIGRATIONS, SERVER_EPOCH};
+use super::{ServerDatabase, ServerDatabaseError, MIGRATIONS, SERVER_APPLICATION_ID, SERVER_EPOCH};
 use crate::platform::identity::domain::{ActorId, ExternalIdentityKey};
+
+#[test]
+fn the_service_registry_keeps_the_persisted_server_marker() {
+    assert_eq!(super::registry().unwrap().application_id(), 0x434E_5453);
+}
 
 const T0: i64 = 1_700_000_000_000_000;
 
@@ -55,12 +60,12 @@ async fn replayed_objects(run: &TestRun) -> Vec<Vec<Value>> {
     let path = run.path("replay.db");
     foreign(
         &path,
-        Registry::new(DatabaseKind::Server, SERVER_EPOCH, one).unwrap(),
+        Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, one).unwrap(),
     )
     .await;
     let owner = OwnedDatabase::open(OpenRequest::new(
         &path,
-        Registry::new(DatabaseKind::Server, SERVER_EPOCH, one).unwrap(),
+        Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, one).unwrap(),
         Intent::Serve,
         clock(),
     ))
@@ -166,9 +171,7 @@ async fn a_new_file_holds_the_registry_metadata_and_exactly_the_migrated_schema(
     let database = open(&path, Intent::Serve).await.unwrap();
     assert_eq!(
         values(&database, "PRAGMA application_id").await,
-        [[Value::Integer(i64::from(
-            DatabaseKind::Server.application_id()
-        ))]]
+        [[Value::Integer(i64::from(SERVER_APPLICATION_ID))]]
     );
     assert_eq!(
         values(&database, "PRAGMA user_version").await,
@@ -213,7 +216,7 @@ async fn a_new_file_holds_the_registry_metadata_and_exactly_the_migrated_schema(
 async fn an_actor_registry_file_upgrades_through_every_later_slice_and_keeps_its_rows() {
     let run = TestRun::new("server-schema-upgrade");
     let path = run.path("server.db");
-    let v1 = Registry::new(DatabaseKind::Server, SERVER_EPOCH, &MIGRATIONS[..1]).unwrap();
+    let v1 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..1]).unwrap();
     let old = OwnedDatabase::open(OpenRequest::new(&path, v1, Intent::Migrate, clock()))
         .await
         .unwrap();
@@ -305,19 +308,17 @@ async fn foreign_diverged_newer_other_epoch_and_non_database_files_are_refused_u
     let cases = [
         (
             "identity.db",
-            Registry::new(DatabaseKind::Identity, SERVER_EPOCH, &MIGRATIONS).unwrap(),
-            Refusal::ForeignApplication {
-                found: DatabaseKind::Identity.application_id(),
-            },
+            Registry::new(0x434E_5449, SERVER_EPOCH, &MIGRATIONS).unwrap(),
+            Refusal::ForeignApplication { found: 0x434E_5449 },
         ),
         (
             "fixture.db",
-            ledger_registry(DatabaseKind::Server),
+            ledger_registry(SERVER_APPLICATION_ID),
             Refusal::HistoryDiverged { version: 1 },
         ),
         (
             "epoch.db",
-            Registry::new(DatabaseKind::Server, SERVER_EPOCH + 1, &MIGRATIONS).unwrap(),
+            Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH + 1, &MIGRATIONS).unwrap(),
             Refusal::EpochMismatch {
                 found: 2,
                 expected: SERVER_EPOCH,
@@ -325,7 +326,7 @@ async fn foreign_diverged_newer_other_epoch_and_non_database_files_are_refused_u
         ),
         (
             "newer.db",
-            Registry::new(DatabaseKind::Server, SERVER_EPOCH, future()).unwrap(),
+            Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, future()).unwrap(),
             Refusal::NewerThanBinary {
                 applied: u32::try_from(MIGRATIONS.len()).unwrap() + 1,
                 known: u32::try_from(MIGRATIONS.len()).unwrap(),

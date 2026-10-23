@@ -4,7 +4,7 @@
 use std::{sync::Arc, time::Duration};
 
 use cantos_store_turso::error::{ConstraintKind, GuardCode, OpenError, StoreFault};
-use cantos_store_turso::registry::{DatabaseKind, Intent, Refusal, Registry};
+use cantos_store_turso::registry::{Intent, Refusal, Registry};
 use cantos_store_turso::testing::{FixedClock, TestRun};
 use cantos_store_turso::{OpenRequest, OwnedDatabase, Value};
 
@@ -692,7 +692,7 @@ async fn a_foreign_file_and_second_owner_are_refused_without_adoption() {
     let foreign = TestRun::new("identity-foreign-server");
     let identity_registry = registry().unwrap();
     let server_registry = Registry::new(
-        DatabaseKind::Server,
+        0x434E_5453,
         identity_registry.epoch(),
         identity_registry.migrations(),
     )
@@ -716,7 +716,7 @@ async fn a_foreign_file_and_second_owner_are_refused_without_adoption() {
         Err(error) => assert_eq!(
             error,
             IdentityStoreError::Open(OpenError::Refused(Refusal::ForeignApplication {
-                found: DatabaseKind::Server.application_id(),
+                found: 0x434E_5453,
             }))
         ),
         Ok(_) => panic!("a Server-owned file must never become Identity-owned"),
@@ -897,4 +897,9 @@ async fn changed_epoch_refuses_new_and_replayed_operations_before_and_after_reop
             .unwrap(),
         disabled
     );
+}
+
+#[test]
+fn the_service_registry_keeps_the_persisted_identity_marker() {
+    assert_eq!(registry().unwrap().application_id(), 0x434E_5449);
 }

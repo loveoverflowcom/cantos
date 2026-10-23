@@ -18,7 +18,7 @@ use cantos_store_turso::{
     clock::Clock,
     error::{CommitFault, OpenError, StoreFault},
     params_from_iter,
-    registry::{DatabaseKind, Intent, Migration, Registry, RegistryError},
+    registry::{Intent, Migration, Registry, RegistryError},
     OpenRequest, OwnedDatabase, Value, WriteTransaction,
 };
 
@@ -29,6 +29,9 @@ use crate::domain::{
 };
 
 use rows::{decode_epoch, decode_event, decode_receipt, decode_subject, integer, positive};
+
+/// Persisted ASCII `CNTI` marker. Never change it for an existing database.
+pub const IDENTITY_APPLICATION_ID: i32 = 0x434E_5449;
 
 const MIGRATIONS: [Migration; 3] = [
     Migration {
@@ -54,7 +57,7 @@ pub const MAX_EVENT_BATCH: u32 = 128;
 
 /// The one Identity schema registry. Migration and serving compositions must share it.
 pub fn registry() -> Result<Registry, RegistryError> {
-    Registry::new(DatabaseKind::Identity, 1, &MIGRATIONS)
+    Registry::new(IDENTITY_APPLICATION_ID, 1, &MIGRATIONS)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -10,10 +10,13 @@ use std::{fmt, path::PathBuf, sync::Arc};
 use cantos_store_turso::{
     clock::{Clock, ClockFault},
     error::{CommitFault, OpenError},
-    registry::{DatabaseKind, Intent, Migration, Registry, RegistryError},
+    registry::{Intent, Migration, Registry, RegistryError},
     value::UnixMicros,
     OpenRequest, OwnedDatabase, WriteTransaction,
 };
+
+/// Persisted ASCII `CNTS` marker. Never change it for an existing database.
+pub const SERVER_APPLICATION_ID: i32 = 0x434E_5453;
 
 /// The `server.db` schema generation. PostgreSQL's epoch 2 and its checksums are never replayed.
 pub const SERVER_EPOCH: u32 = 1;
@@ -103,7 +106,7 @@ pub(crate) const MIGRATIONS: [Migration; 15] = [
 
 /// The one `server.db` registry. Migration and serving compositions must share it.
 pub fn registry() -> Result<Registry, RegistryError> {
-    Registry::new(DatabaseKind::Server, SERVER_EPOCH, &MIGRATIONS)
+    Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

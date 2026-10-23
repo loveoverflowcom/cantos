@@ -6,8 +6,12 @@ use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use crate::clock::{Clock, ClockFault};
-use crate::registry::{DatabaseKind, Migration, Registry};
+use crate::registry::{Migration, Registry};
 use crate::value::UnixMicros;
+
+/// Synthetic fixture markers, unrelated to any service database.
+pub const TEST_APPLICATION_ID: i32 = 0x5445_5354;
+pub const OTHER_APPLICATION_ID: i32 = 0x4F54_4852;
 
 /// One table every fixture file has: an append-only ledger the crash and ownership tests write.
 pub const LEDGER_MIGRATIONS: [Migration; 1] = [Migration {
@@ -19,8 +23,8 @@ pub const LEDGER_MIGRATIONS: [Migration; 1] = [Migration {
         at INTEGER NOT NULL CHECK (at >= 0)) STRICT;",
 }];
 
-pub fn ledger_registry(kind: DatabaseKind) -> Registry {
-    Registry::new(kind, 1, &LEDGER_MIGRATIONS).expect("the fixture registry is valid")
+pub fn ledger_registry(application_id: i32) -> Registry {
+    Registry::new(application_id, 1, &LEDGER_MIGRATIONS).expect("the fixture registry is valid")
 }
 
 /// A private temporary directory removed when dropped. Every database a test opens lives here,

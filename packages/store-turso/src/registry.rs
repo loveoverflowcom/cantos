@@ -20,24 +20,6 @@ pub const HISTORY_TABLE: &str = "cantos_schema_history";
 
 const CHECKSUM_DOMAIN: &[u8] = b"cantos-turso-migration/1\0";
 
-/// Which Cantos service owns a file. Stored in the file header `application_id`, so a file of
-/// one service cannot be opened as the other.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DatabaseKind {
-    Server,
-    Identity,
-}
-
-impl DatabaseKind {
-    /// ASCII `CNTS` / `CNTI`.
-    pub const fn application_id(self) -> i32 {
-        match self {
-            Self::Server => 0x434E_5453,
-            Self::Identity => 0x434E_5449,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Migration {
     pub version: u32,
@@ -61,6 +43,8 @@ impl Migration {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RegistryError {
+    /// Zero denotes an unmarked file and cannot identify a database owner.
+    UnmarkedApplicationId,
     /// Epoch 0 means "unmarked"; the header field is a signed 32-bit integer.
     EpochOutOfRange,
     EmptyHistory,
@@ -90,17 +74,22 @@ impl std::error::Error for RegistryError {}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Registry {
-    kind: DatabaseKind,
+    application_id: i32,
     epoch: u32,
     migrations: &'static [Migration],
 }
 
 impl Registry {
+    /// Bind a consumer-selected, nonzero application marker to its schema history.
+    /// The caller owns marker uniqueness, epoch and migration definitions.
     pub fn new(
-        kind: DatabaseKind,
+        application_id: i32,
         epoch: u32,
         migrations: &'static [Migration],
     ) -> Result<Self, RegistryError> {
+        if application_id == 0 {
+            return Err(RegistryError::UnmarkedApplicationId);
+        }
         if epoch == 0 || i32::try_from(epoch).is_err() {
             return Err(RegistryError::EpochOutOfRange);
         }
@@ -135,14 +124,15 @@ impl Registry {
             }
         }
         Ok(Self {
-            kind,
+            application_id,
             epoch,
             migrations,
         })
     }
 
-    pub const fn kind(&self) -> DatabaseKind {
-        self.kind
+    /// The consumer-owned marker stored verbatim in the signed file-header field.
+    pub const fn application_id(&self) -> i32 {
+        self.application_id
     }
 
     pub const fn epoch(&self) -> u32 {
@@ -273,7 +263,7 @@ pub fn plan_startup(
             Intent::Serve => Err(Refusal::NotInitialized),
         };
     }
-    if present.application_id != registry.kind.application_id() {
+    if present.application_id != registry.application_id {
         return Err(Refusal::ForeignApplication {
             found: present.application_id,
         });
@@ -451,6 +441,7 @@ fn tokenize(sql: &str) -> Vec<Token> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::{OTHER_APPLICATION_ID, TEST_APPLICATION_ID};
 
     const M1: Migration = Migration {
         version: 1,
@@ -465,7 +456,7 @@ mod tests {
     const MIGRATIONS: [Migration; 2] = [M1, M2];
 
     fn registry() -> Registry {
-        Registry::new(DatabaseKind::Server, 1, &MIGRATIONS).unwrap()
+        Registry::new(TEST_APPLICATION_ID, 1, &MIGRATIONS).unwrap()
     }
 
     fn row(migration: &Migration) -> AppliedMigration {
@@ -478,7 +469,7 @@ mod tests {
 
     fn present(applied: Option<Vec<AppliedMigration>>) -> Observation {
         Observation::Present(PresentFile {
-            application_id: DatabaseKind::Server.application_id(),
+            application_id: TEST_APPLICATION_ID,
             user_version: 1,
             user_objects: 4,
             applied,
@@ -488,13 +479,13 @@ mod tests {
     #[test]
     fn registry_construction_rejects_each_invalid_shape() {
         let bad =
-            |migrations: &'static [Migration]| Registry::new(DatabaseKind::Server, 1, migrations);
+            |migrations: &'static [Migration]| Registry::new(TEST_APPLICATION_ID, 1, migrations);
         assert_eq!(
-            Registry::new(DatabaseKind::Server, 0, &MIGRATIONS).unwrap_err(),
+            Registry::new(TEST_APPLICATION_ID, 0, &MIGRATIONS).unwrap_err(),
             RegistryError::EpochOutOfRange
         );
         assert_eq!(
-            Registry::new(DatabaseKind::Server, 1 << 31, &MIGRATIONS).unwrap_err(),
+            Registry::new(TEST_APPLICATION_ID, 1 << 31, &MIGRATIONS).unwrap_err(),
             RegistryError::EpochOutOfRange
         );
         assert_eq!(bad(&[]).unwrap_err(), RegistryError::EmptyHistory);
@@ -530,18 +521,39 @@ mod tests {
     }
 
     #[test]
-    fn the_two_services_never_share_a_marker() {
-        assert_ne!(
-            DatabaseKind::Server.application_id(),
-            DatabaseKind::Identity.application_id()
+    fn any_nonzero_signed_marker_is_accepted_and_zero_is_reserved_for_unmarked_files() {
+        for application_id in [i32::MIN, -1, 1, TEST_APPLICATION_ID, i32::MAX] {
+            let registry = Registry::new(application_id, 1, &MIGRATIONS).unwrap();
+            assert_eq!(registry.application_id(), application_id);
+            let mut file = match present(Some(vec![row(&M1), row(&M2)])) {
+                Observation::Present(file) => file,
+                Observation::Absent => unreachable!(),
+            };
+            file.application_id = application_id;
+            assert_eq!(
+                plan_startup(&registry, &Observation::Present(file), Intent::Serve),
+                Ok(Plan::Ready)
+            );
+        }
+        assert_eq!(
+            Registry::new(0, 1, &MIGRATIONS).unwrap_err(),
+            RegistryError::UnmarkedApplicationId
         );
-        assert_ne!(DatabaseKind::Server.application_id(), 0);
     }
 
     #[test]
     fn checksum_binds_version_name_and_sql() {
         let base = M1.checksum();
         assert_eq!(base, M1.checksum());
+        // Frozen pre-refactor digest: changing the framing/domain would invalidate existing files.
+        assert_eq!(
+            base,
+            [
+                0x12, 0x61, 0x31, 0x99, 0xe6, 0xda, 0x52, 0x0d, 0x6d, 0x95, 0x16, 0x48, 0x68, 0x0a,
+                0x2c, 0xb4, 0x50, 0x7d, 0xc8, 0x57, 0xb1, 0x7c, 0x01, 0x35, 0x8e, 0x81, 0x33, 0x61,
+                0x11, 0x93, 0xed, 0x42
+            ]
+        );
         assert_ne!(base, Migration { version: 2, ..M1 }.checksum());
         assert_ne!(
             base,
@@ -621,7 +633,7 @@ mod tests {
                 );
             }
         }
-        for found in [DatabaseKind::Identity.application_id(), 1, -1, i32::MAX] {
+        for found in [OTHER_APPLICATION_ID, 1, -1, i32::MAX] {
             let foreign = Observation::Present(PresentFile {
                 application_id: found,
                 user_version: 1,
@@ -642,7 +654,7 @@ mod tests {
         let r = registry();
         for version in [0, 2, -1, i32::MAX] {
             let observed = Observation::Present(PresentFile {
-                application_id: DatabaseKind::Server.application_id(),
+                application_id: TEST_APPLICATION_ID,
                 user_version: version,
                 user_objects: 4,
                 applied: Some(vec![row(&M1), row(&M2)]),

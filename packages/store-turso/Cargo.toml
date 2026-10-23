@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.98.1"
 publish = false
-description = "Single-owner embedded Turso store foundation shared by Cantos Server and Identity"
+description = "Reusable single-owner embedded Turso infrastructure for internal consumers"
 
 [features]
 # Run-owned temporary directories and a deterministic clock. Never enabled in a runtime build.

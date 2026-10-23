@@ -13,8 +13,8 @@ use std::sync::Arc;
 use cantos_store_turso::capability::{self, Outcome, Probe, Report};
 use cantos_store_turso::clock::SystemClock;
 use cantos_store_turso::error::OpenError;
-use cantos_store_turso::registry::{DatabaseKind, Intent};
-use cantos_store_turso::testing::{ledger_registry, TestRun};
+use cantos_store_turso::registry::Intent;
+use cantos_store_turso::testing::{ledger_registry, TestRun, TEST_APPLICATION_ID};
 use cantos_store_turso::{OpenRequest, OwnedDatabase, Value};
 
 #[tokio::main]
@@ -34,8 +34,8 @@ async fn main() -> ExitCode {
 
 fn open_request(dir: &Path, intent: Intent) -> OpenRequest {
     OpenRequest::new(
-        dir.join("server.db"),
-        ledger_registry(DatabaseKind::Server),
+        dir.join("fixture.db"),
+        ledger_registry(TEST_APPLICATION_ID),
         intent,
         Arc::new(SystemClock),
     )
