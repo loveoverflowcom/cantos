@@ -320,10 +320,6 @@ mod browser {
         });
         view! {
             <div class="toolbar">
-                <ActionButton id="live-refresh-units" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
-                    if blocked.get_untracked() { return; }
-                    if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) {dispatch.send(Command::Units {work:work.id,cursor:None});}
-                })>{move ||text(Key::RefreshUnits,english.get())}</ActionButton>
                 <ActionButton id="live-unit-earlier" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || {
                     facts.with(|_| ()); let _=units_complete.get(); cannot_edit.get()||unsaved.get()||order(Direction::Earlier).is_none()
                 }) on_press=Callback::new(move |_|reorder.run(Direction::Earlier))>{move ||text(Key::MoveEarlier,english.get())}</ActionButton>
