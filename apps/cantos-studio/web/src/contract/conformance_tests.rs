@@ -111,3 +111,14 @@ fn production_fixtures_round_trip() {
     same::<SaveProductionSettingsRequest>(studio!("production/v1/fixtures/settings-request.json"));
     same::<SaveProductionRightsRequest>(studio!("production/v1/fixtures/rights-request.json"));
 }
+
+#[test]
+fn publication_requests_round_trip_through_the_studio_representation() {
+    same::<RecordDistributionRightsRequest>(studio!("publication/v1/fixtures/clearance.json"));
+    same::<RecordPublicationApprovalRequest>(studio!("publication/v1/fixtures/approval.json"));
+    same::<PublishAudioReleaseRequest>(studio!("publication/v1/fixtures/publish.json"));
+    same::<WithdrawAudioReleaseRequest>(studio!("publication/v1/fixtures/withdraw.json"));
+    refuses_unknown_field::<PublishAudioReleaseRequest>(studio!(
+        "publication/v1/fixtures/publish.json"
+    ));
+}

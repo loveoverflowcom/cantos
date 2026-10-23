@@ -657,8 +657,61 @@ pub fn Studio() -> impl IntoView {
             settle_session(state, session, ticket, result, unsaved);
         });
     });
+    let editor_script = Signal::derive(move || {
+        if session_pending.get() || activity.get() {
+            return None;
+        }
+        state.with(Editor::accepted_catalog_script)
+    });
     let open_import = Callback::new(move |()| panel.set(WorkspacePane::Import));
-    let open_editor = Callback::new(move |()| panel.set(WorkspacePane::Revisions));
+    let open_editor = Callback::new(move |target: Option<crate::contract::CatalogScriptRef>| {
+        let Some(target) = target else {
+            panel.set(WorkspacePane::Revisions);
+            return;
+        };
+        let current = state.get_untracked();
+        if current.script() == target.id
+            && (current.has_unsaved()
+                || current.accepted_catalog_script().as_ref() == Some(&target))
+        {
+            // Returning from Catalog never reloads over a retained editor or pending save.
+            selection.set(target.id);
+            panel.set(WorkspacePane::Revisions);
+            return;
+        }
+        if blocked() || activity.get_untracked() || production_activity.get_untracked() {
+            return;
+        }
+        let discard = !current.is_dirty() || confirm_discard(english.get_untracked());
+        let Some(selected) = current.select_catalog_script(target.id.clone(), discard) else {
+            return;
+        };
+        selection.set(target.id.clone());
+        issues.set(vec![]);
+        reviewed.set(false);
+        preview.set(ValidationPreview::default());
+        panel.set(WorkspacePane::Revisions);
+        let Some((reading, ticket)) = selected.start_read() else {
+            state.set(selected);
+            return;
+        };
+        state.set(reading);
+        let api = api.snapshot();
+        spawn_local(async move {
+            let result = api.read_revision(ticket.script(), target.revision).await;
+            let _ = state.try_update(|editor| {
+                *editor = match result {
+                    Ok(response) => editor.loaded_catalog_revision(
+                        &ticket,
+                        response,
+                        &target,
+                        activity.get_untracked(),
+                    ),
+                    Err(error) => editor.read_failed(&ticket, &error),
+                };
+            });
+        });
+    });
     let open_content = Callback::new(move |()| panel.set(WorkspacePane::Content));
 
     view! {
@@ -737,7 +790,7 @@ pub fn Studio() -> impl IntoView {
                 <h2 id="studio-pane-title" tabindex="-1">{move ||panel.get().label(english.get())}</h2>
                 <Button id="studio-back-desk" variant=ButtonVariant::Text on_press=Callback::new(move |_|panel.set(WorkspacePane::Dashboard))>{move ||entry_text(EntryKey::Back,english.get())}</Button>
             </div>
-            <div hidden=move || !matches!(panel.get(),WorkspacePane::Content|WorkspacePane::Dashboard)><crate::live::workspace::ContentWorkspace actor=actor english=english active=Signal::derive(move ||!session_pending.get()) dashboard=Signal::derive(move ||panel.get()==WorkspacePane::Dashboard) on_import=open_import on_editor=open_editor on_open_content=open_content session_epoch=session_epoch session_pending=session_pending activity=content_activity busy=content_busy dirty=content_dirty/></div>
+            <div hidden=move || !matches!(panel.get(),WorkspacePane::Content|WorkspacePane::Dashboard)><crate::live::workspace::ContentWorkspace actor=actor english=english active=Signal::derive(move ||!session_pending.get()) dashboard=Signal::derive(move ||panel.get()==WorkspacePane::Dashboard) on_import=open_import on_editor=open_editor editor_script=editor_script on_open_content=open_content session_epoch=session_epoch session_pending=session_pending activity=content_activity busy=content_busy dirty=content_dirty/></div>
             <div id="workspace-import" hidden=move || panel.get() != WorkspacePane::Import><ManuscriptImport actor=actor english=english session_pending=session_pending dirty=import_dirty activity=import_activity /></div>
             <div id="workspace-proposal" hidden=move || panel.get() != WorkspacePane::Proposal><ScriptAdaptation actor=actor english=english session_pending=session_pending dirty=proposal_dirty activity=proposal_activity /></div>
             <div id="workspace-production" hidden=move || panel.get() != WorkspacePane::Production><ProductionInputs editor=state english=english session_pending=session_pending script_activity=activity dirty=production_dirty activity=production_activity /></div>

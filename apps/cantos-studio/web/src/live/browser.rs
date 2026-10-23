@@ -70,7 +70,14 @@ pub async fn execute(
                 .parse()
                 .map_err(|_| ClientError::InvalidInput)?,
         )
-        .header("Accept", "application/json")
+        .header(
+            "Accept",
+            if matches!(command, Command::PreviewAudio { .. }) {
+                "audio/ogg, application/json"
+            } else {
+                "application/json"
+            },
+        )
         .abort_signal(Some(&signal));
     let mut request = match &credential {
         Some(credential) => credential.apply(request),
@@ -113,6 +120,16 @@ pub async fn execute(
         return Err(ClientError::SessionChanged);
     }
     let status = response.status();
+    if let Command::PreviewAudio { subject } = command {
+        if response.ok() {
+            let result = preview_response(&response, subject).await;
+            drop(deadline);
+            if let Some(credential) = &credential {
+                credential.check().map_err(auth_error)?;
+            }
+            return result;
+        }
+    }
     if status == 204 && command.expects_no_content() {
         return Ok(Reply::Revoked);
     }
@@ -155,22 +172,7 @@ pub async fn read_audio(
         .map_err(|_| ClientError::InvalidInput)?;
     let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
     admit_audio_size(bytes.len() as u64)?;
-    let crypto = web_sys::window()
-        .ok_or(ClientError::Transport)?
-        .crypto()
-        .map_err(|_| ClientError::Transport)?;
-    let digest = crypto
-        .subtle()
-        .digest_with_str_and_u8_array("SHA-256", &bytes)
-        .map_err(|_| ClientError::Transport)?;
-    let digest = wasm_bindgen_futures::JsFuture::from(digest)
-        .await
-        .map_err(|_| ClientError::Transport)?;
-    let hash = js_sys::Uint8Array::new(&digest)
-        .to_vec()
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let hash = sha256(&bytes).await?;
     Ok((std::sync::Arc::new(bytes), hash))
 }
 pub fn upload_token() -> Result<String, ClientError> {
@@ -188,4 +190,97 @@ pub fn upload_token() -> Result<String, ClientError> {
 /// Identity failures as a command outcome (see `ClientError::from_identity`).
 pub(crate) fn auth_error(error: cantos_web_auth::Failure) -> ClientError {
     ClientError::from_identity(error)
+}
+
+async fn sha256(bytes: &[u8]) -> Result<String, ClientError> {
+    let crypto = web_sys::window()
+        .ok_or(ClientError::Transport)?
+        .crypto()
+        .map_err(|_| ClientError::Transport)?;
+    let promise = crypto
+        .subtle()
+        .digest_with_str_and_u8_array("SHA-256", bytes)
+        .map_err(|_| ClientError::Transport)?;
+    let digest = wasm_bindgen_futures::JsFuture::from(promise)
+        .await
+        .map_err(|_| ClientError::Transport)?;
+    Ok(js_sys::Uint8Array::new(&digest)
+        .to_vec()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect())
+}
+
+// ReadableStream is already provided by gloo-net. Fallible calls to the standard reader API
+// avoid adding a new web-sys feature to the shared Cargo graph for this bounded owner read.
+fn reader_call(
+    reader: &wasm_bindgen::JsValue,
+    method: &str,
+) -> Result<wasm_bindgen::JsValue, ClientError> {
+    let function = js_sys::Reflect::get(reader, &wasm_bindgen::JsValue::from_str(method))
+        .map_err(|_| ClientError::Transport)?
+        .dyn_into::<js_sys::Function>()
+        .map_err(|_| ClientError::Transport)?;
+    function.call0(reader).map_err(|_| ClientError::Transport)
+}
+struct AudioReader {
+    reader: js_sys::Object,
+    finished: bool,
+}
+impl Drop for AudioReader {
+    fn drop(&mut self) {
+        if !self.finished {
+            let _ = reader_call(self.reader.as_ref(), "cancel");
+        }
+        let _ = reader_call(self.reader.as_ref(), "releaseLock");
+    }
+}
+async fn preview_response(
+    response: &gloo_net::http::Response,
+    subject: &audio_preview::Subject,
+) -> Result<Reply, ClientError> {
+    let status = response.status();
+    if status != 200
+        || !subject.valid()
+        || response.headers().get("content-type").as_deref() != Some("audio/ogg")
+        || response
+            .headers()
+            .get("content-length")
+            .is_some_and(|length| length.parse::<u64>().ok() != Some(subject.byte_length))
+    {
+        return Err(ClientError::Protocol { status });
+    }
+    let stream = response.body().ok_or(ClientError::Protocol { status })?;
+    let mut reader = AudioReader {
+        reader: stream.get_reader(),
+        finished: false,
+    };
+    let mut bytes = Vec::with_capacity(subject.byte_length as usize);
+    loop {
+        let promise = reader_call(reader.reader.as_ref(), "read")?
+            .dyn_into::<js_sys::Promise>()
+            .map_err(|_| ClientError::Transport)?;
+        let result = wasm_bindgen_futures::JsFuture::from(promise)
+            .await
+            .map_err(|_| ClientError::Transport)?;
+        let done = js_sys::Reflect::get(&result, &wasm_bindgen::JsValue::from_str("done"))
+            .map_err(|_| ClientError::Transport)?
+            .as_bool()
+            .ok_or(ClientError::Protocol { status })?;
+        if done {
+            reader.finished = true;
+            break;
+        }
+        let chunk = js_sys::Reflect::get(&result, &wasm_bindgen::JsValue::from_str("value"))
+            .map_err(|_| ClientError::Transport)?
+            .dyn_into::<js_sys::Uint8Array>()
+            .map_err(|_| ClientError::Protocol { status })?;
+        if !subject.accepts_chunk(bytes.len(), chunk.length() as usize) {
+            return Err(ClientError::ReplyMismatch);
+        }
+        bytes.extend_from_slice(&chunk.to_vec());
+    }
+    let observed = sha256(&bytes).await?;
+    audio_preview::VerifiedAudio::admit(subject.clone(), std::sync::Arc::new(bytes), &observed)
+        .map(Reply::AudioPreview)
 }

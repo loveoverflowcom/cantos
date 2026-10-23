@@ -34,6 +34,7 @@ pub fn ArtworkPanel(
     let draft = RwSignal::new(Draft::default());
     let validating = RwSignal::new(false);
     let file_generation = RwSignal::new(0u64);
+    let submitted_selection = StoredValue::new(None::<(String, Draft, u64)>);
     let preview_generation = RwSignal::new(0u64);
     let preview_abort = StoredValue::new_local(None::<AbortController>);
     let clear_open = RwSignal::new(false);
@@ -77,25 +78,38 @@ pub fn ArtworkPanel(
                                     m.reported_revision = None;
                                 });
                             }
-                            if matches!(
-                                command,
-                                Command::SetArtwork {
-                                    request: SetWorkArtworkRequest {
-                                        artwork: Some(_),
-                                        ..
-                                    },
-                                    ..
-                                }
-                            ) {
-                                let _ = model.try_update(|m| {
-                                    if let Some(local) = m.discard_local() {
-                                        platform::revoke(&local.url);
+                            if let Command::SetArtwork { request, .. } = &command {
+                                if request.artwork.is_some() {
+                                    let accepted = submitted_selection
+                                        .try_update_value(|snapshot| {
+                                            if snapshot.as_ref().is_some_and(|(operation, _, _)| {
+                                                operation == &request.operation_id
+                                            }) {
+                                                snapshot.take()
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                        .flatten();
+                                    if let Some((_, submitted, generation)) = accepted {
+                                        let cleared = draft
+                                            .try_update(|current| {
+                                                current.acknowledge_selection(
+                                                    &submitted,
+                                                    file_generation.get_untracked() == generation,
+                                                )
+                                            })
+                                            .unwrap_or(false);
+                                        if cleared {
+                                            let _ = model.try_update(|m| {
+                                                if let Some(local) = m.discard_local() {
+                                                    platform::revoke(&local.url);
+                                                }
+                                            });
+                                            platform::reset_file();
+                                        }
                                     }
-                                    m.stage = Stage::Saved;
-                                });
-                                let _ = draft.try_set(Draft::default());
-                                platform::reset_file();
-                            } else if matches!(command, Command::SetArtwork { .. }) {
+                                }
                                 let _ = model.try_update(|m| m.stage = Stage::Saved);
                             }
                         }
@@ -171,6 +185,7 @@ pub fn ArtworkPanel(
                 forget_urls(&model.get_untracked());
                 model.set(Projection::default());
                 draft.set(Draft::default());
+                submitted_selection.set_value(None);
                 file_generation.update(|g| *g = g.saturating_add(1));
                 validating.set(false);
                 clear_open.set(false);
@@ -215,9 +230,7 @@ pub fn ArtworkPanel(
         busy.set(validating.get() || phase == Phase::Pending);
         unresolved
             .set(validating.get() || state.with(|s| s.pending().is_some()) || local || edited);
-        if local || edited {
-            dirty.set(true);
-        }
+        dirty.set(draft.with(|draft| draft.is_dirty(local)));
     });
     // Private previews use a different read authority so they cannot overwrite a mutation result.
     let current_cover = Memo::new(move |_| model.with(|m| m.current.clone()));
@@ -388,18 +401,21 @@ pub fn ArtworkPanel(
                     let (Some(asset), Some(current)) = (m.asset, m.current) else {
                         return Ok(None);
                     };
-                    Some(Command::SetArtwork {
-                        work,
-                        request: SetWorkArtworkRequest {
-                            operation_id: uuid().map_err(|_| Problem::File)?,
-                            expected_work_revision: current.work_revision,
-                            artwork: Some(WorkArtworkSelection {
-                                image_asset_id: asset.id,
-                                image_asset_digest: asset.digest,
-                                alt_text: d.alt()?,
-                            }),
-                        },
-                    })
+                    let request = SetWorkArtworkRequest {
+                        operation_id: uuid().map_err(|_| Problem::File)?,
+                        expected_work_revision: current.work_revision,
+                        artwork: Some(WorkArtworkSelection {
+                            image_asset_id: asset.id,
+                            image_asset_digest: asset.digest,
+                            alt_text: d.alt()?,
+                        }),
+                    };
+                    submitted_selection.set_value(Some((
+                        request.operation_id.clone(),
+                        d,
+                        file_generation.get_untracked(),
+                    )));
+                    Some(Command::SetArtwork { work, request })
                 }
                 Intent::Clear => {
                     clear_open.set(true);

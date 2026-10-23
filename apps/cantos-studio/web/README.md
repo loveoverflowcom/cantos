@@ -3,7 +3,8 @@
 > [ADR 0018](../../../docs/decisions/0018-external-audio-production.md): Studio is
 > **Web-only catalog and management** for novels/stories/podcasts, chapters/episodes and their
 > externally produced audio. Existing provider/casting controls are legacy **reference planning**;
-> Studio does not dispatch TTS and the Work/ContentUnit/Audio handoff UI is not implemented yet
+> Studio does not dispatch TTS. The implemented Catalog, immutable Content and private-audio
+> controls retain separate browser and production acceptance boundaries
 > ([#66](https://github.com/loveoverflowcom/cantos/issues/66), [#8](https://github.com/loveoverflowcom/cantos/issues/8)).
 
 `cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the native Axum/Turso (business port incomplete)
@@ -342,11 +343,27 @@ browser inputs. Actor switches clear private forms after the shell's dirty-input
 Selecting another unit clears file/credential/review subject state. Reloading the browser loses
 in-memory credentials/intents; reconcile known immutable IDs before preparing a new upload.
 
-The typed adapter also covers Catalog PATCH/archive/reorder; the first UI exposes the narrower
-flow above. Source/Script IR content bindings retain their existing typed contracts and editorial
-UI, but new Catalog binding controls, work archive/reorder controls and Brief read-grant
-management/export are separate UI follow-ups. This slice completes no broader #51/#64/#66
-acceptance. [Capability matrix](../../../docs/work-plan/live-client-api-matrix.md).
+Work title/synopsis edits, explicit metadata reads/reloads, confirmed Work/unit soft archive
+and unit ordering reuse the existing Catalog commands. Ordering is available only for a known
+complete first unit page; it never submits a partial active set. Refresh the list after a reorder.
+Dirty Work and unit metadata retain their original revision guards until explicit reload.
+
+Creation forms and selected-unit editing have separate state. Metadata and content drafts stay
+bound to their unit in browser memory across Work/unit and pane navigation. Current-head reads
+hydrate clean content fields; explicit replacement of dirty content is tied to the confirmed
+snapshot, so typing during the read survives. History inspection never changes the append base
+or the current Script binding. Acknowledgements clean only the submitted full form snapshot,
+including hidden text when a creator deliberately selects a different content kind.
+
+The Content selector can explicitly pin the Editor's settled accepted Script revision/export.
+Dirty or unresolved Script drafts are not eligible. A Source/Script body is preserved on load;
+it never silently becomes empty text. Opening its Editor reads the exact pinned revision and
+checks its export digest; returning to the same dirty/pending Script keeps that local work.
+New scripts still use the existing import/editor identity controls. Brief read-grant
+management/export remains a separate UI follow-up. The
+[Studio CMS evidence](../../../docs/evidence/studio-cms-editorial-20261023.md) distinguishes
+current local browser/native results from unrun acceptance. This slice completes no broader
+#51/#64/#66 acceptance. [Capability matrix](../../../docs/work-plan/live-client-api-matrix.md).
 
 ## Work delegation (owner only)
 
@@ -463,3 +480,30 @@ base `services/cantos-server/src/adapters/inbound/http/cors.rs` does not, so the
 absent and the owner holds for its conservative 30 s default instead of the Server's value (API
 owner follow-up; same-origin proxies are unaffected). Cross-tab cookie ordering and logout-while-busy
 have host tests only: no browser, Web Locks or real Server/Identity acceptance exists.
+
+
+## Content to publication
+
+The Content & audio workspace uses the saved current Content head for a new Brief; historical
+inspection cannot retarget it, and local Content edits must be saved first. Text/Source,
+Recording and exact Script inputs map to their existing explicit production modes. Briefs expose
+exact Content/Brief digests and freshness, a private copy action and the immutable stored document.
+Prepare uses that Brief's exact Work/unit/revision/profile and rights set, with separate producer
+provenance. A retained upload capability belongs only to its acknowledged submission; reselecting
+a file cannot move it to another submission. Producer requests still omit the Studio cookie.
+
+The publication composition consumes the existing [Publication v1](../../../services/cantos-server/contracts/studio/publication/v1/README.md)
+through the shared request/session owner. Readiness, distribution clearance, publication approval,
+explicit publish, active-release read and withdrawal are separate actions. Confirmations identify
+the exact unit/candidate/revision/rendition and pointer. A publish receipt acknowledges its original
+operation; a later explicit active-release GET observes current state. Unknown writes retain the
+same operation and request for retry, including after reauthentication, and never use an active
+lookup as proof that an unknown publish committed.
+
+Work catalog visibility is a separate revision-guarded metadata edit. Set it deliberately before
+creating a candidate; changing metadata invalidates readiness. Public visibility alone neither
+publishes audio nor reveals private drafts. Readiness displays every server blocker, including
+unavailable delivery when the host has not explicitly configured its existing publication adapter.
+Registered rights/evidence and named owner reviews are claims, not legal verification or a claim
+that a human listened. [Combined CMS evidence](../../../docs/evidence/studio-cms-editorial-20261023.md)
+records the actual local/native/browser boundaries and remaining production acceptance.

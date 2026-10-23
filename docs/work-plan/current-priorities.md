@@ -20,6 +20,14 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
 
 ## Independent product work
 
+- Studio CMS acceptance: preserve the [combined authoring, private-audio and publication
+  boundary](../evidence/studio-cms-editorial-20261023.md) and qualify the remaining browser,
+  delivery-isolation and deployed paths through [#8](https://github.com/loveoverflowcom/cantos/issues/8)
+  and [#179](https://github.com/loveoverflowcom/cantos/issues/179). Reuse exact revision/receipt
+  owners and the existing native filesystem publication adapter; default unavailable delivery
+  remains fail-closed. [ADR 0047](../decisions/0047-studio-roster-provisioning.md) remains a
+  proposal; local fixture admission cannot accept production Studio provisioning.
+
 - The owner-selected [Firebase verification bridge](../architecture/firebase-verification.md)
   now has sealed native proof custody, effect fences and an owned RPC action alternative.
   Next accept provider-safe expired enrollment recovery, the full dispatch/commit crash matrix

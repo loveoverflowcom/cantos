@@ -915,3 +915,6 @@ async fn publication_flow_replays_restarts_and_republishes_immutable_history() {
         .guard()
         .is_some());
 }
+
+#[path = "studio_cms_publication_http_turso.rs"]
+mod studio_cms_publication_http;

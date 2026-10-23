@@ -143,6 +143,21 @@ impl Editor {
         self.remote.as_ref()
     }
 
+    /// Only a settled accepted export may be pinned into managed Content. Draft bytes and
+    /// in-flight or unresolved saves are never represented as an accepted revision.
+    pub fn accepted_catalog_script(&self) -> Option<crate::contract::CatalogScriptRef> {
+        if self.actor.is_empty() || !self.can_edit() || self.has_unsaved() {
+            return None;
+        }
+        self.remote
+            .as_ref()
+            .map(|revision| crate::contract::CatalogScriptRef {
+                id: revision.script_id.clone(),
+                revision: revision.revision,
+                export_digest: revision.export_digest.clone(),
+            })
+    }
+
     pub fn status(&self) -> Status {
         match self.phase {
             Phase::Reading(_) | Phase::CheckingSession(_) => Status::Loading,
@@ -276,6 +291,21 @@ impl Editor {
             return self.clone();
         }
         self.discard_and_select(script)
+    }
+
+    /// Catalog navigation resumes the same script without reading over its draft. A different
+    /// target requires an idle editor and, when dirty, the creator's explicit discard.
+    pub fn select_catalog_script(&self, script: String, discard_confirmed: bool) -> Option<Self> {
+        if self.actor.is_empty() || !self.can_edit() || script.is_empty() {
+            return None;
+        }
+        if self.script == script {
+            return Some(self.clone());
+        }
+        if self.phase != Phase::Idle || (self.is_dirty() && !discard_confirmed) {
+            return None;
+        }
+        Some(self.discard_and_select(script))
     }
 
     /// Only an explicit user discard may replace a dirty document. Pending saves must reconcile.
@@ -480,6 +510,30 @@ impl Editor {
         self.loaded_with_buffer(ticket, response, false)
     }
 
+    /// A Catalog binding names one immutable export, never the script's latest head.
+    pub fn loaded_catalog_revision(
+        &self,
+        ticket: &ReadTicket,
+        response: RevisionResponse,
+        binding: &crate::contract::CatalogScriptRef,
+        buffer_pending: bool,
+    ) -> Self {
+        if response.script_id != binding.id
+            || response.revision != binding.revision
+            || response.export_digest != binding.export_digest
+        {
+            return self.read_failed(
+                ticket,
+                &ApiError {
+                    code: ErrorCode::CorruptRevision,
+                    current_revision: None,
+                    issues: vec![],
+                },
+            );
+        }
+        self.loaded_with_buffer(ticket, response, buffer_pending)
+    }
+
     /// Native text may be newer than the reducer until blur/composition commits it.
     /// The shell keeps its buffer/navigation guard active until those bytes are committed.
     pub fn loaded_with_buffer(
@@ -668,6 +722,94 @@ mod tests {
 
     fn reading(editor: &Editor) -> (Editor, ReadTicket) {
         editor.start_read().unwrap()
+    }
+
+    #[test]
+    fn catalog_read_requires_the_exact_pinned_revision_and_export_digest() {
+        let editor = Editor::default()
+            .signed_in("alice".into())
+            .select_script("script".into());
+        let (reading, ticket) = editor.start_read().unwrap();
+        let pinned = response(3);
+        let binding = crate::contract::CatalogScriptRef {
+            id: pinned.script_id.clone(),
+            revision: 3,
+            export_digest: pinned.export_digest.clone(),
+        };
+        let opened = reading.loaded_catalog_revision(&ticket, pinned.clone(), &binding, false);
+        assert_eq!(opened.base(), 3);
+        assert_eq!(opened.draft(), pinned.script_json);
+        for changed in [
+            crate::contract::CatalogScriptRef {
+                revision: 4,
+                ..binding.clone()
+            },
+            crate::contract::CatalogScriptRef {
+                export_digest: "different".into(),
+                ..binding.clone()
+            },
+        ] {
+            let refused = reading.loaded_catalog_revision(&ticket, pinned.clone(), &changed, false);
+            assert_eq!(refused.draft(), "");
+            assert_eq!(refused.base(), 0);
+            assert_eq!(refused.remote(), None);
+            assert_eq!(
+                refused.status(),
+                super::error_status(&ErrorCode::CorruptRevision)
+            );
+        }
+    }
+
+    #[test]
+    fn content_binding_uses_only_a_settled_accepted_editor_export() {
+        let accepted = response(3);
+        let editor = Editor::default()
+            .signed_in("alice".into())
+            .open_revision(accepted.clone());
+        let binding = editor.accepted_catalog_script().unwrap();
+        assert_eq!(binding.id, accepted.script_id);
+        assert_eq!(binding.revision, 3);
+        assert_eq!(binding.export_digest, accepted.export_digest);
+        let dirty = editor.edit("new local text".into());
+        assert_eq!(dirty.accepted_catalog_script(), None);
+        let (saving, _) = dirty.start_save("operation".into()).unwrap();
+        assert_eq!(saving.accepted_catalog_script(), None);
+        assert_eq!(
+            editor.signed_in("bob".into()).accepted_catalog_script(),
+            None
+        );
+        assert_eq!(Editor::default().accepted_catalog_script(), None);
+    }
+
+    #[test]
+    fn catalog_navigation_preserves_same_script_and_requires_explicit_discard_for_another() {
+        let draft = editing("alice", "selected", "Ngày mai, mình có diễn tiếp không?");
+        assert_eq!(
+            draft.select_catalog_script("selected".into(), false),
+            Some(draft.clone())
+        );
+        assert_eq!(draft.select_catalog_script("other".into(), false), None);
+        let selected = draft.select_catalog_script("other".into(), true).unwrap();
+        assert_eq!(selected.script(), "other");
+        assert_eq!(selected.draft(), "");
+        assert_eq!(selected.base(), 0);
+        let (saving, intent) = draft.start_save("operation".into()).unwrap();
+        assert_eq!(saving.select_catalog_script("other".into(), true), None);
+        assert_eq!(
+            saving.select_catalog_script("selected".into(), false),
+            Some(saving.clone())
+        );
+        assert_eq!(saving.pending(), Some(&intent));
+        assert_eq!(
+            draft
+                .signed_in("bob".into())
+                .select_catalog_script("other".into(), true),
+            None
+        );
+        assert_eq!(
+            Editor::default().select_catalog_script("other".into(), true),
+            None
+        );
     }
 
     #[test]

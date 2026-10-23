@@ -19,7 +19,18 @@ mod dashboard_copy;
 mod consent;
 pub use consent::ReviewConsent;
 
+pub mod catalog_controls;
+pub mod drafts;
 mod facts;
 pub use facts::Facts;
 
 pub mod delegation;
+
+pub mod brief_controls;
+pub mod publication;
+#[cfg(test)]
+mod publication_commands_tests;
+
+pub mod audio_preview;
+
+pub mod ancillary;

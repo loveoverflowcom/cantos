@@ -29,6 +29,18 @@ pub struct Draft {
     pub alt: String,
 }
 impl Draft {
+    /// Local image/field edits remain unsaved until the exact selection is acknowledged.
+    pub fn is_dirty(&self, has_local: bool) -> bool {
+        has_local || *self != Self::default()
+    }
+    pub fn acknowledge_selection(&mut self, submitted: &Self, same_file: bool) -> bool {
+        if same_file && self == submitted {
+            *self = Self::default();
+            true
+        } else {
+            false
+        }
+    }
     pub fn declarations(&self) -> Result<ImageDeclarations, Problem> {
         if self.provenance.trim().is_empty()
             || self.provenance.len() > 4096
