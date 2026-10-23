@@ -108,12 +108,22 @@ browser keeps the API-issued HttpOnly cookie; this app only holds nonsecret sess
 The live **Của tôi** reads Continue, Saved and History with `presentation=1`, limit20 and independent
 opaque cursors. It renders released Work/unit titles and canonical UUID Work links directly from
 `Presented*Page` DTOs, retaining exact audio identities, progress revisions, history state and
-resume status. Each section owns loading/empty/page-error/retry/reload/load-more. Failed next
+resume status. Each section owns loading/empty/page-error/retry/load-more; one Library action refreshes all three lists. Failed next
 pages retain loaded rows; expired cursors require a fresh walk of that section. Null metadata
 and replaced/unavailable releases retain their records without borrowing another release's title.
 Logout, expiry and session change hide all private lists before new admission; late results are
 fenced by account/session and page generation. Reading/rendering/navigating never writes progress,
 Saved or history and never starts media.
+
+A terminal empty section (`Ready`, no rows, no next cursor) uses its existing Theatre Outlined
+icon and contextual guidance. When all three sections are terminally empty, one invitation
+links to Discover and the section explanations form a compact responsive group. Partial empty
+sections keep their own Discover link. An empty page with a cursor still offers Load more;
+loading, errors and retained rows never become empty success. The shared `EmptyState` remains
+unchanged: its fixed book glyph is not a contextual Library contract. Page-wide refresh keeps
+focus by retaining a native focusable trigger with `aria-disabled`/`aria-busy` and an associated
+pending status. Its current-state intent guard rejects repeats; no completion effect restores or
+steals focus moved by the listener. Section retries/paging keep the existing status focus target.
 
 For a signed-in listener ([#272](https://github.com/loveoverflowcom/cantos/issues/272)), live
 Work detail, **Của tôi** and `#player` synchronize Saved Works, exact-release progress, history

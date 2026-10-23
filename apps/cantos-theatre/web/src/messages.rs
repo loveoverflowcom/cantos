@@ -265,7 +265,6 @@ resources! {
     Explore => ("Tìm tác phẩm", "Find a story"),
     Library => ("Của tôi", "My library"),
     History => ("Lịch sử", "History"),
-    #[cfg(feature = "preview")]
     LibraryDeck => ("Những câu chuyện bạn muốn trở lại.", "Stories you want to return to."),
     Player => ("Đang nghe", "Now listening"),
     Queue => ("Tiếp theo", "Up next"),
@@ -323,7 +322,6 @@ resources! {
     NoHistoryHelp => ("Lịch sử ghi nhận các tập đã Phát mô phỏng trong phiên này; chỉ mở trang hoặc lưu truyện chưa tạo lịch sử.", "History records episodes after Simulate play in this session; opening a page or saving a story does not add history."),
     #[cfg(feature = "preview")]
     HistoryHelp => ("Các câu chuyện đã phát mô phỏng, gần nhất ở trên. Mở lại sẽ khôi phục vị trí và giữ tạm dừng.", "Stories played in the simulation, most recent first. Reopening restores the position and stays paused."),
-    #[cfg(feature = "preview")]
     BrowseStories => ("Khám phá tác phẩm", "Discover stories"),
     #[cfg(feature = "preview")]
     ViewAll => ("Xem tất cả", "View all"),
@@ -571,6 +569,13 @@ resources! {
     LiveLibraryEmpty => ("Tài khoản này chưa có dữ liệu nghe tiếp, tác phẩm đã lưu hoặc lịch sử.", "This account has no listening positions, saved stories or history yet."),
     LiveLibraryPageHelp => ("Tải thêm trong từng phần để xem các mục cũ hơn. Mở tác phẩm không tự phát âm thanh.", "Load more in each section to see older items. Opening a work never starts audio automatically."),
     LiveLibraryCursorExpired => ("Trang đã hết hạn hoặc lịch sử đã thay đổi. Tải lại riêng danh sách này để tiếp tục.", "This page expired or history changed. Reload this list to continue."),
+    LiveLibraryEmptyTitle => ("Câu chuyện tiếp theo đang chờ bạn", "Your next story is waiting"),
+    LiveLibraryEmptyHelp => ("Khám phá một tác phẩm để bắt đầu nghe, hoặc lưu lại cho một lúc thảnh thơi.", "Discover a story to start listening, or save it for a quieter moment."),
+    LiveLibraryEmptyContinueHelp => ("Khi bạn bắt đầu nghe, vị trí nghe sẽ xuất hiện ở đây để dễ dàng trở lại.", "Once you start listening, your position will appear here so you can return to it."),
+    LiveLibraryEmptySavedHelp => ("Chọn Lưu trên tác phẩm bạn thích để tìm lại ở đây.", "Choose Save on a story you like to find it here."),
+    LiveLibraryEmptyHistoryHelp => ("Các tập đã bắt đầu phát sẽ xuất hiện ở đây. Chỉ mở tác phẩm chưa tạo lịch sử.", "Episodes appear here after playback starts. Opening a story does not add history."),
+    LiveLibraryRefresh => ("Làm mới thư viện", "Refresh library"),
+    LiveLibraryRefreshing => ("Đang làm mới thư viện…", "Refreshing library…"),
     LiveLibraryEmptyContinue => ("Chưa có vị trí nghe tiếp trong tài khoản này.", "No listening positions in this account yet."),
     LiveLibraryEmptySaved => ("Bạn chưa lưu tác phẩm nào.", "You have no saved stories yet."),
     LiveLibraryEmptyHistory => ("Chưa có lịch sử nghe trong tài khoản này.", "No listening history in this account yet."),
