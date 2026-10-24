@@ -3,8 +3,8 @@ package com.cantos.theatre.app
 import com.cantos.theatre.adapters.http.NativeIdentityV1Client
 import com.cantos.theatre.adapters.http.selectPackagedApiOrigin
 import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
-import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.EmailVerificationController
+import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.identity.verificationElapsedClock
 import com.cantos.theatre.domain.identity.ProductionVerifyEmailHandler
