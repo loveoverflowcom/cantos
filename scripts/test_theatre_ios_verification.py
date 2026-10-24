@@ -56,10 +56,18 @@ class TheatreIosVerificationTest(unittest.TestCase):
         identity = (path / "IosNativeOwner.kt").read_text()
         catalog = (path / "IosCatalogOwner.kt").read_text()
         self.assertEqual(identity.count("NativeIdentityV1Client("), 1)
-        self.assertIn("EmailVerificationController(scope, it, ProductionVerifyEmailHandler)", identity)
+        self.assertIn("EmailVerificationController(scope, it, ProductionVerifyEmailHandler,", identity)
         self.assertIn("verification?.leave()", identity)
         self.assertIn("verification = identity.verification", catalog)
         self.assertIn("shell?.receiveLink(url)", catalog)
+
+    def test_retry_clock_is_separate_from_identity_epoch_time(self):
+        owner = (MOBILE / "shared/src/iosMain/kotlin/com/cantos/theatre/app/IosNativeOwner.kt").read_text()
+        clock = (MOBILE / "shared/src/commonMain/kotlin/com/cantos/theatre/application/identity/EmailVerificationController.kt").read_text()
+        self.assertIn("verificationElapsedClock(source: TimeSource = TimeSource.Monotonic)", clock)
+        self.assertRegex(owner, r"EmailVerificationController\(scope, it, ProductionVerifyEmailHandler,\s*verificationElapsedClock\(\)\)")
+        self.assertIn("private val now = { NSDate().timeIntervalSince1970.toLong() }", owner)
+        self.assertIn("NativeIdentityV1Client(it, platform, now)", owner)
 
     @unittest.skipUnless(sys.platform == "darwin" and shutil.which("swiftc"),
                          "executable NSUserActivity intake needs the installed Apple Swift compiler")

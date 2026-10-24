@@ -16,8 +16,9 @@ The requested order was Android first, then the remaining independent iOS source
 - macOS 15.6 / arm64, Rust 1.98.1, Gradle 8.14.3, Microsoft JDK 21.0.7, Android SDK 35 /
   build-tools 35.0.0. Xcode 16.3 is installed; the required Apple platform and Kotlin/Native
   2.2.20 are not.
-- The new source is an iOS platform adapter only: no Android/shared completion rewrite,
-  HTTP/Identity contract, session engine, migration, provider selection or production write.
+- The source is an iOS platform adapter plus a verification-only retry-clock correction on
+  Android/iOS: no completion-flow rewrite, HTTP/Identity contract, session engine, migration,
+  provider selection or production write.
   No new ADR or queue reordering is needed; ADR 0048 already selects the behavior.
 - Full local logs and the transient HTTP driver were retained under
   `/tmp/cantos435-20261024` and copied to the task's ignored
@@ -172,7 +173,10 @@ the ignored evidence directory.
 ## Gate diagnosis and remaining acceptance
 
 The final no-skip `cargo xtask preflight --changed-only --base
-660dc9d82f4e552afc6c6987230cc4dca557497d` summary and final independent review are recorded in the PR.
+660dc9d82f4e552afc6c6987230cc4dca557497d` summary and the author's separate read-only review pass
+are recorded in the PR. That earlier pass was not an independent reviewer. The parent later
+reported the retry-clock defect below; independent re-review of the repaired delta remains
+pending until the parent checks it.
 No qualification digest is refreshed merely to obtain a pass.
 
 Clean `develop` reproduction in the original checkout:
@@ -205,3 +209,31 @@ runner-unit-test output, not an executed Kani proof or native qualification.
 
 Residual risk: source and local HTTP/SMTP evidence do not accept Android runtime, Swift/Kotlin
 interop, signed association, actual mail delivery, provider cutover or #422/#435 completion.
+
+## Retry-clock review correction
+
+The parent's independent review of `0ef10642` found that the new iOS composition injected
+`NSDate` epoch milliseconds into the relative 429 `Retry-After` hold. It also confirmed the
+same defect in Android's existing `System::currentTimeMillis` verification factory at the base.
+The iOS defect was introduced by this PR; Android's was pre-existing. A forward wall-clock
+adjustment could allow an early retry, and a backward adjustment could extend the wait.
+
+Both verification factories now use the small shared `verificationElapsedClock`, based on a
+process-local `TimeSource.Monotonic` mark. Only verification retry timing changes: the existing
+epoch-seconds clocks still feed `NativeIdentityV1Client` and `NativeAccountController` for token
+and server-deadline validation. No other clocks, session policy or rate-limit semantics change.
+This follows [KT-CONCURRENCY](../../.agents/skills/cantos-cmp-mobile/references/kotlin-conventions.md#kt-concurrency--structured-injected-controllable).
+
+The focused regression executes the production clock factory, controller and HTTP client with
+a controllable `TestTimeSource` and an explicit HTTP double returning 429 then `replayed`.
+Moving the independent epoch clock forward/backward by 24 hours leaves the five-second hold
+unchanged; retry is still blocked at 4,999 ms and allowed at 5,000 ms with the original body.
+The same client rejects token facts at the shifted epoch values and accepts them at the original
+epoch, guarding against replacing token validation with elapsed time. Source guards bind both
+native factories to the monotonic default; those guards failed before the fix.
+
+The PR records refreshed scoped test/build/preflight results for this correction. The earlier
+APK digests and test totals above remain attributed to their original source; they do not qualify
+the repaired Android artifact. iOS full framework/host/device acceptance and Android runtime remain
+blocked as described above. No cache cleanup is authorized or executed; the old exact cache
+manifest must be treated as stale after new compilation and re-inventoried before any approval.

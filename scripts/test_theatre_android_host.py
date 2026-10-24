@@ -170,6 +170,12 @@ class TheatreAndroidHostTest(unittest.TestCase):
         self.assertNotIn("cantos.nativeIssuer", (HOST / "build.gradle.kts").read_text())
         self.assertNotIn("nativeIssuer", MANIFEST.read_text())
 
+    def test_verification_retry_clock_is_separate_from_the_epoch_token_clock(self):
+        native = (HOST.parent / "shared/src/androidMain/kotlin/com/cantos/theatre/adapters/identity/AndroidNativeAccount.kt").read_text()
+        self.assertIn("ProductionVerifyEmailHandler, verificationElapsedClock()", native)
+        self.assertIn("private val now = { System.currentTimeMillis() / 1000 }", native)
+        self.assertIn("NativeIdentityV1Client(origin, AndroidNativeHttp(scope, origin), now)", native)
+
     def test_release_forbids_cleartext_and_only_debug_adds_the_loopback_policy(self):
         policy = lambda path: ET.parse(path).find("bool").text
         self.assertEqual(policy(HOST / "src/main/res/values/origin_policy.xml"), "false")

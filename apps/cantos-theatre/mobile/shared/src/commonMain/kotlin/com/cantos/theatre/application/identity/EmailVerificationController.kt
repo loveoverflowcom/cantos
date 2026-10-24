@@ -14,6 +14,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.TimeSource
+
+/** A process-local Retry-After clock, separate from Identity's UNIX token/deadline clock. */
+internal fun verificationElapsedClock(source: TimeSource = TimeSource.Monotonic): () -> Long {
+    val origin = source.markNow()
+    return { origin.elapsedNow().inWholeMilliseconds }
+}
 
 /** What an incoming URL meant for this owner. */
 enum class LinkReceipt {
@@ -34,6 +41,7 @@ class EmailVerificationController(
     private val scope: CoroutineScope,
     private val api: SignupCompletionApi,
     private val handler: String,
+    /** Monotonic elapsed milliseconds; never a UNIX timestamp. */
     private val nowMs: () -> Long,
 ) {
     private val mutableState = MutableStateFlow(EmailVerificationState.Initial)

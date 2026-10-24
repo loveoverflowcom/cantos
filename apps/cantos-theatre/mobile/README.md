@@ -169,7 +169,8 @@ checks the URL against the pinned `ProductionVerifyEmailHandler`, never against 
 arrived, with the Web parser's rules. It keeps the action only in process RAM; process death
 loses it. The completion screen asks for a password twice and an explicit confirmation, then posts
 the anonymous `POST /native/identity/signup/complete`. It retries only the identical request after
-a 503, 429 or lost answer, and treats `replayed` as success. A signed-out listener continues to
+a 503, 429 or lost answer, and treats `replayed` as success. Both native hosts measure the 429
+hold with monotonic elapsed time; their UNIX clocks still validate token deadlines. A signed-out listener continues to
 Login. A signed-in listener keeps the current session and is pointed to Account for the explicit
 sign-out. Nothing signs in, out or switches automatically.
 
