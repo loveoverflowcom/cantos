@@ -27,7 +27,7 @@ resources! {
     LoginRefusedCredentials => ("Email hoặc mật khẩu chưa đúng. Hãy kiểm tra rồi thử lại.", "The email or password is not right. Check them and try again."),
     LoginRefusedInvalid => ("Chưa gửi được: hãy nhập email hợp lệ và mật khẩu từ 8 đến 128 ký tự.", "Could not send: enter a valid email and a password of 8 to 128 characters."),
     LoginPrivacy => ("Phiên đăng nhập do trình duyệt giữ an toàn và hết hạn sau một thời gian không dùng. Mật khẩu không được lưu hay ghi lại.", "The browser keeps your session safely and it ends after a period of inactivity. Your password is never stored or logged."),
-    AccountCreatedNotice => ("Tài khoản đã được tạo. Hãy đăng nhập bằng email và mật khẩu bạn vừa chọn.", "Your account was created. Sign in with the email and password you just chose."),
+    AccountCreatedNotice => ("Tài khoản đã được tạo. Hãy đăng nhập bằng email và mật khẩu bạn vừa chọn. Nếu bạn đăng ký từ ứng dụng Cantos, hãy quay lại ứng dụng và đăng nhập ở đó.", "Your account was created. Sign in with the email and password you just chose. If you signed up in the Cantos app, go back to the app and sign in there."),
     CreateAccount => ("Tạo tài khoản Cantos", "Create a Cantos account"),
     BrandHeading => ("Nhắm mắt lại. Mở một thế giới.", "Close your eyes. Open a world."),
     BrandHelp => ("Có những câu chuyện chỉ cần lắng nghe. Có những miền tưởng tượng luôn chờ bạn.", "Some stories only ask you to listen. Worlds of imagination are waiting for you."),
@@ -118,5 +118,21 @@ mod tests {
                 assert!(!copy.contains("Cantos Theatre"));
             }
         }
+    }
+
+    /// ADR 0048 stage 0: a signup started in the app finishes by returning to it, never by
+    /// treating this Web page as the app's session. The copy names that path in both locales.
+    #[test]
+    fn account_created_notice_names_the_return_to_the_app() {
+        let vi = text(CopyKey::AccountCreatedNotice, Locale::Vietnamese);
+        let en = text(CopyKey::AccountCreatedNotice, Locale::English);
+        assert!(
+            vi.contains("ứng dụng Cantos") && vi.contains("quay lại ứng dụng"),
+            "{vi}"
+        );
+        assert!(
+            en.contains("Cantos app") && en.contains("go back to the app"),
+            "{en}"
+        );
     }
 }

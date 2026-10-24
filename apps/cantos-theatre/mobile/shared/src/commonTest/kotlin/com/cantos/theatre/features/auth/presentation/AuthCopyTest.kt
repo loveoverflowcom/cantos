@@ -50,6 +50,16 @@ class AuthCopyTest {
     }
 
     @Test
+    fun check_mail_guidance_names_the_browser_step_and_the_return_to_this_app() {
+        // ADR 0048 stage 0: the mailed step opens in the browser; the session starts only by
+        // coming back here and signing in, never by opening the email.
+        val vi = AuthCopy(ShellLocale.Vietnamese).text(AuthText.RegisterWaiting)
+        val en = AuthCopy(ShellLocale.English).text(AuthText.RegisterWaiting)
+        assertTrue("trình duyệt" in vi && "quay lại ứng dụng này để đăng nhập" in vi, vi)
+        assertTrue("browser" in en && "come back to this app to sign in" in en, en)
+    }
+
+    @Test
     fun every_auth_resource_is_available_in_both_locales() {
         AuthText.entries.forEach { key ->
             assertTrue(AuthCopy(ShellLocale.Vietnamese).text(key).isNotBlank(), key.name)
