@@ -100,3 +100,47 @@ device/disk blockers and association/operator facts remain separate. No deploy, 
 merge, live mail, production configuration change, credential creation or issue closure ran.
 Queue: no change; this is the explicitly requested bounded tooling follow-up, not a new phase
 exit or change to the native verification prerequisite order.
+
+## Independent review correction: resolve the runtime actually loaded
+
+The original record above describes `7b55e50210ecde410e99774a4ae9e1b640d5ac1a`.
+The parent's independent review found P2: Rust and the launcher checked the patched sibling
+`../next/package.json`, while the real server's module context could prefer an extra stale
+copy under `resend-local/node_modules/next` or `dist/app/node_modules/next`. All 133 approved
+release files could remain intact. This was a prepared-install validation defect; it is not
+evidence that the original clean installed graph or successful smoke used an unpatched copy.
+
+The correction uses Node `createRequire` from the canonical real `dist/app/server.js` path.
+It resolves `next/package.json`, the `next` entry and `next/dist/server/lib/start-server`, checks
+their canonical locations against the same patched sibling, and validates that resolved
+package's name/version before import. Rust preflight invokes this exact helper in metadata-only
+inspection mode; the launcher repeats it immediately before importing that same server entry.
+No separate Rust approximation of Node's module search remains.
+
+Deterministic fixtures supply a patched sibling and inert 15.5.2-labelled nearer modules whose
+sentinels fail if executed. Both nearer locations failed the old check's regression (missing
+expected rejection) and pass after the fix without executing those stubs. A further real-CLI
+negative check copies all 133 approved release files unchanged and adds each inert shadow in
+turn: both are refused by Rust preflight before any capture/process or sentinel execution.
+No genuinely vulnerable Next code was loaded to demonstrate the defect.
+
+| Refreshed repair check | Actual result |
+| --- | --- |
+| `cargo test --locked -p xtask resend_local::tests -- --nocapture` | PASS: 6 Rust tests, including 7 Node guard/resolution tests |
+| `cargo test --locked -p xtask` | FAIL: 632 selected, 627 executed; 624 passed, same 3 clean-base failures, 5 existing ignored |
+| `cargo clippy --locked -p xtask --all-targets -- -D warnings` | PASS |
+| `cargo fmt --all -- --check` | PASS |
+| `cargo xtask run resend-local` | PASS: actual patched synthetic capture/readback, owned process stopped, capture retained |
+| Real Rust CLI with intact approved files + each inert nearer copy | PASS: both refused before capture, no stub execution |
+
+Repair commands used `CARGO_INCREMENTAL=0`, explicit Rust1.98.1 and the preserved existing
+target directory. The first filtered repair invocation selected zero tests because that shared
+cache still held the clean-base test binary; it is retained as NOT_RUN, not acceptance. The
+forced current-worktree regression then selected the intended test and reproduced both failures
+before repair. No cache was deleted to obtain a current test executable.
+
+Fresh logs, negative-install capsules and receipts remain under ignored
+`artifacts/agent-runs/resend-local-20261024/runtime-resolution-fix/`. The refreshed no-skip
+preflight and exact repair SHA are recorded on PR440; baseline failures and subsequent NOT_RUN
+layers remain disclosed. Independent re-review of the repair remains pending. No package
+installation, production/provider change, usable proof, real recipient or cache cleanup ran.

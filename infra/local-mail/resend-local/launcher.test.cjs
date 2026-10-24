@@ -2,6 +2,9 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { test } = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
 const fixture = require('./launcher.cjs');
 
 const request = () => ({ method: 'POST', url: '/emails', headers: {
@@ -35,6 +38,66 @@ test('a changed body, attachment, recipient or proof is refused before provider 
     stream.emit('data', Buffer.from(text)); stream.emit('end');
     assert.equal(destroyed, text !== fixture.payload);
     assert.equal(observed, text === fixture.payload ? text : '');
+  }
+});
+
+function preparedInstall(shadowAt) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cantos-resend-resolution-'));
+  const root = path.join(directory, 'node_modules/resend-local');
+  const marker = path.join(directory, 'module-executed');
+  function write(relative, text) {
+    const file = path.join(directory, relative);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+  }
+  function next(relative, version) {
+    write(`${relative}/package.json`, JSON.stringify({ name: 'next', version, main: 'index.js' }));
+    // These inert stubs fail if inspection accidentally executes either module.
+    const code = `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'unexpected execution'); throw new Error('fixture module executed');`;
+    write(`${relative}/index.js`, code);
+    write(`${relative}/dist/server/lib/start-server.js`, code);
+  }
+  write('node_modules/resend-local/package.json', JSON.stringify({ name: 'resend-local', version: '0.0.7' }));
+  write('node_modules/resend-local/dist/app/server.js', 'throw new Error("server entry executed during inspection");');
+  next('node_modules/next', '15.5.28');
+  if (shadowAt) next(`node_modules/resend-local/${shadowAt}/node_modules/next`, '15.5.2');
+  return { directory, root, marker };
+}
+
+test('patched sibling with no nearer copy resolves without executing package code', () => {
+  const install = preparedInstall();
+  try {
+    const runtime = fixture.inspectRuntime(install.root);
+    assert.equal(runtime.version, '15.5.28');
+    assert.equal(runtime.nextPackage, fs.realpathSync(path.join(install.directory, 'node_modules/next/package.json')));
+    assert.equal(runtime.nextStart, fs.realpathSync(path.join(install.directory, 'node_modules/next/dist/server/lib/start-server.js')));
+    assert.equal(fs.existsSync(install.marker), false);
+  } finally { fs.rmSync(install.directory, { recursive: true }); }
+});
+
+for (const shadowAt of ['', 'dist/app']) {
+  test(`patched sibling cannot admit a stale nearer Next at ${shadowAt || 'package root'}`, () => {
+    const install = preparedInstall(shadowAt || '.');
+    try {
+      assert.throws(() => fixture.inspectRuntime(install.root), error => error.code === 'RESEND_RUNTIME_SHADOWED');
+      assert.equal(fs.existsSync(install.marker), false);
+    } finally { fs.rmSync(install.directory, { recursive: true }); }
+  });
+}
+
+test('Rust preflight inspection mode and launch use the same resolver without imports', () => {
+  for (const shadowAt of [undefined, '.', 'dist/app']) {
+    const install = preparedInstall(shadowAt);
+    try {
+      const inspection = require('node:child_process').spawnSync(process.execPath,
+        [path.join(__dirname, 'launcher.cjs'), '--inspect-runtime', install.root],
+        { encoding: 'utf8', env: {}, timeout: 3000 });
+      assert.equal(inspection.status, shadowAt ? 1 : 0, inspection.stderr);
+      const result = JSON.parse(inspection.stdout);
+      if (shadowAt) assert.equal(result.failure, 'RESEND_RUNTIME_SHADOWED');
+      else assert.equal(result.version, fixture.inspectRuntime(install.root).version);
+      assert.equal(fs.existsSync(install.marker), false);
+    } finally { fs.rmSync(install.directory, { recursive: true }); }
   }
 });
 

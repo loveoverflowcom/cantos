@@ -7,6 +7,7 @@ const tls = require('node:tls');
 const http = require('node:http');
 const dgram = require('node:dgram');
 const childProcess = require('node:child_process');
+const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 const payload = fs.readFileSync(path.join(__dirname, 'synthetic-email.json'), 'utf8').trim();
 const marker = 'Bearer re_cantos_synthetic_fixture'; // Public fixture marker, no authority.
@@ -64,15 +65,38 @@ function installOutboundGuard() {
   }
 }
 
+function inspectRuntime(root) {
+  const metadata = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const server = fs.realpathSync(path.join(root, 'dist/app/server.js'));
+  // server.js creates its own require from import.meta.url. Resolve from that same real
+  // filename, not the launcher, cwd, or an assumed hoisted npm layout. Resolution reads
+  // metadata only: neither the Next entry nor start-server may execute before validation.
+  const fromServer = createRequire(pathToFileURL(server));
+  const nextPackage = fs.realpathSync(fromServer.resolve('next/package.json'));
+  const nextEntry = fs.realpathSync(fromServer.resolve('next'));
+  const nextStart = fs.realpathSync(fromServer.resolve('next/dist/server/lib/start-server'));
+  const expectedRoot = fs.realpathSync(path.join(root, '../next'));
+  const expectedPackage = path.join(expectedRoot, 'package.json');
+  const fromExpected = createRequire(pathToFileURL(expectedPackage));
+  if (nextPackage !== expectedPackage ||
+      nextEntry !== fs.realpathSync(fromExpected.resolve('.')) ||
+      nextStart !== fs.realpathSync(path.join(expectedRoot, 'dist/server/lib/start-server.js')) ||
+      !nextEntry.startsWith(expectedRoot + path.sep) || !nextStart.startsWith(expectedRoot + path.sep)) {
+    throw Object.assign(new Error('shadowed Resend local Next runtime'), { code: 'RESEND_RUNTIME_SHADOWED' });
+  }
+  const next = JSON.parse(fs.readFileSync(nextPackage, 'utf8'));
+  if (metadata.name !== 'resend-local' || metadata.version !== '0.0.7' ||
+      next.name !== 'next' || next.version !== '15.5.28') {
+    throw Object.assign(new Error('unreviewed runtime'), { code: 'RESEND_RUNTIME_UNREVIEWED' });
+  }
+  return { server, nextPackage, nextEntry, nextStart, version: next.version };
+}
+
 async function start() {
   const [root, database] = process.argv.slice(2);
   if (!path.isAbsolute(root || '') || !path.isAbsolute(database || '') ||
       Number(process.versions.node.split('.')[0]) < 22) throw new Error('invalid fixture inputs');
-  const metadata = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  const next = JSON.parse(fs.readFileSync(path.join(root, '../next/package.json'), 'utf8'));
-  if (metadata.name !== 'resend-local' || metadata.version !== '0.0.7' || next.version !== '15.5.28') {
-    throw new Error('unreviewed runtime');
-  }
+  const runtime = inspectRuntime(root);
   const output = process.stdout.write.bind(process.stdout);
   // Nothing from the provider, including request bodies or API error details, becomes evidence.
   process.stdout.write = () => true;
@@ -91,7 +115,7 @@ async function start() {
     if (listener || port !== 3000 || host !== '127.0.0.1') throw new Error('loopback listener required');
     listener = this;
     this.once('listening', () => output(JSON.stringify({
-      host: '127.0.0.1', port: this.address().port, version: metadata.version,
+      host: '127.0.0.1', port: this.address().port, version: '0.0.7',
       outboundGuard: true, syntheticOnly: true,
     }) + '\n'));
     return listen.call(this, 0, '127.0.0.1', ...rest);
@@ -115,8 +139,18 @@ async function start() {
   };
   // Bypass upstream starter.js, which inherits environment and hardcodes a shared SQLite path.
   // server.js itself is byte-checked against the npm archive before this process is started.
-  await import(pathToFileURL(path.join(root, 'dist/app/server.js')).href);
+  await import(pathToFileURL(runtime.server).href);
 }
 
-module.exports = { requestAllowed, guardBody, installOutboundGuard, payload, marker };
-if (require.main === module) start().catch(() => { process.exitCode = 1; });
+module.exports = { requestAllowed, guardBody, installOutboundGuard, inspectRuntime, payload, marker };
+if (require.main === module) {
+  if (process.argv[2] === '--inspect-runtime') {
+    try { process.stdout.write(JSON.stringify(inspectRuntime(process.argv[3])) + '\n'); }
+    catch (error) {
+      const failure = ['RESEND_RUNTIME_SHADOWED', 'RESEND_RUNTIME_UNREVIEWED'].includes(error.code)
+        ? error.code : 'RESEND_RUNTIME_INSPECTION';
+      process.stdout.write(JSON.stringify({ failure }) + '\n');
+      process.exitCode = 1;
+    }
+  } else start().catch(() => { process.exitCode = 1; });
+}

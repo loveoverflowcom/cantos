@@ -193,13 +193,24 @@ impl Installed {
             "Resend release identity differs from the reviewed fixture"
         );
         verify_files(&root, &release.files)?;
-        let next = root
-            .parent()
-            .context("invalid Resend install layout")?
-            .join("next/package.json");
-        let next: serde_json::Value = serde_json::from_slice(&std::fs::read(next)?)?;
-        ensure!(next["name"] == "next" && next["version"] == NEXT_VERSION,
-            "Resend local requires the locked Next.js 15.5.28 security patch; unpatched 15.5.2 is refused");
+        // Use the launcher's same Node resolver in inspection-only mode. It resolves from the
+        // real server entrypoint and rejects nearer/shadowed copies without loading Next code.
+        let inspection = Command::new(&node)
+            .arg(workspace.path("infra/local-mail/resend-local/launcher.cjs"))
+            .arg("--inspect-runtime")
+            .arg(&root)
+            .env_clear()
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+            .context("inspect the Resend server's resolved Next runtime")?;
+        ensure!(inspection.status.success() && inspection.stdout.len() <= 4096,
+            "Resend local runtime resolution refused: server.js must load the same patched sibling Next; shadowed or unreviewed installs are unsupported");
+        let next: serde_json::Value = serde_json::from_slice(&inspection.stdout)?;
+        ensure!(
+            next["version"] == NEXT_VERSION,
+            "Resend local requires the locked Next.js 15.5.28 security patch"
+        );
         Ok(Self { node, root })
     }
 }

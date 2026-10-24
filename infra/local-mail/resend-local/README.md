@@ -39,6 +39,12 @@ cargo xtask run resend-local
 this directory's installed `node_modules/resend-local`. An alternate prepared installation may
 be selected with absolute `CANTOS_RESEND_LOCAL_PACKAGE`; it must pass the same byte/version checks
 and have the patched sibling `next` installation. Do not invoke the upstream starter directly.
+Both Rust preflight and startup use the same inspection-only Node resolver, created from the
+real `dist/app/server.js` entrypoint. Its resolved `next/package.json`, `next` entry and
+`next/dist/server/lib/start-server` must belong to that same patched sibling installation.
+Nearer copies under the package or `dist/app/node_modules` are rejected before import, even
+when all 133 approved resend-local release files remain intact. Inspection resolves paths and
+reads metadata without executing Next code; launch then imports that same real server entry.
 
 The one-shot command starts the fixture, posts `synthetic-email.json`, retrieves and compares the
 capture, then stops its own process group. It reports **simulated** delivery. A changed/invalid
