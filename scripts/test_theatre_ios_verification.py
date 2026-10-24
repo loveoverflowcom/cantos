@@ -28,9 +28,14 @@ class TheatreIosVerificationTest(unittest.TestCase):
         for label, settings, _ in targets:
             values = dict(re.findall(r"^\s*(\w+) = ([^;]*);", settings, re.M))
             if label == "Debug":
-                self.assertNotIn("CODE_SIGN_ENTITLEMENTS", values)
+                self.assertNotIn("CODE_SIGN_ENTITLEMENTS", settings)
             else:
                 self.assertEqual(values["CODE_SIGN_ENTITLEMENTS"], '"Cantos/Release.entitlements"')
+        # Exactly one assignment anywhere: a project-level or SDK-conditional
+        # ("CODE_SIGN_ENTITLEMENTS[sdk=...]") setting would reach Debug through inheritance.
+        self.assertEqual(project.count("CODE_SIGN_ENTITLEMENTS"), 1)
+        # The entitlement is a signing input, never a bundled resource or a compiled source.
+        self.assertNotIn("Release.entitlements in ", project)
         with (SWIFT / "Release.entitlements").open("rb") as source:
             self.assertEqual(plistlib.load(source), {
                 "com.apple.developer.associated-domains": ["applinks:cantos.cc"],
@@ -50,6 +55,25 @@ class TheatreIosVerificationTest(unittest.TestCase):
             self.assertNotRegex(source, r"@SceneStorage|@AppStorage|NSUserActivity\(activityType:")
             self.assertNotRegex(source, r"\bprint\(|\bNSLog\(|\bos_log\(")
         self.assertNotIn("CFBundleURLTypes", plistlib.loads((SWIFT / "Info.plist").read_bytes()))
+
+    def test_activity_intake_checks_the_type_and_scrubs_before_the_only_callback(self):
+        # Source order is the portable check; the macOS test below executes the real intake.
+        body = (SWIFT / "VerificationActivity.swift").read_text()
+        lines = [line.strip() for line in body.splitlines()]
+        guard = lines.index("guard activity.activityType == NSUserActivityTypeBrowsingWeb else { return }")
+        read = lines.index("let url = activity.webpageURL")
+        deliver = lines.index("deliver(url.absoluteString)")
+        self.assertEqual([line for line in lines if "deliver(" in line and "static func" not in line],
+                         ["deliver(url.absoluteString)"])
+        scrubs = ["activity.webpageURL = nil", "activity.userInfo = nil",
+                  "activity.isEligibleForHandoff = false", "activity.isEligibleForSearch = false",
+                  "activity.isEligibleForPublicIndexing = false"]
+        for scrub in scrubs:
+            with self.subTest(scrub=scrub):
+                self.assertLess(read, lines.index(scrub))
+                self.assertLess(lines.index(scrub), deliver)
+        self.assertLess(guard, read)
+        self.assertLess(lines.index("guard let url = url else { return }"), deliver)
 
     def test_ios_composes_the_existing_anonymous_completion_client(self):
         path = MOBILE / "shared/src/iosMain/kotlin/com/cantos/theatre/app"
