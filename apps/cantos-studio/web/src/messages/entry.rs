@@ -54,8 +54,8 @@ pub fn text(key: Key, english: bool) -> &'static str {
     match (key, english) {
         (Key::CleanupPending,false)=>"Đang thu hồi phiên trước khi tiếp tục đăng nhập…",
         (Key::CleanupPending,true)=>"Revoking the previous session before sign-in continues…",
-        (Key::MemoryHelp,false)=>"Phiên đăng nhập do trình duyệt giữ bằng cookie HttpOnly mà Studio không đọc được. Sau khi tải lại trang, Studio kiểm tra lại phiên với máy chủ. Bản nháp chưa lưu chỉ nằm trong tab này.",
-        (Key::MemoryHelp,true)=>"The browser keeps your session in an HttpOnly cookie that Studio cannot read. After a reload, Studio checks the session with the server again. Unsaved drafts live only in this tab.",
+        (Key::MemoryHelp,false)=>"Bản nháp chưa lưu chỉ còn trong tab này.",
+        (Key::MemoryHelp,true)=>"Unsaved drafts live only in this tab.",
         (Key::SignInUnavailable,false)=>"Đăng nhập Studio chưa khả dụng",
         (Key::SignInUnavailable,true)=>"Studio sign-in is not available",
         (Key::SignInUnavailableHelp,false)=>"Máy chủ chưa cấu hình đăng nhập Studio hoặc chưa có danh sách tài khoản được phép, và không có cách đăng nhập thay thế. Hãy liên hệ quản trị viên. Bản nháp đang giữ trong phiên này vẫn còn.",

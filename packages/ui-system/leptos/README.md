@@ -375,8 +375,9 @@ transparent and the native `<label for>` follows it in the DOM (grid placement k
 first). Help, error and the disabled reason render outside, below the shell, so a submit or
 trailing control placed beside the shell aligns to the control, not the helper area.
 
-- Geometry (Web mapping, declared once as `--cantos-web-field-*` in `foundation.css.in`): 64
-  minimum shell, 16 inline inset, floated label 12 from the top, value 32 from the top, 12 corner.
+- Geometry (Web mapping, declared once as `--cantos-web-field-*` in `foundation.css.in`): 58
+  minimum shell (close to the 56dp Google/M3 compact field), 16 inline inset, floated label 8
+  from the top, value 28 from the top, 12 corner.
   These are minimums; a long or wrapped label and larger text grow the shell. Nothing is
   absolutely positioned, so nothing clips.
 - Stroke: idle valid has none. Invalid idle is one 1-unit perimeter in `color.error`; focus is
