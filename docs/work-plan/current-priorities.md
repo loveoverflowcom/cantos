@@ -36,6 +36,10 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
 
 - [#203](https://github.com/loveoverflowcom/cantos/issues/203): trusted Forge invocation and
   provider/Drive/Functions execution; reuse the finite worker and attempt/recovery cores.
+- [#427](https://github.com/loveoverflowcom/cantos/issues/427): use the isolated
+  [prepared sample](../deployment/theatre-seeded-catalog.md) for Server-compatible catalog and
+  private-cover evidence. Public Web/CMP covers depend on #157/#171's disclosure/wire decision
+  and an eligible release; mock MP3 references never supply publication or playback acceptance.
 - [#170](https://github.com/loveoverflowcom/cantos/issues/170), [#120](https://github.com/loveoverflowcom/cantos/issues/120):
   real publication isolation, Range/expiry/withdrawal and native playback after the affected port.
 - [#199](https://github.com/loveoverflowcom/cantos/issues/199), [#280](https://github.com/loveoverflowcom/cantos/issues/280):

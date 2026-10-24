@@ -135,8 +135,13 @@ docs-only fallback when applicable.
 
 Native command truth is [xtask](xtask/README.md), `xtask/src/cli.rs`, `retired.rs` and `gate.rs`.
 `run` supervises Server + Identity over private files and a socket; explicit migrations precede
-serve. `services list|validate` remains available. `seed theatre` refuses while the native
-`catalog_http` fixture is absent. Kanidm, PostgreSQL/DBSP verification, provider enrollment,
+serve. `services list|validate` remains available. Plain `seed theatre` refuses while the native
+`catalog_http` fixture is absent. Its explicit [prepared-sample lane](docs/deployment/theatre-seeded-catalog.md)
+uses `--sample-input JSON --sample-media-source DIR --sample-root DIR` for six private Works,
+twelve draft chapters and the six supplied covers in isolated files outside Git. Mock audio
+stays unavailable; public-cover policy and Web/CMP acceptance remain separate. `--sample-serve`
+is a test-hosted loopback Server router, with no Identity. `--sample-root DIR --reset` archives
+only a marker-bound, owner-unlocked sample root and never deletes it. Kanidm, PostgreSQL/DBSP verification, provider enrollment,
 container lifecycle and legacy VPS/API-release commands are hidden retired refusals before effects.
 Use `verify rust`, `verify turso` and scoped native qualification; no old stack installation is
 part of cleanup. Preserve historical PG tests/schema and source-bound evidence.
@@ -234,6 +239,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |
 | Persistence, migrations or HTTP | Scoped real-file/context/HTTP checks through native Rust/Turso owners; preserve archived PG oracles as porting inputs and report unported coverage |
+| Prepared sample catalog | Command/parser regressions stay in the existing Rust gate; explicit `cargo xtask seed theatre --sample-input JSON --sample-media-source DIR --sample-root DIR` exercises actual provided PNGs, file-backed Turso and private Studio HTTP. It is never selected by build/preflight/CI and does not establish public catalog, browser/device or audio acceptance. |
 | Local PNG comparator/tooling | `cargo xtask visual-compare --self-test` (core plus optional pinned-Pillow tests); compare existing attributed pairs with `cargo xtask visual-compare` and open the images; metric PASS is not UX approval |
 
 Use Rust 1.98.1 (`RUSTUP_TOOLCHAIN=1.98.1`, as in CI). Native checks require no PostgreSQL,

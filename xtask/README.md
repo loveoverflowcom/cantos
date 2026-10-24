@@ -5,8 +5,9 @@
 > `build cantos-server` builds the Server binaries; `build cantos-identity` enables `service`.
 > `run cantos-server` plans explicit file migrations then Identity + Server under private
 > `target/native-dev/` directories with a short private Unix socket. `--dry-run` makes no
-> directories or processes. Serving does not migrate files. `seed theatre` refuses before
-> effects until its native `catalog_http` integration target exists. `verify rust` covers
+> directories or processes. Serving does not migrate files. Plain `seed theatre` refuses before
+> effects until its native `catalog_http` integration target exists; the explicit prepared-sample
+> flags select the isolated [sample lane](#seed). `verify rust` covers
 > ordinary file-backed Server tests; `verify turso` covers shared-store/Identity feature lanes.
 > PostgreSQL, DBSP and provider-enrollment gates are removed from ordinary selection/CI.
 > Their explicit commands, Kanidm/service lifecycle, legacy VPS deploy and legacy API release
@@ -67,6 +68,8 @@ cargo xtask run cantos-theatre --web [--web-origin URL] [--open]
 cargo xtask app cantos-studio --web [--open]
 cargo xtask app cantos-theatre --web [--open]
 cargo xtask seed theatre [--reset]                 # synthetic Theatre catalog + media in the native development files (currently refuses without catalog_http)
+cargo xtask seed theatre --sample-input JSON --sample-media-source DIR --sample-root DIR [--sample-serve]
+cargo xtask seed theatre --sample-root DIR --reset  # archive a proven owned sample root; never deletes it
 
 cargo xtask ui-preview leptos build|run|verify       # package-local Leptos gallery
 cargo xtask ui-preview leptos run --open             # loopback browser preview on 8083
@@ -385,10 +388,32 @@ preview overrides; a preview supplies no real account/playback acceptance.
 ### seed
 
 `cargo xtask seed theatre [--reset]` is opt-in development data, never a gate/preflight/CI step.
-The native planner requires the Server-owned `catalog_http` test fixture; it currently refuses
-before setup while that fixture is absent. `--environment` is a retired refusal. Do not restore
-PostgreSQL setup or use a persistent/user database to bypass the native prerequisite. Any reset
-is limited to the lane's proven owned development dataset; Identity/user data is separate.
+The unqualified native planner requires the Server-owned `catalog_http` test fixture and
+refuses before setup while that fixture is absent. `--environment` remains a retired refusal.
+
+The explicit `--sample-input JSON --sample-media-source DIR --sample-root DIR` mode instead
+uses the prepared #427 input and six original PNG covers, all outside Git. Absolute paths and
+separate source/output roots are required. It selects the Server's `sample_catalog_turso`
+target, exact ignored `sample_catalog` test: current registry, real file-backed Turso, Studio
+catalog/artwork handlers, stable IDs and receipts, close/reopen and idempotent reseed. The
+result is six private Works, twelve draft chapters, a Server-compatible `server.db`, private
+filesystem media and a manifest preserving the input's explicitly mock MP3 metadata. It
+creates no audio acceptance or publication. No flags select a production/user DB.
+
+`--sample-serve` first performs that import/verification and then serves the same real Server
+router and Store on `127.0.0.1:8080` until Ctrl-C. It refuses an occupied port. This test-hosted
+development composition starts no Identity and is distinct from the standalone Server binary,
+browser login, public catalog or Web/CMP/device acceptance. Keep `studio-token` private.
+
+`--sample-root DIR --reset` checks the output ownership marker and both exclusive DB owner locks,
+then archives the whole sample root to a sibling `.retired-<timestamp>-<pid>` directory. It
+never deletes DB/WAL, media or evidence, and refuses an active owner or unowned output. The
+original source flags are unnecessary for reset. See the [sample runbook](../docs/deployment/theatre-seeded-catalog.md)
+for preparation, import/reseed, output mapping, recovery and the pending public-cover boundary.
+
+The command adds no gate. Pure command/parser regressions belong to the existing Rust gate;
+the prepared-media import/serve campaign remains explicit. Do not restore PostgreSQL setup or
+use a persistent/user database to bypass a prerequisite. Identity/user data is separate.
 
 ### Explicit local service infrastructure
 
@@ -875,7 +900,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `gate.rs`, `build.rs`, `ci.rs` | gate catalog, build plans and CI jobs |
 | `ui_preview.rs` | package-local Leptos/CMP preview plans and supervised execution |
 | `run.rs`, `process.rs`, `probe.rs` | launch plans, supervised process groups, port ownership and readiness |
-| `seed.rs` | explicit `seed theatre [--reset]` plan; `scripts/seed_theatre.py` owns cluster ownership checks, the seed test run and the record |
+| `seed.rs`, `seed/sample.rs` | explicit `seed theatre` plans; isolated prepared-sample dispatch and marker/owner-locked archival, separate from the retained synthetic publication lane |
 | `preflight/` | Git change collection, the Cargo package graph and pure handoff/local selection |
 | `theatre_auth.rs` | pure plans and redacted outcomes for explicit isolated enrollment lanes; invokes the owned Python fixture primitive, outside ordinary gates |
 | `doctor.rs` | read-only environment report |

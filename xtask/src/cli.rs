@@ -344,6 +344,31 @@ mod tests {
     }
 
     #[test]
+    fn sample_seed_requires_explicit_sources_and_separates_serve_from_reset() {
+        assert!(matches!(parse("seed theatre --sample-input /source/input.json --sample-media-source /source --sample-root /output --sample-serve").unwrap(), Task::Seed { options: SeedOptions { sample_serve: true, .. }, .. }));
+        assert!(matches!(
+            parse("seed theatre --sample-root /output --reset").unwrap(),
+            Task::Seed {
+                options: SeedOptions {
+                    reset: true,
+                    sample_input: None,
+                    ..
+                },
+                ..
+            }
+        ));
+        for invalid in [
+            "seed theatre --sample-input /input.json",
+            "seed theatre --sample-input /input.json --sample-root /output",
+            "seed theatre --sample-media-source /source",
+            "seed theatre --sample-serve",
+            "seed theatre --sample-input /input.json --sample-media-source /source --sample-root /output --sample-serve --reset",
+        ] {
+            assert!(parse(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
     fn every_retired_command_parses_with_any_arguments_and_names_its_retirement() {
         let cases = [
             ("kanidm plan --studio-admin x", Retirement::Kanidm),

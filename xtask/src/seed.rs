@@ -33,6 +33,8 @@ use crate::{
     workspace::Workspace,
 };
 
+mod sample;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum SeedTarget {
     /// Public Theatre catalog: novel, story and podcast Works published through Studio flows.
@@ -62,6 +64,18 @@ pub struct SeedOptions {
     /// Remove this composition's server.db, seed media, receipt and creator record.
     #[arg(long)]
     pub reset: bool,
+    /// Prepared sample-catalog.json from issue #427; never a live database input.
+    #[arg(long, value_name = "PATH", requires_all = ["sample_root", "sample_media_source"])]
+    pub sample_input: Option<std::path::PathBuf>,
+    /// Directory containing the six original covers/<sample-key>.png files.
+    #[arg(long, value_name = "DIR", requires = "sample_input")]
+    pub sample_media_source: Option<std::path::PathBuf>,
+    /// Isolated output directory outside Git; --reset archives only this owned dataset.
+    #[arg(long, value_name = "DIR")]
+    pub sample_root: Option<std::path::PathBuf>,
+    /// Keep the verified sample Server on 127.0.0.1:8080 until Ctrl-C.
+    #[arg(long, requires = "sample_input", conflicts_with = "reset")]
+    pub sample_serve: bool,
     #[arg(long, hide = true, value_name = "NAME")]
     pub environment: Option<String>,
     #[arg(long, hide = true, value_name = "ORIGIN")]
@@ -577,6 +591,13 @@ pub fn execute(
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
 ) -> Result<std::result::Result<ExitCode, Refusal>> {
+    if options.sample_root.is_some()
+        || options.sample_input.is_some()
+        || options.sample_media_source.is_some()
+        || options.sample_serve
+    {
+        return sample::execute(workspace, options, tools, runner);
+    }
     let plan = match plan(workspace, target, options) {
         Ok(plan) => plan,
         Err(refusal) => return Ok(Err(refusal)),
