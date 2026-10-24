@@ -763,3 +763,47 @@ mod presentation_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod corrupt_row_tests {
+    //! The read model decodes untrusted stored rows: a mistyped, NULL or missing column is
+    //! `Corrupt`, never a panic.
+    use super::*;
+    use crate::test_support::ServerFixture;
+
+    #[tokio::test]
+    async fn mistyped_or_missing_keyset_and_request_columns_are_corrupt() {
+        let fixture = ServerFixture::new().await;
+        let mut cases = Vec::new();
+        for (sql, limit, works) in [
+            // The next-page Works keyset reads a text publication time.
+            (
+                "SELECT 'late' AS first_published_at,'w' AS work_id UNION ALL SELECT 1,'w'",
+                1,
+                true,
+            ),
+            // The next-page Units keyset reads a NULL position.
+            (
+                "SELECT 'w' AS work_id,NULL AS first_position,'u' AS unit_id UNION ALL SELECT 'w',1,'u'",
+                1,
+                false,
+            ),
+            // A metadata request reads an integer release id and has no revision columns.
+            ("SELECT 7 AS release_id,'w' AS work_id,'u' AS unit_id", 5, true),
+        ] {
+            cases.push((fixture.rows(sql, &[]).await.unwrap(), limit, works, sql));
+        }
+        let conn = fixture.store().connection().await.unwrap();
+        let tx = conn.read().await.unwrap();
+        for (rows, limit, works, sql) in cases {
+            assert!(
+                matches!(
+                    batch(&tx, rows, limit, works, 0).await,
+                    Err(ListenerError::Corrupt)
+                ),
+                "{sql}"
+            );
+        }
+        tx.rollback().await.unwrap();
+    }
+}

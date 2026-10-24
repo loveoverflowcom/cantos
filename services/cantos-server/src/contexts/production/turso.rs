@@ -480,6 +480,8 @@ mod tests {
             Err(StoreError::CorruptRevision)
         ));
         assert!(matches!(prior.settings(), Err(StoreError::CorruptRevision)));
+        assert!(matches!(prior.rights(), Err(StoreError::CorruptRevision)));
+        assert!(matches!(prior.approval(), Err(StoreError::CorruptRevision)));
         let snapshot = SnapshotRow(row);
         assert!(matches!(snapshot.id(), Err(StoreError::CorruptRevision)));
         assert!(matches!(
@@ -488,6 +490,14 @@ mod tests {
         ));
         assert!(matches!(
             snapshot.created_by(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(
+            snapshot.operation_id(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(
+            snapshot.document(),
             Err(StoreError::CorruptRevision)
         ));
     }
