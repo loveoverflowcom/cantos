@@ -1,0 +1,12 @@
+{
+  "name": "cantos-resend-local-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Opt-in synthetic-only local HTTP mail fixture; never an Identity proof provider",
+  "dependencies": {
+    "resend-local": "0.0.7"
+  },
+  "overrides": {
+    "next": "15.5.28"
+  }
+}

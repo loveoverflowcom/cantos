@@ -7,6 +7,7 @@ validation, build/capture, provider invocation and attributable receipts.
 
 | Location | Owns | Explicit operation |
 | --- | --- | --- |
+| [`local-mail/resend-local/`](local-mail/resend-local/README.md) | Approved synthetic-only Resend HTTP fixture lock, release hashes and guarded launcher; no Identity proof provider | `cargo xtask run resend-local`; no automatic install or live mail |
 | [`vps/`](vps/README.md) | Native/legacy Quadlet assets and retained PG/provider recovery inputs | Native activation is pending #348; old `deploy vps` refuses |
 | [`oci/`](oci) | Native OCI image definitions for `cantos-server` and `cantos-identity` plus declared compatibility identifiers | `cargo xtask release oci-build --platform P --producer local --build-id ID [--publish --authfile PATH]` ([contract](../docs/deployment/native-oci-release.md#producers-release-oci-build)); never deploys |
 | [`edge/`](edge/README.md) | Caddy ingress/TLS/routing policy (run as the `cantos-edge` Quadlet unit) and a DuckDNS updater example | installed by `cantos-vps`; never an implicit deploy side effect |

@@ -12,7 +12,7 @@ use crate::{
     kani::Kernel,
     preflight::PreflightProfile,
     retired::{Retired, Retirement},
-    run::{AppTarget, RunTarget},
+    run::{AppTarget, LocalMail, RunTarget},
     seed::{SeedOptions, SeedTarget},
     theatre_host::HostAction,
     theatre_preview::TheatrePreviewAction,
@@ -112,6 +112,10 @@ pub enum Task {
         /// Standalone Server Studio origin; Web profiles require their own Trunk origin.
         #[arg(long, value_name = "ORIGIN")]
         web_origin: Option<String>,
+        /// Explicit local mail lane. Resend local records only a fixed synthetic message;
+        /// Identity signup mail stays disabled. Firebase retains its separate proof adapter.
+        #[arg(long, value_enum)]
+        local_mail: Option<LocalMail>,
     },
     /// Explicit synthetic development data in the native development composition's own files.
     /// Never a gate, preflight selection or CI job.
@@ -280,6 +284,28 @@ mod tests {
     fn parse(line: &str) -> Result<Task, clap::Error> {
         Cli::try_parse_from(std::iter::once("cargo xtask").chain(line.split_whitespace()))
             .map(|cli| cli.command)
+    }
+
+    #[test]
+    fn synthetic_resend_and_explicit_firebase_are_distinct_local_lanes() {
+        assert!(matches!(
+            parse("run resend-local").unwrap(),
+            Task::Run {
+                target: RunTarget::ResendLocal,
+                ..
+            }
+        ));
+        for (name, expected) in [
+            ("disabled", LocalMail::Disabled),
+            ("firebase", LocalMail::Firebase),
+            ("resend-local", LocalMail::ResendLocal),
+        ] {
+            assert!(
+                matches!(parse(&format!("run cantos-theatre --web --local-mail {name}")).unwrap(),
+                Task::Run { local_mail: Some(actual), .. } if actual == expected)
+            );
+        }
+        assert!(parse("run cantos-theatre --web --local-mail live-resend").is_err());
     }
 
     #[test]

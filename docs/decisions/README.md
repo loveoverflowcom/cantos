@@ -9,6 +9,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 
 | ADR | Lifecycle | Scope / remaining boundary |
 | --- | --- | --- |
+| [0049 — Synthetic local mail](0049-synthetic-local-mail.md) | Proposed runner design; bounded fixture implemented | Explicit synthetic Resend HTTP capture; Identity proof, provider and native acceptance remain separate |
 | [0044 — Native enrollment preview](0044-native-enrollment-preview.md) | Proposed development boundary | Shared CMP registration and separately enabled native admission; isolated full journey and native/production acceptance remain separate |
 | [0001 — Modular monolith](0001-modular-monolith.md) | Accepted | Stack and inward module ownership; implemented baseline |
 | [0002 — Script IR](0002-script-ir-contract.md) | Proposed policy; implemented contract | Production adoption remains separate |

@@ -267,12 +267,18 @@ Do not report an app build, mobile test, audio quality result or end-to-end prod
 
 The corrected 23 October owner task selects Firebase only for verification email/actions;
 see the [native amendment](docs/architecture/native-turso-refactor.md#owner-amendment-firebase-verification-provider)
-and [proof-bridge boundary](docs/architecture/firebase-verification.md). Local Theatre `xtask run`
-starts an isolated installed Auth Emulator and uses an operation-bound sealed-proof adapter.
+and [proof-bridge boundary](docs/architecture/firebase-verification.md). Local mail is explicit:
+Theatre `xtask run --local-mail firebase` starts the isolated installed Auth Emulator and uses
+the operation-bound sealed-proof adapter. Local defaults keep mail disabled. The separately
+approved [Resend local fixture](infra/local-mail/resend-local/README.md) accepts only a fixed
+nonfunctional HTTP message; it leaves Identity mail disabled and proves no mailbox ownership.
+Keep shared Firebase CLI for Hosting/Distribution; no broad emulator/tooling cleanup is implied.
 Keep native proof secrets out of continuation URLs. Preserve durable create/send/consume fences,
 exact-request keyed replay binding and terminal expiry/uncertain outcomes; do not poll
 `emailVerified`, restore provider login or infer browser/production acceptance from readiness.
 Ordinary tests/builds do not start the emulator; the explicit ignored boundary test is separate.
+The existing Rust gate includes xtask's pure Node.js 22+ launcher guard tests; no installed
+Resend package is needed. Only explicit `cargo xtask run resend-local` starts that fixture.
 
 For [#348](https://github.com/loveoverflowcom/cantos/issues/348), production distribution is
 GHCR registry digests plus Podman Quadlet for the two native executables. This supersedes only

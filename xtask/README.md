@@ -64,7 +64,8 @@ cargo xtask build all [--release]                  # the API, Forge and both Web
 
 cargo xtask run cantos-server [--web-origin URL]
 cargo xtask run cantos-studio --web [--web-origin URL] [--open]
-cargo xtask run cantos-theatre --web [--web-origin URL] [--open]
+cargo xtask run cantos-theatre --web [--web-origin URL] [--open] [--local-mail disabled|firebase|resend-local]
+cargo xtask run resend-local
 cargo xtask app cantos-studio --web [--open]
 cargo xtask app cantos-theatre --web [--open]
 cargo xtask seed theatre [--reset]                 # synthetic Theatre catalog + media in the native development files (currently refuses without catalog_http)
@@ -346,7 +347,14 @@ adds no required gate: the primitive tests run in `repository`, the command-plan
 
 ### run and app
 
-Theatre `run --web` now starts a supervised, run-owned Firebase Auth Emulator from an already
+Local `run` defaults to disabled mail. `run resend-local` explicitly starts the prepared third-party
+HTTP fixture, posts and reads back one fixed nonfunctional message, then stops its own process.
+`run cantos-theatre --web --local-mail resend-local` keeps the same synthetic fixture alongside
+the application; Identity signup mail stays disabled. Neither result accepts verification,
+authentication or real delivery. Preparation, provenance, the patched dependency lock and
+isolation limits are in the [Resend local runbook](../infra/local-mail/resend-local/README.md).
+
+Theatre `run --web --local-mail firebase` starts a supervised, run-owned Firebase Auth Emulator from an already
 installed `firebase-tools` **14.2.2** Auth module and Node.js. Missing/wrong tooling refuses before
 build; no install, Firebase login or real Firebase fallback occurs. Set
 `CANTOS_FIREBASE_AUTH_MODULE` to an absolute installed `lib/emulator/auth/server.js` when it cannot
@@ -355,7 +363,7 @@ The emulator has an empty environment, loopback ephemeral port, unique demo proj
 in-memory state and blocked outbound TCP/TLS. Its provider logs are suppressed. The console
 prints only its local developer action-inventory endpoint; never log the returned codes/links.
 
-Theatre Web runs select the operation-bound Firebase emulator adapter, reject inherited
+The explicit Firebase lane selects the operation-bound Firebase emulator adapter. Native local runs reject inherited
 Google/Firebase/SMTP configuration and use Theatre's actual loopback origin. Native Identity
 still owns proof consumption/passwords and returns no session on signup. The
 [protocol and acceptance limits](../docs/architecture/firebase-verification.md) distinguish the
@@ -371,7 +379,8 @@ cargo test --locked -p xtask auth_emulator::tests::installed_emulator -- --ignor
 | --- | --- |
 | `run cantos-server` | One Server + Identity, explicit migrations, private development files and authenticated UDS RPC |
 | `run cantos-studio --web` | Same backend composition plus Trunk on 8081 |
-| `run cantos-theatre --web` | Same backend composition plus Trunk on 8082; anonymous catalog readiness can fail while business schema is unported |
+| `run cantos-theatre --web` | Same backend composition plus Trunk on 8082, mail disabled; optional explicit local-mail lane as above |
+| `run resend-local` | One bounded synthetic HTTP capture/readback; no Server, Identity, Web, native DB or migration |
 | `app cantos-studio --web` | Trunk only; requires an existing API |
 | `app cantos-theatre --web` | Trunk only; warns when the existing public catalog is unavailable |
 

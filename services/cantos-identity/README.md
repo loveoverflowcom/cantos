@@ -252,8 +252,10 @@ native proof custody, durable effect fences and runtime-keyed exact-request repl
 HTTPS action configuration; `firebase-emulator` requires the local build/composition. Missing or
 mixed configuration fails closed without fallback. `disabled` rejects mixed SMTP inputs; omitted
 or explicit `smtp` keeps the existing adapter outside local run. SDK emulator overrides are refused.
-Theatre Web xtask runs select the owned emulator and actual Theatre link origin; other local
-targets keep mail disabled. Expired enrollment recovery, cross-browser/device and production acceptance
+Theatre Web xtask runs select the owned emulator only with explicit `--local-mail firebase`, using
+the actual Theatre link origin. Default local runs and the synthetic `--local-mail resend-local`
+lane keep Identity mail disabled. The [HTTP fixture](../../infra/local-mail/resend-local/README.md)
+is not an Identity mail/proof port and carries no usable verification material. Expired enrollment recovery, cross-browser/device and production acceptance
 remain open as documented in the verification owner. HTTP loopback
 links need both the explicit `local-development` build feature and
 `CANTOS_IDENTITY_LOCAL_DEVELOPMENT=1`; ordinary `service`/OCI builds reject that flag.

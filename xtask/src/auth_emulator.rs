@@ -39,11 +39,13 @@ pub const CLOUD_VARIABLES: &[&str] = &[
 pub fn reject_inherited_configuration(names: impl IntoIterator<Item = String>) -> Result<()> {
     for name in names {
         if CLOUD_VARIABLES.contains(&name.as_str())
+            || name.starts_with("RESEND_")
+            || name.starts_with("CANTOS_IDENTITY_RESEND_")
             || name.starts_with("CANTOS_IDENTITY_SMTP_")
             || name.starts_with("CANTOS_IDENTITY_FIREBASE_")
             || name.starts_with("CANTOS_THEATRE_REGISTRATION_FIREBASE_")
         {
-            bail!("local Firebase composition refuses inherited {name}; unset it in this shell; no cloud fallback is available");
+            bail!("local mail composition refuses inherited {name}; unset it in this shell; no cloud fallback is available");
         }
     }
     Ok(())
@@ -294,6 +296,9 @@ mod tests {
     fn cloud_and_mail_configuration_is_refused_by_name_without_values() {
         for name in CLOUD_VARIABLES.iter().copied().chain([
             "CANTOS_IDENTITY_SMTP_PASSWORD",
+            "RESEND_API_KEY",
+            "RESEND_BASE_URL",
+            "CANTOS_IDENTITY_RESEND_FUTURE_SECRET",
             "CANTOS_IDENTITY_FIREBASE_FUTURE_SECRET",
             "CANTOS_THEATRE_REGISTRATION_FIREBASE_SERVICE_ACCOUNT_FILE",
         ]) {

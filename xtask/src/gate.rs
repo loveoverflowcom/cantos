@@ -229,7 +229,18 @@ impl Gate {
             Gate::ScriptIrReference => vec![Tool::Python3],
             Gate::ProtobufReference => vec![Tool::Cargo, Tool::Python3, Tool::Clippy],
             Gate::RustLint(_) | Gate::Turso => vec![Tool::Cargo, Tool::Clippy],
-            Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
+            Gate::RustTests(scope) => {
+                let includes_xtask = match scope {
+                    Scope::Workspace => true,
+                    Scope::Packages(packages) => packages.contains("xtask"),
+                };
+                if includes_xtask {
+                    vec![Tool::Cargo, Tool::Node]
+                } else {
+                    vec![Tool::Cargo]
+                }
+            }
+            Gate::ContractTests => vec![Tool::Cargo],
             Gate::ForgeFunctions => vec![Tool::Cargo, Tool::Node],
             Gate::WavReference | Gate::Mutation => vec![Tool::Cargo, Tool::Python3],
             Gate::AudioInspection => vec![Tool::Cargo, Tool::Ffmpeg, Tool::Ffprobe],
@@ -791,6 +802,22 @@ mod tests {
             );
             assert!(report.outcomes[2].detail.contains(missing.label()));
         }
+    }
+
+    #[test]
+    fn only_rust_test_scopes_containing_xtask_need_the_local_mail_guard_node_runtime() {
+        assert_eq!(
+            Gate::RustTests(Scope::Workspace).tools(),
+            [Tool::Cargo, Tool::Node]
+        );
+        assert_eq!(
+            Gate::RustTests(Scope::Packages(["xtask".to_owned()].into())).tools(),
+            [Tool::Cargo, Tool::Node]
+        );
+        assert_eq!(
+            Gate::RustTests(Scope::Packages(["cantos-identity".to_owned()].into())).tools(),
+            [Tool::Cargo]
+        );
     }
 
     #[test]

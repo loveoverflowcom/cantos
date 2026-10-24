@@ -7,7 +7,8 @@
 //! executed here before anything serves. `app` starts only Web: Studio requires an existing
 //! API; Theatre warns when its catalog dependency is unavailable so explicit offline previews
 //! remain usable.
-//! Theatre `run --web` also owns an isolated installed Auth Emulator. Native proof confirmation stays in Identity; no cloud resource, database server, container or object store is provisioned.
+//! Local mail is explicit. Resend local is synthetic-only; Firebase's native proof bridge
+//! remains separately selectable. No cloud resource or provider installation is implicit.
 
 use std::{io::IsTerminal, net::SocketAddr, process::ExitCode, time::Duration};
 
@@ -23,6 +24,7 @@ use crate::{
     pipeline::{self, Step},
     probe::{self, Endpoint, Readiness},
     process::{Supervisor, Wait},
+    resend_local,
     tools::{Tool, ToolProbe},
     workspace::Workspace,
 };
@@ -35,6 +37,8 @@ const TRUNK_READY_TIMEOUT: Duration = Duration::from_secs(900);
 #[allow(clippy::enum_variant_names)] // CLI names mirror the package names
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum RunTarget {
+    /// Start, probe and stop the synthetic Resend fixture; no Server, Identity or migration.
+    ResendLocal,
     /// The native Server and Identity in the foreground.
     CantosServer,
     /// Cantos Studio: with --web, the native Server + Identity plus a `trunk serve` frontend.
@@ -42,6 +46,16 @@ pub enum RunTarget {
     /// Cantos Theatre: with --web, the native Server + Identity plus a `trunk serve` frontend.
     #[value(alias = "cantos")]
     CantosTheatre,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum LocalMail {
+    #[default]
+    Disabled,
+    /// Operation-bound native verification using the installed Auth Emulator.
+    Firebase,
+    /// Fixed nonfunctional HTTP mail preview, never Identity proof delivery.
+    ResendLocal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -59,6 +73,7 @@ pub struct LaunchOptions {
     pub release: bool,
     pub open: bool,
     pub web_origin: Option<String>,
+    pub local_mail: Option<LocalMail>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,8 +100,7 @@ pub struct Service {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaunchPlan {
-    /// Theatre's supervised local verification action provider.
-    pub firebase_auth_emulator: bool,
+    pub local_mail: LocalMail,
     pub requirements: Vec<Requirement>,
     /// The development data directories xtask creates (0700) before anything runs.
     pub composition: Option<Layout>,
@@ -246,7 +260,30 @@ pub fn plan_run(
     options: &LaunchOptions,
 ) -> Result<LaunchPlan, Refusal> {
     match target {
+        RunTarget::ResendLocal => {
+            if options.surface.is_some()
+                || options.release
+                || options.open
+                || options.web_origin.is_some()
+                || options.local_mail.is_some()
+            {
+                return Err(Refusal::Usage("run resend-local takes no surface, release, open, origin or mail-selection flags".into()));
+            }
+            Ok(LaunchPlan {
+                local_mail: LocalMail::ResendLocal,
+                requirements: Vec::new(),
+                composition: None,
+                prepare: Vec::new(),
+                services: Vec::new(),
+                open: None,
+            })
+        }
         RunTarget::CantosServer => {
+            if options.local_mail.is_some() {
+                return Err(Refusal::Usage(
+                    "--local-mail applies only to run cantos-theatre --web".into(),
+                ));
+            }
             if options.surface.is_some() {
                 return Err(Refusal::Usage(
                     "cantos-server takes no --web/--mobile flag".into(),
@@ -255,7 +292,7 @@ pub fn plan_run(
             let profile = check_flags(options, true, false)?;
             let layout = Layout::for_current_user(workspace)?;
             Ok(LaunchPlan {
-                firebase_auth_emulator: false,
+                local_mail: LocalMail::Disabled,
                 requirements: Vec::new(),
                 prepare: native_prepare(workspace, &layout, profile),
                 services: native_services(
@@ -279,6 +316,11 @@ fn run_web(
     options: &LaunchOptions,
 ) -> Result<LaunchPlan, Refusal> {
     app_surface(app, options.surface)?;
+    if app != App::Theatre && options.local_mail.is_some() {
+        return Err(Refusal::Usage(
+            "--local-mail applies only to run cantos-theatre --web".into(),
+        ));
+    }
     let profile = check_flags(options, true, true)?;
     let origin = app.web_origin();
     if options
@@ -305,7 +347,7 @@ fn run_web(
     }
     services.push(frontend);
     Ok(LaunchPlan {
-        firebase_auth_emulator: app == App::Theatre,
+        local_mail: options.local_mail.unwrap_or_default(),
         requirements: Vec::new(),
         prepare: native_prepare(workspace, &layout, profile),
         composition: Some(layout),
@@ -325,7 +367,7 @@ pub fn plan_app(
             let profile = check_flags(options, false, true)?;
             let origin = App::Studio.web_origin();
             Ok(LaunchPlan {
-                firebase_auth_emulator: false,
+                local_mail: LocalMail::Disabled,
                 requirements: vec![Requirement::Listening {
                     name: API_SERVER_BIN,
                     addr: api_addr(),
@@ -348,7 +390,7 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
     app_surface(App::Theatre, options.surface)?;
     let profile = check_flags(options, false, true)?;
     Ok(LaunchPlan {
-        firebase_auth_emulator: false,
+        local_mail: LocalMail::Disabled,
         requirements: vec![Requirement::TheatreApi {
             addr: api_addr(),
             hint: "start `cargo xtask run cantos-server`, or use \
@@ -445,14 +487,19 @@ pub fn launch(
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
     // All native local runs refuse ambient cloud/mail configuration, including Server-only.
-    if plan.composition.is_some() {
+    if plan.composition.is_some() || plan.local_mail != LocalMail::Disabled {
         auth_emulator::reject_inherited_configuration(
             std::env::vars_os().filter_map(|(name, _)| name.into_string().ok()),
         )?;
     }
-    let installed_emulator = plan
-        .firebase_auth_emulator
+    let installed_emulator = (plan.local_mail == LocalMail::Firebase)
         .then(auth_emulator::Installed::inspect)
+        .transpose()?;
+    if plan.local_mail == LocalMail::ResendLocal && !tools.available(Tool::Node) {
+        bail!("Resend local requires installed Node.js 22+; xtask never installs it");
+    }
+    let installed_resend = (plan.local_mail == LocalMail::ResendLocal)
+        .then(|| resend_local::Installed::inspect(workspace))
         .transpose()?;
     check_preconditions(plan, tools)?;
     if let Some(layout) = &plan.composition {
@@ -476,6 +523,17 @@ pub fn launch(
     // The run directory must drop after the supervisor, including on an early error.
     let mut emulator_run = None;
     let mut supervisor = Supervisor::new()?;
+    if let Some(installed) = installed_resend {
+        let run = resend_local::Run::start(workspace, &installed, &mut supervisor)?;
+        let _receipt = resend_local::send_preview(run.address)?;
+        println!("Resend local {}: synthetic HTTP capture PASS on {}.\n  Private capture: {}\n  Delivery is simulated. Identity signup mail is disabled; no proof, account or session was accepted.",
+            resend_local::VERSION, run.address, workspace.relative(&run.directory));
+        if plan.composition.is_none() && plan.services.is_empty() {
+            supervisor.shutdown();
+            println!("Synthetic mail fixture stopped; private capture retained.");
+            return Ok(ExitCode::SUCCESS);
+        }
+    }
     if let Some(installed) = installed_emulator {
         emulator_run = Some(auth_emulator::Run::start(
             workspace,
@@ -577,7 +635,7 @@ pub fn launch(
 
 fn readiness_hint(service: &Service) -> &'static str {
     if matches!(service.endpoint, Endpoint::Unix(_)) {
-        return "Identity startup failed: check its output, that `cantos-identity migrate` succeeded, and that no other process owns identity.db. Local mail is disabled until the Firebase/native proof bridge exists; inherited production mail configuration is refused.";
+        return "Identity startup failed: check its output, that `cantos-identity migrate` succeeded, and that no other process owns identity.db. Local mail is disabled unless the explicit Firebase proof lane is selected; Resend local is synthetic-only.";
     }
     match service.readiness {
         Readiness::TheatreCatalog => "Theatre Server startup failed: check the Server output, that `cantos-migrate` succeeded, and that no other process (an operator command, an old Server) owns server.db. No database server or identity provider is provisioned; no mock fallback is selected.",
@@ -732,14 +790,39 @@ mod tests {
     }
 
     #[test]
-    fn theatre_selects_local_emulator_and_disables_delivery_at_the_actual_theatre_origin() {
+    fn theatre_requires_an_explicit_local_mail_choice_and_keeps_identity_delivery_disabled() {
         let plan = plan_run(
             &workspace(),
             RunTarget::CantosTheatre,
             &web(LaunchOptions::default()),
         )
         .unwrap();
-        assert!(plan.firebase_auth_emulator);
+        assert_eq!(plan.local_mail, LocalMail::Disabled);
+        for selected in [
+            LocalMail::Disabled,
+            LocalMail::Firebase,
+            LocalMail::ResendLocal,
+        ] {
+            let chosen = plan_run(
+                &workspace(),
+                RunTarget::CantosTheatre,
+                &web(LaunchOptions {
+                    local_mail: Some(selected),
+                    ..LaunchOptions::default()
+                }),
+            )
+            .unwrap();
+            assert_eq!(chosen.local_mail, selected);
+            let identity = chosen
+                .services
+                .iter()
+                .find(|service| service.name == IDENTITY_BIN)
+                .unwrap();
+            assert_eq!(
+                env_of(identity, "CANTOS_IDENTITY_MAIL_PROVIDER").as_deref(),
+                Some("disabled")
+            );
+        }
         let identity = plan
             .services
             .iter()
@@ -764,9 +847,50 @@ mod tests {
         )
         .unwrap();
         assert!(
-            !app.firebase_auth_emulator,
+            app.local_mail == LocalMail::Disabled,
             "frontend-only attachment owns no infrastructure"
         );
+    }
+
+    #[test]
+    fn standalone_resend_has_no_native_files_build_or_migration_and_rejects_unrelated_flags() {
+        let plan = plan_run(
+            &workspace(),
+            RunTarget::ResendLocal,
+            &LaunchOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(plan.local_mail, LocalMail::ResendLocal);
+        assert!(plan.composition.is_none() && plan.prepare.is_empty() && plan.services.is_empty());
+        for options in [
+            LaunchOptions {
+                release: true,
+                ..LaunchOptions::default()
+            },
+            web(LaunchOptions::default()),
+            LaunchOptions {
+                open: true,
+                ..LaunchOptions::default()
+            },
+        ] {
+            assert!(matches!(
+                plan_run(&workspace(), RunTarget::ResendLocal, &options),
+                Err(Refusal::Usage(_))
+            ));
+        }
+        for target in [RunTarget::CantosServer, RunTarget::CantosStudio] {
+            let mut options = LaunchOptions {
+                local_mail: Some(LocalMail::ResendLocal),
+                ..LaunchOptions::default()
+            };
+            if target == RunTarget::CantosStudio {
+                options = web(options);
+            }
+            assert!(matches!(
+                plan_run(&workspace(), target, &options),
+                Err(Refusal::Usage(_))
+            ));
+        }
     }
 
     #[test]
@@ -1048,7 +1172,7 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         drop(listener);
         let plan = LaunchPlan {
-            firebase_auth_emulator: false,
+            local_mail: LocalMail::Disabled,
             requirements: vec![Requirement::TheatreApi {
                 addr,
                 hint: "start the Server explicitly".into(),
@@ -1133,7 +1257,7 @@ mod tests {
         .unwrap();
         plan.composition = None;
         // The installed Auth Emulator is inspected on the real host; keep this plan hermetic.
-        plan.firebase_auth_emulator = false;
+        plan.local_mail = LocalMail::Disabled;
         plan.services[1].endpoint = Endpoint::Tcp(listener.local_addr().unwrap());
         let mut runner = RecordingRunner::default();
         let error = launch(
