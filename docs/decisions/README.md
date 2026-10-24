@@ -54,6 +54,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0041 — Direct Hosting/API boundary](0041-direct-hosting-api-boundary.md) | Accepted owner direction; #295 Web-cookie migration pending | Direct static Web → explicit API origin and exact surface CORS; Web cookies on custom domains selected, native Bearer retained; gateway/browser/device acceptance separate |
 | [0043 — Cloudflare Pages Direct Upload](0043-cloudflare-pages-direct-upload.md) | Proposed (owner requested Pages); publisher implemented | Pages Direct Upload only, artifact-consuming `deploy cloudflare`; no Worker/Functions; real account/browser acceptance and cutover pending |
 | [0046 — Service-owned contracts](0046-service-owned-contracts.md) | Accepted owner request; source migration implemented | Canonical schemas/protos/fixtures per service and module, consumer-owned Rust/Kotlin representations and per-consumer Protobuf codegen; supersedes 0009's `packages/contracts` and 0023's prost 0.13.5 pin; no wire/runtime acceptance changed |
+| [0048 — Signup link returns to CMP](0048-signup-email-link-return-to-app.md) | Proposed; review-first (#422) | Recommends native-first completion through verified App/Universal Links over the existing native completion route, staged behind a Web/CMP copy fix; no behavior, contract, association or configuration change until owner selection |
 
 ## ID allocation and historical references
 
