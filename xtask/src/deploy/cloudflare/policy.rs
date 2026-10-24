@@ -10,13 +10,22 @@
 //! unknown path) **unless a top-level `404.html` exists**. Cantos routes with URL fragments, so
 //! no path needs a fallback; the mandatory `404.html` is what keeps `/api/*` and a missing
 //! `.js`/`.wasm`/`.css` from answering `200 text/html`.
+//!
+//! Theatre may add its Android App Links and iOS Universal Links association files under
+//! `.well-known/` (ADR 0048). Each claims exactly the release app and the signup email action
+//! path `/verify-email`; a debug application, another path or another association is refused.
 
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
+use serde_json::Value;
+
 use super::request::{AccountId, Destination};
-use crate::run_files::sha256_hex;
+use crate::{
+    config::{App, THEATRE_VERIFY_EMAIL_PATH as VERIFY_EMAIL_PATH},
+    run_files::sha256_hex,
+};
 
 pub const MAPPING_FILE: &str = "infra/cloudflare/projects.json";
 pub const MAPPING_EXAMPLE: &str = "infra/cloudflare/projects.example.json";
@@ -26,6 +35,16 @@ const MAX_HEADER_RULES: usize = 100;
 const MAX_REDIRECT_RULES: usize = 2_000;
 const MAX_LINE: usize = 2_000;
 const MAX_NOT_FOUND_BYTES: usize = 16 * 1024;
+/// Apple's documented association file limit is 128 KB; both files are far smaller.
+const MAX_ASSOCIATION_BYTES: usize = 128 * 1024;
+
+pub const ASSET_LINKS: &str = ".well-known/assetlinks.json";
+pub const APPLE_APP_SITE_ASSOCIATION: &str = ".well-known/apple-app-site-association";
+/// The release application of Cantos Theatre. The debug `com.cantos.theatre.dev` is never
+/// associated (owner decision recorded in ADR 0048).
+const RELEASE_APPLICATION: &str = "com.cantos.theatre";
+/// Android's at most two signing-certificate generations during a key rotation, plus slack.
+const MAX_FINGERPRINTS: usize = 4;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -86,16 +105,59 @@ pub struct PolicyFiles {
     pub headers: String,
     pub not_found: String,
     pub redirects: Option<String>,
+    /// Theatre only: `.well-known/assetlinks.json`.
+    pub asset_links: Option<String>,
+    /// Theatre only: `.well-known/apple-app-site-association`.
+    pub apple_app_site_association: Option<String>,
 }
 
 impl PolicyFiles {
     /// Every problem, so one run reports the whole list.
-    pub fn validate(&self) -> Result<(), Vec<String>> {
+    pub fn validate(&self, app: App) -> Result<(), Vec<String>> {
         let mut problems = Vec::new();
         validate_headers(&self.headers, &mut problems);
         validate_not_found(&self.not_found, &mut problems);
         if let Some(redirects) = &self.redirects {
             validate_redirects(redirects, &mut problems);
+        }
+        if app == App::Theatre {
+            validate_verify_email_headers(&self.headers, &mut problems);
+        }
+        for (name, content) in [
+            (ASSET_LINKS, &self.asset_links),
+            (APPLE_APP_SITE_ASSOCIATION, &self.apple_app_site_association),
+        ] {
+            let Some(content) = content else { continue };
+            if app != App::Theatre {
+                problems.push(format!(
+                    "{name}: only Theatre publishes app association files"
+                ));
+                continue;
+            }
+            if content.len() > MAX_ASSOCIATION_BYTES {
+                problems.push(format!(
+                    "{name} is larger than {MAX_ASSOCIATION_BYTES} bytes"
+                ));
+                continue;
+            }
+            let parsed = match serde_json::from_str::<Value>(content) {
+                Ok(value) => value,
+                Err(_) => {
+                    problems.push(format!("{name} is not JSON"));
+                    continue;
+                }
+            };
+            let verdict = if name == ASSET_LINKS {
+                validate_asset_links(&parsed)
+            } else {
+                validate_apple_association(&parsed)
+            };
+            if let Err(why) = verdict {
+                problems.push(format!("{name}: {why}"));
+            }
+        }
+        if self.apple_app_site_association.is_some() {
+            validate_association_media_type(&self.headers, &mut problems);
         }
         if problems.is_empty() {
             Ok(())
@@ -116,7 +178,7 @@ impl PolicyFiles {
         sha256_hex(&bytes)
     }
 
-    /// The root-level files to add to the staged directory, in a fixed order.
+    /// The files to add to the staged directory, in a fixed order.
     pub fn files(&self) -> Vec<(&'static str, &str)> {
         let mut files = vec![
             ("_headers", self.headers.as_str()),
@@ -124,6 +186,12 @@ impl PolicyFiles {
         ];
         if let Some(redirects) = &self.redirects {
             files.push(("_redirects", redirects.as_str()));
+        }
+        if let Some(links) = &self.asset_links {
+            files.push((ASSET_LINKS, links.as_str()));
+        }
+        if let Some(association) = &self.apple_app_site_association {
+            files.push((APPLE_APP_SITE_ASSOCIATION, association.as_str()));
         }
         files
     }
@@ -256,6 +324,169 @@ fn validate_headers(text: &str, problems: &mut Vec<String>) {
     }
 }
 
+/// Header values of every rule for exactly `path`.
+fn rule_values(text: &str, path: &str, name: &str) -> Vec<String> {
+    parse_headers(text, &mut Vec::new())
+        .into_iter()
+        .filter(|rule| rule.path == path)
+        .flat_map(|rule| rule.headers)
+        .filter(|(header, _)| header == name)
+        .map(|(_, value)| value.to_ascii_lowercase())
+        .collect()
+}
+
+/// Pages serves `verify-email.html` at `/verify-email` and redirects the `.html` spelling, so
+/// both entry spellings carry the same no-store rule as `/` and `/index.html`.
+fn validate_verify_email_headers(text: &str, problems: &mut Vec<String>) {
+    for path in [VERIFY_EMAIL_PATH, "/verify-email.html"] {
+        if !rule_values(text, path, "cache-control")
+            .iter()
+            .any(|value| value.contains("no-store"))
+        {
+            problems.push(format!(
+                "_headers `{path}` must set `cache-control` containing `no-store`"
+            ));
+        }
+    }
+}
+
+/// Apple fetches the extensionless file and requires JSON; Pages would otherwise guess the type.
+fn validate_association_media_type(text: &str, problems: &mut Vec<String>) {
+    let path = format!("/{APPLE_APP_SITE_ASSOCIATION}");
+    let values = rule_values(text, &path, "content-type");
+    if values.len() != 1 || values[0] != "application/json" {
+        problems.push(format!(
+            "_headers `{path}` must set exactly one `Content-Type: application/json`"
+        ));
+    }
+}
+
+fn object<'a>(
+    value: &'a Value,
+    keys: &[&str],
+) -> Result<&'a serde_json::Map<String, Value>, String> {
+    let map = value
+        .as_object()
+        .ok_or_else(|| "expected a JSON object".to_owned())?;
+    if let Some(unknown) = map.keys().find(|key| !keys.contains(&key.as_str())) {
+        return Err(format!("unexpected field `{unknown}`"));
+    }
+    Ok(map)
+}
+
+fn single<'a>(value: Option<&'a Value>, what: &str) -> Result<&'a Value, String> {
+    match value.and_then(Value::as_array).map(Vec::as_slice) {
+        Some([only]) => Ok(only),
+        _ => Err(format!("`{what}` must hold exactly one entry")),
+    }
+}
+
+/// A SHA-256 certificate fingerprint in the `AB:CD:…` form Android verifies.
+fn fingerprint(value: &Value) -> bool {
+    value.as_str().is_some_and(|text| {
+        text.len() == 95
+            && text.split(':').count() == 32
+            && text.split(':').all(|pair| {
+                pair.len() == 2
+                    && pair
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || matches!(b, b'A'..=b'F'))
+            })
+    })
+}
+
+/// Exactly one `handle_all_urls` statement for the release application.
+fn validate_asset_links(value: &Value) -> Result<(), String> {
+    let statement = match value.as_array().map(Vec::as_slice) {
+        Some([only]) => only,
+        _ => return Err("must hold exactly one statement".into()),
+    };
+    let statement = object(statement, &["relation", "target"])?;
+    let relation = single(statement.get("relation"), "relation")?;
+    if relation.as_str() != Some("delegate_permission/common.handle_all_urls") {
+        return Err("the only relation is `delegate_permission/common.handle_all_urls`".into());
+    }
+    let target = object(
+        statement
+            .get("target")
+            .ok_or_else(|| "missing `target`".to_owned())?,
+        &["namespace", "package_name", "sha256_cert_fingerprints"],
+    )?;
+    if target.get("namespace").and_then(Value::as_str) != Some("android_app") {
+        return Err("`target.namespace` must be `android_app`".into());
+    }
+    if target.get("package_name").and_then(Value::as_str) != Some(RELEASE_APPLICATION) {
+        return Err(format!(
+            "`target.package_name` must be the release application `{RELEASE_APPLICATION}`"
+        ));
+    }
+    let prints = target
+        .get("sha256_cert_fingerprints")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "missing `sha256_cert_fingerprints`".to_owned())?;
+    let unique: std::collections::BTreeSet<_> = prints.iter().filter_map(Value::as_str).collect();
+    if prints.is_empty()
+        || prints.len() > MAX_FINGERPRINTS
+        || unique.len() != prints.len()
+        || !prints.iter().all(fingerprint)
+    {
+        return Err(format!(
+            "`sha256_cert_fingerprints` must list 1–{MAX_FINGERPRINTS} distinct uppercase `AB:CD:…` SHA-256 fingerprints"
+        ));
+    }
+    Ok(())
+}
+
+/// One `applinks` detail: the release application under one Apple team, claiming only
+/// [`VERIFY_EMAIL_PATH`].
+fn validate_apple_association(value: &Value) -> Result<(), String> {
+    let root = object(value, &["applinks"])?;
+    let applinks = object(
+        root.get("applinks")
+            .ok_or_else(|| "missing `applinks`".to_owned())?,
+        &["apps", "details"],
+    )?;
+    if let Some(apps) = applinks.get("apps") {
+        if apps.as_array().is_none_or(|apps| !apps.is_empty()) {
+            return Err("`applinks.apps`, when present, must be the empty legacy array".into());
+        }
+    }
+    let detail = object(
+        single(applinks.get("details"), "applinks.details")?,
+        &["appIDs", "components"],
+    )?;
+    let app_id = single(detail.get("appIDs"), "appIDs")?
+        .as_str()
+        .unwrap_or_default();
+    let team_ok = app_id
+        .strip_suffix(&format!(".{RELEASE_APPLICATION}"))
+        .is_some_and(|team| {
+            team.len() == 10
+                && team
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || b.is_ascii_uppercase())
+        });
+    if !team_ok {
+        return Err(format!(
+            "`appIDs` must be `<TEAMID>.{RELEASE_APPLICATION}` with a 10-character team ID"
+        ));
+    }
+    let component = object(
+        single(detail.get("components"), "components")?,
+        &["/", "comment"],
+    )?;
+    if component.get("/").and_then(Value::as_str) != Some(VERIFY_EMAIL_PATH) {
+        return Err(format!("the only component path is `{VERIFY_EMAIL_PATH}`"));
+    }
+    if component
+        .get("comment")
+        .is_some_and(|comment| !comment.is_string())
+    {
+        return Err("`comment` must be text".into());
+    }
+    Ok(())
+}
+
 fn validate_not_found(text: &str, problems: &mut Vec<String>) {
     let lower = text.to_ascii_lowercase();
     if text.trim().is_empty() {
@@ -342,25 +573,200 @@ mod tests {
   Cache-Control: no-store
 /index.html
   Cache-Control: no-store
+/verify-email
+  Cache-Control: no-store
+/verify-email.html
+  Cache-Control: no-store
 ";
     const NOT_FOUND: &str = "<!doctype html><html lang=\"vi\"><title>Không tìm thấy</title><p>Không tìm thấy trang.</p></html>";
     const ACCOUNT: &str = "8339afe44b4e8cd2b633a38a77f1db41";
+
+    const FINGERPRINT: &str = "14:6D:E9:83:C5:73:06:50:D8:EE:B9:95:2F:34:FC:64:16:A0:83:42:E6:1D:BE:A8:8A:04:96:B2:3F:CF:44:E5";
 
     fn files() -> PolicyFiles {
         PolicyFiles {
             headers: HEADERS.to_owned(),
             not_found: NOT_FOUND.to_owned(),
             redirects: None,
+            asset_links: None,
+            apple_app_site_association: None,
         }
     }
 
     fn problems(files: &PolicyFiles) -> Vec<String> {
-        files.validate().err().unwrap_or_default()
+        files.validate(App::Theatre).err().unwrap_or_default()
+    }
+
+    fn asset_links(package: &str, prints: &[&str]) -> String {
+        serde_json::json!([{
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {"namespace": "android_app", "package_name": package,
+                       "sha256_cert_fingerprints": prints}
+        }])
+        .to_string()
+    }
+
+    fn apple(app_id: &str, path: &str) -> String {
+        serde_json::json!({"applinks": {"details": [
+            {"appIDs": [app_id], "components": [{"/": path, "comment": "ADR 0048 signup action"}]}
+        ]}})
+        .to_string()
+    }
+
+    fn associated() -> PolicyFiles {
+        PolicyFiles {
+            headers: format!(
+                "{HEADERS}/.well-known/apple-app-site-association\n  Content-Type: application/json\n"
+            ),
+            asset_links: Some(asset_links("com.cantos.theatre", &[FINGERPRINT])),
+            apple_app_site_association: Some(apple("ABCDE12345.com.cantos.theatre", "/verify-email")),
+            ..files()
+        }
     }
 
     #[test]
     fn the_reference_policy_is_accepted() {
-        assert_eq!(files().validate(), Ok(()));
+        assert_eq!(files().validate(App::Theatre), Ok(()));
+        assert_eq!(files().validate(App::Studio), Ok(()));
+        assert_eq!(associated().validate(App::Theatre), Ok(()));
+    }
+
+    #[test]
+    fn theatre_entry_rules_cover_the_signup_email_action_path() {
+        for path in ["/verify-email", "/verify-email.html"] {
+            let mut policy = files();
+            policy.headers = policy
+                .headers
+                .replace(&format!("{path}\n  Cache-Control: no-store\n"), "");
+            assert!(
+                problems(&policy)
+                    .iter()
+                    .any(|p| p.contains(&format!("`{path}` must set"))),
+                "{path}"
+            );
+            // Studio has no signup handler.
+            assert_eq!(policy.validate(App::Studio), Ok(()));
+        }
+    }
+
+    #[test]
+    fn asset_links_claim_only_the_release_application_with_real_fingerprints() {
+        let lower = FINGERPRINT.to_ascii_lowercase();
+        let short = &FINGERPRINT[..92];
+        for (links, needle) in [
+            (
+                asset_links("com.cantos.theatre.dev", &[FINGERPRINT]),
+                "release application",
+            ),
+            (
+                asset_links("com.example.other", &[FINGERPRINT]),
+                "release application",
+            ),
+            (asset_links("com.cantos.theatre", &[]), "fingerprints"),
+            (asset_links("com.cantos.theatre", &[&lower]), "fingerprints"),
+            (asset_links("com.cantos.theatre", &[short]), "fingerprints"),
+            (
+                asset_links("com.cantos.theatre", &[FINGERPRINT, FINGERPRINT]),
+                "fingerprints",
+            ),
+            ("[]".to_owned(), "exactly one statement"),
+            ("{}".to_owned(), "exactly one statement"),
+            ("not json".to_owned(), "not JSON"),
+            (
+                asset_links("com.cantos.theatre", &[FINGERPRINT])
+                    .replace("handle_all_urls", "get_login_creds"),
+                "relation",
+            ),
+            (
+                asset_links("com.cantos.theatre", &[FINGERPRINT])
+                    .replace("\"target\"", "\"extra\":1,\"target\""),
+                "unexpected field",
+            ),
+        ] {
+            let policy = PolicyFiles {
+                asset_links: Some(links.clone()),
+                ..files()
+            };
+            let found = problems(&policy);
+            assert!(
+                found
+                    .iter()
+                    .any(|p| p.starts_with(ASSET_LINKS) && p.contains(needle)),
+                "{links}: {found:?}"
+            );
+        }
+        let rotated = PolicyFiles {
+            asset_links: Some(asset_links(
+                "com.cantos.theatre",
+                &[FINGERPRINT, &FINGERPRINT.replace("14:6D", "15:6D")],
+            )),
+            ..files()
+        };
+        assert_eq!(rotated.validate(App::Theatre), Ok(()));
+    }
+
+    #[test]
+    fn the_apple_association_claims_only_verify_email_for_the_release_application() {
+        for (association, needle) in [
+            (
+                apple("ABCDE12345.com.cantos.theatre", "/"),
+                "component path",
+            ),
+            (
+                apple("ABCDE12345.com.cantos.theatre", "/verify-email/*"),
+                "component path",
+            ),
+            (
+                apple("ABCDE12345.com.cantos.theatre", "*"),
+                "component path",
+            ),
+            (
+                apple("ABCDE12345.com.cantos.theatre.dev", "/verify-email"),
+                "appIDs",
+            ),
+            (
+                apple("abcde12345.com.cantos.theatre", "/verify-email"),
+                "appIDs",
+            ),
+            (apple("ABC.com.cantos.theatre", "/verify-email"), "appIDs"),
+            (
+                apple("ABCDE12345.com.cantos.theatre", "/verify-email")
+                    .replace("\"applinks\"", "\"webcredentials\":{},\"applinks\""),
+                "unexpected field",
+            ),
+            (
+                apple("ABCDE12345.com.cantos.theatre", "/verify-email")
+                    .replace("\"comment\"", "\"?\":{\"mode\":\"x\"},\"comment\""),
+                "unexpected field",
+            ),
+        ] {
+            let policy = PolicyFiles {
+                apple_app_site_association: Some(association.clone()),
+                ..associated()
+            };
+            let found = problems(&policy);
+            assert!(
+                found
+                    .iter()
+                    .any(|p| p.starts_with(APPLE_APP_SITE_ASSOCIATION) && p.contains(needle)),
+                "{association}: {found:?}"
+            );
+        }
+        // Without its JSON media type Apple may refuse it.
+        let untyped = PolicyFiles {
+            headers: HEADERS.to_owned(),
+            ..associated()
+        };
+        assert!(problems(&untyped)
+            .iter()
+            .any(|p| p.contains("Content-Type: application/json")));
+    }
+
+    #[test]
+    fn studio_never_publishes_association_files() {
+        let found = associated().validate(App::Studio).unwrap_err();
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(found.iter().all(|p| p.contains("only Theatre")));
     }
 
     #[test]
@@ -380,8 +786,15 @@ mod tests {
                 headers: read("_headers"),
                 not_found: read("404.html"),
                 redirects: None,
+                asset_links: None,
+                apple_app_site_association: None,
             };
-            assert_eq!(tracked.validate(), Ok(()), "{app}");
+            let app_kind = if app == "theatre" {
+                App::Theatre
+            } else {
+                App::Studio
+            };
+            assert_eq!(tracked.validate(app_kind), Ok(()), "{app}");
         }
     }
 
@@ -486,7 +899,7 @@ mod tests {
     fn redirects_are_optional_and_never_rewrite_or_touch_the_api() {
         let mut policy = files();
         policy.redirects = Some("# comment\n/old /new 301\n/legacy /new\n".to_owned());
-        assert_eq!(policy.validate(), Ok(()));
+        assert_eq!(policy.validate(App::Theatre), Ok(()));
         for bad in [
             "/* /index.html 200",
             "/api/* https://x 301",
@@ -516,6 +929,20 @@ mod tests {
         let mut with = files();
         with.redirects = Some("/a /b 301".to_owned());
         assert_eq!(with.files().last().unwrap().0, "_redirects");
+        assert_eq!(
+            associated()
+                .files()
+                .iter()
+                .map(|(name, _)| *name)
+                .collect::<Vec<_>>(),
+            [
+                "_headers",
+                "404.html",
+                ASSET_LINKS,
+                APPLE_APP_SITE_ASSOCIATION
+            ]
+        );
+        assert_ne!(associated().digest(), base.digest());
     }
 
     fn mapping(extra: &str) -> String {

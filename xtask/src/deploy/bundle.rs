@@ -12,7 +12,8 @@
 //! - every local reference in `index.html` (attributes and inline module imports) exists, stays
 //!   inside the bundle, and where it carries `integrity="sha384-..."` matches the actual bytes;
 //! - no `.js`/`.css`/`.wasm`/data file is really an HTML page, and every `.wasm` has the WebAssembly
-//!   magic. A path that answers `200 index.html` is exactly how a missing asset hides.
+//!   magic. A path that answers `200 index.html` is exactly how a missing asset hides;
+//! - Theatre carries [`THEATRE_VERIFY_EMAIL_ENTRY`], byte for byte its `index.html` (ADR 0048).
 
 #[cfg(test)]
 use sha2::Sha384;
@@ -56,6 +57,19 @@ pub enum Provider {
 
 /// Root-level files that configure Pages delivery rather than being product assets.
 pub const PAGES_POLICY_FILES: [&str; 3] = ["_headers", "_redirects", "404.html"];
+
+/// The only dot-paths a bundle may contain: Theatre's reviewed domain-association policy for
+/// Pages (ADR 0048), validated by its content owner before staging. Every other dot-file stays
+/// refused, and neither path is admitted for Studio or Firebase Hosting.
+pub const PAGES_ASSOCIATION_FILES: [&str; 2] = [
+    ".well-known/assetlinks.json",
+    ".well-known/apple-app-site-association",
+];
+
+/// Theatre's second entry name. Pages serves it at the exact signup email action path
+/// `/verify-email` (ADR 0048) without a rewrite; it must be the same bytes as `index.html`, so
+/// the handler page can never drift from the app it loads.
+pub const THEATRE_VERIFY_EMAIL_ENTRY: &str = "verify-email.html";
 
 /// Names Pages treats as server code or routing for Functions. A static Web release never
 /// contains them, and uploading one could make Pages run code instead of serving files.
@@ -131,6 +145,10 @@ pub enum Finding {
     /// A non-HTML file whose bytes are an HTML page.
     HtmlMasquerade(String),
     BadWasm(String),
+    /// Theatre has no [`THEATRE_VERIFY_EMAIL_ENTRY`]: the signup email action path would 404.
+    NoVerifyEmailEntry,
+    /// [`THEATRE_VERIFY_EMAIL_ENTRY`] differs from `index.html`.
+    VerifyEmailEntryDiffers,
 }
 
 impl std::fmt::Display for Finding {
@@ -187,6 +205,14 @@ impl std::fmt::Display for Finding {
             Finding::BadWasm(path) => {
                 write!(f, "`{path}` does not start with the WebAssembly magic bytes")
             }
+            Finding::NoVerifyEmailEntry => write!(
+                f,
+                "no `{THEATRE_VERIFY_EMAIL_ENTRY}`: the Theatre build must copy its entry page for the signup email action path"
+            ),
+            Finding::VerifyEmailEntryDiffers => write!(
+                f,
+                "`{THEATRE_VERIFY_EMAIL_ENTRY}` is not byte for byte `index.html`"
+            ),
         }
     }
 }
@@ -237,6 +263,9 @@ pub fn validate_for(app: App, scan: &Scan, provider: Provider) -> Result<Manifes
         check_file(app, provider, file, &mut findings);
     }
     let entry_assets = check_index(app, scan, &mut findings);
+    if app == App::Theatre {
+        check_verify_email_entry(scan, &mut findings);
+    }
     if !findings.is_empty() {
         return Err(findings);
     }
@@ -278,6 +307,16 @@ fn check_file(app: App, provider: Provider, file: &FileFacts, findings: &mut Vec
         }
         return;
     }
+    if provider == Provider::Pages && app == App::Theatre && PAGES_ASSOCIATION_FILES.contains(&path)
+    {
+        if file.size == 0 {
+            findings.push(Finding::EmptyFile(path.to_owned()));
+        }
+        if looks_like_html(&file.head) {
+            findings.push(Finding::HtmlMasquerade(path.to_owned()));
+        }
+        return;
+    }
     let name = path.rsplit('/').next().unwrap_or(path);
     if provider == Provider::Pages
         && path
@@ -305,7 +344,8 @@ fn check_file(app: App, provider: Provider, file: &FileFacts, findings: &mut Vec
         findings.push(Finding::UnexpectedType(path.to_owned()));
         return;
     };
-    if extension == "html" && path != "index.html" {
+    let second_entry = app == App::Theatre && path == THEATRE_VERIFY_EMAIL_ENTRY;
+    if extension == "html" && path != "index.html" && !second_entry {
         findings.push(Finding::UnexpectedType(path.to_owned()));
         return;
     }
@@ -327,6 +367,24 @@ fn check_file(app: App, provider: Provider, file: &FileFacts, findings: &mut Vec
     let may_be_markup = matches!(extension.as_str(), "html" | "svg");
     if !may_be_markup && looks_like_html(&file.head) {
         findings.push(Finding::HtmlMasquerade(path.to_owned()));
+    }
+}
+
+/// Theatre's signup email action page must exist and be exactly its entry page.
+fn check_verify_email_entry(scan: &Scan, findings: &mut Vec<Finding>) {
+    let digest = |path: &str| {
+        scan.files
+            .iter()
+            .find(|file| file.path == path)
+            .map(|file| file.sha256.as_str())
+    };
+    match (digest(THEATRE_VERIFY_EMAIL_ENTRY), digest("index.html")) {
+        (None, _) => findings.push(Finding::NoVerifyEmailEntry),
+        (Some(copy), Some(index)) if copy != index => {
+            findings.push(Finding::VerifyEmailEntryDiffers)
+        }
+        // Without an index the per-index check already refuses the bundle.
+        _ => {}
     }
 }
 
@@ -716,17 +774,21 @@ pub mod testing {
             js.sha384,
             wasm.sha384
         );
+        let mut files = vec![file("index.html", index.as_bytes())];
+        if app == App::Theatre {
+            files.push(file(THEATRE_VERIFY_EMAIL_ENTRY, index.as_bytes()));
+        }
+        files.extend([
+            js,
+            wasm,
+            css,
+            file(
+                "assets/icons/home.svg",
+                b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+            ),
+        ]);
         Scan {
-            files: vec![
-                file("index.html", index.as_bytes()),
-                js,
-                wasm,
-                css,
-                file(
-                    "assets/icons/home.svg",
-                    b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
-                ),
-            ],
+            files,
             index_html: Some(index.into_bytes()),
             ..Scan::default()
         }
@@ -747,12 +809,113 @@ mod tests {
         good_scan(App::Theatre)
     }
 
+    /// Replacing `index.html` also replaces its Theatre copy, as the build hook does; tests of the
+    /// copy itself edit it directly.
     fn replace(scan: &mut Scan, path: &str, bytes: &[u8]) {
         let index = scan.files.iter().position(|f| f.path == path).unwrap();
         scan.files[index] = file(path, bytes);
         if path == "index.html" {
             scan.index_html = Some(bytes.to_vec());
+            if let Some(copy) = scan
+                .files
+                .iter()
+                .position(|f| f.path == THEATRE_VERIFY_EMAIL_ENTRY)
+            {
+                scan.files[copy] = file(THEATRE_VERIFY_EMAIL_ENTRY, bytes);
+            }
         }
+    }
+
+    #[test]
+    fn theatre_requires_its_verify_email_entry_to_be_exactly_its_index() {
+        let scan = good_theatre();
+        assert!(validate(App::Theatre, &scan).is_ok());
+        let mut missing = scan.clone();
+        missing
+            .files
+            .retain(|file| file.path != THEATRE_VERIFY_EMAIL_ENTRY);
+        assert_eq!(
+            findings(App::Theatre, &missing),
+            [Finding::NoVerifyEmailEntry]
+        );
+        let mut drifted = scan.clone();
+        let copy = drifted
+            .files
+            .iter()
+            .position(|file| file.path == THEATRE_VERIFY_EMAIL_ENTRY)
+            .unwrap();
+        drifted.files[copy] = file(
+            THEATRE_VERIFY_EMAIL_ENTRY,
+            b"<!doctype html><title>Cantos</title>",
+        );
+        assert_eq!(
+            findings(App::Theatre, &drifted),
+            [Finding::VerifyEmailEntryDiffers]
+        );
+        // Studio has no signup handler: the same name is just an unexpected page there.
+        let mut studio = good_scan(App::Studio);
+        studio
+            .files
+            .push(file(THEATRE_VERIFY_EMAIL_ENTRY, b"<!doctype html>"));
+        assert!(findings(App::Studio, &studio)
+            .contains(&Finding::UnexpectedType(THEATRE_VERIFY_EMAIL_ENTRY.into())));
+        // No other second HTML page is admitted for Theatre either.
+        let mut other = scan;
+        other.files.push(file("verify.html", b"<!doctype html>"));
+        assert!(
+            findings(App::Theatre, &other).contains(&Finding::UnexpectedType("verify.html".into()))
+        );
+    }
+
+    #[test]
+    fn only_theatre_pages_admits_exactly_the_two_association_dot_paths() {
+        let json = br#"{"applinks":{}}"#;
+        for path in PAGES_ASSOCIATION_FILES {
+            let mut scan = good_theatre();
+            scan.files.push(file(path, json));
+            assert!(
+                validate_for(App::Theatre, &scan, Provider::Pages).is_ok(),
+                "{path}"
+            );
+            // Firebase Hosting and Studio never publish them.
+            assert_eq!(
+                findings(App::Theatre, &scan),
+                [Finding::HiddenFile(path.into())]
+            );
+            let mut studio = good_scan(App::Studio);
+            studio.files.push(file(path, json));
+            assert_eq!(
+                validate_for(App::Studio, &studio, Provider::Pages).unwrap_err(),
+                [Finding::HiddenFile(path.into())]
+            );
+        }
+        for path in [
+            ".well-known/security.txt",
+            ".well-known/assetlinks.json.bak",
+            ".well-known/apple-developer-merchantid-domain-association",
+            "assets/.well-known/assetlinks.json",
+        ] {
+            let mut scan = good_theatre();
+            scan.files.push(file(path, json));
+            assert_eq!(
+                validate_for(App::Theatre, &scan, Provider::Pages).unwrap_err(),
+                [Finding::HiddenFile(path.into())],
+                "{path}"
+            );
+        }
+        let mut empty = good_theatre();
+        empty.files.push(file(PAGES_ASSOCIATION_FILES[0], b""));
+        assert_eq!(
+            validate_for(App::Theatre, &empty, Provider::Pages).unwrap_err(),
+            [Finding::EmptyFile(PAGES_ASSOCIATION_FILES[0].into())]
+        );
+        let mut page = good_theatre();
+        page.files
+            .push(file(PAGES_ASSOCIATION_FILES[1], b"<!doctype html>"));
+        assert_eq!(
+            validate_for(App::Theatre, &page, Provider::Pages).unwrap_err(),
+            [Finding::HtmlMasquerade(PAGES_ASSOCIATION_FILES[1].into())]
+        );
     }
 
     fn findings(app: App, scan: &Scan) -> Vec<Finding> {

@@ -1076,8 +1076,11 @@ or credential requirement.
 and SHA-256 against it, and extracts it in-process into a new private run directory
 (`artifacts/cloudflare/<run-id>/public`) refusing every non-regular, absolute, `..`, hidden, duplicate
 or over-limit entry. It then adds the tracked `infra/cloudflare/<app>/` policy files (`_headers`,
-`404.html`, optional `_redirects`), validates the exact bytes with the shared bundle validator in its
-Pages mode (only those three root names are allowed beyond the usual static types; `_worker.js`,
+`404.html`, optional `_redirects`; for Theatre only, the optional content-validated
+`.well-known/assetlinks.json` and `.well-known/apple-app-site-association` of ADR 0048), validates the
+exact bytes with the shared bundle validator in its Pages mode (only those root names and the two
+association paths are allowed beyond the usual static types; Theatre's `verify-email.html` must equal
+its `index.html`; `_worker.js`,
 `_routes.json`, `functions/`, source maps, `.env`, `package.json` and foreign-app files are refused; the
 Free 20,000-file and 25 MiB per-asset limits are enforced on decoded sizes), and uploads that directory.
 

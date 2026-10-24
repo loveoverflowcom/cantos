@@ -11,3 +11,8 @@
   Cache-Control: no-cache, no-store
 /index.html
   Cache-Control: no-cache, no-store
+# ADR 0048: Pages serves the byte-identical `verify-email.html` at the signup email action path.
+/verify-email
+  Cache-Control: no-cache, no-store
+/verify-email.html
+  Cache-Control: no-cache, no-store

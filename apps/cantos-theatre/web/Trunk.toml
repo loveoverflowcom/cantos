@@ -11,3 +11,12 @@ port = 8082
 backend = "http://127.0.0.1:8080/api/"
 rewrite = "/api/"
 no_redirect = true
+
+# ADR 0048: the signup email action handler is `https://<origin>/verify-email`. Pages serves
+# `verify-email.html` at that exact path (no rewrite or redirect), so the processed entry page is
+# copied byte for byte after Trunk writes it. `deploy` refuses the copy unless it equals
+# `index.html`; `trunk serve` reaches the same entry through its fallback.
+[[hooks]]
+stage = "post_build"
+command = "sh"
+command_arguments = ["-c", "cp \"$TRUNK_STAGING_DIR/index.html\" \"$TRUNK_STAGING_DIR/verify-email.html\""]

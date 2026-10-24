@@ -151,6 +151,17 @@ pub fn native_prepare(workspace: &Workspace, layout: &Layout, profile: Profile) 
     ]
 }
 
+/// The local Firebase action handler: the production action path (ADR 0048) on the Theatre dev
+/// origin. `trunk serve` falls back to the entry page there, as Pages serves its byte-identical
+/// copy, so the local journey exercises the same path check as production.
+fn local_action_handler() -> String {
+    format!(
+        "{}{}",
+        App::Theatre.web_origin(),
+        crate::config::THEATRE_VERIFY_EMAIL_PATH
+    )
+}
+
 /// Identity first (the Server dials its socket lazily, but an Identity that fails to start
 /// should stop the run before the Server reports ready), then the Server.
 fn native_services(
@@ -500,7 +511,7 @@ pub fn launch(
                     )
                     .env(
                         "CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER",
-                        format!("{}/", App::Theatre.web_origin()),
+                        local_action_handler(),
                     );
             }
         }
@@ -713,6 +724,11 @@ mod tests {
             env_of(identity, "CANTOS_IDENTITY_SERVER_UIDS")
         );
         assert_eq!(plan.open, None);
+    }
+
+    #[test]
+    fn the_local_action_handler_is_the_production_path_on_the_theatre_origin() {
+        assert_eq!(local_action_handler(), "http://127.0.0.1:8082/verify-email");
     }
 
     #[test]
