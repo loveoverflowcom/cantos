@@ -15,6 +15,15 @@ fn observed_session_phase(state: ReadSignal<AccountViewState>) -> Memo<SessionPh
     Memo::new(move |_| state.with(AccountViewState::phase))
 }
 
+/// An older discovery link may still carry the content-language filter that was retired (#424).
+/// The page drops it from the query; this makes the address say so too, replacing the entry in
+/// place so Back does not revisit the stale link.
+fn reconcile_retired_language(route: Route, hash: &str) {
+    if let Some(destination) = super::routes::retired_language_rewrite(route, hash) {
+        browser::replace_address(&destination);
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct LiveNavigation {
     pub route: RwSignal<Route>,
@@ -37,6 +46,7 @@ impl LiveNavigation {
     ) -> Self {
         let hash = browser::hash();
         let initial = Route::from_live_hash(&hash);
+        reconcile_retired_language(initial, &hash);
         let auth = match initial {
             Route::Auth(auth) => Some(auth),
             _ => None,
@@ -122,6 +132,7 @@ impl LiveNavigation {
             let read = move || {
                 let hash = browser::hash();
                 let destination = Route::from_live_hash(&hash);
+                reconcile_retired_language(destination, &hash);
                 if destination != navigation.route.get_untracked() {
                     navigation.cancel();
                 }

@@ -420,7 +420,8 @@ body { margin: 0; }
 .theatre-account-theme p { font-size: var(--cantos-type-metadata-size); }
 .theatre-account-links { list-style: none; margin: 0; padding: 0; }
 .theatre-account-links a { display: flex; align-items: center; min-block-size: var(--cantos-size-control); padding-block: var(--cantos-space-sm); }
-.theatre-home-auth-actions { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+/* The one guest cluster: capsule CTAs keep icon and label centered and wrap as whole buttons. */
+.theatre-home-auth-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
 /* Discover (live): topbar, intro, hero and shelf share the container's one inline axis. */
 .theatre-live-app .theatre-main { padding-inline: 0; padding-block-start: 0; }
 .theatre-live-app .theatre-topbar { padding-inline: 0; padding-block: var(--cantos-space-md); }
@@ -458,9 +459,11 @@ body { margin: 0; }
 /* Search: one labelled form, wrapped on a narrow screen, with a stable list region below. */
 .theatre-public-search { display: grid; gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
 .theatre-public-search .theatre-filters { margin-block: 0; }
-/* The button stays beside the field until large text or a narrow screen leaves no room for both. */
-.theatre-public-search-main { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--cantos-space-md); max-inline-size: 40rem; }
+/* The button stays beside the field until large text or a narrow screen leaves no room for both.
+   It aligns to the control (the field's shell), never to the helper/error below it. */
+.theatre-public-search-main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--cantos-space-md); max-inline-size: 40rem; }
 .theatre-public-search-main > .cui-field { flex: 1 1 13rem; min-inline-size: 0; }
+.theatre-public-search-main > .cui-button { min-block-size: var(--cantos-web-field-block-size); }
 .theatre-public-search-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm) var(--cantos-space-md); }
 .theatre-public-status { margin-block: var(--cantos-space-md); }
 .theatre-public-work-count { margin-block-end: 0; font-size: var(--cantos-type-metadata-size); }

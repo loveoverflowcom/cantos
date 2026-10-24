@@ -181,8 +181,6 @@ resources! {
     DiscoverySearchSubmit => ("Tìm", "Search"),
     DiscoveryKindLabel => ("Loại", "Type"),
     DiscoveryKindAll => ("Tất cả loại", "All types"),
-    DiscoveryLanguageLabel => ("Ngôn ngữ nội dung", "Content language"),
-    DiscoveryLanguageAny => ("Mọi ngôn ngữ", "All languages"),
     PublicHomeFeaturedEyebrow => ("Tác phẩm đầu danh mục", "First in the catalog"),
     PublicHomeFirstMatchEyebrow => ("Kết quả khớp đầu tiên", "First match"),
     PublicHomeFeatureMeta => ("{kind} · {language} · {units}", "{kind} · {language} · {units}"),

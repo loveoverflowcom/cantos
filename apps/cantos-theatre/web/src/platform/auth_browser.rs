@@ -104,6 +104,21 @@ pub(crate) fn push_discovery(
     }
 }
 
+/// Rewrite only the current entry's address: no new history entry, and the entry keeps its state
+/// (the previous-route marker [`back`] trusts). Used when an older link carried a filter this page
+/// no longer has. `replaceState` fires neither `hashchange` nor `popstate`, so it is read once.
+pub(crate) fn replace_address(destination: &str) {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
+        let state = history
+            .state()
+            .unwrap_or(web_sys::wasm_bindgen::JsValue::NULL);
+        let _ = history.replace_state_with_url(&state, "", Some(destination));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = destination;
+}
+
 pub(crate) fn back(route: RwSignal<Route>, destination: Route) {
     #[cfg(target_arch = "wasm32")]
     if let Some(window) = web_sys::window() {

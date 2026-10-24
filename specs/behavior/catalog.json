@@ -796,6 +796,108 @@
       "aliases": []
     },
     {
+      "id": "cantos.presentation.discovery-retired-language",
+      "lifecycle": "draft",
+      "owner": "apps/cantos-theatre/web/src/app/routes.rs",
+      "sourceRefs": [
+        "apps/cantos-theatre/web/README.md",
+        "apps/cantos-theatre/web/src/app/live_navigation.rs",
+        "apps/cantos-theatre/web/src/platform/auth_browser.rs",
+        "apps/cantos-theatre/web/src/features/public_home.rs"
+      ],
+      "model": "specs/behavior/presentation/discovery_retired_language.qnt",
+      "module": "discovery_retired_language",
+      "scenarios": "specs/behavior/presentation/discovery_retired_language_tests.qnt",
+      "scenarioModule": "discovery_retired_language_tests",
+      "inventory": "specs/behavior/inventory.md",
+      "properties": [
+        {
+          "id": "cantos.presentation.discovery-retired-language.property.no-hidden-filter",
+          "declaration": "noHiddenFilter"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.property.address-shows-applied",
+          "declaration": "addressShowsApplied"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.property.rewrite-in-place",
+          "declaration": "rewriteInPlace"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.property.locale-isolated",
+          "declaration": "localeIsolated"
+        }
+      ],
+      "runs": [
+        {
+          "id": "cantos.presentation.discovery-retired-language.run.retired-deep-link",
+          "declaration": "retiredDeepLinkTest"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.run.language-only",
+          "declaration": "languageOnlyTest"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.run.back-forward",
+          "declaration": "backForwardTest"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.run.locale-isolated",
+          "declaration": "localeIsolatedTest"
+        }
+      ],
+      "witnesses": [
+        {
+          "id": "cantos.presentation.discovery-retired-language.witness.retired-link-settled",
+          "declaration": "retiredLinkSettled"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.witness.back-to-rewritten",
+          "declaration": "backToRewritten"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.witness.locale-after-search",
+          "declaration": "localeAfterSearch"
+        }
+      ],
+      "simulation": {
+        "backend": "typescript",
+        "seed": "424",
+        "samples": 300,
+        "steps": 20,
+        "scenarioSamples": 1,
+        "witnessSamples": 1000,
+        "timeoutSeconds": 60
+      },
+      "controls": [
+        {
+          "id": "cantos.presentation.discovery-retired-language.control.no-hidden-filter",
+          "property": "cantos.presentation.discovery-retired-language.property.no-hidden-filter",
+          "from": "applied: settle(history[index])",
+          "to": "applied: history[index]"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.control.address-shows-applied",
+          "property": "cantos.presentation.discovery-retired-language.property.address-shows-applied",
+          "from": "else history.replaceAt(index, settle(history[index]))",
+          "to": "else history"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.control.rewrite-in-place",
+          "property": "cantos.presentation.discovery-retired-language.property.rewrite-in-place",
+          "from": "history.replaceAt(index, settle(history[index]))",
+          "to": "history.slice(0, index + 1).append(settle(history[index]))"
+        },
+        {
+          "id": "cantos.presentation.discovery-retired-language.control.locale-isolated",
+          "property": "cantos.presentation.discovery-retired-language.property.locale-isolated",
+          "from": "val link = { search: search, language: NoLang }",
+          "to": "val link = { search: search, language: if (state.locale == English) En else Vi }"
+        }
+      ],
+      "aliases": []
+    },
+    {
       "id": "cantos.identity.theatre-registration",
       "lifecycle": "deprecated",
       "owner": "docs/architecture/theatre-identity.md",
