@@ -9,6 +9,12 @@ struct CantosApp: App {
     @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup { CantosComposeView(owner: owner).ignoresSafeArea()
+            .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                VerificationActivity.receive(activity) { owner.receiveVerificationLink($0) }
+            }
+            // SwiftUI also delivers Universal Links directly, rather than as NSUserActivity.
+            // Both scene callbacks borrow the same process owner; neither stores a URL.
+            .onOpenURL { url in owner.receiveVerificationLink(url.absoluteString) }
             .onChange(of: scenePhase) { phase in
                 if phase == .active { owner.foregrounded() }
                 if phase == .background { owner.backgrounded() }
@@ -60,6 +66,7 @@ struct CantosApp: App {
         networkMonitor.start(queue: DispatchQueue(label: "cc.cantos.library-network"))
     }
     func viewController() -> UIViewController { native.viewController() }
+    func receiveVerificationLink(_ url: String) { native.receiveVerificationLink(url: url) }
     func foregrounded() { native.foregrounded() }
     func backgrounded() { native.backgrounded() }
     deinit { networkMonitor.cancel(); native.close(); identity.close() }

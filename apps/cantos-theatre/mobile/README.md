@@ -179,7 +179,25 @@ template and `CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER` to that URL. Until then, 
 still open Web, and the stage 0 guidance stays accurate. Debug builds (`com.cantos.theatre.dev`)
 get no association. Exercise them with an explicit intent to the pinned URL, for example
 `adb shell am start -a android.intent.action.VIEW -n com.cantos.theatre.dev/com.cantos.theatre.app.TheatreActivity -d '<link>'`.
-iOS Universal Links are a separate change.
+iOS source now feeds the same controller from both `NSUserActivityTypeBrowsingWeb.webpageURL`
+and SwiftUI's direct Universal Link delivery (`onOpenURL`). The App's one `CatalogOwner` is
+shared by its scenes; it forwards synchronously without a URL queue, scene storage or navigation
+arguments. The activity's URL/user-info are cleared and Handoff/search eligibility disabled before
+delivery. `IosNativeIdentityOwner` reuses its existing admitted-origin `NativeIdentityV1Client`
+for anonymous completion; an invalid origin composes no verification owner. Only Xcode Release
+has `Cantos/Release.entitlements` with `applinks:cantos.cc`; Debug stays unassociated. The shared
+parser still admits only the exact HTTPS host/path, so direct URL delivery adds no custom scheme.
+Process death loses the link; another tap is required. Signed-in completion keeps the existing
+session, Library, outbox and player. AASA and signed-device association remain operator work:
+no verified Apple Team ID is available and no placeholder association file is shipped.
+
+The [#435 acceptance record](../../../docs/evidence/native-signup-435-20261024.md) separates the
+local Server/Identity/Auth Emulator journey, JVM checks, Android runtime and iOS source/toolchain
+boundaries. The supported local composition uses Firebase verification; Identity also retains
+`lettre` SMTP (the [test-host record](../../../docs/evidence/native-test-vps-resend-mail-20261023.md)
+selected Resend SMTP). There is no `resend-rs` dependency. SMTP fragment proof links retain their
+Web completion route; the native-first parser accepts Firebase action links only. Password reset
+is deferred in the [Identity auth contract](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md).
 
 The [Web completion contract](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup)
 is owned by the API and Web work. The Theatre Web completion page is merged

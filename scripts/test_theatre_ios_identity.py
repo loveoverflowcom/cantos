@@ -79,16 +79,21 @@ class TheatreIosIdentityConfigurationTest(unittest.TestCase):
         for arguments in calls:
             self.assertRegex(arguments, r"allowLoopbackHttp\s*=\s*false\b", arguments)
 
-    def test_swift_has_no_browser_session_pkce_or_url_scheme_handling(self):
+    def test_swift_has_no_browser_session_pkce_or_custom_scheme_handling(self):
         sources = sorted((MOBILE / "iosApp/Cantos").glob("*.swift"))
         self.assertIn("TheatreIdentity.swift", [source.name for source in sources])
         for source in sources:
             text = source.read_text()
             with self.subTest(source=source.name):
                 self.assertNotRegex(text, r"import\s+(AuthenticationServices|CryptoKit|SafariServices)\b")
-                for retired in ("ASWebAuthenticationSession", "SFSafariViewController", "onOpenURL",
+                for retired in ("ASWebAuthenticationSession", "SFSafariViewController",
                                 "callbackURLScheme", "code_challenge", "CantosNativeIssuer"):
                     self.assertNotIn(retired, text)
+        # SwiftUI Universal Links use onOpenURL as well as browsing-web activity continuation.
+        # Both go to the pinned shared parser, never an OAuth callback or a custom scheme.
+        app = (MOBILE / "iosApp/Cantos/CantosApp.swift").read_text()
+        self.assertEqual(app.count(".onOpenURL"), 1)
+        self.assertIn(".onOpenURL { url in owner.receiveVerificationLink(url.absoluteString) }", app)
 
 
 if __name__ == "__main__":

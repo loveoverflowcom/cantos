@@ -111,7 +111,11 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
 
 
     /** Navigation and typed route text live with the process owners, like the catalog and runtime. */
-    private val shell = if (catalog != null && runtime != null) TheatreShell(scope, catalog, runtime, preferences, registration = identity.registration) else null
+    private val shell = if (catalog != null && runtime != null) TheatreShell(scope, catalog, runtime, preferences,
+        registration = identity.registration, verification = identity.verification) else null
+
+    /** Called on the Swift main actor; the shell validates the transient URL against its pinned handler. */
+    fun receiveVerificationLink(url: String) { shell?.receiveLink(url) }
 
     fun viewController(): UIViewController = ComposeUIViewController {
         val locale by preferences.state.collectAsState()
