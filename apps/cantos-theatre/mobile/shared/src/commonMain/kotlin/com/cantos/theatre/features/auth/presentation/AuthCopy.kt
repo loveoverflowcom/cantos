@@ -128,6 +128,67 @@ internal enum class AuthText(val vi: String, val en: String) {
     RegisterSendUnknown("Chưa biết máy chủ đã nhận yêu cầu hay chưa. Kiểm tra hộp thư trước khi bắt đầu yêu cầu mới.", "The submission outcome is unknown. Check your inbox before starting a new request."),
     RegisterLater("Để sau, về Khám phá", "Later, back to Discover"),
 
+    VerifyEyebrow("CANTOS ID · XÁC MINH EMAIL", "CANTOS ID · EMAIL VERIFICATION"),
+    VerifyHeading("Chọn mật khẩu cho tài khoản mới.", "Choose a password for your new account."),
+    VerifyHeadingDone("Tài khoản của bạn đã sẵn sàng.", "Your account is ready."),
+    VerifyHeadingUnusable("Liên kết này chưa dùng được.", "This link cannot be used."),
+    VerifyConfirmHelp(
+        "Liên kết đã được mở an toàn trong ứng dụng. Hãy chọn mật khẩu rồi xác nhận để tạo tài khoản. Chỉ mở liên kết thì chưa tạo gì và chưa đăng nhập.",
+        "The link opened safely in the app. Choose a password, then confirm to create your account. Opening the link alone creates nothing and does not sign you in.",
+    ),
+    VerifyPassword("Mật khẩu mới", "New password"),
+    VerifyPasswordRepeat("Nhập lại mật khẩu", "Repeat the password"),
+    VerifyPasswordHelp(
+        "Từ 8 đến 128 ký tự. Khoảng trắng được giữ nguyên và mật khẩu không được lưu trên thiết bị.",
+        "8 to 128 characters. Spaces are kept as typed and the password is never stored on this device.",
+    ),
+    VerifyPasswordShort("Mật khẩu cần ít nhất 8 ký tự.", "The password needs at least 8 characters."),
+    VerifyPasswordLong("Mật khẩu chỉ được tối đa 128 ký tự.", "The password can have at most 128 characters."),
+    VerifyPasswordMismatch("Hai mật khẩu chưa giống nhau.", "The two passwords do not match."),
+    VerifyConfirmCheckbox(
+        "Tôi là chủ hộp thư này và xác nhận tạo tài khoản Cantos với mật khẩu vừa nhập.",
+        "I own this mailbox and confirm creating a Cantos account with the password I just entered.",
+    ),
+    VerifyCreate("Tạo tài khoản", "Create account"),
+    VerifyCreateReason("Nhập mật khẩu hợp lệ hai lần và đánh dấu xác nhận.", "Enter a valid password twice and tick the confirmation."),
+    VerifyCompleting("Đang tạo tài khoản…", "Creating your account…"),
+    VerifyRetryHelp(
+        "Chưa biết tài khoản đã được tạo hay chưa. Hãy gửi lại đúng yêu cầu cũ: không cần nhập lại và mật khẩu không bị đổi. Nếu rời màn hình này, yêu cầu sẽ mất; khi đó hãy thử đăng nhập bằng mật khẩu bạn đã chọn.",
+        "We cannot tell whether the account was created. Send the same request again: nothing is retyped and the password is unchanged. If you leave this screen the request is lost; then try signing in with the password you chose.",
+    ),
+    VerifyRetryRateLimited(
+        "Có quá nhiều yêu cầu. Hãy đợi một lúc rồi gửi lại đúng yêu cầu cũ; mật khẩu không bị đổi.",
+        "Too many requests. Wait a while, then send the same request again; the password is unchanged.",
+    ),
+    VerifyRetrySame("Gửi lại đúng yêu cầu cũ", "Send the same request again"),
+    VerifyInvalidPassword(
+        "Mật khẩu chưa được chấp nhận. Chưa có gì được tạo; hãy chọn mật khẩu khác rồi xác nhận lại.",
+        "The password was not accepted. Nothing was created; choose another password and confirm again.",
+    ),
+    VerifyChoosePassword("Chọn mật khẩu khác", "Choose another password"),
+    VerifyLinkSpent(
+        "Liên kết này không còn dùng được: có thể đã hết hạn hoặc đã được dùng. Nếu bạn đã tạo tài khoản, hãy đăng nhập; nếu chưa, hãy yêu cầu email mới.",
+        "This link can no longer be used: it may have expired or already been used. If you already created an account, sign in; otherwise request another email.",
+    ),
+    VerifyForbidden("Máy chủ từ chối tạo tài khoản từ bản ứng dụng này.", "The server refused account creation from this build."),
+    VerifyNotConfigured(
+        "Máy chủ chưa mở tạo tài khoản cho bản này. Bạn vẫn có thể nghe nội dung công khai.",
+        "Account creation is not open for this build yet. You can still play public stories.",
+    ),
+    VerifyLinkUnreadable(
+        "Chưa đọc được liên kết xác minh an toàn. Hãy mở lại liên kết mới nhất từ email; nếu vẫn lỗi, bạn có thể yêu cầu email mới.",
+        "The verification link could not be read safely. Reopen the latest link from your email; if the problem continues, you can request another email.",
+    ),
+    VerifyCompletedSignedOut(
+        "Tài khoản đã được tạo. Hãy đăng nhập bằng email và mật khẩu bạn vừa chọn.",
+        "Your account was created. Sign in with the email and password you just chose.",
+    ),
+    VerifyCompletedSignedIn(
+        "Tài khoản mới đã được tạo. Bạn vẫn đang đăng nhập bằng tài khoản hiện tại. Để dùng tài khoản mới, hãy đăng xuất trong Tài khoản rồi đăng nhập lại.",
+        "The new account was created. You are still signed in with your current account. To use the new one, sign out in Account, then sign in.",
+    ),
+    VerifyOpenAccount("Mở Tài khoản", "Open Account"),
+
     GuestBadge("Người nghe khách", "Guest listener"),
     GuestHeading("Chào người nghe.", "Welcome, listener."),
     GuestHelp(

@@ -13,6 +13,8 @@ import com.cantos.theatre.application.errors.ErrorKey
 import com.cantos.theatre.application.errors.ErrorOperation
 import com.cantos.theatre.application.errors.reduceErrors
 import com.cantos.theatre.application.errors.toErrorNotice
+import com.cantos.theatre.application.identity.EmailVerificationController
+import com.cantos.theatre.application.identity.LinkReceipt
 import com.cantos.theatre.application.identity.NativeAccountState
 import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.identity.toAccountView
@@ -84,6 +86,8 @@ class TheatreShell(
     initialMembership: MembershipState = MembershipState.unavailable(),
     /** Borrowed from the platform owner; no controller means an honest unavailable destination. */
     val registration: RegistrationController? = null,
+    /** Borrowed process owner for completing an emailed signup; absent on hosts that claim no link. */
+    val verification: EmailVerificationController? = null,
 ) {
     private val mutableNavigation = MutableStateFlow(NavigationState())
     val navigation: StateFlow<NavigationState> = mutableNavigation.asStateFlow()
@@ -195,6 +199,8 @@ class TheatreShell(
             is ShellEvent.Navigate -> when (event.route) {
                 ShellRoute.Login -> openLogin()
                 ShellRoute.Register -> openRegister()
+                // Only a received link opens completion; a route event never does.
+                ShellRoute.VerifyEmail -> Unit
                 else -> {
                     if (mutableNavigation.value.route == TheatreRoute.MembershipPreview || event.route == ShellRoute.MembershipPreview) {
                         membership(MembershipEvent.OpenIntro)
@@ -247,6 +253,7 @@ class TheatreShell(
         val next = reduceNavigation(before, event)
         if (before.route == TheatreRoute.Login && next.route != TheatreRoute.Login) cancelLogin()
         if (before.route == TheatreRoute.Register && next.route != TheatreRoute.Register) registration?.leave()
+        if (before.route == TheatreRoute.VerifyEmail && next.route != TheatreRoute.VerifyEmail) verification?.leave()
         mutableNavigation.value = next
         if (next.route == TheatreRoute.Register && before.route != TheatreRoute.Register) registration?.enter()
     }
@@ -281,6 +288,27 @@ class TheatreShell(
         if (closed || state is NativeAccountState.SignedIn || state == NativeAccountState.Pending) return false
         navigate(NavigationEvent.OpenRegister)
         return true
+    }
+
+    /**
+     * A URL the platform host received from a `VIEW` launch. Only the pinned handler is claimed; it
+     * opens completion over the current destination, closing an open auth intent. The session, the
+     * Library and the player are untouched, whoever is signed in.
+     */
+    fun receiveLink(url: String): LinkReceipt {
+        val owner = verification
+        if (closed || owner == null) return LinkReceipt.NotClaimed
+        return owner.receive(url).also { if (it == LinkReceipt.Shown) navigate(NavigationEvent.OpenVerifyEmail) }
+    }
+
+    /**
+     * After completion: a signed-out listener goes to Login. A signed-in listener keeps the current
+     * session and goes to Account, where the explicit sign-out is; nothing signs out automatically.
+     */
+    fun continueAfterVerification() {
+        if (closed || mutableNavigation.value.route != TheatreRoute.VerifyEmail) return
+        if (runtime.account?.state?.value is NativeAccountState.SignedIn) navigate(NavigationEvent.Navigate(TheatreRoute.Account))
+        else if (!openLogin()) navigate(NavigationEvent.Back)
     }
 
     /** One attempt, only from the open Login route, never while another is pending or cleanup is owed. */
@@ -504,6 +532,7 @@ class TheatreShell(
         closed = true
         timerJob?.cancel()
         registration?.leave()
+        verification?.leave()
     }
 }
 
@@ -523,6 +552,7 @@ private fun ShellRoute.toTheatreRoute(): TheatreRoute = when (this) {
     ShellRoute.MembershipPreview -> TheatreRoute.MembershipPreview
     ShellRoute.Login -> TheatreRoute.Login
     ShellRoute.Register -> TheatreRoute.Register
+    ShellRoute.VerifyEmail -> TheatreRoute.VerifyEmail
     ShellRoute.Settings -> TheatreRoute.Settings
     ShellRoute.Queue -> TheatreRoute.Queue
     ShellRoute.Player -> TheatreRoute.Player

@@ -39,8 +39,9 @@ existing `NativeAccountController`. Login is explicit email/password inside the 
 route; signup sends only the email to `/native/identity/signup`. The native JSON surface is
 `/api/v1/theatre/native/identity/*` with `ci1_n_`/`ci1_r_` credentials, the
 `x-cantos-theatre-session` fence and no cookie jar or browser `Origin`. The app has **no** OIDC
-issuer, PKCE/state/nonce, system-browser or `ASWebAuthenticationSession` hook, URL scheme or
-callback intent filter, provider fallback, Firebase/Kanidm enrollment or confirm/setup endpoint.
+issuer, PKCE/state/nonce, system-browser or `ASWebAuthenticationSession` hook, custom URL scheme or
+auth callback intent filter, provider fallback, Firebase/Kanidm enrollment or confirm/setup endpoint.
+The only `VIEW` filter is the verified signup App Link below; it opens completion, never a session.
 A provider credential found on a device is retired locally and the listener signs in again; it is
 never sent to the API and is never a fallback.
 
@@ -154,13 +155,31 @@ in an app. Existing-account login can be accepted independently of signup comple
 Native signup collects **only email**. A generic `202` shows check-mail guidance; it establishes
 neither delivery, account existence, mailbox proof nor a session, and a `429` is shown as
 rate-limited while a `503`/timeout is an unknown effect that asks the listener to check the inbox
-before starting a new request. Proof and password completion belong on Web, followed by explicit
-CMP login. There is no link import, verified polling, resume-triggered login or password
-collection before proof in the native v1 flow; opening the mail never creates a session.
+before starting a new request. There is no verified polling, resume-triggered login or password
+collection before proof; opening the mail never creates a session.
 [ADR 0048](../../../docs/decisions/0048-signup-email-link-return-to-app.md) selects native-first
 completion through verified links ([#422](https://github.com/loveoverflowcom/cantos/issues/422)).
-Only its stage 0 exists: the check-mail guidance names the browser step and the return to this app.
-Until stage 1 ships, the behavior above is unchanged.
+Stage 0 is the check-mail guidance that names the browser step and the return to this app.
+
+Stage 1 on Android is implemented in source, not accepted on a device. `TheatreActivity` declares
+one `autoVerify` App Link filter for exactly `https://cantos.cc/verify-email`. It reads a `VIEW`
+URL once, removes it and the extras from the kept Intent, and ignores relaunches from recents and
+the original Intent of a recreated or restored Activity. The shell's `EmailVerificationController`
+checks the URL against the pinned `ProductionVerifyEmailHandler`, never against the URL that
+arrived, with the Web parser's rules. It keeps the action only in process RAM; process death
+loses it. The completion screen asks for a password twice and an explicit confirmation, then posts
+the anonymous `POST /native/identity/signup/complete`. It retries only the identical request after
+a 503, 429 or lost answer, and treats `replayed` as success. A signed-out listener continues to
+Login. A signed-in listener keeps the current session and is pointed to Account for the explicit
+sign-out. Nothing signs in, out or switches automatically.
+
+Verified opening needs the release `assetlinks.json` on `cantos.cc`, which is not committed yet
+(release certificate fingerprint pending). It also needs the operator to switch the Firebase
+template and `CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER` to that URL. Until then, mailed links
+still open Web, and the stage 0 guidance stays accurate. Debug builds (`com.cantos.theatre.dev`)
+get no association. Exercise them with an explicit intent to the pinned URL, for example
+`adb shell am start -a android.intent.action.VIEW -n com.cantos.theatre.dev/com.cantos.theatre.app.TheatreActivity -d '<link>'`.
+iOS Universal Links are a separate change.
 
 The [Web completion contract](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup)
 is owned by the API and Web work. The Theatre Web completion page is merged

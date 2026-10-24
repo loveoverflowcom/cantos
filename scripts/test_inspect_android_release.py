@@ -83,6 +83,20 @@ RETIRED_CALLBACK_FILTER = f"""              E: intent-filter (line=36)
                   E: data (line=40)
                     A: {ANDROID}scheme(0x01010027)="{APP}" (Raw: "{APP}")
 """
+# ADR 0048: the one verified App Link for the signup email action handler (aapt2 xmltree shape).
+SIGNUP_LINK_FILTER = f"""              E: intent-filter (line=41)
+                A: {ANDROID}autoVerify(0x010104ee)=true
+                  E: action (line=42)
+                    A: {ANDROID}name(0x01010003)="android.intent.action.VIEW" (Raw: "android.intent.action.VIEW")
+                  E: category (line=43)
+                    A: {ANDROID}name(0x01010003)="android.intent.category.DEFAULT" (Raw: "android.intent.category.DEFAULT")
+                  E: category (line=44)
+                    A: {ANDROID}name(0x01010003)="android.intent.category.BROWSABLE" (Raw: "android.intent.category.BROWSABLE")
+                  E: data (line=45)
+                    A: {ANDROID}scheme(0x01010027)="https" (Raw: "https")
+                    A: {ANDROID}host(0x01010028)="cantos.cc" (Raw: "cantos.cc")
+                    A: {ANDROID}path(0x0101002a)="/verify-email" (Raw: "/verify-email")
+"""
 PROVIDER = "          E: provider (line=38)\n"
 BROWSABLE_FINDING = f"{LAUNCHER} declares a BROWSABLE intent-filter; Identity v1 has no browser callback"
 SCHEME_FINDING = (f"{LAUNCHER} declares an intent-filter URL scheme {APP!r}; "
@@ -405,6 +419,46 @@ class IdentitySurfaceTest(unittest.TestCase):
         self.assertEqual(self.findings(with_filter(APK_MANIFEST, https)),
                          [BROWSABLE_FINDING, SCHEME_FINDING.replace(repr(APP), "'https'")])
 
+    def test_the_one_exact_verified_signup_app_link_on_the_launcher_is_admitted(self):
+        for text in (APK_MANIFEST, AAB_MANIFEST):
+            linked = with_filter(text, SIGNUP_LINK_FILTER)
+            elements = inspector.parse_xmltree(linked)
+            # Non-vacuous: the filter is really parsed, with its data, on the launcher.
+            self.assertIn((LAUNCHER, ["android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"],
+                           [inspector.SIGNUP_LINK_DATA]), inspector.intent_filters(elements))
+            self.assertEqual(inspector.identity_surface_findings(elements, LAUNCHER), [])
+            self.assertEqual(inspector.manifest_findings(elements, APP, LAUNCHER, {DYNAMIC}), [])
+            # Without the launcher to bind it to, the same filter is an ordinary browser entry.
+            self.assertEqual(inspector.identity_surface_findings(elements),
+                             [BROWSABLE_FINDING, SCHEME_FINDING.replace(repr(APP), "'https'")])
+
+    def test_every_deviation_from_the_signup_app_link_is_still_reported(self):
+        https = [BROWSABLE_FINDING, SCHEME_FINDING.replace(repr(APP), "'https'")]
+        host = '"cantos.cc" (Raw: "cantos.cc")'
+        path = '="/verify-email" (Raw: "/verify-email")'
+        variants = {
+            "unverified": SIGNUP_LINK_FILTER.replace(f"                A: {ANDROID}autoVerify(0x010104ee)=true\n", ""),
+            "another host": SIGNUP_LINK_FILTER.replace(host, '"www.cantos.cc" (Raw: "www.cantos.cc")'),
+            "the site root": SIGNUP_LINK_FILTER.replace(path, '="/" (Raw: "/")'),
+            "a path prefix": SIGNUP_LINK_FILTER.replace("path(0x0101002a)", "pathPrefix(0x0101002b)"),
+            "a path pattern": SIGNUP_LINK_FILTER.replace("path(0x0101002a)", "pathPattern(0x0101002c)"),
+            "an extra action": SIGNUP_LINK_FILTER.replace("        E: category (line=43)",
+                f'        E: action (line=46)\n                    A: {ANDROID}name(0x01010003)="android.intent.action.SEND" (Raw: "android.intent.action.SEND")\n                  E: category (line=43)', 1),
+        }
+        for name, text in variants.items():
+            with self.subTest(name):
+                self.assertEqual(inspector.identity_surface_findings(
+                    inspector.parse_xmltree(with_filter(APK_MANIFEST, text)), LAUNCHER), https)
+        cleartext = SIGNUP_LINK_FILTER.replace('"https" (Raw: "https")', '"http" (Raw: "http")')
+        self.assertEqual(inspector.identity_surface_findings(inspector.parse_xmltree(with_filter(APK_MANIFEST, cleartext)), LAUNCHER),
+                         [BROWSABLE_FINDING, SCHEME_FINDING.replace(repr(APP), "'http'")])
+        # Admitted once: a second copy, or the retired callback beside it, is reported.
+        twice = with_filter(APK_MANIFEST, SIGNUP_LINK_FILTER + SIGNUP_LINK_FILTER)
+        self.assertEqual(inspector.identity_surface_findings(inspector.parse_xmltree(twice), LAUNCHER), https)
+        both = with_filter(APK_MANIFEST, SIGNUP_LINK_FILTER + RETIRED_CALLBACK_FILTER)
+        self.assertEqual(inspector.identity_surface_findings(inspector.parse_xmltree(both), LAUNCHER),
+                         [BROWSABLE_FINDING, SCHEME_FINDING])
+
     def test_a_package_visibility_query_scheme_is_not_a_receiving_filter(self):
         queries = (f"      E: queries (line=50)\n        E: intent (line=51)\n          E: action (line=52)\n"
                    f'            A: {ANDROID}name(0x01010003)="android.intent.action.VIEW"\n          E: data (line=53)\n'
@@ -438,6 +492,16 @@ class IdentitySurfaceWiringTest(InspectFixture):
                         self.assertIn(f"apk: {SCHEME_FINDING}", findings)
                         self.assertEqual(any(f.startswith("aab: ") for f in findings), not debug_apk)
                         self.assertNotIn("PASS: no sandbox, mock, demo or test content found", report)
+
+    def test_the_signup_app_link_is_admitted_in_every_build_kind(self):
+        linked = lambda _aapt2, _path, manifest, proto: with_filter(self.dump(_aapt2, _path, manifest, proto), SIGNUP_LINK_FILTER)
+        for debug_apk in (False, True):
+            with self.subTest(debug_apk=debug_apk):
+                apk, aab = self.artifacts()
+                args = self.args(apk, None if debug_apk else aab)
+                args.debug_apk = debug_apk
+                findings, _ = inspector.inspect(args, dump=linked)
+                self.assertEqual(findings, [])
 
     def test_the_clean_launcher_only_manifest_stays_clean_in_the_same_matrix(self):
         for debug_apk in (False, True):

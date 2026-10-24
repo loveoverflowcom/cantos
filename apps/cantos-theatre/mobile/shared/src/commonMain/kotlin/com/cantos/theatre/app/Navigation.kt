@@ -18,6 +18,12 @@ sealed interface TheatreRoute {
     /** Optional account intents. A route confers no identity; see [NavigationState]. */
     data object Login : TheatreRoute
     data object Register : TheatreRoute
+
+    /**
+     * Completing an emailed signup. Only a received link opens it; it is a transient top route that
+     * any other navigation removes, and it is reachable while signed in.
+     */
+    data object VerifyEmail : TheatreRoute
 }
 
 val TheatreRoute.isAuth: Boolean get() = this == TheatreRoute.Login || this == TheatreRoute.Register
@@ -25,7 +31,8 @@ val TheatreRoute.isAuth: Boolean get() = this == TheatreRoute.Login || this == T
 /**
  * Auth is a closed, optional suffix: `[…, Login]` or `[…, Login, Register]`, never the root.
  * The routes below it are the typed return destination, so Back needs no caller-supplied URL
- * and a cold start can never restore a login wall.
+ * and a cold start can never restore a login wall. [TheatreRoute.VerifyEmail] is only ever the
+ * top above a non-auth root, so leaving it never reveals a screen whose link was forgotten.
  */
 class NavigationState(stack: List<TheatreRoute> = listOf(TheatreRoute.Discovery)) {
     private val stackSnapshot = stack.toList()
@@ -43,10 +50,20 @@ class NavigationState(stack: List<TheatreRoute> = listOf(TheatreRoute.Discovery)
                 "Auth routes are only the closed Login[, Register] suffix"
             }
         }
+        val verification = stackSnapshot.indexOf(TheatreRoute.VerifyEmail)
+        if (verification >= 0) {
+            require(verification > 0 && verification == stackSnapshot.lastIndex && firstAuth < 0) {
+                "Email verification is only the top above a non-auth stack"
+            }
+        }
     }
 
     internal fun withoutAuth(): NavigationState =
         if (stackSnapshot.none { it.isAuth }) this else NavigationState(stackSnapshot.filterNot { it.isAuth })
+
+    /** Every destination other than the verification screen itself leaves it first. */
+    internal fun leavingVerification(): NavigationState =
+        if (route != TheatreRoute.VerifyEmail) this else NavigationState(stackSnapshot.dropLast(1))
 
     override fun equals(other: Any?): Boolean = other is NavigationState && stackSnapshot == other.stackSnapshot
     override fun hashCode(): Int = stackSnapshot.hashCode()
@@ -65,23 +82,30 @@ sealed interface NavigationEvent {
     data object OpenRegister : NavigationEvent
     /** A confirmed session closes only an auth intent that is still open; otherwise inert. */
     data object AuthCompleted : NavigationEvent
+    /** A received signup link: closes an open auth intent and shows completion on top. Idempotent. */
+    data object OpenVerifyEmail : NavigationEvent
 }
 
 fun reduceNavigation(state: NavigationState, event: NavigationEvent): NavigationState = when (event) {
-    is NavigationEvent.Navigate -> navigate(state, event.route)
-    NavigationEvent.OpenLogin -> openLogin(state)
-    NavigationEvent.OpenRegister -> openRegister(state)
+    is NavigationEvent.Navigate -> navigate(state.leavingVerification(), event.route)
+    NavigationEvent.OpenLogin -> openLogin(state.leavingVerification())
+    NavigationEvent.OpenRegister -> openRegister(state.leavingVerification())
+    // Signing in elsewhere keeps an open completion: it is allowed while signed in.
     NavigationEvent.AuthCompleted -> state.withoutAuth()
     NavigationEvent.Back -> if (state.canGoBack) NavigationState(state.stack.dropLast(1)) else state
     NavigationEvent.OpenPlayer -> {
-        val parent = if (state.route == TheatreRoute.Queue && state.canGoBack) {
-            NavigationState(state.stack.dropLast(1))
+        val current = state.leavingVerification()
+        val parent = if (current.route == TheatreRoute.Queue && current.canGoBack) {
+            NavigationState(current.stack.dropLast(1))
         } else {
-            state
+            current
         }
         navigate(parent, TheatreRoute.Player)
     }
     NavigationEvent.Reset -> NavigationState()
+    NavigationEvent.OpenVerifyEmail -> state.withoutAuth().let {
+        if (it.route == TheatreRoute.VerifyEmail) it else NavigationState(it.stack + TheatreRoute.VerifyEmail)
+    }
 }
 
 private fun openLogin(state: NavigationState): NavigationState {
@@ -97,6 +121,8 @@ private fun openRegister(state: NavigationState): NavigationState {
 private fun navigate(state: NavigationState, route: TheatreRoute): NavigationState = when (route) {
     TheatreRoute.Login -> openLogin(state)
     TheatreRoute.Register -> openRegister(state)
+    // Only a received link opens completion, through [NavigationEvent.OpenVerifyEmail].
+    TheatreRoute.VerifyEmail -> state
     TheatreRoute.Discovery, TheatreRoute.Library -> NavigationState(listOf(route))
     TheatreRoute.Search -> NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.Search))
     TheatreRoute.History -> NavigationState(listOf(TheatreRoute.Library, TheatreRoute.History))

@@ -3,7 +3,11 @@
 - Status: Accepted direction: option C, staged (owner selection, 24 October 2026, in the #422
   work chat). Stage 0 is implemented. The owner settled stage 1's handler path, signed-in policy
   and debug association the same day (see [Stage 1 owner choices](#stage-1-owner-choices)).
-  Stage 1 and optional stage 2 are not implemented
+  Stage 1 is partly implemented in source: Theatre Web serves `/verify-email` and the deploy
+  check admits the two association files ([#431](https://github.com/loveoverflowcom/cantos/pull/431));
+  Android declares the App Link and CMP completes the signup (stage 1 PR 2). The association
+  files, iOS Universal Links, the operator's handler switch and every device row remain. Optional
+  stage 2 is not implemented
 - Date: 2026-10-24
 - Decision owner: Cantos owner (product, Identity/auth review for the security contract)
 - Related issue or PR: [#422](https://github.com/loveoverflowcom/cantos/issues/422); context #296 (closed), #130, #224
@@ -148,7 +152,8 @@ regressions; the PR records their exact commands and results.
 | Layer | Status |
 | --- | --- |
 | Source/owner inspection (paths above) | inspected |
-| Stage 0 copy regressions (Web `auth_copy`, CMP `AuthCopyTest`) | see the PR; stage 1 has no tests yet |
+| Stage 0 copy regressions (Web `auth_copy`, CMP `AuthCopyTest`) | see the PR |
+| Stage 1 CMP parser, state machine, controller, HTTP client, navigation and JVM UI flow (`EmailVerificationTest`, `EmailVerificationControllerTest`, `NativeIdentityV1ClientTest`, `NavigationTest`, `VerifyEmailFlowTest`); manifest and inspector controls (`test_theatre_android_host`, `test_inspect_android_release`) | example-tested on JVM; see the PR. No CMP Login pre-fill: the link carries no email |
 | Android device (Gmail, another mail client, installed/absent, cold/warm; verified opening on release-signed builds only, debug through an explicit intent) | NOT_RUN |
 | iOS real device (Mail, Gmail, installed/absent); a simulator is not equivalent | NOT_RUN |
 | Desktop browser no-app flow | NOT_RUN for this record; the existing Web journey evidence lives in the [Firebase boundary](../architecture/firebase-verification.md#evidence-and-remaining-acceptance) |

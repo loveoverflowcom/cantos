@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,6 +32,8 @@ import com.cantos.theatre.features.auth.presentation.AuthIntent
 import com.cantos.theatre.features.auth.presentation.LoginScreen
 import com.cantos.theatre.features.auth.presentation.RegisterScreen
 import com.cantos.theatre.features.auth.presentation.RegistrationIntent
+import com.cantos.theatre.features.auth.presentation.VerificationIntent
+import com.cantos.theatre.features.auth.presentation.VerifyEmailScreen
 import com.cantos.theatre.features.auth.presentation.authReturnFor
 import com.cantos.theatre.features.membership.presentation.MembershipHeader
 import com.cantos.theatre.features.membership.presentation.MembershipPreview
@@ -51,6 +54,7 @@ import com.cantos.theatre.ports.CatalogCacheStatus
 import com.cantos.ui.Density
 import com.cantos.ui.MotionPreference
 import com.cantos.ui.tokenDp
+import kotlinx.coroutines.delay
 
 /**
  * The Cantos Theatre application root: the one listener experience (Discover, Search, Work,
@@ -84,6 +88,7 @@ fun CantosTheatreApp(
     val localeUpdate by shell.preferences.localeUpdate.collectAsState()
     val accountState = shell.runtime.account?.state?.collectAsState()?.value
     val registration = shell.registration?.state?.collectAsState()?.value
+    val verification = shell.verification?.state?.collectAsState()?.value
     val cacheStatus = cache?.status?.collectAsState()?.value
     val locale = prefs.locale.toShellLocale()
     val theme = if (prefs.theme == PreferenceTheme.Dark) ShellTheme.Dark else ShellTheme.Light
@@ -144,7 +149,28 @@ fun CantosTheatreApp(
             membershipScreen = ui.membership.screen,
             accountContent = { loginFocus -> AccountContent(locale, theme, accountView, onAuth, loginFocus) },
             authContent = {
-                if (state.route == ShellRoute.Register) RegisterScreen(locale, onAuth,
+                val verifier = shell.verification
+                if (state.route == ShellRoute.VerifyEmail && verifier != null && verification != null) {
+                    // Ticks only while a 429 holds the retained request on this screen.
+                    val wait by produceState(verifier.retryWaitSeconds(), verification.phase) {
+                        while (value != null) {
+                            delay(1_000)
+                            value = verifier.retryWaitSeconds()
+                        }
+                    }
+                    VerifyEmailScreen(locale, verification, accountView, wait) { intent ->
+                        when (intent) {
+                            is VerificationIntent.Password -> verifier.editPassword(intent.value)
+                            is VerificationIntent.Repeat -> verifier.editRepeat(intent.value)
+                            is VerificationIntent.Confirm -> verifier.confirm(intent.checked)
+                            VerificationIntent.Create -> verifier.complete()
+                            VerificationIntent.Retry -> verifier.retry()
+                            VerificationIntent.ChooseAnother -> verifier.editAfterRefusal()
+                            VerificationIntent.Continue -> shell.continueAfterVerification()
+                            VerificationIntent.RequestAnother -> shell.openRegister()
+                        }
+                    }
+                } else if (state.route == ShellRoute.Register) RegisterScreen(locale, onAuth,
                     registration = registration, onRegistration = { intent ->
                         shell.registration?.let { owner -> when (intent) {
                             is RegistrationIntent.Email -> owner.editEmail(intent.value)

@@ -205,6 +205,8 @@ private fun routeId(route: ShellRoute): String = when (route) {
     ShellRoute.MembershipPreview -> "MembershipPreview"
     ShellRoute.Login -> "Login"
     ShellRoute.Register -> "Register"
+    // Only a received link opens it and the preview composes no verification owner.
+    ShellRoute.VerifyEmail -> error("Email verification is never part of a preview snapshot")
     ShellRoute.History -> "History"
     ShellRoute.Queue -> "Queue"
     ShellRoute.Player -> "Player"

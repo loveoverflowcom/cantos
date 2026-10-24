@@ -10,6 +10,8 @@ sealed interface ShellRoute {
     /** Optional account intents. Their origin is the route below them in the stack. */
     data object Login : ShellRoute
     data object Register : ShellRoute
+    /** Completing an emailed signup; only a received link opens it. */
+    data object VerifyEmail : ShellRoute
     data object History : ShellRoute
     data object Queue : ShellRoute
     data object Player : ShellRoute
@@ -271,6 +273,9 @@ sealed interface ShellEvent {
 fun canGoBack(state: ShellState): Boolean = state.stack.size > 1
 
 fun ShellRoute.isAuth(): Boolean = this == ShellRoute.Login || this == ShellRoute.Register
+
+/** A focused account task: framed by the auth header, without the mini-player or tab bar. */
+fun ShellRoute.isAccountTask(): Boolean = isAuth() || this == ShellRoute.VerifyEmail
 
 fun filteredWorks(state: ShellState, catalog: ShellCatalogView): List<ShellWork> {
     if (state.catalogMode != ShellCatalogMode.Ready) return emptyList()

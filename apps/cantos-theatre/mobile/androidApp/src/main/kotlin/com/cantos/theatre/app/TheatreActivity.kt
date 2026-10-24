@@ -1,5 +1,6 @@
 package com.cantos.theatre.app
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
@@ -34,9 +35,13 @@ class TheatreActivity : ComponentActivity() {
         // A uiMode change recreates this Activity, so the resolved theme never goes stale.
         val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         updateSystemBars(dark)
+        // A recreated or restored Activity gets its original launch Intent back: that link was
+        // already handled, or was lost with the process, and is never replayed.
+        val link = takeLink(intent)?.takeIf { savedInstanceState == null }
         val resolved = liveCatalogOrigin()
         if (resolved is HostOrigin.Ready) {
             val owner = theatreOwner(resolved.origin, dark)
+            link?.let(owner.shell::receiveLink)
             setContent {
                 val preferences by owner.preferences.state.collectAsState()
                 CantosLocalLaunch(localReady = true, preferences = UiPreferences(), locale = preferences.locale.toShellLocale()) {
@@ -56,6 +61,27 @@ class TheatreActivity : ComponentActivity() {
         setContent {
             CantosListeningUnavailable(ui, locale = locale, fault = (resolved as HostOrigin.Refused).fault)
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val link = takeLink(intent) ?: return
+        ProductionProcess.current()?.shell?.receiveLink(link)
+    }
+
+    /**
+     * Reads a `VIEW` URL once and scrubs it from the Intent this Activity keeps, so recents, a
+     * later [getIntent] or a crash report never hold the action code. Extras are ignored and
+     * dropped. A relaunch from recents replays the original Intent, so it is never a link.
+     */
+    private fun takeLink(intent: Intent?): String? {
+        if (intent == null || intent.action != Intent.ACTION_VIEW) return null
+        val url = intent.dataString
+        intent.data = null
+        intent.replaceExtras(null as Bundle?)
+        setIntent(intent)
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return null
+        return url
     }
 
     override fun onStart() {

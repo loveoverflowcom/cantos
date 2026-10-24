@@ -2,11 +2,14 @@ package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.adapters.http.identityv1wire.Session
 import com.cantos.theatre.adapters.http.identityv1wire.SignupAccepted
+import com.cantos.theatre.adapters.http.identityv1wire.SignupCompleted
 import com.cantos.theatre.adapters.http.identityv1wire.TokenPair
+import com.cantos.theatre.domain.identity.CompletionStatus
 import com.cantos.theatre.domain.identity.IdentityV1Validation
 import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.domain.identity.NativeSession
 import com.cantos.theatre.domain.identity.RegistrationEmail
+import com.cantos.theatre.domain.identity.SignupCompletionRequest
 import com.cantos.theatre.ports.IdentitySignupAccepted
 import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.ports.IdentityV1Result
@@ -15,6 +18,7 @@ import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
 import com.cantos.theatre.ports.NativeIdentityV1Api
+import com.cantos.theatre.ports.SignupCompletionApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerializationException
@@ -28,13 +32,14 @@ import kotlin.coroutines.resume
  * First-party Identity v1 only. Native hosts pair this transport with the origin-bound
  * secure journal and the existing account coordinator. The [origin] is the one admitted by the
  * host's origin owner (HTTPS; loopback HTTP only for a debug host); this client never widens it.
- * No provider discovery/fallback, mailbox completion/polling, or transparent mutation retry.
+ * No provider discovery/fallback, mailbox polling, or transparent mutation retry. Signup
+ * completion is anonymous: it sends no Bearer and no session fence, and its answer is no grant.
  */
 class NativeIdentityV1Client(
     private val origin: ApiOrigin,
     private val http: NativeHttpPort,
     private val now: () -> Long,
-) : NativeIdentityV1Api {
+) : NativeIdentityV1Api, SignupCompletionApi {
     private val prefix = "$origin/api/v1/theatre/native/identity"
 
     private suspend fun request(
@@ -97,6 +102,24 @@ class NativeIdentityV1Client(
             return IdentityV1Result.Refused(IdentityV1Failure.UnknownOutcome)
         }
         return IdentityV1Result.Accepted(IdentitySignupAccepted(dto.proof_ttl_seconds))
+    }
+
+    /** The caller repeats a retained request byte for byte; this serialization is deterministic. */
+    override suspend fun completeSignup(request: SignupCompletionRequest): IdentityV1Result<CompletionStatus> {
+        val response = request("POST", "/signup/complete", buildJsonObject {
+            put("operation_id", request.operationId)
+            put("proof_id", request.proofId)
+            put("firebase_oob_code", request.firebaseOobCode)
+            put("password", request.password)
+            put("explicit_confirmation", true)
+        }.toString())
+        failure(response, mutation = true)?.let { return IdentityV1Result.Refused(it) }
+        val dto = decode<SignupCompleted>(response, SignupCompleted::accepts)
+        return when {
+            response.status != 200 || dto == null -> IdentityV1Result.Refused(IdentityV1Failure.UnknownOutcome)
+            dto.status == "completed" -> IdentityV1Result.Accepted(CompletionStatus.Completed)
+            else -> IdentityV1Result.Accepted(CompletionStatus.Replayed)
+        }
     }
 
     override suspend fun login(email: RegistrationEmail, password: String): IdentityV1Result<NativeGrant> =
