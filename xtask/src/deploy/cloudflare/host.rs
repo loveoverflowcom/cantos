@@ -121,6 +121,8 @@ pub fn read_policy_files(root: &Path, target: &str) -> Result<policy::PolicyFile
         headers: required("_headers")?,
         not_found: required("404.html")?,
         redirects: read_text(&directory.join("_redirects"))?,
+        asset_links: read_text(&directory.join(policy::ASSET_LINKS))?,
+        apple_app_site_association: read_text(&directory.join(policy::APPLE_APP_SITE_ASSOCIATION))?,
     })
 }
 
@@ -252,6 +254,19 @@ impl Host for SystemHost {
 
     fn add_file(&mut self, run: &Run, name: &str, bytes: &[u8]) -> Result<(), String> {
         let path = run.public().join(name);
+        // Association files live under `.well-known/`, which the extracted release never has.
+        // Create it here as a real directory; an existing symlink or file is refused.
+        if let Some(parent) = path.parent().filter(|parent| *parent != run.public()) {
+            match std::fs::symlink_metadata(parent) {
+                Ok(meta) if meta.is_dir() => {}
+                Ok(_) => return Err(format!("{name}: its directory is not a plain directory")),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    std::fs::create_dir(parent)
+                        .map_err(|error| format!("{name}: {}", error.kind()))?;
+                }
+                Err(error) => return Err(format!("{name}: {}", error.kind())),
+            }
+        }
         let mut file = run_files::create_private(&path)
             .map_err(|error| format!("{name}: {}", error.kind()))?;
         std::io::Write::write_all(&mut file, bytes)
@@ -312,6 +327,37 @@ mod tests {
         let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::none());
         encoder.write_all(&builder.into_inner().unwrap()).unwrap();
         encoder.finish().unwrap()
+    }
+
+    #[test]
+    fn association_files_get_a_plain_well_known_directory_and_never_follow_a_link() {
+        let workspace = Workspace::discover().unwrap();
+        let mut host = SystemHost::new(&workspace);
+        let root =
+            std::env::temp_dir().join(format!("cantos-cf-well-known-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let run = Run {
+            id: "well-known-regression".into(),
+            path: root.clone(),
+        };
+        std::fs::create_dir_all(run.public()).unwrap();
+        for name in [policy::ASSET_LINKS, policy::APPLE_APP_SITE_ASSOCIATION] {
+            host.add_file(&run, name, b"{}").unwrap();
+            assert_eq!(std::fs::read(run.public().join(name)).unwrap(), b"{}");
+        }
+        let meta = std::fs::symlink_metadata(run.public().join(".well-known")).unwrap();
+        assert!(meta.is_dir() && !meta.file_type().is_symlink());
+        // A planted link in place of the directory is refused, and nothing is written through it.
+        let outside = root.join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::remove_dir_all(run.public().join(".well-known")).unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&outside, run.public().join(".well-known")).unwrap();
+            assert!(host.add_file(&run, policy::ASSET_LINKS, b"{}").is_err());
+            assert!(std::fs::read_dir(&outside).unwrap().next().is_none());
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

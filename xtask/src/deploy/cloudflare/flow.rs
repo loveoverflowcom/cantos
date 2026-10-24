@@ -185,7 +185,7 @@ impl Flow<'_> {
             Ok(files) => files,
             Err(why) => return Err(self.halt(Stage::Policy, Status::Fail, why)),
         };
-        if let Err(problems) = files.validate() {
+        if let Err(problems) = files.validate(self.request.app) {
             return Err(self.halt(Stage::Policy, Status::Fail, summarize(&problems)));
         }
         self.pass(

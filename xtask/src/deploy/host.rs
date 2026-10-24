@@ -511,6 +511,7 @@ mod tests {
             sha384_base64(js)
         );
         write(&root, "index.html", index.as_bytes());
+        write(&root, bundle::THEATRE_VERIFY_EMAIL_ENTRY, index.as_bytes());
         let first =
             bundle::validate(crate::config::App::Theatre, &scan_directory(&root).unwrap()).unwrap();
         write(&root, "cantos-theatre-aa_bg.wasm", b"\0asm\x01\0\0\x01");

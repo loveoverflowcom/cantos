@@ -1477,7 +1477,8 @@ mod tests {
         assert_eq!(receipt["smoke"]["state"], "pass");
         assert_eq!(receipt["smoke"]["attempts"], 1);
         let bundle = &receipt["bundle"];
-        assert_eq!(bundle["file_count"], 5);
+        // The Theatre fixture includes its `verify-email.html` entry copy (ADR 0048).
+        assert_eq!(bundle["file_count"], 6);
         assert_eq!(bundle["manifest_sha256"].as_str().unwrap().len(), 64);
         assert!(bundle["files"]
             .as_array()

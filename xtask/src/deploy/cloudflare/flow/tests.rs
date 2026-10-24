@@ -103,6 +103,8 @@ fn policy_files() -> PolicyFiles {
         headers: read("_headers"),
         not_found: read("404.html"),
         redirects: None,
+        asset_links: None,
+        apple_app_site_association: None,
     }
 }
 
@@ -545,6 +547,46 @@ fn missing_tools_token_or_pinned_wrangler_are_unsupported_before_any_effect() {
     let report = rig.run(&request_of(HostedApp::CantosTheatre, "preview", "x"));
     assert_eq!(status_of(&report, Stage::Wrangler), Status::Unsupported);
     assert_eq!(rig.host.runs, 0);
+}
+
+#[test]
+fn association_policy_is_theatre_only_and_refused_before_the_artifact_is_read() {
+    let links = |package: &str| {
+        format!(
+            r#"[{{"relation":["delegate_permission/common.handle_all_urls"],"target":{{"namespace":"android_app","package_name":"{package}","sha256_cert_fingerprints":["{}"]}}}}]"#,
+            ["AB"; 32].join(":")
+        )
+    };
+    let associated = |package: &str| {
+        PolicyFiles {
+        headers: format!(
+            "{}/.well-known/apple-app-site-association\n  Content-Type: application/json\n",
+            policy_files().headers
+        ),
+        asset_links: Some(links(package)),
+        apple_app_site_association: Some(
+            r#"{"applinks":{"details":[{"appIDs":["ABCDE12345.com.cantos.theatre"],"components":[{"/":"/verify-email"}]}]}}"#
+                .to_owned(),
+        ),
+        ..policy_files()
+    }
+    };
+    let mut rig = Rig::complete(HostedApp::CantosTheatre, "preview", "x");
+    rig.host.policy = Ok(associated("com.cantos.theatre"));
+    let report = rig.run(&request_of(HostedApp::CantosTheatre, "preview", "x"));
+    assert_eq!(status_of(&report, Stage::Policy), Status::Pass);
+    assert_eq!(status_of(&report, Stage::Bundle), Status::Pass);
+    // The debug application is never associated (ADR 0048), and Studio publishes none.
+    for (app, package) in [
+        (HostedApp::CantosTheatre, "com.cantos.theatre.dev"),
+        (HostedApp::CantosStudio, "com.cantos.theatre"),
+    ] {
+        let mut rig = Rig::new(app);
+        rig.host.policy = Ok(associated(package));
+        let report = rig.run(&request_of(app, "preview", "x"));
+        assert_eq!(status_of(&report, Stage::Policy), Status::Fail, "{app:?}");
+        assert_eq!(status_of(&report, Stage::Artifact), Status::NotRun);
+    }
 }
 
 #[test]

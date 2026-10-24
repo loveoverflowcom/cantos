@@ -375,7 +375,9 @@ impl Capture for FixtureCapture {
             for file in scan.files {
                 let path = public.join(&file.path);
                 std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-                let bytes = if file.path == "index.html" {
+                let bytes = if file.path == "index.html"
+                    || file.path == bundle::THEATRE_VERIFY_EMAIL_ENTRY
+                {
                     scan.index_html.clone().unwrap()
                 } else {
                     file.head
@@ -409,17 +411,20 @@ impl Capture for FixtureCapture {
         let url = spec.args.last().unwrap();
         assert!(url.starts_with("https://release.example/"));
         let path = url.strip_prefix("https://release.example/").unwrap();
-        let local = spec
-            .cwd
-            .join("public")
-            .join(if path.is_empty() { "index.html" } else { path });
+        // Pages serves `name.html` at `/name`.
+        let page = path.is_empty() || path == "verify-email";
+        let local = spec.cwd.join("public").join(match path {
+            "" => "index.html".to_owned(),
+            "verify-email" => bundle::THEATRE_VERIFY_EMAIL_ENTRY.to_owned(),
+            other => other.to_owned(),
+        });
         let body = &spec.args[spec.args.iter().position(|s| s == "--output").unwrap() + 1];
         let (bytes, headers) = if local.exists() {
             let mut bytes = std::fs::read(local).unwrap();
             if self.reply == Reply::CorruptWasm && path.ends_with(".wasm") {
                 bytes.push(1);
             }
-            let headers = if path.is_empty() {
+            let headers = if page {
                 if self.reply == Reply::NoPrivacy {
                     PRIVATE_HEADERS.replace("no-referrer", "unsafe-url")
                 } else {
@@ -468,8 +473,14 @@ fn real_orchestration_compares_both_apps_and_exports_only_sanitized_observations
         let receipt = fixture.receipt();
         assert_eq!(receipt["state"], "PASS");
         assert_eq!(receipt["source_sha"], "b".repeat(40));
-        assert_eq!(receipt["probes"].as_array().unwrap().len(), 9);
-        assert_eq!(capture.calls.len(), 10);
+        // Theatre adds its signup email action page (ADR 0048).
+        let probes = if target == HostedApp::CantosTheatre {
+            10
+        } else {
+            9
+        };
+        assert_eq!(receipt["probes"].as_array().unwrap().len(), probes);
+        assert_eq!(capture.calls.len(), probes + 1);
     }
 }
 
@@ -484,7 +495,7 @@ fn corrupt_bytes_spa_fallback_and_missing_privacy_cannot_pass_http_acceptance() 
             [Status::Pass, Status::Fail]
         );
         assert_eq!(fixture.receipt()["state"], "INCOMPLETE");
-        assert_eq!(capture.calls.len(), 10, "one observation round, no replay");
+        assert_eq!(capture.calls.len(), 11, "one observation round, no replay");
     }
 }
 

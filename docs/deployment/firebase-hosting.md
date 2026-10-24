@@ -223,11 +223,14 @@ is short on purpose, and xtask refuses to deploy a version of it that weakens an
 - **Two independent targets**, `theatre` and `studio`, each its own site. Static Hosting only: no
   Functions, Cloud Run, Firestore, App Hosting, hooks or redirects. A `site` key would bypass your
   mapping and is refused.
-- **No rewrites.** Both clients navigate by hash and query on `/` and resolve their `/api/v1/…`
-  paths against the required API origin, so there is no path-based client route to rewrite. A blanket
-  `** → /index.html` rewrite would answer a missing `.wasm` or `.js` and every `/api/*` request with
-  `200` and the page; xtask refuses any rewrite whose source is not a literal route outside `/api`.
-  Add a rewrite only together with a real path-based route and a test of the deployed result.
+- **One literal rewrite.** Both clients navigate by hash and query on `/` and resolve their `/api/v1/…`
+  paths against the required API origin. The single exception is Theatre's signup email action path
+  ([ADR 0048](https://github.com/loveoverflowcom/cantos/pull/428)): `/verify-email → /verify-email.html`, the build's byte-identical copy of `index.html`. A
+  blanket `** → /index.html` rewrite would answer a missing `.wasm` or `.js` and every `/api/*` request
+  with `200` and the page; xtask refuses any rewrite whose source is not a literal route outside `/api`.
+  Add a rewrite only together with a real path-based route and a test of the deployed result. The
+  production handler lives on `cantos.cc` (Cloudflare Pages); Firebase Hosting publishes no
+  `.well-known` association file.
 - **Revalidating `Cache-Control` for every path** (`no-cache`). Hosting's own default is
   `max-age=3600`, which would let a stale `index.html` outlive the assets it names. No rule may grant
   long-lived caching: a hash in a filename is not evidence that its bytes never change. On the real

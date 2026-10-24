@@ -4,6 +4,7 @@
       "target": "theatre",
       "public": "../../../apps/cantos-theatre/web/dist",
       "ignore": ["**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "/verify-email", "destination": "/verify-email.html" }],
       "headers": [
         {
           "source": "**",

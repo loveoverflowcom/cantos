@@ -110,7 +110,8 @@ Each failure stops the rest; unreached stages are `NOT_RUN`.
 1. **Prerequisites** — Node.js, a non-empty `CLOUDFLARE_API_TOKEN` (name only; the value is never
    read), and no ambient `CLOUDFLARE_ACCOUNT_ID` that disagrees with `--account`.
 2. **Policy and mapping** — account/project/branch/environment agree with the private mapping, and
-   `infra/cloudflare/<app>/` (`_headers`, `404.html`, optional `_redirects`) passes validation.
+   `infra/cloudflare/<app>/` (`_headers`, `404.html`, optional `_redirects`; Theatre's optional
+   `.well-known/assetlinks.json` and `.well-known/apple-app-site-association`) passes validation.
 3. **Wrangler** — the pinned release is installed and reports exactly 4.151.2.
 4. **Release artifact** — `manifest.json` is strict (schema 1 or 2, this app's component, a full source SHA,
    an HTTPS API origin, `deployed: false`, exactly one archive) and the archive's size and SHA-256
@@ -122,8 +123,10 @@ Each failure stops the rest; unreached stages are `NOT_RUN`.
    entry by entry (regular files only; absolute, `..`, hidden, symlink, hardlink, directory,
    duplicate and over-limit entries refused).
 6. **Bundle** — the tracked policy files are added, then the exact public bytes are validated: only
-   allow-listed static types plus the three named root policy files, the selected app's entry, every
-   reference present, no HTML posing as an asset, no server code, and the Pages limits.
+   allow-listed static types plus the three named root policy files (and, for Theatre, the two
+   association files), the selected app's entry, Theatre's `verify-email.html` byte for byte equal to
+   `index.html`, every reference present, no HTML posing as an asset, no server code, and the Pages
+   limits.
 7. **Project lookup** — `wrangler pages project list --json` shows the project exists and is Direct
    Upload.
 8. **Intent receipt** — the staged bytes are scanned again and must have the same digest; intent is
@@ -131,7 +134,8 @@ Each failure stops the rest; unreached stages are `NOT_RUN`.
 9. **Publish** — one `wrangler pages deploy <staged dir>` with explicit project, branch and the
    artifact's source SHA; never retried.
 10. **Readback** — the reported deployment ID is looked up with `pages deployment list --json`.
-11. **HTTP smoke** — read-only HTTPS requests to the returned URL: the page, every script/WASM/CSS
+11. **HTTP smoke** — read-only HTTPS requests to the returned URL: the page (and Theatre's
+    `/verify-email`, which must answer the same entry bytes), every script/WASM/CSS
     the page loads (status, media type, revalidating cache, decoded SHA-256 equal to the bundle) and
     two absence probes (`/api/...` and a missing `.wasm` must answer 404, never the page).
 12. **Final receipt** — `artifacts/cloudflare/<run-id>/receipt.json` (private, ignored by Git) links
@@ -144,6 +148,20 @@ Each failure stops the rest; unreached stages are `NOT_RUN`.
   `404.html` exists**. Cantos routes by URL fragment, so no path needs a fallback; `404.html` is
   mandatory so `/api/*` and a missing `.js`/`.wasm`/`.css` do not answer `200 text/html`. A `_redirects`
   `200` rewrite is refused for the same reason.
+- Theatre's signup email action handler is exactly `/verify-email` ([ADR 0048](https://github.com/loveoverflowcom/cantos/pull/428)). The Theatre Trunk
+  build's `post_build` hook writes `verify-email.html` as a byte-for-byte copy of the processed
+  `index.html`; Pages serves `name.html` at `/name`, so the path answers the entry with `200` without
+  a rewrite, and `/verify-email.html` answers `308` to it. Both spellings carry the entry no-store rule.
+- Theatre may publish Android App Links and iOS Universal Links association files from
+  `infra/cloudflare/theatre/.well-known/`. They are delivery policy, reviewed in Git, never build
+  output. The validator admits only `assetlinks.json` (one `handle_all_urls` statement for
+  `com.cantos.theatre`, never the debug `.dev` application, with 1–4 uppercase SHA-256 release
+  certificate fingerprints) and `apple-app-site-association` (one `applinks` detail,
+  `<TEAMID>.com.cantos.theatre`, the single component `/verify-email`), and requires
+  `Content-Type: application/json` for the extensionless Apple file in `_headers`. Every other
+  dot-file and every association for Studio stays refused. **Neither file is committed yet:** the
+  release certificate fingerprint and Apple team ID are operator facts that were not available to
+  this change; add them by reviewed PR, then deploy.
 - `_headers` sets `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, a `frame-ancestors 'none'` CSP and a camera/microphone/geolocation
   Permissions-Policy for every path, and `Cache-Control: no-cache, no-store` for `/` and `/index.html`.
@@ -217,7 +235,9 @@ Surprises worth knowing (observed, not assumed):
 - Pages adds `access-control-allow-origin: *` to every static response. It covers public static bytes
   only (no cookies, no Bearer is ever sent to this host) and does not touch the API's exact per-surface
   CORS allow-list, but do not treat it as configurable here: `_headers` still refuses `Access-Control-*`.
-- `/index.html` and `/404.html` answer `308` (to `/` and `/404`); `/` serves the entry. The smoke checks `/`.
+- `/index.html` and `/404.html` answer `308` (to `/` and `/404`); `/` serves the entry. The smoke checks `/`
+  and, for Theatre, `/verify-email` (expected from Pages' documented `name.html` serving; not yet
+  observed on a live deployment).
 - Pages serves the 404 page with `cache-control: no-store`.
 
 | Not accepted | Needs |

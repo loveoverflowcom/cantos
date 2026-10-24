@@ -19,6 +19,9 @@ pub const UI_CMP_ANDROID_DIR: &str = "packages/ui-system/cmp/android-preview";
 pub const THEATRE_MOBILE_DIR: &str = "apps/cantos-theatre/mobile";
 pub const UI_PREVIEW_PORT: u16 = 8083;
 pub const UI_PREVIEW_MARKER: &str = "<title>Cantos UI foundation preview</title>";
+/// The exact Theatre signup email action path (ADR 0048): the Identity handler, the Pages entry
+/// copy, the smoke probe and the apps' verified links all name it.
+pub const THEATRE_VERIFY_EMAIL_PATH: &str = "/verify-email";
 pub const UI_PREVIEW_DIST: &str = "../../../target/ui-foundation-preview";
 pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 /// Default comparison base for `preflight --changed-only`.

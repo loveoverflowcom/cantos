@@ -112,7 +112,9 @@ are removed after stopping the child. Native DB/WAL/media persist under their ex
 A new xtask invocation has a new emulator project/key: pending emulator enrollments cannot be
 resumed across runs; committed native credentials remain in `identity.db`.
 
-Identity selects `firebase-emulator`, with the actual Theatre origin `http://127.0.0.1:8082/`.
+Identity selects `firebase-emulator`, with the actual Theatre origin and the production action path:
+handler `http://127.0.0.1:8082/verify-email` ([ADR 0048](https://github.com/loveoverflowcom/cantos/pull/428)).
+`trunk serve` falls back to the entry page at that path, as Pages serves its byte-identical copy.
 Loopback HTTP requires both `local-development` feature and explicit local composition flag.
 Inherited Google/Firebase/SMTP inputs are refused by name before execution. Ordinary `service`
 and OCI builds reject local development and emulator selection. No fixed OTP or success mock
@@ -135,7 +137,7 @@ Production selection is explicit `CANTOS_IDENTITY_MAIL_PROVIDER=firebase`, with:
 | --- | --- |
 | `CANTOS_IDENTITY_FIREBASE_PROJECT` | Exact approved non-demo project ID |
 | `CANTOS_IDENTITY_FIREBASE_PROJECT_BINDING_APPROVED` | `true` only after operator review of API key/project/IAM binding |
-| `CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER` | Exact approved HTTPS handler URL, no query/fragment/userinfo |
+| `CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER` | Exact approved HTTPS handler URL, no query/fragment/userinfo. Theatre production uses `https://cantos.cc/verify-email` (ADR 0048), together with the same URL as the Firebase template's custom action URL; switch both only after a Pages deployment serves that path |
 | `CANTOS_IDENTITY_FIREBASE_ACTION_ORIGIN` | Exact handler origin |
 | `CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER_APPROVED` | `true` only after actual template/domain/handler review |
 | `CANTOS_IDENTITY_FIREBASE_API_KEY` | Runtime-injected project API key; never a build argument |

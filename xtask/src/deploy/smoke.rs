@@ -18,7 +18,10 @@
 
 use std::{path::Path, time::Duration};
 
-use super::{bundle::Manifest, receipt::ProbeRecord};
+use super::{
+    bundle::{self, Manifest},
+    receipt::ProbeRecord,
+};
 use crate::command::CommandSpec;
 
 pub const TIMEOUT: Duration = Duration::from_secs(60);
@@ -95,6 +98,13 @@ pub fn probes(manifest: &Manifest, run_id: &str) -> Vec<Probe> {
     if let Some(sha256) = digest_of("index.html") {
         probes.push(Probe {
             path: "/".to_owned(),
+            expect: Expect::Page { sha256 },
+        });
+    }
+    // Theatre's signup email action path (ADR 0048) answers the same entry page.
+    if let Some(sha256) = digest_of(bundle::THEATRE_VERIFY_EMAIL_ENTRY) {
+        probes.push(Probe {
+            path: crate::config::THEATRE_VERIFY_EMAIL_PATH.to_owned(),
             expect: Expect::Page { sha256 },
         });
     }
