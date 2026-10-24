@@ -47,6 +47,25 @@ Business domain/application/HTTP cores preserve Catalog/Content/Brief, revision/
 private audio/publication and Listening behavior. Their prior PG evidence is historical;
 no functionality described below establishes completed native business acceptance.
 
+### Isolated prepared catalog
+
+The opt-in [sample lane](../../docs/deployment/theatre-seeded-catalog.md),
+`cargo xtask seed theatre --sample-input JSON --sample-media-source DIR --sample-root DIR`,
+uses the current registry and existing Studio catalog/artwork handlers to create six private
+Works, twelve draft chapters and six admitted PNG covers in a run-owned `server.db` outside
+Git. The Server-owned `sample_catalog_turso` target's exact ignored `sample_catalog` test is
+the primitive; ordinary gates never import the provided media. Stable identities and operation
+receipts preserve replay, and the fixture closes/reopens the actual Turso owner.
+
+The manifest preserves author/narrator/genre/tags and mock MP3 input without inventing those
+production catalog fields or audio acceptance. `--sample-serve` serves this test-hosted Server
+router on loopback after verification; it starts no Identity and does not qualify the standalone
+binary or Web/CMP login. Public discovery still requires an accepted release, and
+[ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)'s public-cover disclosure
+and wire decisions remain proposed. Private image admission never implies public display.
+Reset archives only a marker-bound sample root after taking both exclusive DB owner locks; it
+never deletes DB/WAL/media/evidence or opens Identity's file.
+
 ## Private audio storage
 
 Set an absolute `CANTOS_STORAGE_CONFIG` path to checked non-secret TOML; see

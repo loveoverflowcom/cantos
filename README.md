@@ -85,8 +85,12 @@ cargo xtask preflight --changed-only --base "$BASE_SHA"
 
 `run` builds/migrates the two native processes with run-owned development files; readiness
 is not login or business acceptance. `app cantos-studio|cantos-theatre --web` attaches only a
-frontend to an existing API. `seed theatre` currently refuses when the native `catalog_http`
-fixture is absent. Retired PG/DBSP/provider/VPS commands fail before effects.
+frontend to an existing API. Plain `seed theatre` currently refuses when the native `catalog_http`
+fixture is absent. The explicit [prepared-sample lane](docs/deployment/theatre-seeded-catalog.md)
+imports six private Works, twelve draft chapters and six supplied PNG covers into isolated
+Server/media files outside Git; mock MP3 references remain unavailable. Its optional loopback
+Server router is a test-hosted fixture, with public-cover and browser/device acceptance separate.
+Retired PG/DBSP/provider/VPS commands fail before effects.
 
 Follow [CONTRIBUTING](CONTRIBUTING.md) and [AGENTS](AGENTS.md): resolve the requested base once,
 fetch and pin its SHA for branch/diff/review/preflight. Native work targets
