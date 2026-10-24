@@ -98,8 +98,8 @@ pub fn AuthFieldSamples(
                     on_press=Callback::new(move |_| invalid.update(|value| *value = !*value))>{tool::TOGGLE_ERROR}</Button></div>
                 <p lang=tool::LANGUAGE_TAG>{tool::AUTH_CANDIDATE}</p>
                 <Stack gap=Space::Lg>
-                <div data-preview-scenario="auth-tonal auth-tonal-spacious auth-error auth-field-focus auth-field-disabled auth-field-loading auth-field-readonly autofill forced-colors">
-                    <TextField id="auth-email" variant=TextFieldVariant::AuthTonalSpacious kind=TextFieldKind::Email
+                <div data-preview-scenario="auth-tonal floating auth-error auth-field-focus auth-field-disabled auth-field-loading auth-field-readonly autofill forced-colors">
+                    <TextField id="auth-email" variant=TextFieldVariant::Floating kind=TextFieldKind::Email
                         label="Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe"
                         value=text state=state error=error autocomplete="email"
                         help="Nhãn, giá trị và lỗi được giữ khi đổi trạng thái. Không có yêu cầu mạng."

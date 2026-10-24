@@ -569,7 +569,12 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     for state in back_extension {
         assert!(back.states.contains(&state));
     }
-    let field_extension = ["auth-tonal-spacious", "autofill", "forced-colors"];
+    let field_extension = [
+        "auth-tonal-spacious",
+        "floating",
+        "autofill",
+        "forced-colors",
+    ];
     let field = components
         .iter()
         .find(|api| api.id == "text-field")

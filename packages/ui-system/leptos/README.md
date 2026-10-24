@@ -363,13 +363,55 @@ screen-reader behavior. These APIs remain **implemented-unverified and unqualifi
 adoption** until both real Leptos/CMP previews satisfy the shared admission contract. They add
 no application route, auth/payment integration or backend authority.
 
-## Web AuthTonal spacing candidate — preview only
+## Web Floating fields (Fields v3) — preview only
+
+`TextFieldVariant::Floating` ([#423](https://github.com/loveoverflowcom/cantos/issues/423)) is the
+Fields v3 target and supersedes the AuthTonalSpacious candidate below. Existing `Regular`,
+`AuthTonal` and `AuthTonalSpacious` callers keep their DOM; `AuthTonalSpacious` is retained only
+so current previews and tests do not break, and new work should not select it.
+
+Anatomy: one `.cui-field-shell` paints the fill and the state stroke; the native input inside is
+transparent and the native `<label for>` follows it in the DOM (grid placement keeps it visually
+first). Help, error and the disabled reason render outside, below the shell, so a submit or
+trailing control placed beside the shell aligns to the control, not the helper area.
+
+- Geometry (Web mapping, declared once as `--cantos-web-field-*` in `foundation.css.in`): 64
+  minimum shell, 16 inline inset, floated label 12 from the top, value 32 from the top, 12 corner.
+  These are minimums; a long or wrapped label and larger text grow the shell. Nothing is
+  absolutely positioned, so nothing clips.
+- Stroke: idle valid has none. Invalid idle is one 1-unit perimeter in `color.error`; focus is
+  one 2-unit perimeter (error colored when invalid). It is an outline pulled inside the shell's
+  own bounds, never a bottom bar, `box-shadow`, outset ring or second border, and it follows the
+  corner radius. Forced colors keep a `FieldText` border, a dashed invalid cue and a `Highlight`
+  focus cue.
+- Label state comes from the browser, not the Rust signal: the control carries a one-space
+  placeholder when the caller gives none, and `:placeholder-shown` plus `:focus` decide whether the
+  label rests at body size or floats. Whitespace-only text, IME composition, restored values and
+  autofill (`:autofill`, `:-webkit-autofill`) therefore float the label without an input event.
+  The label moves between grid rows without animation, so reduced motion changes nothing.
+- Unchanged native facts: `id`, `name`, `type`, `autocomplete`, `required`, `value`, readonly,
+  disabled, busy and the `aria-describedby`/`aria-errormessage` associations. A caller placeholder
+  shows only while the field is focused and empty.
+
+Use an external label (`Regular`, `TextArea`) for editors and for labels too long to share a shell.
+
+Shared stroke rules also apply to every `.cui-field-control`, including Select: the underline
+bottom bar and the offset focus outline are gone. Invalid is a 1-unit inset perimeter and focus or
+an expanded Select is a 2-unit inset perimeter; the compact Select reaches its 40-unit painted
+surface through `--cantos-web-stroke-inset`. The Select popup drops its decorative border for
+elevation (forced colors restore a `CanvasText` border). `Button` is unchanged: Primary/Tonal with
+`icon=IconName::PersonAdd|Login` already give a filled/tonal pair with icon and label centered.
+
+Consumer migration for #424 (Theatre) and #425 (Studio): switch `variant=TextFieldVariant::Floating`
+on the existing `TextField`; remove app-local underline/halo/placeholder overrides; keep ownership
+of validation, locale and auth policy. A trailing action slot is intentionally not added here: the
+first consumer that needs one should propose it with its real call site.
+
+## Web AuthTonal spacing candidate — superseded, preview only
 
 `TextFieldVariant::AuthTonalSpacious` keeps the existing AuthTonal 56-unit minimum and
-20-unit corner while mapping label/control/message gap to `space.sm`. Its visible keyboard
-focus has width and offset `2 × size.border`, using `color.focus`; forced colors use `Highlight`.
-This reduces the outward focus footprint from seven to four units without changing layout,
-native email/autocomplete/required facts, controlled values or external error ownership.
+20-unit corner while mapping label/control/message gap to `space.sm`. Its focus now uses the
+shared inset perimeter (the earlier offset outline was removed with Fields v3).
 Regular and existing AuthTonal callers retain their geometry. No shared token changed.
 
 Recipe `component=auth-tonal` maps to catalog `text-field`; states are

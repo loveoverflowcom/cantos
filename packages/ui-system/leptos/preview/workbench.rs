@@ -298,8 +298,8 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
             let cta = Signal::derive(move || specimen(host.recipe.get().locale, SpecimenKey::Continue).to_owned());
             view! {
                 <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::AUTH_RHYTHM}</p>
-                <Stack gap=Space::Lg class="cui-auth-field-rhythm" attr:data-preview-scenario="auth-tonal-spacious auth-field-focus auth-field-error auth-field-cta autofill forced-colors">
-                    <TextField id=control_id variant=TextFieldVariant::AuthTonalSpacious kind=TextFieldKind::Email
+                <Stack gap=Space::Lg class="cui-auth-field-rhythm" attr:data-preview-scenario="floating auth-field-focus auth-field-error auth-field-cta autofill forced-colors">
+                    <TextField id=control_id variant=TextFieldVariant::Floating kind=TextFieldKind::Email
                         name="email" required=true autocomplete="email" label=email_label value=text
                         state=field_state help=help error=error on_input=edit/>
                     <Button id=cta_id variant=ButtonVariant::AuthPrimary state=button_state on_press=press>{move || cta.get()}</Button>

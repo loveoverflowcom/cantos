@@ -1,7 +1,7 @@
 use cantos_ui::{
     Checkbox, ChoiceState, DisabledReason, FieldError, FieldHelp, FieldLabel, FieldState, IconName,
     NumberField, Radio, RangeField, Select, SelectDensity, SelectLabelPlacement, SelectOption,
-    Switch, TextArea, TextField, TextFieldKind,
+    Switch, TextArea, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 use std::sync::{
@@ -146,6 +146,90 @@ fn labeled_input_preserves_raw_text_and_associates_all_visible_descriptions() {
     assert!(html.contains("Cần tên &lt;b&gt;đầy đủ&lt;/b&gt;"), "{html}");
     assert!(html.contains("Chỉ chủ tác phẩm được sửa"), "{html}");
     assert!(!html.contains("<script>"), "{html}");
+}
+
+#[test]
+fn floating_field_has_one_shell_around_control_and_label_with_messages_below() {
+    for value in ["", " ", "Nguyễn Thị Ánh Nguyệt"] {
+        let html = view! {
+            <TextField id="floating-email" variant=TextFieldVariant::Floating kind=TextFieldKind::Email
+                label="Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện" name="email"
+                required=true autocomplete="email" value=value
+                help="Giá trị được giữ" error="Kiểm tra địa chỉ email"
+                described_by="auth-context" on_input=Callback::new(|_: String| {})/>
+        }
+        .to_html();
+        assert_eq!(
+            html.matches("class=\"cui-field-shell\"").count(),
+            1,
+            "{html}"
+        );
+        assert!(html.contains("data-variant=\"floating\""), "{html}");
+        assert!(html.contains("data-invalid=\"true\""), "{html}");
+        let input = control(&html, "input", "floating-email");
+        for attribute in [
+            "type=\"email\"",
+            "name=\"email\"",
+            "autocomplete=\"email\"",
+            "required",
+            // The one-space placeholder lets :placeholder-shown mean "the browser value is empty".
+            "placeholder=\" \"",
+            &format!("value=\"{value}\""),
+            "aria-invalid=\"true\"",
+            "aria-errormessage=\"floating-email-error\"",
+            "aria-describedby=\"auth-context floating-email-help floating-email-error\"",
+        ] {
+            assert!(input.contains(attribute), "missing {attribute}: {input}");
+        }
+        // Control, then its native label, then the shell closes before help/error render.
+        let shell = html.find("cui-field-shell").unwrap();
+        let control_at = html.find("<input id=\"floating-email\"").unwrap();
+        let label_at = html.find("for=\"floating-email\"").unwrap();
+        let label_end = html[label_at..].find("</label>").unwrap() + label_at;
+        let help_at = html.find("id=\"floating-email-help\"").unwrap();
+        let error_at = html.find("id=\"floating-email-error\"").unwrap();
+        assert!(shell < control_at && control_at < label_at, "{html}");
+        assert!(html[label_end..help_at].contains("</div>"), "{html}");
+        assert!(help_at < error_at, "{html}");
+    }
+}
+
+#[test]
+fn floating_field_keeps_a_caller_placeholder_and_clean_state_without_inventing_errors() {
+    let html = view! {
+        <TextField id="floating-name" variant=TextFieldVariant::Floating label="Tên hiển thị"
+            placeholder="Ví dụ: Ánh Nguyệt" value="" on_input=Callback::new(|_: String| {})/>
+    }
+    .to_html();
+    let input = control(&html, "input", "floating-name");
+    assert!(
+        input.contains("placeholder=\"Ví dụ: Ánh Nguyệt\""),
+        "{input}"
+    );
+    assert!(input.contains("aria-invalid=\"false\""), "{input}");
+    assert!(html.contains("data-invalid=\"false\""), "{html}");
+    assert!(!input.contains("aria-describedby="), "{input}");
+    assert!(!input.contains("aria-errormessage="), "{input}");
+}
+
+#[test]
+fn legacy_field_variants_keep_their_flat_anatomy_and_caller_placeholder() {
+    for variant in [
+        TextFieldVariant::Regular,
+        TextFieldVariant::AuthTonal,
+        TextFieldVariant::AuthTonalSpacious,
+    ] {
+        let html = view! {
+            <TextField id="legacy" variant=variant label="Email" value="" on_input=Callback::new(|_: String| {})/>
+        }
+        .to_html();
+        assert!(!html.contains("cui-field-shell"), "{html}");
+        assert!(!html.contains("placeholder"), "{html}");
+        assert!(
+            html.find("for=\"legacy\"").unwrap() < html.find("<input id=\"legacy\"").unwrap(),
+            "{html}"
+        );
+    }
 }
 
 #[test]
