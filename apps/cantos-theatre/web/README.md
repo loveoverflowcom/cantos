@@ -70,8 +70,8 @@ Discover follows the Home anatomy of the design ([#282](https://github.com/loveo
 [record and gaps](../../../docs/evidence/theatre-web-discover-parity.md)): intro, a hero for the
 first Work of the answered search, then the search/filters and a grid of Work cards. The hero
 and cards use a neutral cover fallback because the public contract carries no cover, and the
-hero's eyebrow never claims an editorial pick. The content language is chosen by name; the
-request still carries its tag. The design reference was not re-rendered for this change.
+hero's eyebrow never claims an editorial pick. Each card shows the Work's own language. The
+design reference was not re-rendered for this change.
 
 ## Scope and honest behavior
 
@@ -467,14 +467,20 @@ never substitutes a mock catalog. Published work IDs/titles/descriptions and eac
 `unit_count` come from the `PresentedWorkPage`. A session 401 or provider outage does not
 redirect Home to authentication.
 
-**Search and filters** use the same endpoint (`q`, `kind` = novel/story/podcast — not a genre —
-and the exact released `language` tag such as `vi-VN`), never a filter over the loaded 20 rows.
-Text and language apply on Enter or **Tìm** (no debounce timer; Enter during IME composition is
-ignored); the type chips apply at once. The applied search lives in the link
-(`#discover?q=…&kind=…&language=…`), one history entry per distinct search, so Back/Forward and
-returning from a Work restore it; an answered search is kept with its rows and cursor, another
-search starts a fresh walk and fences the old response. Invalid input (over 512 bytes, control
-characters, a language tag outside `[A-Za-z0-9-]{1,63}`) is shown inline and sends nothing.
+**Search and filters** use the same endpoint (`q` and `kind` = novel/story/podcast — not a genre),
+never a filter over the loaded 20 rows. Discovery has no content-language control (#424): the
+listener chose a language at the start, the topbar's one language select is the interface locale
+(not an API filter), and each Work still shows its own released language. The server's `language`
+filter is unchanged; the page just never sends it. An older link's `language` is dropped and the
+address is replaced in place with `#discover?q=…&kind=…`, so no hidden filter survives. Whether the
+initial choice should become a catalogue content-language preference is an open policy gap.
+The search is a floating-label field (Fields v3); text applies on Enter or **Tìm** (no debounce
+timer; Enter during IME composition is ignored); the type chips apply at once. The applied search
+lives in the link, one history entry per distinct search, so Back/Forward and returning from a Work
+restore it; an answered search is kept with its rows and cursor, another search starts a fresh
+walk and fences the old response. Invalid input (over 512 bytes, control characters) is shown
+inline and sends nothing. Guests get one cluster beside the intro: **Tạo tài khoản** (filled) and
+**Đăng nhập** (tonal).
 
 **Pagination.** The cursor is opaque and only form-encoded; it is bound to its search, so
 changing the search drops it. **Tải thêm tác phẩm** keeps the rows when a later page fails and

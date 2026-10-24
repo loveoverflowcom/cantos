@@ -135,17 +135,35 @@ impl Route {
     }
 }
 
-/// The search a link carries; anything refused yields the unfiltered catalog.
-pub fn discovery_query(hash: &str) -> DiscoveryQuery {
+fn link_parameters(hash: &str) -> Vec<(String, String)> {
     match hash.trim_start_matches('#').split_once('?') {
-        Some((_, query)) => {
-            let pairs: Vec<(String, String)> = url::form_urlencoded::parse(query.as_bytes())
-                .into_owned()
-                .collect();
-            DiscoveryQuery::from_parameters(pairs.iter().map(|(n, v)| (n.as_str(), v.as_str())))
-        }
-        None => DiscoveryQuery::default(),
+        Some((_, query)) => url::form_urlencoded::parse(query.as_bytes())
+            .into_owned()
+            .collect(),
+        None => Vec::new(),
     }
+}
+
+/// The search a link carries; anything refused yields the unfiltered catalog.
+///
+/// Discovery no longer filters by content language (#424), so an older link's `language` is
+/// dropped here instead of surviving as a filter the page has no control to show or clear. The
+/// shell then rewrites the address (see [`carries_retired_language`]).
+pub fn discovery_query(hash: &str) -> DiscoveryQuery {
+    let pairs = link_parameters(hash);
+    DiscoveryQuery::from_parameters(
+        pairs
+            .iter()
+            .filter(|(name, _)| name != "language")
+            .map(|(n, v)| (n.as_str(), v.as_str())),
+    )
+}
+
+/// Whether the link still carries the retired `language` filter and needs its address rewritten.
+pub fn carries_retired_language(hash: &str) -> bool {
+    link_parameters(hash)
+        .iter()
+        .any(|(name, _)| name == "language")
 }
 
 #[cfg(test)]
@@ -220,7 +238,7 @@ mod tests {
     #[test]
     fn a_search_lives_in_the_discovery_link_and_round_trips_through_history() {
         use crate::contract::discovery::WorkKind;
-        let query = DiscoveryQuery::new("Ánh đèn & ma", Some(WorkKind::Story), "vi-VN").unwrap();
+        let query = DiscoveryQuery::new("Ánh đèn & ma", Some(WorkKind::Story), "").unwrap();
         for route in [Route::Discover, Route::Explore] {
             let hash = route.discovery_hash(&query);
             assert_eq!(Route::from_hash(&hash), route);
@@ -258,5 +276,23 @@ mod tests {
             Route::PublicWork(_)
         ));
         assert_eq!(Route::from_live_hash("#player"), Route::Player);
+    }
+
+    #[test]
+    fn a_retired_language_filter_is_dropped_from_the_query_and_flagged_for_rewrite() {
+        let link = "#discover?q=%C4%91%C3%A8n&kind=story&language=vi-vn";
+        let query = discovery_query(link);
+        assert_eq!(query.text(), "đèn");
+        assert_eq!(query.language(), None);
+        assert!(carries_retired_language(link));
+        // A malformed tag is no longer a reason to refuse the rest of the search.
+        assert_eq!(discovery_query("#discover?q=a&language=vi_VN").text(), "a");
+        assert!(!carries_retired_language("#discover?q=a&kind=story"));
+        assert!(!carries_retired_language("#discover"));
+        // The rewritten link is the canonical one without the filter.
+        assert_eq!(
+            Route::Discover.discovery_hash(&query),
+            "#discover?q=%C4%91%C3%A8n&kind=story"
+        );
     }
 }

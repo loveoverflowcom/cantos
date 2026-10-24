@@ -19,8 +19,8 @@ use crate::{
     messages::{self, text, Key, Locale},
 };
 use cantos_ui::{
-    Button, ButtonState, ButtonVariant, DisabledReason, IconName, Select, SelectDensity,
-    SelectLabelPlacement, TextField, TextFieldKind,
+    Button, ButtonState, ButtonVariant, DisabledReason, IconName, TextField, TextFieldKind,
+    TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -149,38 +149,30 @@ fn SearchForm(
 ) -> impl IntoView {
     let initial = applied.get_untracked();
     let search = RwSignal::new(initial.text().to_owned());
-    let language = RwSignal::new(initial.language().unwrap_or_default().to_owned());
     let kind = RwSignal::new(initial.kind());
     let error = RwSignal::new(None::<QueryError>);
     // Back/Forward and a cleared search replace the applied query; the fields follow it.
     Effect::new(move |_| {
         let query = applied.get();
         search.set(query.text().to_owned());
-        language.set(query.language().unwrap_or_default().to_owned());
         kind.set(query.kind());
         error.set(None);
     });
-    let submit = move || match DiscoveryQuery::new(
-        &search.get_untracked(),
-        kind.get_untracked(),
-        &language.get_untracked(),
-    ) {
-        Ok(query) => {
-            error.set(None);
-            on_search.run(query);
-        }
-        Err(refused) => error.set(Some(refused)),
-    };
-    // The language is chosen from a list, so only a link-carried tag could ever be refused; its
-    // message belongs with the search it blocks.
+    // The listener chose the content language up front; discovery never narrows by it (#424).
+    let submit =
+        move || match DiscoveryQuery::new(&search.get_untracked(), kind.get_untracked(), "") {
+            Ok(query) => {
+                error.set(None);
+                on_search.run(query);
+            }
+            Err(refused) => error.set(Some(refused)),
+        };
     let search_error = Signal::derive(move || {
         error
             .get()
             .map(|e| text(query_error_key(e), locale.get()).to_owned())
     });
     let filtered = move || !applied.get().is_unfiltered();
-    let language_options =
-        Signal::derive(move || discovery_language::options(&language.get(), locale.get()));
     view! {
         <div class="theatre-public-search" role="search"
             on:keydown=move |event| {
@@ -193,6 +185,7 @@ fn SearchForm(
             }>
             <div class="theatre-public-search-main">
                 <TextField id="theatre-discovery-search" kind=TextFieldKind::Search
+                    variant=TextFieldVariant::Floating
                     label=Signal::derive(move || text(Key::DiscoverySearchLabel, locale.get()).to_owned())
                     value=search on_input=Callback::new(move |value| search.set(value))
                     error=search_error autocomplete="off"/>
@@ -212,11 +205,6 @@ fn SearchForm(
                         </button>
                     }).collect_view()}
                 </div>
-                <Select id="theatre-discovery-language" class="theatre-language-field"
-                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                    label=Signal::derive(move || text(Key::DiscoveryLanguageLabel, locale.get()).to_owned())
-                    value=language options=language_options
-                    on_input=Callback::new(move |value: String| { language.set(value); submit(); })/>
                 <Show when=filtered>
                     <Button id="theatre-discovery-clear" icon=IconName::Close variant=ButtonVariant::Text
                         on_press=Callback::new(move |_| on_search.run(DiscoveryQuery::default()))>
@@ -387,14 +375,14 @@ pub(crate) fn PublicHome(
                     <h1 id="theatre-public-home-heading">{move || text(Key::HomeHeading, locale.get())}</h1>
                     <p class="theatre-muted">{move || text(Key::PublicHomeIntroduction, locale.get())}</p>
                 </div>
-                // Account is reached from the avatar; these stay quiet so they never compete with
-                // the Work's own action.
+                // The one guest cluster: it sits beside the intro and wraps below it when narrow.
+                // Create account leads as the filled action; Sign in is the tonal alternative.
                 <div class="theatre-home-auth-actions">
-                    <Button id="theatre-home-login" icon=IconName::Login variant=ButtonVariant::Text
+                    <Button id="theatre-home-login" icon=IconName::Login variant=ButtonVariant::AuthSecondary
                         focus_on_press=true on_press=Callback::new(move |_| on_login.run(()))>
                         {move || text(Key::SignIn, locale.get())}
                     </Button>
-                    <Button id="theatre-home-register" icon=IconName::PersonAdd variant=ButtonVariant::Text
+                    <Button id="theatre-home-register" icon=IconName::PersonAdd variant=ButtonVariant::AuthPrimary
                         focus_on_press=true on_press=Callback::new(move |_| on_register.run(()))>
                         {move || auth_copy::text(CopyKey::CreateAccount, locale.get())}
                     </Button>
@@ -707,12 +695,9 @@ mod tests {
 
     #[test]
     fn the_form_mirrors_the_applied_search_and_can_always_clear_it() {
-        let applied = DiscoveryQuery::new("lời hẹn", Some(WorkKind::Podcast), "vi-vn").unwrap();
+        let applied = DiscoveryQuery::new("lời hẹn", Some(WorkKind::Podcast), "").unwrap();
         let html = render_with(PublicDiscoveryState::default(), applied, Locale::Vietnamese);
-        assert!(
-            html.contains("value=\"lời hẹn\"") && html.contains("value=\"vi-vn\""),
-            "{html}"
-        );
+        assert!(html.contains("value=\"lời hẹn\""), "{html}");
         assert!(
             html.contains("theatre-discovery-clear") && html.contains("Xóa tìm kiếm và bộ lọc")
         );
@@ -803,21 +788,43 @@ mod tests {
     }
 
     #[test]
-    fn language_is_chosen_by_name_and_no_api_instructions_fill_the_form() {
-        let html = render(PublicDiscoveryState::default(), Locale::Vietnamese);
-        assert!(html.contains("theatre-discovery-language") && html.contains("Ngôn ngữ nội dung"));
-        assert!(html.contains("Mọi ngôn ngữ"), "{html}");
-        for absent in [
-            "Mã ngôn ngữ của bản phát hành",
-            "Nhấn Enter hoặc Tìm",
-            "ví dụ vi-VN",
-        ] {
-            assert!(!html.contains(absent), "{absent}");
+    fn discovery_has_no_content_language_control_and_keeps_work_language_metadata() {
+        for locale in [Locale::Vietnamese, Locale::English] {
+            let html = render(PublicDiscoveryState::default(), locale);
+            for absent in [
+                "theatre-discovery-language",
+                "Ngôn ngữ nội dung",
+                "Content language",
+                "Mọi ngôn ngữ",
+                "All languages",
+            ] {
+                assert!(!html.contains(absent), "{absent}");
+            }
+            // The one language choice left is the interface locale in the topbar (shell-owned).
+            assert_eq!(html.matches("<select").count(), 0, "{html}");
         }
-        // The tag stays the request's; the listener sees the language's own name.
-        let applied = DiscoveryQuery::new("", None, "VI-vn").unwrap();
-        let html = render_with(PublicDiscoveryState::default(), applied, Locale::English);
-        assert!(html.contains("Tiếng Việt"), "{html}");
+        // A Work still reads its own language by name and carries it as `lang`.
+        let state = answered(DiscoveryQuery::default(), Ok(page(vec![work("Một")], None)));
+        let html = render(state, Locale::English);
+        assert!(
+            html.contains("Tiếng Việt") && html.contains("lang=\"vi-VN\""),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn search_is_a_floating_field_and_guest_actions_are_one_ranked_cluster() {
+        let html = render(PublicDiscoveryState::default(), Locale::Vietnamese);
+        assert!(html.contains("data-variant=\"floating\""), "{html}");
+        assert_eq!(html.matches("id=\"theatre-discovery-submit\"").count(), 1);
+        assert_eq!(html.matches("id=\"theatre-home-login\"").count(), 1);
+        assert_eq!(html.matches("id=\"theatre-home-register\"").count(), 1);
+        let tag = |id: &str| {
+            let at = html.find(&format!("id=\"{id}\"")).unwrap();
+            html[html[..at].rfind('<').unwrap()..at + 400].to_owned()
+        };
+        assert!(tag("theatre-home-register").contains("data-variant=\"auth-primary\""));
+        assert!(tag("theatre-home-login").contains("data-variant=\"auth-secondary\""));
     }
 
     #[test]
