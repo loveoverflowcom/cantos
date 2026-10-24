@@ -193,6 +193,30 @@ async fn discovery_orders_filters_searches_and_pages_by_immutable_anchor() {
         service.work(&second.work_id).await.unwrap().title,
         "Chuyện nhỏ"
     );
+
+    // LIKE metacharacters are literal text: the statement matches with `instr`, never a pattern,
+    // so `%` finds only the title that contains it and `_` matches no single character.
+    clock.advance(10_000_000);
+    let percent = fixture
+        .seed_work(None, &story(3, "Trăm phần trăm 100%", "vi-VN"))
+        .await;
+    for (query, expected) in [
+        ("%", vec![percent.work_id.as_str()]),
+        ("0%", vec![percent.work_id.as_str()]),
+        ("_", vec![]),
+        ("%_%", vec![]),
+    ] {
+        let found = service.works(query, None, None, 20, None).await.unwrap();
+        assert_eq!(
+            found
+                .items
+                .iter()
+                .map(|w| w.work_id.as_str())
+                .collect::<Vec<_>>(),
+            expected,
+            "{query}"
+        );
+    }
 }
 
 #[tokio::test]

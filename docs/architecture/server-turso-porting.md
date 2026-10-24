@@ -88,7 +88,11 @@ assertions and partial native mappings. It establishes no whole-file parity. The
    unit the adapter uses today and say so). Booleans are `INTEGER CHECK (x IN (0,1))`; the decoder accepts
    only 0/1.
 8. Parameterized SQL only; identifiers never spliced from input. `format!` into SQL only for static
-   column lists/constants.
+   column lists/constants, and a helper that receives an SQL fragment takes `&'static str`. An
+   optional filter is a bound predicate (`?N IS NULL OR …`) in one static statement; a variable-size
+   batch is one JSON array read through `json_each`, never a generated placeholder list. No query
+   builder or SeaQuery without an evidenced request-dependent query shape
+   ([#414 review](../evidence/turso-query-composition-review.md)).
 9. Append migrations; never edit an applied version. DDL only in the migration; queries live in the
    context's persistence adapter. STRICT tables. `PRAGMA foreign_keys` is on per connection (owner does it).
 10. No new dependency, no new pool/engine owner, no new daemon, no `ATTACH`, no second database file.
