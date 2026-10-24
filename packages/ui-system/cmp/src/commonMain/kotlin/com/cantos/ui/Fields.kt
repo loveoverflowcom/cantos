@@ -1,7 +1,6 @@
 package com.cantos.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
 
 /** Blank messages have no visible or semantic invalid state, matching the Web contract. */
 internal data class FieldMessages(val help: String?, val error: String?, val reason: String?) {
@@ -53,10 +53,12 @@ private fun KeyboardActions.guardedBy(state: FieldState): KeyboardActions = Keyb
 @Composable
 private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldVariant, label: String): Modifier = fillMaxWidth()
     .then(if (variant == TextFieldVariant.AuthTonal) Modifier.heightIn(min = tokenDp("size.authField")) else Modifier)
-    .cantosFocus(if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field")
-    .then(if (variant == TextFieldVariant.AuthTonal && messages.error != null) Modifier.border(
-        BorderStroke(tokenDp("size.authOutline"), tokenColor("color.error")), CantosShapes.authField,
-    ) else Modifier)
+    .cantosFocus(
+        if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field",
+        restingBorder = if (variant == TextFieldVariant.AuthTonal && messages.error != null) {
+            BorderStroke(tokenDp("size.authOutline"), tokenColor("color.error"))
+        } else null,
+    )
     .semantics {
         if (variant == TextFieldVariant.AuthTonal) contentDescription = label
         if (messages.description.isNotBlank()) stateDescription = messages.description
@@ -138,6 +140,7 @@ private fun ControlledTextField(
     maxLines: Int = Int.MAX_VALUE,
     variant: TextFieldVariant = TextFieldVariant.Regular,
     controlModifier: Modifier = Modifier,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
@@ -155,6 +158,7 @@ private fun ControlledTextField(
             maxLines = maxLines,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions.guardedBy(state),
+            visualTransformation = visualTransformation,
             shape = if (variant == TextFieldVariant.AuthTonal) CantosShapes.authField else CantosShapes.reading,
             colors = fieldColors(state, variant),
             supportingText = if (variant == TextFieldVariant.AuthTonal) null else fieldSupportingText(messages),
@@ -178,6 +182,7 @@ private fun ControlledTextField(
     maxLines: Int = Int.MAX_VALUE,
     variant: TextFieldVariant = TextFieldVariant.Regular,
     controlModifier: Modifier = Modifier,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
@@ -195,6 +200,7 @@ private fun ControlledTextField(
             maxLines = maxLines,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions.guardedBy(state),
+            visualTransformation = visualTransformation,
             shape = if (variant == TextFieldVariant.AuthTonal) CantosShapes.authField else CantosShapes.reading,
             colors = fieldColors(state, variant),
             supportingText = if (variant == TextFieldVariant.AuthTonal) null else fieldSupportingText(messages),
@@ -216,6 +222,7 @@ fun TextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     variant: TextFieldVariant = TextFieldVariant.Regular,
     controlModifier: Modifier = Modifier,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     ControlledTextField(
         label = label,
@@ -230,6 +237,7 @@ fun TextField(
         keyboardActions = keyboardActions,
         variant = variant,
         controlModifier = controlModifier,
+        visualTransformation = visualTransformation,
     )
 }
 
@@ -247,6 +255,7 @@ fun TextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     variant: TextFieldVariant = TextFieldVariant.Regular,
     controlModifier: Modifier = Modifier,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     ControlledTextField(
         label = label,
@@ -261,6 +270,7 @@ fun TextField(
         keyboardActions = keyboardActions,
         variant = variant,
         controlModifier = controlModifier,
+        visualTransformation = visualTransformation,
     )
 }
 

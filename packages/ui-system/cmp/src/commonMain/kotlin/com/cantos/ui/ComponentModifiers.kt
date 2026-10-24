@@ -1,5 +1,6 @@
 package com.cantos.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,8 +16,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 
-/** Focus decorates the native node without changing its layout or hit area. */
-internal fun Modifier.cantosFocus(shapeRole: String = "shape.control"): Modifier = composed {
+/**
+ * Focus decorates the native node without changing its layout or hit area.
+ * [restingBorder] is the node's own stroke inside its bounds (for example a field's error outline).
+ * It is painted only while the node is unfocused: the focus ring replaces it, so a focused invalid
+ * field shows one indicator instead of two concentric strokes.
+ */
+internal fun Modifier.cantosFocus(shapeRole: String = "shape.control", restingBorder: BorderStroke? = null): Modifier = composed {
     var focused by remember { mutableStateOf(false) }
     val width = tokenDp("size.focusWidth")
     val offset = tokenDp("size.focusOffset")
@@ -34,6 +40,16 @@ internal fun Modifier.cantosFocus(shapeRole: String = "shape.control"): Modifier
                     size = Size(size.width + 2 * outset, size.height + 2 * outset),
                     cornerRadius = CornerRadius(corner, corner),
                     style = Stroke(width.toPx()),
+                )
+            } else if (restingBorder != null) {
+                val stroke = restingBorder.width.toPx()
+                val corner = (radius.toPx() - stroke / 2).coerceAtLeast(0f)
+                drawRoundRect(
+                    brush = restingBorder.brush,
+                    topLeft = Offset(stroke / 2, stroke / 2),
+                    size = Size(size.width - stroke, size.height - stroke),
+                    cornerRadius = CornerRadius(corner, corner),
+                    style = Stroke(stroke),
                 )
             }
         }

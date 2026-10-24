@@ -1,5 +1,10 @@
 package com.cantos.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -27,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -148,22 +154,36 @@ private fun ActionIcon(icon: String?, state: ButtonState) {
     ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current)
 }
 
-/** Stationary indeterminate ring; the action's localized state owns the pending announcement.
- * The fixed arc is decorative, never a completion percentage or a disclosure/check glyph.
+/** Indeterminate ring: it turns under full motion and stays a visible stationary arc under reduced
+ * motion. The action's localized state owns the pending announcement, so the ring is decorative and
+ * never a completion percentage or a disclosure/check glyph.
  */
 @Composable
 private fun ActionGlyph(icon: String?, state: ButtonState, tint: Color) {
     if (state is ButtonState.Loading) {
-        val stroke = tokenDp("size.focusWidth")
-        Canvas(Modifier.size(tokenDp("size.icon")).clearAndSetSemantics { }) {
-            val width = stroke.toPx()
-            drawArc(tint, -90f, 270f, false,
-                topLeft = androidx.compose.ui.geometry.Offset(width / 2, width / 2),
-                size = androidx.compose.ui.geometry.Size(size.width - width, size.height - width),
-                style = Stroke(width))
-        }
+        PendingRing(tint, pendingRingTurnMillis(LocalUiPreferences.current.motion))
     } else if (icon != null) {
         Icon(icon, tint = tint)
+    }
+}
+
+@Composable
+private fun PendingRing(tint: Color, turnMillis: Int?) {
+    val stroke = tokenDp("size.focusWidth")
+    // The transition is unconditional so its slot is stable; reduced motion pins the angle at rest.
+    val spin = rememberInfiniteTransition(label = "pending-ring").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(turnMillis ?: PendingRingTurnMillis, easing = LinearEasing)),
+        label = "pending-ring-angle",
+    )
+    val turning = turnMillis != null
+    Canvas(Modifier.size(tokenDp("size.icon")).graphicsLayer { rotationZ = if (turning) spin.value else 0f }.clearAndSetSemantics { }) {
+        val width = stroke.toPx()
+        drawArc(tint, -90f, 270f, false,
+            topLeft = androidx.compose.ui.geometry.Offset(width / 2, width / 2),
+            size = androidx.compose.ui.geometry.Size(size.width - width, size.height - width),
+            style = Stroke(width))
     }
 }
 

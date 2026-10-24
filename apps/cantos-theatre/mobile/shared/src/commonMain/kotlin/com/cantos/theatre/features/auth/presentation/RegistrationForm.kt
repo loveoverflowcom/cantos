@@ -67,7 +67,9 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
             liveRegion = LiveRegionMode.Polite
             if (failure != null) error(status)
         }, color = if (failure == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
-        if (phase == RegistrationPhase.Editing || phase == RegistrationPhase.Submitting || phase == RegistrationPhase.Waiting) {
+        // Editing has nothing to cancel: Back (header) and the Login link already leave. Cancel appears
+        // only while a request is pending or its mail is awaited.
+        if (phase == RegistrationPhase.Submitting || phase == RegistrationPhase.Waiting) {
             Button(copy.text(AuthText.RegisterCancel), { onIntent(RegistrationIntent.Cancel) },
                 variant = ButtonVariant.Text, icon = "close", controlModifier = Modifier.fillMaxWidth().testTag("register-cancel"))
         }

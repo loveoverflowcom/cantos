@@ -200,7 +200,7 @@ class AuthAccountUiTest {
     @Test
     fun registration_collects_only_email_and_returns_through_login_to_its_origin() = run { h ->
         openLoginFromAccount()
-        onNodeWithTag("login-create").performClick()
+        onNodeWithTag("login-create").performScrollTo().performClick()
         waitForIdle()
         onNodeWithTag("back").assertContentDescriptionEquals("Về Đăng nhập")
         onNodeWithTag("register-email").performScrollTo().assertIsDisplayed()
