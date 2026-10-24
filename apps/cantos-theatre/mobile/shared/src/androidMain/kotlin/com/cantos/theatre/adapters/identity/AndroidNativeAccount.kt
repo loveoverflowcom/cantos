@@ -6,6 +6,7 @@ import com.cantos.theatre.adapters.http.NativeIdentityV1Client
 import com.cantos.theatre.application.identity.EmailVerificationController
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.RegistrationController
+import com.cantos.theatre.application.identity.verificationElapsedClock
 import com.cantos.theatre.domain.identity.ProductionVerifyEmailHandler
 import kotlinx.coroutines.CoroutineScope
 
@@ -26,4 +27,4 @@ fun createAndroidRegistration(scope: CoroutineScope, origin: ApiOrigin): Registr
 /** Completes a signup from the verified App Link on the pinned handler; anonymous, never a session. */
 fun createAndroidVerification(scope: CoroutineScope, origin: ApiOrigin): EmailVerificationController =
     EmailVerificationController(scope, NativeIdentityV1Client(origin, AndroidNativeHttp(scope, origin), now),
-        ProductionVerifyEmailHandler, System::currentTimeMillis)
+        ProductionVerifyEmailHandler, verificationElapsedClock())

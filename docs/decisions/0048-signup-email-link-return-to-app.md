@@ -6,7 +6,9 @@
   Stage 1 is partly implemented in source: Theatre Web serves `/verify-email` and the deploy
   check admits the two association files ([#431](https://github.com/loveoverflowcom/cantos/pull/431));
   Android declares the App Link and CMP completes the signup (stage 1 PR 2). The association
-  files, iOS Universal Links, the operator's handler switch and every device row remain. Optional
+  files, the operator's handler switch and signed-device association remain. The iOS source
+  adapter now shares CMP completion; its full Apple framework/host build and device acceptance
+  remain separate (see the [#435 record](../evidence/native-signup-435-20261024.md)). Optional
   stage 2 is not implemented
 - Date: 2026-10-24
 - Decision owner: Cantos owner (product, Identity/auth review for the security contract)
@@ -154,6 +156,7 @@ regressions; the PR records their exact commands and results.
 | Source/owner inspection (paths above) | inspected |
 | Stage 0 copy regressions (Web `auth_copy`, CMP `AuthCopyTest`) | see the PR |
 | Stage 1 CMP parser, state machine, controller, HTTP client, navigation and JVM UI flow (`EmailVerificationTest`, `EmailVerificationControllerTest`, `NativeIdentityV1ClientTest`, `NavigationTest`, `VerifyEmailFlowTest`); manifest and inspector controls (`test_theatre_android_host`, `test_inspect_android_release`) | example-tested on JVM; see the PR. No CMP Login pre-fill: the link carries no email |
+| iOS transient intake and Release-only entitlement | source-checked; real Foundation `NSUserActivity` intake is example-tested on macOS. SwiftUI direct URLs and browsing-web activities both use the process-owned shared parser/controller; full framework/host build, scene lifecycle and signed-device association are separate |
 | Android device (Gmail, another mail client, installed/absent, cold/warm; verified opening on release-signed builds only, debug through an explicit intent) | NOT_RUN |
 | iOS real device (Mail, Gmail, installed/absent); a simulator is not equivalent | NOT_RUN |
 | Desktop browser no-app flow | NOT_RUN for this record; the existing Web journey evidence lives in the [Firebase boundary](../architecture/firebase-verification.md#evidence-and-remaining-acceptance) |
@@ -166,3 +169,10 @@ tests; separate Android and iOS device rows with the exact build, signing and ma
 Revisit this record if Identity adopts a non-Firebase mail capability, if a native-only action
 handler becomes available, if Android/iOS association semantics change, or if device evidence
 shows verified links do not open the app from the mail clients listeners actually use.
+
+The iOS adapter follows Apple's [SwiftUI delivery contract](https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:)):
+SwiftUI may deliver a Universal Link directly as a URL, while UIKit/Handoff uses
+`NSUserActivityTypeBrowsingWeb.webpageURL`. Both entries are transient; the shared pinned parser
+owns acceptance. The Release entitlement names the domain only; the operator's separately
+reviewed AASA must restrict `components` to `/verify-email` and use the verified Apple app identity
+([associated domains](https://developer.apple.com/documentation/xcode/supporting-associated-domains)).

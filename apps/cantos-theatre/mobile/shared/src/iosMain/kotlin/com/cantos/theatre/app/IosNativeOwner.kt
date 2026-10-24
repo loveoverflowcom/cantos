@@ -3,8 +3,11 @@ package com.cantos.theatre.app
 import com.cantos.theatre.adapters.http.NativeIdentityV1Client
 import com.cantos.theatre.adapters.http.selectPackagedApiOrigin
 import com.cantos.theatre.adapters.identity.SecureNativeCredentialJournal
+import com.cantos.theatre.application.identity.EmailVerificationController
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.RegistrationController
+import com.cantos.theatre.application.identity.verificationElapsedClock
+import com.cantos.theatre.domain.identity.ProductionVerifyEmailHandler
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.CredentialRead
 import com.cantos.theatre.ports.CredentialStore
@@ -47,6 +50,9 @@ class IosNativeIdentityOwner(apiOrigin: String?, platform: IosIdentityPlatform) 
     private val now = { NSDate().timeIntervalSince1970.toLong() }
     private val api = origin?.let { NativeIdentityV1Client(it, platform, now) }
     val registration = api?.let { RegistrationController(scope, it) }
+    val verification = api?.let {
+        EmailVerificationController(scope, it, ProductionVerifyEmailHandler, verificationElapsedClock())
+    }
     val controller = origin?.let { admitted ->
         NativeAccountController(scope, requireNotNull(api),
             SecureNativeCredentialJournal(object : CredentialStore {
@@ -68,5 +74,5 @@ class IosNativeIdentityOwner(apiOrigin: String?, platform: IosIdentityPlatform) 
                 override fun clear(): CredentialFailure? = failure(platform.clearLogoutBarrier())
             }, now)
     }
-    fun close() { registration?.close(); controller?.close(); scope.cancel() }
+    fun close() { verification?.leave(); registration?.close(); controller?.close(); scope.cancel() }
 }

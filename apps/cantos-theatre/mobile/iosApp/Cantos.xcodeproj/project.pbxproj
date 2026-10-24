@@ -6,6 +6,10 @@
     objects = {
 
 /* Begin PBXBuildFile section */
+        A10000000000000000000023 /* VerificationActivity.swift in Sources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000024 /* VerificationActivity.swift */;
+        };
         A1000000000000000000001B /* AvPlayerDriver.swift in Sources */ = {
             isa = PBXBuildFile;
             fileRef = A1000000000000000000001C /* AvPlayerDriver.swift */;
@@ -37,6 +41,18 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        A10000000000000000000024 /* VerificationActivity.swift */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = sourcecode.swift;
+            path = VerificationActivity.swift;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000025 /* Release.entitlements */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = text.plist.entitlements;
+            path = Release.entitlements;
+            sourceTree = "<group>";
+        };
         A1000000000000000000001C /* AvPlayerDriver.swift */ = {
             isa = PBXFileReference;
             lastKnownFileType = sourcecode.swift;
@@ -108,7 +124,7 @@
         };
         A10000000000000000000006 /* Cantos */ = {
             isa = PBXGroup;
-            children = (A10000000000000000000022 /* TheatreIdentity.swift */, A10000000000000000000002 /* CantosApp.swift */, A10000000000000000000014 /* CatalogTransport.swift */, A1000000000000000000001C /* AvPlayerDriver.swift */, A10000000000000000000016 /* LaunchScreen.storyboard */, A10000000000000000000018 /* Assets.xcassets */, A1000000000000000000001A /* PrivacyInfo.xcprivacy */);
+            children = (A10000000000000000000022 /* TheatreIdentity.swift */, A10000000000000000000002 /* CantosApp.swift */, A10000000000000000000024 /* VerificationActivity.swift */, A10000000000000000000025 /* Release.entitlements */, A10000000000000000000014 /* CatalogTransport.swift */, A1000000000000000000001C /* AvPlayerDriver.swift */, A10000000000000000000016 /* LaunchScreen.storyboard */, A10000000000000000000018 /* Assets.xcassets */, A1000000000000000000001A /* PrivacyInfo.xcprivacy */);
             path = Cantos;
             sourceTree = "<group>";
         };
@@ -187,7 +203,7 @@
         A1000000000000000000000A /* Sources */ = {
             isa = PBXSourcesBuildPhase;
             buildActionMask = 2147483647;
-            files = (A10000000000000000000021 /* TheatreIdentity.swift in Sources */, A10000000000000000000001 /* CantosApp.swift in Sources */, A10000000000000000000013 /* CatalogTransport.swift in Sources */, A1000000000000000000001B /* AvPlayerDriver.swift in Sources */);
+            files = (A10000000000000000000023 /* VerificationActivity.swift in Sources */, A10000000000000000000021 /* TheatreIdentity.swift in Sources */, A10000000000000000000001 /* CantosApp.swift in Sources */, A10000000000000000000013 /* CatalogTransport.swift in Sources */, A1000000000000000000001B /* AvPlayerDriver.swift in Sources */);
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXSourcesBuildPhase section */
@@ -254,6 +270,7 @@
                 CANTOS_API_ORIGIN = "__CANTOS_DEFAULT_API_ORIGIN__";
                 SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) CANTOS_PRODUCTION";
                 CANTOS_FRAMEWORK_BUILD_TYPE = release;
+                CODE_SIGN_ENTITLEMENTS = "Cantos/Release.entitlements";
                 CODE_SIGN_STYLE = Automatic;
                 CURRENT_PROJECT_VERSION = 1;
                 "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosSimulatorArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";

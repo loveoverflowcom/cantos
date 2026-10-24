@@ -1,13 +1,21 @@
 package com.cantos.theatre.application.identity
 
+import com.cantos.theatre.adapters.http.ApiOrigin
+import com.cantos.theatre.adapters.http.NativeIdentityV1Client
 import com.cantos.theatre.domain.identity.CompletionFailure
 import com.cantos.theatre.domain.identity.CompletionStatus
 import com.cantos.theatre.domain.identity.ProductionVerifyEmailHandler
+import com.cantos.theatre.domain.identity.RegistrationEmail
+import com.cantos.theatre.domain.identity.RegistrationResult
 import com.cantos.theatre.domain.identity.SignupCompletionRequest
 import com.cantos.theatre.domain.identity.VerificationPhase
 import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.ports.IdentityV1Result
 import com.cantos.theatre.ports.SignupCompletionApi
+import com.cantos.theatre.ports.NativeHttpPort
+import com.cantos.theatre.ports.NativeHttpRequest
+import com.cantos.theatre.ports.NativeHttpResponse
+import com.cantos.theatre.ports.NativeRequestHandle
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
@@ -17,6 +25,9 @@ import kotlinx.coroutines.withContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertIs
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TestTimeSource
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class EmailVerificationControllerTest {
@@ -100,6 +111,55 @@ class EmailVerificationControllerTest {
         assertEquals(VerificationPhase.Idle, owner.state.value.phase)
         owner.editPassword(password); owner.complete(); runCurrent()
         assertEquals(1, api.requests.size)
+    }
+
+    @Test fun rate_limit_wait_ignores_epoch_jumps_while_token_validation_keeps_epoch_time() = runTest {
+        val elapsed = TestTimeSource()
+        var epochSeconds = 1_000L
+        val requests = mutableListOf<NativeHttpRequest>()
+        val access = "ci1_n_" + "a".repeat(64)
+        val refresh = "ci1_r_" + "b".repeat(64)
+        val tokenPair = """{"token_type":"Bearer","access_token":"$access","refresh_token":"$refresh","actor_id":"listener_a","session_id":"11111111-2222-4333-8444-555555555555","expires_at":1120,"refresh_expires_at":1600,"absolute_expires_at":1900,"authenticated_at":1000}"""
+        val http = object : NativeHttpPort {
+            override fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle {
+                val response = if (request.url.endsWith("/signup/complete")) {
+                    requests += request
+                    if (requests.size == 1) NativeHttpResponse(429, "application/json", "{}", null, retryAfter = "5")
+                    else NativeHttpResponse(200, "application/json", """{"status":"replayed"}""", null)
+                } else {
+                    assertEquals("https://api.example/api/v1/theatre/native/identity/login", request.url)
+                    NativeHttpResponse(200, "application/json", tokenPair, null)
+                }
+                completion(response)
+                return object : NativeRequestHandle { override fun cancel() = Unit }
+            }
+        }
+        val api = NativeIdentityV1Client(ApiOrigin.parse("https://api.example"), http) { epochSeconds }
+        val owner = EmailVerificationController(this, api, handler, verificationElapsedClock(elapsed))
+        owner.receive(link); owner.typeAndConfirm(); owner.complete(); runCurrent()
+        assertEquals(5, owner.retryWaitSeconds())
+
+        val email = assertIs<RegistrationResult.Accepted<RegistrationEmail>>(RegistrationEmail.parse("listener@example.test")).value
+        for (jump in listOf(86_400L, -86_400L)) {
+            epochSeconds = 1_000L + jump
+            assertEquals(5, owner.retryWaitSeconds(), "wall-clock adjustment cannot shorten or lengthen the hold")
+            owner.retry(); runCurrent()
+            assertEquals(1, requests.size)
+            assertEquals(IdentityV1Result.Refused(IdentityV1Failure.UnknownOutcome), api.login(email, password),
+                "token deadlines still validate against UNIX time, not elapsed milliseconds")
+        }
+        elapsed += 4_999.milliseconds
+        assertEquals(1, owner.retryWaitSeconds())
+        owner.retry(); runCurrent()
+        assertEquals(1, requests.size)
+        epochSeconds = 1_000L
+        assertIs<IdentityV1Result.Accepted<*>>(api.login(email, password))
+        elapsed += 1.milliseconds
+        assertEquals(null, owner.retryWaitSeconds())
+        owner.retry(); runCurrent()
+        assertEquals(2, requests.size)
+        assertEquals(requests[0].body, requests[1].body, "only the original completion is retried")
+        assertEquals(VerificationPhase.Completed(CompletionStatus.Replayed), owner.state.value.phase)
     }
 
     @Test fun api_failures_map_to_the_completion_contract() = runTest {
