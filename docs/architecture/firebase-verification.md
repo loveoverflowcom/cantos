@@ -97,7 +97,13 @@ operator-assisted enrollment recovery remain unimplemented owner work, never ema
 
 ## Local development composition
 
-`cargo xtask run cantos-theatre --web --open` checks installed Node.js and `firebase-tools`
+Local mail now requires explicit selection. The separate
+[Resend local fixture](../../infra/local-mail/resend-local/README.md) is synthetic HTTP only and
+keeps Identity mail disabled; it replaces neither this proof bridge nor its acceptance tests.
+Default local runs do not start Firebase. Shared Firebase CLI remains installed for independent
+Hosting/App Distribution operations.
+
+`cargo xtask run cantos-theatre --web --local-mail firebase --open` checks installed Node.js and `firebase-tools`
 **14.2.2** Auth module before building. It derives the module from the installed `firebase`
 executable or explicit absolute `CANTOS_FIREBASE_AUTH_MODULE` path to
 `lib/emulator/auth/server.js`. Missing/wrong tooling gives an actionable refusal. No installer,

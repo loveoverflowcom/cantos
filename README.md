@@ -92,6 +92,11 @@ Server/media files outside Git; mock MP3 references remain unavailable. Its opti
 Server router is a test-hosted fixture, with public-cover and browser/device acceptance separate.
 Retired PG/DBSP/provider/VPS commands fail before effects.
 
+Local mail is explicit: `cargo xtask run resend-local` probes the approved, separately prepared
+[synthetic HTTP fixture](infra/local-mail/resend-local/README.md) with no usable proof or real
+recipient. Theatre runs default to mail disabled; `--local-mail firebase` retains the existing
+native action/proof lane. Synthetic delivery is separate from signup/provider acceptance.
+
 Follow [CONTRIBUTING](CONTRIBUTING.md) and [AGENTS](AGENTS.md): resolve the requested base once,
 fetch and pin its SHA for branch/diff/review/preflight. Native work targets
 `refactor/cantos-native-turso`; the eventual integration PR to `develop` is a separate epic gate.

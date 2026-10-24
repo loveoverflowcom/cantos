@@ -14,7 +14,9 @@ two native long-lived backend processes, Server and Identity, each owning a loca
 Turso file. Forge is separate and not started for ordinary login/serving. No Podman/Docker,
 PostgreSQL/Kanidm, Redis, broker, Feldera or Turso server is a hidden prerequisite of native
 dev/E2E/Turso/Kani. The [23 October verification amendment](../../../../docs/architecture/firebase-verification.md)
-selects an explicitly installed Auth Emulator for local Theatre `xtask run` only; no ordinary
+retains an explicitly installed Auth Emulator for the explicit local Theatre
+`xtask run --local-mail firebase` lane only. The separate synthetic Resend HTTP fixture never
+supplies Identity proofs; local mail defaults to disabled. No ordinary
 build/test/preflight starts it and readiness is not native auth evidence. Never install or upgrade
 it implicitly. [#348](https://github.com/loveoverflowcom/cantos/issues/348) supersedes only
 the production no-container selection: GHCR digest distribution and Podman Quadlet supervise

@@ -179,13 +179,39 @@ pub fn http_get(addr: SocketAddr, path: &str) -> io::Result<(u16, String)> {
     Ok((response.status, body))
 }
 
-struct HttpResponse {
-    status: u16,
+pub(crate) struct HttpResponse {
+    pub status: u16,
     content_type: Option<String>,
-    body: Vec<u8>,
+    pub body: Vec<u8>,
 }
 
 fn http_get_with_accept(addr: SocketAddr, path: &str, accept: &str) -> io::Result<HttpResponse> {
+    http_request(addr, "GET", path, accept, &[], &[])
+}
+
+/// Reuses the readiness parser's whole-exchange deadline and framing/size bounds. No proxy,
+/// DNS resolution, redirect or retry is performed. Explicit mail fixtures use literal loopback.
+pub(crate) fn http_request(
+    addr: SocketAddr,
+    method: &str,
+    path: &str,
+    accept: &str,
+    headers: &[(&str, &str)],
+    body: &[u8],
+) -> io::Result<HttpResponse> {
+    if !matches!(method, "GET" | "POST")
+        || body.len() > 4096
+        || accept.bytes().any(|byte| byte.is_ascii_control())
+        || headers.iter().any(|(name, value)| {
+            name.is_empty()
+                || !name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+                || value.bytes().any(|byte| byte.is_ascii_control())
+        })
+    {
+        return Err(invalid("invalid HTTP request"));
+    }
     if !path.starts_with('/')
         || path.len() > 4096
         || path
@@ -196,10 +222,22 @@ fn http_get_with_accept(addr: SocketAddr, path: &str, accept: &str) -> io::Resul
     }
     let mut stream = TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT)?;
     let deadline = Instant::now() + IO_TIMEOUT;
-    let request = format!(
-        "GET {path} HTTP/1.1\r\nHost: {addr}\r\nAccept: {accept}\r\nConnection: close\r\n\r\n"
+    let mut request = format!(
+        "{method} {path} HTTP/1.1\r\nHost: {addr}\r\nAccept: {accept}\r\nConnection: close\r\n"
     );
-    let mut remaining_request = request.as_bytes();
+    for (name, value) in headers {
+        request.push_str(&format!("{name}: {value}\r\n"));
+    }
+    if method == "POST" {
+        request.push_str(&format!(
+            "Content-Type: application/json\r\nContent-Length: {}\r\n",
+            body.len()
+        ));
+    }
+    request.push_str("\r\n");
+    let mut request = request.into_bytes();
+    request.extend_from_slice(body);
+    let mut remaining_request = request.as_slice();
     while !remaining_request.is_empty() {
         stream.set_write_timeout(Some(time_left(deadline)?))?;
         let written = stream.write(remaining_request)?;

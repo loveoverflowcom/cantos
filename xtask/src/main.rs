@@ -29,6 +29,7 @@ mod process;
 mod release;
 mod release_build;
 mod report;
+mod resend_local;
 mod retired;
 mod run;
 mod run_files;
@@ -117,12 +118,14 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             open,
             test_cluster: _,
             web_origin,
+            local_mail,
         } => {
             let options = LaunchOptions {
                 surface: surface.surface(),
                 release,
                 open,
                 web_origin,
+                local_mail,
             };
             match run::plan_run(&workspace, target, &options) {
                 Ok(plan) => run::launch(&workspace, &plan, &tools, &mut runner),
