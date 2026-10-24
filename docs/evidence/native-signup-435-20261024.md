@@ -10,8 +10,7 @@ The requested order was Android first, then the remaining independent iOS source
 - Base: `origin/develop@660dc9d82f4e552afc6c6987230cc4dca557497d`, fetched on 24 October 2026.
   The original clean `develop` checkout was fast-forwarded without reset/stash. Other worktrees,
   branches and existing data were preserved.
-- Source checkout: `/Users/manhblue/Documents/Codex/2026-10-23/task-6/cantos-firebase`.
-  Task checkout: `/Users/manhblue/Documents/Codex/2026-10-24/task-4/cantos-native-verification`,
+- Source checkout: the original local `develop` checkout. Task checkout: a separate local worktree,
   branch `feat/435-native-verification-acceptance`. The PR identifies its final source SHA.
 - macOS 15.6 / arm64, Rust 1.98.1, Gradle 8.14.3, Microsoft JDK 21.0.7, Android SDK 35 /
   build-tools 35.0.0. Xcode 16.3 is installed; the required Apple platform and Kotlin/Native
@@ -62,9 +61,9 @@ Use these installed-tool settings for the following xtask commands:
 
 ```sh
 export RUSTUP_TOOLCHAIN=1.98.1
-export JAVA_HOME=/Users/manhblue/Library/Java/JavaVirtualMachines/ms-21.0.7/Contents/Home
-export ANDROID_HOME=/Users/manhblue/Library/Android/sdk
-export PATH=/Users/manhblue/.local/share/gradle/gradle-8.14.3/bin:$PATH
+export JAVA_HOME=<installed Microsoft JDK 21.0.7 home>
+export ANDROID_HOME=<installed Android SDK>
+export PATH=<installed Gradle 8.14.3>/bin:$PATH
 export TMPDIR=/private/tmp
 ```
 
@@ -141,9 +140,12 @@ The task-owned supervised stack was stopped cleanly; native files and evidence w
 The App's one `@StateObject` owner exists above `WindowGroup`, so scenes use the same native
 shell and verification controller. Browsing-web activities yield `webpageURL`, then clear their
 URL/user-info and Handoff/search eligibility before any app callback. SwiftUI direct Universal
-Links use the same synchronous forwarding path, as Apple's
-[delivery contract](https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:))
-requires. There is no link queue, saved scene/navigation value, custom scheme or new auth client.
+Links use the same synchronous forwarding path; Apple's
+[`onOpenURL` documentation](https://developer.apple.com/documentation/swiftui/view/onopenurl(perform:))
+says SwiftUI may deliver a Universal Link there as a URL. Which callback a real scene uses is
+not observed here. Either delivery, or both for one tap, opens one completion route and sends
+nothing (JVM `TheatreShellVerificationLinkTest`, added in review). There is no link queue, saved
+scene/navigation value, custom scheme or new auth client.
 The shared parser remains the trust boundary for the exact HTTPS `cantos.cc/verify-email` URL.
 The existing controller owns duplicate/busy/cancel/late-result behavior and anonymous completion;
 `IosNativeIdentityOwner.close` clears it. Refused origins compose no verification controller.
@@ -156,7 +158,7 @@ OpenStep Xcode project and entitlement; this is source configuration, not a sign
 | Command/check | Actual result | Limit |
 | --- | --- | --- |
 | `TMPDIR=/private/tmp python3 -m unittest scripts/test_theatre_ios_verification.py scripts/test_theatre_ios_identity.py scripts/test_theatre_ios_production_host.py` | PASS: 11 selected/executed | New tests first failed on the missing adapter/entitlement. The Foundation test compiles and executes the actual production intake, including scrub-before-callback, duplicate same activity, missing URL and foreign activity |
-| `cargo xtask theatre-host ios-build --kotlin-native-home /Users/manhblue/.konan/kotlin-native-prebuilt-macos-aarch64-2.2.0` | UNSUPPORTED | Requires installed 2.2.20; installed 2.2.0/2.4.20 are not substituted |
+| `cargo xtask theatre-host ios-build --kotlin-native-home <installed kotlin-native-prebuilt-macos-aarch64-2.2.0>` | UNSUPPORTED | Requires installed 2.2.20; installed 2.2.0/2.4.20 are not substituted |
 | `xcodebuild -project apps/cantos-theatre/mobile/iosApp/Cantos.xcodeproj -scheme Cantos -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/cantos435-20261024/xcode-build CODE_SIGNING_ALLOWED=NO build` | FAIL (environment) | No matching destination; iOS 18.4 platform is absent. `-showBuildSettings` for Debug and Release also cannot configure a destination |
 | Signed host, simulator/device Universal Links, Mail/Gmail, VoiceOver, multi-scene/cold/warm lifecycle, OS restoration/logging | NOT_RUN | Foundation/macOS and source checks establish none of these |
 
