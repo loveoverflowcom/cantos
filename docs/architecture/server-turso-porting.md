@@ -43,7 +43,7 @@ No queue ordering change is needed: context porting remains the next dependency.
 |---|---|---|
 | shared owner, registry, serialized writer, readers, clock, backup | `packages/store-turso` | exact pin `turso =0.8.3`; read `README.md`, `docs/evidence/turso-capability-report.md` (48 probes: what works, what needs a substitute) |
 | Server registry | `services/cantos-server/src/platform/turso/mod.rs` (`MIGRATIONS`, DDL in sibling `*.sql`) | append at the next free version after the fetched registry; never edit a registered version, including the placeholders (1–3 foundation, 12–15 CMP closure, 16 Editorial/Ingestion, 17–23 remaining business contexts) |
-| statement facade | `src/platform/store/sql.rs` (+ `mod.rs`) | `Conn` (from `store.connection()`), `Tx` (`conn.transaction()` = write unit; `conn.read()` = pinned read snapshot), PG-shaped `query/query_opt/query_one/execute/commit/rollback`, `Row::try_get/get` with checked column types, `Param` impls (`&str`, `String`, `i64/i32/..`, `bool`, `Vec<u8>/&[u8]`, `Option<T>`, `Vec<String>`/`Vec<i64>` as a JSON array for `json_each`), `tx.now_micros()` / `tx.now_seconds()` (trusted clock, SQL never reads the wall clock), typed `Error` (`guard()`, `constraint()`, `is_integrity_violation()`, `outcome_unknown()`) |
+| statement facade | `src/platform/store/sql.rs` (+ `mod.rs`) | `Conn` (from `store.connection()`), `Tx` (`conn.transaction()` = write unit; `conn.read()` = pinned read snapshot), PG-shaped `query/query_opt/query_one/execute/commit/rollback`, `Row::try_get` with checked column types (the panicking `Row::get` shorthand compiles only for tests and the `test-support` fixture), `Param` impls (`&str`, `String`, `i64/i32/..`, `bool`, `Vec<u8>/&[u8]`, `Option<T>`, `Vec<String>`/`Vec<i64>` as a JSON array for `json_each`), `tx.now_micros()` / `tx.now_seconds()` (trusted clock, SQL never reads the wall clock), typed `Error` (`guard()`, `constraint()`, `is_integrity_violation()`, `outcome_unknown()`) |
 | admission in the business unit | `platform::store::authenticate(&tx, token)` | Studio `ci1_` Identity cookie or development token, re-admitted in the SAME unit as the write |
 | file-backed test fixture | `src/test_support.rs` (`ServerFixture`) | `new()`, `store()`, `restart()`, `exec`, `rows`, `count`, `seed_actors`, `seed_development_session`, `studio_caller`; enabled for tests by the package's self dev-dependency |
 | existing worked examples | `src/platform/identity/turso.rs`, `src/platform/identity_auth/turso.rs`, `docs/architecture/server-turso-schema.md` (mapping tables: source rule → Turso mechanism → test) | copy this style of reasoning |
@@ -128,8 +128,12 @@ assertions and partial native mappings. It establishes no whole-file parity. The
 | `RepeatableRead` read-only tx | `conn.read()` |
 | `statement_timeout/lock_timeout` | none; the writer wait is bounded (5 s) and a request deadline exists in the HTTP layer |
 
-Row/column notes: facade `Row::try_get::<_, T>(idx)` fails (`Error::Column`) on a type mismatch;
-never `unwrap_or_default` a column. `i32/i16/u32` decode through checked narrowing.
+Row/column notes: facade `Row::try_get::<_, T>(idx)` fails (`Error::Column`, mapped to
+`StoreError::CorruptRevision`) on a type mismatch, a missing name or index, or a NULL decoded as a
+non-`Option`; never `unwrap_or_default` a column and never panic on a stored value. `i32/i16/u32`
+decode through checked narrowing. An `INSERT` names its columns, so a rebuilt or extended table
+cannot silently rebind positional parameters; `SELECT *` stays acceptable only where the decoder
+reads by column name.
 
 ## 3. Your work product (in this order)
 

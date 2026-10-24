@@ -15,19 +15,19 @@ const INTENT_COLUMNS: &str =
     "id,script_id,script_revision,content_digest,profile_id,operation_id,created_by,created_at";
 
 fn decode_intent(row: &Row) -> Result<AudioIntentResponse, StoreError> {
-    let id: String = row.get("id");
-    let script_id: String = row.get("script_id");
-    let operation_id: String = row.get("operation_id");
+    let id: String = row.try_get("id")?;
+    let script_id: String = row.try_get("script_id")?;
+    let operation_id: String = row.try_get("operation_id")?;
     for value in [&id, &script_id, &operation_id] {
         if normalized_uuid(value).map_err(|_| StoreError::CorruptRevision)? != *value {
             return Err(StoreError::CorruptRevision);
         }
     }
-    let profile_id: String = row.get("profile_id");
+    let profile_id: String = row.try_get("profile_id")?;
     if DeliveryProfile::from_id(&profile_id).is_none() {
         return Err(StoreError::CorruptRevision);
     }
-    let script_revision = u64::try_from(row.get::<_, i64>("script_revision"))
+    let script_revision = u64::try_from(row.try_get::<_, i64>("script_revision")?)
         .map_err(|_| StoreError::CorruptRevision)?;
     if script_revision == 0 {
         return Err(StoreError::CorruptRevision);
@@ -37,10 +37,10 @@ fn decode_intent(row: &Row) -> Result<AudioIntentResponse, StoreError> {
         id,
         script_id,
         script_revision,
-        content_digest: row.get("content_digest"),
+        content_digest: row.try_get("content_digest")?,
         profile_id,
         operation_id,
-        created_by: row.get("created_by"),
+        created_by: row.try_get("created_by")?,
         created_at: crate::platform::store::utc_timestamp(row.try_get("created_at")?)?,
         upload_path: format!("{status_path}/bytes"),
         status_path,
@@ -147,34 +147,34 @@ pub(super) async fn receipt(
     let Some(row) = row else {
         return Ok(None);
     };
-    let bytes: Vec<u8> = row.get("receipt_bytes");
-    if receipt_digest(&bytes) != row.get::<_, String>("receipt_digest") {
+    let bytes: Vec<u8> = row.try_get("receipt_bytes")?;
+    if receipt_digest(&bytes) != row.try_get::<_, String>("receipt_digest")? {
         return Err(StoreError::CorruptRevision);
     }
     let receipt: AudioReceiptResponse =
         serde_json::from_slice(&bytes).map_err(|_| StoreError::CorruptRevision)?;
-    let object_key: String = row.get("object_key");
+    let object_key: String = row.try_get("object_key")?;
     let profile =
         DeliveryProfile::from_id(&receipt.profile_id).ok_or(StoreError::CorruptRevision)?;
     if serde_json::to_vec(&receipt).map_err(|_| StoreError::CorruptRevision)? != bytes
         || normalized_uuid(&receipt.id).map_err(|_| StoreError::CorruptRevision)? != receipt.id
-        || receipt.id != row.get::<_, String>("id")
+        || receipt.id != row.try_get::<_, String>("id")?
         || receipt.intent_id != intent.id
-        || receipt.intent_id != row.get::<_, String>("intent_id")
+        || receipt.intent_id != row.try_get::<_, String>("intent_id")?
         || receipt.script_id != intent.script_id
-        || receipt.script_id != row.get::<_, String>("script_id")
+        || receipt.script_id != row.try_get::<_, String>("script_id")?
         || receipt.script_revision != intent.script_revision
         || crate::platform::store::checked_number(receipt.script_revision)
             .map_err(|_| StoreError::CorruptRevision)?
-            != row.get::<_, i64>("script_revision")
+            != row.try_get::<_, i64>("script_revision")?
         || receipt.content_digest != intent.content_digest
-        || receipt.content_digest != row.get::<_, String>("content_digest")
+        || receipt.content_digest != row.try_get::<_, String>("content_digest")?
         || receipt.profile_id != intent.profile_id
-        || receipt.profile_id != row.get::<_, String>("profile_id")
+        || receipt.profile_id != row.try_get::<_, String>("profile_id")?
         || receipt.operation_id != intent.operation_id
-        || receipt.operation_id != row.get::<_, String>("operation_id")
+        || receipt.operation_id != row.try_get::<_, String>("operation_id")?
         || receipt.accepted_by != intent.created_by
-        || receipt.accepted_by != row.get::<_, String>("accepted_by")
+        || receipt.accepted_by != row.try_get::<_, String>("accepted_by")?
         || receipt.accepted_at
             != crate::platform::store::utc_timestamp(row.try_get("accepted_at")?)?
         || receipt.media.profile_id != intent.profile_id

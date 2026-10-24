@@ -91,9 +91,9 @@ pub(super) async fn snapshot(
     facts: &Facts,
 ) -> Result<ProductionSnapshotResponse, StoreError> {
     let doc = row.document()?;
-    let id = row.id();
-    let script = row.script_id();
-    let operation_id = row.operation_id();
+    let id = row.id()?;
+    let script = row.script_id()?;
+    let operation_id = row.operation_id()?;
     for value in [&id, &script, &operation_id] {
         normalized_uuid(value).map_err(|_| StoreError::CorruptRevision)?;
     }
@@ -141,7 +141,7 @@ pub(super) async fn snapshot(
     Ok(ProductionSnapshotResponse {
         id,
         script_id: script,
-        created_by: row.created_by(),
+        created_by: row.created_by()?,
         recorded_at: row.recorded_at()?,
         operation_id,
         document: doc,

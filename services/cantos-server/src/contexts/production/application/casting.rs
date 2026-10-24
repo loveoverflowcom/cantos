@@ -54,7 +54,7 @@ impl Store {
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Write).await?;
         if let Some(prior) = turso::settings_by_operation(&tx, &script, &actor, &operation).await? {
-            if prior.request_bytes() != bytes {
+            if prior.request_bytes()? != bytes {
                 return Err(StoreError::OperationReused);
             }
             let result = prior.settings()?;
@@ -102,7 +102,7 @@ impl Store {
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Review).await?;
         if let Some(prior) = turso::rights_by_operation(&tx, &script, &actor, &operation).await? {
-            if prior.request_bytes() != bytes {
+            if prior.request_bytes()? != bytes {
                 return Err(StoreError::OperationReused);
             }
             let result = prior.rights()?;

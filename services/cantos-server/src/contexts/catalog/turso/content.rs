@@ -45,7 +45,8 @@ pub(in crate::contexts::catalog) async fn unit_for_id(
             &[&id],
         )
         .await?
-        .map(|row| row.get(0)))
+        .map(|row| row.try_get(0))
+        .transpose()?)
 }
 
 pub(in crate::contexts::catalog) async fn load(

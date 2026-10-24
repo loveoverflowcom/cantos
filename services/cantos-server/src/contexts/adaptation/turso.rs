@@ -37,12 +37,12 @@ fn decode_status(status: &str) -> Result<AdaptationStatus, StoreError> {
 pub(super) struct RunRow(Row);
 
 impl RunRow {
-    pub(super) fn input_version(&self) -> String {
-        self.0.get("input_version")
+    pub(super) fn input_version(&self) -> Result<String, StoreError> {
+        self.0.try_get("input_version").map_err(StoreError::from)
     }
 
-    pub(super) fn input_digest(&self) -> String {
-        self.0.get("input_digest")
+    pub(super) fn input_digest(&self) -> Result<String, StoreError> {
+        self.0.try_get("input_digest").map_err(StoreError::from)
     }
 
     pub(super) fn recorded_at(&self) -> Result<String, StoreError> {
@@ -54,36 +54,37 @@ impl RunRow {
     }
 
     pub(super) fn status(&self) -> Result<AdaptationStatus, StoreError> {
-        decode_status(&self.0.get::<_, String>("status"))
+        decode_status(&self.0.try_get::<_, String>("status")?)
     }
 
     /// The caller-owned `c1` context, bound to this row's identities.
     pub(super) fn frozen_context(&self) -> Result<FrozenContext, StoreError> {
         let row = &self.0;
         let context: FrozenContext =
-            serde_json::from_str(&row.get::<_, String>("frozen_input")).map_err(corrupt)?;
+            serde_json::from_str(&row.try_get::<_, String>("frozen_input")?).map_err(corrupt)?;
         let extractor = match &context.source.outcome {
             ImportOutcome::Parsed { extraction } => &extraction.extractor_version,
             ImportOutcome::Failed { .. } => return Err(StoreError::CorruptRevision),
         };
-        if row.get::<_, String>("input_version") != "c1"
+        if row.try_get::<_, String>("input_version")? != "c1"
             || context.context_version != "c1"
             || typed_digest(INPUT_C1_DIGEST, &context).map_err(corrupt)?
-                != row.get::<_, String>("input_digest")
-            || context.request.operation_id != row.get::<_, String>("operation_id")
-            || context.request.script_id != row.get::<_, String>("script_id")
-            || context.request.source_id != row.get::<_, String>("source_id")
+                != row.try_get::<_, String>("input_digest")?
+            || context.request.operation_id != row.try_get::<_, String>("operation_id")?
+            || context.request.script_id != row.try_get::<_, String>("script_id")?
+            || context.request.source_id != row.try_get::<_, String>("source_id")?
             || context.request.source_id != context.source.id
             || context.request.source_sha256 != context.source.sha256
             || &context.request.extractor_version != extractor
-            || context.source.imported_by != row.get::<_, String>("owner_id")
+            || context.source.imported_by != row.try_get::<_, String>("owner_id")?
             || !context.request.rights_authorization
             || context.system_prompt.len() + context.user_prompt.len() > MAX_REQUEST_BYTES
             || context.system_prompt.is_empty()
             || context.user_prompt.is_empty()
             || context.proposal_schema_json.len() > 65536
-            || context.generation_record_id != generation_record_id(&row.get::<_, String>("id"))
-            || context.rights_record_id != rights_record_id(&row.get::<_, String>("id"))
+            || context.generation_record_id
+                != generation_record_id(&row.try_get::<_, String>("id")?)
+            || context.rights_record_id != rights_record_id(&row.try_get::<_, String>("id")?)
         {
             return Err(StoreError::CorruptRevision);
         }
@@ -121,13 +122,13 @@ pub(super) async fn run_by_operation(
     actor: &str,
     operation: &str,
 ) -> Result<Option<(String, String)>, StoreError> {
-    Ok(tx
-        .query_opt(
-            "SELECT id,input_version FROM adaptation_runs WHERE owner_id=?1 AND operation_id=?2",
-            &[&actor, &operation],
-        )
-        .await?
-        .map(|row| (row.get(0), row.get(1))))
+    tx.query_opt(
+        "SELECT id,input_version FROM adaptation_runs WHERE owner_id=?1 AND operation_id=?2",
+        &[&actor, &operation],
+    )
+    .await?
+    .map(|row| Ok::<_, StoreError>((row.try_get(0)?, row.try_get(1)?)))
+    .transpose()
 }
 
 pub(super) struct NewContextRun<'a> {
@@ -160,8 +161,8 @@ pub(super) async fn proposal(
     .await?
     .map(|row| {
         let proposal: AdaptationProposal =
-            serde_json::from_str(&row.get::<_, String>(0)).map_err(corrupt)?;
-        Ok((proposal, row.get(1)))
+            serde_json::from_str(&row.try_get::<_, String>(0)?).map_err(corrupt)?;
+        Ok((proposal, row.try_get(1)?))
     })
     .transpose()
 }
@@ -192,13 +193,13 @@ pub(super) async fn acceptance_link(
     tx: &Tx<'_>,
     id: &str,
 ) -> Result<Option<(String, i64)>, StoreError> {
-    Ok(tx
-        .query_opt(
-            "SELECT script_id,revision FROM adaptation_acceptances WHERE run_id=?1",
-            &[&id],
-        )
-        .await?
-        .map(|row| (row.get(0), row.get(1))))
+    tx.query_opt(
+        "SELECT script_id,revision FROM adaptation_acceptances WHERE run_id=?1",
+        &[&id],
+    )
+    .await?
+    .map(|row| Ok::<_, StoreError>((row.try_get(0)?, row.try_get(1)?)))
+    .transpose()
 }
 
 pub(super) async fn acceptance_by_operation(
@@ -213,8 +214,8 @@ pub(super) async fn acceptance_by_operation(
     .await?
     .map(|row| {
         let prior: AcceptAdaptationRequest =
-            serde_json::from_str(&row.get::<_, String>(1)).map_err(corrupt)?;
-        Ok((row.get(0), prior))
+            serde_json::from_str(&row.try_get::<_, String>(1)?).map_err(corrupt)?;
+        Ok((row.try_get(0)?, prior))
     })
     .transpose()
 }
@@ -255,7 +256,8 @@ pub(super) async fn cancellation(
             &[&actor, &operation],
         )
         .await?
-        .map(|row| row.get(0)))
+        .map(|row| row.try_get(0))
+        .transpose()?)
 }
 
 pub(super) async fn insert_cancellation(
@@ -289,15 +291,15 @@ fn decode_submission(
     row: &Row,
 ) -> Result<(AdaptationSubmissionReceipt, SubmitAdaptationProposalRequest), StoreError> {
     let receipt: AdaptationSubmissionReceipt =
-        serde_json::from_str(&row.get::<_, String>("receipt")).map_err(corrupt)?;
+        serde_json::from_str(&row.try_get::<_, String>("receipt")?).map_err(corrupt)?;
     let request: SubmitAdaptationProposalRequest =
-        serde_json::from_str(&row.get::<_, String>("request")).map_err(corrupt)?;
+        serde_json::from_str(&row.try_get::<_, String>("request")?).map_err(corrupt)?;
     if typed_digest(SUBMISSION_DIGEST, &receipt).map_err(corrupt)?
-        != row.get::<_, String>("receipt_digest")
-        || receipt.id != row.get::<_, String>("id")
-        || receipt.run_id != row.get::<_, String>("run_id")
-        || receipt.submitted_by != row.get::<_, String>("owner_id")
-        || receipt.operation_id != row.get::<_, String>("operation_id")
+        != row.try_get::<_, String>("receipt_digest")?
+        || receipt.id != row.try_get::<_, String>("id")?
+        || receipt.run_id != row.try_get::<_, String>("run_id")?
+        || receipt.submitted_by != row.try_get::<_, String>("owner_id")?
+        || receipt.operation_id != row.try_get::<_, String>("operation_id")?
         || receipt.submitted_at
             != crate::platform::store::utc_timestamp(row.try_get("submitted_at")?)?
         || request.operation_id != receipt.operation_id
@@ -349,7 +351,7 @@ pub(super) async fn submission_time(tx: &Tx<'_>) -> Result<String, StoreError> {
 }
 
 pub(super) async fn next_submission_number(tx: &Tx<'_>, id: &str) -> Result<i64, StoreError> {
-    Ok(tx.query_one("SELECT coalesce(max(submission_number),0)+1 FROM adaptation_submissions WHERE run_id=?1",&[&id]).await?.get(0))
+    Ok(tx.query_one("SELECT coalesce(max(submission_number),0)+1 FROM adaptation_submissions WHERE run_id=?1",&[&id]).await?.try_get(0)?)
 }
 
 pub(super) struct NewSubmission<'a> {
@@ -369,4 +371,44 @@ pub(super) async fn insert_submission(
     let digest = typed_digest(SUBMISSION_DIGEST, new.receipt).map_err(corrupt)?;
     tx.execute("INSERT INTO adaptation_submissions(id,run_id,owner_id,operation_id,submission_number,request,receipt,receipt_digest,submitted_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",&[&new.receipt.id,&new.id,&new.actor,&new.request.operation_id,&new.number,&request_json,&receipt_json,&digest,&tx.now_micros()]).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    //! A stored value is untrusted: a decoder reports a mistyped or missing column as corruption
+    //! instead of panicking the request.
+    use super::{decode_submission, RunRow};
+    use crate::platform::store::StoreError;
+    use crate::test_support::ServerFixture;
+
+    #[tokio::test]
+    async fn mistyped_or_missing_columns_are_corruption_not_panics() {
+        let fixture = ServerFixture::new().await;
+        let row = fixture
+            .rows(
+                "SELECT 7 AS input_version,x'00' AS input_digest,'{}' AS frozen_input",
+                &[],
+            )
+            .await
+            .unwrap()
+            .remove(0);
+        let run = RunRow(row.clone());
+        assert!(matches!(
+            run.input_version(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(
+            run.input_digest(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(run.status(), Err(StoreError::CorruptRevision)));
+        assert!(matches!(
+            run.frozen_context(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(
+            decode_submission(&row),
+            Err(StoreError::CorruptRevision)
+        ));
+    }
 }

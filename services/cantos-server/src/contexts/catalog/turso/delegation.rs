@@ -180,7 +180,8 @@ pub(in crate::contexts::catalog) async fn lineage(
             &[&actor, &operation],
         )
         .await?
-        .map(|row| row.get(0)))
+        .map(|row| row.try_get(0))
+        .transpose()?)
 }
 
 /// Delegate and grantor actors are locked like any Catalog caller, so deactivation waits.

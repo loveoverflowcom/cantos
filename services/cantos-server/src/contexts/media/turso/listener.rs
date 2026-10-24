@@ -67,7 +67,7 @@ pub(crate) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result
     )
     .await?;
     let text = normalize_search(&format!("{} {}", w.details().title, w.details().synopsis));
-    tx.execute("INSERT INTO audio_listener_releases VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",&[&d.id,&m.work_id,&m.unit_id,&d.published_at,&w.kind().as_str(),&m.language.to_ascii_lowercase(),&text,&m.distribution_clearance.digest,&m.publication_approval.digest,&m.distribution_clearance.recorded_at,&m.distribution_clearance.request.valid_until,&checked_number(m.work_metadata_revision)?,&checked_number(m.unit_metadata_revision)?,&m.binding.content_revision_id]).await?;
+    tx.execute("INSERT INTO audio_listener_releases(release_id,work_id,unit_id,published_at,kind,language,search_text,rights_digest,approval_digest,rights_start,rights_end,work_revision,unit_revision,content_revision_id) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",&[&d.id,&m.work_id,&m.unit_id,&d.published_at,&w.kind().as_str(),&m.language.to_ascii_lowercase(),&text,&m.distribution_clearance.digest,&m.publication_approval.digest,&m.distribution_clearance.recorded_at,&m.distribution_clearance.request.valid_until,&checked_number(m.work_metadata_revision)?,&checked_number(m.unit_metadata_revision)?,&m.binding.content_revision_id]).await?;
     Ok(())
 }
 fn bytes(row: &Row, key: &str) -> Result<Vec<u8>, StoreError> {
@@ -333,42 +333,52 @@ async fn batch(
         let r = rows.last().ok_or(ListenerError::Corrupt)?;
         next = Some(if works {
             Keyset::Works {
-                time: r.get("first_published_at"),
-                id: r.get("work_id"),
+                time: r.try_get("first_published_at")?,
+                id: r.try_get("work_id")?,
             }
         } else {
             Keyset::Units {
-                work: r.get("work_id"),
-                position: u32::try_from(r.get::<_, i32>("first_position"))
+                work: r.try_get("work_id")?,
+                position: u32::try_from(r.try_get::<_, i32>("first_position")?)
                     .map_err(|_| ListenerError::Corrupt)?,
-                id: r.get("unit_id"),
+                id: r.try_get("unit_id")?,
             }
         });
     }
     let requests: Vec<_> = rows
         .iter()
-        .map(|r| ListenerMetadataRequest {
-            release: r.get("release_id"),
-            work: r.get("work_id"),
-            unit: r.get("unit_id"),
-            work_revision: r.get("work_revision"),
-            unit_revision: r.get("unit_revision"),
-            content: r.get("content_revision_id"),
+        .map(|r| {
+            Ok(ListenerMetadataRequest {
+                release: r.try_get("release_id")?,
+                work: r.try_get("work_id")?,
+                unit: r.try_get("unit_id")?,
+                work_revision: r.try_get("work_revision")?,
+                unit_revision: r.try_get("unit_revision")?,
+                content: r.try_get("content_revision_id")?,
+            })
         })
-        .collect();
+        .collect::<Result<_, ListenerError>>()?;
     let mut metadata: std::collections::BTreeMap<_, _> = listener_metadata(tx, &requests)
         .await?
         .into_iter()
         .map(|m| (m.release.clone(), m))
         .collect();
-    let owners: Vec<String> = rows.iter().map(|r| r.get("owner_id")).collect();
+    let owners: Vec<String> = rows
+        .iter()
+        .map(|r| r.try_get("owner_id"))
+        .collect::<Result<_, _>>()?;
     let active = crate::platform::store::active_actors(tx, &owners).await?;
     let mut items = Vec::new();
     for r in rows {
         let m = metadata
-            .remove(&r.get::<_, String>("release_id"))
+            .remove(&r.try_get::<_, String>("release_id")?)
             .ok_or(ListenerError::Corrupt)?;
-        if let Some(item) = decode(&r, m, active.contains(&r.get::<_, String>("owner_id")), now)? {
+        if let Some(item) = decode(
+            &r,
+            m,
+            active.contains(&r.try_get::<_, String>("owner_id")?),
+            now,
+        )? {
             items.push(item);
         }
     }

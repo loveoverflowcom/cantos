@@ -280,8 +280,10 @@ impl Row {
         T::from_column(self.values[position].clone())
     }
 
-    /// For a column the query itself selected with a known type: a mismatch is a programming
-    /// error in the adapter, not stored data, so it is not silently defaulted.
+    /// Test and fixture shorthand for a column the test itself selected. Production decoders use
+    /// [`Row::try_get`]: a stored value is untrusted, so a mismatch is a typed failure, never a
+    /// panic.
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn get<I: RowIndex, T: FromColumn>(&self, index: I) -> T {
         match self.try_get(index) {
             Ok(value) => value,

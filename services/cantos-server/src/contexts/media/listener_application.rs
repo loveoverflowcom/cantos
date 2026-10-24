@@ -47,6 +47,11 @@ impl From<StoreError> for ListenerError {
         }
     }
 }
+impl From<crate::platform::store::Error> for ListenerError {
+    fn from(e: crate::platform::store::Error) -> Self {
+        Self::from(StoreError::from(e))
+    }
+}
 impl From<ListenerDomainError> for ListenerError {
     fn from(e: ListenerDomainError) -> Self {
         match e {
@@ -1046,6 +1051,20 @@ pub(super) mod tests {
         assert_eq!(
             s.units(&work, 1, None).await.unwrap_err(),
             ListenerError::NotFound
+        );
+    }
+
+    #[test]
+    fn statement_failures_keep_the_store_error_mapping() {
+        use crate::platform::store::Error;
+        assert_eq!(ListenerError::from(Error::Column), ListenerError::Corrupt);
+        assert_eq!(
+            ListenerError::from(Error::ReadOnly),
+            ListenerError::Unavailable
+        );
+        assert_eq!(
+            ListenerError::from(Error::Cardinality),
+            ListenerError::Unavailable
         );
     }
 }

@@ -10,7 +10,8 @@ pub(in crate::contexts::production) async fn brief_id_owner(
     Ok(tx
         .query_opt("SELECT owner_id FROM production_briefs WHERE id=?1", &[&id])
         .await?
-        .map(|row| row.get(0)))
+        .map(|row| row.try_get(0))
+        .transpose()?)
 }
 
 pub(in crate::contexts::production) async fn now_ms(tx: &Tx<'_>) -> Result<i64, StoreError> {
@@ -90,7 +91,7 @@ pub(in crate::contexts::production) async fn prior(
         )
         .await?;
     row.as_ref()
-        .map(|row| Ok((row.get("request_digest"), decode(row)?)))
+        .map(|row| Ok((row.try_get("request_digest")?, decode(row)?)))
         .transpose()
 }
 pub(in crate::contexts::production) async fn latest(
@@ -103,7 +104,7 @@ pub(in crate::contexts::production) async fn latest(
     )
     .await?
     .map_or(Ok(0), |row| {
-        u64::try_from(row.get::<_, i64>(0)).map_err(|_| StoreError::CorruptRevision)
+        u64::try_from(row.try_get::<_, i64>(0)?).map_err(|_| StoreError::CorruptRevision)
     })
 }
 pub(in crate::contexts::production) async fn insert(
@@ -118,7 +119,7 @@ pub(in crate::contexts::production) async fn insert(
     tx.execute("INSERT INTO production_briefs(id,unit_id,content_revision_id,owner_id,version,operation_id,request_digest,digest,snapshot,content_sequence) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",&[&doc.id,&doc.content.unit_id,&doc.content.id,&doc.work.owner_id,&version,&operation,&request_digest,&doc.digest,&bytes,&(crate::platform::store::checked_number(doc.content.revision)?)]).await?;
     if version == 1 {
         tx.execute(
-            "INSERT INTO production_brief_heads VALUES(?1,?2,?3)",
+            "INSERT INTO production_brief_heads(unit_id,brief_id,version) VALUES(?1,?2,?3)",
             &[&doc.content.unit_id, &doc.id, &version],
         )
         .await?;
@@ -148,7 +149,7 @@ async fn grant_query(
     let Some(row) = tx.query_opt(&query, &[value]).await? else {
         return Ok(None);
     };
-    let bytes: Vec<u8> = row.get("snapshot");
+    let bytes: Vec<u8> = row.try_get("snapshot")?;
     if bytes.len() > MAX_BRIEF_BYTES {
         return Err(StoreError::CorruptRevision);
     }
@@ -156,28 +157,28 @@ async fn grant_query(
     let work = brief.document().work.id.clone();
     // The grant adapter gets Work identity from its immutable owning brief, never Catalog SQL.
     let response = dto::ProducerGrantResponse {
-        id: row.get("id"),
+        id: row.try_get("id")?,
         work_id: work,
-        unit_id: row.get("unit_id"),
-        brief_id: row.get("brief_id"),
-        brief_digest: row.get("brief_digest"),
+        unit_id: row.try_get("unit_id")?,
+        brief_id: row.try_get("brief_id")?,
+        brief_digest: row.try_get("brief_digest")?,
         permission: "read_instructions".into(),
-        expires_at: row.get("expires_at"),
+        expires_at: row.try_get("expires_at")?,
     };
     ProducerScope::admit(&response).map_err(|_| StoreError::CorruptRevision)?;
     if response.unit_id != brief.document().content.unit_id
         || response.brief_id != brief.document().id
         || response.brief_digest != brief.document().digest
-        || row.get::<_, String>("owner_id") != brief.document().work.owner_id
+        || row.try_get::<_, String>("owner_id")? != brief.document().work.owner_id
     {
         return Err(StoreError::CorruptRevision);
     }
     Ok(Some(GrantRow {
         response,
-        owner: row.get("owner_id"),
-        token_hash: row.get("token_hash"),
-        operation: row.get("operation_id"),
-        request_digest: row.get("request_digest"),
+        owner: row.try_get("owner_id")?,
+        token_hash: row.try_get("token_hash")?,
+        operation: row.try_get("operation_id")?,
+        request_digest: row.try_get("request_digest")?,
     }))
 }
 pub(in crate::contexts::production) async fn by_token(
@@ -204,7 +205,7 @@ pub(in crate::contexts::production) async fn grant_prior(
         )
         .await?;
     match row {
-        Some(row) => by_id(tx, &row.get::<_, String>(0)).await,
+        Some(row) => by_id(tx, &row.try_get::<_, String>(0)?).await,
         None => Ok(None),
     }
 }

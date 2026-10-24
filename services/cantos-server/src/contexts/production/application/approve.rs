@@ -26,7 +26,7 @@ impl Store {
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Review).await?;
         if let Some(prior) = turso::approval_by_operation(&tx, &script, &actor, &operation).await? {
-            if prior.request_bytes() != bytes || prior.snapshot_id() != id {
+            if prior.request_bytes()? != bytes || prior.snapshot_id()? != id {
                 return Err(StoreError::OperationReused);
             }
             let result = prior.approval()?;

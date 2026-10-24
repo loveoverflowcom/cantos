@@ -63,7 +63,7 @@ fn submission(row: &Row) -> Result<SubmissionRow, StoreError> {
     Ok(SubmissionRow {
         value,
         token_hash,
-        request_digest: row.get("request_digest"),
+        request_digest: row.try_get("request_digest")?,
     })
 }
 pub(in crate::contexts::media) async fn load(
@@ -257,7 +257,8 @@ pub(in crate::contexts::media) async fn review_prior(
             &[&owner, &operation],
         )
         .await?
-        .map(|r| r.get(0)))
+        .map(|r| r.try_get(0))
+        .transpose()?)
 }
 pub(in crate::contexts::media) async fn insert_review(
     tx: &Tx<'_>,
@@ -266,7 +267,7 @@ pub(in crate::contexts::media) async fn insert_review(
     let d = value.document();
     let bytes = serde_json::to_vec(d).map_err(|_| StoreError::CorruptRevision)?;
     tx.execute(
-        "INSERT INTO audio_reviews VALUES(?1,?2,?3,?4,?5,?6,?7)",
+        "INSERT INTO audio_reviews(id,rendition_id,owner_id,operation_id,sequence,snapshot,digest) VALUES(?1,?2,?3,?4,?5,?6,?7)",
         &[
             &d.id,
             &d.rendition_id,
@@ -308,13 +309,13 @@ pub(in crate::contexts::media) async fn candidate_prior(
             &[&owner, &operation],
         )
         .await?;
-    if row
-        .as_ref()
-        .is_some_and(|row| row.get::<_, String>("rendition_id") != r.document().id)
-    {
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    if row.try_get::<_, String>("rendition_id")? != r.document().id {
         return Err(StoreError::OperationReused);
     }
-    row.as_ref().map(|row| candidate(row, r)).transpose()
+    candidate(&row, r).map(Some)
 }
 pub(in crate::contexts::media) async fn load_candidate(
     tx: &Tx<'_>,
@@ -337,7 +338,7 @@ pub(in crate::contexts::media) async fn insert_candidate(
     let d = value.document();
     let bytes = serde_json::to_vec(d).map_err(|_| StoreError::CorruptRevision)?;
     tx.execute(
-        "INSERT INTO audio_release_candidates VALUES(?1,?2,?3,?4,?5,?6)",
+        "INSERT INTO audio_release_candidates(id,rendition_id,owner_id,operation_id,snapshot,digest) VALUES(?1,?2,?3,?4,?5,?6)",
         &[
             &d.id,
             &d.rendition_id,
@@ -355,5 +356,5 @@ pub(in crate::contexts::media) async fn candidate_submission(
     tx: &Tx<'_>,
     id: &str,
 ) -> Result<Option<String>, StoreError> {
-    Ok(tx.query_opt("SELECT r.submission_id FROM audio_release_candidates c JOIN audio_renditions r ON r.id=c.rendition_id WHERE c.id=?1",&[&id]).await?.map(|r|r.get(0)))
+    Ok(tx.query_opt("SELECT r.submission_id FROM audio_release_candidates c JOIN audio_renditions r ON r.id=c.rendition_id WHERE c.id=?1",&[&id]).await?.map(|r|r.try_get(0)).transpose()?)
 }

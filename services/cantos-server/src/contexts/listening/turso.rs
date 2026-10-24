@@ -422,7 +422,7 @@ async fn apply_progress(
     ];
     let count = if base == 0 {
         tx.execute(
-            "INSERT INTO listener_progress VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+            "INSERT INTO listener_progress(listener_id,publication_id,work_id,unit_id,rendition_id,sha256,duration_ms,position_ms,completion,revision,listener_order,accepted_at,snapshot,snapshot_digest) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
             &fields,
         )
         .await
@@ -469,7 +469,7 @@ async fn apply_bookmark(
         .map_err(database)?
     } else {
         tx.execute(
-            "INSERT INTO listener_bookmarks VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+            "INSERT INTO listener_bookmarks(listener_id,bookmark_id,publication_id,work_id,unit_id,rendition_id,sha256,duration_ms,position_ms,deleted,listener_order,accepted_at,snapshot,snapshot_digest) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
             &[
                 &listener.as_str(),
                 &v.bookmark_id,
@@ -507,7 +507,7 @@ async fn apply_saved(
     // an existing key, and the update proves the revision it replaces.
     let count = if base == 0 {
         tx.execute(
-            "INSERT INTO listener_saved VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+            "INSERT INTO listener_saved(listener_id,work_id,saved,revision,listener_order,accepted_at,snapshot,snapshot_digest) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
             &[
                 &listener.as_str(),
                 &v.work_id,
@@ -682,7 +682,7 @@ impl LibraryRepository for TursoLibrary {
                         require_audio(&tx, c.audio(), now).await?;
                         admitted_audio = Some(c.audio().clone());
                         tx.execute(
-                            "INSERT INTO listener_playback_sessions VALUES(?1,?2,?3,?4)",
+                            "INSERT INTO listener_playback_sessions(listener_id,device_id,engine_session_id,audio_snapshot) VALUES(?1,?2,?3,?4)",
                             &[
                                 &listener.as_str(),
                                 &intent.device().as_str(),
@@ -693,7 +693,7 @@ impl LibraryRepository for TursoLibrary {
                         .await
                         .map_err(database)?;
                         let raw = c.audio().raw();
-                        tx.execute("INSERT INTO listener_history VALUES(?1,?2,?3,?4,?5,?6,?7,?8) ON CONFLICT(listener_id,work_id) DO UPDATE SET publication_id=EXCLUDED.publication_id,unit_id=EXCLUDED.unit_id,listener_order=EXCLUDED.listener_order,started_at=EXCLUDED.started_at,snapshot=EXCLUDED.snapshot,snapshot_digest=EXCLUDED.snapshot_digest",&[&listener.as_str(),&raw.work_id,&raw.publication_id,&raw.unit_id,&number(next.value())?,&now,&b,&d]).await.map_err(database)?;
+                        tx.execute("INSERT INTO listener_history(listener_id,work_id,publication_id,unit_id,listener_order,started_at,snapshot,snapshot_digest) VALUES(?1,?2,?3,?4,?5,?6,?7,?8) ON CONFLICT(listener_id,work_id) DO UPDATE SET publication_id=EXCLUDED.publication_id,unit_id=EXCLUDED.unit_id,listener_order=EXCLUDED.listener_order,started_at=EXCLUDED.started_at,snapshot=EXCLUDED.snapshot,snapshot_digest=EXCLUDED.snapshot_digest",&[&listener.as_str(),&raw.work_id,&raw.publication_id,&raw.unit_id,&number(next.value())?,&now,&b,&d]).await.map_err(database)?;
                         next_h
                     } else {
                         h
@@ -731,11 +731,11 @@ impl LibraryRepository for TursoLibrary {
                     return Err(LibraryError::Corrupt);
                 }
             }
-            tx.execute("INSERT INTO listener_device_sequences VALUES(?1,?2,?3,?4) ON CONFLICT(listener_id,device_id,resource_key) DO UPDATE SET sequence=EXCLUDED.sequence WHERE listener_device_sequences.sequence<EXCLUDED.sequence",&[&listener.as_str(),&intent.device().as_str(),&key,&number(intent.sequence())?]).await.map_err(database)?;
+            tx.execute("INSERT INTO listener_device_sequences(listener_id,device_id,resource_key,sequence) VALUES(?1,?2,?3,?4) ON CONFLICT(listener_id,device_id,resource_key) DO UPDATE SET sequence=EXCLUDED.sequence WHERE listener_device_sequences.sequence<EXCLUDED.sequence",&[&listener.as_str(),&intent.device().as_str(),&key,&number(intent.sequence())?]).await.map_err(database)?;
             validate_receipt(&receipt)?;
             let (b, d) = encode(&receipt)?;
             tx.execute(
-                "INSERT INTO listener_operations VALUES(?1,?2,?3,?4,?5)",
+                "INSERT INTO listener_operations(listener_id,operation_id,request_digest,response_bytes,response_digest) VALUES(?1,?2,?3,?4,?5)",
                 &[
                     &listener.as_str(),
                     &intent.operation().as_str(),

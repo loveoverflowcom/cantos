@@ -32,7 +32,7 @@ pub(super) async fn context_in_transaction(
     let row = turso::lock_run(tx, actor, id)
         .await?
         .ok_or(StoreError::NotFound)?;
-    if row.input_version() != "c1" {
+    if row.input_version()? != "c1" {
         return Err(StoreError::NotFound);
     }
     let context = row.frozen_context()?;
@@ -48,7 +48,7 @@ pub(super) async fn context_in_transaction(
     }
     let latest_submission = turso::latest_submission(tx, id).await?;
     if let Some(submission) = &latest_submission {
-        if submission.context_digest != row.input_digest()
+        if submission.context_digest != row.input_digest()?
             || !validate_caller_generation(&submission.generation, &context.prompt_version)
                 .is_empty()
             || (submission.status == AdaptationSubmissionStatus::Valid
@@ -75,7 +75,7 @@ pub(super) async fn context_in_transaction(
         updated_at: row.updated_at()?,
         request: context.request.clone(),
         context_version: context.context_version.clone(),
-        context_digest: row.input_digest(),
+        context_digest: row.input_digest()?,
         prompt_version: context.prompt_version.clone(),
         contract_version: context.contract_version.clone(),
         source: context.source.clone(),
