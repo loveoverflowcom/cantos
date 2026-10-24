@@ -7,6 +7,7 @@ use crate::{
 };
 use cantos_ui::{
     Announcement, DisabledReason, FieldState, Icon, IconName, Status, TextField, TextFieldKind,
+    TextFieldVariant,
 };
 use leptos::{ev::SubmitEvent, prelude::*};
 
@@ -55,12 +56,12 @@ pub fn SignInPanel(
             <TextField id=email_id label=Signal::derive(move || text(Key::Email, english.get()).to_owned())
                 value=Signal::derive(move || form.with(|form| form.email().to_owned()))
                 on_input=Callback::new(move |value: String| form.update(|form| form.set_email(value)))
-                kind=TextFieldKind::Email state=field_state required=true
+                kind=TextFieldKind::Email variant=TextFieldVariant::Floating state=field_state required=true
                 autocomplete="username"/>
             <TextField id=password_id label=Signal::derive(move || text(Key::Password, english.get()).to_owned())
                 value=Signal::derive(move || form.with(|form| form.password().to_owned()))
                 on_input=Callback::new(move |value: String| form.update(|form| form.set_password(value)))
-                kind=TextFieldKind::Password state=field_state required=true
+                kind=TextFieldKind::Password variant=TextFieldVariant::Floating state=field_state required=true
                 autocomplete="current-password"/>
             <FormSubmit id=submit_id english=english
                 icon=ViewFn::from(|| view! { <Icon name=IconName::Login/> })
@@ -68,7 +69,7 @@ pub fn SignInPanel(
                 blocked=Signal::derive(move || blocked.get() || submitting.get())>
                 {move || text(if submitting.get() { Key::Submitting } else { Key::Submit }, english.get())}
             </FormSubmit>
-            <div id=status_id>
+            <div id=status_id hidden=move || failure.get().is_none()>
                 <Status announcement=Announcement::Polite>{move || failure.get().unwrap_or_default()}</Status>
             </div>
         </form>
@@ -105,6 +106,45 @@ mod tests {
             assert!(html.contains("aria-hidden=\"true\""), "{html}");
             assert!(html.contains(text(Key::Password, english)), "{html}");
         }
+    }
+
+    #[test]
+    fn email_and_password_use_the_shared_floating_fields_v3_shell() {
+        let html = render(SignInForm::default(), false, false, false);
+        assert_eq!(
+            html.matches("data-variant=\"floating\"").count(),
+            2,
+            "{html}"
+        );
+        assert_eq!(html.matches("cui-field-shell").count(), 2, "{html}");
+    }
+
+    #[test]
+    fn the_status_row_stays_hidden_until_there_is_a_failure_to_announce() {
+        let html = render(SignInForm::default(), false, false, false);
+        let status = html
+            .split("id=\"session-status\"")
+            .nth(1)
+            .unwrap()
+            .split('>')
+            .next()
+            .unwrap();
+        assert!(status.contains("hidden"), "{html}");
+
+        let mut form = SignInForm::default();
+        form.set_email("a@b.example".into());
+        form.set_password("password".into());
+        let (issued, _) = form.begin(None).unwrap();
+        form.finish(issued, Err(Failure::InvalidCredentials));
+        let html = render(form, false, false, false);
+        let status = html
+            .split("id=\"session-status\"")
+            .nth(1)
+            .unwrap()
+            .split('>')
+            .next()
+            .unwrap();
+        assert!(!status.contains("hidden"), "{html}");
     }
 
     #[test]

@@ -13,16 +13,16 @@
   --cantos-web-shape-overlay: 1.5rem;
   --cantos-web-shape-panel: 1.5rem;
 }
-/* Fields v3 geometry (Web mapping, not a Google measure): a 64 minimum shell with a 16 inline
-   inset; the floated label starts 12 from the top and the value 32 from it (12 + 18 + 2). The
-   numbers are minimums: long labels and zoom grow the shell. State stroke is one perimeter
-   drawn inside the control's own bounds, 1 for invalid and 2 for focus/expanded. */
+/* Fields v3 geometry (Web mapping): a 58 minimum shell (close to the 56dp Google/M3 compact
+   field) with a 16 inline inset; the floated label starts 8 from the top and the value 28 from
+   it (8 + 18 + 2). The numbers are minimums: long labels and zoom grow the shell. State stroke
+   is one perimeter drawn inside the control's own bounds, 1 for invalid and 2 for focus/expanded. */
 :where(.cantos-ui) {
-  --cantos-web-field-block-size: 4rem;
+  --cantos-web-field-block-size: 3.625rem;
   --cantos-web-field-inset: 1rem;
-  --cantos-web-field-label-top: 0.75rem;
+  --cantos-web-field-label-top: 0.5rem;
   --cantos-web-field-label-gap: 0.125rem;
-  --cantos-web-field-value-bottom: 0.5rem;
+  --cantos-web-field-value-bottom: 0.375rem;
   --cantos-web-stroke-rest: var(--cantos-size-border);
   --cantos-web-stroke-active: calc(2 * var(--cantos-size-border));
 }
