@@ -130,8 +130,12 @@ pub enum TextFieldVariant {
     #[default]
     Regular,
     AuthTonal,
-    /// Web spacing/focus candidate; preview-only until shared admission is complete.
+    /// Web spacing candidate, superseded by `Floating` (Fields v3); kept for existing previews.
     AuthTonalSpacious,
+    /// Fields v3: the label lives inside one shell that owns fill and state stroke.
+    /// It rests as the placeholder and floats while focused or holding any value. Use an
+    /// external label (`Regular`) for editors and labels too long to share a 64-unit shell.
+    Floating,
 }
 
 impl TextFieldVariant {
@@ -140,8 +144,25 @@ impl TextFieldVariant {
             Self::Regular => "regular",
             Self::AuthTonal => "auth-tonal",
             Self::AuthTonalSpacious => "auth-tonal-spacious",
+            Self::Floating => "floating",
         }
     }
+
+    pub const fn has_floating_label(self) -> bool {
+        match self {
+            Self::Floating => true,
+            Self::Regular | Self::AuthTonal | Self::AuthTonalSpacious => false,
+        }
+    }
+}
+
+/// Floating labels follow the browser's real value, not the Rust signal: composition text,
+/// autofill and restored values all clear `:placeholder-shown`. A one-space placeholder keeps
+/// that pseudo-class meaningful when the caller supplies none; an empty string would not.
+fn floating_placeholder(placeholder: Option<String>) -> String {
+    placeholder
+        .filter(|text| !text.is_empty())
+        .unwrap_or_else(|| " ".to_owned())
 }
 
 /// Label primitive for an app-composed native control with the same stable ID.
@@ -295,30 +316,53 @@ fn InputField(
     let reason = Signal::derive(move || state.get().reason().cloned());
     let descriptions = descriptions(id.clone(), described_by, help, error, reason);
     let error_reference = error_reference(id.clone(), error);
+    let floating = variant.has_floating_label();
+    let placeholder = if floating {
+        Some(floating_placeholder(placeholder))
+    } else {
+        placeholder
+    };
+    let label_view = view! { <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel> };
+    let control = view! {
+        <input id=id.clone() class="cui-field-control" type=input_type name=name required=required
+            placeholder=placeholder autocomplete=autocomplete min=min max=max step=step
+            value=move || value.get() prop:value=move || value.get()
+            readonly=move || state.get().is_read_only()
+            disabled=move || state.get().is_disabled()
+            aria-busy=move || state.get().is_loading().to_string()
+            aria-invalid=move || has_text(&error.get()).to_string()
+            aria-describedby=move || descriptions.get()
+            aria-errormessage=move || error_reference.get()
+            on:input=move |event| {
+                if state.get_untracked().accepts_input() {
+                    on_input.run(event_target_value(&event));
+                }
+            }
+            on:compositionstart=move |event| {
+                if let Some(callback) = on_composition_start { callback.run(event); }
+            }
+            on:compositionend=move |event| {
+                if let Some(callback) = on_composition_end { callback.run(event); }
+            }
+        />
+    };
+    // The shell is the only painted surface. The label follows the control in the DOM so CSS can
+    // read the browser's own value/focus state with sibling selectors; grid placement keeps the
+    // label visually first. Messages stay outside it, below the control.
+    let anatomy = if floating {
+        view! {
+            <div class="cui-field-shell" data-invalid=move || has_text(&error.get()).to_string()>
+                {control}
+                {label_view}
+            </div>
+        }
+        .into_any()
+    } else {
+        view! { <>{label_view}{control}</> }.into_any()
+    };
     view! {
         <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-state=move || state.get().as_str()>
-            <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
-            <input id=id.clone() class="cui-field-control" type=input_type name=name required=required
-                placeholder=placeholder autocomplete=autocomplete min=min max=max step=step
-                value=move || value.get() prop:value=move || value.get()
-                readonly=move || state.get().is_read_only()
-                disabled=move || state.get().is_disabled()
-                aria-busy=move || state.get().is_loading().to_string()
-                aria-invalid=move || has_text(&error.get()).to_string()
-                aria-describedby=move || descriptions.get()
-                aria-errormessage=move || error_reference.get()
-                on:input=move |event| {
-                    if state.get_untracked().accepts_input() {
-                        on_input.run(event_target_value(&event));
-                    }
-                }
-                on:compositionstart=move |event| {
-                    if let Some(callback) = on_composition_start { callback.run(event); }
-                }
-                on:compositionend=move |event| {
-                    if let Some(callback) = on_composition_end { callback.run(event); }
-                }
-            />
+            {anatomy}
             <FieldMessages id=id help=help error=error reason=reason/>
         </div>
     }

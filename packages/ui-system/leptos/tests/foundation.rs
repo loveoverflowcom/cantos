@@ -69,3 +69,50 @@ fn typed_tokens_point_to_the_runtime_css_contract() {
         }
     }
 }
+
+/// Fields v3: no underline in any state, and every field stroke is one perimeter pulled inside
+/// the control's own bounds. A positive outline offset or an inset bottom bar is the regression.
+#[test]
+fn field_stylesheet_has_no_underline_bar_and_no_outset_focus_ring() {
+    let css = cantos_ui::FOUNDATION_CSS;
+    assert!(
+        !css.contains("box-shadow: inset"),
+        "inset shadow reintroduces an underline bar"
+    );
+    assert!(
+        !css.contains("border-bottom"),
+        "bottom border reintroduces an underline"
+    );
+    assert!(
+        !css.contains("border-block-end"),
+        "bottom border reintroduces an underline"
+    );
+    for rule in css.split('}') {
+        let Some((selector, body)) = rule.rsplit_once('{') else {
+            continue;
+        };
+        let field_state =
+            selector.contains("cui-field-control") || selector.contains("cui-field-shell");
+        if field_state && body.contains("outline-offset") {
+            assert!(
+                body.contains("outline-offset: calc(-1 *"),
+                "field stroke must be inset, not outset: {selector}{{{body}}}"
+            );
+        }
+    }
+    // Idle valid fields draw no stroke: the only floating-shell outline rules are state rules.
+    for rule in css.split('}') {
+        let Some((selector, body)) = rule.rsplit_once('{') else {
+            continue;
+        };
+        if selector.contains("cui-field-shell")
+            && body.contains("outline:")
+            && !body.contains("none")
+        {
+            assert!(
+                selector.contains("data-invalid=\"true\"") || selector.contains(":focus-within"),
+                "idle shell stroke: {selector}"
+            );
+        }
+    }
+}

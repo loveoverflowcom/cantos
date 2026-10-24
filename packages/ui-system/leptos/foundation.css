@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741 template-sha256:a1008fa37dc45610fc0efc5a073bbe2ed07673d5849918d3aa1885c41aea8ab9
+/* Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741 template-sha256:82efafc7f6957d32bd7edecdda3fc38413ebec818926646945864d33be52edf2
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -14,6 +14,19 @@
   --cantos-web-shape-container: 1.125rem;
   --cantos-web-shape-overlay: 1.5rem;
   --cantos-web-shape-panel: 1.5rem;
+}
+/* Fields v3 geometry (Web mapping, not a Google measure): a 64 minimum shell with a 16 inline
+   inset; the floated label starts 12 from the top and the value 32 from it (12 + 18 + 2). The
+   numbers are minimums: long labels and zoom grow the shell. State stroke is one perimeter
+   drawn inside the control's own bounds, 1 for invalid and 2 for focus/expanded. */
+:where(.cantos-ui) {
+  --cantos-web-field-block-size: 4rem;
+  --cantos-web-field-inset: 1rem;
+  --cantos-web-field-label-top: 0.75rem;
+  --cantos-web-field-label-gap: 0.125rem;
+  --cantos-web-field-value-bottom: 0.5rem;
+  --cantos-web-stroke-rest: var(--cantos-size-border);
+  --cantos-web-stroke-active: calc(2 * var(--cantos-size-border));
 }
 /* Center the visible cap-to-baseline box, rather than the font's asymmetric leading.
    Padding on the control leaves room for accents/descenders; never clip the label.
@@ -502,7 +515,7 @@
   font: inherit;
   line-height: var(--cantos-type-body-line-height);
 }
-:where(.cantos-ui) .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+:where(.cantos-ui) .cui-field:not([data-variant="floating"]) .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
   background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
 }
 :where(.cantos-ui) .cui-field-control::placeholder {
@@ -548,6 +561,7 @@
   padding-block: var(--cantos-space-xs);
   border-radius: var(--cantos-web-shape-reading);
   background-clip: padding-box;
+  --cantos-web-stroke-inset: var(--cantos-space-xs);
 }
 :where(.cantos-ui) .cui-select-field .cui-icon {
   inline-size: var(--cantos-web-select-icon-size);
@@ -611,7 +625,7 @@
   padding: var(--cantos-space-sm);
   overflow: auto;
   overscroll-behavior: contain;
-  border: var(--cantos-size-border) solid var(--cantos-color-outline-variant);
+  border: 0;
   border-radius: var(--cantos-web-shape-container);
   background: var(--cantos-color-surface);
   color: var(--cantos-color-on-surface);
@@ -672,32 +686,153 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-:where(.cantos-ui) .cui-field-control[readonly] {
+:where(.cantos-ui) .cui-field:not([data-variant="floating"]) .cui-field-control[readonly] {
   background: var(--cantos-color-surface-container);
 }
-:where(.cantos-ui) .cui-field-control:disabled {
+:where(.cantos-ui) .cui-field:not([data-variant="floating"]) .cui-field-control:disabled {
   color: var(--cantos-color-on-surface-variant);
   background: var(--cantos-color-surface-container);
   opacity: 1;
   cursor: default;
 }
-:where(.cantos-ui) .cui-field-control[aria-invalid="true"] {
+:where(.cantos-ui) .cui-field:not([data-variant="floating"]) .cui-field-control[aria-invalid="true"] {
   background: var(--cantos-color-error-container);
-  box-shadow: inset 0 calc(-2 * var(--cantos-size-border)) 0 var(--cantos-color-error);
 }
-:where(.cantos-ui) :is(.cui-field-control, .cui-choice-control, .cui-range-control):focus-visible {
+/* One state perimeter per control, never a bottom bar or an outset ring: the stroke is an outline
+   pulled inside the control's own painted bounds (the compact Select reaches its 40-unit surface
+   through --cantos-web-stroke-inset). Invalid is 1; focus and an open Select are 2, in the error
+   color when invalid. The outline follows the corner radius and survives forced colors. */
+:where(.cantos-ui) .cui-field-control {
+  --cantos-web-stroke-inset: 0px;
+}
+:where(.cantos-ui) .cui-field-control[aria-invalid="true"] {
+  outline: var(--cantos-web-stroke-rest) solid var(--cantos-color-error);
+  outline-offset: calc(-1 * (var(--cantos-web-stroke-inset) + var(--cantos-web-stroke-rest)));
+}
+:where(.cantos-ui) .cui-field-control:is(:focus-visible, [aria-expanded="true"]) {
+  outline: var(--cantos-web-stroke-active) solid var(--cantos-color-focus);
+  outline-offset: calc(-1 * (var(--cantos-web-stroke-inset) + var(--cantos-web-stroke-active)));
+}
+:where(.cantos-ui) .cui-field-control[aria-invalid="true"]:is(:focus-visible, [aria-expanded="true"]) {
+  outline-color: var(--cantos-color-error);
+}
+:where(.cantos-ui) :is(.cui-choice-control, .cui-range-control):focus-visible {
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
   outline-offset: var(--cantos-size-focus-offset);
 }
-/* Web-only candidate: keep a two-border focus perimeter, closer to the field, with
-   room for both the external label and help/error. No border/size changes on focus.
-   Existing AuthTonal and Regular consumers retain the compatibility geometry. */
+/* Web-only candidate superseded by Floating: only the label/help spacing remains. */
 :where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] {
   gap: var(--cantos-space-sm);
 }
-:where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] .cui-field-control:focus-visible {
-  outline-width: calc(2 * var(--cantos-size-border));
-  outline-offset: calc(2 * var(--cantos-size-border));
+/* Fields v3 Floating. One shell paints the fill and the state stroke; the control inside is
+   transparent and the label rests as the placeholder, then floats while the browser reports focus
+   or any value (:placeholder-shown, so whitespace, composition, autofill and restored values all
+   count). Grid rows replace absolute positioning: a long label or large text grows the shell and
+   never clips. The label moves between rows without animation. */
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  min-inline-size: 0;
+  min-block-size: var(--cantos-web-field-block-size);
+  border-radius: var(--cantos-web-shape-reading);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  cursor: text;
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"][data-state="editable"] .cui-field-shell:hover {
+  background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"]:is([data-state="readonly"], [data-state="disabled"], [data-state="loading"]) .cui-field-shell {
+  background: var(--cantos-color-surface-container);
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"]:is([data-state="disabled"], [data-state="loading"]) .cui-field-shell {
+  color: var(--cantos-color-on-surface-variant);
+  cursor: default;
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control {
+  grid-column: 1;
+  grid-row: 2;
+  min-block-size: 0;
+  padding: var(--cantos-web-field-label-gap) var(--cantos-web-field-inset) var(--cantos-web-field-value-bottom);
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  line-height: 1.5rem;
+  outline: none;
+  cursor: inherit;
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control::placeholder {
+  color: var(--cantos-color-on-surface-variant);
+  opacity: 0;
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control:focus::placeholder {
+  opacity: 1;
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-label {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  padding: var(--cantos-web-field-label-top) var(--cantos-web-field-inset) 0;
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+  font-weight: var(--cantos-type-label-weight);
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control:placeholder-shown:not(:focus) ~ .cui-field-label {
+  grid-row: 1 / -1;
+  align-self: center;
+  padding-block: var(--cantos-web-field-label-top);
+  font-size: var(--cantos-type-body-size);
+  line-height: 1.5rem;
+  font-weight: var(--cantos-type-body-weight);
+}
+/* Autofill paints its own fill and may precede any input event: keep the shell's tone, the
+   floated label and the value color. Each vendor selector stays in its own rule so an engine
+   that lacks one drops only that rule. */
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control:-webkit-autofill {
+  -webkit-text-fill-color: var(--cantos-color-on-surface);
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control.cui-field-control:-webkit-autofill ~ .cui-field-label {
+  grid-row: 1;
+  align-self: start;
+  padding: var(--cantos-web-field-label-top) var(--cantos-web-field-inset) 0;
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+  font-weight: var(--cantos-type-label-weight);
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control.cui-field-control:autofill ~ .cui-field-label {
+  grid-row: 1;
+  align-self: start;
+  padding: var(--cantos-web-field-label-top) var(--cantos-web-field-inset) 0;
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+  font-weight: var(--cantos-type-label-weight);
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"] {
+  outline: var(--cantos-web-stroke-rest) solid var(--cantos-color-error);
+  outline-offset: calc(-1 * var(--cantos-web-stroke-rest));
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell:focus-within {
+  outline: var(--cantos-web-stroke-active) solid var(--cantos-color-focus);
+  outline-offset: calc(-1 * var(--cantos-web-stroke-active));
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"]:focus-within {
+  outline-color: var(--cantos-color-error);
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"] > .cui-field-label {
+  color: var(--cantos-color-error);
+}
+/* Supporting text sits outside and below the shell, aligned with the value. */
+:where(.cantos-ui) .cui-field[data-variant="floating"] > .cui-field-help {
+  padding-inline: var(--cantos-web-field-inset);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell { transition: none; }
 }
 :where(.cantos-ui) :is(.cui-field-help, .cui-field-error) {
   margin: 0;
@@ -782,9 +917,15 @@
 /* No continuous motion or custom range keyboard logic; native controls own these interactions. */
 @media (forced-colors: active) {
   :where(.cantos-ui) .cui-field-control { border: var(--cantos-size-border) solid FieldText; }
-  :where(.cantos-ui) .cui-field-control[aria-invalid="true"]:not(:focus-visible) { outline: var(--cantos-size-border) dashed FieldText; }
+  :where(.cantos-ui) .cui-field-control[aria-invalid="true"]:not(:focus-visible):not([aria-expanded="true"]) { outline-style: dashed; }
   :where(.cantos-ui) .cui-field-control:disabled { color: GrayText; }
-  :where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] .cui-field-control:focus-visible { outline-color: Highlight; }
+  :where(.cantos-ui) .cui-field-control:is(:focus-visible, [aria-expanded="true"]) { outline-color: Highlight; }
+  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell { border: var(--cantos-size-border) solid FieldText; }
+  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control { border: 0; }
+  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"]:not(:focus-within) { outline-style: dashed; }
+  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell:focus-within { outline-color: Highlight; }
+  :where(.cantos-ui) .cui-field[data-variant="floating"]:is([data-state="disabled"], [data-state="loading"]) .cui-field-shell { border-color: GrayText; }
+  :where(.cantos-ui) .cui-select-menu { border: var(--cantos-size-border) solid CanvasText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"] { border-color: ButtonText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"]::before { background: ButtonText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"]:checked { background: Highlight; }
