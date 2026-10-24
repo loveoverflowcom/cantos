@@ -120,6 +120,7 @@ class BehaviorContracts(unittest.TestCase):
             "cantos.media.public-cover-projection": (10, 5, 8),
             "cantos.tooling.hosting-deploy": (6, 3, 3),
             "cantos.presentation.locale-preference": (6, 4, 4),
+            "cantos.presentation.discovery-retired-language": (4, 4, 3),
             "cantos.production.forge-attempt": (13, 7, 9),
             "cantos.identity.bearer-lifecycle": (12, 11, 11),
             "cantos.identity.native-mailbox-proof": (8, 9, 8),
