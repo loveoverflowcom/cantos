@@ -104,7 +104,7 @@ pub(in crate::contexts::media) async fn prior_clearance(
     .await?
     .as_ref()
     .map(|r| {
-        if r.get::<_, String>("candidate_id") != c.document().id {
+        if r.try_get::<_, String>("candidate_id")? != c.document().id {
             return Err(StoreError::OperationReused);
         }
         clearance(r, c)
@@ -124,7 +124,7 @@ pub(in crate::contexts::media) async fn prior_approval(
     .await?
     .as_ref()
     .map(|r| {
-        if r.get::<_, String>("candidate_id") != c.document().id {
+        if r.try_get::<_, String>("candidate_id")? != c.document().id {
             return Err(StoreError::OperationReused);
         }
         approval(r, c)
@@ -192,7 +192,8 @@ pub(in crate::contexts::media) async fn release_candidate(
             &[&release, &unit, &owner],
         )
         .await?
-        .map(|r| r.get(0)))
+        .map(|r| r.try_get(0))
+        .transpose()?)
 }
 pub(in crate::contexts::media) async fn release(
     tx: &Tx<'_>,
@@ -257,7 +258,7 @@ pub(in crate::contexts::media) async fn prior(
     op: &str,
     kind: &str,
 ) -> Result<Option<Operation>, StoreError> {
-    tx.query_opt("SELECT * FROM audio_publication_operations WHERE owner_id=?1 AND operation_id=?2 AND kind=?3",&[&owner,&op,&kind]).await?.map(|r|Ok(Operation{request_digest:r.get("request_digest"),unit:r.get("unit_id"),release:r.get("release_id"),version:u64::try_from(r.get::<_,i64>("pointer_version")).map_err(|_|StoreError::CorruptRevision)?})).transpose()
+    tx.query_opt("SELECT * FROM audio_publication_operations WHERE owner_id=?1 AND operation_id=?2 AND kind=?3",&[&owner,&op,&kind]).await?.map(|r|Ok(Operation{request_digest:r.try_get("request_digest")?,unit:r.try_get("unit_id")?,release:r.try_get("release_id")?,version:u64::try_from(r.try_get::<_,i64>("pointer_version")?).map_err(|_|StoreError::CorruptRevision)?})).transpose()
 }
 pub(in crate::contexts::media) async fn record(
     tx: &Tx<'_>,
@@ -267,7 +268,7 @@ pub(in crate::contexts::media) async fn record(
     value: &Operation,
 ) -> Result<(), StoreError> {
     tx.execute(
-        "INSERT INTO audio_publication_operations VALUES(?1,?2,?3,?4,?5,?6,?7)",
+        "INSERT INTO audio_publication_operations(owner_id,operation_id,kind,request_digest,unit_id,release_id,pointer_version) VALUES(?1,?2,?3,?4,?5,?6,?7)",
         &[
             &owner,
             &op,
@@ -295,7 +296,7 @@ pub(in crate::contexts::media) async fn event(
     event: Event<'_>,
 ) -> Result<(), StoreError> {
     tx.execute(
-        "INSERT INTO audio_publication_events VALUES(?1,?2,?3,?4,?5,?6,?7)",
+        "INSERT INTO audio_publication_events(id,unit_id,pointer_version,kind,release_id,actor_id,recorded_at) VALUES(?1,?2,?3,?4,?5,?6,?7)",
         &[
             &event.id,
             &event.unit,
@@ -329,7 +330,7 @@ pub(in crate::contexts::media) async fn withdraw(
     reason: &str,
 ) -> Result<(), StoreError> {
     tx.execute(
-        "INSERT INTO audio_release_withdrawals VALUES(?1,?2,?3,?4)",
+        "INSERT INTO audio_release_withdrawals(release_id,actor_id,recorded_at,reason) VALUES(?1,?2,?3,?4)",
         &[&release, &owner, &now, &reason],
     )
     .await?;

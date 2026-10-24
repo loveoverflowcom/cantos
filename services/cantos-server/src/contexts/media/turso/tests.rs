@@ -710,3 +710,35 @@ async fn a_release_whose_bytes_are_missing_or_replaced_is_a_delivery_failure_not
         work.units[0].chain.bytes
     );
 }
+
+/// A stored intent is untrusted: a mistyped, NULL or missing column is corruption, never a panic.
+#[tokio::test]
+async fn intent_columns_of_another_type_are_corruption_not_panics() {
+    use crate::platform::store::StoreError;
+    let fixture = ServerFixture::new().await;
+    let valid = "?1 AS id,?1 AS script_id,?1 AS operation_id,'opus-mono-24-v1' AS profile_id";
+    let id = "0b0e7a52-6a8f-4c1e-9d3b-2f1a4c5d6e7f";
+    // Control: the same columns with their stored types decode.
+    let row = fixture
+        .rows(
+            &format!("SELECT {valid},3 AS script_revision,'digest' AS content_digest,'minh' AS created_by,0 AS created_at"),
+            &[&id],
+        )
+        .await
+        .unwrap()
+        .remove(0);
+    assert!(super::decode_intent(&row).is_ok());
+    for sql in [
+        "SELECT 1 AS id,?1 AS script_id".to_owned(),
+        format!("SELECT {valid},'one' AS script_revision"),
+        format!("SELECT {valid},3 AS script_revision,NULL AS content_digest"),
+        // `created_by` is missing.
+        format!("SELECT {valid},3 AS script_revision,'digest' AS content_digest"),
+    ] {
+        let row = fixture.rows(&sql, &[&id]).await.unwrap().remove(0);
+        assert!(
+            matches!(super::decode_intent(&row), Err(StoreError::CorruptRevision)),
+            "{sql}"
+        );
+    }
+}

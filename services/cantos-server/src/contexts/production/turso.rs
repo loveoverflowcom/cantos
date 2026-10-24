@@ -44,14 +44,14 @@ pub(super) fn positive(value: i64) -> Result<u64, StoreError> {
 }
 
 fn decode_settings(row: &Row) -> Result<ProductionSettingsResponse, StoreError> {
-    let settings: ProductionSettings = decode(&row.get::<_, Vec<u8>>("settings_bytes"))?;
+    let settings: ProductionSettings = decode(&row.try_get::<_, Vec<u8>>("settings_bytes")?)?;
     validate_settings(&settings).map_err(|_| StoreError::CorruptRevision)?;
     let response = ProductionSettingsResponse {
-        script_id: row.get("script_id"),
-        version: positive(row.get("version"))?,
-        script_revision: positive(row.get("script_revision"))?,
-        operation_id: row.get("operation_id"),
-        recorded_by: row.get("recorded_by"),
+        script_id: row.try_get("script_id")?,
+        version: positive(row.try_get("version")?)?,
+        script_revision: positive(row.try_get("script_revision")?)?,
+        operation_id: row.try_get("operation_id")?,
+        recorded_by: row.try_get("recorded_by")?,
         recorded_at: crate::platform::store::utc_timestamp(row.try_get("recorded_at")?)?,
         settings,
     };
@@ -61,17 +61,17 @@ fn decode_settings(row: &Row) -> Result<ProductionSettingsResponse, StoreError> 
 }
 
 fn decode_rights(row: &Row) -> Result<ProductionRightsClaimResponse, StoreError> {
-    let claim: ProductionRightsClaim = decode(&row.get::<_, Vec<u8>>("claim_bytes"))?;
+    let claim: ProductionRightsClaim = decode(&row.try_get::<_, Vec<u8>>("claim_bytes")?)?;
     validate_rights_declaration(&claim.declaration).map_err(|_| StoreError::CorruptRevision)?;
-    if claim.version != positive(row.get("version"))?
-        || claim.declaration.record_id != row.get::<_, String>("record_id")
+    if claim.version != positive(row.try_get("version")?)?
+        || claim.declaration.record_id != row.try_get::<_, String>("record_id")?
     {
         return Err(StoreError::CorruptRevision);
     }
     let response = ProductionRightsClaimResponse {
         claim,
-        operation_id: row.get("operation_id"),
-        recorded_by: row.get("recorded_by"),
+        operation_id: row.try_get("operation_id")?,
+        recorded_by: row.try_get("recorded_by")?,
         recorded_at: crate::platform::store::utc_timestamp(row.try_get("recorded_at")?)?,
     };
     normalized_uuid(&response.operation_id).map_err(|_| StoreError::CorruptRevision)?;
@@ -80,12 +80,12 @@ fn decode_rights(row: &Row) -> Result<ProductionRightsClaimResponse, StoreError>
 
 fn decode_approval(row: &Row) -> Result<ProductionApprovalResponse, StoreError> {
     let response = ProductionApprovalResponse {
-        id: row.get("id"),
-        snapshot_id: row.get("snapshot_id"),
-        approved_by: row.get("approved_by"),
+        id: row.try_get("id")?,
+        snapshot_id: row.try_get("snapshot_id")?,
+        approved_by: row.try_get("approved_by")?,
         approved_at: crate::platform::store::utc_timestamp(row.try_get("approved_at")?)?,
-        operation_id: row.get("operation_id"),
-        input_digest: row.get("input_digest"),
+        operation_id: row.try_get("operation_id")?,
+        input_digest: row.try_get("input_digest")?,
     };
     for id in [&response.id, &response.snapshot_id, &response.operation_id] {
         normalized_uuid(id).map_err(|_| StoreError::CorruptRevision)?;
@@ -94,15 +94,15 @@ fn decode_approval(row: &Row) -> Result<ProductionApprovalResponse, StoreError> 
 }
 
 fn read_snapshot_document(row: &Row) -> Result<FrozenProductionDocument, StoreError> {
-    let doc: FrozenProductionDocument = decode(&row.get::<_, Vec<u8>>("document_bytes"))?;
-    let script: String = row.get("script_id");
-    if doc.owner_id != row.get::<_, String>("owner_id")
+    let doc: FrozenProductionDocument = decode(&row.try_get::<_, Vec<u8>>("document_bytes")?)?;
+    let script: String = row.try_get("script_id")?;
+    if doc.owner_id != row.try_get::<_, String>("owner_id")?
         || doc.revision.script_id != script
         || doc.settings.script_id != script
-        || doc.revision.revision != positive(row.get("script_revision"))?
-        || doc.settings.version != positive(row.get("settings_version"))?
+        || doc.revision.revision != positive(row.try_get("script_revision")?)?
+        || doc.settings.version != positive(row.try_get("settings_version")?)?
         || doc.settings.script_revision != doc.revision.revision
-        || doc.input_digest != row.get::<_, String>("input_digest")
+        || doc.input_digest != row.try_get::<_, String>("input_digest")?
     {
         return Err(StoreError::CorruptRevision);
     }
@@ -167,12 +167,12 @@ pub(super) async fn current_rights(
 pub(super) struct RecordedOperation(Row);
 
 impl RecordedOperation {
-    pub(super) fn request_bytes(&self) -> Vec<u8> {
-        self.0.get("request_bytes")
+    pub(super) fn request_bytes(&self) -> Result<Vec<u8>, StoreError> {
+        self.0.try_get("request_bytes").map_err(StoreError::from)
     }
 
-    pub(super) fn snapshot_id(&self) -> String {
-        self.0.get("snapshot_id")
+    pub(super) fn snapshot_id(&self) -> Result<String, StoreError> {
+        self.0.try_get("snapshot_id").map_err(StoreError::from)
     }
 
     pub(super) fn settings(&self) -> Result<ProductionSettingsResponse, StoreError> {
@@ -304,20 +304,20 @@ pub(super) async fn pinned_rights(
 pub(super) struct SnapshotRow(Row);
 
 impl SnapshotRow {
-    pub(super) fn id(&self) -> String {
-        self.0.get("id")
+    pub(super) fn id(&self) -> Result<String, StoreError> {
+        self.0.try_get("id").map_err(StoreError::from)
     }
 
-    pub(super) fn script_id(&self) -> String {
-        self.0.get("script_id")
+    pub(super) fn script_id(&self) -> Result<String, StoreError> {
+        self.0.try_get("script_id").map_err(StoreError::from)
     }
 
-    pub(super) fn operation_id(&self) -> String {
-        self.0.get("operation_id")
+    pub(super) fn operation_id(&self) -> Result<String, StoreError> {
+        self.0.try_get("operation_id").map_err(StoreError::from)
     }
 
-    pub(super) fn created_by(&self) -> String {
-        self.0.get("created_by")
+    pub(super) fn created_by(&self) -> Result<String, StoreError> {
+        self.0.try_get("created_by").map_err(StoreError::from)
     }
 
     pub(super) fn recorded_at(&self) -> Result<String, StoreError> {
@@ -375,13 +375,13 @@ pub(super) async fn snapshot_history(
     let mut snapshots = Vec::new();
     for row in tx.query(query, &[&script, &HISTORY_LIMIT]).await? {
         let summary = ProductionSnapshotSummary {
-            id: row.get("id"),
-            script_id: row.get("script_id"),
-            created_by: row.get("created_by"),
+            id: row.try_get("id")?,
+            script_id: row.try_get("script_id")?,
+            created_by: row.try_get("created_by")?,
             recorded_at: crate::platform::store::utc_timestamp(row.try_get("recorded_at")?)?,
-            input_digest: row.get("input_digest"),
-            script_revision: positive(row.get("script_revision"))?,
-            settings_version: positive(row.get("settings_version"))?,
+            input_digest: row.try_get("input_digest")?,
+            script_revision: positive(row.try_get("script_revision")?)?,
+            settings_version: positive(row.try_get("settings_version")?)?,
         };
         normalized_uuid(&summary.id).map_err(|_| StoreError::CorruptRevision)?;
         snapshots.push(summary);
@@ -450,3 +450,55 @@ pub(super) async fn insert_approval(tx: &Tx<'_>, new: NewApproval<'_>) -> Result
     Ok(())
 }
 pub(super) mod briefs;
+
+#[cfg(test)]
+mod tests {
+    //! Replay and snapshot accessors read untrusted stored values: a mistyped or missing column
+    //! is corruption, never a panic.
+    use super::{RecordedOperation, SnapshotRow};
+    use crate::platform::store::StoreError;
+    use crate::test_support::ServerFixture;
+
+    #[tokio::test]
+    async fn mistyped_or_missing_columns_are_corruption_not_panics() {
+        let fixture = ServerFixture::new().await;
+        let row = fixture
+            .rows(
+                "SELECT 'text' AS request_bytes,1 AS snapshot_id,NULL AS id",
+                &[],
+            )
+            .await
+            .unwrap()
+            .remove(0);
+        let prior = RecordedOperation(row.clone());
+        assert!(matches!(
+            prior.request_bytes(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(
+            prior.snapshot_id(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(prior.settings(), Err(StoreError::CorruptRevision)));
+        assert!(matches!(prior.rights(), Err(StoreError::CorruptRevision)));
+        assert!(matches!(prior.approval(), Err(StoreError::CorruptRevision)));
+        let snapshot = SnapshotRow(row);
+        assert!(matches!(snapshot.id(), Err(StoreError::CorruptRevision)));
+        assert!(matches!(
+            snapshot.script_id(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(
+            snapshot.created_by(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(
+            snapshot.operation_id(),
+            Err(StoreError::CorruptRevision)
+        ));
+        assert!(matches!(
+            snapshot.document(),
+            Err(StoreError::CorruptRevision)
+        ));
+    }
+}

@@ -56,18 +56,18 @@ pub(crate) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result
     // insert over an existing key before conflict resolution (see `REPLACE`), so the check
     // is explicit and the first committed index writer still wins.
     tx.execute(
-        "INSERT INTO audio_listener_works SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_works WHERE work_id=?1)",
+        "INSERT INTO audio_listener_works(work_id,first_release_id,first_published_at) SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_works WHERE work_id=?1)",
         &[&m.work_id, &d.id, &d.published_at],
     )
     .await?;
     let position = i32::try_from(u.position()).map_err(|_| StoreError::CorruptRevision)?;
     tx.execute(
-        "INSERT INTO audio_listener_units SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_units WHERE unit_id=?1)",
+        "INSERT INTO audio_listener_units(unit_id,work_id,first_position) SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_units WHERE unit_id=?1)",
         &[&m.unit_id, &m.work_id, &position],
     )
     .await?;
     let text = normalize_search(&format!("{} {}", w.details().title, w.details().synopsis));
-    tx.execute("INSERT INTO audio_listener_releases VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",&[&d.id,&m.work_id,&m.unit_id,&d.published_at,&w.kind().as_str(),&m.language.to_ascii_lowercase(),&text,&m.distribution_clearance.digest,&m.publication_approval.digest,&m.distribution_clearance.recorded_at,&m.distribution_clearance.request.valid_until,&checked_number(m.work_metadata_revision)?,&checked_number(m.unit_metadata_revision)?,&m.binding.content_revision_id]).await?;
+    tx.execute("INSERT INTO audio_listener_releases(release_id,work_id,unit_id,published_at,kind,language,search_text,rights_digest,approval_digest,rights_start,rights_end,work_revision,unit_revision,content_revision_id) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",&[&d.id,&m.work_id,&m.unit_id,&d.published_at,&w.kind().as_str(),&m.language.to_ascii_lowercase(),&text,&m.distribution_clearance.digest,&m.publication_approval.digest,&m.distribution_clearance.recorded_at,&m.distribution_clearance.request.valid_until,&checked_number(m.work_metadata_revision)?,&checked_number(m.unit_metadata_revision)?,&m.binding.content_revision_id]).await?;
     Ok(())
 }
 fn bytes(row: &Row, key: &str) -> Result<Vec<u8>, StoreError> {
@@ -333,42 +333,52 @@ async fn batch(
         let r = rows.last().ok_or(ListenerError::Corrupt)?;
         next = Some(if works {
             Keyset::Works {
-                time: r.get("first_published_at"),
-                id: r.get("work_id"),
+                time: r.try_get("first_published_at")?,
+                id: r.try_get("work_id")?,
             }
         } else {
             Keyset::Units {
-                work: r.get("work_id"),
-                position: u32::try_from(r.get::<_, i32>("first_position"))
+                work: r.try_get("work_id")?,
+                position: u32::try_from(r.try_get::<_, i32>("first_position")?)
                     .map_err(|_| ListenerError::Corrupt)?,
-                id: r.get("unit_id"),
+                id: r.try_get("unit_id")?,
             }
         });
     }
     let requests: Vec<_> = rows
         .iter()
-        .map(|r| ListenerMetadataRequest {
-            release: r.get("release_id"),
-            work: r.get("work_id"),
-            unit: r.get("unit_id"),
-            work_revision: r.get("work_revision"),
-            unit_revision: r.get("unit_revision"),
-            content: r.get("content_revision_id"),
+        .map(|r| {
+            Ok(ListenerMetadataRequest {
+                release: r.try_get("release_id")?,
+                work: r.try_get("work_id")?,
+                unit: r.try_get("unit_id")?,
+                work_revision: r.try_get("work_revision")?,
+                unit_revision: r.try_get("unit_revision")?,
+                content: r.try_get("content_revision_id")?,
+            })
         })
-        .collect();
+        .collect::<Result<_, ListenerError>>()?;
     let mut metadata: std::collections::BTreeMap<_, _> = listener_metadata(tx, &requests)
         .await?
         .into_iter()
         .map(|m| (m.release.clone(), m))
         .collect();
-    let owners: Vec<String> = rows.iter().map(|r| r.get("owner_id")).collect();
+    let owners: Vec<String> = rows
+        .iter()
+        .map(|r| r.try_get("owner_id"))
+        .collect::<Result<_, _>>()?;
     let active = crate::platform::store::active_actors(tx, &owners).await?;
     let mut items = Vec::new();
     for r in rows {
         let m = metadata
-            .remove(&r.get::<_, String>("release_id"))
+            .remove(&r.try_get::<_, String>("release_id")?)
             .ok_or(ListenerError::Corrupt)?;
-        if let Some(item) = decode(&r, m, active.contains(&r.get::<_, String>("owner_id")), now)? {
+        if let Some(item) = decode(
+            &r,
+            m,
+            active.contains(&r.try_get::<_, String>("owner_id")?),
+            now,
+        )? {
             items.push(item);
         }
     }
@@ -751,5 +761,49 @@ mod presentation_tests {
                 ordinal: 9_007_199_254_740_991
             })
         );
+    }
+}
+
+#[cfg(test)]
+mod corrupt_row_tests {
+    //! The read model decodes untrusted stored rows: a mistyped, NULL or missing column is
+    //! `Corrupt`, never a panic.
+    use super::*;
+    use crate::test_support::ServerFixture;
+
+    #[tokio::test]
+    async fn mistyped_or_missing_keyset_and_request_columns_are_corrupt() {
+        let fixture = ServerFixture::new().await;
+        let mut cases = Vec::new();
+        for (sql, limit, works) in [
+            // The next-page Works keyset reads a text publication time.
+            (
+                "SELECT 'late' AS first_published_at,'w' AS work_id UNION ALL SELECT 1,'w'",
+                1,
+                true,
+            ),
+            // The next-page Units keyset reads a NULL position.
+            (
+                "SELECT 'w' AS work_id,NULL AS first_position,'u' AS unit_id UNION ALL SELECT 'w',1,'u'",
+                1,
+                false,
+            ),
+            // A metadata request reads an integer release id and has no revision columns.
+            ("SELECT 7 AS release_id,'w' AS work_id,'u' AS unit_id", 5, true),
+        ] {
+            cases.push((fixture.rows(sql, &[]).await.unwrap(), limit, works, sql));
+        }
+        let conn = fixture.store().connection().await.unwrap();
+        let tx = conn.read().await.unwrap();
+        for (rows, limit, works, sql) in cases {
+            assert!(
+                matches!(
+                    batch(&tx, rows, limit, works, 0).await,
+                    Err(ListenerError::Corrupt)
+                ),
+                "{sql}"
+            );
+        }
+        tx.rollback().await.unwrap();
     }
 }

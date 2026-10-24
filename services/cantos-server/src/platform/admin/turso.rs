@@ -368,7 +368,7 @@ async fn record_revocation(
     operation: Uuid,
     audit: Uuid,
 ) -> Result<(), crate::platform::store::Error> {
-    tx.execute("INSERT INTO admin_access_revocations SELECT ?1,?2 WHERE NOT EXISTS(SELECT 1 FROM admin_access_revocations WHERE actor_id=?1)", &[&target.as_str(), &tx.now_micros()]).await?;
+    tx.execute("INSERT INTO admin_access_revocations(actor_id,revoked_at) SELECT ?1,?2 WHERE NOT EXISTS(SELECT 1 FROM admin_access_revocations WHERE actor_id=?1)", &[&target.as_str(), &tx.now_micros()]).await?;
     tx.execute("INSERT INTO admin_operations(actor_id,operation_id,target_actor_id,audit_id) VALUES(?1,?2,?3,?4)", &[&permit.actor().as_str(),&operation.to_string(),&target.as_str(),&audit.to_string()]).await?;
     Ok(())
 }

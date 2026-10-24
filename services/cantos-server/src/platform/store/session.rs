@@ -47,7 +47,7 @@ pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, Sto
             &[&token_hash(token), &tx.now_micros()],
         )
         .await?;
-    let actor: String = row.ok_or(StoreError::Unauthenticated)?.get(0);
+    let actor: String = row.ok_or(StoreError::Unauthenticated)?.try_get(0)?;
     ActorId::new(actor)
         .map(String::from)
         .map_err(|_| StoreError::CorruptRevision)

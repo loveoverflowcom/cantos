@@ -26,7 +26,7 @@ impl Store {
         let actor = production_actor(&tx, token).await?;
         let facts = facts(&tx, &actor, &script, Action::Review).await?;
         if let Some(prior) = turso::snapshot_by_operation(&tx, &script, &actor, &operation).await? {
-            if prior.request_bytes() != bytes {
+            if prior.request_bytes()? != bytes {
                 return Err(StoreError::OperationReused);
             }
             let result = snapshot(&tx, &prior.snapshot(), &facts).await?;
