@@ -56,13 +56,13 @@ pub(crate) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result
     // insert over an existing key before conflict resolution (see `REPLACE`), so the check
     // is explicit and the first committed index writer still wins.
     tx.execute(
-        "INSERT INTO audio_listener_works SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_works WHERE work_id=?1)",
+        "INSERT INTO audio_listener_works(work_id,first_release_id,first_published_at) SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_works WHERE work_id=?1)",
         &[&m.work_id, &d.id, &d.published_at],
     )
     .await?;
     let position = i32::try_from(u.position()).map_err(|_| StoreError::CorruptRevision)?;
     tx.execute(
-        "INSERT INTO audio_listener_units SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_units WHERE unit_id=?1)",
+        "INSERT INTO audio_listener_units(unit_id,work_id,first_position) SELECT ?1,?2,?3 WHERE NOT EXISTS (SELECT 1 FROM audio_listener_units WHERE unit_id=?1)",
         &[&m.unit_id, &m.work_id, &position],
     )
     .await?;

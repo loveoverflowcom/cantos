@@ -236,6 +236,6 @@ pub(in crate::contexts::production) async fn revoke(
     actor: &str,
     now: i64,
 ) -> Result<(), StoreError> {
-    tx.execute("INSERT INTO production_producer_revocations SELECT ?1,?2,?3 WHERE NOT EXISTS(SELECT 1 FROM production_producer_revocations WHERE grant_id=?1)",&[&id,&actor,&now]).await?;
+    tx.execute("INSERT INTO production_producer_revocations(grant_id,revoked_by,revoked_at) SELECT ?1,?2,?3 WHERE NOT EXISTS(SELECT 1 FROM production_producer_revocations WHERE grant_id=?1)",&[&id,&actor,&now]).await?;
     Ok(())
 }

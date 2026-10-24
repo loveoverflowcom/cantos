@@ -129,7 +129,7 @@ pub(in crate::contexts::media) async fn revoke(
     now: i64,
 ) -> Result<(), StoreError> {
     tx.execute(
-        "INSERT INTO audio_submission_revocations SELECT ?1,?2,?3 WHERE NOT EXISTS(SELECT 1 FROM audio_submission_revocations WHERE submission_id=?1)",
+        "INSERT INTO audio_submission_revocations(submission_id,owner_id,revoked_at) SELECT ?1,?2,?3 WHERE NOT EXISTS(SELECT 1 FROM audio_submission_revocations WHERE submission_id=?1)",
         &[&id, &owner, &now],
     )
     .await?;
