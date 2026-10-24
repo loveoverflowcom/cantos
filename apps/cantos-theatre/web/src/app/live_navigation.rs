@@ -19,10 +19,8 @@ fn observed_session_phase(state: ReadSignal<AccountViewState>) -> Memo<SessionPh
 /// The page drops it from the query; this makes the address say so too, replacing the entry in
 /// place so Back does not revisit the stale link.
 fn reconcile_retired_language(route: Route, hash: &str) {
-    if matches!(route, Route::Discover | Route::Explore)
-        && super::routes::carries_retired_language(hash)
-    {
-        browser::replace_discovery(route, &super::routes::discovery_query(hash));
+    if let Some(destination) = super::routes::retired_language_rewrite(route, hash) {
+        browser::replace_address(&destination);
     }
 }
 

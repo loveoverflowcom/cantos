@@ -104,23 +104,19 @@ pub(crate) fn push_discovery(
     }
 }
 
-/// Rewrite the current address to the canonical discovery link for `query`, without a new history
-/// entry. Used when an older link carried a filter this page no longer has.
-pub(crate) fn replace_discovery(
-    screen: Route,
-    query: &crate::application::public_discovery::DiscoveryQuery,
-) {
-    let destination = screen.discovery_hash(query);
+/// Rewrite only the current entry's address: no new history entry, and the entry keeps its state
+/// (the previous-route marker [`back`] trusts). Used when an older link carried a filter this page
+/// no longer has. `replaceState` fires neither `hashchange` nor `popstate`, so it is read once.
+pub(crate) fn replace_address(destination: &str) {
     #[cfg(target_arch = "wasm32")]
     if let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
-        let _ = history.replace_state_with_url(
-            &web_sys::wasm_bindgen::JsValue::NULL,
-            "",
-            Some(&destination),
-        );
+        let state = history
+            .state()
+            .unwrap_or(web_sys::wasm_bindgen::JsValue::NULL);
+        let _ = history.replace_state_with_url(&state, "", Some(destination));
     }
     #[cfg(not(target_arch = "wasm32"))]
-    let _ = &destination;
+    let _ = destination;
 }
 
 pub(crate) fn back(route: RwSignal<Route>, destination: Route) {

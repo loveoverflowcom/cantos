@@ -148,7 +148,7 @@ fn link_parameters(hash: &str) -> Vec<(String, String)> {
 ///
 /// Discovery no longer filters by content language (#424), so an older link's `language` is
 /// dropped here instead of surviving as a filter the page has no control to show or clear. The
-/// shell then rewrites the address (see [`carries_retired_language`]).
+/// shell then rewrites the address (see [`retired_language_rewrite`]).
 pub fn discovery_query(hash: &str) -> DiscoveryQuery {
     let pairs = link_parameters(hash);
     DiscoveryQuery::from_parameters(
@@ -159,11 +159,20 @@ pub fn discovery_query(hash: &str) -> DiscoveryQuery {
     )
 }
 
-/// Whether the link still carries the retired `language` filter and needs its address rewritten.
-pub fn carries_retired_language(hash: &str) -> bool {
+/// Whether the link still carries the retired `language` filter under any spelling the form
+/// decoder reads as that name: repeated, empty, valueless or percent-encoded.
+fn carries_retired_language(hash: &str) -> bool {
     link_parameters(hash)
         .iter()
         .any(|(name, _)| name == "language")
+}
+
+/// The address a discovery link shows once its retired `language` filter is dropped: the
+/// canonical link of the search the page actually applies. `None` when nothing needs rewriting,
+/// so reading the rewritten address again settles instead of rewriting it again.
+pub fn retired_language_rewrite(route: Route, hash: &str) -> Option<String> {
+    (matches!(route, Route::Discover | Route::Explore) && carries_retired_language(hash))
+        .then(|| route.discovery_hash(&discovery_query(hash)))
 }
 
 #[cfg(test)]
@@ -294,5 +303,82 @@ mod tests {
             Route::Discover.discovery_hash(&query),
             "#discover?q=%C4%91%C3%A8n&kind=story"
         );
+    }
+
+    /// Quint run: cantos.presentation.discovery-retired-language.run.retired-deep-link
+    #[test]
+    fn a_retired_language_link_keeps_the_rest_of_its_search_and_settles_in_one_rewrite() {
+        use crate::contract::discovery::WorkKind;
+        // The other parameters survive in their canonical order, decoded and re-encoded.
+        let link = "#discover?language=vi-vn&kind=podcast&q=a%26b+c";
+        let rewrite = retired_language_rewrite(Route::Discover, link).unwrap();
+        assert_eq!(rewrite, "#discover?q=a%26b+c&kind=podcast");
+        let applied = discovery_query(link);
+        assert_eq!(
+            applied,
+            DiscoveryQuery::new("a&b c", Some(WorkKind::Podcast), "").unwrap()
+        );
+        // The rewritten address shows exactly the applied search, and reading it again rewrites
+        // nothing: no loop of replacements.
+        assert_eq!(discovery_query(&rewrite), applied);
+        assert_eq!(retired_language_rewrite(Route::Discover, &rewrite), None);
+        // Explore keeps its own screen.
+        assert_eq!(
+            retired_language_rewrite(Route::Explore, "#explore?q=x&language=en").as_deref(),
+            Some("#explore?q=x")
+        );
+    }
+
+    /// Quint run: cantos.presentation.discovery-retired-language.run.language-only
+    #[test]
+    fn a_link_that_only_carried_a_language_becomes_the_unfiltered_catalog() {
+        for link in [
+            "#discover?language=en",
+            "#discover?language=",
+            "#discover?language",
+            "#discover?language=vi-vn&language=en",
+            "#discover?lang%75age=en",
+        ] {
+            assert!(discovery_query(link).is_unfiltered(), "{link}");
+            assert_eq!(
+                retired_language_rewrite(Route::Discover, link).as_deref(),
+                Some("#discover"),
+                "{link}"
+            );
+        }
+        // Repeated or empty values never leak the filter back, and the rest still applies.
+        let link = "#discover?language=&q=x&language=en";
+        assert_eq!(discovery_query(link).text(), "x");
+        assert_eq!(discovery_query(link).language(), None);
+        assert_eq!(
+            retired_language_rewrite(Route::Discover, link).as_deref(),
+            Some("#discover?q=x")
+        );
+        // A refused kind still yields the unfiltered catalog, and the address says so.
+        assert_eq!(
+            retired_language_rewrite(Route::Discover, "#discover?q=x&kind=genre&language=en")
+                .as_deref(),
+            Some("#discover")
+        );
+    }
+
+    #[test]
+    fn only_a_discovery_link_carrying_the_retired_filter_is_rewritten() {
+        for (route, hash) in [
+            (Route::Discover, "#discover"),
+            (Route::Discover, ""),
+            (Route::Discover, "#discover?"),
+            (Route::Discover, "#discover?q=a&kind=story"),
+            // Another name that merely contains `language` is not the retired filter.
+            (Route::Discover, "#discover?languages=en&q=a"),
+            (Route::Discover, "#discover?Language=en"),
+        ] {
+            assert_eq!(retired_language_rewrite(route, hash), None, "{hash}");
+        }
+        // Non-discovery screens never read a search, so they are never rewritten.
+        for hash in ["#library?language=en", "#work/x?language=en", "#account"] {
+            let route = Route::from_live_hash(hash);
+            assert_eq!(retired_language_rewrite(route, hash), None, "{hash}");
+        }
     }
 }
