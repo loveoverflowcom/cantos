@@ -158,7 +158,8 @@ fn SearchForm(
         kind.set(query.kind());
         error.set(None);
     });
-    // The listener chose the content language up front; discovery never narrows by it (#424).
+    // Discovery never narrows by content language (#424). The listener's earlier language choice
+    // is the interface locale, not a catalogue filter; no content-language preference exists yet.
     let submit =
         move || match DiscoveryQuery::new(&search.get_untracked(), kind.get_untracked(), "") {
             Ok(query) => {
@@ -819,12 +820,27 @@ mod tests {
         assert_eq!(html.matches("id=\"theatre-discovery-submit\"").count(), 1);
         assert_eq!(html.matches("id=\"theatre-home-login\"").count(), 1);
         assert_eq!(html.matches("id=\"theatre-home-register\"").count(), 1);
+        // Only the element's own opening tag, so one button's variant never vouches for another.
         let tag = |id: &str| {
             let at = html.find(&format!("id=\"{id}\"")).unwrap();
-            html[html[..at].rfind('<').unwrap()..at + 400].to_owned()
+            let start = html[..at].rfind('<').unwrap();
+            let end = at + html[at..].find('>').unwrap();
+            html[start..=end].to_owned()
         };
-        assert!(tag("theatre-home-register").contains("data-variant=\"auth-primary\""));
-        assert!(tag("theatre-home-login").contains("data-variant=\"auth-secondary\""));
+        let register = tag("theatre-home-register");
+        let login = tag("theatre-home-login");
+        assert!(
+            register.contains("data-variant=\"auth-primary\""),
+            "{register}"
+        );
+        assert!(login.contains("data-variant=\"auth-secondary\""), "{login}");
+        // One cluster, in the unchanged DOM (and tab) order: Sign in, then Create account.
+        assert_eq!(html.matches("theatre-home-auth-actions").count(), 1);
+        let cluster = html.find("theatre-home-auth-actions").unwrap();
+        let login_at = html.find("id=\"theatre-home-login\"").unwrap();
+        let register_at = html.find("id=\"theatre-home-register\"").unwrap();
+        assert!(cluster < login_at && login_at < register_at);
+        assert!(html.contains("Đăng nhập") && html.contains("Tạo tài khoản"));
     }
 
     #[test]
