@@ -157,9 +157,10 @@ rate-limited while a `503`/timeout is an unknown effect that asks the listener t
 before starting a new request. Proof and password completion belong on Web, followed by explicit
 CMP login. There is no link import, verified polling, resume-triggered login or password
 collection before proof in the native v1 flow; opening the mail never creates a session.
-[ADR 0048](../../../docs/decisions/0048-signup-email-link-return-to-app.md) proposes an app-first
-return for this link ([#422](https://github.com/loveoverflowcom/cantos/issues/422)); it is not
-selected and changes none of the behavior above.
+[ADR 0048](../../../docs/decisions/0048-signup-email-link-return-to-app.md) selects native-first
+completion through verified links ([#422](https://github.com/loveoverflowcom/cantos/issues/422)).
+Only its stage 0 exists: the check-mail guidance names the browser step and the return to this app.
+Until stage 1 ships, the behavior above is unchanged.
 
 The [Web completion contract](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup)
 is owned by the API and Web work. The Theatre Web completion page is merged

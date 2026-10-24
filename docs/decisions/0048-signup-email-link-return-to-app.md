@@ -1,7 +1,8 @@
 # ADR 0048: Signup email link opens or returns to Cantos Theatre CMP
 
-- Status: Proposed; review-first. Nothing below changes current behavior, contracts or
-  configuration until the owner selects a direction
+- Status: Accepted direction: option C, staged (owner selection, 24 October 2026, in the #422
+  work chat). Stage 0 is implemented. Stage 1 and optional stage 2 are not implemented, and their
+  deferred questions stay open
 - Date: 2026-10-24
 - Decision owner: Cantos owner (product, Identity/auth review for the security contract)
 - Related issue or PR: [#422](https://github.com/loveoverflowcom/cantos/issues/422); context #296 (closed), #130, #224
@@ -48,15 +49,20 @@ cookie, native keeps the opaque Bearer; foreign origins, open redirects and arbi
 extras are refused. A custom URL scheme or hand-built `intent://` is not a default substitute for
 verified HTTPS association.
 
-## Decision (proposed, not selected)
+## Decision
 
-Recommend **C, native-first completion, staged behind an A0 copy fix**. Keep the Web flow as the
-fallback with identical semantics. The owner must select this or another option before any
-security-contract, association or configuration change.
+The owner selected **C, native-first completion, staged behind an A0 copy fix**. The Web flow
+stays the fallback with identical semantics. Selecting the direction does not authorize any
+stage-1 association, Firebase template, handler or deploy-validator change: each of those needs
+its own reviewed PR, and production configuration stays operator-owned.
 
 1. **Stage 0 (A0, no contract change).** The Web Completed state and the CMP check-mail guidance
    say plainly that a signup started in the app finishes by returning to Cantos and logging in.
-   Copy and presentation only. No deep link, association or new route.
+   Copy and presentation only. No deep link, association or new route. **Implemented:** the
+   Web `AccountCreatedNotice` (signup Completed and the Login notice) adds "if you signed up in
+   the Cantos app, go back to the app and sign in there", and the CMP `RegisterWaiting` guidance
+   says that the verification email opens Cantos in the browser and that the listener returns
+   to this app to sign in.
 2. **Stage 1 (C).** The action handler moves to one dedicated path, written here as
    `https://cantos.cc/verify-email` and fixed at selection. That path is claimed by Android App
    Links (`autoVerify`, exact host, exact path) and iOS Universal Links (exact `components` path),
@@ -120,12 +126,13 @@ app-to-browser-to-app round trip and re-exposes the action in a browser URL, wit
 
 ## Validation and revisit conditions
 
-No code changed for this record. Its evidence is source inspection at `develop@97d192de`:
+Selection evidence is source inspection at `develop@97d192de`. Stage 0 adds copy-only
+regressions; the PR records their exact commands and results.
 
 | Layer | Status |
 | --- | --- |
 | Source/owner inspection (paths above) | inspected |
-| Unit/contract tests | NOT_RUN: nothing implemented |
+| Stage 0 copy regressions (Web `auth_copy`, CMP `AuthCopyTest`) | see the PR; stage 1 has no tests yet |
 | Android device (Gmail, another mail client, installed/absent, cold/warm, debug/release signed) | NOT_RUN |
 | iOS real device (Mail, Gmail, installed/absent); a simulator is not equivalent | NOT_RUN |
 | Desktop browser no-app flow | NOT_RUN for this record; the existing Web journey evidence lives in the [Firebase boundary](../architecture/firebase-verification.md#evidence-and-remaining-acceptance) |

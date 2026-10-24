@@ -95,7 +95,7 @@ class RegistrationPreviewUiTest {
                 onNodeWithTag("register-email").performScrollTo().performTextInput("Linh@example.test")
                 click("register-submit")
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Waiting }
-                onNodeWithTag("register-status").assertTextContains("Web", substring = true)
+                onNodeWithTag("register-status").assertTextContains("trình duyệt", substring = true)
                 // Web owns proof and password: this form offers no link import, confirmation or setup.
                 for (tag in listOf("register-link", "register-import", "register-confirm", "register-setup", "register-submit")) {
                     onNodeWithTag(tag).assertDoesNotExist()

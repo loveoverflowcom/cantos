@@ -117,7 +117,7 @@ internal enum class AuthText(val vi: String, val en: String) {
     RegisterEmail("Địa chỉ email", "Email address"),
     RegisterSend("Gửi yêu cầu xác minh", "Request email verification"),
     RegisterSending("Đang gửi yêu cầu…", "Submitting the request…"),
-    RegisterWaiting("Yêu cầu đã được tiếp nhận. Kiểm tra hộp thư và hoàn tất xác minh, đặt mật khẩu trên Web, rồi trở lại đây để đăng nhập. Phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo.", "The request was accepted. Check your inbox and complete verification and password setup on the Web, then return here to sign in. This does not confirm delivery or account creation."),
+    RegisterWaiting("Yêu cầu đã được tiếp nhận. Mở email xác minh trong hộp thư: Cantos sẽ mở trong trình duyệt để bạn xác minh và đặt mật khẩu. Xong bước đó, hãy quay lại ứng dụng này để đăng nhập. Phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo.", "The request was accepted. Open the verification email: Cantos opens in your browser so you can verify and set your password. When that is done, come back to this app to sign in. This does not confirm delivery or account creation."),
     RegisterCancel("Hủy đăng ký", "Cancel registration"),
     RegisterCancelled("Đã dừng đăng ký tại đây. Hủy không thu hồi thao tác máy chủ đã hoàn tất.", "Registration stopped here. Cancellation cannot undo work already completed by the server."),
     RegisterRestart("Bắt đầu yêu cầu mới", "Start a new request"),

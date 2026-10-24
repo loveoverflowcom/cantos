@@ -74,7 +74,7 @@ class IdentityV1LoginUiTest {
         onNodeWithTag("register-email").performScrollTo().performTextInput("listener@example.test")
         onNodeWithTag("login-password").assertDoesNotExist()
         onNodeWithTag("register-submit").performScrollTo().performClick(); waitForIdle()
-        onNodeWithTag("register-status").assertTextContains("complete verification and password setup on the Web", substring = true)
+        onNodeWithTag("register-status").assertTextContains("come back to this app to sign in", substring = true)
         onNodeWithTag("register-link").assertDoesNotExist(); onNodeWithTag("register-confirm").assertDoesNotExist()
         onNodeWithTag("register-setup").assertDoesNotExist()
         assertEquals(0, h.identity.loginRequests); assertEquals(0, h.identity.admissions)
