@@ -40,7 +40,8 @@ caller-owned `TextFieldValue`, retaining text/selection/composition without conv
 received values promptly and do not normalize composing text. Read-only permits selection changes
 but rejects text/composition edits; disabled/loading blocks all callbacks. The caller owns a
 transition out of active IME composition before locking a field; real platform commit/cancellation
-is still unverified. All overloads expose native `KeyboardOptions`/`KeyboardActions`; custom
+is still unverified. All overloads expose native `KeyboardOptions`/`KeyboardActions` and an optional
+`visualTransformation` (for example `PasswordVisualTransformation`, whose visibility is caller-owned); custom
 actions are guarded by editability. TextArea exposes positive ordered min/max line limits.
 NumberField keeps raw `0`, empty and incomplete localized decimals; keyboard hints are not numeric
 validation. Blank help/error messages have no visible or semantic error state.
@@ -229,7 +230,9 @@ its own copies of the same bytes. Glyph placement still needs an opened capture,
 resources for each product host remain necessary before app adoption.
 
 Reduced-motion inspection resolves the three canonical duration roles to zero. The pending
-sample is deliberately static. This is not a platform reduced-motion adapter or a claim about
+ring turns once per `PendingRingTurnMillis` under full motion and holds a visible stationary arc
+under reduced motion (`pendingRingTurnMillis`); no canonical continuous-motion token exists yet.
+This is not a platform reduced-motion adapter or a claim about
 all Material ripple/native motion. Focus uses real Compose focus nodes with token-driven rings;
 select the focus preset or use Tab/Shift+Tab. Dialog dismissal requests focus restoration to its
 trigger. These behaviors still need the named renderer tests and observation below.
@@ -256,6 +259,9 @@ entrance (opacity as effects, travel/scale/rotation as spatial). Tests, all JVM 
 - `AuthButtonReplayTest`: real touch dispatch; asserts the intent before the clock advances a
   frame, the hit box on every sampled frame and writes labelled `cmp-motion-auth-action-*`
   captures with a `frame` sidecar (recipe, mark, time, timebase).
+- `PendingRingAndFieldIndicatorTest`: the pending ring moves over a manual clock under full motion
+  and stays stationary but painted under reduced motion; a focused invalid `AuthTonal` field paints
+  the focus ring instead of stacking it on the error outline (#421).
 - `MotionReplay.kt`: the animation recipe, driver and model helpers. Motion frames are owned by
   tests; production UI never advances the clock. The Workbench tab's intent replay does not
   control this animation clock or offer pause/seek-to-frame controls.

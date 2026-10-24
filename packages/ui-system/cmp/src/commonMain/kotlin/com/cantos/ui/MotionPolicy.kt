@@ -79,6 +79,15 @@ fun motionFor(intent: MotionIntent, property: MotionProperty, preference: Motion
         )
     }
 
+/** One full turn of the pending ring. No canonical continuous-motion token exists yet; a reviewed token replaces this constant. */
+const val PendingRingTurnMillis: Int = 1_000
+
+/** Pure: milliseconds per turn of the pending ring, or null when reduced motion keeps it stationary. */
+fun pendingRingTurnMillis(preference: MotionPreference): Int? = when (preference) {
+    MotionPreference.Full -> PendingRingTurnMillis
+    MotionPreference.Reduced -> null
+}
+
 /** The canonical duration role each combination reads; a spatial feedback change is the shape role. */
 internal fun motionDurationRole(intent: MotionIntent, property: MotionProperty): String = when (property) {
     MotionProperty.Effects -> when (intent) {

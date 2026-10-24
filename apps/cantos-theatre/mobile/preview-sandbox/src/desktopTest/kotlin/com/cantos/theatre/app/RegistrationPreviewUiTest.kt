@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
@@ -211,6 +212,44 @@ class RegistrationPreviewUiTest {
                 click("register-login")
                 assertEquals(NativeAccountState.SignedOut, owner.account.state.value)
                 assertEquals(0, owner.identity.loginRequests)
+            }
+        }
+    }
+
+    @Test fun editing_offers_no_cancel_and_login_and_register_fields_share_one_anatomy() {
+        ApiFixture().use { api ->
+            runDesktopComposeUiTest(width = 390, height = 844) {
+                lateinit var registration: RegistrationController
+                mount(api, 390, 844, ShellTheme.Light, ShellLocale.Vietnamese, 1f) { _, c -> registration = c }
+                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
+                // Nothing is pending while editing: Back and the Login link already leave, so no Cancel.
+                onNodeWithTag("register-cancel").assertDoesNotExist()
+                val register = onNodeWithTag("register-email").performScrollTo().fetchSemanticsNode().boundsInRoot
+                click("back")
+                val email = onNodeWithTag("login-email").performScrollTo().fetchSemanticsNode()
+                val password = onNodeWithTag("login-password").performScrollTo().fetchSemanticsNode()
+                assertEquals(register.height, email.boundsInRoot.height, "one field height across Login and Register")
+                assertEquals(register.width, email.boundsInRoot.width)
+                assertEquals(register.height, password.boundsInRoot.height)
+                assertTrue(password.config.contains(SemanticsProperties.Password), "the shared field keeps password semantics")
+                assertTrue(email.config.contains(SemanticsProperties.ContentDescription), "both fields name themselves the same way")
+                assertTrue(password.config.contains(SemanticsProperties.ContentDescription))
+                assertEquals(0, api.paths.size)
+            }
+        }
+    }
+
+    @Test fun submitting_keeps_one_cancel_and_waiting_keeps_it_until_the_listener_stops() {
+        ApiFixture().use { api ->
+            runDesktopComposeUiTest(width = 390, height = 844) {
+                lateinit var registration: RegistrationController
+                mount(api, 390, 844, ShellTheme.Light, ShellLocale.English, 1f) { _, c -> registration = c }
+                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
+                onNodeWithTag("register-email").performScrollTo().performTextInput("a@example.test")
+                click("register-submit")
+                waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Waiting }
+                onNodeWithTag("register-cancel").performScrollTo().assertIsEnabled()
+                assertEquals(1, api.paths.size, "a single dispatch")
             }
         }
     }

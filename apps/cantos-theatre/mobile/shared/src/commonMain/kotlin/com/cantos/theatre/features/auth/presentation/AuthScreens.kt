@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,12 +52,15 @@ import com.cantos.ui.ButtonState
 import com.cantos.ui.ButtonVariant
 import com.cantos.ui.CantosTypography
 import com.cantos.ui.DisabledReason
+import com.cantos.ui.FieldState
 import com.cantos.ui.Logo
 import com.cantos.ui.LogoTone
 import com.cantos.ui.Space
 import com.cantos.ui.Surface
 import com.cantos.ui.SurfaceTone
 import com.cantos.ui.SurfaceVariant
+import com.cantos.ui.TextField
+import com.cantos.ui.TextFieldVariant
 import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenDp
 
@@ -289,24 +291,23 @@ private fun LoginForm(account: AccountView, copy: AuthCopy, onIntent: (AuthInten
             }
         }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        // Existing app-owned Material fields use the theme roles. The shared TextField has no
-        // password transformation/visibility contract; extending its two renderers is separate.
-        OutlinedTextField(email, { email = it.take(254); invalidEmail = false },
-            modifier = Modifier.fillMaxWidth().testTag("login-email"), singleLine = true,
-            label = { androidx.compose.material3.Text(copy.text(AuthText.RegisterEmail)) },
-            enabled = account.canBeginLogin, isError = invalidEmail,
-            supportingText = if (invalidEmail) ({ androidx.compose.material3.Text(copy.text(AuthText.RegisterInvalidEmail)) }) else null,
+    // Pending/cleanup/unavailable keep the typed text visible but locked; the primary action and the
+    // account status already state why, so the fields add no third copy of that reason.
+    val fieldState = if (account.canBeginLogin) FieldState.Editable else FieldState.ReadOnly
+    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+        TextField(copy.text(AuthText.RegisterEmail), email, { email = it.take(254); invalidEmail = false },
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal, state = fieldState,
+            error = if (invalidEmail) copy.text(AuthText.RegisterInvalidEmail) else null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }))
-        OutlinedTextField(password, { password = it; invalidPassword = false },
-            modifier = Modifier.fillMaxWidth().focusRequester(passwordFocus).testTag("login-password"), singleLine = true,
-            label = { androidx.compose.material3.Text(copy.text(AuthText.Password)) },
-            enabled = account.canBeginLogin, isError = invalidPassword,
-            supportingText = if (invalidPassword) ({ androidx.compose.material3.Text(copy.text(AuthText.PasswordRequired)) }) else null,
+            keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
+            controlModifier = Modifier.testTag("login-email"))
+        TextField(copy.text(AuthText.Password), password, { password = it; invalidPassword = false },
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal, state = fieldState,
+            error = if (invalidPassword) copy.text(AuthText.PasswordRequired) else null,
             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { submit() }))
+            keyboardActions = KeyboardActions(onDone = { submit() }),
+            controlModifier = Modifier.focusRequester(passwordFocus).testTag("login-password"))
         // A separate control keeps the password label legible at narrow widths and 2x text.
         TextButton({ visible = !visible }, modifier = Modifier.align(Alignment.End), enabled = account.canBeginLogin) {
             androidx.compose.material3.Text(copy.text(if (visible) AuthText.HidePassword else AuthText.ShowPassword))

@@ -40,8 +40,9 @@ names even when a pending action temporarily hides its glyph.
 
 `arrow_forward` remains progression; `expand_more` remains disclosure. Neither disclosure nor
 a selected/success check represents waiting. Buttons keep the visible action label and localized
-pending reason, with a separate stationary indeterminate ring on both renderers. The ring has no
-numeric progress meaning, independent hit target or motion. The 23 October AuthPrimary anatomy keeps icon and label centered without a bubble;
+pending reason, with a separate indeterminate ring. The CMP ring turns under full motion and holds a stationary arc
+under reduced motion; the Leptos ring is stationary until its own follow-up. The ring has no
+numeric progress meaning or independent hit target. The 23 October AuthPrimary anatomy keeps icon and label centered without a bubble;
 regular actions retain their existing shape.
 
 The existing `icon`, `button`/AuthPrimary and `icon-button` previews exercise this registry.
