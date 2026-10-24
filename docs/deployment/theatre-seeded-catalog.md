@@ -77,6 +77,23 @@ Work/chapter IDs and operation receipts allow an interrupted or repeated import 
 the same dataset instead of creating duplicates. A different input fingerprint is refused
 instead of silently changing an accepted fixture.
 
+Private per-Work `image-attempts/*.json` journals bind the input, cover and exact prepare
+request before any HTTP effect. Attempt zero preserves the original sample IDs. An admitted
+asset is reused even after its intent expires or its upload response was lost. Only a Server
+observation of the exact expired intent with no admitted asset permits another durably recorded
+attempt, with distinct intent and prepare-operation IDs. Recovery is bounded to eight attempts
+per Work; exhaustion or inconsistent journal/manifest bindings stop with an exact recovery error
+and preserve the output. They never trigger an automatic reset. Unknown transport outcomes stop
+the invocation with the same attempt retained; a later invocation reconciles only after the old
+host and DB owner have closed. No production TTL, admission rule or immutable receipt is changed.
+
+Source copies and ownership markers are fully written and synced under unique same-directory
+staging names before atomic no-clobber publication. The output root appears only with a complete
+ownership marker. Partial writes never publish truncated final files. Retries start from the
+original validated bytes, retain unknown prior staging, and refuse conflicting final files or
+unmarked existing roots. Do not delete staging by a filename glob; partial sibling initialization
+directories are preserved separately from the marked output and are not adopted automatically.
+
 The output directory contains:
 
 | Path | Purpose |
@@ -84,6 +101,7 @@ The output directory contains:
 | `server.db` and engine sidecars | Current Server registry/schema and accepted private sample metadata; one owner process at a time |
 | `sample-owner.json` | Dataset/input/source/output binding used to refuse adoption or unsafe reset |
 | `manifest.json` | Input mapping, stable IDs, cover integrity and explicit mock/unavailable audio facts |
+| `image-attempts/` | Private, input-bound prepare/admission recovery journals; completed assets stay pinned |
 | `storage.toml`, `media/objects/` | Filesystem storage target and immutable private objects, reached through the existing storage registry |
 | `creator.json`, `studio-token` | Local fixture actor and a short-lived development token; keep private and out of logs/Git |
 | `sample.db` | Engine-supported verified snapshot, independently reopened through the Server registry |

@@ -4,13 +4,16 @@
 
 #[path = "support/artwork_storage_http.rs"]
 mod http;
+#[path = "support/sample_image_attempts.rs"]
+mod image_attempts;
 #[path = "support/sample_catalog_input.rs"]
 mod input;
+#[path = "support/sample_catalog_files.rs"]
+mod sample_files;
 
 use std::{
     env, fs,
-    io::Write,
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
+    os::unix::fs::{DirBuilderExt, PermissionsExt},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -61,30 +64,9 @@ fn private_dir(path: &Path) {
 }
 
 fn write_once(path: &Path, bytes: &[u8]) {
-    match fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(path)
-    {
-        Ok(mut file) => {
-            file.write_all(bytes).unwrap();
-            file.sync_all().unwrap();
-            fs::File::open(path.parent().unwrap())
-                .unwrap()
-                .sync_all()
-                .unwrap();
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            assert_eq!(
-                fs::read(path).unwrap(),
-                bytes,
-                "existing sample file differs: {}",
-                path.display()
-            );
-        }
-        Err(error) => panic!("cannot create {}: {error}", path.display()),
-    }
+    sample_files::write_once(path, bytes).unwrap_or_else(|error| {
+        panic!("cannot publish {}: {error}; existing final/staging bytes are retained. Inspect the owned output or choose a new sample root; no file was overwritten", path.display())
+    });
 }
 
 fn own_root(root: &Path, source: &Path, input_hash: &str) {
@@ -97,23 +79,10 @@ fn own_root(root: &Path, source: &Path, input_hash: &str) {
         root.ancestors().all(|path| !path.join(".git").exists()),
         "sample output must be outside Git"
     );
-    let marker = root.join("sample-owner.json");
     let expected = json!({"dataset_id":input::DATASET,"input_sha256":input_hash,"root":root,"media_source":source});
-    if root.exists() {
-        private_dir(root);
-        assert!(
-            marker.is_file(),
-            "existing sample root has no ownership marker; refusing adoption"
-        );
-        assert_eq!(
-            serde_json::from_slice::<Value>(&fs::read(&marker).unwrap()).unwrap(),
-            expected,
-            "sample root belongs to different input/location"
-        );
-    } else {
-        private_dir(root);
-        write_once(&marker, &serde_json::to_vec_pretty(&expected).unwrap());
-    }
+    sample_files::initialize_root(root, &serde_json::to_vec_pretty(&expected).unwrap())
+        .unwrap_or_else(|error| panic!("cannot initialize {}: {error}; refusing adoption or replacement. Keep existing evidence and choose a new sample root", root.display()));
+    private_dir(root);
 }
 
 async fn open_database(path: &Path, intent: Intent) -> OwnedDatabase {
@@ -186,6 +155,8 @@ async fn seed(
     token: &str,
     spec: &input::Input,
     covers: &[input::CoverBytes],
+    root: &Path,
+    input_sha256: &str,
 ) -> Value {
     let mut records = Vec::new();
     for (work, cover) in spec.works.iter().zip(covers) {
@@ -223,32 +194,23 @@ async fn seed(
             assert_eq!(result["work"]["revision"], revision);
             chapters.push(json!({"sample_key":chapter.sample_key,"unit_id":unit_id,"position":chapter.position,"audio":chapter.audio,"availability":"unavailable","publication_id":null}));
         }
-        let asset_id = input::identity(&work.sample_key, "image");
-        let prepare = json!({"operation_id":input::identity(&work.sample_key,"prepare-image"),"id":asset_id,"expected_sha256":cover.sha256,"expected_byte_length":cover.bytes.len(),"content_type":"image/png",
-            "declarations":{"provenance":format!("Issue #427 image_gen sample; Drive file {}. Supplied claim, not verified ownership or publication clearance.",work.cover.source_drive_file_id),"rights_refs":[RIGHTS]}});
-        let _: Value = host
-            .json(
-                "POST",
-                &format!("/api/v1/studio/works/{id}/image-intents"),
-                Some(token),
-                None,
-                Some(&prepare),
-            )
-            .await
-            .success(StatusCode::CREATED);
-        let admitted = http::request(
-            &host.client,
-            &host.base,
-            "PUT",
-            &format!("/api/v1/studio/works/{id}/image-intents/{asset_id}/bytes"),
-            Some(token),
-            None,
-            Some("image/png"),
-            cover.bytes.clone(),
-            &[],
+        let provenance=format!("Issue #427 image_gen sample; Drive file {}. Supplied claim, not verified ownership or publication clearance.",work.cover.source_drive_file_id);
+        let mut journal = image_attempts::Journal::open(
+            root,
+            image_attempts::Plan {
+                key: &work.sample_key,
+                work_id: &id,
+                input_sha256,
+                provenance: &provenance,
+            },
+            cover,
         )
-        .await;
-        let asset: Value = admitted.success(StatusCode::OK);
+        .expect("image attempt journal must match this sample");
+        let asset = journal
+            .admit(host, token, cover)
+            .await
+            .expect("image admission must complete or retain a recoverable attempt");
+        let asset_id = asset["id"].as_str().unwrap();
         assert_eq!(asset["verified_media"]["sha256"], cover.sha256);
         assert_eq!(asset["verified_media"]["byte_length"], cover.bytes.len());
         assert_eq!(asset["verified_media"]["width_px"], cover.width);
@@ -580,7 +542,7 @@ async fn sample_catalog() {
     }
     write_once(&token_path, token.as_bytes());
     let serving = host(&store).await;
-    let records = seed(&serving, &token, &spec, &covers).await;
+    let records = seed(&serving, &token, &spec, &covers, &root, &input_hash).await;
     serving.stop().await;
     verify_failure_boundary(&store, &token, &root, &records, &covers[0].bytes).await;
     drop(store);
@@ -603,7 +565,10 @@ async fn sample_catalog() {
         &root,
     );
     let serving = host(&reopened).await;
-    assert_eq!(seed(&serving, &token, &spec, &covers).await, records);
+    assert_eq!(
+        seed(&serving, &token, &spec, &covers, &root, &input_hash).await,
+        records
+    );
     serving.stop().await;
     drop(reopened);
     let inspection = open_database(&database_path, Intent::Serve).await;
@@ -812,4 +777,249 @@ async fn missing_or_replaced_source_is_refused_without_creating_a_database() {
         ))
     );
     assert!(!run.path("server.db").exists());
+}
+
+const RECOVERY_TOKEN: &str = "abababababababababababababababababababababababababababababababab";
+
+async fn recovery_fixture() -> (
+    cantos_server::test_support::ServerFixture,
+    Arc<cantos_store_turso::testing::FixedClock>,
+    PathBuf,
+    input::CoverBytes,
+) {
+    let clock = cantos_store_turso::testing::FixedClock::new(1_800_000_000_000_000);
+    let fixture = cantos_server::test_support::ServerFixture::with_clock(clock.clone()).await;
+    fixture.seed_actors(&["alice"]).await;
+    fixture
+        .seed_development_session("alice", RECOVERY_TOKEN, 2)
+        .await;
+    operator::register_evidence(
+        fixture.store(),
+        "alice",
+        "rights",
+        RIGHTS,
+        "Synthetic pixel fixture; recovery test only, no publication clearance",
+    )
+    .await
+    .unwrap();
+    let root = fs::canonicalize(fixture.dir()).unwrap();
+    private_dir(&root.join("media"));
+    write_topology(&root);
+    let bytes =
+        include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.png").to_vec();
+    let cover = input::CoverBytes {
+        sha256: input::hash(&bytes),
+        bytes,
+        width: 2,
+        height: 3,
+    };
+    (fixture, clock, root, cover)
+}
+
+async fn recovery_work(serving: &http::HttpHost) -> String {
+    let work = input::identity("ben-suong", "work");
+    let create = json!({"operation_id":input::identity("ben-suong","create-work"),"id":work,"kind":"story","details":{"title":"Synthetic recovery fixture","synopsis":"No audio or publication","language":"vi-VN","visibility":"private","rights_refs":[]}});
+    let _: Value = serving
+        .json(
+            "POST",
+            "/api/v1/studio/works",
+            Some(RECOVERY_TOKEN),
+            None,
+            Some(&create),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    work
+}
+
+fn recovery_journal(root: &Path, work: &str, cover: &input::CoverBytes) -> image_attempts::Journal {
+    image_attempts::Journal::open(
+        root,
+        image_attempts::Plan {
+            key: "ben-suong",
+            work_id: work,
+            input_sha256: "synthetic-recovery-input",
+            provenance: "Independent Python 2x3 synthetic pixels; recovery test only",
+        },
+        cover,
+    )
+    .unwrap()
+}
+
+#[tokio::test]
+async fn expired_unadmitted_image_attempt_recovers_after_owner_restart_without_duplicate_asset() {
+    let (mut fixture, clock, root, cover) = recovery_fixture().await;
+    let store = configured(fixture.store().clone(), &root);
+    let serving = host(&store).await;
+    let work = recovery_work(&serving).await;
+    let journal = recovery_journal(&root, &work, &cover);
+    let first = journal.current_request().clone();
+    let _: Value = serving
+        .json(
+            "POST",
+            &format!("/api/v1/studio/works/{work}/image-intents"),
+            Some(RECOVERY_TOKEN),
+            None,
+            Some(&first),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    // The process stops after prepare committed, before any bytes were submitted.
+    drop(journal);
+    serving.stop().await;
+    drop(store);
+    clock.advance(31 * 60 * 1_000_000);
+    fixture.restart().await;
+    let store = configured(fixture.store().clone(), &root);
+    let serving = host(&store).await;
+    let expired_path = format!(
+        "/api/v1/studio/works/{work}/image-intents/{}/bytes",
+        first["id"].as_str().unwrap()
+    );
+    let refused = http::request(
+        &serving.client,
+        &serving.base,
+        "PUT",
+        &expired_path,
+        Some(RECOVERY_TOKEN),
+        None,
+        Some("image/png"),
+        cover.bytes.clone(),
+        &[],
+    )
+    .await
+    .error(StatusCode::CONFLICT, "invalid_request");
+    assert_eq!(
+        refused["issues"],
+        json!([{"path":"intent","rule":"intent_expired"}])
+    );
+    let mut journal = recovery_journal(&root, &work, &cover);
+    let accepted = journal
+        .admit(&serving, RECOVERY_TOKEN, &cover)
+        .await
+        .unwrap();
+    assert_ne!(accepted["id"], first["id"]);
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_image_intents", &[])
+            .await,
+        2
+    );
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_image_assets", &[])
+            .await,
+        1
+    );
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_artwork_operations", &[])
+            .await,
+        2
+    );
+    drop(journal);
+    serving.stop().await;
+    drop(store);
+    fixture.restart().await;
+    let store = configured(fixture.store().clone(), &root);
+    let serving = host(&store).await;
+    let mut journal = recovery_journal(&root, &work, &cover);
+    assert_eq!(
+        journal
+            .admit(&serving, RECOVERY_TOKEN, &cover)
+            .await
+            .unwrap(),
+        accepted
+    );
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_image_intents", &[])
+            .await,
+        2
+    );
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_image_assets", &[])
+            .await,
+        1
+    );
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_artwork_operations", &[])
+            .await,
+        2
+    );
+    serving.stop().await;
+}
+
+#[tokio::test]
+async fn admitted_image_with_unrecorded_response_is_reconciled_after_expiry_without_new_attempt() {
+    let (mut fixture, clock, root, cover) = recovery_fixture().await;
+    let store = configured(fixture.store().clone(), &root);
+    let serving = host(&store).await;
+    let work = recovery_work(&serving).await;
+    let journal = recovery_journal(&root, &work, &cover);
+    let request = journal.current_request().clone();
+    let _: Value = serving
+        .json(
+            "POST",
+            &format!("/api/v1/studio/works/{work}/image-intents"),
+            Some(RECOVERY_TOKEN),
+            None,
+            Some(&request),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let accepted: Value = http::request(
+        &serving.client,
+        &serving.base,
+        "PUT",
+        &format!(
+            "/api/v1/studio/works/{work}/image-intents/{}/bytes",
+            request["id"].as_str().unwrap()
+        ),
+        Some(RECOVERY_TOKEN),
+        None,
+        Some("image/png"),
+        cover.bytes.clone(),
+        &[],
+    )
+    .await
+    .success(StatusCode::OK);
+    // Deliberately stop before recording the successful response in the local journal.
+    drop(journal);
+    serving.stop().await;
+    drop(store);
+    clock.advance(31 * 60 * 1_000_000);
+    fixture.restart().await;
+    let store = configured(fixture.store().clone(), &root);
+    let serving = host(&store).await;
+    let mut journal = recovery_journal(&root, &work, &cover);
+    assert_eq!(
+        journal
+            .admit(&serving, RECOVERY_TOKEN, &cover)
+            .await
+            .unwrap(),
+        accepted
+    );
+    assert_eq!(journal.current_request(), &request);
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_image_intents", &[])
+            .await,
+        1
+    );
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_image_assets", &[])
+            .await,
+        1
+    );
+    assert_eq!(
+        fixture
+            .count("SELECT count(*) FROM media_artwork_operations", &[])
+            .await,
+        1
+    );
+    serving.stop().await;
 }
