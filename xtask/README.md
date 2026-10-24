@@ -1193,8 +1193,11 @@ The one origin owner (`selectCatalogOrigin`) admits that origin once; the public
 first-party Identity v1 JSON transport (email/password) both use it, so a debug host's loopback HTTP
 origin also carries Identity v1. Release builds and iOS stay HTTPS-only and the release
 manifest/network policy forbid cleartext. `--api-origin` is the only app configuration input: no
-build declares a browser callback, URL scheme or provider issuer, and the inspector rejects a built
-manifest (debug or release, audit or optimized) that carries one. Installing it on a
+build declares a browser callback, custom URL scheme or provider issuer, and the inspector rejects a
+built manifest (debug or release, audit or optimized) that carries one. The single admitted
+`BROWSABLE` filter is [ADR 0048](../docs/decisions/0048-signup-email-link-return-to-app.md)'s
+`autoVerify` App Link on the launcher for exactly `https://cantos.cc/verify-email`; any other host,
+path, prefix, pattern, scheme or a second copy is still a finding. Installing it on a
 device is the developer's own `adb install`.
 
 `theatre-host ios-build --kotlin-native-home PATH` checks the installed Kotlin/Native 2.2.20

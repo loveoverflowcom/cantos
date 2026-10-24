@@ -40,10 +40,14 @@ class AuthCopyTest {
     fun retired_provider_and_browser_wording_is_gone_from_both_locales() {
         val retired = listOf("issuer", "callback", "link", "liên kết", "browser", "trình duyệt", "provider", "Kanidm", "OIDC")
         for (locale in ShellLocale.entries) {
-            val text = AuthText.entries.joinToString("\n") { AuthCopy(locale).text(it) }.lowercase()
+            val all = AuthText.entries.joinToString("\n") { AuthCopy(locale).text(it) }.lowercase()
+            // ADR 0048: only the completion screen speaks of the mailed link it received.
+            val outsideVerification = AuthText.entries.filterNot { it.name.startsWith("Verify") }
+                .joinToString("\n") { AuthCopy(locale).text(it) }.lowercase()
             for (word in retired) {
                 // The email-link help legitimately says the browser completes the mailed proof.
                 if (word == "trình duyệt" || word == "browser") continue
+                val text = if (word == "link" || word == "liên kết") outsideVerification else all
                 assertTrue(word.lowercase() !in text, "$word in ${locale.name}")
             }
         }
@@ -65,5 +69,19 @@ class AuthCopyTest {
             assertTrue(AuthCopy(ShellLocale.Vietnamese).text(key).isNotBlank(), key.name)
             assertTrue(AuthCopy(ShellLocale.English).text(key).isNotBlank(), key.name)
         }
+    }
+
+    @Test
+    fun completion_copy_says_opening_creates_nothing_and_success_is_not_a_session() {
+        val vi = AuthCopy(ShellLocale.Vietnamese)
+        val en = AuthCopy(ShellLocale.English)
+        assertTrue("chưa tạo gì và chưa đăng nhập" in vi.text(AuthText.VerifyConfirmHelp))
+        assertTrue("creates nothing and does not sign you in" in en.text(AuthText.VerifyConfirmHelp))
+        assertTrue("Hãy đăng nhập" in vi.text(AuthText.VerifyCompletedSignedOut))
+        assertTrue("Sign in" in en.text(AuthText.VerifyCompletedSignedOut))
+        // Signed in: the current session stays, and switching is the listener's explicit sign-out.
+        assertTrue("vẫn đang đăng nhập bằng tài khoản hiện tại" in vi.text(AuthText.VerifyCompletedSignedIn))
+        assertTrue("still signed in with your current account" in en.text(AuthText.VerifyCompletedSignedIn))
+        assertTrue("không bị đổi" in vi.text(AuthText.VerifyRetryHelp) && "unchanged" in en.text(AuthText.VerifyRetryHelp))
     }
 }

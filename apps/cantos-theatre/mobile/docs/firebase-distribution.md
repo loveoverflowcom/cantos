@@ -14,7 +14,8 @@ not change these Android policies.
 These are distribution policies, not server environments or Gradle flavors. Only `debug` and
 `release` build types exist. API origin is an explicit HTTPS input for distribution, independent
 of channel, and is the only app configuration: the catalog and Identity v1 use that one origin.
-No issuer, browser callback or URL scheme is configured, registered or built in. Sandbox adapters
+No issuer, browser callback or custom URL scheme is configured, registered or built in; the one
+verified signup App Link (ADR 0048) is the only `BROWSABLE` filter. Sandbox adapters
 belong only to JVM Desktop Preview/tests (#287).
 
 ## Local build and audit
@@ -98,7 +99,8 @@ package. No Firebase SDK, Analytics or google-services plugin is needed by App D
 The real flow validates destination registration, builds through theatre-host primitives, resolves
 exactly one AGP-declared APK (no glob, splits, zero or multiple outputs), copies exact bytes into
 private `artifacts/distributions/<run-id>`, then inspects package/version/debuggable/signature,
-configuration, audit marker and that the manifest declares no browser callback or URL scheme. Release mapping must match the same optimized APK and
+configuration, audit marker and that the manifest declares no browser callback or URL scheme
+beyond the exact signup App Link. Release mapping must match the same optimized APK and
 mapping hashes in the audit evidence. APK and mapping are rehashed before the intent receipt.
 A single upload uses those staged bytes; uncertain remote results are reconciled in the Firebase
 console before any replay. Receipts are sanitized and preserve the observed outcome.

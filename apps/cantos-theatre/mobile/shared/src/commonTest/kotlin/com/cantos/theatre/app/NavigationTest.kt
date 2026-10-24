@@ -145,4 +145,41 @@ class NavigationTest {
         }
         assertTrue(TheatreRoute.Login.isAuth && TheatreRoute.Register.isAuth && !TheatreRoute.Account.isAuth)
     }
+
+    @Test
+    fun a_received_signup_link_is_a_transient_top_that_any_other_destination_removes() {
+        val work = TheatreRoute.Work(WorkKey("son-ha-ky"))
+        val player = reduceNavigation(reduceNavigation(NavigationState(), NavigationEvent.Navigate(work)), NavigationEvent.OpenPlayer)
+        val verifying = reduceNavigation(player, NavigationEvent.OpenVerifyEmail)
+        assertEquals(player.stack + TheatreRoute.VerifyEmail, verifying.stack)
+        assertEquals(verifying, reduceNavigation(verifying, NavigationEvent.OpenVerifyEmail))
+        assertEquals(player, reduceNavigation(verifying, NavigationEvent.Back))
+        // A sign-in completed elsewhere keeps completion open: it is allowed while signed in.
+        assertEquals(verifying, reduceNavigation(verifying, NavigationEvent.AuthCompleted))
+        // An open auth intent is closed, so Back never reveals a Login under completion.
+        val login = reduceNavigation(reduceNavigation(player, NavigationEvent.OpenLogin), NavigationEvent.OpenRegister)
+        assertEquals(verifying, reduceNavigation(login, NavigationEvent.OpenVerifyEmail))
+        // Every other destination leaves it first, so it is never kept below another route.
+        assertEquals(reduceNavigation(player, NavigationEvent.OpenLogin), reduceNavigation(verifying, NavigationEvent.OpenLogin))
+        assertEquals(reduceNavigation(player, NavigationEvent.OpenRegister), reduceNavigation(verifying, NavigationEvent.OpenRegister))
+        assertEquals(reduceNavigation(player, NavigationEvent.Navigate(TheatreRoute.Account)),
+            reduceNavigation(verifying, NavigationEvent.Navigate(TheatreRoute.Account)))
+        assertEquals(player, reduceNavigation(verifying, NavigationEvent.OpenPlayer))
+        assertEquals(NavigationState(), reduceNavigation(verifying, NavigationEvent.Reset))
+        // A route event alone never opens completion.
+        assertEquals(player, reduceNavigation(player, NavigationEvent.Navigate(TheatreRoute.VerifyEmail)))
+    }
+
+    @Test
+    fun email_verification_is_only_ever_the_top_above_a_non_auth_root() {
+        for (stack in listOf(
+            listOf(TheatreRoute.VerifyEmail),
+            listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail, TheatreRoute.Settings),
+            listOf(TheatreRoute.Discovery, TheatreRoute.Login, TheatreRoute.VerifyEmail),
+            listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail, TheatreRoute.Login),
+        )) {
+            assertFailsWith<IllegalArgumentException>(stack.toString()) { NavigationState(stack) }
+        }
+        assertTrue(NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail)).canGoBack)
+    }
 }

@@ -231,6 +231,7 @@ private fun ShellRoute.toTheatreRoute(): TheatreRoute = when (this) {
     ShellRoute.MembershipPreview -> TheatreRoute.MembershipPreview
     ShellRoute.Login -> TheatreRoute.Login
     ShellRoute.Register -> TheatreRoute.Register
+    ShellRoute.VerifyEmail -> TheatreRoute.VerifyEmail
     ShellRoute.Settings -> TheatreRoute.Settings
     ShellRoute.Queue -> TheatreRoute.Queue
     ShellRoute.Player -> TheatreRoute.Player

@@ -1,13 +1,16 @@
 package com.cantos.theatre.adapters.http
 
+import com.cantos.theatre.domain.identity.CompletionStatus
 import com.cantos.theatre.domain.identity.IdentityV1Validation
 import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.domain.identity.NativeSession
 import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.domain.identity.RegistrationResult
+import com.cantos.theatre.domain.identity.SignupCompletionRequest
 import com.cantos.theatre.ports.IdentitySignupAccepted
 import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.ports.IdentityV1Result
+import com.cantos.theatre.ports.NativeHttpFailure
 import com.cantos.theatre.ports.NativeHttpPort
 import com.cantos.theatre.ports.NativeHttpRequest
 import com.cantos.theatre.ports.NativeHttpResponse
@@ -93,6 +96,35 @@ class NativeIdentityV1ClientTest {
             http.response = response(body, 202)
             assertEquals(unknown, client(http).signup(email))
         }
+    }
+
+    @Test fun signup_completion_is_anonymous_exact_json_and_never_a_grant() = runTest {
+        val op = "0123456789abcdef0123456789abcdef"
+        val proof = "fedcba9876543210fedcba9876543210"
+        val password = "  Ánh đèn \"cuối\" sân khấu  "
+        val completion = SignupCompletionRequest(op, proof, "synthetic-Action_code.1", password)
+        val http = RecordingHttp().apply { response = response("""{"status":"completed"}""") }
+        assertEquals(CompletionStatus.Completed, assertIs<IdentityV1Result.Accepted<CompletionStatus>>(client(http).completeSignup(completion)).value)
+        // No Bearer and no session fence, whoever is signed in; the body is the Web body without a native secret.
+        request(http, "POST", "/signup/complete", """{"operation_id":"$op","proof_id":"$proof","firebase_oob_code":"synthetic-Action_code.1","password":"  Ánh đèn \"cuối\" sân khấu  ","explicit_confirmation":true}""")
+        val first = http.requests.last().body
+        http.response = response("""{"status":"replayed"}""")
+        assertEquals(CompletionStatus.Replayed, assertIs<IdentityV1Result.Accepted<CompletionStatus>>(client(http).completeSignup(completion)).value)
+        assertEquals(first, http.requests.last().body, "a retained request is repeated byte for byte")
+        for (body in listOf("""{"status":"created"}""", """{"status":"completed","session_id":"$session"}""", pair,
+            """{"status":"completed","status":"replayed"}""", "")) {
+            http.response = response(body)
+            assertEquals(unknown, client(http).completeSignup(completion))
+        }
+        http.response = response("""{"status":"completed"}""", 201)
+        assertEquals(unknown, client(http).completeSignup(completion))
+        for ((status, reason) in listOf(400 to IdentityV1Failure.Protocol, 401 to IdentityV1Failure.Unauthorized,
+            403 to IdentityV1Failure.Denied, 404 to IdentityV1Failure.NotConfigured, 503 to IdentityV1Failure.ServiceUnavailable)) {
+            http.response = NativeHttpResponse(status, "application/json", """{"error":"x"}""", null)
+            assertEquals(IdentityV1Result.Refused(reason), client(http).completeSignup(completion))
+        }
+        http.response = NativeHttpResponse(0, null, null, NativeHttpFailure.Timeout)
+        assertEquals(unknown, client(http).completeSignup(completion))
     }
 
     @Test fun login_uses_exact_json_and_anonymous_headers_without_altering_password() = runTest {

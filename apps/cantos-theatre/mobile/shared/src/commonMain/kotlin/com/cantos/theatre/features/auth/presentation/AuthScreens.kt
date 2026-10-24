@@ -90,10 +90,18 @@ enum class AuthReturn(internal val label: AuthText) {
     Account(AuthText.ReturnAccount),
     Membership(AuthText.ReturnMembership),
     Login(AuthText.ReturnLogin),
+    Previous(AuthText.Back),
 }
 
 fun authReturnFor(stack: List<ShellRoute>): AuthReturn {
     if (stack.lastOrNull() == ShellRoute.Register) return AuthReturn.Login
+    // Completion sits on whatever the listener was doing; name it when it is a known origin.
+    if (stack.lastOrNull() == ShellRoute.VerifyEmail) return when (stack.getOrNull(stack.size - 2)) {
+        ShellRoute.Discovery -> AuthReturn.Home
+        ShellRoute.Account -> AuthReturn.Account
+        ShellRoute.MembershipPreview -> AuthReturn.Membership
+        else -> AuthReturn.Previous
+    }
     val origin = stack.getOrNull(stack.indexOfLast { it == ShellRoute.Login } - 1)
     return when (origin) {
         ShellRoute.Account -> AuthReturn.Account

@@ -30,6 +30,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- ADR 0048: the signup email action handler, exact host and path, verified against
+                 cantos.cc/.well-known/assetlinks.json (release certificate only). TheatreActivity
+                 still re-checks every URL against the pinned handler: explicit intents bypass this. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="cantos.cc" android:path="/verify-email" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

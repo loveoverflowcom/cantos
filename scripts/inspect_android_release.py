@@ -279,8 +279,16 @@ def release_metadata_findings(elements, *, audit=False):
     return findings
 
 
-def intent_filters(elements):
-    """Each `<intent-filter>` as (owning component name or None, categories, data attribute maps).
+# ADR 0048: the one verified App Link, for the signup email action handler. It opens completion,
+# which still needs a chosen password and explicit confirmation and never creates a session.
+SIGNUP_LINK_DATA = {"scheme": "https", "host": "cantos.cc", "path": "/verify-email"}
+SIGNUP_LINK_CATEGORIES = ["android.intent.category.BROWSABLE", "android.intent.category.DEFAULT"]
+TRUE_VALUES = {"true", "0xffffffff", "-1"}
+
+
+def intent_filter_nodes(elements):
+    """Each `<intent-filter>` as (owning component name or None, filter attributes, actions,
+    categories, data attribute maps).
 
     Nesting comes from the xmltree indentation depth, so a `<data>` under `<queries><intent>`
     (package visibility, not a receiving filter) is never mistaken for a receiving filter.
@@ -293,33 +301,52 @@ def intent_filters(elements):
             component = None
         if tag != "intent-filter":
             continue
-        categories, data = [], []
+        actions, categories, data = [], [], []
         for child_depth, child_tag, child in elements[index + 1:]:
             if child_depth <= depth:
                 break
-            if child_tag == "category":
+            if child_tag == "action":
+                actions.append(child.get("name"))
+            elif child_tag == "category":
                 categories.append(child.get("name"))
             elif child_tag == "data":
                 data.append(child)
-        filters.append((component[1] if component else None, categories, data))
+        filters.append((component[1] if component else None, attributes, actions, categories, data))
     return filters
 
 
-def identity_surface_findings(elements):
-    """Identity v1 is first-party JSON on the API origin: nothing may be launched from a browser.
+def intent_filters(elements):
+    """Each `<intent-filter>` as (owning component name or None, categories, data attribute maps)."""
+    return [(component, categories, data) for component, _, _, categories, data in intent_filter_nodes(elements)]
+
+
+def is_signup_link_filter(component, attributes, actions, categories, data, launcher):
+    """Exactly the verified signup App Link on the launcher: VIEW, DEFAULT+BROWSABLE, autoVerify and
+    one `<data>` naming exactly https://cantos.cc/verify-email (no prefix, pattern or other host)."""
+    return (launcher is not None and component == launcher and attributes.get("autoVerify") in TRUE_VALUES
+            and actions == ["android.intent.action.VIEW"] and sorted(categories) == SIGNUP_LINK_CATEGORIES
+            and data == [SIGNUP_LINK_DATA])
+
+
+def identity_surface_findings(elements, launcher=None):
+    """Identity v1 is first-party JSON on the API origin: no browser callback may launch the app.
 
     The built manifest must carry no BROWSABLE intent-filter, no scheme declared by an
-    intent-filter `<data>` and no retired provider-issuer metadata. The MAIN/LAUNCHER entry is
-    required separately by `manifest_findings`.
+    intent-filter `<data>` and no retired provider-issuer metadata. The single exception is one
+    exact verified signup App Link on [launcher] (ADR 0048). The MAIN/LAUNCHER entry is required
+    separately by `manifest_findings`.
     """
-    findings = []
-    for component, categories, data in intent_filters(elements):
+    findings, admitted = [], False
+    for component, attributes, actions, categories, data in intent_filter_nodes(elements):
+        if not admitted and is_signup_link_filter(component, attributes, actions, categories, data, launcher):
+            admitted = True
+            continue
         owner = component or "<unknown component>"
         if "android.intent.category.BROWSABLE" in categories:
             findings.append(f"{owner} declares a BROWSABLE intent-filter; Identity v1 has no browser callback")
-        for attributes in data:
-            if "scheme" in attributes:
-                findings.append(f"{owner} declares an intent-filter URL scheme {attributes['scheme']!r}; "
+        for data_attributes in data:
+            if "scheme" in data_attributes:
+                findings.append(f"{owner} declares an intent-filter URL scheme {data_attributes['scheme']!r}; "
                                 "Identity v1 has no custom-scheme callback")
     if any(tag == "meta-data" and attrs.get("name") == "CantosNativeIssuer" for _, tag, attrs in elements):
         findings.append("retired native issuer metadata is present in an Identity v1 host")
@@ -366,8 +393,9 @@ def inspect(args, dump=dump_manifest):
             + manifest_findings(parse_xmltree(dump(args.aapt2, path, manifest, proto)), args.application_id,
                                 args.launcher, set(args.allowed_permission), getattr(args, "debug_apk", False), getattr(args, "allowed_component", ())))]
         elements = parse_xmltree(dump(args.aapt2, path, manifest, proto))
-        # Unconditional: no flag can omit the check that no browser/URL-scheme entry exists.
-        own += [f"{label}: {finding}" for finding in identity_surface_findings(elements)]
+        # Unconditional: no flag can omit the check that no browser/URL-scheme entry exists beyond
+        # the one exact verified signup App Link on the launcher.
+        own += [f"{label}: {finding}" for finding in identity_surface_findings(elements, args.launcher)]
         if getattr(args, "enforce_audit_marker", False):
             own += [f"{label}: {f}" for f in release_metadata_findings(elements, audit=getattr(args, "audit", False))]
         # R8 may inline or merge ordinary classes. Only manifest entrypoint names remain required.

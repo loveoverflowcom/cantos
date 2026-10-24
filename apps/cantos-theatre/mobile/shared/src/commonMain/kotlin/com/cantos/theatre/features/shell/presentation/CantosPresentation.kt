@@ -77,7 +77,7 @@ import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.canGoBack
 import com.cantos.theatre.presentation.model.continuingProgress
 import com.cantos.theatre.presentation.model.filteredWorks
-import com.cantos.theatre.presentation.model.isAuth
+import com.cantos.theatre.presentation.model.isAccountTask
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Density
@@ -128,7 +128,7 @@ fun CantosPresentation(
     membershipScreen: MembershipScreen = MembershipScreen.Intro,
     // Receives the requester that Back restores when it closes an auth intent opened from Account.
     accountContent: @Composable (loginFocus: FocusRequester) -> Unit = {},
-    // Login and Register bodies; the root reads the route from its own projection.
+    // Login, Register and email verification bodies; the root reads the route from its own projection.
     authContent: @Composable () -> Unit = {},
     authHeader: (@Composable () -> Unit)? = null,
     // Hosts may inject Full to observe motion; reduced motion is the default.
@@ -168,7 +168,7 @@ fun CantosPresentation(
                 },
             ) {
                 if (state.route == ShellRoute.MembershipPreview && membershipHeader != null) membershipHeader()
-                else if (state.route.isAuth() && authHeader != null) {
+                else if (state.route.isAccountTask() && authHeader != null) {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                         Box(Modifier.widthIn(max = AUTH_FRAME_MAX_WIDTH).fillMaxWidth()) { authHeader() }
                     }
@@ -189,10 +189,10 @@ fun CantosPresentation(
                     }
                 }
                 val scroll = rememberRouteScroll(state.stack, membershipScreen)
-                val framed = state.route == ShellRoute.MembershipPreview || state.route.isAuth()
+                val framed = state.route == ShellRoute.MembershipPreview || state.route.isAccountTask()
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Column(
-                        Modifier.widthIn(max = if (state.route.isAuth()) AUTH_FRAME_MAX_WIDTH else tokenDp("breakpoint.expanded"))
+                        Modifier.widthIn(max = if (state.route.isAccountTask()) AUTH_FRAME_MAX_WIDTH else tokenDp("breakpoint.expanded"))
                             .fillMaxWidth().verticalScroll(scroll).padding(tokenDp(if (framed) "space.section" else "space.md"))
                             .semantics { paneTitle = routeTitle(state.route, copy) }
                             .testTag("screen"),
@@ -215,7 +215,7 @@ fun CantosPresentation(
                             ShellRoute.Player -> PlayerScreen(state, catalog, copy, dispatch)
                             ShellRoute.Queue -> QueueScreen(state, catalog, copy, dispatch)
                             ShellRoute.Account -> accountContent(entryFocus.login)
-                            ShellRoute.Login, ShellRoute.Register -> authContent()
+                            ShellRoute.Login, ShellRoute.Register, ShellRoute.VerifyEmail -> authContent()
                             ShellRoute.MembershipPreview -> membershipContent()
                             ShellRoute.History -> HistoryScreen(state, catalog, copy, dispatch)
                             ShellRoute.Settings -> SettingsScreen(state, copy, dispatch)
@@ -257,7 +257,7 @@ private fun routeTitle(route: ShellRoute, copy: ShellCopy): String = copy.text(
         ShellRoute.Account -> CopyKey.Account
         ShellRoute.MembershipPreview -> CopyKey.MembershipPreview
         ShellRoute.Login -> CopyKey.SignIn
-        ShellRoute.Register -> CopyKey.CreateAccount
+        ShellRoute.Register, ShellRoute.VerifyEmail -> CopyKey.CreateAccount
         ShellRoute.History -> CopyKey.History
         ShellRoute.Settings -> CopyKey.Settings
         ShellRoute.Unavailable -> CopyKey.SelectionUnavailable
@@ -269,7 +269,8 @@ private fun headerTitleKey(route: ShellRoute): CopyKey = when (route) {
     ShellRoute.Account -> CopyKey.AccountSpace
     ShellRoute.MembershipPreview -> CopyKey.Brand
     ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, is ShellRoute.Work, ShellRoute.Queue,
-    ShellRoute.History, ShellRoute.Settings, ShellRoute.Unavailable, ShellRoute.Login, ShellRoute.Register -> CopyKey.Brand
+    ShellRoute.History, ShellRoute.Settings, ShellRoute.Unavailable, ShellRoute.Login, ShellRoute.Register,
+    ShellRoute.VerifyEmail -> CopyKey.Brand
 }
 
 @Composable

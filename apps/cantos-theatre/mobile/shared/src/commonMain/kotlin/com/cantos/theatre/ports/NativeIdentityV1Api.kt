@@ -1,8 +1,10 @@
 package com.cantos.theatre.ports
 
+import com.cantos.theatre.domain.identity.CompletionStatus
 import com.cantos.theatre.domain.identity.NativeGrant
 import com.cantos.theatre.domain.identity.NativeSession
 import com.cantos.theatre.domain.identity.RegistrationEmail
+import com.cantos.theatre.domain.identity.SignupCompletionRequest
 
 sealed interface IdentityV1Failure {
     data object Unauthorized : IdentityV1Failure
@@ -35,4 +37,13 @@ interface NativeIdentityV1Api {
     // TODO(owner): production cleanup uses revokeFamily only; this DELETE /session access-only revoke has no
     // production caller. Kept because the contract defines it and the client tests cover it.
     suspend fun revoke(previous: NativeGrant): IdentityV1Result<Unit>
+}
+
+/**
+ * The anonymous completion of an emailed signup (`POST signup/complete`). Separate from
+ * [NativeIdentityV1Api] because it never carries, reads or changes a session: success creates an
+ * account, and the listener signs in afterwards through the explicit Login.
+ */
+interface SignupCompletionApi {
+    suspend fun completeSignup(request: SignupCompletionRequest): IdentityV1Result<CompletionStatus>
 }

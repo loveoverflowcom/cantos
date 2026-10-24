@@ -42,22 +42,32 @@ class TheatreAndroidHostTest(unittest.TestCase):
         for component in ("receiver", "provider", "activity-alias"):
             self.assertEqual(application.findall(component), [], component)
 
-    def test_single_launcher_activity_has_no_browser_callback_or_url_scheme(self):
+    def test_single_activity_has_the_launcher_and_only_the_exact_signup_app_link(self):
         activities = self.manifest.findall("application/activity")
         self.assertEqual([activity.get(ANDROID + "name") for activity in activities], [".app.TheatreActivity"])
         self.assertEqual(activities[0].get(ANDROID + "launchMode"), "singleTask")
         routes = activities[0].findall("intent-filter")
-        # Exactly the launcher entry: MAIN/LAUNCHER, nothing else a browser or another app can open.
-        self.assertEqual(len(routes), 1)
-        self.assertEqual([node.get(ANDROID + "name") for node in routes[0].findall("action")], ["android.intent.action.MAIN"])
-        self.assertEqual([node.get(ANDROID + "name") for node in routes[0].findall("category")], ["android.intent.category.LAUNCHER"])
+        names = lambda route, tag: [node.get(ANDROID + "name") for node in route.findall(tag)]
+        # The launcher entry, plus ADR 0048's one verified App Link: exact host and path, never a
+        # prefix, pattern, custom scheme or the site root. No auth callback is declared.
+        self.assertEqual(len(routes), 2)
+        self.assertEqual(names(routes[0], "action"), ["android.intent.action.MAIN"])
+        self.assertEqual(names(routes[0], "category"), ["android.intent.category.LAUNCHER"])
         self.assertEqual(routes[0].findall("data"), [])
+        link = routes[1]
+        self.assertEqual(link.get(ANDROID + "autoVerify"), "true")
+        self.assertEqual(names(link, "action"), ["android.intent.action.VIEW"])
+        self.assertEqual(sorted(names(link, "category")), ["android.intent.category.BROWSABLE", "android.intent.category.DEFAULT"])
+        self.assertEqual([dict(node.attrib) for node in link.findall("data")],
+                         [{ANDROID + "scheme": "https", ANDROID + "host": "cantos.cc", ANDROID + "path": "/verify-email"}])
         # Whole-manifest negative controls, so a filter added to another component is caught too.
-        categories = {node.get(ANDROID + "name") for node in self.manifest.iter("category")}
-        self.assertNotIn("android.intent.category.BROWSABLE", categories)
-        self.assertEqual(list(self.manifest.iter("data")), [])
+        browsable = [node for node in self.manifest.iter("category") if node.get(ANDROID + "name") == "android.intent.category.BROWSABLE"]
+        self.assertEqual(len(browsable), 1)
+        self.assertEqual(len(list(self.manifest.iter("data"))), 1)
         self.assertNotIn("${applicationId}", MANIFEST.read_text())
         self.assertEqual(application_label(self.manifest), "@string/app_name")
+        # The debug overlay adds no filter of its own; debug has no association (ADR 0048).
+        self.assertEqual(list(ET.parse(HOST / "src/debug/AndroidManifest.xml").getroot().iter("intent-filter")), [])
 
     def test_window_backgrounds_match_canonical_tokens_without_a_splash_dependency(self):
         tokens = json.loads((ROOT / "packages/ui-system/shared/tokens.json").read_text())
@@ -93,14 +103,20 @@ class TheatreAndroidHostTest(unittest.TestCase):
         self.assertNotIn("mockAppContainer", activity)
         self.assertIn("CantosTheatreApp(", activity)
 
-    def test_activity_receives_no_callback_intent(self):
+    def test_activity_hands_only_a_scrubbed_view_url_to_the_shell_and_takes_no_callback(self):
         activity = (HOST / "src/main/kotlin/com/cantos/theatre/app/TheatreActivity.kt").read_text()
-        # singleTask stays for the launcher, but no code may take a browser callback from an Intent.
-        self.assertNotRegex(activity, r"\bonNewIntent\b")
+        # The URL goes to the shell's link owner only, which parses it against the pinned handler.
+        self.assertEqual(re.findall(r"receiveLink", activity), ["receiveLink", "receiveLink"])
+        self.assertIn("intent.action != Intent.ACTION_VIEW", activity)
+        # Read once, then removed from the kept Intent with its extras; never replayed from history
+        # or from the original Intent a recreated or restored Activity gets back.
+        self.assertIn("intent.data = null", activity)
+        self.assertIn("intent.replaceExtras(null as Bundle?)", activity)
+        self.assertIn("FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY", activity)
+        self.assertIn("savedInstanceState == null", activity)
+        self.assertNotRegex(activity, r"\bgetStringExtra\b|\bextras\s*\.|\bgetParcelable")
         self.assertNotRegex(activity, r"\bdeliverCallback\b|\bparseAndroidCallback\b|\bNativeCallback\w*")
-        self.assertNotIn("setIntent", activity)
-        self.assertNotRegex(activity, r"\bintent\b\s*\??\.\s*data\b")
-        self.assertNotIn("NativeCallbackProfile", activity)
+        self.assertNotRegex(activity, r"\bLog\.|println")
 
     def test_debug_is_the_side_by_side_dev_identity_and_release_keeps_the_production_id(self):
         build = (HOST / "build.gradle.kts").read_text()
@@ -137,9 +153,12 @@ class TheatreAndroidHostTest(unittest.TestCase):
         self.assertRegex(process, r"AndroidNativeHttp\(\s*scope\s*,\s*origin\s*\)")
         self.assertRegex(process, r"createAndroidNativeAccount\(\s*scope\s*,\s*app\s*,\s*origin\s*\)")
         self.assertRegex(process, r"createAndroidRegistration\(\s*scope\s*,\s*origin\s*\)")
-        # Account and registration are NativeIdentityV1Client(ApiOrigin, transport bound to that origin, clock).
+        self.assertRegex(process, r"createAndroidVerification\(\s*scope\s*,\s*origin\s*\)")
+        # Account, registration and signup completion are NativeIdentityV1Client(ApiOrigin,
+        # transport bound to that origin, clock); completion is pinned to the production handler.
         self.assertEqual(len(re.findall(
-            r"NativeIdentityV1Client\(\s*origin\s*,\s*AndroidNativeHttp\(\s*scope\s*,\s*origin\s*\)\s*,\s*now\s*\)", native)), 2)
+            r"NativeIdentityV1Client\(\s*origin\s*,\s*AndroidNativeHttp\(\s*scope\s*,\s*origin\s*\)\s*,\s*now\s*\)", native)), 3)
+        self.assertIn("ProductionVerifyEmailHandler", native)
         self.assertRegex(native, r"SecureNativeCredentialJournal\(\s*AndroidCredentialStore\(context\)\s*,\s*origin\s*\)")
         self.assertRegex(transport, r"class\s+AndroidNativeHttp\(\s*private\s+val\s+scope:\s*CoroutineScope\s*,\s*private\s+val\s+origin:\s*ApiOrigin\s*\)")
         # Cleartext is the origin's decision, never an independent switch of the transport.

@@ -15,6 +15,7 @@ import com.cantos.theatre.adapters.http.selectPackagedApiOrigin
 import com.cantos.theatre.adapters.identity.AndroidNativeHttp
 import com.cantos.theatre.adapters.identity.createAndroidNativeAccount
 import com.cantos.theatre.adapters.identity.createAndroidRegistration
+import com.cantos.theatre.adapters.identity.createAndroidVerification
 import com.cantos.theatre.adapters.library.AccountCatalogCache
 import com.cantos.theatre.adapters.library.NativeLibraryClient
 import com.cantos.theatre.adapters.library.androidLibraryStore
@@ -88,7 +89,8 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
     private val networkSignals = AndroidLibraryNetworkSignals(app, scope, runtime::networkRestored)
     /** Navigation and typed route text outlive Activity recreation, like every other owner here. */
     private val registration = createAndroidRegistration(scope, origin)
-    val shell = TheatreShell(scope, catalog, runtime, preferences, registration = registration)
+    private val verification = createAndroidVerification(scope, origin)
+    val shell = TheatreShell(scope, catalog, runtime, preferences, registration = registration, verification = verification)
 }
 
 internal object ProductionProcess {
