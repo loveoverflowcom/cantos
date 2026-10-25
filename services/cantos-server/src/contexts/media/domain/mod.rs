@@ -14,4 +14,5 @@ pub mod playback_grant;
 pub mod public_cover;
 
 pub mod artwork;
+pub mod cover_disclosure;
 pub mod image;

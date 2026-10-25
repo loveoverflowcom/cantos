@@ -10,6 +10,7 @@ use super::super::{
     listener_application::ListenerError,
     listener_cursor::Keyset,
     listener_projection::{audio_presentation, publication_manifest, work_presentation},
+    turso::cover::{pinned_cover_facts, PinnedCoverFacts, PinnedWork},
 };
 use crate::platform::store::Row;
 use crate::{
@@ -92,6 +93,8 @@ pub(in crate::contexts::media) struct ReadItem {
     pub first_at: i64,
     pub position: u32,
     pub presentation: Option<PresentationStats>,
+    /// Pinned cover facts, read only for a covered request (`presentation=2` or the cover route).
+    pub cover: Option<PinnedCoverFacts>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(in crate::contexts::media) struct PresentationStats {
@@ -275,6 +278,7 @@ fn decode(
         first_at,
         position,
         presentation: None,
+        cover: None,
     }))
 }
 /// The eligible relation. `?1` is the read's instant in milliseconds. PostgreSQL's `JOIN LATERAL`
@@ -590,6 +594,34 @@ pub(in crate::contexts::media) async fn publication(
     Ok(batch(tx, rows, 1, false, now).await?.0.into_iter().next())
 }
 
+/// Attach each representative release's pinned cover facts in the same pinned snapshot: three
+/// bounded statements for the whole page, never one per item.
+async fn with_covers(
+    tx: &Tx<'_>,
+    (mut items, next): (Vec<ReadItem>, Option<Keyset>),
+) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
+    let pinned: Vec<_> = items
+        .iter()
+        .map(|r| {
+            let work = r.publication.work();
+            PinnedWork {
+                work_id: work.id().as_str().to_owned(),
+                owner_id: work.owner_id().as_str().to_owned(),
+                revision: work.revision(),
+            }
+        })
+        .collect();
+    let mut facts = pinned_cover_facts(tx, &pinned).await?;
+    for item in &mut items {
+        item.cover = Some(
+            facts
+                .remove(item.publication.work().id().as_str())
+                .ok_or(ListenerError::Corrupt)?,
+        );
+    }
+    Ok((items, next))
+}
+
 use super::super::listener_application::{ListenerRead, ReadFuture, ReadRequest, ReadSnapshot};
 use crate::platform::store::Store;
 pub(in crate::contexts::media) struct TursoRead(pub Store);
@@ -616,6 +648,19 @@ impl ListenerRead for TursoRead {
                 }
                 ReadRequest::PresentedUnits { work, after, limit } => {
                     presented_units(&tx, &work, after.as_ref(), limit, now).await?
+                }
+                ReadRequest::CoveredWork { work } => {
+                    with_covers(&tx, presented_work(&tx, &work, now).await?).await?
+                }
+                ReadRequest::CoveredWorks { query, after } => {
+                    with_covers(
+                        &tx,
+                        presented_works(&tx, &query, after.as_ref(), now).await?,
+                    )
+                    .await?
+                }
+                ReadRequest::Cover { work: id } => {
+                    with_covers(&tx, work(&tx, &id, now).await?).await?
                 }
                 ReadRequest::Publication { id } => (
                     publication(&tx, &id, now).await?.into_iter().collect(),

@@ -1,8 +1,9 @@
 # ADR 0033: Release-pinned public Work cover (#157 P0)
 
-- Status: **accepted (owner, #157, 2026-10-25)** — policy and Discovery v1.2 contract only;
-  disclosure persistence, Studio write route, cover delivery, projection wiring and Web/CMP
-  adoption are [#171](https://github.com/loveoverflowcom/cantos/issues/171)/#158/#159 work
+- Status: **accepted (owner, #157, 2026-10-25)** — policy and Discovery v1.2 contract. The
+  Server backend (disclosure persistence and [Studio route](../../services/cantos-server/contracts/studio/cover-disclosure/v1/README.md),
+  `presentation=2` projection and the composition-gated origin cover route) is implemented by
+  [#171](https://github.com/loveoverflowcom/cantos/issues/171); Web/CMP adoption is #158/#159
 - Date: proposed 2026-10-16; accepted 2026-10-25
 - Decision owner: Cantos product owner (selected all four #157 P0 options in the delivery
   session for [#157](https://github.com/loveoverflowcom/cantos/issues/157)); deployment owner
@@ -73,7 +74,7 @@ claims the runtime that #171 must still build.
    `presentation=2` and answers exactly as for `presentation=1`. Theatre stays JSON; no
    Protobuf message or field number is selected.
 
-The [Discovery v1 contract](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-cover-v12-accepted-not-served)
+The [Discovery v1 contract](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-cover-v12-composition-gated)
 owns the exact field shapes, fixtures and HTTP table. The pure kernel owns rules 1–3 and the
 delivery admission of rule 5 (`public_cover::project_public_cover`, `admit_cover_fetch`).
 
@@ -115,7 +116,8 @@ delivery admission of rule 5 (`public_cover::project_public_cover`, `admit_cover
 
 The pure kernel's example, bounded-exhaustive and registered (not run) Kani checks, the
 `admit_cover_fetch` tests and the draft Quint capability exercise rules 1–3 and 5. Discovery
-v1.2 schema/DTO/fixture conformance tests exercise rule 6. They do not establish disclosure
-persistence, real `server.db`, HTTP, storage, browser or device behavior, which remain NOT_RUN
-until #171/#158/#159. Revisit if a shared cache or CDN is proposed, if the owner wants live
+v1.2 schema/DTO/fixture conformance tests exercise rule 6. #171 adds file-backed `server.db`
+tests through the production Studio services, `ListenerService` and HTTP router over a real
+private filesystem object root (rules 1–6). Deployed TLS/proxy/CDN behavior, CORP/CORS, browser
+and device behavior remain NOT_RUN until their owners (#158/#159, deployment). Revisit if a shared cache or CDN is proposed, if the owner wants live
 editorial cover corrections without a release, or if image rights expiry must bound clearance.

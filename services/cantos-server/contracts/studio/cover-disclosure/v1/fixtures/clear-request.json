@@ -1,0 +1,6 @@
+{
+  "operation_id": "20000000-0000-4000-8000-000000000001",
+  "image_asset_digest": "ia-r1:sha256:3f1c2b7d9e8a6c5b4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c",
+  "decision": "cleared",
+  "valid_until_ms": 1900003600000
+}

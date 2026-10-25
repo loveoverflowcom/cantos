@@ -15,12 +15,12 @@ use crate::contexts::media::{
 };
 use crate::platform::store::StoreError;
 
-pub(super) struct SharedImageObjects {
+pub(in crate::contexts::media) struct SharedImageObjects {
     registry: Option<Arc<StorageRegistry>>,
 }
 
 impl SharedImageObjects {
-    pub(super) fn new(registry: Option<Arc<StorageRegistry>>) -> Self {
+    pub(in crate::contexts::media) fn new(registry: Option<Arc<StorageRegistry>>) -> Self {
         Self { registry }
     }
 }

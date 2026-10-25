@@ -185,6 +185,7 @@ TABLE_OWNER = {
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
     "media_image_intents": "media", "media_image_assets": "media",
     "media_work_artwork_changes": "media", "media_artwork_operations": "media",
+    "media_cover_disclosures": "media",
     **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations", "listener_bookmarks")},
 }
 RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
@@ -890,13 +891,18 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
             ("contexts", "media", "ArtworkService"),
             ("contexts", "media", "ArtworkService", "new"),
             ("contexts", "media", "ArtworkReceipt"),
+            # ADR 0033 owner cover disclosure: one application use case, mounted with artwork.
+            ("contexts", "media", "CoverDisclosureService"),
+            ("contexts", "media", "CoverDisclosureService", "new"),
         }
         artwork_error = path[:3] in {
             ("contexts", "media", "ArtworkApplicationError"),
             ("contexts", "media", "ImageObjectError"),
+            ("contexts", "media", "CoverDisclosureApplicationError"),
         } or path[:5] in {
             ("contexts", "media", "domain", "artwork", "ArtworkError"),
             ("contexts", "media", "domain", "image", "ImageError"),
+            ("contexts", "media", "domain", "cover_disclosure", "CoverDisclosureError"),
         } or path[:4] == ("contexts", "media", "image_intake", "ImageIntakeError")
         if http and path not in HTTP_PURE_BOUNDARIES and not (
             catalog_wire or catalog_error or catalog_input_type or media_read

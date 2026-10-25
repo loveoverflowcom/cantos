@@ -9,6 +9,7 @@ mod audio_lifecycle_wire;
 mod brief_wire;
 mod catalog_wire;
 mod content_wire;
+mod cover_disclosure_wire;
 mod delegation_wire;
 mod identity_auth_wire;
 mod import_wire;

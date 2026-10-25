@@ -6,6 +6,7 @@ use super::{
         },
         playback_grant::grant_expiry,
     },
+    listener_cover::CoverDelivery,
     listener_cursor::{CursorVault, Keyset},
     listener_delivery::{OriginPlayback, PlaybackDelivery, PlaybackPermit, UnavailablePlayback},
     listener_projection::{
@@ -73,7 +74,7 @@ fn clock() -> Result<i64, ListenerError> {
     )
     .map_err(|_| ListenerError::Unavailable)
 }
-fn id(raw: &str) -> Result<String, ListenerError> {
+pub(super) fn id(raw: &str) -> Result<String, ListenerError> {
     canonical_uuid(raw)
         .filter(|v| v == raw)
         .ok_or(ListenerError::InvalidRequest)
@@ -103,9 +104,33 @@ pub(super) enum ReadRequest {
         after: Option<Keyset>,
         limit: usize,
     },
+    /// `PresentedWork` plus the pinned cover facts of the representative release.
+    CoveredWork {
+        work: String,
+    },
+    /// `PresentedWorks` plus the pinned cover facts of each representative release.
+    CoveredWorks {
+        query: DiscoveryQuery,
+        after: Option<Keyset>,
+    },
+    /// The detail representative release and its pinned cover facts, for the cover route.
+    Cover {
+        work: String,
+    },
     Publication {
         id: String,
     },
+}
+/// The Discovery presentation level a request opted into (`presentation=1|2`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PresentationLevel {
+    Released,
+    Covered,
+}
+pub(super) struct PresentedPage {
+    pub rows: Vec<(ReadItem, dto::PresentedWorkSummary)>,
+    pub next_cursor: Option<String>,
+    pub now: i64,
 }
 pub(super) struct ReadSnapshot {
     pub now: i64,
@@ -119,13 +144,16 @@ pub(super) trait ListenerRead: Send + Sync {
 }
 #[derive(Clone)]
 pub struct ListenerService {
-    read: Arc<dyn ListenerRead>,
+    pub(super) read: Arc<dyn ListenerRead>,
     cursors: Arc<CursorVault>,
     presented_cursors: Arc<CursorVault>,
+    covered_cursors: Arc<CursorVault>,
     delivery: Arc<dyn PlaybackDelivery>,
     /// Present only when trusted composition enabled origin delivery (proposed ADR 0032).
     pub(super) media: Option<OriginPlayback>,
     pub(super) media_lanes: Arc<Semaphore>,
+    /// Present only when trusted composition enabled cover delivery (ADR 0033).
+    pub(super) covers: Option<CoverDelivery>,
 }
 
 /// Named external-read double for the crate-root transport contract fixture only.
@@ -175,9 +203,11 @@ impl ListenerService {
             read,
             cursors: Arc::new(CursorVault::default()),
             presented_cursors: Arc::new(CursorVault::default()),
+            covered_cursors: Arc::new(CursorVault::default()),
             delivery,
             media: None,
             media_lanes: Arc::new(Semaphore::new(MEDIA_LANES)),
+            covers: None,
         }
     }
     /// A grant-only adapter. It enables no Theatre media route.
@@ -324,9 +354,37 @@ impl ListenerService {
         limit: u16,
         cursor: Option<&str>,
     ) -> Result<dto::PresentedWorkPage, ListenerError> {
+        let page = self
+            .presented_page(
+                PresentationLevel::Released,
+                search,
+                kind,
+                language,
+                limit,
+                cursor,
+            )
+            .await?;
+        Ok(dto::PresentedWorkPage {
+            items: page.rows.into_iter().map(|(_, summary)| summary).collect(),
+            next_cursor: page.next_cursor,
+        })
+    }
+
+    /// One presented works page under the cursor vault of its presentation level. Covered pages
+    /// read pinned cover facts in the same snapshot only when cover delivery is composed.
+    pub(super) async fn presented_page(
+        &self,
+        level: PresentationLevel,
+        search: &str,
+        kind: Option<&str>,
+        language: Option<&str>,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<PresentedPage, ListenerError> {
+        let vault = self.vault(level);
         let query = DiscoveryQuery::new(search, kind, language, limit)?;
         let after = cursor
-            .map(|v| self.presented_cursors.read(v, &query, clock()?))
+            .map(|v| vault.read(v, &query, clock()?))
             .transpose()?;
         if after
             .as_ref()
@@ -334,14 +392,19 @@ impl ListenerService {
         {
             return Err(ListenerError::InvalidCursor);
         }
-        let snapshot = self
-            .read
-            .read(ReadRequest::PresentedWorks {
+        let request = if level == PresentationLevel::Covered && self.covers.is_some() {
+            ReadRequest::CoveredWorks {
                 query: query.clone(),
                 after: after.clone(),
-            })
-            .await?;
-        let mut items = Vec::new();
+            }
+        } else {
+            ReadRequest::PresentedWorks {
+                query: query.clone(),
+                after: after.clone(),
+            }
+        };
+        let snapshot = self.read.read(request).await?;
+        let mut rows = Vec::new();
         for row in snapshot.items {
             if !query.matches(&row.publication.discoverable()) {
                 return Err(ListenerError::Corrupt);
@@ -359,35 +422,54 @@ impl ListenerService {
                     return Err(ListenerError::Corrupt);
                 }
             }
-            items.push(summary);
+            rows.push((row, summary));
         }
-        items.truncate(query.limit());
+        rows.truncate(query.limit());
         let next_cursor = snapshot
             .next_key
-            .map(|key| self.presented_cursors.issue(&query, key, clock()?))
+            .map(|key| vault.issue(&query, key, clock()?))
             .transpose()?;
-        Ok(dto::PresentedWorkPage { items, next_cursor })
+        Ok(PresentedPage {
+            rows,
+            next_cursor,
+            now: snapshot.now,
+        })
     }
 
     pub async fn presented_work(
         &self,
         work: &str,
     ) -> Result<dto::PresentedWorkSummary, ListenerError> {
-        let work = id(work)?;
-        let snapshot = self
-            .read
-            .read(ReadRequest::PresentedWork { work: work.clone() })
+        let (_, summary, _) = self
+            .presented_row(PresentationLevel::Released, work)
             .await?;
-        let row = snapshot.items.first().ok_or(ListenerError::NotFound)?;
+        Ok(summary)
+    }
+
+    /// The representative release of one Work, with its read's clock.
+    pub(super) async fn presented_row(
+        &self,
+        level: PresentationLevel,
+        work: &str,
+    ) -> Result<(ReadItem, dto::PresentedWorkSummary, i64), ListenerError> {
+        let work = id(work)?;
+        let request = if level == PresentationLevel::Covered && self.covers.is_some() {
+            ReadRequest::CoveredWork { work: work.clone() }
+        } else {
+            ReadRequest::PresentedWork { work: work.clone() }
+        };
+        let snapshot = self.read.read(request).await?;
+        let row = snapshot
+            .items
+            .into_iter()
+            .next()
+            .ok_or(ListenerError::NotFound)?;
         if row.publication.work().id().as_str() != work {
             return Err(ListenerError::Corrupt);
         }
         let stats = row.presentation.ok_or(ListenerError::Corrupt)?;
-        Ok(presented_work_summary(
-            &row.publication,
-            row.first_at,
-            stats.unit_count,
-        ))
+        let summary = presented_work_summary(&row.publication, row.first_at, stats.unit_count);
+        Ok((row, summary, snapshot.now))
     }
 
     pub async fn presented_units(
@@ -396,10 +478,23 @@ impl ListenerService {
         limit: u16,
         cursor: Option<&str>,
     ) -> Result<dto::PresentedUnitPage, ListenerError> {
+        self.presented_units_at(PresentationLevel::Released, work, limit, cursor)
+            .await
+    }
+
+    /// Units answer identically at every presentation level; only cursor identity differs.
+    pub(super) async fn presented_units_at(
+        &self,
+        level: PresentationLevel,
+        work: &str,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<dto::PresentedUnitPage, ListenerError> {
+        let vault = self.vault(level);
         let work = id(work)?;
         let query = DiscoveryQuery::new("", None, None, limit)?;
         let after = cursor
-            .map(|v| self.presented_cursors.read(v, &query, clock()?))
+            .map(|v| vault.read(v, &query, clock()?))
             .transpose()?;
         if after
             .as_ref()
@@ -446,13 +541,21 @@ impl ListenerService {
         items.truncate(query.limit());
         let next_cursor = snapshot
             .next_key
-            .map(|key| self.presented_cursors.issue(&query, key, clock()?))
+            .map(|key| vault.issue(&query, key, clock()?))
             .transpose()?;
         Ok(dto::PresentedUnitPage {
             work_id: work,
             items,
             next_cursor,
         })
+    }
+
+    /// The level is part of cursor identity: each level issues and reads its own cursors.
+    fn vault(&self, level: PresentationLevel) -> &CursorVault {
+        match level {
+            PresentationLevel::Released => &self.presented_cursors,
+            PresentationLevel::Covered => &self.covered_cursors,
+        }
     }
     /// One fresh read: the current eligible publication, if any, and the read's clock.
     pub(super) async fn current(
@@ -598,6 +701,7 @@ pub(super) mod tests {
             first_at: 5000,
             position: 1,
             presentation: None,
+            cover: None,
         })
     }
 
@@ -878,6 +982,55 @@ pub(super) mod tests {
             s.units(&work, 1, Some(&presented)).await.unwrap_err(),
             ListenerError::InvalidCursor
         );
+        // Discovery v1.2: the presentation level is cursor identity in both directions.
+        let covered = s
+            .covered_cursors
+            .issue(&query, key_for(&work), clock().unwrap())
+            .unwrap();
+        assert_eq!(
+            s.covered_units(&work, 1, Some(&presented))
+                .await
+                .unwrap_err(),
+            ListenerError::InvalidCursor
+        );
+        assert_eq!(
+            s.presented_units(&work, 1, Some(&covered))
+                .await
+                .unwrap_err(),
+            ListenerError::InvalidCursor
+        );
+        let works = DiscoveryQuery::new("", None, None, 1).unwrap();
+        let work_key = Keyset::Works {
+            time: 5000,
+            id: work.clone(),
+        };
+        let released_works = s
+            .presented_cursors
+            .issue(&works, work_key.clone(), clock().unwrap())
+            .unwrap();
+        let covered_works = s
+            .covered_cursors
+            .issue(&works, work_key, clock().unwrap())
+            .unwrap();
+        assert_eq!(
+            s.covered_works("", None, None, 1, Some(&released_works))
+                .await
+                .unwrap_err(),
+            ListenerError::InvalidCursor
+        );
+        assert_eq!(
+            s.presented_works("", None, None, 1, Some(&covered_works))
+                .await
+                .unwrap_err(),
+            ListenerError::InvalidCursor
+        );
+    }
+    fn key_for(work: &str) -> Keyset {
+        Keyset::Units {
+            work: work.into(),
+            position: 1,
+            id: ID.into(),
+        }
     }
 
     /// Models eligibility loss after a bounded scan, then a fresh read of the remaining units.

@@ -3,7 +3,7 @@
 Review boundary: make [#171](https://github.com/loveoverflowcom/cantos/issues/171)'s
 implementation review reproducible against the accepted policy. The accepted
 [ADR 0033](../decisions/0033-release-pinned-public-cover.md) owns the cover rule and the
-[Discovery v1.2 section](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-cover-v12-accepted-not-served)
+[Discovery v1.2 section](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-cover-v12-composition-gated)
 owns the wire; this handoff adds no second artwork contract. GitHub owns execution status.
 The source inventory was first pinned to `f6204e8bc8cb5361f93917c09dfe9d01aa6ef359` and
 refreshed for the #157 decision at `e082d2d8df51056678611361d0c39b590e650acf` (native Turso
@@ -23,7 +23,7 @@ accepts no implementation, which still needs the acceptance matrix further down.
 | Delivery and privacy | Origin GET/HEAD `/api/v1/theatre/works/{work_id}/cover/{sha256}`, re-projected on every request; one anonymous `not_found` for every denial | Composition gate, private-object read and actual-byte check |
 | Cache and revocation | Strong `ETag: "{sha256}"`, `Cache-Control: public, no-cache`; revocation effective on the next request | Exact CORP/CORS headers for deployed origins (ADR 0041); CMP offline retention |
 | Wire and rollout | Discovery v1.2 `presentation=2` → `CoveredWorkPage`/`CoveredWorkSummary` with required nullable `cover`; default and `presentation=1` unchanged; JSON only | Admitting `presentation=2` in the closed query and cursor identity |
-| Consumers and acceptance | [Contract section](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-cover-v12-accepted-not-served) and `fixtures/cover/`; Web #158 and CMP #159 adopt after #171 | Web/CMP decoding and fallback observations |
+| Consumers and acceptance | [Contract section](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-cover-v12-composition-gated) and `fixtures/cover/`; Web #158 and CMP #159 adopt after #171 | Web/CMP decoding and fallback observations |
 
 #157's P1 metadata rows are separate ([ADR 0030](../decisions/0030-release-safe-public-metadata.md#157-capability-matrix));
 accepting them would not change this P0 gate.
@@ -103,6 +103,29 @@ Rust DTOs and conformance tests (`contract-tested`) and the pure `admit_cover_fe
 (`example-tested`). It changes no migration, route, query admission, storage object or client
 behavior. No release or manifest is produced; no cache/audio identity, rights or approval is
 changed. No performance measurement is claimed. Runtime SQL/API/storage/browser/device
-acceptance for #171 remains **NOT_RUN** until its implementation. The pure kernel's inherited evidence
-does not complete any of #171's end-to-end acceptance criteria. Keep #171 open until its
-required contract, projection, real SQL and delivery/consumer evidence are actually accepted.
+acceptance for #171 remained **NOT_RUN** at that point. The pure kernel's inherited evidence
+does not complete any of #171's end-to-end acceptance criteria.
+
+### #171 Server backend slice
+
+The #171 slice implements the Server side: an append-only `media_cover_disclosures` table
+(migration 24) written by the owner-only [Studio cover disclosure](../../services/cantos-server/contracts/studio/cover-disclosure/v1/README.md)
+route, `presentation=2` on works/search/detail/units with its own cursor vault, three batched
+statements per page for pinned artwork, assets and latest decisions, and the composition-gated
+`GET|HEAD /works/{work_id}/cover/{sha256}` route. Cover delivery is composed only with the
+public-media host and configured private media storage. The tests are in
+`services/cantos-server/src/test_support/cover_turso_tests.rs` (file-backed `server.db`, real
+private filesystem objects, production services and router).
+
+| Matrix row | #171 slice evidence | Remaining |
+| --- | --- | --- |
+| Publish A, private B, clear | Real SQL: A stays for the pinned release after private replace, disclose B and clear; restart keeps A; the next release pins the clear (`null`), then B | — |
+| Publish B, then withdraw | Real SQL: withdrawal removes the Work from detail/list and the route denies | — |
+| No image / missing / foreign / corrupt / byte mismatch | Real SQL: no artwork pinned → `null`; damaged artwork/asset rows → `null` with title and units intact; changed stored bytes → `500 unavailable` (not retryable) | Two-Work page isolation is by construction (per-Work keys), not a separate test |
+| Undisclosed / revoked / expired / wrong image | Real SQL and HTTP: undisclosed, revoked and expiry at the half-open bound all deny; a stale SHA after republish is `not_found`; a decision for an unknown image is refused by service and trigger | — |
+| Revoke while bytes open | The route re-projects after opening the object; revocation before a revalidation denies on the next request | No fault-injection test at the open/response boundary |
+| Public GET/HEAD and headers | HTTP through the production router: exact bytes, `ETag`, `public, no-cache`, `Accept-Ranges: none`, `nosniff`, 304 on `If-None-Match`, HEAD without body, errors `no-store` | Deployed host, TLS/proxy and CORP/CORS (ADR 0041) |
+| Strict readers and metadata privacy | Served JSON excludes provenance, rights, asset ID/digest, owner and storage facts; default and `presentation=1` are unchanged; cursors do not cross levels | — |
+| Same fixtures on Web and CMP | Not in this slice | Web #158, CMP #159 |
+
+Keep #171 open until the owner accepts this slice's evidence and the remaining rows above.

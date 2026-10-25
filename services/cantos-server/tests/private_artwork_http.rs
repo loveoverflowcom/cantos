@@ -110,7 +110,7 @@ fn lazy_state() -> AppState {
         web_origin: "http://localhost:3000".into(),
     }
 }
-fn artwork_routes() -> [(Method, String); 8] {
+fn artwork_routes() -> [(Method, String); 9] {
     [
         (Method::POST, "image-intents".into()),
         (Method::GET, format!("image-intents/{IMAGE}")),
@@ -120,6 +120,7 @@ fn artwork_routes() -> [(Method, String); 8] {
         (Method::HEAD, format!("image-assets/{IMAGE}/bytes")),
         (Method::GET, "artwork".into()),
         (Method::PATCH, "artwork".into()),
+        (Method::POST, "cover-disclosures".into()),
     ]
 }
 fn unpolled_body() -> Body {
@@ -192,6 +193,7 @@ async fn actual_trusted_mount_is_owner_gated_with_no_legacy_or_public_alias() {
         ),
         (Method::GET, "artwork"),
         (Method::PATCH, "artwork"),
+        (Method::POST, "cover-disclosures"),
     ] {
         let path = format!("/api/v1/studio/works/00000000-0000-4000-8000-000000000001/{suffix}");
         let response = trusted
@@ -218,6 +220,8 @@ async fn actual_trusted_mount_is_owner_gated_with_no_legacy_or_public_alias() {
         "/api/v1/works/00000000-0000-4000-8000-000000000001/artwork",
         "/api/v1/theatre/works/00000000-0000-4000-8000-000000000001/image-assets/00000000-0000-4000-8000-000000000002",
         "/api/v1/admin/works/00000000-0000-4000-8000-000000000001/artwork",
+        "/api/v1/works/00000000-0000-4000-8000-000000000001/cover-disclosures",
+        "/api/v1/theatre/works/00000000-0000-4000-8000-000000000001/cover-disclosures",
     ] {
         let response = trusted.clone().oneshot(HttpRequest::get(path).body(Body::empty()).unwrap()).await.unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);

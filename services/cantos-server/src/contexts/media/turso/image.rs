@@ -102,7 +102,7 @@ fn intent_row(row: &Row) -> Result<StoredImageIntent, StoreError> {
         document_bytes: bytes,
     })
 }
-fn asset_row(row: &Row) -> Result<StoredImageAsset, StoreError> {
+pub(super) fn asset_row(row: &Row) -> Result<StoredImageAsset, StoreError> {
     let bytes: Vec<u8> = corrupt(row.try_get("document_bytes"))?;
     let raw: dto::ImageAssetDocument = decode_document(&bytes)?;
     let asset = ImageAsset::restore(raw).map_err(|_| StoreError::CorruptRevision)?;

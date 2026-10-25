@@ -5,7 +5,7 @@ use crate::contract::theatre::discovery as dto;
 use axum::{
     body::Body,
     extract::{rejection::PathRejection, DefaultBodyLimit, Extension, Path, Query},
-    http::{HeaderMap, Method, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -17,6 +17,7 @@ pub(super) fn routes() -> Router<AppState> {
         .route("/search", get(works))
         .route("/works/{work}", get(work))
         .route("/works/{work}/units", get(units))
+        .route("/works/{work}/cover/{sha256}", get(cover))
         .route("/publications/{publication}", get(manifest))
         .route(
             "/publications/{publication}/playback-authorizations",
@@ -54,10 +55,13 @@ struct UnitQuery {
     cursor: Option<String>,
     presentation: Option<Presentation>,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Copy, Deserialize)]
 enum Presentation {
     #[serde(rename = "1")]
     Released,
+    /// Discovery v1.2 (ADR 0033): `CoveredWork*` with a required nullable cover.
+    #[serde(rename = "2")]
+    Covered,
 }
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
@@ -72,7 +76,7 @@ mod presentation_query_tests {
 
     #[test]
     fn presentation_query_is_an_explicit_closed_opt_in() {
-        for query in ["", "?presentation=1"] {
+        for query in ["", "?presentation=1", "?presentation=2"] {
             let uri: Uri = format!("/works{query}").parse().unwrap();
             assert_eq!(
                 Query::<WorkQuery>::try_from_uri(&uri)
@@ -98,8 +102,9 @@ mod presentation_query_tests {
         }
         for query in [
             "presentation=0",
-            "presentation=2",
+            "presentation=3",
             "presentation=true",
+            "presentation=1&presentation=2",
             "presentation=",
             "presentation=1&presentation=1",
             "other=1",
@@ -156,34 +161,28 @@ async fn works(
     let Ok(Query(q)) = query else {
         return error(ListenerError::InvalidRequest);
     };
-    if q.presentation.is_some() {
-        return match service
-            .presented_works(
-                q.q.as_deref().unwrap_or(""),
-                q.kind.as_deref(),
-                q.language.as_deref(),
-                q.limit.unwrap_or(20),
-                q.cursor.as_deref(),
-            )
+    let search = q.q.as_deref().unwrap_or("");
+    let (kind, language, limit) = (
+        q.kind.as_deref(),
+        q.language.as_deref(),
+        q.limit.unwrap_or(20),
+    );
+    let cursor = q.cursor.as_deref();
+    let result = match q.presentation {
+        None => service
+            .works(search, kind, language, limit, cursor)
             .await
-        {
-            Ok(v) => Json(v).into_response(),
-            Err(e) => error(e),
-        };
-    }
-    match service
-        .works(
-            q.q.as_deref().unwrap_or(""),
-            q.kind.as_deref(),
-            q.language.as_deref(),
-            q.limit.unwrap_or(20),
-            q.cursor.as_deref(),
-        )
-        .await
-    {
-        Ok(v) => Json(v).into_response(),
-        Err(e) => error(e),
-    }
+            .map(|v| Json(v).into_response()),
+        Some(Presentation::Released) => service
+            .presented_works(search, kind, language, limit, cursor)
+            .await
+            .map(|v| Json(v).into_response()),
+        Some(Presentation::Covered) => service
+            .covered_works(search, kind, language, limit, cursor)
+            .await
+            .map(|v| Json(v).into_response()),
+    };
+    result.unwrap_or_else(error)
 }
 async fn work(
     Extension(service): Extension<ListenerService>,
@@ -193,16 +192,18 @@ async fn work(
     let Ok(Query(q)) = query else {
         return error(ListenerError::InvalidRequest);
     };
-    if q.presentation.is_some() {
-        return match service.presented_work(&work).await {
-            Ok(v) => Json(v).into_response(),
-            Err(e) => error(e),
-        };
-    }
-    match service.work(&work).await {
-        Ok(v) => Json(v).into_response(),
-        Err(e) => error(e),
-    }
+    let result = match q.presentation {
+        None => service.work(&work).await.map(|v| Json(v).into_response()),
+        Some(Presentation::Released) => service
+            .presented_work(&work)
+            .await
+            .map(|v| Json(v).into_response()),
+        Some(Presentation::Covered) => service
+            .covered_work(&work)
+            .await
+            .map(|v| Json(v).into_response()),
+    };
+    result.unwrap_or_else(error)
 }
 async fn units(
     Extension(service): Extension<ListenerService>,
@@ -212,22 +213,22 @@ async fn units(
     let Ok(Query(q)) = query else {
         return error(ListenerError::InvalidRequest);
     };
-    if q.presentation.is_some() {
-        return match service
-            .presented_units(&work, q.limit.unwrap_or(20), q.cursor.as_deref())
+    let (limit, cursor) = (q.limit.unwrap_or(20), q.cursor.as_deref());
+    let result = match q.presentation {
+        None => service
+            .units(&work, limit, cursor)
             .await
-        {
-            Ok(v) => Json(v).into_response(),
-            Err(e) => error(e),
-        };
-    }
-    match service
-        .units(&work, q.limit.unwrap_or(20), q.cursor.as_deref())
-        .await
-    {
-        Ok(v) => Json(v).into_response(),
-        Err(e) => error(e),
-    }
+            .map(|v| Json(v).into_response()),
+        Some(Presentation::Released) => service
+            .presented_units(&work, limit, cursor)
+            .await
+            .map(|v| Json(v).into_response()),
+        Some(Presentation::Covered) => service
+            .covered_units(&work, limit, cursor)
+            .await
+            .map(|v| Json(v).into_response()),
+    };
+    result.unwrap_or_else(error)
 }
 async fn manifest(
     Extension(service): Extension<ListenerService>,
@@ -306,6 +307,88 @@ async fn media_response(
     audio_transport::response(stored, plan, method, lane)
         .unwrap_or_else(|e| error(transport_error(e)))
 }
+/// `public, no-cache`: any cache must revalidate before each use, so a revocation, expiry or
+/// withdrawal takes effect on the next request (ADR 0033 rule 5). Errors stay `no-store`.
+pub(super) const COVER_CACHE_CONTROL: HeaderValue = HeaderValue::from_static("public, no-cache");
+
+/// Whether a path is exactly the Theatre cover route, for the response cache policy.
+pub(super) fn cover_path(path: &str) -> bool {
+    path.strip_prefix("/api/v1/theatre/works/")
+        .and_then(|rest| rest.split_once("/cover/"))
+        .is_some_and(|(work, sha)| {
+            !work.is_empty() && !work.contains('/') && !sha.is_empty() && !sha.contains('/')
+        })
+}
+
+/// Origin cover bytes (accepted ADR 0033). GET and HEAD re-project on every request and serve
+/// only the image the projection shows now; every denial is the same anonymous `not_found`.
+/// Ranges are not served: a `Range` header receives the full representation.
+async fn cover(
+    Extension(service): Extension<ListenerService>,
+    path: Result<Path<(String, String)>, PathRejection>,
+    method: Method,
+    headers: HeaderMap,
+) -> Response {
+    let Ok(Path((work, sha256))) = path else {
+        return error(ListenerError::NotFound);
+    };
+    let admitted = match service.admit_cover(&work, &sha256).await {
+        Ok(admitted) => admitted,
+        Err(e) => return error(e),
+    };
+    let etag = format!("\"{}\"", admitted.sha256());
+    let Ok(etag) = HeaderValue::from_str(&etag) else {
+        return error(ListenerError::Corrupt);
+    };
+    let not_modified = headers
+        .get_all(header::IF_NONE_MATCH)
+        .iter()
+        .any(|value| etag_matches(value, &etag));
+    let mut response = if not_modified {
+        StatusCode::NOT_MODIFIED.into_response()
+    } else {
+        let stream = match service.open_cover(&admitted).await {
+            Ok(stream) => stream,
+            Err(e) => return error(e),
+        };
+        let body = if method == Method::HEAD {
+            Body::empty()
+        } else {
+            Body::from_stream(stream)
+        };
+        let mut response = body.into_response();
+        response.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static(admitted.content_type()),
+        );
+        response.headers_mut().insert(
+            header::CONTENT_LENGTH,
+            HeaderValue::from(admitted.byte_length()),
+        );
+        response
+    };
+    let headers = response.headers_mut();
+    headers.insert(header::ETAG, etag);
+    headers.insert(header::CACHE_CONTROL, COVER_CACHE_CONTROL);
+    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("none"));
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    response
+}
+
+/// `If-None-Match` uses weak comparison (RFC 9110 13.1.2): `*`, or any listed tag whose opaque
+/// value equals the strong cover tag.
+fn etag_matches(value: &HeaderValue, etag: &HeaderValue) -> bool {
+    let (Ok(value), Ok(etag)) = (value.to_str(), etag.to_str()) else {
+        return false;
+    };
+    value.split(',').map(str::trim).any(|candidate| {
+        candidate == "*" || candidate.strip_prefix("W/").unwrap_or(candidate) == etag
+    })
+}
+
 fn transport_error(e: audio_transport::AudioTransportError) -> ListenerError {
     use audio_transport::AudioTransportError;
     match e {

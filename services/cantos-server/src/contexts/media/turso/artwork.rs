@@ -86,7 +86,7 @@ fn fingerprint_valid(value: &str) -> bool {
 fn checksum(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-fn change_row(row: &Row) -> Result<ArtworkChange, StoreError> {
+pub(super) fn change_row(row: &Row) -> Result<ArtworkChange, StoreError> {
     let bytes: Vec<u8> = corrupt(row.try_get("document_bytes"))?;
     let raw: ArtworkChangeDocument = decode_document(&bytes)?;
     let change = ArtworkChange::restore(raw).map_err(|_| StoreError::CorruptRevision)?;

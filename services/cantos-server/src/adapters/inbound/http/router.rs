@@ -19,6 +19,7 @@ pub(super) fn routes(
         library,
         authenticator,
         artwork,
+        cover_disclosures,
     } = services;
     // Cloning the application handle shares the one pool and every configured capability.
     // Only the route's trusted browser origin changes; handlers cannot choose another surface.
@@ -98,6 +99,11 @@ pub(super) fn routes(
     };
     let host = if let Some(artwork) = artwork {
         host.layer(axum::Extension(artwork))
+    } else {
+        host
+    };
+    let host = if let Some(disclosures) = cover_disclosures {
+        host.layer(axum::Extension(disclosures))
     } else {
         host
     };

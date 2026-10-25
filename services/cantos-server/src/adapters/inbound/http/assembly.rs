@@ -10,8 +10,8 @@ use crate::contexts::{
         LibraryService,
     },
     media::{
-        ArtworkService, ListenerService, OriginPlayback, PlaybackDelivery, PublicationDelivery,
-        PublicationService,
+        ArtworkService, CoverDisclosureService, ListenerService, OriginPlayback, PlaybackDelivery,
+        PublicationDelivery, PublicationService,
     },
 };
 
@@ -21,6 +21,8 @@ pub(super) struct HttpServices {
     pub library: LibraryService,
     pub authenticator: Arc<dyn ListenerAuthenticator>,
     pub artwork: Option<ArtworkService>,
+    /// Mounted with the private artwork routes: a decision names one of their admitted images.
+    pub cover_disclosures: Option<CoverDisclosureService>,
 }
 
 struct Assembly<'a> {
@@ -49,6 +51,7 @@ impl<'a> Assembly<'a> {
             artwork: store
                 .audio_storage_is_enabled()
                 .then(|| ArtworkService::new(store.clone())),
+            cover_disclosures: None,
         };
         Self {
             state,
@@ -58,13 +61,32 @@ impl<'a> Assembly<'a> {
         }
     }
 
-    fn build(self) -> Router {
+    fn build(mut self) -> Router {
+        self.services.cover_disclosures = self
+            .services
+            .artwork
+            .as_ref()
+            .map(|_| CoverDisclosureService::new(self.state.store.clone()));
         // ServeDir follows nested symlinks. Private storage/artwork disables every static
         // fallback, including development and trusted capability overrides.
         let dist = self.dist.filter(|_| {
             !self.state.store.audio_storage_is_enabled() && self.services.artwork.is_none()
         });
         mount_routes(self.state, dist, self.services, self.origins)
+    }
+}
+
+impl Assembly<'_> {
+    /// Origin playback and cover delivery share the host's one explicit HTTPS origin. Covers are
+    /// composed only when private media storage is configured; otherwise they stay `null`.
+    fn compose_public_media(&mut self, origin: OriginPlayback) {
+        let cover_origin = origin.origin().clone();
+        self.services.listener = self
+            .services
+            .listener
+            .clone()
+            .with_origin_playback(origin)
+            .with_cover_delivery(cover_origin, &self.state.store);
     }
 }
 
@@ -117,7 +139,7 @@ pub fn router_with_public_media(
     origin: OriginPlayback,
 ) -> Router {
     let mut assembly = Assembly::new(state, None, Some(publication));
-    assembly.services.listener = assembly.services.listener.with_origin_playback(origin);
+    assembly.compose_public_media(origin);
     assembly.build()
 }
 
@@ -153,7 +175,7 @@ pub fn server_router(
     assembly.origins = Some(origins);
     if let Some((publication, playback)) = public_media {
         assembly.services.publication = publication;
-        assembly.services.listener = assembly.services.listener.with_origin_playback(playback);
+        assembly.compose_public_media(playback);
         assembly.dist = None;
     }
     assembly.build()

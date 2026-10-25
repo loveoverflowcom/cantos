@@ -20,9 +20,11 @@ use crate::{
     contexts::{
         catalog::CatalogStoreError,
         media::{
+            domain::cover_disclosure::CoverDisclosureError,
             domain::{artwork::ArtworkError, image::ImageError},
             image_intake::ImageIntakeError,
-            ArtworkApplicationError, ArtworkReceipt, ArtworkService, ImageObjectError,
+            ArtworkApplicationError, ArtworkReceipt, ArtworkService,
+            CoverDisclosureApplicationError, CoverDisclosureService, ImageObjectError,
         },
     },
 };
@@ -41,6 +43,7 @@ pub(super) fn routes() -> Router<AppState> {
         .route("/works/{work}/image-assets/{asset}", get(asset))
         .route("/works/{work}/image-assets/{asset}/bytes", get(preview))
         .route("/works/{work}/artwork", get(artwork).patch(set_artwork))
+        .route("/works/{work}/cover-disclosures", post(record_disclosure))
         .method_not_allowed_fallback(|| async {
             failure(
                 StatusCode::METHOD_NOT_ALLOWED,
@@ -488,6 +491,75 @@ async fn preview(
         response.headers_mut().insert(name, value);
     }
     private_headers(response, false)
+}
+/// Owner public-display decision for one admitted image (ADR 0033). JSON only: no Protobuf
+/// message is selected for this request, so `Accept`/`Content-Type` must be JSON.
+async fn record_disclosure(
+    State(state): State<AppState>,
+    Extension(service): Extension<CoverDisclosureService>,
+    StudioPath(work): StudioPath<String>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if wire::accept_header(&headers)
+        .as_deref()
+        .is_some_and(|accept| wire::artwork_response_format(Some(accept)) != Ok(WireFormat::Json))
+    {
+        return failure(
+            StatusCode::NOT_ACCEPTABLE,
+            dto::ErrorCode::InvalidRequest,
+            Some(("accept", "not_acceptable")),
+        );
+    }
+    if headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| wire::artwork_request_format(Some(v)))
+        != Some(Ok(WireFormat::Json))
+        || headers.contains_key(header::CONTENT_ENCODING)
+    {
+        return failure(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            dto::ErrorCode::InvalidRequest,
+            Some(("content-type", "unsupported_media_type")),
+        );
+    }
+    let Ok(request) = serde_json::from_slice::<dto::RecordCoverDisclosureRequest>(&body) else {
+        return failure(
+            StatusCode::BAD_REQUEST,
+            dto::ErrorCode::InvalidRequest,
+            None,
+        );
+    };
+    let token = match cookie_token(&headers, &state.store) {
+        Ok(t) => t,
+        Err(e) => return headers_error(e),
+    };
+    match service.record(&token, &work, request).await {
+        Ok(v) => private_headers((StatusCode::OK, Json(v)).into_response(), true),
+        Err(e) => disclosure_error(e),
+    }
+}
+fn disclosure_error(error: CoverDisclosureApplicationError) -> Response {
+    let response = match error {
+        CoverDisclosureApplicationError::Storage(e) => error_response(e),
+        CoverDisclosureApplicationError::Catalog(e) => catalog::catalog_error(e),
+        CoverDisclosureApplicationError::Disclosure(e) => match e {
+            CoverDisclosureError::Image(e) => return image_error(e),
+            CoverDisclosureError::InvalidDecision | CoverDisclosureError::InvalidExpiry => failure(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                dto::ErrorCode::InvalidRequest,
+                Some(("valid_until_ms", "invalid_disclosure_window")),
+            ),
+            CoverDisclosureError::UnknownImage => failure(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                dto::ErrorCode::InvalidRequest,
+                Some(("image_asset_digest", "unknown_image")),
+            ),
+            CoverDisclosureError::Corrupt => error_response(StoreError::CorruptRevision),
+        },
+    };
+    private_headers(response, true)
 }
 fn headers_error(error: StoreError) -> Response {
     private_headers(error_response(error), true)

@@ -141,6 +141,10 @@ impl PublicMediaOrigin {
     fn media_url(&self, token: &str) -> String {
         format!("{}{THEATRE_BASE}/media/{token}", self.0)
     }
+    /// The accepted Discovery v1.2 cover URL; clients use it exactly as given (ADR 0033).
+    pub(super) fn cover_url(&self, work_id: &str, sha256: &str) -> String {
+        format!("{}{THEATRE_BASE}/works/{work_id}/cover/{sha256}", self.0)
+    }
 }
 
 /// The exact promoted publication object named by a sealed permit. Only the listener
@@ -212,6 +216,10 @@ impl OriginPlayback {
             key: Arc::new(key),
             objects,
         }
+    }
+    /// The explicit HTTPS origin this host's listener URLs are built on.
+    pub fn origin(&self) -> &PublicMediaOrigin {
+        &self.origin
     }
     pub(super) fn key(&self) -> &GrantKey {
         &self.key

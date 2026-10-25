@@ -21,6 +21,10 @@ MessagePack and the four Studio revision/validation pilot routes are unchanged.
 - GET `artwork?work_revision=R`: exact WorkArtworkResponse, current head when R is omitted
 - PATCH `artwork`: SetWorkArtworkRequest → original immutable WorkArtworkResponse
 
+The sibling [cover disclosure v1](../../cover-disclosure/v1/README.md) records the owner's
+separate public-display decision for one admitted image; it is mounted with these routes and is
+JSON only. Neither admission nor selection here implies that decision.
+
 Methods above describe the reviewed surface, not a runtime activation claim. All reads/writes
 require the active Work owner. Current ownership, rights, expiry, lifecycle, exact asset binding
 and optimistic revision are rechecked by application composition. Private storage locations
