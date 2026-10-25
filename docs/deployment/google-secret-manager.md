@@ -47,6 +47,11 @@ from the consumers' source (not from an old `.env.example`). Print it with
 | ops | `cantos-ops-android-release-keystore` (+ `-keystore-password`, `-key-password`) | `distribute firebase --channel production` `CANTOS_RELEASE_*` | operator workstation only |
 | ops | `cantos-ops-vps-ssh-private-key` | operator SSH | operator workstation only; **never** Server, Identity or CI |
 
+The S3 pair is the **Long Van** object storage key. Its endpoint
+(`https://s3-hn1-r1.longvan.net`), region and bucket are nonsecret Server storage TOML values.
+Both entries are `ROTATION_REQUIRED`: the current pair was shared in an agent chat, so the
+operator resets it in the Long Van console ("Reset key") and imports only the new pair.
+
 Deliberately **not** inventoried:
 
 - nonsecret configuration: project IDs, origins, hostnames, SMTP host/user/from, Firebase
