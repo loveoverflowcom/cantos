@@ -176,11 +176,11 @@
       ],
       "leptos": {
         "status": "registered",
-        "reason": "Regular/AuthTonal and Web-only Floating are implemented. Qualification and consumer acceptance are recorded separately."
+        "reason": "Regular/AuthTonal, Floating and Theatre trailing-action specimens are implemented. Qualification and consumer acceptance are recorded separately."
       },
       "cmp": {
         "status": "implemented-unverified",
-        "reason": "Native Regular/AuthTonal counterpart. Floating has no CMP variant; the catalog fallback is not a native Floating sample. JVM and device acceptance remain separate."
+        "reason": "Regular/AuthTonal and Theatre Floating/FloatingSearch with trailing actions are implemented. JVM qualification and device acceptance remain separate."
       }
     },
     {

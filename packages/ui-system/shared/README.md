@@ -221,9 +221,8 @@ Both package-local previews register concrete specimens and state controls. The 
 [implementation-only checkpoint](../../../docs/evidence/ui-auth-account-v2.md) is historical;
 current adoption is governed by fresh qualification records, not a permanent preview-only label.
 The [current recheck](../../../docs/evidence/ui-qualification-20261025.md) distinguishes implemented
-and adopted variants from those still outside admission. Web Floating fields have no CMP
-Floating variant; the native counterpart is Regular/AuthTonal, and a catalog fallback is not
-proof of native Floating behavior. Product/backend/auth/navigation and device acceptance remain separate.
+and adopted variants from those still outside admission. Current CMP also implements Theatre Floating/FloatingSearch with trailing actions (#457);
+its native counterpart requires independent JVM runtime and visual evidence. Product/backend/auth/navigation and device acceptance remain separate.
 
 ## Avatar
 

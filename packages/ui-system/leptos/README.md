@@ -411,8 +411,8 @@ elevation (forced colors restore a `CanvasText` border). `Button` is unchanged: 
 
 Current #424/#425 consumers include Theatre search and Studio email/password sign-in. Their
 adopted `TextFieldVariant::Floating` needs the actual current Web state review, not a renewal
-limited to Regular/AuthTonal. Floating is Web-only: CMP retains its implemented Regular/AuthTonal
-counterpart and has no native Floating variant. Qualification records and their explicit scope
+limited to Regular/AuthTonal. Current CMP also implements Floating/FloatingSearch and trailing actions under the Theatre
+expression (#457); these require their own JVM runtime and visual review. Qualification records and their explicit scope
 limits own admission; preview registration alone grants none. Remaining migrations keep ownership
 of validation, locale and auth policy and remove app-local underline/halo overrides.
 
